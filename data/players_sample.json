@@ -1,0 +1,162 @@
+[
+  {
+    "id": "p_00001",
+    "name": "Patrick Mahomes",
+    "position": "QB",
+    "age": 30,
+    "nfl_team": "KC",
+    "years_pro": 8,
+    "overall": 92,
+    "attributes": {
+      "speed": 79, "acceleration": 85, "strength": 68, "agility": 84,
+      "awareness": 96, "injury": 88, "stamina": 92, "toughness": 90,
+      "throw_power": 96, "throw_accuracy_short": 94, "throw_accuracy_mid": 93,
+      "throw_accuracy_deep": 90, "play_action": 95
+    },
+    "scheme_tags": ["air_raid", "west_coast"],
+    "dev_age_threshold": 27, "decline_age_threshold": 34,
+    "injury_history": [],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  },
+  {
+    "id": "p_00002",
+    "name": "Saquon Barkley",
+    "position": "RB",
+    "age": 27,
+    "nfl_team": "PHI",
+    "years_pro": 7,
+    "overall": 92,
+    "attributes": {
+      "speed": 92, "acceleration": 93, "strength": 82, "agility": 91,
+      "awareness": 90, "injury": 82, "stamina": 88, "toughness": 84,
+      "carrying": 88, "break_tackle": 90, "ball_carrier_vision": 93,
+      "juke_move": 91, "stiff_arm": 80, "spin_move": 87
+    },
+    "scheme_tags": ["power_run", "outside_zone"],
+    "dev_age_threshold": 24, "decline_age_threshold": 28,
+    "injury_history": [{"season": 2022, "type": "ankle", "severity": "minor", "weeks_out": 1}],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  },
+  {
+    "id": "p_00003",
+    "name": "Malik Nabers",
+    "position": "WR",
+    "age": 22,
+    "nfl_team": "NYG",
+    "years_pro": 2,
+    "overall": 86,
+    "attributes": {
+      "speed": 91, "acceleration": 92, "strength": 62, "agility": 90,
+      "awareness": 78, "injury": 84, "stamina": 85, "toughness": 76,
+      "catching": 89, "route_running_short": 87, "route_running_mid": 85,
+      "route_running_deep": 83, "release": 86, "catch_in_traffic": 84
+    },
+    "scheme_tags": ["spread", "air_raid"],
+    "dev_age_threshold": 26, "decline_age_threshold": 30,
+    "injury_history": [],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  },
+  {
+    "id": "p_00004",
+    "name": "Derek Stingley Jr",
+    "position": "CB",
+    "age": 24,
+    "nfl_team": "HOU",
+    "years_pro": 3,
+    "overall": 92,
+    "attributes": {
+      "speed": 93, "acceleration": 92, "strength": 66, "agility": 92,
+      "awareness": 88, "injury": 85, "stamina": 88, "toughness": 78,
+      "man_coverage": 93, "zone_coverage": 91, "press": 87,
+      "play_recognition": 89, "tackle": 74
+    },
+    "scheme_tags": ["man_press", "cover_1"],
+    "dev_age_threshold": 25, "decline_age_threshold": 30,
+    "injury_history": [],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  },
+  {
+    "id": "p_00005",
+    "name": "Xavier McKinney",
+    "position": "S",
+    "age": 26,
+    "nfl_team": "GB",
+    "years_pro": 5,
+    "overall": 92,
+    "attributes": {
+      "speed": 88, "acceleration": 89, "strength": 78, "agility": 87,
+      "awareness": 93, "injury": 86, "stamina": 89, "toughness": 85,
+      "zone_coverage": 88, "man_coverage": 80, "tackle": 87,
+      "play_recognition": 92, "hit_power": 85
+    },
+    "scheme_tags": ["cover_3", "single_high"],
+    "dev_age_threshold": 27, "decline_age_threshold": 31,
+    "injury_history": [],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  },
+  {
+    "id": "p_00006",
+    "name": "Jalen Hurts",
+    "position": "QB",
+    "age": 27,
+    "nfl_team": "PHI",
+    "years_pro": 6,
+    "overall": 83,
+    "attributes": {
+      "speed": 86, "acceleration": 87, "strength": 82, "agility": 82,
+      "awareness": 85, "injury": 80, "stamina": 87, "toughness": 88,
+      "throw_power": 87, "throw_accuracy_short": 86, "throw_accuracy_mid": 82,
+      "throw_accuracy_deep": 78, "play_action": 88
+    },
+    "scheme_tags": ["power_run", "rpo"],
+    "dev_age_threshold": 27, "decline_age_threshold": 33,
+    "injury_history": [{"season": 2023, "type": "shoulder", "severity": "minor", "weeks_out": 1}],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  },
+  {
+    "id": "p_00007",
+    "name": "Trevor Lawrence",
+    "position": "QB",
+    "age": 26,
+    "nfl_team": "JAX",
+    "years_pro": 5,
+    "overall": 81,
+    "attributes": {
+      "speed": 68, "acceleration": 72, "strength": 76, "agility": 70,
+      "awareness": 84, "injury": 85, "stamina": 89, "toughness": 84,
+      "throw_power": 93, "throw_accuracy_short": 85, "throw_accuracy_mid": 84,
+      "throw_accuracy_deep": 86, "play_action": 83
+    },
+    "scheme_tags": ["west_coast", "vertical"],
+    "dev_age_threshold": 28, "decline_age_threshold": 34,
+    "injury_history": [],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  },
+  {
+    "id": "p_00008",
+    "name": "Tutu Atwell",
+    "position": "WR",
+    "age": 25,
+    "nfl_team": "LAR",
+    "years_pro": 5,
+    "overall": 75,
+    "attributes": {
+      "speed": 93, "acceleration": 94, "strength": 40, "agility": 89,
+      "awareness": 78, "injury": 80, "stamina": 82, "toughness": 74,
+      "catching": 83, "route_running_short": 76, "route_running_mid": 74,
+      "route_running_deep": 88, "release": 80, "spectacular_catch": 81
+    },
+    "scheme_tags": ["spread", "vertical"],
+    "dev_age_threshold": 26, "decline_age_threshold": 29,
+    "injury_history": [],
+    "contract": null, "free_agent": true,
+    "injury_status": null, "retired": false
+  }
+]
