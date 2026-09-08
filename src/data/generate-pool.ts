@@ -30,6 +30,7 @@ import { resolve } from "node:path";
 
 import { PlayerPoolSchema, PlayerSchema, POSITIONS, type Player, type Position } from "../schema/player.js";
 import { parseCsv } from "./csv.js";
+import { poolToCsv } from "./pool-csv.js";
 import { LOCAL_POOL_PATH } from "./players.js";
 import { buildPlayer, type PlayerSeed } from "../model/ratings.js";
 
@@ -278,6 +279,7 @@ interface Cli {
   includePracticeSquad: boolean;
   includeIR: boolean;
   useSnaps: boolean;
+  alsoCsv: boolean;
 }
 
 function parseCliArgs(argv: string[]): Cli {
@@ -288,6 +290,7 @@ function parseCliArgs(argv: string[]): Cli {
     includePracticeSquad: false,
     includeIR: true,
     useSnaps: true,
+    alsoCsv: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] ?? "";
@@ -314,6 +317,9 @@ function parseCliArgs(argv: string[]): Cli {
         break;
       case "--no-snaps":
         cli.useSnaps = false;
+        break;
+      case "--csv":
+        cli.alsoCsv = true;
         break;
       default:
         throw new Error(`unknown option: ${a}`);
@@ -388,6 +394,11 @@ if (invokedDirectly) {
     writeFileSync(cli.out, `${JSON.stringify(players, null, 2)}\n`, "utf8");
 
     console.log(`generated ${players.length} players from ${season} roster -> ${cli.out}`);
+    if (cli.alsoCsv) {
+      const csvPath = cli.out.replace(/\.json$/i, "") + ".csv";
+      writeFileSync(csvPath, poolToCsv(players), "utf8");
+      console.log(`  editable CSV -> ${csvPath}`);
+    }
     console.log(`  ${withPerfSignal}/${players.length} priced on a snap-share signal`);
     console.log(summarise(players));
     if (skipped.length > 0) {

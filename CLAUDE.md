@@ -29,6 +29,8 @@ npm run typecheck     # tsc, strict, no emit
 npm run validate:data # validate data/players_sample.json against the schema
 npm run validate:pool # validate the active pool (generated pool if present)
 npm run generate:pool -- --season 2025    # build a full pool from nflverse data
+npm run pool:export-csv                   # active pool -> data/players.local.csv (editable)
+npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm start             # loads + prints the active pool
 ```
@@ -42,7 +44,7 @@ data/       players_sample.json (committed, 8 players);
 src/schema/ zod schemas + inferred types  ← source of truth for data shapes
 src/model/  positions.ts (per-position priors), ratings.ts (heuristic ratings model)
 src/data/   csv.ts, players.ts (load/validate), generate-pool.ts (nflverse -> pool),
-            madden.ts (alt CSV importer)
+            pool-csv.ts (pool <-> editable CSV), madden.ts (alt CSV importer)
 src/        engine code grows here in Phase 1
 test/       vitest specs, mirror src/ layout
 ```

@@ -63,10 +63,27 @@ deterministic (same `--seed` → same pool) and deliberately crude; real
 calibration is Phase 1/7 work (OQ-2, OQ-4 in `docs/decisions.md`).
 
 Options: `--season Y`, `--seed S` (reroll), `--practice-squad` (include PS
-players), `--no-ir`, `--no-snaps`, `--out PATH`.
+players), `--no-ir`, `--no-snaps`, `--out PATH`, `--csv` (also write the
+editable sheet described below).
 
 `data/players.local.json` is git-ignored so large generated pools don't bloat
 the repo; regenerate it any time.
+
+### Editing ratings in a spreadsheet
+
+```
+npm run pool:export-csv                       # active pool -> data/players.local.csv
+# ...edit ratings in Excel / Sheets / etc...
+npm run pool:import-csv -- data/players.local.csv   # -> data/players.local.json
+```
+
+One row per player, one column per attribute (blank = attribute not set for
+that position), plus `overall`, the age thresholds, `scheme_tags`
+(pipe-separated), and trailing `*_json` columns for the structural fields you
+can ignore while editing. `id` is preserved so edits map back to the same
+players. Import re-validates every row against the schema (it aborts on a bad
+row, naming it), clamps ratings into 0–99 with a warning, and re-sorts by
+overall. The round-trip is value-lossless.
 
 ### Alternative: import an existing Madden-style CSV
 

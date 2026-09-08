@@ -17,7 +17,9 @@
     "validate:data": "tsx src/data/players.ts data/players_sample.json",
     "validate:pool": "tsx src/data/players.ts",
     "import:madden": "tsx src/data/madden.ts",
-    "generate:pool": "tsx src/data/generate-pool.ts"
+    "generate:pool": "tsx src/data/generate-pool.ts",
+    "pool:export-csv": "tsx src/data/pool-csv.ts export",
+    "pool:import-csv": "tsx src/data/pool-csv.ts import"
   },
   "dependencies": {
     "zod": "^3.23.8"
