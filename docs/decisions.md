@@ -6,27 +6,33 @@ and — once decided — what and why. Convert relative dates to absolute.
 ---
 
 ## OQ-1 — Full player pool: source vs generate
-**Status:** decided (2026-09-07) — **generate from public stats** is the real
-answer; a Madden CSV import is a temporary, local-only bootstrap.
+**Status:** decided + implemented (2026-09-07) — **generate from public stats.**
 
 Options were: (a) license/source a real ratings dataset, (b) generate
-attribute values ourselves from public stats + heuristics, (c) hybrid — real
-identities, generated ratings.
+attribute values ourselves from public stats + heuristics, (c) hybrid.
+Chose (b): licensing is not realistic for a hobby project, and copying a
+commercial ratings database (Madden) into the repo is the IP concern the
+README flags — fine to *use* privately, not to redistribute.
 
-**Decision:** (b). Licensing is not realistic for a hobby project, and
-wholesale copying a commercial ratings database (Madden) into the repo is the
-IP concern the README flags — fine to *use* privately, not to redistribute.
+**Implemented:** `npm run generate:pool` (`src/data/generate-pool.ts` +
+`src/model/`). Fetches an nflverse season roster + per-game snap counts
+(openly licensed, factual), then:
+- **tier** = snap share (when the player has one) blended with draft capital
+  and years survived; rookies / deep bench fall back to draft capital + tenure
+- **overall** = position prior (`POSITION_OVERALL_PRIOR`) + spread·tier +
+  age adjustment (`AGING_CURVES`) + seeded noise
+- **physical attrs** centred on `POSITION_PHYSICAL_BASE`, nudged by overall/age
+- **skill attrs** tracked to overall with one strength + one weakness
+- deterministic per `--seed`; ~1,900 players; every record passes the schema
 
-**Interim bootstrap:** `src/data/madden.ts` (`npm run import:madden`) converts
-a Madden-style CSV export to `data/players.local.json`, which is **git-ignored**
-(`/data/*.csv`, `/data/*.local.json`). This gives Phase 1 a full pool to work
-against without committing EA's data. `loadPlayerPool()` prefers the local pool
-when it exists, else the committed 8-player sample.
+Output is `data/players.local.json` (git-ignored — large + regenerable, not an
+IP issue). The Madden CSV importer (`import:madden`) stays as an alternative
+for anyone who already has such a file.
 
-**Still to build:** the generate-from-public-stats model (nflverse /
-`nfl-data-py` rosters + play-by-play + snap counts, PFR, combine → 0–99).
-Do it once Phase 1 has settled which attributes actually move outcomes, so we
-are not rating fields the engine ignores. Overlaps with the rookie-`overall`
+**Known gap (feeds OQ-2):** snap share saturates at 1.0, so the model can rank
+starters vs backups but not good starters vs great ones. First calibration
+step in Phase 1: add an efficiency/grade signal (EPA per play, or a public
+grade) to separate the top tier. Overlaps with the rookie-`overall`
 generation model (Phase 3).
 
 ## OQ-2 — Attribute → `overall` weighting

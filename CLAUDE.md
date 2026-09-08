@@ -27,8 +27,9 @@ npm install           # once
 npm test              # vitest run
 npm run typecheck     # tsc, strict, no emit
 npm run validate:data # validate data/players_sample.json against the schema
-npm run validate:pool # validate the active pool (local import if present)
-npm run import:madden -- <csv> [out] [--season Y]   # bootstrap a full pool
+npm run validate:pool # validate the active pool (generated pool if present)
+npm run generate:pool -- --season 2025    # build a full pool from nflverse data
+npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm start             # loads + prints the active pool
 ```
 
@@ -37,9 +38,11 @@ npm start             # loads + prints the active pool
 ```
 docs/       prose specs (player_schema.md is the human version of the zod schema)
 data/       players_sample.json (committed, 8 players);
-            players.local.json (git-ignored, from import:madden) is preferred when present
+            players.local.json (git-ignored) is the generated full pool, preferred when present
 src/schema/ zod schemas + inferred types  ← source of truth for data shapes
-src/data/   players.ts (load/validate), madden.ts (CSV bootstrap importer)
+src/model/  positions.ts (per-position priors), ratings.ts (heuristic ratings model)
+src/data/   csv.ts, players.ts (load/validate), generate-pool.ts (nflverse -> pool),
+            madden.ts (alt CSV importer)
 src/        engine code grows here in Phase 1
 test/       vitest specs, mirror src/ layout
 ```
@@ -48,9 +51,15 @@ test/       vitest specs, mirror src/ layout
 
 - `loadPlayerPool()` / `resolveDefaultPoolPath()` prefer `data/players.local.json`,
   falling back to the committed sample. Tests that assert on the sample pass
-  `SAMPLE_POOL_PATH` explicitly so a local import does not break them.
-- Never commit `data/*.csv` or `data/*.local.json` — that is EA's Madden data
-  (OQ-1). The importer is a stopgap; the real pool is generate-from-public-stats.
+  `SAMPLE_POOL_PATH` explicitly so a generated pool does not break them.
+- `generate:pool` is the real pool (OQ-1): real roster facts from nflverse +
+  the `src/model/` heuristic ratings. It is deterministic per `--seed`.
+  Network I/O lives only in `fetch*Csv` / `loadPerfSignal`; the row->player
+  logic (`buildPoolFromRosterRows`, `aggregateSnapCounts`, `buildPlayer`) is
+  pure and unit-tested with inline fixtures.
+- Never commit `data/*.csv` or `data/*.local.json`. The CSV path is only for a
+  user-supplied Madden export (EA's data — local use, not redistribution);
+  generated pools are just large and regenerable.
 
 ## Conventions
 
@@ -67,6 +76,8 @@ test/       vitest specs, mirror src/ layout
 
 Tracked in `docs/decisions.md` — the "figure out later" list from the spec
 (attribute→overall weighting, scheme-fit modifiers, trade value, FA demand,
-aging curves, injury severity vocabulary). OQ-1 (pool sourcing) is decided:
-generate from public stats, with the Madden CSV import as an interim local
-bootstrap. Revisit each before the phase that depends on it.
+aging curves, injury severity vocabulary). OQ-1 (pool sourcing) is done:
+`generate:pool` builds the pool from nflverse facts + the `src/model/`
+heuristic. The model constants there (`AGING_CURVES`, physical bases, overall
+priors) are v0 placeholders feeding OQ-2/OQ-4; expect to tune them once the
+sim engine exists. Revisit each question before the phase that depends on it.

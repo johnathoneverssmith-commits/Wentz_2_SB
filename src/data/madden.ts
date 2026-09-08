@@ -1,12 +1,13 @@
 /**
  * Madden-style CSV -> `Player[]` importer.
  *
- * A bootstrap only. It maps a Madden-shaped roster/ratings export onto our
- * v0 schema so Phase 1 has a full pool to work with. The output is written to
- * `data/players.local.json`, which is git-ignored on purpose — this is EA's
- * ratings data and does not belong in the repo (see docs/decisions.md, OQ-1).
- * The real answer is a generate-from-public-stats model built once Phase 1
- * has settled the attribute vocabulary.
+ * A bootstrap for anyone who already has a Madden-shaped CSV. It maps that
+ * export onto our v0 schema. The output is written to `data/players.local.json`,
+ * which is git-ignored on purpose — that is EA's ratings data and does not
+ * belong in the repo (see docs/decisions.md, OQ-1).
+ *
+ * The project's own pool comes from `generate-pool.ts` (real roster facts +
+ * our heuristic ratings model), which needs no third-party ratings data.
  *
  * Usage:
  *   npm run import:madden -- <input.csv> [output.json] [options]
@@ -39,7 +40,12 @@ import {
   type Player,
   type Position,
 } from "../schema/player.js";
+import { AGING_CURVES } from "../model/positions.js";
+import { parseCsv } from "./csv.js";
 import { LOCAL_POOL_PATH } from "./players.js";
+
+export { AGING_CURVES } from "../model/positions.js";
+export { parseCsv } from "./csv.js";
 
 /* ------------------------------------------------------------------ */
 /* Mapping tables                                                       */
@@ -180,90 +186,7 @@ const ATTR_ALIASES: Readonly<Record<string, string>> = {
   puntaccuracy: "punt_accuracy", puntaccuracyrating: "punt_accuracy",
 };
 
-/**
- * Per-position age thresholds for the aging model. Placeholder values —
- * tracked as OQ-4 in docs/decisions.md, do not treat as final.
- */
-export const AGING_CURVES: Readonly<Record<Position, { dev: number; decline: number }>> = {
-  QB: { dev: 28, decline: 34 },
-  RB: { dev: 24, decline: 28 },
-  WR: { dev: 26, decline: 30 },
-  TE: { dev: 26, decline: 31 },
-  OT: { dev: 27, decline: 33 },
-  OG: { dev: 27, decline: 33 },
-  C: { dev: 27, decline: 33 },
-  EDGE: { dev: 26, decline: 31 },
-  DT: { dev: 27, decline: 31 },
-  LB: { dev: 26, decline: 31 },
-  CB: { dev: 25, decline: 30 },
-  S: { dev: 26, decline: 31 },
-  K: { dev: 30, decline: 40 },
-  P: { dev: 30, decline: 40 },
-};
-
 const FREE_AGENT_TEAM_TOKENS = new Set(["", "fa", "freeagent", "none", "--", "-"]);
-
-/* ------------------------------------------------------------------ */
-/* CSV parsing                                                          */
-/* ------------------------------------------------------------------ */
-
-/** Minimal RFC-4180-ish CSV reader: quoted fields, "" escapes, CRLF or LF. */
-export function parseCsv(text: string): Array<Record<string, string>> {
-  const s = text.replace(/^﻿/, ""); // strip UTF-8 BOM
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let inQuotes = false;
-
-  const endField = (): void => {
-    row.push(field);
-    field = "";
-  };
-  const endRow = (): void => {
-    endField();
-    rows.push(row);
-    row = [];
-  };
-
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charAt(i);
-    if (inQuotes) {
-      if (c === '"') {
-        if (s.charAt(i + 1) === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += c;
-      }
-      continue;
-    }
-    if (c === '"') inQuotes = true;
-    else if (c === ",") endField();
-    else if (c === "\n") endRow();
-    else if (c === "\r") {
-      if (s.charAt(i + 1) === "\n") i++;
-      endRow();
-    } else field += c;
-  }
-  if (field !== "" || row.length > 0) endRow();
-
-  const headerRow = rows.shift();
-  if (!headerRow) return [];
-  const headers = headerRow.map((h) => h.trim());
-
-  return rows
-    .filter((r) => r.some((v) => v.trim() !== ""))
-    .map((r) => {
-      const obj: Record<string, string> = {};
-      headers.forEach((h, idx) => {
-        obj[h] = (r[idx] ?? "").trim();
-      });
-      return obj;
-    });
-}
 
 /* ------------------------------------------------------------------ */
 /* Conversion                                                           */
