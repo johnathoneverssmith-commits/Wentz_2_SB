@@ -12,3 +12,9 @@ coverage/
 # env
 .env
 .env.local
+
+# local-only player data — e.g. converted from a Madden-style export.
+# This is EA's ratings data; keep it out of the repo (see docs/decisions.md OQ-1).
+/data/players.local.json
+/data/*.local.json
+/data/*.csv

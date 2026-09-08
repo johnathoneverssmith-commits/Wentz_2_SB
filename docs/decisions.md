@@ -6,13 +6,28 @@ and — once decided — what and why. Convert relative dates to absolute.
 ---
 
 ## OQ-1 — Full player pool: source vs generate
-**Status:** open (blocks scaling past the 8-player sample)
+**Status:** decided (2026-09-07) — **generate from public stats** is the real
+answer; a Madden CSV import is a temporary, local-only bootstrap.
 
-Options: (a) license/source a real ratings dataset, (b) generate attribute
-values ourselves from public stats + heuristics, (c) hybrid — real identities,
-generated ratings. Wholesale reproduction of a commercial ratings database is
-a different question than a small illustrative sample. Decide before Phase 1
-needs a realistic pool for balancing.
+Options were: (a) license/source a real ratings dataset, (b) generate
+attribute values ourselves from public stats + heuristics, (c) hybrid — real
+identities, generated ratings.
+
+**Decision:** (b). Licensing is not realistic for a hobby project, and
+wholesale copying a commercial ratings database (Madden) into the repo is the
+IP concern the README flags — fine to *use* privately, not to redistribute.
+
+**Interim bootstrap:** `src/data/madden.ts` (`npm run import:madden`) converts
+a Madden-style CSV export to `data/players.local.json`, which is **git-ignored**
+(`/data/*.csv`, `/data/*.local.json`). This gives Phase 1 a full pool to work
+against without committing EA's data. `loadPlayerPool()` prefers the local pool
+when it exists, else the committed 8-player sample.
+
+**Still to build:** the generate-from-public-stats model (nflverse /
+`nfl-data-py` rosters + play-by-play + snap counts, PFR, combine → 0–99).
+Do it once Phase 1 has settled which attributes actually move outcomes, so we
+are not rating fields the engine ignores. Overlaps with the rookie-`overall`
+generation model (Phase 3).
 
 ## OQ-2 — Attribute → `overall` weighting
 **Status:** deferred to Phase 7 (polish)

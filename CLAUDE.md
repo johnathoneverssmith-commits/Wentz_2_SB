@@ -23,23 +23,34 @@ add those without the roadmap phase for them being the active task.
 ## Commands
 
 ```bash
-npm install          # once
-npm test             # vitest run
-npm run typecheck    # tsc --noEmit, strict
+npm install           # once
+npm test              # vitest run
+npm run typecheck     # tsc, strict, no emit
 npm run validate:data # validate data/players_sample.json against the schema
-npm start            # loads + prints the sample pool
+npm run validate:pool # validate the active pool (local import if present)
+npm run import:madden -- <csv> [out] [--season Y]   # bootstrap a full pool
+npm start             # loads + prints the active pool
 ```
 
 ## Layout
 
 ```
 docs/       prose specs (player_schema.md is the human version of the zod schema)
-data/       player pool JSON (players_sample.json = 8-player proof of concept)
+data/       players_sample.json (committed, 8 players);
+            players.local.json (git-ignored, from import:madden) is preferred when present
 src/schema/ zod schemas + inferred types  ← source of truth for data shapes
-src/data/   loaders/validators that turn JSON into typed objects
+src/data/   players.ts (load/validate), madden.ts (CSV bootstrap importer)
 src/        engine code grows here in Phase 1
 test/       vitest specs, mirror src/ layout
 ```
+
+## Player pool
+
+- `loadPlayerPool()` / `resolveDefaultPoolPath()` prefer `data/players.local.json`,
+  falling back to the committed sample. Tests that assert on the sample pass
+  `SAMPLE_POOL_PATH` explicitly so a local import does not break them.
+- Never commit `data/*.csv` or `data/*.local.json` — that is EA's Madden data
+  (OQ-1). The importer is a stopgap; the real pool is generate-from-public-stats.
 
 ## Conventions
 
@@ -56,4 +67,6 @@ test/       vitest specs, mirror src/ layout
 
 Tracked in `docs/decisions.md` — the "figure out later" list from the spec
 (attribute→overall weighting, scheme-fit modifiers, trade value, FA demand,
-full player-pool sourcing). Revisit before the phase that depends on each.
+aging curves, injury severity vocabulary). OQ-1 (pool sourcing) is decided:
+generate from public stats, with the Madden CSV import as an interim local
+bootstrap. Revisit each before the phase that depends on it.

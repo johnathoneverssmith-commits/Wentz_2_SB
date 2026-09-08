@@ -8,7 +8,7 @@
  *   tsx src/data/players.ts path/to.json  # checks any file
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
@@ -19,9 +19,22 @@ import {
   type PlayerPool,
 } from "../schema/player.js";
 
-export const SAMPLE_POOL_PATH = resolve(
-  fileURLToPath(new URL("../../data/players_sample.json", import.meta.url)),
-);
+const dataFile = (name: string): string =>
+  resolve(fileURLToPath(new URL(`../../data/${name}`, import.meta.url)));
+
+/** Committed 8-player proof-of-concept pool. */
+export const SAMPLE_POOL_PATH = dataFile("players_sample.json");
+
+/**
+ * Optional local-only pool (git-ignored), e.g. produced by `npm run import:madden`
+ * from a Madden-style export. Preferred by `loadPlayerPool` when it exists.
+ */
+export const LOCAL_POOL_PATH = dataFile("players.local.json");
+
+/** The local pool if present, otherwise the committed sample. */
+export function resolveDefaultPoolPath(): string {
+  return existsSync(LOCAL_POOL_PATH) ? LOCAL_POOL_PATH : SAMPLE_POOL_PATH;
+}
 
 export interface LoadOptions {
   /** Throw if any record carries an attribute key the schema doesn't know. */
@@ -50,7 +63,10 @@ export function parsePlayerPool(raw: unknown, opts: LoadOptions = {}): PlayerPoo
   return pool;
 }
 
-export function loadPlayerPool(path: string = SAMPLE_POOL_PATH, opts: LoadOptions = {}): PlayerPool {
+export function loadPlayerPool(
+  path: string = resolveDefaultPoolPath(),
+  opts: LoadOptions = {},
+): PlayerPool {
   const raw = JSON.parse(readFileSync(path, "utf8")) as unknown;
   return parsePlayerPool(raw, opts);
 }
@@ -67,7 +83,7 @@ const invokedDirectly =
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (invokedDirectly) {
-  const target = process.argv[2] ? resolve(process.argv[2]) : SAMPLE_POOL_PATH;
+  const target = process.argv[2] ? resolve(process.argv[2]) : resolveDefaultPoolPath();
   try {
     const pool = loadPlayerPool(target, { strictAttributes: true });
     const byPos = new Map<string, number>();

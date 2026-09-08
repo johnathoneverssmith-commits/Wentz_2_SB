@@ -8,7 +8,12 @@ import {
   unknownAttributeKeys,
   type Player,
 } from "../src/schema/player.js";
-import { loadPlayerPool, indexById, parsePlayerPool } from "../src/data/players.js";
+import {
+  loadPlayerPool,
+  indexById,
+  parsePlayerPool,
+  SAMPLE_POOL_PATH,
+} from "../src/data/players.js";
 
 /** A minimal valid player, spread-and-overridden per test. */
 function makePlayer(overrides: Partial<Player> = {}): unknown {
@@ -34,7 +39,7 @@ function makePlayer(overrides: Partial<Player> = {}): unknown {
 }
 
 describe("sample data", () => {
-  const pool = loadPlayerPool(undefined, { strictAttributes: true });
+  const pool = loadPlayerPool(SAMPLE_POOL_PATH, { strictAttributes: true });
 
   it("loads and validates all 8 sample players", () => {
     expect(pool).toHaveLength(8);

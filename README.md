@@ -11,9 +11,10 @@ a human-vote safeguard.
 - `src/schema/player.ts` — the same schema as a zod definition (enforced);
   TS types are inferred from it, so there is one source of truth
 - `src/data/players.ts` — loader that parses + validates a pool JSON file
+- `src/data/madden.ts` — bootstrap importer: Madden-style CSV -> validated pool
 - `data/players_sample.json` — 8 real players as a proof-of-concept dataset,
   following the schema, with plausible attribute breakdowns
-- `test/` — vitest specs covering the schema and the sample data
+- `test/` — vitest specs covering the schema, the sample data, and the importer
 - `docs/decisions.md` — running log of the "figure out later" design questions
 - `CLAUDE.md` — how to work in this codebase
 
@@ -26,18 +27,38 @@ npm test            # vitest
 npm run typecheck   # strict tsc, no emit
 npm run build       # emit to dist/
 npm run validate:data   # validate data/players_sample.json
-npm start           # load + print the sample pool
+npm run validate:pool   # validate the active pool (local import if present)
+npm start           # load + print the active pool
 ```
 
 Relative imports use `.js` extensions (NodeNext) even though sources are `.ts`.
 
+## Player pool
+
+`loadPlayerPool()` uses `data/players.local.json` when it exists, otherwise the
+committed `data/players_sample.json`.
+
+The full pool (OQ-1 in `docs/decisions.md`) will eventually be **generated from
+public stats**. As a stopgap you can bootstrap a full pool from a Madden-style
+CSV export:
+
+```
+npm run import:madden -- path/to/madden_export.csv --season 2025
+```
+
+This writes `data/players.local.json`, which is **git-ignored on purpose** —
+`/data/*.csv` and `/data/*.local.json` stay out of the repo because that is
+EA's ratings data (fine to use locally, not to redistribute). The importer
+matches column names loosely (long names or 3-letter codes), maps Madden
+positions onto the schema, drops off-position attributes, fills aging
+thresholds from a position curve, and marks every player a free agent (the
+whole league is the fantasy-draft pool). Running it with no arguments prints
+the full option list (`--season`, `--start-id`, `--id-col`, `--default-team`).
+
 ## What's NOT here yet (by design — this is just Phase 0)
-- The full player pool (hundreds of current NFL players). Building this out
-  fully means either sourcing/licensing a real ratings dataset or generating
-  a large set of attribute values yourselves — worth deciding which before
-  scaling past a handful of sample players, since wholesale reproduction of
-  a commercial ratings database raises different considerations than a small
-  illustrative sample like this one.
+- The generated full player pool. A Madden CSV import is available as a local
+  bootstrap (see above); the real generate-from-public-stats model is deferred
+  until Phase 1 settles the attribute vocabulary.
 - Any simulation logic (Phase 1)
 - Any UI wiring (Phase 2+)
 - Multiplayer/state sync (Phase 4+)
