@@ -23,7 +23,7 @@ add those without the roadmap phase for them being the active task.
 ## Commands
 
 ```bash
-npm install          # once (Node is not yet installed on the dev machine)
+npm install          # once
 npm test             # vitest run
 npm run typecheck    # tsc --noEmit, strict
 npm run validate:data # validate data/players_sample.json against the schema

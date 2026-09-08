@@ -18,13 +18,13 @@ a human-vote safeguard.
 - `CLAUDE.md` — how to work in this codebase
 
 ## Development setup
-Node is not yet installed on the dev machine — install Node >= 22 first
-(`.nvmrc` pins 22), then:
+Requires Node >= 22 (`.nvmrc` pins 24, the current LTS).
 
 ```
 npm install
 npm test            # vitest
 npm run typecheck   # strict tsc, no emit
+npm run build       # emit to dist/
 npm run validate:data   # validate data/players_sample.json
 npm start           # load + print the sample pool
 ```
