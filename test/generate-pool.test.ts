@@ -71,6 +71,7 @@ describe("buildPoolFromRosterRows", () => {
       rosterRow({ full_name: "Edge Guy", depth_chart_position: "DE", position: "DL" }),
       rosterRow({ full_name: "Free Safety", depth_chart_position: "FS", position: "DB" }),
       rosterRow({ full_name: "Mike Backer", depth_chart_position: "MLB", position: "LB" }),
+      rosterRow({ full_name: "Rush Backer", depth_chart_position: "LOLB", position: "LB" }),
     ];
     const { players } = buildPoolFromRosterRows(rows, { seasonYear: 2025 });
     const pos = Object.fromEntries(players.map((p) => [p.name, p.position]));
@@ -78,7 +79,8 @@ describe("buildPoolFromRosterRows", () => {
       "Tackle Guy": "OT",
       "Edge Guy": "EDGE",
       "Free Safety": "S",
-      "Mike Backer": "LB",
+      "Mike Backer": "ILB",
+      "Rush Backer": "OLB",
     });
   });
 

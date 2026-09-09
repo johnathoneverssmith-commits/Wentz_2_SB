@@ -7,7 +7,8 @@ from this structure, so getting it right now avoids rework later.
 ## Core identity
 - `id` (string) — stable unique id, e.g. `"p_00042"`
 - `name` (string)
-- `position` (string) — QB, RB, WR, TE, OT, OG, C, EDGE, DT, LB, CB, S, K, P
+- `position` (string) — QB, RB, WR, TE, OT, OG, C, EDGE, DT, ILB, OLB, CB, S, K, P
+  (linebackers are split into off-ball ILB and OLB; most 3-4 rush OLBs sit under EDGE)
 - `age` (int)
 - `nfl_team` (string) — current real-world team, used only for pool generation/flavor
 - `years_pro` (int)

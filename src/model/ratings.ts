@@ -232,7 +232,8 @@ function schemeTagsFor(
         : ["two_gap", "contain"];
     case "DT":
       return a("power_moves") >= 78 ? ["one_gap", "penetrate"] : ["two_gap", "nose"];
-    case "LB":
+    case "ILB":
+    case "OLB":
       if (a("man_coverage") >= 76) return ["nickel", "cover_man"];
       return rng.unit() < 0.5 ? ["base_4_3", "cover_2"] : ["base_3_4", "cover_3"];
     case "CB":

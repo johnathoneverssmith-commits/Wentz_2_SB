@@ -35,6 +35,17 @@ step in Phase 1: add an efficiency/grade signal (EPA per play, or a public
 grade) to separate the top tier. Overlaps with the rookie-`overall`
 generation model (Phase 3).
 
+**Current pool (2026-09-08):** `data/players.local.json` is a hand-reviewed
+pass over the generated 2025 pool (revised in a spreadsheet, re-imported via
+`pool:import-csv`). ~1,987 players. Treat it as the working pool; regenerating
+overwrites it.
+
+**Position taxonomy change (2026-09-08):** `LB` split into `ILB` + `OLB` to
+match the reviewed data (most 3-4 rush OLBs are filed under `EDGE`, so `OLB`
+is sparse). `POSITION_ATTRIBUTE_KEYS` was also widened per position to cover
+every attribute the reviewed pool actually uses, so `strictAttributes` stays
+meaningful. Enum is now 15 positions.
+
 ## OQ-2 — Attribute → `overall` weighting
 **Status:** deferred to Phase 7 (polish)
 
@@ -71,5 +82,7 @@ position scarcity, and team context.
 ## OQ-7 — `severity` vocabulary for injuries
 **Status:** open (low stakes, easy)
 
-Schema currently accepts any string. Sample uses `"minor"`. Pin the set
-(`minor | moderate | major | season_ending`?) once the aging model consumes it.
+Schema accepts any string. The hand-reviewed pool uses
+`minor | moderate | major | severe` in `injury_history`. Likely pin to that
+set (plus `season_ending`?) once the aging model consumes it — until then the
+free string is fine.
