@@ -251,18 +251,25 @@ forests, categorical splits resolved to string sets, sklearn 1.9's internal
 `[categoricals][numerics]` feature reorder captured. `predict_proba_portable`
 (pure Python, no sklearn) reproduces `sklearn.predict_proba` to **< 1e-6** on
 real 2025 rows for all 7 (machine-epsilon). ~3.8 MB, ~1900 trees / ~119k nodes.
-- **`engine/loaders.resolver()` now loads the portable JSON for those 7** and
-  keeps joblib only for the 6 spline+logistic resolvers (M04/M15/M20/M21/
-  M25a/M25b). §22 unchanged (15/20 within 10%, core metrics identical) and the
-  engine runs **~4× faster** (~2.5 s/game vs ~10) — the pure-Python tree walk
-  beats sklearn's per-call `check_array` overhead.
+- **All 16 classifier resolvers are portable and the engine loads only those.**
+  The 6 spline+logistic ones (M04/M08/M11/M13/M15/M20/M21/M25a/M25b —
+  `linear-portable-1`) collapse each numeric feature's spline→coef pathway to
+  an **exact per-segment cubic** (the contribution IS a piecewise cubic between
+  the spline's knots) + one-hot weight rows — 2–9 KB each, machine-epsilon vs
+  sklearn. `engine/loaders` has **no joblib / sklearn / pandas import** now.
+- §22 unchanged (16/20 within 10%, core metrics identical) and the engine runs
+  **~25× faster — 0.35 s/game vs ~10** (200-game §22 in 70 s). The pure-Python
+  tree walk / cubic eval has none of sklearn's per-call `check_array` /
+  DataFrame overhead.
 - **Fixed a latent bug in passing:** M01 trained `goal_to_go`/`qtr`/
   `temp_missing` as int8 categories; the old `loaders._row` stringified every
   cat col, so `'0'` ≠ `int8(0)` → NaN → the live engine ignored those three
   M01 features. The portable eval string-normalises, so M01 now uses them.
-- **`src/engine/hgb-portable.ts`** — the TS port of the evaluator, verified in
-  `test/hgb-portable.test.ts` against Python-computed fixtures. This is the
-  spec the shippable runtime consumes.
+- **`src/engine/hgb-portable.ts` + `linear-portable.ts`** — TS ports of both
+  evaluators, verified in `test/portable-resolvers.test.ts` against
+  Python-computed fixtures. These are the spec the shippable runtime consumes.
+- The 16 `*.joblib` files stay on disk as the fitting artifact +
+  `27_export_portable.py`'s source; nothing at runtime reads them.
 
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
 engine loop); a larger §23 league sample; the diffuse points gap above; the

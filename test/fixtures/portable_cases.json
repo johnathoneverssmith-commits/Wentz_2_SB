@@ -1,0 +1,1059 @@
+{
+ "M02": {
+  "kind": "hgb",
+  "cases": [
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 66.0,
+     "game_seconds_remaining": 2334.0,
+     "score_differential": 7.0,
+     "half_seconds_remaining": 534.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 3.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.5249210319673445,
+     "DROPBACK": 0.4750789680326555
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 7.0,
+     "yardline_100": 46.0,
+     "game_seconds_remaining": 61.0,
+     "score_differential": -2.0,
+     "half_seconds_remaining": 61.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 1.0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 4,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.21684047605309698,
+     "DROPBACK": 0.783159523946903
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 8.0,
+     "yardline_100": 78.0,
+     "game_seconds_remaining": 2850.0,
+     "score_differential": -7.0,
+     "half_seconds_remaining": 1050.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 3.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 1,
+     "is_home_offense": 1
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.2921927050056461,
+     "DROPBACK": 0.7078072949943539
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 41.0,
+     "game_seconds_remaining": 332.0,
+     "score_differential": -15.0,
+     "half_seconds_remaining": 332.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 0.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 4,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.13078005640584311,
+     "DROPBACK": 0.8692199435941569
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 62.0,
+     "game_seconds_remaining": 1990.0,
+     "score_differential": -7.0,
+     "half_seconds_remaining": 190.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 2.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.4892200434152447,
+     "DROPBACK": 0.5107799565847553
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 4.0,
+     "yardline_100": 4.0,
+     "game_seconds_remaining": 2628.0,
+     "score_differential": 14.0,
+     "half_seconds_remaining": 828.0,
+     "posteam_timeouts_remaining": 2.0,
+     "defteam_timeouts_remaining": 2.0,
+     "down": 2,
+     "goal_to_go": 1,
+     "qtr": 2,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.5181994603707589,
+     "DROPBACK": 0.481800539629241
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 5.0,
+     "yardline_100": 28.0,
+     "game_seconds_remaining": 900.0,
+     "score_differential": -16.0,
+     "half_seconds_remaining": 900.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 2.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 4,
+     "is_home_offense": 1
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.41862464078079065,
+     "DROPBACK": 0.5813753592192094
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 9.0,
+     "yardline_100": 24.0,
+     "game_seconds_remaining": 1252.0,
+     "score_differential": -18.0,
+     "half_seconds_remaining": 1252.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 3.0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 3,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.024917891259740865,
+     "DROPBACK": 0.9750821087402591
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 4.0,
+     "yardline_100": 45.0,
+     "game_seconds_remaining": 3286.0,
+     "score_differential": -7.0,
+     "half_seconds_remaining": 1486.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 3.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 1,
+     "is_home_offense": 1
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.6356329172250867,
+     "DROPBACK": 0.3643670827749132
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 7.0,
+     "yardline_100": 20.0,
+     "game_seconds_remaining": 616.0,
+     "score_differential": -6.0,
+     "half_seconds_remaining": 616.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 2.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 4,
+     "is_home_offense": 1
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.34814151784679503,
+     "DROPBACK": 0.651858482153205
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 39.0,
+     "game_seconds_remaining": 2656.0,
+     "score_differential": 7.0,
+     "half_seconds_remaining": 856.0,
+     "posteam_timeouts_remaining": 3.0,
+     "defteam_timeouts_remaining": 3.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.5572655672847753,
+     "DROPBACK": 0.4427344327152247
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 40.0,
+     "game_seconds_remaining": 11.0,
+     "score_differential": -7.0,
+     "half_seconds_remaining": 11.0,
+     "posteam_timeouts_remaining": 0.0,
+     "defteam_timeouts_remaining": 0.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 4,
+     "is_home_offense": 0
+    },
+    "expected": {
+     "DESIGNED_RUN": 0.031005913498553195,
+     "DROPBACK": 0.9689940865014468
+    }
+   }
+  ]
+ },
+ "M09": {
+  "kind": "hgb",
+  "cases": [
+   {
+    "x": {
+     "air_yards": 11.0,
+     "ydstogo": 15.0,
+     "yardline_100": 75.0,
+     "game_seconds_remaining": 2141.0,
+     "half_seconds_remaining": 341.0,
+     "depth_category": "INTERMEDIATE",
+     "pass_location": "left",
+     "qb_hit": 0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.5844956465813708,
+     "INTERCEPTION": 0.02782809717721127,
+     "OTHER_INCOMPLETE": 0.3876762562414179
+    }
+   },
+   {
+    "x": {
+     "air_yards": 8.0,
+     "ydstogo": 3.0,
+     "yardline_100": 20.0,
+     "game_seconds_remaining": 2306.0,
+     "half_seconds_remaining": 506.0,
+     "depth_category": "SHORT",
+     "pass_location": "left",
+     "qb_hit": 0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.5205155530645095,
+     "INTERCEPTION": 0.03315039142559868,
+     "OTHER_INCOMPLETE": 0.4463340555098918
+    }
+   },
+   {
+    "x": {
+     "air_yards": -2.0,
+     "ydstogo": 10.0,
+     "yardline_100": 65.0,
+     "game_seconds_remaining": 2875.0,
+     "half_seconds_remaining": 1075.0,
+     "depth_category": "BEHIND_LOS",
+     "pass_location": "right",
+     "qb_hit": 0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 1,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.846808280710332,
+     "INTERCEPTION": 0.006508434082510845,
+     "OTHER_INCOMPLETE": 0.1466832852071571
+    }
+   },
+   {
+    "x": {
+     "air_yards": 9.0,
+     "ydstogo": 5.0,
+     "yardline_100": 56.0,
+     "game_seconds_remaining": 1338.0,
+     "half_seconds_remaining": 1338.0,
+     "depth_category": "SHORT",
+     "pass_location": "right",
+     "qb_hit": 0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 3,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.5764775865040418,
+     "INTERCEPTION": 0.020876601613100516,
+     "OTHER_INCOMPLETE": 0.4026458118828577
+    }
+   },
+   {
+    "x": {
+     "air_yards": 7.0,
+     "ydstogo": 13.0,
+     "yardline_100": 57.0,
+     "game_seconds_remaining": 2814.0,
+     "half_seconds_remaining": 1014.0,
+     "depth_category": "SHORT",
+     "pass_location": "right",
+     "qb_hit": 0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 1,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.6804040880871468,
+     "INTERCEPTION": 0.011935754416724622,
+     "OTHER_INCOMPLETE": 0.30766015749612846
+    }
+   },
+   {
+    "x": {
+     "air_yards": -4.0,
+     "ydstogo": 4.0,
+     "yardline_100": 5.0,
+     "game_seconds_remaining": 1370.0,
+     "half_seconds_remaining": 1370.0,
+     "depth_category": "BEHIND_LOS",
+     "pass_location": "middle",
+     "qb_hit": 0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 3,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.7677935035841709,
+     "INTERCEPTION": 0.010194443769494044,
+     "OTHER_INCOMPLETE": 0.22201205264633514
+    }
+   },
+   {
+    "x": {
+     "air_yards": 7.0,
+     "ydstogo": 9.0,
+     "yardline_100": 65.0,
+     "game_seconds_remaining": 2760.0,
+     "half_seconds_remaining": 960.0,
+     "depth_category": "SHORT",
+     "pass_location": "middle",
+     "qb_hit": 0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 1,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.7341126927805768,
+     "INTERCEPTION": 0.014180865231961506,
+     "OTHER_INCOMPLETE": 0.25170644198746167
+    }
+   },
+   {
+    "x": {
+     "air_yards": 1.0,
+     "ydstogo": 7.0,
+     "yardline_100": 71.0,
+     "game_seconds_remaining": 3500.0,
+     "half_seconds_remaining": 1700.0,
+     "depth_category": "SHORT",
+     "pass_location": "left",
+     "qb_hit": 0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 1,
+     "shotgun": 0
+    },
+    "expected": {
+     "COMPLETE": 0.8253068512345598,
+     "INTERCEPTION": 0.00895647714285783,
+     "OTHER_INCOMPLETE": 0.16573667162258232
+    }
+   },
+   {
+    "x": {
+     "air_yards": 19.0,
+     "ydstogo": 10.0,
+     "yardline_100": 65.0,
+     "game_seconds_remaining": 1066.0,
+     "half_seconds_remaining": 1066.0,
+     "depth_category": "INTERMEDIATE",
+     "pass_location": "right",
+     "qb_hit": 1,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 3,
+     "shotgun": 0
+    },
+    "expected": {
+     "COMPLETE": 0.45517758993110846,
+     "INTERCEPTION": 0.026690078359408568,
+     "OTHER_INCOMPLETE": 0.5181323317094829
+    }
+   },
+   {
+    "x": {
+     "air_yards": 5.0,
+     "ydstogo": 4.0,
+     "yardline_100": 5.0,
+     "game_seconds_remaining": 1829.0,
+     "half_seconds_remaining": 29.0,
+     "depth_category": "SHORT",
+     "pass_location": "right",
+     "qb_hit": 0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.4326078948218007,
+     "INTERCEPTION": 0.019687753710783813,
+     "OTHER_INCOMPLETE": 0.5477043514674156
+    }
+   },
+   {
+    "x": {
+     "air_yards": 17.0,
+     "ydstogo": 8.0,
+     "yardline_100": 37.0,
+     "game_seconds_remaining": 2113.0,
+     "half_seconds_remaining": 313.0,
+     "depth_category": "INTERMEDIATE",
+     "pass_location": "right",
+     "qb_hit": 0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.46555366677712223,
+     "INTERCEPTION": 0.02860676259389046,
+     "OTHER_INCOMPLETE": 0.5058395706289873
+    }
+   },
+   {
+    "x": {
+     "air_yards": 3.0,
+     "ydstogo": 4.0,
+     "yardline_100": 24.0,
+     "game_seconds_remaining": 1824.0,
+     "half_seconds_remaining": 24.0,
+     "depth_category": "SHORT",
+     "pass_location": "right",
+     "qb_hit": 0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "COMPLETE": 0.7016983126346982,
+     "INTERCEPTION": 0.015693943699729554,
+     "OTHER_INCOMPLETE": 0.28260774366557234
+    }
+   }
+  ]
+ },
+ "M04": {
+  "kind": "lin",
+  "cases": [
+   {
+    "x": {
+     "ydstogo": 9.0,
+     "yardline_100": 69.0,
+     "game_seconds_remaining": 2095.0,
+     "score_differential": 4.0,
+     "half_seconds_remaining": 295.0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.8262460541453184,
+     "SACK": 0.11628717338601693,
+     "SCRAMBLE": 0.05746677246866466
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 81.0,
+     "game_seconds_remaining": 1675.0,
+     "score_differential": 9.0,
+     "half_seconds_remaining": 1675.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 3,
+     "shotgun": 0
+    },
+    "expected": {
+     "THROW": 0.8968670879531534,
+     "SACK": 0.0494045404508871,
+     "SCRAMBLE": 0.05372837159595955
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 8.0,
+     "yardline_100": 9.0,
+     "game_seconds_remaining": 2658.0,
+     "score_differential": -7.0,
+     "half_seconds_remaining": 858.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.8948408004662862,
+     "SACK": 0.04633311799004175,
+     "SCRAMBLE": 0.058826081543672006
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 12.0,
+     "yardline_100": 50.0,
+     "game_seconds_remaining": 1875.0,
+     "score_differential": 11.0,
+     "half_seconds_remaining": 75.0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.8383431439757183,
+     "SACK": 0.10577582315259183,
+     "SCRAMBLE": 0.055881032871689815
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 4.0,
+     "yardline_100": 14.0,
+     "game_seconds_remaining": 2108.0,
+     "score_differential": -21.0,
+     "half_seconds_remaining": 308.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.9009051723567896,
+     "SACK": 0.053898951623473905,
+     "SCRAMBLE": 0.04519587601973649
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 87.0,
+     "game_seconds_remaining": 2692.0,
+     "score_differential": 11.0,
+     "half_seconds_remaining": 892.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 0
+    },
+    "expected": {
+     "THROW": 0.9110648468553895,
+     "SACK": 0.0397773447523145,
+     "SCRAMBLE": 0.049157808392295985
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 15.0,
+     "game_seconds_remaining": 2086.0,
+     "score_differential": 6.0,
+     "half_seconds_remaining": 286.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.9028939793917068,
+     "SACK": 0.048635066089918674,
+     "SCRAMBLE": 0.04847095451837463
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 7.0,
+     "yardline_100": 30.0,
+     "game_seconds_remaining": 1624.0,
+     "score_differential": 3.0,
+     "half_seconds_remaining": 1624.0,
+     "down": 2,
+     "goal_to_go": 0,
+     "qtr": 3,
+     "shotgun": 0
+    },
+    "expected": {
+     "THROW": 0.8851600195123664,
+     "SACK": 0.05739347731209936,
+     "SCRAMBLE": 0.05744650317553422
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 7.0,
+     "yardline_100": 72.0,
+     "game_seconds_remaining": 2243.0,
+     "score_differential": 12.0,
+     "half_seconds_remaining": 443.0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.8455689024785374,
+     "SACK": 0.10003849050208909,
+     "SCRAMBLE": 0.05439260701937354
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 39.0,
+     "game_seconds_remaining": 375.0,
+     "score_differential": -10.0,
+     "half_seconds_remaining": 375.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 4,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.9032890770541933,
+     "SACK": 0.05177709230832246,
+     "SCRAMBLE": 0.044933830637484365
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 3.0,
+     "yardline_100": 42.0,
+     "game_seconds_remaining": 2204.0,
+     "score_differential": -13.0,
+     "half_seconds_remaining": 404.0,
+     "down": 3,
+     "goal_to_go": 0,
+     "qtr": 2,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.8450872059149129,
+     "SACK": 0.0972337735533873,
+     "SCRAMBLE": 0.05767902053169975
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 74.0,
+     "game_seconds_remaining": 1793.0,
+     "score_differential": -10.0,
+     "half_seconds_remaining": 1793.0,
+     "down": 1,
+     "goal_to_go": 0,
+     "qtr": 3,
+     "shotgun": 1
+    },
+    "expected": {
+     "THROW": 0.8961965607560274,
+     "SACK": 0.05467193061642928,
+     "SCRAMBLE": 0.04913150862754325
+    }
+   }
+  ]
+ },
+ "M15": {
+  "kind": "lin",
+  "cases": [
+   {
+    "x": {
+     "yards_gained": 10.0,
+     "yardline_100": 85.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 4
+    },
+    "expected": {
+     "NO_FUMBLE": 0.99458349510137,
+     "FUMBLE": 0.005416504898629992
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 4.0,
+     "yardline_100": 40.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 3
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9923261882334136,
+     "FUMBLE": 0.007673811766586436
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 5.0,
+     "yardline_100": 75.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 2
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9930709412748783,
+     "FUMBLE": 0.006929058725121728
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 3.0,
+     "yardline_100": 53.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 1
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9910246951327578,
+     "FUMBLE": 0.008975304867242184
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 1.0,
+     "yardline_100": 1.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 2
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9927190928848904,
+     "FUMBLE": 0.007280907115109647
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 7.0,
+     "yardline_100": 38.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 1
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9927204420391789,
+     "FUMBLE": 0.007279557960821137
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 9.0,
+     "yardline_100": 50.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 1
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9935493674643766,
+     "FUMBLE": 0.006450632535623391
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 23.0,
+     "yardline_100": 27.0,
+     "event_family": "reception",
+     "qb_hit": 0,
+     "down": 1
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9911229313202293,
+     "FUMBLE": 0.008877068679770672
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 3.0,
+     "yardline_100": 71.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 1
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9912017185027925,
+     "FUMBLE": 0.008798281497207516
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 3.0,
+     "yardline_100": 65.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 2
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9918773649817826,
+     "FUMBLE": 0.008122635018217417
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 8.0,
+     "yardline_100": 83.0,
+     "event_family": "reception",
+     "qb_hit": 0,
+     "down": 1
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9894827515862034,
+     "FUMBLE": 0.010517248413796643
+    }
+   },
+   {
+    "x": {
+     "yards_gained": 14.0,
+     "yardline_100": 59.0,
+     "event_family": "designed_rush",
+     "qb_hit": 0,
+     "down": 1
+    },
+    "expected": {
+     "NO_FUMBLE": 0.9945629081179905,
+     "FUMBLE": 0.0054370918820094705
+    }
+   }
+  ]
+ },
+ "M25a": {
+  "kind": "lin",
+  "cases": [
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 61.0,
+     "game_seconds_remaining": 927.0,
+     "score_differential": 17.0,
+     "down": 1,
+     "qtr": 3,
+     "posteam_type": "home"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9779119328657905,
+     "DEADBALL_PEN": 0.02208806713420952
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 3.0,
+     "yardline_100": 51.0,
+     "game_seconds_remaining": 2066.0,
+     "score_differential": 3.0,
+     "down": 3,
+     "qtr": 2,
+     "posteam_type": "away"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9436311977292525,
+     "DEADBALL_PEN": 0.056368802270747476
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 7.0,
+     "yardline_100": 62.0,
+     "game_seconds_remaining": 2139.0,
+     "score_differential": -17.0,
+     "down": 3,
+     "qtr": 2,
+     "posteam_type": "away"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9524915078855231,
+     "DEADBALL_PEN": 0.04750849211447694
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 20.0,
+     "yardline_100": 43.0,
+     "game_seconds_remaining": 1058.0,
+     "score_differential": -11.0,
+     "down": 2,
+     "qtr": 3,
+     "posteam_type": "away"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9752020004553221,
+     "DEADBALL_PEN": 0.024797999544677873
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 67.0,
+     "game_seconds_remaining": 1366.0,
+     "score_differential": 7.0,
+     "down": 1,
+     "qtr": 3,
+     "posteam_type": "home"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9782863815591075,
+     "DEADBALL_PEN": 0.02171361844089248
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 4.0,
+     "yardline_100": 30.0,
+     "game_seconds_remaining": 862.0,
+     "score_differential": -19.0,
+     "down": 2,
+     "qtr": 4,
+     "posteam_type": "home"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9737090848102252,
+     "DEADBALL_PEN": 0.026290915189774777
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 1.0,
+     "yardline_100": 41.0,
+     "game_seconds_remaining": 768.0,
+     "score_differential": 8.0,
+     "down": 2,
+     "qtr": 4,
+     "posteam_type": "away"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9688899254821727,
+     "DEADBALL_PEN": 0.031110074517827324
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 9.0,
+     "yardline_100": 41.0,
+     "game_seconds_remaining": 3337.0,
+     "score_differential": 0.0,
+     "down": 2,
+     "qtr": 1,
+     "posteam_type": "home"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.972762191703867,
+     "DEADBALL_PEN": 0.02723780829613298
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 1.0,
+     "yardline_100": 43.0,
+     "game_seconds_remaining": 1997.0,
+     "score_differential": -4.0,
+     "down": 2,
+     "qtr": 2,
+     "posteam_type": "home"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9646893588388281,
+     "DEADBALL_PEN": 0.035310641161171885
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 6.0,
+     "yardline_100": 56.0,
+     "game_seconds_remaining": 1920.0,
+     "score_differential": -10.0,
+     "down": 2,
+     "qtr": 2,
+     "posteam_type": "home"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9689293237264398,
+     "DEADBALL_PEN": 0.031070676273560194
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 10.0,
+     "yardline_100": 66.0,
+     "game_seconds_remaining": 3036.0,
+     "score_differential": -7.0,
+     "down": 1,
+     "qtr": 1,
+     "posteam_type": "home"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.974093227356957,
+     "DEADBALL_PEN": 0.025906772643042975
+    }
+   },
+   {
+    "x": {
+     "ydstogo": 12.0,
+     "yardline_100": 35.0,
+     "game_seconds_remaining": 2414.0,
+     "score_differential": 0.0,
+     "down": 2,
+     "qtr": 2,
+     "posteam_type": "away"
+    },
+    "expected": {
+     "NO_DEADBALL_PEN": 0.9698056935273114,
+     "DEADBALL_PEN": 0.030194306472688615
+    }
+   }
+  ]
+ }
+}

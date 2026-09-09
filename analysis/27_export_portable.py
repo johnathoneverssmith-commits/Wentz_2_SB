@@ -1,10 +1,16 @@
-"""Export the chosen HGB resolvers to portable JSON + verify against sklearn.
+"""Export every fitted resolver to portable JSON + verify against sklearn.
 
-M01/M02/M03/M05/M09/M10/M14 chose `HistGradientBoostingClassifier`; the eventual
-TS runtime can't load joblib. This flattens each to `artifacts/models/portable/
-<mid>.json` (see lib_py/hgb_portable.py) and checks that the pure-Python
-reference evaluator reproduces `sklearn.predict_proba` on real 2025 rows to
-< 1e-6 max abs probability error. Writes `artifacts/models/m27_portable_export.report.md`.
+The runtime resolvers split two ways:
+  - tree  (M01/M02/M03/M05/M09/M10/M14): HistGradientBoostingClassifier
+    -> lib_py/hgb_portable.py  -> artifacts/models/portable/<mid>.json
+  - linear (M04/M15/M20/M21/M25a/M25b): spline+logistic Pipeline
+    -> lib_py/linear_portable.py -> artifacts/models/portable/<mid>.json
+
+Neither is loadable from a joblib pickle in the TS runtime. This flattens both
+to plain JSON and checks that the pure-Python reference evaluator reproduces
+`sklearn.predict_proba` on real 2025 rows to < 1e-6 max abs probability error.
+Writes `artifacts/models/m27_portable_export.report.md`; exits non-zero on any
+mismatch.
 
 Run: analysis/.venv/Scripts/python analysis/27_export_portable.py
 """
@@ -23,10 +29,11 @@ import pandas as pd
 import polars as pl
 
 from lib_py.hgb_portable import export_hgb, predict_proba_portable
+from lib_py.linear_portable import export_linear, predict_proba_linear
 from lib_py.report import ARTIFACTS
 
-# mid -> (joblib stem, resolver module, build_frame attr)
-MODELS = {
+# mid -> (joblib stem, resolver module, build-frame attr)
+TREE_MODELS = {
     "M01": ("fourth_down", "02_fourth_down", "build_frame"),
     "M02": ("m02", "03_play_call", "build_frame"),
     "M03": ("m03", "04_shotgun", "build_frame"),
@@ -35,22 +42,31 @@ MODELS = {
     "M10": ("m10", "11_yac", "build_frame"),
     "M14": ("m14", "15_rush_yards", "build_frame"),
 }
+LINEAR_MODELS = {
+    "M04": ("m04", "05_dropback_outcome", "build_frame"),
+    "M08": ("m08", "09_qb_hit", "build_frame"),
+    "M11": ("m11", "12_scramble_yards", "build_frame"),
+    "M13": ("m13", "14_run_location", "build_frame"),
+    "M15": ("m15", "16_fumbles", "build_frame"),
+    "M20": ("m20", "18_field_goals", "build_frame"),
+    "M21": ("m21", "19_punts", "build_frame"),
+    "M25a": ("m25a", "25_penalties", "build_presnap"),
+    "M25b": ("m25b", "25_penalties", "build_liveball"),
+}
 
 N_CHECK = 4000
 OUT = ARTIFACTS / "models" / "portable"
 
 
-def _rows_for(mid: str, stem: str, modname: str, build_attr: str, features: list[str]):
-    mod = importlib.import_module(modname)
-    df = getattr(mod, build_attr)((2025,))
-    if df.height > N_CHECK:
-        df = df.sample(n=N_CHECK, seed=27)
-    # sklearn input: pandas, feature order, cats as str / nums as float
-    est = joblib.load(ARTIFACTS / "models" / f"{stem}.joblib")["estimator"]
+def _frame(modname: str, build_attr: str) -> pl.DataFrame:
+    df = importlib.import_module(modname).__dict__[build_attr]((2025,))
+    return df.sample(n=N_CHECK, seed=27) if df.height > N_CHECK else df
+
+
+def _tree_rows(df: pl.DataFrame, est, features: list[str]):
+    """sklearn wants each categorical column in the dtype its categories_ was
+    trained on (M01 trained goal_to_go/qtr/temp_missing as int8)."""
     is_cat = {f: bool(c) for f, c in zip(features, est.is_categorical_)}
-    # sklearn's OrdinalEncoder matches by exact type: feed each categorical column
-    # in the dtype its `categories_` was trained on (M01 trained goal_to_go / qtr
-    # / temp_missing as int8; the rest as strings).
     enc = est._preprocessor.named_transformers_["encoder"]
     cat_feats = [f for f in features if is_cat[f]]
     cat_dtype = {f: np.asarray(enc.categories_[i]).dtype for i, f in enumerate(cat_feats)}
@@ -62,72 +78,87 @@ def _rows_for(mid: str, stem: str, modname: str, build_attr: str, features: list
             else:
                 col = df[f].cast(pl.Utf8).to_list()
             sk_data[f] = col
-            dict_data[f] = [str(v) for v in col]            # portable: string-normalised
+            dict_data[f] = [str(v) for v in col]
         else:
             v = df[f].cast(pl.Float64).to_numpy()
             sk_data[f] = v
             dict_data[f] = v
     pdf = pd.DataFrame(sk_data)[features]
-    dicts = pd.DataFrame(dict_data)[features].to_dict(orient="records")
-    return est, pdf, dicts
+    return pdf, pd.DataFrame(dict_data)[features].to_dict(orient="records")
+
+
+def _linear_rows(df: pl.DataFrame, est, features: list[str]):
+    """spline+logistic: numeric -> float, categorical (all string-trained) -> str."""
+    cat_cols = set()
+    for _, trans, cols in est.named_steps["pre"].transformers_:
+        if type(trans).__name__ == "OneHotEncoder":
+            cat_cols |= set(cols)
+    sk_data = {}
+    for f in features:
+        sk_data[f] = df[f].cast(pl.Utf8).to_list() if f in cat_cols else df[f].cast(pl.Float64).to_numpy()
+    pdf = pd.DataFrame(sk_data)[features]
+    return pdf, pdf.to_dict(orient="records")
+
+
+def _check(portable, evaluator, est, pdf, dicts) -> float:
+    sk = est.predict_proba(pdf)
+    cls = list(est.classes_)
+    return max(
+        max(abs(evaluator(portable, d)[c] - sk[i, j]) for j, c in enumerate(cls))
+        for i, d in enumerate(dicts)
+    )
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     rows = []
-    for mid, (stem, modname, build_attr) in MODELS.items():
-        bundle = joblib.load(ARTIFACTS / "models" / f"{stem}.joblib")
-        est, feats, labels = bundle["estimator"], bundle["features"], bundle["labels"]
 
-        portable = export_hgb(est, feats, labels)
-        (OUT / f"{mid}.json").write_text(json.dumps(portable, separators=(",", ":")) + "\n",
-                                        encoding="utf-8")
-        size_kb = (OUT / f"{mid}.json").stat().st_size / 1024
+    for kind, table, exporter, evaluator, row_fn in (
+        ("tree", TREE_MODELS, export_hgb, predict_proba_portable, _tree_rows),
+        ("linear", LINEAR_MODELS, export_linear, predict_proba_linear, _linear_rows),
+    ):
+        for mid, (stem, modname, build_attr) in table.items():
+            b = joblib.load(ARTIFACTS / "models" / f"{stem}.joblib")
+            est, feats, labels = b["estimator"], b["features"], b["labels"]
+            portable = exporter(est, feats, labels)
+            path = OUT / f"{mid}.json"
+            path.write_text(json.dumps(portable, separators=(",", ":")) + "\n", encoding="utf-8")
 
-        est_chk, pdf, dicts = _rows_for(mid, stem, modname, build_attr, feats)
-        sk = est_chk.predict_proba(pdf)                       # (n, n_classes) in classes_ order
-        cls = list(est_chk.classes_)
-        max_err = 0.0
-        for i, d in enumerate(dicts):
-            pp = predict_proba_portable(portable, d)
-            err = max(abs(pp[c] - sk[i, j]) for j, c in enumerate(cls))
-            max_err = max(max_err, err)
+            pdf, dicts = row_fn(_frame(modname, build_attr), est, feats)
+            max_err = _check(portable, evaluator, est, pdf, dicts)
+            size_kb = path.stat().st_size / 1024
+            ok = max_err < 1e-6
+            rows.append({"mid": mid, "kind": kind, "objective": portable["objective"],
+                         "classes": len(est.classes_), "size_kb": round(size_kb, 1),
+                         "n_checked": len(dicts), "max_abs_prob_err": max_err, "ok": ok})
+            print(f"  {mid:5s} {kind:6s} {portable['objective']:10s} "
+                  f"{size_kb:7.1f} KB  n={len(dicts):4d}  max_err={max_err:.2e}  {'OK' if ok else 'FAIL'}")
 
-        n_trees = sum(len(f) for f in portable["trees_per_class"])
-        n_nodes = sum(len(t) for f in portable["trees_per_class"] for t in f)
-        ok = max_err < 1e-6
-        rows.append({"mid": mid, "objective": portable["objective"], "classes": len(cls),
-                     "iterations": portable["n_iterations"], "trees": n_trees, "nodes": n_nodes,
-                     "size_kb": round(size_kb, 1), "n_checked": len(dicts),
-                     "max_abs_prob_err": max_err, "ok": ok})
-        print(f"  {mid}: {portable['objective']:10s} trees={n_trees:4d} nodes={n_nodes:6d} "
-              f"{size_kb:7.1f} KB  max_err={max_err:.2e}  {'OK' if ok else 'FAIL'}")
-
-    md = ["# M27 — Portable HGB export", "",
-          "The chosen HGB resolvers flattened to `artifacts/models/portable/<mid>.json` "
-          "(baseline + per-class regression-tree forests, categorical splits resolved to "
-          "string sets). `lib_py/hgb_portable.predict_proba_portable` is the reference "
-          "evaluator and the spec for the TS port.", "",
-          "| model | objective | classes | iters | trees | nodes | size | rows checked | max |Δp| | ok |",
-          "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |"]
+    md = ["# M27 — Portable resolver export", "",
+          "Every fitted resolver flattened to `artifacts/models/portable/<mid>.json` so the "
+          "TS runtime needs no joblib. Tree models (`lib_py/hgb_portable.py`) store baseline + "
+          "per-class regression-tree forests with categorical splits resolved to string sets; "
+          "linear models (`lib_py/linear_portable.py`) collapse each numeric feature's "
+          "spline→coef pathway to a 1-D decision-contribution lookup plus one-hot weight rows. "
+          "Both reference evaluators are the spec for the TS port.", "",
+          "| model | kind | objective | classes | size | rows checked | max |Δp| | ok |",
+          "| --- | --- | --- | ---: | ---: | ---: | ---: | :---: |"]
     for r in rows:
-        md.append(f"| {r['mid']} | {r['objective']} | {r['classes']} | {r['iterations']} | "
-                  f"{r['trees']} | {r['nodes']} | {r['size_kb']} KB | {r['n_checked']} | "
-                  f"{r['max_abs_prob_err']:.2e} | {'✅' if r['ok'] else '❌'} |")
+        md.append(f"| {r['mid']} | {r['kind']} | {r['objective']} | {r['classes']} | "
+                  f"{r['size_kb']} KB | {r['n_checked']} | {r['max_abs_prob_err']:.2e} | "
+                  f"{'✅' if r['ok'] else '❌'} |")
     npass = sum(r["ok"] for r in rows)
     md += ["", f"**{npass}/{len(rows)} reproduce `sklearn.predict_proba` to < 1e-6** on real "
-           "2025 rows. The portable evaluator compares categorical values as strings; unknown "
-           "/ missing follow each split's missing-left flag (matches sklearn's OrdinalEncoder "
-           "`unknown_value=nan` → bin-mapper missing bin).", "",
+           "2025 rows. Tree eval compares categoricals as strings, unknown/missing follow the "
+           "split's missing-left flag; linear eval uses `handle_unknown='ignore'` (unknown "
+           "category → zero contribution) and interpolates the numeric lookup "
+           "(constant past the spline's active range, matching `extrapolation='constant'`).", "",
            "### Latent bug this surfaced — M01 categorical dtypes", "",
-           "M01 (`02_fourth_down.py`, pre-refactor) trained `goal_to_go` / `qtr` / `temp_missing` "
-           "as **int8** categories (`[np.int8(0), np.int8(1)]`). `engine/loaders._row` "
-           "stringifies every cat col, so at runtime sklearn's OrdinalEncoder sees `'0'` ≠ "
-           "`int8(0)` → unknown → NaN → missing bin: **the live Python engine ignores those "
-           "three M01 features.** The portable export string-normalises category values, so a "
-           "runtime built on these JSON models evaluates M01 *correctly*. Fix for the Python "
-           "engine: either retype those columns or (better) switch the engine to "
-           "`predict_proba_portable` — separate task, needs a §22 re-run.", ""]
+           "M01 trained `goal_to_go` / `qtr` / `temp_missing` as **int8** categories. The old "
+           "`engine/loaders._row` stringified every cat col, so sklearn's OrdinalEncoder saw "
+           "`'0'` ≠ `int8(0)` → NaN → those three M01 features were ignored at runtime. The "
+           "portable tree eval string-normalises and uses them; `engine/loaders` now loads the "
+           "portable JSON.", ""]
     (ARTIFACTS / "models" / "m27_portable_export.report.md").write_text("\n".join(md), encoding="utf-8")
     print(f"\n{npass}/{len(rows)} within 1e-6")
     if npass != len(rows):

@@ -1,86 +1,38 @@
-"""Artifact loaders — resolvers (portable JSON for the HGB models, joblib for the
-rest) + empirical PMF tables, all cached."""
+"""Artifact loaders — every classifier resolver as portable JSON
+(`analysis/27_export_portable.py`), plus empirical PMF tables. All cached, no
+joblib / sklearn at runtime."""
 
 from __future__ import annotations
 
 import functools
-import importlib
 import json
 
-import joblib
 import numpy as np
-import pandas as pd
 import polars as pl
 
 from lib_py.hgb_portable import predict_proba_portable
+from lib_py.linear_portable import predict_proba_linear
 from lib_py.report import ARTIFACTS
 
 _MODELS = ARTIFACTS / "models"
 _DIST = ARTIFACTS / "distributions"
-
-# model id -> (joblib stem, resolver module for cat_cols/ctx_bucket)
-RESOLVER_META = {
-    "M01": ("fourth_down", "02_fourth_down"),
-    "M02": ("m02", "03_play_call"),
-    "M03": ("m03", "04_shotgun"),
-    "M04": ("m04", "05_dropback_outcome"),
-    "M05": ("m05", "06_pass_depth"),
-    "M09": ("m09", "10_pass_result"),
-    "M10": ("m10", "11_yac"),
-    "M11": ("m11", "12_scramble_yards"),
-    "M13": ("m13", "14_run_location"),
-    "M14": ("m14", "15_rush_yards"),
-    "M15": ("m15", "16_fumbles"),
-    "M20": ("m20", "18_field_goals"),
-    "M21": ("m21", "19_punts"),
-    "M25a": ("m25a", "25_penalties"),
-    "M25b": ("m25b", "25_penalties"),
-}
-
-
-# The 7 tree resolvers exported to portable JSON (analysis/27_export_portable.py).
-# The rest (M04/M15/M20/M21/M25a/M25b) are spline+logistic — still joblib.
-PORTABLE_IDS = frozenset({"M01", "M02", "M03", "M05", "M09", "M10", "M14"})
 _PORTABLE = _MODELS / "portable"
+
+# resolvers whose portable JSON is a `linear-portable-1` (spline+logistic);
+# everything else in artifacts/models/portable is `hgb-portable-1`.
+_LINEAR_IDS = frozenset({"M04", "M08", "M11", "M13", "M15", "M20", "M21", "M25a", "M25b"})
 
 
 @functools.lru_cache(maxsize=None)
 def resolver(mid: str):
-    if mid in PORTABLE_IDS:
-        m = json.loads((_PORTABLE / f"{mid}.json").read_text())
-        return {
-            "portable": m,
-            "labels": m["labels"],
-            "features": m["feature_names"],   # original context-key order (for _bucket)
-            "cat_cols": frozenset(),          # portable eval is dtype-agnostic
-            "classes": m["classes"],
-        }
-    stem, modname = RESOLVER_META[mid]
-    bundle = joblib.load(_MODELS / f"{stem}.joblib")
-    mod = importlib.import_module(modname)
-    spec = getattr(mod, "SPEC", None)
-    if spec is not None:
-        cat = set(getattr(spec, "cat_cols", []))
-    else:  # M01 pre-dates the pipeline refactor
-        cat = set(getattr(mod, "CAT_COLS", [])) | {"temp_missing"}
+    m = json.loads((_PORTABLE / f"{mid}.json").read_text())
     return {
-        "est": bundle["estimator"],
-        "labels": bundle["labels"],
-        "features": bundle["features"],
-        "cat_cols": cat,
-        "classes": list(bundle["estimator"].classes_),
+        "portable": m,
+        "linear": mid in _LINEAR_IDS,
+        "labels": m["labels"],
+        "features": m["feature_names"],   # original context-key order (for _bucket)
+        "classes": m["classes"],
     }
-
-
-def _row(features, cat_cols, ctx: dict) -> pd.DataFrame:
-    data = {}
-    for f in features:
-        v = ctx.get(f)
-        if f in cat_cols:
-            data[f] = [str(v)]
-        else:
-            data[f] = [float(v) if v is not None else np.nan]
-    return pd.DataFrame(data)
 
 
 _pp_cache: dict = {}
@@ -108,13 +60,9 @@ def predict_proba(mid: str, ctx: dict, logit_shift: dict[str, float] | None = No
     ck = (mid, _bucket(ctx, r["features"]))
     base = _pp_cache.get(ck)
     if base is None:
-        if "portable" in r:
-            pp = predict_proba_portable(r["portable"], ctx)
-            base = {lab: float(pp[lab]) for lab in r["labels"]}
-        else:
-            p = r["est"].predict_proba(_row(r["features"], r["cat_cols"], ctx))[0]
-            idx = {c: i for i, c in enumerate(r["est"].classes_)}
-            base = {lab: float(p[idx[lab]]) for lab in r["labels"]}
+        ev = predict_proba_linear if r["linear"] else predict_proba_portable
+        pp = ev(r["portable"], ctx)
+        base = {lab: float(pp[lab]) for lab in r["labels"]}
         _pp_cache[ck] = base
     if not logit_shift:
         return base
