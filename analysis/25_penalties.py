@@ -46,6 +46,10 @@ DEADBALL_TYPES = [
 _MASK_COLS = ["play_deleted", "aborted_play", "posteam", "season_type",
               "down", "yardline_100", "qb_kneel", "qb_spike"]
 
+# Union of SPEC_A.cat_cols and SPEC_B.cat_cols — `engine/loaders.resolver()` reads
+# this when a module has no single `SPEC` (both M25a and M25b live in this file).
+CAT_COLS = ["down", "qtr", "posteam_type", "play_family"]
+
 _i8 = lambda c: pl.col(c).cast(pl.Int8, strict=False).fill_null(0)
 
 

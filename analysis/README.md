@@ -46,6 +46,12 @@ ROLE_1..3/OTHER = .547/.241/.092/.120. Ratings never used (§15).
 | M25b | 25_penalties liveball | binary live-ball penalty hazard by play_family | 0.193 ≈ marginal |
 | M25c | 25c_penalty_enforcement | 9 type buckets + enforcement + DPI yardage PMF | empirical; 11.5 penalties/game |
 
+M25a/b/c are **wired into `engine/sim.py`** (pre-snap + live-ball rolls, deterministic
+accept/decline, DPI spot foul); `23_full_sim_validation.py` has penalty-volume targets.
+Penalty volume runs ~15–20% light on purpose — `PENALTY_HAZARD_SCALE`=1.0 because
+scaling it up to hit the count pushes points/team-game −10%→−16% (penalty-free-fit
+resolvers + a drive model that over-punishes offensive fouls; V1.6 = gained-conditioned hazards).
+
 Every report carries the §20 sections + "No current game player ratings were
 used to fit the nflverse baseline." Models that sit at the marginal rate are
 *supposed to* — they supply the calibrated league baseline; discrimination is

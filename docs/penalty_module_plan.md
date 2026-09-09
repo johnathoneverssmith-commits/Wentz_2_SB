@@ -13,8 +13,22 @@ Status: **models fitted (2026-09-09), engine wiring next.**
   `artifacts/models/m25c.report.md`. 40+ raw types → 9 buckets; per-bucket
   off/def share, mean yards, auto-first rate; DPI spot-foul yardage PMF by
   field-position band (17.9 / 17.0 / 7.9 yд own-half / opp-mid / opp-rz).
-- ⏳ **engine wiring** into `analysis/engine/sim.py` (§4 chronology) + add
-  penalty targets to `23_full_sim_validation.py` and re-run §22.
+- ✅ **engine wiring** — `analysis/engine/sim.py`: pre-snap M25a rolls before
+  the play call (capped 2/snap, replay down); live-ball M25b rolls after the
+  physical outcome with deterministic accept/decline (non-penalised side takes
+  the better outcome), accepted → play nullified via a stat snapshot/restore,
+  DPI enforced to the spot capped at the 1, auto-first overrides the down
+  logic; punt penalties marked off from the new spot.
+  `23_full_sim_validation.py` gains penalties/, penalty-yд/ and
+  DPI-per-team-game targets. FG penalties (~0.4%) still skipped.
+- **Finding — volume vs points are in tension.** `PENALTY_HAZARD_SCALE` = 1.0:
+  the raw hazard runs penalties ~15–20% light, but scaling to ≈1.27 to hit
+  6.16/team-game (DPI lands 0.52 v 0.52) **drops points/team-game to −16%**
+  (from −10%). The physical-outcome resolvers are fit penalty-FREE (§6.2) and
+  the drive model over-punishes offensive fouls, so more penalties = less
+  scoring. **V1.6:** gained-conditioned penalty hazards (holding correlates
+  with the play it sprung / stuffed) so nullification is a wash on average
+  rather than a net loss.
 
 Written 2026-09-09 while Phase E V1 wrapped.
 This is the top post-V1 accuracy item: the §22 full-sim validation is ~2.4

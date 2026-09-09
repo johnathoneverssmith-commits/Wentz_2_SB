@@ -200,15 +200,36 @@ locked-test log loss 0.141 / 0.193) and `analysis/25c_penalty_enforcement.py`
 off/def share, yardage, auto-first-down rate; DPI spot-foul yardage PMF by
 field-position band). All use the RAW play stream (a bespoke mask that keeps
 `no_play` rows — penalties negate the play they occur on, so `load_clean`'s
-`admin_exclusion_mask` would drop the target population). Full plan +
-what's-left in [`penalty_module_plan.md`](penalty_module_plan.md). **Not yet
-wired into `engine/sim.py`** — that + adding penalty targets to the §22
-validation is the next step and should close ~2 of the residual 2.4 points.
+`admin_exclusion_mask` would drop the target population). Full plan in
+[`penalty_module_plan.md`](penalty_module_plan.md).
+
+**Wired into `engine/sim.py` (2026-09-09).** Pre-snap M25a rolls before the
+play call (capped 2/snap, replay down); live-ball M25b rolls after the physical
+outcome with deterministic accept/decline (the non-penalised side takes the
+better outcome), an accepted foul nullifies the play via a stat
+snapshot/restore, DPI is enforced to the spot capped at the 1, `p_auto_first`
+overrides the down logic, punt fouls are marked off from the new spot. §22
+validation gains penalties/, penalty-yд/ and DPI-per-team-game targets.
+
+- **Finding — penalty volume vs the scoring effect are in tension, so
+  `PENALTY_HAZARD_SCALE` is left at 1.0.** The raw hazard runs penalties
+  ~15–20% light (the engine's scrimmage-snap population is smaller than the
+  per-row training stream). Scaling up to hit the empirical 6.16/team-game
+  hits that metric exactly (DPI 0.52 v 0.52) **but drops points/team-game from
+  −10% to −16%** — the physical-outcome resolvers are fit penalty-FREE (§6.2)
+  and this engine's drive model over-punishes offensive fouls, so more
+  penalties = less scoring rather than reproducing the league mean.
+  Reconciling the two needs gained-conditioned penalty hazards (V1.6). At scale
+  1.0 the module is ~net-neutral on points and modeled directionally.
+- The residual points gap (~−10%) is dominated by red-zone TD finishing (~54 v
+  ~57%), no kickoff/punt return TDs, and no 2-point tries — the next Phase E
+  iteration, not penalties.
 
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
-engine loop); a larger §23 league sample; penalty-module engine wiring; the
-shippable TS runtime + a portable export of the HGB resolvers
-(M01/M02/M03/M05/M09/M10/M14) since the TS side can't load joblib.
+engine loop); a larger §23 league sample; red-zone / return-TD / 2-pt scoring
+polish (the real points-gap driver); the shippable TS runtime + a portable
+export of the HGB resolvers (M01/M02/M03/M05/M09/M10/M14) since the TS side
+can't load joblib.
 
 **The engine spec's full arc (A→E) now has a working V1 end to end, with the
 rating layer wired and §23-validated.**

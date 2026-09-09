@@ -1,9 +1,10 @@
 """Game loop — event chronology per spec §4. Rating modifiers = 0 (§22 pass).
 
-Simplifications flagged for later: no penalties (V1.5), qb_hit sampled from a
-marginal, pass_location marginal (Model 06 not built), kickoff/XP hard-coded
-empiricals (Model 22/23 not fitted), sack-yards a fixed empirical, individual
-player attribution omitted (team aggregates only), OT = one drive each.
+Simplifications flagged for later: qb_hit sampled from a marginal, pass_location
+marginal (Model 06 not built), kickoff/XP hard-coded empiricals (Model 22/23 not
+fitted), sack-yards a fixed empirical, individual player attribution omitted
+(team aggregates only), OT = one drive each. Penalties (Model 25) are wired for
+scrimmage + punt plays; FG penalties (~0.4%) are still skipped.
 """
 
 from __future__ import annotations
@@ -17,7 +18,9 @@ from .loaders import (
     predict_proba,
     sample_air_yards,
     sample_class,
+    sample_dpi_yards,
     sample_exact_yards,
+    sample_penalty_bucket,
     sample_punt_distance,
     sample_punt_return,
     sample_runoff,
@@ -34,6 +37,14 @@ SCOOP_SIX_RATE = 0.012      # share of lost fumbles returned for a TD
 SACK_YARDS = np.array([-12, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0])
 SACK_YARDS_P = np.array([2, 4, 6, 9, 12, 16, 16, 12, 9, 5, 2, 1], float)
 SACK_YARDS_P = SACK_YARDS_P / SACK_YARDS_P.sum()
+# M25a/M25b are fit per raw-stream row; the engine runs fewer scrimmage snaps
+# per team-game, so the raw hazard lands ~20% low on penalties/team-game. Left
+# at 1.0 deliberately: the physical-outcome resolvers are fit penalty-FREE
+# (spec §6.2), and this engine's drive model over-punishes offensive fouls, so
+# scaling up to hit the empirical penalty count drives points/team-game from
+# −10% to −16%. Reconciling penalty volume with the scoring effect needs
+# gained-conditioned hazards (V1.6), not a scalar. See penalty_module_plan.md.
+PENALTY_HAZARD_SCALE = 1.0
 
 
 @dataclass
@@ -182,6 +193,90 @@ class Game:
             self.down = 1
             self.ydstogo = min(10.0, self.yardline_100)
 
+    # ---- penalties (Model 25) -----------------------------------
+    def _pen_ctx(self, play_family: str | None = None) -> dict:
+        c = {**self.ctx(0), "posteam_type": "home" if self.pos == 0 else "away"}
+        if play_family is not None:
+            c["play_family"] = play_family
+        return c
+
+    def _presnap_penalty(self) -> bool:
+        """M25a: a dead-ball foul before the snap. Enforced (not declinable),
+        the down is replayed. Returns True if one occurred."""
+        p = predict_proba("M25a", self._pen_ctx()).get("DEADBALL_PEN", 0.032) * PENALTY_HAZARD_SCALE
+        if self.rng.random() >= p:
+            return False
+        b = sample_penalty_bucket("deadball", "ALL", self.rng)
+        on_off = self.rng.random() < b["off_share"]
+        team = self.pos if on_off else self.other()
+        self.st("penalty", team=team)
+        self.st("penalty_yards", 5.0, team=team)
+        if on_off:
+            self.yardline_100 = min(self.yardline_100 + 5.0, 99.0)
+            self.ydstogo += 5.0
+        else:
+            self.yardline_100 = max(self.yardline_100 - 5.0, 1.0)
+            if 5.0 >= self.ydstogo:
+                self.st("first_down")
+                self._new_series(first_down=True)
+            else:
+                self.ydstogo -= 5.0
+        # dead-ball: mostly play-clock cost; a little game clock on delay of game.
+        for a in ("gsr", "hsr", "qsr"):
+            setattr(self, a, max(0, getattr(self, a) - 4))
+        return True
+
+    def _liveball_penalty(self, play_family: str, gained: float, s0: dict) -> bool:
+        """M25b/25c: a live-ball foul after the physical outcome. Deterministic
+        accept/decline (the non-penalised side takes the better outcome). On
+        accept the play is nullified (stats restored from `s0`). Returns True if
+        the play was replaced by the penalty."""
+        b = sample_penalty_bucket("liveball", play_family, self.rng)
+        on_off = self.rng.random() < b["off_share"]
+        if b["is_spot_foul"]:  # DPI — spot foul, capped at the 1
+            band = ("opp_rz" if self.yardline_100 <= 20 else
+                    "opp_mid" if self.yardline_100 <= 50 else "own_half")
+            yd = min(float(sample_dpi_yards(band, self.rng)), self.yardline_100 - 1.0)
+        else:
+            yd = float(round(b["mean_yards"] / 5.0) * 5) or 5.0
+        auto_first = self.rng.random() < b["p_auto_first"]
+        gained_first = (self.ydstogo - gained) <= 0
+
+        if on_off:  # defense decides — decline only if the play already hurt the
+            if gained <= -yd and not gained_first:   # offense more than the flag
+                return False
+        elif auto_first:  # offense: an automatic first down beats almost any play
+            if gained_first and gained >= yd:
+                return False
+        else:       # offense: decline if the play already gained at least as much
+            if gained_first or gained >= yd:
+                return False
+
+        # accept: nullify the play
+        for i in (0, 1):
+            self.teams[i].s.clear()
+            self.teams[i].s.update(s0[i])
+        team = self.pos if on_off else self.other()
+        self.st("penalty", team=team)
+        self.st("penalty_yards", yd, team=team)
+        if b["bucket"] == "defensive_pass_interference":
+            self.st("dpi", team=self.other())
+
+        if on_off:
+            self.yardline_100 = min(self.yardline_100 + yd, 99.0)
+            self.ydstogo += yd
+            if b["bucket"] == "intentional_grounding":
+                self.down = min(self.down + 1, 4)     # loss of down
+        else:
+            self.yardline_100 = max(self.yardline_100 - yd, 1.0)
+            if auto_first or yd >= self.ydstogo:
+                self.st("auto_first_pen")
+                self._new_series(first_down=True)
+            else:
+                self.ydstogo -= yd
+        self.advance_clock("pass_incomplete")
+        return True
+
     # ---- one play -------------------------------------------------
     def play(self):
         self.teams[self.pos].s["plays"] += 1
@@ -220,9 +315,27 @@ class Game:
                                            "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}, self.rng)
                 ret = sample_punt_return(self.rng) if out == "RETURNED" else 0
                 self._flip_field(100 - landing + ret)
+            self._punt_penalty()
             return
         # GO_FOR_IT
         self._scrimmage(go_for_it=True)
+
+    def _punt_penalty(self) -> None:
+        """M25b on a punt (mostly return-team holding, or running-into/roughing
+        the kicker). Marked off from the new spot; not declined in V1.5."""
+        if self.rng.random() >= predict_proba("M25b", self._pen_ctx("punt")).get("LIVEBALL_PEN", 0.084) * PENALTY_HAZARD_SCALE:
+            return
+        b = sample_penalty_bucket("liveball", "punt", self.rng)
+        yd = float(round(b["mean_yards"] / 5.0) * 5) or 10.0
+        on_off = self.rng.random() < b["off_share"]   # off == the new (receiving) offense
+        team = self.pos if on_off else self.other()
+        self.st("penalty", team=team)
+        self.st("penalty_yards", yd, team=team)
+        if on_off:
+            self.yardline_100 = min(self.yardline_100 + yd, 99.0)
+        else:
+            self.yardline_100 = max(self.yardline_100 - yd, 1.0)
+        self.ydstogo = min(10.0, self.yardline_100)
 
     def _flip_field(self, new_yl_for_new_offense: float):
         self.pos = self.other()
@@ -232,6 +345,16 @@ class Game:
 
     # ---- scrimmage play ----------------------------------------
     def _scrimmage(self, go_for_it: bool):
+        # §4: pre-snap dead-ball fouls fire before the play call. Cap at 2 so a
+        # false-start loop can't stall the drive; a defensive one can hand over
+        # a first down (then this snap just runs on the new down).
+        for _ in range(2):
+            if not self._presnap_penalty():
+                break
+
+        # snapshot AFTER pre-snap fouls: an accepted live-ball foul nullifies the
+        # play back to here, not back past the dead-ball enforcement.
+        s0 = {i: dict(self.teams[i].s) for i in (0, 1)}
         call = sample_class("M02", self.ctx(0), self.rng)
         sg = int(sample_class("M03", {**self.ctx(0), "play_call": call}, self.rng) == "SHOTGUN")
         start_yl = self.yardline_100
@@ -346,6 +469,15 @@ class Game:
         # yardage bookkeeping
         if call == "DROPBACK" and family == "reception":
             self.teams[self.pos].s["pass_yards"] += gained
+
+        # §4: live-ball fouls fire after the physical outcome. Not on a turnover
+        # (those branches have already returned). M25b hazard, then M25c
+        # bucket/enforcement + deterministic accept/decline.
+        if not turnover:
+            pfam = "dropback" if call == "DROPBACK" else "designed_run"
+            pp = predict_proba("M25b", self._pen_ctx(pfam)).get("LIVEBALL_PEN", 0.049) * PENALTY_HAZARD_SCALE
+            if self.rng.random() < pp and self._liveball_penalty(pfam, gained, s0):
+                return
 
         # resolve state first, so the clock knows whether the drive continues
         new_yl = self.yardline_100 - gained

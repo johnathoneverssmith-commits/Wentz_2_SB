@@ -30,6 +30,8 @@ RESOLVER_META = {
     "M15": ("m15", "16_fumbles"),
     "M20": ("m20", "18_field_goals"),
     "M21": ("m21", "19_punts"),
+    "M25a": ("m25a", "25_penalties"),
+    "M25b": ("m25b", "25_penalties"),
 }
 
 
@@ -211,4 +213,39 @@ def sample_punt_distance(yardline_100: float, rng: np.random.Generator) -> int:
 
 def sample_punt_return(rng: np.random.Generator) -> int:
     y, cum = punt_tables()["ret"]
+    return int(y[np.searchsorted(cum, rng.random())])
+
+
+# ---- penalty enforcement (Model 25c) ----------------------------------
+
+@functools.lru_cache(maxsize=None)
+def penalty_tables() -> dict:
+    enf = pl.read_parquet(_DIST / "penalty_enforcement.parquet")
+    by: dict[tuple[str, str], tuple] = {}
+    for (hz, fam), g in enf.group_by(["hazard_class", "play_family"]):
+        buckets = g["bucket"].to_list()
+        cum = np.cumsum(_norm(g["share"].to_numpy()))
+        meta = {r["bucket"]: r for r in g.to_dicts()}
+        by[(hz, fam)] = (buckets, cum, meta)
+    dpi = pl.read_parquet(_DIST / "penalty_dpi_yards.parquet")
+    dpi_pmf: dict[str, tuple] = {}
+    for (band,), g in dpi.group_by(["fp_band"]):
+        dpi_pmf[band] = (g["yards"].to_numpy(), np.cumsum(_norm(g["prob"].to_numpy())))
+    return {"by": by, "dpi": dpi_pmf}
+
+
+def sample_penalty_bucket(hazard: str, play_family: str, rng: np.random.Generator) -> dict:
+    """Return the M25c enforcement row (share/off_share/mean_yards/p_auto_first/…)
+    for a fired penalty of this hazard class + play family."""
+    t = penalty_tables()["by"]
+    key = (hazard, play_family)
+    if key not in t:
+        key = (hazard, "ALL" if hazard == "deadball" else "dropback")
+    buckets, cum, meta = t[key]
+    return meta[buckets[int(np.searchsorted(cum, rng.random()))]]
+
+
+def sample_dpi_yards(fp_band: str, rng: np.random.Generator) -> int:
+    t = penalty_tables()["dpi"]
+    y, cum = t.get(fp_band) or next(iter(t.values()))
     return int(y[np.searchsorted(cum, rng.random())])
