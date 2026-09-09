@@ -245,10 +245,21 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   over-completion was inflating explosives that masked ~1.7 pts of a scoring
   deficit elsewhere. So pass depth is a real fidelity fix but **not** the
   points-gap lever.
-- **Points gap (~−11%) is still unfound**, now against a correctly-calibrated
-  passing game: engine runs *more* plays/team-game (67 v 62) but scores
-  ~1.8/drive v ~2.1. Open candidates: FG-range vs go-for-it, mid-field (20–40)
-  yardage generation, possession/clock count. 2-pt tries are EV-neutral.
+- **Points gap (~−11%) — deep diagnostic (2026-09-09), no single lever.**
+  What *matches* empirically: down-and-distance distribution on 1st/2nd/3rd
+  down; 3rd-down conversion by distance bucket; 1st/2nd-down run-gain shape
+  (neg/stuff/solid/chunk/explosive); 1st/2nd-down dropback outcome shape
+  (engine slightly hot post-calib); RZ-trip rate (36.5% v 36.4%); RZ TD rate.
+  What's *off*: **first downs/drive 1.58 v 1.75** while **plays/drive 6.27 v
+  5.69** — the engine grinds (more plays) but moves the chains less, and
+  **drives that never cross midfield are 37% v 18%**. The gap is emergent from
+  compounding ~2–7% misses: plays/team-game +7% (clock ~2 s/play fast),
+  penalties −20% (documented tradeoff), and **no "end of half / game" drive
+  outcome** — empirically 7.3% of drives (0.8/team-game) just expire; the
+  engine forces every drive to a real result and its half/game clock
+  transitions are ad hoc. Next iteration = a coordinated pass on the clock
+  (M24 per-play elapsed) + an end-of-period drive terminator, not a
+  point-fix. 2-pt tries are EV-neutral.
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB
