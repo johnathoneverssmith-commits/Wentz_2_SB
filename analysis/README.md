@@ -14,7 +14,7 @@ Full contract: [`docs/engine_spec.md`](../docs/engine_spec.md)
 | §28 schema audit / data-quality / variable classification / reference stats | **TypeScript** (`tsx`, `hyparquet`) | done — `00_schema_audit.ts` |
 | Phase B league baseline (15 resolvers, rating modifiers = 0) | **Python 3.12** (polars, scikit-learn) | **done** — see table below |
 | Phase C usage (target/carry role priors) | Python | **done** — M07 `08_target_roles`, M12 `13_carry_roles` |
-| Phase D player-effect calibration | Python | not started |
+| Phase D player-effect calibration | Python | **V1 done** — `22_rating_calibration` (§13.6 joint loss deferred to E) |
 | Phase E full Monte-Carlo validation | Python | not started |
 
 Phase C outputs: `artifacts/distributions/{target,carry}_role_shares.parquet`

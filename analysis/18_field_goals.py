@@ -22,7 +22,7 @@ from lib_py.pipeline import ResolverSpec, run_resolver
 LABELS = ["NOT_MADE", "MADE"]
 
 SOURCE_COLS = ["kick_distance", "roof", "wind", "temp", "yardline_100"]
-POP_COLS = ["field_goal_attempt", "field_goal_result", "season", "down", "score_differential", "game_seconds_remaining"]
+POP_COLS = ["field_goal_attempt", "field_goal_result", "season", "down", "score_differential", "game_seconds_remaining", "kicker_player_id", "game_id", "play_id"]
 
 SPLINE = ["kick_distance", "yardline_100", "env_wind"]
 LINEAR = ["env_temp"]

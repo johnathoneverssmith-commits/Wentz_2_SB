@@ -26,7 +26,7 @@ SOURCE_COLS = [
     "air_yards", "pass_location", "qb_hit", "down", "ydstogo", "yardline_100",
     "goal_to_go", "shotgun", "qtr", "game_seconds_remaining", "half_seconds_remaining",
 ]
-POP_COLS = ["pass_attempt", "sack", "qb_spike", "complete_pass", "interception", "season"]
+POP_COLS = ["pass_attempt", "sack", "qb_spike", "complete_pass", "interception", "season", "passer_player_id", "receiver_player_id", "defteam", "game_id", "play_id"]
 
 SPLINE = ["air_yards", "ydstogo", "yardline_100", "game_seconds_remaining"]
 LINEAR = ["half_seconds_remaining"]

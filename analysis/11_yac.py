@@ -21,7 +21,7 @@ SOURCE_COLS = [
     "air_yards", "pass_location", "yardline_100", "goal_to_go", "down", "ydstogo",
     "game_seconds_remaining", "half_seconds_remaining",
 ]
-POP_COLS = ["complete_pass", "yards_after_catch", "season", "qtr", "score_differential"]
+POP_COLS = ["complete_pass", "yards_after_catch", "season", "qtr", "score_differential", "receiver_player_id", "defteam", "game_id", "play_id"]
 
 BINS = [
     ("YAC_NEGATIVE", None, -1), ("YAC_0_2", 0, 2), ("YAC_3_5", 3, 5),

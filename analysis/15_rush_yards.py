@@ -22,7 +22,7 @@ SOURCE_COLS = [
     "run_location", "down", "ydstogo", "yardline_100", "goal_to_go", "shotgun",
     "qtr", "score_differential", "game_seconds_remaining", "half_seconds_remaining",
 ]
-POP_COLS = ["rush_attempt", "qb_scramble", "qb_kneel", "yards_gained", "season"]
+POP_COLS = ["rush_attempt", "qb_scramble", "qb_kneel", "yards_gained", "season", "rusher_player_id", "posteam", "defteam", "game_id", "play_id"]
 
 BINS = [
     ("MAJOR_LOSS", None, -2), ("STUFF", -1, 1), ("SHORT_GAIN", 2, 3),

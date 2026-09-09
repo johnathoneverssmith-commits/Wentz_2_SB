@@ -99,11 +99,28 @@ validated on the 2025 locked holdout, refit for production, and reported per
   then draws which role gets the ball from these shares (+ a per-team spread
   draw from sd/p10/p90). `artifacts/models/m07.report.md`, `m12.report.md`.
 
-**Next:** Phase D — rating-effect calibration (§13). For each outcome
-resolver: fit shrunken historical residuals per player/team unit after the
-context model, use that spread as the variance budget for the rating-layer
-coefficients, then synthetic-percentile-player sensitivity tests (§13.5) with
-sign + monotonicity constraints (§23). Then Phase E full Monte-Carlo (§22).
+**Phase D V1 complete (2026-09-08).** `analysis/22_rating_calibration.py`
+(+ `lib_py/residuals.py`).
+
+- **Step 1 (§13.2/§13.3) — historical residual variance.** Per-unit mean of
+  (actual − Phase-B-expected), empirical-Bayes shrunk by opportunity count.
+  p10↔p90 shrunk spreads (`artifacts/validation/residual_variance_targets.json`):
+  QB adj completion **±5.2 pp** (65 QBs), defense adj completion 3.3 pp, QB adj
+  INT 1.5 pp, receiver adj YAC **1.34 yd/rec** (154), rusher adj **0.78 yd/carry**
+  (105), defense rush 0.46 yd, kicker adj make 7.7 pp (42), offense sack 2.1 pp,
+  defense sack 1.3 pp. These match known cpoe / YAC-OE / rush-EPA ranges.
+- **Step 2 (§13.4) — coefficient set.** 11 attribute families
+  (`artifacts/ratings/rating_effect_coefficients.json`), `beta_per_z` per
+  family split by weight so a synthetic 90th-percentile player moves the
+  outcome by ~half the historical p10↔p90 span for that matchup side.
+  Sign-constrained per §23.
+- **Step 3 (§13.5) — synthetic percentile sensitivity.** All 11 families
+  monotonic; no ≥3-attr family dominated by one attribute; elite-vs-average
+  spreads plausible (e.g. runner ±0.78 yd, qb_accuracy ±0.23 logit).
+
+**Deferred to Phase E:** §13.6 joint calibration loss across all resolvers at
+once; simulation-level distribution targets (§22) with modifiers on; the v0
+per-attribute weights within each family will move under the joint loss.
 
 **Portability (still open):** M01/M02/M03/M05/M09/M10/M14 chose HGB; the TS
 runtime can't load joblib. Before/within Phase E, export chosen HGB models to
