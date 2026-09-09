@@ -118,13 +118,32 @@ validated on the 2025 locked holdout, refit for production, and reported per
   monotonic; no ≥3-attr family dominated by one attribute; elite-vs-average
   spreads plausible (e.g. runner ±0.78 yd, qb_accuracy ±0.23 logit).
 
-**Deferred to Phase E:** §13.6 joint calibration loss across all resolvers at
-once; simulation-level distribution targets (§22) with modifiers on; the v0
-per-attribute weights within each family will move under the joint loss.
+**Phase E V1 complete (2026-09-09).** `analysis/engine/` (game loop in §4
+chronology, consuming the joblib resolvers + empirical PMF parquets) +
+`23_full_sim_validation.py`. Rating modifiers = 0 (§22 baseline check).
 
-**Portability (still open):** M01/M02/M03/M05/M09/M10/M14 chose HGB; the TS
-runtime can't load joblib. Before/within Phase E, export chosen HGB models to
-portable JSON trees or fall back to logistic where the gap is small.
+- **14/16 league metrics within 10%** of the empirical 2023–25 baseline:
+  dropback rate, completion % (.632 v .647), YPA (7.14 v 7.06), air yd/att,
+  INT rate, sack rate, YPC (4.26 v 4.28), explosive rush/pass, FG %,
+  plays/team-game (62.1 v 62.0), drives/team-game (10.4 v 10.7), points SD,
+  rush att/game.
+- **Misses:** points/team-game −19.5% (18.2 v 22.6) and pass att/game −10.6%.
+  Every *efficiency rate* matches, so the miss is drive-finishing (red-zone TD
+  rate), not volume. Next iteration: audit the near-goal-line buckets in the
+  M14/M10 exact-yd PMFs + the goal-line run/pass mix.
+- Engine is **Python** (loads joblib directly). Per-play `predict_proba` is
+  cached on a bucketed context key → ~2.5 s/game.
+- V1 gaps: no penalties (V1.5); `qb_hit`/`pass_location` from marginals
+  (Models 06/08 not wired); kickoff/XP/sack-yd hard-coded (Models 22/23 not
+  fitted); running-clock only; no per-player attribution (so §24 stat-integrity
+  tests are deferred to the shippable engine).
+
+**Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
+engine loop); rating-layer validation with modifiers on (§23); the shippable
+TS runtime + a portable export of the HGB resolvers
+(M01/M02/M03/M05/M09/M10/M14) since the TS side can't load joblib.
+
+**The engine spec's full arc (A→E) now has a working V1 end to end.**
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**
