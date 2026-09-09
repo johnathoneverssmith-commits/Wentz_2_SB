@@ -15,7 +15,7 @@ Full contract: [`docs/engine_spec.md`](../docs/engine_spec.md)
 | Phase B league baseline (15 resolvers, rating modifiers = 0) | **Python 3.12** (polars, scikit-learn) | **done** — see table below |
 | Phase C usage (target/carry role priors) | Python | **done** — M07 `08_target_roles`, M12 `13_carry_roles` |
 | Phase D player-effect calibration | Python | **V1 done** — `22_rating_calibration` (§13.6 joint loss deferred to E) |
-| Phase E full Monte-Carlo validation | Python | **V1 done** — `engine/` + `23_full_sim_validation` (§22, 14/16 league metrics within 10%) |
+| Phase E full Monte-Carlo validation | Python | **V1 done** — `engine/` + `23_full_sim_validation` (§22, 16/20 within 10%; points −9%, RZ TD rate matches, gap is diffuse per-drive efficiency) |
 | Phase E rating-layer validation | Python | **V1 done** — `24_rating_layer_validation` (§23): §12-centered, all 11 family magnitudes ≈1.0× the historical anchor, paired ON/OFF widens score-margin variance without moving league aggregates |
 
 Phase C outputs: `artifacts/distributions/{target,carry}_role_shares.parquet`

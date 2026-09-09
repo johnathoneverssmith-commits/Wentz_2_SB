@@ -32,13 +32,24 @@ def empirical_targets() -> dict:
         "game_id", "posteam", "home_team", "away_team", "home_score", "away_score",
         "pass_attempt", "complete_pass", "interception", "sack", "qb_dropback", "qb_scramble",
         "rush_attempt", "qb_kneel", "yards_gained", "air_yards", "play_type", "fixed_drive",
-        "field_goal_attempt", "field_goal_result", "punt_attempt",
+        "field_goal_attempt", "field_goal_result", "punt_attempt", "fixed_drive_result",
+        "yardline_100",
     ])
     scr = df.filter((_i8("rush_attempt") == 1) | (_i8("pass_attempt") == 1) | (_i8("sack") == 1))
     pas = df.filter((_i8("pass_attempt") == 1) & (_i8("sack") != 1))
     dbk = df.filter(_i8("qb_dropback") == 1)
     run = df.filter((_i8("rush_attempt") == 1) & (_i8("qb_scramble") != 1) & (_i8("qb_kneel") != 1))
     fg = df.filter(_i8("field_goal_attempt") == 1)
+
+    # red-zone finishing: drives that reach the 20 → offensive TD share.
+    rzdrv = (
+        df.filter(pl.col("fixed_drive").is_not_null() & pl.col("posteam").is_not_null())
+        .group_by(["game_id", "posteam", "fixed_drive"])
+        .agg(pl.col("yardline_100").min().alias("min_yl"),
+             pl.col("fixed_drive_result").first().alias("res"))
+        .filter(pl.col("min_yl") <= 20)
+    )
+    rz_td_rate = float(rzdrv.select((pl.col("res") == "Touchdown").mean()).item())
 
     rates = {
         "dropback_rate": dbk.height / scr.height,
@@ -51,6 +62,7 @@ def empirical_targets() -> dict:
         "explosive_rush_rate": float(run.select((pl.col("yards_gained") >= 15).mean()).item()),
         "explosive_pass_rate": float(pas.select((pl.col("yards_gained") >= 20).mean()).item()),
         "fg_make_pct": float(fg.select((pl.col("field_goal_result") == "made").mean()).item()),
+        "rz_td_rate": rz_td_rate,
     }
 
     # per-team-game
@@ -101,6 +113,7 @@ def sim_distributions(n_games: int, seed0: int = 10_000) -> dict:
     ryd = ratt = expl_rush = 0.0
     expl_pass = pass_plays = 0.0
     fgm = fga = 0.0
+    rztrip = rztd = 0.0
     for i in range(n_games):
         g = simulate_game(seed0 + i)
         for tm in g.teams:
@@ -113,6 +126,7 @@ def sim_distributions(n_games: int, seed0: int = 10_000) -> dict:
             ryd += s["rush_yards"]; ratt += s["rush_att"]; expl_rush += s["explosive_rush"]
             expl_pass += s["explosive_pass"]; pass_plays += s["pass_att"]
             fgm += s["fg_made"]; fga += s["fg_att"]
+            rztrip += s["rz_trip"]; rztd += s["rz_td"]
     dt = time.time() - t0
     pts = np.array(pts)
     return {
@@ -128,6 +142,7 @@ def sim_distributions(n_games: int, seed0: int = 10_000) -> dict:
             "explosive_rush_rate": expl_rush / ratt if ratt else 0,
             "explosive_pass_rate": expl_pass / pass_plays if pass_plays else 0,
             "fg_make_pct": fgm / fga if fga else 0,
+            "rz_td_rate": rztd / rztrip if rztrip else 0,
         },
         "per_game": {
             "plays_per_team_game": float(np.mean(plays)),
@@ -191,11 +206,12 @@ def main() -> None:
            "it to hit the empirical count pushes points from −10% to −16%, because the physical-"
            "outcome resolvers are fit penalty-FREE (§6.2) and this engine's drive model over-"
            "punishes offensive fouls. Reconciling the two needs gained-conditioned hazards (V1.6).",
-           "- **points/team-game ~10% low.** The earlier −20% was a clock bug (fixed: drive-ending "
-           "plays elapse ~65% of the M24 same-drive gap). The wired penalty module is ~net-neutral "
-           "on points at scale 1.0. The residual is red-zone TD rate ~54% vs ~57%, no kickoff/punt "
-           "return TDs, no 2-point tries, and a slightly low explosive-play rate — that is the next "
-           "Phase E iteration.",
+           "- **points/team-game ~9% low, and it is diffuse — per-drive efficiency, not one "
+           "cause.** RZ TD rate now matches (0.556 v 0.560); kick/punt return TDs and the 0.958 "
+           "PAT rate are wired. Points come out ~1.9/drive vs ~2.1 empirical while the engine runs "
+           "*more* plays/team-game (67 v 62) — drives sustain but convert less. Candidates for the "
+           "next iteration: M01 4th-down aggression, FG-range decisions, and mid-field (20–40) "
+           "yardage; no 2-point tries (EV-neutral, low priority).",
            "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
            "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
            "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",

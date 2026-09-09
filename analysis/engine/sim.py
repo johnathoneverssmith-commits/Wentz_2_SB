@@ -30,10 +30,12 @@ PASS_LOC = np.array(["left", "middle", "right"])
 PASS_LOC_P = np.array([0.31, 0.38, 0.31])
 QB_HIT_RATE = 0.135
 FUMBLE_LOST_RATE = 0.48
-XP_RATE = 0.940
+XP_RATE = 0.958             # empirical PAT-kick make rate, 2023–25
 KICKOFF_TOUCHBACK = 0.66
 PICK_SIX_RATE = 0.018       # share of INTs returned for a TD
 SCOOP_SIX_RATE = 0.012      # share of lost fumbles returned for a TD
+KICK_RETURN_TD_RATE = 0.007  # per returned kickoff (~0.023/game ÷ ~3.4 returns)
+PUNT_RETURN_TD_RATE = 0.020  # per returned punt (~0.044/game ÷ ~2.2 returns)
 SACK_YARDS = np.array([-12, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0])
 SACK_YARDS_P = np.array([2, 4, 6, 9, 12, 16, 16, 12, 9, 5, 2, 1], float)
 SACK_YARDS_P = SACK_YARDS_P / SACK_YARDS_P.sum()
@@ -68,6 +70,7 @@ class Game:
     ydstogo: float = 10.0
     received_opening: int = 1  # team that received the opening kickoff
     rosters: list | None = None  # [Roster, Roster] to enable the rating layer, else off
+    rz_flag: bool = False  # current drive has reached the red zone (<=20)
 
     # ---- helpers -------------------------------------------------------
     def other(self) -> int:
@@ -177,16 +180,25 @@ class Game:
         self.yardline_100 = float(np.clip(100 - yl - return_yards, 1, 99))
         self.down, self.ydstogo = 1, min(10.0, self.yardline_100)
         self.teams[self.pos].s["drives"] += 1
+        self.rz_flag = False
 
     def _kickoff(self, receiving: int):
         self.pos = receiving
         if self.rng.random() < KICKOFF_TOUCHBACK:
             self.yardline_100 = 70.0
         else:
+            if self.rng.random() < KICK_RETURN_TD_RATE:
+                self._score(6, team=receiving)
+                self.teams[receiving].s["st_td"] += 1
+                if self.rng.random() < XP_RATE:
+                    self._score(1, team=receiving)
+                self._kickoff(receiving=1 - receiving)  # kick back to the other team
+                return
             spot = 25 + self.rng.normal(3, 6)
             self.yardline_100 = float(np.clip(100 - spot, 55, 99))
         self.down, self.ydstogo = 1, 10.0
         self.teams[receiving].s["drives"] += 1
+        self.rz_flag = False
 
     def _new_series(self, first_down: bool):
         if first_down:
@@ -313,6 +325,14 @@ class Game:
             else:
                 out = sample_class("M21", {"yardline_100": self.yardline_100, "roof": "outdoors",
                                            "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}, self.rng)
+                if out == "RETURNED" and self.rng.random() < PUNT_RETURN_TD_RATE:
+                    r = self.other()
+                    self._score(6, team=r)
+                    self.teams[r].s["st_td"] += 1
+                    if self.rng.random() < XP_RATE:
+                        self._score(1, team=r)
+                    self._kickoff(receiving=self.pos)  # returning team kicks back
+                    return
                 ret = sample_punt_return(self.rng) if out == "RETURNED" else 0
                 self._flip_field(100 - landing + ret)
             self._punt_penalty()
@@ -342,6 +362,7 @@ class Game:
         self.yardline_100 = float(np.clip(new_yl_for_new_offense, 1, 99))
         self.down, self.ydstogo = 1, min(10.0, self.yardline_100)
         self.teams[self.pos].s["drives"] += 1
+        self.rz_flag = False
 
     # ---- scrimmage play ----------------------------------------
     def _scrimmage(self, go_for_it: bool):
@@ -489,7 +510,17 @@ class Game:
         self.advance_clock(outcome_bucket, drive_ends=drive_ends)
 
         self.yardline_100 = new_yl
+        # red-zone trip bookkeeping (§22 finishing metric): a drive is an RZ trip
+        # once the ball sits inside the 20 (or is snapped there on a short field);
+        # a TD from a flagged drive is an RZ TD.
+        pre_play_yl = new_yl + gained
+        reached_rz = (0 < pre_play_yl <= 20) or (not is_td and 0 < new_yl <= 20)
+        if not self.rz_flag and reached_rz:
+            self.rz_flag = True
+            self.st("rz_trip")
         if is_td:
+            if self.rz_flag:
+                self.st("rz_td")
             self.st("first_down")  # NFL counts the scoring play as a first down
             if self.down == 3:
                 self.st("third_conv")
@@ -520,6 +551,7 @@ class Game:
         self.yardline_100 = 60.0
         self.down, self.ydstogo = 1, 10.0
         self.teams[self.pos].s["drives"] += 1
+        self.rz_flag = False
 
     # ---- run a full game -----------------------------------------
     def run(self):

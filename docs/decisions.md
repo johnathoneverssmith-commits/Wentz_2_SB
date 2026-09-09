@@ -136,15 +136,13 @@ chronology, consuming the joblib resolvers + empirical PMF parquets) +
   passing `qb_hit=0` (M15's `qb_hit=0` main effect drove P(fumble) to ~0.5
   for sacks), TD counts as a first down, pick-6 / scoop-6 added.
   **points now −10.7%** (20.2 v 22.6).
-- **Residual misses:** points −10.7% and points_sd −13.9%. The points gap is
-  now dominated by the deferred **penalty module** (§25 V1.5 —
-  DPI/holding/roughing ≈ 2 free first downs + ~55 penalty yд/team-game ≈ ~2 of
-  the 2.4 missing points; concrete build plan in
-  [`penalty_module_plan.md`](penalty_module_plan.md)), plus RZ TD rate ~54 % v
-  ~57 % and no return TDs. points_sd
-  is low because the average-rating engine runs two identical teams (scores
-  regress to the mean); variance widens with rating modifiers on — the §23
-  check.
+- **Residual misses:** points −10.7% and points_sd −13.9%. Initially blamed on
+  the penalty module + RZ finishing; both turned out not to be the driver
+  (penalties are ~net-neutral on points; RZ TD rate matches at 0.556 v 0.560
+  once measured consistently). See the "diffuse points gap" note below the §23
+  entry. points_sd is low because the average-rating engine runs two identical
+  teams (scores regress to the mean); variance widens with rating modifiers on
+  — the §23 check.
 - Engine is **Python** (loads joblib directly). Per-play `predict_proba` is
   cached on a bucketed context key → ~2.5 s/game.
 - V1 gaps: no penalties (V1.5); `qb_hit`/`pass_location` from marginals
@@ -221,15 +219,25 @@ validation gains penalties/, penalty-yд/ and DPI-per-team-game targets.
   penalties = less scoring rather than reproducing the league mean.
   Reconciling the two needs gained-conditioned penalty hazards (V1.6). At scale
   1.0 the module is ~net-neutral on points and modeled directionally.
-- The residual points gap (~−10%) is dominated by red-zone TD finishing (~54 v
-  ~57%), no kickoff/punt return TDs, and no 2-point tries — the next Phase E
-  iteration, not penalties.
+**Diffuse points gap (2026-09-09).** After the penalty module and a round of
+scoring fixes (`XP_RATE` 0.940→0.958, kick/punt return TDs, `rz_td_rate` added
+as a §22 metric), the engine sits at **16/20 within 10%**, points/team-game
+still **−9.4%** (20.4 v 22.6). It is *not* one cause:
+- RZ TD rate **matches** (0.556 v 0.560) — the earlier "~54 v 57" was a noisy
+  n=24 read against an inconsistent empirical method; RZ-bucket splitting in
+  the exact-yard PMFs is **not** needed.
+- Penalties are ~net-neutral on points at scale 1.0.
+- The engine runs **more** plays/team-game (67 v 62) but scores ~1.9/drive vs
+  ~2.1 — drives sustain but convert less. `explosive_pass_rate` drifted to
+  +12% (penalty nullification removes short completions, skewing survivors).
+- Next-iteration candidates: M01 4th-down aggression, FG-range decisions,
+  mid-field (20–40 yd-line) yardage generation. 2-pt tries are EV-neutral
+  (2×0.47 ≈ 1×0.958) — low priority.
 
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
-engine loop); a larger §23 league sample; red-zone / return-TD / 2-pt scoring
-polish (the real points-gap driver); the shippable TS runtime + a portable
-export of the HGB resolvers (M01/M02/M03/M05/M09/M10/M14) since the TS side
-can't load joblib.
+engine loop); a larger §23 league sample; the diffuse points gap above; the
+shippable TS runtime + a portable export of the HGB resolvers
+(M01/M02/M03/M05/M09/M10/M14) since the TS side can't load joblib.
 
 **The engine spec's full arc (A→E) now has a working V1 end to end, with the
 rating layer wired and §23-validated.**
