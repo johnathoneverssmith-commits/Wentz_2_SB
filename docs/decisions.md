@@ -5,6 +5,50 @@ and — once decided — what and why. Convert relative dates to absolute.
 
 ---
 
+## OQ-8 — Simulation engine architecture
+**Status:** decided (2026-09-08); Phase A (audit) done, Phase B not started.
+
+The engine follows `docs/engine_spec.md` (the empirical modeling build
+contract): a stochastic play-by-play engine in three separated layers —
+empirical nflverse baseline → current-player rating modifiers → calibration of
+how far ratings may move the baseline. 25 numbered resolvers; strict
+no-leakage rules; `overall` never touches a play outcome.
+
+**Decisions:**
+- **Split toolchain.** The §28 data audit is pure inspection → done in
+  TypeScript in this repo (`analysis/`, `hyparquet`). Model fitting (Phase B+)
+  needs scikit-learn → Python venv, added when Phase B starts. See
+  `analysis/README.md`.
+- **Layout.** `analysis/` (pipeline) + `artifacts/` (committed — the runtime
+  loads these) inside this repo. `data/*.parquet` git-ignored. The existing TS
+  project becomes the runtime engine that consumes `artifacts/`.
+- **Seasons.** 2023–2025 only for the production baseline (spec §6.5).
+  2020–2022 parquets exist locally but are unused.
+
+**Audit findings that feed later models** (full report:
+`artifacts/schema/data_quality_report.md`):
+1. All 3 seasons: identical 372-col schema, all §1.1 required fields present.
+2. `goal_to_go` physical type changed INT32 (2023) → DOUBLE (2024–25); values
+   unaffected, but a typed Python load must coerce.
+3. `run_gap` is ~26% missing within `play_type == "run"` → Model 13 fits
+   LEFT/MIDDLE/RIGHT from `run_location` (≈0% missing) as the V1 target.
+4. Kickoffs: 2023 ≠ 2024 ≠ 2025 (touchback 73%→64%→21%). Model 22 trains on
+   2024–25 only *and* likely needs a 2024-vs-2025 regime indicator; onside
+   kicks (`desc` "kicks onside", ~53/yr in 2025) are a separate event.
+5. `roof == "open"` appears in 2023 (1,999 rows), gone by 2024 — models must
+   accept the category. `temp`/`wind` structurally null indoors (§17.1).
+6. ~72–86 scrambles/yr have `qb_scramble == 1 & qb_dropback == 0` — Model 04's
+   `qb_dropback == 1` population misses them; use the derived `qb_player_id`.
+7. `players_local_final.csv`: `free_agent` is `true` for all 1,987 players
+   (fantasy-draft pool) — **not** a roster-status signal. Build the active-role
+   reference pool from `nfl_team` + `overall` (spec §3 fallback), which
+   `artifacts/ratings/attribute_reference_stats.json` now does (1,024-player
+   pool, per-attribute mean/SD).
+
+**Next:** review the data-quality report (spec §28 gate), then Phase B —
+stand up the Python env and fit the league-baseline resolvers with rating
+modifiers = 0.
+
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**
 

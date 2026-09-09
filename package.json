@@ -19,13 +19,16 @@
     "import:madden": "tsx src/data/madden.ts",
     "generate:pool": "tsx src/data/generate-pool.ts",
     "pool:export-csv": "tsx src/data/pool-csv.ts export",
-    "pool:import-csv": "tsx src/data/pool-csv.ts import"
+    "pool:import-csv": "tsx src/data/pool-csv.ts import",
+    "analysis:audit": "node --max-old-space-size=4096 --import tsx analysis/00_schema_audit.ts"
   },
   "dependencies": {
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "hyparquet": "^1.30.0",
+    "hyparquet-compressors": "^1.1.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^5.0.0"

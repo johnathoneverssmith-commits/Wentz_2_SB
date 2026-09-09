@@ -5,9 +5,17 @@ vision and the 7-phase roadmap; this file is about working in the codebase.
 
 ## Current phase
 
-**Phase 0 → Phase 1 boundary.** The data foundation (schema + validation +
-sample pool) exists. No simulation logic, no UI, no multiplayer yet. Do not
-add those without the roadmap phase for them being the active task.
+**Phase 1 — simulation engine, Phase A (data audit) done.** The data
+foundation (schema + validation + hand-reviewed pool) exists. The engine
+build follows `docs/engine_spec.md`; `analysis/` holds the empirical pipeline
+and `artifacts/` its outputs (committed — the runtime loads them). The §28
+schema audit is complete; **model fitting has not started** and per spec §28
+must not until `artifacts/schema/data_quality_report.md` is reviewed. No UI,
+no multiplayer yet.
+
+Engine toolchain split: the audit is TypeScript (`analysis/00_schema_audit.ts`,
+`hyparquet`); Phase B model fitting will be Python (scikit-learn) in a venv —
+see `analysis/README.md`. `data/*.parquet` is git-ignored.
 
 ## Stack
 
@@ -32,6 +40,7 @@ npm run generate:pool -- --season 2025    # build a full pool from nflverse data
 npm run pool:export-csv                   # active pool -> data/players.local.csv (editable)
 npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
+npm run analysis:audit                    # spec §28 schema audit -> artifacts/
 npm start             # loads + prints the active pool
 ```
 
@@ -47,6 +56,9 @@ src/data/   csv.ts, players.ts (load/validate), generate-pool.ts (nflverse -> po
             pool-csv.ts (pool <-> editable CSV), madden.ts (alt CSV importer)
 src/        engine code grows here in Phase 1
 test/       vitest specs, mirror src/ layout
+analysis/   empirical modeling pipeline (see analysis/README.md); lib/ + 00_schema_audit.ts
+artifacts/  committed pipeline outputs the runtime engine loads (schema/, ratings/, later models/)
+docs/       engine_spec.md is the full engine build contract
 ```
 
 ## Player pool

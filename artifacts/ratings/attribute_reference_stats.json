@@ -1,0 +1,389 @@
+{
+  "generated": "2026-09-08",
+  "method": "§3 temporary active-role reference pool: top-N players per team per position group (ranked by overall, which is allowed only for defining this population), then per-attribute mean and sample SD (ddof=1) over pool players whose attribute is non-null. clip attribute_z to [-3, +3] at use time.",
+  "reference_pool_spec": [
+    {
+      "group": "QB",
+      "positions": [
+        "QB"
+      ],
+      "topN": 1
+    },
+    {
+      "group": "RB",
+      "positions": [
+        "RB"
+      ],
+      "topN": 2
+    },
+    {
+      "group": "WR",
+      "positions": [
+        "WR"
+      ],
+      "topN": 4
+    },
+    {
+      "group": "TE",
+      "positions": [
+        "TE"
+      ],
+      "topN": 2
+    },
+    {
+      "group": "OT",
+      "positions": [
+        "OT"
+      ],
+      "topN": 2
+    },
+    {
+      "group": "OG",
+      "positions": [
+        "OG"
+      ],
+      "topN": 2
+    },
+    {
+      "group": "C",
+      "positions": [
+        "C"
+      ],
+      "topN": 1
+    },
+    {
+      "group": "EDGE",
+      "positions": [
+        "EDGE"
+      ],
+      "topN": 3
+    },
+    {
+      "group": "DT",
+      "positions": [
+        "DT"
+      ],
+      "topN": 3
+    },
+    {
+      "group": "LB",
+      "positions": [
+        "ILB",
+        "OLB"
+      ],
+      "topN": 3
+    },
+    {
+      "group": "CB",
+      "positions": [
+        "CB"
+      ],
+      "topN": 4
+    },
+    {
+      "group": "S",
+      "positions": [
+        "S"
+      ],
+      "topN": 3
+    },
+    {
+      "group": "K",
+      "positions": [
+        "K"
+      ],
+      "topN": 1
+    },
+    {
+      "group": "P",
+      "positions": [
+        "P"
+      ],
+      "topN": 1
+    }
+  ],
+  "teams": 32,
+  "reference_pool_size": 1024,
+  "attribute_reference_stats": {
+    "speed": {
+      "mean": 79.393,
+      "sd": 11.853,
+      "n": 1024
+    },
+    "acceleration": {
+      "mean": 81.531,
+      "sd": 10.414,
+      "n": 1024
+    },
+    "strength": {
+      "mean": 76.257,
+      "sd": 9.717,
+      "n": 1024
+    },
+    "agility": {
+      "mean": 79.316,
+      "sd": 9.328,
+      "n": 1024
+    },
+    "awareness": {
+      "mean": 77.7,
+      "sd": 7.181,
+      "n": 1024
+    },
+    "injury": {
+      "mean": 76.303,
+      "sd": 7.515,
+      "n": 1024
+    },
+    "stamina": {
+      "mean": 79.094,
+      "sd": 6.657,
+      "n": 1024
+    },
+    "toughness": {
+      "mean": 76.228,
+      "sd": 8.109,
+      "n": 1024
+    },
+    "jumping": {
+      "mean": 76.21,
+      "sd": 7.551,
+      "n": 672
+    },
+    "throw_power": {
+      "mean": 86.844,
+      "sd": 4.601,
+      "n": 32
+    },
+    "throw_accuracy_short": {
+      "mean": 86.875,
+      "sd": 4.864,
+      "n": 32
+    },
+    "throw_accuracy_mid": {
+      "mean": 84.156,
+      "sd": 5.274,
+      "n": 32
+    },
+    "throw_accuracy_deep": {
+      "mean": 81.781,
+      "sd": 5.235,
+      "n": 32
+    },
+    "play_action": {
+      "mean": 82.656,
+      "sd": 7.93,
+      "n": 32
+    },
+    "break_sack": {
+      "mean": 80.5,
+      "sd": 8.508,
+      "n": 32
+    },
+    "scrambling": {
+      "mean": 78.063,
+      "sd": 10.809,
+      "n": 32
+    },
+    "clutch": {
+      "mean": 82.438,
+      "sd": 6.369,
+      "n": 64
+    },
+    "carrying": {
+      "mean": 82.516,
+      "sd": 4.194,
+      "n": 64
+    },
+    "break_tackle": {
+      "mean": 73.738,
+      "sd": 8.367,
+      "n": 256
+    },
+    "ball_carrier_vision": {
+      "mean": 83.313,
+      "sd": 4.349,
+      "n": 64
+    },
+    "juke_move": {
+      "mean": 80.969,
+      "sd": 5.984,
+      "n": 64
+    },
+    "stiff_arm": {
+      "mean": 76.516,
+      "sd": 5.825,
+      "n": 64
+    },
+    "spin_move": {
+      "mean": 77.906,
+      "sd": 6.238,
+      "n": 64
+    },
+    "catching": {
+      "mean": 83.746,
+      "sd": 5.725,
+      "n": 256
+    },
+    "pass_block": {
+      "mean": 77.278,
+      "sd": 7.233,
+      "n": 288
+    },
+    "yac": {
+      "mean": 79.309,
+      "sd": 7.034,
+      "n": 256
+    },
+    "route_running_short": {
+      "mean": 83.755,
+      "sd": 5.017,
+      "n": 192
+    },
+    "route_running_mid": {
+      "mean": 82.708,
+      "sd": 5.196,
+      "n": 192
+    },
+    "route_running_deep": {
+      "mean": 79.214,
+      "sd": 7.283,
+      "n": 192
+    },
+    "release": {
+      "mean": 81.383,
+      "sd": 6.151,
+      "n": 128
+    },
+    "catch_in_traffic": {
+      "mean": 79.531,
+      "sd": 7.315,
+      "n": 192
+    },
+    "spectacular_catch": {
+      "mean": 78.354,
+      "sd": 7.215,
+      "n": 192
+    },
+    "run_block": {
+      "mean": 79.049,
+      "sd": 6.433,
+      "n": 224
+    },
+    "pass_block_power": {
+      "mean": 79.794,
+      "sd": 5.862,
+      "n": 160
+    },
+    "pass_block_finesse": {
+      "mean": 78.987,
+      "sd": 6.326,
+      "n": 160
+    },
+    "anchor": {
+      "mean": 80.475,
+      "sd": 5.661,
+      "n": 160
+    },
+    "line_calls": {
+      "mean": 75.175,
+      "sd": 6.761,
+      "n": 160
+    },
+    "snap_accuracy": {
+      "mean": 89.188,
+      "sd": 2.429,
+      "n": 32
+    },
+    "power_moves": {
+      "mean": 81.906,
+      "sd": 4.672,
+      "n": 192
+    },
+    "finesse_moves": {
+      "mean": 80.172,
+      "sd": 5.668,
+      "n": 192
+    },
+    "block_shedding": {
+      "mean": 80.059,
+      "sd": 4.896,
+      "n": 288
+    },
+    "pursuit": {
+      "mean": 79.975,
+      "sd": 6.157,
+      "n": 512
+    },
+    "tackle": {
+      "mean": 78.729,
+      "sd": 5.968,
+      "n": 512
+    },
+    "run_defense": {
+      "mean": 79.526,
+      "sd": 6.604,
+      "n": 192
+    },
+    "hit_power": {
+      "mean": 77.299,
+      "sd": 6.862,
+      "n": 384
+    },
+    "play_recognition": {
+      "mean": 79.029,
+      "sd": 6.235,
+      "n": 512
+    },
+    "zone_coverage": {
+      "mean": 78.703,
+      "sd": 5.267,
+      "n": 320
+    },
+    "man_coverage": {
+      "mean": 76.763,
+      "sd": 5.293,
+      "n": 320
+    },
+    "blitz": {
+      "mean": 72.542,
+      "sd": 6.356,
+      "n": 96
+    },
+    "press": {
+      "mean": 78.578,
+      "sd": 5.412,
+      "n": 128
+    },
+    "kick_power": {
+      "mean": 88.875,
+      "sd": 3.85,
+      "n": 32
+    },
+    "kick_accuracy": {
+      "mean": 85.375,
+      "sd": 4.844,
+      "n": 32
+    },
+    "punt_power": {
+      "mean": 88.469,
+      "sd": 3.742,
+      "n": 32
+    },
+    "punt_accuracy": {
+      "mean": 82.406,
+      "sd": 4.641,
+      "n": 32
+    },
+    "hang_time": {
+      "mean": 84.438,
+      "sd": 3.852,
+      "n": 32
+    },
+    "coffin_corner": {
+      "mean": 83.031,
+      "sd": 4.468,
+      "n": 32
+    }
+  }
+}

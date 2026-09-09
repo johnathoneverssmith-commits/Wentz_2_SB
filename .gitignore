@@ -18,3 +18,7 @@ coverage/
 /data/players.local.json
 /data/*.local.json
 /data/*.csv
+
+# nflverse play-by-play — large; download separately (see analysis/README.md).
+# The engine's runtime never loads these; only analysis/ does, to build artifacts/.
+/data/*.parquet
