@@ -16,6 +16,8 @@ Run: analysis/.venv/Scripts/python analysis/02_fourth_down.py
 
 from __future__ import annotations
 
+import lib_py  # thread-env setup; MUST precede numpy/polars
+
 import json
 from pathlib import Path
 

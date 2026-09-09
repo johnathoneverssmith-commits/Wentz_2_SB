@@ -195,6 +195,8 @@ def run_resolver(spec: ResolverSpec, build_frame: Callable[[tuple[int, ...]], pl
     counts = {s: build_frame((s,)).height for s in S.production}
     prod_y = frames["production"]["target"].to_numpy()
     class_dist = {lab: float((prod_y == lab).mean()) for lab in labels}
+    # marginal-rate log loss: the score of predicting league averages with no context
+    marginal_ll = float(-sum(p * np.log(p) for p in class_dist.values() if p > 0))
 
     ll_key = "log_loss"
 
@@ -310,7 +312,18 @@ def run_resolver(spec: ResolverSpec, build_frame: Callable[[tuple[int, ...]], pl
     rep.set("2025 locked test metrics",
             mtable(locked_eval["metrics"]) + "\n\ncalibration:\n\n" + _per_class_calib(locked_eval["metrics"], labels))
     rep.set("calibration plots", f"![calibration]({cal_png.relative_to(ARTIFACTS).as_posix()})")
-    rep.set("important conditional diagnostics", _slices_md(slices, labels) or "- no material conditional miscalibration.")
+    ceiling = ""
+    if locked_eval["logloss"] >= marginal_ll - 0.01:
+        ceiling = (
+            f"- **Context has near-zero signal here.** Marginal-rate log loss (predict league "
+            f"averages, no context) is {marginal_ll:.4f}; the fitted model scores "
+            f"{locked_eval['logloss']:.4f} on 2025. This resolver's job is to supply the "
+            f"well-calibrated *league baseline* by situation (per-class calibration slopes / ECE "
+            f"above confirm it does); discrimination between outcomes comes from the player / "
+            f"matchup rating layer in Phase D, not from pre-snap PBP context.\n\n"
+        )
+    rep.set("important conditional diagnostics",
+            ceiling + (_slices_md(slices, labels) or "- no material conditional miscalibration."))
     rep.set("historical residual variance estimates", spec.residual_variance_note)
     rep.set("final chosen model",
             f"`{chosen}`" + ("" if use_hgb else f" (C={C})")
