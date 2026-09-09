@@ -83,21 +83,33 @@ def _bucket(ctx: dict, feats: list[str]) -> tuple:
     return tuple(key)
 
 
-def predict_proba(mid: str, ctx: dict) -> dict[str, float]:
+def predict_proba(mid: str, ctx: dict, logit_shift: dict[str, float] | None = None) -> dict[str, float]:
     r = resolver(mid)
     ck = (mid, _bucket(ctx, r["features"]))
-    hit = _pp_cache.get(ck)
-    if hit is not None:
-        return hit
-    p = r["est"].predict_proba(_row(r["features"], r["cat_cols"], ctx))[0]
-    idx = {c: i for i, c in enumerate(r["est"].classes_)}
-    out = {lab: float(p[idx[lab]]) for lab in r["labels"]}
-    _pp_cache[ck] = out
-    return out
+    base = _pp_cache.get(ck)
+    if base is None:
+        p = r["est"].predict_proba(_row(r["features"], r["cat_cols"], ctx))[0]
+        idx = {c: i for i, c in enumerate(r["est"].classes_)}
+        base = {lab: float(p[idx[lab]]) for lab in r["labels"]}
+        _pp_cache[ck] = base
+    if not logit_shift:
+        return base
+    return _apply_shift(base, logit_shift)
 
 
-def sample_class(mid: str, ctx: dict, rng: np.random.Generator) -> str:
-    probs = predict_proba(mid, ctx)
+def _apply_shift(probs: dict[str, float], shift: dict[str, float]) -> dict[str, float]:
+    """Add per-class shifts in logit space and re-softmax (spec §12)."""
+    labels = list(probs)
+    lg = {l: np.log(max(probs[l], 1e-9)) + float(shift.get(l, 0.0)) for l in labels}
+    mx = max(lg.values())
+    ex = {l: np.exp(lg[l] - mx) for l in labels}
+    s = sum(ex.values())
+    return {l: ex[l] / s for l in labels}
+
+
+def sample_class(mid: str, ctx: dict, rng: np.random.Generator,
+                 logit_shift: dict[str, float] | None = None) -> str:
+    probs = predict_proba(mid, ctx, logit_shift)
     labels = list(probs)
     return str(rng.choice(labels, p=_norm([probs[l] for l in labels])))
 

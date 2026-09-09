@@ -56,10 +56,57 @@ class Game:
     down: int = 1
     ydstogo: float = 10.0
     received_opening: int = 1  # team that received the opening kickoff
+    rosters: list | None = None  # [Roster, Roster] to enable the rating layer, else off
 
     # ---- helpers -------------------------------------------------------
     def other(self) -> int:
         return 1 - self.pos
+
+    @property
+    def ratings_on(self) -> bool:
+        return self.rosters is not None
+
+    def _off(self):
+        return self.rosters[self.pos]
+
+    def _def(self):
+        return self.rosters[self.other()]
+
+    def _off_shift(self, kind: str, **kw) -> dict[str, float] | None:
+        """Compute a per-class logit shift for a resolver from the current lineups."""
+        if not self.ratings_on:
+            return None
+        from . import ratings as R
+        o, d = self._off().offense(), self._def().defense(nickel=(self.down >= 3 and self.ydstogo >= 6))
+        catchers = [o["WR1"], o["WR2"], o["WR3"], o["TE1"]]
+        dbs = [d["CB1"], d["CB2"], d["S1"], d["S2"]] + ([d["CB3"]] if "CB3" in d else [])
+        ol = [o["LT"], o["LG"], o["C"], o["RG"], o["RT"]]
+        rush = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"]]
+        front7 = rush + [d["ILB1"], d["ILB2"]]
+        if kind == "M09":
+            return {"COMPLETE": R.completion_logit_shift(catchers, dbs, o["QB1"]),
+                    "INTERCEPTION": R.interception_logit_shift(o["QB1"])}
+        if kind == "M04":
+            return {"SACK": R.sack_logit_shift(ol, rush)}
+        if kind == "M20":
+            return {"MADE": R.fg_logit_shift(self._off().kicker())}
+        return None
+
+    def _rush_yd_mod(self) -> float:
+        if not self.ratings_on:
+            return 0.0
+        from . import ratings as R
+        o, d = self._off().offense(), self._def().defense()
+        front7 = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"], d["ILB1"], d["ILB2"]]
+        return R.rush_yards_shift([o["LT"], o["LG"], o["C"], o["RG"], o["RT"]], front7, o["RB1"])
+
+    def _yac_yd_mod(self) -> float:
+        if not self.ratings_on:
+            return 0.0
+        from . import ratings as R
+        o, d = self._off().offense(), self._def().defense()
+        tacklers = [d["CB1"], d["CB2"], d["S1"], d["S2"], d["ILB1"], d["ILB2"]]
+        return R.yac_yards_shift(o["WR1"], tacklers)
 
     def st(self, k: str, v: float = 1.0, team: int | None = None):
         self.teams[self.pos if team is None else team].s[k] += v
@@ -151,7 +198,7 @@ class Game:
             dist = self.yardline_100 + 18
             ctx = {"kick_distance": dist, "yardline_100": self.yardline_100,
                    "roof": "outdoors", "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}
-            made = predict_proba("M20", ctx).get("MADE", 0.85) > self.rng.random()
+            made = predict_proba("M20", ctx, self._off_shift("M20")).get("MADE", 0.85) > self.rng.random()
             self.advance_clock("run_inbounds", drive_ends=True)
             if made:
                 self.st("fg_made")
@@ -194,7 +241,7 @@ class Game:
         outcome_bucket = "run_inbounds"
 
         if call == "DROPBACK":
-            term = sample_class("M04", self.ctx(sg), self.rng)
+            term = sample_class("M04", self.ctx(sg), self.rng, self._off_shift("M04"))
             self.teams[self.pos].s["dropbacks"] += 1
             if term == "SACK":
                 self.st("sack")
@@ -221,7 +268,8 @@ class Game:
                 ploc = str(self.rng.choice(PASS_LOC, p=PASS_LOC_P))
                 qb_hit = int(self.rng.random() < QB_HIT_RATE)
                 res = sample_class("M09", {**self.ctx(sg), "air_yards": ay, "depth_category": depth,
-                                           "pass_location": ploc, "qb_hit": qb_hit}, self.rng)
+                                           "pass_location": ploc, "qb_hit": qb_hit}, self.rng,
+                                  self._off_shift("M09"))
                 self.teams[self.pos].s["air_yards"] += ay
                 if res == "INTERCEPTION":
                     self.st("int_thrown")
@@ -247,7 +295,8 @@ class Game:
                     yac_cat = sample_class("M10", {**self.ctx(sg), "air_yards": ay,
                                                    "depth_category": depth, "pass_location": ploc}, self.rng)
                     yac_bucket = depth + "|" + ("rz" if self.yardline_100 <= 15 else "field")
-                    yac = float(sample_exact_yards("m10", yac_cat, yac_bucket, self.rng))
+                    yac = float(sample_exact_yards("m10", yac_cat, yac_bucket, self.rng)) + self._yac_yd_mod()
+                    yac = max(yac, -4.0)
                     gained = ay + yac
                     self.teams[self.pos].s["yac"] += max(yac, 0)
                     family = "reception"
@@ -261,7 +310,8 @@ class Game:
             cat = sample_class("M14", {**self.ctx(sg), "run_location": loc}, self.rng)
             fp = "gl" if self.yardline_100 <= 10 else "opp" if self.yardline_100 <= 50 else "own"
             sd = "short" if self.ydstogo <= 2 else "norm"
-            gained = float(sample_exact_yards("m14", cat, f"{loc}|{fp}|{sd}", self.rng))
+            gained = float(sample_exact_yards("m14", cat, f"{loc}|{fp}|{sd}", self.rng)) + self._rush_yd_mod()
+            gained = max(gained, -12.0)
             self.teams[self.pos].s["rush_yards"] += gained
             outcome_bucket = "run_oob" if self.rng.random() < 0.10 else "run_inbounds"
             if gained >= 15:
@@ -361,5 +411,11 @@ class Game:
         return self
 
 
-def simulate_game(seed: int) -> Game:
-    return Game(rng=np.random.default_rng(seed)).run()
+def simulate_game(seed: int, home: str | None = None, away: str | None = None) -> Game:
+    """`home`/`away` team codes enable the rating layer (spec §12–§14).
+    Team index 0 is `home`, 1 is `away`."""
+    rosters = None
+    if home and away:
+        from .roster import roster
+        rosters = [roster(home), roster(away)]
+    return Game(rng=np.random.default_rng(seed), rosters=rosters).run()
