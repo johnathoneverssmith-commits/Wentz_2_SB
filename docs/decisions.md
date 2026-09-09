@@ -62,11 +62,30 @@ sklearn numpy arrays. `analysis/lib_py/` mirrors `lib/filters.ts` (§6) and adds
   **under-predicts 4th-and-short GO by ~7pts in 2025** (league aggressiveness
   drift — spec §16 territory, not a bug; do not tune the baseline on 2025).
 
-**Next:** Phase B resolvers in order — 03 play call (dropback vs run),
-04 shotgun, 05 dropback outcome, 06 pass depth, 09 QB hit, 10 pass result,
-11 YAC, 12 scramble yards, 14 run location, 15 rush yards, 16 fumble,
-18 field goal, 19 punt, 21 clock. Each follows the M01 template + §20 report.
-Rating modifiers stay 0 until Phase D.
+**Phase B complete (2026-09-08).** All 15 league-baseline resolvers fitted,
+validated on the 2025 locked holdout, refit for production, and reported per
+§20 — see `analysis/README.md` for the table. Rating modifiers = 0 throughout.
+
+- **Toolchain gotcha:** scipy-openblas oversubscribes threads on Windows-ARM
+  (a 20k-row multinomial lbfgs fit: 92 s → 0.03 s once `OPENBLAS/OMP/MKL/
+  NUMEXPR_NUM_THREADS=1`). `lib_py/__init__.py` sets these before numpy loads;
+  every `NN_*.py` imports `lib_py` first.
+- **`lib_py/pipeline.py`** — one `run_resolver()` for every binary/multiclass
+  model (dev C-grid + HGB challenger, HGB only wins by >0.003 log loss;
+  locked test; production refit; §21 auto-slices; §20 report). **`lib_py/
+  yardage.py`** — category multinomial + empirical exact-yard PMF + full
+  mixture-sampler holdout (NLL vs global-PMF, PIT coverage, mean/var, tails).
+- **Recurring finding:** M04/M13/M11 sit at the marginal rate because the
+  signal is post-snap (matchup) — exactly what the spec expects; these
+  resolvers supply the calibrated baseline, Phase D supplies discrimination.
+  M01/M08/M09/M20 clearly beat marginal on legitimate context.
+- **Portability note:** several models chose HGB. The TS runtime can't load a
+  joblib pickle — Phase D/E must export chosen HGB models to a portable form
+  (compact JSON trees, or fall back to the logistic where the gap is small).
+
+**Next:** Phase C — target-role and carry-role share priors (`08_target_roles`,
+`13_carry_roles`), integrating with the game's roster/depth-chart system.
+Then Phase D (rating-effect calibration) and Phase E (full Monte-Carlo).
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**

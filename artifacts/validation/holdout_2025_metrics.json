@@ -5744,5 +5744,62 @@
       "obs_house_rate_ge40": 0.036275695284159616,
       "model_house_rate_ge40": 0.01948051948051948
     }
+  },
+  "M24": {
+    "generated": "2026-09-08",
+    "order_key": "order_sequence",
+    "train_rows": 60205,
+    "test_rows": 29273,
+    "dropped_discontinuities_train": 7017,
+    "holdout_2025": {
+      "obs_mean_elapsed_s": 29.691353807262665,
+      "pred_mae_s": 6.479285709379724,
+      "pred_bias_s": 0.4713628229140817,
+      "within_5s_frac": 0.5588767806511119
+    },
+    "per_bucket_2025": [
+      {
+        "outcome_bucket": "pass_complete_inbounds",
+        "n": 7689,
+        "obs_mean_2025": 34.85979971387697,
+        "train_mean": 34.577813644546524
+      },
+      {
+        "outcome_bucket": "pass_complete_oob",
+        "n": 2173,
+        "obs_mean_2025": 29.334100322135296,
+        "train_mean": 28.052844662262945
+      },
+      {
+        "outcome_bucket": "pass_incomplete",
+        "n": 5540,
+        "obs_mean_2025": 5.508122743682311,
+        "train_mean": 5.5172658048521335
+      },
+      {
+        "outcome_bucket": "run_inbounds",
+        "n": 11154,
+        "obs_mean_2025": 36.76026537564999,
+        "train_mean": 36.21692745376956
+      },
+      {
+        "outcome_bucket": "run_oob",
+        "n": 645,
+        "obs_mean_2025": 34.7906976744186,
+        "train_mean": 33.19544452608376
+      },
+      {
+        "outcome_bucket": "sack",
+        "n": 1088,
+        "obs_mean_2025": 36.137867647058826,
+        "train_mean": 35.855608079071764
+      },
+      {
+        "outcome_bucket": "scramble",
+        "n": 984,
+        "obs_mean_2025": 35.64837398373984,
+        "train_mean": 33.73142857142857
+      }
+    ]
   }
 }

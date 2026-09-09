@@ -110,7 +110,7 @@ def _dist_tables(_ctx) -> dict[str, str]:
 
     md = [
         "Punt **distance** and **return yards** are empirical PMFs (locked-train), not fitted "
-        "models — `artifacts/distributions/punt_distance.parquet` (by 10-yд field-position band) "
+        "models — `artifacts/distributions/punt_distance.parquet` (by 10-yd field-position band) "
         "and `punt_return_yards.parquet`.",
         "",
         "| quantity | obs 2025 | model | note |",

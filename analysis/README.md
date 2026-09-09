@@ -12,7 +12,35 @@ Full contract: [`docs/engine_spec.md`](../docs/engine_spec.md)
 | stage | language | status |
 | --- | --- | --- |
 | §28 schema audit / data-quality / variable classification / reference stats | **TypeScript** (`tsx`, `hyparquet`) | done — `00_schema_audit.ts` |
-| Phase B+ model fitting (splines, logistic/multinomial, GBM, calibration) | **Python 3.12** (polars, scikit-learn) | in progress — M01 done |
+| Phase B league baseline (15 resolvers, rating modifiers = 0) | **Python 3.12** (polars, scikit-learn) | **done** — see table below |
+| Phase C usage (target/carry role priors) | Python | not started |
+| Phase D player-effect calibration | Python | not started |
+| Phase E full Monte-Carlo validation | Python | not started |
+
+### Phase B resolvers (`artifacts/models/mNN.report.md`, `artifacts/validation/*`)
+
+| id | script | kind | 2025 locked log loss / notes |
+| --- | --- | --- | --- |
+| M01 | 02_fourth_down | 3-class GO/FG/PUNT | 0.241 (HGB); beats marginal, well-calibrated |
+| M02 | 03_play_call | binary DROPBACK | 0.530 (HGB) |
+| M03 | 04_shotgun | binary SHOTGUN | 0.467 (HGB) |
+| M04 | 05_dropback_outcome | THROW/SACK/SCRAMBLE | 0.444 ≈ marginal — signal is post-snap (Phase D) |
+| M05 | 06_pass_depth | 4-class air-yard bins + exact PMF | 1.178; depth is scheme |
+| M08 | 09_qb_hit | binary qb_hit | 0.310 < 0.386 marginal |
+| M09 | 10_pass_result | COMPLETE/INT/OTHER | 0.660 < 0.737 marginal — core throw model |
+| M10 | 11_yac | YAC bins + exact PMF | NLL 2.61 vs 2.75 baseline |
+| M11 | 12_scramble_yards | yard bins + exact PMF | NLL ≈ baseline |
+| M13 | 14_run_location | left/middle/right | 1.077 ≈ marginal (scheme) |
+| M14 | 15_rush_yards | yard bins + exact PMF | NLL 2.79 vs 2.85 |
+| M15 | 16_fumbles | binary fumble (rare) | 0.062 ≈ marginal per-family hazard |
+| M20 | 18_field_goals | binary MADE, distance spline | 0.363 < 0.423 marginal |
+| M21 | 19_punts | 5-class outcome + distance/return PMFs | 1.288; dist mean 47.4/47.4 |
+| M24 | 21_clock | empirical elapsed PMF by outcome×tempo×clock | MAE 6.5 s, bias +0.5 s |
+
+Every report carries the §20 sections + "No current game player ratings were
+used to fit the nflverse baseline." Models that sit at the marginal rate are
+*supposed to* — they supply the calibrated league baseline; discrimination is
+the Phase-D rating layer.
 
 The audit is pure data inspection → runs in the repo's Node toolchain.
 Model fitting is Python.
