@@ -1,0 +1,48 @@
+{
+  "classes": [
+    "DEADBALL_PEN",
+    "NO_DEADBALL_PEN"
+  ],
+  "intercept": [
+    1.4368410845598412
+  ],
+  "coef": {
+    "DEADBALL_PEN": {
+      "spline__ydstogo_sp_0": -0.11600166018115628,
+      "spline__ydstogo_sp_1": 0.1990802719280304,
+      "spline__ydstogo_sp_2": 0.3039194177517226,
+      "spline__ydstogo_sp_3": 0.38578793205952,
+      "spline__ydstogo_sp_4": 0.28179040817178636,
+      "spline__ydstogo_sp_5": 0.026541018070956476,
+      "spline__yardline_100_sp_0": -0.04964765889686018,
+      "spline__yardline_100_sp_1": 0.1510625214260399,
+      "spline__yardline_100_sp_2": 0.4297252252452814,
+      "spline__yardline_100_sp_3": -0.03597151709297213,
+      "spline__yardline_100_sp_4": 0.5609593031800475,
+      "spline__yardline_100_sp_5": 0.09012094850657171,
+      "spline__game_seconds_remaining_sp_0": -0.0016188528989520804,
+      "spline__game_seconds_remaining_sp_1": 0.2385129908911018,
+      "spline__game_seconds_remaining_sp_2": 0.16096066718779484,
+      "spline__game_seconds_remaining_sp_3": 0.11858770553169193,
+      "spline__game_seconds_remaining_sp_4": -0.13281201361704462,
+      "spline__game_seconds_remaining_sp_5": 0.5652326118532398,
+      "spline__score_differential_sp_0": 0.001955040799029362,
+      "spline__score_differential_sp_1": 0.13538810854168115,
+      "spline__score_differential_sp_2": 0.32524795471874274,
+      "spline__score_differential_sp_3": 0.15438384811558792,
+      "spline__score_differential_sp_4": 0.3340973555573207,
+      "spline__score_differential_sp_5": 0.13160118928242906,
+      "cat__down_1": 0.5699529798355274,
+      "cat__down_2": 0.5320008519336542,
+      "cat__down_3": 0.02957981495031171,
+      "cat__down_4": -0.048013292695714256,
+      "cat__qtr_1": 0.098267483267782,
+      "cat__qtr_2": 0.20858824814197396,
+      "cat__qtr_3": 0.2707514817298121,
+      "cat__qtr_4": 0.18240367175666558,
+      "cat__qtr_5": 0.32350946912750733,
+      "cat__posteam_type_away": 0.5376075036351669,
+      "cat__posteam_type_home": 0.545912850388672
+    }
+  }
+}

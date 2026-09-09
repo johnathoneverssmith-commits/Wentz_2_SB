@@ -1,6 +1,22 @@
 # Penalty module plan (spec MODEL 25 / §6.2 — V1.5)
 
-Status: **planned, not started.** Written 2026-09-09 while Phase E V1 wrapped.
+Status: **models fitted (2026-09-09), engine wiring next.**
+- ✅ **M25a** pre-snap dead-ball hazard — `analysis/25_penalties.py::presnap`,
+  `artifacts/models/m25a.*`. logistic, 2025 locked log loss 0.141, ECE ≤ 0.5%,
+  ~marginal rate (3.2% of snaps — penalties are near situation-independent and
+  there is no discipline rating, exactly as expected).
+- ✅ **M25b** live-ball hazard by `play_family` — `::liveball`,
+  `artifacts/models/m25b.*`. logistic, locked 0.193, well-calibrated, marginal.
+- ✅ **M25c** type buckets + yardage + enforcement —
+  `analysis/25c_penalty_enforcement.py`, `artifacts/distributions/
+  penalty_enforcement.parquet` + `penalty_dpi_yards.parquet` +
+  `artifacts/models/m25c.report.md`. 40+ raw types → 9 buckets; per-bucket
+  off/def share, mean yards, auto-first rate; DPI spot-foul yardage PMF by
+  field-position band (17.9 / 17.0 / 7.9 yд own-half / opp-mid / opp-rz).
+- ⏳ **engine wiring** into `analysis/engine/sim.py` (§4 chronology) + add
+  penalty targets to `23_full_sim_validation.py` and re-run §22.
+
+Written 2026-09-09 while Phase E V1 wrapped.
 This is the top post-V1 accuracy item: the §22 full-sim validation is ~2.4
 points/team-game short of the empirical baseline, and the deferred penalty
 module accounts for most of it (DPI + defensive holding ≈ 2 free first downs a

@@ -192,10 +192,23 @@ per-play lineups → attribute z-scores → Phase D coefficients as
   warm-state; need n_pairs ≥ 100 to pin. The paired impact test is the reliable
   read and it is clean.
 
+**Penalty module (§25 V1.5) — models fitted (2026-09-09).**
+`analysis/25_penalties.py` (M25a pre-snap dead-ball hazard, M25b live-ball
+hazard by play family — both logistic, ~marginal rate, well-calibrated;
+locked-test log loss 0.141 / 0.193) and `analysis/25c_penalty_enforcement.py`
+(M25c — 40+ raw `penalty_type` strings → 9 engine buckets with per-bucket
+off/def share, yardage, auto-first-down rate; DPI spot-foul yardage PMF by
+field-position band). All use the RAW play stream (a bespoke mask that keeps
+`no_play` rows — penalties negate the play they occur on, so `load_clean`'s
+`admin_exclusion_mask` would drop the target population). Full plan +
+what's-left in [`penalty_module_plan.md`](penalty_module_plan.md). **Not yet
+wired into `engine/sim.py`** — that + adding penalty targets to the §22
+validation is the next step and should close ~2 of the residual 2.4 points.
+
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
-engine loop); a larger §23 league sample; the shippable TS runtime + a portable
-export of the HGB resolvers (M01/M02/M03/M05/M09/M10/M14) since the TS side
-can't load joblib.
+engine loop); a larger §23 league sample; penalty-module engine wiring; the
+shippable TS runtime + a portable export of the HGB resolvers
+(M01/M02/M03/M05/M09/M10/M14) since the TS side can't load joblib.
 
 **The engine spec's full arc (A→E) now has a working V1 end to end, with the
 rating layer wired and §23-validated.**

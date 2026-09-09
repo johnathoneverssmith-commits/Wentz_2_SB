@@ -1,0 +1,7 @@
+{
+  "model_id": "M25b",
+  "name": "Live-ball penalty hazard",
+  "generated": "2026-09-09",
+  "required_statement": "No current game player ratings were used to fit the nflverse baseline.",
+  "chosen_architecture": "logistic|C=1.0"
+}

@@ -1,0 +1,50 @@
+{
+  "classes": [
+    "LIVEBALL_PEN",
+    "NO_LIVEBALL_PEN"
+  ],
+  "intercept": [
+    1.5050973783548989
+  ],
+  "coef": {
+    "LIVEBALL_PEN": {
+      "spline__ydstogo_sp_0": 0.21788801168223423,
+      "spline__ydstogo_sp_1": 0.4381558903625832,
+      "spline__ydstogo_sp_2": 0.05857135138807404,
+      "spline__ydstogo_sp_3": 0.410462296898615,
+      "spline__ydstogo_sp_4": 0.26551817733252087,
+      "spline__ydstogo_sp_5": 0.0608714254013957,
+      "spline__yardline_100_sp_0": 0.010557201736145614,
+      "spline__yardline_100_sp_1": 0.14870859620542032,
+      "spline__yardline_100_sp_2": 0.10586347514144327,
+      "spline__yardline_100_sp_3": 0.3948697261811516,
+      "spline__yardline_100_sp_4": 0.2400241432395593,
+      "spline__yardline_100_sp_5": 0.49133939280701777,
+      "spline__game_seconds_remaining_sp_0": 0.1526997114503769,
+      "spline__game_seconds_remaining_sp_1": 0.6085522563835887,
+      "spline__game_seconds_remaining_sp_2": 0.03315341017729437,
+      "spline__game_seconds_remaining_sp_3": 0.08069940598855235,
+      "spline__game_seconds_remaining_sp_4": -0.28712769819953593,
+      "spline__game_seconds_remaining_sp_5": 0.6692177490973009,
+      "spline__score_differential_sp_0": 0.003220284290013318,
+      "spline__score_differential_sp_1": 0.12879257533197164,
+      "spline__score_differential_sp_2": 0.5371871243800415,
+      "spline__score_differential_sp_3": 0.2266329471967278,
+      "spline__score_differential_sp_4": 0.5014741048173644,
+      "spline__score_differential_sp_5": 0.061120000716413464,
+      "cat__play_family_designed_run": 0.2793619587480037,
+      "cat__play_family_dropback": -0.37536253375637896,
+      "cat__play_family_field_goal": 2.2060892962587113,
+      "cat__play_family_punt": -0.6536865148084182,
+      "cat__down_1": 0.42924235848749986,
+      "cat__down_2": 0.42833161280459453,
+      "cat__down_3": 0.31938289026927896,
+      "cat__down_4": 0.27944534488071526,
+      "cat__qtr_1": 0.4027236350975589,
+      "cat__qtr_2": 0.38845741005150275,
+      "cat__qtr_3": 0.22666259544794148,
+      "cat__qtr_4": 0.1478877474883818,
+      "cat__qtr_5": 0.29067081835693376
+    }
+  }
+}

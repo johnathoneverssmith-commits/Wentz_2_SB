@@ -42,11 +42,14 @@ ROLE_1..3/OTHER = .547/.241/.092/.120. Ratings never used (§15).
 | M20 | 18_field_goals | binary MADE, distance spline | 0.363 < 0.423 marginal |
 | M21 | 19_punts | 5-class outcome + distance/return PMFs | 1.288; dist mean 47.4/47.4 |
 | M24 | 21_clock | empirical elapsed PMF by outcome×tempo×clock | MAE 6.5 s, bias +0.5 s |
+| M25a | 25_penalties presnap | binary dead-ball penalty hazard | 0.141 ≈ marginal (3.2%/snap; no discipline rating in V1.5) |
+| M25b | 25_penalties liveball | binary live-ball penalty hazard by play_family | 0.193 ≈ marginal |
+| M25c | 25c_penalty_enforcement | 9 type buckets + enforcement + DPI yardage PMF | empirical; 11.5 penalties/game |
 
 Every report carries the §20 sections + "No current game player ratings were
 used to fit the nflverse baseline." Models that sit at the marginal rate are
 *supposed to* — they supply the calibrated league baseline; discrimination is
-the Phase-D rating layer.
+the Phase-D rating layer (penalties have none in V1.5 — spec MODEL 25).
 
 The audit is pure data inspection → runs in the repo's Node toolchain.
 Model fitting is Python.
