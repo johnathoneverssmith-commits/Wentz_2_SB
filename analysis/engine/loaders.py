@@ -1,15 +1,18 @@
-"""Artifact loaders — joblib resolvers + empirical PMF tables, cached."""
+"""Artifact loaders — resolvers (portable JSON for the HGB models, joblib for the
+rest) + empirical PMF tables, all cached."""
 
 from __future__ import annotations
 
 import functools
 import importlib
+import json
 
 import joblib
 import numpy as np
 import pandas as pd
 import polars as pl
 
+from lib_py.hgb_portable import predict_proba_portable
 from lib_py.report import ARTIFACTS
 
 _MODELS = ARTIFACTS / "models"
@@ -35,8 +38,23 @@ RESOLVER_META = {
 }
 
 
+# The 7 tree resolvers exported to portable JSON (analysis/27_export_portable.py).
+# The rest (M04/M15/M20/M21/M25a/M25b) are spline+logistic — still joblib.
+PORTABLE_IDS = frozenset({"M01", "M02", "M03", "M05", "M09", "M10", "M14"})
+_PORTABLE = _MODELS / "portable"
+
+
 @functools.lru_cache(maxsize=None)
 def resolver(mid: str):
+    if mid in PORTABLE_IDS:
+        m = json.loads((_PORTABLE / f"{mid}.json").read_text())
+        return {
+            "portable": m,
+            "labels": m["labels"],
+            "features": m["feature_names"],   # original context-key order (for _bucket)
+            "cat_cols": frozenset(),          # portable eval is dtype-agnostic
+            "classes": m["classes"],
+        }
     stem, modname = RESOLVER_META[mid]
     bundle = joblib.load(_MODELS / f"{stem}.joblib")
     mod = importlib.import_module(modname)
@@ -90,9 +108,13 @@ def predict_proba(mid: str, ctx: dict, logit_shift: dict[str, float] | None = No
     ck = (mid, _bucket(ctx, r["features"]))
     base = _pp_cache.get(ck)
     if base is None:
-        p = r["est"].predict_proba(_row(r["features"], r["cat_cols"], ctx))[0]
-        idx = {c: i for i, c in enumerate(r["est"].classes_)}
-        base = {lab: float(p[idx[lab]]) for lab in r["labels"]}
+        if "portable" in r:
+            pp = predict_proba_portable(r["portable"], ctx)
+            base = {lab: float(pp[lab]) for lab in r["labels"]}
+        else:
+            p = r["est"].predict_proba(_row(r["features"], r["cat_cols"], ctx))[0]
+            idx = {c: i for i, c in enumerate(r["est"].classes_)}
+            base = {lab: float(p[idx[lab]]) for lab in r["labels"]}
         _pp_cache[ck] = base
     if not logit_shift:
         return base

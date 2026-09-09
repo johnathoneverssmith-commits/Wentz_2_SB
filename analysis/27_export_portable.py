@@ -79,7 +79,7 @@ def main() -> None:
         bundle = joblib.load(ARTIFACTS / "models" / f"{stem}.joblib")
         est, feats, labels = bundle["estimator"], bundle["features"], bundle["labels"]
 
-        portable = export_hgb(est, feats)
+        portable = export_hgb(est, feats, labels)
         (OUT / f"{mid}.json").write_text(json.dumps(portable, separators=(",", ":")) + "\n",
                                         encoding="utf-8")
         size_kb = (OUT / f"{mid}.json").stat().st_size / 1024

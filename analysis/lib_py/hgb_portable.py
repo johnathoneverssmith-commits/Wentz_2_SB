@@ -69,8 +69,12 @@ def _export_tree(predictor: Any, feat_kinds: list[bool], cat_values: list[list[s
     return out
 
 
-def export_hgb(estimator: Any, feature_names: list[str]) -> dict:
-    """Fitted HistGradientBoostingClassifier -> portable JSON-able dict."""
+def export_hgb(estimator: Any, feature_names: list[str], labels: list[str] | None = None) -> dict:
+    """Fitted HistGradientBoostingClassifier -> portable JSON-able dict.
+
+    `feature_names` is the original (bundle) feature order the caller passes as
+    context keys; `labels` is the resolver's semantic class order (may differ
+    from `classes_`, which is the raw-prediction order)."""
     h = estimator
     is_cat = [bool(c) for c in h.is_categorical_]
     features = _internal_feature_order(feature_names, is_cat)
@@ -104,9 +108,11 @@ def export_hgb(estimator: Any, feature_names: list[str]) -> dict:
     return {
         "format": "hgb-portable-1",
         "objective": objective,
-        "classes": classes,
+        "classes": classes,                       # raw-prediction order
+        "labels": list(labels) if labels is not None else classes,  # semantic order
+        "feature_names": list(feature_names),      # original context-key order
         "baseline": baseline,
-        "features": features,
+        "features": features,                      # internal order the trees index
         "trees_per_class": trees_per_class,
         "n_iterations": len(h._predictors),
     }
