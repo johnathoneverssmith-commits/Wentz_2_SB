@@ -5,17 +5,21 @@ vision and the 7-phase roadmap; this file is about working in the codebase.
 
 ## Current phase
 
-**Phase 1 — simulation engine, Phase A (data audit) done.** The data
-foundation (schema + validation + hand-reviewed pool) exists. The engine
-build follows `docs/engine_spec.md`; `analysis/` holds the empirical pipeline
-and `artifacts/` its outputs (committed — the runtime loads them). The §28
-schema audit is complete; **model fitting has not started** and per spec §28
-must not until `artifacts/schema/data_quality_report.md` is reviewed. No UI,
-no multiplayer yet.
+**Phase 1 — simulation engine. Empirical build (spec `docs/engine_spec.md`)
+has a working V1 end to end: Phases A–E all done at V1.** `analysis/` holds the
+Python pipeline, `analysis/engine/` the headless game loop, `artifacts/` the
+committed outputs the loop consumes. Done: §28 audit, 15 league-baseline
+resolvers (Phase B), usage-role priors (C), player-effect calibration (D),
+full-sim validation §22 (E, 14/16 league metrics within 10%), rating-layer
+validation §23 (E). No UI, no multiplayer yet. Next: penalty module (§25 V1.5),
+a larger §23 league sample, and the shippable TS runtime (needs a portable
+export of the HGB resolvers — the TS side can't load joblib).
 
-Engine toolchain split: the audit is TypeScript (`analysis/00_schema_audit.ts`,
-`hyparquet`); Phase B model fitting will be Python (scikit-learn) in a venv —
-see `analysis/README.md`. `data/*.parquet` is git-ignored.
+Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
+`hyparquet`); everything from Phase B on is Python (scikit-learn) in
+`analysis/.venv` — see `analysis/README.md`. `data/*.parquet` is git-ignored.
+The V1 engine runs in Python (loads joblib directly); `src/` is still the
+schema/pool layer and the eventual TS runtime.
 
 ## Stack
 

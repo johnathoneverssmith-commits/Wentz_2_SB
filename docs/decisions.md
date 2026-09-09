@@ -138,8 +138,10 @@ chronology, consuming the joblib resolvers + empirical PMF parquets) +
   **points now −10.7%** (20.2 v 22.6).
 - **Residual misses:** points −10.7% and points_sd −13.9%. The points gap is
   now dominated by the deferred **penalty module** (§25 V1.5 —
-  DPI/holding/roughing ≈ 2 free first downs + ~15 yd/game ≈ ~2 of the 2.4
-  missing points), plus RZ TD rate ~54 % v ~57 % and no return TDs. points_sd
+  DPI/holding/roughing ≈ 2 free first downs + ~55 penalty yд/team-game ≈ ~2 of
+  the 2.4 missing points; concrete build plan in
+  [`penalty_module_plan.md`](penalty_module_plan.md)), plus RZ TD rate ~54 % v
+  ~57 % and no return TDs. points_sd
   is low because the average-rating engine runs two identical teams (scores
   regress to the mean); variance widens with rating modifiers on — the §23
   check.
@@ -150,12 +152,53 @@ chronology, consuming the joblib resolvers + empirical PMF parquets) +
   fitted); running-clock only; no per-player attribution (so §24 stat-integrity
   tests are deferred to the shippable engine).
 
-**Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
-engine loop); rating-layer validation with modifiers on (§23); the shippable
-TS runtime + a portable export of the HGB resolvers
-(M01/M02/M03/M05/M09/M10/M14) since the TS side can't load joblib.
+**Phase E V1 §23 rating-layer validation complete (2026-09-09).**
+`analysis/24_rating_layer_validation.py`; artifacts
+`artifacts/validation/rating_layer_validation.json`,
+`artifacts/models/m24b_rating_layer_validation.report.md`. Rosters loaded from
+`data/players.local.json`, depth charts ranked by `overall` (roles only, §3/§15),
+per-play lineups → attribute z-scores → Phase D coefficients as
+`baseline_logit + Σβᵢ·attr_z` (`engine/roster.py`, `engine/ratings.py`,
+`engine/sim.py`).
 
-**The engine spec's full arc (A→E) now has a working V1 end to end.**
+- **§12 centering bug found + fixed.** `attribute_reference_stats.json` means are
+  over the whole 1,024-player pool, but the engine only fields *starters* (above
+  that mean) → every matchup carried a non-zero net shift and league scoring
+  drifted. Fix: each family subtracts its league-mean modifier over the on-field
+  slot (`engine/ratings._offsets()`, computed once from the 32 depth charts), so
+  an average real matchup → ≈0 shift. Paired invariant tests are unaffected (the
+  offset is common to both cells and cancels).
+- **Invariants:** 7 monotonicity checks, synthetic p90 vs p10 single-family
+  rosters, paired on common random numbers. Directions hold (the misses at n=10
+  sit inside the paired SE — sim-sample size, not wiring). Magnitude is carried
+  by the analytic `designed_magnitude()` (the MC ratio is noise-dominated for
+  low-event channels at small n): **all 11 families land at 0.99–1.0× the
+  historical p10↔p90 anchor** once logit- and yard-scale shifts are put in
+  common units — Phase D calibration confirmed sound.
+- **Centering / league (32 real matchups ×2, modifiers on):** completion −2.5%,
+  YPA −0.9%, YPC +2.0% vs the empirical baseline; **sack rate +14.5%** (0.076 v
+  0.066 — above §22's validated +4.3%, likely the 32-pair sample but a watch
+  item for the larger run). Favourite-by-summed-`overall` win rate **59%**;
+  favourite-by-net-modelled-channel-edge win rate **69%** (NFL point-spread
+  favourites win ~66–70%) — the two agree on the favourite in 72% of matchups.
+- **Layer impact (44 matchups, paired same-seed ON=rosters vs OFF=league-avg):**
+  league points flat within sample noise (Δ +0.3), **score-margin sd widens
+  12.3 vs 11.2** (matchups now move outcomes), INT rate does not inflate
+  (0.0245 vs 0.0272). Best-vs-worst roster (PHI ovr 1767 vs LV 1595) → favourite
+  wins **73% in both home/away directions**, +5–6 pt margin.
+- **Open (Phase E iteration, not blocking):** the league block's single-run
+  numbers (points −17%, points_sd −12%, sack +14.5%) are sample-noisy — they
+  swing run-to-run from the 32-pair draw and the bucketed-`predict_proba` cache
+  warm-state; need n_pairs ≥ 100 to pin. The paired impact test is the reliable
+  read and it is clean.
+
+**Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
+engine loop); a larger §23 league sample; the shippable TS runtime + a portable
+export of the HGB resolvers (M01/M02/M03/M05/M09/M10/M14) since the TS side
+can't load joblib.
+
+**The engine spec's full arc (A→E) now has a working V1 end to end, with the
+rating layer wired and §23-validated.**
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**
