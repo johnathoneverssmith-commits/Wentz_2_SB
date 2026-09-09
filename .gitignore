@@ -3,6 +3,11 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# python (analysis/ Phase B pipeline)
+analysis/.venv/
+__pycache__/
+*.pyc
+
 # editor / OS
 .DS_Store
 .idea/

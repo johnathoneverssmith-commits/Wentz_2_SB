@@ -45,9 +45,28 @@ no-leakage rules; `overall` never touches a play outcome.
    `artifacts/ratings/attribute_reference_stats.json` now does (1,024-player
    pool, per-attribute mean/SD).
 
-**Next:** review the data-quality report (spec §28 gate), then Phase B —
-stand up the Python env and fit the league-baseline resolvers with rating
-modifiers = 0.
+**Phase B started (2026-09-08).** Python 3.12 venv at `analysis/.venv`
+(`analysis/requirements.txt`). This machine is Windows-on-ARM — no `pyarrow`
+wheel — so the pipeline uses **polars** for parquet I/O + dataframes and feeds
+sklearn numpy arrays. `analysis/lib_py/` mirrors `lib/filters.ts` (§6) and adds
+§7 split / §8 metrics / §8 model builders / §20 report scaffold.
+
+- **Model 01 (fourth-down action)** done — `analysis/02_fourth_down.py`,
+  `artifacts/models/fourth_down.*`, `artifacts/models/m01.report.md`.
+  Multinomial GO/FG/PUNT. Chosen: `HistGradientBoostingClassifier`
+  (2024-val log loss 0.271 vs 0.304 for spline+logistic — a decisive gap, not
+  a marginal one; HGB is a §8-sanctioned calibrated tree). 2025 locked-test
+  log loss **0.241**, per-class calibration slopes 0.90–1.07, ECE ≤ 2.5%.
+  Environment (`roof`/`temp`/`wind`) adds ~nothing (Δ log loss < 0.001) —
+  kept but prunable. Conditional diagnostic: the 2023–24-trained model
+  **under-predicts 4th-and-short GO by ~7pts in 2025** (league aggressiveness
+  drift — spec §16 territory, not a bug; do not tune the baseline on 2025).
+
+**Next:** Phase B resolvers in order — 03 play call (dropback vs run),
+04 shotgun, 05 dropback outcome, 06 pass depth, 09 QB hit, 10 pass result,
+11 YAC, 12 scramble yards, 14 run location, 15 rush yards, 16 fumble,
+18 field goal, 19 punt, 21 clock. Each follows the M01 template + §20 report.
+Rating modifiers stay 0 until Phase D.
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**

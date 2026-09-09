@@ -1,0 +1,74 @@
+{
+  "M01": {
+    "dev_candidates_2024_logloss": {
+      "logistic|env=False|C=0.3": 0.33084152362932656,
+      "logistic|env=False|C=1.0": 0.3136481536197653,
+      "logistic|env=False|C=3.0": 0.30474372812768863,
+      "logistic|env=True|C=0.3": 0.3300610384409435,
+      "logistic|env=True|C=1.0": 0.313027775634993,
+      "logistic|env=True|C=3.0": 0.30425626544965517,
+      "hgb|env=False": 0.27211520957986957,
+      "hgb|env=True": 0.2714670453654538
+    },
+    "chosen": "hgb|env=True",
+    "validation_2024": {
+      "label": "validation_2024",
+      "n": 3822,
+      "labels": [
+        "GO_FOR_IT",
+        "FIELD_GOAL",
+        "PUNT"
+      ],
+      "class_distribution": {
+        "GO_FOR_IT": 0.1988487702773417,
+        "FIELD_GOAL": 0.2658294086865515,
+        "PUNT": 0.5353218210361067
+      },
+      "mean_pred": {
+        "GO_FOR_IT": 0.18289151950819593,
+        "FIELD_GOAL": 0.2642768264399233,
+        "PUNT": 0.5528316540518807
+      },
+      "log_loss": 0.2714670453654538,
+      "brier_multiclass": 0.1554523970037325,
+      "per_class": {
+        "GO_FOR_IT": {
+          "label": "GO_FOR_IT",
+          "n": 3822,
+          "base_rate": 0.1988487702773417,
+          "mean_pred": 0.18289151950819593,
+          "log_loss": 0.24297280591914314,
+          "brier": 0.07250369795529463,
+          "calibration_slope": 0.8149892395391405,
+          "calibration_intercept": 0.10419898402834063,
+          "ece": 0.027889038946183952,
+          "roc_auc": 0.9417786792258243
+        },
+        "FIELD_GOAL": {
+          "label": "FIELD_GOAL",
+          "n": 3822,
+          "base_rate": 0.2658294086865515,
+          "mean_pred": 0.2642768264399233,
+          "log_loss": 0.1346502108602967,
+          "brier": 0.039699663194416736,
+          "calibration_slope": 0.8550353393865506,
+          "calibration_intercept": 0.053782120937105146,
+          "ece": 0.011723851074838879,
+          "roc_auc": 0.9863327178543166
+        },
+        "PUNT": {
+          "label": "PUNT",
+          "n": 3822,
+          "base_rate": 0.5353218210361067,
+          "mean_pred": 0.5528316540518807,
+          "log_loss": 0.15051831807493835,
+          "brier": 0.043249035854021144,
+          "calibration_slope": 0.8683158489404531,
+          "calibration_intercept": -0.391181351596078,
+          "ece": 0.019964197077167997,
+          "roc_auc": 0.9861642250755154
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# Phase B empirical-modeling pipeline (spec §8, §18, §20).
+#
+# This machine is Windows-on-ARM (win_arm64). pyarrow / fastparquet have no
+# ARM64 wheels, so parquet I/O goes through polars (bundled Arrow, ARM64 wheel
+# available) instead. polars is the primary dataframe; sklearn is fed numpy
+# arrays directly. Pinned to versions with confirmed win_arm64 wheels.
+numpy==2.5.3
+pandas==3.0.5
+scipy==1.18.1
+scikit-learn==1.9.0
+matplotlib==3.11.1
+joblib==1.6.0
+polars==1.44.1
