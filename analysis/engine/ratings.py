@@ -40,8 +40,15 @@ def _unit_mean(players: list[dict], attr: str) -> float | None:
     return sum(vals) / len(vals) if vals else None
 
 
+_mod_cache: dict = {}
+
+
 def family_modifier(fam_key: str, players: list[dict], scale: float = 1.0) -> float:
     """Sum beta·z over the family's attributes for this set of participating players."""
+    key = (fam_key, tuple(p["id"] if p else None for p in players))
+    hit = _mod_cache.get(key)
+    if hit is not None:
+        return hit * scale
     fam = families()[fam_key]
     ref = _ref()
     total = 0.0
@@ -54,6 +61,7 @@ def family_modifier(fam_key: str, players: list[dict], scale: float = 1.0) -> fl
         z = (m - r["mean"]) / r["sd"]
         z = max(-_CLIP, min(_CLIP, z))
         total += a["beta_per_z"] * z
+    _mod_cache[key] = total
     return total * scale
 
 

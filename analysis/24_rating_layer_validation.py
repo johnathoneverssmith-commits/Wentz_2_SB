@@ -140,7 +140,7 @@ def invariants(n: int) -> list[dict]:
     return rows
 
 
-def league(n_pairs: int) -> dict:
+def league(n_pairs: int = 60) -> dict:
     teams = team_list()
     rng = np.random.default_rng(7)
     pairs = [(teams[i], teams[j]) for i in range(len(teams)) for j in range(len(teams)) if i != j]
@@ -183,7 +183,7 @@ def main() -> None:
     print("1. invariants (synthetic p90 vs p10)...")
     inv = invariants(n)
     print("2. league with modifiers on...")
-    lg = league(n_pairs=120)
+    lg = league(n_pairs=24)
 
     emp = {"completion_pct": 0.647, "yards_per_attempt": 7.057, "sack_rate": 0.0663,
            "yards_per_carry": 4.276, "points_mean": 22.564, "points_sd": 9.927}

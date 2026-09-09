@@ -38,12 +38,24 @@ class Roster:
             self.depth.setdefault(p["position"], []).append(p)
         for pos in self.depth:
             self.depth[pos].sort(key=lambda x: x.get("overall", 0), reverse=True)
+        self._off_cache: dict | None = None
+        self._def_cache: dict[bool, dict] = {}
 
     def _nth(self, pos: str, i: int) -> dict | None:
         d = self.depth.get(pos, [])
         return d[i] if i < len(d) else (d[-1] if d else None)
 
     def offense(self) -> dict[str, dict]:
+        if self._off_cache is None:
+            self._off_cache = self._build_offense()
+        return self._off_cache
+
+    def defense(self, nickel: bool = False) -> dict[str, dict]:
+        if nickel not in self._def_cache:
+            self._def_cache[nickel] = self._build_defense(nickel)
+        return self._def_cache[nickel]
+
+    def _build_offense(self) -> dict[str, dict]:
         ot = self.depth.get("OT", [])
         og = self.depth.get("OG", [])
         return {
@@ -56,7 +68,7 @@ class Roster:
             "C": self._nth("C", 0),
         }
 
-    def defense(self, nickel: bool = False) -> dict[str, dict]:
+    def _build_defense(self, nickel: bool = False) -> dict[str, dict]:
         d = {
             "EDGE1": self._nth("EDGE", 0), "EDGE2": self._nth("EDGE", 1),
             "DT1": self._nth("DT", 0), "DT2": self._nth("DT", 1),
