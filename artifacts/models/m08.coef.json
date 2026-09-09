@@ -1,0 +1,54 @@
+{
+  "classes": [
+    "HIT",
+    "NO_HIT"
+  ],
+  "intercept": [
+    0.9286322208049226
+  ],
+  "coef": {
+    "HIT": {
+      "spline__air_yards_sp_0": -0.0992541614711562,
+      "spline__air_yards_sp_1": -0.9449185899131125,
+      "spline__air_yards_sp_2": 1.2189057667874044,
+      "spline__air_yards_sp_3": -0.04470980686645728,
+      "spline__air_yards_sp_4": 0.12902244543603938,
+      "spline__air_yards_sp_5": 0.2979754165398521,
+      "spline__ydstogo_sp_0": 0.44358130335998414,
+      "spline__ydstogo_sp_1": 0.21087993373155808,
+      "spline__ydstogo_sp_2": -0.4349081429730382,
+      "spline__ydstogo_sp_3": 0.24889900603981288,
+      "spline__ydstogo_sp_4": 0.08566204884653163,
+      "spline__ydstogo_sp_5": 0.027910846571990732,
+      "spline__yardline_100_sp_0": -0.1774978939566956,
+      "spline__yardline_100_sp_1": -0.16779279616049816,
+      "spline__yardline_100_sp_2": 0.3822216528229158,
+      "spline__yardline_100_sp_3": 0.1494406785157208,
+      "spline__yardline_100_sp_4": 0.11539962168093737,
+      "spline__yardline_100_sp_5": 0.19489057932082937,
+      "spline__game_seconds_remaining_sp_0": 0.0423293719801469,
+      "spline__game_seconds_remaining_sp_1": -0.013655329343820188,
+      "spline__game_seconds_remaining_sp_2": 0.03079679637163617,
+      "spline__game_seconds_remaining_sp_3": 0.06680826647451531,
+      "spline__game_seconds_remaining_sp_4": 0.08548363125678876,
+      "spline__game_seconds_remaining_sp_5": 0.13445463170112232,
+      "spline__score_differential_sp_0": 0.0027762993993302345,
+      "spline__score_differential_sp_1": 0.11073413180695992,
+      "spline__score_differential_sp_2": 0.022291598270569077,
+      "spline__score_differential_sp_3": -0.19327288060162703,
+      "spline__score_differential_sp_4": 0.30873455419505236,
+      "spline__score_differential_sp_5": 0.3225553077471093,
+      "linear__half_seconds_remaining": 0.06741613912387828,
+      "cat__depth_category_BEHIND_LOS": 0.4963071183239101,
+      "cat__depth_category_DEEP": 0.08829110013145995,
+      "cat__depth_category_INTERMEDIATE": -0.060471596997196134,
+      "cat__depth_category_SHORT": 0.05676498528339239,
+      "cat__down_1": 0.5860808321656776,
+      "cat__down_2": 0.37513150561764286,
+      "cat__down_3": -0.13547947162616414,
+      "cat__down_4": -0.24484125941564402,
+      "cat__shotgun_0": 0.10491333436836894,
+      "cat__shotgun_1": 0.47597827237331763
+    }
+  }
+}

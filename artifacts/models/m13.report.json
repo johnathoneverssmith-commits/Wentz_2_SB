@@ -1,0 +1,7 @@
+{
+  "model_id": "M13",
+  "name": "Run location",
+  "generated": "2026-09-08",
+  "required_statement": "No current game player ratings were used to fit the nflverse baseline.",
+  "chosen_architecture": "logistic|C=3.0"
+}
