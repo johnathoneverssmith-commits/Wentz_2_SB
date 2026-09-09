@@ -243,10 +243,26 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   component. Left as the documented Phase E V1.6 item. 2-pt tries are
   EV-neutral (2×0.47 ≈ 1×0.958) — low priority.
 
+**Portable HGB export done (2026-09-09).** `analysis/27_export_portable.py` +
+`lib_py/hgb_portable.py`. The 7 HGB resolvers (M01/M02/M03/M05/M09/M10/M14)
+flatten to `artifacts/models/portable/<mid>.json` — baseline + per-class
+regression-tree forests, categorical splits resolved to string sets, sklearn
+1.9's internal `[categoricals][numerics]` feature reorder captured. The
+pure-Python `predict_proba_portable` reproduces `sklearn.predict_proba` to
+**< 1e-6** on real 2025 rows for all 7 (machine-epsilon); it is the reference
+spec for the TS port. ~3.8 MB total, ~1900 trees / ~119k nodes.
+- **Surfaced a latent bug:** M01 trained `goal_to_go`/`qtr`/`temp_missing` as
+  int8 categories, but `engine/loaders._row` stringifies every cat col, so the
+  live Python engine feeds `'0'` ≠ `int8(0)` → NaN → those three M01 features
+  are silently ignored at runtime. The portable models string-normalise and
+  are correct; fixing the Python engine means retyping or switching it to
+  `predict_proba_portable` (own task, needs a §22 re-run).
+
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
 engine loop); a larger §23 league sample; the diffuse points gap above; the
-shippable TS runtime + a portable export of the HGB resolvers
-(M01/M02/M03/M05/M09/M10/M14) since the TS side can't load joblib.
+shippable TS runtime (loader for the portable JSON + the game layer); switching
+the Python engine to the portable models (fixes the M01 dtype bug, drops the
+joblib dependency).
 
 **The engine spec's full arc (A→E) now has a working V1 end to end, with the
 rating layer wired and §23-validated.**

@@ -17,6 +17,7 @@ Full contract: [`docs/engine_spec.md`](../docs/engine_spec.md)
 | Phase D player-effect calibration | Python | **V1 done** — `22_rating_calibration` (§13.6 joint loss deferred to E) |
 | Phase E full Monte-Carlo validation | Python | **V1 done** — `engine/` + `23_full_sim_validation` (§22, 16/20 within 10%; points −9%, RZ TD rate matches, gap is diffuse per-drive efficiency) |
 | Phase E rating-layer validation | Python | **V1 done** — `24_rating_layer_validation` (§23): §12-centered, all 11 family magnitudes ≈1.0× the historical anchor, paired ON/OFF widens score-margin variance without moving league aggregates |
+| Portable HGB export | Python | **done** — `27_export_portable` + `lib_py/hgb_portable`: the 7 HGB resolvers → `artifacts/models/portable/*.json`; pure-Python `predict_proba_portable` matches sklearn to <1e-6 (the TS-port spec) |
 
 Phase C outputs: `artifacts/distributions/{target,carry}_role_shares.parquet`
 (dimension × level × role → league / mean / shrunk-mean / sd / p10 / p90
