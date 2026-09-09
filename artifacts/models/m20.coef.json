@@ -1,0 +1,38 @@
+{
+  "classes": [
+    "MADE",
+    "NOT_MADE"
+  ],
+  "intercept": [
+    -1.895083466757249
+  ],
+  "coef": {
+    "MADE": {
+      "spline__kick_distance_sp_0": -0.3226753628085164,
+      "spline__kick_distance_sp_1": -1.2939801786259957,
+      "spline__kick_distance_sp_2": -0.8636645347242089,
+      "spline__kick_distance_sp_3": 0.15276220976996666,
+      "spline__kick_distance_sp_4": 0.5707874057416636,
+      "spline__kick_distance_sp_5": 1.4974831158826971,
+      "spline__yardline_100_sp_0": -0.34549767499474937,
+      "spline__yardline_100_sp_1": -1.4052599816872318,
+      "spline__yardline_100_sp_2": -0.7418504279248967,
+      "spline__yardline_100_sp_3": 0.610002359354191,
+      "spline__yardline_100_sp_4": 0.29501072233931025,
+      "spline__yardline_100_sp_5": 1.3449950346762973,
+      "spline__env_wind_sp_0": -0.07326765141533739,
+      "spline__env_wind_sp_1": -0.22522845394572083,
+      "spline__env_wind_sp_2": 0.8271308480479735,
+      "spline__env_wind_sp_3": -0.3735910558366158,
+      "spline__env_wind_sp_4": -0.14137738988590898,
+      "spline__env_wind_sp_5": -0.11021323213826142,
+      "linear__env_temp": -0.13226368821564877,
+      "cat__roof_closed": 0.06034543187869393,
+      "cat__roof_dome": 0.22643135189259722,
+      "cat__roof_open": -0.4739488081239247,
+      "cat__roof_outdoors": 0.06307178114422828,
+      "cat__temp_missing_0": -0.16898304426508098,
+      "cat__temp_missing_1": 0.04488280105667682
+    }
+  }
+}

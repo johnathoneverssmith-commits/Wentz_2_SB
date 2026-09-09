@@ -1,0 +1,35 @@
+{
+  "classes": [
+    "FUMBLE",
+    "NO_FUMBLE"
+  ],
+  "intercept": [
+    1.6486290461884572
+  ],
+  "coef": {
+    "FUMBLE": {
+      "spline__yards_gained_sp_0": -0.15039961666102997,
+      "spline__yards_gained_sp_1": -3.4296415373555424,
+      "spline__yards_gained_sp_2": 2.2154563271804877,
+      "spline__yards_gained_sp_3": 2.4412620789628483,
+      "spline__yards_gained_sp_4": 0.044728680128133885,
+      "spline__yards_gained_sp_5": 0.14314505154686732,
+      "spline__yardline_100_sp_0": 0.06991676291391863,
+      "spline__yardline_100_sp_1": 0.5343959734143733,
+      "spline__yardline_100_sp_2": -0.011950535622542884,
+      "spline__yardline_100_sp_3": 0.12764693268196134,
+      "spline__yardline_100_sp_4": 0.07437603889717558,
+      "spline__yardline_100_sp_5": 0.38046643698893373,
+      "cat__event_family_designed_rush": 1.587266829416221,
+      "cat__event_family_reception": 1.0425478296823947,
+      "cat__event_family_sack": -2.320688508791528,
+      "cat__event_family_scramble": 0.9635957883971721,
+      "cat__qb_hit_0": -0.5198476410895682,
+      "cat__qb_hit_1": 1.7925695797935073,
+      "cat__down_1": 0.25963139118021505,
+      "cat__down_2": 0.35292089240603375,
+      "cat__down_3": 0.3779886668967622,
+      "cat__down_4": 0.2821809882213211
+    }
+  }
+}

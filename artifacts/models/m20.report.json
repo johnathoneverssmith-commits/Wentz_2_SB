@@ -1,0 +1,7 @@
+{
+  "model_id": "M20",
+  "name": "Field-goal success",
+  "generated": "2026-09-08",
+  "required_statement": "No current game player ratings were used to fit the nflverse baseline.",
+  "chosen_architecture": "logistic|C=1.0"
+}
