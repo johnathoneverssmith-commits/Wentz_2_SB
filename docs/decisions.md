@@ -228,11 +228,20 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   the exact-yard PMFs is **not** needed.
 - Penalties are ~net-neutral on points at scale 1.0.
 - The engine runs **more** plays/team-game (67 v 62) but scores ~1.9/drive vs
-  ~2.1 — drives sustain but convert less. `explosive_pass_rate` drifted to
-  +12% (penalty nullification removes short completions, skewing survivors).
-- Next-iteration candidates: M01 4th-down aggression, FG-range decisions,
-  mid-field (20–40 yd-line) yardage generation. 2-pt tries are EV-neutral
-  (2×0.47 ≈ 1×0.958) — low priority.
+  ~2.1, and punts more (0.38 v 0.35/drive) while reaching the RZ less
+  (0.30 v 0.36/drive).
+- **Diagnosis (2026-09-09):** 3rd-down conversion *by distance bucket* matches
+  (0.39 v 0.395 — the earlier "0.33" was `third_conv/third_att`, which
+  undercounts penalty-driven conversions); M01 4th-down calls are reasonable
+  (66% go on 4th-and-3 from the opp 40, 77–90% FG inside the 35). What's left:
+  the pass distribution is **shape-wrong** — completion −1.8% while YPA +2.8%,
+  air-yards ~+3–6% and explosive-pass +12%. Fewer dink completions, more chunk
+  throws → drives are boom-bust → more 3-and-outs → the punt / RZ / points
+  cascade. Root is M05 (pass depth) / `air_yards_exact` running a touch deep.
+- **Not fixing for V1:** pulling M05 shorter risks the passing metrics that
+  currently pass; the miss is ~5% of a compounding shape error, not a broken
+  component. Left as the documented Phase E V1.6 item. 2-pt tries are
+  EV-neutral (2×0.47 ≈ 1×0.958) — low priority.
 
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
 engine loop); a larger §23 league sample; the diffuse points gap above; the
