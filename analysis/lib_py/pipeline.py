@@ -181,7 +181,17 @@ def _per_class_calib(mc: dict, labels: list[str]) -> str:
     return "\n".join(rows)
 
 
-def run_resolver(spec: ResolverSpec, build_frame: Callable[[tuple[int, ...]], pl.DataFrame]) -> dict:
+def run_resolver(
+    spec: ResolverSpec,
+    build_frame: Callable[[tuple[int, ...]], pl.DataFrame],
+    *,
+    extra_sections: dict[str, str] | None = None,
+    extra_data: dict[str, object] | None = None,
+    on_models: Callable[[dict], dict[str, str]] | None = None,
+) -> dict:
+    """`on_models` gets {locked_test_frame, locked_proba, production_estimator,
+    make_final, labels} and may return additional report sections (used by the
+    yardage-distribution wrapper to add the exact-yard sampler + its metrics)."""
     verdict = check_forbidden(spec.source_cols)
     S = spec.split
     labels = spec.labels
@@ -335,6 +345,19 @@ def run_resolver(spec: ResolverSpec, build_frame: Callable[[tuple[int, ...]], pl
             + ("" if use_hgb else " (coefficients).")
             + " 2025 holdout stored before refit in `artifacts/validation/holdout_2025_metrics.json`.")
     rep.data("chosen_architecture", chosen)
+
+    if on_models is not None:
+        for section, body in (on_models({
+            "locked_test_frame": frames["locked_test"], "locked_proba": locked_proba,
+            "production_estimator": prod_est, "make_final": make_final, "labels": labels,
+            "stem": stem,
+        }) or {}).items():
+            rep.set(section, rep._sections.get(section, "") + "\n\n" + body if section in rep._sections else body)
+    for section, body in (extra_sections or {}).items():
+        rep.set(section, body)
+    for k, v in (extra_data or {}).items():
+        rep.data(k, v)
+
     md_path, _ = rep.write()
 
     print(f"{spec.model_id} {spec.name}: chosen={chosen}  "

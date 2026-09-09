@@ -99,7 +99,7 @@ def make_hgb(categorical_cols: list[str], all_cols: list[str], **kw) -> HistGrad
         max_iter=400,
         max_leaf_nodes=31,
         l2_regularization=1.0,
-        early_stopping=True,
+        early_stopping="auto",  # only splits an internal val set when n > 10k (rare-class safe)
         validation_fraction=0.1,
         random_state=0,
         categorical_features=cat_mask,
