@@ -83,9 +83,31 @@ validated on the 2025 locked holdout, refit for production, and reported per
   joblib pickle — Phase D/E must export chosen HGB models to a portable form
   (compact JSON trees, or fall back to the logistic where the gap is small).
 
-**Next:** Phase C — target-role and carry-role share priors (`08_target_roles`,
-`13_carry_roles`), integrating with the game's roster/depth-chart system.
-Then Phase D (rating-effect calibration) and Phase E (full Monte-Carlo).
+**Phase C complete (2026-09-08).** Empirical usage-role share priors
+(`analysis/lib_py/roles.py` + `08_target_roles.py`, `13_carry_roles.py`),
+96 team-seasons, ratings never used (§15 usage≠ability).
+
+- **M07 target roles** (51,102 targets): overall shrunk shares ROLE_1..4 +
+  ROLE_5_PLUS = 0.236 / 0.175 / 0.133 / 0.105 / 0.350. DEEP throws concentrate
+  hard on ROLE_1 (0.355); short/checkdown spread to the tail.
+- **M12 carry roles** (39,152 carries): ROLE_1..3 + OTHER = 0.547 / 0.241 /
+  0.092 / 0.120. Short-yardage (≤2) pulls ROLE_1 down to 0.482 (goal-line
+  back vultures); late-lead spreads carries to ROLE_3.
+- Artifacts: `artifacts/distributions/{target,carry}_role_shares.parquet`
+  (tidy: dimension × level × role → league/mean/shrunk-mean/sd/p10/p90 share).
+  The engine ranks current players into roles from the depth-chart system,
+  then draws which role gets the ball from these shares (+ a per-team spread
+  draw from sd/p10/p90). `artifacts/models/m07.report.md`, `m12.report.md`.
+
+**Next:** Phase D — rating-effect calibration (§13). For each outcome
+resolver: fit shrunken historical residuals per player/team unit after the
+context model, use that spread as the variance budget for the rating-layer
+coefficients, then synthetic-percentile-player sensitivity tests (§13.5) with
+sign + monotonicity constraints (§23). Then Phase E full Monte-Carlo (§22).
+
+**Portability (still open):** M01/M02/M03/M05/M09/M10/M14 chose HGB; the TS
+runtime can't load joblib. Before/within Phase E, export chosen HGB models to
+portable JSON trees or fall back to logistic where the gap is small.
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**

@@ -1,0 +1,7 @@
+{
+  "model_id": "M12",
+  "name": "Carry-role usage",
+  "generated": "2026-09-08",
+  "required_statement": "No current game player ratings were used to fit the nflverse baseline.",
+  "stem": "carry_role_shares"
+}

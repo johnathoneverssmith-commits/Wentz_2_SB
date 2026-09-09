@@ -13,9 +13,14 @@ Full contract: [`docs/engine_spec.md`](../docs/engine_spec.md)
 | --- | --- | --- |
 | §28 schema audit / data-quality / variable classification / reference stats | **TypeScript** (`tsx`, `hyparquet`) | done — `00_schema_audit.ts` |
 | Phase B league baseline (15 resolvers, rating modifiers = 0) | **Python 3.12** (polars, scikit-learn) | **done** — see table below |
-| Phase C usage (target/carry role priors) | Python | not started |
+| Phase C usage (target/carry role priors) | Python | **done** — M07 `08_target_roles`, M12 `13_carry_roles` |
 | Phase D player-effect calibration | Python | not started |
 | Phase E full Monte-Carlo validation | Python | not started |
+
+Phase C outputs: `artifacts/distributions/{target,carry}_role_shares.parquet`
+(dimension × level × role → league / mean / shrunk-mean / sd / p10 / p90
+share). Overall: target ROLE_1..4/5+ = .236/.175/.133/.105/.350; carry
+ROLE_1..3/OTHER = .547/.241/.092/.120. Ratings never used (§15).
 
 ### Phase B resolvers (`artifacts/models/mNN.report.md`, `artifacts/validation/*`)
 
