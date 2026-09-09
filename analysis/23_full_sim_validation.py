@@ -206,12 +206,15 @@ def main() -> None:
            "it to hit the empirical count pushes points from −10% to −16%, because the physical-"
            "outcome resolvers are fit penalty-FREE (§6.2) and this engine's drive model over-"
            "punishes offensive fouls. Reconciling the two needs gained-conditioned hazards (V1.6).",
-           "- **points/team-game ~9% low, and it is diffuse — per-drive efficiency, not one "
-           "cause.** RZ TD rate now matches (0.556 v 0.560); kick/punt return TDs and the 0.958 "
-           "PAT rate are wired. Points come out ~1.9/drive vs ~2.1 empirical while the engine runs "
-           "*more* plays/team-game (67 v 62) — drives sustain but convert less. Candidates for the "
-           "next iteration: M01 4th-down aggression, FG-range decisions, and mid-field (20–40) "
-           "yardage; no 2-point tries (EV-neutral, low priority).",
+           "- **points/team-game ~11% low, diffuse, and NOT the passing game.** The pass "
+           "distribution is now calibrated by depth (`QB_HIT_BY_DEPTH` + `M09_COMPLETE_CALIB`): "
+           "completion / YPA / air-yд / explosive-pass all within ~6%. That fix *raised* the "
+           "points miss from −10% to −11% — M09 was over-completing deep balls, and those "
+           "phantom explosives were masking ~1.7 pts of a scoring deficit elsewhere. RZ TD rate "
+           "matches (0.53 v 0.56); return TDs and the 0.958 PAT are wired. The engine runs *more* "
+           "plays/team-game (67 v 62) yet scores ~1.8/drive v ~2.1 — drives sustain but convert "
+           "less. Open candidates: FG-range vs go decisions, mid-field (20–40) yardage, "
+           "clock/possession count. No 2-point tries (EV-neutral).",
            "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
            "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
            "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",

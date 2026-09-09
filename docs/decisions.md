@@ -233,15 +233,22 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
 - **Diagnosis (2026-09-09):** 3rd-down conversion *by distance bucket* matches
   (0.39 v 0.395 — the earlier "0.33" was `third_conv/third_att`, which
   undercounts penalty-driven conversions); M01 4th-down calls are reasonable
-  (66% go on 4th-and-3 from the opp 40, 77–90% FG inside the 35). What's left:
-  the pass distribution is **shape-wrong** — completion −1.8% while YPA +2.8%,
-  air-yards ~+3–6% and explosive-pass +12%. Fewer dink completions, more chunk
-  throws → drives are boom-bust → more 3-and-outs → the punt / RZ / points
-  cascade. Root is M05 (pass depth) / `air_yards_exact` running a touch deep.
-- **Not fixing for V1:** pulling M05 shorter risks the passing metrics that
-  currently pass; the miss is ~5% of a compounding shape error, not a broken
-  component. Left as the documented Phase E V1.6 item. 2-pt tries are
-  EV-neutral (2×0.47 ≈ 1×0.958) — low priority.
+  (66% go on 4th-and-3 from the opp 40, 77–90% FG inside the 35).
+- **Pass depth investigated + calibrated (2026-09-09).** Air-yд *bucket shares*
+  match empirically (M05 is fine), but the completion RATE was wrong by depth:
+  M09 regresses toward the pass mean → under-completes behind-LOS/checkdowns by
+  ~7pp, over-completes intermediate/deep by ~3pp; and `qb_hit` was a flat 0.135
+  vs the empirical 0.065 / 0.084 / 0.113 / 0.132 by depth (quick releases get
+  hit less). Fixed with `QB_HIT_BY_DEPTH` + a point-of-use `M09_COMPLETE_CALIB`
+  per depth. Completion, YPA, air-yд and explosive-pass now all within ~6%.
+  **This *raised* the points miss −9.6% → −11%** — the old deep-ball
+  over-completion was inflating explosives that masked ~1.7 pts of a scoring
+  deficit elsewhere. So pass depth is a real fidelity fix but **not** the
+  points-gap lever.
+- **Points gap (~−11%) is still unfound**, now against a correctly-calibrated
+  passing game: engine runs *more* plays/team-game (67 v 62) but scores
+  ~1.8/drive v ~2.1. Open candidates: FG-range vs go-for-it, mid-field (20–40)
+  yardage generation, possession/clock count. 2-pt tries are EV-neutral.
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB

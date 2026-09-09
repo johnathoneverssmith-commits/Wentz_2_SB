@@ -29,6 +29,15 @@ from .loaders import (
 PASS_LOC = np.array(["left", "middle", "right"])
 PASS_LOC_P = np.array([0.31, 0.38, 0.31])
 QB_HIT_RATE = 0.135
+# empirical qb_hit rate by pass depth (2023–25) — a flat rate over-pressures
+# checkdowns (quick release) and slightly under-pressures deep drops.
+QB_HIT_BY_DEPTH = {"BEHIND_LOS": 0.065, "SHORT": 0.084, "INTERMEDIATE": 0.113, "DEEP": 0.132}
+# M09 regresses completion toward the pass mean: it under-predicts behind-LOS /
+# checkdown completions (~7pp) and over-predicts intermediate / deep (~3pp).
+# Point-of-use per-depth COMPLETE-logit corrections so completion % matches the
+# empirical at every depth. This removes the old deep-ball over-completion that
+# was masking ~1–2 pts of an unrelated scoring deficit (docs/decisions.md).
+M09_COMPLETE_CALIB = {"BEHIND_LOS": 0.30, "SHORT": 0.03, "INTERMEDIATE": -0.07, "DEEP": -0.10}
 FUMBLE_LOST_RATE = 0.48
 XP_RATE = 0.958             # empirical PAT-kick make rate, 2023–25
 KICKOFF_TOUCHBACK = 0.66
@@ -410,10 +419,12 @@ class Game:
                 depth = ("BEHIND_LOS" if ay < 0 else "SHORT" if ay <= 9
                          else "INTERMEDIATE" if ay <= 19 else "DEEP")
                 ploc = str(self.rng.choice(PASS_LOC, p=PASS_LOC_P))
-                qb_hit = int(self.rng.random() < QB_HIT_RATE)
+                qb_hit = int(self.rng.random() < QB_HIT_BY_DEPTH.get(depth, QB_HIT_RATE))
+                m09_shift = self._off_shift("M09") or {}
+                m09_shift = {**m09_shift,
+                             "COMPLETE": m09_shift.get("COMPLETE", 0.0) + M09_COMPLETE_CALIB.get(depth, 0.0)}
                 res = sample_class("M09", {**self.ctx(sg), "air_yards": ay, "depth_category": depth,
-                                           "pass_location": ploc, "qb_hit": qb_hit}, self.rng,
-                                  self._off_shift("M09"))
+                                           "pass_location": ploc, "qb_hit": qb_hit}, self.rng, m09_shift)
                 self.teams[self.pos].s["air_yards"] += ay
                 if res == "INTERCEPTION":
                     self.st("int_thrown")
