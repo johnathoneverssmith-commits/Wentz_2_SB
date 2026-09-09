@@ -29,6 +29,8 @@ QB_HIT_RATE = 0.135
 FUMBLE_LOST_RATE = 0.48
 XP_RATE = 0.940
 KICKOFF_TOUCHBACK = 0.66
+PICK_SIX_RATE = 0.018       # share of INTs returned for a TD
+SCOOP_SIX_RATE = 0.012      # share of lost fumbles returned for a TD
 SACK_YARDS = np.array([-12, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0])
 SACK_YARDS_P = np.array([2, 4, 6, 9, 12, 16, 16, 12, 9, 5, 2, 1], float)
 SACK_YARDS_P = SACK_YARDS_P / SACK_YARDS_P.sum()
@@ -75,9 +77,17 @@ class Game:
         }
 
     # ---- clock -------------------------------------------------------
-    def advance_clock(self, bucket: str, no_huddle: int = 0):
+    def advance_clock(self, bucket: str, no_huddle: int = 0, drive_ends: bool = False):
+        # M24 elapsed spans snap -> next SAME-DRIVE snap (~35s incl. huddle). On the
+        # play that ENDS a drive there is no offensive huddle after it — the clock
+        # either stops (score, INT, incompletion, out of bounds) or only the kick
+        # team's hustle time runs. Blend to ~14s rather than the full ~35s.
         cs = "final_5min" if self.gsr <= 300 else "final_10min" if self.gsr <= 600 else "normal"
         e = sample_runoff(bucket, no_huddle, cs, self.rng)
+        if drive_ends:
+            # ~65% of the same-drive gap: clock stops on some drive-enders (score,
+            # INT, incompletion, OOB); on others the kick team hustles on.
+            e = int(round(e * 0.65))
         e = min(e, self.qsr) if self.qsr > 0 else e
         self.gsr = max(0, self.gsr - e)
         self.hsr = max(0, self.hsr - e)
@@ -142,7 +152,7 @@ class Game:
             ctx = {"kick_distance": dist, "yardline_100": self.yardline_100,
                    "roof": "outdoors", "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}
             made = predict_proba("M20", ctx).get("MADE", 0.85) > self.rng.random()
-            self.advance_clock("run_inbounds")
+            self.advance_clock("run_inbounds", drive_ends=True)
             if made:
                 self.st("fg_made")
                 self._score(3)
@@ -154,7 +164,7 @@ class Game:
             self.st("punt")
             d = sample_punt_distance(self.yardline_100, self.rng)
             landing = self.yardline_100 - d
-            self.advance_clock("run_inbounds")
+            self.advance_clock("run_inbounds", drive_ends=True)
             if landing <= 0:
                 self.st("touchback")
                 self._flip_field(1 - 20)  # opp ball at own 20
@@ -202,6 +212,12 @@ class Game:
                 self.st("pass_att")
                 depth = sample_class("M05", self.ctx(sg), self.rng)
                 ay = sample_air_yards(depth, self.down, self.yardline_100, self.rng)
+                # you can't throw more than a few yards past the end zone; near the
+                # goal line, cap the air yards and re-derive the depth so M09/M10
+                # get consistent features (uncapped deep balls at the 8 inflate INTs).
+                ay = int(min(ay, self.yardline_100 + 3))
+                depth = ("BEHIND_LOS" if ay < 0 else "SHORT" if ay <= 9
+                         else "INTERMEDIATE" if ay <= 19 else "DEEP")
                 ploc = str(self.rng.choice(PASS_LOC, p=PASS_LOC_P))
                 qb_hit = int(self.rng.random() < QB_HIT_RATE)
                 res = sample_class("M09", {**self.ctx(sg), "air_yards": ay, "depth_category": depth,
@@ -209,8 +225,16 @@ class Game:
                 self.teams[self.pos].s["air_yards"] += ay
                 if res == "INTERCEPTION":
                     self.st("int_thrown")
-                    turnover, family, outcome_bucket = True, "reception", "pass_incomplete"
-                    gained = 0.0
+                    self.st("turnover")
+                    if self.rng.random() < PICK_SIX_RATE:
+                        self.advance_clock("pass_incomplete")
+                        d = self.other()
+                        self._score(6, team=d)
+                        self.teams[d].s["def_td"] += 1
+                        if self.rng.random() < XP_RATE:
+                            self._score(1, team=d)
+                        self._kickoff(receiving=self.pos)  # scored-on team receives
+                        return
                     self._turnover(return_yards=self.rng.normal(6, 8),
                                    spot=float(np.clip(self.yardline_100 - ay, 1, 99)))
                     self.advance_clock("pass_incomplete")
@@ -243,32 +267,53 @@ class Game:
             if gained >= 15:
                 self.st("explosive_rush")
 
-        # fumble check (post-yardage)
+        # fumble check (post-yardage). A sack IS a QB hit — 94% of historical sack
+        # rows have qb_hit == 1, and the M15 model's qb_hit=0 main effect blows up
+        # P(fumble) to ~0.5 for sacks if we pass 0 here.
         if not turnover and family in ("designed_rush", "scramble", "reception", "sack"):
-            pf = predict_proba("M15", {"yards_gained": gained, "qb_hit": 0, "yardline_100": self.yardline_100,
-                                       "down": self.down, "event_family": family}).get("FUMBLE", 0.011)
+            fum_qb_hit = 1 if family == "sack" else 0
+            pf = predict_proba("M15", {"yards_gained": gained, "qb_hit": fum_qb_hit,
+                                       "yardline_100": self.yardline_100, "down": self.down,
+                                       "event_family": family}).get("FUMBLE", 0.011)
             if self.rng.random() < pf:
                 self.st("fumble")
                 if self.rng.random() < FUMBLE_LOST_RATE:
                     self.st("fumble_lost")
                     self.st("turnover")
                     turnover = True
+                    self.advance_clock(outcome_bucket, drive_ends=True)
+                    if self.rng.random() < SCOOP_SIX_RATE:
+                        d = self.other()
+                        self._score(6, team=d)
+                        self.teams[d].s["def_td"] += 1
+                        if self.rng.random() < XP_RATE:
+                            self._score(1, team=d)
+                        self._kickoff(receiving=self.pos)
+                        return
                     self._turnover(spot=float(np.clip(self.yardline_100 - gained, 1, 99)))
-                    self.advance_clock(outcome_bucket)
                     return
 
         # yardage bookkeeping
         if call == "DROPBACK" and family == "reception":
             self.teams[self.pos].s["pass_yards"] += gained
 
-        self.advance_clock(outcome_bucket)  # clock runs before score/possession resolution
+        # resolve state first, so the clock knows whether the drive continues
+        new_yl = self.yardline_100 - gained
+        is_td = new_yl <= 0
+        is_safety = new_yl >= 100
+        gained_first = (self.ydstogo - gained) <= 0 and not is_td and not is_safety
+        failed_4th = (self.down == 4 and not gained_first and not is_td and not is_safety)
+        drive_ends = is_td or is_safety or failed_4th
+        self.advance_clock(outcome_bucket, drive_ends=drive_ends)
 
-        # state update
-        self.yardline_100 -= gained
-        if self.yardline_100 <= 0:
+        self.yardline_100 = new_yl
+        if is_td:
+            self.st("first_down")  # NFL counts the scoring play as a first down
+            if self.down == 3:
+                self.st("third_conv")
             self._touchdown()
             return
-        if self.yardline_100 >= 100:  # safety
+        if is_safety:
             self._score(2, team=self.other())
             self.teams[self.other()].s["safety"] += 1
             self._free_kick()

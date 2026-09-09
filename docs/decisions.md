@@ -122,15 +122,27 @@ validated on the 2025 locked holdout, refit for production, and reported per
 chronology, consuming the joblib resolvers + empirical PMF parquets) +
 `23_full_sim_validation.py`. Rating modifiers = 0 (§22 baseline check).
 
-- **14/16 league metrics within 10%** of the empirical 2023–25 baseline:
-  dropback rate, completion % (.632 v .647), YPA (7.14 v 7.06), air yd/att,
-  INT rate, sack rate, YPC (4.26 v 4.28), explosive rush/pass, FG %,
-  plays/team-game (62.1 v 62.0), drives/team-game (10.4 v 10.7), points SD,
-  rush att/game.
-- **Misses:** points/team-game −19.5% (18.2 v 22.6) and pass att/game −10.6%.
-  Every *efficiency rate* matches, so the miss is drive-finishing (red-zone TD
-  rate), not volume. Next iteration: audit the near-goal-line buckets in the
-  M14/M10 exact-yd PMFs + the goal-line run/pass mix.
+- **14/16 league metrics within 10%** of the empirical 2023–25 baseline
+  (100 sim games): dropback rate, completion % (.628 v .647), YPA (7.07 v
+  7.06), air yd/att, INT rate, sack rate, YPC (4.43 v 4.28), explosive
+  rush/pass, FG %, plays/team-game (65.6 v 62.0), drives/team-game (10.6 v
+  10.7), pass/rush att.
+- **Iteration 2 (2026-09-09):** the −19.5% points miss was a **clock bug** —
+  M24's elapsed model is trained on *same-drive* snap gaps (~35 s incl.
+  huddle) and the engine applied that to drive-*ending* plays too
+  (~250 s/game overrun → too few plays/drives). Fix: drive-ending plays
+  elapse ~65% of the sampled gap. Also fixed: air-yd cap near the goal line
+  (uncapped deep balls from the 8 inflated INTs), the sack fumble check
+  passing `qb_hit=0` (M15's `qb_hit=0` main effect drove P(fumble) to ~0.5
+  for sacks), TD counts as a first down, pick-6 / scoop-6 added.
+  **points now −10.7%** (20.2 v 22.6).
+- **Residual misses:** points −10.7% and points_sd −13.9%. The points gap is
+  now dominated by the deferred **penalty module** (§25 V1.5 —
+  DPI/holding/roughing ≈ 2 free first downs + ~15 yd/game ≈ ~2 of the 2.4
+  missing points), plus RZ TD rate ~54 % v ~57 % and no return TDs. points_sd
+  is low because the average-rating engine runs two identical teams (scores
+  regress to the mean); variance widens with rating modifiers on — the §23
+  check.
 - Engine is **Python** (loads joblib directly). Per-play `predict_proba` is
   cached on a bucketed context key → ~2.5 s/game.
 - V1 gaps: no penalties (V1.5); `qb_hit`/`pass_location` from marginals

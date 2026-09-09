@@ -160,14 +160,19 @@ def main() -> None:
     npass = sum(r["abs_ok"] for r in rows)
     md += ["", f"**{npass}/{len(rows)} metrics within 10% of the empirical league baseline.**", "",
            "## engine V1 gaps (tracked for the next Phase E iteration)", "",
-           "- **points/team-game reads ~20% low** while plays, drives, YPA, YPC, sack/INT rate all "
-           "match — so the miss is *drive finishing* (red-zone TD rate), not volume. Next: audit the "
-           "near-goal-line buckets in the M14 / M10 exact-yard PMFs and the goal-line run/pass mix.",
-           "- pass attempts run ~10% low (drives skew a touch run-heavy near the goal line — same root cause);",
-           "- no penalties (V1.5) — a real source of sustained drives and free first downs;",
+           "- **points/team-game ~10% low.** Root cause of the earlier −20% was a clock bug (M24's "
+           "elapsed model is trained on same-drive snap gaps ~35s incl. huddle; the engine was "
+           "applying that to drive-ending plays too, ~250s/game overrun → too few plays/drives). "
+           "Fixed: drive-ending plays elapse ~65% of the sampled gap. Residual −10% is now:",
+           "  - **no penalties (V1.5, spec §25)** — DPI / holding / roughing are ~2 free first downs "
+           "and ~15 yд/game for the offense → ~2 of the ~2.3 missing points;",
+           "  - red-zone TD rate ~54% vs ~57% (~1 pt); kickoff/punt return TDs not modelled (~0.5 pt);"
+           " no 2-point tries.",
+           "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
+           "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
+           "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",
            "- `qb_hit` and `pass_location` sampled from marginals (Models 06/08 not wired in);",
            "- kickoff / XP / sack-yards are hard-coded empiricals (Models 22/23 not fitted);",
-           "- clock is running-clock only; stoppage/2-min rules simplified;",
            "- individual-player attribution omitted (team aggregates only) — the §24 stat-integrity "
            "tests need it and come with the shippable engine.", ""]
     (ARTIFACTS / "models" / "m23_full_sim_validation.report.md").write_text("\n".join(md), encoding="utf-8")
