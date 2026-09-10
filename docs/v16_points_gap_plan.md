@@ -1,8 +1,9 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **punt bugs fixed (−13% → −11.8%); residual diagnosed to the
-penalty-volume gap, not per-play football. Next = re-test `PENALTY_HAZARD_SCALE`
-with field position now correct.**
+Status: **punt bugs fixed (−13% → −11.8%). Penalty-scale sweep done — NOT the
+points lever (drive-extending defensive fouls cancel the offensive fouls that
+come with them). Remaining points ≈ red-zone TD conversion (−2pp TD/drive) +
+clock (−3% drives). Next = red-zone / goal-line probe.**
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
 opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
@@ -266,14 +267,36 @@ Field position is now close. `never crossed midfield` confirms §2 — the old
 - **≈ 1pp too few `opp_touchdown` drives** (0.12% v 1.11%) — return-TD rate off
   turnovers is ~10× low; near points-neutral leaguewide but part of the 22.56.
 
-### Next
+### `PENALTY_HAZARD_SCALE` sweep (2026-09-10) — NOT the points lever
 
-1. **Re-test `PENALTY_HAZARD_SCALE`** (currently 1.0, penalties −25%). Sweep it
-   toward the empirical count and re-run §22 + the drive table. Field position
-   is fixed now, so the old "−16% points" result should not repeat; the
-   hypothesis is that defensive fouls extending drives is net-positive.
-   Watch: offensive-foul over-punishment (the old failure mode), penalty *yards*
-   vs count, and whether the drive-end clock interaction changes.
-2. Clock / drives-per-game (−3%, `end_of_half` +2.4pp) — an M24 per-play elapsed
-   refit, separate item.
-3. Return-TD rate off turnovers (~10× low, ~1pp of drives) — separate, small.
+Swept the scale via `NFLSIM_PEN_SCALE`, n=160/point, field position fixed:
+
+| scale | pen/tg | penyd/tg | pts/tg | Δ pts | ppd | long-field FD/drive |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1.00 | 4.58 | 40 | 19.76 | −12.4% | 1.846 | 1.79 |
+| **1.30** | **6.17** | 53 | 19.66 | −12.9% | 1.866 | **1.86** |
+| 1.60 | 8.01 | 69 | 19.68 | −12.8% | 1.819 | 1.83 |
+| 2.00 | 9.90 | 86 | 19.26 | −14.7% | 1.76 | 1.81 |
+
+Scale **1.30 hits the empirical penalty count exactly** (6.17 v 6.16) and the
+defensive-penalty first downs **do** materialize — long-field FD/drive 1.79 →
+1.86 (toward 1.91), ppd 1.846 → 1.866. **But points/team-game does not improve**
+(−12.4% → −12.9%): the extra *offensive* fouls (false start, holding, OL/DL) that
+come with the scale-up cancel the drive-extending defensive fouls. Above 1.3,
+offensive fouls dominate and both points and penalty *yards* (target 50) run
+away. So the earlier "scaling → −16% points" finding **still holds after the
+punt fixes** — penalty volume is a fidelity metric, not a points lever. Left at
+1.0; `NFLSIM_PEN_SCALE` stays as a dev override (defaults to 1.0).
+
+### Where the residual points actually are (revised)
+
+points/team-game −12.4% ≈ points/drive −5% × drives/team-game −3.4%:
+
+- **TD% per drive −2pp (20.1% v 22.15%)** — the clearest remaining signal.
+  §22 `rz_td_rate` is −7% (0.52 v 0.56) with the RZ-*trip* rate matching, and
+  probe C had goal-line (`fp="gl"`) run yards −0.2. So it's **red-zone / goal-
+  line TD conversion**: the `ay = min(ay, yardline_100 + 3)` air-yards cap, the
+  M14 `fp="gl"` bucket, and 1st-and-goal handling. **This is the next probe.**
+- **drives/team-game −3.4%** (`end_of_half` +2.4pp) — M24 per-play elapsed
+  refit, separate item.
+- return-TD rate off turnovers (~10× low, ~1pp of drives) — separate, small.

@@ -386,11 +386,23 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   runs penalties at −25% volume). Fixed two stat-counting mismatches:
   `auto_first_pen` now also increments `first_down`; a dead-ball foul now counts
   a play in `_dplays` (matches nflverse's no-play row) — both mirrored to TS.
-  **Next: re-test `PENALTY_HAZARD_SCALE`** — the old "scaling it → points −16%"
-  finding predates the punt fixes (field position was broken); with FP correct,
-  defensive fouls extending drives should be net-positive on points.
-  Momentum stays ruled out (ρ≈0). Full plan:
-  [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
+  Momentum stays ruled out (ρ≈0).
+- **`PENALTY_HAZARD_SCALE` sweep (2026-09-10) — NOT the points lever.** Swept via
+  `NFLSIM_PEN_SCALE` (dev override, defaults 1.0), field position fixed. Scale
+  1.30 hits the empirical penalty count exactly (6.17 v 6.16) and the
+  defensive-penalty first downs materialize (long-field FD/drive 1.79 → 1.86,
+  ppd 1.846 → 1.866) — **but points/team-game does not improve** (−12.4% →
+  −12.9%): the offensive fouls that scale up alongside cancel the drive-
+  extending defensive fouls. Above 1.3, points and penalty *yards* both run
+  away. The old "scaling → −16% points" finding **still holds** post-punt-fix.
+  Left at 1.0.
+- **Revised: the residual points ≈ red-zone TD conversion + clock.**
+  points/team-game −12.4% ≈ ppd −5% × drives/tg −3.4%. The ppd gap is **TD% per
+  drive −2pp** (20.1% v 22.15%) with FG% and RZ-*trip* rate matching → it's
+  red-zone / goal-line TD conversion (`rz_td_rate` −7%; the `ay = min(ay,
+  yardline_100 + 3)` air-yards cap, M14 `fp="gl"` bucket, 1st-and-goal). Next
+  probe. drives/tg −3.4% is the M24 clock (`end_of_half` +2.4pp), separate.
+  Full plan: [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB

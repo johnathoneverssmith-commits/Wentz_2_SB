@@ -49,13 +49,14 @@ SACK_YARDS = np.array([-12, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0])
 SACK_YARDS_P = np.array([2, 4, 6, 9, 12, 16, 16, 12, 9, 5, 2, 1], float)
 SACK_YARDS_P = SACK_YARDS_P / SACK_YARDS_P.sum()
 # M25a/M25b are fit per raw-stream row; the engine runs fewer scrimmage snaps
-# per team-game, so the raw hazard lands ~20% low on penalties/team-game. Left
-# at 1.0 deliberately: the physical-outcome resolvers are fit penalty-FREE
-# (spec §6.2), and this engine's drive model over-punishes offensive fouls, so
-# scaling up to hit the empirical penalty count drives points/team-game from
-# −10% to −16%. Reconciling penalty volume with the scoring effect needs
-# gained-conditioned hazards (V1.6), not a scalar. See penalty_module_plan.md.
-PENALTY_HAZARD_SCALE = 1.0
+# per team-game, so the raw hazard lands ~25% low on penalties/team-game. Left
+# at 1.0: the V1.6 sweep (NFLSIM_PEN_SCALE, see v16_points_gap_plan.md) showed
+# scale 1.30 hits the empirical count but does NOT improve points — the extra
+# offensive fouls cancel the drive-extending defensive ones. It's a fidelity
+# metric, not a points lever. NFLSIM_PEN_SCALE is a Python-dev sweep override
+# only; unset (the default) it is exactly 1.0, matching src/engine/sim.ts.
+import os as _os
+PENALTY_HAZARD_SCALE = float(_os.environ.get("NFLSIM_PEN_SCALE", "1.0"))
 
 
 @dataclass
