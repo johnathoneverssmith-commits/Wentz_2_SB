@@ -11,9 +11,11 @@ Python pipeline, `analysis/engine/` the headless game loop, `artifacts/` the
 committed outputs the loop consumes. Done: §28 audit, 15 league-baseline
 resolvers (Phase B), usage-role priors (C), player-effect calibration (D),
 full-sim validation §22 (E, **16/20 within 10%** after V1.6 —
-`docs/v16_points_gap_plan.md` took points/team-game **−11.8% → −4.9%**: punt
-field-position bugs, RZ air-yards by goal-line distance, `CLOCK_SCALE`,
-pick-6/scoop-6 rates), rating-layer validation §23 (E), penalty module §25
+`docs/v16_points_gap_plan.md` took points/team-game **−11.8% → −2.0%**:
+`CLOCK_SCALE` (M24 snap gaps ran long), `rz_yac` table (goal-line catch YAC),
+end-of-half clock management (2-min drill / spikes / kick unit), punt
+field-position bugs, RZ air-yards by goal-line distance, pick-6/scoop-6 rates,
+punt-return-TD drive labeling), rating-layer validation §23 (E), penalty module §25
 V1.5, portable resolver export + a TypeScript runtime port (`src/engine/`, runs
 on `artifacts/**/portable/*.json`, no Python). Residual-variance anchors use the
 wide 2018–2025 window + team-season units; §13.6 joint-calibration harness
