@@ -504,7 +504,8 @@ export class Game {
           this.scorePts(6, r);
           this.st("st_td", 1, r);
           if (this.rng.random() < XP_RATE) this.scorePts(1, r);
-          this.kickoff(this.pos, "punt");
+          // nflverse codes the punting team's drive as "Opp touchdown"
+          this.kickoff(this.pos, "opp_touchdown");
           return;
         }
         const ret = out === "RETURNED" ? samplePuntReturn(this.rng) : 0;

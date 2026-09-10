@@ -417,6 +417,12 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   Tradeoff (`explosive_pass_rate` +9→+10%) resolved once the clock fix landed
   (back to +5%). **Not closed:** yl 5–20 pass-TD still ~−20pp — a diffuse
   M05/M09/M10 RZ interaction, deferred.
+- **Exotic return TDs at IRL rates (2026-09-10).** Empirical `opp_touchdown`
+  drives = pick-6 + strip-sack scoop + **punt-return TDs** (nflverse labels the
+  punting team's drive "Opp touchdown") + run-fumble returns. The engine
+  already had the right per-event rates; the bug was a punt-return-TD drive
+  being labeled `punt`. Relabeled → `opp_touchdown` 0.72% → 1.06% (emp 1.11%).
+  Blocked-kick / muffed-punt return TDs are ~0 in 2023–25 — not modelled.
 - **End-of-half clock management (2026-09-10; play-by-play prerequisite).**
   New `Game.clock_stopped` running-clock state (reset on possession change,
   incompletion, OOB; running after an in-bounds gain). 2-minute drill

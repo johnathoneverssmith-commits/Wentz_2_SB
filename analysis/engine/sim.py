@@ -482,7 +482,8 @@ class Game:
                     self.teams[r].s["st_td"] += 1
                     if self.rng.random() < XP_RATE:
                         self._score(1, team=r)
-                    self._kickoff(receiving=self.pos, result="punt")  # returning team kicks back
+                    # nflverse codes the punting team's drive as "Opp touchdown"
+                    self._kickoff(receiving=self.pos, result="opp_touchdown")
                     return
                 ret = sample_punt_return(self.rng) if out == "RETURNED" else 0
                 # receiving team's yardline_100 = 100 − landing spot, then a return

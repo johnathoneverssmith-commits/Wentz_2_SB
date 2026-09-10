@@ -270,7 +270,7 @@ def main() -> None:
            "split (gl1..gl4); `PICK_SIX_RATE`/`SCOOP_SIX_RATE` were ~5× low. Ruled out: momentum "
            "(ρ≈0), scaling `PENALTY_HAZARD_SCALE`. `plays_per_team_game` empirical filter fixed "
            "like-for-like (62 → 68). Residual: RZ pass-TD ~10 pp short yl 5–20 (M05 depth); "
-           "`opp_touchdown` 0.72 v 1.11%. No 2-pt.",
+           "`opp_touchdown` matched (relabel of punt-return-TD drives). No 2-pt.",
            "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
            "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
            "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",

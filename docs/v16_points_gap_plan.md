@@ -423,6 +423,12 @@ Python §22 keeps it within 10%).
    → JSON; `sample_rz_yac` in both engines. Residual (~10 pp short at yl 5–20)
    is the engine's RZ completions still skewing to lower air yards / behind-LOS
    — an M05 depth-mix effect, small now.
-4. `opp_touchdown` still 0.65 v 1.11% — the gap is fumble-return TDs on
-   non-turnover plays (strip-sack scoop-and-score) + blocked-kick / muffed-punt
-   TDs, none of which the engine models. Small.
+4. **Exotic return TDs — DONE (2026-09-10).** Decomposed the empirical
+   `opp_touchdown` drives (205, 0.12/team-game): 151 pass (pick-6 + strip-sack
+   scoop), 30 **punt-return TDs** (nflverse codes the punting team's drive as
+   "Opp touchdown"), 11 run-fumble returns. The engine already produces all
+   three at the right per-event rate (`PICK_SIX_RATE` 0.088, `SCOOP_SIX_RATE`
+   0.064, `PUNT_RETURN_TD_RATE` 0.020) — the only bug was that a punt-return
+   TD drive was being *labeled* `punt`. Relabeled → `opp_touchdown` 0.72% →
+   **1.06%** (emp 1.11%). Blocked-kick / muffed-punt return TDs are not a
+   meaningful part of empirical `opp_touchdown` (0 in 2023–25) — not modelled.
