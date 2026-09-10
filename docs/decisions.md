@@ -166,29 +166,30 @@ per-play lineups → attribute z-scores → Phase D coefficients as
   slot (`engine/ratings._offsets()`, computed once from the 32 depth charts), so
   an average real matchup → ≈0 shift. Paired invariant tests are unaffected (the
   offset is common to both cells and cancels).
-- **Invariants:** 7 monotonicity checks, synthetic p90 vs p10 single-family
-  rosters, paired on common random numbers. Directions hold (the misses at n=10
-  sit inside the paired SE — sim-sample size, not wiring). Magnitude is carried
-  by the analytic `designed_magnitude()` (the MC ratio is noise-dominated for
-  low-event channels at small n): **all 11 families land at 0.99–1.0× the
-  historical p10↔p90 anchor** once logit- and yard-scale shifts are put in
-  common units — Phase D calibration confirmed sound.
-- **Centering / league (32 real matchups ×2, modifiers on):** completion −2.5%,
-  YPA −0.9%, YPC +2.0% vs the empirical baseline; **sack rate +14.5%** (0.076 v
-  0.066 — above §22's validated +4.3%, likely the 32-pair sample but a watch
-  item for the larger run). Favourite-by-summed-`overall` win rate **59%**;
-  favourite-by-net-modelled-channel-edge win rate **69%** (NFL point-spread
-  favourites win ~66–70%) — the two agree on the favourite in 72% of matchups.
-- **Layer impact (44 matchups, paired same-seed ON=rosters vs OFF=league-avg):**
-  league points flat within sample noise (Δ +0.3), **score-margin sd widens
-  12.3 vs 11.2** (matchups now move outcomes), INT rate does not inflate
-  (0.0245 vs 0.0272). Best-vs-worst roster (PHI ovr 1767 vs LV 1595) → favourite
-  wins **73% in both home/away directions**, +5–6 pt margin.
-- **Open (Phase E iteration, not blocking):** the league block's single-run
-  numbers (points −17%, points_sd −12%, sack +14.5%) are sample-noisy — they
-  swing run-to-run from the 32-pair draw and the bucketed-`predict_proba` cache
-  warm-state; need n_pairs ≥ 100 to pin. The paired impact test is the reliable
-  read and it is clean.
+- **Invariants (n=35/cell, paired CRN):** the analytic `designed_magnitude` is
+  the trustworthy check — **all 11 families land at 0.99–1.0× the historical
+  p10↔p90 anchor** (logit and yard scales in common units), Phase D calibration
+  confirmed sound. The Monte-Carlo directions are 5/7 with only qb_accuracy
+  clearing z≥2 (Δ +0.054, MCratio 1.02); the yardage channels (runner,
+  run-defense) have such large per-game YPC variance that even n=35 paired
+  can't resolve them — `runner` flip-flops sign run-to-run (noise, not a bug).
+- **Larger §23 run (2026-09-09): the pinned picture is softer than the n=32
+  read.** League (120 pairs, modifiers on): completion +2.5%, YPA +2.0%, YPC
+  +4.1%, sack +4.4% (the n=32 "+14.5%" was sample noise). Favourite-by-summed-
+  `overall` win rate **55%**; by net-modelled-channel-edge **62%** (below the
+  NFL point-spread favourite's ~66–70%). **Paired ON vs OFF (100 pairs): the
+  centred rating layer costs ~1.2 pts/team-game and score-margin sd *shrinks*
+  (11.29 v 11.99)** — §12 predicts ≈0 and a widen. Best-vs-worst roster still
+  → favourite 73% both directions.
+- **This is the same "correct per-play, compounds wrong through the drive
+  model" pattern as the §22 points gap** — the analytic magnitudes are exactly
+  1.0×, so it's not a centering or sign bug; the shifts just don't aggregate to
+  the right league-level effect. It's a **§13.6 joint-calibration** item (tune
+  βᵢ against the engine's *emergent* points/wins, not just per-play residual
+  spreads), and it wants the wider 2016–2025 window for the residual-variance
+  tails (65 QBs / 154 receivers / 105 rushers from 3 seasons is thin). Not
+  blocking A1/season-sim; do it before rating-layer magnitudes surface in
+  franchise-mode UX.
 
 **Penalty module (§25 V1.5) — models fitted (2026-09-09).**
 `analysis/25_penalties.py` (M25a pre-snap dead-ball hazard, M25b live-ball

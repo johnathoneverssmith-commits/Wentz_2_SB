@@ -1,155 +1,155 @@
 {
   "generated": "2026-09-09",
-  "n_sims_per_cell": 10,
+  "n_sims_per_cell": 35,
   "invariants": [
     {
       "family": "qb_accuracy",
       "check": "higher QB accuracy raises completion %",
-      "p90_metric": 0.6873,
-      "p10_metric": 0.6562,
-      "p90_minus_p10": 0.0311,
-      "paired_se": 0.0292,
-      "signal_over_noise": 1.07,
+      "p90_metric": 0.6724,
+      "p10_metric": 0.6189,
+      "p90_minus_p10": 0.0535,
+      "paired_se": 0.019,
+      "signal_over_noise": 2.82,
       "direction_ok": true,
       "historical_p10_to_p90": 0.0524,
-      "mc_magnitude_ratio": 0.59,
+      "mc_magnitude_ratio": 1.02,
       "designed_magnitude_ratio": 1.0
     },
     {
       "family": "coverage",
       "check": "higher coverage lowers opponent completion %",
-      "p90_metric": 0.6487,
-      "p10_metric": 0.6667,
-      "p90_minus_p10": -0.018,
-      "paired_se": 0.0239,
-      "signal_over_noise": 0.76,
+      "p90_metric": 0.6334,
+      "p10_metric": 0.6456,
+      "p90_minus_p10": -0.0122,
+      "paired_se": 0.0176,
+      "signal_over_noise": 0.69,
       "direction_ok": true,
       "historical_p10_to_p90": 0.0329,
-      "mc_magnitude_ratio": 0.55,
+      "mc_magnitude_ratio": 0.37,
       "designed_magnitude_ratio": 1.0
     },
     {
       "family": "protection",
       "check": "higher pass blocking lowers sack rate",
-      "p90_metric": 0.0704,
-      "p10_metric": 0.0708,
-      "p90_minus_p10": -0.0003,
-      "paired_se": 0.0079,
-      "signal_over_noise": 0.04,
+      "p90_metric": 0.0583,
+      "p10_metric": 0.0712,
+      "p90_minus_p10": -0.0128,
+      "paired_se": 0.0087,
+      "signal_over_noise": 1.48,
       "direction_ok": true,
       "historical_p10_to_p90": 0.021,
-      "mc_magnitude_ratio": 0.02,
+      "mc_magnitude_ratio": 0.61,
       "designed_magnitude_ratio": 0.99
     },
     {
       "family": "pass_rush",
       "check": "higher pass rush raises sack rate",
-      "p90_metric": 0.0677,
-      "p10_metric": 0.08,
-      "p90_minus_p10": -0.0123,
-      "paired_se": 0.0138,
-      "signal_over_noise": 0.89,
+      "p90_metric": 0.0613,
+      "p10_metric": 0.0637,
+      "p90_minus_p10": -0.0024,
+      "paired_se": 0.0071,
+      "signal_over_noise": 0.34,
       "direction_ok": false,
       "historical_p10_to_p90": 0.0132,
-      "mc_magnitude_ratio": 0.93,
+      "mc_magnitude_ratio": 0.18,
       "designed_magnitude_ratio": 0.99
     },
     {
       "family": "runner",
       "check": "higher runner ratings raise YPC",
-      "p90_metric": 4.4867,
-      "p10_metric": 4.3883,
-      "p90_minus_p10": 0.0984,
-      "paired_se": 0.2219,
-      "signal_over_noise": 0.44,
-      "direction_ok": true,
+      "p90_metric": 3.883,
+      "p10_metric": 4.2277,
+      "p90_minus_p10": -0.3447,
+      "paired_se": 0.2464,
+      "signal_over_noise": 1.4,
+      "direction_ok": false,
       "historical_p10_to_p90": 0.7791,
-      "mc_magnitude_ratio": 0.13,
+      "mc_magnitude_ratio": 0.44,
       "designed_magnitude_ratio": 1.0
     },
     {
       "family": "run_defense_front7",
       "check": "higher run defense lowers opponent YPC",
-      "p90_metric": 4.3417,
-      "p10_metric": 4.6051,
-      "p90_minus_p10": -0.2634,
-      "paired_se": 0.5638,
-      "signal_over_noise": 0.47,
+      "p90_metric": 4.3413,
+      "p10_metric": 4.3712,
+      "p90_minus_p10": -0.0299,
+      "paired_se": 0.2658,
+      "signal_over_noise": 0.11,
       "direction_ok": true,
       "historical_p10_to_p90": 0.4626,
-      "mc_magnitude_ratio": 0.57,
+      "mc_magnitude_ratio": 0.06,
       "designed_magnitude_ratio": 1.0
     },
     {
       "family": "kicking",
       "check": "higher kick accuracy raises make %",
-      "p90_metric": 0.8417,
-      "p10_metric": 0.7667,
-      "p90_minus_p10": 0.075,
-      "paired_se": 0.075,
-      "signal_over_noise": 1.0,
+      "p90_metric": 0.8357,
+      "p10_metric": 0.769,
+      "p90_minus_p10": 0.0667,
+      "paired_se": 0.0632,
+      "signal_over_noise": 1.06,
       "direction_ok": true,
       "historical_p10_to_p90": 0.077,
-      "mc_magnitude_ratio": 0.97,
+      "mc_magnitude_ratio": 0.87,
       "designed_magnitude_ratio": 1.0
     }
   ],
   "league_modifiers_on": {
-    "pairs": 32,
-    "team_games": 128,
-    "completion_pct": 0.6305263157894737,
-    "yards_per_attempt": 6.99374311567544,
-    "sack_rate": 0.07591139824642362,
-    "yards_per_carry": 4.359769546077514,
-    "points_mean": 18.71875,
-    "points_sd": 8.725803598379922,
-    "better_roster_win_rate": 0.59375,
-    "modelled_edge_win_rate": 0.6875,
-    "modelled_edge_games": 64,
-    "overall_vs_edge_agree": 0.71875
+    "pairs": 120,
+    "team_games": 480,
+    "completion_pct": 0.6634375667782606,
+    "yards_per_attempt": 7.195552196546846,
+    "sack_rate": 0.06922257720979766,
+    "yards_per_carry": 4.449974092857243,
+    "points_mean": 18.472916666666666,
+    "points_sd": 8.528585257418463,
+    "better_roster_win_rate": 0.55,
+    "modelled_edge_win_rate": 0.6196581196581197,
+    "modelled_edge_games": 234,
+    "overall_vs_edge_agree": 0.6833333333333333
   },
   "layer_impact_paired": {
-    "pairs": 44,
-    "points_on": 19.295454545454547,
-    "points_off": 19.0,
-    "points_delta_on_minus_off": 0.29545454545454675,
-    "team_points_sd_on": 8.546874881963223,
-    "team_points_sd_off": 7.454406872326048,
-    "margin_sd_on": 12.332263001728501,
-    "margin_sd_off": 11.211527420803913,
-    "int_rate_on": 0.024509803921568627,
-    "int_rate_off": 0.027157738095238096
+    "pairs": 100,
+    "points_on": 18.65,
+    "points_off": 19.87,
+    "points_delta_on_minus_off": -1.2200000000000024,
+    "team_points_sd_on": 8.314294918993431,
+    "team_points_sd_off": 8.19225854084208,
+    "margin_sd_on": 11.289446399181848,
+    "margin_sd_off": 11.988928225658873,
+    "int_rate_on": 0.025173171143774285,
+    "int_rate_off": 0.02293654779842625
   },
   "league_vs_empirical": {
     "completion_pct": {
-      "sim": 0.6305,
+      "sim": 0.6634,
       "emp": 0.647,
-      "rel_err": -0.025
+      "rel_err": 0.025
     },
     "yards_per_attempt": {
-      "sim": 6.9937,
+      "sim": 7.1956,
       "emp": 7.057,
-      "rel_err": -0.009
-    },
-    "sack_rate": {
-      "sim": 0.0759,
-      "emp": 0.0663,
-      "rel_err": 0.145
-    },
-    "yards_per_carry": {
-      "sim": 4.3598,
-      "emp": 4.276,
       "rel_err": 0.02
     },
+    "sack_rate": {
+      "sim": 0.0692,
+      "emp": 0.0663,
+      "rel_err": 0.044
+    },
+    "yards_per_carry": {
+      "sim": 4.45,
+      "emp": 4.276,
+      "rel_err": 0.041
+    },
     "points_mean": {
-      "sim": 18.7188,
+      "sim": 18.4729,
       "emp": 22.564,
-      "rel_err": -0.17
+      "rel_err": -0.181
     },
     "points_sd": {
-      "sim": 8.7258,
+      "sim": 8.5286,
       "emp": 9.927,
-      "rel_err": -0.121
+      "rel_err": -0.141
     }
   }
 }
