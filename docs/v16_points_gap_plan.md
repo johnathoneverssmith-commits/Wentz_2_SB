@@ -9,9 +9,11 @@ points/drive −3.5% → −2.5%, `rz_td_rate` −7.7% → −2.3%. Remaining fa
 expected: `points_sd` (rating layer OFF, no team spread) + the 3 deliberate
 penalty-volume metrics. Also fixed the §22 `plays_per_team_game` definition
 (was scrimmage-only vs the engine's all-plays; empirical 62.0 → 67.8).
-Deferred: RZ pass-TD still ~−20pp yl 5–20 (diffuse M05/M09/M10); return-TD
-rate ~10× low; the −6% residual is now mostly `end_of_half` (8.8 v 6.85%) +
-the diffuse RZ passing.
+Also fixed: `PICK_SIX_RATE`/`SCOOP_SIX_RATE` were ~5× too low → points −6.2% →
+**−4.9%**. Deferred (each small): RZ pass-TD still ~−20pp yl 5–20 (diffuse
+M05/M09/M10); `end_of_half` 8.8 v 6.85% (needs real half/game-end drive
+management — a no-huddle rule was tried and didn't move it); `opp_touchdown`
+0.65 v 1.11% (exotic return TDs the engine doesn't model).
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
 opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
@@ -398,8 +400,15 @@ Python §22 keeps it within 10%).
    fumble-return TDs on non-turnover plays + muffed-punt/blocked-kick TDs the
    engine doesn't model). **points/team-game −6.2% → −4.9%** (the +7s go to the
    defense). 16/20 §22 holds.
-2. `end_of_half` 8.8 v 6.85% — the engine still ends slightly too many drives on
-   the clock. Minor; would need the M24 half/game-end transitions modelled
-   properly rather than "clock hits 0 mid-drive".
+2. `end_of_half` 8.8 v 6.85% — the engine ends ~2 pp too many drives on the
+   clock. Tried a no-huddle 2-minute-drill rule (`no_huddle=1` when trailing/tied
+   inside 2:00) — M24's no_huddle buckets are only ~4–5 s/play faster, so it
+   didn't move `end_of_half` and was reverted. A real fix needs explicit
+   half/game-end drive management (when is a drive not worth continuing;
+   kneel-downs; the receiving team declining a last possession), which is a
+   bigger effort than the last ~0.3 pts/team-game warrants right now.
 3. The diffuse RZ passing residual (yl 5–20 pass-TD ~−20pp) — a multi-resolver
    M05/M09/M10 RZ recalibration, its own effort.
+4. `opp_touchdown` still 0.65 v 1.11% — the gap is fumble-return TDs on
+   non-turnover plays (strip-sack scoop-and-score) + blocked-kick / muffed-punt
+   TDs, none of which the engine models. Small.
