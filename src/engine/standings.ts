@@ -50,6 +50,12 @@ export interface StandingRow {
   seed: number | null;
   madePlayoffs: boolean;
   wonDivision: boolean;
+  /**
+   * When this team was in a multi-team tie that a tiebreaker resolved, how it
+   * came out ahead — e.g. "conference record over BAL, PIT". Absent when the
+   * team's placement never required a tiebreaker.
+   */
+  tiebreaker?: string;
 }
 
 export interface ConferenceSeeding {
@@ -198,57 +204,86 @@ class Season {
 
 // --- tiebreakers -----------------------------------------------------------
 
-type Step = (s: Season, team: string, group: string[]) => number;
+interface Step {
+  fn: (s: Season, team: string, group: string[]) => number;
+  label: string;
+}
 
 // Higher is better. Each returns a comparable score; a step that can't
 // distinguish returns the same value for everyone in the group.
 const DIVISION_STEPS: Step[] = [
-  (s, t, g) => s.headToHeadPct(t, new Set(g)),
-  (s, t) => s.divisionPct(t),
-  (s, t, g) => s.commonGamesPct(t, g, 0) ?? 0,
-  (s, t) => s.conferencePct(t),
-  (s, t) => s.strengthOfVictory(t),
-  (s, t) => s.strengthOfSchedule(t),
-  (s, t) => s.netPoints(t),
+  { fn: (s, t, g) => s.headToHeadPct(t, new Set(g)), label: "head-to-head" },
+  { fn: (s, t) => s.divisionPct(t), label: "division record" },
+  { fn: (s, t, g) => s.commonGamesPct(t, g, 0) ?? 0, label: "common games" },
+  { fn: (s, t) => s.conferencePct(t), label: "conference record" },
+  { fn: (s, t) => s.strengthOfVictory(t), label: "strength of victory" },
+  { fn: (s, t) => s.strengthOfSchedule(t), label: "strength of schedule" },
+  { fn: (s, t) => s.netPoints(t), label: "net points" },
 ];
 
 const WILDCARD_STEPS: Step[] = [
-  (s, t, g) => s.headToHeadSweep(t, g),
-  (s, t) => s.conferencePct(t),
-  (s, t, g) => s.commonGamesPct(t, g, 4) ?? -1,
-  (s, t) => s.strengthOfVictory(t),
-  (s, t) => s.strengthOfSchedule(t),
-  (s, t) => s.netPoints(t),
+  { fn: (s, t, g) => s.headToHeadSweep(t, g), label: "head-to-head sweep" },
+  { fn: (s, t) => s.conferencePct(t), label: "conference record" },
+  { fn: (s, t, g) => s.commonGamesPct(t, g, 4) ?? -1, label: "common games" },
+  { fn: (s, t) => s.strengthOfVictory(t), label: "strength of victory" },
+  { fn: (s, t) => s.strengthOfSchedule(t), label: "strength of schedule" },
+  { fn: (s, t) => s.netPoints(t), label: "net points" },
 ];
 
 const EPS = 1e-9;
 
+interface TieOutcome {
+  order: string[];
+  /** team → how it finished ahead of at least one team it was tied with. */
+  notes: Map<string, string>;
+}
+
+function nameList(teams: string[]): string {
+  return teams.length <= 3
+    ? teams.join(", ")
+    : `${teams.slice(0, 3).join(", ")} +${teams.length - 3}`;
+}
+
 /**
- * Order `group` best → worst. `steps` is the tiebreaker chain; after any step
- * splits the group the procedure restarts from the top on each sub-group (the
- * league's "resume at step 1" rule). Final fallback: team code.
+ * Order `group` best → worst and record why. `steps` is the tiebreaker chain;
+ * after any step splits the group the procedure restarts from the top on each
+ * sub-group (the league's "resume at step 1" rule). Final fallback: team code.
+ * A team only gets a note when it actually finished ahead of a team it was tied
+ * with.
  */
-function breakTie(s: Season, group: string[], steps: Step[]): string[] {
-  if (group.length <= 1) return [...group];
+function breakTie(s: Season, group: string[], steps: Step[]): TieOutcome {
+  if (group.length <= 1) return { order: [...group], notes: new Map() };
 
-  for (let i = 0; i < steps.length; i += 1) {
-    const step = steps[i]!;
-    const scored = group.map((t) => ({ t, v: step(s, t, group) }));
+  for (const step of steps) {
+    const scored = group.map((t) => ({ t, v: step.fn(s, t, group) }));
     const values = [...new Set(scored.map((x) => x.v))].sort((a, b) => b - a);
-    // did this step separate anyone?
-    const distinct = values.filter(
-      (v, idx) => idx === 0 || Math.abs(v - values[idx - 1]!) > EPS,
-    );
-    if (distinct.length <= 1) continue; // no split, next step
+    const distinct = values.filter((v, idx) => idx === 0 || Math.abs(v - values[idx - 1]!) > EPS);
+    if (distinct.length <= 1) continue; // this step didn't separate anyone
 
-    const buckets: string[][] = distinct.map((v) =>
+    const buckets = distinct.map((v) =>
       scored.filter((x) => Math.abs(x.v - v) <= EPS).map((x) => x.t),
     );
-    // recurse from the top on each bucket
-    return buckets.flatMap((b) => breakTie(s, b, steps));
+    const order: string[] = [];
+    const notes = new Map<string, string>();
+    buckets.forEach((bucket, bi) => {
+      const beaten = buckets.slice(bi + 1).flat();
+      const sub = breakTie(s, bucket, steps);
+      order.push(...sub.order);
+      for (const [t, n] of sub.notes) notes.set(t, n); // deeper split wins
+      if (beaten.length > 0) {
+        for (const t of bucket) {
+          if (!notes.has(t)) notes.set(t, `${step.label} over ${nameList(beaten)}`);
+        }
+      }
+    });
+    return { order, notes };
   }
 
-  return [...group].sort((a, b) => a.localeCompare(b));
+  // nothing separated them — deterministic stand-in for the coin toss
+  const order = [...group].sort((a, b) => a.localeCompare(b));
+  const notes = new Map<string, string>();
+  order.slice(0, -1).forEach((t, i) => notes.set(t, `coin toss over ${nameList(order.slice(i + 1))}`));
+  return { order, notes };
 }
 
 /**
@@ -258,7 +293,7 @@ function breakTie(s: Season, group: string[], steps: Step[]): string[] {
  * contenders share a division only that division's best survivor competes; the
  * rest are spliced back in directly behind it.
  */
-function rankAcrossDivisions(s: Season, teams: string[]): string[] {
+function rankAcrossDivisions(s: Season, teams: string[]): TieOutcome {
   const tiers = new Map<number, string[]>();
   for (const t of teams) {
     const key = Math.round(s.overallPct(t) * 1e6);
@@ -266,15 +301,18 @@ function rankAcrossDivisions(s: Season, teams: string[]): string[] {
     tiers.get(key)!.push(t);
   }
 
-  const out: string[] = [];
+  const order: string[] = [];
+  const notes = new Map<string, string>();
   for (const [, tier] of [...tiers.entries()].sort((a, b) => b[0] - a[0])) {
-    out.push(...rankTierAcrossDivisions(s, tier));
+    const t = rankTierAcrossDivisions(s, tier);
+    order.push(...t.order);
+    for (const [k, v] of t.notes) notes.set(k, v);
   }
-  return out;
+  return { order, notes };
 }
 
-function rankTierAcrossDivisions(s: Season, tier: string[]): string[] {
-  if (tier.length <= 1) return [...tier];
+function rankTierAcrossDivisions(s: Season, tier: string[]): TieOutcome {
+  if (tier.length <= 1) return { order: [...tier], notes: new Map() };
 
   const byDiv = new Map<DivisionId, string[]>();
   for (const t of tier) {
@@ -284,12 +322,21 @@ function rankTierAcrossDivisions(s: Season, tier: string[]): string[] {
   }
   // one survivor per division; the rest ride directly behind it
   const internal = new Map<DivisionId, string[]>();
-  for (const [d, ts] of byDiv) internal.set(d, breakTie(s, ts, DIVISION_STEPS));
+  const notes = new Map<string, string>();
+  for (const [d, ts] of byDiv) {
+    const t = breakTie(s, ts, DIVISION_STEPS);
+    internal.set(d, t.order);
+    for (const [k, v] of t.notes) notes.set(k, v);
+  }
 
   const champions = [...internal.values()].map((ordered) => ordered[0]!);
-  const rankedChampions = breakTie(s, champions, WILDCARD_STEPS);
+  const ranked = breakTie(s, champions, WILDCARD_STEPS);
+  for (const [k, v] of ranked.notes) notes.set(k, v);
 
-  return rankedChampions.flatMap((champ) => internal.get(divisionOf(champ))!);
+  return {
+    order: ranked.order.flatMap((champ) => internal.get(divisionOf(champ))!),
+    notes,
+  };
 }
 
 // --- public API ----------------------------------------------------------
@@ -332,11 +379,13 @@ export function computeStandings(
   for (const id of DIVISION_IDS) {
     const members = teams.filter((t) => divisionOf(t) === id);
     if (members.length === 0) continue;
-    const ordered = orderByPctThen(s, members, DIVISION_STEPS);
-    ordered.forEach((t, i) => {
+    const { order, notes } = orderByPctThen(s, members, DIVISION_STEPS);
+    order.forEach((t, i) => {
       const r = rowOf.get(t)!;
       r.divisionRank = i + 1;
       r.wonDivision = i === 0;
+      const note = notes.get(t);
+      if (note) r.tiebreaker = note;
     });
   }
 
@@ -347,19 +396,22 @@ export function computeStandings(
     const winners = confTeams.filter((t) => rowOf.get(t)!.wonDivision);
     const rest = confTeams.filter((t) => !rowOf.get(t)!.wonDivision);
 
-    const seededWinners = rankAcrossDivisions(s, winners).filter((t) =>
-      rowOf.get(t)!.wonDivision,
-    );
+    const winnerRank = rankAcrossDivisions(s, winners);
+    const seededWinners = winnerRank.order.filter((t) => rowOf.get(t)!.wonDivision);
     // ^ rankAcrossDivisions splices in division-mates; winners are unique
     //   per division so the filter just preserves order.
-    const wildOrder = rankAcrossDivisions(s, rest);
-    const wildCards = wildOrder.slice(0, Math.max(0, 7 - seededWinners.length));
+    const wildRank = rankAcrossDivisions(s, rest);
+    const wildCards = wildRank.order.slice(0, Math.max(0, 7 - seededWinners.length));
 
     const seeds = [...seededWinners, ...wildCards];
     seeds.forEach((t, i) => {
       const r = rowOf.get(t)!;
       r.seed = i + 1;
       r.madePlayoffs = true;
+      // a cross-division note (seed placement) is more playoff-relevant than a
+      // within-division one — let it win.
+      const note = winnerRank.notes.get(t) ?? wildRank.notes.get(t);
+      if (note) r.tiebreaker = note;
     });
     seeding[conf] = { seeds, divisionWinners: seededWinners, wildCards };
   }
@@ -376,14 +428,19 @@ export function computeStandings(
 }
 
 /** breakTie, but seeded by overall win% first (its natural primary sort). */
-function orderByPctThen(s: Season, teams: string[], steps: Step[]): string[] {
+function orderByPctThen(s: Season, teams: string[], steps: Step[]): TieOutcome {
   const groups = new Map<number, string[]>();
   for (const t of teams) {
     const key = Math.round(s.overallPct(t) * 1e6);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(t);
   }
-  return [...groups.entries()]
-    .sort((a, b) => b[0] - a[0])
-    .flatMap(([, g]) => breakTie(s, g, steps));
+  const order: string[] = [];
+  const notes = new Map<string, string>();
+  for (const [, g] of [...groups.entries()].sort((a, b) => b[0] - a[0])) {
+    const t = breakTie(s, g, steps);
+    order.push(...t.order);
+    for (const [k, v] of t.notes) notes.set(k, v);
+  }
+  return { order, notes };
 }

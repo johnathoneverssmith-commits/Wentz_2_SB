@@ -50,6 +50,7 @@ function standingsBlock(rows: StandingRow[], clinch?: Map<string, ClinchTag | nu
             ` ${(r.pointDiff >= 0 ? "+" : "") + r.pointDiff}`.padEnd(7) +
             ` div ${r.divisionRecord.padEnd(7)} conf ${r.conferenceRecord}`,
         );
+        if (r.tiebreaker) lines.push(`          ↳ ${r.tiebreaker}`);
       }
     }
   }

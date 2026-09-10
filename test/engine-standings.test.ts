@@ -7,7 +7,7 @@ import {
   conferenceOf,
   divisionOf,
 } from "../src/engine/nfl-structure.js";
-import { nflSchedule } from "../src/engine/schedule.js";
+import { scheduleMatchups } from "../src/engine/schedule.js";
 import { type FinishedGame, computeStandings } from "../src/engine/standings.js";
 
 /**
@@ -26,7 +26,7 @@ function score(margin: number): [number, number] {
  * (higher wins; home team gets a small edge). No ties.
  */
 function syntheticSeason(year: number, strength: (t: string) => number): FinishedGame[] {
-  return nflSchedule({ year }).map(({ home, away }) => {
+  return scheduleMatchups({ year }).map(({ home, away }) => {
     const diff = strength(home) + 0.25 - strength(away);
     const margin = Math.max(1, Math.min(28, Math.round(Math.abs(diff))));
     const [w, l] = score(margin);
@@ -145,6 +145,9 @@ describe("computeStandings — tiebreakers", () => {
     expect([rowA.wins, rowA.losses]).toEqual([rowB.wins, rowB.losses]); // both 2-2
     expect(rank(A!)).toBe(1);
     expect(rank(B!)).toBe(2);
+    // and it says why A finished ahead
+    expect(rowA.tiebreaker).toMatch(/head-to-head/);
+    expect(rowA.tiebreaker).toContain(B!);
   });
 
   it("conference record breaks a tie between teams from different divisions", () => {
@@ -174,5 +177,24 @@ describe("computeStandings — tiebreakers", () => {
     // both are division "winners" in this sparse pool (only ones with games in
     // their division), so compare their seeds: X's better conference record wins
     expect(rowX.seed!).toBeLessThan(rowY.seed!);
+    expect(rowX.tiebreaker).toMatch(/conference record/);
+    expect(rowX.tiebreaker).toContain(Y);
+  });
+
+  it("leaves teams that never needed a tiebreaker unannotated", () => {
+    // a clean season — strict strength order, no ties anywhere
+    const strengthIndex = new Map(NFL_TEAMS.map((t, i) => [t, i]));
+    const finished = scheduleMatchups({ year: 2026 }).map(({ home, away }) => {
+      const diff = strengthIndex.get(home)! + 0.25 - strengthIndex.get(away)!;
+      const m = Math.max(1, Math.min(28, Math.round(Math.abs(diff))));
+      return diff > 0
+        ? { home, away, homeScore: 20 + m, awayScore: 20 }
+        : { home, away, homeScore: 20, awayScore: 20 + m };
+    });
+    const { rows } = computeStandings(finished);
+    // ties are still possible from the schedule's home/away noise, but most
+    // teams should have a clean placement
+    const annotated = rows.filter((r) => r.tiebreaker).length;
+    expect(annotated).toBeLessThan(12);
   });
 });

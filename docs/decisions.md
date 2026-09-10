@@ -568,7 +568,12 @@ guard.
   code standing in for the coin toss. The obscure "combined ranking of points
   scored and allowed" steps are folded into net points — they'd change a
   result only in vanishingly rare cases. Division winners always seed 1–4
-  above wild cards, even with a losing record.
+  above wild cards, even with a losing record. When a tiebreaker actually
+  decided a team's placement, `StandingRow.tiebreaker` records it in plain
+  English ("conference record over BAL, PIT") — `breakTie` returns
+  `{ order, notes }` and the note goes to the team that finished ahead; the
+  cross-division seeding note wins over a within-division one. Shown in the
+  report under each affected row.
 - **Playoffs** — 7 seeds/conf, #1 bye, 2v7/3v6/4v5, re-seed each round, higher
   seed hosts, Super Bowl neutral (better seed listed home). A playoff game
   can't tie: a drawn sim is replayed with a bumped seed up to 24× and, failing
