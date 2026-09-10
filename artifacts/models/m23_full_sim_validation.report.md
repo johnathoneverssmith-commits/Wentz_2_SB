@@ -1,31 +1,31 @@
 # M23 — Full-simulation league validation (Phase E)
 
-Generated 2026-09-09. 200 simulated games, rating modifiers = 0 (§22).
+Generated 2026-09-09. 250 simulated games, rating modifiers = 0 (§22).
 
 > No current game player ratings were used — this is the average-rating baseline check.
 
 | metric | empirical 2023–25 | sim | rel err | within 10% |
 | --- | ---: | ---: | ---: | :---: |
-| dropback_rate | 0.5984 | 0.5896 | -1.5% | ✅ |
-| completion_pct | 0.647 | 0.6572 | +1.6% | ✅ |
-| yards_per_attempt | 7.057 | 7.3033 | +3.5% | ✅ |
-| air_yards_per_attempt | 7.7112 | 7.7673 | +0.7% | ✅ |
-| int_rate_per_att | 0.0223 | 0.0227 | +1.8% | ✅ |
-| sack_rate_per_dropback | 0.0663 | 0.0664 | +0.1% | ✅ |
-| yards_per_carry | 4.2761 | 4.265 | -0.3% | ✅ |
-| explosive_rush_rate | 0.0438 | 0.0403 | -8.0% | ✅ |
-| explosive_pass_rate | 0.0894 | 0.0971 | +8.6% | ✅ |
-| fg_make_pct | 0.8517 | 0.8712 | +2.3% | ✅ |
-| rz_td_rate | 0.5599 | 0.545 | -2.7% | ✅ |
-| plays_per_team_game | 61.9951 | 66.4775 | +7.2% | ✅ |
-| drives_per_team_game | 10.7433 | 10.5075 | -2.2% | ✅ |
-| points_per_team_game | 22.5643 | 19.9675 | -11.5% | ❌ |
-| points_sd | 9.9268 | 8.4037 | -15.3% | ❌ |
-| pass_attempts_per_team_game | 32.8192 | 30.2225 | -7.9% | ✅ |
-| rush_attempts_per_team_game | 23.9902 | 23.865 | -0.5% | ✅ |
-| penalties_per_team_game | 6.1618 | 4.7175 | -23.4% | ❌ |
-| penalty_yards_per_team_game | 50.0245 | 41.297 | -17.4% | ❌ |
-| dpi_per_team_game | 0.5239 | 0.385 | -26.5% | ❌ |
+| dropback_rate | 0.5984 | 0.5895 | -1.5% | ✅ |
+| completion_pct | 0.647 | 0.655 | +1.2% | ✅ |
+| yards_per_attempt | 7.057 | 7.2753 | +3.1% | ✅ |
+| air_yards_per_attempt | 7.7112 | 7.7612 | +0.6% | ✅ |
+| int_rate_per_att | 0.0223 | 0.0231 | +3.2% | ✅ |
+| sack_rate_per_dropback | 0.0663 | 0.066 | -0.4% | ✅ |
+| yards_per_carry | 4.2761 | 4.2574 | -0.4% | ✅ |
+| explosive_rush_rate | 0.0438 | 0.0401 | -8.4% | ✅ |
+| explosive_pass_rate | 0.0894 | 0.0953 | +6.5% | ✅ |
+| fg_make_pct | 0.8517 | 0.8709 | +2.3% | ✅ |
+| rz_td_rate | 0.5599 | 0.5393 | -3.7% | ✅ |
+| plays_per_team_game | 61.9951 | 66.72 | +7.6% | ✅ |
+| drives_per_team_game | 10.7433 | 10.514 | -2.1% | ✅ |
+| points_per_team_game | 22.5643 | 19.968 | -11.5% | ❌ |
+| points_sd | 9.9268 | 8.3902 | -15.5% | ❌ |
+| pass_attempts_per_team_game | 32.8192 | 30.358 | -7.5% | ✅ |
+| rush_attempts_per_team_game | 23.9902 | 23.966 | -0.1% | ✅ |
+| penalties_per_team_game | 6.1618 | 4.792 | -22.2% | ❌ |
+| penalty_yards_per_team_game | 50.0245 | 41.73 | -16.6% | ❌ |
+| dpi_per_team_game | 0.5239 | 0.384 | -26.7% | ❌ |
 
 **15/20 metrics within 10%** (15/17 of the core football metrics; the three penalty-volume metrics are the Model 25 V1.5 check).
 

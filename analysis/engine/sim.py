@@ -299,8 +299,36 @@ class Game:
         return True
 
     # ---- one play -------------------------------------------------
+    def _can_kneel_out(self) -> bool:
+        """Leading team near a half boundary that can burn the rest of the clock
+        with kneel-downs. Empirically ~7% of drives end this way ('End of half')."""
+        if self.score[self.pos] - self.score[self.other()] <= 0:
+            return False
+        if not (self.qsr <= 150 and self.qtr in (2, 4)):
+            return False
+        # ~2 s/snap + ~40 s play-clock per kneel, minus what defensive timeouts save
+        burnable = 2 + 42 * (4 - self.down) - 40 * self.to_remaining[self.other()]
+        return self.hsr <= burnable
+
+    def _kneel_out(self):
+        self.st("kneel_out")
+        e = min(self.hsr, self.qsr) if self.qsr > 0 else self.hsr
+        self.gsr = max(0, self.gsr - e)
+        self.hsr = max(0, self.hsr - e)
+        self.qsr = max(0, self.qsr - e)
+        self.teams[self.pos].s["top"] += e
+        if self.qsr == 0 and self.gsr > 0:          # end of Q2 → Q3 kickoff
+            self.qtr += 1
+            self.qsr = 900
+            if self.qtr == 3:
+                self.hsr = 1800
+                self.to_remaining = [3, 3]
+                self._kickoff(receiving=1 - self.received_opening)
+
     def play(self):
         self.teams[self.pos].s["plays"] += 1
+        if self._can_kneel_out():
+            return self._kneel_out()
         if self.down == 3:
             self.st("third_att")
         if self.down == 4:

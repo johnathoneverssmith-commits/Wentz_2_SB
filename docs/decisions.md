@@ -257,9 +257,19 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   penalties −20% (documented tradeoff), and **no "end of half / game" drive
   outcome** — empirically 7.3% of drives (0.8/team-game) just expire; the
   engine forces every drive to a real result and its half/game clock
-  transitions are ad hoc. Next iteration = a coordinated pass on the clock
-  (M24 per-play elapsed) + an end-of-period drive terminator, not a
-  point-fix. 2-pt tries are EV-neutral.
+  transitions are ad hoc.
+- **Fixes tried (2026-09-09), none closed it:** a late-game kneel-out model
+  (`_can_kneel_out` / `_kneel_out` — leading team near a half boundary burns
+  the clock; kept, it's correct football and will matter once the rating layer
+  produces blowouts, but in the average-rating engine it fires <0.3
+  drives/team-game); and raising the drive-end clock multiplier 0.65→0.78
+  (plays +7.6%→+5.4% but points −11.5%→−12.2% — **fewer plays just means fewer
+  scoring chances**; reverted). Every lever trades against another metric: with
+  correct yardage / downs / conversions the engine's *points-per-play* is ~10%
+  low, so nothing short of raising points-per-play helps. Treating −11% as the
+  V1 ceiling for a strictly-marginal-calibrated average-rating engine; a real
+  fix needs drive-level EPA / points-per-drive modelling — out of V1 scope.
+  2-pt tries are EV-neutral.
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB
