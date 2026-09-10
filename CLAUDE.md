@@ -39,7 +39,11 @@ week-by-week loop (`startSeason` → `playWeek` → `finishSeason`, plus
 stepper (`startPlayoffs` → `playPlayoffRound` → `finishPlayoffs`). Both step functions are pure and
 byte-identical to their one-shot equivalents (`simulateNflSeason` /
 `simulatePlayoffs`); `serde.ts` saves/loads the progress states with a
-version + shape check. Headless + deterministic; round-robin `simulateSeason`
+version + shape check. A **coaching layer** (`staff.ts` / `staff-shift.ts` /
+`staff-data.ts`, mirrored in `analysis/engine/staff*.py`) adds subtle HC/OC/DC
+effects on top of the player ratings — `simulateGame(…, {homeStaff, awayStaff})`,
+default ON in the season sims with the 32 authored v0 staffs; a
+`leagueAverageStaff` is exactly zero (see `docs/decisions.md` → A1 add-on). Headless + deterministic; round-robin `simulateSeason`
 stays as the pool-free guard. No UI, no multiplayer yet. Next: the
 franchise/game layer (offseason: draft, FA, aging) on top of `src/engine/`.
 
@@ -74,7 +78,7 @@ npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm run analysis:audit                    # spec §28 schema audit -> artifacts/
 npm start             # loads + prints the active pool
-npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W] [--picture W] [--box KC@BUF]  # season/franchise; --through=standings+clinch, --picture=seeds+in-the-hunt, --box=one game's box score
+npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W] [--picture W] [--box KC@BUF] [--staff KC] [--no-staff]  # season/franchise; --through=standings+clinch, --picture=seeds+in-hunt, --box=one game, --staff=coaching card
 ```
 
 ## Layout

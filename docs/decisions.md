@@ -620,6 +620,40 @@ guard.
 - **`scheduleMatchups`** — the 272 `{ home, away }` pairs with no week
   assignment (no solver), for a "who plays whom" view.
 
+### A1 add-on — coaching / coordinator layer (2026-09-10)
+
+`src/engine/staff.ts` + `staff-shift.ts` + `staff-data.ts` (mirrored in
+`analysis/engine/staff{,_shift}.py`). Fits spec §16: coaching is another
+additive contributor to the same resolver-shift layer the player ratings use
+(`ratings.ts`).
+
+- **Model (hybrid, per the chosen approach)** — HC `{gameManagement, discipline,
+  aggression}`, OC `{rating, scheme, passBias, tempo}`, DC `{rating, scheme,
+  blitzBias}`. `Staff` per team; 32 authored on a compressed ~40–66 scale in
+  `staff-data.ts` (real HC names, placeholder coordinators, schemes/biases
+  loosely tracking real identity) — **v0, meant to be tuned / edited in
+  franchise mode**, not a ranking.
+- **Magnitude = subtle (the chosen dial).** Coefficients in `staff-shift.ts`
+  sized so a best-vs-worst *authored* staff moves a game's margin ~1–2 pts and a
+  contrived 95-vs-10 staff gap ~6–8 — individual games barely move, §22
+  untouched. `leagueAverageStaff` (all 50s / zero biases) produces **exactly
+  zero** from every shift function, so a staff-on game with neutral staffs is
+  byte-identical to staff-off (verified TS + Python).
+- **Wired levers (v0)** — HC discipline → penalty-hazard scale (avg of both
+  HCs); HC aggression + game-management → M01 GO_FOR_IT logit; OC rating → M09
+  COMPLETE + M14 rush; DC rating → opp M09 (−), M04 SACK (+), M14 rush (−); OC
+  tempo → `advanceClock` runoff; DC blitzBias → M04 SACK (+) & M09 allowed (+).
+- **Deferred to v0.1** — scheme fit (`scheme_tags` × coordinator scheme): it
+  needs per-scheme league centering to stay a true no-op for a neutral staff
+  (the naïve version broke `leagueAverageStaff` neutrality), so it's on the
+  model but not yet applied. Also OC passBias → M02 (needs new play-call shift
+  plumbing), and challenge/timeout modelling.
+- **Wiring** — `simulateGame(seed, home, away, { homeStaff, awayStaff })`;
+  staff rides on the rating layer (no rosters ⇒ no staff). `simulateNflSeason`
+  / `startSeason` / `simulateFranchise` default **staff ON** with the authored
+  data (`staff: false` to disable); `SeasonProgress.useStaff` persists it.
+  `npm run season -- --staff KC` prints a staff card; `--no-staff` disables.
+
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**
 
@@ -669,11 +703,17 @@ per-position weighting function, benchmarked against something. Do not treat
 any interim formula as final.
 
 ## OQ-3 — Scheme-fit modifiers
-**Status:** open (needed for Phase 2 core sim)
+**Status:** partially addressed (2026-09-10) — coordinator schemes exist; the
+player-fit multiplier is still open.
 
-`scheme_tags` on players + an OC/DC scheme define in-scheme vs out-of-scheme
-performance multipliers. Need: the scheme vocabulary, how many tags a scheme
-has, and the size of the in/out modifier.
+The coaching layer (`decisions.md` → A1 add-on) defines the OC/DC scheme
+vocabularies (6 each) and `OFF_SCHEME_TAGS` / `DEF_SCHEME_TAGS` mapping them to
+the populated `scheme_tags`. What's **not** wired: the per-player in-scheme /
+out-of-scheme performance multiplier. A unit-level version was tried and pulled
+because it needs per-scheme league centering (like `ratings.ts` `offsets()`) to
+stay a no-op for a neutral staff — do that, then apply as a `scale` on each
+player's rating-z contribution. Modifier size: small, in the same subtle band
+as the rest of the coaching layer.
 
 ## OQ-4 — Aging curves
 **Status:** open (needed for Phase 4 full loop)

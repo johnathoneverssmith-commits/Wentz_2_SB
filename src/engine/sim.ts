@@ -31,6 +31,14 @@ import {
 } from "./ratings.js";
 import { Rng } from "./rng.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
+import type { Staff } from "./staff.js";
+import {
+  dcDefenseShift,
+  hcGoForItDelta,
+  hcPenaltyScale,
+  ocOffenseShift,
+  ocTempoScale,
+} from "./staff-shift.js";
 
 const PASS_LOC = ["left", "middle", "right"] as const;
 const PASS_LOC_P = [0.31, 0.38, 0.31];
@@ -103,6 +111,7 @@ export class Game {
   ydstogo = 10.0;
   receivedOpening = 1;
   rosters: [Roster, Roster] | null;
+  staff: [Staff, Staff] | null;
   rzFlag = false;
   clockStopped = true; // running-clock state for 2-minute-drill management
 
@@ -117,9 +126,14 @@ export class Game {
   private dPts0 = 0;
   private dFd0 = 0;
 
-  constructor(rng: Rng, rosters: [Roster, Roster] | null = null) {
+  constructor(
+    rng: Rng,
+    rosters: [Roster, Roster] | null = null,
+    staff: [Staff, Staff] | null = null,
+  ) {
     this.rng = rng;
     this.rosters = rosters;
+    this.staff = staff;
   }
 
   // ---- helpers ---------------------------------------------------------
@@ -129,11 +143,39 @@ export class Game {
   private get ratingsOn(): boolean {
     return this.rosters !== null;
   }
+  private get staffOn(): boolean {
+    return this.staff !== null;
+  }
   private off(): Roster {
     return this.rosters![this.pos as 0 | 1];
   }
   private def(): Roster {
     return this.rosters![this.other() as 0 | 1];
+  }
+  /** Staff of the team currently on offense / defense. */
+  private offStaff(): Staff {
+    return this.staff![this.pos as 0 | 1];
+  }
+  private defStaff(): Staff {
+    return this.staff![this.other() as 0 | 1];
+  }
+  /** Penalty-hazard multiplier — average of both head coaches' discipline. */
+  private penScale(): number {
+    if (!this.staffOn) return 1;
+    return (
+      (hcPenaltyScale(this.staff![0].headCoach) + hcPenaltyScale(this.staff![1].headCoach)) / 2
+    );
+  }
+
+  /**
+   * Coaching contribution to the offense's resolvers: the possessing team's OC
+   * boost + the defending team's DC suppression/blitz. Zero without a staff.
+   */
+  private staffOffShift(): { complete: number; rush: number; sack: number } {
+    if (!this.staffOn) return { complete: 0, rush: 0, sack: 0 };
+    const oc = ocOffenseShift(this.offStaff().oc);
+    const dc = dcDefenseShift(this.defStaff().dc);
+    return { complete: oc.complete + dc.complete, rush: oc.rush + dc.rush, sack: dc.sack };
   }
 
   private offShift(kind: "M09" | "M04" | "M20"): Shift | null {
@@ -145,14 +187,14 @@ export class Game {
     if (d.CB3 !== undefined) dbs.push(d.CB3);
     const ol = [o.LT, o.LG, o.C, o.RG, o.RT];
     const rush = [d.EDGE1, d.EDGE2, d.DT1, d.DT2];
-    const front7 = [...rush, d.ILB1, d.ILB2];
+    const staff = this.staffOffShift();
     if (kind === "M09") {
       return {
-        COMPLETE: completionLogitShift(catchers, dbs, o.QB1 ?? null),
+        COMPLETE: completionLogitShift(catchers, dbs, o.QB1 ?? null) + staff.complete,
         INTERCEPTION: interceptionLogitShift(o.QB1 ?? null),
       };
     }
-    if (kind === "M04") return { SACK: sackLogitShift(ol, rush) };
+    if (kind === "M04") return { SACK: sackLogitShift(ol, rush) + staff.sack };
     if (kind === "M20") return { MADE: fgLogitShift(this.off().kicker()) };
     return null;
   }
@@ -162,7 +204,7 @@ export class Game {
     const o = this.off().offense();
     const d = this.def().defense();
     const front7 = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2];
-    return rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null);
+    return rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) + this.staffOffShift().rush;
   }
 
   private yacYdMod(): number {
@@ -231,6 +273,7 @@ export class Game {
   private advanceClock(bucket: string, noHuddle = 0, driveEnds = false): void {
     const cs = this.gsr <= 300 ? "final_5min" : this.gsr <= 600 ? "final_10min" : "normal";
     let e = sampleRunoff(bucket, noHuddle, cs, this.rng) * CLOCK_SCALE;
+    if (this.staffOn) e = e * ocTempoScale(this.offStaff().oc);
     if (driveEnds) e = e * 0.65;
     e = Math.round(e);
     if (this.qsr > 0) e = Math.min(e, this.qsr);
@@ -313,7 +356,7 @@ export class Game {
 
   private presnapPenalty(): boolean {
     const p =
-      (predictProba("M25a", this.penCtx()).DEADBALL_PEN ?? 0.032) * PENALTY_HAZARD_SCALE;
+      (predictProba("M25a", this.penCtx()).DEADBALL_PEN ?? 0.032) * PENALTY_HAZARD_SCALE * this.penScale();
     if (this.rng.random() >= p) return false;
     const b = samplePenaltyBucket("deadball", "ALL", this.rng);
     const onOff = this.rng.random() < b.off_share;
@@ -487,7 +530,10 @@ export class Game {
   }
 
   private fourthDown(): void {
-    const act = sampleClass("M01", this.ctx(), this.rng);
+    const m01Shift = this.staffOn
+      ? { GO_FOR_IT: hcGoForItDelta(this.offStaff().headCoach) }
+      : undefined;
+    const act = sampleClass("M01", this.ctx(), this.rng, m01Shift);
     if (act === "FIELD_GOAL") return this.kickFg("field_goal");
     if (act === "PUNT") {
       this.st("punt");
@@ -522,7 +568,7 @@ export class Game {
 
   private puntPenalty(): void {
     const p =
-      (predictProba("M25b", this.penCtx("punt")).LIVEBALL_PEN ?? 0.084) * PENALTY_HAZARD_SCALE;
+      (predictProba("M25b", this.penCtx("punt")).LIVEBALL_PEN ?? 0.084) * PENALTY_HAZARD_SCALE * this.penScale();
     if (this.rng.random() >= p) return;
     const b = samplePenaltyBucket("liveball", "punt", this.rng);
     const yd = Math.round(b.mean_yards / 5.0) * 5 || 10.0;
@@ -707,7 +753,7 @@ export class Game {
     if (!turnover) {
       const pfam = call === "DROPBACK" ? "dropback" : "designed_run";
       const pp =
-        (predictProba("M25b", this.penCtx(pfam)).LIVEBALL_PEN ?? 0.049) * PENALTY_HAZARD_SCALE;
+        (predictProba("M25b", this.penCtx(pfam)).LIVEBALL_PEN ?? 0.049) * PENALTY_HAZARD_SCALE * this.penScale();
       if (this.rng.random() < pp && this.liveballPenalty(pfam, gained, s0)) return;
     }
 
@@ -808,9 +854,28 @@ export class Game {
   }
 }
 
-/** `home`/`away` team codes enable the rating layer. Team index 0 is `home`. */
-export function simulateGame(seed: number, home?: string, away?: string): Game {
+export interface GameStaff {
+  homeStaff?: Staff | undefined;
+  awayStaff?: Staff | undefined;
+}
+
+/**
+ * `home`/`away` team codes enable the rating layer. Team index 0 is `home`.
+ * Pass `staff` (both sides) to enable the coaching layer on top; omitting it
+ * leaves every coaching shift at exactly zero.
+ */
+export function simulateGame(
+  seed: number,
+  home?: string,
+  away?: string,
+  staff?: GameStaff,
+): Game {
   const rosters: [Roster, Roster] | null =
     home && away ? [roster(home), roster(away)] : null;
-  return new Game(new Rng(seed), rosters).run();
+  // the coaching layer rides on top of the rating layer — no rosters, no staff
+  const staffPair: [Staff, Staff] | null =
+    rosters && staff?.homeStaff && staff?.awayStaff
+      ? [staff.homeStaff, staff.awayStaff]
+      : null;
+  return new Game(new Rng(seed), rosters, staffPair).run();
 }

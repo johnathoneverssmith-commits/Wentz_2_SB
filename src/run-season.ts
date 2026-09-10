@@ -16,6 +16,7 @@ import {
   formatBoxScore,
   formatPlayoffPicture,
   formatSeasonReport,
+  formatStaffCard,
   formatStandingsCompact,
   formatStandingsThrough,
 } from "./engine/report.js";
@@ -35,6 +36,8 @@ interface Args {
   through: number | null;
   picture: number | null;
   box: string | null;
+  staffCard: string | null;
+  noStaff: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -46,6 +49,8 @@ function parseArgs(argv: string[]): Args {
     through: null,
     picture: null,
     box: null,
+    staffCard: null,
+    noStaff: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const k = argv[i];
@@ -56,7 +61,9 @@ function parseArgs(argv: string[]): Args {
     else if (k === "--through") (a.through = Number(v)), (i += 1);
     else if (k === "--picture") (a.picture = Number(v)), (i += 1);
     else if (k === "--box") (a.box = v ?? null), (i += 1);
+    else if (k === "--staff") (a.staffCard = v ?? null), (i += 1);
     else if (k === "--compact") a.compact = true;
+    else if (k === "--no-staff") a.noStaff = true;
     else throw new Error(`unknown arg: ${k}`);
   }
   if (!Number.isFinite(a.seed) || !Number.isInteger(a.year) || a.seasons < 1) {
@@ -77,32 +84,41 @@ function parseArgs(argv: string[]): Args {
 }
 
 function run(a: Args): void {
+  const seasonOpts = { year: a.year, staff: !a.noStaff };
+  if (a.staffCard !== null) {
+    console.log(formatStaffCard(a.staffCard.toUpperCase()));
+    return;
+  }
   if (a.box !== null) {
     const [away, home] = a.box.split("@") as [string, string];
-    const box = boxScoreFor(startSeason(a.seed, { year: a.year }), { home, away });
+    const box = boxScoreFor(startSeason(a.seed, seasonOpts), { home, away });
     console.log(formatBoxScore(box));
     return;
   }
   if (a.picture !== null) {
-    const p = playThroughWeek(startSeason(a.seed, { year: a.year }), a.picture);
+    const p = playThroughWeek(startSeason(a.seed, seasonOpts), a.picture);
     console.log(formatPlayoffPicture(p, `NFL ${a.year}`));
     return;
   }
   if (a.through !== null) {
-    const result = simulateNflSeason(a.seed, { year: a.year });
+    const result = simulateNflSeason(a.seed, seasonOpts);
     console.log(
       formatStandingsThrough(result.games, nflSchedule({ year: a.year }), a.through, `NFL ${a.year}`),
     );
     return;
   }
   if (a.seasons === 1) {
-    const result = simulateNflSeason(a.seed, { year: a.year });
+    const result = simulateNflSeason(a.seed, seasonOpts);
     console.log(
       a.compact ? formatStandingsCompact(result) : formatSeasonReport(result, `NFL ${a.year}`),
     );
     return;
   }
-  const seasons = simulateFranchise(a.seed, { startYear: a.year, seasons: a.seasons });
+  const seasons = simulateFranchise(a.seed, {
+    startYear: a.year,
+    seasons: a.seasons,
+    staff: !a.noStaff,
+  });
   seasons.forEach((result, n) => {
     const year = a.year + n;
     if (a.compact) {

@@ -48,7 +48,8 @@ export function deserializeSeason(json: string): SeasonProgress {
     typeof p.year !== "number" ||
     !Array.isArray(p.schedule) ||
     !Array.isArray(p.results) ||
-    typeof p.nextWeek !== "number"
+    typeof p.nextWeek !== "number" ||
+    typeof p.useStaff !== "boolean"
   ) {
     throw new Error("deserialize: malformed SeasonProgress");
   }

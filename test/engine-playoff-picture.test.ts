@@ -22,7 +22,14 @@ function progressThrough(throughWeek: number, strength: (t: string) => number): 
       ? { week: g.week, home: g.home, away: g.away, homeScore: 20 + m, awayScore: 20 }
       : { week: g.week, home: g.home, away: g.away, homeScore: 20, awayScore: 20 + m };
   });
-  return { seed: 1, year: 2026, schedule: SCHEDULE, nextWeek: throughWeek + 1, results };
+  return {
+    seed: 1,
+    year: 2026,
+    schedule: SCHEDULE,
+    nextWeek: throughWeek + 1,
+    results,
+    useStaff: false,
+  };
 }
 
 describe("playoffPicture", () => {

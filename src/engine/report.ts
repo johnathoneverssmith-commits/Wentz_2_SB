@@ -11,6 +11,7 @@ import { type ClinchResult, type ClinchTag, clinchStatus } from "./clinch.js";
 import { type Conference, DIVISION_IDS, NFL_TEAMS, divisionsIn } from "./nfl-structure.js";
 import type { PlayoffGame } from "./playoffs.js";
 import { BYE_WEEK_RANGE, type SchedulePair, TRADE_DEADLINE_WEEK } from "./schedule.js";
+import { teamStaff } from "./staff-data.js";
 import {
   type NflSeasonResult,
   type SeasonGame,
@@ -236,6 +237,20 @@ export function formatBoxScore(box: BoxScore): string {
     "",
   ];
   return lines.join("\n");
+}
+
+/** A team's authored coaching staff. */
+export function formatStaffCard(team: string): string {
+  const s = teamStaff(team);
+  if (!s) return `${team}: no authored staff`;
+  const hc = s.headCoach;
+  const aggr = hc.aggression >= 0 ? `+${hc.aggression.toFixed(2)}` : hc.aggression.toFixed(2);
+  return [
+    `${team} coaching staff`,
+    `  HC  ${hc.name.padEnd(22)} gameMgmt ${hc.gameManagement}  discipline ${hc.discipline}  aggression ${aggr}`,
+    `  OC  ${s.oc.name.padEnd(22)} rating ${s.oc.rating}  ${s.oc.scheme}  passBias ${s.oc.passBias.toFixed(2)}  tempo ${s.oc.tempo.toFixed(2)}`,
+    `  DC  ${s.dc.name.padEnd(22)} rating ${s.dc.rating}  ${s.dc.scheme}  blitzBias ${s.dc.blitzBias.toFixed(2)}`,
+  ].join("\n");
 }
 
 /** One-line-per-division summary — handy for multi-season franchise dumps. */

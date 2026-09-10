@@ -86,6 +86,7 @@ class Game:
     ydstogo: float = 10.0
     received_opening: int = 1  # team that received the opening kickoff
     rosters: list | None = None  # [Roster, Roster] to enable the rating layer, else off
+    staff: list | None = None  # [Staff, Staff] to enable the coaching layer on top
     rz_flag: bool = False  # current drive has reached the red zone (<=20)
     clock_stopped: bool = True  # running-clock state for 2-minute-drill management
 
@@ -113,11 +114,40 @@ class Game:
     def ratings_on(self) -> bool:
         return self.rosters is not None
 
+    @property
+    def staff_on(self) -> bool:
+        return self.staff is not None
+
     def _off(self):
         return self.rosters[self.pos]
 
     def _def(self):
         return self.rosters[self.other()]
+
+    def _off_staff(self):
+        return self.staff[self.pos]
+
+    def _def_staff(self):
+        return self.staff[self.other()]
+
+    def _pen_scale(self) -> float:
+        """Penalty-hazard multiplier — average of both head coaches' discipline."""
+        if not self.staff_on:
+            return 1.0
+        from .staff_shift import hc_penalty_scale
+        return (hc_penalty_scale(self.staff[0].head_coach)
+                + hc_penalty_scale(self.staff[1].head_coach)) / 2.0
+
+    def _staff_off_shift(self) -> dict[str, float]:
+        """Coaching contribution to the offense's resolvers: possessing OC boost
+        + defending DC suppression/blitz. Zero without a staff."""
+        if not self.staff_on:
+            return {"complete": 0.0, "rush": 0.0, "sack": 0.0}
+        from .staff_shift import dc_defense_shift, oc_offense_shift
+        oc = oc_offense_shift(self._off_staff().oc)
+        dc = dc_defense_shift(self._def_staff().dc)
+        return {"complete": oc["complete"] + dc["complete"],
+                "rush": oc["rush"] + dc["rush"], "sack": dc["sack"]}
 
     def _off_shift(self, kind: str, **kw) -> dict[str, float] | None:
         """Compute a per-class logit shift for a resolver from the current lineups."""
@@ -130,11 +160,12 @@ class Game:
         ol = [o["LT"], o["LG"], o["C"], o["RG"], o["RT"]]
         rush = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"]]
         front7 = rush + [d["ILB1"], d["ILB2"]]
+        staff = self._staff_off_shift()
         if kind == "M09":
-            return {"COMPLETE": R.completion_logit_shift(catchers, dbs, o["QB1"]),
+            return {"COMPLETE": R.completion_logit_shift(catchers, dbs, o["QB1"]) + staff["complete"],
                     "INTERCEPTION": R.interception_logit_shift(o["QB1"])}
         if kind == "M04":
-            return {"SACK": R.sack_logit_shift(ol, rush)}
+            return {"SACK": R.sack_logit_shift(ol, rush) + staff["sack"]}
         if kind == "M20":
             return {"MADE": R.fg_logit_shift(self._off().kicker())}
         return None
@@ -145,7 +176,8 @@ class Game:
         from . import ratings as R
         o, d = self._off().offense(), self._def().defense()
         front7 = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"], d["ILB1"], d["ILB2"]]
-        return R.rush_yards_shift([o["LT"], o["LG"], o["C"], o["RG"], o["RT"]], front7, o["RB1"])
+        return (R.rush_yards_shift([o["LT"], o["LG"], o["C"], o["RG"], o["RT"]], front7, o["RB1"])
+                + self._staff_off_shift()["rush"])
 
     def _yac_yd_mod(self) -> float:
         if not self.ratings_on:
@@ -210,6 +242,9 @@ class Game:
         # team's hustle time runs. Blend to ~14s rather than the full ~35s.
         cs = "final_5min" if self.gsr <= 300 else "final_10min" if self.gsr <= 600 else "normal"
         e = sample_runoff(bucket, no_huddle, cs, self.rng) * CLOCK_SCALE
+        if self.staff_on:
+            from .staff_shift import oc_tempo_scale
+            e = e * oc_tempo_scale(self._off_staff().oc)
         if drive_ends:
             # ~65% of the same-drive gap: clock stops on some drive-enders (score,
             # INT, incompletion, OOB); on others the kick team hustles on.
@@ -286,7 +321,7 @@ class Game:
     def _presnap_penalty(self) -> bool:
         """M25a: a dead-ball foul before the snap. Enforced (not declinable),
         the down is replayed. Returns True if one occurred."""
-        p = predict_proba("M25a", self._pen_ctx()).get("DEADBALL_PEN", 0.032) * PENALTY_HAZARD_SCALE
+        p = predict_proba("M25a", self._pen_ctx()).get("DEADBALL_PEN", 0.032) * PENALTY_HAZARD_SCALE * self._pen_scale()
         if self.rng.random() >= p:
             return False
         b = sample_penalty_bucket("deadball", "ALL", self.rng)
@@ -462,7 +497,11 @@ class Game:
             self._turnover(spot=self.yardline_100, result="missed_fg")
 
     def _fourth_down(self):
-        act = sample_class("M01", self.ctx(), self.rng)
+        m01_shift = None
+        if self.staff_on:
+            from .staff_shift import hc_go_for_it_delta
+            m01_shift = {"GO_FOR_IT": hc_go_for_it_delta(self._off_staff().head_coach)}
+        act = sample_class("M01", self.ctx(), self.rng, m01_shift)
         if act == "FIELD_GOAL":
             return self._kick_fg("field_goal")
         if act == "PUNT":
@@ -497,7 +536,7 @@ class Game:
     def _punt_penalty(self) -> None:
         """M25b on a punt (mostly return-team holding, or running-into/roughing
         the kicker). Marked off from the new spot; not declined in V1.5."""
-        if self.rng.random() >= predict_proba("M25b", self._pen_ctx("punt")).get("LIVEBALL_PEN", 0.084) * PENALTY_HAZARD_SCALE:
+        if self.rng.random() >= predict_proba("M25b", self._pen_ctx("punt")).get("LIVEBALL_PEN", 0.084) * PENALTY_HAZARD_SCALE * self._pen_scale():
             return
         b = sample_penalty_bucket("liveball", "punt", self.rng)
         yd = float(round(b["mean_yards"] / 5.0) * 5) or 10.0
@@ -687,7 +726,7 @@ class Game:
         # bucket/enforcement + deterministic accept/decline.
         if not turnover:
             pfam = "dropback" if call == "DROPBACK" else "designed_run"
-            pp = predict_proba("M25b", self._pen_ctx(pfam)).get("LIVEBALL_PEN", 0.049) * PENALTY_HAZARD_SCALE
+            pp = predict_proba("M25b", self._pen_ctx(pfam)).get("LIVEBALL_PEN", 0.049) * PENALTY_HAZARD_SCALE * self._pen_scale()
             if self.rng.random() < pp and self._liveball_penalty(pfam, gained, s0):
                 # this snap already counted in _dplays (the nflverse no_play row);
                 # the replay is a fresh play() call that counts itself.
@@ -784,11 +823,15 @@ class Game:
         return self
 
 
-def simulate_game(seed: int, home: str | None = None, away: str | None = None) -> Game:
+def simulate_game(seed: int, home: str | None = None, away: str | None = None,
+                  home_staff=None, away_staff=None) -> Game:
     """`home`/`away` team codes enable the rating layer (spec §12–§14).
-    Team index 0 is `home`, 1 is `away`."""
+    Team index 0 is `home`, 1 is `away`. Pass `home_staff`/`away_staff` (both,
+    and only with rosters) to enable the coaching layer on top; omitting them
+    leaves every coaching shift at exactly zero."""
     rosters = None
     if home and away:
         from .roster import roster
         rosters = [roster(home), roster(away)]
-    return Game(rng=np.random.default_rng(seed), rosters=rosters).run()
+    staff = [home_staff, away_staff] if (rosters and home_staff and away_staff) else None
+    return Game(rng=np.random.default_rng(seed), rosters=rosters, staff=staff).run()

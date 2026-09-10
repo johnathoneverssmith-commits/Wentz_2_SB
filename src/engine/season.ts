@@ -16,6 +16,7 @@ import { type PlayoffResult, simulatePlayoffs } from "./playoffs.js";
 import { roster, teamList } from "./roster.js";
 import { type SchedulePair, nflSchedule } from "./schedule.js";
 import { simulateGame } from "./sim.js";
+import { teamStaff } from "./staff-data.js";
 import { type FinishedGame, type LeagueStandings, computeStandings } from "./standings.js";
 
 export interface SeasonGame {
@@ -190,6 +191,8 @@ export interface NflSeasonOptions {
   year?: number;
   /** team → prior-year division finish rank (1–4); used for same-place matchups. */
   priorRank?: Map<string, number>;
+  /** Apply each team's authored coaching staff (`staff-data.ts`). Default true. */
+  staff?: boolean;
 }
 
 // --- stateful, week-by-week season loop (for an interactive franchise UI) ---
@@ -203,6 +206,8 @@ export interface SeasonProgress {
   nextWeek: number;
   /** Results so far, in schedule order. */
   results: SeasonGame[];
+  /** Whether games apply each team's authored coaching staff. */
+  useStaff: boolean;
 }
 
 const REGULAR_SEASON_WEEKS = 18;
@@ -214,11 +219,19 @@ const toFinished = (g: SeasonGame): FinishedGame => ({
   awayScore: g.awayScore,
 });
 
+/** `{ homeStaff, awayStaff }` for a game, or `undefined` when the season runs staff-off. */
+function staffFor(p: SeasonProgress, home: string, away: string) {
+  if (!p.useStaff) return undefined;
+  const homeStaff = teamStaff(home);
+  const awayStaff = teamStaff(away);
+  return homeStaff && awayStaff ? { homeStaff, awayStaff } : undefined;
+}
+
 /** Fresh season, no games played. Same schedule + seed indexing as `simulateNflSeason`. */
 export function startSeason(seed: number, opts: NflSeasonOptions = {}): SeasonProgress {
   const year = opts.year ?? 2026;
   const schedule = nflSchedule(opts.priorRank ? { year, priorRank: opts.priorRank } : { year });
-  return { seed, year, schedule, nextWeek: 1, results: [] };
+  return { seed, year, schedule, nextWeek: 1, results: [], useStaff: opts.staff ?? true };
 }
 
 /**
@@ -231,7 +244,7 @@ export function playWeek(p: SeasonProgress): { progress: SeasonProgress; games: 
   const games: SeasonGame[] = [];
   p.schedule.forEach((s, i) => {
     if (s.week !== p.nextWeek) return;
-    const g = simulateGame(p.seed + i, s.home, s.away);
+    const g = simulateGame(p.seed + i, s.home, s.away, staffFor(p, s.home, s.away));
     games.push({
       week: s.week,
       home: s.home,
@@ -283,7 +296,8 @@ export function boxScoreFor(p: SeasonProgress, game: { home: string; away: strin
   const i = p.schedule.findIndex((s) => s.home === game.home && s.away === game.away);
   if (i < 0) throw new Error(`boxScoreFor: ${game.away} @ ${game.home} is not on the schedule`);
   const s = p.schedule[i]!;
-  return extractBoxScore(simulateGame(p.seed + i, s.home, s.away), s.home, s.away, s.week);
+  const g = simulateGame(p.seed + i, s.home, s.away, staffFor(p, s.home, s.away));
+  return extractBoxScore(g, s.home, s.away, s.week);
 }
 
 export interface PictureSeed {
@@ -414,6 +428,8 @@ export interface FranchiseOptions {
   seasons?: number;
   /** team → division finish rank feeding season 1's schedule. */
   priorRank?: Map<string, number>;
+  /** Apply each team's authored coaching staff. Default true. */
+  staff?: boolean;
 }
 
 /**
@@ -430,6 +446,7 @@ export function simulateFranchise(seed: number, opts: FranchiseOptions = {}): Nf
   for (let n = 0; n < seasons; n += 1) {
     const result = simulateNflSeason(seed + n, {
       year: startYear + n,
+      staff: opts.staff ?? true,
       ...(priorRank ? { priorRank } : {}),
     });
     out.push(result);
