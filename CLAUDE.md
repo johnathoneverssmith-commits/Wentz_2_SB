@@ -14,8 +14,9 @@ full-sim validation §22 (E, 15/20 league metrics within 10%), rating-layer
 validation §23 (E), penalty module §25 V1.5, portable resolver export + a
 TypeScript runtime port (`src/engine/`, runs on `artifacts/**/portable/*.json`,
 no Python). Residual-variance anchors use the wide 2018–2025 window +
-team-season units. No UI, no multiplayer yet. Next: §13.6 joint calibration
-(tune βᵢ against emergent points/wins), then A1 season-sim + standings
+team-season units; §13.6 joint-calibration harness (`26_joint_calibration.py`)
+run — layer is emergently sound (margin widens, points −0.8±0.4/team-game,
+no βᵢ change). No UI, no multiplayer yet. Next: A1 season-sim + standings
 (paired with the UI work).
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,

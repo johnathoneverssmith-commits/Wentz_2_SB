@@ -1,0 +1,134 @@
+{
+  "generated": "2026-09-09",
+  "note": "\u00a713.6 harness output. Deterministic (fixed seeds). No coefficient change is applied \u2014 see 26_joint_calibration.py docstring.",
+  "converge": {
+    "100": {
+      "points_on": 18.46,
+      "points_off": 19.42,
+      "points_delta": -0.9600000000000009,
+      "points_delta_paired_se": 0.7577105334659487,
+      "margin_sd_on": 13.932279066972496,
+      "margin_sd_off": 12.523354183284924
+    },
+    "200": {
+      "points_on": 18.8225,
+      "points_off": 19.5825,
+      "points_delta": -0.759999999999998,
+      "points_delta_paired_se": 0.49084533789030044,
+      "margin_sd_on": 12.72587030422674,
+      "margin_sd_off": 11.486895794774147
+    },
+    "320": {
+      "points_on": 18.5015625,
+      "points_off": 19.2734375,
+      "points_delta": -0.7718750000000014,
+      "points_delta_paired_se": 0.41208772114644576,
+      "margin_sd_on": 12.270677303408114,
+      "margin_sd_off": 11.523206459548271
+    }
+  },
+  "diagnose_by_channel": {
+    "(all masked)": {
+      "points_on": 19.175,
+      "points_off": 19.175,
+      "points_delta": 0.0,
+      "points_delta_paired_se": 0.0,
+      "margin_sd_on": 12.56356062410476,
+      "margin_sd_off": 12.56356062410476
+    },
+    "completion_logit_shift": {
+      "points_on": 18.8,
+      "points_off": 19.175,
+      "points_delta": -0.375,
+      "points_delta_paired_se": 0.6750836943300308,
+      "margin_sd_on": 12.803471751399652,
+      "margin_sd_off": 12.56356062410476
+    },
+    "interception_logit_shift": {
+      "points_on": 18.875,
+      "points_off": 19.175,
+      "points_delta": -0.3000000000000007,
+      "points_delta_paired_se": 0.36615269575707005,
+      "margin_sd_on": 13.300908490274889,
+      "margin_sd_off": 12.56356062410476
+    },
+    "sack_logit_shift": {
+      "points_on": 19.741666666666667,
+      "points_off": 19.175,
+      "points_delta": 0.5666666666666664,
+      "points_delta_paired_se": 0.34310534913148255,
+      "margin_sd_on": 12.974965210828977,
+      "margin_sd_off": 12.56356062410476
+    },
+    "rush_yards_shift": {
+      "points_on": 18.008333333333333,
+      "points_off": 19.175,
+      "points_delta": -1.1666666666666679,
+      "points_delta_paired_se": 0.8559088956569989,
+      "margin_sd_on": 10.377580000494657,
+      "margin_sd_off": 12.56356062410476
+    },
+    "yac_yards_shift": {
+      "points_on": 18.325,
+      "points_off": 19.175,
+      "points_delta": -0.8500000000000014,
+      "points_delta_paired_se": 0.8991757053838489,
+      "margin_sd_on": 11.086766385600848,
+      "margin_sd_off": 12.56356062410476
+    },
+    "fg_logit_shift": {
+      "points_on": 19.241666666666667,
+      "points_off": 19.175,
+      "points_delta": 0.06666666666666643,
+      "points_delta_paired_se": 0.3017057595545687,
+      "margin_sd_on": 12.540722555826767,
+      "margin_sd_off": 12.56356062410476
+    },
+    "(all live)": {
+      "points_on": 18.416666666666668,
+      "points_off": 19.175,
+      "points_delta": -0.7583333333333329,
+      "points_delta_paired_se": 1.0367874427801445,
+      "margin_sd_on": 13.485012256411025,
+      "margin_sd_off": 12.56356062410476
+    }
+  },
+  "curvature_probe": {
+    "M09_COMPLETE": {
+      "base_rate": 0.647,
+      "raw_shift_mean": 0.01004130978328415,
+      "raw_shift_sd": 0.10381880947677821,
+      "outcome_mean_pre": 0.6489290927460039,
+      "outcome_mean_gap_pp": 0.193,
+      "curvature_logit_offset_would_be": 0.008477925974704592,
+      "n": 800
+    },
+    "M09_INTERCEPTION": {
+      "base_rate": 0.023,
+      "raw_shift_mean": -0.00961430751143608,
+      "raw_shift_sd": 0.24934183416069486,
+      "outcome_mean_pre": 0.023453363075325556,
+      "outcome_mean_gap_pp": 0.045,
+      "curvature_logit_offset_would_be": 0.02001217975607239,
+      "n": 800
+    },
+    "M04_SACK": {
+      "base_rate": 0.066,
+      "raw_shift_mean": 0.003807395869220877,
+      "raw_shift_sd": 0.06497071448798385,
+      "outcome_mean_pre": 0.06634877106669228,
+      "outcome_mean_gap_pp": 0.035,
+      "curvature_logit_offset_would_be": 0.0056454761297664025,
+      "n": 800
+    },
+    "M20_MADE": {
+      "base_rate": 0.852,
+      "raw_shift_mean": 0.0182736387283237,
+      "raw_shift_sd": 0.20356837393870064,
+      "outcome_mean_pre": 0.8524947932870702,
+      "outcome_mean_gap_pp": 0.049,
+      "curvature_logit_offset_would_be": 0.003948345062007919,
+      "n": 400
+    }
+  }
+}

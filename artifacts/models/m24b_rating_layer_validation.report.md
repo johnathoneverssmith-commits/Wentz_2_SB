@@ -24,18 +24,18 @@ Paired on common random numbers; `±SE` is the paired standard error, `z` = |Δ|
 
 | metric | sim | empirical | rel err |
 | --- | ---: | ---: | ---: |
-| completion_pct | 0.6699 | 0.647 | +3.5% |
-| yards_per_attempt | 7.3545 | 7.057 | +4.2% |
-| sack_rate | 0.0679 | 0.0663 | +2.4% |
-| yards_per_carry | 4.369 | 4.276 | +2.2% |
-| points_mean | 19.2542 | 22.564 | -14.7% |
-| points_sd | 8.3478 | 9.927 | -15.9% |
+| completion_pct | 0.6501 | 0.647 | +0.5% |
+| yards_per_attempt | 7.287 | 7.057 | +3.3% |
+| sack_rate | 0.0655 | 0.0663 | -1.2% |
+| yards_per_carry | 4.4009 | 4.276 | +2.9% |
+| points_mean | 19.7167 | 22.564 | -12.6% |
+| points_sd | 8.4209 | 9.927 | -15.2% |
 
-favourite-by-summed-`overall` win rate: **53.8%** (overall folds in depth / special teams / blocking the V1 engine does not model yet).
+favourite-by-summed-`overall` win rate: **58.8%** (overall folds in depth / special teams / blocking the V1 engine does not model yet).
   
-favourite-by-net-modelled-channel-edge win rate: **54.8%** over 230 games (50% = ratings do nothing; NFL point-spread favourites win ~66–70%). overall and modelled edge agree on the favourite in 72% of matchups.
+favourite-by-net-modelled-channel-edge win rate: **60.0%** over 230 games (50% = ratings do nothing; NFL point-spread favourites win ~66–70%). overall and modelled edge agree on the favourite in 72% of matchups.
   
-league points **19.3**, sd **8.35** (vs empirical 22.6 / 9.93) over 120 pairs — see §3 for the paired ON/OFF isolation of the rating layer's own effect.
+league points **19.7**, sd **8.42** (vs empirical 22.6 / 9.93) over 120 pairs — see §3 for the paired ON/OFF isolation of the rating layer's own effect.
 
 ## 3. layer impact — paired same-seed ON (rosters) vs OFF (league average)
 
@@ -43,8 +43,8 @@ league points **19.3**, sd **8.35** (vs empirical 22.6 / 9.93) over 120 pairs �
 
 | quantity | ON (rosters) | OFF (avg) | Δ |
 | --- | ---: | ---: | ---: |
-| league team-points | 18.86 | 19.52 | -0.67 |
-| score-margin sd | 11.85 | 13.13 | -1.28 |
-| INT rate / att | 0.0233 | 0.0228 | +0.0006 |
+| league team-points | 18.55 | 19.02 | -0.46 |
+| score-margin sd | 12.44 | 11.34 | +1.10 |
+| INT rate / att | 0.0225 | 0.0238 | -0.0013 |
 
-At 100 pairs the centred rating layer is **not** points-neutral: it costs 0.67 pts/team-game and score-margin sd shrinks (11.85 vs 13.13). §12 predicts ≈0 / a widen; the miss is the same 'correct per-play, compounds through the drive model' pattern as the §22 points gap — a §13.6 joint-calibration item, not a centering bug (the analytic designed magnitudes are all 1.0×).
+Score-margin sd widens (12.44 vs 11.34) — the §12 direction — and turnovers are not inflated. Points run -0.46/team-game at this n; the deterministic §13.6 harness (`26_joint_calibration.py`) puts the converged figure at **≈ −0.8 ± 0.4** (z≈1.9, ~−4%) — small, borderline, and diffuse (no single channel carries it, and it is not a logit-curvature artifact). Left as a §13.6 watch item, no coefficient change; the material scoring gap is the §22 −12% (rating-layer *off*).

@@ -228,6 +228,31 @@ plays.
   emergent points/wins/margin, and bump the invariant sim count); not
   blocking A1.
 
+**§13.6 joint-calibration harness — and the §23 hash-seed bug (2026-09-09).**
+`analysis/26_joint_calibration.py` measures the *simulation-level* targets the
+per-play §13.2 anchors don't constrain (points neutrality, score-margin
+variance) and carries the loss ingredients to tune βᵢ if a real bias shows.
+- **The committed "margin narrows / costs 1.2 pts" §23 reads were an unlucky
+  hash draw.** `24_…validation.py` `league()` seeded games from Python's string
+  `hash()` (randomised per process); through a cache it warms before
+  `layer_impact()`, the paired ON/OFF numbers drifted run-to-run — Δpoints
+  −0.67 / −0.94 / −0.96, margin "narrows" 11.85÷13.13 in one draw and "widens"
+  13.9÷12.5 in another. **Fixed:** `zlib.crc32` game seed; the full script is
+  now byte-reproducible (also run it and `26` with `PYTHONHASHSEED=0`).
+- **Clean picture (wide βᵢ, deterministic):** score-margin sd **widens** under
+  the layer (12.4 vs 11.3 at n=100/§23; 12.3 vs 11.5 at n=320/`26`) — the §12
+  direction. Points delta converges to **≈ −0.8 ± 0.4 pts/team-game** (z≈1.9,
+  ~−4%): small, borderline, and **diffuse** — `diagnose()` masks each channel
+  and none carries it; `curvature_probe()` shows the per-play logit-Jensen gap
+  is ≤0.2pp, so it is a drive-level aggregation effect (same family as the §22
+  gap), not a per-play miss.
+- **No coefficient change.** At z≈1.9 with no identifiable lever, tuning βᵢ
+  against −0.8 pts would fit noise; the per-play magnitudes are exactly right
+  (designed 1.0×) and the margin behaviour is now correct. `26` writes
+  `artifacts/validation/joint_calibration_probe.json`. Revisit if A1 season
+  sims surface a compounding wins/points bias. The material scoring gap stays
+  the **§22 −12%** (rating-layer *off* — drive model, out of §13.6 scope).
+
 **Penalty module (§25 V1.5) — models fitted (2026-09-09).**
 `analysis/25_penalties.py` (M25a pre-snap dead-ball hazard, M25b live-ball
 hazard by play family — both logistic, ~marginal rate, well-calibrated;

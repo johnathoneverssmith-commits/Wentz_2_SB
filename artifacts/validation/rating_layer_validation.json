@@ -97,59 +97,59 @@
   "league_modifiers_on": {
     "pairs": 120,
     "team_games": 480,
-    "completion_pct": 0.6698629164003125,
-    "yards_per_attempt": 7.354507618473706,
-    "sack_rate": 0.06788266265513351,
-    "yards_per_carry": 4.369008028675141,
-    "points_mean": 19.254166666666666,
-    "points_sd": 8.347778105912708,
-    "better_roster_win_rate": 0.5375,
-    "modelled_edge_win_rate": 0.5478260869565217,
+    "completion_pct": 0.650073720424068,
+    "yards_per_attempt": 7.286952821311267,
+    "sack_rate": 0.06552107800717023,
+    "yards_per_carry": 4.400892637351278,
+    "points_mean": 19.716666666666665,
+    "points_sd": 8.42089002949741,
+    "better_roster_win_rate": 0.5875,
+    "modelled_edge_win_rate": 0.6,
     "modelled_edge_games": 230,
     "overall_vs_edge_agree": 0.7166666666666667
   },
   "layer_impact_paired": {
     "pairs": 100,
-    "points_on": 18.855,
-    "points_off": 19.525,
-    "points_delta_on_minus_off": -0.6699999999999982,
-    "team_points_sd_on": 8.115046210589314,
-    "team_points_sd_off": 8.450998461720367,
-    "margin_sd_on": 11.854429551859507,
-    "margin_sd_off": 13.13497240195045,
-    "int_rate_on": 0.023335621139327384,
-    "int_rate_off": 0.02276912774150343
+    "points_on": 18.555,
+    "points_off": 19.02,
+    "points_delta_on_minus_off": -0.46499999999999986,
+    "team_points_sd_on": 8.630004345305974,
+    "team_points_sd_off": 7.925250784675524,
+    "margin_sd_on": 12.437728892366163,
+    "margin_sd_off": 11.336683818471785,
+    "int_rate_on": 0.022466129308866403,
+    "int_rate_off": 0.02378971884877724
   },
   "league_vs_empirical": {
     "completion_pct": {
-      "sim": 0.6699,
+      "sim": 0.6501,
       "emp": 0.647,
-      "rel_err": 0.035
+      "rel_err": 0.005
     },
     "yards_per_attempt": {
-      "sim": 7.3545,
+      "sim": 7.287,
       "emp": 7.057,
-      "rel_err": 0.042
+      "rel_err": 0.033
     },
     "sack_rate": {
-      "sim": 0.0679,
+      "sim": 0.0655,
       "emp": 0.0663,
-      "rel_err": 0.024
+      "rel_err": -0.012
     },
     "yards_per_carry": {
-      "sim": 4.369,
+      "sim": 4.4009,
       "emp": 4.276,
-      "rel_err": 0.022
+      "rel_err": 0.029
     },
     "points_mean": {
-      "sim": 19.2542,
+      "sim": 19.7167,
       "emp": 22.564,
-      "rel_err": -0.147
+      "rel_err": -0.126
     },
     "points_sd": {
-      "sim": 8.3478,
+      "sim": 8.4209,
       "emp": 9.927,
-      "rel_err": -0.159
+      "rel_err": -0.152
     }
   }
 }
