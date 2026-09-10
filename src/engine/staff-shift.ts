@@ -7,10 +7,9 @@
  * per team-game, so individual games barely move and §22 is unaffected. A
  * `leagueAverageStaff` produces exactly zero from every function here.
  *
- * v0 uses only the quality ratings and the explicit tendency knobs. Scheme fit
- * (`scheme_tags` × coordinator scheme) is modelled on the `Staff` type but not
- * yet wired — it needs per-scheme league centering to stay neutral, deferred to
- * v0.1.
+ * This module is the quality-rating and tendency-knob effects; the
+ * `scheme_tags` × coordinator-scheme fit bonus lives in `staff-fit.ts` (it
+ * needs per-scheme league centering).
  *
  * Kept behaviourally identical to `analysis/engine/staff_shift.py`.
  */

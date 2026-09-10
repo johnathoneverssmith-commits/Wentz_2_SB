@@ -12,6 +12,11 @@ import {
 } from "../src/engine/staff.js";
 import { allStaffs, teamStaff } from "../src/engine/staff-data.js";
 import {
+  defSchemeFitShift,
+  offSchemeFitShift,
+  schemeFitBaseline,
+} from "../src/engine/staff-fit.js";
+import {
   dcDefenseShift,
   hcGoForItDelta,
   hcPenaltyScale,
@@ -90,6 +95,27 @@ describe.runIf(hasPool)("staff in simulateGame", () => {
       expect(neutral.teams[0].s).toEqual(off.teams[0].s);
       expect(neutral.teams[1].s).toEqual(off.teams[1].s);
     }
+  });
+
+  it("scheme fit: neutral schemes contribute nothing; committed schemes centre on the league mean", () => {
+    const base = schemeFitBaseline();
+    for (const v of [...Object.values(base.off), ...Object.values(base.def)]) {
+      expect(v).toBeGreaterThan(0);
+      expect(v).toBeLessThan(1);
+    }
+    const fitTags = [["spread", "rpo"], ["vertical"], undefined, ["spread"], ["zone_run"]];
+    const antiTags = [["power_run"], ["gap_scheme"], ["inline"], ["downhill"], ["pass_pro"]];
+
+    // pro_style / multiple are scheme-agnostic → exactly zero, whatever the unit
+    expect(offSchemeFitShift("pro_style", fitTags)).toEqual({ complete: 0, rush: 0 });
+    expect(defSchemeFitShift("multiple", antiTags)).toEqual({ complete: 0, rush: 0 });
+
+    // committed scheme: a matched unit beats a mismatched one, and the term is small
+    const good = offSchemeFitShift("spread", fitTags);
+    const bad = offSchemeFitShift("spread", antiTags);
+    expect(good.complete).toBeGreaterThan(bad.complete);
+    expect(good.rush).toBeGreaterThan(bad.rush);
+    expect(Math.abs(good.complete)).toBeLessThan(0.07);
   });
 
   it("staff needs both sides — one-sided or roster-less staff is ignored", () => {

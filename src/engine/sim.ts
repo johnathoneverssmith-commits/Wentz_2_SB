@@ -32,6 +32,7 @@ import {
 import { Rng } from "./rng.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
+import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
 import {
   dcDefenseShift,
   hcGoForItDelta,
@@ -172,10 +173,26 @@ export class Game {
    * boost + the defending team's DC suppression/blitz. Zero without a staff.
    */
   private staffOffShift(): { complete: number; rush: number; sack: number } {
-    if (!this.staffOn) return { complete: 0, rush: 0, sack: 0 };
-    const oc = ocOffenseShift(this.offStaff().oc);
-    const dc = dcDefenseShift(this.defStaff().dc);
-    return { complete: oc.complete + dc.complete, rush: oc.rush + dc.rush, sack: dc.sack };
+    if (!this.staffOn || !this.ratingsOn) return { complete: 0, rush: 0, sack: 0 };
+    const ocS = this.offStaff().oc;
+    const dcS = this.defStaff().dc;
+    const oc = ocOffenseShift(ocS);
+    const dc = dcDefenseShift(dcS);
+    const o = this.off().offense();
+    const d = this.def().defense();
+    const offTags = [o.QB1, o.RB1, o.WR1, o.WR2, o.WR3, o.TE1, o.LT, o.LG, o.C, o.RG, o.RT].map(
+      (p) => p?.scheme_tags,
+    );
+    const defTags = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2, d.CB1, d.CB2, d.S1, d.S2].map(
+      (p) => p?.scheme_tags,
+    );
+    const ofit = offSchemeFitShift(ocS.scheme, offTags);
+    const dfit = defSchemeFitShift(dcS.scheme, defTags);
+    return {
+      complete: oc.complete + dc.complete + ofit.complete + dfit.complete,
+      rush: oc.rush + dc.rush + ofit.rush + dfit.rush,
+      sack: dc.sack,
+    };
   }
 
   private offShift(kind: "M09" | "M04" | "M20"): Shift | null {

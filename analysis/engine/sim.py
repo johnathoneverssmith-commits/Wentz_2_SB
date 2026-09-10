@@ -140,14 +140,21 @@ class Game:
 
     def _staff_off_shift(self) -> dict[str, float]:
         """Coaching contribution to the offense's resolvers: possessing OC boost
-        + defending DC suppression/blitz. Zero without a staff."""
-        if not self.staff_on:
+        + defending DC suppression/blitz + scheme fit. Zero without a staff."""
+        if not self.staff_on or not self.ratings_on:
             return {"complete": 0.0, "rush": 0.0, "sack": 0.0}
         from .staff_shift import dc_defense_shift, oc_offense_shift
-        oc = oc_offense_shift(self._off_staff().oc)
-        dc = dc_defense_shift(self._def_staff().dc)
-        return {"complete": oc["complete"] + dc["complete"],
-                "rush": oc["rush"] + dc["rush"], "sack": dc["sack"]}
+        from .staff_fit import def_scheme_fit_shift, off_scheme_fit_shift
+        oc_s, dc_s = self._off_staff().oc, self._def_staff().dc
+        oc = oc_offense_shift(oc_s)
+        dc = dc_defense_shift(dc_s)
+        ofit = off_scheme_fit_shift(oc_s.scheme, self._off().offense())
+        dfit = def_scheme_fit_shift(dc_s.scheme, self._def().defense())
+        return {
+            "complete": oc["complete"] + dc["complete"] + ofit["complete"] + dfit["complete"],
+            "rush": oc["rush"] + dc["rush"] + ofit["rush"] + dfit["rush"],
+            "sack": dc["sack"],
+        }
 
     def _off_shift(self, kind: str, **kw) -> dict[str, float] | None:
         """Compute a per-class logit shift for a resolver from the current lineups."""

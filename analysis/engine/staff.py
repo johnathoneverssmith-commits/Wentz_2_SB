@@ -56,3 +56,35 @@ def league_average_staff(label: str = "League Average") -> Staff:
 def rating_norm(rating: float) -> float:
     """Map a 1-99 rating to roughly [-1, +1] (50 -> 0), clipped."""
     return max(-1.0, min(1.0, (rating - 50.0) / 40.0))
+
+
+# scheme_tag values each scheme is a good fit for (mirror of the TS maps).
+OFF_SCHEME_TAGS = {
+    "west_coast": ("west_coast", "play_action", "move_te", "zone_run", "outside_zone"),
+    "vertical": ("vertical", "spread", "play_action", "downhill"),
+    "spread": ("spread", "rpo", "zone_run", "outside_zone", "west_coast"),
+    "power_run": ("power_run", "gap_scheme", "inline", "downhill", "pass_pro"),
+    "zone_run": ("zone_run", "outside_zone", "west_coast", "move_te"),
+    "pro_style": ("play_action", "inline", "move_te", "power_run", "west_coast"),
+}
+DEF_SCHEME_TAGS = {
+    "four_three": ("base_4_3", "one_gap", "penetrate", "attack", "wide_9"),
+    "three_four": ("base_3_4", "two_gap", "contain", "nose"),
+    "multiple": ("nickel", "cover_3", "split_safety", "robber", "move_te"),
+    "cover_3": ("cover_3", "single_high", "zone", "robber"),
+    "cover_2": ("cover_2", "split_safety", "zone"),
+    "man_press": ("man_press", "cover_man", "cover_1", "nickel"),
+}
+
+
+def scheme_fit_fraction(tag_lists, scheme_tags) -> float:
+    """Fraction of `tag_lists` (one per player) that overlap `scheme_tags`."""
+    want = set(scheme_tags)
+    fit = n = 0
+    for tags in tag_lists:
+        if not tags:
+            continue
+        n += 1
+        if any(t in want for t in tags):
+            fit += 1
+    return fit / n if n else 0.0
