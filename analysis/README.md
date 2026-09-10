@@ -17,7 +17,8 @@ Full contract: [`docs/engine_spec.md`](../docs/engine_spec.md)
 | Phase D player-effect calibration | Python | **V1 done** — `22_rating_calibration` (§13.6 joint loss deferred to E) |
 | Phase E full Monte-Carlo validation | Python | **V1 done** — `engine/` + `23_full_sim_validation` (§22, 15/20 within 10%; passing game calibrated by depth, points −11% and diffuse — not the passing shape) |
 | Phase E rating-layer validation | Python | **V1 done** — `24_rating_layer_validation` (§23): §12-centered, all 11 family magnitudes ≈1.0× the historical anchor, paired ON/OFF widens score-margin variance without moving league aggregates |
-| Portable resolver export | Python + TS | **done + wired** — `27_export_portable` + `lib_py/{hgb,linear}_portable`: all 16 classifier resolvers → `artifacts/models/portable/*.json` (HGB forests; spline+logistic → exact per-segment cubics), machine-epsilon vs sklearn. `engine/loaders` loads only these (no joblib/sklearn at runtime) → §22 unchanged, **~25× faster (0.35 s/game)**. `src/engine/{hgb,linear}-portable.ts` are the verified TS ports |
+| Portable resolver export | Python + TS | **done + wired** — `27_export_portable` + `lib_py/{hgb,linear}_portable`: all 16 classifier resolvers → `artifacts/models/portable/*.json` (HGB forests; spline+logistic → exact per-segment cubics), machine-epsilon vs sklearn. `src/engine/{hgb,linear}-portable.ts` are the verified TS ports |
+| Portable PMF tables | Python | **done** — `28_export_distributions`: the 7 empirical lookups (air-yд, m10/m11/m14 yardage, clock, punt, penalty) → `artifacts/distributions/portable/*.json` (123 KB). `engine/loaders` now imports only numpy+json (no polars/pandas/joblib/sklearn); §22 unchanged, ~0.3 s/game |
 
 Phase C outputs: `artifacts/distributions/{target,carry}_role_shares.parquet`
 (dimension × level × role → league / mean / shrunk-mean / sd / p10 / p90

@@ -298,6 +298,14 @@ real 2025 rows for all 7 (machine-epsilon). ~3.8 MB, ~1900 trees / ~119k nodes.
   Python-computed fixtures. These are the spec the shippable runtime consumes.
 - The 16 `*.joblib` files stay on disk as the fitting artifact +
   `27_export_portable.py`'s source; nothing at runtime reads them.
+- **Empirical PMF tables portable too (`28_export_distributions.py`).** The
+  seven parquet lookups the engine sampled from (air-yд, m10/m11/m14
+  exact-yardage, clock runoff, punt distance/return, penalty enforcement + DPI)
+  export to `artifacts/distributions/portable/*.json` (123 KB total) as
+  pre-cumsummed `{v[], cum[]}` leaves — sampling is one `searchsorted`.
+  **`engine/loaders.py` now imports only `numpy` + `json`** (no polars / pandas
+  / joblib / sklearn); §22 unchanged. The runtime is fully portable — every
+  input is JSON.
 
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
 engine loop); a larger §23 league sample; the diffuse points gap above; the

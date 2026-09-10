@@ -8,7 +8,6 @@ import functools
 import json
 
 import numpy as np
-import polars as pl
 
 from lib_py.hgb_portable import predict_proba_portable
 from lib_py.linear_portable import predict_proba_linear
@@ -92,130 +91,64 @@ def _norm(x):
     return a / a.sum()
 
 
-# ---- empirical yardage PMFs (M10 YAC, M11 scramble, M14 rush) ----------
+# ---- empirical PMF / lookup tables (portable JSON, analysis/28_export_distributions.py) --
+# Each leaf is {"v": [int, ...], "cum": [float, ...]}; sampling is one searchsorted.
+
+_PDIST = _DIST / "portable"
+
 
 @functools.lru_cache(maxsize=None)
-def yardage_pmf(stem: str) -> dict:
-    """(category, ctx_bucket) -> (yards[], cumprob[]); + category-global fallback."""
-    df = pl.read_parquet(_DIST / f"{stem}_exact.parquet")
-    by_cb: dict[tuple[str, str], tuple[np.ndarray, np.ndarray]] = {}
-    for (cat, bucket), g in df.group_by(["category", "ctx_bucket"]):
-        y = g["yards"].to_numpy()
-        p = _norm(g["prob"].to_numpy())
-        by_cb[(cat, bucket)] = (y, np.cumsum(p))
-    glob: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-    for (cat,), g in df.group_by(["category"]):
-        agg = g.group_by("yards").agg(pl.col("prob").sum()).sort("yards")
-        y = agg["yards"].to_numpy()
-        p = _norm(agg["prob"].to_numpy())
-        glob[cat] = (y, np.cumsum(p))
-    return {"by_cb": by_cb, "glob": glob}
+def _table(name: str) -> dict:
+    return json.loads((_PDIST / f"{name}.json").read_text())
+
+
+def _draw(leaf: dict, r: float) -> int:
+    return int(leaf["v"][np.searchsorted(leaf["cum"], r)])
 
 
 def sample_exact_yards(stem: str, category: str, bucket: str, rng: np.random.Generator) -> int:
-    t = yardage_pmf(stem)
-    y, cum = t["by_cb"].get((category, bucket)) or t["glob"][category]
-    return int(y[np.searchsorted(cum, rng.random())])
-
-
-@functools.lru_cache(maxsize=None)
-def air_yards_pmf() -> dict:
-    df = pl.read_parquet(_DIST / "air_yards_exact.parquet")
-    out: dict[tuple, tuple[np.ndarray, np.ndarray]] = {}
-    for (cat, down, fp), g in df.group_by(["depth_category", "down", "fp_band"]):
-        y = g["air_yards_int"].to_numpy()
-        p = _norm(g["count"].to_numpy())
-        out[(cat, int(down), fp)] = (y, np.cumsum(p))
-    glob: dict[str, tuple] = {}
-    for (cat,), g in df.group_by(["depth_category"]):
-        agg = g.group_by("air_yards_int").agg(pl.col("count").sum()).sort("air_yards_int")
-        glob[cat] = (agg["air_yards_int"].to_numpy(), np.cumsum(_norm(agg["count"].to_numpy())))
-    return {"by": out, "glob": glob}
+    t = _table(f"{stem}_exact")
+    leaf = t["by_cb"].get(category, {}).get(bucket) or t["glob"][category]
+    return _draw(leaf, rng.random())
 
 
 def sample_air_yards(cat: str, down: int, yardline_100: float, rng: np.random.Generator) -> int:
     fp = "opp_rz" if yardline_100 <= 20 else "opp_mid" if yardline_100 <= 50 else "own_half"
-    t = air_yards_pmf()
-    y, cum = t["by"].get((cat, down, fp)) or t["glob"][cat]
-    return int(y[np.searchsorted(cum, rng.random())])
-
-
-@functools.lru_cache(maxsize=None)
-def clock_runoff() -> dict:
-    df = pl.read_parquet(_DIST / "clock_runoff.parquet")
-    out: dict[tuple, tuple[np.ndarray, np.ndarray]] = {}
-    for (bucket, nh, cs), g in df.group_by(["outcome_bucket", "no_huddle", "clock_state"]):
-        s = g["elapsed_s"].to_numpy()
-        p = _norm(g["n"].to_numpy())
-        out[(bucket, int(nh), cs)] = (s, np.cumsum(p))
-    return out
+    t = _table("air_yards")
+    leaf = t["by"].get(cat, {}).get(str(int(down)), {}).get(fp) or t["glob"][cat]
+    return _draw(leaf, rng.random())
 
 
 def sample_runoff(bucket: str, no_huddle: int, clock_state: str, rng: np.random.Generator) -> int:
-    t = clock_runoff()
-    key = (bucket, no_huddle, clock_state)
-    if key not in t:
-        key = (bucket, 0, "normal")
-    if key not in t:
-        return 35
-    s, cum = t[key]
-    return int(s[np.searchsorted(cum, rng.random())])
-
-
-@functools.lru_cache(maxsize=None)
-def punt_tables() -> dict:
-    dist = pl.read_parquet(_DIST / "punt_distance.parquet")
-    ret = pl.read_parquet(_DIST / "punt_return_yards.parquet")
-    by_fp: dict[int, tuple] = {}
-    for (fp,), g in dist.group_by(["fp"]):
-        by_fp[int(fp)] = (g["kd"].to_numpy(), np.cumsum(_norm(g["n"].to_numpy())))
-    ry = (ret["ry"].to_numpy(), np.cumsum(_norm(ret["n"].to_numpy())))
-    return {"dist": by_fp, "ret": ry}
+    by = _table("clock_runoff")["by"]
+    leaf = by.get(bucket, {}).get(str(int(no_huddle)), {}).get(clock_state) \
+        or by.get(bucket, {}).get("0", {}).get("normal")
+    return _draw(leaf, rng.random()) if leaf else 35
 
 
 def sample_punt_distance(yardline_100: float, rng: np.random.Generator) -> int:
-    t = punt_tables()["dist"]
+    d = _table("punt")["dist"]
     fp = int(yardline_100 // 10 * 10)
-    key = fp if fp in t else min(t, key=lambda k: abs(k - fp))
-    y, cum = t[key]
-    return int(y[np.searchsorted(cum, rng.random())])
+    key = str(fp) if str(fp) in d else min(d, key=lambda k: abs(int(k) - fp))
+    return _draw(d[key], rng.random())
 
 
 def sample_punt_return(rng: np.random.Generator) -> int:
-    y, cum = punt_tables()["ret"]
-    return int(y[np.searchsorted(cum, rng.random())])
+    return _draw(_table("punt")["ret"], rng.random())
 
 
 # ---- penalty enforcement (Model 25c) ----------------------------------
 
-@functools.lru_cache(maxsize=None)
-def penalty_tables() -> dict:
-    enf = pl.read_parquet(_DIST / "penalty_enforcement.parquet")
-    by: dict[tuple[str, str], tuple] = {}
-    for (hz, fam), g in enf.group_by(["hazard_class", "play_family"]):
-        buckets = g["bucket"].to_list()
-        cum = np.cumsum(_norm(g["share"].to_numpy()))
-        meta = {r["bucket"]: r for r in g.to_dicts()}
-        by[(hz, fam)] = (buckets, cum, meta)
-    dpi = pl.read_parquet(_DIST / "penalty_dpi_yards.parquet")
-    dpi_pmf: dict[str, tuple] = {}
-    for (band,), g in dpi.group_by(["fp_band"]):
-        dpi_pmf[band] = (g["yards"].to_numpy(), np.cumsum(_norm(g["prob"].to_numpy())))
-    return {"by": by, "dpi": dpi_pmf}
-
-
 def sample_penalty_bucket(hazard: str, play_family: str, rng: np.random.Generator) -> dict:
     """Return the M25c enforcement row (share/off_share/mean_yards/p_auto_first/…)
     for a fired penalty of this hazard class + play family."""
-    t = penalty_tables()["by"]
-    key = (hazard, play_family)
-    if key not in t:
-        key = (hazard, "ALL" if hazard == "deadball" else "dropback")
-    buckets, cum, meta = t[key]
-    return meta[buckets[int(np.searchsorted(cum, rng.random()))]]
+    by = _table("penalty")["by"]
+    fam_tbl = by.get(hazard, {}).get(play_family) \
+        or by[hazard]["ALL" if hazard == "deadball" else "dropback"]
+    i = int(np.searchsorted(fam_tbl["cum"], rng.random()))
+    return fam_tbl["meta"][fam_tbl["buckets"][i]]
 
 
 def sample_dpi_yards(fp_band: str, rng: np.random.Generator) -> int:
-    t = penalty_tables()["dpi"]
-    y, cum = t.get(fp_band) or next(iter(t.values()))
-    return int(y[np.searchsorted(cum, rng.random())])
+    dpi = _table("penalty")["dpi"]
+    return _draw(dpi.get(fp_band) or next(iter(dpi.values())), rng.random())
