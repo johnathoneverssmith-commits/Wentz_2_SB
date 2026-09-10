@@ -347,6 +347,19 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   V1 ceiling for a strictly-marginal-calibrated average-rating engine; a real
   fix needs drive-level EPA / points-per-drive modelling — out of V1 scope.
   2-pt tries are EV-neutral.
+- **SUPERSEDED IN PART (V1.6 diagnostic, see
+  [`v16_points_gap_plan.md`](v16_points_gap_plan.md)).** Two of the numbers above
+  are wrong or unreliable: **"drives that never cross midfield 37% v 18%" — the
+  empirical figure is 42.76%**, so the engine is *better* than the baseline, not
+  2× worse; and empirical plays/drive is 6.75 (all plays) / 5.80 (run+pass), not
+  5.69, so the "engine grinds" reading is a definition mismatch. Separately, a
+  drive-level *momentum* layer is ruled out: measured intra-drive residual
+  correlation is ρ ≈ 0 (lag-1 +0.03), so real plays are conditionally
+  independent given state and the engine's sampling assumption is sound. The
+  live hypothesis is now that the engine **under-produces opponent-territory
+  drive starts** — 9.7% of real drives start at the opponent 49 or better and
+  carry ~16.5% of all offensive points, and nothing in §22 measures drive start
+  field position.
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB
