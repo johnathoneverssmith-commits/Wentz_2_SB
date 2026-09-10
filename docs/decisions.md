@@ -417,6 +417,13 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   Tradeoff (`explosive_pass_rate` +9→+10%) resolved once the clock fix landed
   (back to +5%). **Not closed:** yl 5–20 pass-TD still ~−20pp — a diffuse
   M05/M09/M10 RZ interaction, deferred.
+- **End-of-half clock management (2026-09-10; play-by-play prerequisite).**
+  New `Game.clock_stopped` running-clock state (reset on possession change,
+  incompletion, OOB; running after an in-bounds gain). 2-minute drill
+  (`_hurry_up`): timeout after a fresh set of downs, then spike, then the kick
+  unit on `_end_half_fg` (in FG range as time expires) via a shared `_kick_fg`.
+  Dropped the OT phantom drive. `end_of_half` 8.8% → 7.9% (emp 6.85%), spikes
+  0.31/tg (emp ~0.3), **points/team-game −2.6% → −2.0%**, §22 16/20.
 - **RZ passing recalibration (2026-09-10) — `rz_yac` table.** M10 regresses
   goal-line YAC toward the league mean and misses the reach/dive: a completion
   caught at the opp 3 scored ~25% in the engine vs ~48% empirically. Added

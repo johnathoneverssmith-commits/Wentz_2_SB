@@ -104,6 +104,7 @@ export class Game {
   receivedOpening = 1;
   rosters: [Roster, Roster] | null;
   rzFlag = false;
+  clockStopped = true; // running-clock state for 2-minute-drill management
 
   // ---- per-drive instrumentation (V1.6 points-gap work) --------------
   // One record per drive: { team, startYl, result, plays, crossedMid, points }.
@@ -186,10 +187,16 @@ export class Game {
     this.dTeam = this.pos;
     this.dPts0 = this.score[this.pos as 0 | 1];
     this.dFd0 = this.teams[this.pos as 0 | 1].s.first_down ?? 0;
+    this.clockStopped = true; // clock is stopped on any change of possession
   }
 
   private finishDrive(result: string): void {
-    if (!this.driveOpen) return;
+    // A 0-play drive that only "ends the half" never happened (e.g. the OT
+    // kickoff after a walk-off score) — drop it.
+    if (!this.driveOpen || (this.dPlays === 0 && result === "end_of_half")) {
+      this.driveOpen = false;
+      return;
+    }
     this.driveOpen = false;
     this.drivesLog.push({
       team: this.dTeam,
@@ -406,9 +413,73 @@ export class Game {
     }
   }
 
+  // ---- 2-minute-drill clock management (needed for play-by-play mode) ----
+  private hurryUp(): boolean {
+    return (
+      (this.qtr === 2 || this.qtr === 4) &&
+      this.hsr <= 130 &&
+      this.score[this.pos as 0 | 1] - this.score[this.other() as 0 | 1] <= 8
+    );
+  }
+
+  private endHalfFg(): boolean {
+    return (
+      (this.qtr === 2 || this.qtr === 4) && this.hsr <= 6 && this.down <= 4 && this.yardline100 <= 40
+    );
+  }
+
+  private spike(): void {
+    this.st("spike");
+    this.dPlays += 1;
+    this.gsr = Math.max(0, this.gsr - 1);
+    this.hsr = Math.max(0, this.hsr - 1);
+    this.qsr = Math.max(0, this.qsr - 1);
+    this.clockStopped = true;
+    this.down = Math.min(this.down + 1, 4);
+  }
+
+  private kickFg(result = "field_goal", endOfHalf = false): void {
+    this.st("fg_att");
+    const ctx: Ctx = { kick_distance: this.yardline100 + 18, yardline_100: this.yardline100, ...ENV };
+    const made = (predictProba("M20", ctx, this.offShift("M20")).MADE ?? 0.85) > this.rng.random();
+    if (made) {
+      this.st("fg_made");
+      this.scorePts(3);
+    }
+    if (endOfHalf) {
+      this.gsr = Math.max(0, this.gsr - this.qsr);
+      this.hsr = 0;
+      this.qsr = 0;
+      this.finishDrive(made ? result : "missed_fg");
+      if (this.qtr === 2 && this.gsr > 0) {
+        this.qtr = 3;
+        this.qsr = 900;
+        this.hsr = 1800;
+        this.toRemaining = [3, 3];
+        this.kickoff(1 - this.receivedOpening, "field_goal");
+      }
+      return;
+    }
+    this.advanceClock("run_inbounds", 0, true);
+    if (made) this.kickoff(this.other(), result);
+    else this.turnover(0, this.yardline100, "missed_fg");
+  }
+
   private play(): void {
     this.st("plays");
     if (this.canKneelOut()) return this.kneelOut();
+    if (this.endHalfFg()) {
+      this.dPlays += 1;
+      return this.kickFg("field_goal", true);
+    }
+    if (this.hurryUp() && !this.clockStopped) {
+      if (this.toRemaining[this.pos as 0 | 1] > 0 && this.hsr <= 85 && (this.down === 1 || this.down === 4)) {
+        this.toRemaining[this.pos as 0 | 1] -= 1;
+        this.clockStopped = true;
+      } else if (this.down <= 3 && this.hsr >= 4 && this.hsr <= 40) {
+        return this.spike();
+      }
+    }
     this.dPlays += 1;
     if (this.down === 3) this.st("third_att");
     if (this.down === 4) return this.fourthDown();
@@ -417,21 +488,7 @@ export class Game {
 
   private fourthDown(): void {
     const act = sampleClass("M01", this.ctx(), this.rng);
-    if (act === "FIELD_GOAL") {
-      this.st("fg_att");
-      const ctx: Ctx = { kick_distance: this.yardline100 + 18, yardline_100: this.yardline100, ...ENV };
-      const made =
-        (predictProba("M20", ctx, this.offShift("M20")).MADE ?? 0.85) > this.rng.random();
-      this.advanceClock("run_inbounds", 0, true);
-      if (made) {
-        this.st("fg_made");
-        this.scorePts(3);
-        this.kickoff(this.other(), "field_goal");
-      } else {
-        this.turnover(0, this.yardline100, "missed_fg");
-      }
-      return;
-    }
+    if (act === "FIELD_GOAL") return this.kickFg("field_goal");
     if (act === "PUNT") {
       this.st("punt");
       const dist = samplePuntDistance(this.yardline100, this.rng);
@@ -682,6 +739,12 @@ export class Game {
       this.freeKick();
       return;
     }
+    // running-clock state for the NEXT snap: stopped on an incompletion or if
+    // the ball-carrier went out of bounds, running otherwise.
+    this.clockStopped =
+      outcomeBucket === "pass_incomplete" ||
+      outcomeBucket === "run_oob" ||
+      outcomeBucket === "pass_complete_oob";
     this.ydstogo -= gained;
     if (this.ydstogo <= 0) {
       this.st("first_down");

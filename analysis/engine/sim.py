@@ -87,6 +87,7 @@ class Game:
     received_opening: int = 1  # team that received the opening kickoff
     rosters: list | None = None  # [Roster, Roster] to enable the rating layer, else off
     rz_flag: bool = False  # current drive has reached the red zone (<=20)
+    clock_stopped: bool = True  # running-clock state for 2-minute-drill management
 
     # ---- per-drive instrumentation (V1.6 points-gap work) --------------
     # One record per drive: {team, start_yl, result, plays, crossed_mid, points}.
@@ -168,11 +169,15 @@ class Game:
         self._dteam = self.pos
         self._dpts0 = self.score[self.pos]
         self._dfd0 = self.teams[self.pos].s["first_down"]
+        self.clock_stopped = True  # clock is stopped on any change of possession
 
     def _finish_drive(self, result: str):
         """Close the current drive with `result` (a lib_py.drives canonical key).
-        No-op before the first drive or after it is already closed."""
-        if not self._drive_open:
+        No-op before the first drive or after it is already closed. A 0-play
+        drive that only 'ends the half' never actually happened (e.g. the OT
+        kickoff after a walk-off score) — drop it."""
+        if not self._drive_open or (self._dplays == 0 and result == "end_of_half"):
+            self._drive_open = False
             return
         self._drive_open = False
         self.drives_log.append({
@@ -218,7 +223,7 @@ class Game:
         if self.qsr == 0 and self.gsr > 0:
             self.qtr += 1
             self.qsr = 900
-            if self.qtr == 3:  # second-half kickoff to the other opener
+            if self.qtr == 3:  # halftime → second-half kickoff to the other opener
                 self.hsr = 1800
                 self.to_remaining = [3, 3]
                 self._kickoff(receiving=1 - self.received_opening, result="end_of_half")
@@ -384,10 +389,44 @@ class Game:
                 self.to_remaining = [3, 3]
                 self._kickoff(receiving=1 - self.received_opening, result="end_of_half")
 
+    # ---- 2-minute-drill clock management (needed for play-by-play mode) ----
+    def _hurry_up(self) -> bool:
+        """Offense is racing the half/game clock: trailing, tied, or within one
+        score, inside 2:00 of Q2 or Q4."""
+        return (self.qtr in (2, 4) and self.hsr <= 130
+                and self.score[self.pos] - self.score[self.other()] <= 8)
+
+    def _end_half_fg(self) -> bool:
+        """Time will expire before another snap and the offense is in FG range —
+        send the kick unit on (any down)."""
+        return (self.qtr in (2, 4) and self.hsr <= 6 and self.down <= 4
+                and self.yardline_100 <= 40)
+
+    def _spike(self):
+        """Clock the ball: ~1 s, clock stops, burns a down."""
+        self.st("spike")
+        self._dplays += 1
+        for a in ("gsr", "hsr", "qsr"):
+            setattr(self, a, max(0, getattr(self, a) - 1))
+        self.clock_stopped = True
+        self.down = min(self.down + 1, 4)
+        self.ydstogo = self.ydstogo  # unchanged
+
     def play(self):
         self.teams[self.pos].s["plays"] += 1
         if self._can_kneel_out():
             return self._kneel_out()
+        if self._end_half_fg():
+            self._dplays += 1
+            return self._kick_fg("field_goal", end_of_half=True)
+        if self._hurry_up() and not self.clock_stopped:
+            # spend a timeout after a fresh set of downs / on a late down, then
+            # spike once the timeouts are gone and there is no time to huddle.
+            if self.to_remaining[self.pos] > 0 and self.hsr <= 85 and self.down in (1, 4):
+                self.to_remaining[self.pos] -= 1
+                self.clock_stopped = True
+            elif self.down <= 3 and 4 <= self.hsr <= 40:
+                return self._spike()
         self._dplays += 1
         if self.down == 3:
             self.st("third_att")
@@ -395,22 +434,37 @@ class Game:
             return self._fourth_down()
         return self._scrimmage(go_for_it=False)
 
+    def _kick_fg(self, result: str = "field_goal", end_of_half: bool = False):
+        """Attempt a field goal from the current spot. Used by 4th-down M01 and by
+        the end-of-half kick unit (`end_of_half=True` — the clock expires on the
+        kick, so it runs the half/game transition itself)."""
+        self.st("fg_att")
+        dist = self.yardline_100 + 18
+        ctx = {"kick_distance": dist, "yardline_100": self.yardline_100,
+               "roof": "outdoors", "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}
+        made = predict_proba("M20", ctx, self._off_shift("M20")).get("MADE", 0.85) > self.rng.random()
+        if made:
+            self.st("fg_made")
+            self._score(3)
+        if end_of_half:
+            self.gsr = max(0, self.gsr - self.qsr)
+            self.hsr = self.qsr = 0
+            self._finish_drive(result if made else "missed_fg")
+            if self.qtr == 2 and self.gsr > 0:          # halftime → Q3 kickoff
+                self.qtr, self.qsr, self.hsr = 3, 900, 1800
+                self.to_remaining = [3, 3]
+                self._kickoff(receiving=1 - self.received_opening, result="field_goal")
+            return                                       # Q4: run() loop ends the game
+        self.advance_clock("run_inbounds", drive_ends=True)
+        if made:
+            self._kickoff(receiving=self.other(), result=result)
+        else:
+            self._turnover(spot=self.yardline_100, result="missed_fg")
+
     def _fourth_down(self):
         act = sample_class("M01", self.ctx(), self.rng)
         if act == "FIELD_GOAL":
-            self.st("fg_att")
-            dist = self.yardline_100 + 18
-            ctx = {"kick_distance": dist, "yardline_100": self.yardline_100,
-                   "roof": "outdoors", "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}
-            made = predict_proba("M20", ctx, self._off_shift("M20")).get("MADE", 0.85) > self.rng.random()
-            self.advance_clock("run_inbounds", drive_ends=True)
-            if made:
-                self.st("fg_made")
-                self._score(3)
-                self._kickoff(receiving=self.other(), result="field_goal")
-            else:
-                self._turnover(spot=self.yardline_100, result="missed_fg")
-            return
+            return self._kick_fg("field_goal")
         if act == "PUNT":
             self.st("punt")
             d = sample_punt_distance(self.yardline_100, self.rng)
@@ -675,6 +729,10 @@ class Game:
             self.teams[self.other()].s["safety"] += 1
             self._free_kick()
             return
+        # running-clock state for the NEXT snap: stopped on an incompletion or if
+        # the ball-carrier went out of bounds, running otherwise (a first down no
+        # longer stops the NFL clock outside the final 2:00).
+        self.clock_stopped = outcome_bucket in ("pass_incomplete", "run_oob", "pass_complete_oob")
         self.ydstogo -= gained
         converted = self.ydstogo <= 0
         if converted:

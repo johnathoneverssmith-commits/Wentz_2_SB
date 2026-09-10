@@ -1,6 +1,6 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **points/team-game −11.8% → −2.6%, §22 16/20 within 10%.** Fixes, in
+Status: **points/team-game −11.8% → −2.0%, §22 16/20 within 10%.** Fixes, in
 order of impact: `CLOCK_SCALE = 0.958` (M24 snap gaps ran ~1 s/play long →
 drives/team-game −3.3% → +1.2%; the big one); the `rz_yac` table (RZ
 completions caught short now score at the empirical goal-line-reach rate);
@@ -10,8 +10,7 @@ Also fixed the §22 `plays_per_team_game` definition (scrimmage-only vs the
 engine's all-plays; empirical 62.0 → 67.8). The 4 remaining §22 fails are all
 expected: `points_sd` (rating layer OFF, no team spread) + the 3 deliberate
 penalty-volume metrics. Deferred (each small): RZ pass-TD still ~10 pp short
-at yl 5–20 (M05 depth mix); `end_of_half` 8.8 v 6.85% → see §"end of half"
-below (needed for play-by-play mode); `opp_touchdown` 0.77 v 1.11% (exotic
+at yl 5–20 (M05 depth mix); `end_of_half` 7.9 v 6.85% (2-min-drill clock mgmt added); `opp_touchdown` 0.77 v 1.11% (exotic
 return TDs).
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
@@ -399,13 +398,19 @@ Python §22 keeps it within 10%).
    fumble-return TDs on non-turnover plays + muffed-punt/blocked-kick TDs the
    engine doesn't model). **points/team-game −6.2% → −4.9%** (the +7s go to the
    defense). 16/20 §22 holds.
-2. `end_of_half` 8.8 v 6.85% — the engine ends ~2 pp too many drives on the
-   clock. Tried a no-huddle 2-minute-drill rule (`no_huddle=1` when trailing/tied
-   inside 2:00) — M24's no_huddle buckets are only ~4–5 s/play faster, so it
-   didn't move `end_of_half` and was reverted. A real fix needs explicit
-   half/game-end drive management (when is a drive not worth continuing;
-   kneel-downs; the receiving team declining a last possession), which is a
-   bigger effort than the last ~0.3 pts/team-game warrants right now.
+2. **End-of-half clock management — DONE (2026-09-10; needed for play-by-play
+   mode).** Added a running-clock state (`Game.clock_stopped`: reset on any
+   possession change, on an incompletion, and on an OOB play; running after an
+   in-bounds gain). In a 2-minute drill (`_hurry_up`: trailing / tied / within
+   one score, ≤ 2:00 of Q2 or Q4) the offense now spends a timeout after a
+   fresh set of downs, spikes the ball once the timeouts are gone, and sends
+   the kick unit on (`_end_half_fg` → `_kick_fg(end_of_half=True)`) when time
+   will expire and it's in FG range (≤ opp 40). `_kick_fg` extracted from
+   `_fourth_down` so both paths share it. Also dropped the OT phantom drive
+   (a 0-play `end_of_half` record left by the kickoff after a walk-off score).
+   Effect (n=250): `end_of_half` 8.8% → 7.9% (emp 6.85%); `field_goal` 15.3%
+   → 16.6% (emp 15.8%); spikes 0.31/team-game (emp ~0.3); drives/team-game
+   +1.9%; **points/team-game −2.6% → −2.0%.** §22 16/20.
 3. **RZ passing recalibration — DONE (2026-09-10).** Added a `rz_yac` table:
    the empirical YAC PMF for a RZ completion caught *short* of the goal, keyed
    by catch position (`catch_yl` = yardline_100 − air_yards). M10 regresses
