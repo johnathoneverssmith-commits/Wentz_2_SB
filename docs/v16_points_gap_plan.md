@@ -1,9 +1,9 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **punt bugs fixed (−13% → −11.8%). Penalty-scale sweep done — NOT the
-points lever (drive-extending defensive fouls cancel the offensive fouls that
-come with them). Remaining points ≈ red-zone TD conversion (−2pp TD/drive) +
-clock (−3% drives). Next = red-zone / goal-line probe.**
+Status: **punt bugs fixed (−13% → −11.8%). Penalty scaling ruled out as a
+points lever. Red-zone probe done → the engine's TD/play is 25–35% low on every
+RZ band while yд/play is *higher* — the goal-line yardage distribution isn't
+bimodal enough. Next = widen the M14 `gl` / M10 `rz` yardage tails.**
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
 opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
@@ -290,13 +290,37 @@ punt fixes** — penalty volume is a fidelity metric, not a points lever. Left a
 
 ### Where the residual points actually are (revised)
 
-points/team-game −12.4% ≈ points/drive −5% × drives/team-game −3.4%:
+points/team-game −12.4% ≈ points/drive −5% × drives/team-game −3.4%.
 
-- **TD% per drive −2pp (20.1% v 22.15%)** — the clearest remaining signal.
-  §22 `rz_td_rate` is −7% (0.52 v 0.56) with the RZ-*trip* rate matching, and
-  probe C had goal-line (`fp="gl"`) run yards −0.2. So it's **red-zone / goal-
-  line TD conversion**: the `ay = min(ay, yardline_100 + 3)` air-yards cap, the
-  M14 `fp="gl"` bucket, and 1st-and-goal handling. **This is the next probe.**
+**Red-zone probe (2026-09-10) — `_v16_rz.py`, `play_trace` + `td` field.** The
+engine's TD-per-play is 25–35% low on *every* red-zone yardline band, while
+yards-per-play is *higher*:
+
+| yardline | sim TD/play | emp TD/play | Δ | sim yд/play | emp yд/play |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1–4 | 0.349 | 0.446 | −9.7pp | **1.12** | **0.84** |
+| 5–9 | 0.142 | 0.220 | −7.8pp | 2.76 | 2.40 |
+| 10–14 | 0.079 | 0.117 | −3.8pp | 3.83 | 3.54 |
+| 15–20 | 0.052 | 0.076 | −2.4pp | 4.61 | 4.43 |
+
+Both run and pass are low at the 1–4 (run TD .368 v .449, pass TD .318 v .442).
+**More yards, fewer TDs ⇒ the goal-line yardage distribution is not bimodal
+enough** — real goal-line football is punch-it-in (TD) or get-stuffed (0–1 yд);
+the engine produces too many middling 2–3 yд gains that neither score nor stall.
+Suspects: the **M14 `gl` exact-yard PMF bucket** and its class model at the goal,
+the **M10 `rz` YAC PMF bucket**, and the `ay = min(ay, yardline_100 + 3)`
+air-yards cap forcing goal-line throws SHORT. This is a resolver-fidelity fix
+(`15_rush_yards.py` / `11_yac.py` / `28_export_distributions.py` bucketing, and
+M14's class distribution near the goal), and it is the **largest remaining
+points lever** — RZ TD rate −7% drives a big share of the −2pp TD/drive.
+
 - **drives/team-game −3.4%** (`end_of_half` +2.4pp) — M24 per-play elapsed
   refit, separate item.
 - return-TD rate off turnovers (~10× low, ~1pp of drives) — separate, small.
+
+### Next
+
+1. **Red-zone bimodality**: check M14's yardage-class distribution and the
+   `gl` / `rz` exact-PMF buckets at yardline ≤ 10 vs empirical; widen the tails
+   (more 0-yд stuffs, more scores) without moving the mean much.
+2. Clock / drives-per-game (M24), return-TD rate — separate items.

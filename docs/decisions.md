@@ -397,11 +397,18 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   away. The old "scaling → −16% points" finding **still holds** post-punt-fix.
   Left at 1.0.
 - **Revised: the residual points ≈ red-zone TD conversion + clock.**
-  points/team-game −12.4% ≈ ppd −5% × drives/tg −3.4%. The ppd gap is **TD% per
-  drive −2pp** (20.1% v 22.15%) with FG% and RZ-*trip* rate matching → it's
-  red-zone / goal-line TD conversion (`rz_td_rate` −7%; the `ay = min(ay,
-  yardline_100 + 3)` air-yards cap, M14 `fp="gl"` bucket, 1st-and-goal). Next
-  probe. drives/tg −3.4% is the M24 clock (`end_of_half` +2.4pp), separate.
+  points/team-game −12.4% ≈ ppd −5% × drives/tg −3.4%.
+- **Red-zone probe (2026-09-10, `_v16_rz.py` + `play_trace.td`).** The engine's
+  **TD-per-play is 25–35% low on every RZ yardline band** (1–4: .349 v .446;
+  5–9: .142 v .220; 10–14: .079 v .117; 15–20: .052 v .076) **while yд/play is
+  *higher*** (1.12 v 0.84 at the 1–4). Both run and pass. More yards + fewer
+  TDs ⇒ **the goal-line yardage distribution is not bimodal enough** — real
+  goal-line football is punch-it-in or get-stuffed; the engine produces too
+  many middling 2–3 yд gains. Suspects: the M14 `gl` exact-yard PMF bucket + its
+  class model at the goal, the M10 `rz` YAC bucket, the `ay = min(ay,
+  yardline_100 + 3)` cap. This is the **largest remaining points lever** and a
+  resolver-fidelity fix (`15_rush_yards.py` / `11_yac.py` /
+  `28_export_distributions.py`). drives/tg −3.4% is the M24 clock, separate.
   Full plan: [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**

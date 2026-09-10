@@ -481,7 +481,7 @@ class Game:
             _trec = {"down": self.down, "ydstogo": float(self.ydstogo),
                      "yardline_100": float(self.yardline_100), "call": call,
                      "drive_start_yl": float(self._dstart_yl), "gained": None,
-                     "converted": None, "turnover": False}
+                     "converted": None, "turnover": False, "td": False}
             self.play_trace.append(_trec)
         family = "designed_rush"
         outcome_bucket = "run_inbounds"
@@ -625,6 +625,7 @@ class Game:
         if _trec is not None:
             _trec["gained"] = float(gained)
             _trec["converted"] = bool(is_td or gained_first)
+            _trec["td"] = bool(is_td)
         self.advance_clock(outcome_bucket, drive_ends=drive_ends)
 
         self.yardline_100 = new_yl
