@@ -47,6 +47,10 @@ const M09_COMPLETE_CALIB: Record<string, number> = {
   DEEP: -0.1,
 };
 const FUMBLE_LOST_RATE = 0.48;
+// M24 snap gaps run ~1 s/play long; trim so drives eat the right wall clock and
+// the right number fit per team-game (fewer sec/drive => more drives => more
+// scoring). See analysis/engine/sim.py CLOCK_SCALE.
+const CLOCK_SCALE = 0.958;
 const XP_RATE = 0.958;
 const KICKOFF_TOUCHBACK = 0.66;
 const PICK_SIX_RATE = 0.018;
@@ -218,8 +222,9 @@ export class Game {
   // ---- clock ---------------------------------------------------------
   private advanceClock(bucket: string, noHuddle = 0, driveEnds = false): void {
     const cs = this.gsr <= 300 ? "final_5min" : this.gsr <= 600 ? "final_10min" : "normal";
-    let e = sampleRunoff(bucket, noHuddle, cs, this.rng);
-    if (driveEnds) e = Math.round(e * 0.65);
+    let e = sampleRunoff(bucket, noHuddle, cs, this.rng) * CLOCK_SCALE;
+    if (driveEnds) e = e * 0.65;
+    e = Math.round(e);
     if (this.qsr > 0) e = Math.min(e, this.qsr);
     this.gsr = Math.max(0, this.gsr - e);
     this.hsr = Math.max(0, this.hsr - e);

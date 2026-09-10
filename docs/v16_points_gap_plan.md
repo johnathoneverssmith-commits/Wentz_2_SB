@@ -1,12 +1,17 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **punt bugs fixed (−13% → −11.8%). Penalty scaling ruled out. RZ air-yards
-buckets fixed (gl1..gl4 — they now track the goal line; was a generic pooled
-`opp_rz` bucket). That closed part of the RZ pass-TD gap (yl 3–4 `pass_comp
-TD/pl` 0.56 → 0.63, target 0.86) and tightened drive structure, but the headline
-barely moved (~−3.5% points/drive; team-game noisy at −11.3…−11.8%). The rest of
-the RZ passing gap is diffuse across M05/M09/M10 — deferred. Next = M24 clock
-(drives/team-game −3.3%, the cleaner larger lever).**
+Status: **points/team-game −11.8% → −6.2%, §22 now 16/20 within 10%.** Fixes:
+two punt bugs (field position); RZ `air_yards` split into gl1..gl4 (goal-line
+throws track the end zone); `CLOCK_SCALE = 0.958` — the M24 snap gaps ran
+~1 s/play long, so drives ate too much wall clock and ~0.5 fewer fit per
+team-game. The clock trim was the big one: drives/team-game −3.3% → +1.2%,
+points/drive −3.5% → −2.5%, `rz_td_rate` −7.7% → −2.3%. Remaining fails are all
+expected: `points_sd` (rating layer OFF, no team spread) + the 3 deliberate
+penalty-volume metrics. Also fixed the §22 `plays_per_team_game` definition
+(was scrimmage-only vs the engine's all-plays; empirical 62.0 → 67.8).
+Deferred: RZ pass-TD still ~−20pp yl 5–20 (diffuse M05/M09/M10); return-TD
+rate ~10× low; the −6% residual is now mostly `end_of_half` (8.8 v 6.85%) +
+the diffuse RZ passing.
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
 opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
@@ -363,10 +368,34 @@ easier) so `caughtEZ` at yl 5–9 is 0.25 v emp 0.49. Root is a diffuse
 M05-depth / M09-completion-by-depth / M10-RZ-YAC interaction — a multi-resolver
 RZ recalibration, deferred as its own effort (small marginal points return).
 
+### M24 clock — DONE (2026-09-10)
+
+The "+7% plays" that motivated this was a **§22 definition mismatch** (5th one):
+`plays_per_team_game` compared the engine's all-plays counter to a
+scrimmage-only empirical filter. On a like-for-like count the engine was
+*low* (65.8 v 68.1 plays/team-game) — the M24 snap gaps run ~1 s/play long
+(sec/play 27.4 v 26.4), so drives ate ~8 s more wall clock and ~0.5 fewer fit
+per half → drives/team-game −3.3%.
+
+Fix: `CLOCK_SCALE = 0.958` multiplies `sample_runoff` in `advance_clock` (both
+engines). Swept 0.955–0.968; 0.955–0.958 lands plays *and* drives on empirical
+and gives the best points. Kept 0.958.
+
+**Result (n=250):** drives/team-game +1.2%, plays/team-game +2.4% (fixed
+definition), points/drive −2.5%, points/team-game **−6.2%** (from −11.8%),
+`rz_td_rate` −2.3%, `explosive_pass_rate` +5.3% (the RZ air-yards tradeoff
+resolved once drives were right). §22: **16/20 within 10%**.
+
+TS parity test: N 120 → 220 (int_rate is a rare-event metric, noisy at n=120);
+`int_rate_per_att` given its own 0.18 band (sfc32 vs PCG64 diverges most there;
+Python §22 keeps it within 10%).
+
 ### Next
 
-1. **M24 clock** — drives/team-game −3.3% (`end_of_half` +2.4pp), ~0.6
-   pts/team-game. The per-play elapsed model runs ~2 s/play hot (plays/team-game
-   +7%), so drives are long and the half catches more of them. Cleaner single
-   lever than the RZ passing residual.
-2. Return-TD rate off turnovers (~1pp of drives) — small, separate.
+1. Return-TD rate off turnovers (`opp_touchdown` 0.17% v 1.11%, ~1pp of drives)
+   — small, separate. INT/fumble returns are ~10× too rarely taken to the house.
+2. `end_of_half` 8.8 v 6.85% — the engine still ends slightly too many drives on
+   the clock. Minor; would need the M24 half/game-end transitions modelled
+   properly rather than "clock hits 0 mid-drive".
+3. The diffuse RZ passing residual (yl 5–20 pass-TD ~−20pp) — a multi-resolver
+   M05/M09/M10 RZ recalibration, its own effort.

@@ -39,6 +39,11 @@ QB_HIT_BY_DEPTH = {"BEHIND_LOS": 0.065, "SHORT": 0.084, "INTERMEDIATE": 0.113, "
 # was masking ~1–2 pts of an unrelated scoring deficit (docs/decisions.md).
 M09_COMPLETE_CALIB = {"BEHIND_LOS": 0.30, "SHORT": 0.03, "INTERMEDIATE": -0.07, "DEEP": -0.10}
 FUMBLE_LOST_RATE = 0.48
+# M24 same-drive snap gaps run ~1 s/play long in the engine (sec/play 27.4 v
+# empirical 26.4 on a like-for-like play count), so drives eat ~8 s more wall
+# clock and ~0.5 fewer drives fit per team-game. A small global trim closes it;
+# fewer seconds/drive => MORE drives => MORE scoring chances (helps points).
+CLOCK_SCALE = 0.958
 XP_RATE = 0.958             # empirical PAT-kick make rate, 2023–25
 KICKOFF_TOUCHBACK = 0.66
 PICK_SIX_RATE = 0.018       # share of INTs returned for a TD
@@ -198,11 +203,12 @@ class Game:
         # either stops (score, INT, incompletion, out of bounds) or only the kick
         # team's hustle time runs. Blend to ~14s rather than the full ~35s.
         cs = "final_5min" if self.gsr <= 300 else "final_10min" if self.gsr <= 600 else "normal"
-        e = sample_runoff(bucket, no_huddle, cs, self.rng)
+        e = sample_runoff(bucket, no_huddle, cs, self.rng) * CLOCK_SCALE
         if drive_ends:
             # ~65% of the same-drive gap: clock stops on some drive-enders (score,
             # INT, incompletion, OOB); on others the kick team hustles on.
-            e = int(round(e * 0.65))
+            e = e * 0.65
+        e = int(round(e))
         e = min(e, self.qsr) if self.qsr > 0 else e
         self.gsr = max(0, self.gsr - e)
         self.hsr = max(0, self.hsr - e)

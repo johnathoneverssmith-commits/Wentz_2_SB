@@ -37,6 +37,13 @@ def empirical_targets() -> dict:
         "yardline_100",
     ])
     scr = df.filter((_i8("rush_attempt") == 1) | (_i8("pass_attempt") == 1) | (_i8("sack") == 1))
+    # like-for-like with the engine's `s["plays"]` counter, which ticks on every
+    # play() call — scrimmage snaps AND 4th-down FG/punt AND kneels/spikes.
+    allplays = df.filter(
+        (_i8("rush_attempt") == 1) | (_i8("pass_attempt") == 1) | (_i8("sack") == 1)
+        | (_i8("field_goal_attempt") == 1) | (_i8("punt_attempt") == 1) | (_i8("qb_kneel") == 1)
+        | (pl.col("play_type") == "qb_spike")
+    )
     pas = df.filter((_i8("pass_attempt") == 1) & (_i8("sack") != 1))
     dbk = df.filter(_i8("qb_dropback") == 1)
     run = df.filter((_i8("rush_attempt") == 1) & (_i8("qb_scramble") != 1) & (_i8("qb_kneel") != 1))
@@ -69,7 +76,7 @@ def empirical_targets() -> dict:
     # per-team-game
     games = df.select(["game_id", "home_team", "away_team", "home_score", "away_score"]).unique()
     n_team_games = games.height * 2
-    plays_pg = scr.group_by(["game_id", "posteam"]).agg(pl.len()).select(pl.col("len").mean()).item()
+    plays_pg = allplays.group_by(["game_id", "posteam"]).agg(pl.len()).select(pl.col("len").mean()).item()
     drives_pg = (
         df.filter(pl.col("fixed_drive").is_not_null())
         .select(["game_id", "posteam", "fixed_drive"]).unique()
@@ -255,15 +262,15 @@ def main() -> None:
            "it to hit the empirical count pushes points from −10% to −16%, because the physical-"
            "outcome resolvers are fit penalty-FREE (§6.2) and this engine's drive model over-"
            "punishes offensive fouls. Reconciling the two needs gained-conditioned hazards (V1.6).",
-           "- **points/team-game ~12% low — V1.6 (`docs/v16_points_gap_plan.md`).** Fixed two "
-           "punt bugs (touchback → opponent's 1; return sign) → drive start field position now "
-           "within ~1 yд of empirical, points/drive −6.8% → −3.5%, `never_crossed_mid` exact. "
-           "Ruled out: within-drive momentum (ρ≈0), and scaling `PENALTY_HAZARD_SCALE` (the "
-           "defensive-foul first downs it adds are cancelled by the offensive fouls). Split the "
-           "RZ `air_yards` table finely (gl1..gl4) so goal-line throws track the end zone — "
-           "`pass_comp TD/pl` yl 3–4 0.56 → 0.63 (tradeoff: `explosive_pass_rate` +9→+10%, kept). "
-           "Remaining: RZ pass-TD still ~−20pp yl 5–20 (diffuse M05/M09/M10, deferred); "
-           "drives/team-game −3.3% (M24 clock, next); return-TD rate ~10× low. No 2-pt tries.",
+           "- **points/team-game −6% (was −12%) — V1.6 (`docs/v16_points_gap_plan.md`).** Fixed "
+           "two punt bugs (field position), split the RZ `air_yards` table finely (goal-line "
+           "throws track the end zone), and — the big one — `CLOCK_SCALE = 0.958`: the M24 snap "
+           "gaps ran ~1 s/play long, so drives ate too much wall clock and ~0.5 fewer fit per "
+           "team-game. drives/team-game −3.3% → +1.2%; points/drive −2.5%; `rz_td_rate` −2.3%. "
+           "Ruled out: within-drive momentum (ρ≈0), scaling `PENALTY_HAZARD_SCALE`. `plays_per_"
+           "team_game` empirical filter fixed to like-for-like (was scrimmage-only, 62 → 68). "
+           "Residual: `end_of_half` 8.8 v 6.85%, RZ pass-TD ~−20pp yl 5–20 (diffuse M05/M09/M10), "
+           "return-TD rate ~10× low. No 2-pt tries.",
            "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
            "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
            "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",

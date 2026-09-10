@@ -414,10 +414,24 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   (both engines) walks a widening fallback chain. Effect (n=200–250):
   `pass_comp TD/pl` yl 3–4 0.56→0.63; points/drive −4.2%→~−3.5%;
   `never_crossed_mid` now exact; drive outcome mix all within ~1.7pp.
-  **Tradeoff, kept:** `explosive_pass_rate` +9.2%→+10.3% (borderline; RZ throws
-  into the EZ from the 15–20 are legit 20-yд explosives). **Not closed:** yl
-  5–20 pass-TD still ~−20pp — a diffuse M05/M09/M10 RZ interaction, deferred.
-  drives/tg −3.3% (M24 clock) is next. Full plan:
+  Tradeoff (`explosive_pass_rate` +9→+10%) resolved once the clock fix landed
+  (back to +5%). **Not closed:** yl 5–20 pass-TD still ~−20pp — a diffuse
+  M05/M09/M10 RZ interaction, deferred.
+- **M24 clock fix (2026-09-10) — the big one. points/team-game −11.8% → −6.2%.**
+  The "engine runs +7% plays" belief was a §22 definition mismatch (5th):
+  `plays_per_team_game` compared the engine's all-plays counter to a
+  scrimmage-only empirical filter. Like-for-like, the engine was *low* (65.8 v
+  68.1) — M24 snap gaps run ~1 s/play long, so drives ate ~8 s more wall clock
+  and ~0.5 fewer fit per team-game. Fix: `CLOCK_SCALE = 0.958` on
+  `sample_runoff` (both engines; swept 0.955–0.968, 0.955–0.958 lands plays and
+  drives on empirical with the best points). Result (n=250): drives/team-game
+  −3.3% → +1.2%, points/drive −3.5% → −2.5%, `rz_td_rate` −7.7% → −2.3%,
+  **§22 16/20 within 10%**. Remaining fails all expected: `points_sd` (rating
+  layer OFF) + 3 deliberate penalty-volume metrics. Also fixed the §22
+  `plays_per_team_game` empirical filter to be like-for-like (62.0 → 67.8).
+  TS parity: N 120 → 220, `int_rate_per_att` own 0.18 band (rare-event, sfc32
+  vs PCG64). Residual −6.2% is now `end_of_half` (8.8 v 6.85%) + the diffuse
+  RZ passing + return-TD rate. Full plan:
   [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
