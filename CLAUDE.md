@@ -63,6 +63,7 @@ npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm run analysis:audit                    # spec §28 schema audit -> artifacts/
 npm start             # loads + prints the active pool
+npm run season -- --seed 1 --year 2025 [--seasons K] [--compact]  # sim a season/franchise, print standings + bracket
 ```
 
 ## Layout

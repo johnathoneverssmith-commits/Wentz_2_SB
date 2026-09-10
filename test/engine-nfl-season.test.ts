@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { LOCAL_POOL_PATH } from "../src/data/players.js";
 import { NFL_TEAMS, conferenceOf } from "../src/engine/nfl-structure.js";
+import { formatSeasonReport, formatStandingsCompact } from "../src/engine/report.js";
 import { simulateNflSeason } from "../src/engine/season.js";
 
 /**
@@ -98,6 +99,20 @@ describe.runIf(hasPool)("simulateNflSeason", () => {
     expect(Object.values(season.playoffs.conferenceChampions)).toContain(season.champion);
     const row = season.standings.rows.find((r) => r.team === season.champion)!;
     expect(row.madePlayoffs).toBe(true);
+  });
+
+  it("renders a text report with every team and the champion", () => {
+    const report = formatSeasonReport(season, "NFL 2025");
+    expect(report).toContain("NFL 2025");
+    expect(report).toContain("=== AFC ===");
+    expect(report).toContain("=== NFC ===");
+    expect(report).toContain("Super Bowl");
+    expect(report).toContain(`CHAMPION: ${season.champion}`);
+    for (const t of NFL_TEAMS) expect(report).toMatch(new RegExp(`\\b${t}\\b`));
+
+    const compact = formatStandingsCompact(season);
+    expect(compact.split("\n")).toHaveLength(8); // one line per division
+    expect(compact).toContain("AFC East");
   });
 
   it("is deterministic in seed + year", { timeout: 180_000 }, () => {
