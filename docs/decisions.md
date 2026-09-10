@@ -307,11 +307,31 @@ real 2025 rows for all 7 (machine-epsilon). ~3.8 MB, ~1900 trees / ~119k nodes.
   / joblib / sklearn); §22 unchanged. The runtime is fully portable — every
   input is JSON.
 
+**TS engine ported (2026-09-09).** `src/engine/` — a line-for-line port of
+`analysis/engine/`:
+- `hgb-portable.ts` / `linear-portable.ts` — the two resolver evaluators
+  (machine-epsilon vs sklearn on fixtures).
+- `roster.ts` — pool → depth charts (by `overall`) → offense/defense/kicker
+  lineup slots.
+- `ratings.ts` — `familyModifier` (Σβ·z, ±3 clip), §12 `offsets()` over all 32
+  depth charts, the six resolver shift functions (matches Python to 8–10 dp).
+- `rng.ts` — seeded PRNG (sfc32); `random()` / `choice(items, probs)` /
+  `normal(loc, scale)`. Not a numpy PCG64 bit-match — statistical equivalence.
+- `loaders.ts` — `predictProba` / `sampleClass` + the PMF samplers (replay
+  Python's exact draws bit-for-bit given the same `r`); no bucket-cache (the TS
+  eval is cheap and un-cached is strictly more accurate).
+- `sim.ts` — the ~650-line `Game` loop (§4 chronology, clock, scoring,
+  penalties, kneel-out, rating shifts, OT).
+- `test/engine-parity.test.ts` — 120 TS games; every core §22 metric within
+  12% of the empirical baseline and **points/team-game 20.2 ≈ the Python
+  engine's ~20** (same known ~−11% gap). Runs at ~37 ms/game (vs Python's
+  ~300). 120/120 tests pass.
+
 **Still deferred:** §13.6 joint calibration loss (Phase D iteration, needs the
-engine loop); a larger §23 league sample; the diffuse points gap above; the
-shippable TS runtime (loader for the portable JSON + the game layer); switching
-the Python engine to the portable models (fixes the M01 dtype bug, drops the
-joblib dependency).
+engine loop); a larger §23 league sample; the diffuse points gap above; the TS
+franchise/game layer on top of `src/engine/`; switching the Python engine to
+the portable models (fixes the M01 dtype bug, drops joblib) — the TS engine
+already runs on them.
 
 **The engine spec's full arc (A→E) now has a working V1 end to end, with the
 rating layer wired and §23-validated.**

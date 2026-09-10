@@ -58,7 +58,9 @@ src/schema/ zod schemas + inferred types  ← source of truth for data shapes
 src/model/  positions.ts (per-position priors), ratings.ts (heuristic ratings model)
 src/data/   csv.ts, players.ts (load/validate), generate-pool.ts (nflverse -> pool),
             pool-csv.ts (pool <-> editable CSV), madden.ts (alt CSV importer)
-src/        engine code grows here in Phase 1
+src/engine/ TS simulation engine — port of analysis/engine/ (roster, ratings,
+            rng, loaders, sim + the two portable-model evaluators). Runs on the
+            committed artifacts/**/portable/*.json; no Python at runtime.
 test/       vitest specs, mirror src/ layout
 analysis/   empirical modeling pipeline (see analysis/README.md); lib/ + 00_schema_audit.ts
 artifacts/  committed pipeline outputs the runtime engine loads (schema/, ratings/, later models/)
