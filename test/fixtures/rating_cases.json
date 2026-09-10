@@ -1,0 +1,227 @@
+{
+ "synthetic": [
+  {
+   "fam": "qb_accuracy",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "throw_accuracy_short": 94.875,
+      "throw_accuracy_mid": 92.156,
+      "throw_accuracy_deep": 89.781,
+      "awareness": 85.7
+     }
+    },
+    {
+     "id": "s2",
+     "attributes": {
+      "throw_accuracy_short": 81.875,
+      "throw_accuracy_mid": 79.156,
+      "throw_accuracy_deep": 76.781,
+      "awareness": 72.7
+     }
+    }
+   ],
+   "expected": 0.025364776493768983
+  },
+  {
+   "fam": "qb_accuracy",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "throw_accuracy_short": 94.875,
+      "throw_accuracy_mid": 92.156,
+      "throw_accuracy_deep": 89.781,
+      "awareness": 85.7
+     }
+    }
+   ],
+   "expected": 0.1352788079667679
+  },
+  {
+   "fam": "coverage",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "man_coverage": 84.763,
+      "zone_coverage": 86.703,
+      "press": 86.578,
+      "play_recognition": 87.029
+     }
+    },
+    {
+     "id": "s2",
+     "attributes": {
+      "man_coverage": 71.763,
+      "zone_coverage": 73.703,
+      "press": 73.578,
+      "play_recognition": 74.029
+     }
+    }
+   ],
+   "expected": -0.015356306990589012
+  },
+  {
+   "fam": "coverage",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "man_coverage": 84.763,
+      "zone_coverage": 86.703,
+      "press": 86.578,
+      "play_recognition": 87.029
+     }
+    }
+   ],
+   "expected": -0.08190030394980806
+  },
+  {
+   "fam": "runner",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "ball_carrier_vision": 91.313,
+      "break_tackle": 81.738,
+      "speed": 87.393,
+      "acceleration": 89.531,
+      "agility": 87.316,
+      "strength": 84.257
+     }
+    },
+    {
+     "id": "s2",
+     "attributes": {
+      "ball_carrier_vision": 78.313,
+      "break_tackle": 68.738,
+      "speed": 74.393,
+      "acceleration": 76.531,
+      "agility": 74.316,
+      "strength": 71.257
+     }
+    }
+   ],
+   "expected": 0.06222156678372875
+  },
+  {
+   "fam": "runner",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "ball_carrier_vision": 91.313,
+      "break_tackle": 81.738,
+      "speed": 87.393,
+      "acceleration": 89.531,
+      "agility": 87.316,
+      "strength": 84.257
+     }
+    }
+   ],
+   "expected": 0.3318483561798867
+  },
+  {
+   "fam": "kicking",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "kick_accuracy": 93.375,
+      "kick_power": 96.875
+     }
+    },
+    {
+     "id": "s2",
+     "attributes": {
+      "kick_accuracy": 80.375,
+      "kick_power": 83.875
+     }
+    }
+   ],
+   "expected": 0.08083140905337438
+  },
+  {
+   "fam": "kicking",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "kick_accuracy": 93.375,
+      "kick_power": 96.875
+     }
+    }
+   ],
+   "expected": 0.43110084828466333
+  },
+  {
+   "fam": "protection",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "pass_block": 85.278,
+      "pass_block_power": 87.794,
+      "pass_block_finesse": 86.987,
+      "anchor": 88.475,
+      "awareness": 85.7,
+      "line_calls": 83.175
+     }
+    },
+    {
+     "id": "s2",
+     "attributes": {
+      "pass_block": 72.278,
+      "pass_block_power": 74.794,
+      "pass_block_finesse": 73.987,
+      "anchor": 75.475,
+      "awareness": 72.7,
+      "line_calls": 70.175
+     }
+    }
+   ],
+   "expected": -0.03007783179351677
+  },
+  {
+   "fam": "protection",
+   "players": [
+    {
+     "id": "s1",
+     "attributes": {
+      "pass_block": 85.278,
+      "pass_block_power": 87.794,
+      "pass_block_finesse": 86.987,
+      "anchor": 88.475,
+      "awareness": 85.7,
+      "line_calls": 83.175
+     }
+    }
+   ],
+   "expected": -0.1604151028987561
+  }
+ ],
+ "offsets": {
+  "qb_accuracy": 0.008130884851121066,
+  "qb_ball_security": -0.0975886421766058,
+  "receiver_hands_routes": 0.025371840711675482,
+  "yac_ballcarrier": 0.4511958681499203,
+  "coverage": -0.03274431523843368,
+  "open_field_tackling": -0.29685851701929944,
+  "protection": -0.019611973968100337,
+  "pass_rush": 0.020432145918861073,
+  "run_defense_front7": -0.06202776278484921,
+  "runner": 0.23782084459246533,
+  "kicking": -6.505213034913027e-19
+ },
+ "shifts_SF_KC": {
+  "completion_SF_v_KC": 0.051308007319128386,
+  "sack_SF_v_KC": -0.011539661901361301,
+  "fg_SF": -0.10928896479243298
+ },
+ "qb1_ids": {
+  "SF": "p_00953",
+  "KC": "p_00032"
+ }
+}
