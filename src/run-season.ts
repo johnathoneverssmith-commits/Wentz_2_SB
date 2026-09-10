@@ -13,11 +13,12 @@ import { resolve } from "node:path";
 
 import { nflSchedule } from "./engine/schedule.js";
 import {
+  formatBoxScore,
   formatSeasonReport,
   formatStandingsCompact,
   formatStandingsThrough,
 } from "./engine/report.js";
-import { simulateFranchise, simulateNflSeason } from "./engine/season.js";
+import { boxScoreFor, simulateFranchise, simulateNflSeason, startSeason } from "./engine/season.js";
 
 interface Args {
   seed: number;
@@ -25,10 +26,18 @@ interface Args {
   seasons: number;
   compact: boolean;
   through: number | null;
+  box: string | null;
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { seed: 1, year: 2026, seasons: 1, compact: false, through: null };
+  const a: Args = {
+    seed: 1,
+    year: 2026,
+    seasons: 1,
+    compact: false,
+    through: null,
+    box: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const k = argv[i];
     const v = argv[i + 1];
@@ -36,19 +45,29 @@ function parseArgs(argv: string[]): Args {
     else if (k === "--year") (a.year = Number(v)), (i += 1);
     else if (k === "--seasons") (a.seasons = Number(v)), (i += 1);
     else if (k === "--through") (a.through = Number(v)), (i += 1);
+    else if (k === "--box") (a.box = v ?? null), (i += 1);
     else if (k === "--compact") a.compact = true;
     else throw new Error(`unknown arg: ${k}`);
   }
   if (!Number.isFinite(a.seed) || !Number.isInteger(a.year) || a.seasons < 1) {
-    throw new Error("usage: --seed N --year Y --seasons K [--compact] [--through W]");
+    throw new Error("usage: --seed N --year Y --seasons K [--compact] [--through W] [--box AWAY@HOME]");
   }
   if (a.through !== null && (a.through < 1 || a.through > 18)) {
     throw new Error("--through W must be 1–18");
+  }
+  if (a.box !== null && !/^[A-Z]{2,3}@[A-Z]{2,3}$/.test(a.box)) {
+    throw new Error('--box must look like "KC@BUF"');
   }
   return a;
 }
 
 function run(a: Args): void {
+  if (a.box !== null) {
+    const [away, home] = a.box.split("@") as [string, string];
+    const box = boxScoreFor(startSeason(a.seed, { year: a.year }), { home, away });
+    console.log(formatBoxScore(box));
+    return;
+  }
   if (a.through !== null) {
     const result = simulateNflSeason(a.seed, { year: a.year });
     console.log(

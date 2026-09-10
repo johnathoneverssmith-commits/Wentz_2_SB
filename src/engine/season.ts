@@ -9,6 +9,7 @@
  * deterministic vitest sanity check before the franchise UI is wired on top.
  */
 
+import { type BoxScore, extractBoxScore } from "./boxscore.js";
 import { type ClinchResult, clinchStatus } from "./clinch.js";
 import { NFL_TEAMS } from "./nfl-structure.js";
 import { type PlayoffResult, simulatePlayoffs } from "./playoffs.js";
@@ -271,6 +272,18 @@ export function remainingOpponents(p: SeasonProgress, team: string): string[] {
   return p.schedule
     .filter((s) => s.week >= p.nextWeek && (s.home === team || s.away === team))
     .map((s) => (s.home === team ? s.away : `@${s.home}`));
+}
+
+/**
+ * Re-sim one scheduled game and pull its box score. Deterministic — uses the
+ * game's index in the slate as the seed offset, exactly as `playWeek` does — so
+ * this reproduces a game the loop already played without storing every `Game`.
+ */
+export function boxScoreFor(p: SeasonProgress, game: { home: string; away: string }): BoxScore {
+  const i = p.schedule.findIndex((s) => s.home === game.home && s.away === game.away);
+  if (i < 0) throw new Error(`boxScoreFor: ${game.away} @ ${game.home} is not on the schedule`);
+  const s = p.schedule[i]!;
+  return extractBoxScore(simulateGame(p.seed + i, s.home, s.away), s.home, s.away, s.week);
 }
 
 /**

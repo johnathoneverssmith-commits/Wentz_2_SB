@@ -591,6 +591,12 @@ guard.
   opts))` is byte-identical to `simulateNflSeason` (same schedule, same per-game
   seed offset = index in the 272-game slate), which is now defined as exactly
   that. This is the surface the interactive franchise UI drives.
+- **Box scores** (`boxscore.ts`) — `boxScoreFor(progress, {home, away})`
+  re-sims one scheduled game by its slate index (deterministic, reproduces what
+  `playWeek` played) and returns a flat `BoxScore`: per-team yardage / downs /
+  turnovers / red-zone / TOP plus the drive log. `fourthDown` reports
+  `[conv, conv + fourth_att]` because the sim only counts `fourth_att` for
+  *failed* fourth downs. `formatBoxScore` + `npm run season -- --box AWAY@HOME`.
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**

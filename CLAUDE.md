@@ -35,8 +35,8 @@ conservative clinch/elimination tracker (`docs/decisions.md` → A1).
 standings + clinch tags as of week W. For an interactive UI there's a
 week-by-week loop: `startSeason` → `playWeek` (pure step) → `finishSeason`,
 with `progressStandings` / `progressClinches` / `remainingOpponents` on the
-partial state; `finishSeason(startSeason(…))` is identical to
-`simulateNflSeason`. Headless + deterministic; round-robin `simulateSeason`
+partial state and `boxScoreFor(progress, {home,away})` for a game's detail
+line; `finishSeason(startSeason(…))` is identical to `simulateNflSeason`. Headless + deterministic; round-robin `simulateSeason`
 stays as the pool-free guard. No UI, no multiplayer yet. Next: the
 franchise/game layer (offseason: draft, FA, aging) on top of `src/engine/`.
 
@@ -71,7 +71,7 @@ npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm run analysis:audit                    # spec §28 schema audit -> artifacts/
 npm start             # loads + prints the active pool
-npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W]  # sim a season/franchise; --through W = standings + clinch tags at week W
+npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W] [--box KC@BUF]  # sim a season/franchise; --through W = standings+clinch at week W; --box = one game's box score
 ```
 
 ## Layout

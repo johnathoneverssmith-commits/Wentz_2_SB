@@ -6,6 +6,7 @@
  * renderer will want.
  */
 
+import { type BoxScore, clock } from "./boxscore.js";
 import { type ClinchResult, type ClinchTag, clinchStatus } from "./clinch.js";
 import { DIVISION_IDS, NFL_TEAMS, divisionsIn } from "./nfl-structure.js";
 import type { PlayoffGame } from "./playoffs.js";
@@ -156,6 +157,50 @@ function topTag(c: ClinchResult): ClinchTag | null {
     if (c.tags.includes(t)) return t;
   }
   return null;
+}
+
+/** Two-column box score. */
+export function formatBoxScore(box: BoxScore): string {
+  const a = box.away;
+  const h = box.home;
+  const row = (label: string, av: string, hv: string) =>
+    `  ${label.padEnd(16)} ${av.padStart(9)}   ${hv.padStart(9)}`;
+  const frac = ([x, y]: [number, number]) => `${x}/${y}`;
+
+  const lines = [
+    "=".repeat(48),
+    `  ${box.week ? `Week ${box.week}  ` : ""}${a.team} ${a.points} — ${h.points} ${h.team}`,
+    "=".repeat(48),
+    row("", a.team, h.team),
+    row("points", `${a.points}`, `${h.points}`),
+    row("total yards", `${a.totalYards}`, `${h.totalYards}`),
+    row("passing", `${a.passYards}`, `${h.passYards}`),
+    row("  comp/att", frac([a.completions, a.passAtt]), frac([h.completions, h.passAtt])),
+    row("  sacked", `${a.sacksAllowed}`, `${h.sacksAllowed}`),
+    row("rushing", `${a.rushYards}`, `${h.rushYards}`),
+    row("  carries", `${a.rushAtt}`, `${h.rushAtt}`),
+    row("first downs", `${a.firstDowns}`, `${h.firstDowns}`),
+    row("3rd down", frac(a.thirdDown), frac(h.thirdDown)),
+    row("4th down", frac(a.fourthDown), frac(h.fourthDown)),
+    row("red zone TD", frac(a.redZone), frac(h.redZone)),
+    row("explosive", `${a.explosivePlays}`, `${h.explosivePlays}`),
+    row("turnovers", `${a.turnovers}`, `${h.turnovers}`),
+    row("field goals", frac(a.fieldGoals), frac(h.fieldGoals)),
+    row("penalties", `${a.penalties}-${a.penaltyYards}`, `${h.penalties}-${h.penaltyYards}`),
+    row("possession", clock(a.possessionSeconds), clock(h.possessionSeconds)),
+    "",
+    "  drives:",
+    ...box.drives.map(
+      (d) =>
+        `    ${(d.team === 0 ? h.team : a.team).padEnd(4)} own ${String(
+          Math.max(0, Math.round(100 - d.startYl)),
+        ).padStart(2)}` +
+        `  ${String(d.plays).padStart(2)} pl  ${d.firstDowns} 1D  ${d.result}` +
+        (d.points ? `  (${d.points > 0 ? "+" : ""}${d.points})` : ""),
+    ),
+    "",
+  ];
+  return lines.join("\n");
 }
 
 /** One-line-per-division summary — handy for multi-season franchise dumps. */
