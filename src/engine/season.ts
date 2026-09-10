@@ -188,8 +188,6 @@ export interface NflSeasonOptions {
   year?: number;
   /** team → prior-year division finish rank (1–4); used for same-place matchups. */
   priorRank?: Map<string, number>;
-  /** Team codes. Default: the canonical 32 (`NFL_TEAMS`). */
-  teams?: string[];
 }
 
 /**
@@ -202,7 +200,7 @@ export interface NflSeasonOptions {
  */
 export function simulateNflSeason(seed: number, opts: NflSeasonOptions = {}): NflSeasonResult {
   const year = opts.year ?? 2025;
-  const teams = opts.teams ?? (NFL_TEAMS as string[]);
+  const teams = NFL_TEAMS as string[];
   const schedule = nflSchedule(
     opts.priorRank ? { year, priorRank: opts.priorRank } : { year },
   );
@@ -220,6 +218,48 @@ export function simulateNflSeason(seed: number, opts: NflSeasonOptions = {}): Nf
   const playoffs = simulatePlayoffs(seed, standings.seeding);
 
   return { games, standings, playoffs, champion: playoffs.champion };
+}
+
+/**
+ * team → division finish rank (1–4) from a completed season's standings, for
+ * feeding the *next* season's schedule (`priorRank`) so same-place matchups
+ * chain realistically.
+ */
+export function priorRankFromStandings(standings: LeagueStandings): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const r of standings.rows) m.set(r.team, r.divisionRank);
+  return m;
+}
+
+export interface FranchiseOptions {
+  /** First season year. Default 2025. */
+  startYear?: number;
+  /** How many consecutive seasons to run. Default 2. */
+  seasons?: number;
+  /** team → division finish rank feeding season 1's schedule. */
+  priorRank?: Map<string, number>;
+}
+
+/**
+ * Run consecutive NFL seasons, feeding each one the previous season's division
+ * finish order as `priorRank`. `simulateNflSeason(seed + n, { year: startYear +
+ * n, … })` per season, so the whole run is deterministic in `seed` + options.
+ */
+export function simulateFranchise(seed: number, opts: FranchiseOptions = {}): NflSeasonResult[] {
+  const startYear = opts.startYear ?? 2025;
+  const seasons = opts.seasons ?? 2;
+
+  const out: NflSeasonResult[] = [];
+  let priorRank = opts.priorRank;
+  for (let n = 0; n < seasons; n += 1) {
+    const result = simulateNflSeason(seed + n, {
+      year: startYear + n,
+      ...(priorRank ? { priorRank } : {}),
+    });
+    out.push(result);
+    priorRank = priorRankFromStandings(result.standings);
+  }
+  return out;
 }
 
 /** Summed `overall` of a team's starting offense + base defense — a rough roster-strength proxy. */
