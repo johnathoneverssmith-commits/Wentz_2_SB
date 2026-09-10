@@ -184,7 +184,7 @@ export interface NflSeasonResult {
 }
 
 export interface NflSeasonOptions {
-  /** Season year — drives the schedule's division-pairing rotations. Default 2025. */
+  /** Season year — drives the schedule's division-pairing rotations. Default 2026. */
   year?: number;
   /** team → prior-year division finish rank (1–4); used for same-place matchups. */
   priorRank?: Map<string, number>;
@@ -199,7 +199,7 @@ export interface NflSeasonOptions {
  * `teams` must have a roster).
  */
 export function simulateNflSeason(seed: number, opts: NflSeasonOptions = {}): NflSeasonResult {
-  const year = opts.year ?? 2025;
+  const year = opts.year ?? 2026;
   const teams = NFL_TEAMS as string[];
   const schedule = nflSchedule(
     opts.priorRank ? { year, priorRank: opts.priorRank } : { year },
@@ -232,7 +232,7 @@ export function priorRankFromStandings(standings: LeagueStandings): Map<string, 
 }
 
 export interface FranchiseOptions {
-  /** First season year. Default 2025. */
+  /** First season year. Default 2026. */
   startYear?: number;
   /** How many consecutive seasons to run. Default 2. */
   seasons?: number;
@@ -246,7 +246,7 @@ export interface FranchiseOptions {
  * n, … })` per season, so the whole run is deterministic in `seed` + options.
  */
 export function simulateFranchise(seed: number, opts: FranchiseOptions = {}): NflSeasonResult[] {
-  const startYear = opts.startYear ?? 2025;
+  const startYear = opts.startYear ?? 2026;
   const seasons = opts.seasons ?? 2;
 
   const out: NflSeasonResult[] = [];

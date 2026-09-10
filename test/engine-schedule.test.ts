@@ -67,6 +67,16 @@ describe("nflSchedule", () => {
         for (const c of perWeek.values()) expect(c).toBeLessThanOrEqual(16);
       });
 
+      it("puts every bye in weeks 5–14; weeks 1–4 and 15–18 are full slates", () => {
+        for (const w of [1, 2, 3, 4, 15, 16, 17, 18]) expect(perWeek.get(w)).toBe(16);
+        for (const t of NFL_TEAMS) {
+          const played = weeksOf.get(t)!;
+          const bye = Array.from({ length: 18 }, (_, i) => i + 1).find((w) => !played.has(w))!;
+          expect(bye).toBeGreaterThanOrEqual(5);
+          expect(bye).toBeLessThanOrEqual(14);
+        }
+      });
+
       it("plays each division rival exactly twice — 6 division games/team", () => {
         for (const t of NFL_TEAMS) {
           let div = 0;
@@ -147,5 +157,97 @@ describe("nflSchedule", () => {
       games.set(g.away, games.get(g.away)! + 1);
     }
     for (const t of NFL_TEAMS) expect(games.get(t)).toBe(17);
+  });
+});
+
+/**
+ * The real division-rotation pairings as published by the NFL for 2023–2026.
+ * `[division] → [intra-conference 4-game opp, inter-conference 4-game opp, 17th-game opp]`.
+ * Later years roll the same 3-/4-year cycles forward.
+ */
+const REAL_ROTATION: Record<number, Record<string, [string, string, string]>> = {
+  2023: {
+    "AFC East": ["AFC West", "NFC East", "NFC South"],
+    "AFC North": ["AFC South", "NFC West", "NFC North"],
+    "AFC South": ["AFC North", "NFC South", "NFC West"],
+    "AFC West": ["AFC East", "NFC North", "NFC East"],
+  },
+  2024: {
+    "AFC East": ["AFC South", "NFC West", "NFC North"],
+    "AFC North": ["AFC West", "NFC East", "NFC South"],
+    "AFC South": ["AFC East", "NFC North", "NFC East"],
+    "AFC West": ["AFC North", "NFC South", "NFC West"],
+  },
+  2025: {
+    "AFC East": ["AFC North", "NFC South", "NFC East"],
+    "AFC North": ["AFC East", "NFC North", "NFC West"],
+    "AFC South": ["AFC West", "NFC West", "NFC South"],
+    "AFC West": ["AFC South", "NFC East", "NFC North"],
+  },
+  2026: {
+    "AFC East": ["AFC West", "NFC North", "NFC West"],
+    "AFC North": ["AFC South", "NFC South", "NFC East"],
+    "AFC South": ["AFC North", "NFC East", "NFC North"],
+    "AFC West": ["AFC East", "NFC West", "NFC South"],
+  },
+};
+
+describe("nflSchedule — real NFL rotation", () => {
+  for (const [yStr, expected] of Object.entries(REAL_ROTATION)) {
+    const year = Number(yStr);
+    it(`matches the published ${year} division pairings`, () => {
+      const sched = nflSchedule({ year });
+      // opponent-division game counts, taken from one team's slate per division
+      for (const [divId, [intra, inter, seventeen]] of Object.entries(expected)) {
+        const probe = DIVISIONS[divId as keyof typeof DIVISIONS][0]!;
+        const byDiv = new Map<string, number>();
+        for (const g of sched) {
+          if (g.home !== probe && g.away !== probe) continue;
+          const o = g.home === probe ? g.away : g.home;
+          const d = divisionOf(o);
+          if (d === divId) continue;
+          byDiv.set(d, (byDiv.get(d) ?? 0) + 1);
+        }
+        expect(byDiv.get(intra), `${divId} intra`).toBe(4);
+        expect(byDiv.get(inter), `${divId} inter`).toBe(4);
+        expect(byDiv.get(seventeen), `${divId} 17th`).toBe(1);
+        // exactly those three foreign divisions appear (2 in-conf same-place + intra + inter + 17th)
+        // → 4 + 4 + 1 + 1 + 1 = 11 foreign-division games; 5 distinct foreign divisions
+        expect([...byDiv.values()].reduce((a, b) => a + b, 0)).toBe(11);
+      }
+    });
+  }
+
+  it("2026 AFC East plays NFC North ×4 and never plays NFC East or NFC South", () => {
+    const sched = nflSchedule({ year: 2026 });
+    for (const t of DIVISIONS["AFC East"]) {
+      const byDiv = new Map<string, number>();
+      for (const g of sched) {
+        if (g.home !== t && g.away !== t) continue;
+        const o = g.home === t ? g.away : g.home;
+        byDiv.set(divisionOf(o), (byDiv.get(divisionOf(o)) ?? 0) + 1);
+      }
+      expect(byDiv.get("NFC North")).toBe(4);
+      expect(byDiv.get("NFC West")).toBe(1); // the 17th game
+      expect(byDiv.get("NFC East") ?? 0).toBe(0);
+      expect(byDiv.get("NFC South") ?? 0).toBe(0);
+    }
+  });
+
+  it("rolls the cycles forward: 2027 repeats 2024's intra pairing, 2030 repeats 2026", () => {
+    // the intra-conference 4-game opponent division for a probe team
+    const intraOpp = (year: number, probe: string) => {
+      const byDiv = new Map<string, number>();
+      for (const g of nflSchedule({ year })) {
+        if (g.home !== probe && g.away !== probe) continue;
+        const o = g.home === probe ? g.away : g.home;
+        if (divisionOf(o) === divisionOf(probe) || conferenceOf(o) !== conferenceOf(probe)) continue;
+        byDiv.set(divisionOf(o), (byDiv.get(divisionOf(o)) ?? 0) + 1);
+      }
+      return [...byDiv.entries()].find(([, c]) => c === 4)![0];
+    };
+    // intra cycle is 3 years
+    expect(intraOpp(2027, "BUF")).toBe(intraOpp(2024, "BUF"));
+    expect(intraOpp(2030, "BUF")).toBe(intraOpp(2027, "BUF"));
   });
 });

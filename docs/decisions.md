@@ -537,26 +537,31 @@ later. Round-robin `simulateSeason` stays as the pool-independent regression
 guard.
 
 - **Schedule** — the current (2021–) 17-game formula, `nflSchedule({ year,
-  priorRank })`. Division pairings rotate on 3- and 4-year cycles keyed off
-  `year`; same-place games use prior-year division finish rank (defaults to
-  4 / roster order when there's no history). Matchup construction is exact;
+  priorRank })`. Same-place games use prior-year division finish rank (defaults
+  to 4 / roster order when there's no history). Matchup construction is exact;
   the parity of the same-place home/away split is chosen so each team gets
   1 home + 1 away there (the naïve `(k+r)%2` gave two divisions both-home).
-- **Week assignment** — an 18-week balanced edge-colouring is not something a
-  closed form gives you, and plain most-constrained-first backtracking
-  thrashes on a minority of seasons. **Decision:** backtracking with
-  most-constrained-game ordering + soft-target value ordering + seeded
-  randomised restarts, then a "flatten" pass that moves games out of the
-  fullest weeks into the emptiest. Deterministic per season, ~150 ms typical
-  (worst seen ~800 ms). Every team: 17 games, 17 distinct weeks (one bye),
-  8–9 home, 6 division / 12 in-conf / 5 inter-conf, no opponent 3×.
-- **Bye placement is only approximately realistic in V1** — real byes sit in
-  weeks 5–14; ours spread across the calendar but skew a little early. It
-  does not affect standings, seeding or playoff results, so it's left as
-  polish. (Pinning byes as hard constraints turns the week assignment into a
-  palette-restricted 1-factorisation that the simple solver can't crack
-  fast — revisit with a proper edge-colouring routine if byes ever matter to
-  the sim.)
+- **Rotation anchored to reality (2026-09-10 revision).** The intra-conference
+  4-game block (3-year cycle) and both inter-conference pairings — the 4-game
+  block and the 17th game (each a 4-year cycle) — are hard-coded from the NFL's
+  published pairings for 2023–2026 (`INTRA_CONF_CYCLE`, `INTER_CONF_CYCLE`,
+  `SEVENTEENTH_CYCLE`, keyed on `year % 3` / `year % 4`). AFC hosts the 17th
+  game in odd years. So `year: 2026` reproduces the actual 2026 slate
+  (division-block and 17th-game opponents verified against
+  operations.nfl.com / Wikipedia) and later years roll the same cycles
+  forward. Default year is now **2026**.
+- **Week assignment** — an 18-week balanced edge-colouring with byes confined
+  to weeks 5–14 (`BYE_WEEK_RANGE`); weeks 1–4 and 15–18 are full 16-game
+  slates. **Decision:** backtracking, most-constrained game first, mandatory
+  (non-bye) weeks packed ahead of the bye window, per-team forward checks
+  (can't run out of games for the 8 mandatory weeks or overfill the 9 window
+  weeks), seeded randomised restarts. Deterministic per season, ~50–150 ms
+  typical (worst seen ~650 ms). Every team: 17 games, one bye in weeks 5–14,
+  8–9 home, 6 division / 12 in-conf / 5 inter-conf, no opponent 3×. Bye
+  spread per week is a little lumpy (2–8 teams) but inside the real range.
+- **Calendar constants** — `TRADE_DEADLINE_WEEK = 9` (deadline is the day
+  after Week 9), `BYE_WEEK_RANGE = [5, 14]`. Exported for the franchise layer;
+  surfaced in the text report header.
 - **Standings tiebreakers** — full chain: head-to-head (combined for
   divisions, sweep-only for wild cards), then division / common / conference
   records, strength of victory, strength of schedule, net points, then team

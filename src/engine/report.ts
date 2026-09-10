@@ -6,8 +6,9 @@
  * renderer will want.
  */
 
-import { DIVISION_IDS, divisionsIn } from "./nfl-structure.js";
+import { DIVISION_IDS, NFL_TEAMS, divisionsIn } from "./nfl-structure.js";
 import type { PlayoffGame } from "./playoffs.js";
+import { BYE_WEEK_RANGE, TRADE_DEADLINE_WEEK } from "./schedule.js";
 import type { NflSeasonResult } from "./season.js";
 import type { StandingRow } from "./standings.js";
 
@@ -66,6 +67,24 @@ function bracketBlock(games: PlayoffGame[], champion: string): string {
   return lines.join("\n");
 }
 
+/** "5×2 6×4 …" — how many teams are on bye in each week that has any. */
+function byesByWeek(result: NflSeasonResult): string {
+  const played = new Map<string, Set<number>>(NFL_TEAMS.map((t) => [t, new Set<number>()]));
+  for (const g of result.games) {
+    played.get(g.home)?.add(g.week);
+    played.get(g.away)?.add(g.week);
+  }
+  const counts = new Map<number, number>();
+  for (const t of NFL_TEAMS) {
+    const bye = Array.from({ length: 18 }, (_, i) => i + 1).find((w) => !played.get(t)?.has(w));
+    if (bye) counts.set(bye, (counts.get(bye) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([w, n]) => `${w}×${n}`)
+    .join(" ");
+}
+
 export function formatSeasonReport(result: NflSeasonResult, title = "NFL SEASON"): string {
   const { rows } = result.standings;
   const totalPts = rows.reduce((s, r) => s + r.pointsFor, 0);
@@ -74,6 +93,8 @@ export function formatSeasonReport(result: NflSeasonResult, title = "NFL SEASON"
     "=".repeat(60),
     `  ${title}`,
     `  ${result.games.length} games · ${perTeamGame.toFixed(1)} pts/team-game`,
+    `  byes (wk×teams, ${BYE_WEEK_RANGE[0]}–${BYE_WEEK_RANGE[1]}): ${byesByWeek(result)}`,
+    `  trade deadline: after week ${TRADE_DEADLINE_WEEK}`,
     "=".repeat(60),
   ].join("\n");
   return [

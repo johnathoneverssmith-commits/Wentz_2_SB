@@ -20,7 +20,7 @@ interface Args {
 }
 
 function parseArgs(argv: string[]): Args {
-  const a: Args = { seed: 1, year: 2025, seasons: 1, compact: false };
+  const a: Args = { seed: 1, year: 2026, seasons: 1, compact: false };
   for (let i = 0; i < argv.length; i += 1) {
     const k = argv[i];
     const v = argv[i + 1];

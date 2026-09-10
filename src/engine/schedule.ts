@@ -8,9 +8,12 @@
  *   - 2 vs the same-place finishers in its conference's two remaining divisions
  *   - 1 "17th game" vs a same-place finisher in the other conference
  *
- * The division pairings rotate on a fixed cycle (here keyed off `year`); the
- * "same-place" games need each team's prior-year finish rank within its
- * division (1..4). With no history, `priorRank` defaults to roster strength.
+ * The division pairings rotate on fixed cycles keyed off `year`, anchored to the
+ * real NFL rotation as published for 2023–2026 (intra-conference is a 3-year
+ * cycle, the two inter-conference pairings are 4-year cycles), so `year: 2026`
+ * reproduces the actual 2026 slate and later years roll the cycles forward. The
+ * "same-place" games need each team's prior-year finish rank within its division
+ * (1..4); with no history `priorRank` defaults to roster order.
  */
 
 import {
@@ -23,6 +26,53 @@ import {
   divisionsIn,
 } from "./nfl-structure.js";
 
+/** Byes fall in this inclusive week range (real NFL: weeks 5–14). */
+export const BYE_WEEK_RANGE = [5, 14] as const;
+/** Trades are allowed through this week; the deadline is the day after. */
+export const TRADE_DEADLINE_WEEK = 9;
+
+// Real NFL rotation cycles. Divisions are indexed 0=East, 1=North, 2=South,
+// 3=West within each conference (the order `divisionsIn` returns).
+
+// Intra-conference 4-game block — 3-year cycle, same pairing in both
+// conferences. m[year % 3] gives the two division-index pairs.
+//   2025 (→0): E–N, S–W    2023/2026 (→1): E–W, N–S    2024 (→2): E–S, N–W
+const INTRA_CONF_CYCLE: readonly (readonly [number, number][])[] = [
+  [
+    [0, 1],
+    [2, 3],
+  ],
+  [
+    [0, 3],
+    [1, 2],
+  ],
+  [
+    [0, 2],
+    [1, 3],
+  ],
+];
+
+// Inter-conference 4-game block — 4-year cycle. AFC division i plays NFC
+// division INTER_CONF_CYCLE[year % 4][i].
+//   2024 (→0): [3,0,1,2]  2025 (→1): [2,1,3,0]  2026 (→2): [1,2,0,3]  2023 (→3): [0,3,2,1]
+const INTER_CONF_CYCLE: readonly (readonly number[])[] = [
+  [3, 0, 1, 2],
+  [2, 1, 3, 0],
+  [1, 2, 0, 3],
+  [0, 3, 2, 1],
+];
+
+// 17th game — 4-year cycle, AFC division i plays NFC division
+// SEVENTEENTH_CYCLE[year % 4][i]. Distinct from the inter-conference block above
+// for every division and year. AFC hosts in odd years.
+//   2024 (→0): [1,2,0,3]  2025 (→1): [0,3,2,1]  2026 (→2): [3,0,1,2]  2023 (→3): [2,1,3,0]
+const SEVENTEENTH_CYCLE: readonly (readonly number[])[] = [
+  [1, 2, 0, 3],
+  [0, 3, 2, 1],
+  [3, 0, 1, 2],
+  [2, 1, 3, 0],
+];
+
 export interface SchedulePair {
   week: number;
   home: string;
@@ -30,7 +80,7 @@ export interface SchedulePair {
 }
 
 export interface ScheduleOptions {
-  /** Season year — drives the division-pairing rotations. Default 2025. */
+  /** Season year — drives the division-pairing rotations. Default 2026. */
   year?: number;
   /** team → prior-year finish rank in its division, 1 (best) … 4. */
   priorRank?: Map<string, number>;
@@ -49,43 +99,28 @@ function rankedDivisions(priorRank: Map<string, number>): Record<DivisionId, str
   return out;
 }
 
-/** Intra-conference 4-game partner for each division (a derangement per conf). */
+/** Intra-conference 4-game partner for each division (real 3-year rotation). */
 function intraConfPairs(year: number): Map<DivisionId, DivisionId> {
   const m = new Map<DivisionId, DivisionId>();
+  const pairings = INTRA_CONF_CYCLE[((year % 3) + 3) % 3]!;
   for (const conf of ["AFC", "NFC"] as Conference[]) {
     const ds = divisionsIn(conf);
-    // 3-year rotation over the derangements of 4 elements that pair up (2 swaps)
-    const rot = year % 3;
-    const pairings = [
-      [
-        [0, 1],
-        [2, 3],
-      ],
-      [
-        [0, 2],
-        [1, 3],
-      ],
-      [
-        [0, 3],
-        [1, 2],
-      ],
-    ][rot]!;
     for (const [i, j] of pairings) {
-      m.set(ds[i!]!, ds[j!]!);
-      m.set(ds[j!]!, ds[i!]!);
+      m.set(ds[i]!, ds[j]!);
+      m.set(ds[j]!, ds[i]!);
     }
   }
   return m;
 }
 
-/** Inter-conference 4-game partner for each division (a bijection AFC↔NFC). */
+/** Inter-conference 4-game partner for each division (real 4-year rotation). */
 function interConfPairs(year: number): Map<DivisionId, DivisionId> {
   const m = new Map<DivisionId, DivisionId>();
   const afc = divisionsIn("AFC");
   const nfc = divisionsIn("NFC");
-  const rot = year % 4;
+  const cycle = INTER_CONF_CYCLE[((year % 4) + 4) % 4]!;
   for (let i = 0; i < 4; i++) {
-    const j = (i + rot) % 4;
+    const j = cycle[i]!;
     m.set(afc[i]!, nfc[j]!);
     m.set(nfc[j]!, afc[i]!);
   }
@@ -167,20 +202,18 @@ function makeMatchups(year: number, priorRank: Map<string, number>): Directed[] 
     });
   }
 
-  // 5. 17th game: same-place finisher in the other conference. AFC div i plays
-  //    NFC div σ(i) where σ is a bijection that avoids the 4-game inter-conf
-  //    partner (σ(i) ≠ (i+rot) mod 4). AFC hosts on even years.
+  // 5. 17th game: same-place finisher in the other conference, on the real
+  //    4-year cycle. AFC hosts in odd years.
   const afc = divisionsIn("AFC");
   const nfc = divisionsIn("NFC");
-  const rot = year % 4;
-  const shift = 1 + (year % 3); // 1..3 → never lands on the already-played partner
-  const afcHosts = year % 2 === 0;
+  const cycle17 = SEVENTEENTH_CYCLE[((year % 4) + 4) % 4]!;
+  const afcHosts17 = ((year % 2) + 2) % 2 === 1;
   for (let i = 0; i < 4; i++) {
-    const j = (i + rot + shift) % 4;
+    const nfcDiv = nfc[cycle17[i]!]!;
     for (let r = 0; r < 4; r++) {
       const a = ranked[afc[i]!][r]!;
-      const n = ranked[nfc[j]!][r]!;
-      if (afcHosts) add(a, n);
+      const n = ranked[nfcDiv][r]!;
+      if (afcHosts17) add(a, n);
       else add(n, a);
     }
   }
@@ -201,23 +234,26 @@ function mulberry32(seedStr: string): () => number {
 }
 
 /**
- * Lay the 272 matchups across 18 weeks: each team plays 17 games with one bye,
- * ≤ 1 game/team/week, ≤ 16 games/week.
+ * Lay the 272 matchups across 18 weeks: each team plays 17 games with exactly
+ * one bye, ≤ 1 game/team/week, ≤ 16 games/week, and **the bye falls in weeks
+ * 5–14** (`BYE_WEEK_RANGE`) — so weeks 1–4 and 15–18 are full 16-game slates
+ * and every team plays all of them.
  *
- * Two stages. (1) A backtracking edge-colouring places every matchup in a legal
- * week — most-constrained game first, weeks nearest a soft target first, with
- * randomised restarts. Deterministic (RNG seeded off the season). (2) A flatten
- * pass moves games out of the fullest weeks into the emptiest until every week
- * holds 13–16 games, so byes spread across the calendar instead of piling into
- * one near-empty week.
- *
- * Bye-week placement is only approximately realistic in V1 (real NFL byes sit in
- * weeks 5–14); it does not affect standings, seeding or playoff results.
+ * Backtracking edge-colouring: most-constrained game first; mandatory (non-bye)
+ * weeks filled ahead of the bye window; per-team forward checks so a team can't
+ * run out of games for its mandatory weeks or overfill the window; randomised
+ * restarts. Deterministic per season (RNG seeded off the year + team list).
  */
 function assignWeeks(matchups: Directed[], year: number): SchedulePair[] {
   const WEEKS = 18;
   const CAP = 16;
-  const TARGET = 15; // ≈ 272 / 18
+  const GAMES = 17;
+  const [BW_LO, BW_HI] = BYE_WEEK_RANGE;
+  const inWindow = (w: number) => w >= BW_LO && w <= BW_HI;
+  const MAND_WEEKS = WEEKS - (BW_HI - BW_LO + 1); // 8
+  const WINDOW_PLAY = BW_HI - BW_LO + 1 - 1; // weeks played in the window: 9
+  const WINDOW_TARGET = (2 * GAMES - MAND_WEEKS * CAP) / (BW_HI - BW_LO + 1); // ≈14.4 games/window-week
+
   const N = matchups.length;
   const teams = [...new Set(matchups.flatMap((m) => [m.home, m.away]))].sort();
   const rand = mulberry32(`${year}:${teams.join("")}`);
@@ -226,7 +262,19 @@ function assignWeeks(matchups: Directed[], year: number): SchedulePair[] {
   const busy = new Map<string, Set<number>>(teams.map((t) => [t, new Set<number>()]));
   const cnt = new Array<number>(WEEKS + 1).fill(0);
   const done = new Array<boolean>(N).fill(false);
+  const gp = new Map<string, number>(teams.map((t) => [t, 0])); // games placed
+  const winPlayed = new Map<string, number>(teams.map((t) => [t, 0])); // window weeks used
   const B = (t: string) => busy.get(t)!;
+
+  // Can team `t` still reach 8 mandatory weeks + 9 window weeks with the games
+  // it has left?  (mandatory-weeks-left is inferred: gamesLeft − windowLeft.)
+  const teamOk = (t: string): boolean => {
+    const gamesLeft = GAMES - gp.get(t)!;
+    const mandLeft = MAND_WEEKS - (gp.get(t)! - winPlayed.get(t)!);
+    if (gamesLeft < mandLeft) return false;
+    if (winPlayed.get(t)! + (gamesLeft - mandLeft) > WINDOW_PLAY) return false;
+    return true;
+  };
 
   const legalWeeks = (gi: number): number[] => {
     const g = matchups[gi]!;
@@ -234,6 +282,31 @@ function assignWeeks(matchups: Directed[], year: number): SchedulePair[] {
     for (let w = 1; w <= WEEKS; w++)
       if (cnt[w]! < CAP && !B(g.home).has(w) && !B(g.away).has(w)) out.push(w);
     return out;
+  };
+
+  const apply = (gi: number, w: number) => {
+    const g = matchups[gi]!;
+    wk[gi] = w;
+    B(g.home).add(w);
+    B(g.away).add(w);
+    cnt[w]! += 1;
+    done[gi] = true;
+    for (const t of [g.home, g.away]) {
+      gp.set(t, gp.get(t)! + 1);
+      if (inWindow(w)) winPlayed.set(t, winPlayed.get(t)! + 1);
+    }
+  };
+  const undo = (gi: number, w: number) => {
+    const g = matchups[gi]!;
+    wk[gi] = 0;
+    B(g.home).delete(w);
+    B(g.away).delete(w);
+    cnt[w]! -= 1;
+    done[gi] = false;
+    for (const t of [g.home, g.away]) {
+      gp.set(t, gp.get(t)! - 1);
+      if (inWindow(w)) winPlayed.set(t, winPlayed.get(t)! - 1);
+    }
   };
 
   let placed = 0;
@@ -256,77 +329,42 @@ function assignWeeks(matchups: Directed[], year: number): SchedulePair[] {
       }
     }
     const g = matchups[pick]!;
-    pickLW.sort(
-      (a, b) => Math.abs(cnt[a]! + 1 - TARGET) - Math.abs(cnt[b]! + 1 - TARGET) || rand() - 0.5,
-    );
+    // mandatory weeks first (pack to 16), then window weeks nearest their target
+    pickLW.sort((a, b) => {
+      const wa = inWindow(a);
+      const wb = inWindow(b);
+      if (wa !== wb) return wa ? 1 : -1;
+      if (!wa) return cnt[b]! - cnt[a]! || rand() - 0.5;
+      return Math.abs(cnt[a]! + 1 - WINDOW_TARGET) - Math.abs(cnt[b]! + 1 - WINDOW_TARGET) || rand() - 0.5;
+    });
     for (const w of pickLW) {
-      wk[pick] = w;
-      B(g.home).add(w);
-      B(g.away).add(w);
-      cnt[w]! += 1;
-      done[pick] = true;
+      apply(pick, w);
       placed += 1;
-      if (solve()) return true;
-      wk[pick] = 0;
-      B(g.home).delete(w);
-      B(g.away).delete(w);
-      cnt[w]! -= 1;
-      done[pick] = false;
+      if (teamOk(g.home) && teamOk(g.away) && solve()) return true;
       placed -= 1;
+      undo(pick, w);
     }
     return false;
   };
 
-  let solved = false;
-  for (let attempt = 0; attempt < 400 && !solved; attempt++) {
-    budget = steps + 40_000;
+  for (let attempt = 0; attempt < 600; attempt++) {
+    budget = steps + 50_000;
     if (solve()) {
-      solved = true;
-      break;
+      return matchups
+        .map((m, i) => ({ week: wk[i]!, home: m.home, away: m.away }))
+        .sort((a, b) => a.week - b.week || a.home.localeCompare(b.home));
     }
     wk.fill(0);
     for (const s of busy.values()) s.clear();
     cnt.fill(0);
     done.fill(false);
+    for (const t of teams) {
+      gp.set(t, 0);
+      winPlayed.set(t, 0);
+    }
     placed = 0;
   }
-  if (!solved) throw new Error("assignWeeks: no valid 18-week layout found");
-
-  // --- flatten: even out week sizes so byes spread across the calendar ---
-  const gamesInWeek = (w: number) => {
-    const out: number[] = [];
-    for (let gi = 0; gi < N; gi++) if (wk[gi] === w) out.push(gi);
-    return out;
-  };
-  for (let iter = 0; iter < 2000; iter++) {
-    let full = 1;
-    let empty = 1;
-    for (let w = 2; w <= WEEKS; w++) {
-      if (cnt[w]! > cnt[full]!) full = w;
-      if (cnt[w]! < cnt[empty]!) empty = w;
-    }
-    if (cnt[full]! - cnt[empty]! <= 1) break;
-    // find a game in `full` whose teams are both free in `empty`
-    let moved = false;
-    for (const gi of gamesInWeek(full)) {
-      const g = matchups[gi]!;
-      if (B(g.home).has(empty) || B(g.away).has(empty)) continue;
-      B(g.home).delete(full);
-      B(g.away).delete(full);
-      B(g.home).add(empty);
-      B(g.away).add(empty);
-      wk[gi] = empty;
-      cnt[full]! -= 1;
-      cnt[empty]! += 1;
-      moved = true;
-      break;
-    }
-    if (!moved) break;
-  }
-
-  return matchups
-    .map((m, i) => ({ week: wk[i]!, home: m.home, away: m.away }))
-    .sort((a, b) => a.week - b.week || a.home.localeCompare(b.home));
+  throw new Error("assignWeeks: no valid 18-week layout found");
 }
 
 export function nflSchedule(
@@ -334,7 +372,7 @@ export function nflSchedule(
 ): SchedulePair[] {
   const opts: ScheduleOptions =
     priorRankOrOpts instanceof Map ? { priorRank: priorRankOrOpts } : priorRankOrOpts;
-  const year = opts.year ?? 2025;
+  const year = opts.year ?? 2026;
   const priorRank = opts.priorRank ?? new Map();
   return assignWeeks(makeMatchups(year, priorRank), year);
 }
