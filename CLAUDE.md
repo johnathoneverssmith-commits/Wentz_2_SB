@@ -16,8 +16,10 @@ TypeScript runtime port (`src/engine/`, runs on `artifacts/**/portable/*.json`,
 no Python). Residual-variance anchors use the wide 2018–2025 window +
 team-season units; §13.6 joint-calibration harness (`26_joint_calibration.py`)
 run — layer is emergently sound (margin widens, points −0.8±0.4/team-game,
-no βᵢ change). No UI, no multiplayer yet. Next: A1 season-sim + standings
-(paired with the UI work).
+no βᵢ change). Headless `src/engine/season.ts` (round-robin schedule +
+standings) is in with a vitest guard. No UI, no multiplayer yet. Next: A1
+proper — real NFL division/conference schedule + playoff bracket, paired with
+the franchise UI.
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
 `hyparquet`); everything from Phase B on is Python (scikit-learn) in
@@ -63,8 +65,9 @@ src/model/  positions.ts (per-position priors), ratings.ts (heuristic ratings mo
 src/data/   csv.ts, players.ts (load/validate), generate-pool.ts (nflverse -> pool),
             pool-csv.ts (pool <-> editable CSV), madden.ts (alt CSV importer)
 src/engine/ TS simulation engine — port of analysis/engine/ (roster, ratings,
-            rng, loaders, sim + the two portable-model evaluators). Runs on the
-            committed artifacts/**/portable/*.json; no Python at runtime.
+            rng, loaders, sim + the two portable-model evaluators) plus season.ts
+            (headless schedule + standings). Runs on the committed
+            artifacts/**/portable/*.json; no Python at runtime.
 test/       vitest specs, mirror src/ layout
 analysis/   empirical modeling pipeline (see analysis/README.md); lib/ + 00_schema_audit.ts
 artifacts/  committed pipeline outputs the runtime engine loads (schema/, ratings/, later models/)

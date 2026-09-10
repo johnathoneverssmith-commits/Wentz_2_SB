@@ -253,6 +253,20 @@ variance) and carries the loss ingredients to tune βᵢ if a real bias shows.
   sims surface a compounding wins/points bias. The material scoring gap stays
   the **§22 −12%** (rating-layer *off* — drive model, out of §13.6 scope).
 
+**Headless season loop (A1 regression guard, 2026-09-09).** `src/engine/season.ts`
+— `simulateSeason(seed, opts?)` plays a balanced 17-round circle-method round
+robin through `simulateGame` (rating layer ON) and rolls it into a standings
+table (W-L-T, PF/PA, point diff, winPct, sorted with point-diff tiebreak).
+`roundRobinSchedule()` is the schedule generator; `SeasonOptions.schedule`
+takes an explicit `[home, away]` list so the **real NFL division/conference
+schedule + playoffs (A1 proper) plug in without touching the loop** — deferred
+to pair with the franchise UI, per the owner. `test/engine-season.test.ts`
+(gated on the generated pool): 272 games / 17 per team, ΣW=ΣL, ties paired,
+leaguewide PF=PA, deterministic in the seed, ~19 pts/team-game, and
+Pearson(winPct, summed-roster-overall) ≈ 0.2–0.5 across seeds (better rosters
+win more). ~11 s/season, so the full-season assertions run once at module
+scope and determinism uses a 3-round mini-season.
+
 **Penalty module (§25 V1.5) — models fitted (2026-09-09).**
 `analysis/25_penalties.py` (M25a pre-snap dead-ball hazard, M25b live-ball
 hazard by play family — both logistic, ~marginal rate, well-calibrated;
