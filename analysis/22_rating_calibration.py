@@ -22,6 +22,7 @@ import lib_py  # thread-env setup; MUST precede numpy/polars
 
 import importlib
 import json
+import sys
 from datetime import date
 
 import numpy as np
@@ -61,20 +62,21 @@ def _xy_like(df: pl.DataFrame, mod) -> "pd.DataFrame":
 
 # ------------------------------------------------------------------ step 1
 
-def step1_residuals() -> dict:
+def step1_residuals(seasons: tuple[int, ...] = STANDARD.production) -> dict:
     out: dict[str, dict] = {}
 
     # --- M09 pass result: QB & DEF adjusted completion --------------------
     m09 = _mod("10_pass_result")
-    f09 = m09.build_frame(STANDARD.production)
+    f09 = m09.build_frame(seasons)
     est, labels, feats = load_estimator("m09")
     p_comp = predict_class_prob(est, labels, feats, _xy_like(f09, m09), "COMPLETE")
     actual_comp = (f09["target"].to_numpy() == "COMPLETE").astype(float)
     out["m09_qb_completion"] = unit_residual_spread(
         f09["passer_player_id"].to_numpy(), actual_comp, p_comp,
         k=250, min_n=200, label="QB adjusted completion rate (obs − expected)")
+    def09 = (f09["defteam"] + "_" + f09["season"].cast(pl.Utf8)).to_numpy()
     out["m09_def_completion"] = unit_residual_spread(
-        f09["defteam"].to_numpy(), actual_comp, p_comp,
+        def09, actual_comp, p_comp,
         k=400, min_n=300, label="Defense adjusted completion rate allowed")
     p_int = predict_class_prob(est, labels, feats, _xy_like(f09, m09), "INTERCEPTION")
     actual_int = (f09["target"].to_numpy() == "INTERCEPTION").astype(float)
@@ -84,7 +86,7 @@ def step1_residuals() -> dict:
 
     # --- M10 YAC: receiver adjusted YAC ---------------------------------
     m10 = _mod("11_yac")
-    f10 = m10.build_frame(STANDARD.production).with_columns(
+    f10 = m10.build_frame(seasons).with_columns(
         pl.col("yards").clip(-25, 99).cast(pl.Int32)
     )
     f10 = f10.with_columns(m10.ctx_bucket(f10).cast(pl.Utf8).alias("ctx_bucket"))
@@ -99,7 +101,7 @@ def step1_residuals() -> dict:
 
     # --- M14 rush yards: rusher adjusted yards -------------------------
     m14 = _mod("15_rush_yards")
-    f14 = m14.build_frame(STANDARD.production).with_columns(pl.col("yards").clip(-25, 99).cast(pl.Int32))
+    f14 = m14.build_frame(seasons).with_columns(pl.col("yards").clip(-25, 99).cast(pl.Int32))
     f14 = f14.with_columns(m14.ctx_bucket(f14).cast(pl.Utf8).alias("ctx_bucket"))
     est, labels, feats = load_estimator("m14")
     proba14 = est.predict_proba(_xy_like(f14, m14)[feats])
@@ -109,13 +111,14 @@ def step1_residuals() -> dict:
     out["m14_rusher_yards"] = unit_residual_spread(
         f14["rusher_player_id"].to_numpy(), f14["yards"].to_numpy().astype(float), ey,
         k=120, min_n=80, label="Rusher adjusted yards per carry")
+    def14 = (f14["defteam"] + "_" + f14["season"].cast(pl.Utf8)).to_numpy()
     out["m14_defense_rush_yards"] = unit_residual_spread(
-        f14["defteam"].to_numpy(), f14["yards"].to_numpy().astype(float), ey,
+        def14, f14["yards"].to_numpy().astype(float), ey,
         k=600, min_n=400, label="Defense adjusted rush yards allowed per carry")
 
     # --- M20 FG: kicker adjusted make rate ---------------------------
     m20 = _mod("18_field_goals")
-    f20 = m20.build_frame(STANDARD.production)
+    f20 = m20.build_frame(seasons)
     est, labels, feats = load_estimator("m20")
     p_made = predict_class_prob(est, labels, feats, _xy_like(f20, m20), "MADE")
     actual_made = (f20["target"].to_numpy() == "MADE").astype(float)
@@ -126,11 +129,11 @@ def step1_residuals() -> dict:
     # --- M04 sack: offense & defense adjusted sack rate -------------
     m04 = _mod("05_dropback_outcome")
     # M04's frame has no team ids; re-derive its population directly with them.
-    raw = load_clean(STANDARD.production, base="core", penalty_free=True,
+    raw = load_clean(seasons, base="core", penalty_free=True,
                      columns=["qb_dropback", "qb_kneel", "qb_spike", "sack", "qb_scramble",
                               "pass_attempt", "posteam", "defteam", "down", "ydstogo",
                               "yardline_100", "goal_to_go", "qtr", "game_seconds_remaining",
-                              "half_seconds_remaining", "score_differential", "shotgun"])
+                              "half_seconds_remaining", "score_differential", "shotgun", "season"])
     raw = raw.filter((_i8("qb_dropback") == 1) & (_i8("qb_kneel") != 1) & (_i8("qb_spike") != 1))
     raw = raw.with_columns(
         pl.when(_i8("sack") == 1).then(pl.lit("SACK"))
@@ -142,11 +145,13 @@ def step1_residuals() -> dict:
     est, labels, feats = load_estimator("m04")
     p_sack = predict_class_prob(est, labels, feats, _xy_like(raw, m04), "SACK")
     actual_sack = (raw["target"].to_numpy() == "SACK").astype(float)
+    off04 = (raw["posteam"] + "_" + raw["season"].cast(pl.Utf8)).to_numpy()
+    def04 = (raw["defteam"] + "_" + raw["season"].cast(pl.Utf8)).to_numpy()
     out["m04_offense_sack"] = unit_residual_spread(
-        raw["posteam"].to_numpy(), actual_sack, p_sack,
+        off04, actual_sack, p_sack,
         k=500, min_n=350, label="Offense adjusted sack rate (protection)")
     out["m04_defense_sack"] = unit_residual_spread(
-        raw["defteam"].to_numpy(), actual_sack, p_sack,
+        def04, actual_sack, p_sack,
         k=500, min_n=350, label="Defense adjusted sack rate (pass rush)")
 
     return out
@@ -274,7 +279,37 @@ def step3_sensitivity(coeffs: dict, base_rates: dict) -> dict:
 
 # ------------------------------------------------------------------ main
 
+# §13.2 residual variance is a *distribution* estimate — wider is better and it
+# is NOT era-sensitive the way the baseline rates are (completion % is flat
+# 0.636–0.655 across 2018–25, and the 2023–25 resolvers' per-season bias on
+# 2018–22 is ≤1pp). Widening it does NOT touch the M01–M21 baselines (§6.5).
+WIDE_RESIDUAL_WINDOW = (2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025)
+
+
+def compare_wide() -> None:
+    """Run step 1 on the 3-season and 8-season windows and diff the anchors."""
+    print(f"step 1 — narrow {list(STANDARD.production)} ...")
+    narrow = step1_residuals(STANDARD.production)
+    print(f"step 1 — wide {list(WIDE_RESIDUAL_WINDOW)} ...")
+    wide = step1_residuals(WIDE_RESIDUAL_WINDOW)
+    rows = []
+    for k in narrow:
+        n, w = narrow[k], wide[k]
+        rows.append((k, n["units"], w["units"], n["shrunk_p10_to_p90"], w["shrunk_p10_to_p90"]))
+    print(f"\n{'anchor':26s} {'units n→w':>12s} {'p10↔p90 n':>11s} {'p10↔p90 w':>11s} {'Δ%':>7s}")
+    for k, un, uw, pn, pw in rows:
+        d = (pw - pn) / pn * 100 if pn else 0.0
+        print(f"  {k:24s} {un:5d}→{uw:<5d} {pn:11.4f} {pw:11.4f} {d:+6.1f}%")
+    (ARTIFACTS / "validation" / "residual_variance_targets_wide.json").write_text(
+        json.dumps({"generated": date.today().isoformat(),
+                    "window": list(WIDE_RESIDUAL_WINDOW), "units": wide}, indent=2, default=str) + "\n",
+        encoding="utf-8")
+    print("\nwrote artifacts/validation/residual_variance_targets_wide.json")
+
+
 def main() -> None:
+    if "--compare-wide" in sys.argv:
+        return compare_wide()
     print("step 1 — historical residual variance...")
     resid = step1_residuals()
 

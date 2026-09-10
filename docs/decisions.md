@@ -186,10 +186,29 @@ per-play lineups → attribute z-scores → Phase D coefficients as
   1.0×, so it's not a centering or sign bug; the shifts just don't aggregate to
   the right league-level effect. It's a **§13.6 joint-calibration** item (tune
   βᵢ against the engine's *emergent* points/wins, not just per-play residual
-  spreads), and it wants the wider 2016–2025 window for the residual-variance
-  tails (65 QBs / 154 receivers / 105 rushers from 3 seasons is thin). Not
-  blocking A1/season-sim; do it before rating-layer magnitudes surface in
-  franchise-mode UX.
+  spreads). Not blocking A1/season-sim; do it before rating-layer magnitudes
+  surface in franchise-mode UX.
+
+**Wider residual window (2018–2025) staged (2026-09-09).** The user supplied
+2018–2022 pbp (`data/*.parquet`, git-ignored; same 372-col schema, all
+Next-Gen fields present). `22_rating_calibration.py --compare-wide` runs step 1
+on the 3- and 8-season windows and writes
+`artifacts/validation/residual_variance_targets_wide.json`. Two changes:
+`step1_residuals(seasons=…)` is parameterised, and the four **team anchors now
+use team-SEASON as the unit** (a franchise's pass D in 2018 ≠ 2025) — that
+alone is a better estimate and lets the wide window add units, not just plays.
+- **Result:** every player anchor gains data (QBs 65→97, receivers 154→345,
+  rushers 105→211, team-seasons 96→256) and the thin channels firm up —
+  `m09_qb_completion` +8.4%, `m14_rusher_yards` **+22%** (0.779→0.951),
+  `m14_defense_rush_yards` +14%. Era drift is negligible: completion % is flat
+  0.636–0.655 across 2018–25, the 2023–25 M09's per-season bias on 2018–22 is
+  ≤1pp, and season-de-meaning the rush residual leaves the spread unchanged
+  (0.951→0.954). So the 3-season anchors were simply under-powered on the thin
+  tails, not era-biased. **1999–2017 not needed** — pre-2016 has no Next-Gen
+  tracking and spans huge rule/scheme drift; 8 seasons is a strong sample.
+- **Next:** adopt the wide window + team-season units as the production
+  `residual_variance_targets.json`, re-derive step-2 βᵢ (QB/rush magnitudes
+  grow ~10–20%), re-run §23 — then §13.6 if the aggregation gap persists.
 
 **Penalty module (§25 V1.5) — models fitted (2026-09-09).**
 `analysis/25_penalties.py` (M25a pre-snap dead-ball hazard, M25b live-ball
