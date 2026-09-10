@@ -20,11 +20,17 @@ V1.5, portable resolver export + a TypeScript runtime port (`src/engine/`, runs
 on `artifacts/**/portable/*.json`, no Python). Residual-variance anchors use the
 wide 2018–2025 window + team-season units; §13.6 joint-calibration harness
 (`26_joint_calibration.py`) run — layer is emergently sound (margin widens,
-points −0.8±0.4/team-game, no βᵢ change). Headless `src/engine/season.ts`
-(round-robin schedule + standings) is in with a vitest guard. No UI, no
-multiplayer yet. Next: A1
-proper — real NFL division/conference schedule + playoff bracket, paired with
-the franchise UI.
+points −0.8±0.4/team-game, no βᵢ change).
+
+**A1 (real season) is in** — `src/engine/{nfl-structure,schedule,standings,
+playoffs}.ts` + `simulateNflSeason` in `season.ts`: the current 17-game
+schedule formula (division/conference rotations keyed off `year`), the full
+NFL standings tiebreaker chain, 7-seed conference seeding, and the 14-team
+playoff bracket through the Super Bowl. Headless + deterministic; round-robin
+`simulateSeason` stays as the pool-free guard. Bye-week placement is only
+approximately realistic in V1 (see `docs/decisions.md` → A1). No UI, no
+multiplayer yet. Next: the franchise/game layer (season loop UI, offseason)
+on top of `src/engine/`.
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
 `hyparquet`); everything from Phase B on is Python (scikit-learn) in
@@ -70,8 +76,9 @@ src/model/  positions.ts (per-position priors), ratings.ts (heuristic ratings mo
 src/data/   csv.ts, players.ts (load/validate), generate-pool.ts (nflverse -> pool),
             pool-csv.ts (pool <-> editable CSV), madden.ts (alt CSV importer)
 src/engine/ TS simulation engine — port of analysis/engine/ (roster, ratings,
-            rng, loaders, sim + the two portable-model evaluators) plus season.ts
-            (headless schedule + standings). Runs on the committed
+            rng, loaders, sim + the two portable-model evaluators) plus the A1
+            season layer: nfl-structure, schedule, standings, playoffs, season
+            (round-robin guard + simulateNflSeason). Runs on the committed
             artifacts/**/portable/*.json; no Python at runtime.
 test/       vitest specs, mirror src/ layout
 analysis/   empirical modeling pipeline (see analysis/README.md); lib/ + 00_schema_audit.ts

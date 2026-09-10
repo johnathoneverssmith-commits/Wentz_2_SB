@@ -529,6 +529,46 @@ already runs on them.
 **The engine spec's full arc (A→E) now has a working V1 end to end, with the
 rating layer wired and §23-validated.**
 
+### A1 — real NFL schedule, standings, playoffs (2026-09-10)
+
+`src/engine/{nfl-structure,schedule,standings,playoffs}.ts` +
+`simulateNflSeason` in `season.ts`. Headless; the franchise UI wires on top
+later. Round-robin `simulateSeason` stays as the pool-independent regression
+guard.
+
+- **Schedule** — the current (2021–) 17-game formula, `nflSchedule({ year,
+  priorRank })`. Division pairings rotate on 3- and 4-year cycles keyed off
+  `year`; same-place games use prior-year division finish rank (defaults to
+  4 / roster order when there's no history). Matchup construction is exact;
+  the parity of the same-place home/away split is chosen so each team gets
+  1 home + 1 away there (the naïve `(k+r)%2` gave two divisions both-home).
+- **Week assignment** — an 18-week balanced edge-colouring is not something a
+  closed form gives you, and plain most-constrained-first backtracking
+  thrashes on a minority of seasons. **Decision:** backtracking with
+  most-constrained-game ordering + soft-target value ordering + seeded
+  randomised restarts, then a "flatten" pass that moves games out of the
+  fullest weeks into the emptiest. Deterministic per season, ~150 ms typical
+  (worst seen ~800 ms). Every team: 17 games, 17 distinct weeks (one bye),
+  8–9 home, 6 division / 12 in-conf / 5 inter-conf, no opponent 3×.
+- **Bye placement is only approximately realistic in V1** — real byes sit in
+  weeks 5–14; ours spread across the calendar but skew a little early. It
+  does not affect standings, seeding or playoff results, so it's left as
+  polish. (Pinning byes as hard constraints turns the week assignment into a
+  palette-restricted 1-factorisation that the simple solver can't crack
+  fast — revisit with a proper edge-colouring routine if byes ever matter to
+  the sim.)
+- **Standings tiebreakers** — full chain: head-to-head (combined for
+  divisions, sweep-only for wild cards), then division / common / conference
+  records, strength of victory, strength of schedule, net points, then team
+  code standing in for the coin toss. The obscure "combined ranking of points
+  scored and allowed" steps are folded into net points — they'd change a
+  result only in vanishingly rare cases. Division winners always seed 1–4
+  above wild cards, even with a losing record.
+- **Playoffs** — 7 seeds/conf, #1 bye, 2v7/3v6/4v5, re-seed each round, higher
+  seed hosts, Super Bowl neutral (better seed listed home). A playoff game
+  can't tie: a drawn sim is replayed with a bumped seed up to 24× and, failing
+  that, awarded to the higher seed (`decidedBySeed`).
+
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**
 

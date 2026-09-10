@@ -9,8 +9,12 @@
  * deterministic vitest sanity check before the franchise UI is wired on top.
  */
 
+import { NFL_TEAMS } from "./nfl-structure.js";
+import { type PlayoffResult, simulatePlayoffs } from "./playoffs.js";
 import { roster, teamList } from "./roster.js";
+import { nflSchedule } from "./schedule.js";
 import { simulateGame } from "./sim.js";
+import { type FinishedGame, type LeagueStandings, computeStandings } from "./standings.js";
 
 export interface SeasonGame {
   week: number;
@@ -167,6 +171,55 @@ export function simulateSeason(seed: number, opts: SeasonOptions = {}): SeasonRe
   );
 
   return { games, standings };
+}
+
+export interface NflSeasonResult {
+  /** Regular-season games, in schedule (week) order. */
+  games: SeasonGame[];
+  /** Division ranks + conference seeding, after the NFL tiebreaker procedure. */
+  standings: LeagueStandings;
+  /** Full bracket through the Super Bowl. */
+  playoffs: PlayoffResult;
+  champion: string;
+}
+
+export interface NflSeasonOptions {
+  /** Season year — drives the schedule's division-pairing rotations. Default 2025. */
+  year?: number;
+  /** team → prior-year division finish rank (1–4); used for same-place matchups. */
+  priorRank?: Map<string, number>;
+  /** Team codes. Default: the canonical 32 (`NFL_TEAMS`). */
+  teams?: string[];
+}
+
+/**
+ * A full NFL season: the real 17-game schedule through `simulateGame` (rating
+ * layer ON), the league standings with tiebreakers, then the 14-team playoff
+ * bracket. `simulateGame(seed + gameIndex, …)` per regular-season game and a
+ * disjoint seed range for the playoffs, so a given `seed` + `year` reproduces
+ * the season and the champion exactly. Needs a full player pool (every team in
+ * `teams` must have a roster).
+ */
+export function simulateNflSeason(seed: number, opts: NflSeasonOptions = {}): NflSeasonResult {
+  const year = opts.year ?? 2025;
+  const teams = opts.teams ?? (NFL_TEAMS as string[]);
+  const schedule = nflSchedule(
+    opts.priorRank ? { year, priorRank: opts.priorRank } : { year },
+  );
+
+  const games: SeasonGame[] = [];
+  const finished: FinishedGame[] = [];
+  schedule.forEach(({ week, home, away }, i) => {
+    const g = simulateGame(seed + i, home, away);
+    const [homeScore, awayScore] = g.score;
+    games.push({ week, home, away, homeScore, awayScore });
+    finished.push({ home, away, homeScore, awayScore });
+  });
+
+  const standings = computeStandings(finished, teams);
+  const playoffs = simulatePlayoffs(seed, standings.seeding);
+
+  return { games, standings, playoffs, champion: playoffs.champion };
 }
 
 /** Summed `overall` of a team's starting offense + base defense — a rough roster-strength proxy. */
