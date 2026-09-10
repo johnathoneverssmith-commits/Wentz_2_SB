@@ -1,9 +1,10 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **punt bugs fixed (−13% → −11.8%). Penalty scaling ruled out as a
-points lever. Red-zone probe done → the engine's TD/play is 25–35% low on every
-RZ band while yд/play is *higher* — the goal-line yardage distribution isn't
-bimodal enough. Next = widen the M14 `gl` / M10 `rz` yardage tails.**
+Status: **punt bugs fixed (−13% → −11.8%). Penalty scaling ruled out. Red-zone
+gap localised to the PASSING game: a completed pass from the 3–4 scores 86%
+empirically but only 56% in the engine — the air-yards cap forces every RZ
+throw SHORT (DEEP 0.00 v 0.07 emp), so completions land short of the goal line.
+Next = red-zone air-yards fix.**
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
 opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
@@ -303,16 +304,38 @@ yards-per-play is *higher*:
 | 10–14 | 0.079 | 0.117 | −3.8pp | 3.83 | 3.54 |
 | 15–20 | 0.052 | 0.076 | −2.4pp | 4.61 | 4.43 |
 
-Both run and pass are low at the 1–4 (run TD .368 v .449, pass TD .318 v .442).
-**More yards, fewer TDs ⇒ the goal-line yardage distribution is not bimodal
-enough** — real goal-line football is punch-it-in (TD) or get-stuffed (0–1 yд);
-the engine produces too many middling 2–3 yд gains that neither score nor stall.
-Suspects: the **M14 `gl` exact-yard PMF bucket** and its class model at the goal,
-the **M10 `rz` YAC PMF bucket**, and the `ay = min(ay, yardline_100 + 3)`
-air-yards cap forcing goal-line throws SHORT. This is a resolver-fidelity fix
-(`15_rush_yards.py` / `11_yac.py` / `28_export_distributions.py` bucketing, and
-M14's class distribution near the goal), and it is the **largest remaining
-points lever** — RZ TD rate −7% drives a big share of the −2pp TD/drive.
+**Localised (2026-09-10, `_v16_rz2.py`, `play_trace.outcome`/`depth`):**
+
+1. **M13 / M14 rushing at the goal line is correct.** Fed the M14 class model +
+   exact-yard PMF real empirical goal-line contexts (no sim): P(rush TD) matches
+   within 1–2pp at *every* band — yl 1–2 .536 v .525, yl 3–4 .273 v .298, yl
+   5–10 .114 v .131. M13 run-location mix also matches. Rushing is not it.
+
+2. **It's the red-zone PASSING game — completed passes don't reach the end
+   zone.** TD rate *on a completed pass*, sim vs empirical:
+
+   | yardline | sim | emp |
+   | ---: | ---: | ---: |
+   | 1–2 | 0.77 | 0.94 |
+   | 3–4 | **0.56** | **0.86** |
+   | 5–9 | **0.32** | **0.60** |
+   | 10–14 | 0.22 | 0.30 |
+
+   A real completed pass from the 3–4 scores 86% of the time; the engine's
+   scores 56%. Cause is the air-yards handling: `ay = int(min(ay,
+   yardline_100 + 3))` caps the top, and the depth mix inside the 10 comes out
+   **DEEP 0.000 sim v 0.068 emp** (the cap makes a 20+ air-yard throw
+   impossible), SHORT 0.85 v 0.77. The engine throws shorter, easier passes —
+   **comp% inside the 10 is 0.575 sim v 0.485 emp** — but a 1–2 air-yard
+   completion from the 3 gains 1–2 yд of YAC and stops short of the goal line,
+   where a real goal-line throw goes *into the end zone* (air yards ≈
+   yardline_100) and the completion IS the TD.
+
+This is the **largest remaining points lever** (RZ pass TD −25 to −30pp on
+completions). The fix targets red-zone air yards — make goal-line throws aim at
+the end zone rather than a generic SHORT distribution, and stop the cap from
+zeroing out DEEP. Touches `sample_air_yards` / the `air_yards` `opp_rz` table /
+the cap in `sim.py`.
 
 - **drives/team-game −3.4%** (`end_of_half` +2.4pp) — M24 per-play elapsed
   refit, separate item.
@@ -320,7 +343,11 @@ points lever** — RZ TD rate −7% drives a big share of the −2pp TD/drive.
 
 ### Next
 
-1. **Red-zone bimodality**: check M14's yardage-class distribution and the
-   `gl` / `rz` exact-PMF buckets at yardline ≤ 10 vs empirical; widen the tails
-   (more 0-yд stuffs, more scores) without moving the mean much.
+1. **Red-zone air yards.** Goal-line pass attempts should target the end zone
+   (`air_yards ≈ yardline_100`), not a generic SHORT draw, and DEEP shots
+   (fades) must stay possible. Options: a field-position-aware `sample_air_yards`
+   for `yardline_100 ≤ ~12`, and change the cap from `min(ay, yardline_100 + 3)`
+   to something that nudges *up* toward the goal line rather than only clamping
+   down. Re-run §22 + the RZ probe; watch that `air_yards_per_attempt`,
+   `explosive_pass_rate` and overall `completion_pct` don't regress.
 2. Clock / drives-per-game (M24), return-TD rate — separate items.

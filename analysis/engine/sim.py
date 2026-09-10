@@ -481,7 +481,8 @@ class Game:
             _trec = {"down": self.down, "ydstogo": float(self.ydstogo),
                      "yardline_100": float(self.yardline_100), "call": call,
                      "drive_start_yl": float(self._dstart_yl), "gained": None,
-                     "converted": None, "turnover": False, "td": False}
+                     "converted": None, "turnover": False, "td": False,
+                     "outcome": "run" if call != "DROPBACK" else "?", "depth": ""}
             self.play_trace.append(_trec)
         family = "designed_rush"
         outcome_bucket = "run_inbounds"
@@ -494,8 +495,12 @@ class Game:
                 loss = float(self.rng.choice(SACK_YARDS, p=SACK_YARDS_P))
                 gained = loss
                 family, outcome_bucket = "sack", "sack"
+                if _trec is not None:
+                    _trec["outcome"] = "sack"
             elif term == "SCRAMBLE":
                 self.st("scramble")
+                if _trec is not None:
+                    _trec["outcome"] = "scramble"
                 cat = sample_class("M11", self.ctx(sg), self.rng)
                 bucket = f"{self.down}|" + ("rz" if self.yardline_100 <= 20 else
                                             "mid" if self.yardline_100 <= 60 else "own")
@@ -519,6 +524,10 @@ class Game:
                 res = sample_class("M09", {**self.ctx(sg), "air_yards": ay, "depth_category": depth,
                                            "pass_location": ploc, "qb_hit": qb_hit}, self.rng, m09_shift)
                 self.teams[self.pos].s["air_yards"] += ay
+                if _trec is not None:
+                    _trec["depth"] = depth
+                    _trec["outcome"] = {"INTERCEPTION": "int", "OTHER_INCOMPLETE": "pass_inc",
+                                        "COMPLETE": "pass_comp"}.get(res, res)
                 if res == "INTERCEPTION":
                     if _trec is not None:
                         _trec["turnover"] = True

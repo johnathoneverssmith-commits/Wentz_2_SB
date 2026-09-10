@@ -398,18 +398,18 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   Left at 1.0.
 - **Revised: the residual points ≈ red-zone TD conversion + clock.**
   points/team-game −12.4% ≈ ppd −5% × drives/tg −3.4%.
-- **Red-zone probe (2026-09-10, `_v16_rz.py` + `play_trace.td`).** The engine's
-  **TD-per-play is 25–35% low on every RZ yardline band** (1–4: .349 v .446;
-  5–9: .142 v .220; 10–14: .079 v .117; 15–20: .052 v .076) **while yд/play is
-  *higher*** (1.12 v 0.84 at the 1–4). Both run and pass. More yards + fewer
-  TDs ⇒ **the goal-line yardage distribution is not bimodal enough** — real
-  goal-line football is punch-it-in or get-stuffed; the engine produces too
-  many middling 2–3 yд gains. Suspects: the M14 `gl` exact-yard PMF bucket + its
-  class model at the goal, the M10 `rz` YAC bucket, the `ay = min(ay,
-  yardline_100 + 3)` cap. This is the **largest remaining points lever** and a
-  resolver-fidelity fix (`15_rush_yards.py` / `11_yac.py` /
-  `28_export_distributions.py`). drives/tg −3.4% is the M24 clock, separate.
-  Full plan: [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
+- **Red-zone probe (2026-09-10) → it's the PASSING game.** M13/M14 rushing at
+  the goal line is correct (fed the resolver real contexts: P(rush TD) within
+  1–2pp at every band — yl 1–2 .54 v .53, yl 3–4 .27 v .30, yl 5–10 .11 v .13).
+  But TD rate **on a completed pass** runs far low: yl 3–4 **0.56 v 0.86**, yl
+  5–9 **0.32 v 0.60**. The `ay = min(ay, yardline_100 + 3)` cap forces every RZ
+  throw SHORT — depth mix inside the 10 is **DEEP 0.00 v 0.07 emp**, SHORT 0.85
+  v 0.77 — so the engine throws shorter/easier passes (comp% 0.575 v 0.485) but
+  a 1–2 air-yard completion from the 3 stops short of the goal line where a real
+  goal-line throw goes *into the end zone*. **Largest remaining points lever;**
+  fix targets RZ air yards (`sample_air_yards` / `air_yards` `opp_rz` table /
+  the cap). drives/tg −3.4% is the M24 clock, separate. Full plan:
+  [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB
