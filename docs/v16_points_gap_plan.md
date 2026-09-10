@@ -1,7 +1,9 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **diagnostic pass done, implementation not started.**
-Companion probe: `analysis/_v16_probe.py` (scratch; promote to a numbered script).
+Status: **steps 1–4 done + the mechanical bugs fixed. Residual is a smaller,
+diffuse drive-conversion + fewer-drives gap — see "Step-4 results" below.**
+Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
+(shared summariser), drive metrics in `analysis/23_full_sim_validation.py`.
 
 The engine scores ~19.9 pts/team-game against an empirical 22.6 (−11.9%). Prior
 work (`docs/decisions.md`, "Diffuse points gap") concluded the gap was emergent
@@ -160,3 +162,63 @@ Specific suspects in `analysis/engine/sim.py`:
 Do **not** start with a drive-level EPA model. §1 says the per-play independence
 assumption is sound, and §3–4 say there is a cheaper, more likely explanation
 that has never been measured.
+
+---
+
+## Step-4 results (2026-09-09) — the hypothesis was right; two mechanical bugs
+
+Instrumented `engine/sim.py` with a per-drive log and compared to the empirical
+baseline through `lib_py.drives.drive_table` (the one shared summariser). Two
+straight bugs in the punt path in `_fourth_down`:
+
+1. **Touchback:** `self._flip_field(1 - 20)` → `clip(-19, 1, 99)` = **1**, i.e.
+   the receiving team started at the *opponent's* 1-yard line after every punt
+   touchback. Fixed to `_flip_field(80.0)` (own 20).
+2. **Return sign:** `self._flip_field(100 - landing + ret)` — a punt return
+   *added* `ret` to the receiving team's `yardline_100`, moving them **backward**
+   ~10 yд on every returned punt. Fixed to `100 - landing - ret`.
+
+Effect (n=200, rating layer off), before → after:
+
+| | before | after | empirical |
+| --- | ---: | ---: | ---: |
+| points / drive | 1.81 (−6.8%) | **1.86 (−4.2%)** | 1.942 |
+| start_yl mean | 71.9 | **71.1** | 70.1 |
+| start_yl p10 | 56 | **54** | 50 |
+| drive start "opp 0–9" share | 2.5% | **0.4%** | 0.5% |
+| drive start "own 90–99" share | 14.5% | **10.3%** | 8.2% |
+| TD-drive share | 19.9% | **20.4%** | 22.2% |
+| punt-drive share | 38.6% | **36.5%** | 35.2% |
+| `never crossed midfield` | 44.4% | 43.8% | 42.8% |
+| points / **team-game** | 19.6 (−13.1%) | **19.9 (−11.8%)** | 22.56 |
+
+Field position is now close. `never crossed midfield` confirms §2 — the old
+"37% v 18%" was a measurement bug, the engine matches. Bugs mirrored to
+`src/engine/sim.ts`.
+
+### What's left (the −11.8% team-game gap decomposes as)
+
+- **≈ −4% drive conversion** at *fixed* field position: the pts/drive-by-start-FP
+  curve sits below empirical through the own-20-to-midfield bands (20–29: 3.32 v
+  4.23; 50–59: 1.93 v 2.49; 60–69: 2.06 v 2.17). Per-play metrics are all within
+  ~5% and 3rd-down conversion-by-distance matched in the earlier diagnostic — so
+  this is the *sequence* of correct per-play draws not sustaining enough drives.
+  §1 rules out momentum (ρ≈0), so the next probe is the **within-drive
+  down/distance state mix** (is the engine seeing too many 2nd/3rd-and-long?)
+  and **first-downs-per-drive / series-conversion rate**.
+- **≈ −3% fewer drives/team-game** (10.31 v 10.75) — the clock runs hot
+  (plays/team-game +7%), so drives are longer and more get caught by the half
+  (`end_of_half` 9.3% v 6.85%). Raising the drive-end clock multiplier was tried
+  before and made points *worse* (fewer plays = fewer chances), so this needs
+  the per-play elapsed model (M24), not a global knob.
+- **≈ 1pp too few `opp_touchdown` drives** (0.12% v 1.11%) — the engine's
+  defensive/return-TD rate off turnovers is ~10× low; near points-neutral
+  leaguewide but part of the 22.56 empirical total.
+
+### Next (hand back / continue on Sonnet)
+
+1. Probe within-drive down-state distribution + first-downs-per-drive vs
+   empirical (new section in `29_drive_baseline.py`, mirror in §22).
+2. If the down-state mix is off → find which resolver's conditional is skewing
+   it (likely M02 play-call or the M14/M10 yardage tails on early downs).
+3. The clock / drives-per-game piece is an M24 refit, separate work item.

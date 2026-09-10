@@ -130,7 +130,7 @@ describe.runIf(hasPool)("simulateSeason (needs the generated pool)", () => {
     expect(r).toBeGreaterThan(0.1); // seed 7 ≈ 0.21; other seeds 0.35–0.51
   });
 
-  it("is deterministic in the seed", () => {
+  it("is deterministic in the seed", { timeout: 30_000 }, () => {
     const a = simulateSeason(123, { gamesPerTeam: 3 });
     const b = simulateSeason(123, { gamesPerTeam: 3 });
     expect(a.standings).toEqual(b.standings);

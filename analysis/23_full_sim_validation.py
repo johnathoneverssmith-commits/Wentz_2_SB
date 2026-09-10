@@ -20,6 +20,7 @@ import numpy as np
 import polars as pl
 
 from engine.sim import simulate_game
+from lib_py.drives import drive_table, records_from_engine
 from lib_py.pbp import load_clean, load_raw
 from lib_py.report import ARTIFACTS
 from lib_py.split import STANDARD
@@ -114,8 +115,10 @@ def sim_distributions(n_games: int, seed0: int = 10_000) -> dict:
     expl_pass = pass_plays = 0.0
     fgm = fga = 0.0
     rztrip = rztd = 0.0
+    drives_log: list = []
     for i in range(n_games):
         g = simulate_game(seed0 + i)
+        drives_log.extend(g.drives_log)
         for tm in g.teams:
             s = tm.s
             plays.append(s["plays"]); drives.append(s["drives"]); pts.append(s["points"])
@@ -129,8 +132,11 @@ def sim_distributions(n_games: int, seed0: int = 10_000) -> dict:
             rztrip += s["rz_trip"]; rztd += s["rz_td"]
     dt = time.time() - t0
     pts = np.array(pts)
+    dtable = drive_table(records_from_engine(drives_log), min_plays=1)
+    dtable["drives_per_team_game"] = round(dtable["n"] / (n_games * 2), 3)
     return {
         "n_games": n_games, "seconds": round(dt, 1),
+        "drive_table": dtable,
         "rates": {
             "dropback_rate": dbks / (dbks + ratt) if (dbks + ratt) else 0,
             "completion_pct": comp / catt if catt else 0,
@@ -158,10 +164,48 @@ def sim_distributions(n_games: int, seed0: int = 10_000) -> dict:
     }
 
 
+def _print_drive_compare(sim_dt: dict, base: dict) -> list[dict]:
+    """Side-by-side of the engine drive table vs artifacts/validation/drive_baseline.json
+    (built by 29_drive_baseline.py via the SAME lib_py.drives.drive_table)."""
+    print("\n--- drive structure (V1.6) ---")
+    print(f"  drives/team-game   sim {sim_dt['drives_per_team_game']:6.2f}   "
+          f"emp {base['drives_per_team_game']:6.2f}")
+    print(f"  points/drive       sim {sim_dt['points_per_drive']:6.3f}   "
+          f"emp {base['points_per_drive']:6.3f}   "
+          f"({(sim_dt['points_per_drive'] - base['points_per_drive']) / base['points_per_drive']:+.1%})")
+    print(f"  never crossed mid  sim {sim_dt['never_crossed_mid']:6.2%}   "
+          f"emp {base['never_crossed_mid']:6.2%}")
+    print(f"  start_yl mean      sim {sim_dt['start_yl']['mean']:6.1f}   "
+          f"emp {base['start_yl']['mean']:6.1f}     "
+          f"(p10 {sim_dt['start_yl']['p10']}/{base['start_yl']['p10']}  "
+          f"p90 {sim_dt['start_yl']['p90']}/{base['start_yl']['p90']})")
+    print("  outcome mix        sim / emp")
+    for k, ev in base["outcome_mix"].items():
+        sv = sim_dt["outcome_mix"].get(k, 0.0)
+        flag = "  <<" if abs(sv - ev) >= 0.02 else ""
+        print(f"    {k:16s} {sv:6.2%} / {ev:6.2%}{flag}")
+    print("  pts/drive by start FP   sim / emp   (share sim/emp)")
+    rows = []
+    for sr, er in zip(sim_dt["fp_bands"], base["fp_bands"]):
+        if not er["n"]:
+            continue
+        sv = sr["ppd"] if sr["n"] else None
+        rows.append({"band": er["band"], "sim_ppd": sv, "emp_ppd": er["ppd"],
+                     "sim_share": sr["share"], "emp_share": er["share"]})
+        svs = f"{sv:6.3f}" if sv is not None else "   -- "
+        print(f"    {er['band']:>7s}  {svs} / {er['ppd']:6.3f}   "
+              f"({sr['share']:5.1%}/{er['share']:5.1%})")
+    return rows
+
+
 def main() -> None:
     n = int(sys.argv[1]) if len(sys.argv) > 1 else 150
     print(f"empirical targets from {list(STANDARD.production)}...")
     emp = empirical_targets()
+    base_path = ARTIFACTS / "validation" / "drive_baseline.json"
+    drive_base = json.loads(base_path.read_text()) if base_path.exists() else None
+    if drive_base is None:
+        print("  (no drive_baseline.json — run 29_drive_baseline.py first for the drive compare)")
     print(f"simulating {n} games...")
     sim = sim_distributions(n)
     print(f"  {sim['seconds']}s ({sim['seconds'] / n:.2f}s/game)")
@@ -174,12 +218,17 @@ def main() -> None:
             rows.append({"metric": k, "empirical": round(e, 4), "sim": round(s, 4),
                          "rel_err": round(rel, 3), "abs_ok": abs(rel) <= 0.10})
 
+    drive_rows = None
+    if drive_base is not None:
+        drive_rows = _print_drive_compare(sim["drive_table"], drive_base)
+
     out = {
         "generated": date.today().isoformat(),
         "n_sim_games": n,
         "note": "rating modifiers = 0 (spec §22). Engine V1 simplifications listed in "
                 "engine/sim.py. Pass threshold: |rel err| <= 10%.",
         "comparison": rows,
+        "drive_compare_by_fp": drive_rows,
         "sim_raw": sim, "empirical_raw": emp,
     }
     (ARTIFACTS / "validation" / "simulation_validation.json").write_text(
@@ -206,15 +255,17 @@ def main() -> None:
            "it to hit the empirical count pushes points from −10% to −16%, because the physical-"
            "outcome resolvers are fit penalty-FREE (§6.2) and this engine's drive model over-"
            "punishes offensive fouls. Reconciling the two needs gained-conditioned hazards (V1.6).",
-           "- **points/team-game ~11% low, diffuse, and NOT the passing game.** The pass "
-           "distribution is now calibrated by depth (`QB_HIT_BY_DEPTH` + `M09_COMPLETE_CALIB`): "
-           "completion / YPA / air-yд / explosive-pass all within ~6%. That fix *raised* the "
-           "points miss from −10% to −11% — M09 was over-completing deep balls, and those "
-           "phantom explosives were masking ~1.7 pts of a scoring deficit elsewhere. RZ TD rate "
-           "matches (0.53 v 0.56); return TDs and the 0.958 PAT are wired. The engine runs *more* "
-           "plays/team-game (67 v 62) yet scores ~1.8/drive v ~2.1 — drives sustain but convert "
-           "less. Open candidates: FG-range vs go decisions, mid-field (20–40) yardage, "
-           "clock/possession count. No 2-point tries (EV-neutral).",
+           "- **points/team-game ~12% low — V1.6 in progress (`drive_baseline.json`, "
+           "`lib_py/drives.py`).** Per-drive instrumentation + the shared drive-table comparison "
+           "found two punt bugs (touchback put the receiver at the opponent's 1; a return moved "
+           "them *backward*) — fixed, which took drive start field position from clearly wrong to "
+           "within ~1 yд of empirical and points/drive from −6.8% to **−4.2%** (1.86 v 1.94). "
+           "The residual team-game gap ≈ −4% drive conversion at *fixed* field position (the "
+           "pts/drive-by-start-FP curve sits below through the own-20-to-midfield bands) + −3% "
+           "fewer drives (clock runs hot, `end_of_half` 9.3% v 6.85%) + ~1pp too few "
+           "return-TD drives. Momentum is ruled out (measured intra-drive ρ≈0). Next probe: "
+           "within-drive down/distance state mix and first-downs-per-drive. See "
+           "`docs/v16_points_gap_plan.md`. No 2-point tries (EV-neutral).",
            "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
            "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
            "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",

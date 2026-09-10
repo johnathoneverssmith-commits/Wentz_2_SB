@@ -360,6 +360,22 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   drive starts** — 9.7% of real drives start at the opponent 49 or better and
   carry ~16.5% of all offensive points, and nothing in §22 measures drive start
   field position.
+- **V1.6 step-4 (2026-09-09): confirmed, and two punt bugs fixed.** New tooling:
+  `analysis/29_drive_baseline.py` (empirical drive table), `lib_py/drives.py`
+  (one shared summariser used by both sides), and per-drive metrics in
+  `23_full_sim_validation.py`; `engine/sim.py` keeps a `drives_log` (mirrored in
+  `src/engine/sim.ts`). Bugs in `_fourth_down`'s punt path: a touchback did
+  `_flip_field(1 - 20)` → the receiving team started at the *opponent's* 1
+  (fixed → own 20); and a punt return *added* the return yards to `yardline_100`,
+  moving the returner **backward** (fixed → `100 - landing - ret`). Result:
+  drive start_yl mean 71.9→71.1 (emp 70.1); "opp 0–9" starts 2.5%→0.4% (emp
+  0.5%); "own 90–99" 14.5%→10.3% (emp 8.2%); points/drive −6.8%→−4.2%;
+  points/team-game −13.1%→−11.8%. `never crossed midfield` 43.8% v 42.8%.
+- **Residual (−11.8% team-game) ≈ −4% drive conversion at fixed field position
+  + −3% fewer drives (clock runs hot, `end_of_half` 9.3% v 6.85%) + ~1pp too
+  few return TDs.** Next probe: within-drive down/distance state mix +
+  first-downs-per-drive. Momentum stays ruled out (ρ≈0).
+  Full plan: [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB

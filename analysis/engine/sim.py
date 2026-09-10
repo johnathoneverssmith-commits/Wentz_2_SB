@@ -81,6 +81,17 @@ class Game:
     rosters: list | None = None  # [Roster, Roster] to enable the rating layer, else off
     rz_flag: bool = False  # current drive has reached the red zone (<=20)
 
+    # ---- per-drive instrumentation (V1.6 points-gap work) --------------
+    # One record per drive: {team, start_yl, result, plays, crossed_mid, points}.
+    # `result` uses the canonical keys in lib_py.drives.PTS_BY_RESULT.
+    drives_log: list = field(default_factory=list)
+    _drive_open: bool = False
+    _dstart_yl: float = 75.0
+    _dplays: int = 0
+    _dcross: bool = False
+    _dteam: int = 0
+    _dpts0: int = 0
+
     # ---- helpers -------------------------------------------------------
     def other(self) -> int:
         return 1 - self.pos
@@ -134,6 +145,32 @@ class Game:
     def st(self, k: str, v: float = 1.0, team: int | None = None):
         self.teams[self.pos if team is None else team].s[k] += v
 
+    # ---- per-drive instrumentation ---------------------------------
+    def _start_drive(self):
+        """Open a new drive record. Called at the end of every possession-change
+        method, once `pos` and `yardline_100` are set."""
+        self._drive_open = True
+        self._dstart_yl = float(self.yardline_100)
+        self._dplays = 0
+        self._dcross = self.yardline_100 < 50.0
+        self._dteam = self.pos
+        self._dpts0 = self.score[self.pos]
+
+    def _finish_drive(self, result: str):
+        """Close the current drive with `result` (a lib_py.drives canonical key).
+        No-op before the first drive or after it is already closed."""
+        if not self._drive_open:
+            return
+        self._drive_open = False
+        self.drives_log.append({
+            "team": self._dteam,
+            "start_yl": self._dstart_yl,
+            "result": result,
+            "plays": self._dplays,
+            "crossed_mid": self._dcross,
+            "points": self.score[self._dteam] - self._dpts0,
+        })
+
     def ctx(self, shotgun: int = 0) -> dict:
         return {
             "down": self.down, "ydstogo": self.ydstogo, "yardline_100": self.yardline_100,
@@ -169,7 +206,7 @@ class Game:
             if self.qtr == 3:  # second-half kickoff to the other opener
                 self.hsr = 1800
                 self.to_remaining = [3, 3]
-                self._kickoff(receiving=1 - self.received_opening)
+                self._kickoff(receiving=1 - self.received_opening, result="end_of_half")
 
     # ---- scoring / possession ------------------------------------
     def _score(self, pts: int, team: int | None = None):
@@ -183,15 +220,19 @@ class Game:
             self._score(1)
         self._kickoff(receiving=self.other())
 
-    def _turnover(self, return_yards: float = 0.0, spot: float | None = None):
+    def _turnover(self, return_yards: float = 0.0, spot: float | None = None,
+                  result: str = "downs"):
+        self._finish_drive(result)
         yl = self.yardline_100 if spot is None else spot
         self.pos = self.other()
         self.yardline_100 = float(np.clip(100 - yl - return_yards, 1, 99))
         self.down, self.ydstogo = 1, min(10.0, self.yardline_100)
         self.teams[self.pos].s["drives"] += 1
         self.rz_flag = False
+        self._start_drive()
 
-    def _kickoff(self, receiving: int):
+    def _kickoff(self, receiving: int, result: str = "touchdown"):
+        self._finish_drive(result)  # close the drive that led to this kickoff
         self.pos = receiving
         if self.rng.random() < KICKOFF_TOUCHBACK:
             self.yardline_100 = 70.0
@@ -208,6 +249,7 @@ class Game:
         self.down, self.ydstogo = 1, 10.0
         self.teams[receiving].s["drives"] += 1
         self.rz_flag = False
+        self._start_drive()
 
     def _new_series(self, first_down: bool):
         if first_down:
@@ -312,6 +354,7 @@ class Game:
 
     def _kneel_out(self):
         self.st("kneel_out")
+        self._dplays += 1
         e = min(self.hsr, self.qsr) if self.qsr > 0 else self.hsr
         self.gsr = max(0, self.gsr - e)
         self.hsr = max(0, self.hsr - e)
@@ -323,12 +366,13 @@ class Game:
             if self.qtr == 3:
                 self.hsr = 1800
                 self.to_remaining = [3, 3]
-                self._kickoff(receiving=1 - self.received_opening)
+                self._kickoff(receiving=1 - self.received_opening, result="end_of_half")
 
     def play(self):
         self.teams[self.pos].s["plays"] += 1
         if self._can_kneel_out():
             return self._kneel_out()
+        self._dplays += 1
         if self.down == 3:
             self.st("third_att")
         if self.down == 4:
@@ -347,9 +391,9 @@ class Game:
             if made:
                 self.st("fg_made")
                 self._score(3)
-                self._kickoff(receiving=self.other())
+                self._kickoff(receiving=self.other(), result="field_goal")
             else:
-                self._turnover(spot=self.yardline_100)
+                self._turnover(spot=self.yardline_100, result="missed_fg")
             return
         if act == "PUNT":
             self.st("punt")
@@ -358,7 +402,7 @@ class Game:
             self.advance_clock("run_inbounds", drive_ends=True)
             if landing <= 0:
                 self.st("touchback")
-                self._flip_field(1 - 20)  # opp ball at own 20
+                self._flip_field(80.0)  # receiving team, 1st-and-10 at its own 20
             else:
                 out = sample_class("M21", {"yardline_100": self.yardline_100, "roof": "outdoors",
                                            "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}, self.rng)
@@ -368,10 +412,12 @@ class Game:
                     self.teams[r].s["st_td"] += 1
                     if self.rng.random() < XP_RATE:
                         self._score(1, team=r)
-                    self._kickoff(receiving=self.pos)  # returning team kicks back
+                    self._kickoff(receiving=self.pos, result="punt")  # returning team kicks back
                     return
                 ret = sample_punt_return(self.rng) if out == "RETURNED" else 0
-                self._flip_field(100 - landing + ret)
+                # receiving team's yardline_100 = 100 − landing spot, then a return
+                # advances them toward the punting team's goal (−ret).
+                self._flip_field(100 - landing - ret)
             self._punt_penalty()
             return
         # GO_FOR_IT
@@ -394,12 +440,14 @@ class Game:
             self.yardline_100 = max(self.yardline_100 - yd, 1.0)
         self.ydstogo = min(10.0, self.yardline_100)
 
-    def _flip_field(self, new_yl_for_new_offense: float):
+    def _flip_field(self, new_yl_for_new_offense: float, result: str = "punt"):
+        self._finish_drive(result)
         self.pos = self.other()
         self.yardline_100 = float(np.clip(new_yl_for_new_offense, 1, 99))
         self.down, self.ydstogo = 1, min(10.0, self.yardline_100)
         self.teams[self.pos].s["drives"] += 1
         self.rz_flag = False
+        self._start_drive()
 
     # ---- scrimmage play ----------------------------------------
     def _scrimmage(self, go_for_it: bool):
@@ -464,10 +512,11 @@ class Game:
                         self.teams[d].s["def_td"] += 1
                         if self.rng.random() < XP_RATE:
                             self._score(1, team=d)
-                        self._kickoff(receiving=self.pos)  # scored-on team receives
+                        self._kickoff(receiving=self.pos, result="opp_touchdown")
                         return
                     self._turnover(return_yards=self.rng.normal(6, 8),
-                                   spot=float(np.clip(self.yardline_100 - ay, 1, 99)))
+                                   spot=float(np.clip(self.yardline_100 - ay, 1, 99)),
+                                   result="interception")
                     self.advance_clock("pass_incomplete")
                     return
                 if res == "OTHER_INCOMPLETE":
@@ -521,9 +570,10 @@ class Game:
                         self.teams[d].s["def_td"] += 1
                         if self.rng.random() < XP_RATE:
                             self._score(1, team=d)
-                        self._kickoff(receiving=self.pos)
+                        self._kickoff(receiving=self.pos, result="opp_touchdown")
                         return
-                    self._turnover(spot=float(np.clip(self.yardline_100 - gained, 1, 99)))
+                    self._turnover(spot=float(np.clip(self.yardline_100 - gained, 1, 99)),
+                                   result="fumble")
                     return
 
         # yardage bookkeeping
@@ -549,6 +599,8 @@ class Game:
         self.advance_clock(outcome_bucket, drive_ends=drive_ends)
 
         self.yardline_100 = new_yl
+        if 0 < new_yl < 50.0:
+            self._dcross = True
         # red-zone trip bookkeeping (§22 finishing metric): a drive is an RZ trip
         # once the ball sits inside the 20 (or is snapped there on a short field);
         # a TD from a flagged drive is an RZ TD.
@@ -584,13 +636,15 @@ class Game:
         else:
             self.down += 1
 
-    def _free_kick(self):
+    def _free_kick(self, result: str = "safety"):
         # `self.pos` currently = team that conceded the safety; they free-kick, other receives
+        self._finish_drive(result)
         self.pos = self.other()
         self.yardline_100 = 60.0
         self.down, self.ydstogo = 1, 10.0
         self.teams[self.pos].s["drives"] += 1
         self.rz_flag = False
+        self._start_drive()
 
     # ---- run a full game -----------------------------------------
     def run(self):
@@ -600,17 +654,20 @@ class Game:
         while self.gsr > 0 and guard < 400:
             guard += 1
             self.play()
+        self._finish_drive("end_of_half")  # clock expired mid-drive (regulation)
         # simple OT: one possession each if tied
         if self.score[0] == self.score[1]:
             for t in (0, 1):
                 self.pos = t
                 self.yardline_100, self.down, self.ydstogo = 75.0, 1, 10.0
                 self.gsr = 600
+                self._start_drive()
                 g2 = 0
                 start = tuple(self.score)
                 while self.score == list(start) and g2 < 30 and self.gsr > 0:
                     g2 += 1
                     self.play()
+                self._finish_drive("end_of_half")
         return self
 
 

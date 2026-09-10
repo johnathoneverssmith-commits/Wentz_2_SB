@@ -64,6 +64,16 @@ type Stats = Record<string, number>;
 type Ctx = Record<string, number | string>;
 type Shift = Record<string, number>;
 
+/** One per drive. `result` is a canonical key (see analysis/lib_py/drives.py). */
+export interface DriveRecord {
+  team: number;
+  startYl: number;
+  result: string;
+  plays: number;
+  crossedMid: boolean;
+  points: number;
+}
+
 function clip(x: number, lo: number, hi: number): number {
   return Math.min(Math.max(x, lo), hi);
 }
@@ -88,6 +98,16 @@ export class Game {
   receivedOpening = 1;
   rosters: [Roster, Roster] | null;
   rzFlag = false;
+
+  // ---- per-drive instrumentation (V1.6 points-gap work) --------------
+  // One record per drive: { team, startYl, result, plays, crossedMid, points }.
+  drivesLog: DriveRecord[] = [];
+  private driveOpen = false;
+  private dStartYl = 75.0;
+  private dPlays = 0;
+  private dCross = false;
+  private dTeam = 0;
+  private dPts0 = 0;
 
   constructor(rng: Rng, rosters: [Roster, Roster] | null = null) {
     this.rng = rng;
@@ -150,6 +170,29 @@ export class Game {
     s[k] = (s[k] ?? 0) + v;
   }
 
+  // ---- per-drive instrumentation --------------------------------
+  private startDrive(): void {
+    this.driveOpen = true;
+    this.dStartYl = this.yardline100;
+    this.dPlays = 0;
+    this.dCross = this.yardline100 < 50.0;
+    this.dTeam = this.pos;
+    this.dPts0 = this.score[this.pos as 0 | 1];
+  }
+
+  private finishDrive(result: string): void {
+    if (!this.driveOpen) return;
+    this.driveOpen = false;
+    this.drivesLog.push({
+      team: this.dTeam,
+      startYl: this.dStartYl,
+      result,
+      plays: this.dPlays,
+      crossedMid: this.dCross,
+      points: this.score[this.dTeam as 0 | 1] - this.dPts0,
+    });
+  }
+
   private ctx(shotgun = 0): Ctx {
     return {
       down: this.down,
@@ -184,7 +227,7 @@ export class Game {
       if (this.qtr === 3) {
         this.hsr = 1800;
         this.toRemaining = [3, 3];
-        this.kickoff(1 - this.receivedOpening);
+        this.kickoff(1 - this.receivedOpening, "end_of_half");
       }
     }
   }
@@ -202,7 +245,8 @@ export class Game {
     this.kickoff(this.other());
   }
 
-  private turnover(returnYards = 0, spot?: number): void {
+  private turnover(returnYards = 0, spot?: number, result = "downs"): void {
+    this.finishDrive(result);
     const yl = spot ?? this.yardline100;
     this.pos = this.other();
     this.yardline100 = clip(100 - yl - returnYards, 1, 99);
@@ -210,9 +254,11 @@ export class Game {
     this.ydstogo = Math.min(10.0, this.yardline100);
     this.st("drives");
     this.rzFlag = false;
+    this.startDrive();
   }
 
-  private kickoff(receiving: number): void {
+  private kickoff(receiving: number, result = "touchdown"): void {
+    this.finishDrive(result); // close the drive that led to this kickoff
     this.pos = receiving;
     if (this.rng.random() < KICKOFF_TOUCHBACK) {
       this.yardline100 = 70.0;
@@ -231,6 +277,7 @@ export class Game {
     this.ydstogo = 10.0;
     this.st("drives", 1, receiving);
     this.rzFlag = false;
+    this.startDrive();
   }
 
   private newSeries(firstDown: boolean): void {
@@ -331,6 +378,7 @@ export class Game {
 
   private kneelOut(): void {
     this.st("kneel_out");
+    this.dPlays += 1;
     const e = this.qsr > 0 ? Math.min(this.hsr, this.qsr) : this.hsr;
     this.gsr = Math.max(0, this.gsr - e);
     this.hsr = Math.max(0, this.hsr - e);
@@ -342,7 +390,7 @@ export class Game {
       if (this.qtr === 3) {
         this.hsr = 1800;
         this.toRemaining = [3, 3];
-        this.kickoff(1 - this.receivedOpening);
+        this.kickoff(1 - this.receivedOpening, "end_of_half");
       }
     }
   }
@@ -350,6 +398,7 @@ export class Game {
   private play(): void {
     this.st("plays");
     if (this.canKneelOut()) return this.kneelOut();
+    this.dPlays += 1;
     if (this.down === 3) this.st("third_att");
     if (this.down === 4) return this.fourthDown();
     return this.scrimmage(false);
@@ -366,9 +415,9 @@ export class Game {
       if (made) {
         this.st("fg_made");
         this.scorePts(3);
-        this.kickoff(this.other());
+        this.kickoff(this.other(), "field_goal");
       } else {
-        this.turnover(0, this.yardline100);
+        this.turnover(0, this.yardline100, "missed_fg");
       }
       return;
     }
@@ -379,7 +428,7 @@ export class Game {
       this.advanceClock("run_inbounds", 0, true);
       if (landing <= 0) {
         this.st("touchback");
-        this.flipField(1 - 20);
+        this.flipField(80.0); // receiving team, 1st-and-10 at its own 20
       } else {
         const out = sampleClass("M21", { yardline_100: this.yardline100, ...ENV }, this.rng);
         if (out === "RETURNED" && this.rng.random() < PUNT_RETURN_TD_RATE) {
@@ -387,11 +436,13 @@ export class Game {
           this.scorePts(6, r);
           this.st("st_td", 1, r);
           if (this.rng.random() < XP_RATE) this.scorePts(1, r);
-          this.kickoff(this.pos);
+          this.kickoff(this.pos, "punt");
           return;
         }
         const ret = out === "RETURNED" ? samplePuntReturn(this.rng) : 0;
-        this.flipField(100 - landing + ret);
+        // receiving team's yardline_100 = 100 − landing spot, then a return
+        // advances them toward the punting team's goal (−ret).
+        this.flipField(100 - landing - ret);
       }
       this.puntPenalty();
       return;
@@ -415,13 +466,15 @@ export class Game {
     this.ydstogo = Math.min(10.0, this.yardline100);
   }
 
-  private flipField(newYl: number): void {
+  private flipField(newYl: number, result = "punt"): void {
+    this.finishDrive(result);
     this.pos = this.other();
     this.yardline100 = clip(newYl, 1, 99);
     this.down = 1;
     this.ydstogo = Math.min(10.0, this.yardline100);
     this.st("drives");
     this.rzFlag = false;
+    this.startDrive();
   }
 
   // ---- scrimmage play --------------------------------------
@@ -484,10 +537,14 @@ export class Game {
             this.scorePts(6, d);
             this.st("def_td", 1, d);
             if (this.rng.random() < XP_RATE) this.scorePts(1, d);
-            this.kickoff(this.pos);
+            this.kickoff(this.pos, "opp_touchdown");
             return;
           }
-          this.turnover(this.rng.normal(6, 8), clip(this.yardline100 - ay, 1, 99));
+          this.turnover(
+            this.rng.normal(6, 8),
+            clip(this.yardline100 - ay, 1, 99),
+            "interception",
+          );
           this.advanceClock("pass_incomplete");
           return;
         }
@@ -556,10 +613,10 @@ export class Game {
             this.scorePts(6, d);
             this.st("def_td", 1, d);
             if (this.rng.random() < XP_RATE) this.scorePts(1, d);
-            this.kickoff(this.pos);
+            this.kickoff(this.pos, "opp_touchdown");
             return;
           }
-          this.turnover(0, clip(this.yardline100 - gained, 1, 99));
+          this.turnover(0, clip(this.yardline100 - gained, 1, 99), "fumble");
           return;
         }
       }
@@ -585,6 +642,7 @@ export class Game {
     this.advanceClock(outcomeBucket, 0, isTd || isSafety || failed4th);
 
     this.yardline100 = newYl;
+    if (newYl > 0 && newYl < 50.0) this.dCross = true;
     const prePlayYl = newYl + gained;
     const reachedRz = (prePlayYl > 0 && prePlayYl <= 20) || (!isTd && newYl > 0 && newYl <= 20);
     if (!this.rzFlag && reachedRz) {
@@ -618,13 +676,15 @@ export class Game {
     }
   }
 
-  private freeKick(): void {
+  private freeKick(result = "safety"): void {
+    this.finishDrive(result);
     this.pos = this.other();
     this.yardline100 = 60.0;
     this.down = 1;
     this.ydstogo = 10.0;
     this.st("drives");
     this.rzFlag = false;
+    this.startDrive();
   }
 
   // ---- run a full game --------------------------------------
@@ -636,6 +696,7 @@ export class Game {
       guard += 1;
       this.play();
     }
+    this.finishDrive("end_of_half"); // clock expired mid-drive (regulation)
     // simple OT: one possession each if tied
     if (this.score[0] === this.score[1]) {
       for (const t of [0, 1] as const) {
@@ -644,6 +705,7 @@ export class Game {
         this.down = 1;
         this.ydstogo = 10.0;
         this.gsr = 600;
+        this.startDrive();
         let g2 = 0;
         const start: [number, number] = [this.score[0], this.score[1]];
         while (
@@ -655,6 +717,7 @@ export class Game {
           g2 += 1;
           this.play();
         }
+        this.finishDrive("end_of_half");
       }
     }
     return this;
