@@ -1,19 +1,18 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **points/team-game −11.8% → −6.2%, §22 now 16/20 within 10%.** Fixes:
+Status: **points/team-game −11.8% → −2.6%, §22 16/20 within 10%.** Fixes, in
+order of impact: `CLOCK_SCALE = 0.958` (M24 snap gaps ran ~1 s/play long →
+drives/team-game −3.3% → +1.2%; the big one); the `rz_yac` table (RZ
+completions caught short now score at the empirical goal-line-reach rate);
 two punt bugs (field position); RZ `air_yards` split into gl1..gl4 (goal-line
-throws track the end zone); `CLOCK_SCALE = 0.958` — the M24 snap gaps ran
-~1 s/play long, so drives ate too much wall clock and ~0.5 fewer fit per
-team-game. The clock trim was the big one: drives/team-game −3.3% → +1.2%,
-points/drive −3.5% → −2.5%, `rz_td_rate` −7.7% → −2.3%. Remaining fails are all
+throws track the end zone); `PICK_SIX_RATE`/`SCOOP_SIX_RATE` were ~5× too low.
+Also fixed the §22 `plays_per_team_game` definition (scrimmage-only vs the
+engine's all-plays; empirical 62.0 → 67.8). The 4 remaining §22 fails are all
 expected: `points_sd` (rating layer OFF, no team spread) + the 3 deliberate
-penalty-volume metrics. Also fixed the §22 `plays_per_team_game` definition
-(was scrimmage-only vs the engine's all-plays; empirical 62.0 → 67.8).
-Also fixed: `PICK_SIX_RATE`/`SCOOP_SIX_RATE` were ~5× too low → points −6.2% →
-**−4.9%**. Deferred (each small): RZ pass-TD still ~−20pp yl 5–20 (diffuse
-M05/M09/M10); `end_of_half` 8.8 v 6.85% (needs real half/game-end drive
-management — a no-huddle rule was tried and didn't move it); `opp_touchdown`
-0.65 v 1.11% (exotic return TDs the engine doesn't model).
+penalty-volume metrics. Deferred (each small): RZ pass-TD still ~10 pp short
+at yl 5–20 (M05 depth mix); `end_of_half` 8.8 v 6.85% → see §"end of half"
+below (needed for play-by-play mode); `opp_touchdown` 0.77 v 1.11% (exotic
+return TDs).
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
 opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
@@ -407,8 +406,18 @@ Python §22 keeps it within 10%).
    half/game-end drive management (when is a drive not worth continuing;
    kneel-downs; the receiving team declining a last possession), which is a
    bigger effort than the last ~0.3 pts/team-game warrants right now.
-3. The diffuse RZ passing residual (yl 5–20 pass-TD ~−20pp) — a multi-resolver
-   M05/M09/M10 RZ recalibration, its own effort.
+3. **RZ passing recalibration — DONE (2026-09-10).** Added a `rz_yac` table:
+   the empirical YAC PMF for a RZ completion caught *short* of the goal, keyed
+   by catch position (`catch_yl` = yardline_100 − air_yards). M10 regresses
+   goal-line YAC toward the league mean and misses the reach/dive — a
+   completion at the opp 3 scored ~25% in the engine vs ~48% empirically. The
+   engine now draws from `rz_yac` instead when `yardline_100 ≤ 20` and the ball
+   is caught short. `pass_comp TD/pl`: yl 3–4 0.63 → **0.77** (emp 0.86), yl
+   5–9 0.40 → **0.50** (emp 0.60), yl 15–20 0.11 → **0.15** (emp 0.18).
+   **points/team-game −4.9% → −2.6%.** `11_yac.write_rz_yac` → `rz_yac.parquet`
+   → JSON; `sample_rz_yac` in both engines. Residual (~10 pp short at yl 5–20)
+   is the engine's RZ completions still skewing to lower air yards / behind-LOS
+   — an M05 depth-mix effect, small now.
 4. `opp_touchdown` still 0.65 v 1.11% — the gap is fumble-return TDs on
    non-turnover plays (strip-sack scoop-and-score) + blocked-kick / muffed-punt
    TDs, none of which the engine models. Small.

@@ -151,6 +151,15 @@ def sample_punt_return(rng: np.random.Generator) -> int:
     return _draw(_table("punt")["ret"], rng.random())
 
 
+def sample_rz_yac(catch_yl: float, rng: np.random.Generator) -> int:
+    """YAC for a red-zone completion caught `catch_yl` yards short of the goal
+    (1..25). Empirical PMF by catch-position band — see 11_yac.write_rz_yac."""
+    c = catch_yl
+    band = ("1" if c <= 1 else "2" if c <= 2 else "3" if c <= 3 else "4-5" if c <= 5
+            else "6-8" if c <= 8 else "9-12" if c <= 12 else "13-18" if c <= 18 else "19-25")
+    return _draw(_table("rz_yac")[band], rng.random())
+
+
 # ---- penalty enforcement (Model 25c) ----------------------------------
 
 def sample_penalty_bucket(hazard: str, play_family: str, rng: np.random.Generator) -> dict:

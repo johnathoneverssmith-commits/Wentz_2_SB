@@ -187,6 +187,17 @@ export function samplePuntReturn(rng: Rng): number {
   return draw(table<{ ret: Pmf }>("punt").ret, rng.random());
 }
 
+/**
+ * YAC for a red-zone completion caught `catchYl` yards short of the goal (1..25).
+ * Empirical PMF by catch-position band — see analysis/11_yac.write_rz_yac.
+ */
+export function sampleRzYac(catchYl: number, rng: Rng): number {
+  const c = catchYl;
+  const band =
+    c <= 1 ? "1" : c <= 2 ? "2" : c <= 3 ? "3" : c <= 5 ? "4-5" : c <= 8 ? "6-8" : c <= 12 ? "9-12" : c <= 18 ? "13-18" : "19-25";
+  return draw(table<Record<string, Pmf>>("rz_yac")[band]!, rng.random());
+}
+
 // ---- penalty enforcement (Model 25c) --------------------------------
 
 export interface PenaltyBucket {

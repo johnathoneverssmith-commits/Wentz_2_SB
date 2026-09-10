@@ -417,6 +417,17 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   Tradeoff (`explosive_pass_rate` +9→+10%) resolved once the clock fix landed
   (back to +5%). **Not closed:** yl 5–20 pass-TD still ~−20pp — a diffuse
   M05/M09/M10 RZ interaction, deferred.
+- **RZ passing recalibration (2026-09-10) — `rz_yac` table.** M10 regresses
+  goal-line YAC toward the league mean and misses the reach/dive: a completion
+  caught at the opp 3 scored ~25% in the engine vs ~48% empirically. Added
+  `11_yac.write_rz_yac` → `artifacts/distributions/rz_yac.parquet` → portable
+  JSON: the empirical YAC PMF for a RZ completion caught *short* of the goal,
+  keyed by catch position (`catch_yl` = yardline_100 − air_yards, bands
+  1/2/3/4-5/6-8/9-12/13-18/19-25). `sample_rz_yac` in both engines; used when
+  `yardline_100 ≤ 20` and the ball is caught short. `pass_comp TD/pl` yl 3–4
+  0.63 → 0.77 (emp 0.86), yl 5–9 0.40 → 0.50 (emp 0.60). **points/team-game
+  −4.9% → −2.6%**, §22 16/20. Residual ~10 pp short at yl 5–20 = the engine's
+  RZ completions still skew to shorter throws (M05 depth mix), small.
 - **Return-TD rate fix (2026-09-10).** `PICK_SIX_RATE` / `SCOOP_SIX_RATE` were
   ~5× too low (0.018 / 0.012 vs empirical 0.088 / 0.064 — 111/1254 INTs, 55/863
   lost fumbles returned for TDs). Fixed → `opp_touchdown` drive share 0.17% →

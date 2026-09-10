@@ -15,6 +15,7 @@ import lib_py  # thread-env setup; MUST precede numpy/polars
 import polars as pl
 
 from lib_py.pbp import load_clean
+from lib_py.report import ARTIFACTS
 from lib_py.yardage import YardageSpec, run_yardage_resolver
 
 SOURCE_COLS = [
@@ -48,6 +49,47 @@ def ctx_bucket(df: pl.DataFrame) -> pl.Expr:
     return pl.col("depth_category") + "|" + pl.when(pl.col("yardline_100") <= 15).then(pl.lit("rz")).otherwise(pl.lit("field"))
 
 
+def write_rz_yac() -> None:
+    """Empirical YAC PMF for a red-zone completion caught *short* of the goal
+    line, keyed by where the ball is caught (`catch_yl` = yardline_100 −
+    air_yards). The M10 class model regresses YAC toward the league mean and
+    under-predicts the goal-line reach/dive — a completion caught at the opp 2
+    scores ~54% of the time on YAC alone, but M10 gives it ~25%. The engine
+    draws from this table instead when `yardline_100 <= 20` and the ball is
+    caught short (`0 < catch_yl <= 25`). Production seasons.
+    """
+    df = load_clean((2023, 2024, 2025), base="core", penalty_free=True,
+                    columns=["yardline_100", "air_yards", "yards_after_catch", "complete_pass"])
+    df = df.filter(
+        (_i8("complete_pass") == 1) & pl.col("yards_after_catch").is_not_null()
+        & pl.col("air_yards").is_not_null() & (pl.col("yardline_100") <= 25)
+    )
+    df = df.with_columns(
+        (pl.col("yardline_100") - pl.col("air_yards")).alias("catch_yl"),
+        pl.col("yards_after_catch").clip(-4, 40).round().cast(pl.Int32).alias("yac_int"),
+    ).filter((pl.col("catch_yl") >= 1) & (pl.col("catch_yl") <= 25))
+    # catch-position bands: tight near the goal, wider out
+    cb = (
+        pl.when(pl.col("catch_yl") <= 1).then(pl.lit("1"))
+        .when(pl.col("catch_yl") <= 2).then(pl.lit("2"))
+        .when(pl.col("catch_yl") <= 3).then(pl.lit("3"))
+        .when(pl.col("catch_yl") <= 5).then(pl.lit("4-5"))
+        .when(pl.col("catch_yl") <= 8).then(pl.lit("6-8"))
+        .when(pl.col("catch_yl") <= 12).then(pl.lit("9-12"))
+        .when(pl.col("catch_yl") <= 18).then(pl.lit("13-18"))
+        .otherwise(pl.lit("19-25"))
+    )
+    tbl = (
+        df.with_columns(cb.alias("catch_band"))
+        .group_by(["catch_band", "yac_int"]).agg(pl.len().alias("count"))
+        .sort(["catch_band", "yac_int"])
+    )
+    out = ARTIFACTS / "distributions"
+    tbl.write_parquet(out / "rz_yac.parquet")
+    print(f"  wrote {out / 'rz_yac.parquet'}  ({tbl.height} rows, "
+          f"{tbl['catch_band'].n_unique()} bands)")
+
+
 SPEC = YardageSpec(
     model_id="M10",
     name="Yards after catch",
@@ -67,3 +109,4 @@ SPEC = YardageSpec(
 
 if __name__ == "__main__":
     run_yardage_resolver(SPEC, build_frame)
+    write_rz_yac()

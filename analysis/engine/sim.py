@@ -24,6 +24,7 @@ from .loaders import (
     sample_punt_distance,
     sample_punt_return,
     sample_runoff,
+    sample_rz_yac,
 )
 
 PASS_LOC = np.array(["left", "middle", "right"])
@@ -559,10 +560,16 @@ class Game:
                     gained = 0.0
                 else:  # COMPLETE
                     self.st("completion")
-                    yac_cat = sample_class("M10", {**self.ctx(sg), "air_yards": ay,
-                                                   "depth_category": depth, "pass_location": ploc}, self.rng)
-                    yac_bucket = depth + "|" + ("rz" if self.yardline_100 <= 15 else "field")
-                    yac = float(sample_exact_yards("m10", yac_cat, yac_bucket, self.rng)) + self._yac_yd_mod()
+                    catch_yl = self.yardline_100 - ay
+                    if self.yardline_100 <= 20 and 0 < catch_yl <= 25:
+                        # M10 regresses goal-line YAC toward the league mean and
+                        # misses the reach/dive; use the catch-position PMF.
+                        yac = float(sample_rz_yac(catch_yl, self.rng)) + self._yac_yd_mod()
+                    else:
+                        yac_cat = sample_class("M10", {**self.ctx(sg), "air_yards": ay,
+                                                       "depth_category": depth, "pass_location": ploc}, self.rng)
+                        yac_bucket = depth + "|" + ("rz" if self.yardline_100 <= 15 else "field")
+                        yac = float(sample_exact_yards("m10", yac_cat, yac_bucket, self.rng)) + self._yac_yd_mod()
                     yac = max(yac, -4.0)
                     gained = ay + yac
                     self.teams[self.pos].s["yac"] += max(yac, 0)

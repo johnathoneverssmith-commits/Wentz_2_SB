@@ -76,6 +76,12 @@ def punt() -> dict:
     return {"dist": by_fp, "ret": _pmf(ret["ry"].to_numpy(), ret["n"].to_numpy())}
 
 
+def rz_yac() -> dict:
+    df = pl.read_parquet(_DIST / "rz_yac.parquet")
+    return {band: _pmf(g["yac_int"].to_numpy(), g["count"].to_numpy())
+            for (band,), g in df.group_by(["catch_band"])}
+
+
 def penalty() -> dict:
     enf = pl.read_parquet(_DIST / "penalty_enforcement.parquet")
     by: dict = {}
@@ -96,7 +102,7 @@ def penalty() -> dict:
 TABLES = {
     "m10_exact": lambda: yardage("m10"), "m11_exact": lambda: yardage("m11"),
     "m14_exact": lambda: yardage("m14"), "air_yards": air_yards, "clock_runoff": clock,
-    "punt": punt, "penalty": penalty,
+    "punt": punt, "penalty": penalty, "rz_yac": rz_yac,
 }
 
 

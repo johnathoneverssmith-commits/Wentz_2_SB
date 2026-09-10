@@ -19,6 +19,7 @@ import {
   samplePuntDistance,
   samplePuntReturn,
   sampleRunoff,
+  sampleRzYac,
 } from "./loaders.js";
 import {
   completionLogitShift,
@@ -564,13 +565,21 @@ export class Game {
           gained = 0.0;
         } else {
           this.st("completion");
-          const yacCat = sampleClass(
-            "M10",
-            { ...this.ctx(sg), air_yards: ay, depth_category: depth, pass_location: ploc },
-            this.rng,
-          );
-          const yacBucket = `${depth}|${this.yardline100 <= 15 ? "rz" : "field"}`;
-          let yac = sampleExactYards("m10", yacCat, yacBucket, this.rng) + this.yacYdMod();
+          const catchYl = this.yardline100 - ay;
+          let yac: number;
+          if (this.yardline100 <= 20 && catchYl > 0 && catchYl <= 25) {
+            // M10 regresses goal-line YAC toward the league mean and misses the
+            // reach/dive; use the catch-position PMF.
+            yac = sampleRzYac(catchYl, this.rng) + this.yacYdMod();
+          } else {
+            const yacCat = sampleClass(
+              "M10",
+              { ...this.ctx(sg), air_yards: ay, depth_category: depth, pass_location: ploc },
+              this.rng,
+            );
+            const yacBucket = `${depth}|${this.yardline100 <= 15 ? "rz" : "field"}`;
+            yac = sampleExactYards("m10", yacCat, yacBucket, this.rng) + this.yacYdMod();
+          }
           yac = Math.max(yac, -4.0);
           yacAdded = Math.max(yac, 0);
           this.st("yac", yacAdded);
