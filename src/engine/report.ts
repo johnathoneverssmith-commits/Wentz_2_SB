@@ -8,10 +8,15 @@
 
 import { type BoxScore, clock } from "./boxscore.js";
 import { type ClinchResult, type ClinchTag, clinchStatus } from "./clinch.js";
-import { DIVISION_IDS, NFL_TEAMS, divisionsIn } from "./nfl-structure.js";
+import { type Conference, DIVISION_IDS, NFL_TEAMS, divisionsIn } from "./nfl-structure.js";
 import type { PlayoffGame } from "./playoffs.js";
 import { BYE_WEEK_RANGE, type SchedulePair, TRADE_DEADLINE_WEEK } from "./schedule.js";
-import type { NflSeasonResult, SeasonGame } from "./season.js";
+import {
+  type NflSeasonResult,
+  type SeasonGame,
+  type SeasonProgress,
+  playoffPicture,
+} from "./season.js";
 import { type FinishedGame, type StandingRow, computeStandings } from "./standings.js";
 
 function rec(w: number, l: number, t: number): string {
@@ -158,6 +163,35 @@ function topTag(c: ClinchResult): ClinchTag | null {
     if (c.tags.includes(t)) return t;
   }
   return null;
+}
+
+/** "If the season ended today" + who's alive, per conference. */
+export function formatPlayoffPicture(p: SeasonProgress, title = "PLAYOFF PICTURE"): string {
+  const pic = playoffPicture(p);
+  const week = p.nextWeek - 1;
+  const lines = ["=".repeat(56), `  ${title} — through week ${week}`, "=".repeat(56)];
+  for (const conf of ["AFC", "NFC"] as Conference[]) {
+    lines.push("", `=== ${conf} ===`);
+    for (const s of pic[conf].seeds) {
+      const tag = s.clinch ? ` ${s.clinch}` : "";
+      lines.push(
+        `  ${s.seed}  ${s.team.padEnd(4)} ${s.record.padEnd(7)}` +
+          ` ${s.wonDivision ? "div winner" : "wild card "}${tag}`,
+      );
+      if (s.tiebreaker) lines.push(`        ↳ ${s.tiebreaker}`);
+    }
+    if (pic[conf].inHunt.length) {
+      lines.push("  in the hunt:");
+      for (const h of pic[conf].inHunt.slice(0, 6)) {
+        lines.push(`     ${h.team.padEnd(4)} ${h.record.padEnd(7)} ${h.gamesBack} GB`);
+      }
+    }
+    if (pic[conf].eliminated.length) {
+      lines.push(`  eliminated: ${pic[conf].eliminated.join(", ")}`);
+    }
+  }
+  lines.push("");
+  return lines.join("\n");
 }
 
 /** Two-column box score. */

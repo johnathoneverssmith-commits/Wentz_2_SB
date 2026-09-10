@@ -35,8 +35,8 @@ conservative clinch/elimination tracker (`docs/decisions.md` → A1).
 standings + clinch tags as of week W. For an interactive UI there's a
 week-by-week loop (`startSeason` → `playWeek` → `finishSeason`, plus
 `progressStandings` / `progressClinches` / `remainingOpponents` /
-`boxScoreFor`) and a matching round-by-round playoff stepper (`startPlayoffs`
-→ `playPlayoffRound` → `finishPlayoffs`). Both step functions are pure and
+`boxScoreFor` / `playoffPicture`) and a matching round-by-round playoff
+stepper (`startPlayoffs` → `playPlayoffRound` → `finishPlayoffs`). Both step functions are pure and
 byte-identical to their one-shot equivalents (`simulateNflSeason` /
 `simulatePlayoffs`); `serde.ts` saves/loads the progress states with a
 version + shape check. Headless + deterministic; round-robin `simulateSeason`
@@ -74,7 +74,7 @@ npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm run analysis:audit                    # spec §28 schema audit -> artifacts/
 npm start             # loads + prints the active pool
-npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W] [--box KC@BUF]  # sim a season/franchise; --through W = standings+clinch at week W; --box = one game's box score
+npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W] [--picture W] [--box KC@BUF]  # season/franchise; --through=standings+clinch, --picture=seeds+in-the-hunt, --box=one game's box score
 ```
 
 ## Layout

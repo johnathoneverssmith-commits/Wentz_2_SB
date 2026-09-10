@@ -10,8 +10,8 @@
  */
 
 import { type BoxScore, extractBoxScore } from "./boxscore.js";
-import { type ClinchResult, clinchStatus } from "./clinch.js";
-import { NFL_TEAMS } from "./nfl-structure.js";
+import { type ClinchResult, type ClinchTag, clinchStatus } from "./clinch.js";
+import { type Conference, NFL_TEAMS } from "./nfl-structure.js";
 import { type PlayoffResult, simulatePlayoffs } from "./playoffs.js";
 import { roster, teamList } from "./roster.js";
 import { type SchedulePair, nflSchedule } from "./schedule.js";
@@ -284,6 +284,92 @@ export function boxScoreFor(p: SeasonProgress, game: { home: string; away: strin
   if (i < 0) throw new Error(`boxScoreFor: ${game.away} @ ${game.home} is not on the schedule`);
   const s = p.schedule[i]!;
   return extractBoxScore(simulateGame(p.seed + i, s.home, s.away), s.home, s.away, s.week);
+}
+
+export interface PictureSeed {
+  seed: number;
+  team: string;
+  record: string;
+  wonDivision: boolean;
+  /** strongest clinch/elimination tag, if any */
+  clinch: ClinchTag | null;
+  /** why this team holds the seed, if a tiebreaker decided it */
+  tiebreaker?: string;
+}
+
+export interface PictureContender {
+  team: string;
+  record: string;
+  /** games behind the current #7 seed (½ per game; 0 if it would be in on a tie) */
+  gamesBack: number;
+  clinch: ClinchTag | null;
+}
+
+export interface ConferencePicture {
+  seeds: PictureSeed[];
+  inHunt: PictureContender[];
+  eliminated: string[];
+}
+
+const winEquiv = (r: { wins: number; losses: number; ties: number }) => r.wins + 0.5 * r.ties;
+
+/**
+ * "If the season ended today" plus who's still alive — folds `progressStandings`
+ * and `progressClinches` into one per-conference view for a playoff-picture UI.
+ */
+export function playoffPicture(p: SeasonProgress): Record<Conference, ConferencePicture> {
+  const standings = progressStandings(p);
+  const clinch = new Map(progressClinches(p).map((c) => [c.team, strongestTag(c)]));
+  const rowOf = new Map(standings.rows.map((r) => [r.team, r]));
+
+  const out = {} as Record<Conference, ConferencePicture>;
+  for (const conf of ["AFC", "NFC"] as Conference[]) {
+    const seedTeams = standings.seeding[conf].seeds;
+    const seeds: PictureSeed[] = seedTeams.map((team, i) => {
+      const r = rowOf.get(team)!;
+      return {
+        seed: i + 1,
+        team,
+        record: recordText(r),
+        wonDivision: r.wonDivision,
+        clinch: clinch.get(team) ?? null,
+        ...(r.tiebreaker ? { tiebreaker: r.tiebreaker } : {}),
+      };
+    });
+
+    const cutoff = seedTeams.length ? winEquiv(rowOf.get(seedTeams[seedTeams.length - 1]!)!) : 0;
+    const rest = standings.rows
+      .filter((r) => r.conference === conf && !seedTeams.includes(r.team))
+      .sort((a, b) => winEquiv(b) - winEquiv(a) || b.pointDiff - a.pointDiff);
+
+    const inHunt: PictureContender[] = [];
+    const eliminated: string[] = [];
+    for (const r of rest) {
+      if (clinch.get(r.team) === "eliminated") {
+        eliminated.push(r.team);
+      } else {
+        inHunt.push({
+          team: r.team,
+          record: recordText(r),
+          gamesBack: Math.max(0, (cutoff - winEquiv(r)) / 2),
+          clinch: clinch.get(r.team) ?? null,
+        });
+      }
+    }
+    out[conf] = { seeds, inHunt, eliminated };
+  }
+  return out;
+}
+
+function recordText(r: { wins: number; losses: number; ties: number }): string {
+  return r.ties > 0 ? `${r.wins}-${r.losses}-${r.ties}` : `${r.wins}-${r.losses}`;
+}
+
+function strongestTag(c: ClinchResult): ClinchTag | null {
+  for (const t of ["homefield", "bye", "division", "berth", "eliminated"] as const) {
+    if (c.tags.includes(t)) return t;
+  }
+  return null;
 }
 
 /**

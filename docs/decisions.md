@@ -597,7 +597,11 @@ guard.
 - **Week-by-week loop** (`season.ts`) — `startSeason` → `playWeek` (pure step,
   returns advanced progress + that week's games) → `finishSeason` (plays out
   the rest + the playoffs). `progressStandings` / `progressClinches` /
-  `remainingOpponents` read the partial state. `finishSeason(startSeason(seed,
+  `remainingOpponents` read the partial state; `playoffPicture(p)` folds
+  standings + clinches into a per-conference "if the season ended today"
+  (7 seeds with clinch tags + tiebreaker notes) plus `inHunt` (games back from
+  the #7 seed) and `eliminated`. `formatPlayoffPicture` /
+  `npm run season -- --picture W`. `finishSeason(startSeason(seed,
   opts))` is byte-identical to `simulateNflSeason` (same schedule, same per-game
   seed offset = index in the 272-game slate), which is now defined as exactly
   that. This is the surface the interactive franchise UI drives.

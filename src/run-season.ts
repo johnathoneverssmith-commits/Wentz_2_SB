@@ -14,11 +14,18 @@ import { resolve } from "node:path";
 import { nflSchedule } from "./engine/schedule.js";
 import {
   formatBoxScore,
+  formatPlayoffPicture,
   formatSeasonReport,
   formatStandingsCompact,
   formatStandingsThrough,
 } from "./engine/report.js";
-import { boxScoreFor, simulateFranchise, simulateNflSeason, startSeason } from "./engine/season.js";
+import {
+  boxScoreFor,
+  playThroughWeek,
+  simulateFranchise,
+  simulateNflSeason,
+  startSeason,
+} from "./engine/season.js";
 
 interface Args {
   seed: number;
@@ -26,6 +33,7 @@ interface Args {
   seasons: number;
   compact: boolean;
   through: number | null;
+  picture: number | null;
   box: string | null;
 }
 
@@ -36,6 +44,7 @@ function parseArgs(argv: string[]): Args {
     seasons: 1,
     compact: false,
     through: null,
+    picture: null,
     box: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -45,15 +54,21 @@ function parseArgs(argv: string[]): Args {
     else if (k === "--year") (a.year = Number(v)), (i += 1);
     else if (k === "--seasons") (a.seasons = Number(v)), (i += 1);
     else if (k === "--through") (a.through = Number(v)), (i += 1);
+    else if (k === "--picture") (a.picture = Number(v)), (i += 1);
     else if (k === "--box") (a.box = v ?? null), (i += 1);
     else if (k === "--compact") a.compact = true;
     else throw new Error(`unknown arg: ${k}`);
   }
   if (!Number.isFinite(a.seed) || !Number.isInteger(a.year) || a.seasons < 1) {
-    throw new Error("usage: --seed N --year Y --seasons K [--compact] [--through W] [--box AWAY@HOME]");
+    throw new Error(
+      "usage: --seed N --year Y --seasons K [--compact] [--through W] [--picture W] [--box AWAY@HOME]",
+    );
   }
-  if (a.through !== null && (a.through < 1 || a.through > 18)) {
-    throw new Error("--through W must be 1–18");
+  for (const [name, w] of [
+    ["--through", a.through],
+    ["--picture", a.picture],
+  ] as const) {
+    if (w !== null && (w < 1 || w > 18)) throw new Error(`${name} W must be 1–18`);
   }
   if (a.box !== null && !/^[A-Z]{2,3}@[A-Z]{2,3}$/.test(a.box)) {
     throw new Error('--box must look like "KC@BUF"');
@@ -66,6 +81,11 @@ function run(a: Args): void {
     const [away, home] = a.box.split("@") as [string, string];
     const box = boxScoreFor(startSeason(a.seed, { year: a.year }), { home, away });
     console.log(formatBoxScore(box));
+    return;
+  }
+  if (a.picture !== null) {
+    const p = playThroughWeek(startSeason(a.seed, { year: a.year }), a.picture);
+    console.log(formatPlayoffPicture(p, `NFL ${a.year}`));
     return;
   }
   if (a.through !== null) {
