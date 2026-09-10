@@ -406,9 +406,18 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   throw SHORT — depth mix inside the 10 is **DEEP 0.00 v 0.07 emp**, SHORT 0.85
   v 0.77 — so the engine throws shorter/easier passes (comp% 0.575 v 0.485) but
   a 1–2 air-yard completion from the 3 stops short of the goal line where a real
-  goal-line throw goes *into the end zone*. **Largest remaining points lever;**
-  fix targets RZ air yards (`sample_air_yards` / `air_yards` `opp_rz` table /
-  the cap). drives/tg −3.4% is the M24 clock, separate. Full plan:
+  goal-line throw goes *into the end zone*.
+- **RZ air-yards fix (2026-09-10, partial).** The `air_yards` table now splits
+  the RZ into `gl1`(≤2)/`gl2`(3–4)/`gl3`(5–7)/`gl4`(8–12)/`rz`(13–20) — the old
+  pooled `opp_rz` bucket was a flat 0–9 SHORT draw, but empirically RZ air-yards
+  spike at the exact yardline (from the 3 you throw it ~3). `sample_air_yards`
+  (both engines) walks a widening fallback chain. Effect (n=200–250):
+  `pass_comp TD/pl` yl 3–4 0.56→0.63; points/drive −4.2%→~−3.5%;
+  `never_crossed_mid` now exact; drive outcome mix all within ~1.7pp.
+  **Tradeoff, kept:** `explosive_pass_rate` +9.2%→+10.3% (borderline; RZ throws
+  into the EZ from the 15–20 are legit 20-yд explosives). **Not closed:** yl
+  5–20 pass-TD still ~−20pp — a diffuse M05/M09/M10 RZ interaction, deferred.
+  drives/tg −3.3% (M24 clock) is next. Full plan:
   [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**

@@ -133,13 +133,36 @@ export function sampleExactYards(stem: string, category: string, bucket: string,
 }
 
 export function sampleAirYards(cat: string, down: number, yardline100: number, rng: Rng): number {
-  const fp = yardline100 <= 20 ? "opp_rz" : yardline100 <= 50 ? "opp_mid" : "own_half";
+  // Red zone is split finely (gl1..gl4) so air yards track the goal line; fall
+  // back outward for thin cells. See analysis/06_pass_depth.write_exact_air_yards.
+  const fps =
+    yardline100 <= 2
+      ? ["gl1", "gl2", "gl3"]
+      : yardline100 <= 4
+        ? ["gl2", "gl3", "gl1"]
+        : yardline100 <= 7
+          ? ["gl3", "gl4", "gl2"]
+          : yardline100 <= 12
+            ? ["gl4", "rz", "gl3"]
+            : yardline100 <= 20
+              ? ["rz", "gl4"]
+              : yardline100 <= 50
+                ? ["opp_mid"]
+                : ["own_half"];
   const t = table<{
     by: Record<string, Record<string, Record<string, Pmf>>>;
     glob: Record<string, Pmf>;
   }>("air_yards");
-  const leaf = t.by[cat]?.[String(Math.trunc(down))]?.[fp] ?? t.glob[cat];
-  if (!leaf) throw new Error(`sampleAirYards: no PMF for ${cat}/${down}/${fp}`);
+  const byCatDown = t.by[cat]?.[String(Math.trunc(down))] ?? {};
+  let leaf: Pmf | undefined;
+  for (const f of fps) {
+    if (byCatDown[f]) {
+      leaf = byCatDown[f];
+      break;
+    }
+  }
+  leaf ??= t.glob[cat];
+  if (!leaf) throw new Error(`sampleAirYards: no PMF for ${cat}/${down}/${fps.join(",")}`);
   return draw(leaf, rng.random());
 }
 

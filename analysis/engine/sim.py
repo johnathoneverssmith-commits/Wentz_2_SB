@@ -510,9 +510,9 @@ class Game:
                 self.st("pass_att")
                 depth = sample_class("M05", self.ctx(sg), self.rng)
                 ay = sample_air_yards(depth, self.down, self.yardline_100, self.rng)
-                # you can't throw more than a few yards past the end zone; near the
-                # goal line, cap the air yards and re-derive the depth so M09/M10
-                # get consistent features (uncapped deep balls at the 8 inflate INTs).
+                # you can't throw more than a few yards past the end zone. The RZ
+                # air-yards buckets (loaders.sample_air_yards gl1..gl4) now track
+                # the goal line, so this cap only bites on the rare deep shot.
                 ay = int(min(ay, self.yardline_100 + 3))
                 depth = ("BEHIND_LOS" if ay < 0 else "SHORT" if ay <= 9
                          else "INTERMEDIATE" if ay <= 19 else "DEEP")
@@ -526,6 +526,7 @@ class Game:
                 self.teams[self.pos].s["air_yards"] += ay
                 if _trec is not None:
                     _trec["depth"] = depth
+                    _trec["ay"] = int(ay)
                     _trec["outcome"] = {"INTERCEPTION": "int", "OTHER_INCOMPLETE": "pass_inc",
                                         "COMPLETE": "pass_comp"}.get(res, res)
                 if res == "INTERCEPTION":

@@ -61,10 +61,21 @@ def build_frame(seasons: tuple[int, ...]) -> pl.DataFrame:
 
 
 def write_exact_air_yards() -> None:
-    """Empirical exact air_yards per (depth_category x down x field-pos band), production seasons."""
+    """Empirical exact air_yards per (depth_category x down x field-pos band), production seasons.
+
+    The red zone is split finely: near the goal line the air_yards distribution
+    is a tight spike at the yardline (you throw the ball *to* the end zone), which
+    the old pooled `opp_rz` bucket (yl 1-20) washed out — completions were caught
+    short of the goal too often (V1.6 red-zone probe). `sample_air_yards` falls
+    back gl_inner -> gl_outer -> rz -> glob for thin cells.
+    """
     df = build_frame((2023, 2024, 2025))
     df = df.with_columns(
-        pl.when(pl.col("yardline_100") <= 20).then(pl.lit("opp_rz"))
+        pl.when(pl.col("yardline_100") <= 2).then(pl.lit("gl1"))
+        .when(pl.col("yardline_100") <= 4).then(pl.lit("gl2"))
+        .when(pl.col("yardline_100") <= 7).then(pl.lit("gl3"))
+        .when(pl.col("yardline_100") <= 12).then(pl.lit("gl4"))
+        .when(pl.col("yardline_100") <= 20).then(pl.lit("rz"))
         .when(pl.col("yardline_100") <= 50).then(pl.lit("opp_mid"))
         .otherwise(pl.lit("own_half")).alias("fp_band"),
         pl.col("air_yards").cast(pl.Int32).alias("air_yards_int"),

@@ -113,9 +113,23 @@ def sample_exact_yards(stem: str, category: str, bucket: str, rng: np.random.Gen
 
 
 def sample_air_yards(cat: str, down: int, yardline_100: float, rng: np.random.Generator) -> int:
-    fp = "opp_rz" if yardline_100 <= 20 else "opp_mid" if yardline_100 <= 50 else "own_half"
+    if yardline_100 <= 2:
+        fps = ("gl1", "gl2", "gl3")
+    elif yardline_100 <= 4:
+        fps = ("gl2", "gl3", "gl1")
+    elif yardline_100 <= 7:
+        fps = ("gl3", "gl4", "gl2")
+    elif yardline_100 <= 12:
+        fps = ("gl4", "rz", "gl3")
+    elif yardline_100 <= 20:
+        fps = ("rz", "gl4")
+    elif yardline_100 <= 50:
+        fps = ("opp_mid",)
+    else:
+        fps = ("own_half",)
     t = _table("air_yards")
-    leaf = t["by"].get(cat, {}).get(str(int(down)), {}).get(fp) or t["glob"][cat]
+    by = t["by"].get(cat, {}).get(str(int(down)), {})
+    leaf = next((by[f] for f in fps if f in by), None) or t["glob"][cat]
     return _draw(leaf, rng.random())
 
 

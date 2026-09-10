@@ -255,18 +255,15 @@ def main() -> None:
            "it to hit the empirical count pushes points from −10% to −16%, because the physical-"
            "outcome resolvers are fit penalty-FREE (§6.2) and this engine's drive model over-"
            "punishes offensive fouls. Reconciling the two needs gained-conditioned hazards (V1.6).",
-           "- **points/team-game ~12% low — V1.6 (`drive_baseline.json`, `lib_py/drives.py`).** "
-           "Per-drive instrumentation + the shared drive-table comparison fixed two punt bugs "
-           "(touchback put the receiver at the opponent's 1; a return moved them *backward*), "
-           "taking drive start field position to within ~1 yд of empirical and points/drive from "
-           "−6.8% to **−4.2%** (1.86 v 1.94). A per-play trace then showed the residual is **not** "
-           "per-play football: on drives starting ≥ own 30, the engine's down-state mix, "
-           "play-call, run yardage, per-state conversion and turnover rate all match empirical. "
-           "The FD/drive deficit (1.70 v 1.91) is *exactly* the ~0.17 penalty first downs/drive "
-           "the engine doesn't produce — penalties run −25% volume. **Next: re-test "
-           "`PENALTY_HAZARD_SCALE`** now that field position is fixed (the old −16%-points result "
-           "predates the punt fixes). Separately: −3% fewer drives (M24 clock) and ~1pp too few "
-           "return TDs. See `docs/v16_points_gap_plan.md`. No 2-point tries (EV-neutral).",
+           "- **points/team-game ~12% low — V1.6 (`docs/v16_points_gap_plan.md`).** Fixed two "
+           "punt bugs (touchback → opponent's 1; return sign) → drive start field position now "
+           "within ~1 yд of empirical, points/drive −6.8% → −3.5%, `never_crossed_mid` exact. "
+           "Ruled out: within-drive momentum (ρ≈0), and scaling `PENALTY_HAZARD_SCALE` (the "
+           "defensive-foul first downs it adds are cancelled by the offensive fouls). Split the "
+           "RZ `air_yards` table finely (gl1..gl4) so goal-line throws track the end zone — "
+           "`pass_comp TD/pl` yl 3–4 0.56 → 0.63 (tradeoff: `explosive_pass_rate` +9→+10%, kept). "
+           "Remaining: RZ pass-TD still ~−20pp yl 5–20 (diffuse M05/M09/M10, deferred); "
+           "drives/team-game −3.3% (M24 clock, next); return-TD rate ~10× low. No 2-pt tries.",
            "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
            "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
            "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",

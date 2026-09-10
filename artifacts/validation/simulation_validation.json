@@ -1,367 +1,367 @@
 {
   "generated": "2026-09-10",
-  "n_sim_games": 150,
+  "n_sim_games": 250,
   "note": "rating modifiers = 0 (spec \u00a722). Engine V1 simplifications listed in engine/sim.py. Pass threshold: |rel err| <= 10%.",
   "comparison": [
     {
       "metric": "dropback_rate",
       "empirical": 0.5984,
-      "sim": 0.5888,
-      "rel_err": -0.016,
+      "sim": 0.5895,
+      "rel_err": -0.015,
       "abs_ok": true
     },
     {
       "metric": "completion_pct",
       "empirical": 0.647,
-      "sim": 0.6486,
-      "rel_err": 0.002,
+      "sim": 0.6534,
+      "rel_err": 0.01,
       "abs_ok": true
     },
     {
       "metric": "yards_per_attempt",
       "empirical": 7.057,
-      "sim": 7.1648,
-      "rel_err": 0.015,
+      "sim": 7.3166,
+      "rel_err": 0.037,
       "abs_ok": true
     },
     {
       "metric": "air_yards_per_attempt",
       "empirical": 7.7112,
-      "sim": 7.7731,
-      "rel_err": 0.008,
+      "sim": 7.8098,
+      "rel_err": 0.013,
       "abs_ok": true
     },
     {
       "metric": "int_rate_per_att",
       "empirical": 0.0223,
-      "sim": 0.0228,
-      "rel_err": 0.022,
+      "sim": 0.0233,
+      "rel_err": 0.042,
       "abs_ok": true
     },
     {
       "metric": "sack_rate_per_dropback",
       "empirical": 0.0663,
-      "sim": 0.0663,
-      "rel_err": 0.0,
+      "sim": 0.0669,
+      "rel_err": 0.01,
       "abs_ok": true
     },
     {
       "metric": "yards_per_carry",
       "empirical": 4.2761,
-      "sim": 4.4669,
-      "rel_err": 0.045,
+      "sim": 4.4819,
+      "rel_err": 0.048,
       "abs_ok": true
     },
     {
       "metric": "explosive_rush_rate",
       "empirical": 0.0438,
-      "sim": 0.0428,
-      "rel_err": -0.024,
+      "sim": 0.0425,
+      "rel_err": -0.031,
       "abs_ok": true
     },
     {
       "metric": "explosive_pass_rate",
       "empirical": 0.0894,
-      "sim": 0.0959,
-      "rel_err": 0.072,
-      "abs_ok": true
+      "sim": 0.0986,
+      "rel_err": 0.103,
+      "abs_ok": false
     },
     {
       "metric": "fg_make_pct",
       "empirical": 0.8517,
-      "sim": 0.8602,
-      "rel_err": 0.01,
+      "sim": 0.8608,
+      "rel_err": 0.011,
       "abs_ok": true
     },
     {
       "metric": "rz_td_rate",
       "empirical": 0.5599,
-      "sim": 0.5198,
-      "rel_err": -0.072,
+      "sim": 0.517,
+      "rel_err": -0.077,
       "abs_ok": true
     },
     {
       "metric": "plays_per_team_game",
       "empirical": 61.9951,
-      "sim": 66.55,
-      "rel_err": 0.073,
+      "sim": 66.478,
+      "rel_err": 0.072,
       "abs_ok": true
     },
     {
       "metric": "drives_per_team_game",
       "empirical": 10.7433,
-      "sim": 10.4533,
-      "rel_err": -0.027,
+      "sim": 10.392,
+      "rel_err": -0.033,
       "abs_ok": true
     },
     {
       "metric": "points_per_team_game",
       "empirical": 22.5643,
-      "sim": 19.7833,
-      "rel_err": -0.123,
+      "sim": 19.906,
+      "rel_err": -0.118,
       "abs_ok": false
     },
     {
       "metric": "points_sd",
       "empirical": 9.9268,
-      "sim": 8.2678,
-      "rel_err": -0.167,
+      "sim": 8.3211,
+      "rel_err": -0.162,
       "abs_ok": false
     },
     {
       "metric": "pass_attempts_per_team_game",
       "empirical": 32.8192,
-      "sim": 30.4967,
-      "rel_err": -0.071,
+      "sim": 30.312,
+      "rel_err": -0.076,
       "abs_ok": true
     },
     {
       "metric": "rush_attempts_per_team_game",
       "empirical": 23.9902,
-      "sim": 23.9933,
-      "rel_err": 0.0,
+      "sim": 23.93,
+      "rel_err": -0.003,
       "abs_ok": true
     },
     {
       "metric": "penalties_per_team_game",
       "empirical": 6.1618,
-      "sim": 4.51,
-      "rel_err": -0.268,
+      "sim": 4.648,
+      "rel_err": -0.246,
       "abs_ok": false
     },
     {
       "metric": "penalty_yards_per_team_game",
       "empirical": 50.0245,
-      "sim": 38.447,
-      "rel_err": -0.231,
+      "sim": 39.8548,
+      "rel_err": -0.203,
       "abs_ok": false
     },
     {
       "metric": "dpi_per_team_game",
       "empirical": 0.5239,
-      "sim": 0.3967,
-      "rel_err": -0.243,
+      "sim": 0.38,
+      "rel_err": -0.275,
       "abs_ok": false
     }
   ],
   "drive_compare_by_fp": [
     {
       "band": "0-9",
-      "sim_ppd": 5.4286,
+      "sim_ppd": 4.9524,
       "emp_ppd": 5.6,
-      "sim_share": 0.0045,
+      "sim_share": 0.0041,
       "emp_share": 0.0046
     },
     {
       "band": "10-19",
-      "sim_ppd": 4.8667,
+      "sim_ppd": 4.2692,
       "emp_ppd": 4.2873,
-      "sim_share": 0.0048,
+      "sim_share": 0.0051,
       "emp_share": 0.0098
     },
     {
       "band": "20-29",
-      "sim_ppd": 3.0278,
+      "sim_ppd": 3.6875,
       "emp_ppd": 4.2318,
-      "sim_share": 0.0116,
+      "sim_share": 0.0125,
       "emp_share": 0.0164
     },
     {
       "band": "30-39",
-      "sim_ppd": 2.8471,
+      "sim_ppd": 3.4394,
       "emp_ppd": 3.2087,
-      "sim_share": 0.0273,
+      "sim_share": 0.0258,
       "emp_share": 0.025
     },
     {
       "band": "40-49",
-      "sim_ppd": 2.9717,
+      "sim_ppd": 2.7805,
       "emp_ppd": 2.4625,
-      "sim_share": 0.0341,
+      "sim_share": 0.032,
       "emp_share": 0.0406
     },
     {
       "band": "50-59",
-      "sim_ppd": 1.9867,
+      "sim_ppd": 2.0038,
       "emp_ppd": 2.4878,
-      "sim_share": 0.0482,
+      "sim_share": 0.0511,
       "emp_share": 0.0667
     },
     {
       "band": "60-69",
-      "sim_ppd": 2.0828,
+      "sim_ppd": 2.1252,
       "emp_ppd": 2.1707,
-      "sim_share": 0.1399,
+      "sim_share": 0.1325,
       "emp_share": 0.1762
     },
     {
       "band": "70-79",
-      "sim_ppd": 1.8841,
+      "sim_ppd": 1.8631,
       "emp_ppd": 1.7925,
-      "sim_share": 0.4802,
+      "sim_share": 0.489,
       "emp_share": 0.4155
     },
     {
       "band": "80-89",
-      "sim_ppd": 1.3354,
+      "sim_ppd": 1.3452,
       "emp_ppd": 1.4395,
-      "sim_share": 0.1583,
+      "sim_share": 0.1538,
       "emp_share": 0.1637
     },
     {
       "band": "90-99",
-      "sim_ppd": 0.8975,
+      "sim_ppd": 1.1307,
       "emp_ppd": 1.1662,
-      "sim_share": 0.091,
+      "sim_share": 0.0941,
       "emp_share": 0.0815
     }
   ],
   "sim_raw": {
-    "n_games": 150,
-    "seconds": 83.0,
+    "n_games": 250,
+    "seconds": 71.8,
     "drive_table": {
-      "n": 3109,
-      "points_per_drive": 1.8472,
-      "never_crossed_mid": 0.4419,
-      "plays_per_drive": 6.607,
-      "first_downs_per_drive": 1.756,
-      "three_and_out_rate": 0.2705,
+      "n": 5123,
+      "points_per_drive": 1.8741,
+      "never_crossed_mid": 0.429,
+      "plays_per_drive": 6.676,
+      "first_downs_per_drive": 1.791,
+      "three_and_out_rate": 0.2622,
       "start_yl": {
-        "mean": 71.1,
-        "p10": 54.1,
-        "p25": 68.7,
+        "mean": 71.19,
+        "p10": 54.7,
+        "p25": 69.0,
         "median": 70.0,
-        "p75": 79.9,
+        "p75": 79.8,
         "p90": 89.0
       },
       "outcome_mix": {
-        "touchdown": 0.2004,
-        "field_goal": 0.1534,
-        "punt": 0.3738,
-        "turnover": 0.0971,
-        "downs": 0.0524,
-        "missed_fg": 0.0248,
-        "end_of_half": 0.0926,
-        "opp_touchdown": 0.001,
-        "safety": 0.0045
+        "touchdown": 0.2046,
+        "field_goal": 0.153,
+        "punt": 0.3681,
+        "turnover": 0.1023,
+        "downs": 0.0515,
+        "missed_fg": 0.025,
+        "end_of_half": 0.0904,
+        "opp_touchdown": 0.0014,
+        "safety": 0.0037
       },
       "fp_bands": [
         {
           "band": "0-9",
-          "n": 14,
-          "share": 0.0045,
-          "ppd": 5.4286,
-          "td_rate": 0.7143,
-          "plays": 2.857,
-          "fd_per_drive": 0.786
+          "n": 21,
+          "share": 0.0041,
+          "ppd": 4.9524,
+          "td_rate": 0.5238,
+          "plays": 3.286,
+          "fd_per_drive": 0.571
         },
         {
           "band": "10-19",
-          "n": 15,
-          "share": 0.0048,
-          "ppd": 4.8667,
-          "td_rate": 0.6667,
-          "plays": 3.4,
-          "fd_per_drive": 1.067
+          "n": 26,
+          "share": 0.0051,
+          "ppd": 4.2692,
+          "td_rate": 0.4615,
+          "plays": 3.346,
+          "fd_per_drive": 0.731
         },
         {
           "band": "20-29",
-          "n": 36,
-          "share": 0.0116,
-          "ppd": 3.0278,
-          "td_rate": 0.2778,
-          "plays": 4.583,
-          "fd_per_drive": 0.889
+          "n": 64,
+          "share": 0.0125,
+          "ppd": 3.6875,
+          "td_rate": 0.3125,
+          "plays": 4.984,
+          "fd_per_drive": 1.078
         },
         {
           "band": "30-39",
-          "n": 85,
-          "share": 0.0273,
-          "ppd": 2.8471,
-          "td_rate": 0.2,
-          "plays": 5.435,
-          "fd_per_drive": 1.165
+          "n": 132,
+          "share": 0.0258,
+          "ppd": 3.4394,
+          "td_rate": 0.3258,
+          "plays": 5.402,
+          "fd_per_drive": 1.379
         },
         {
           "band": "40-49",
-          "n": 106,
-          "share": 0.0341,
-          "ppd": 2.9717,
-          "td_rate": 0.3113,
-          "plays": 5.934,
-          "fd_per_drive": 1.623
+          "n": 164,
+          "share": 0.032,
+          "ppd": 2.7805,
+          "td_rate": 0.2744,
+          "plays": 5.726,
+          "fd_per_drive": 1.512
         },
         {
           "band": "50-59",
-          "n": 150,
-          "share": 0.0482,
-          "ppd": 1.9867,
-          "td_rate": 0.2067,
-          "plays": 6.173,
-          "fd_per_drive": 1.493
+          "n": 262,
+          "share": 0.0511,
+          "ppd": 2.0038,
+          "td_rate": 0.2061,
+          "plays": 6.344,
+          "fd_per_drive": 1.561
         },
         {
           "band": "60-69",
-          "n": 435,
-          "share": 0.1399,
-          "ppd": 2.0828,
-          "td_rate": 0.2299,
-          "plays": 6.662,
-          "fd_per_drive": 1.779
+          "n": 679,
+          "share": 0.1325,
+          "ppd": 2.1252,
+          "td_rate": 0.2297,
+          "plays": 6.792,
+          "fd_per_drive": 1.862
         },
         {
           "band": "70-79",
-          "n": 1493,
-          "share": 0.4802,
-          "ppd": 1.8841,
-          "td_rate": 0.2063,
-          "plays": 6.635,
-          "fd_per_drive": 1.809
+          "n": 2505,
+          "share": 0.489,
+          "ppd": 1.8631,
+          "td_rate": 0.208,
+          "plays": 6.7,
+          "fd_per_drive": 1.83
         },
         {
           "band": "80-89",
-          "n": 492,
-          "share": 0.1583,
-          "ppd": 1.3354,
-          "td_rate": 0.1463,
-          "plays": 7.1,
-          "fd_per_drive": 1.88
+          "n": 788,
+          "share": 0.1538,
+          "ppd": 1.3452,
+          "td_rate": 0.151,
+          "plays": 7.022,
+          "fd_per_drive": 1.876
         },
         {
           "band": "90-99",
-          "n": 283,
-          "share": 0.091,
-          "ppd": 0.8975,
-          "td_rate": 0.1131,
-          "plays": 6.965,
-          "fd_per_drive": 1.781
+          "n": 482,
+          "share": 0.0941,
+          "ppd": 1.1307,
+          "td_rate": 0.139,
+          "plays": 7.228,
+          "fd_per_drive": 1.884
         }
       ],
-      "drives_per_team_game": 10.363
+      "drives_per_team_game": 10.246
     },
     "rates": {
-      "dropback_rate": 0.5888031990859754,
-      "completion_pct": 0.6485954749152912,
-      "yards_per_attempt": 7.164826757022626,
-      "air_yards_per_attempt": 7.773089955186359,
-      "int_rate_per_att": 0.022844026669581376,
-      "sack_rate_per_dropback": 0.06626564470748035,
-      "yards_per_carry": 4.466935259794387,
-      "explosive_rush_rate": 0.04278966379549875,
-      "explosive_pass_rate": 0.09585747076183189,
-      "fg_make_pct": 0.8602150537634409,
-      "rz_td_rate": 0.5197916666666667
+      "dropback_rate": 0.5895227966654087,
+      "completion_pct": 0.6534045922406968,
+      "yards_per_attempt": 7.316640274478754,
+      "air_yards_per_attempt": 7.809778305621536,
+      "int_rate_per_att": 0.02329110583267353,
+      "sack_rate_per_dropback": 0.06692271880819367,
+      "yards_per_carry": 4.481905557877142,
+      "explosive_rush_rate": 0.04245716673631425,
+      "explosive_pass_rate": 0.09864080232251253,
+      "fg_make_pct": 0.86084142394822,
+      "rz_td_rate": 0.5170454545454546
     },
     "per_game": {
-      "plays_per_team_game": 66.55,
-      "drives_per_team_game": 10.453333333333333,
-      "points_per_team_game": 19.783333333333335,
-      "points_sd": 8.267792262078729,
-      "pass_attempts_per_team_game": 30.496666666666666,
-      "rush_attempts_per_team_game": 23.993333333333332,
-      "penalties_per_team_game": 4.51,
-      "penalty_yards_per_team_game": 38.44704087176507,
-      "dpi_per_team_game": 0.39666666666666667
+      "plays_per_team_game": 66.478,
+      "drives_per_team_game": 10.392,
+      "points_per_team_game": 19.906,
+      "points_sd": 8.321127567823966,
+      "pass_attempts_per_team_game": 30.312,
+      "rush_attempts_per_team_game": 23.93,
+      "penalties_per_team_game": 4.648,
+      "penalty_yards_per_team_game": 39.85476449400582,
+      "dpi_per_team_game": 0.38
     }
   },
   "empirical_raw": {

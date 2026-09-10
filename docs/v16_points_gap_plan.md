@@ -1,10 +1,12 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **punt bugs fixed (−13% → −11.8%). Penalty scaling ruled out. Red-zone
-gap localised to the PASSING game: a completed pass from the 3–4 scores 86%
-empirically but only 56% in the engine — the air-yards cap forces every RZ
-throw SHORT (DEEP 0.00 v 0.07 emp), so completions land short of the goal line.
-Next = red-zone air-yards fix.**
+Status: **punt bugs fixed (−13% → −11.8%). Penalty scaling ruled out. RZ air-yards
+buckets fixed (gl1..gl4 — they now track the goal line; was a generic pooled
+`opp_rz` bucket). That closed part of the RZ pass-TD gap (yl 3–4 `pass_comp
+TD/pl` 0.56 → 0.63, target 0.86) and tightened drive structure, but the headline
+barely moved (~−3.5% points/drive; team-game noisy at −11.3…−11.8%). The rest of
+the RZ passing gap is diffuse across M05/M09/M10 — deferred. Next = M24 clock
+(drives/team-game −3.3%, the cleaner larger lever).**
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
 (shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
 opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
@@ -341,13 +343,30 @@ the cap in `sim.py`.
   refit, separate item.
 - return-TD rate off turnovers (~10× low, ~1pp of drives) — separate, small.
 
+### RZ air-yards fix (2026-09-10, DONE — partial)
+
+`06_pass_depth.write_exact_air_yards` now splits the RZ into `gl1` (≤2), `gl2`
+(3–4), `gl3` (5–7), `gl4` (8–12), `rz` (13–20); `loaders.sample_air_yards`
+(both engines) walks a widening fallback chain. Confirmed the old pooled
+`opp_rz` bucket was wrong: empirical RZ air-yards spike at the exact yardline
+(from the 3 you throw it ~3), while the engine's was a flat 0–9 SHORT draw.
+
+**Effect (n=200–250):** `pass_comp TD/pl` yl 3–4 0.56 → 0.63; points/drive
+−4.2% → ~−3.5%; `never_crossed_mid` now exact (42.9 v 42.8); drive outcome mix
+all within ~1.7pp. **Tradeoff:** `explosive_pass_rate` +9.2% → +10.3%
+(borderline — RZ throws into the end zone from the 15–20 legitimately count as
+20-yд explosives; within n-noise of where it was). Kept.
+
+**Not closed:** yl 5–20 `pass_comp TD/pl` still ~−20pp. The engine's RZ
+completions still skew to low-air-yards / behind-LOS throws (they complete
+easier) so `caughtEZ` at yl 5–9 is 0.25 v emp 0.49. Root is a diffuse
+M05-depth / M09-completion-by-depth / M10-RZ-YAC interaction — a multi-resolver
+RZ recalibration, deferred as its own effort (small marginal points return).
+
 ### Next
 
-1. **Red-zone air yards.** Goal-line pass attempts should target the end zone
-   (`air_yards ≈ yardline_100`), not a generic SHORT draw, and DEEP shots
-   (fades) must stay possible. Options: a field-position-aware `sample_air_yards`
-   for `yardline_100 ≤ ~12`, and change the cap from `min(ay, yardline_100 + 3)`
-   to something that nudges *up* toward the goal line rather than only clamping
-   down. Re-run §22 + the RZ probe; watch that `air_yards_per_attempt`,
-   `explosive_pass_rate` and overall `completion_pct` don't regress.
-2. Clock / drives-per-game (M24), return-TD rate — separate items.
+1. **M24 clock** — drives/team-game −3.3% (`end_of_half` +2.4pp), ~0.6
+   pts/team-game. The per-play elapsed model runs ~2 s/play hot (plays/team-game
+   +7%), so drives are long and the half catches more of them. Cleaner single
+   lever than the RZ passing residual.
+2. Return-TD rate off turnovers (~1pp of drives) — small, separate.
