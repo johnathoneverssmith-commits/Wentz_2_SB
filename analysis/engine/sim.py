@@ -64,6 +64,8 @@ SACK_YARDS_P = SACK_YARDS_P / SACK_YARDS_P.sum()
 import os as _os
 PENALTY_HAZARD_SCALE = float(_os.environ.get("NFLSIM_PEN_SCALE", "1.0"))
 
+from .injury import INJURY_PER_PLAY as _INJURY_PER_PLAY
+
 
 @dataclass
 class Team:
@@ -87,6 +89,8 @@ class Game:
     received_opening: int = 1  # team that received the opening kickoff
     rosters: list | None = None  # [Roster, Roster] to enable the rating layer, else off
     staff: list | None = None  # [Staff, Staff] to enable the coaching layer on top
+    injury_log: list | None = None  # [] to roll & collect in-game injuries, else off
+    injured_out: set = field(default_factory=set)  # ids pulled from THIS game
     rz_flag: bool = False  # current drive has reached the red zone (<=20)
     clock_stopped: bool = True  # running-clock state for 2-minute-drill management
 
@@ -124,6 +128,35 @@ class Game:
     def _def(self):
         return self.rosters[self.other()]
 
+    def _off_lineup(self):
+        return self._off().offense(self.injured_out or None)
+
+    def _def_lineup(self, nickel: bool = False):
+        return self._def().defense(nickel, self.injured_out or None)
+
+    def _clock_text(self) -> str:
+        s = max(0, self.qsr)
+        return f"{s // 60}:{s % 60:02d}"
+
+    def _roll_injury(self, call: str, depth: str, gained: float, outcome: str,
+                     quarter: int, clock: str) -> None:
+        if self.injury_log is None or not self.ratings_on:
+            return
+        if self.rng.random() >= _INJURY_PER_PLAY:
+            return
+        from .injury import make_injury
+        slots = lambda l: [{"slot": k, "player": v} for k, v in l.items()]
+        ev = make_injury(self.rng, {
+            "offense_team": self._off().team, "defense_team": self._def().team,
+            "quarter": quarter, "clock": clock, "call": call, "outcome": outcome,
+            "gained": gained, "depth": depth,
+            "offense": slots(self._off_lineup()), "defense": slots(self._def_lineup()),
+        })
+        if ev is None:
+            return
+        self.injury_log.append(ev)
+        self.injured_out.add(ev["player_id"])
+
     def _off_staff(self):
         return self.staff[self.pos]
 
@@ -148,8 +181,8 @@ class Game:
         oc_s, dc_s = self._off_staff().oc, self._def_staff().dc
         oc = oc_offense_shift(oc_s)
         dc = dc_defense_shift(dc_s)
-        ofit = off_scheme_fit_shift(oc_s.scheme, self._off().offense())
-        dfit = def_scheme_fit_shift(dc_s.scheme, self._def().defense())
+        ofit = off_scheme_fit_shift(oc_s.scheme, self._off_lineup())
+        dfit = def_scheme_fit_shift(dc_s.scheme, self._def_lineup())
         return {
             "complete": oc["complete"] + dc["complete"] + ofit["complete"] + dfit["complete"],
             "rush": oc["rush"] + dc["rush"] + ofit["rush"] + dfit["rush"],
@@ -161,7 +194,7 @@ class Game:
         if not self.ratings_on:
             return None
         from . import ratings as R
-        o, d = self._off().offense(), self._def().defense(nickel=(self.down >= 3 and self.ydstogo >= 6))
+        o, d = self._off_lineup(), self._def_lineup(nickel=(self.down >= 3 and self.ydstogo >= 6))
         catchers = [o["WR1"], o["WR2"], o["WR3"], o["TE1"]]
         dbs = [d["CB1"], d["CB2"], d["S1"], d["S2"]] + ([d["CB3"]] if "CB3" in d else [])
         ol = [o["LT"], o["LG"], o["C"], o["RG"], o["RT"]]
@@ -181,7 +214,7 @@ class Game:
         if not self.ratings_on:
             return 0.0
         from . import ratings as R
-        o, d = self._off().offense(), self._def().defense()
+        o, d = self._off_lineup(), self._def_lineup()
         front7 = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"], d["ILB1"], d["ILB2"]]
         return (R.rush_yards_shift([o["LT"], o["LG"], o["C"], o["RG"], o["RT"]], front7, o["RB1"])
                 + self._staff_off_shift()["rush"])
@@ -190,7 +223,7 @@ class Game:
         if not self.ratings_on:
             return 0.0
         from . import ratings as R
-        o, d = self._off().offense(), self._def().defense()
+        o, d = self._off_lineup(), self._def_lineup()
         tacklers = [d["CB1"], d["CB2"], d["S1"], d["S2"], d["ILB1"], d["ILB2"]]
         return R.yac_yards_shift(o["WR1"], tacklers)
 
@@ -584,6 +617,8 @@ class Game:
         start_yl = self.yardline_100
         gained = 0.0
         turnover = False
+        play_depth = ""  # air-yard bucket, set on a THROW (injury context)
+        pre_qtr, pre_clock = self.qtr, self._clock_text()
         _trec = None
         if self.play_trace is not None:
             _trec = {"down": self.down, "ydstogo": float(self.ydstogo),
@@ -624,6 +659,7 @@ class Game:
                 ay = int(min(ay, self.yardline_100 + 3))
                 depth = ("BEHIND_LOS" if ay < 0 else "SHORT" if ay <= 9
                          else "INTERMEDIATE" if ay <= 19 else "DEEP")
+                play_depth = depth
                 ploc = str(self.rng.choice(PASS_LOC, p=PASS_LOC_P))
                 qb_hit = int(self.rng.random() < QB_HIT_BY_DEPTH.get(depth, QB_HIT_RATE))
                 m09_shift = self._off_shift("M09") or {}
@@ -642,6 +678,7 @@ class Game:
                         _trec["turnover"] = True
                     self.st("int_thrown")
                     self.st("turnover")
+                    self._roll_injury("pass", depth, 0.0, "interception", pre_qtr, pre_clock)
                     if self.rng.random() < PICK_SIX_RATE:
                         self.advance_clock("pass_incomplete")
                         d = self.other()
@@ -711,6 +748,8 @@ class Game:
                     self.st("fumble_lost")
                     self.st("turnover")
                     turnover = True
+                    _fc = "sack" if outcome_bucket == "sack" else "pass" if call == "DROPBACK" else "run"
+                    self._roll_injury(_fc, play_depth, gained, "fumble", pre_qtr, pre_clock)
                     self.advance_clock(outcome_bucket, drive_ends=True)
                     if self.rng.random() < SCOOP_SIX_RATE:
                         d = self.other()
@@ -750,6 +789,12 @@ class Game:
             _trec["gained"] = float(gained)
             _trec["converted"] = bool(is_td or gained_first)
             _trec["td"] = bool(is_td)
+        _ic = ("sack" if outcome_bucket == "sack" else "scramble" if family == "scramble"
+               else "pass" if call == "DROPBACK" else "run")
+        _io = ("sack" if outcome_bucket == "sack" else "scramble" if family == "scramble"
+               else "complete" if family == "reception"
+               else "incomplete" if call == "DROPBACK" else "run")
+        self._roll_injury(_ic, play_depth, gained, _io, pre_qtr, pre_clock)
         self.advance_clock(outcome_bucket, drive_ends=drive_ends)
 
         self.yardline_100 = new_yl
@@ -831,14 +876,22 @@ class Game:
 
 
 def simulate_game(seed: int, home: str | None = None, away: str | None = None,
-                  home_staff=None, away_staff=None) -> Game:
+                  home_staff=None, away_staff=None, injuries: bool = False,
+                  trace: bool = False) -> Game:
     """`home`/`away` team codes enable the rating layer (spec §12–§14).
     Team index 0 is `home`, 1 is `away`. Pass `home_staff`/`away_staff` (both,
     and only with rosters) to enable the coaching layer on top; omitting them
-    leaves every coaching shift at exactly zero."""
+    leaves every coaching shift at exactly zero. `injuries` / `trace` are opt-in
+    flavour outputs — inert (zero RNG draws) when off, so the validation /
+    parity paths are unchanged."""
     rosters = None
     if home and away:
         from .roster import roster
         rosters = [roster(home), roster(away)]
     staff = [home_staff, away_staff] if (rosters and home_staff and away_staff) else None
-    return Game(rng=np.random.default_rng(seed), rosters=rosters, staff=staff).run()
+    g = Game(rng=np.random.default_rng(seed), rosters=rosters, staff=staff)
+    if injuries and rosters:
+        g.injury_log = []
+    if trace:
+        g.play_trace = []
+    return g.run()

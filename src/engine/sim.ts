@@ -29,6 +29,12 @@ import {
   sackLogitShift,
   yacYardsShift,
 } from "./ratings.js";
+import {
+  INJURY_PER_PLAY,
+  type InjuryEvent,
+  type InjuryPlayContext,
+  makeInjury,
+} from "./injury.js";
 import { Rng } from "./rng.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
@@ -89,6 +95,25 @@ export interface DriveRecord {
   firstDowns: number;
 }
 
+/** One per scrimmage play — opt-in trace for a play-by-play / field view. */
+export interface PlayRec {
+  team: number; // 0 home, 1 away — possessing team
+  quarter: number;
+  clock: string; // mm:ss remaining in the quarter, pre-snap
+  down: number;
+  ydstogo: number;
+  /** distance to the offense's target end zone, pre-snap (100 = own goal line). */
+  ballOn: number;
+  call: "pass" | "run" | "sack" | "scramble";
+  /** air-yard bucket for passes, else "". */
+  depth: string;
+  gained: number;
+  outcome: string; // complete | incomplete | sack | scramble | run | interception | fumble
+  firstDown: boolean;
+  touchdown: boolean;
+  turnover: boolean;
+}
+
 function clip(x: number, lo: number, hi: number): number {
   return Math.min(Math.max(x, lo), hi);
 }
@@ -115,6 +140,13 @@ export class Game {
   staff: [Staff, Staff] | null;
   rzFlag = false;
   clockStopped = true; // running-clock state for 2-minute-drill management
+
+  // opt-in flavour outputs (null = disabled, [] = collect). Both consume no RNG
+  // when disabled, so the validation / parity paths are untouched.
+  playTrace: PlayRec[] | null = null;
+  injuryLog: InjuryEvent[] | null = null;
+  /** ids of starters pulled from THIS game by an injury. */
+  readonly injuredOut = new Set<string>();
 
   // ---- per-drive instrumentation (V1.6 points-gap work) --------------
   // One record per drive: { team, startYl, result, plays, crossedMid, points }.
@@ -153,6 +185,72 @@ export class Game {
   private def(): Roster {
     return this.rosters![this.other() as 0 | 1];
   }
+  /** possessing team's on-field offense, minus anyone hurt this game. */
+  private offLineup(): Lineup {
+    return this.off().offense(this.injuredOut);
+  }
+  private defLineup(nickel = false): Lineup {
+    return this.def().defense(nickel, this.injuredOut);
+  }
+  private clockText(): string {
+    const s = Math.max(0, this.qsr);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+
+  private tracePlay(p: {
+    call: PlayRec["call"];
+    depth: string;
+    gained: number;
+    outcome: string;
+    down: number;
+    ydstogo: number;
+    ballOn: number;
+    quarter: number;
+    clock: string;
+    firstDown: boolean;
+    touchdown: boolean;
+    turnover: boolean;
+  }): void {
+    if (this.playTrace)
+      this.playTrace.push({
+        team: this.pos as 0 | 1,
+        ...p,
+        gained: Math.round(p.gained),
+        ballOn: Math.round(p.ballOn),
+        ydstogo: Math.round(p.ydstogo * 10) / 10,
+      });
+  }
+
+  /** One per-play injury hazard roll. No-op (and no RNG draw) unless collecting. */
+  private rollInjury(
+    call: PlayRec["call"],
+    depth: string,
+    gained: number,
+    outcome: string,
+    quarter: number,
+    clock: string,
+  ): void {
+    if (!this.injuryLog || !this.ratingsOn) return;
+    if (this.rng.random() >= INJURY_PER_PLAY) return;
+    const slots = (l: Lineup) =>
+      Object.entries(l).map(([slot, player]) => ({ slot, player: player ?? undefined }));
+    const ctx: InjuryPlayContext = {
+      offenseTeam: this.off().team,
+      defenseTeam: this.def().team,
+      quarter,
+      clock,
+      call,
+      outcome,
+      gained,
+      depth,
+      offense: slots(this.offLineup()),
+      defense: slots(this.defLineup()),
+    };
+    const ev = makeInjury(this.rng, ctx);
+    if (!ev) return;
+    this.injuryLog.push(ev);
+    this.injuredOut.add(ev.playerId); // next man up for the rest of the game
+  }
   /** Staff of the team currently on offense / defense. */
   private offStaff(): Staff {
     return this.staff![this.pos as 0 | 1];
@@ -178,8 +276,8 @@ export class Game {
     const dcS = this.defStaff().dc;
     const oc = ocOffenseShift(ocS);
     const dc = dcDefenseShift(dcS);
-    const o = this.off().offense();
-    const d = this.def().defense();
+    const o = this.offLineup();
+    const d = this.defLineup();
     const offTags = [o.QB1, o.RB1, o.WR1, o.WR2, o.WR3, o.TE1, o.LT, o.LG, o.C, o.RG, o.RT].map(
       (p) => p?.scheme_tags,
     );
@@ -197,8 +295,8 @@ export class Game {
 
   private offShift(kind: "M09" | "M04" | "M20"): Shift | null {
     if (!this.ratingsOn) return null;
-    const o = this.off().offense();
-    const d = this.def().defense(this.down >= 3 && this.ydstogo >= 6);
+    const o = this.offLineup();
+    const d = this.defLineup(this.down >= 3 && this.ydstogo >= 6);
     const catchers = [o.WR1, o.WR2, o.WR3, o.TE1];
     const dbs = [d.CB1, d.CB2, d.S1, d.S2];
     if (d.CB3 !== undefined) dbs.push(d.CB3);
@@ -218,16 +316,16 @@ export class Game {
 
   private rushYdMod(): number {
     if (!this.ratingsOn) return 0;
-    const o = this.off().offense();
-    const d = this.def().defense();
+    const o = this.offLineup();
+    const d = this.defLineup();
     const front7 = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2];
     return rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) + this.staffOffShift().rush;
   }
 
   private yacYdMod(): number {
     if (!this.ratingsOn) return 0;
-    const o = this.off().offense();
-    const d = this.def().defense();
+    const o = this.offLineup();
+    const d = this.defLineup();
     const tacklers = [d.CB1, d.CB2, d.S1, d.S2, d.ILB1, d.ILB2];
     return yacYardsShift(o.WR1 ?? null, tacklers);
   }
@@ -624,6 +722,13 @@ export class Game {
     let family = "designed_rush";
     let outcomeBucket = "run_inbounds";
     let yacAdded = 0;
+    let playDepth = ""; // air-yard bucket, set on a THROW
+    // pre-snap snapshot for the trace / injury context
+    const preDown = this.down;
+    const preToGo = this.ydstogo;
+    const preYl = this.yardline100;
+    const preQtr = this.qtr;
+    const preClock = this.clockText();
 
     if (call === "DROPBACK") {
       const term = sampleClass("M04", this.ctx(sg), this.rng, this.offShift("M04"));
@@ -647,6 +752,7 @@ export class Game {
         let ay = sampleAirYards(depth, this.down, this.yardline100, this.rng);
         ay = Math.trunc(Math.min(ay, this.yardline100 + 3));
         depth = ay < 0 ? "BEHIND_LOS" : ay <= 9 ? "SHORT" : ay <= 19 ? "INTERMEDIATE" : "DEEP";
+        playDepth = depth;
         const ploc = this.rng.choice(PASS_LOC, PASS_LOC_P);
         const qbHit = this.rng.random() < (QB_HIT_BY_DEPTH[depth] ?? QB_HIT_RATE) ? 1 : 0;
         const base = this.offShift("M09") ?? {};
@@ -664,6 +770,21 @@ export class Game {
         if (res === "INTERCEPTION") {
           this.st("int_thrown");
           this.st("turnover");
+          this.tracePlay({
+            call: "pass",
+            depth,
+            gained: 0,
+            outcome: "interception",
+            down: preDown,
+            ydstogo: preToGo,
+            ballOn: preYl,
+            quarter: preQtr,
+            clock: preClock,
+            firstDown: false,
+            touchdown: false,
+            turnover: true,
+          });
+          this.rollInjury("pass", depth, 0, "interception", preQtr, preClock);
           if (this.rng.random() < PICK_SIX_RATE) {
             this.advanceClock("pass_incomplete");
             const d = this.other();
@@ -748,6 +869,25 @@ export class Game {
           this.st("fumble_lost");
           this.st("turnover");
           turnover = true;
+          {
+            const fc: PlayRec["call"] =
+              outcomeBucket === "sack" ? "sack" : call === "DROPBACK" ? "pass" : "run";
+            this.tracePlay({
+              call: fc,
+              depth: playDepth,
+              gained,
+              outcome: "fumble",
+              down: preDown,
+              ydstogo: preToGo,
+              ballOn: preYl,
+              quarter: preQtr,
+              clock: preClock,
+              firstDown: false,
+              touchdown: false,
+              turnover: true,
+            });
+            this.rollInjury(fc, playDepth, gained, "fumble", preQtr, preClock);
+          }
           this.advanceClock(outcomeBucket, 0, true);
           if (this.rng.random() < SCOOP_SIX_RATE) {
             const d = this.other();
@@ -780,6 +920,35 @@ export class Game {
     const isSafety = newYl >= 100;
     const gainedFirst = this.ydstogo - gained <= 0 && !isTd && !isSafety;
     const failed4th = this.down === 4 && !gainedFirst && !isTd && !isSafety;
+
+    const playCall: PlayRec["call"] =
+      outcomeBucket === "sack" ? "sack" : family === "scramble" ? "scramble" : call === "DROPBACK" ? "pass" : "run";
+    const playOutcome =
+      outcomeBucket === "sack"
+        ? "sack"
+        : family === "scramble"
+          ? "scramble"
+          : family === "reception"
+            ? "complete"
+            : call === "DROPBACK"
+              ? "incomplete"
+              : "run";
+    this.tracePlay({
+      call: playCall,
+      depth: playDepth,
+      gained,
+      outcome: playOutcome,
+      down: preDown,
+      ydstogo: preToGo,
+      ballOn: preYl,
+      quarter: preQtr,
+      clock: preClock,
+      firstDown: gainedFirst,
+      touchdown: isTd,
+      turnover: false,
+    });
+    this.rollInjury(playCall, playDepth, gained, playOutcome, preQtr, preClock);
+
     this.advanceClock(outcomeBucket, 0, isTd || isSafety || failed4th);
 
     this.yardline100 = newYl;
@@ -874,25 +1043,34 @@ export class Game {
 export interface GameStaff {
   homeStaff?: Staff | undefined;
   awayStaff?: Staff | undefined;
+  /** collect the opt-in per-play trace (`Game.playTrace`). */
+  trace?: boolean;
+  /** roll in-game injuries (`Game.injuryLog`; pulls hurt starters for the game). */
+  injuries?: boolean;
 }
 
 /**
  * `home`/`away` team codes enable the rating layer. Team index 0 is `home`.
  * Pass `staff` (both sides) to enable the coaching layer on top; omitting it
- * leaves every coaching shift at exactly zero.
+ * leaves every coaching shift at exactly zero. `trace` / `injuries` turn on the
+ * opt-in flavour outputs — both are inert (zero RNG draws) when off, so the
+ * validation / parity paths are unchanged.
  */
 export function simulateGame(
   seed: number,
   home?: string,
   away?: string,
-  staff?: GameStaff,
+  opts?: GameStaff,
 ): Game {
   const rosters: [Roster, Roster] | null =
     home && away ? [roster(home), roster(away)] : null;
   // the coaching layer rides on top of the rating layer — no rosters, no staff
   const staffPair: [Staff, Staff] | null =
-    rosters && staff?.homeStaff && staff?.awayStaff
-      ? [staff.homeStaff, staff.awayStaff]
+    rosters && opts?.homeStaff && opts?.awayStaff
+      ? [opts.homeStaff, opts.awayStaff]
       : null;
-  return new Game(new Rng(seed), rosters, staffPair).run();
+  const g = new Game(new Rng(seed), rosters, staffPair);
+  if (opts?.trace) g.playTrace = [];
+  if (opts?.injuries && rosters) g.injuryLog = [];
+  return g.run();
 }

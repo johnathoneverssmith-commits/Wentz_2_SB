@@ -58,18 +58,28 @@ export class Roster {
     }
   }
 
-  /** nth-deepest at `pos`, clamped to the last player, or null if none. */
-  private nth(pos: string, i: number): Player | null {
-    const d = this.depth.get(pos) ?? [];
+  /**
+   * nth-*available* player at `pos`, clamped to the last, or null if none.
+   * `out` (ids injured/unavailable) is skipped before counting to `i`.
+   */
+  private nth(pos: string, i: number, out?: ReadonlySet<string>): Player | null {
+    let d = this.depth.get(pos) ?? [];
+    if (out && out.size) {
+      const avail = d.filter((p) => !out.has(p.id));
+      if (avail.length) d = avail;
+    }
     return d[i] ?? d[d.length - 1] ?? null;
   }
 
-  offense(): Lineup {
+  /** `out` = ids to treat as unavailable (in-game injuries). Uncached when non-empty. */
+  offense(out?: ReadonlySet<string>): Lineup {
+    if (out && out.size) return this.buildOffense(out);
     if (!this._off) this._off = this.buildOffense();
     return this._off;
   }
 
-  defense(nickel = false): Lineup {
+  defense(nickel = false, out?: ReadonlySet<string>): Lineup {
+    if (out && out.size) return this.buildDefense(nickel, out);
     let d = this._def.get(nickel);
     if (!d) {
       d = this.buildDefense(nickel);
@@ -82,38 +92,42 @@ export class Roster {
     return this.nth("K", 0);
   }
 
-  private buildOffense(): Lineup {
-    const ot = this.depth.get("OT") ?? [];
-    const og = this.depth.get("OG") ?? [];
+  private buildOffense(out?: ReadonlySet<string>): Lineup {
+    let ot = this.depth.get("OT") ?? [];
+    let og = this.depth.get("OG") ?? [];
+    if (out && out.size) {
+      ot = ot.filter((p) => !out.has(p.id));
+      og = og.filter((p) => !out.has(p.id));
+    }
     return {
-      QB1: this.nth("QB", 0),
-      RB1: this.nth("RB", 0),
-      WR1: this.nth("WR", 0),
-      WR2: this.nth("WR", 1),
-      WR3: this.nth("WR", 2),
-      TE1: this.nth("TE", 0),
+      QB1: this.nth("QB", 0, out),
+      RB1: this.nth("RB", 0, out),
+      WR1: this.nth("WR", 0, out),
+      WR2: this.nth("WR", 1, out),
+      WR3: this.nth("WR", 2, out),
+      TE1: this.nth("TE", 0, out),
       LT: ot[0] ?? null,
       RT: ot[1] ?? ot[0] ?? null,
       LG: og[0] ?? null,
       RG: og[1] ?? og[0] ?? null,
-      C: this.nth("C", 0),
+      C: this.nth("C", 0, out),
     };
   }
 
-  private buildDefense(nickel: boolean): Lineup {
+  private buildDefense(nickel: boolean, out?: ReadonlySet<string>): Lineup {
     const d: Lineup = {
-      EDGE1: this.nth("EDGE", 0),
-      EDGE2: this.nth("EDGE", 1),
-      DT1: this.nth("DT", 0),
-      DT2: this.nth("DT", 1),
-      ILB1: this.nth("ILB", 0),
-      ILB2: this.nth("ILB", 1),
-      CB1: this.nth("CB", 0),
-      CB2: this.nth("CB", 1),
-      S1: this.nth("S", 0),
-      S2: this.nth("S", 1),
+      EDGE1: this.nth("EDGE", 0, out),
+      EDGE2: this.nth("EDGE", 1, out),
+      DT1: this.nth("DT", 0, out),
+      DT2: this.nth("DT", 1, out),
+      ILB1: this.nth("ILB", 0, out),
+      ILB2: this.nth("ILB", 1, out),
+      CB1: this.nth("CB", 0, out),
+      CB2: this.nth("CB", 1, out),
+      S1: this.nth("S", 0, out),
+      S2: this.nth("S", 1, out),
     };
-    if (nickel) d.CB3 = this.nth("CB", 2);
+    if (nickel) d.CB3 = this.nth("CB", 2, out);
     return d;
   }
 }

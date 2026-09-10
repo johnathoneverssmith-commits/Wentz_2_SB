@@ -41,43 +41,55 @@ class Roster:
         self._off_cache: dict | None = None
         self._def_cache: dict[bool, dict] = {}
 
-    def _nth(self, pos: str, i: int) -> dict | None:
+    def _nth(self, pos: str, i: int, out: set | None = None) -> dict | None:
         d = self.depth.get(pos, [])
+        if out:
+            avail = [p for p in d if p["id"] not in out]
+            if avail:
+                d = avail
         return d[i] if i < len(d) else (d[-1] if d else None)
 
-    def offense(self) -> dict[str, dict]:
+    def offense(self, out: set | None = None) -> dict[str, dict]:
+        """`out` = player ids to treat as unavailable (in-game injuries)."""
+        if out:
+            return self._build_offense(out)
         if self._off_cache is None:
             self._off_cache = self._build_offense()
         return self._off_cache
 
-    def defense(self, nickel: bool = False) -> dict[str, dict]:
+    def defense(self, nickel: bool = False, out: set | None = None) -> dict[str, dict]:
+        if out:
+            return self._build_defense(nickel, out)
         if nickel not in self._def_cache:
             self._def_cache[nickel] = self._build_defense(nickel)
         return self._def_cache[nickel]
 
-    def _build_offense(self) -> dict[str, dict]:
+    def _build_offense(self, out: set | None = None) -> dict[str, dict]:
         ot = self.depth.get("OT", [])
         og = self.depth.get("OG", [])
+        if out:
+            ot = [p for p in ot if p["id"] not in out]
+            og = [p for p in og if p["id"] not in out]
         return {
-            "QB1": self._nth("QB", 0),
-            "RB1": self._nth("RB", 0),
-            "WR1": self._nth("WR", 0), "WR2": self._nth("WR", 1), "WR3": self._nth("WR", 2),
-            "TE1": self._nth("TE", 0),
+            "QB1": self._nth("QB", 0, out),
+            "RB1": self._nth("RB", 0, out),
+            "WR1": self._nth("WR", 0, out), "WR2": self._nth("WR", 1, out), "WR3": self._nth("WR", 2, out),
+            "TE1": self._nth("TE", 0, out),
             "LT": ot[0] if ot else None, "RT": ot[1] if len(ot) > 1 else (ot[0] if ot else None),
             "LG": og[0] if og else None, "RG": og[1] if len(og) > 1 else (og[0] if og else None),
-            "C": self._nth("C", 0),
+            "C": self._nth("C", 0, out),
         }
 
-    def _build_defense(self, nickel: bool = False) -> dict[str, dict]:
+    def _build_defense(self, nickel: bool = False, out: set | None = None) -> dict[str, dict]:
         d = {
-            "EDGE1": self._nth("EDGE", 0), "EDGE2": self._nth("EDGE", 1),
-            "DT1": self._nth("DT", 0), "DT2": self._nth("DT", 1),
-            "ILB1": self._nth("ILB", 0), "ILB2": self._nth("ILB", 1),
-            "CB1": self._nth("CB", 0), "CB2": self._nth("CB", 1),
-            "S1": self._nth("S", 0), "S2": self._nth("S", 1),
+            "EDGE1": self._nth("EDGE", 0, out), "EDGE2": self._nth("EDGE", 1, out),
+            "DT1": self._nth("DT", 0, out), "DT2": self._nth("DT", 1, out),
+            "ILB1": self._nth("ILB", 0, out), "ILB2": self._nth("ILB", 1, out),
+            "CB1": self._nth("CB", 0, out), "CB2": self._nth("CB", 1, out),
+            "S1": self._nth("S", 0, out), "S2": self._nth("S", 1, out),
         }
         if nickel:
-            d["CB3"] = self._nth("CB", 2)
+            d["CB3"] = self._nth("CB", 2, out)
         return d
 
     def kicker(self) -> dict | None:
