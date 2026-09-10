@@ -262,15 +262,14 @@ def main() -> None:
            "it to hit the empirical count pushes points from −10% to −16%, because the physical-"
            "outcome resolvers are fit penalty-FREE (§6.2) and this engine's drive model over-"
            "punishes offensive fouls. Reconciling the two needs gained-conditioned hazards (V1.6).",
-           "- **points/team-game −6% (was −12%) — V1.6 (`docs/v16_points_gap_plan.md`).** Fixed "
-           "two punt bugs (field position), split the RZ `air_yards` table finely (goal-line "
-           "throws track the end zone), and — the big one — `CLOCK_SCALE = 0.958`: the M24 snap "
-           "gaps ran ~1 s/play long, so drives ate too much wall clock and ~0.5 fewer fit per "
-           "team-game. drives/team-game −3.3% → +1.2%; points/drive −2.5%; `rz_td_rate` −2.3%. "
-           "Ruled out: within-drive momentum (ρ≈0), scaling `PENALTY_HAZARD_SCALE`. `plays_per_"
-           "team_game` empirical filter fixed to like-for-like (was scrimmage-only, 62 → 68). "
-           "Residual: `end_of_half` 8.8 v 6.85%, RZ pass-TD ~−20pp yl 5–20 (diffuse M05/M09/M10), "
-           "return-TD rate ~10× low. No 2-pt tries.",
+           "- **points/team-game −5% (was −12%) — V1.6 (`docs/v16_points_gap_plan.md`).** Punt "
+           "bugs (field position) + RZ `air_yards` split (gl1..gl4, goal-line throws track the "
+           "end zone) + `CLOCK_SCALE = 0.958` (M24 snap gaps ran ~1 s/play long → drives/team-game "
+           "−3.3% → +1.2%) + `PICK_SIX_RATE`/`SCOOP_SIX_RATE` were ~5× low (0.018/0.012 → "
+           "0.088/0.064; `opp_touchdown` drive share 0.17% → 0.65%, emp 1.11%). Ruled out: "
+           "within-drive momentum (ρ≈0), scaling `PENALTY_HAZARD_SCALE`. `plays_per_team_game` "
+           "empirical filter fixed to like-for-like (scrimmage-only 62 → all-plays 68). Residual: "
+           "`end_of_half` 8.8 v 6.85%, RZ pass-TD ~−20pp yl 5–20 (diffuse M05/M09/M10). No 2-pt.",
            "- **points_sd ~15–17% low** — expected: the average-rating engine runs two identical "
            "teams, so scores regress to the mean (no blowouts/shutouts). Variance widens once rating "
            "modifiers are on (real team-quality spread) — that is the §23 rating-layer check.",

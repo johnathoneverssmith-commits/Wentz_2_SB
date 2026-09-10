@@ -417,6 +417,12 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   Tradeoff (`explosive_pass_rate` +9→+10%) resolved once the clock fix landed
   (back to +5%). **Not closed:** yl 5–20 pass-TD still ~−20pp — a diffuse
   M05/M09/M10 RZ interaction, deferred.
+- **Return-TD rate fix (2026-09-10).** `PICK_SIX_RATE` / `SCOOP_SIX_RATE` were
+  ~5× too low (0.018 / 0.012 vs empirical 0.088 / 0.064 — 111/1254 INTs, 55/863
+  lost fumbles returned for TDs). Fixed → `opp_touchdown` drive share 0.17% →
+  0.65% (emp 1.11%), **points/team-game −6.2% → −4.9%**. drive-table
+  `points_per_drive` reads *worse* (−2.5% → −4.2%) because those drives now
+  score −7 for the offense — but the +7 shows up in actual team points.
 - **M24 clock fix (2026-09-10) — the big one. points/team-game −11.8% → −6.2%.**
   The "engine runs +7% plays" belief was a §22 definition mismatch (5th):
   `plays_per_team_game` compared the engine's all-plays counter to a

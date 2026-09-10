@@ -392,8 +392,12 @@ Python §22 keeps it within 10%).
 
 ### Next
 
-1. Return-TD rate off turnovers (`opp_touchdown` 0.17% v 1.11%, ~1pp of drives)
-   — small, separate. INT/fumble returns are ~10× too rarely taken to the house.
+1. **Return-TD rate off turnovers — DONE (2026-09-10).** `PICK_SIX_RATE` and
+   `SCOOP_SIX_RATE` were ~5× too low (0.018/0.012 vs empirical 0.088/0.064).
+   Fixed → `opp_touchdown` drive share 0.17% → 0.65% (emp 1.11%; the rest is
+   fumble-return TDs on non-turnover plays + muffed-punt/blocked-kick TDs the
+   engine doesn't model). **points/team-game −6.2% → −4.9%** (the +7s go to the
+   defense). 16/20 §22 holds.
 2. `end_of_half` 8.8 v 6.85% — the engine still ends slightly too many drives on
    the clock. Minor; would need the M24 half/game-end transitions modelled
    properly rather than "clock hits 0 mid-drive".
