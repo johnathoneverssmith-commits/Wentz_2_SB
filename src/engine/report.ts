@@ -6,17 +6,26 @@
  * renderer will want.
  */
 
+import { type ClinchResult, type ClinchTag, clinchStatus } from "./clinch.js";
 import { DIVISION_IDS, NFL_TEAMS, divisionsIn } from "./nfl-structure.js";
 import type { PlayoffGame } from "./playoffs.js";
-import { BYE_WEEK_RANGE, TRADE_DEADLINE_WEEK } from "./schedule.js";
-import type { NflSeasonResult } from "./season.js";
-import type { StandingRow } from "./standings.js";
+import { BYE_WEEK_RANGE, type SchedulePair, TRADE_DEADLINE_WEEK } from "./schedule.js";
+import type { NflSeasonResult, SeasonGame } from "./season.js";
+import { type FinishedGame, type StandingRow, computeStandings } from "./standings.js";
 
 function rec(w: number, l: number, t: number): string {
   return t > 0 ? `${w}-${l}-${t}` : `${w}-${l}`;
 }
 
-function standingsBlock(rows: StandingRow[]): string {
+const CLINCH_MARK: Record<ClinchTag, string> = {
+  homefield: "z*",
+  bye: "z*",
+  division: "z-",
+  berth: "x-",
+  eliminated: "e-",
+};
+
+function standingsBlock(rows: StandingRow[], clinch?: Map<string, ClinchTag | null>): string {
   const lines: string[] = [];
   for (const conf of ["AFC", "NFC"] as const) {
     lines.push("", `=== ${conf} ===`);
@@ -27,7 +36,13 @@ function standingsBlock(rows: StandingRow[]): string {
         .sort((a, b) => a.divisionRank - b.divisionRank);
       for (const r of members) {
         const seed = r.seed ? `(${r.seed})` : "   ";
-        const flag = r.wonDivision ? "z" : r.madePlayoffs ? "x" : " ";
+        const flag = clinch
+          ? (clinch.get(r.team) ? CLINCH_MARK[clinch.get(r.team)!] : "  ")
+          : r.wonDivision
+            ? "z "
+            : r.madePlayoffs
+              ? "x "
+              : "  ";
         lines.push(
           `  ${flag}${seed} ${r.team.padEnd(4)} ${rec(r.wins, r.losses, r.ties).padEnd(7)}` +
             ` PF ${String(r.pointsFor).padStart(3)} PA ${String(r.pointsAgainst).padStart(3)}` +
@@ -37,7 +52,12 @@ function standingsBlock(rows: StandingRow[]): string {
       }
     }
   }
-  lines.push("", "  z = division winner, x = wild card");
+  lines.push(
+    "",
+    clinch
+      ? "  z* = clinched bye, z- = clinched division, x- = clinched berth, e- = eliminated"
+      : "  z = division winner, x = wild card",
+  );
   return lines.join("\n");
 }
 
@@ -103,6 +123,39 @@ export function formatSeasonReport(result: NflSeasonResult, title = "NFL SEASON"
     bracketBlock(result.playoffs.games, result.champion),
     "",
   ].join("\n");
+}
+
+/**
+ * Standings through a given week with clinch/elimination tags — the mid-season
+ * view. `games` are the results so far; `schedule` is the full 272-game slate.
+ */
+export function formatStandingsThrough(
+  games: SeasonGame[],
+  schedule: SchedulePair[],
+  throughWeek: number,
+  title = "STANDINGS",
+): string {
+  const played: FinishedGame[] = games
+    .filter((g) => g.week <= throughWeek)
+    .map((g) => ({ home: g.home, away: g.away, homeScore: g.homeScore, awayScore: g.awayScore }));
+  const rows = computeStandings(played).rows;
+  const clinch = new Map<string, ClinchTag | null>(
+    clinchStatus(played, schedule).map((c) => [c.team, topTag(c)]),
+  );
+  const header = [
+    "=".repeat(60),
+    `  ${title} — through week ${throughWeek}`,
+    `  ${played.length} of ${schedule.length} games played`,
+    "=".repeat(60),
+  ].join("\n");
+  return [header, standingsBlock(rows, clinch), ""].join("\n");
+}
+
+function topTag(c: ClinchResult): ClinchTag | null {
+  for (const t of ["homefield", "bye", "division", "berth", "eliminated"] as const) {
+    if (c.tags.includes(t)) return t;
+  }
+  return null;
 }
 
 /** One-line-per-division summary — handy for multi-season franchise dumps. */

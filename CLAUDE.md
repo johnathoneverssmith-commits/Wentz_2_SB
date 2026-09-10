@@ -23,16 +23,19 @@ wide 2018–2025 window + team-season units; §13.6 joint-calibration harness
 points −0.8±0.4/team-game, no βᵢ change).
 
 **A1 (real season) is in** — `src/engine/{nfl-structure,schedule,standings,
-playoffs}.ts` + `simulateNflSeason` in `season.ts`: the current 17-game
-schedule formula with **the real division-rotation cycles anchored to the
-published 2023–2026 pairings** (so `year: 2026`, the default, reproduces the
-actual 2026 slate and later years roll forward), byes confined to weeks 5–14,
-the full NFL standings tiebreaker chain, 7-seed conference seeding, and the
-14-team playoff bracket through the Super Bowl. `npm run season` prints it.
-Headless + deterministic; round-robin `simulateSeason` stays as the pool-free
-guard. No UI, no multiplayer yet. Next: the franchise/game layer (season loop
-UI, offseason) on top of `src/engine/` — and mid-season clinch/elimination
-tags in standings.
+playoffs,clinch,report}.ts` + `simulateNflSeason` / `simulateFranchise` in
+`season.ts`: the current 17-game schedule formula with **the real
+division-rotation cycles anchored to the published 2023–2026 pairings** (so
+`year: 2026`, the default, reproduces the actual 2026 slate and later years
+roll forward), byes confined to weeks 5–14, `TRADE_DEADLINE_WEEK`/
+`BYE_WEEK_RANGE` constants, the full NFL standings tiebreaker chain, 7-seed
+conference seeding, the 14-team playoff bracket through the Super Bowl, and a
+conservative clinch/elimination tracker (`docs/decisions.md` → A1).
+`npm run season` prints a full season / bracket; `--through W` prints
+standings + clinch tags as of week W. Headless + deterministic; round-robin
+`simulateSeason` stays as the pool-free guard. No UI, no multiplayer yet.
+Next: the franchise/game layer (season loop UI, offseason) on top of
+`src/engine/`.
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
 `hyparquet`); everything from Phase B on is Python (scikit-learn) in
@@ -65,7 +68,7 @@ npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm run analysis:audit                    # spec §28 schema audit -> artifacts/
 npm start             # loads + prints the active pool
-npm run season -- --seed 1 --year 2025 [--seasons K] [--compact]  # sim a season/franchise, print standings + bracket
+npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W]  # sim a season/franchise; --through W = standings + clinch tags at week W
 ```
 
 ## Layout

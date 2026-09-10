@@ -573,6 +573,17 @@ guard.
   seed hosts, Super Bowl neutral (better seed listed home). A playoff game
   can't tie: a drawn sim is replayed with a bumped seed up to 24× and, failing
   that, awarded to the higher seed (`decidedBySeed`).
+- **Clinch / elimination tracker** (`clinch.ts`) — from games-so-far + the full
+  schedule, tags each team `berth` / `division` / `bye` / `homefield` /
+  `eliminated`. **Decision: conservative, bounds-only.** It reasons purely from
+  each team's win floor (loses out) and ceiling (wins out) plus the pigeonhole
+  on 7 spots, and it accounts for weak-division-winner displacement
+  (`threats = record-catchers + 3` for a non-locked team). It never claims a
+  clinch or elimination that remaining games or tiebreakers could overturn, so
+  it can lag the NFL's official scenarios by ~a week and on rare completed
+  seasons leaves a tiebreaker-decided team untagged — acceptable for a "never
+  wrong" mid-season indicator. Surfaced by `formatStandingsThrough` /
+  `npm run season -- --through W`.
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**
