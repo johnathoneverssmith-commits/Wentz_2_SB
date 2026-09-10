@@ -310,8 +310,11 @@ def compare_wide() -> None:
 def main() -> None:
     if "--compare-wide" in sys.argv:
         return compare_wide()
-    print("step 1 — historical residual variance...")
-    resid = step1_residuals()
+    # §13.2 anchors: wide window (2018–2025) + team-season units. The M01–M21
+    # baselines stay locked to 2023–2025 (§6.5); only the residual *spread*
+    # estimate uses the wide window. See compare_wide() / decisions.md OQ-8.
+    print(f"step 1 — historical residual variance, window {list(WIDE_RESIDUAL_WINDOW)}...")
+    resid = step1_residuals(WIDE_RESIDUAL_WINDOW)
 
     # base rates for logit conversion
     m09 = _mod("10_pass_result").build_frame(STANDARD.production)["target"].to_numpy()
@@ -332,7 +335,8 @@ def main() -> None:
     (ARTIFACTS / "validation").mkdir(parents=True, exist_ok=True)
     (ARTIFACTS / "ratings").mkdir(parents=True, exist_ok=True)
     (ARTIFACTS / "validation" / "residual_variance_targets.json").write_text(
-        json.dumps({"generated": date.today().isoformat(), "units": resid}, indent=2, default=str) + "\n",
+        json.dumps({"generated": date.today().isoformat(),
+                    "window": list(WIDE_RESIDUAL_WINDOW), "units": resid}, indent=2, default=str) + "\n",
         encoding="utf-8")
     (ARTIFACTS / "ratings" / "rating_effect_coefficients.json").write_text(
         json.dumps({
@@ -350,7 +354,7 @@ def main() -> None:
     bad = [f for f, s in sens.items() if not s["monotonic"] or s["single_attr_dominates"]]
     print(f"\ndone. families={len(coeffs)}  invariant violations={bad or 'none'}")
     for f, s in sens.items():
-        print(f"  {f:22s} p10↔p90 effect {s['p10_to_p90_effect']:.3f} "
+        print(f"  {f:22s} p10-p90 effect {s['p10_to_p90_effect']:.3f} "
               f"({coeffs[f]['units']})  mono={s['monotonic']}  solo_max={s['max_single_attr_share_of_family']}")
 
 

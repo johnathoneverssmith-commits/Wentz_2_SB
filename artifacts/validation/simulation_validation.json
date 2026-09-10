@@ -146,7 +146,7 @@
   ],
   "sim_raw": {
     "n_games": 200,
-    "seconds": 64.0,
+    "seconds": 61.3,
     "rates": {
       "dropback_rate": 0.5893717728055078,
       "completion_pct": 0.6568992633060177,
@@ -190,7 +190,7 @@
       "plays_per_team_game": 61.995098039215684,
       "drives_per_team_game": 10.74325980392157,
       "points_per_team_game": 22.564338235294116,
-      "points_sd": 9.926792217465527,
+      "points_sd": 9.926792217465525,
       "pass_attempts_per_team_game": 32.81924019607843,
       "rush_attempts_per_team_game": 23.99019607843137,
       "penalties_per_team_game": 6.161764705882353,

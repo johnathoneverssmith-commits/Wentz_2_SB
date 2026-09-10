@@ -10,10 +10,13 @@ has a working V1 end to end: Phases A–E all done at V1.** `analysis/` holds th
 Python pipeline, `analysis/engine/` the headless game loop, `artifacts/` the
 committed outputs the loop consumes. Done: §28 audit, 15 league-baseline
 resolvers (Phase B), usage-role priors (C), player-effect calibration (D),
-full-sim validation §22 (E, 14/16 league metrics within 10%), rating-layer
-validation §23 (E). No UI, no multiplayer yet. Next: penalty module (§25 V1.5),
-a larger §23 league sample, and the shippable TS runtime (needs a portable
-export of the HGB resolvers — the TS side can't load joblib).
+full-sim validation §22 (E, 15/20 league metrics within 10%), rating-layer
+validation §23 (E), penalty module §25 V1.5, portable resolver export + a
+TypeScript runtime port (`src/engine/`, runs on `artifacts/**/portable/*.json`,
+no Python). Residual-variance anchors use the wide 2018–2025 window +
+team-season units. No UI, no multiplayer yet. Next: §13.6 joint calibration
+(tune βᵢ against emergent points/wins), then A1 season-sim + standings
+(paired with the UI work).
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
 `hyparquet`); everything from Phase B on is Python (scikit-learn) in

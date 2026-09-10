@@ -189,26 +189,44 @@ per-play lineups → attribute z-scores → Phase D coefficients as
   spreads). Not blocking A1/season-sim; do it before rating-layer magnitudes
   surface in franchise-mode UX.
 
-**Wider residual window (2018–2025) staged (2026-09-09).** The user supplied
+**Wider residual window (2018–2025) ADOPTED (2026-09-09).** The user supplied
 2018–2022 pbp (`data/*.parquet`, git-ignored; same 372-col schema, all
-Next-Gen fields present). `22_rating_calibration.py --compare-wide` runs step 1
-on the 3- and 8-season windows and writes
-`artifacts/validation/residual_variance_targets_wide.json`. Two changes:
-`step1_residuals(seasons=…)` is parameterised, and the four **team anchors now
-use team-SEASON as the unit** (a franchise's pass D in 2018 ≠ 2025) — that
-alone is a better estimate and lets the wide window add units, not just plays.
-- **Result:** every player anchor gains data (QBs 65→97, receivers 154→345,
-  rushers 105→211, team-seasons 96→256) and the thin channels firm up —
-  `m09_qb_completion` +8.4%, `m14_rusher_yards` **+22%** (0.779→0.951),
-  `m14_defense_rush_yards` +14%. Era drift is negligible: completion % is flat
-  0.636–0.655 across 2018–25, the 2023–25 M09's per-season bias on 2018–22 is
-  ≤1pp, and season-de-meaning the rush residual leaves the spread unchanged
-  (0.951→0.954). So the 3-season anchors were simply under-powered on the thin
-  tails, not era-biased. **1999–2017 not needed** — pre-2016 has no Next-Gen
-  tracking and spans huge rule/scheme drift; 8 seasons is a strong sample.
-- **Next:** adopt the wide window + team-season units as the production
-  `residual_variance_targets.json`, re-derive step-2 βᵢ (QB/rush magnitudes
-  grow ~10–20%), re-run §23 — then §13.6 if the aggregation gap persists.
+Next-Gen fields present). `22_rating_calibration.py` now runs step 1 on the
+8-season window; `--compare-wide` keeps the 3-vs-8 diff tool and writes
+`residual_variance_targets_wide.json`. Two changes: `step1_residuals(seasons=…)`
+is parameterised, and the four **team anchors now use team-SEASON as the unit**
+(a franchise's pass D in 2018 ≠ 2025) — a better estimate on its own, and it
+lets the wide window add units (32 team codes → 256 team-seasons), not just
+plays.
+- **Anchor spreads (`residual_variance_targets.json`, re-derived):** player
+  anchors gain data (QBs 65→97, receivers 154→345, rushers 105→211) and the
+  thin tails firm up — `m09_qb_completion` +8.4%, `m14_rusher_yards` **+22%**
+  (0.779→0.951), and the *defensive* team anchors, which were the worst-counted
+  at n=32, move most: `m09_def_completion` +20%, `m04_defense_sack` **+31%**,
+  `m04_offense_sack` +14%. Era drift is negligible (completion flat 0.636–0.655
+  across 2018–25; 2023–25 M09 per-season bias on 2018–22 ≤1pp; season-de-meaning
+  the rush residual leaves the spread at 0.951→0.954), so the 3-season anchors
+  were under-powered, not era-biased. **1999–2017 not needed** — no Next-Gen
+  pre-2016, huge scheme drift.
+- **βᵢ (`rating_effect_coefficients.json`, re-derived):** family p10↔p90 effects
+  grow in step: qb_accuracy +8%, receiver/coverage +20%, protection +14%,
+  pass_rush +31%, runner +22%; the well-sampled ones barely move
+  (yac ±2%, kicking 0%, ball_security/run_D −3%). No invariant violations
+  (monotone, no single-attr dominance). `test/fixtures/rating_cases.json`
+  regenerated to match; full TS suite + typecheck green.
+- **§22 re-run (200 games):** unchanged — it's the rating-layer-OFF baseline
+  check, so re-deriving βᵢ can't touch it. Still 15/20 within 10%, points
+  −11.9% (the diffuse drive-aggregation gap, unrelated).
+- **§23 re-run (40/cell, 120 league, 100 impact):** the paired ON-vs-OFF
+  **points cost halved, −1.22 → −0.67 pts/team-game** (closer to §12's ≈0),
+  and INT-rate drift shrank. Still open: margin sd *narrows* under the layer
+  (11.85 on vs 13.13 off) where §12 predicts a widen, and the per-channel
+  invariant sims (coverage, pass_rush, runner) don't resolve the right
+  direction at n=40 — `designed_magnitude_ratio` is 0.99–1.0× for all 7, so
+  the per-play magnitude is right; the emergent sim signal and the sample
+  size aren't. Still a **§13.6 joint-calibration** item (tune βᵢ against
+  emergent points/wins/margin, and bump the invariant sim count); not
+  blocking A1.
 
 **Penalty module (§25 V1.5) — models fitted (2026-09-09).**
 `analysis/25_penalties.py` (M25a pre-snap dead-ball hazard, M25b live-ball
