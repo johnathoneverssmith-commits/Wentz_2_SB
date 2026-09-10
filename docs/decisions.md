@@ -572,7 +572,12 @@ guard.
 - **Playoffs** — 7 seeds/conf, #1 bye, 2v7/3v6/4v5, re-seed each round, higher
   seed hosts, Super Bowl neutral (better seed listed home). A playoff game
   can't tie: a drawn sim is replayed with a bumped seed up to 24× and, failing
-  that, awarded to the higher seed (`decidedBySeed`).
+  that, awarded to the higher seed (`decidedBySeed`). Per-game seed offsets are
+  fixed (`CONF_BASE` + round offset), so the round-by-round stepper
+  (`startPlayoffs` → `playPlayoffRound` → `finishPlayoffs`) and the one-shot
+  `simulatePlayoffs` — now defined as `finishPlayoffs(startPlayoffs(…))` —
+  produce byte-identical brackets. `games` are grouped by round (all Wild Card,
+  then Divisional, …), Super Bowl last.
 - **Clinch / elimination tracker** (`clinch.ts`) — from games-so-far + the full
   schedule, tags each team `berth` / `division` / `bye` / `homefield` /
   `eliminated`. **Decision: conservative, bounds-only.** It reasons purely from

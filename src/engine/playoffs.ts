@@ -96,81 +96,144 @@ function play(
   };
 }
 
-function runConference(
-  conf: Conference,
-  seed: number,
-  seeding: ConferenceSeeding,
-  games: PlayoffGame[],
-): Contender {
-  const bySeed = seeding.seeds.map((team, i) => ({ team, seed: i + 1 }));
-  if (bySeed.length !== 7) {
-    throw new Error(`simulatePlayoffs: ${conf} needs 7 seeds, got ${bySeed.length}`);
+// per-conference seed base (added to the run seed); rounds get fixed offsets
+// on top so every game's seed is stable however the bracket is stepped.
+const CONF_BASE: Record<Conference, number> = { AFC: 100_000, NFC: 200_000 };
+const SUPER_BOWL_OFFSET = 900_000;
+
+const asContenders = (seeding: ConferenceSeeding): Contender[] => {
+  if (seeding.seeds.length !== 7) {
+    throw new Error(`playoffs: a conference needs 7 seeds, got ${seeding.seeds.length}`);
   }
-  const [s1, s2, s3, s4, s5, s6, s7] = bySeed as [
-    Contender,
-    Contender,
-    Contender,
-    Contender,
-    Contender,
-    Contender,
-    Contender,
-  ];
+  return seeding.seeds.map((team, i) => ({ team, seed: i + 1 }));
+};
+const winnerOf = (g: PlayoffGame): Contender => ({
+  team: g.winner,
+  seed: g.winner === g.home ? g.homeSeed : g.awaySeed,
+});
+const bySeed = (cs: Contender[]) => [...cs].sort((x, y) => x.seed - y.seed);
 
-  // wild card
-  const wc: PlayoffGame[] = [
-    play("wildcard", conf, seed + 10, s2, s7),
-    play("wildcard", conf, seed + 20, s3, s6),
-    play("wildcard", conf, seed + 30, s4, s5),
+function wildCardGames(conf: Conference, base: number, s: Contender[]): PlayoffGame[] {
+  return [
+    play("wildcard", conf, base + 10, s[1]!, s[6]!),
+    play("wildcard", conf, base + 20, s[2]!, s[5]!),
+    play("wildcard", conf, base + 30, s[3]!, s[4]!),
   ];
-  games.push(...wc);
-  const survived: Contender[] = [s1];
-  for (const g of wc) {
-    const w = g.winner === g.home ? g.homeSeed : g.awaySeed;
-    survived.push({ team: g.winner, seed: w });
-  }
-
-  // divisional — reseed: #1 vs lowest, next two meet
-  survived.sort((x, y) => x.seed - y.seed);
-  const [d1, d2, d3, d4] = survived as [Contender, Contender, Contender, Contender];
-  const div: PlayoffGame[] = [
-    play("divisional", conf, seed + 40, d1, d4),
-    play("divisional", conf, seed + 50, d2, d3),
+}
+function divisionalGames(conf: Conference, base: number, alive: Contender[]): PlayoffGame[] {
+  const a = bySeed(alive);
+  return [
+    play("divisional", conf, base + 40, a[0]!, a[3]!),
+    play("divisional", conf, base + 50, a[1]!, a[2]!),
   ];
-  games.push(...div);
-  const finalists: Contender[] = div.map((g) => ({
-    team: g.winner,
-    seed: g.winner === g.home ? g.homeSeed : g.awaySeed,
-  }));
-
-  // conference championship
-  finalists.sort((x, y) => x.seed - y.seed);
-  const champGame = play("conference", conf, seed + 60, finalists[0]!, finalists[1]!);
-  games.push(champGame);
-  return {
-    team: champGame.winner,
-    seed: champGame.winner === champGame.home ? champGame.homeSeed : champGame.awaySeed,
-  };
+}
+function conferenceGame(conf: Conference, base: number, alive: Contender[]): PlayoffGame {
+  const a = bySeed(alive);
+  return play("conference", conf, base + 60, a[0]!, a[1]!);
+}
+function superBowlGame(seed: number, afc: Contender, nfc: Contender): PlayoffGame {
+  return afc.seed <= nfc.seed
+    ? play("superbowl", "NFL", seed + SUPER_BOWL_OFFSET, afc, nfc)
+    : play("superbowl", "NFL", seed + SUPER_BOWL_OFFSET, nfc, afc);
 }
 
+/**
+ * Full bracket. Games are grouped by round (all Wild Card, then all Divisional,
+ * …), then the Super Bowl last. Equivalent to `finishPlayoffs(startPlayoffs(…))`.
+ */
 export function simulatePlayoffs(
   seed: number,
   seeding: Record<Conference, ConferenceSeeding>,
 ): PlayoffResult {
-  const games: PlayoffGame[] = [];
-  const afc = runConference("AFC", seed + 100_000, seeding.AFC, games);
-  const nfc = runConference("NFC", seed + 200_000, seeding.NFC, games);
+  return finishPlayoffs(startPlayoffs(seed, seeding));
+}
 
-  // Super Bowl — neutral; better seed listed home, AFC on a seed tie
-  const sb =
-    afc.seed <= nfc.seed
-      ? play("superbowl", "NFL", seed + 900_000, afc, nfc)
-      : play("superbowl", "NFL", seed + 900_000, nfc, afc);
-  games.push(sb);
+// --- round-by-round stepper (for an interactive postseason UI) ---
+
+export interface PlayoffProgress {
+  seed: number;
+  seeding: Record<Conference, ConferenceSeeding>;
+  /** Next round to play; "done" once the Super Bowl is in. */
+  nextRound: PlayoffRound | "done";
+  games: PlayoffGame[];
+  /** Teams still alive per conference (seed-sorted); one each once conf champs are decided. */
+  alive: Record<Conference, Contender[]>;
+}
+
+export function startPlayoffs(
+  seed: number,
+  seeding: Record<Conference, ConferenceSeeding>,
+): PlayoffProgress {
+  return {
+    seed,
+    seeding,
+    nextRound: "wildcard",
+    games: [],
+    alive: { AFC: asContenders(seeding.AFC), NFC: asContenders(seeding.NFC) },
+  };
+}
+
+/** Play the next round (both conferences, or the Super Bowl). Pure — `p` is not mutated. */
+export function playPlayoffRound(p: PlayoffProgress): {
+  progress: PlayoffProgress;
+  games: PlayoffGame[];
+} {
+  if (p.nextRound === "done") return { progress: p, games: [] };
+
+  const fresh: PlayoffGame[] = [];
+  const alive = { AFC: [...p.alive.AFC], NFC: [...p.alive.NFC] };
+  let nextRound: PlayoffRound | "done";
+
+  if (p.nextRound === "superbowl") {
+    const sb = superBowlGame(p.seed, alive.AFC[0]!, alive.NFC[0]!);
+    fresh.push(sb);
+    nextRound = "done";
+  } else {
+    for (const conf of ["AFC", "NFC"] as Conference[]) {
+      const base = p.seed + CONF_BASE[conf];
+      const seeds = asContenders(p.seeding[conf]);
+      let roundGames: PlayoffGame[];
+      if (p.nextRound === "wildcard") {
+        roundGames = wildCardGames(conf, base, seeds);
+        alive[conf] = bySeed([seeds[0]!, ...roundGames.map(winnerOf)]);
+      } else if (p.nextRound === "divisional") {
+        roundGames = divisionalGames(conf, base, alive[conf]);
+        alive[conf] = bySeed(roundGames.map(winnerOf));
+      } else {
+        roundGames = [conferenceGame(conf, base, alive[conf])];
+        alive[conf] = [winnerOf(roundGames[0]!)];
+      }
+      fresh.push(...roundGames);
+    }
+    nextRound =
+      p.nextRound === "wildcard"
+        ? "divisional"
+        : p.nextRound === "divisional"
+          ? "conference"
+          : "superbowl";
+  }
 
   return {
-    games,
-    conferenceChampions: { AFC: afc.team, NFC: nfc.team },
+    progress: { ...p, nextRound, games: [...p.games, ...fresh], alive },
+    games: fresh,
+  };
+}
+
+export function playoffsComplete(p: PlayoffProgress): boolean {
+  return p.nextRound === "done";
+}
+
+/** Play out the remaining rounds and assemble the result. */
+export function finishPlayoffs(p: PlayoffProgress): PlayoffResult {
+  let cur = p;
+  while (!playoffsComplete(cur)) cur = playPlayoffRound(cur).progress;
+  const sb = cur.games[cur.games.length - 1]!;
+  const afc = cur.alive.AFC[0]!.team;
+  const nfc = cur.alive.NFC[0]!.team;
+  return {
+    games: cur.games,
+    conferenceChampions: { AFC: afc, NFC: nfc },
     champion: sb.winner,
-    runnerUp: sb.winner === afc.team ? nfc.team : afc.team,
+    runnerUp: sb.winner === afc ? nfc : afc,
   };
 }

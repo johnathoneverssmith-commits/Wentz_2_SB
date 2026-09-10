@@ -33,10 +33,12 @@ conference seeding, the 14-team playoff bracket through the Super Bowl, and a
 conservative clinch/elimination tracker (`docs/decisions.md` → A1).
 `npm run season` prints a full season / bracket; `--through W` prints
 standings + clinch tags as of week W. For an interactive UI there's a
-week-by-week loop: `startSeason` → `playWeek` (pure step) → `finishSeason`,
-with `progressStandings` / `progressClinches` / `remainingOpponents` on the
-partial state and `boxScoreFor(progress, {home,away})` for a game's detail
-line; `finishSeason(startSeason(…))` is identical to `simulateNflSeason`. Headless + deterministic; round-robin `simulateSeason`
+week-by-week loop (`startSeason` → `playWeek` → `finishSeason`, plus
+`progressStandings` / `progressClinches` / `remainingOpponents` /
+`boxScoreFor`) and a matching round-by-round playoff stepper (`startPlayoffs`
+→ `playPlayoffRound` → `finishPlayoffs`). Both step functions are pure and
+byte-identical to their one-shot equivalents (`simulateNflSeason` /
+`simulatePlayoffs`). Headless + deterministic; round-robin `simulateSeason`
 stays as the pool-free guard. No UI, no multiplayer yet. Next: the
 franchise/game layer (offseason: draft, FA, aging) on top of `src/engine/`.
 
