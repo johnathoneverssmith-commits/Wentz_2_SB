@@ -91,6 +91,7 @@ class Game:
     _dcross: bool = False
     _dteam: int = 0
     _dpts0: int = 0
+    _dfd0: float = 0.0
 
     # ---- helpers -------------------------------------------------------
     def other(self) -> int:
@@ -155,6 +156,7 @@ class Game:
         self._dcross = self.yardline_100 < 50.0
         self._dteam = self.pos
         self._dpts0 = self.score[self.pos]
+        self._dfd0 = self.teams[self.pos].s["first_down"]
 
     def _finish_drive(self, result: str):
         """Close the current drive with `result` (a lib_py.drives canonical key).
@@ -169,6 +171,7 @@ class Game:
             "plays": self._dplays,
             "crossed_mid": self._dcross,
             "points": self.score[self._dteam] - self._dpts0,
+            "first_downs": self.teams[self._dteam].s["first_down"] - self._dfd0,
         })
 
     def ctx(self, shotgun: int = 0) -> dict:

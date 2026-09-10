@@ -72,6 +72,7 @@ export interface DriveRecord {
   plays: number;
   crossedMid: boolean;
   points: number;
+  firstDowns: number;
 }
 
 function clip(x: number, lo: number, hi: number): number {
@@ -108,6 +109,7 @@ export class Game {
   private dCross = false;
   private dTeam = 0;
   private dPts0 = 0;
+  private dFd0 = 0;
 
   constructor(rng: Rng, rosters: [Roster, Roster] | null = null) {
     this.rng = rng;
@@ -178,6 +180,7 @@ export class Game {
     this.dCross = this.yardline100 < 50.0;
     this.dTeam = this.pos;
     this.dPts0 = this.score[this.pos as 0 | 1];
+    this.dFd0 = this.teams[this.pos as 0 | 1].s.first_down ?? 0;
   }
 
   private finishDrive(result: string): void {
@@ -190,6 +193,7 @@ export class Game {
       plays: this.dPlays,
       crossedMid: this.dCross,
       points: this.score[this.dTeam as 0 | 1] - this.dPts0,
+      firstDowns: (this.teams[this.dTeam as 0 | 1].s.first_down ?? 0) - this.dFd0,
     });
   }
 

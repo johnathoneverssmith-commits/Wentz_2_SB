@@ -93,6 +93,18 @@ def drive_table(records: list[dict], *, min_plays: int = 1) -> dict:
     crossed = [r["crossed_mid"] for r in recs if "crossed_mid" in r]
     never_crossed = round(1.0 - float(np.mean(crossed)), 4) if crossed else None
 
+    plays_arr = np.array([r["plays"] for r in recs if "plays" in r], float)
+    fd_arr = np.array([r["first_downs"] for r in recs if "first_downs" in r], float)
+    plays_per_drive = round(float(plays_arr.mean()), 3) if plays_arr.size else None
+    fd_per_drive = round(float(fd_arr.mean()), 3) if fd_arr.size else None
+    # 3-and-out: a punt/downs/turnover drive that gained no first down
+    three_and_out = None
+    if fd_arr.size:
+        empty = np.array([r["first_downs"] == 0 and r["result"] in
+                          ("punt", "downs", "turnover", "missed_fg")
+                          for r in recs if "first_downs" in r])
+        three_and_out = round(float(empty.mean()), 4)
+
     fp_rows = []
     for bi, (lo, hi) in enumerate(FP_BANDS):
         m = bands == bi
@@ -101,21 +113,26 @@ def drive_table(records: list[dict], *, min_plays: int = 1) -> dict:
             fp_rows.append({"band": f"{lo}-{hi}", "n": 0, "share": 0.0,
                             "ppd": None, "td_rate": None})
             continue
-        td = float(np.mean([canon[i] == "touchdown" for i in np.where(m)[0]]))
+        idx = np.where(m)[0]
+        td = float(np.mean([canon[i] == "touchdown" for i in idx]))
+        fds = [recs[i]["first_downs"] for i in idx if "first_downs" in recs[i]]
         fp_rows.append({
             "band": f"{lo}-{hi}",
             "n": cnt,
             "share": round(cnt / n, 4),
             "ppd": round(float(pts[m].mean()), 4),
             "td_rate": round(td, 4),
-            "plays": round(float(np.mean([recs[i].get("plays", np.nan)
-                                          for i in np.where(m)[0]])), 3),
+            "plays": round(float(np.mean([recs[i].get("plays", np.nan) for i in idx])), 3),
+            "fd_per_drive": round(float(np.mean(fds)), 3) if fds else None,
         })
 
     return {
         "n": n,
         "points_per_drive": round(float(pts.mean()), 4),
         "never_crossed_mid": never_crossed,
+        "plays_per_drive": plays_per_drive,
+        "first_downs_per_drive": fd_per_drive,
+        "three_and_out_rate": three_and_out,
         "start_yl": {
             "mean": round(float(start.mean()), 2),
             "p10": round(float(np.percentile(start, 10)), 1),
@@ -142,6 +159,8 @@ def records_from_nflverse(drives_df) -> list[dict]:
             rec["plays"] = int(row["plays"])
         if row.get("crossed_mid") is not None:
             rec["crossed_mid"] = bool(row["crossed_mid"])
+        if row.get("first_downs") is not None:
+            rec["first_downs"] = int(row["first_downs"])
         out.append(rec)
     return out
 
@@ -151,6 +170,9 @@ def records_from_engine(drives_log: list[dict]) -> list[dict]:
     out = []
     for d in drives_log:
         c = ENGINE_RESULT.get(d["result"], d["result"])
-        out.append({"start_yl": float(d["start_yl"]), "result": c,
-                    "plays": int(d["plays"]), "crossed_mid": bool(d["crossed_mid"])})
+        rec = {"start_yl": float(d["start_yl"]), "result": c,
+               "plays": int(d["plays"]), "crossed_mid": bool(d["crossed_mid"])}
+        if "first_downs" in d:
+            rec["first_downs"] = int(d["first_downs"])
+        out.append(rec)
     return out

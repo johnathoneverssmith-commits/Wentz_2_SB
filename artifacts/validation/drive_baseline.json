@@ -2,6 +2,9 @@
   "n": 18387,
   "points_per_drive": 1.9415,
   "never_crossed_mid": 0.4276,
+  "plays_per_drive": 6.754,
+  "first_downs_per_drive": 1.794,
+  "three_and_out_rate": 0.257,
   "start_yl": {
     "mean": 70.14,
     "p10": 50.0,
@@ -28,7 +31,8 @@
       "share": 0.0046,
       "ppd": 5.6,
       "td_rate": 0.7294,
-      "plays": 2.776
+      "plays": 2.776,
+      "fd_per_drive": 0.776
     },
     {
       "band": "10-19",
@@ -36,7 +40,8 @@
       "share": 0.0098,
       "ppd": 4.2873,
       "td_rate": 0.4807,
-      "plays": 3.635
+      "plays": 3.635,
+      "fd_per_drive": 0.812
     },
     {
       "band": "20-29",
@@ -44,7 +49,8 @@
       "share": 0.0164,
       "ppd": 4.2318,
       "td_rate": 0.457,
-      "plays": 4.444
+      "plays": 4.444,
+      "fd_per_drive": 1.126
     },
     {
       "band": "30-39",
@@ -52,7 +58,8 @@
       "share": 0.025,
       "ppd": 3.2087,
       "td_rate": 0.3283,
-      "plays": 5.135
+      "plays": 5.135,
+      "fd_per_drive": 1.215
     },
     {
       "band": "40-49",
@@ -60,7 +67,8 @@
       "share": 0.0406,
       "ppd": 2.4625,
       "td_rate": 0.252,
-      "plays": 5.492
+      "plays": 5.492,
+      "fd_per_drive": 1.256
     },
     {
       "band": "50-59",
@@ -68,7 +76,8 @@
       "share": 0.0667,
       "ppd": 2.4878,
       "td_rate": 0.27,
-      "plays": 6.272
+      "plays": 6.272,
+      "fd_per_drive": 1.64
     },
     {
       "band": "60-69",
@@ -76,7 +85,8 @@
       "share": 0.1762,
       "ppd": 2.1707,
       "td_rate": 0.2472,
-      "plays": 6.783
+      "plays": 6.783,
+      "fd_per_drive": 1.827
     },
     {
       "band": "70-79",
@@ -84,7 +94,8 @@
       "share": 0.4155,
       "ppd": 1.7925,
       "td_rate": 0.2058,
-      "plays": 6.997
+      "plays": 6.997,
+      "fd_per_drive": 1.885
     },
     {
       "band": "80-89",
@@ -92,7 +103,8 @@
       "share": 0.1637,
       "ppd": 1.4395,
       "td_rate": 0.1698,
-      "plays": 7.165
+      "plays": 7.165,
+      "fd_per_drive": 1.901
     },
     {
       "band": "90-99",
@@ -100,7 +112,8 @@
       "share": 0.0815,
       "ppd": 1.1662,
       "td_rate": 0.1542,
-      "plays": 7.212
+      "plays": 7.212,
+      "fd_per_drive": 1.925
     }
   ],
   "seasons": [

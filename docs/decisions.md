@@ -371,10 +371,14 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   drive start_yl mean 71.9→71.1 (emp 70.1); "opp 0–9" starts 2.5%→0.4% (emp
   0.5%); "own 90–99" 14.5%→10.3% (emp 8.2%); points/drive −6.8%→−4.2%;
   points/team-game −13.1%→−11.8%. `never crossed midfield` 43.8% v 42.8%.
-- **Residual (−11.8% team-game) ≈ −4% drive conversion at fixed field position
-  + −3% fewer drives (clock runs hot, `end_of_half` 9.3% v 6.85%) + ~1pp too
-  few return TDs.** Next probe: within-drive down/distance state mix +
-  first-downs-per-drive. Momentum stays ruled out (ρ≈0).
+- **Residual −11.8% ≈ −4% drive conversion + −3% fewer drives (clock hot) +
+  ~1pp return TDs.** The −4% conversion is **not uniform** — added `first_downs`
+  to the drive record and split by start FP: drives starting past midfield
+  convert fine; drives starting at the own 30 or deeper (**69% of drives**) run
+  ~5–9% fewer plays and convert **~10–14% fewer first downs** (globally FD/drive
+  1.69 v 1.79; 3-and-out 26.5% v 25.7% matches). Long-field drives stall around
+  midfield. Next: down-state mix + M02 play-call by FP + M14 `fp="own"` rush
+  yards, restricted to drives starting ≥ own 30. Momentum ruled out (ρ≈0).
   Full plan: [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**

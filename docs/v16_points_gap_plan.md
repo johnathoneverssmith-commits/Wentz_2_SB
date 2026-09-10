@@ -198,27 +198,43 @@ Field position is now close. `never crossed midfield` confirms §2 — the old
 
 ### What's left (the −11.8% team-game gap decomposes as)
 
-- **≈ −4% drive conversion** at *fixed* field position: the pts/drive-by-start-FP
-  curve sits below empirical through the own-20-to-midfield bands (20–29: 3.32 v
-  4.23; 50–59: 1.93 v 2.49; 60–69: 2.06 v 2.17). Per-play metrics are all within
-  ~5% and 3rd-down conversion-by-distance matched in the earlier diagnostic — so
-  this is the *sequence* of correct per-play draws not sustaining enough drives.
-  §1 rules out momentum (ρ≈0), so the next probe is the **within-drive
-  down/distance state mix** (is the engine seeing too many 2nd/3rd-and-long?)
-  and **first-downs-per-drive / series-conversion rate**.
+- **≈ −4% drive conversion, and it is NOT uniform — it lives entirely in
+  long-field drives.** Added `first_downs` to the per-drive record and split
+  every metric by starting field-position band:
+
+  | start band (own yds to goal) | share | FD/drive sim / emp | plays/drive sim / emp | pts/drive sim / emp |
+  | --- | ---: | ---: | ---: | ---: |
+  | ≤ opp 49 (bands 0–49) | 12% | ≥ emp | ≈ emp | ≈ emp |
+  | own 40–49 (band 50–59) | 6% | 1.68 / 1.64 | 6.24 / 6.27 | 2.52 / 2.49 |
+  | own 31–40 (band 60–69) | 18% | 1.79 / 1.83 | 6.71 / 6.78 | 2.07 / 2.17 |
+  | **own 21–30 (band 70–79)** | **46%** | **1.70 / 1.89** | **6.58 / 7.00** | 1.79 / 1.79 |
+  | **own 11–20 (band 80–89)** | **15%** | **1.70 / 1.90** | **6.75 / 7.17** | **1.27 / 1.44** |
+  | **own 1–10 (band 90–99)** | **8%** | **1.66 / 1.93** | **6.57 / 7.21** | **1.04 / 1.17** |
+
+  Drives that start past midfield convert fine. Drives that start at the own 30
+  or deeper — **69% of all drives** — run ~5–9% fewer plays and convert
+  **~10–14% fewer first downs**. Globally: FD/drive 1.69 v 1.79 (−5.6%),
+  plays/drive 6.63 v 6.75, 3-and-out 26.5% v 25.7% (both fine). So the engine's
+  *opening* set of downs from deep is fine (3-and-out rate matches) but the
+  drives that DO get moving stall around midfield instead of pushing into
+  scoring range — they get 1–2 first downs and punt, where real long-field
+  drives get 2–3 and reach FG/TD range.
+
+  §1 rules out momentum (ρ≈0). Next probe — restricted to drives starting ≥ own
+  30: the **down/distance state mix** deeper in the drive (2nd/3rd-and-long
+  share), **M02 play-call mix by field position**, and **M14 rush yards in the
+  `fp="own"` bucket** vs empirical. One of those conditionals is skewing
+  long-field drives short.
 - **≈ −3% fewer drives/team-game** (10.31 v 10.75) — the clock runs hot
   (plays/team-game +7%), so drives are longer and more get caught by the half
   (`end_of_half` 9.3% v 6.85%). Raising the drive-end clock multiplier was tried
-  before and made points *worse* (fewer plays = fewer chances), so this needs
-  the per-play elapsed model (M24), not a global knob.
-- **≈ 1pp too few `opp_touchdown` drives** (0.12% v 1.11%) — the engine's
-  defensive/return-TD rate off turnovers is ~10× low; near points-neutral
-  leaguewide but part of the 22.56 empirical total.
+  before and made points *worse*; needs the per-play elapsed model (M24), a
+  separate item.
+- **≈ 1pp too few `opp_touchdown` drives** (0.12% v 1.11%) — return-TD rate off
+  turnovers is ~10× low; near points-neutral leaguewide but part of the 22.56.
 
-### Next (hand back / continue on Sonnet)
+### Next
 
-1. Probe within-drive down-state distribution + first-downs-per-drive vs
-   empirical (new section in `29_drive_baseline.py`, mirror in §22).
-2. If the down-state mix is off → find which resolver's conditional is skewing
-   it (likely M02 play-call or the M14/M10 yardage tails on early downs).
-3. The clock / drives-per-game piece is an M24 refit, separate work item.
+1. Long-field-drive probe (above): down-state mix, M02 by FP, M14 `fp="own"`.
+2. Fix whichever conditional is skewing long-field drives short.
+3. Clock / drives-per-game (M24) and return-TD rate are separate items.

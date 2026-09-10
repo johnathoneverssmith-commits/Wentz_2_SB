@@ -22,7 +22,7 @@ from lib_py.report import ARTIFACTS
 from lib_py.split import STANDARD
 
 COLS = ["game_id", "fixed_drive", "fixed_drive_result", "down", "yardline_100",
-        "posteam", "play_type", "special_teams_play"]
+        "posteam", "play_type", "special_teams_play", "first_down", "drive_first_downs"]
 
 
 def build_drive_rows(seasons: tuple[int, ...]) -> pl.DataFrame:
@@ -42,6 +42,7 @@ def build_drive_rows(seasons: tuple[int, ...]) -> pl.DataFrame:
             pl.col("posteam").first().alias("posteam"),
             pl.len().alias("plays"),
             (pl.col("yardline_100").min() < 50).alias("crossed_mid"),
+            pl.col("first_down").cast(pl.Int32, strict=False).fill_null(0).sum().alias("first_downs"),
         )
     )
 
