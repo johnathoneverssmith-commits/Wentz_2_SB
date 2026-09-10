@@ -32,10 +32,13 @@ roll forward), byes confined to weeks 5–14, `TRADE_DEADLINE_WEEK`/
 conference seeding, the 14-team playoff bracket through the Super Bowl, and a
 conservative clinch/elimination tracker (`docs/decisions.md` → A1).
 `npm run season` prints a full season / bracket; `--through W` prints
-standings + clinch tags as of week W. Headless + deterministic; round-robin
-`simulateSeason` stays as the pool-free guard. No UI, no multiplayer yet.
-Next: the franchise/game layer (season loop UI, offseason) on top of
-`src/engine/`.
+standings + clinch tags as of week W. For an interactive UI there's a
+week-by-week loop: `startSeason` → `playWeek` (pure step) → `finishSeason`,
+with `progressStandings` / `progressClinches` / `remainingOpponents` on the
+partial state; `finishSeason(startSeason(…))` is identical to
+`simulateNflSeason`. Headless + deterministic; round-robin `simulateSeason`
+stays as the pool-free guard. No UI, no multiplayer yet. Next: the
+franchise/game layer (offseason: draft, FA, aging) on top of `src/engine/`.
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
 `hyparquet`); everything from Phase B on is Python (scikit-learn) in

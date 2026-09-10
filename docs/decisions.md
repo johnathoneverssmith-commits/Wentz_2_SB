@@ -584,6 +584,13 @@ guard.
   seasons leaves a tiebreaker-decided team untagged — acceptable for a "never
   wrong" mid-season indicator. Surfaced by `formatStandingsThrough` /
   `npm run season -- --through W`.
+- **Week-by-week loop** (`season.ts`) — `startSeason` → `playWeek` (pure step,
+  returns advanced progress + that week's games) → `finishSeason` (plays out
+  the rest + the playoffs). `progressStandings` / `progressClinches` /
+  `remainingOpponents` read the partial state. `finishSeason(startSeason(seed,
+  opts))` is byte-identical to `simulateNflSeason` (same schedule, same per-game
+  seed offset = index in the 272-game slate), which is now defined as exactly
+  that. This is the surface the interactive franchise UI drives.
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**

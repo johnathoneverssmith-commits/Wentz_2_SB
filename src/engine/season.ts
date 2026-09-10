@@ -9,10 +9,11 @@
  * deterministic vitest sanity check before the franchise UI is wired on top.
  */
 
+import { type ClinchResult, clinchStatus } from "./clinch.js";
 import { NFL_TEAMS } from "./nfl-structure.js";
 import { type PlayoffResult, simulatePlayoffs } from "./playoffs.js";
 import { roster, teamList } from "./roster.js";
-import { nflSchedule } from "./schedule.js";
+import { type SchedulePair, nflSchedule } from "./schedule.js";
 import { simulateGame } from "./sim.js";
 import { type FinishedGame, type LeagueStandings, computeStandings } from "./standings.js";
 
@@ -190,34 +191,110 @@ export interface NflSeasonOptions {
   priorRank?: Map<string, number>;
 }
 
+// --- stateful, week-by-week season loop (for an interactive franchise UI) ---
+
+export interface SeasonProgress {
+  seed: number;
+  year: number;
+  /** The full 272-game slate. A game's index here is its `simulateGame` seed offset. */
+  schedule: SchedulePair[];
+  /** Next regular-season week to play (1–18); 19 once the regular season is done. */
+  nextWeek: number;
+  /** Results so far, in schedule order. */
+  results: SeasonGame[];
+}
+
+const REGULAR_SEASON_WEEKS = 18;
+
+const toFinished = (g: SeasonGame): FinishedGame => ({
+  home: g.home,
+  away: g.away,
+  homeScore: g.homeScore,
+  awayScore: g.awayScore,
+});
+
+/** Fresh season, no games played. Same schedule + seed indexing as `simulateNflSeason`. */
+export function startSeason(seed: number, opts: NflSeasonOptions = {}): SeasonProgress {
+  const year = opts.year ?? 2026;
+  const schedule = nflSchedule(opts.priorRank ? { year, priorRank: opts.priorRank } : { year });
+  return { seed, year, schedule, nextWeek: 1, results: [] };
+}
+
+/**
+ * Sim the next unplayed week and return the advanced progress plus that week's
+ * games. Pure: `p` is not mutated. A no-op (empty `games`) once the regular
+ * season is complete.
+ */
+export function playWeek(p: SeasonProgress): { progress: SeasonProgress; games: SeasonGame[] } {
+  if (p.nextWeek > REGULAR_SEASON_WEEKS) return { progress: p, games: [] };
+  const games: SeasonGame[] = [];
+  p.schedule.forEach((s, i) => {
+    if (s.week !== p.nextWeek) return;
+    const g = simulateGame(p.seed + i, s.home, s.away);
+    games.push({
+      week: s.week,
+      home: s.home,
+      away: s.away,
+      homeScore: g.score[0],
+      awayScore: g.score[1],
+    });
+  });
+  return {
+    progress: { ...p, nextWeek: p.nextWeek + 1, results: [...p.results, ...games] },
+    games,
+  };
+}
+
+/** Sim forward until `nextWeek` is past `week` (or the regular season ends). */
+export function playThroughWeek(p: SeasonProgress, week: number): SeasonProgress {
+  let cur = p;
+  while (cur.nextWeek <= Math.min(week, REGULAR_SEASON_WEEKS)) cur = playWeek(cur).progress;
+  return cur;
+}
+
+export function regularSeasonComplete(p: SeasonProgress): boolean {
+  return p.nextWeek > REGULAR_SEASON_WEEKS;
+}
+
+/** Standings as they stand right now (partial or complete). */
+export function progressStandings(p: SeasonProgress): LeagueStandings {
+  return computeStandings(p.results.map(toFinished));
+}
+
+/** Clinch / elimination tags as they stand right now. */
+export function progressClinches(p: SeasonProgress): ClinchResult[] {
+  return clinchStatus(p.results.map(toFinished), p.schedule);
+}
+
+/** A team's not-yet-played opponents, in week order (`@OPP` = away). */
+export function remainingOpponents(p: SeasonProgress, team: string): string[] {
+  return p.schedule
+    .filter((s) => s.week >= p.nextWeek && (s.home === team || s.away === team))
+    .map((s) => (s.home === team ? s.away : `@${s.home}`));
+}
+
+/**
+ * Play out any weeks left, then the playoffs. From a fresh `startSeason` this is
+ * identical to `simulateNflSeason` (same schedule, same per-game seed offsets).
+ */
+export function finishSeason(p: SeasonProgress): NflSeasonResult {
+  let cur = p;
+  while (!regularSeasonComplete(cur)) cur = playWeek(cur).progress;
+  const standings = computeStandings(cur.results.map(toFinished), NFL_TEAMS as string[]);
+  const playoffs = simulatePlayoffs(cur.seed, standings.seeding);
+  return { games: cur.results, standings, playoffs, champion: playoffs.champion };
+}
+
 /**
  * A full NFL season: the real 17-game schedule through `simulateGame` (rating
  * layer ON), the league standings with tiebreakers, then the 14-team playoff
  * bracket. `simulateGame(seed + gameIndex, …)` per regular-season game and a
  * disjoint seed range for the playoffs, so a given `seed` + `year` reproduces
  * the season and the champion exactly. Needs a full player pool (every team in
- * `teams` must have a roster).
+ * `teams` must have a roster). Equivalent to `finishSeason(startSeason(seed, opts))`.
  */
 export function simulateNflSeason(seed: number, opts: NflSeasonOptions = {}): NflSeasonResult {
-  const year = opts.year ?? 2026;
-  const teams = NFL_TEAMS as string[];
-  const schedule = nflSchedule(
-    opts.priorRank ? { year, priorRank: opts.priorRank } : { year },
-  );
-
-  const games: SeasonGame[] = [];
-  const finished: FinishedGame[] = [];
-  schedule.forEach(({ week, home, away }, i) => {
-    const g = simulateGame(seed + i, home, away);
-    const [homeScore, awayScore] = g.score;
-    games.push({ week, home, away, homeScore, awayScore });
-    finished.push({ home, away, homeScore, awayScore });
-  });
-
-  const standings = computeStandings(finished, teams);
-  const playoffs = simulatePlayoffs(seed, standings.seeding);
-
-  return { games, standings, playoffs, champion: playoffs.champion };
+  return finishSeason(startSeason(seed, opts));
 }
 
 /**
