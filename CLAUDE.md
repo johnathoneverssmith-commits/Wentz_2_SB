@@ -10,14 +10,17 @@ has a working V1 end to end: Phases A–E all done at V1.** `analysis/` holds th
 Python pipeline, `analysis/engine/` the headless game loop, `artifacts/` the
 committed outputs the loop consumes. Done: §28 audit, 15 league-baseline
 resolvers (Phase B), usage-role priors (C), player-effect calibration (D),
-full-sim validation §22 (E, 15/20 league metrics within 10%), rating-layer
-validation §23 (E), penalty module §25 V1.5, portable resolver export + a
-TypeScript runtime port (`src/engine/`, runs on `artifacts/**/portable/*.json`,
-no Python). Residual-variance anchors use the wide 2018–2025 window +
-team-season units; §13.6 joint-calibration harness (`26_joint_calibration.py`)
-run — layer is emergently sound (margin widens, points −0.8±0.4/team-game,
-no βᵢ change). Headless `src/engine/season.ts` (round-robin schedule +
-standings) is in with a vitest guard. No UI, no multiplayer yet. Next: A1
+full-sim validation §22 (E, **16/20 within 10%** after V1.6 —
+`docs/v16_points_gap_plan.md` took points/team-game **−11.8% → −4.9%**: punt
+field-position bugs, RZ air-yards by goal-line distance, `CLOCK_SCALE`,
+pick-6/scoop-6 rates), rating-layer validation §23 (E), penalty module §25
+V1.5, portable resolver export + a TypeScript runtime port (`src/engine/`, runs
+on `artifacts/**/portable/*.json`, no Python). Residual-variance anchors use the
+wide 2018–2025 window + team-season units; §13.6 joint-calibration harness
+(`26_joint_calibration.py`) run — layer is emergently sound (margin widens,
+points −0.8±0.4/team-game, no βᵢ change). Headless `src/engine/season.ts`
+(round-robin schedule + standings) is in with a vitest guard. No UI, no
+multiplayer yet. Next: A1
 proper — real NFL division/conference schedule + playoff bracket, paired with
 the franchise UI.
 
