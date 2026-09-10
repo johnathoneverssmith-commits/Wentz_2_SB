@@ -602,6 +602,14 @@ guard.
   turnovers / red-zone / TOP plus the drive log. `fourthDown` reports
   `[conv, conv + fourth_att]` because the sim only counts `fourth_att` for
   *failed* fourth downs. `formatBoxScore` + `npm run season -- --box AWAY@HOME`.
+- **Save / load** (`serde.ts`) — `SeasonProgress` / `PlayoffProgress` are plain
+  JSON, so `serializeSeason` / `deserializeSeason` (and the playoff pair) are a
+  version-tagged envelope + a shape check on load: rejects a stale
+  `SAVE_VERSION`, the wrong kind, non-JSON, a non-272 schedule, or a
+  results/`nextWeek` mismatch. `priorRankToObj` / `priorRankFromObj` bridge the
+  one `Map` in the option bags.
+- **`scheduleMatchups`** — the 272 `{ home, away }` pairs with no week
+  assignment (no solver), for a "who plays whom" view.
 
 ## OQ-1 — Full player pool: source vs generate
 **Status:** decided + implemented (2026-09-07) — **generate from public stats.**

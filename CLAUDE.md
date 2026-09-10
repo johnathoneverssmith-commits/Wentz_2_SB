@@ -38,7 +38,8 @@ week-by-week loop (`startSeason` → `playWeek` → `finishSeason`, plus
 `boxScoreFor`) and a matching round-by-round playoff stepper (`startPlayoffs`
 → `playPlayoffRound` → `finishPlayoffs`). Both step functions are pure and
 byte-identical to their one-shot equivalents (`simulateNflSeason` /
-`simulatePlayoffs`). Headless + deterministic; round-robin `simulateSeason`
+`simulatePlayoffs`); `serde.ts` saves/loads the progress states with a
+version + shape check. Headless + deterministic; round-robin `simulateSeason`
 stays as the pool-free guard. No UI, no multiplayer yet. Next: the
 franchise/game layer (offseason: draft, FA, aging) on top of `src/engine/`.
 
