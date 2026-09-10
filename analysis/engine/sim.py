@@ -85,6 +85,10 @@ class Game:
     # One record per drive: {team, start_yl, result, plays, crossed_mid, points}.
     # `result` uses the canonical keys in lib_py.drives.PTS_BY_RESULT.
     drives_log: list = field(default_factory=list)
+    # optional per-scrimmage-play trace (V1.6 long-field-drive probe). Left None
+    # in normal runs; a caller sets it to [] to collect
+    # {down, ydstogo, yardline_100, call, drive_start_yl, gained, converted}.
+    play_trace: list | None = None
     _drive_open: bool = False
     _dstart_yl: float = 75.0
     _dplays: int = 0
@@ -337,6 +341,7 @@ class Game:
             self.yardline_100 = max(self.yardline_100 - yd, 1.0)
             if auto_first or yd >= self.ydstogo:
                 self.st("auto_first_pen")
+                self.st("first_down")  # nflverse counts a penalty first down
                 self._new_series(first_down=True)
             else:
                 self.ydstogo -= yd
@@ -460,6 +465,7 @@ class Game:
         for _ in range(2):
             if not self._presnap_penalty():
                 break
+            self._dplays += 1  # a dead-ball foul is its own nflverse no_play row
 
         # snapshot AFTER pre-snap fouls: an accepted live-ball foul nullifies the
         # play back to here, not back past the dead-ball enforcement.
@@ -469,6 +475,13 @@ class Game:
         start_yl = self.yardline_100
         gained = 0.0
         turnover = False
+        _trec = None
+        if self.play_trace is not None:
+            _trec = {"down": self.down, "ydstogo": float(self.ydstogo),
+                     "yardline_100": float(self.yardline_100), "call": call,
+                     "drive_start_yl": float(self._dstart_yl), "gained": None,
+                     "converted": None, "turnover": False}
+            self.play_trace.append(_trec)
         family = "designed_rush"
         outcome_bucket = "run_inbounds"
 
@@ -506,6 +519,8 @@ class Game:
                                            "pass_location": ploc, "qb_hit": qb_hit}, self.rng, m09_shift)
                 self.teams[self.pos].s["air_yards"] += ay
                 if res == "INTERCEPTION":
+                    if _trec is not None:
+                        _trec["turnover"] = True
                     self.st("int_thrown")
                     self.st("turnover")
                     if self.rng.random() < PICK_SIX_RATE:
@@ -562,7 +577,12 @@ class Game:
                                        "event_family": family}).get("FUMBLE", 0.011)
             if self.rng.random() < pf:
                 self.st("fumble")
+                if _trec is not None:
+                    _trec["gained"] = float(gained)
+                    _trec["converted"] = False
                 if self.rng.random() < FUMBLE_LOST_RATE:
+                    if _trec is not None:
+                        _trec["turnover"] = True
                     self.st("fumble_lost")
                     self.st("turnover")
                     turnover = True
@@ -590,6 +610,8 @@ class Game:
             pfam = "dropback" if call == "DROPBACK" else "designed_run"
             pp = predict_proba("M25b", self._pen_ctx(pfam)).get("LIVEBALL_PEN", 0.049) * PENALTY_HAZARD_SCALE
             if self.rng.random() < pp and self._liveball_penalty(pfam, gained, s0):
+                # this snap already counted in _dplays (the nflverse no_play row);
+                # the replay is a fresh play() call that counts itself.
                 return
 
         # resolve state first, so the clock knows whether the drive continues
@@ -599,6 +621,9 @@ class Game:
         gained_first = (self.ydstogo - gained) <= 0 and not is_td and not is_safety
         failed_4th = (self.down == 4 and not gained_first and not is_td and not is_safety)
         drive_ends = is_td or is_safety or failed_4th
+        if _trec is not None:
+            _trec["gained"] = float(gained)
+            _trec["converted"] = bool(is_td or gained_first)
         self.advance_clock(outcome_bucket, drive_ends=drive_ends)
 
         self.yardline_100 = new_yl
@@ -626,7 +651,8 @@ class Game:
             self._free_kick()
             return
         self.ydstogo -= gained
-        if self.ydstogo <= 0:
+        converted = self.ydstogo <= 0
+        if converted:
             self.st("first_down")
             if self.down == 3:
                 self.st("third_conv")

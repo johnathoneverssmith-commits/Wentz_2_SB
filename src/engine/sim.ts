@@ -363,6 +363,7 @@ export class Game {
       this.yardline100 = Math.max(this.yardline100 - yd, 1.0);
       if (autoFirst || yd >= this.ydstogo) {
         this.st("auto_first_pen");
+        this.st("first_down"); // nflverse counts a penalty first down
         this.newSeries(true);
       } else {
         this.ydstogo -= yd;
@@ -485,6 +486,7 @@ export class Game {
   private scrimmage(_goForIt: boolean): void {
     for (let i = 0; i < 2; i++) {
       if (!this.presnapPenalty()) break;
+      this.dPlays += 1; // a dead-ball foul is its own nflverse no_play row
     }
     const s0: [Stats, Stats] = [{ ...this.teams[0].s }, { ...this.teams[1].s }];
     const call = sampleClass("M02", this.ctx(0), this.rng);

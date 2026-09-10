@@ -1,9 +1,11 @@
 # V1.6 — the points gap: diagnosis and plan
 
-Status: **steps 1–4 done + the mechanical bugs fixed. Residual is a smaller,
-diffuse drive-conversion + fewer-drives gap — see "Step-4 results" below.**
+Status: **punt bugs fixed (−13% → −11.8%); residual diagnosed to the
+penalty-volume gap, not per-play football. Next = re-test `PENALTY_HAZARD_SCALE`
+with field position now correct.**
 Tools: `analysis/29_drive_baseline.py` (empirical), `analysis/lib_py/drives.py`
-(shared summariser), drive metrics in `analysis/23_full_sim_validation.py`.
+(shared summariser), drive metrics in `analysis/23_full_sim_validation.py`,
+opt-in `Game.play_trace` (Python engine only) for per-scrimmage-play probes.
 
 The engine scores ~19.9 pts/team-game against an empirical 22.6 (−11.9%). Prior
 work (`docs/decisions.md`, "Diffuse points gap") concluded the gap was emergent
@@ -220,11 +222,42 @@ Field position is now close. `never crossed midfield` confirms §2 — the old
   scoring range — they get 1–2 first downs and punt, where real long-field
   drives get 2–3 and reach FG/TD range.
 
-  §1 rules out momentum (ρ≈0). Next probe — restricted to drives starting ≥ own
-  30: the **down/distance state mix** deeper in the drive (2nd/3rd-and-long
-  share), **M02 play-call mix by field position**, and **M14 rush yards in the
-  `fp="own"` bucket** vs empirical. One of those conditionals is skewing
-  long-field drives short.
+  §1 rules out momentum (ρ≈0).
+
+  **Long-field-drive probe (2026-09-10) — the per-play football is all correct.**
+  Added an opt-in per-scrimmage-play trace (`Game.play_trace`); compared to
+  2023–25 pbp, restricted to drives starting ≥ own 30:
+
+  | check | verdict |
+  | --- | --- |
+  | A. down/distance state mix over plays | **matches** (±0.6pp every cell) |
+  | B. dropback rate by field-position band | **matches** (≤1.6pp; backed-up −3pp) |
+  | C. designed-run yards by `gl`/`opp`/`own` bucket | **matches** (−0.13 to −0.20 yд) |
+  | D. first-down conversion by (down, distance) | **matches** (±2.5pp; two `<<` are n≈150 / noise) |
+  | E. turnover rate per play by field-position band | **matches** (±0.4pp) |
+
+  So the deficit is **not** per-play. Sizing the drive-level gap directly:
+  empirical long-field drives get **1.913 first downs/drive**, of which
+  **rush+pass = 1.742 and PENALTY = 0.171**. The engine gets **1.70** ≈ the
+  empirical rush+pass-only figure. **The entire FD/drive gap is the ~0.17
+  penalty first downs per drive** the engine doesn't produce — it runs penalties
+  at **−25% volume** (§22: −27% count, −23% yards) and, until now, didn't even
+  count the ones it *did* throw (`auto_first_pen`, not `first_down`). Same for
+  plays/drive: empirical `down≠null` rows/drive 7.07 vs run/pass 6.00 — the
+  ~1.0 difference is penalty no-play rows + the terminal punt/FG, and the engine
+  wasn't counting the penalty rows in `_dplays`.
+
+  **Conclusion: the long-field "conversion deficit" is the penalty-volume gap.**
+  Defensive fouls (~0.25/drive empirically) hand the offense a first down and an
+  extra ~1 play → more scoring chances. `docs/decisions.md` records that scaling
+  `PENALTY_HAZARD_SCALE` up previously pushed points −10%→−16%, but that was
+  *before* the punt fixes (field position was broken) and before this decompo-
+  sition. **Re-test `PENALTY_HAZARD_SCALE` now** — with field position correct,
+  more defensive fouls should be net-positive on points, not net-negative.
+
+  Fixed two stat-counting mismatches so the drive metrics read correctly:
+  `auto_first_pen` now also increments `first_down`; a dead-ball foul now counts
+  a play in `_dplays` (matches nflverse's no-play row).
 - **≈ −3% fewer drives/team-game** (10.31 v 10.75) — the clock runs hot
   (plays/team-game +7%), so drives are longer and more get caught by the half
   (`end_of_half` 9.3% v 6.85%). Raising the drive-end clock multiplier was tried
@@ -235,6 +268,12 @@ Field position is now close. `never crossed midfield` confirms §2 — the old
 
 ### Next
 
-1. Long-field-drive probe (above): down-state mix, M02 by FP, M14 `fp="own"`.
-2. Fix whichever conditional is skewing long-field drives short.
-3. Clock / drives-per-game (M24) and return-TD rate are separate items.
+1. **Re-test `PENALTY_HAZARD_SCALE`** (currently 1.0, penalties −25%). Sweep it
+   toward the empirical count and re-run §22 + the drive table. Field position
+   is fixed now, so the old "−16% points" result should not repeat; the
+   hypothesis is that defensive fouls extending drives is net-positive.
+   Watch: offensive-foul over-punishment (the old failure mode), penalty *yards*
+   vs count, and whether the drive-end clock interaction changes.
+2. Clock / drives-per-game (−3%, `end_of_half` +2.4pp) — an M24 per-play elapsed
+   refit, separate item.
+3. Return-TD rate off turnovers (~10× low, ~1pp of drives) — separate, small.

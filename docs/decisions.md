@@ -372,14 +372,25 @@ still **−9.4%** (20.4 v 22.6). It is *not* one cause:
   0.5%); "own 90–99" 14.5%→10.3% (emp 8.2%); points/drive −6.8%→−4.2%;
   points/team-game −13.1%→−11.8%. `never crossed midfield` 43.8% v 42.8%.
 - **Residual −11.8% ≈ −4% drive conversion + −3% fewer drives (clock hot) +
-  ~1pp return TDs.** The −4% conversion is **not uniform** — added `first_downs`
-  to the drive record and split by start FP: drives starting past midfield
-  convert fine; drives starting at the own 30 or deeper (**69% of drives**) run
-  ~5–9% fewer plays and convert **~10–14% fewer first downs** (globally FD/drive
-  1.69 v 1.79; 3-and-out 26.5% v 25.7% matches). Long-field drives stall around
-  midfield. Next: down-state mix + M02 play-call by FP + M14 `fp="own"` rush
-  yards, restricted to drives starting ≥ own 30. Momentum ruled out (ρ≈0).
-  Full plan: [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
+  ~1pp return TDs.** The −4% conversion concentrates in drives starting ≥ own 30
+  (69% of drives): FD/drive 1.70 v 1.91.
+- **Long-field-drive probe (2026-09-10) → it's the PENALTY-VOLUME gap, not
+  per-play football.** Added an opt-in per-scrimmage-play trace
+  (`Game.play_trace`). On drives starting ≥ own 30, the engine matches empirical
+  on: down/distance state mix (±0.6pp), dropback rate by FP, designed-run yards
+  by `gl`/`opp`/`own` bucket (−0.15 yд), first-down conversion by (down,
+  distance) (±2.5pp), and turnover rate per play (±0.4pp). But empirical
+  long-field drives get 1.913 FD/drive = **1.742 rush+pass + 0.171 PENALTY**;
+  the engine's 1.70 ≈ the rush+pass-only figure. **The whole FD/drive gap is the
+  ~0.17 defensive-penalty first downs/drive the engine doesn't produce** (it
+  runs penalties at −25% volume). Fixed two stat-counting mismatches:
+  `auto_first_pen` now also increments `first_down`; a dead-ball foul now counts
+  a play in `_dplays` (matches nflverse's no-play row) — both mirrored to TS.
+  **Next: re-test `PENALTY_HAZARD_SCALE`** — the old "scaling it → points −16%"
+  finding predates the punt fixes (field position was broken); with FP correct,
+  defensive fouls extending drives should be net-positive on points.
+  Momentum stays ruled out (ρ≈0). Full plan:
+  [`v16_points_gap_plan.md`](v16_points_gap_plan.md)
 
 **Portable HGB export done + wired into the engine (2026-09-09).**
 `analysis/27_export_portable.py` + `lib_py/hgb_portable.py`. The 7 HGB
