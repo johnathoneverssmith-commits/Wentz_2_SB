@@ -8,7 +8,7 @@ import {
   divisionOf,
   divisionRivals,
 } from "../src/engine/nfl-structure.js";
-import { nflSchedule } from "../src/engine/schedule.js";
+import { nflSchedule, scheduleMatchups } from "../src/engine/schedule.js";
 
 /**
  * Phase A1: the real NFL 17-game formula. Every team plays 17 games over 18
@@ -196,7 +196,7 @@ describe("nflSchedule — real NFL rotation", () => {
   for (const [yStr, expected] of Object.entries(REAL_ROTATION)) {
     const year = Number(yStr);
     it(`matches the published ${year} division pairings`, () => {
-      const sched = nflSchedule({ year });
+      const sched = scheduleMatchups({ year });
       // opponent-division game counts, taken from one team's slate per division
       for (const [divId, [intra, inter, seventeen]] of Object.entries(expected)) {
         const probe = DIVISIONS[divId as keyof typeof DIVISIONS][0]!;
@@ -219,7 +219,7 @@ describe("nflSchedule — real NFL rotation", () => {
   }
 
   it("2026 AFC East plays NFC North ×4 and never plays NFC East or NFC South", () => {
-    const sched = nflSchedule({ year: 2026 });
+    const sched = scheduleMatchups({ year: 2026 });
     for (const t of DIVISIONS["AFC East"]) {
       const byDiv = new Map<string, number>();
       for (const g of sched) {
@@ -238,7 +238,7 @@ describe("nflSchedule — real NFL rotation", () => {
     // the intra-conference 4-game opponent division for a probe team
     const intraOpp = (year: number, probe: string) => {
       const byDiv = new Map<string, number>();
-      for (const g of nflSchedule({ year })) {
+      for (const g of scheduleMatchups({ year })) {
         if (g.home !== probe && g.away !== probe) continue;
         const o = g.home === probe ? g.away : g.home;
         if (divisionOf(o) === divisionOf(probe) || conferenceOf(o) !== conferenceOf(probe)) continue;

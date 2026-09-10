@@ -367,14 +367,27 @@ function assignWeeks(matchups: Directed[], year: number): SchedulePair[] {
   throw new Error("assignWeeks: no valid 18-week layout found");
 }
 
+const normalizeOpts = (o: Map<string, number> | ScheduleOptions): ScheduleOptions =>
+  o instanceof Map ? { priorRank: o } : o;
+
+/**
+ * Just the 272 matchups (`{ home, away }`), no week assignment — the "who plays
+ * whom" for a season, computed straight from the rotation cycles + prior-year
+ * ranks. Cheap (no solver). `nflSchedule` is this plus `assignWeeks`.
+ */
+export function scheduleMatchups(
+  priorRankOrOpts: Map<string, number> | ScheduleOptions = {},
+): { home: string; away: string }[] {
+  const opts = normalizeOpts(priorRankOrOpts);
+  return makeMatchups(opts.year ?? 2026, opts.priorRank ?? new Map());
+}
+
 export function nflSchedule(
   priorRankOrOpts: Map<string, number> | ScheduleOptions = {},
 ): SchedulePair[] {
-  const opts: ScheduleOptions =
-    priorRankOrOpts instanceof Map ? { priorRank: priorRankOrOpts } : priorRankOrOpts;
+  const opts = normalizeOpts(priorRankOrOpts);
   const year = opts.year ?? 2026;
-  const priorRank = opts.priorRank ?? new Map();
-  return assignWeeks(makeMatchups(year, priorRank), year);
+  return assignWeeks(makeMatchups(year, opts.priorRank ?? new Map()), year);
 }
 
 export { conferenceOf, divisionOf };
