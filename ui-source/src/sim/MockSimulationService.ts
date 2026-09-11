@@ -34,6 +34,7 @@ import {
   RETIREMENT_AGE,
   ROSTER_TEMPLATE,
 } from "./roster-template.ts";
+import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
 import {
   DEFENSE_SCHEMES,
   OFFENSE_SCHEMES,
@@ -261,21 +262,24 @@ export class MockSimulationService implements SimulationService {
     ];
     const out: DraftProspect[] = [];
     for (let i = 0; i < n; i++) {
-      const pos = rng.weighted(
-        POSITIONS,
-        POSITIONS.map((p) => (p === "K" || p === "P" ? 0.3 : p === "OLB" ? 0.6 : 1)),
-      );
+      // the slot this prospect nominally fills, pre-jitter - real draft-class
+      // position mix (2018-2026 PFR data) is round-dependent (see
+      // draft-history.ts), e.g. almost no kickers/punters in rounds 1-2.
+      const slotRound = clamp(Math.ceil((i + 1) / 32), 1, 7);
+      const roundDist = POSITION_BY_ROUND[slotRound]!;
+      const pos = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p]));
       // a prospect's *projected* slot wobbles around its board position
       const projPick = clamp(Math.round(i + 1 + rng.normal(0, 8)), 1, 260);
       const projectedRound = clamp(Math.ceil(projPick / 32), 1, 7);
       const collegeOverall = clamp(Math.round(92 - projPick * 0.14 + rng.normal(0, 4)), 55, 96);
       const trueOverall = clamp(Math.round(collegeOverall + rng.normal(0, 8)), 50, 96);
+      const ageDist = AGE_BY_POSITION[pos];
       out.push({
         id: `d${year}_${i + 1}`,
         name: personName(rng),
         position: pos,
         school: school(rng),
-        age: 21 + rng.int(0, 2),
+        age: clamp(Math.round(rng.normal(ageDist.mean, ageDist.stdev)), 20, 26),
         heightIn: 68 + rng.int(0, 10),
         weightLb: 185 + rng.int(0, 130),
         fortyTime: pos === "K" || pos === "P" ? null : round1(4.3 + rng.float(0, 1.1)),
