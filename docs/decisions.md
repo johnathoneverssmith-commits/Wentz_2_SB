@@ -724,11 +724,25 @@ rating-z contribution by their own tag match rather than the unit average. That
 needs threading a per-player scale into `familyModifier` / `centered`.
 
 ## OQ-4 — Aging curves
-**Status:** open (needed for Phase 4 full loop)
+**Status:** retirement age substantially addressed (2026-09-11); dev/decline
+curves still open
 
-`dev_age_threshold` / `decline_age_threshold` are position-curve derived and
-currently hand-set. Need the actual per-position curves, the drift magnitude
-per year, and how `injury_history` shifts them.
+`RETIREMENT_AGE` (`ui-source/src/sim/roster-template.ts`) is now cross-checked
+against recent (2023-2025) positional aging-curve research and real recent
+veteran retirements rather than being purely hand-set (WR nudged 33→34 per
+that research showing later receiver decline in the modern rules era).
+`retirementOutcomes` (`MockSimulationService.ts`) replaces the old flat
+`injury_history.length * 0.04` penalty with `injuryAgeReduction`: a real
+type/severity-weighted, diminishing-returns reduction to a player's effective
+retirement-age norm, grounded in recent sports-medicine findings (concussion
+history costs the most, per Kuechly/Luck-era precedent; knee/ACL-pattern
+injuries cost a real but more moderate amount per RTP-rate literature;
+soft-tissue injuries cost little except at high severity).
+
+Still open: `dev_age_threshold` / `decline_age_threshold` (the in-career
+rating trajectory, separate from *retirement* age) are still hand-set. Need
+the actual per-position development/decline curves and the drift magnitude
+per year.
 
 ## OQ-5 — Trade value model
 **Status:** substantially addressed (2026-09-11), cap situation still open
@@ -786,11 +800,30 @@ accept-likelihood similarly need-weighted — 2026-09-11). Along the way:
 - Player/coach *value* itself (positional value, draft-pick trade value) was
   also ungrounded — see OQ-5/OQ-6, now substantially addressed too.
 
-Still not done: `generateDraftClass`'s prospect *generation* (position mix,
-grade distribution) is still an ungrounded heuristic — real per-position
-draft-composition data wasn't reliably fetchable this pass (see OQ-5/OQ-6's
-note), and retirement-age curves (OQ-4) are still hand-set, not fit to real
-longevity data. Both are honest gaps, not silently-skipped ones.
+**Update (2026-09-11):** `generateDraftClass`'s prospect *composition* (which
+positions get drafted in which round, and at what age) is now grounded in
+real data too. The user supplied nine years (2018-2026) of
+Pro-Football-Reference draft-listing PDFs directly (the earlier "not reliably
+fetchable" note was specifically about live web-fetch access, which was
+hitting a bot-detection wall — not about the data not existing); those PDFs
+had no text layer (print-to-PDF rasterizations), so they were OCR'd
+(Tesseract, with a word-bounding-box row-reconstruction pass — the naive
+`image_to_string` extraction badly scrambled PFR's wide stat table into
+column-major garbage on denser pages) and parsed into 1,961 individual picks.
+See `ui-source/src/sim/draft-history.ts` for the resulting
+`POSITION_BY_ROUND`/`AGE_BY_POSITION` tables, sourcing detail, and the
+fractional-split methodology used for years where PFR's own table only gives
+a broad OL/DL/LB/DB group instead of the specific position (each broad pick
+is split across its specific members using the empirical ratio from years
+that do give the specific code — documented per-split sample sizes, since
+the ILB/OLB split in particular rests on a thin n=31). `generateDraftClass`
+now draws each pick's position and age from these real distributions instead
+of a flat, round-agnostic heuristic. retirement-age curves are addressed
+above (OQ-4). Still an honest gap: prospect *grade*/overall distribution by
+pick slot is still a synthetic decay curve, not fit to real draft-outcome
+data — PFR's Approximate Value columns didn't OCR reliably enough (misaligned
+digits, 0/O confusion) to trust for that purpose, so it was deliberately left
+alone rather than shipped on shaky data.
 
 Every AI-driven roster decision (draft-class evaluation and pick selection,
 free-agency bidding, trade proposals/acceptance, coach hiring) must optimize
