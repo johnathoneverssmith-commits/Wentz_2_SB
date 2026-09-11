@@ -14,6 +14,7 @@ export function ContractNegotiation({
   subtitle,
   priorities,
   prior,
+  error,
   onSubmit,
   onClose,
 }: {
@@ -21,6 +22,8 @@ export function ContractNegotiation({
   subtitle?: string;
   priorities: FreePriorities;
   prior?: ContractOffer;
+  /** Shown inline (e.g. "not enough cap space") without closing the modal. */
+  error?: string | null;
   onSubmit: (offer: Omit<ContractOffer, "teamCode">) => void;
   onClose: () => void;
 }) {
@@ -82,6 +85,11 @@ export function ContractNegotiation({
               {verdict} — they expect ~{millions(exp.baseSalary)}/yr, {millions(exp.guaranteed)} gtd
             </span>
           </div>
+          {error && (
+            <p style={{ margin: "12px 0 0", fontSize: 12.5, fontWeight: 600, color: "var(--bad)" }}>
+              {error}
+            </p>
+          )}
         </div>
 
         <div className="modal-foot">

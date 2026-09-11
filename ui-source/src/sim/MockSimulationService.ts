@@ -92,6 +92,37 @@ export function injuryAgeReduction(history: Player["injury_history"]): number {
 /** Deep clone that works on immer drafts (structuredClone chokes on the proxy). */
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+/**
+ * Season-over-season `overall` drift (OQ-4), given a player's *new* age
+ * (post-birthday-equivalent, i.e. already incremented for the season about
+ * to start) relative to their own `dev_age_threshold`/`decline_age_threshold`
+ * (set once at player creation - see `RETIREMENT_AGE`/dev-age generation
+ * above). Three phases:
+ *  - developing (age < dev threshold): growth, biggest while furthest from
+ *    the threshold (the common "year 2/3 leap", tapering as a player
+ *    approaches their prime).
+ *  - prime (dev <= age < decline): a small random walk around flat.
+ *  - decline (age >= decline threshold): loss that accelerates the further
+ *    past the threshold a player is.
+ * Same v0 caveat as the engine's own `AGING_CURVES`
+ * (`src/model/positions.ts`): a plausible shape, not fit to real
+ * year-over-year rating deltas (no reliable public dataset of that for a
+ * heuristic 0-99 rating scale) - tracked as OQ-4 in docs/decisions.md.
+ */
+export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: number): number {
+  if (age < devAge) {
+    const yearsToGo = Math.max(1, devAge - age);
+    const growth = clamp(rng.normal(3, 1.5), 0, 7);
+    return Math.round(yearsToGo >= 3 ? growth : growth * 0.6);
+  }
+  if (age < declineAge) {
+    return Math.round(clamp(rng.normal(0, 1.2), -2, 2));
+  }
+  const yearsPast = age - declineAge + 1;
+  const loss = clamp(rng.normal(1.5 + yearsPast * 0.8, 1.5), 1, 14);
+  return -Math.round(loss);
+}
+
 let PID = 0;
 const nextPid = () => `p_${String(++PID).padStart(5, "0")}`;
 

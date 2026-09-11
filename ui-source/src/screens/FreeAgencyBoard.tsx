@@ -29,6 +29,7 @@ export function FreeAgencyBoard() {
 
   const isWindowStage = s.stage === "offseasonFreeAgency";
   const [negotiating, setNegotiating] = useState<Player | null>(null);
+  const [signError, setSignError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isWindowStage && !s.freeAgency) startBidding("players");
@@ -150,6 +151,7 @@ export function FreeAgencyBoard() {
                       style={{ fontSize: 11.5, padding: "7px 8px" }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        setSignError(null);
                         setNegotiating(p);
                       }}
                     >
@@ -259,12 +261,25 @@ export function FreeAgencyBoard() {
           subtitle={`${negotiating.position} · age ${negotiating.age} · ${negotiating.overall} OVR`}
           priorities={playerPriorities(negotiating)}
           prior={myOffer(negotiating.id)}
-          onClose={() => setNegotiating(null)}
+          error={signError}
+          onClose={() => {
+            setSignError(null);
+            setNegotiating(null);
+          }}
           onSubmit={(offer) => {
             const full: ContractOffer = { ...offer, teamCode: code };
-            if (isWindowStage) placeOffer("players", negotiating.id, full);
-            else signStanding(negotiating.id, full);
-            setNegotiating(null);
+            if (isWindowStage) {
+              placeOffer("players", negotiating.id, full);
+              setNegotiating(null);
+            } else {
+              const result = signStanding(negotiating.id, full);
+              if (result.ok) {
+                setSignError(null);
+                setNegotiating(null);
+              } else {
+                setSignError(result.reason ?? "Unable to sign this player.");
+              }
+            }
           }}
         />
       )}

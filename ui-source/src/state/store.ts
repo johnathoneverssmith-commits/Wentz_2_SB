@@ -29,7 +29,7 @@ import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { contractValueFor } from "@/sim/MockSimulationService";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
-import { createLeague, recomputeTeamRatings } from "./seed.ts";
+import { applySeasonAging, createLeague, recomputeTeamRatings } from "./seed.ts";
 import {
   PRESEASON_WEEKS,
   REGULAR_SEASON_WEEKS,
@@ -73,8 +73,10 @@ export interface StoreActions {
   advanceBiddingDay: (subject: Subject) => void;
   dismissInterstitial: (subject: Subject) => void;
 
-  /** in-season standing FA market: sign a free agent immediately. */
-  signStandingFreeAgent: (playerId: string, offer: ContractOffer) => void;
+  /** in-season standing FA market: sign a free agent immediately. Rejects
+   * (without mutating anything) if the offer's year-1 cap hit doesn't fit
+   * the signing team's remaining cap room. */
+  signStandingFreeAgent: (playerId: string, offer: ContractOffer) => { ok: boolean; reason?: string };
 
   signRookie: (prospectId: string, teamCode: string) => void;
   releaseRookie: (prospectId: string, teamCode: string) => void;
@@ -198,6 +200,7 @@ export const useStore = create<Store>()(
             s.trades = [];
             s.rookieOutcomes = {};
             s.pendingGameDay = null;
+            applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             s.draftClass = sim.generateDraftClass(s.season, s.season);
             for (const code of Object.keys(s.teams)) {
               const team = s.teams[code]!;
@@ -211,6 +214,11 @@ export const useStore = create<Store>()(
           // leaving the fantasy draft → undrafted players seed the standing FA market
           if (s.stage === "fantasyDraft" && t.stage === "fantasyDraftSummary") {
             openStandingMarketFromUndrafted(s);
+          }
+
+          // leaving retirement review → actually retire the players it showed
+          if (s.stage === "offseasonRetirement" && t.stage === "offseasonDraftPrep") {
+            commitRetirements(s);
           }
 
           s.stage = t.stage;
@@ -404,16 +412,20 @@ export const useStore = create<Store>()(
           if (fa) fa.interstitialVisible = false;
         }),
 
-      signStandingFreeAgent: (playerId, offer) =>
+      signStandingFreeAgent: (playerId, offer) => {
+        const check = checkStandingSign(get(), playerId, offer);
+        if (!check.ok) return check;
         set((s) => {
-          const p = s.players[playerId];
-          if (!p || !p.free_agent) return;
-          p.free_agent = false;
-          p.nfl_team = offer.teamCode;
-          p.contract = offerToContract(offer);
+          const pp = s.players[playerId];
+          if (!pp || !pp.free_agent) return;
+          pp.free_agent = false;
+          pp.nfl_team = offer.teamCode;
+          pp.contract = offerToContract(offer);
           s.standingFreeAgents = s.standingFreeAgents.filter((x) => x !== playerId);
           recomputeTeamRatings(s);
-        }),
+        });
+        return { ok: true };
+      },
 
       signRookie: (prospectId, teamCode) =>
         set((s) => {
@@ -885,6 +897,52 @@ function upsertRookiePlayer(
     season_stats: { gamesPlayed: 0 },
   };
   if (released && !s.standingFreeAgents.includes(id)) s.standingFreeAgents.push(id);
+}
+
+/**
+ * Actually retires the players RetirementReview.tsx showed as "retiring" —
+ * same seed (`s.season`) and same `!p.retired` filter/order that screen
+ * uses, so `sim.retirementOutcomes` replays the identical decision instead
+ * of drawing fresh random outcomes at commit time.
+ */
+export function commitRetirements(s: LeagueState): void {
+  const outcomes = sim.retirementOutcomes(
+    s.season,
+    Object.values(s.players).filter((p) => !p.retired),
+  );
+  for (const o of outcomes) {
+    if (o.decision !== "retiring") continue;
+    const p = s.players[o.playerId];
+    if (!p) continue;
+    p.retired = true;
+    p.retirement_status = "retiring";
+  }
+}
+
+/**
+ * Cap-room gate for signing a standing free agent (the human-side follow-up
+ * to OQ-9's AI cap enforcement - `affordableTeams`/`aiOfferForPlayer` were
+ * already gated, this action wasn't). Read-only: never mutates `s`, so it's
+ * safe to call from the action just to preview the result before committing.
+ */
+export function checkStandingSign(
+  s: LeagueState,
+  playerId: string,
+  offer: ContractOffer,
+): { ok: boolean; reason?: string } {
+  const p = s.players[playerId];
+  if (!p || !p.free_agent) return { ok: false, reason: "This player is no longer a free agent." };
+  const team = s.teams[offer.teamCode];
+  if (!team) return { ok: false, reason: "Unknown team." };
+  const capHitYear1 = offerToContract(offer).cap_hit_by_year[0] ?? 0;
+  const room = Math.round((team.cap.total - team.cap.used) * 10) / 10;
+  if (capHitYear1 > room) {
+    return {
+      ok: false,
+      reason: `Not enough cap space: this deal needs $${capHitYear1.toFixed(1)}M this year, you have $${room.toFixed(1)}M free.`,
+    };
+  }
+  return { ok: true };
 }
 
 function applyTrade(s: LeagueState, t: LeagueState["trades"][number]): void {

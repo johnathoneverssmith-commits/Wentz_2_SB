@@ -14,7 +14,20 @@ import {
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
 
-import { MockSimulationService } from "@/sim/MockSimulationService";
+import { agingDelta, MockSimulationService } from "@/sim/MockSimulationService";
+import { Rng } from "@/sim/rng.ts";
+
+const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
+
+/** Stable string -> int hash (FNV-1a), so aging RNG can be seeded per player id. */
+function hashSeed(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
 
 export const DEFAULT_CONFIG: LeagueConfig = {
   humanGmCount: 3,
@@ -148,6 +161,29 @@ export function recomputeTeamRatings(state: LeagueState): void {
       rosterOverall: raw[code]!.roster,
       rosterOverallRank: rr.get(code)!,
     };
+  }
+}
+
+/**
+ * One year of aging for every active (non-retired) player, applied at a
+ * season rollover (OQ-4): age +1, then an `overall`/attribute drift from
+ * `agingDelta` based on where the new age sits relative to the player's own
+ * `dev_age_threshold`/`decline_age_threshold` (fixed at player creation).
+ * Deterministic per (season, player id) so a replay/reload doesn't reshuffle
+ * outcomes. Retired players are skipped - their rating is a frozen
+ * career-final snapshot, not something that keeps drifting off-roster.
+ */
+export function applySeasonAging(state: LeagueState, season: number): void {
+  for (const p of Object.values(state.players)) {
+    if (p.retired) continue;
+    const rng = new Rng((season * 7349) ^ hashSeed(p.id));
+    p.age += 1;
+    const delta = agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold);
+    if (delta === 0) continue;
+    p.overall = clamp(p.overall + delta, 40, 99);
+    for (const k of Object.keys(p.attributes)) {
+      p.attributes[k] = clamp(p.attributes[k]! + delta, 40, 99);
+    }
   }
 }
 
