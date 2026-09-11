@@ -548,17 +548,36 @@ function applyPick(s: LeagueState, selectedId: string): void {
   d.currentPickIndex += 1;
 }
 
-function bestAvailable(s: LeagueState): string | null {
-  const taken = new Set(s.draft!.results.map((r) => r.selectedId));
-  if (s.draft!.mode === "rookie") {
+/**
+ * Best-player-available, tempered by the picking team's actual positional
+ * need (OQ-9) — not pure highest-overall. `NEED_WEIGHT` is calibrated so a
+ * maximal need (no one at all on the roster at that position) can tip a
+ * close call but won't make a team reach for a real reach over a
+ * meaningfully better prospect at a position they're already fine at.
+ */
+const NEED_WEIGHT = 0.6;
+
+export function bestAvailable(s: LeagueState): string | null {
+  const d = s.draft!;
+  const teamCode = d.pickOrder[d.currentPickIndex];
+  const taken = new Set(d.results.map((r) => r.selectedId));
+  if (d.mode === "rookie") {
     const p = [...s.draftClass]
       .filter((x) => !taken.has(x.id))
-      .sort((a, b) => b.collegeOverall - a.collegeOverall)[0];
+      .sort((a, b) => {
+        const scoreB = b.collegeOverall + (teamCode ? positionalNeed(s, teamCode, b.position) * NEED_WEIGHT : 0);
+        const scoreA = a.collegeOverall + (teamCode ? positionalNeed(s, teamCode, a.position) * NEED_WEIGHT : 0);
+        return scoreB - scoreA;
+      })[0];
     return p?.id ?? null;
   }
   const p = Object.values(s.players)
     .filter((x) => !taken.has(x.id) && !x.retired)
-    .sort((a, b) => b.overall - a.overall)[0];
+    .sort((a, b) => {
+      const scoreB = b.overall + (teamCode ? positionalNeed(s, teamCode, b.position) * NEED_WEIGHT : 0);
+      const scoreA = a.overall + (teamCode ? positionalNeed(s, teamCode, a.position) * NEED_WEIGHT : 0);
+      return scoreB - scoreA;
+    })[0];
   return p?.id ?? null;
 }
 

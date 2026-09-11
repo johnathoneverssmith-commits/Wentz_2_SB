@@ -5,6 +5,7 @@ import {
   aiControlledTeams,
   aiOfferForCoach,
   aiOfferForPlayer,
+  bestAvailable,
   positionalNeed,
   rosterSchemeFit,
   weightedPick,
@@ -169,6 +170,77 @@ describe("aiOfferForCoach", () => {
       if (offer?.teamCode === fitTeam) toFitTeam++;
     }
     expect(toFitTeam / trials).toBeGreaterThan(1 / codes.length);
+  });
+});
+
+describe("bestAvailable (draft pick selection)", () => {
+  it("tempers best-player-available with the picking team's positional need", () => {
+    const s = fixtureLeague();
+    const codes = Object.keys(s.teams);
+    const [onTheClock] = codes;
+    // strip onTheClock's QBs entirely (maximal need)
+    for (const p of Object.values(s.players)) {
+      if (p.nfl_team === onTheClock && p.position === "QB") p.nfl_team = "FA";
+    }
+    // fantasy-draft mode considers the whole undrafted pool, not just free
+    // agents — pin two specific players' overalls so the intended gap is
+    // exact and deterministic rather than hoping the random pool has it.
+    const aQb = Object.values(s.players).find((p) => p.position === "QB")!;
+    const aNonQb = Object.values(s.players).find((p) => p.position !== "QB" && p.id !== aQb.id)!;
+    aQb.overall = 80;
+    aNonQb.overall = 83; // higher overall, but not at a position onTheClock needs
+    // make sure onTheClock isn't *also* thin at aNonQb's position by chance
+    const existing = Object.values(s.players).find(
+      (p) => p.nfl_team === onTheClock && p.position === aNonQb.position,
+    );
+    if (existing) existing.overall = 90;
+
+    // mark every other player as already drafted so only the two candidates
+    // above are eligible — otherwise bestAvailable is comparing against the
+    // whole ~1600-player pool, which isn't what this test is isolating.
+    const results = Object.keys(s.players)
+      .filter((id) => id !== aQb.id && id !== aNonQb.id)
+      .map((id) => ({ pickNumber: 1, round: 1, teamCode: onTheClock!, selectedId: id, selectedName: null, selectedPosition: null }));
+    s.draft = {
+      mode: "fantasy",
+      year: s.season,
+      order: "linear",
+      pickOrder: [onTheClock!, ...codes.slice(1)],
+      currentPickIndex: 0,
+      results,
+      targetsByGm: {},
+    };
+    expect(bestAvailable(s)).toBe(aQb.id);
+  });
+
+  it("falls back to pure best-overall when the gap is too large for need to close", () => {
+    const s = fixtureLeague();
+    const codes = Object.keys(s.teams);
+    const [onTheClock] = codes;
+    for (const p of Object.values(s.players)) {
+      if (p.nfl_team === onTheClock && p.position === "QB") p.nfl_team = "FA";
+    }
+    const aQb = Object.values(s.players).find((p) => p.position === "QB")!;
+    const aNonQb = Object.values(s.players).find((p) => p.position !== "QB" && p.id !== aQb.id)!;
+    aQb.overall = 60;
+    aNonQb.overall = 99; // a gap no realistic need weighting should close
+
+    // mark every other player as already drafted so only the two candidates
+    // above are eligible — otherwise bestAvailable is comparing against the
+    // whole ~1600-player pool, which isn't what this test is isolating.
+    const results = Object.keys(s.players)
+      .filter((id) => id !== aQb.id && id !== aNonQb.id)
+      .map((id) => ({ pickNumber: 1, round: 1, teamCode: onTheClock!, selectedId: id, selectedName: null, selectedPosition: null }));
+    s.draft = {
+      mode: "fantasy",
+      year: s.season,
+      order: "linear",
+      pickOrder: [onTheClock!, ...codes.slice(1)],
+      currentPickIndex: 0,
+      results,
+      targetsByGm: {},
+    };
+    expect(bestAvailable(s)).toBe(aNonQb.id);
   });
 });
 

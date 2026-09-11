@@ -751,7 +751,10 @@ set (plus `season_ending`?) once the aging model consumes it — until then the
 free string is fine.
 
 ## OQ-9 — AI GM decision objective (draft / FA / trades / coach hiring)
-**Status:** decided (user, 2026-09-10) — not yet implemented
+**Status:** decided (user, 2026-09-10) — **free agency + coach hiring implemented**
+(`ui-source/src/state/store.ts`'s `aiOfferForPlayer`/`aiOfferForCoach`, need-
+and scheme-fit-weighted, 2026-09-11). Draft-class pick selection and trade
+evaluation still need the same treatment — see OQ-5/OQ-6 below.
 
 Every AI-driven roster decision (draft-class evaluation and pick selection,
 free-agency bidding, trade proposals/acceptance, coach hiring) must optimize

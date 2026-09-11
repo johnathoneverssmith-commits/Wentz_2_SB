@@ -85,23 +85,34 @@ Real-backed today: `generateInitialPool` ("realRosters" mode), `generateSchedule
 (the real regular season; preseason is still synthetic — the engine has no
 preseason-schedule model), `simulateWeek` (real game sim + the Gamecast
 broadcast for the viewer's game), `computeSchemeFit` (once a league-mean
-baseline is fetched; falls back to Mock's heuristic until then).
+baseline is fetched; falls back to Mock's heuristic until then), and
+`generateCoachMarket` (the real 32 current staffs' HC/OC/DC — real 2026 names,
+reputation-informed scheme/tendency numbers where a coordinator has a real
+public track record — plus a free-agent pool sampled from that same v0 rating
+distribution).
 
 Still Mock (no calibrated engine model yet — see `nfl-franchise-sim/CLAUDE.md`'s
-own roadmap): `generateCoachMarket`, `generateDraftClass`, `evaluateTrade`,
-`retirementOutcomes`, `finalizeSeasonOutcomes`, `seedBracket` /
-`simulatePlayoffRound` (the engine has real standings/playoffs logic, but
-mapping this UI's `BracketState` onto it is unbuilt plumbing, not a modeling
-gap). **AI GM behavior for these — free agency, drafting, trading, coach
-hiring — should optimize for winning (needs, scheme fit, cap-efficient value,
-positional balance) once real-backed, not for maximizing summed roster
-`overall`.**
+own roadmap): `generateDraftClass`, `evaluateTrade`, `retirementOutcomes`,
+`finalizeSeasonOutcomes`, `seedBracket` / `simulatePlayoffRound` (the engine
+has real standings/playoffs logic, but mapping this UI's `BracketState` onto
+it is unbuilt plumbing, not a modeling gap).
+
+**AI GM decision objective (OQ-9, implemented for free agency + coach hiring):**
+`store.ts`'s `aiOfferForPlayer`/`aiOfferForCoach` pick a team weighted by
+actual positional need / scheme fit with that team's current roster, and bid
+a realistic amount off the player's/coach's real rating — not a uniformly
+random team at a uniformly random dollar amount. The same objective (optimize
+for winning — needs, fit, cap-efficient value — not maximizing summed roster
+`overall`) still needs to reach draft-pick selection and trade evaluation
+once those are real-backed.
 
 ## Known mock-quality gaps (not architectural)
 
 - Fantasy-draft autopick distributes talent too evenly → team overalls compress.
 - Box-score time-of-possession doesn't sum to 60:00.
 - Playoff bracket uses a column layout, not the mockup's measured SVG elbows.
-- Coach market / draft classes / trade valuation / retirement: plausible but
-  not calibrated (see **Engine integration** above).
-- No AI strategy beyond what's noted above, no auth, no multiplayer sync.
+- Draft classes / trade valuation / retirement: plausible but not calibrated
+  (see **Engine integration** above); the coach market is real-backed now.
+- Draft-pick selection and trade AI still pick by overall, not need/fit
+  (OQ-9 — done for free agency and coach hiring, not yet these two).
+- No auth, no multiplayer sync.

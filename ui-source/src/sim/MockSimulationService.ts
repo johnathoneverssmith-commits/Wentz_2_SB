@@ -490,7 +490,7 @@ export class MockSimulationService implements SimulationService {
   evaluateTrade(
     state: LeagueState,
     _fromTeam: string,
-    _toTeam: string,
+    toTeam: string,
     fromAssets: TradeAsset[],
     toAssets: TradeAsset[],
   ): TradeEvaluation {
@@ -498,12 +498,48 @@ export class MockSimulationService implements SimulationService {
       a.kind === "player"
         ? Math.pow(clamp(state.players[a.playerId ?? ""]?.overall ?? 60, 40, 99) - 40, 1.7) / 12
         : (8 - (a.pick?.round ?? 4)) * 6;
+    // fromAssets: what the proposer (fromTeam, usually the viewer) gives up —
+    // toTeam (the AI being asked to accept) receives these.
+    // toAssets: what toTeam gives up in return.
     const out = fromAssets.reduce((s, a) => s + val(a), 0);
     const inn = toAssets.reduce((s, a) => s + val(a), 0);
+    // kept as pure value math, positive = good for the proposer — this is
+    // the number the trade screen displays ("AI value delta ... for you"),
+    // so it should read as a plain value comparison, not something the need
+    // adjustment below (which only drives the AI's actual decision) muddies.
     const delta = round1(inn - out);
+
+    // OQ-9: the AI's real interest in a trade isn't just raw value — a
+    // player who fills an actual hole on toTeam's roster is worth more to
+    // them than his overall alone says, and a player leaving a position
+    // toTeam is already thin at costs them more than his overall says.
+    const needAt = (team: string, pos: Position | undefined, exclude: ReadonlySet<string>): number => {
+      if (!pos) return 0;
+      const best = Object.values(state.players)
+        .filter((p) => p.nfl_team === team && p.position === pos && !p.retired && !exclude.has(p.id))
+        .reduce((m, p) => Math.max(m, p.overall), 0);
+      return Math.max(1, 78 - (best || 40));
+    };
+    // what toTeam is receiving: need measured on their roster as it stands now
+    const needGained = fromAssets.reduce(
+      (s, a) => s + (a.kind === "player" ? needAt(toTeam, state.players[a.playerId ?? ""]?.position, new Set()) : 0),
+      0,
+    );
+    // what toTeam is giving away: need measured on their roster *after* every
+    // departing player leaves — losing your only starter at a position should
+    // read as a real cost even if he's individually a good player.
+    const departingIds = new Set(toAssets.flatMap((a) => (a.kind === "player" && a.playerId ? [a.playerId] : [])));
+    const needLost = toAssets.reduce(
+      (s, a) => s + (a.kind === "player" ? needAt(toTeam, state.players[a.playerId ?? ""]?.position, departingIds) : 0),
+      0,
+    );
+
     return {
       valueDelta: delta,
-      acceptLikelihood: clamp(0.5 + delta / 40, 0.02, 0.98),
+      // acceptLikelihood is the AI's (toTeam's) own willingness — falls as the
+      // deal favors the proposer more (-delta/40), rises when the incoming
+      // players address a real need, falls when the outgoing ones leave one.
+      acceptLikelihood: clamp(0.5 - delta / 40 + (needGained - needLost) / 60, 0.02, 0.98),
     };
   }
 
