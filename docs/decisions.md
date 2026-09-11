@@ -724,8 +724,7 @@ rating-z contribution by their own tag match rather than the unit average. That
 needs threading a per-player scale into `familyModifier` / `centered`.
 
 ## OQ-4 — Aging curves
-**Status:** retirement age substantially addressed (2026-09-11); dev/decline
-curves still open
+**Status:** substantially addressed (2026-09-11)
 
 `RETIREMENT_AGE` (`ui-source/src/sim/roster-template.ts`) is now cross-checked
 against recent (2023-2025) positional aging-curve research and real recent
@@ -739,10 +738,26 @@ history costs the most, per Kuechly/Luck-era precedent; knee/ACL-pattern
 injuries cost a real but more moderate amount per RTP-rate literature;
 soft-tissue injuries cost little except at high severity).
 
-Still open: `dev_age_threshold` / `decline_age_threshold` (the in-career
-rating trajectory, separate from *retirement* age) are still hand-set. Need
-the actual per-position development/decline curves and the drift magnitude
-per year.
+**Update (2026-09-11):** found, while implementing the above, that this was a
+bigger gap than "hand-set constants" - `dev_age_threshold`/
+`decline_age_threshold` were set on every player at creation but nothing in
+the franchise loop ever *read* them, and `RetirementReview.tsx` only ever
+displayed who'd retire without actually removing them from the roster.
+Neither aging nor retirement execution existed as a mechanism at all. Added
+both: `agingDelta` (`MockSimulationService.ts`) is the per-player
+season-over-season `overall` drift (growth while developing, tapering as the
+dev threshold nears; a small random walk in the prime window; accelerating
+loss past the decline threshold - same v0-heuristic caveat as the engine's
+own `AGING_CURVES` in `src/model/positions.ts`, a plausible shape rather than
+one fit to real year-over-year rating deltas, since no reliable public
+dataset of that exists for a heuristic 0-99 scale). `applySeasonAging`
+(`seed.ts`) applies it to every active player, seeded per (season, player
+id), at the real season-rollover transition. `commitRetirements`
+(`store.ts`) actually retires the players `RetirementReview` showed, using
+the identical seed/filter so the commit matches what the human GM was shown,
+fired when leaving the `offseasonRetirement` stage. Still open: the
+per-position development/decline magnitudes themselves are still a
+reasoned-but-unfit curve shape, same as the engine's own OQ-4 gap.
 
 ## OQ-5 — Trade value model
 **Status:** substantially addressed (2026-09-11), cap situation still open
@@ -793,10 +808,17 @@ accept-likelihood similarly need-weighted — 2026-09-11). Along the way:
   never computed, and `cap.total` used a different unit than every contract
   field around it) — `aiOfferForPlayer`/`aiOfferForCoach` now check cap room
   before picking a team. Deliberately did **not** extend this to the human's
-  own `signStandingFreeAgent` action tonight — a silent no-op on a blocked
+  own `signStandingFreeAgent` action that night — a silent no-op on a blocked
   sign is worse UX than no enforcement, and doing it properly needs a real
   error path back to `FreeAgencyBoard.tsx`, not just a guard clause. Left as
   a clearly-scoped follow-up rather than shipped half-done.
+  **Closed (2026-09-11):** `checkStandingSign` (`store.ts`) is a pure,
+  read-only cap-room gate `signStandingFreeAgent` now runs first; on
+  rejection the action returns `{ ok: false, reason }` instead of silently
+  no-opping, and `ContractNegotiation`/`FreeAgencyBoard.tsx` show the reason
+  inline in the negotiation modal (verified live: an over-cap offer is
+  blocked with the reason shown and the modal stays open; a fitting offer
+  succeeds and closes it).
 - Player/coach *value* itself (positional value, draft-pick trade value) was
   also ungrounded — see OQ-5/OQ-6, now substantially addressed too.
 
