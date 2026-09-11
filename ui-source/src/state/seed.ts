@@ -60,7 +60,7 @@ function blankTeam(code: string): TeamState {
       overallRank: 0, offenseRank: 0, defenseRank: 0, specialTeamsRank: 0,
       rosterOverall: 75, rosterOverallRank: 0,
     },
-    cap: { total: 255_000_000, used: 0, dead: 0 },
+    cap: { total: 255, used: 0, dead: 0 }, // $M — see TeamState.cap's doc comment
     playoffSeed: 0,
     playoffOdds: 0,
   };
@@ -97,6 +97,13 @@ export function recomputeTeamRatings(state: LeagueState): void {
     arr.length ? Math.round(arr.reduce((s, p) => s + p.overall, 0) / arr.length) : fallback;
 
   const raw: Record<string, { o: number; off: number; def: number; st: number; roster: number }> = {};
+  const coachesByTeam = new Map<string, typeof state.coaches[string][]>();
+  for (const c of Object.values(state.coaches)) {
+    if (!c.team) continue;
+    const list = coachesByTeam.get(c.team) ?? [];
+    list.push(c);
+    coachesByTeam.set(c.team, list);
+  }
   for (const code of codes) {
     const starters = startingLineup(state, code);
     const fullRoster = Object.values(state.players).filter(
@@ -109,6 +116,14 @@ export function recomputeTeamRatings(state: LeagueState): void {
       st: mean(starters.filter((p) => p.position === "K" || p.position === "P"), 68),
       roster: mean(fullRoster),
     };
+    // cap usage (spec's "cap" fields) — current-year player cap hits + coach
+    // salaries. Dead money from cuts/trades isn't modeled (no per-player
+    // dead-cap tracking exists yet in this data model) — a simplification,
+    // not silently ignored: `cap.dead` stays 0 rather than pretending to a
+    // precision this doesn't have.
+    const playerCapHits = fullRoster.reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    const coachCapHits = (coachesByTeam.get(code) ?? []).reduce((s, c) => s + (c.contract?.annualValue ?? 0), 0);
+    state.teams[code]!.cap.used = Math.round((playerCapHits + coachCapHits) * 10) / 10;
   }
 
   const rank = (key: keyof (typeof raw)[string]) => {

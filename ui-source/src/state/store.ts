@@ -729,12 +729,25 @@ export function positionalNeed(s: LeagueState, teamCode: string, position: Posit
   return Math.max(1, 78 - (best || 40));
 }
 
+/** Teams with at least `needed` ($M) of cap room — falls back to every AI
+ *  team if literally none qualify, rather than deadlocking the market (a
+ *  real front office would restructure/cut to create room; that maneuver
+ *  isn't modeled, so this is the honest stand-in). */
+export function affordableTeams(s: LeagueState, needed: number): string[] {
+  const all = aiControlledTeams(s);
+  const can = all.filter((code) => {
+    const t = s.teams[code]!;
+    return t.cap.total - t.cap.used >= needed;
+  });
+  return can.length > 0 ? can : all;
+}
+
 export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): ContractOffer {
-  const candidates = aiControlledTeams(s);
-  const weights = candidates.map((code) => positionalNeed(s, code, p.position) ** 1.6);
-  const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";
   // real value (overall-driven), with market noise so it isn't a single fixed number
   const base = Math.round(contractValueFor(p.overall, p.position) * (0.85 + rng() * 0.4) * 10) / 10;
+  const candidates = affordableTeams(s, base);
+  const weights = candidates.map((code) => positionalNeed(s, code, p.position) ** 1.6);
+  const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";
   const years = 1 + Math.floor(rng() * 4);
   return {
     teamCode,
@@ -779,21 +792,24 @@ export function rosterSchemeFit(s: LeagueState, teamCode: string, role: "OC" | "
 }
 
 export function aiOfferForCoach(rng: () => number, s: LeagueState, c: Coach): ContractOffer | null {
-  // only teams with an actual vacancy at this role are real candidates —
-  // hiring a coach into a role you've already filled isn't optimizing for
-  // anything.
-  const candidates = aiControlledTeams(s).filter(
+  const skill = c.role === "HC" ? (c.gameManagement ?? 50) : (c.playCallIq ?? 50);
+  const base = Math.round(contractValueFor(skill) * (0.8 + rng() * 0.4) * 10) / 10;
+  // only teams with an actual vacancy at this role — and enough cap room —
+  // are real candidates. Hiring into an already-filled role isn't
+  // optimizing for anything; coach salaries count against the same cap.
+  const vacant = aiControlledTeams(s).filter(
     (code) => !Object.values(s.coaches).some((o) => o.team === code && o.role === c.role),
   );
-  if (candidates.length === 0) return null;
-  const weights = candidates.map((code) => {
+  const affordable = new Set(affordableTeams(s, base));
+  const candidates = vacant.filter((code) => affordable.has(code));
+  const pool = candidates.length > 0 ? candidates : vacant;
+  if (pool.length === 0) return null;
+  const weights = pool.map((code) => {
     if (c.role === "HC") return 1; // no roster-composition signal for HC fit
     const fit = rosterSchemeFit(s, code, c.role, c.scheme);
     return 1 + fit * 3; // a well-fitting scheme is preferred, not required
   });
-  const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0]!;
-  const skill = c.role === "HC" ? (c.gameManagement ?? 50) : (c.playCallIq ?? 50);
-  const base = Math.round(contractValueFor(skill) * (0.8 + rng() * 0.4) * 10) / 10;
+  const teamCode = weightedPick(rng, pool, weights) ?? pool[0]!;
   const years = 1 + Math.floor(rng() * 4);
   return {
     teamCode,

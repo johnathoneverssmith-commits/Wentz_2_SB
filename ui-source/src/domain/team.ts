@@ -46,6 +46,12 @@ export interface TeamState {
     rosterOverall: number;
     rosterOverallRank: number;
   };
+  /** $M, matching Contract/Coach contract fields (contractValueFor's "$M/year"
+   *  convention) — not CLAUDE.md's general "whole dollars" rule, which this
+   *  corner of the data model predates. `used` is recomputed by
+   *  recomputeTeamRatings from the current roster + staff's contracts;
+   *  `dead` (cap charged for players no longer on the roster) isn't modeled
+   *  yet — no per-player dead-cap tracking exists — and stays 0. */
   cap: {
     total: number;
     used: number;

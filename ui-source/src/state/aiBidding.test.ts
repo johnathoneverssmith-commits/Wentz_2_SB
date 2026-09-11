@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createLeague, DEFAULT_CONFIG } from "./seed.ts";
+import { createLeague, DEFAULT_CONFIG, recomputeTeamRatings } from "./seed.ts";
 import {
+  affordableTeams,
   aiControlledTeams,
   aiOfferForCoach,
   aiOfferForPlayer,
@@ -241,6 +242,50 @@ describe("bestAvailable (draft pick selection)", () => {
       targetsByGm: {},
     };
     expect(bestAvailable(s)).toBe(aNonQb.id);
+  });
+});
+
+describe("recomputeTeamRatings (cap.used)", () => {
+  it("sums current-year player cap hits + coach salaries onto team.cap.used ($M, matching cap.total)", () => {
+    const s = fixtureLeague();
+    const [team] = Object.keys(s.teams);
+    const roster = Object.values(s.players).filter((p) => p.nfl_team === team);
+    const expected = roster.reduce((sum, p) => sum + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    recomputeTeamRatings(s);
+    expect(s.teams[team!]!.cap.used).toBeCloseTo(Math.round(expected * 10) / 10, 1);
+    expect(s.teams[team!]!.cap.total).toBe(255); // $M, matches RosterCapManagement.tsx's own constant
+  });
+});
+
+describe("affordableTeams / cap-space gating", () => {
+  it("excludes a team with no cap room left, for a real ask", () => {
+    const s = fixtureLeague();
+    const codes = Object.keys(s.teams);
+    const [brokeTeam] = codes;
+    s.teams[brokeTeam!]!.cap.used = s.teams[brokeTeam!]!.cap.total; // exactly $0 space
+    const pool = affordableTeams(s, 5); // a real $5M ask
+    expect(pool).not.toContain(brokeTeam);
+    expect(pool.length).toBeGreaterThan(0); // other teams still have room
+  });
+
+  it("falls back to every AI team rather than an empty pool when literally no one can afford it", () => {
+    const s = fixtureLeague();
+    for (const code of Object.keys(s.teams)) s.teams[code]!.cap.used = s.teams[code]!.cap.total;
+    const pool = affordableTeams(s, 5);
+    expect(pool.length).toBe(aiControlledTeams(s).length);
+  });
+
+  it("aiOfferForPlayer never lands on a cap-strapped team when another team has room, over many draws", () => {
+    const s = fixtureLeague();
+    for (const code of Object.keys(s.teams)) s.teams[code]!.controlledBy = { kind: "ai" };
+    const codes = Object.keys(s.teams);
+    const [brokeTeam] = codes;
+    s.teams[brokeTeam!]!.cap.used = s.teams[brokeTeam!]!.cap.total; // $0 space
+    const freeAgent = { ...Object.values(s.players)[0]!, overall: 90 } as Player; // a real, non-trivial ask
+    for (let i = 0; i < 100; i++) {
+      const offer = aiOfferForPlayer(mulberryTest(i), s, freeAgent);
+      expect(offer.teamCode).not.toBe(brokeTeam);
+    }
   });
 });
 
