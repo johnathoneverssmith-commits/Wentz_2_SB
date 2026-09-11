@@ -14,16 +14,19 @@ import { immer } from "zustand/middleware/immer";
 
 import {
   ROUND_ORDER,
+  type Coach,
   type ContractOffer,
   type DraftMode,
   type FreeAgencyState,
   type LeagueConfig,
   type LeagueState,
   type Player,
+  type Position,
   type Stage,
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
+import { contractValueFor } from "@/sim/MockSimulationService";
 
 import { createLeague, recomputeTeamRatings } from "./seed.ts";
 import {
@@ -581,7 +584,7 @@ function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState
     for (let i = 0; i < signCount; i++) {
       const p = pool[Math.floor(rng() * pool.length)];
       if (!p || fa.signed.some((x) => x.id === p.id)) continue;
-      const winning = bestOfferFor(fa, p.id) ?? aiOffer(rng);
+      const winning = bestOfferFor(fa, p.id) ?? aiOfferForPlayer(rng, s, p);
       fa.signed.push({ id: p.id, toTeam: winning.teamCode, ...offerFields(winning), at: fa.day });
       p.free_agent = false;
       p.nfl_team = winning.teamCode;
@@ -593,7 +596,8 @@ function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState
     for (let i = 0; i < signCount; i++) {
       const c = openCoaches[Math.floor(rng() * openCoaches.length)];
       if (!c || fa.signed.some((x) => x.id === c.id)) continue;
-      const winning = bestOfferFor(fa, c.id) ?? aiOffer(rng);
+      const winning = bestOfferFor(fa, c.id) ?? aiOfferForCoach(rng, s, c);
+      if (!winning) continue; // no AI team has a vacancy at this role right now
       // don't let an AI team stack two coaches of the same role
       const clash = Object.values(s.coaches).some(
         (o) => o.team === winning.teamCode && o.role === c.role,
@@ -621,20 +625,117 @@ function bestOfferFor(fa: FreeAgencyState, id: string): ContractOffer | null {
     (a, b) => b.baseSalary * b.years + b.signingBonus - (a.baseSalary * a.years + a.signingBonus),
   )[0]!;
 }
-function aiOffer(rng: () => number): ContractOffer {
-  const base = Math.round((1 + rng() * 10) * 10) / 10;
+
+/**
+ * AI GM decision-making (OQ-9, docs/decisions.md in the engine repo): an AI
+ * team's free-agency/coach-hiring behavior optimizes for its own roster's
+ * competitiveness — filling actual needs, at a realistic price, with a
+ * coach whose scheme fits the roster already in place — not for grabbing
+ * the single highest-rated player/coach available, and not (as it was
+ * before) a uniformly random team + a uniformly random dollar amount.
+ */
+
+export function aiControlledTeams(s: LeagueState): string[] {
+  return Object.entries(s.teams)
+    .filter(([, t]) => t.controlledBy.kind === "ai")
+    .map(([code]) => code);
+}
+
+/** Weighted pick — `weights` need not sum to 1; falls back to uniform if all-zero. */
+export function weightedPick<T>(rng: () => number, items: T[], weights: number[]): T | null {
+  if (items.length === 0) return null;
+  const total = weights.reduce((a, b) => a + Math.max(0, b), 0);
+  if (total <= 0) return items[Math.floor(rng() * items.length)]!;
+  let r = rng() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= Math.max(0, weights[i]!);
+    if (r <= 0) return items[i]!;
+  }
+  return items[items.length - 1]!;
+}
+
+/** How much a team needs help at `position` — bigger gap below a "starter-quality"
+ *  bar (~78 overall) = more urgent; no one on the roster at all = most urgent. */
+export function positionalNeed(s: LeagueState, teamCode: string, position: Position): number {
+  const best = Object.values(s.players)
+    .filter((p) => p.nfl_team === teamCode && p.position === position && !p.retired)
+    .reduce((max, p) => Math.max(max, p.overall), 0);
+  return Math.max(1, 78 - (best || 40));
+}
+
+export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): ContractOffer {
+  const candidates = aiControlledTeams(s);
+  const weights = candidates.map((code) => positionalNeed(s, code, p.position) ** 1.6);
+  const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";
+  // real value (overall-driven), with market noise so it isn't a single fixed number
+  const base = Math.round(contractValueFor(p.overall) * (0.85 + rng() * 0.4) * 10) / 10;
   const years = 1 + Math.floor(rng() * 4);
   return {
-    teamCode: pickAiTeam(rng),
+    teamCode,
     baseSalary: base,
-    signingBonus: Math.round(base * rng() * 10) / 10,
+    signingBonus: Math.round(base * rng() * 1.5 * 10) / 10,
     years,
     guaranteed: Math.round(base * years * (0.3 + rng() * 0.4) * 10) / 10,
   };
 }
-const AI_TEAMS = ["DEN", "HOU", "BUF", "MIA", "LV", "LAC", "SEA", "ATL", "CHI", "NYG"];
-function pickAiTeam(rng: () => number): string {
-  return AI_TEAMS[Math.floor(rng() * AI_TEAMS.length)]!;
+
+// mirrors nfl-franchise-sim/src/engine/staff.ts's OFF_SCHEME_TAGS/DEF_SCHEME_TAGS
+// (also duplicated in HybridSimulationService.ts for computeSchemeFit) — see
+// that file's comment for why this stays a small inline table rather than a
+// cross-project import.
+const OFF_SCHEME_TAGS: Record<string, readonly string[]> = {
+  west_coast: ["west_coast", "play_action", "move_te", "zone_run", "outside_zone"],
+  vertical: ["vertical", "spread", "play_action", "downhill"],
+  spread: ["spread", "rpo", "zone_run", "outside_zone", "west_coast"],
+  power_run: ["power_run", "gap_scheme", "inline", "downhill", "pass_pro"],
+  zone_run: ["zone_run", "outside_zone", "west_coast", "move_te"],
+  pro_style: ["play_action", "inline", "move_te", "power_run", "west_coast"],
+};
+const DEF_SCHEME_TAGS: Record<string, readonly string[]> = {
+  four_three: ["base_4_3", "one_gap", "penetrate", "attack", "wide_9"],
+  three_four: ["base_3_4", "two_gap", "contain", "nose"],
+  multiple: ["nickel", "cover_3", "split_safety", "robber", "move_te"],
+  cover_3: ["cover_3", "single_high", "zone", "robber"],
+  cover_2: ["cover_2", "split_safety", "zone"],
+  man_press: ["man_press", "cover_man", "cover_1", "nickel"],
+};
+
+/** Fraction of `teamCode`'s active roster whose scheme_tags overlap `scheme`'s tags. */
+export function rosterSchemeFit(s: LeagueState, teamCode: string, role: "OC" | "DC", scheme: string | undefined): number {
+  if (!scheme) return 0;
+  const table = role === "OC" ? OFF_SCHEME_TAGS : DEF_SCHEME_TAGS;
+  const want = new Set(table[scheme] ?? []);
+  if (want.size === 0) return 0;
+  const roster = Object.values(s.players).filter((p) => p.nfl_team === teamCode && !p.retired);
+  if (roster.length === 0) return 0;
+  const fit = roster.filter((p) => p.scheme_tags.some((t) => want.has(t))).length;
+  return fit / roster.length;
+}
+
+export function aiOfferForCoach(rng: () => number, s: LeagueState, c: Coach): ContractOffer | null {
+  // only teams with an actual vacancy at this role are real candidates —
+  // hiring a coach into a role you've already filled isn't optimizing for
+  // anything.
+  const candidates = aiControlledTeams(s).filter(
+    (code) => !Object.values(s.coaches).some((o) => o.team === code && o.role === c.role),
+  );
+  if (candidates.length === 0) return null;
+  const weights = candidates.map((code) => {
+    if (c.role === "HC") return 1; // no roster-composition signal for HC fit
+    const fit = rosterSchemeFit(s, code, c.role, c.scheme);
+    return 1 + fit * 3; // a well-fitting scheme is preferred, not required
+  });
+  const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0]!;
+  const skill = c.role === "HC" ? (c.gameManagement ?? 50) : (c.playCallIq ?? 50);
+  const base = Math.round(contractValueFor(skill) * (0.8 + rng() * 0.4) * 10) / 10;
+  const years = 1 + Math.floor(rng() * 4);
+  return {
+    teamCode,
+    baseSalary: base,
+    signingBonus: Math.round(base * rng() * 1.5 * 10) / 10,
+    years,
+    guaranteed: Math.round(base * years * (0.3 + rng() * 0.4) * 10) / 10,
+  };
 }
 function mulberry(seed: number): () => number {
   let a = seed >>> 0;

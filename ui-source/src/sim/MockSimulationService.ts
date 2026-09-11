@@ -703,7 +703,7 @@ const STRENGTH_BASE: Record<Position, number> = {
   EDGE: 86, DT: 93, ILB: 84, OLB: 82, CB: 68, S: 74, K: 55, P: 55,
 };
 
-function contractValueFor(overall: number): number {
-  // $M per year, roughly convex in overall
+/** $M/year, roughly convex in overall — also used by store.ts's AI bidding. */
+export function contractValueFor(overall: number): number {
   return round1(0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2));
 }
