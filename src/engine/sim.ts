@@ -1191,6 +1191,15 @@ export interface GameStaff {
   trace?: boolean;
   /** roll in-game injuries (`Game.injuryLog`; pulls hurt starters for the game). */
   injuries?: boolean;
+  /**
+   * Override the file-backed `roster(home)`/`roster(away)` lookup with a
+   * specific roster pair — e.g. a franchise's own current (post-trade/draft/
+   * re-signing) players, built via `new Roster(team, players)`. Both must be
+   * supplied together; omitting them falls back to the default pool exactly
+   * as before.
+   */
+  homeRoster?: Roster | undefined;
+  awayRoster?: Roster | undefined;
 }
 
 /**
@@ -1198,7 +1207,8 @@ export interface GameStaff {
  * Pass `staff` (both sides) to enable the coaching layer on top; omitting it
  * leaves every coaching shift at exactly zero. `trace` / `injuries` turn on the
  * opt-in flavour outputs — both are inert (zero RNG draws) when off, so the
- * validation / parity paths are unchanged.
+ * validation / parity paths are unchanged. Pass `homeRoster`/`awayRoster` to
+ * sim a specific roster pair instead of the file-backed pool.
  */
 export function simulateGame(
   seed: number,
@@ -1207,7 +1217,11 @@ export function simulateGame(
   opts?: GameStaff,
 ): Game {
   const rosters: [Roster, Roster] | null =
-    home && away ? [roster(home), roster(away)] : null;
+    opts?.homeRoster && opts?.awayRoster
+      ? [opts.homeRoster, opts.awayRoster]
+      : home && away
+        ? [roster(home), roster(away)]
+        : null;
   // the coaching layer rides on top of the rating layer — no rosters, no staff
   const staffPair: [Staff, Staff] | null =
     rosters && opts?.homeStaff && opts?.awayStaff

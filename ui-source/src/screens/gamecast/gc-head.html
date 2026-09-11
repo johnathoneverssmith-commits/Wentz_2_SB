@@ -1,0 +1,333 @@
+<title>Gamecast</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    /* light palette — cool paper with a faint green bias */
+    --ground: #e9ede7;
+    --surface: #ffffff;
+    --surface-2: #f3f6f1;
+    --line: #d5ddd2;
+    --ink: #17201a;
+    --ink-2: #40493f;
+    --muted: #717c70;
+    --chalk: #e8a400;          /* telestrator amber — the primary accent */
+    --chalk-soft: #f0c35a;
+    --los: #2f6fd0;            /* line of scrimmage (broadcast blue) */
+    --first: #f2c94c;          /* first-down line */
+    --injury: #d63b3b;
+    --player: #7a4fb5;         /* player-name callouts */
+    --special: #0f8b8d;        /* punts / field goals — special-teams plays */
+    --shadow: 0 1px 2px rgba(20,32,22,.06), 0 8px 24px -12px rgba(20,32,22,.18);
+    /* field — fixed, it's grass on any theme */
+    --turf: #22412e;
+    --turf-2: #1d3928;
+    --turf-line: #eef3ee;
+    --turf-ink: #f4f8f4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0b0f0c;
+      --surface: #141a15;
+      --surface-2: #1a221b;
+      --line: #2a332a;
+      --ink: #e9efe7;
+      --ink-2: #b9c3b7;
+      --muted: #8b958a;
+      --chalk: #f2b526;
+      --chalk-soft: #6a5321;
+      --los: #5e9bf0;
+      --first: #e8c14a;
+      --injury: #ef5a5a;
+      --player: #caa3f5;
+      --special: #4fd1d3;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 14px 40px -18px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0b0f0c;
+    --surface: #141a15;
+    --surface-2: #1a221b;
+    --line: #2a332a;
+    --ink: #e9efe7;
+    --ink-2: #b9c3b7;
+    --muted: #8b958a;
+    --chalk: #f2b526;
+    --chalk-soft: #6a5321;
+    --los: #5e9bf0;
+    --first: #e8c14a;
+    --injury: #ef5a5a;
+    --player: #caa3f5;
+    --special: #4fd1d3;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 14px 40px -18px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px 20px 40px; }
+
+  /* ---- scoreboard ---- */
+  .board {
+    display: flex; align-items: stretch; gap: 2px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; box-shadow: var(--shadow);
+  }
+  .board .team {
+    flex: 1; display: flex; align-items: center; gap: 14px;
+    padding: 14px 20px;
+  }
+  .board .team.home { flex-direction: row-reverse; text-align: right; }
+  .board .chip {
+    width: 8px; align-self: stretch; border-radius: 2px;
+    background: var(--tc, var(--muted));
+  }
+  .board .code {
+    font-family: "Oswald", sans-serif; font-weight: 700; font-size: 30px;
+    letter-spacing: .06em; line-height: 1;
+  }
+  .board .score {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 40px;
+    line-height: 1; font-variant-numeric: tabular-nums; margin-left: auto;
+  }
+  .board .team.home .score { margin-left: 0; margin-right: auto; }
+  .board .mid {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 10px 22px; background: var(--surface-2); border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+    min-width: 128px;
+  }
+  .board .status {
+    font-family: "Oswald", sans-serif; font-weight: 600; letter-spacing: .12em;
+    font-size: 13px; color: var(--muted); text-transform: uppercase;
+  }
+  .board .status.live { color: var(--injury); }
+  .board .situ {
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--ink-2);
+    font-variant-numeric: tabular-nums; margin-top: 3px;
+  }
+
+  .subhead {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; margin: 20px 2px 12px;
+  }
+  h1 {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 19px;
+    letter-spacing: .04em; text-transform: uppercase; margin: 0; text-wrap: balance;
+  }
+  .subhead .note { font-size: 12.5px; color: var(--muted); }
+
+  /* ---- 3-column layout ---- */
+  .grid {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr) 268px;
+    gap: 16px; align-items: start;
+  }
+  @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .panel > .phead {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 12px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+    padding: 12px 14px; border-bottom: 1px solid var(--line);
+  }
+  .panel > .phead .n {
+    font-family: "IBM Plex Mono", monospace; letter-spacing: 0; text-transform: none;
+    font-size: 11px; color: var(--muted);
+  }
+
+  /* ---- drive list ---- */
+  .drives { display: flex; flex-direction: column; max-height: 606px; overflow-y: auto; }
+  .drive {
+    display: grid; grid-template-columns: 1fr auto; gap: 3px 10px;
+    padding: 10px 14px; border: 0; width: 100%; text-align: left;
+    background: transparent; color: inherit; cursor: pointer;
+    border-bottom: 1px solid var(--line); font: inherit;
+  }
+  .drive:last-child { border-bottom: 0; }
+  .drive:hover { background: var(--surface-2); }
+  .drive[aria-current="true"] { background: color-mix(in srgb, var(--chalk) 12%, var(--surface)); }
+  .drive[aria-current="true"] .d-team { color: var(--ink); }
+  .drive .d-team {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 14px;
+    letter-spacing: .04em; display: flex; align-items: center; gap: 7px;
+  }
+  .drive .d-team::before {
+    content: ""; width: 7px; height: 7px; border-radius: 2px; background: var(--tc, var(--muted));
+  }
+  .drive .d-when {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted);
+    align-self: center; font-variant-numeric: tabular-nums;
+  }
+  .drive .d-meta { grid-column: 1 / -1; font-size: 11px; color: var(--ink-2); display: flex; gap: 7px; align-items: center; }
+  .drive .d-tag {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 9.5px; letter-spacing: .06em;
+    padding: 1px 5px; border-radius: 4px; background: var(--surface-2); color: var(--muted);
+  }
+  .drive .d-tag.td { background: color-mix(in srgb, var(--chalk) 24%, var(--surface-2)); color: var(--chalk); }
+  .drive .d-tag.to { background: color-mix(in srgb, var(--injury) 20%, var(--surface-2)); color: var(--injury); }
+  .drive .d-tag.special { background: color-mix(in srgb, var(--special) 22%, var(--surface-2)); color: var(--special); }
+
+  /* ---- field ---- */
+  .fieldwrap { padding: 12px; }
+  svg.field { width: 100%; height: auto; display: block; border-radius: 6px; }
+  .player { color: var(--player); font-weight: 600; }
+  .playline {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 12px 14px 0;
+  }
+  .playline .dd {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 19px;
+    letter-spacing: .03em; white-space: nowrap;
+  }
+  .playline .dd.td { color: var(--chalk); }
+  .playline .desc { font-size: 15.5px; color: var(--ink-2); }
+
+  /* ---- transport ---- */
+  .transport {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 14px 14px;
+  }
+  .transport button {
+    display: inline-grid; place-items: center;
+    width: 34px; height: 34px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+    cursor: pointer; padding: 0;
+  }
+  .transport button:hover { border-color: color-mix(in srgb, var(--chalk) 50%, var(--line)); }
+  .transport button:disabled { opacity: .38; cursor: default; }
+  .transport button.play { width: 40px; height: 40px; background: var(--chalk); border-color: var(--chalk); color: #1a1206; }
+  .transport button svg { width: 15px; height: 15px; fill: currentColor; }
+  .transport .scrub { flex: 1 1 140px; display: flex; align-items: center; gap: 10px; min-width: 120px; }
+  .transport input[type=range] { flex: 1; accent-color: var(--chalk); }
+  .transport .count {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted);
+    font-variant-numeric: tabular-nums; min-width: 54px; text-align: right;
+  }
+  .transport select {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink);
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px;
+    height: 34px; padding: 0 8px; cursor: pointer;
+  }
+  .transport .skip {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 11.5px; letter-spacing: .05em;
+    width: auto; padding: 0 12px; text-transform: uppercase;
+  }
+  :focus-visible { outline: 2px solid var(--chalk); outline-offset: 2px; }
+
+  /* ---- injuries ---- */
+  .injuries { display: flex; flex-direction: column; }
+  .inj {
+    display: grid; grid-template-columns: 4px 1fr; gap: 0 12px;
+    padding: 12px 14px 13px; border-bottom: 1px solid var(--line);
+  }
+  .inj:last-child { border-bottom: 0; }
+  .inj .stripe { border-radius: 2px; background: var(--injury); }
+  .inj .top {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+  }
+  .inj .who {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 13.5px; letter-spacing: .03em;
+  }
+  .inj .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--muted);
+    font-variant-numeric: tabular-nums; margin-left: auto;
+  }
+  .inj .body { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+  .inj .wk {
+    display: inline-block; margin-top: 6px; padding: 1px 7px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; color: var(--ink-2);
+  }
+  .empty { padding: 16px 14px; font-size: 12.5px; color: var(--muted); }
+
+  .foot { margin-top: 16px; font-size: 11.5px; color: var(--muted); text-align: center; }
+  .foot code { font-family: "IBM Plex Mono", monospace; }
+
+  /* ---- interstitials ---- */
+  .veil {
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+    background: rgba(4, 8, 5, .68); padding: 20px;
+  }
+  .veil[hidden] { display: none; }
+  .card {
+    width: min(440px, 100%); background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow); padding: 22px 24px 20px;
+    border-top: 4px solid var(--tc, var(--chalk));
+  }
+  .card .kicker {
+    font-family: "Oswald", sans-serif; font-weight: 600; font-size: 11px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 6px;
+  }
+  .card h2 {
+    font-family: "Oswald", sans-serif; font-weight: 700; font-size: 26px; letter-spacing: .02em;
+    margin: 0 0 4px; text-wrap: balance;
+  }
+  .card .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; font-family: "IBM Plex Mono", monospace; }
+  .card .narr { font-size: 14px; color: var(--ink-2); line-height: 1.55; margin: 0 0 14px; }
+  .card .wk {
+    display: inline-block; margin-bottom: 16px; padding: 3px 10px; border-radius: 999px;
+    background: var(--surface-2); border: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--ink-2);
+  }
+  .card .go {
+    display: block; width: 100%; border: 0; border-radius: 9px; padding: 11px;
+    background: var(--chalk); color: #1a1206; font-family: "Oswald", sans-serif;
+    font-weight: 600; font-size: 13.5px; letter-spacing: .06em; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .card .go:hover { background: var(--chalk-soft); }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="board" id="board"></div>
+
+  <div class="subhead">
+    <h1>Gamecast &mdash; <span id="matchup"></span></h1>
+    <span class="note">simulated game &middot; full play-by-play, ball tracking &amp; live injuries</span>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="phead"><span>Drive Chart</span><span class="n" id="drivecount"></span></div>
+      <div class="drives" id="drivelist"></div>
+    </section>
+
+    <section class="panel">
+      <div class="fieldwrap">
+        <svg class="field" id="field" viewBox="0 0 1000 500" role="img" aria-label="football field with the ball tracked play by play"></svg>
+      </div>
+      <div class="playline" id="playline"></div>
+      <div class="transport" id="transport"></div>
+    </section>
+
+    <section class="panel">
+      <div class="phead"><span>Injury Report</span><span class="n" id="injcount"></span></div>
+      <div class="injuries" id="injuries"></div>
+    </section>
+  </div>
+
+  <p class="foot">Ball position, drive arrows, attribution and injuries all come from the engine's opt-in per-play trace, cosmetic attribution and <code>injuryLog</code> &mdash; nothing here perturbs the sim.</p>
+</div>
+
+<div class="veil" id="veil" hidden>
+  <div class="card" id="card"></div>
+</div>
+
+<script type="application/json" id="game-data">
+__DATA__
+</script>
+
+<script>
+(() => {

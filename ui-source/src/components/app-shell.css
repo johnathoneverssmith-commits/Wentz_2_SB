@@ -1,0 +1,130 @@
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+.rail {
+  width: 208px;
+  flex-shrink: 0;
+  background: var(--panel-sunken);
+  border-right: 1px solid var(--line);
+  padding: 20px 12px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.rail .brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 8px 16px;
+}
+.rail .brand .mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--team);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Oswald", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #fff;
+}
+.rail .brand b {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.rail .brand span {
+  display: block;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+.rail .stagechip {
+  margin: 0 8px 12px;
+  font-size: 10px;
+  color: var(--team);
+  background: rgba(255, 60, 0, 0.1);
+  border: 1px solid rgba(255, 60, 0, 0.3);
+  border-radius: 20px;
+  padding: 4px 10px;
+  text-align: center;
+  font-weight: 600;
+}
+.rail a {
+  text-decoration: none;
+  color: var(--ink-dim);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.rail a:hover {
+  background: var(--panel-raised);
+  color: var(--ink);
+}
+.rail a.active {
+  background: rgba(255, 60, 0, 0.12);
+  color: var(--ink);
+}
+.rail a.locked {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.rail .railgroup {
+  margin: 14px 8px 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+.rail .spacer {
+  flex: 1;
+}
+.rail button.reset {
+  margin: 4px 6px 0;
+  font-size: 11px;
+  padding: 7px 10px;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  padding: 40px 24px 64px;
+  display: flex;
+  justify-content: center;
+}
+.app-card-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .app {
+    flex-direction: column;
+  }
+  .rail {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  .rail .spacer {
+    display: none;
+  }
+  .app-main {
+    padding: 24px 12px 48px;
+  }
+}

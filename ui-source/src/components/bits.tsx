@@ -1,0 +1,32 @@
+import { TEAMS_BY_CODE } from "@/data/teams";
+
+/** Rounded team-color chip with the 2–3 letter abbreviation. */
+export function TeamBadge({ code, size = 30 }: { code: string; size?: number }) {
+  const t = TEAMS_BY_CODE[code];
+  if (!t) return null;
+  return (
+    <span
+      className="oswald"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size <= 22 ? 6 : 8,
+        background: t.color,
+        color: t.onColor,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size <= 22 ? 9 : size <= 32 ? 10 : 13,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {t.abbr}
+    </span>
+  );
+}
+
+export function OvrPill({ value }: { value: number }) {
+  const cls = value >= 85 ? "elite" : value >= 75 ? "mid" : "low";
+  return <span className={`povr ${cls}`}>{value}</span>;
+}
