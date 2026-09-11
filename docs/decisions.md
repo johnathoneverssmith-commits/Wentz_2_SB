@@ -778,7 +778,11 @@ accept-likelihood similarly need-weighted — 2026-09-11). Along the way:
 - Found the salary cap was never enforced anywhere (`team.cap.used` was
   never computed, and `cap.total` used a different unit than every contract
   field around it) — `aiOfferForPlayer`/`aiOfferForCoach` now check cap room
-  before picking a team.
+  before picking a team. Deliberately did **not** extend this to the human's
+  own `signStandingFreeAgent` action tonight — a silent no-op on a blocked
+  sign is worse UX than no enforcement, and doing it properly needs a real
+  error path back to `FreeAgencyBoard.tsx`, not just a guard clause. Left as
+  a clearly-scoped follow-up rather than shipped half-done.
 - Player/coach *value* itself (positional value, draft-pick trade value) was
   also ungrounded — see OQ-5/OQ-6, now substantially addressed too.
 
