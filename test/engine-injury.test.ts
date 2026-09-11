@@ -128,7 +128,7 @@ describe.runIf(hasPool)("injuries + trace in simulateGame", () => {
       expect(r.ballOn).toBeGreaterThanOrEqual(0);
       expect(r.ballOn).toBeLessThanOrEqual(100);
       expect([1, 2, 3, 4]).toContain(r.down);
-      expect(["pass", "run", "sack", "scramble"]).toContain(r.call);
+      expect(["pass", "run", "sack", "scramble", "punt", "field_goal"]).toContain(r.call);
       expect(Number.isInteger(r.ballOn)).toBe(true);
     }
     // at least a few touchdowns and a turnover show up over a full game

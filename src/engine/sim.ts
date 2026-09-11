@@ -104,11 +104,13 @@ export interface PlayRec {
   ydstogo: number;
   /** distance to the offense's target end zone, pre-snap (100 = own goal line). */
   ballOn: number;
-  call: "pass" | "run" | "sack" | "scramble";
+  call: "pass" | "run" | "sack" | "scramble" | "punt" | "field_goal";
   /** air-yard bucket for passes, else "". */
   depth: string;
   gained: number;
-  outcome: string; // complete | incomplete | sack | scramble | run | interception | fumble
+  // scrimmage: complete | incomplete | sack | scramble | run | interception | fumble
+  // field_goal: made | missed. punt: touchback | downed | returned | return_td
+  outcome: string;
   firstDown: boolean;
   touchdown: boolean;
   turnover: boolean;
@@ -123,6 +125,12 @@ export interface PlayRec {
   targetOrRusher?: string | undefined;
   /** the defender credited on a sack / interception / forced fumble. */
   defender?: string | undefined;
+  /** kicker (field_goal) or punter (punt) — cosmetic attribution. */
+  kicker?: string | undefined;
+  /** punt returner, when the punt is fielded and run back — cosmetic attribution. */
+  returner?: string | undefined;
+  /** field_goal attempt distance, or punt gross distance, in yards. */
+  distance?: number | undefined;
 }
 
 function clip(x: number, lo: number, hi: number): number {
@@ -265,6 +273,14 @@ export class Game {
     }
     if (outcome === "fumble") return { passer, targetOrRusher: target, defender: forcer() };
     return { passer, targetOrRusher: target };
+  }
+
+  /** Deterministic punt-returner pick from the receiving team's skill players. */
+  private pickReturner(): string | undefined {
+    if (!this.ratingsOn) return undefined;
+    const o = this.def().offense(this.injuredOut); // this.pos is still the kicking team here
+    const pool = [o.WR3, o.RB1, o.WR2].filter((x): x is NonNullable<typeof x> => !!x);
+    return pool.length ? pool[Math.round(this.yardline100) % pool.length]!.name : undefined;
   }
 
   private tracePlay(p: {
@@ -670,8 +686,31 @@ export class Game {
 
   private kickFg(result = "field_goal", endOfHalf = false): void {
     this.st("fg_att");
+    const preDown = this.down;
+    const preToGo = this.ydstogo;
+    const preYl = this.yardline100;
+    const preQtr = this.qtr;
+    const preClock = this.clockText();
     const ctx: Ctx = { kick_distance: this.yardline100 + 18, yardline_100: this.yardline100, ...ENV };
     const made = (predictProba("M20", ctx, this.offShift("M20")).MADE ?? 0.85) > this.rng.random();
+    if (this.playTrace)
+      this.playTrace.push({
+        team: this.pos as 0 | 1,
+        quarter: preQtr,
+        clock: preClock,
+        down: preDown,
+        ydstogo: preToGo,
+        ballOn: Math.round(preYl),
+        call: "field_goal",
+        depth: "",
+        gained: 0,
+        outcome: made ? "made" : "missed",
+        firstDown: false,
+        touchdown: false,
+        turnover: false,
+        kicker: this.ratingsOn ? (this.off().kicker()?.name ?? undefined) : undefined,
+        distance: Math.round(preYl + 18),
+      });
     if (made) {
       this.st("fg_made");
       this.scorePts(3);
@@ -724,16 +763,47 @@ export class Game {
     if (act === "FIELD_GOAL") return this.kickFg("field_goal");
     if (act === "PUNT") {
       this.st("punt");
+      const preDown = this.down;
+      const preToGo = this.ydstogo;
+      const preYl = this.yardline100;
+      const preQtr = this.qtr;
+      const preClock = this.clockText();
       const dist = samplePuntDistance(this.yardline100, this.rng);
       const landing = this.yardline100 - dist;
       this.advanceClock("run_inbounds", 0, true);
+      const kicker = this.ratingsOn ? (this.off().punter()?.name ?? undefined) : undefined;
+      const tracePunt = (outcome: string, newYl: number, returner?: string | undefined): void => {
+        if (!this.playTrace) return;
+        this.playTrace.push({
+          team: this.pos as 0 | 1,
+          quarter: preQtr,
+          clock: preClock,
+          down: preDown,
+          ydstogo: preToGo,
+          ballOn: Math.round(preYl),
+          call: "punt",
+          depth: "",
+          gained: Math.round(preYl - (100 - newYl)),
+          outcome,
+          firstDown: false,
+          touchdown: false,
+          turnover: false,
+          kicker,
+          returner,
+          distance: Math.round(dist),
+        });
+      };
       if (landing <= 0) {
         this.st("touchback");
+        tracePunt("touchback", 80.0);
         this.flipField(80.0); // receiving team, 1st-and-10 at its own 20
       } else {
         const out = sampleClass("M21", { yardline_100: this.yardline100, ...ENV }, this.rng);
         if (out === "RETURNED" && this.rng.random() < PUNT_RETURN_TD_RATE) {
           const r = this.other();
+          // the return carries the ball to the kicking team's own goal line —
+          // i.e. distance 0 from the *receiving* team's target end zone.
+          tracePunt("return_td", 0, this.pickReturner());
           this.scorePts(6, r);
           this.st("st_td", 1, r);
           if (this.rng.random() < XP_RATE) this.scorePts(1, r);
@@ -744,7 +814,9 @@ export class Game {
         const ret = out === "RETURNED" ? samplePuntReturn(this.rng) : 0;
         // receiving team's yardline_100 = 100 − landing spot, then a return
         // advances them toward the punting team's goal (−ret).
-        this.flipField(100 - landing - ret);
+        const newYl = 100 - landing - ret;
+        tracePunt(out === "RETURNED" ? "returned" : "downed", newYl, out === "RETURNED" ? this.pickReturner() : undefined);
+        this.flipField(newYl);
       }
       this.puntPenalty();
       return;

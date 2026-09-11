@@ -92,6 +92,10 @@ export class Roster {
     return this.nth("K", 0);
   }
 
+  punter(): Player | null {
+    return this.nth("P", 0);
+  }
+
   private buildOffense(out?: ReadonlySet<string>): Lineup {
     let ot = this.depth.get("OT") ?? [];
     let og = this.depth.get("OG") ?? [];

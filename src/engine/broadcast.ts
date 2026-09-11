@@ -5,15 +5,15 @@
  *
  * Built from the opt-in `playTrace` + `injuryLog`: the trace is grouped into
  * possessions (a run of plays by one team, ending on a change of possession, a
- * touchdown, or a turnover). The concatenation of every drive's `plays`, in
- * order, reproduces the original trace exactly — no plays are dropped or
- * reordered — so an injury's `playIndex` maps onto one exact play, and a
- * play's own `quarter` (which can change mid-drive, same as real broadcasts)
- * is enough for a consumer to detect quarter transitions by walking the whole
- * game front-to-back.
+ * touchdown, a turnover, or a punt/field-goal attempt). The concatenation of
+ * every drive's `plays`, in order, reproduces the original trace exactly — no
+ * plays are dropped or reordered — so an injury's `playIndex` maps onto one
+ * exact play, and a play's own `quarter` (which can change mid-drive, same as
+ * real broadcasts) is enough for a consumer to detect quarter transitions by
+ * walking the whole game front-to-back.
  *
- * Field-goal drives don't appear as scoring here (kicks aren't in the
- * scrimmage trace) — `scoringDrives` is touchdown drives.
+ * Punts and field-goal attempts are their own trailing play on the drive that
+ * produced them (call: "punt" | "field_goal") — same trace, no separate log.
  */
 
 import type { InjuryEvent } from "./injury.js";
@@ -38,6 +38,12 @@ export interface BroadcastPlay {
   passer?: string | undefined;
   targetOrRusher?: string | undefined;
   defender?: string | undefined;
+  /** kicker (field_goal) or punter (punt) — cosmetic attribution. */
+  kicker?: string | undefined;
+  /** punt returner, when the punt is fielded and run back — cosmetic attribution. */
+  returner?: string | undefined;
+  /** field_goal attempt distance, or punt gross distance, in yards. */
+  distance?: number | undefined;
   /** injuries that happened on this exact play (almost always empty). */
   injuries: InjuryEvent[];
 }
@@ -50,8 +56,8 @@ export interface BroadcastDrive {
   /** yards to the target end zone at the first snap. */
   startBallOn: number;
   plays: BroadcastPlay[];
-  /** "touchdown" | "turnover" | "stalled" — inferred from the last play. */
-  ended: "touchdown" | "turnover" | "stalled";
+  /** how the drive ended — inferred from its last play. */
+  ended: "touchdown" | "turnover" | "field_goal" | "missed_field_goal" | "punt" | "punt_return_td" | "stalled";
   points: number;
 }
 
@@ -60,7 +66,7 @@ export interface GameBroadcast {
   away: string;
   finalScore: [number, number];
   drives: BroadcastDrive[];
-  /** indices into `drives` that ended in a touchdown. */
+  /** indices into `drives` that put points on the board (touchdown or made field goal). */
   scoringDrives: number[];
   /** every injury in the game, in play order (also attached to its own play). */
   injuries: InjuryEvent[];
@@ -77,12 +83,23 @@ function describe(p: {
   depth: string;
   gained: number;
   ballOn: number;
+  outcome: string;
   touchdown: boolean;
   turnover: boolean;
   firstDown: boolean;
+  distance?: number | undefined;
 }): string {
   const g = Math.round(p.gained);
   const to = p.touchdown ? "end zone" : yardLabel(Math.max(1, p.ballOn - p.gained));
+  if (p.call === "field_goal") {
+    return p.outcome === "made" ? `${p.distance}-yard field goal is GOOD` : `${p.distance}-yard field goal attempt is NO GOOD`;
+  }
+  if (p.call === "punt") {
+    if (p.outcome === "touchback") return `${p.distance}-yard punt, touchback`;
+    if (p.outcome === "return_td") return `${p.distance}-yard punt, returned for a TOUCHDOWN`;
+    if (p.outcome === "downed") return `${p.distance}-yard punt, downed at the ${yardLabel(100 - p.ballOn + p.gained)}`;
+    return `${p.distance}-yard punt, returned to the ${yardLabel(100 - p.ballOn + p.gained)}`;
+  }
   let s: string;
   if (p.call === "sack") s = `sack for ${g} to the ${to}`;
   else if (p.call === "scramble") s = `scramble for ${g >= 0 ? "+" : ""}${g} to the ${to}`;
@@ -139,9 +156,19 @@ function toDrives(trace: PlayRec[], injuries: InjuryEvent[], home: string, away:
       passer: r.passer,
       targetOrRusher: r.targetOrRusher,
       defender: r.defender,
+      kicker: r.kicker,
+      returner: r.returner,
+      distance: r.distance,
       injuries: byPlayIndex.get(i) ?? [],
     });
-    if (r.touchdown) {
+    if (r.call === "field_goal") {
+      cur.ended = r.outcome === "made" ? "field_goal" : "missed_field_goal";
+      cur.points = r.outcome === "made" ? 3 : 0;
+      cur = null;
+    } else if (r.call === "punt") {
+      cur.ended = r.outcome === "return_td" ? "punt_return_td" : "punt";
+      cur = null;
+    } else if (r.touchdown) {
       cur.ended = "touchdown";
       cur.points = 7;
       cur = null;
@@ -172,7 +199,7 @@ export function broadcastGame(
     away,
     finalScore: [g.score[0], g.score[1]],
     drives,
-    scoringDrives: drives.flatMap((d, i) => (d.ended === "touchdown" ? [i] : [])),
+    scoringDrives: drives.flatMap((d, i) => (d.points > 0 ? [i] : [])),
     injuries,
   };
 }

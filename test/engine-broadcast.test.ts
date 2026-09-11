@@ -31,20 +31,47 @@ describe.runIf(hasPool)("broadcastGame", () => {
         expect(p.ballOn).toBeGreaterThanOrEqual(0);
         expect(p.ballOn).toBeLessThanOrEqual(100);
         expect(p.desc.length).toBeGreaterThan(4);
-        expect(["pass", "run", "sack", "scramble"]).toContain(p.call);
+        expect(["pass", "run", "sack", "scramble", "punt", "field_goal"]).toContain(p.call);
       }
       // the drive's `ended` matches its last play
       const last = d.plays[d.plays.length - 1]!;
       if (last.touchdown) expect(d.ended).toBe("touchdown");
+      else if (last.call === "field_goal") expect(["field_goal", "missed_field_goal"]).toContain(d.ended);
+      else if (last.call === "punt") expect(["punt", "punt_return_td"]).toContain(d.ended);
       else if (last.turnover) expect(d.ended).toBe("turnover");
     }
   });
 
-  it("scoringDrives point only at touchdown possessions", () => {
+  it("scoringDrives point at every drive that put points on the board", () => {
     expect(b.scoringDrives.length).toBeGreaterThan(0);
     for (const i of b.scoringDrives) {
-      expect(b.drives[i]!.ended).toBe("touchdown");
-      expect(b.drives[i]!.plays.some((p) => p.touchdown)).toBe(true);
+      expect(b.drives[i]!.points).toBeGreaterThan(0);
+      expect(["touchdown", "field_goal"]).toContain(b.drives[i]!.ended);
+    }
+  });
+
+  it("models punts and field goals as their own trailing play", () => {
+    const plays = b.drives.flatMap((d) => d.plays);
+    const fgs = plays.filter((p) => p.call === "field_goal");
+    const punts = plays.filter((p) => p.call === "punt");
+    expect(fgs.length + punts.length).toBeGreaterThan(0);
+    for (const p of fgs) {
+      expect(["made", "missed"]).toContain(p.outcome);
+      expect(p.distance).toBeGreaterThan(0);
+      expect(p.kicker).toBeTruthy();
+      expect(p.desc).toMatch(/field goal/);
+    }
+    for (const p of punts) {
+      expect(["touchback", "downed", "returned", "return_td"]).toContain(p.outcome);
+      expect(p.distance).toBeGreaterThan(0);
+      expect(p.kicker).toBeTruthy();
+      expect(p.desc).toMatch(/punt/);
+    }
+    // every field-goal/punt drive's `ended` is consistent with its last play's outcome
+    for (const d of b.drives) {
+      const last = d.plays[d.plays.length - 1]!;
+      if (last.call === "field_goal") expect(d.ended).toBe(last.outcome === "made" ? "field_goal" : "missed_field_goal");
+      if (last.call === "punt") expect(d.ended).toBe(last.outcome === "return_td" ? "punt_return_td" : "punt");
     }
   });
 
