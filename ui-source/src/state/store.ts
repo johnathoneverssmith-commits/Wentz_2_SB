@@ -27,6 +27,7 @@ import {
 import { TEAMS } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { contractValueFor } from "@/sim/MockSimulationService";
+import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
 import { createLeague, recomputeTeamRatings } from "./seed.ts";
 import {
@@ -43,7 +44,7 @@ import {
 
 const sim = new HybridSimulationService();
 
-type Subject = "players" | "coaches";
+export type Subject = "players" | "coaches";
 
 export interface StoreActions {
   /** builds the league instantly (Mock skeleton), then upgrades players/schedule to
@@ -611,7 +612,7 @@ function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState
     for (let i = 0; i < signCount; i++) {
       const p = pool[Math.floor(rng() * pool.length)];
       if (!p || fa.signed.some((x) => x.id === p.id)) continue;
-      const winning = bestOfferFor(fa, p.id) ?? aiOfferForPlayer(rng, s, p);
+      const winning = bestOfferFor(fa, "players", p.id, s) ?? aiOfferForPlayer(rng, s, p);
       fa.signed.push({ id: p.id, toTeam: winning.teamCode, ...offerFields(winning), at: fa.day });
       p.free_agent = false;
       p.nfl_team = winning.teamCode;
@@ -623,7 +624,7 @@ function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState
     for (let i = 0; i < signCount; i++) {
       const c = openCoaches[Math.floor(rng() * openCoaches.length)];
       if (!c || fa.signed.some((x) => x.id === c.id)) continue;
-      const winning = bestOfferFor(fa, c.id) ?? aiOfferForCoach(rng, s, c);
+      const winning = bestOfferFor(fa, "coaches", c.id, s) ?? aiOfferForCoach(rng, s, c);
       if (!winning) continue; // no AI team has a vacancy at this role right now
       // don't let an AI team stack two coaches of the same role
       const clash = Object.values(s.coaches).some(
@@ -645,12 +646,50 @@ function offerFields(o: ContractOffer) {
     guaranteed: o.guaranteed,
   };
 }
-function bestOfferFor(fa: FreeAgencyState, id: string): ContractOffer | null {
+/**
+ * Which competing offer wins (OQ-9): not just the highest dollar figure —
+ * the subject's own stated top-3 priorities (`playerPriorities`/
+ * `coachPriorities`, already computed for the negotiation-screen display,
+ * previously never fed into the actual outcome) bend the decision toward an
+ * offer that actually satisfies them. "location"/"market size" have no real
+ * signal in this data model and are left neutral; the rest use data already
+ * on hand: team overall (winning now / roster talent), positional need
+ * (a starting role), and the real engine-backed computeSchemeFit (scheme
+ * fit) — the same call CoachingStaffHub's live scheme-fit percentage uses.
+ */
+const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
+
+export function offerScore(o: ContractOffer, subject: Subject, subjectId: string, s: LeagueState): number {
+  const dollar = o.baseSalary * o.years + o.signingBonus;
+  const team = s.teams[o.teamCode];
+  if (!team) return dollar;
+  let bonus = 0;
+  if (subject === "players") {
+    const p = s.players[subjectId];
+    if (p) {
+      const ranked = playerPriorities(p).ranked;
+      if (ranked.includes("winning now")) bonus += (team.ratings.overall - 75) / 50;
+      if (ranked.includes("a starting role")) bonus += (positionalNeed(s, o.teamCode, p.position) - 10) / 100;
+      if (ranked.includes("scheme fit")) {
+        const oc = Object.values(s.coaches).find((c) => c.team === o.teamCode && c.role === "OC") ?? null;
+        const dc = Object.values(s.coaches).find((c) => c.team === o.teamCode && c.role === "DC") ?? null;
+        bonus += (sim.computeSchemeFit(p, oc, dc) - 62) / 150;
+      }
+    }
+  } else {
+    const c = s.coaches[subjectId];
+    if (c) {
+      const ranked = coachPriorities(c).ranked;
+      if (ranked.includes("roster talent")) bonus += (team.ratings.rosterOverall - 75) / 50;
+    }
+  }
+  return dollar * (1 + clamp(bonus, -0.3, 0.3));
+}
+
+function bestOfferFor(fa: FreeAgencyState, subject: Subject, id: string, s: LeagueState): ContractOffer | null {
   const offers = fa.bids[id];
   if (!offers || offers.length === 0) return null;
-  return [...offers].sort(
-    (a, b) => b.baseSalary * b.years + b.signingBonus - (a.baseSalary * a.years + a.signingBonus),
-  )[0]!;
+  return [...offers].sort((a, b) => offerScore(b, subject, id, s) - offerScore(a, subject, id, s))[0]!;
 }
 
 /**
