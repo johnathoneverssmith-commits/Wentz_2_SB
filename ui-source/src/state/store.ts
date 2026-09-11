@@ -101,15 +101,23 @@ export const useStore = create<Store>()(
         // instant, Mock-backed skeleton — always playable, never blocks on the network
         set(() => createLeague(seed, config) as Store);
         try {
-          const [pool, schedule] = await Promise.all([
+          const [pool, schedule, coachList] = await Promise.all([
             sim.generateInitialPool(seed, "realRosters"),
             sim.generateSchedule(seed, TEAMS.map((t) => t.code)),
+            sim.generateCoachMarket(seed),
           ]);
           set((s) => {
             const players: Record<string, Player> = {};
             for (const p of pool) players[p.id] = p;
             s.players = players;
             s.schedule = schedule;
+            const coaches: Store["coaches"] = {};
+            for (const c of coachList) {
+              c.team = null;
+              c.contract = null;
+              coaches[c.id] = c;
+            }
+            s.coaches = coaches;
             recomputeTeamRatings(s);
           });
         } catch (err) {

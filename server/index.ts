@@ -10,10 +10,11 @@
  *
  * Covers what the engine can genuinely back today: the real 2026 schedule,
  * real game simulation (+ the broadcast/gamecast view for one game per
- * request), the real-roster pool, and scheme-fit. Draft classes, the coach
- * market, trade valuation, retirement, and the playoff bracket stay on the
- * UI's MockSimulationService for now (no calibrated engine model yet for the
- * first four; the bracket's seeding/shape doesn't map onto this engine's
+ * request), the real-roster pool, scheme-fit, and the coach market (the real
+ * 32 current staffs + a distribution-matched free-agent pool). Draft classes,
+ * trade valuation, retirement, and the playoff bracket stay on the UI's
+ * MockSimulationService for now (no calibrated engine model yet for the
+ * first three; the bracket's seeding/shape doesn't map onto this engine's
  * standings structure without more plumbing than this pass covers) — see
  * `ui-source/NOTES.md` and `HybridSimulationService.ts` for the boundary.
  *
@@ -26,11 +27,13 @@ import { broadcastGame } from "../src/engine/broadcast.js";
 import { nflSchedule } from "../src/engine/schedule.js";
 import { Roster } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
+import { allStaffs } from "../src/engine/staff-data.js";
 import {
   defSchemeFitShift,
   offSchemeFitShift,
   schemeFitBaseline,
 } from "../src/engine/staff-fit.js";
+import { generateCoachMarket } from "../src/engine/staff-market.js";
 import type { Player } from "../src/schema/player.js";
 
 const PORT = 8787;
@@ -134,6 +137,19 @@ const routes: Record<string, (body: any) => unknown> = {
       awayTeam: g.away,
     })),
   "/simulate-week": handleSimulateWeek,
+  "/coach-market": (body: { seed: number }) => {
+    // the real 32 current staffs (96 coaches) — all free agents in this
+    // game's design (every league starts with 0 coaches employed) but
+    // tagged with `previousTeam` as a real-world hint — plus a
+    // distribution-matched pool of generated candidates for real depth.
+    const real = Object.entries(allStaffs()).flatMap(([team, staff]) => [
+      { role: "HC" as const, previousTeam: team, ...staff.headCoach },
+      { role: "OC" as const, previousTeam: team, ...staff.oc },
+      { role: "DC" as const, previousTeam: team, ...staff.dc },
+    ]);
+    const generated = generateCoachMarket(body.seed, { hc: 8, oc: 10, dc: 10 });
+    return { real, generated };
+  },
   "/scheme-fit-baseline": () => {
     const baseline = schemeFitBaseline();
     return {

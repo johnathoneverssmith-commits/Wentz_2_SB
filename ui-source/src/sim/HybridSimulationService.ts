@@ -15,10 +15,14 @@
  *   exactly — see `domain/coach.ts` — so this works whether the coach is
  *   Mock- or engine-generated.
  *
+ * - `generateCoachMarket` — async too: the real 32 current staffs (real
+ *   2026 HC/OC/DC names) plus a free-agent pool sampled from that same
+ *   ratings distribution (`staff-market.ts`), with names generated
+ *   client-side (via Mock's `names.ts`) for the generated half only.
+ *
  * Everything else delegates straight to `MockSimulationService`, unchanged:
- * - `generateCoachMarket` / `generateDraftClass` / `evaluateTrade` /
- *   `retirementOutcomes` / `finalizeSeasonOutcomes` — no calibrated engine
- *   model yet (see `NOTES.md`).
+ * - `generateDraftClass` / `evaluateTrade` / `retirementOutcomes` /
+ *   `finalizeSeasonOutcomes` — no calibrated engine model yet (see `NOTES.md`).
  * - `seedBracket` / `simulatePlayoffRound` — the engine has real
  *   standings/playoffs logic, but mapping this UI's `BracketState`/`TeamState`
  *   onto it is more plumbing than this pass covers. Flagged as a follow-up,
@@ -28,17 +32,22 @@ import { TEAMS } from "@/data/teams";
 import type {
   BracketState,
   Coach,
+  CoachRole,
+  DefenseScheme,
   DraftProspect,
   GameResult,
   LeagueState,
+  OffenseScheme,
   Player,
   PlayoffRound,
   ScheduledGame,
   TradeAsset,
 } from "@/domain";
 
-import { HttpSimulationService, type SchemeFitBaseline } from "./HttpSimulationService.ts";
+import { HttpSimulationService, type RawCoachCandidate, type SchemeFitBaseline } from "./HttpSimulationService.ts";
 import { MockSimulationService } from "./MockSimulationService.ts";
+import { fullPersonName } from "./names.ts";
+import { Rng } from "./rng.ts";
 import type { RetirementOutcome, SimulationService, TradeEvaluation } from "./SimulationService.ts";
 
 // mirrors nfl-franchise-sim/src/engine/staff.ts's OFF_SCHEME_TAGS/DEF_SCHEME_TAGS
@@ -75,8 +84,49 @@ export class HybridSimulationService implements SimulationService {
     }
   }
 
-  generateCoachMarket(seed: number): Coach[] {
-    return this.mock.generateCoachMarket(seed);
+  async generateCoachMarket(seed: number): Promise<Coach[]> {
+    try {
+      const { real, generated } = await this.http.generateCoachMarket(seed);
+      const rng = new Rng(seed ^ 0x2222);
+      let cid = 0;
+      const toCoach = (c: RawCoachCandidate): Coach => {
+        const id = `c_${++cid}`;
+        const name = c.name ?? fullPersonName(rng);
+        const base = { id, name, role: c.role as CoachRole, team: null, contract: null };
+        if (c.role === "HC") {
+          return {
+            ...base,
+            gameManagement: c.gameManagement,
+            discipline: c.discipline,
+            // engine aggression is ~[-1,1], centred on the authored mean (~0.17);
+            // UI aggressiveness is a 0-99 scale centred on 50.
+            aggressiveness: clamp(Math.round(50 + (c.aggression ?? 0) * 100), 1, 99),
+          };
+        }
+        if (c.role === "OC") {
+          return {
+            ...base,
+            scheme: c.scheme as OffenseScheme,
+            playCallIq: c.rating,
+            // engine passBias ~[-1,1] -> UI's 0-100 pass-rate share, centred ~58
+            // (matches Mock's own 48-68 range at passBias's authored extremes).
+            tendencyPassRate: clamp(Math.round(58 + (c.passBias ?? 0) * 50), 0, 100),
+          };
+        }
+        return {
+          ...base,
+          scheme: c.scheme as DefenseScheme,
+          playCallIq: c.rating,
+          // engine blitzBias ~[-1,1] -> UI's 0-100 blitz-rate share, centred ~30
+          // — deliberately allowed to exceed Mock's old 18-42 band: a coach
+          // like Brian Flores should read as a real outlier, not clamped flat.
+          tendencyBlitzRate: clamp(Math.round(30 + (c.blitzBias ?? 0) * 50), 0, 100),
+        };
+      };
+      return [...real, ...generated].map(toCoach);
+    } catch {
+      return this.mock.generateCoachMarket(seed);
+    }
   }
 
   async generateSchedule(seed: number, teamCodes: string[]): Promise<ScheduledGame[]> {

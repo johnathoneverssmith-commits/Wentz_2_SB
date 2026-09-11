@@ -10,9 +10,10 @@
  * market, draft classes, trade valuation, retirement, and the playoff bracket —
  * no calibrated engine model yet, see `ui-source/NOTES.md`) stays on Mock.
  *
- * `generateInitialPool`, `generateSchedule` and `simulateWeek` are the three
- * genuinely engine-backed methods, so they're the three that are async here
- * (an HTTP round-trip); everything else stays synchronous.
+ * `generateInitialPool`, `generateSchedule`, `simulateWeek` and
+ * `generateCoachMarket` are the genuinely engine-backed methods, so they're
+ * the ones that are async here (an HTTP round-trip); everything else stays
+ * synchronous.
  */
 import type {
   BracketState,
@@ -44,7 +45,7 @@ export interface SimulationService {
   generateInitialPool(seed: number, mode: "fantasyPool" | "realRosters"): Player[] | Promise<Player[]>;
 
   /** Coaches available on the market at league start. */
-  generateCoachMarket(seed: number): Coach[];
+  generateCoachMarket(seed: number): Coach[] | Promise<Coach[]>;
 
   /** 18-week regular-season schedule + a 3-week preseason (spec §6.1/§6.7). */
   generateSchedule(seed: number, teamCodes: string[]): ScheduledGame[] | Promise<ScheduledGame[]>;

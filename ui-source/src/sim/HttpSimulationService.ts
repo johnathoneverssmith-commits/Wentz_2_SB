@@ -40,6 +40,24 @@ export interface SchemeFitBaseline {
   def: Record<string, number>;
 }
 
+/** One coach-market candidate as the adapter returns it — `name` present only
+ *  for the real 32-staff pool; generated candidates get a name client-side. */
+export interface RawCoachCandidate {
+  role: "HC" | "OC" | "DC";
+  name?: string;
+  /** the real team this coach's staff data came from — a hint only; every
+   *  market candidate is a free agent (`team: null`) in this game's design. */
+  previousTeam?: string;
+  gameManagement?: number;
+  discipline?: number;
+  aggression?: number;
+  rating?: number;
+  scheme?: string;
+  passBias?: number;
+  tempo?: number;
+  blitzBias?: number;
+}
+
 export class HttpSimulationService {
   async generateInitialPool(): Promise<Player[]> {
     const pool = await post<Player[]>("/pool", {});
@@ -108,5 +126,17 @@ export class HttpSimulationService {
   async schemeFitBaseline(): Promise<SchemeFitBaseline> {
     const res = await post<{ baseline: SchemeFitBaseline }>("/scheme-fit-baseline", {});
     return res.baseline;
+  }
+
+  async generateCoachMarket(
+    seed: number,
+  ): Promise<{ real: RawCoachCandidate[]; generated: RawCoachCandidate[] }> {
+    const res = await post<{ real: RawCoachCandidate[]; generated: RawCoachCandidate[] }>(
+      "/coach-market",
+      { seed },
+    );
+    const translate = (c: RawCoachCandidate): RawCoachCandidate =>
+      c.previousTeam ? { ...c, previousTeam: toUi(c.previousTeam) } : c;
+    return { real: res.real.map(translate), generated: res.generated.map(translate) };
   }
 }
