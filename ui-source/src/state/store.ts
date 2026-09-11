@@ -58,7 +58,7 @@ export interface StoreActions {
   /** in-season: sim this week / round and stage the Game Day screen. */
   simulateGameDay: () => Promise<{ route: string }>;
   /** Game Day "continue": step the week or advance the stage. */
-  finishGameDay: () => { route: string };
+  finishGameDay: () => Promise<{ route: string }>;
 
   setReturnTo: (path: string | null) => void;
 
@@ -172,16 +172,18 @@ export const useStore = create<Store>()(
         const before = get();
         if (!humanGate(before)) return { moved: false, route: STAGE_HOME[before.stage] };
 
-        // resolved once, ahead of the producer, so the one async piece
-        // (a season-rollover's new schedule) can be awaited outside it —
-        // immer producers must stay synchronous.
+        // resolved once, ahead of the producer, so the async pieces (a
+        // season-rollover's new schedule, seeding the playoff bracket) can be
+        // awaited outside it — immer producers must stay synchronous.
         const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
         const newSchedule = t.seasonRollover
           ? await sim.generateSchedule(before.season + 1, Object.keys(before.teams))
           : null;
+        const newBracket =
+          t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
 
         set((s) => {
-          if (t.stage === "playoffs" && !s.bracket) s.bracket = sim.seedBracket(s);
+          if (newBracket && !s.bracket) s.bracket = newBracket;
           if (t.resetStats) resetSeasonStats(s);
 
           if (t.seasonRollover) {
@@ -223,12 +225,17 @@ export const useStore = create<Store>()(
 
       simulateGameDay: async () => {
         const before = get();
-        // the async piece (real game sim over HTTP) resolved ahead of the
-        // producer, same reasoning as tryAdvance — immer producers stay sync.
+        // the async pieces (real game sim / real playoff round over HTTP)
+        // resolved ahead of the producer, same reasoning as tryAdvance —
+        // immer producers stay sync.
         const results =
           before.stage === "preseason" || before.stage === "regularSeason"
             ? await sim.simulateWeek(before, before.week, before.stage === "preseason" ? "PRE" : "REG")
             : null;
+        const playoffRoundToPlay = before.stage === "playoffs" ? (before.bracket?.currentRound ?? "WC") : null;
+        const newBracket = playoffRoundToPlay
+          ? await sim.simulatePlayoffRound(before, playoffRoundToPlay)
+          : null;
 
         set((s) => {
           if (results) {
@@ -248,27 +255,28 @@ export const useStore = create<Store>()(
               gameIds: results.map((g) => g.id),
               viewerGameId: viewerGame?.id ?? null,
             };
-          } else if (s.stage === "playoffs") {
-            const round = s.bracket?.currentRound ?? "WC";
-            s.bracket = sim.simulatePlayoffRound(s, round);
-            const played = s.bracket.matchups.filter((m) => m.round === round);
+          } else if (newBracket && playoffRoundToPlay) {
+            s.bracket = newBracket;
             s.pendingGameDay = {
-              phase: round,
+              phase: playoffRoundToPlay,
               week: 0,
               gameIds: [],
               viewerGameId: null,
             };
-            void played;
           }
           recomputeTeamRatings(s);
         });
         return { route: "/game-day" };
       },
 
-      finishGameDay: () => {
+      finishGameDay: async () => {
+        const before = get();
+        const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
+        const newBracket =
+          t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
+
         set((s) => {
-          const t = resolveTransition(s, { humanGmWonSuperBowl: sbWonByHuman(s) });
-          if (t.stage === "playoffs" && !s.bracket) s.bracket = sim.seedBracket(s);
+          if (newBracket && !s.bracket) s.bracket = newBracket;
           if (t.resetStats) resetSeasonStats(s);
           // the season is scored the moment the playoffs end, so the End-of-Season
           // screens can show this year's row in the tracker.

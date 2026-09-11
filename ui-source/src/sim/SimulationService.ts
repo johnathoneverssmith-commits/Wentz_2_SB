@@ -4,16 +4,17 @@
  * Implemented by `MockSimulationService` (seeded, in-browser, plausible) and by
  * `HybridSimulationService` — the one the store actually uses — which real-backs
  * whatever the engine genuinely supports today (schedule, game simulation +
- * the gamecast broadcast view, real rosters, scheme-fit) via `HttpSimulationService`
- * talking to the Node adapter in `nfl-franchise-sim/server/`, falling back to
- * `MockSimulationService` if that adapter isn't reachable. The rest (coach
- * market, draft classes, trade valuation, retirement, and the playoff bracket —
- * no calibrated engine model yet, see `ui-source/NOTES.md`) stays on Mock.
+ * the gamecast broadcast view, real rosters, scheme-fit, the coach market, the
+ * real standings/playoff bracket) via `HttpSimulationService` talking to the
+ * Node adapter in `nfl-franchise-sim/server/`, falling back to
+ * `MockSimulationService` if that adapter isn't reachable. The rest (draft
+ * classes, trade valuation, retirement — no calibrated engine model yet, see
+ * `ui-source/NOTES.md`) stays on Mock.
  *
- * `generateInitialPool`, `generateSchedule`, `simulateWeek` and
- * `generateCoachMarket` are the genuinely engine-backed methods, so they're
- * the ones that are async here (an HTTP round-trip); everything else stays
- * synchronous.
+ * `generateInitialPool`, `generateSchedule`, `simulateWeek`,
+ * `generateCoachMarket`, `seedBracket` and `simulatePlayoffRound` are the
+ * genuinely engine-backed methods, so they're the ones that are async here
+ * (an HTTP round-trip); everything else stays synchronous.
  */
 import type {
   BracketState,
@@ -61,10 +62,10 @@ export interface SimulationService {
   ): GameResult[] | Promise<GameResult[]>;
 
   /** Play one playoff round, returning the updated bracket. */
-  simulatePlayoffRound(state: LeagueState, round: PlayoffRound): BracketState;
+  simulatePlayoffRound(state: LeagueState, round: PlayoffRound): BracketState | Promise<BracketState>;
 
   /** Seed the bracket from final regular-season standings (7 per conference). */
-  seedBracket(state: LeagueState): BracketState;
+  seedBracket(state: LeagueState): BracketState | Promise<BracketState>;
 
   /** AI evaluation of a proposed trade (spec §6.8). */
   evaluateTrade(

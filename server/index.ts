@@ -10,13 +10,12 @@
  *
  * Covers what the engine can genuinely back today: the real 2026 schedule,
  * real game simulation (+ the broadcast/gamecast view for one game per
- * request), the real-roster pool, scheme-fit, and the coach market (the real
- * 32 current staffs + a distribution-matched free-agent pool). Draft classes,
- * trade valuation, retirement, and the playoff bracket stay on the UI's
- * MockSimulationService for now (no calibrated engine model yet for the
- * first three; the bracket's seeding/shape doesn't map onto this engine's
- * standings structure without more plumbing than this pass covers) — see
- * `ui-source/NOTES.md` and `HybridSimulationService.ts` for the boundary.
+ * request), the real-roster pool, scheme-fit, the coach market (the real
+ * 32 current staffs + a distribution-matched free-agent pool), and the real
+ * standings/playoff bracket. Draft-class prospect generation, trade
+ * valuation, and retirement stay on the UI's MockSimulationService for now
+ * (no calibrated engine model yet) — see `ui-source/NOTES.md` and
+ * `HybridSimulationService.ts` for the boundary.
  *
  *   npm run server            # http://localhost:8787
  */
@@ -24,6 +23,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import { loadPlayerPool } from "../src/data/players.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
+import type { Conference } from "../src/engine/nfl-structure.js";
+import {
+  playPlayoffRound,
+  startPlayoffs,
+  type PlayoffProgress,
+} from "../src/engine/playoffs.js";
 import { nflSchedule } from "../src/engine/schedule.js";
 import { Roster } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
@@ -34,6 +39,11 @@ import {
   schemeFitBaseline,
 } from "../src/engine/staff-fit.js";
 import { generateCoachMarket } from "../src/engine/staff-market.js";
+import {
+  computeStandings,
+  type ConferenceSeeding,
+  type FinishedGame,
+} from "../src/engine/standings.js";
 import type { Player } from "../src/schema/player.js";
 
 const PORT = 8787;
@@ -127,6 +137,44 @@ function handleSimulateWeek(body: SimulateWeekBody) {
   });
 }
 
+interface PlayoffRoundBody {
+  seed: number;
+  seeding: { AFC: ConferenceSeeding; NFC: ConferenceSeeding };
+  /** how many rounds have already been played, before this call plays the next one. */
+  roundsPlayed: number;
+}
+
+/**
+ * Stateless round stepper: `playPlayoffRound` is pure and each round's RNG
+ * seed is a fixed offset of the base `seed` (see playoffs.ts), so replaying
+ * from `startPlayoffs` up through `roundsPlayed` reproduces the exact same
+ * earlier rounds every time — no server-side bracket state to keep or lose.
+ * Also previews the *next* round's pairing (home/away/seeds only, no score)
+ * by playing one round further and discarding the result, so the UI can show
+ * "who's up next" before that round is actually played — same two-step
+ * seed-then-play flow the UI's bracket screen already expects.
+ */
+function handlePlayoffRound(body: PlayoffRoundBody) {
+  const seeding = body.seeding as Record<Conference, ConferenceSeeding>;
+  let p: PlayoffProgress = startPlayoffs(body.seed, seeding);
+  for (let i = 0; i < body.roundsPlayed; i++) p = playPlayoffRound(p).progress;
+  const { progress, games } = playPlayoffRound(p);
+
+  let nextRoundPreview: { conference: string; home: string; away: string; homeSeed: number; awaySeed: number }[] | null = null;
+  if (progress.nextRound !== "done") {
+    const preview = playPlayoffRound(progress).games;
+    nextRoundPreview = preview.map((g) => ({
+      conference: g.conference,
+      home: g.home,
+      away: g.away,
+      homeSeed: g.homeSeed,
+      awaySeed: g.awaySeed,
+    }));
+  }
+  const done = progress.nextRound === "done";
+  return { games, nextRoundPreview, done, champion: done ? games[games.length - 1]!.winner : null };
+}
+
 const routes: Record<string, (body: any) => unknown> = {
   "/pool": () => loadPlayerPool(),
   "/schedule": (body: { year?: number }) =>
@@ -162,6 +210,11 @@ const routes: Record<string, (body: any) => unknown> = {
       },
     };
   },
+  "/playoffs/seed": (body: { games: FinishedGame[] }) => {
+    const standings = computeStandings(body.games);
+    return { AFC: standings.seeding.AFC, NFC: standings.seeding.NFC };
+  },
+  "/playoffs/round": handlePlayoffRound,
 };
 
 const server = createServer((req, res) => {

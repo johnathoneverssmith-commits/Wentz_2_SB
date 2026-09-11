@@ -159,8 +159,8 @@ export function GameDay() {
         </a>
         <button
           className="btn-primary"
-          onClick={() => {
-            const { route } = finishGameDay();
+          onClick={async () => {
+            const { route } = await finishGameDay();
             nav(route);
           }}
         >

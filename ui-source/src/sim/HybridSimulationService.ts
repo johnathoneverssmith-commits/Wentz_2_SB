@@ -20,16 +20,20 @@
  *   ratings distribution (`staff-market.ts`), with names generated
  *   client-side (via Mock's `names.ts`) for the generated half only.
  *
+ * - `seedBracket` / `simulatePlayoffRound` — real standings + a real,
+ *   round-by-round-simulated playoff bracket (`nfl-franchise-sim`'s
+ *   `standings.ts`/`playoffs.ts`), stateless on the adapter side: each round
+ *   is replayed from the same seed up through the rounds already played (the
+ *   per-round RNG seed is a fixed offset, so replaying reproduces the exact
+ *   same earlier results), so there's no server-side bracket to keep in sync.
+ *
  * Everything else delegates straight to `MockSimulationService`, unchanged:
- * - `generateDraftClass` / `evaluateTrade` / `retirementOutcomes` /
- *   `finalizeSeasonOutcomes` — no calibrated engine model yet (see `NOTES.md`).
- * - `seedBracket` / `simulatePlayoffRound` — the engine has real
- *   standings/playoffs logic, but mapping this UI's `BracketState`/`TeamState`
- *   onto it is more plumbing than this pass covers. Flagged as a follow-up,
- *   not silently dropped.
+ * `generateDraftClass` / `evaluateTrade` / `retirementOutcomes` /
+ * `finalizeSeasonOutcomes` — no calibrated engine model yet (see `NOTES.md`).
  */
 import { TEAMS } from "@/data/teams";
 import type {
+  BracketMatchup,
   BracketState,
   Coach,
   CoachRole,
@@ -43,8 +47,14 @@ import type {
   ScheduledGame,
   TradeAsset,
 } from "@/domain";
+import { ROUND_ORDER } from "@/domain";
 
-import { HttpSimulationService, type RawCoachCandidate, type SchemeFitBaseline } from "./HttpSimulationService.ts";
+import {
+  HttpSimulationService,
+  type RawCoachCandidate,
+  type RawConferenceSeeding,
+  type SchemeFitBaseline,
+} from "./HttpSimulationService.ts";
 import { MockSimulationService } from "./MockSimulationService.ts";
 import { fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
@@ -68,6 +78,49 @@ const DEF_SCHEME_TAGS: Record<string, readonly string[]> = {
   man_press: ["man_press", "cover_man", "cover_1", "nickel"],
 };
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+
+// stable per season, reused across every round of that postseason so the
+// stateless-replay adapter reproduces the same earlier rounds every call.
+const playoffSeed = (state: LeagueState): number => state.season * 1_000_003 + 777;
+
+/** Cosmetic pre-game favorite, from team ratings — same formula Mock uses;
+ *  the engine doesn't expose a win probability, only the simulated result. */
+function favProb(state: LeagueState, a: string, b: string): number {
+  const oa = state.teams[a]?.ratings.overall ?? 75;
+  const ob = state.teams[b]?.ratings.overall ?? 75;
+  return clamp(Math.round((0.5 + (oa - ob) * 0.02) * 100), 10, 90);
+}
+
+/** Wild Card round pairing (1-seed bye; 2v7, 3v6, 4v5) — pure, no RNG. */
+function wcMatchupsFor(conf: "AFC" | "NFC", seeds: string[], state: LeagueState): BracketMatchup[] {
+  const pair = (hi: number, lo: number): BracketMatchup => ({
+    round: "WC",
+    conference: conf,
+    highSeed: { code: seeds[hi - 1]!, seed: hi },
+    lowSeed: { code: seeds[lo - 1]!, seed: lo },
+    favoredWinProb: favProb(state, seeds[hi - 1]!, seeds[lo - 1]!),
+    homeScore: null,
+    awayScore: null,
+    winner: null,
+  });
+  return [
+    {
+      round: "WC",
+      conference: conf,
+      highSeed: { code: seeds[0]!, seed: 1 },
+      lowSeed: null,
+      favoredWinProb: 100,
+      homeScore: null,
+      awayScore: null,
+      winner: seeds[0]!, // bye auto-advances
+    },
+    pair(2, 7),
+    pair(3, 6),
+    pair(4, 5),
+  ];
+}
+
+const engConfToUi = (c: string): "AFC" | "NFC" | "SB" => (c === "NFL" ? "SB" : (c as "AFC" | "NFC"));
 
 export class HybridSimulationService implements SimulationService {
   private readonly http = new HttpSimulationService();
@@ -171,12 +224,75 @@ export class HybridSimulationService implements SimulationService {
     }
   }
 
-  simulatePlayoffRound(state: LeagueState, round: PlayoffRound): BracketState {
-    return this.mock.simulatePlayoffRound(state, round);
+  async seedBracket(state: LeagueState): Promise<BracketState> {
+    try {
+      const regGames = state.games
+        .filter((g) => g.phase === "REG" && g.played)
+        .map((g) => ({ home: g.homeTeam, away: g.awayTeam, homeScore: g.homeScore, awayScore: g.awayScore }));
+      const seeding = await this.http.seedPlayoffs(regGames);
+      const matchups = [
+        ...wcMatchupsFor("AFC", seeding.AFC.seeds, state),
+        ...wcMatchupsFor("NFC", seeding.NFC.seeds, state),
+      ];
+      return {
+        currentRound: "WC",
+        seeds: { AFC: seeding.AFC.seeds, NFC: seeding.NFC.seeds },
+        matchups,
+        champion: null,
+      };
+    } catch {
+      return this.mock.seedBracket(state);
+    }
   }
 
-  seedBracket(state: LeagueState): BracketState {
-    return this.mock.seedBracket(state);
+  async simulatePlayoffRound(state: LeagueState, round: PlayoffRound): Promise<BracketState> {
+    const bracket = state.bracket;
+    if (!bracket) return this.mock.simulatePlayoffRound(state, round);
+    try {
+      const asRaw = (seeds: string[]): RawConferenceSeeding => ({ seeds, divisionWinners: [], wildCards: [] });
+      const roundsPlayed = ROUND_ORDER.indexOf(round);
+      const result = await this.http.playoffRound(
+        playoffSeed(state),
+        { AFC: asRaw(bracket.seeds.AFC), NFC: asRaw(bracket.seeds.NFC) },
+        roundsPlayed,
+      );
+
+      const matchups = bracket.matchups.map((m) => ({ ...m }));
+      for (const g of result.games) {
+        const m = matchups.find(
+          (x) => x.round === round && x.highSeed?.code === g.home && x.lowSeed?.code === g.away,
+        );
+        if (m) {
+          m.homeScore = g.homeScore;
+          m.awayScore = g.awayScore;
+          m.winner = g.winner;
+        }
+      }
+
+      let currentRound = round;
+      let champion = bracket.champion;
+      if (result.done) {
+        champion = result.champion;
+      } else if (result.nextRoundPreview) {
+        const nextRound = ROUND_ORDER[roundsPlayed + 1]!;
+        currentRound = nextRound;
+        for (const p of result.nextRoundPreview) {
+          matchups.push({
+            round: nextRound,
+            conference: engConfToUi(p.conference),
+            highSeed: { code: p.home, seed: p.homeSeed },
+            lowSeed: { code: p.away, seed: p.awaySeed },
+            favoredWinProb: favProb(state, p.home, p.away),
+            homeScore: null,
+            awayScore: null,
+            winner: null,
+          });
+        }
+      }
+      return { ...bracket, matchups, currentRound, champion };
+    } catch {
+      return this.mock.simulatePlayoffRound(state, round);
+    }
   }
 
   evaluateTrade(

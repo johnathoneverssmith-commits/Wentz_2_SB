@@ -58,6 +58,30 @@ export interface RawCoachCandidate {
   blitzBias?: number;
 }
 
+export interface RawConferenceSeeding {
+  seeds: string[];
+  divisionWinners: string[];
+  wildCards: string[];
+}
+
+export interface RawPlayoffGame {
+  conference: string; // "AFC" | "NFC" | "NFL" (superbowl)
+  home: string;
+  away: string;
+  homeSeed: number;
+  awaySeed: number;
+  homeScore: number;
+  awayScore: number;
+  winner: string;
+}
+
+export interface RawPlayoffRoundResult {
+  games: RawPlayoffGame[];
+  nextRoundPreview: { conference: string; home: string; away: string; homeSeed: number; awaySeed: number }[] | null;
+  done: boolean;
+  champion: string | null;
+}
+
 export class HttpSimulationService {
   async generateInitialPool(): Promise<Player[]> {
     const pool = await post<Player[]>("/pool", {});
@@ -138,5 +162,60 @@ export class HttpSimulationService {
     const translate = (c: RawCoachCandidate): RawCoachCandidate =>
       c.previousTeam ? { ...c, previousTeam: toUi(c.previousTeam) } : c;
     return { real: res.real.map(translate), generated: res.generated.map(translate) };
+  }
+
+  /** `games`: finished REG-season games, in this UI's team-code convention. */
+  async seedPlayoffs(
+    games: { home: string; away: string; homeScore: number; awayScore: number }[],
+  ): Promise<{ AFC: RawConferenceSeeding; NFC: RawConferenceSeeding }> {
+    const body = {
+      games: games.map((g) => ({
+        home: toEngine(g.home),
+        away: toEngine(g.away),
+        homeScore: g.homeScore,
+        awayScore: g.awayScore,
+      })),
+    };
+    const res = await post<{ AFC: RawConferenceSeeding; NFC: RawConferenceSeeding }>("/playoffs/seed", body);
+    const translateSeeding = (s: RawConferenceSeeding): RawConferenceSeeding => ({
+      seeds: s.seeds.map(toUi),
+      divisionWinners: s.divisionWinners.map(toUi),
+      wildCards: s.wildCards.map(toUi),
+    });
+    return { AFC: translateSeeding(res.AFC), NFC: translateSeeding(res.NFC) };
+  }
+
+  /**
+   * Stateless: `roundsPlayed` (0-3) says how many rounds have already been
+   * played, and the adapter replays from scratch up through that point (the
+   * per-round seed is a fixed offset of `seed`, so replaying reproduces the
+   * exact same earlier rounds every time) before playing the next one.
+   */
+  async playoffRound(
+    seed: number,
+    seeding: { AFC: RawConferenceSeeding; NFC: RawConferenceSeeding },
+    roundsPlayed: number,
+  ): Promise<RawPlayoffRoundResult> {
+    const body = {
+      seed,
+      seeding: {
+        AFC: { seeds: seeding.AFC.seeds.map(toEngine), divisionWinners: [], wildCards: [] },
+        NFC: { seeds: seeding.NFC.seeds.map(toEngine), divisionWinners: [], wildCards: [] },
+      },
+      roundsPlayed,
+    };
+    const res = await post<RawPlayoffRoundResult>("/playoffs/round", body);
+    const translateGame = (g: RawPlayoffGame): RawPlayoffGame => ({
+      ...g,
+      home: toUi(g.home),
+      away: toUi(g.away),
+      winner: toUi(g.winner),
+    });
+    return {
+      games: res.games.map(translateGame),
+      nextRoundPreview: res.nextRoundPreview?.map((g) => ({ ...g, home: toUi(g.home), away: toUi(g.away) })) ?? null,
+      done: res.done,
+      champion: res.champion ? toUi(res.champion) : null,
+    };
   }
 }
