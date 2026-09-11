@@ -695,7 +695,7 @@ export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): 
   const weights = candidates.map((code) => positionalNeed(s, code, p.position) ** 1.6);
   const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";
   // real value (overall-driven), with market noise so it isn't a single fixed number
-  const base = Math.round(contractValueFor(p.overall) * (0.85 + rng() * 0.4) * 10) / 10;
+  const base = Math.round(contractValueFor(p.overall, p.position) * (0.85 + rng() * 0.4) * 10) / 10;
   const years = 1 + Math.floor(rng() * 4);
   return {
     teamCode,

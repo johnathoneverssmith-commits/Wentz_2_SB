@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG, createLeague } from "../state/seed.ts";
-import { MockSimulationService } from "./MockSimulationService.ts";
+import { contractValueFor, MockSimulationService } from "./MockSimulationService.ts";
 import type { LeagueState, TradeAsset } from "@/domain";
 
 /**
@@ -95,5 +95,58 @@ describe("evaluateTrade", () => {
     const giveQb = sim.evaluateTrade(s, fromTeam, toTeam, [playerAsset(compQb.id)], [playerAsset(onlyQb.id)]);
     const giveWr = sim.evaluateTrade(s, fromTeam, toTeam, [playerAsset(compWr.id)], [playerAsset(spareWr.id)]);
     expect(giveQb.acceptLikelihood).toBeLessThan(giveWr.acceptLikelihood);
+  });
+
+  it("values a QB above a kicker at the same overall (positional value, not overall-only)", () => {
+    const s = fixture();
+    const codes = Object.keys(s.teams);
+    const [toTeam] = codes;
+    const fromTeam = codes.find((c) => c !== toTeam)!;
+    const qb = Object.values(s.players).find((p) => p.nfl_team === toTeam && p.position === "QB")!;
+    const k = { ...qb, id: "p_fake_k", position: "K" as const, nfl_team: toTeam };
+    s.players[k.id] = k;
+    // same overall, different position, both offered *to* the proposer for
+    // nothing back — valueDelta is "good for the proposer", so the more
+    // valuable incoming asset should score higher.
+    const qbTrade = sim.evaluateTrade(s, fromTeam, toTeam, [], [playerAsset(qb.id)]);
+    const kTrade = sim.evaluateTrade(s, fromTeam, toTeam, [], [playerAsset(k.id)]);
+    expect(qbTrade.valueDelta).toBeGreaterThan(kTrade.valueDelta);
+  });
+
+  it("values a 1st-round pick far more than linearly above a 2nd (real convex chart, not a flat scale)", () => {
+    const s = fixture();
+    const codes = Object.keys(s.teams);
+    const [toTeam] = codes;
+    const fromTeam = codes.find((c) => c !== toTeam)!;
+    const pickAsset = (round: number): TradeAsset => ({
+      kind: "pick",
+      pick: { year: s.season + 1, round, ownedBy: toTeam, originalTeam: toTeam },
+    });
+    // picks offered *to* the proposer for nothing back — valueDelta is "good
+    // for the proposer", so the more valuable incoming pick scores higher.
+    const round1 = sim.evaluateTrade(s, fromTeam, toTeam, [], [pickAsset(1)]);
+    const round2 = sim.evaluateTrade(s, fromTeam, toTeam, [], [pickAsset(2)]);
+    const round7 = sim.evaluateTrade(s, fromTeam, toTeam, [], [pickAsset(7)]);
+    expect(round1.valueDelta).toBeGreaterThan(round2.valueDelta);
+    // the old formula was flat (~1.17x round1/round2); the real chart is ~2.8x
+    expect(round1.valueDelta).toBeGreaterThan(round2.valueDelta * 2);
+    expect(round2.valueDelta).toBeGreaterThan(round7.valueDelta * 5);
+  });
+});
+
+describe("contractValueFor (positional value)", () => {
+  it("pays a QB more than a running back at the same overall", () => {
+    expect(contractValueFor(85, "QB")).toBeGreaterThan(contractValueFor(85, "RB"));
+  });
+
+  it("pays a kicker the least among common comparisons", () => {
+    const positions = ["QB", "EDGE", "WR", "OT", "CB", "RB"] as const;
+    for (const pos of positions) {
+      expect(contractValueFor(80, pos)).toBeGreaterThan(contractValueFor(80, "K"));
+    }
+  });
+
+  it("with no position given, matches the neutral (1.0x) baseline", () => {
+    expect(contractValueFor(80)).toBeCloseTo(contractValueFor(80, undefined), 6);
   });
 });

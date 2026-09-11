@@ -95,7 +95,7 @@ export class MockSimulationService implements SimulationService {
     attributes.strength = clamp(Math.round(STRENGTH_BASE[pos] + rng.normal(0, 5)), 45, 99);
     attributes.awareness = clamp(Math.round(overall + rng.normal(0, 5)), 40, 99);
 
-    const capHit = round1(contractValueFor(overall) * rng.float(0.7, 1.3));
+    const capHit = round1(contractValueFor(overall, pos) * rng.float(0.7, 1.3));
     const years = rng.int(1, 4);
     const injured = rng.bool(0.06);
 
@@ -494,10 +494,14 @@ export class MockSimulationService implements SimulationService {
     fromAssets: TradeAsset[],
     toAssets: TradeAsset[],
   ): TradeEvaluation {
-    const val = (a: TradeAsset) =>
-      a.kind === "player"
-        ? Math.pow(clamp(state.players[a.playerId ?? ""]?.overall ?? 60, 40, 99) - 40, 1.7) / 12
-        : (8 - (a.pick?.round ?? 4)) * 6;
+    const val = (a: TradeAsset) => {
+      if (a.kind === "player") {
+        const p = state.players[a.playerId ?? ""];
+        const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.7) / 12;
+        return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1);
+      }
+      return PICK_VALUE_BY_ROUND[a.pick?.round ?? 4] ?? PICK_VALUE_BY_ROUND[7]!;
+    };
     // fromAssets: what the proposer (fromTeam, usually the viewer) gives up —
     // toTeam (the AI being asked to accept) receives these.
     // toAssets: what toTeam gives up in return.
@@ -739,7 +743,64 @@ const STRENGTH_BASE: Record<Position, number> = {
   EDGE: 86, DT: 93, ILB: 84, OLB: 82, CB: 68, S: 74, K: 55, P: 55,
 };
 
-/** $M/year, roughly convex in overall — also used by store.ts's AI bidding. */
-export function contractValueFor(overall: number): number {
-  return round1(0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2));
+/**
+ * Positional value multiplier (OQ-6-adjacent) — the real NFL market pays
+ * wildly different money for the same `overall` at different positions
+ * (2026 reference points: Mahomes-tier QB deals ~$45-50M/yr; Parsons/Micah-
+ * tier EDGE and Smith-Njigba-tier WR both into the $40s; top tackles
+ * (Sewell, Slater) ~$28-28.5M; RB is the position the market has most
+ * visibly devalued this decade). Not a precise econometric fit — no public
+ * per-position APY-vs-overall dataset to calibrate against the same way
+ * player *ratings* have real stats behind them — but a real, sourced
+ * hierarchy beats the previous "every position worth the same" formula.
+ * Centred on 1.0 so `contractValueFor`'s existing overall-only curve is the
+ * baseline for an average-value position.
+ */
+/**
+ * Draft-pick trade value by round — real per-round *average*, scaled down
+ * to the player-value formula's rough magnitude (round 1 ≈ an elite
+ * ~90-overall starter). Derived from the Jimmy Johnson chart (the league's
+ * long-standing common-language chart for pick trades, still the most
+ * widely referenced despite predating modern analytics) — averaged over
+ * each round's 32 picks (1: 3000/2: 2600/.../32: 590/33: 580/.../
+ * 224: ~1.6, drafttek.com's maintained table) since `DraftPickAsset` only
+ * carries a round, not an exact slot. The real chart is heavily convex —
+ * round 1 is worth ~2.8x round 2, not the ~1.17x a flat per-round formula
+ * implied before — which is the actual, well-documented shape of how NFL
+ * teams value draft capital, not just this codebase's old guess.
+ */
+const PICK_VALUE_BY_ROUND: Record<number, number> = {
+  1: 82.7,
+  2: 29.7,
+  3: 13.4,
+  4: 5.1,
+  5: 2.4,
+  6: 1.4,
+  7: 0.5,
+};
+
+export const POSITION_VALUE: Record<Position, number> = {
+  QB: 2.2,
+  EDGE: 1.35,
+  WR: 1.3,
+  OT: 1.3,
+  CB: 1.15,
+  DT: 1.05,
+  S: 0.95,
+  ILB: 0.9,
+  OLB: 0.9,
+  TE: 0.85,
+  OG: 0.85,
+  C: 0.8,
+  RB: 0.7,
+  K: 0.4,
+  P: 0.35,
+};
+
+/** $M/year, roughly convex in overall, scaled by position value if given —
+ *  also used by store.ts's AI bidding (both for players and, without a
+ *  position, for coach salaries off their own skill rating). */
+export function contractValueFor(overall: number, position?: Position): number {
+  const posMult = position ? (POSITION_VALUE[position] ?? 1) : 1;
+  return round1((0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2)) * posMult);
 }
