@@ -731,16 +731,32 @@ currently hand-set. Need the actual per-position curves, the drift magnitude
 per year, and how `injury_history` shifts them.
 
 ## OQ-5 — Trade value model
-**Status:** open (needed for Phase 4 trades, Phase 6 vote safeguard)
+**Status:** substantially addressed (2026-09-11), cap situation still open
 
-A function from (players, picks, cap situation) → comparable value, plus the
-human-vote threshold for lopsided deals.
+`ui-source/src/sim/MockSimulationService.ts`: player value is now overall
+*and* position-weighted (`POSITION_VALUE`, researched 2026 contract
+reference points, not memorized); pick value now uses real per-round
+averages from the Jimmy Johnson chart (fetched + parsed from drafttek.com,
+not recalled) instead of a flat `(8-round)*6` — the real chart is sharply
+convex (round 1 ≈ 2.8x round 2) where the old formula was nearly flat.
+Accept-likelihood also factors in whether the deal fills/leaves a real
+positional need (OQ-9). Still open: a team's actual cap situation isn't
+part of the trade math itself (separate from the cap now being *enforced*
+on new contracts — see OQ-9's note); the vote-safeguard threshold (`>= -3`)
+is still an arbitrary constant, not derived from anything.
 
 ## OQ-6 — Free-agency demand model
-**Status:** open (needed for Phase 4 simplified FA, Phase 6 live FA)
+**Status:** substantially addressed (2026-09-11)
 
-What contract a free agent will accept, as a function of overall, age,
-position scarcity, and team context.
+`contractValueFor` is now position-weighted (same `POSITION_VALUE` table as
+OQ-5). Which competing offer a free agent/coach actually accepts now uses
+their own stated priorities (`playerPriorities`/`coachPriorities` — team
+rating for "winning now", `positionalNeed` for "a starting role", the real
+`computeSchemeFit` for "scheme fit" — see OQ-9), not just the highest dollar
+figure. Team context (cap room) is now enforced on the *offering* side too.
+Still open: "location"/"market size" priorities have no real signal in this
+data model and are left neutral; age isn't yet a direct input to demand
+beyond what's already baked into `overall`.
 
 ## OQ-7 — `severity` vocabulary for injuries
 **Status:** open (low stakes, easy)
@@ -751,10 +767,26 @@ set (plus `season_ending`?) once the aging model consumes it — until then the
 free string is fine.
 
 ## OQ-9 — AI GM decision objective (draft / FA / trades / coach hiring)
-**Status:** decided (user, 2026-09-10) — **free agency + coach hiring implemented**
-(`ui-source/src/state/store.ts`'s `aiOfferForPlayer`/`aiOfferForCoach`, need-
-and scheme-fit-weighted, 2026-09-11). Draft-class pick selection and trade
-evaluation still need the same treatment — see OQ-5/OQ-6 below.
+**Status:** decided (user, 2026-09-10) — **implemented across free agency,
+coach hiring, draft-pick selection, trade evaluation, and which competing
+offer a free agent/coach actually accepts** (`ui-source/src/state/store.ts`:
+`aiOfferForPlayer`/`aiOfferForCoach`/`bestAvailable`/`offerScore`, all need-
+and/or scheme-fit-weighted; `MockSimulationService.evaluateTrade`'s AI
+accept-likelihood similarly need-weighted — 2026-09-11). Along the way:
+- Found and fixed a real sign bug in `evaluateTrade`'s original formula (the
+  AI was *more* willing to accept a trade the worse it got for itself).
+- Found the salary cap was never enforced anywhere (`team.cap.used` was
+  never computed, and `cap.total` used a different unit than every contract
+  field around it) — `aiOfferForPlayer`/`aiOfferForCoach` now check cap room
+  before picking a team.
+- Player/coach *value* itself (positional value, draft-pick trade value) was
+  also ungrounded — see OQ-5/OQ-6, now substantially addressed too.
+
+Still not done: `generateDraftClass`'s prospect *generation* (position mix,
+grade distribution) is still an ungrounded heuristic — real per-position
+draft-composition data wasn't reliably fetchable this pass (see OQ-5/OQ-6's
+note), and retirement-age curves (OQ-4) are still hand-set, not fit to real
+longevity data. Both are honest gaps, not silently-skipped ones.
 
 Every AI-driven roster decision (draft-class evaluation and pick selection,
 free-agency bidding, trade proposals/acceptance, coach hiring) must optimize
