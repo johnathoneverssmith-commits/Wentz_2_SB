@@ -749,3 +749,24 @@ Schema accepts any string. The hand-reviewed pool uses
 `minor | moderate | major | severe` in `injury_history`. Likely pin to that
 set (plus `season_ending`?) once the aging model consumes it — until then the
 free string is fine.
+
+## OQ-9 — AI GM decision objective (draft / FA / trades / coach hiring)
+**Status:** decided (user, 2026-09-10) — not yet implemented
+
+Every AI-driven roster decision (draft-class evaluation and pick selection,
+free-agency bidding, trade proposals/acceptance, coach hiring) must optimize
+for **winning** — a team's actual competitiveness (needs by position, scheme
+fit against the roster's existing scheme, cap-efficient value, positional
+scarcity/replaceability, depth-chart construction) — **not** for maximizing
+the sum/average of roster `overall`. A naive "always take the highest-overall
+player available" AI is explicitly wrong: it ignores position need, drafts
+3 QBs before a starting OL, overpays scheme-mismatched free agents, and
+produces unrealistic, unwinnable-looking rosters. This applies to OQ-5
+(trade value: a trade's value to an AI team is about the roster it produces,
+not raw point totals) and OQ-6 (FA demand: which team a player picks from
+competing offers factors in likely playing time / scheme fit / team
+competitiveness, not just the highest number) equally — and to the
+not-yet-modeled draft-class evaluation and coach-hiring logic. Any
+`ui-source/src/sim/MockSimulationService.ts` replacement (or the UI's own
+AI-GM logic once real-backed) should be evaluated against this before
+shipping, not just "does the roster's average `overall` look plausible."
