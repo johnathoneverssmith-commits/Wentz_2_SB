@@ -46,6 +46,48 @@ import type {
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/**
+ * Equivalent retirement-age *years* an injury type typically costs a career,
+ * before severity scaling. Grounded in recent sports-medicine findings
+ * (preferred over older sources per the design brief — medical/surgical care
+ * has measurably improved outcomes over the last decade):
+ *  - Concussion: the largest single-injury effect. Recent-era teams and
+ *    players have ended careers early on a documented head-injury history
+ *    (Luke Kuechly retiring at 28 in 2019, Andrew Luck the same year) even
+ *    when the player was otherwise still productive — this is a durability/
+ *    risk-tolerance effect as much as a physical one.
+ *  - Knee (stands in for ACL-pattern tears, the dominant "knee" injury):
+ *    recent reviews report 82-92% return-to-play, but post-reconstruction
+ *    NFL players still show the shortest average post-surgical career
+ *    length among major pro sports (~26 months) and a documented
+ *    performance decline relative to matched controls — real, but well
+ *    short of career-ending for most.
+ *  - Shoulder/ankle/hamstring: recoverable soft-tissue/joint injuries with
+ *    little documented effect on career length except at high severity.
+ * Multiple entries compound with diminishing returns (each additional
+ * injury, ranked by its own severity, counts for less) — durability erodes
+ * with repeated injuries of any kind, but the effect isn't purely additive.
+ */
+const INJURY_TYPE_AGE_YEARS: Record<string, number> = {
+  concussion: 3.5,
+  knee: 2,
+  shoulder: 1,
+  ankle: 0.8,
+  hamstring: 0.5,
+};
+const INJURY_SEVERITY_MULT: Record<string, number> = {
+  significant: 1.3,
+  moderate: 0.7,
+  minor: 0.3,
+};
+export function injuryAgeReduction(history: Player["injury_history"]): number {
+  if (history.length === 0) return 0;
+  const perInjury = history
+    .map((h) => (INJURY_TYPE_AGE_YEARS[h.type] ?? 0.8) * (INJURY_SEVERITY_MULT[h.severity] ?? 0.7))
+    .sort((a, b) => b - a);
+  return perInjury.reduce((total, effect, i) => total + effect * Math.pow(0.6, i), 0);
+}
 /** Deep clone that works on immer drafts (structuredClone chokes on the proxy). */
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
@@ -559,17 +601,20 @@ export class MockSimulationService implements SimulationService {
     const rng = new Rng(seed ^ 0x5555);
     const out: RetirementOutcome[] = [];
     for (const p of players) {
-      const norm = RETIREMENT_AGE[p.position];
+      const baseNorm = RETIREMENT_AGE[p.position];
+      const reduction = injuryAgeReduction(p.injury_history);
+      const norm = baseNorm - reduction;
       const over = p.age - norm;
-      const injPenalty = p.injury_history.length * 0.04;
-      const pRetire = clamp(0.02 + Math.max(0, over) * 0.16 + injPenalty, 0, 0.95);
+      const pRetire = clamp(0.02 + Math.max(0, over) * 0.16, 0, 0.95);
       if (p.age >= norm - 2 || p.injury_history.length >= 2) {
         const retiring = rng.bool(pRetire);
         out.push({
           playerId: p.id,
           decision: retiring ? "retiring" : "returning",
           reason: retiring
-            ? `Age ${p.age} vs ${p.position} norm ${norm}${p.injury_history.length ? `, ${p.injury_history.length} prior injuries` : ""}`
+            ? `Age ${p.age} vs ${p.position} norm ${baseNorm}${
+                reduction >= 0.5 ? ` (effective ${norm.toFixed(1)} after injury history)` : ""
+              }${p.injury_history.length ? `, ${p.injury_history.length} prior injuries` : ""}`
             : `Age ${p.age}, wants another year`,
         });
       }
