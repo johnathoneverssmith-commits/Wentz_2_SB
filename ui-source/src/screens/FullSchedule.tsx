@@ -80,8 +80,8 @@ export function FullSchedule() {
                 alignItems: "center",
                 padding: "13px 14px",
                 borderRadius: "var(--r-md)",
-                background: mine ? "rgba(255,60,0,0.06)" : "var(--panel-sunken)",
-                border: `1px solid ${mine ? "rgba(255,60,0,0.35)" : "var(--line)"}`,
+                background: mine ? "color-mix(in srgb, var(--team) 7%, transparent)" : "var(--panel-sunken)",
+                border: `1px solid ${mine ? "color-mix(in srgb, var(--team) 38%, transparent)" : "var(--line)"}`,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -126,8 +126,8 @@ export function FullSchedule() {
               justifyContent: "space-between",
               padding: "13px 14px",
               borderRadius: "var(--r-md)",
-              background: c === code ? "rgba(255,60,0,0.06)" : "var(--panel-sunken)",
-              border: `1px dashed ${c === code ? "rgba(255,60,0,0.4)" : "var(--line-strong)"}`,
+              background: c === code ? "color-mix(in srgb, var(--team) 7%, transparent)" : "var(--panel-sunken)",
+              border: `1px dashed ${c === code ? "color-mix(in srgb, var(--team) 42%, transparent)" : "var(--line-strong)"}`,
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -147,9 +147,9 @@ export function FullSchedule() {
       </p>
 
       <Footer>
-        <a className="btnlink" onClick={() => nav("/hub")}>
+        <button type="button" className="btnlink" onClick={() => nav("/hub")}>
           Return to team hub
-        </a>
+        </button>
       </Footer>
     </Card>
   );

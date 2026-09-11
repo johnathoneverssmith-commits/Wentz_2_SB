@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router-dom";
 
+import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
-import { TEAMS, teamFullName } from "@/data/teams";
-import type { DeadlineChoice, Difficulty, RandomEventRate } from "@/domain";
+import { DIVISIONS, TEAMS_BY_CODE, teamFullName } from "@/data/teams";
+import type { DeadlineChoice, Difficulty, RandomEventRate, TeamMeta } from "@/domain";
+import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
 const DEADLINES: DeadlineChoice[] = [2, 6, 12, 24, 48];
@@ -13,12 +15,17 @@ export function LeagueSetup() {
   const nav = useNavigate();
   const { active, setActive } = useTabs("lobby");
 
+  const stage = useStore((s) => s.stage);
   const config = useStore((s) => s.config);
   const gms = useStore((s) => s.gms);
   const teams = useStore((s) => s.teams);
   const viewerGmId = useStore((s) => s.viewerGmId);
   const setConfig = useStore((s) => s.setConfig);
   const pickTeam = useStore((s) => s.pickTeam);
+
+  // Once the league has started, this screen is a read-only summary: switching
+  // teams or rules mid-dynasty would corrupt the season in progress.
+  const locked = stage !== "setup";
 
   const viewer = gms.find((g) => g.id === viewerGmId)!;
   const humans = gms.filter((g) => g.isHuman);
@@ -27,19 +34,24 @@ export function LeagueSetup() {
     const c = teams[code]!.controlledBy;
     if (c.kind === "human") takenBy.set(code, c.gmId);
   }
+  const myMeta = viewer.teamCode ? TEAMS_BY_CODE[viewer.teamCode] : undefined;
 
   return (
-    <Card maxWidth={820}>
+    <Card maxWidth={940}>
       <CardHeader
-        badge="GM"
+        badge={myMeta ? myMeta.abbr : "GM"}
         title="League Setup"
-        subtitle={`New Dynasty · ${config.humanGmCount} Human GMs`}
+        subtitle={
+          locked
+            ? `${STAGE_LABEL[stage]} · team and rules are locked while the league is running`
+            : `New Dynasty · ${config.humanGmCount} Human GMs`
+        }
       />
 
       <Ticker
         stats={[
           { label: "Human GMs", value: `${humans.filter((g) => g.teamCode).length} / ${config.humanGmCount}` },
-          { label: "Team", value: viewer.teamCode ? teamFullName(viewer.teamCode) : "Not selected", className: "sm" },
+          { label: "Your team", value: myMeta ? myMeta.name : "Not selected", className: myMeta ? "accent sm" : "sm" },
           { label: "Fantasy draft", value: config.fantasyDraft ? "On" : "Off", className: "sm" },
           { label: "Draft type", value: config.fantasyDraft ? cap(config.draftType) : "N/A", className: "sm" },
           { label: "Difficulty", value: cap(config.difficulty), className: "sm" },
@@ -48,7 +60,7 @@ export function LeagueSetup() {
 
       <Tabs
         tabs={[
-          { id: "lobby", label: "Lobby" },
+          { id: "lobby", label: locked ? "League" : "Lobby" },
           { id: "settings", label: "League Settings" },
         ]}
         active={active}
@@ -56,112 +68,125 @@ export function LeagueSetup() {
       />
 
       <Panel open={active === "lobby"}>
-        <p className="sectionlabel">GM lobby</p>
-        {humans.map((g) => (
-          <div className="gmrow" key={g.id} style={{ justifyContent: "space-between" }}>
-            <div className="who" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  background: "var(--panel-raised)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "var(--ink-dim)",
-                }}
-              >
-                {(g.id === viewerGmId ? "You" : g.name).charAt(0)}
-              </div>
-              <div>
-                <p style={{ margin: 0, fontSize: 13.5, fontWeight: 500 }}>
-                  {g.id === viewerGmId ? "You" : g.name}
-                </p>
-                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
-                  {g.teamCode ? teamFullName(g.teamCode) : "Selecting…"}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
+        <FranchiseBanner meta={myMeta} locked={locked} />
 
-        <p className="sectionlabel" style={{ marginTop: 22 }}>
-          Select your team
-        </p>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 10,
-            marginTop: 6,
-          }}
-        >
-          {TEAMS.map((t) => {
-            const owner = takenBy.get(t.code);
-            const mine = owner === viewerGmId;
-            const otherTaken = owner && owner !== viewerGmId;
+        <p className="sectionlabel">GM lobby</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8, marginBottom: 6 }}>
+          {humans.map((g) => {
+            const meta = g.teamCode ? TEAMS_BY_CODE[g.teamCode] : undefined;
+            const you = g.id === viewerGmId;
             return (
-              <button
-                key={t.code}
-                disabled={!!otherTaken}
-                onClick={() => pickTeam(viewerGmId, t.code)}
+              <div
+                key={g.id}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
-                  padding: "10px 12px",
-                  textAlign: "left",
-                  borderColor: mine ? "var(--team)" : "var(--line-strong)",
-                  background: mine ? "rgba(255,60,0,0.08)" : "var(--panel-sunken)",
-                  opacity: otherTaken ? 0.45 : 1,
+                  padding: "9px 11px",
+                  background: "var(--panel-sunken)",
+                  border: `1px solid ${you && meta ? "color-mix(in srgb, var(--team) 35%, transparent)" : "var(--line)"}`,
+                  borderRadius: "var(--r-sm)",
                 }}
               >
-                <span
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 8,
-                    background: t.color,
-                    color: t.onColor,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                  }}
-                >
-                  {t.abbr}
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 12.5, fontWeight: 500 }}>{t.city}</span>
+                {meta ? (
+                  <TeamBadge code={meta.code} size={30} />
+                ) : (
                   <span
+                    className="oswald"
                     style={{
-                      display: "block",
-                      fontSize: 10.5,
-                      color: mine ? "var(--team)" : "var(--ink-faint)",
-                      fontWeight: mine ? 600 : 400,
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      background: "var(--panel-raised)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "var(--ink-faint)",
+                      flexShrink: 0,
                     }}
                   >
-                    {mine ? "Your team" : otherTaken ? `Taken · ${gmName(gms, owner!)}` : "Available"}
+                    {(you ? "You" : g.name).charAt(0)}
                   </span>
-                </span>
-              </button>
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{you ? "You" : g.name}</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 11, color: meta ? "var(--ink-dim)" : "var(--ink-faint)" }}>
+                    {meta ? teamFullName(meta.code) : "Selecting…"}
+                  </p>
+                </div>
+              </div>
             );
           })}
         </div>
+
+        {!locked && (
+          <>
+            <p className="sectionlabel" style={{ marginTop: 22 }}>
+              Select your team
+            </p>
+            <div className="conf-grid">
+              {(["AFC", "NFC"] as const).map((conf) => (
+                <div key={conf}>
+                  <p className="subhead" style={{ marginTop: 0 }}>
+                    {conf}
+                  </p>
+                  {DIVISIONS.filter((d) => d.conference === conf).map((d) => (
+                    <div key={d.division} style={{ marginBottom: 14 }}>
+                      <p style={{ margin: "0 0 6px", fontSize: 10.5, color: "var(--ink-faint)", fontWeight: 500 }}>
+                        {conf} {d.division}
+                      </p>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                        {d.teams.map((t) => {
+                          const owner = takenBy.get(t.code);
+                          const mine = owner === viewerGmId;
+                          const otherTaken = !!owner && owner !== viewerGmId;
+                          return (
+                            <button
+                              key={t.code}
+                              type="button"
+                              className={`team-tile${mine ? " mine" : ""}`}
+                              disabled={otherTaken}
+                              aria-pressed={mine}
+                              onClick={() => pickTeam(viewerGmId, t.code)}
+                            >
+                              <TeamBadge code={t.code} size={30} />
+                              <span style={{ minWidth: 0 }}>
+                                <span className="tile-name">
+                                  {t.city} <span>{t.name}</span>
+                                </span>
+                                <span className="tile-status">
+                                  {mine ? "Your team" : otherTaken ? `Taken · ${gmName(gms, owner)}` : "Available"}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </Panel>
 
       <Panel open={active === "settings"}>
+        {locked && (
+          <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+            Rules are shown for reference — they can't change once the league is underway. Start a new league from the sidebar
+            to play with different settings.
+          </p>
+        )}
         <SettingRow
           label="Human GM slots"
           hint="How many people are drafting a team. Remaining teams are AI-controlled."
         >
           <select
             value={config.humanGmCount}
+            disabled={locked}
             onChange={(e) => setConfig({ humanGmCount: Number(e.target.value) })}
           >
             {[2, 3, 4, 5, 6].map((n) => (
@@ -177,6 +202,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.fantasyDraft ? "on" : "off"}
+            disabled={locked}
             onChange={(e) => setConfig({ fantasyDraft: e.target.value === "on" })}
           >
             <option value="on">On</option>
@@ -189,7 +215,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.draftOrder}
-            disabled={!config.fantasyDraft}
+            disabled={locked || !config.fantasyDraft}
             onChange={(e) => setConfig({ draftOrder: e.target.value as "randomized" | "inOrder" })}
           >
             <option value="randomized">Randomized</option>
@@ -202,7 +228,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.draftType}
-            disabled={!config.fantasyDraft}
+            disabled={locked || !config.fantasyDraft}
             onChange={(e) => setConfig({ draftType: e.target.value as "snake" | "linear" })}
           >
             <option value="linear">Linear</option>
@@ -215,6 +241,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.difficulty}
+            disabled={locked}
             onChange={(e) => setConfig({ difficulty: e.target.value as Difficulty })}
           >
             {(["easy", "normal", "hard", "impossible"] as const).map((d) => (
@@ -230,6 +257,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.randomEvents}
+            disabled={locked}
             onChange={(e) => setConfig({ randomEvents: e.target.value as RandomEventRate })}
           >
             {(["none", "few", "some", "many"] as const).map((r) => (
@@ -245,6 +273,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.gameDayDeadlineHours}
+            disabled={locked}
             onChange={(e) => setConfig({ gameDayDeadlineHours: Number(e.target.value) as DeadlineChoice })}
           >
             {DEADLINES.map((h) => (
@@ -260,6 +289,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.offseasonStageDeadlineHours}
+            disabled={locked}
             onChange={(e) =>
               setConfig({ offseasonStageDeadlineHours: Number(e.target.value) as DeadlineChoice })
             }
@@ -282,21 +312,108 @@ export function LeagueSetup() {
         </SettingRow>
       </Panel>
 
-      <Footer>
-        <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
-          {config.fantasyDraft
-            ? "Fantasy draft begins once every GM is ready, or after the offseason stage deadline."
-            : "Teams keep their real roster. The season begins once every GM is ready."}
-        </span>
-      </Footer>
-
-      <ReadinessGate
-        title={config.fantasyDraft ? "Fantasy draft readiness" : "Season start readiness"}
-        disabled={!viewer.teamCode}
-        disabledHint="Select a team to continue"
-        onAdvance={() => nav("/")}
-      />
+      {locked ? (
+        <Footer>
+          <button type="button" className="btnlink btn-primary" onClick={() => nav(STAGE_HOME[stage])}>
+            Back to {STAGE_LABEL[stage]}
+          </button>
+        </Footer>
+      ) : (
+        <>
+          <Footer>
+            <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
+              {config.fantasyDraft
+                ? "Fantasy draft begins once every GM is ready, or after the offseason stage deadline."
+                : "Teams keep their real roster. The season begins once every GM is ready."}
+            </span>
+          </Footer>
+          <ReadinessGate
+            title={config.fantasyDraft ? "Fantasy draft readiness" : "Season start readiness"}
+            disabled={!viewer.teamCode}
+            disabledHint="Select a team to continue"
+            onAdvance={() => nav("/")}
+          />
+        </>
+      )}
     </Card>
+  );
+}
+
+/** The "your franchise" moment at the top of the lobby. */
+function FranchiseBanner({ meta, locked }: { meta: TeamMeta | undefined; locked: boolean }) {
+  if (!meta) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "18px 20px",
+          marginBottom: 22,
+          background: "var(--panel-sunken)",
+          border: "1px dashed var(--line-strong)",
+          borderRadius: "var(--r-md)",
+        }}
+      >
+        <span
+          className="oswald"
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 12,
+            background: "var(--panel-raised)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 22,
+            fontWeight: 600,
+            color: "var(--ink-faint)",
+            flexShrink: 0,
+          }}
+        >
+          ?
+        </span>
+        <div>
+          <p style={{ margin: 0, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-faint)", fontWeight: 600 }}>
+            Your franchise
+          </p>
+          <p className="oswald" style={{ margin: "4px 0 0", fontSize: 24, fontWeight: 600 }}>
+            Choose a team below
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
+            Every GM builds from the same player pool in the fantasy draft — pick the colors you want to wear.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        padding: "18px 20px",
+        marginBottom: 22,
+        background: "linear-gradient(120deg, color-mix(in srgb, var(--team) 16%, var(--panel-sunken)), var(--panel-sunken) 72%)",
+        border: "1px solid color-mix(in srgb, var(--team) 35%, transparent)",
+        borderRadius: "var(--r-md)",
+      }}
+    >
+      <TeamBadge code={meta.code} size={52} />
+      <div style={{ minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--team)", fontWeight: 600 }}>
+          Your franchise
+        </p>
+        <p className="oswald" style={{ margin: "4px 0 0", fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>
+          {meta.city} {meta.name}
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
+          {meta.conference} {meta.division}
+          {locked ? "" : " · you can still switch teams until the league starts"}
+        </p>
+      </div>
+    </div>
   );
 }
 

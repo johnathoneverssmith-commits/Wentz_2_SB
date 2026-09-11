@@ -58,11 +58,9 @@ export function FreeAgencyBoard() {
     [s.players, windowSigned],
   );
 
-  const capSpace =
-    255 -
-    (code
-      ? teamRoster(s, code).reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0)
-      : 0);
+  // the store's own figure (players + staff) — identical to what the signing
+  // check enforces, so the number here is the number that decides a signing
+  const capSpace = code ? Math.round((s.teams[code]!.cap.total - s.teams[code]!.cap.used) * 10) / 10 : 0;
 
   const bidsFor = (id: string): ContractOffer[] =>
     isWindowStage ? (fa?.bids[id] ?? []) : [];
@@ -118,6 +116,9 @@ export function FreeAgencyBoard() {
       />
 
       <Panel open={active === "unsigned"}>
+        {freeAgents.length === 0 && (
+          <div className="emptystate">Nobody is on the market right now.</div>
+        )}
         <div style={{ maxHeight: 440, overflowY: "auto" }}>
           {freeAgents.slice(0, 50).map((p) => {
             const mine = myOffer(p.id);
@@ -224,15 +225,17 @@ export function FreeAgencyBoard() {
             })
           )
         ) : (
-          <div className="emptystate">The Signed log updates once per simulated week.</div>
+          <div className="emptystate">
+            Standing-market signings go straight onto your roster — check Roster &amp; Cap to see them.
+          </div>
         )}
       </Panel>
 
       <Footer>
         {(!inWindow || fa?.mode === "standing") && (
-          <a className="btnlink" onClick={() => nav(returnLink.to)}>
+          <button type="button" className="btnlink" onClick={() => nav(returnLink.to)}>
             {returnLink.label}
-          </a>
+          </button>
         )}
         {isWindowStage && inWindow && (
           <button className="btn-primary" onClick={() => advanceDay("players")}>
@@ -240,9 +243,9 @@ export function FreeAgencyBoard() {
           </button>
         )}
         {!isWindowStage && (
-          <a className="btnlink" onClick={() => nav("/roster")}>
+          <button type="button" className="btnlink" onClick={() => nav("/roster")}>
             Roster &amp; Cap
-          </a>
+          </button>
         )}
       </Footer>
 

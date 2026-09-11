@@ -86,7 +86,7 @@ export function ContractNegotiation({
             </span>
           </div>
           {error && (
-            <p style={{ margin: "12px 0 0", fontSize: 12.5, fontWeight: 600, color: "var(--bad)" }}>
+            <p className="form-error" role="alert">
               {error}
             </p>
           )}

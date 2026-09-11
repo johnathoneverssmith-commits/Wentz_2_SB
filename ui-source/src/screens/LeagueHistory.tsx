@@ -31,9 +31,9 @@ export function LeagueHistory() {
         <ScoreTrackerTable />
       </div>
       <Footer>
-        <a className="btnlink" onClick={() => nav("/")}>
+        <button type="button" className="btnlink" onClick={() => nav("/")}>
           Back
-        </a>
+        </button>
       </Footer>
     </Card>
   );

@@ -23,8 +23,14 @@
   --ink-dim: #9ca2a8;
   --ink-faint: #5c6167;
 
+  /* --team is the controlled team's *readable* accent (see readableAccent in
+     data/teams.ts — very dark brands get their lighter secondary), --team-deep
+     the header wash, --team-on the text color that reads on --team. All three
+     are swapped at runtime by useTeamTheme; every tint below derives from them
+     via color-mix so nothing stays stuck on the Cleveland-orange reference. */
   --team: #ff3c00;
   --team-deep: #241300;
+  --team-on: #fff;
 
   /* opposing team in two-team views (box score, trade) */
   --partner: #4c86e8;
@@ -59,10 +65,11 @@ img {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(900px 460px at 22% -8%, rgba(255, 60, 0, 0.12), transparent 62%),
+    radial-gradient(900px 460px at 22% -8%, color-mix(in srgb, var(--team) 13%, transparent), transparent 62%),
     var(--page);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--ink);
+  transition: background 0.4s ease;
 }
 
 h1,
@@ -72,10 +79,17 @@ h2,
 .oswald {
   font-family: "Oswald", sans-serif;
 }
+.stat-value,
+.num,
+.oswald,
+.povr,
+table.stbl td {
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---- buttons ---------------------------------------------------------- */
 button,
-a.btnlink {
+.btnlink {
   font-family: "Inter", sans-serif;
   cursor: pointer;
   background: transparent;
@@ -89,14 +103,14 @@ a.btnlink {
     background 0.15s ease,
     border-color 0.15s ease;
 }
-a.btnlink {
+.btnlink {
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 button:hover,
-a.btnlink:hover {
+.btnlink:hover {
   background: var(--panel-raised);
 }
 button:disabled {
@@ -105,14 +119,24 @@ button:disabled {
   color: var(--ink-faint);
   cursor: default;
 }
+/* keyboard focus: a team-colored ring, only for keyboard (not mouse) focus */
+button:focus-visible,
+.btnlink:focus-visible,
+select:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--team);
+  outline-offset: 2px;
+}
 .btn-primary {
   background: var(--team);
   border-color: var(--team);
-  color: #fff;
+  color: var(--team-on);
   font-weight: 600;
 }
 .btn-primary:hover {
-  background: #e63500;
+  background: color-mix(in srgb, var(--team) 84%, #000);
+  border-color: color-mix(in srgb, var(--team) 84%, #000);
 }
 .btn-primary:disabled {
   background: var(--panel-raised);
@@ -142,6 +166,28 @@ button:disabled {
     0 40px 90px rgba(0, 0, 0, 0.55),
     0 0 0 1px var(--line);
   position: relative;
+  animation: card-in 0.28s ease-out;
+}
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+  .chev,
+  button,
+  .btnlink,
+  body {
+    transition: none;
+  }
 }
 .card::before {
   content: "";
@@ -159,7 +205,11 @@ button:disabled {
 
 /* ---- header ------------------------------------------------------- */
 .header {
-  background: linear-gradient(120deg, var(--team-deep) 0%, #150a00 85%);
+  background: linear-gradient(
+    120deg,
+    var(--team-deep) 0%,
+    color-mix(in srgb, var(--team-deep) 45%, var(--panel)) 85%
+  );
   color: #fff;
   padding: 22px 26px 22px 30px;
   display: flex;
@@ -172,7 +222,7 @@ button:disabled {
   background: linear-gradient(
     120deg,
     var(--team-deep) 0%,
-    #150a00 55%,
+    color-mix(in srgb, var(--team-deep) 35%, var(--panel)) 55%,
     var(--partner-deep) 100%
   );
 }
@@ -193,7 +243,8 @@ button:disabled {
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.02em;
-  box-shadow: 0 4px 14px rgba(255, 60, 0, 0.35);
+  color: var(--team-on);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--team) 38%, transparent);
 }
 .header h1 {
   margin: 0;
@@ -718,6 +769,65 @@ table.mtable td.val {
   color: var(--ink-dim);
 }
 
+/* ---- league setup: AFC | NFC team picker ---------------------------------- */
+.conf-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.team-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  text-align: left;
+  width: 100%;
+  border-color: var(--line);
+  background: var(--panel-sunken);
+}
+.team-tile:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: var(--panel-raised);
+}
+.team-tile.mine,
+.team-tile.mine:hover {
+  border-color: var(--team);
+  background: color-mix(in srgb, var(--team) 11%, var(--panel-sunken));
+  box-shadow: 0 0 0 1px var(--team) inset;
+}
+.team-tile:disabled {
+  opacity: 0.42;
+  background: var(--panel-sunken);
+}
+.team-tile .tile-name {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.team-tile .tile-name span {
+  color: var(--ink-dim);
+  font-weight: 400;
+}
+.team-tile .tile-status {
+  display: block;
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+.team-tile.mine .tile-status {
+  color: var(--team);
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .conf-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- roster-needs chips -------------------------------------------- */
 .needgrid {
   display: grid;
@@ -802,7 +912,11 @@ table.mtable td.val {
   align-items: flex-start;
   justify-content: space-between;
   padding: 18px 20px;
-  background: linear-gradient(120deg, var(--team-deep), #150a00 85%);
+  background: linear-gradient(
+    120deg,
+    var(--team-deep),
+    color-mix(in srgb, var(--team-deep) 45%, var(--panel)) 85%
+  );
 }
 .modal-title {
   margin: 0;
@@ -837,10 +951,29 @@ table.mtable td.val {
 .prio-chip {
   font-size: 11px;
   color: var(--team);
-  background: rgba(255, 60, 0, 0.1);
-  border: 1px solid rgba(255, 60, 0, 0.3);
+  background: color-mix(in srgb, var(--team) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--team) 30%, transparent);
   border-radius: 20px;
   padding: 4px 10px;
+}
+
+/* ---- team-tinted callout (on the clock, your row, etc.) ------------------ */
+.team-callout {
+  background: color-mix(in srgb, var(--team) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--team) 32%, transparent);
+  border-radius: var(--r-md);
+  color: var(--team);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 10px 14px;
+}
+
+/* ---- inline error / notice under a form ----------------------------------- */
+.form-error {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--bad);
 }
 .neg-row {
   display: flex;

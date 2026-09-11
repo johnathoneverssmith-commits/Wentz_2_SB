@@ -23,9 +23,20 @@ export function ExpandableRow({
       <div
         className="prow"
         style={{ gridTemplateColumns: gridTemplate }}
+        role={detail || onRowClick ? "button" : undefined}
+        tabIndex={detail || onRowClick ? 0 : undefined}
+        aria-expanded={detail ? open : undefined}
         onClick={() => {
           if (detail) setOpen((o) => !o);
           onRowClick?.();
+        }}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (detail) setOpen((o) => !o);
+            onRowClick?.();
+          }
         }}
       >
         {columns}

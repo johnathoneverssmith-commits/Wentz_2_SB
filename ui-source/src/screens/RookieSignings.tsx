@@ -33,14 +33,12 @@ export function RookieSignings() {
 
   const outcomes = s.rookieOutcomes;
   const resolvedCount = myPicks.filter((x) => outcomes[x.prospect!.id]).length;
-  const allResolved = myPicks.length > 0 && resolvedCount === myPicks.length;
+  // a team with no picks has nothing to resolve — never gate it here
+  const allResolved = resolvedCount === myPicks.length;
   const signedCount = myPicks.filter((x) => outcomes[x.prospect!.id] === "signed").length;
 
-  const capAfter =
-    255 -
-    Object.values(s.players)
-      .filter((p) => p.nfl_team === code)
-      .reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+  const team = code ? s.teams[code] : undefined;
+  const capAfter = team ? team.cap.total - team.cap.used : 0;
 
   return (
     <Card maxWidth={820}>
@@ -54,7 +52,7 @@ export function RookieSignings() {
           { label: "Draft picks", value: myPicks.length },
           { label: "Signed", value: `${signedCount} / ${myPicks.length}` },
           { label: "Resolved", value: `${resolvedCount} / ${myPicks.length}` },
-          { label: "Cap space", value: millions(capAfter), className: "good" },
+          { label: "Cap space", value: millions(capAfter), className: capAfter >= 0 ? "good" : "bad" },
         ]}
       />
       <Tabs
@@ -68,7 +66,7 @@ export function RookieSignings() {
 
       <Panel open={active === "signings"}>
         {myPicks.length === 0 ? (
-          <div className="emptystate">Your team didn't draft anyone this year.</div>
+          <div className="emptystate">Your team didn't draft anyone this year — nothing to sign. You can advance whenever you're ready.</div>
         ) : (
           myPicks.map(({ pick, prospect }) => {
             const p = prospect!;
@@ -213,14 +211,16 @@ export function RookieSignings() {
 
       <Footer>
         <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
-          Sign or release every pick to unlock the draft summary and advance.
+          {myPicks.length === 0
+            ? "No picks this year."
+            : "Sign or release every pick to unlock the draft summary and advance."}
         </span>
       </Footer>
 
       <ReadinessGate
         title="Rookie signings readiness"
         disabled={!allResolved}
-        disabledHint={`${resolvedCount} / ${myPicks.length} picks resolved`}
+        disabledHint={`${resolvedCount} / ${myPicks.length} picks resolved — sign or release the rest`}
         onAdvance={(r) => nav(r)}
       />
     </Card>

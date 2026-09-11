@@ -7,10 +7,18 @@ export interface TeamMeta {
   city: string;
   name: string;
   abbr: string;
-  /** Primary brand color (hex). Drives --team when this team is controlled. */
+  /** Primary brand color (hex). Used for badges/chips everywhere. */
   color: string;
   /** Text color that reads on `color` (for badges). */
   onColor: string;
+  /**
+   * Optional lighter official secondary color, used as the UI accent (--team)
+   * when this team is controlled and its primary is too dark to read on the
+   * dark theme (Raiders black, Texans navy, …). Falls back to `color`.
+   */
+  accent?: string;
+  /** Text color that reads on `accent`. */
+  onAccent?: string;
   conference: Conference;
   division: DivisionName;
 }

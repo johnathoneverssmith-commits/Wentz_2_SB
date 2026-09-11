@@ -49,13 +49,15 @@ export function DraftRoom() {
   const yourPick = onClockTeam === code;
   const complete = draft ? draft.currentPickIndex >= draft.pickOrder.length : false;
 
+  // the whole board, best first — filtered *before* the display slice so a
+  // position filter can always reach every player at that position (a K/P
+  // would otherwise never appear in the top 100 by overall)
   const available = useMemo<Available[]>(() => {
     if (!draft) return [];
     if (mode === "rookie") {
       return s.draftClass
         .filter((p) => !taken.has(p.id))
         .sort((a, b) => b.collegeOverall - a.collegeOverall)
-        .slice(0, 120)
         .map((p) => ({
           id: p.id,
           name: p.name,
@@ -69,7 +71,6 @@ export function DraftRoom() {
     return Object.values(s.players)
       .filter((p) => !taken.has(p.id) && !p.retired)
       .sort((a, b) => b.overall - a.overall)
-      .slice(0, 120)
       .map((p, i) => ({
         id: p.id,
         name: p.name,
@@ -81,7 +82,10 @@ export function DraftRoom() {
       }));
   }, [draft, mode, s.players, s.draftClass, taken]);
 
-  const filtered = available.filter((p) => posFilter === "ALL" || p.position === posFilter);
+  const filtered = useMemo(
+    () => available.filter((p) => posFilter === "ALL" || p.position === posFilter).slice(0, 100),
+    [available, posFilter],
+  );
 
   // AI auto-picks when it's not your turn
   useEffect(() => {
@@ -176,8 +180,13 @@ export function DraftRoom() {
 
       <Panel open={active === "available"}>
         {yourPick && !complete && (
-          <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(255,60,0,0.08)", border: "1px solid rgba(255,60,0,0.3)", borderRadius: "var(--r-md)", fontSize: 12.5, color: "var(--team)", fontWeight: 600 }}>
+          <div className="team-callout" style={{ marginBottom: 12 }} role="status">
             You're on the clock — make your selection.
+          </div>
+        )}
+        {filtered.length === 0 && (
+          <div className="emptystate" style={{ marginBottom: 12 }}>
+            No {posFilter === "ALL" ? "players" : posFilter} left on the board.
           </div>
         )}
         <div style={{ overflowX: "auto", maxHeight: 460, overflowY: "auto" }}>
@@ -193,7 +202,7 @@ export function DraftRoom() {
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, 100).map((p) => (
+              {filtered.map((p) => (
                 <tr key={p.id}>
                   <td className="name">
                     {p.name}

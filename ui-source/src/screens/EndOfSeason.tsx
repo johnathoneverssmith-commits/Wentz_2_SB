@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { pressable } from "@/components/bits";
 import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
 import { Card, CardHeader, Footer, Panel, Tabs, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
@@ -27,7 +28,7 @@ export function EndOfSeasonAnnounce() {
       <div
         className="panel open"
         style={{ textAlign: "center", padding: "56px 26px", cursor: "pointer" }}
-        onClick={goOn}
+        {...pressable(() => void goOn())}
       >
         <p className="oswald" style={{ margin: 0, fontSize: 13, letterSpacing: "0.2em", color: "var(--ink-faint)" }}>
           THAT'S A WRAP ON
@@ -146,12 +147,12 @@ export function SeasonComplete() {
       </Panel>
 
       <Footer>
-        <a className="btnlink" onClick={() => nav("/bracket")}>
+        <button type="button" className="btnlink" onClick={() => nav("/bracket")}>
           Final bracket
-        </a>
-        <a className="btnlink" onClick={() => nav("/history")}>
+        </button>
+        <button type="button" className="btnlink" onClick={() => nav("/history")}>
           Full league history
-        </a>
+        </button>
       </Footer>
 
       <ReadinessGate title="End of season readiness" onAdvance={(r) => nav(r)} />

@@ -148,15 +148,15 @@ export function RetirementReview() {
       </Panel>
 
       <Footer>
-        <a className="btnlink" onClick={() => goPreview("/roster")}>
+        <button type="button" className="btnlink" onClick={() => goPreview("/roster")}>
           Preview roster &amp; cap
-        </a>
-        <a className="btnlink" onClick={() => goPreview("/free-agency")}>
+        </button>
+        <button type="button" className="btnlink" onClick={() => goPreview("/free-agency")}>
           Free agency
-        </a>
-        <a className="btnlink" onClick={() => goPreview("/trade")}>
+        </button>
+        <button type="button" className="btnlink" onClick={() => goPreview("/trade")}>
           Propose trade
-        </a>
+        </button>
       </Footer>
 
       <ReadinessGate title="Retirement review readiness" onAdvance={(r) => nav(r)} />

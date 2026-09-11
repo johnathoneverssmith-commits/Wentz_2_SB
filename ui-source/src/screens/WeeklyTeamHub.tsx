@@ -5,6 +5,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
+import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import {
   currentPhase,
@@ -79,11 +80,13 @@ export function WeeklyTeamHub() {
         }
         right={
           <>
-            <p>{isPreseason ? `Preseason Wk ${s.week}` : `Week ${s.week}`}</p>
+            <p>{!phase ? "Offseason" : isPreseason ? `Preseason Wk ${s.week}` : `Week ${s.week}`}</p>
             <p>
               {oppCode
                 ? `${iHost ? "vs" : "@"} ${TEAMS_BY_CODE[oppCode]!.city} (${record(s.teams[oppCode]!)})`
-                : "Bye week"}
+                : phase
+                  ? "Bye week"
+                  : STAGE_LABEL[s.stage]}
             </p>
           </>
         }
@@ -189,7 +192,7 @@ export function WeeklyTeamHub() {
             </p>
           </>
         ) : (
-          <div className="emptystate">Bye week — no matchup.</div>
+          <div className="emptystate">{phase ? "Bye week — no matchup." : "No game this week — the league is in the offseason."}</div>
         )}
       </Panel>
 
@@ -270,23 +273,28 @@ export function WeeklyTeamHub() {
       </Panel>
 
       <Footer>
-        <a className="btnlink" onClick={() => nav("/roster")}>
+        <button type="button" className="btnlink" onClick={() => nav("/roster")}>
           Roster &amp; Cap
-        </a>
-        <a className="btnlink" onClick={() => nav("/coaching")}>
+        </button>
+        <button type="button" className="btnlink" onClick={() => nav("/coaching")}>
           Coaching Staff
-        </a>
-        <a className="btnlink" onClick={() => nav("/free-agency")}>
+        </button>
+        <button type="button" className="btnlink" onClick={() => nav("/free-agency")}>
           Free Agency
-        </a>
+        </button>
         {(() => {
           const last = lastResult(s, code);
-          return last ? (
-            <a className="btnlink btn-primary" onClick={() => nav(`/box/${last.id}`)}>
+          return last && phase ? (
+            <button type="button" className="btnlink btn-primary" onClick={() => nav(`/box/${last.id}`)}>
               Latest box score
-            </a>
+            </button>
           ) : null;
         })()}
+        {!phase && (
+          <button type="button" className="btnlink btn-primary" onClick={() => nav(STAGE_HOME[s.stage])}>
+            Go to {STAGE_LABEL[s.stage]}
+          </button>
+        )}
       </Footer>
 
       {phase && (

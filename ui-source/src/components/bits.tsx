@@ -1,4 +1,24 @@
+import type { KeyboardEvent } from "react";
+
 import { TEAMS_BY_CODE } from "@/data/teams";
+
+/**
+ * Props that make a clickable div behave like a button for keyboard users:
+ * focusable, announced as a button, and activated by Enter / Space.
+ */
+export function pressable(onActivate: () => void) {
+  return {
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: onActivate,
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onActivate();
+      }
+    },
+  };
+}
 
 /** Rounded team-color chip with the 2–3 letter abbreviation. */
 export function TeamBadge({ code, size = 30 }: { code: string; size?: number }) {

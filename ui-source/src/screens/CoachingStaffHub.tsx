@@ -189,9 +189,9 @@ function HiringWindow({ code }: { code: string | undefined }) {
             Mark ready for next day
           </button>
         ) : (
-          <a className="btnlink btn-primary" onClick={() => nav("/hub")}>
+          <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
             View team hub
-          </a>
+          </button>
         )}
       </Footer>
 
@@ -337,9 +337,9 @@ function NormalHub({ code }: { code: string | undefined }) {
         </table>
       </Panel>
       <Footer>
-        <a className="btnlink btn-primary" onClick={() => nav("/hub")}>
+        <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
           Return to team hub
-        </a>
+        </button>
       </Footer>
     </Card>
   );

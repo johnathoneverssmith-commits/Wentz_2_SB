@@ -47,9 +47,14 @@ export function RosterCapManagement() {
     );
   }
 
-  const capUsed = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
-  const capTotalM = 255;
-  const capSpace = capTotalM - capUsed;
+  // the store's own cap figures (players + coaching staff) — the same numbers
+  // the signing checks use, so this screen never disagrees with them
+  const capUsed = team.cap.used;
+  const capTotalM = team.cap.total;
+  const capSpace = Math.round((capTotalM - capUsed) * 10) / 10;
+  const staffCap = Object.values(s.coaches)
+    .filter((c) => c.team === code)
+    .reduce((n, c) => n + (c.contract?.annualValue ?? 0), 0);
 
   const grouped = roster.filter((p) => POSITION_TO_GROUP[p.position] === group);
   const ordered = manualOrder[group]
@@ -146,7 +151,7 @@ export function RosterCapManagement() {
                 <>
                   <div className="grid4">
                     <div>
-                      <p>2026 cap</p>
+                      <p>{s.season} cap hit</p>
                       <p>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</p>
                     </div>
                     <div>
@@ -163,10 +168,15 @@ export function RosterCapManagement() {
                     </div>
                   </div>
                   <div className="actions">
-                    <button>Restructure</button>
-                    <button>Extend</button>
-                    <button className="btn-danger">Release</button>
+                    <button disabled title="Not available in this build yet">Restructure</button>
+                    <button disabled title="Not available in this build yet">Extend</button>
+                    <button className="btn-danger" disabled title="Not available in this build yet">
+                      Release
+                    </button>
                   </div>
+                  <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
+                    Contract moves aren't available yet — trades and free agency are the ways to reshape the roster for now.
+                  </p>
                 </>
               }
             />
@@ -175,10 +185,11 @@ export function RosterCapManagement() {
       </Panel>
 
       <Panel open={active === "cap"}>
-        <p className="sectionlabel">Cap allocation by unit</p>
+        <p className="sectionlabel">Cap allocation</p>
         <CapBar label="Offense" value={capByUnit.offense} max={capUsed} />
         <CapBar label="Defense" value={capByUnit.defense} max={capUsed} />
         <CapBar label="Special teams" value={capByUnit.special} max={capUsed} />
+        <CapBar label="Coaching staff" value={staffCap} max={capUsed} />
         <p className="sectionlabel" style={{ marginTop: 22 }}>
           Cap summary
         </p>

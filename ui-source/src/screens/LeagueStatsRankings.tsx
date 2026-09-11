@@ -149,9 +149,9 @@ export function LeagueStatsRankings() {
       </Panel>
 
       <Footer>
-        <a className="btnlink" onClick={() => nav("/hub")}>
+        <button type="button" className="btnlink" onClick={() => nav("/hub")}>
           Return to team hub
-        </a>
+        </button>
       </Footer>
     </Card>
   );

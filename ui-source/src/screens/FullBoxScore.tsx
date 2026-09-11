@@ -17,8 +17,16 @@ export function FullBoxScore() {
     return (
       <Card maxWidth={860}>
         <div className="panel open">
-          <div className="emptystate">That box score isn't available.</div>
+          <div className="emptystate">That box score isn't available — it may be from a game that hasn't been played yet.</div>
         </div>
+        <Footer>
+          <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
+            Full schedule
+          </button>
+          <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
+            Back to team hub
+          </button>
+        </Footer>
       </Card>
     );
   }
@@ -135,12 +143,12 @@ export function FullBoxScore() {
       </Panel>
 
       <Footer>
-        <a className="btnlink" onClick={() => nav("/schedule")}>
+        <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
           Full schedule
-        </a>
-        <a className="btnlink btn-primary" onClick={() => nav("/hub")}>
+        </button>
+        <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
           Back to team hub
-        </a>
+        </button>
       </Footer>
     </Card>
   );

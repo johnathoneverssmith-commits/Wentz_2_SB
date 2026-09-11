@@ -94,15 +94,15 @@ export function PostseasonBracket() {
       </Panel>
 
       <Footer>
-        <a className="btnlink" onClick={() => nav("/hub")}>
+        <button type="button" className="btnlink" onClick={() => nav("/hub")}>
           Team hub
-        </a>
-        <a className="btnlink" onClick={() => nav("/roster")}>
+        </button>
+        <button type="button" className="btnlink" onClick={() => nav("/roster")}>
           Roster &amp; Cap
-        </a>
-        <a className="btnlink" onClick={() => nav("/player-stats")}>
+        </button>
+        <button type="button" className="btnlink" onClick={() => nav("/player-stats")}>
           Player Statistics
-        </a>
+        </button>
       </Footer>
 
       {isPlayoffStage && !b.champion && (
@@ -244,7 +244,7 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
   const favProb = m.favoredWinProb >= 50 ? m.favoredWinProb : 100 - m.favoredWinProb;
 
   return (
-    <div style={{ background: "var(--panel-sunken)", border: `1px ${bye ? "dashed" : "solid"} ${yours ? "rgba(255,60,0,0.45)" : "var(--line)"}`, borderRadius: 8, overflow: "hidden" }}>
+    <div style={{ background: "var(--panel-sunken)", border: `1px ${bye ? "dashed" : "solid"} ${yours ? "color-mix(in srgb, var(--team) 48%, transparent)" : "var(--line)"}`, borderRadius: 8, overflow: "hidden" }}>
       {row(m.highSeed, played ? m.homeScore : null, highWin || (bye && !!m.winner))}
       {!bye && <div style={{ borderTop: "1px solid var(--line)" }}>{row(m.lowSeed, played ? m.awayScore : null, lowWin)}</div>}
       {bye && <div style={{ padding: "4px 12px 9px", fontSize: 9.5, color: "var(--ink-faint)", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Bye — auto-advance</div>}

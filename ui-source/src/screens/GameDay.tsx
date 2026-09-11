@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
-import { TeamBadge } from "@/components/bits";
+import { pressable, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { ROUND_LABEL, type PlayoffRound } from "@/domain";
@@ -30,9 +30,9 @@ export function GameDay() {
           <div className="emptystate">No simulated results are pending. Head back to the hub.</div>
         </div>
         <Footer>
-          <a className="btnlink btn-primary" onClick={() => nav("/hub")}>
+          <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
             Back to team hub
-          </a>
+          </button>
         </Footer>
       </Card>
     );
@@ -51,6 +51,10 @@ export function GameDay() {
   const roundMatchups = isPlayoff
     ? (s.bracket?.matchups ?? []).filter((m) => m.round === pgd.phase && m.winner)
     : [];
+  const hadBye =
+    isPlayoff &&
+    !!code &&
+    (s.bracket?.matchups ?? []).some((m) => m.round === pgd.phase && !m.lowSeed && m.highSeed?.code === code);
 
   return (
     <Card maxWidth={760}>
@@ -118,8 +122,9 @@ export function GameDay() {
                 return (
                   <div
                     key={g.id}
-                    onClick={() => nav(`/box/${g.id}`)}
-                    style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, padding: "9px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer" }}
+                    {...pressable(() => nav(`/box/${g.id}`))}
+                    title="Open the box score"
+                    style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, padding: "9px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <TeamBadge code={g.homeTeam} size={20} />
@@ -143,20 +148,24 @@ export function GameDay() {
           <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
             {viewerGame
               ? "The full play-by-play gamecast needs the engine adapter running (npm run server) — showing the final score only."
-              : "A full game-flow / play-log view will live here once the engine is wired in."}
+              : isPlayoff
+                ? hadBye
+                  ? "Your team had the bye this round and advances automatically."
+                  : "Your team wasn't in action this round."
+                : "Bye week — your team wasn't on this week's slate."}
           </p>
         )}
       </div>
 
       <Footer>
         {viewerGame && (
-          <a className="btnlink" onClick={() => nav(`/box/${viewerGame.id}`)}>
+          <button type="button" className="btnlink" onClick={() => nav(`/box/${viewerGame.id}`)}>
             Full box score
-          </a>
+          </button>
         )}
-        <a className="btnlink" onClick={() => nav("/hub")}>
+        <button type="button" className="btnlink" onClick={() => nav("/hub")}>
           Team hub
-        </a>
+        </button>
         <button
           className="btn-primary"
           onClick={async () => {

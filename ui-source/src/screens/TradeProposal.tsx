@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { pressable } from "@/components/bits";
 import { Card, Footer } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
@@ -179,9 +180,9 @@ export function TradeProposal() {
       </div>
 
       <Footer>
-        <a className="btnlink" onClick={() => nav(s.returnTo ?? "/hub")}>
+        <button type="button" className="btnlink" onClick={() => nav(s.returnTo ?? "/hub")}>
           {s.returnTo === "/retirement" ? "Return to retirements" : "Return to team hub"}
-        </a>
+        </button>
         <button onClick={() => { setGive([]); setGet([]); setTradeId(null); }}>Reset</button>
         {!trade ? (
           <button
@@ -256,7 +257,8 @@ function TradeColumn({
           return (
             <div
               key={p.id}
-              onClick={() => onToggle(p.id)}
+              {...pressable(() => onToggle(p.id))}
+              aria-pressed={on}
               style={{
                 display: "flex",
                 alignItems: "center",

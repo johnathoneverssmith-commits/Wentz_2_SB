@@ -27,6 +27,16 @@ const IN_SEASON_NAV: NavItem[] = [
   { to: "/history", label: "League History" },
 ];
 
+/** Reference screens that are safe to browse from any offseason stage. */
+const OFFSEASON_REFERENCE_NAV: NavItem[] = [
+  { to: "/roster", label: "Roster & Cap" },
+  { to: "/league-rosters", label: "League Rosters" },
+  { to: "/coaching", label: "Coaching Staff" },
+  { to: "/history", label: "League History" },
+];
+
+const active = ({ isActive }: { isActive: boolean }) => (isActive ? "active" : "");
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   useTeamTheme();
   const stage = useStore((s) => s.stage);
@@ -38,10 +48,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const teamCode = gms.find((g) => g.id === viewerGmId)?.teamCode;
   const seasonScreens = isInSeason(stage);
+  const inSetup = stage === "setup";
 
   return (
     <div className="app">
-      <nav className="rail">
+      <nav className="rail" aria-label="Main">
         <div className="brand">
           <span className="mark">FS</span>
           <div>
@@ -54,36 +65,43 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {week ? ` · Wk ${week}` : ""}
         </div>
 
-        <NavLink to="/setup" className={({ isActive }) => (isActive ? "active" : "")}>
-          League Setup
-        </NavLink>
+        {inSetup && (
+          <>
+            <NavLink to="/setup" className={active}>
+              League Setup
+            </NavLink>
+            <p className="railnote">Pick your team and league rules, then mark ready to begin.</p>
+          </>
+        )}
 
-        {seasonScreens &&
-          renderGroupedNav(IN_SEASON_NAV)}
+        {!inSetup && seasonScreens && renderGroupedNav(IN_SEASON_NAV)}
 
-        {!seasonScreens && (
+        {!inSetup && !seasonScreens && (
           <>
             <div className="railgroup">Current stage</div>
-            <NavLink
-              to={STAGE_HOME[stage]}
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
+            <NavLink to={STAGE_HOME[stage]} className={active}>
               {STAGE_LABEL[stage]}
             </NavLink>
             <div className="railgroup">Reference</div>
-            <NavLink to="/history" className={({ isActive }) => (isActive ? "active" : "")}>
-              League History
-            </NavLink>
-            <NavLink to="/gallery" className={({ isActive }) => (isActive ? "active" : "")}>
-              Screen Gallery
-            </NavLink>
+            {OFFSEASON_REFERENCE_NAV.map((item) => (
+              <NavLink key={item.to} to={item.to} className={active}>
+                {item.label}
+              </NavLink>
+            ))}
           </>
         )}
 
         <div className="spacer" />
-        <NavLink to="/gallery" className={({ isActive }) => (isActive ? "active" : "")}>
-          Screen Gallery
-        </NavLink>
+        {!inSetup && (
+          <NavLink to="/setup" className={active}>
+            League settings
+          </NavLink>
+        )}
+        {import.meta.env.DEV && (
+          <NavLink to="/gallery" className={active}>
+            Screen Gallery
+          </NavLink>
+        )}
         <button
           className="reset"
           onClick={() => {
@@ -111,11 +129,7 @@ function renderGroupedNav(items: NavItem[]) {
       lastGroup = item.group;
     }
     out.push(
-      <NavLink
-        key={item.to}
-        to={item.to}
-        className={({ isActive }) => (isActive ? "active" : "")}
-      >
+      <NavLink key={item.to} to={item.to} className={active}>
         {item.label}
       </NavLink>,
     );

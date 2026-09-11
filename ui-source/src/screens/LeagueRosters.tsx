@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { OvrPill, TeamBadge } from "@/components/bits";
+import { OvrPill, pressable, TeamBadge } from "@/components/bits";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
@@ -64,8 +64,8 @@ export function LeagueRosters() {
               {players.map((p, i) => (
                 <div
                   key={p.id}
-                  onClick={() => setInspect(p)}
-                  style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer" }}
+                  {...pressable(() => setInspect(p))}
+                  style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
                 >
                   <span className="rank-num">{i + 1}</span>
                   <span className="pname" style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)" }}>
@@ -80,9 +80,9 @@ export function LeagueRosters() {
         })}
       </div>
       <Footer>
-        <a className="btnlink" onClick={() => nav("/roster")}>
+        <button type="button" className="btnlink" onClick={() => nav("/roster")}>
           Your roster
-        </a>
+        </button>
       </Footer>
 
       {inspect && <PlayerStatsModal player={inspect} onClose={() => setInspect(null)} />}
