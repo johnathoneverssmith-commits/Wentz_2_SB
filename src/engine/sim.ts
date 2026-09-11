@@ -112,6 +112,17 @@ export interface PlayRec {
   firstDown: boolean;
   touchdown: boolean;
   turnover: boolean;
+  /**
+   * Cosmetic player attribution for a play-by-play view (needs `rosters`).
+   * Picked deterministically from the on-field lineup and the play's own
+   * already-rolled numbers (depth/down/distance) — not a modeled usage share,
+   * and it costs no extra RNG draws, so it never perturbs the sim.
+   */
+  passer?: string | undefined;
+  /** the intended receiver (pass) or ball-carrier (run/scramble). */
+  targetOrRusher?: string | undefined;
+  /** the defender credited on a sack / interception / forced fumble. */
+  defender?: string | undefined;
 }
 
 function clip(x: number, lo: number, hi: number): number {
@@ -197,6 +208,65 @@ export class Game {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   }
 
+  /**
+   * Deterministic "who touched it" pick for the trace — a weighted slot pool
+   * per situation, indexed by numbers the play has already rolled (down,
+   * distance, depth) so it varies play to play without spending RNG.
+   */
+  private attribution(
+    call: PlayRec["call"],
+    depth: string,
+    outcome: string,
+    down: number,
+    ydstogo: number,
+  ): {
+    passer?: string | undefined;
+    targetOrRusher?: string | undefined;
+    defender?: string | undefined;
+  } {
+    if (!this.ratingsOn) return {};
+    const o = this.offLineup();
+    const d = this.defLineup();
+    const seed = down * 7 + Math.round(ydstogo) * 3 + depth.length;
+    const pick = (pool: (Lineup[keyof Lineup] | undefined)[]): string | undefined => {
+      const names = pool.filter((x): x is NonNullable<typeof x> => !!x).map((x) => x!.name);
+      return names.length ? names[seed % names.length] : undefined;
+    };
+
+    const forcer = (): string | undefined =>
+      pick(call === "run" ? [d.ILB1, d.EDGE1, d.DT1, d.CB1] : [d.CB1, d.S1, d.ILB1, d.EDGE1]);
+
+    if (call === "run") {
+      const targetOrRusher = (o.RB1 ?? o.TE1)?.name; // designed run: the back (rare TE fallback)
+      return outcome === "fumble" ? { targetOrRusher, defender: forcer() } : { targetOrRusher };
+    }
+    if (call === "scramble") {
+      const name = o.QB1?.name;
+      return outcome === "fumble"
+        ? { passer: name, targetOrRusher: name, defender: forcer() }
+        : { passer: name, targetOrRusher: name };
+    }
+    if (call === "sack") {
+      return { passer: o.QB1?.name, defender: pick([d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1]) };
+    }
+
+    // pass (complete / incomplete / interception / fumble after the catch)
+    const passer = o.QB1?.name;
+    const receiverPool: Record<string, (Lineup[keyof Lineup] | undefined)[]> = {
+      BEHIND_LOS: [o.RB1, o.TE1, o.WR3],
+      SHORT: [o.WR2, o.WR3, o.TE1, o.RB1],
+      INTERMEDIATE: [o.WR1, o.WR2, o.TE1],
+      DEEP: [o.WR1, o.WR2],
+    };
+    const target = pick(receiverPool[depth] ?? [o.WR1, o.WR2, o.WR3, o.TE1]);
+    if (outcome === "interception") {
+      const dPool = depth === "DEEP" ? [d.S1, d.S2, d.CB1, d.CB2] : [d.CB1, d.CB2, d.S1];
+      return { passer, targetOrRusher: target, defender: pick(dPool) };
+    }
+    if (outcome === "fumble") return { passer, targetOrRusher: target, defender: forcer() };
+    return { passer, targetOrRusher: target };
+  }
+
   private tracePlay(p: {
     call: PlayRec["call"];
     depth: string;
@@ -218,6 +288,7 @@ export class Game {
         gained: Math.round(p.gained),
         ballOn: Math.round(p.ballOn),
         ydstogo: Math.round(p.ydstogo * 10) / 10,
+        ...this.attribution(p.call, p.depth, p.outcome, p.down, p.ydstogo),
       });
   }
 
@@ -248,6 +319,7 @@ export class Game {
     };
     const ev = makeInjury(this.rng, ctx);
     if (!ev) return;
+    if (this.playTrace) ev.playIndex = this.playTrace.length - 1; // tracePlay ran first
     this.injuryLog.push(ev);
     this.injuredOut.add(ev.playerId); // next man up for the rest of the game
   }

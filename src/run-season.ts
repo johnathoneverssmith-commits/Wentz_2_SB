@@ -11,6 +11,7 @@
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
+import { broadcastGame } from "./engine/broadcast.js";
 import { nflSchedule } from "./engine/schedule.js";
 import {
   formatBoxScore,
@@ -36,6 +37,7 @@ interface Args {
   through: number | null;
   picture: number | null;
   box: string | null;
+  broadcast: string | null;
   staffCard: string | null;
   noStaff: boolean;
 }
@@ -49,6 +51,7 @@ function parseArgs(argv: string[]): Args {
     through: null,
     picture: null,
     box: null,
+    broadcast: null,
     staffCard: null,
     noStaff: false,
   };
@@ -61,6 +64,7 @@ function parseArgs(argv: string[]): Args {
     else if (k === "--through") (a.through = Number(v)), (i += 1);
     else if (k === "--picture") (a.picture = Number(v)), (i += 1);
     else if (k === "--box") (a.box = v ?? null), (i += 1);
+    else if (k === "--broadcast") (a.broadcast = v ?? null), (i += 1);
     else if (k === "--staff") (a.staffCard = v ?? null), (i += 1);
     else if (k === "--compact") a.compact = true;
     else if (k === "--no-staff") a.noStaff = true;
@@ -77,8 +81,13 @@ function parseArgs(argv: string[]): Args {
   ] as const) {
     if (w !== null && (w < 1 || w > 18)) throw new Error(`${name} W must be 1–18`);
   }
-  if (a.box !== null && !/^[A-Z]{2,3}@[A-Z]{2,3}$/.test(a.box)) {
-    throw new Error('--box must look like "KC@BUF"');
+  for (const [name, v] of [
+    ["--box", a.box],
+    ["--broadcast", a.broadcast],
+  ] as const) {
+    if (v !== null && !/^[A-Z]{2,3}@[A-Z]{2,3}$/.test(v)) {
+      throw new Error(`${name} must look like "KC@BUF"`);
+    }
   }
   return a;
 }
@@ -87,6 +96,11 @@ function run(a: Args): void {
   const seasonOpts = { year: a.year, staff: !a.noStaff };
   if (a.staffCard !== null) {
     console.log(formatStaffCard(a.staffCard.toUpperCase()));
+    return;
+  }
+  if (a.broadcast !== null) {
+    const [away, home] = a.broadcast.split("@") as [string, string];
+    console.log(JSON.stringify(broadcastGame(a.seed, home, away)));
     return;
   }
   if (a.box !== null) {

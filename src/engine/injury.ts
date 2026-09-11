@@ -43,6 +43,8 @@ export interface InjuryEvent {
   onPlay: string;
   /** the full broadcast sentence. */
   narrative: string;
+  /** index into `Game.playTrace` of the play this injury happened on, when traced. */
+  playIndex?: number;
 }
 
 /** Context the game loop hands the roller for the play that just finished. */
