@@ -8,6 +8,15 @@ import { anyBoxScores, playedGames } from "@/state/selectors";
 
 const CATS = ["passing", "rushing", "receiving", "defense", "kicking", "returns"] as const;
 
+/**
+ * "through Week ${s.week || played}" printed "through Week 272" all offseason:
+ * `s.week` is 0 once the season is over, and the fallback was the *game*
+ * count. A finished season is described as finished.
+ */
+function asOf(week: number, season: number): string {
+  return week > 0 ? `through Week ${week}` : `${season} final`;
+}
+
 export function PlayerStatistics() {
   const nav = useNavigate();
   const s = useStore();
@@ -41,7 +50,7 @@ export function PlayerStatistics() {
       <CardHeader
         badge="NFL"
         title="Player Statistics"
-        subtitle={`League leaders · through Week ${s.week || played}`}
+        subtitle={`League leaders · ${asOf(s.week, s.season)}`}
       />
       <Ticker
         stats={[

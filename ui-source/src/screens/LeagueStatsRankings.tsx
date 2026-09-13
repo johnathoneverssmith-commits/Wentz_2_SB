@@ -58,7 +58,7 @@ export function LeagueStatsRankings() {
       <CardHeader
         badge="NFL"
         title="League Stats & Rankings"
-        subtitle={`Through Week ${s.week || played} · ${s.season} season`}
+        subtitle={s.week > 0 ? `Through Week ${s.week} · ${s.season} season` : `${s.season} season · final`}
       />
       <Ticker
         stats={[

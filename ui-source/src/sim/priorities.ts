@@ -38,7 +38,9 @@ export function playerPriorities(p: Player): FreePriorities {
 export function coachPriorities(c: Coach): FreePriorities {
   const ranked = rankTags(c.id, ["salary", "roster talent", "control of scheme", "front-office trust", "market size"]);
   const iq = c.playCallIq ?? c.gameManagement ?? 70;
-  const base = Math.max(1.5, ((iq - 55) / 10) ** 1.6 + seededFloat(c.id, 9) * 2);
+  // `(negative) ** 1.6` is NaN, and the engine's real coaches include plenty
+  // below 55 — a DC rated 52 was asking for $NaNM a year on the staff screen.
+  const base = Math.max(1.5, Math.max(0, (iq - 55) / 10) ** 1.6 + seededFloat(c.id, 9) * 2);
   return {
     ranked,
     expectation: {

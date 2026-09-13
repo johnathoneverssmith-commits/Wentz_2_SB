@@ -1,6 +1,7 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppShell } from "@/components/AppShell";
+import { ScreenBoundary } from "@/components/ScreenBoundary";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
@@ -33,34 +34,41 @@ function StageHome() {
 }
 
 export function App() {
+  // keyed on the route so navigating away from a crashed screen clears it
+  const { pathname } = useLocation();
   return (
     <AppShell>
-      <Routes>
-        <Route path="/" element={<StageHome />} />
-        <Route path="/setup" element={<LeagueSetup />} />
-        <Route path="/hub" element={<WeeklyTeamHub />} />
-        <Route path="/game-day" element={<GameDay />} />
-        <Route path="/bracket" element={<PostseasonBracket />} />
-        <Route path="/draft" element={<DraftRoom />} />
-        <Route path="/fantasy-draft-summary" element={<FantasyDraftSummary />} />
-        <Route path="/coaching" element={<CoachingStaffHub />} />
-        <Route path="/roster" element={<RosterCapManagement />} />
-        <Route path="/league-rosters" element={<LeagueRosters />} />
-        <Route path="/trade" element={<TradeProposal />} />
-        <Route path="/free-agency" element={<FreeAgencyBoard />} />
-        <Route path="/schedule" element={<FullSchedule />} />
-        <Route path="/league-stats" element={<LeagueStatsRankings />} />
-        <Route path="/player-stats" element={<PlayerStatistics />} />
-        <Route path="/box/:gameId" element={<FullBoxScore />} />
-        <Route path="/retirement" element={<RetirementReview />} />
-        <Route path="/rookie-signings" element={<RookieSignings />} />
-        <Route path="/draft-preview" element={<DraftPreview />} />
-        <Route path="/end-of-season" element={<EndOfSeasonAnnounce />} />
-        <Route path="/season-complete" element={<SeasonComplete />} />
-        <Route path="/history" element={<LeagueHistory />} />
-        <Route path="/gallery" element={<ScreenGallery />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ScreenBoundary resetKey={pathname}>
+        <Routes>
+          <Route path="/" element={<StageHome />} />
+          <Route path="/setup" element={<LeagueSetup />} />
+          <Route path="/hub" element={<WeeklyTeamHub />} />
+          <Route path="/game-day" element={<GameDay />} />
+          <Route path="/bracket" element={<PostseasonBracket />} />
+          <Route path="/draft" element={<DraftRoom />} />
+          <Route
+            path="/fantasy-draft-summary"
+            element={<FantasyDraftSummary />}
+          />
+          <Route path="/coaching" element={<CoachingStaffHub />} />
+          <Route path="/roster" element={<RosterCapManagement />} />
+          <Route path="/league-rosters" element={<LeagueRosters />} />
+          <Route path="/trade" element={<TradeProposal />} />
+          <Route path="/free-agency" element={<FreeAgencyBoard />} />
+          <Route path="/schedule" element={<FullSchedule />} />
+          <Route path="/league-stats" element={<LeagueStatsRankings />} />
+          <Route path="/player-stats" element={<PlayerStatistics />} />
+          <Route path="/box/:gameId" element={<FullBoxScore />} />
+          <Route path="/retirement" element={<RetirementReview />} />
+          <Route path="/rookie-signings" element={<RookieSignings />} />
+          <Route path="/draft-preview" element={<DraftPreview />} />
+          <Route path="/end-of-season" element={<EndOfSeasonAnnounce />} />
+          <Route path="/season-complete" element={<SeasonComplete />} />
+          <Route path="/history" element={<LeagueHistory />} />
+          <Route path="/gallery" element={<ScreenGallery />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </ScreenBoundary>
     </AppShell>
   );
 }
