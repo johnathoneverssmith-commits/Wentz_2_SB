@@ -972,6 +972,28 @@ table.mtable td.val {
   padding: 10px 14px;
 }
 
+/* ---- standing notice (roster/cap compliance, stage warnings) -------------- */
+.notice {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-faint);
+  border-radius: var(--r-md);
+  padding: 11px 14px;
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+.notice strong {
+  color: var(--ink);
+}
+.notice.bad {
+  border-left-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 7%, transparent);
+}
+.notice.bad strong {
+  color: var(--bad);
+}
+
 /* ---- inline error / notice under a form ----------------------------------- */
 .form-error {
   margin: 12px 0 0;

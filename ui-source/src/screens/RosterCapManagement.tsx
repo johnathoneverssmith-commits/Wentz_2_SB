@@ -27,6 +27,7 @@ export function RosterCapManagement() {
   const { active, setActive } = useTabs("roster");
   const [group, setGroup] = useState<PositionGroup>("QB");
   const [manualOrder, setManualOrder] = useState<Record<string, string[]>>({});
+  const [confirming, setConfirming] = useState<string | null>(null);
   const code = viewerTeamCode(s);
   const isDepthChartStage = s.stage === "offseasonDepthChart";
   const back = s.returnTo
@@ -104,10 +105,23 @@ export function RosterCapManagement() {
                 <span style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 400 }}> / 53</span>
               </>
             ),
-            className: roster.length < 46 ? "bad" : undefined,
+            className: roster.length < 46 || roster.length > 53 ? "bad" : undefined,
           },
         ]}
       />
+      {(capSpace < 0 || roster.length > 53) && (
+        <div className="notice bad" role="status">
+          <strong>Not season-legal yet.</strong>{" "}
+          {[
+            capSpace < 0 ? `${millions(-capSpace)} over the cap` : null,
+            roster.length > 53 ? `${roster.length - 53} over the 53-man limit` : null,
+          ]
+            .filter(Boolean)
+            .join(" and ")}
+          . Release players below to get compliant — otherwise your staff makes
+          the cuts for you when the league advances to the preseason.
+        </div>
+      )}
       <Tabs
         tabs={[
           { id: "roster", label: "Roster" },
@@ -181,12 +195,23 @@ export function RosterCapManagement() {
                   <div className="actions">
                     <button disabled title="Not available in this build yet">Restructure</button>
                     <button disabled title="Not available in this build yet">Extend</button>
-                    <button className="btn-danger" disabled title="Not available in this build yet">
-                      Release
-                    </button>
+                    {confirming === p.id ? (
+                      <>
+                        <button className="btn-danger" onClick={() => { s.releasePlayer(p.id); setConfirming(null); }}>
+                          Confirm release
+                        </button>
+                        <button onClick={() => setConfirming(null)}>Keep him</button>
+                      </>
+                    ) : (
+                      <button className="btn-danger" onClick={() => setConfirming(p.id)}>
+                        Release
+                      </button>
+                    )}
                   </div>
                   <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
-                    Contract moves aren't available yet — trades and free agency are the ways to reshape the roster for now.
+                    {confirming === p.id
+                      ? `Releasing ${p.name} frees ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} and sends him to the free agent market. This can't be undone.`
+                      : "Restructures and extensions aren't modeled yet. Releasing a player frees his full cap hit — there's no dead money in this build."}
                   </p>
                 </>
               }

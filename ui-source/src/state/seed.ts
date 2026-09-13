@@ -145,7 +145,100 @@ function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
 }
 
 /**
- * Brings every team up to a full 53-man roster, shaped by `ROSTER_TEMPLATE`.
+ * Sends a rostered player back to the open market.
+ *
+ * Dead money isn't modeled anywhere in this build (there are no per-player
+ * signing-bonus proration records to accelerate), so a release frees the
+ * player's whole cap hit. That's the optimistic end of the real rule — a
+ * post-June-1 cut of a mostly-earned deal — and it's deliberate: inventing a
+ * dead-cap number would be a precision this data doesn't have.
+ */
+export function releaseToMarket(state: LeagueState, p: Player): void {
+  p.free_agent = true;
+  p.nfl_team = "FA";
+  p.contract = null;
+  if (!state.standingFreeAgents.includes(p.id)) state.standingFreeAgents.push(p.id);
+}
+
+/** Cap hit a player is currently charging his team, in $M. */
+const capHitOf = (p: Player): number => p.contract?.cap_hit_by_year[0] ?? 0;
+
+/**
+ * Trims one team down to a legal roster: at most `ROSTER_SIZE` players, and
+ * under the cap.
+ *
+ * A team arrives here over one limit or both — the draft hands out seven more
+ * bodies on top of a full 53 and rookie deals are charged on top of a cap
+ * that was already near the line. Real front offices settle this with cuts
+ * before the season, and so does this.
+ *
+ * Who goes is decided the way a staff would decide it. For roster size, the
+ * worst player at a position the team is *overstocked* at, so the cut never
+ * opens a hole `fillRosterGaps` then has to plug. For the cap, the biggest
+ * cap hit that isn't a projected starter — an expensive backup is exactly
+ * what gets cut in a crunch. Starters are only touched when nothing else is
+ * left, which is itself realistic: a team that far over has to move a starter.
+ */
+function trimToLegalRoster(
+  state: LeagueState,
+  roster: Player[],
+  capTotal: number,
+): { used: number; released: number } {
+  let used = roster.reduce((n, p) => n + capHitOf(p), 0);
+  let released = 0;
+  /** Returns the cap the cut frees; `releaseToMarket` clears the contract. */
+  const drop = (p: Player): number => {
+    const freed = capHitOf(p);
+    releaseToMarket(state, p);
+    roster.splice(roster.indexOf(p), 1);
+    released++;
+    return freed;
+  };
+  const countAt = (pos: Position): number => roster.filter((p) => p.position === pos).length;
+  const templateCount = (pos: Position): number =>
+    ROSTER_TEMPLATE.find((r) => r.pos === pos)?.count ?? 0;
+  /** Projected starters, who are cut only as a last resort. */
+  const protectedIds = (): Set<string> => {
+    const keep = new Set<string>();
+    for (const [pos, n] of Object.entries(STARTER_COUNTS) as [Position, number][]) {
+      roster
+        .filter((p) => p.position === pos)
+        .sort((a, b) => b.overall - a.overall)
+        .slice(0, n)
+        .forEach((p) => keep.add(p.id));
+    }
+    return keep;
+  };
+
+  // size first — every cut here also frees cap, so the cap pass has less to do
+  while (roster.length > ROSTER_SIZE) {
+    const overstocked = roster.filter((p) => countAt(p.position) > templateCount(p.position));
+    const pool = overstocked.length > 0 ? overstocked : roster;
+    const worst = pool.reduce((a, b) => (b.overall < a.overall ? b : a));
+    used -= drop(worst);
+  }
+
+  // Then the cap — against a budget, not the raw number. Every roster spot
+  // still empty gets filled at the minimum right after this, so cutting to
+  // exactly the cap just lands the team back over it once the depth arrives.
+  const budget = (): number =>
+    capTotal - Math.max(0, ROSTER_SIZE - roster.length) * MIN_SALARY_M;
+  let guard = ROSTER_SIZE;
+  while (used > budget() && roster.length > 0 && guard-- > 0) {
+    const keep = protectedIds();
+    const expendable = roster.filter((p) => !keep.has(p.id));
+    const pool = expendable.length > 0 ? expendable : roster;
+    const priciest = pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
+    if (capHitOf(priciest) <= 0) break; // nothing left to shed
+    used -= drop(priciest);
+  }
+
+  return { used, released };
+}
+
+/**
+ * Brings every team to a full, legal 53-man roster, shaped by
+ * `ROSTER_TEMPLATE` — cutting down to the limit first, then filling up to it.
  *
  * Two things made this necessary. A 20-round fantasy draft hands each team 20
  * players and leaves ~990 in the market, and nothing refilled them — AI teams
@@ -199,8 +292,14 @@ export function fillRosterGaps(state: LeagueState): void {
     const roster = Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired);
     const countAt = (pos: Position) => roster.filter((p) => p.position === pos).length;
     const capTotal = state.teams[code]?.cap.total ?? 255;
-    // players only — coaching salaries aren't a player-cap charge
-    let used = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    // Pass 0 — cut down to a legal roster before filling up to one. A team
+    // that just signed a draft class is usually over 53 and over the cap;
+    // `used` comes back reflecting the cuts (players only, since coaching
+    // salaries aren't a player-cap charge).
+    const trimmed = trimToLegalRoster(state, roster, capTotal);
+    let used = trimmed.used;
+    marketSize += trimmed.released; // the cuts are on the market now
+
     /** room left once every remaining roster spot is covered at the minimum */
     const spendable = (): number =>
       capTotal - used - Math.max(0, ROSTER_SIZE - roster.length - 1) * MIN_SALARY_M;

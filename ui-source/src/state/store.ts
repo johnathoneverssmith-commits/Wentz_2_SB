@@ -30,7 +30,13 @@ import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { contractValueFor } from "@/sim/MockSimulationService";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
-import { applySeasonAging, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
+import {
+  applySeasonAging,
+  createLeague,
+  fillRosterGaps,
+  recomputeTeamRatings,
+  releaseToMarket,
+} from "./seed.ts";
 import {
   PRESEASON_WEEKS,
   REGULAR_SEASON_WEEKS,
@@ -81,6 +87,11 @@ export interface StoreActions {
 
   signRookie: (prospectId: string, teamCode: string) => void;
   releaseRookie: (prospectId: string, teamCode: string) => void;
+
+  /** Cut a player from the roster. He goes straight onto the standing free
+   *  agent market and his whole cap hit comes off the books — see
+   *  `releaseToMarket` for why no dead money is charged. */
+  releasePlayer: (playerId: string) => void;
 
   proposeTrade: (toTeam: string, fromPlayerIds: string[], toPlayerIds: string[]) => string;
   castTradeVote: (tradeId: string, gmId: string, vote: "for" | "against") => void;
@@ -469,6 +480,14 @@ export const useStore = create<Store>()(
         });
         return { ok: true };
       },
+
+      releasePlayer: (playerId) =>
+        set((s) => {
+          const p = s.players[playerId];
+          if (!p || p.free_agent || p.retired) return;
+          releaseToMarket(s, p);
+          recomputeTeamRatings(s);
+        }),
 
       signRookie: (prospectId, teamCode) =>
         set((s) => {
