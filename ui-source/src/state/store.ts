@@ -214,12 +214,17 @@ export const useStore = create<Store>()(
           }
 
           // leaving the fantasy draft → undrafted players seed the standing FA
-          // market, then every team tops up to a legal starting lineup (20
-          // rounds only hands each team 20 players)
+          // market, then every team is brought up to a full 53 (20 rounds only
+          // hands each team 20 players)
           if (s.stage === "fantasyDraft" && t.stage === "fantasyDraftSummary") {
             openStandingMarketFromUndrafted(s);
             fillRosterGaps(s);
           }
+
+          // Hard stop before the season: free agency is optional, so a team can
+          // reach this point still short. Nobody takes the field without a full,
+          // position-legal roster.
+          if (t.stage === "preseason") fillRosterGaps(s);
 
           // leaving retirement review → actually retire the players it showed
           if (s.stage === "offseasonRetirement" && t.stage === "offseasonDraftPrep") {

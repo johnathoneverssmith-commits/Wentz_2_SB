@@ -246,7 +246,7 @@ describe("bestAvailable (draft pick selection)", () => {
 });
 
 describe("recomputeTeamRatings (cap.used)", () => {
-  it("sums current-year player cap hits + coach salaries onto team.cap.used ($M, matching cap.total)", () => {
+  it("sums current-year player cap hits onto team.cap.used ($M, matching cap.total) — coaches aren't a player-cap charge", () => {
     const s = fixtureLeague();
     const [team] = Object.keys(s.teams);
     const roster = Object.values(s.players).filter((p) => p.nfl_team === team);

@@ -10,16 +10,17 @@ export const ROSTER_TEMPLATE: Array<{ pos: Position; count: number; starters: nu
   { pos: "OG", count: 4, starters: 2 },
   { pos: "C", count: 2, starters: 1 },
   { pos: "EDGE", count: 4, starters: 2 },
-  { pos: "DT", count: 4, starters: 2 },
+  { pos: "DT", count: 5, starters: 2 },
   { pos: "ILB", count: 4, starters: 2 },
   { pos: "OLB", count: 2, starters: 0 },
-  { pos: "CB", count: 5, starters: 2 },
+  { pos: "CB", count: 6, starters: 2 },
   { pos: "S", count: 4, starters: 2 },
   { pos: "K", count: 1, starters: 1 },
   { pos: "P", count: 1, starters: 1 },
 ];
 
-export const ROSTER_SIZE = ROSTER_TEMPLATE.reduce((n, r) => n + r.count, 0); // 53
+/** 53 — the NFL active-roster limit, and what `fillRosterGaps` builds to. */
+export const ROSTER_SIZE = ROSTER_TEMPLATE.reduce((n, r) => n + r.count, 0);
 
 /** Rough position-prior overall (mean) the generator centres ratings on. */
 export const POSITION_PRIOR: Record<Position, number> = {

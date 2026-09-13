@@ -200,7 +200,9 @@ export function RosterCapManagement() {
         <CapBar label="Offense" value={capByUnit.offense} max={capUsed} />
         <CapBar label="Defense" value={capByUnit.defense} max={capUsed} />
         <CapBar label="Special teams" value={capByUnit.special} max={capUsed} />
-        <CapBar label="Coaching staff" value={staffCap} max={capUsed} />
+        <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
+          Coaching staff costs {millions(staffCap)}/yr, paid outside the player cap.
+        </p>
         <p className="sectionlabel" style={{ marginTop: 22 }}>
           Cap summary
         </p>

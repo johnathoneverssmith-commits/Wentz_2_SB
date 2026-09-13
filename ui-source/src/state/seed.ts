@@ -14,8 +14,10 @@ import {
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
 
-import { agingDelta, MockSimulationService } from "@/sim/MockSimulationService";
+import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
+import { personName } from "@/sim/names.ts";
 import { Rng } from "@/sim/rng.ts";
+import { ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
 
@@ -88,60 +90,168 @@ const STARTER_COUNTS: Partial<Record<Position, number>> = {
   EDGE: 2, DT: 2, ILB: 2, CB: 2, S: 2, K: 1, P: 1,
 };
 
+/** League-minimum depth deal — one year, no guarantee. */
+const MIN_SALARY_M = 1;
+
+/** How many free agents the market keeps so it never empties out. */
+const MARKET_RESERVE = 140;
+
+function minimumDeal(teamCode: string): Player["contract"] {
+  return {
+    team_id: teamCode,
+    years_remaining: 1,
+    total_value: MIN_SALARY_M,
+    guaranteed: 0,
+    cap_hit_by_year: [MIN_SALARY_M],
+    signing_bonus: 0,
+  };
+}
+
+let depthSeq = 0;
+
 /**
- * Fills any position where a team can't even field its starters, from the
- * standing free-agent market, at a minimum-salary one-year deal.
+ * A camp body: fictional, bottom-tier, minimum salary. Strictly below every
+ * real player in the pool, so it fills a roster spot without ever displacing
+ * a ranked player or showing up anywhere near a depth chart's top.
+ */
+function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
+  const id = `p_depth_${season}_${++depthSeq}`;
+  const overall = clamp(Math.round(rng.normal(56, 4)), 48, 63);
+  const age = clamp(Math.round(rng.normal(25, 2)), 21, 31);
+  return {
+    id,
+    name: personName(rng),
+    position,
+    age,
+    nfl_team: "FA",
+    years_pro: clamp(age - 22, 0, 8),
+    overall,
+    attributes: {
+      speed: clamp(overall + rng.int(-6, 6), 40, 80),
+      strength: clamp(overall + rng.int(-6, 6), 40, 80),
+      awareness: clamp(overall + rng.int(-8, 4), 40, 80),
+    },
+    scheme_tags: [],
+    dev_age_threshold: age + 2,
+    decline_age_threshold: age + 6,
+    injury_history: [],
+    contract: null,
+    free_agent: true,
+    injury_status: null,
+    retired: false,
+    retirement_status: "active",
+    season_stats: { gamesPlayed: 0 },
+  };
+}
+
+/**
+ * Brings every team up to a full 53-man roster, shaped by `ROSTER_TEMPLATE`.
  *
- * A 20-round fantasy draft hands out 640 of ~1,630 players, so teams start
- * around 20 men against a 53-man template and the rest sit in the standing
- * market. Nothing refills them: AI teams only sign during the 5-day offseason
- * window (~63 signings league-wide), so by the second season teams were
- * carrying 18-26 players and several had nobody at a position at all — four
- * with no running back, two with no punter. `startingLineup` silently skips
- * those slots and `recomputeTeamRatings` falls back to a flat 72, so the
- * rating stops describing the roster and the engine is handed a team that
- * can't line up legally.
+ * Two things made this necessary. A 20-round fantasy draft hands each team 20
+ * players and leaves ~990 in the market, and nothing refilled them — AI teams
+ * only sign during the 5-day offseason window (~63 signings league-wide), so
+ * teams carried 18-26 players and several had nobody at all at a position.
+ * And the pool *is* roughly the real NFL's rostered population (~1,630 for
+ * 32 x 53 = 1,696 spots), so there aren't enough real players to fill the
+ * league even before leaving a market open.
  *
- * This is the floor, not roster management: it tops each team up to its
- * starters and no further, leaving actual depth-building to the player (and
- * to whatever fills the AI side later). Cap room is deliberately not checked
- * — a team still has to put eleven players on the field.
+ * So it fills in two passes, which is also what keeps the cap honest:
+ *
+ * - **Starters** (`STARTER_COUNTS`) come from the best available at that
+ *   position and are paid their market value. A team that genuinely has no
+ *   running back should sign a real one, and pay for him.
+ * - **Depth** up to the full template comes from the *bottom* of the market
+ *   at the league minimum. These are backups, and paying them like backups is
+ *   the whole point: a fantasy-drafted roster is already ~20 starter-caliber
+ *   players carrying ~$200M of real contracts, so the remaining 30 spots have
+ *   to cost about $1M each or no team fits under the cap. Signing
+ *   best-available here (the previous behaviour) handed out 88-overall players
+ *   at minimum salary, which distorted both the cap and competitive balance.
+ *
+ * When the market runs dry at a position — or would fall below
+ * `MARKET_RESERVE` and leave free agency empty — it generates a camp body
+ * instead. Those are fictional and capped in the 48-63 range, strictly under
+ * every real player, so the ranked pool is never displaced.
  */
 export function fillRosterGaps(state: LeagueState): void {
-  const free = Object.values(state.players)
-    .filter((p) => p.free_agent && !p.retired)
-    .sort((a, b) => b.overall - a.overall);
+  const rng = new Rng(state.season * 7717 + 13);
   const byPos = new Map<Position, Player[]>();
-  for (const p of free) {
+  let marketSize = 0;
+  for (const p of Object.values(state.players)) {
+    if (!p.free_agent || p.retired) continue;
+    marketSize++;
     const list = byPos.get(p.position);
     if (list) list.push(p);
     else byPos.set(p.position, [p]);
   }
+  // best first, so `pop()` takes the cheapest depth and `shift()` the best starter
+  for (const list of byPos.values()) list.sort((a, b) => b.overall - a.overall);
 
   const signed = new Set<string>();
+  const sign = (p: Player, teamCode: string, salary: number): void => {
+    signed.add(p.id);
+    p.free_agent = false;
+    p.nfl_team = teamCode;
+    p.contract = { ...minimumDeal(teamCode)!, total_value: salary, cap_hit_by_year: [salary] };
+  };
+
   for (const code of Object.keys(state.teams)) {
     const roster = Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired);
+    const countAt = (pos: Position) => roster.filter((p) => p.position === pos).length;
+    const capTotal = state.teams[code]?.cap.total ?? 255;
+    // players only — coaching salaries aren't a player-cap charge
+    let used = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    /** room left once every remaining roster spot is covered at the minimum */
+    const spendable = (): number =>
+      capTotal - used - Math.max(0, ROSTER_SIZE - roster.length - 1) * MIN_SALARY_M;
+
+    // Pass 1 — a usable starter at every position. Best player the team can
+    // actually *afford*, not best available: signing best-available at market
+    // rate ran teams ~$50M over the cap, because a 20-round draft leaves most
+    // of them short at several positions at once. A cap-strapped team settles
+    // for a cheaper starter, which is both realistic and self-limiting.
     for (const [pos, needed] of Object.entries(STARTER_COUNTS) as [Position, number][]) {
-      let have = roster.filter((p) => p.position === pos).length;
-      const pool = byPos.get(pos);
-      while (have < needed && pool && pool.length > 0) {
-        const p = pool.shift()!;
+      const pool = byPos.get(pos) ?? [];
+      while (countAt(pos) < needed) {
+        const room = spendable();
+        const idx = pool.findIndex(
+          (p) => !signed.has(p.id) && contractValueFor(p.overall, p.position) <= room,
+        );
+        const p = idx >= 0 ? pool.splice(idx, 1)[0]! : pool.pop();
+        if (!p) break;
         if (signed.has(p.id)) continue;
-        signed.add(p.id);
-        p.free_agent = false;
-        p.nfl_team = code;
-        p.contract = {
-          team_id: code,
-          years_remaining: 1,
-          total_value: 1,
-          guaranteed: 0,
-          cap_hit_by_year: [1],
-          signing_bonus: 0,
-        };
-        have += 1;
+        marketSize--;
+        const salary =
+          idx >= 0 ? Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos) * 10) / 10) : MIN_SALARY_M;
+        sign(p, code, salary);
+        used += salary;
+        roster.push(p);
+      }
+    }
+
+    // pass 2 — depth to a full 53, cheapest real bodies first, then camp bodies
+    for (const { pos, count } of ROSTER_TEMPLATE) {
+      const pool = byPos.get(pos) ?? [];
+      while (countAt(pos) < count) {
+        let p: Player | undefined;
+        while (marketSize > MARKET_RESERVE && pool.length > 0) {
+          const candidate = pool.pop()!;
+          if (signed.has(candidate.id)) continue;
+          p = candidate;
+          marketSize--;
+          break;
+        }
+        if (!p) {
+          p = makeDepthPlayer(pos, state.season, rng);
+          state.players[p.id] = p;
+        }
+        sign(p, code, MIN_SALARY_M);
+        used += MIN_SALARY_M;
+        roster.push(p);
       }
     }
   }
+
   if (signed.size > 0) {
     state.standingFreeAgents = state.standingFreeAgents.filter((id) => !signed.has(id));
   }
@@ -169,13 +279,6 @@ export function recomputeTeamRatings(state: LeagueState): void {
     arr.length ? Math.round(arr.reduce((s, p) => s + p.overall, 0) / arr.length) : fallback;
 
   const raw: Record<string, { o: number; off: number; def: number; st: number; roster: number }> = {};
-  const coachesByTeam = new Map<string, typeof state.coaches[string][]>();
-  for (const c of Object.values(state.coaches)) {
-    if (!c.team) continue;
-    const list = coachesByTeam.get(c.team) ?? [];
-    list.push(c);
-    coachesByTeam.set(c.team, list);
-  }
   for (const code of codes) {
     const starters = startingLineup(state, code);
     const fullRoster = Object.values(state.players).filter(
@@ -188,14 +291,19 @@ export function recomputeTeamRatings(state: LeagueState): void {
       st: mean(starters.filter((p) => p.position === "K" || p.position === "P"), 68),
       roster: mean(fullRoster),
     };
-    // cap usage (spec's "cap" fields) — current-year player cap hits + coach
-    // salaries. Dead money from cuts/trades isn't modeled (no per-player
-    // dead-cap tracking exists yet in this data model) — a simplification,
-    // not silently ignored: `cap.dead` stays 0 rather than pretending to a
-    // precision this doesn't have.
-    const playerCapHits = fullRoster.reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
-    const coachCapHits = (coachesByTeam.get(code) ?? []).reduce((s, c) => s + (c.contract?.annualValue ?? 0), 0);
-    state.teams[code]!.cap.used = Math.round((playerCapHits + coachCapHits) * 10) / 10;
+    // Cap usage (spec's "cap" fields) — current-year *player* cap hits only.
+    // Coaching salaries used to be added in here, which isn't how the NFL cap
+    // works (it covers players) and had a real consequence: once the hiring
+    // window filled all 32 staffs, ~$18M of salaries landed on every team at
+    // once and put 30 of them over the cap through no roster decision of their
+    // own. Staff cost is still shown on the Roster & Cap screen, as its own
+    // line rather than a charge against the player cap.
+    //
+    // Dead money from cuts/trades isn't modeled (no per-player dead-cap
+    // tracking exists yet) — a simplification, not silently ignored:
+    // `cap.dead` stays 0 rather than pretending to a precision this lacks.
+    state.teams[code]!.cap.used =
+      Math.round(fullRoster.reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0) * 10) / 10;
   }
 
   const rank = (key: keyof (typeof raw)[string]) => {

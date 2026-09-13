@@ -57,7 +57,8 @@ export interface TeamState {
   /** $M, matching Contract/Coach contract fields (contractValueFor's "$M/year"
    *  convention) — not CLAUDE.md's general "whole dollars" rule, which this
    *  corner of the data model predates. `used` is recomputed by
-   *  recomputeTeamRatings from the current roster + staff's contracts;
+   *  recomputeTeamRatings from the current roster's contracts; coaching
+   *  salaries are *not* a charge against it, as in the real NFL cap.
    *  `dead` (cap charged for players no longer on the roster) isn't modeled
    *  yet — no per-player dead-cap tracking exists — and stays 0. */
   cap: {

@@ -61,8 +61,28 @@ describe("evaluateTrade", () => {
     const offeredWr = proposerPlayers.find((p) => p.position === "WR" && Math.abs(p.overall - offeredQb.overall) <= 3);
     if (!offeredWr) return; // fixture didn't have a close-value WR this seed; skip rather than flake
 
-    const forNeed = sim.evaluateTrade(s, fromTeam, toTeam, [playerAsset(offeredQb.id)], []);
-    const forNoNeed = sim.evaluateTrade(s, fromTeam, toTeam, [playerAsset(offeredWr.id)], []);
+    // ask for something back of comparable value: a giveaway pins acceptance
+    // at the ceiling for both, and a saturated number can't show the need
+    // signal at all
+    const back = Object.values(s.players)
+      .filter((p) => p.nfl_team === toTeam && p.position !== "QB")
+      .sort((a, b) => Math.abs(a.overall - offeredQb.overall) - Math.abs(b.overall - offeredQb.overall))[0];
+    if (!back) return;
+
+    const forNeed = sim.evaluateTrade(
+      s,
+      fromTeam,
+      toTeam,
+      [playerAsset(offeredQb.id)],
+      [playerAsset(back.id)],
+    );
+    const forNoNeed = sim.evaluateTrade(
+      s,
+      fromTeam,
+      toTeam,
+      [playerAsset(offeredWr.id)],
+      [playerAsset(back.id)],
+    );
     expect(forNeed.acceptLikelihood).toBeGreaterThan(forNoNeed.acceptLikelihood);
   });
 
