@@ -38,6 +38,7 @@ import {
   fillRosterGaps,
   marketDeal,
   normalizePool,
+  pruneFreeAgentMarket,
   recomputeTeamRatings,
   releaseToMarket,
   trimRosters,
@@ -229,6 +230,7 @@ export const useStore = create<Store>()(
             s.rookieOutcomes = {};
             s.pendingGameDay = null;
             clearInjuries(s); // an offseason outlasts any injury
+            pruneFreeAgentMarket(s); // careers that stopped going anywhere end
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
             s.draftClass = sim.generateDraftClass(s.season, s.season);

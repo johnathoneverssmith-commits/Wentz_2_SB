@@ -17,7 +17,12 @@ import { TEAMS } from "@/data/teams";
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { personName } from "@/sim/names.ts";
 import { Rng } from "@/sim/rng.ts";
-import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
+import {
+  OFFSEASON_ROSTER_SIZE,
+  RETIREMENT_AGE,
+  ROSTER_SIZE,
+  ROSTER_TEMPLATE,
+} from "@/sim/roster-template.ts";
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
 
@@ -244,6 +249,45 @@ export function normalizePool(
       p.contract = dealFor(team, salary, rng.int(2, 5));
     });
   }
+}
+
+/**
+ * How many unsigned players the market carries into a new season.
+ *
+ * Roughly ten per team, which is what a real "still available in July" pool
+ * looks like next to a 53-man roster. Left unbounded it only grows: every
+ * offseason adds a draft class, the contracts that ran out, and the camp
+ * bodies the fill generated, and nothing ever leaves. Five seasons in there
+ * were 1,072 free agents against 1,696 roster spots, a free-agency board
+ * nobody could read and a save file carrying 2,930 players.
+ */
+const MARKET_CEILING = 320;
+
+/**
+ * Retires the bottom of the free-agent market at each new season.
+ *
+ * Players who stopped being signable leave the game, worst first: real
+ * careers end quietly, and this is that. Camp bodies and anyone past their
+ * position's typical retirement age go first, which keeps the market's
+ * *useful* half intact — a GM looking for a starter still finds one.
+ */
+export function pruneFreeAgentMarket(state: LeagueState): void {
+  const market = Object.values(state.players).filter((p) => p.free_agent && !p.retired);
+  if (market.length <= MARKET_CEILING) return;
+  const worthKeeping = (p: Player): number => {
+    const pastIt = p.age > (RETIREMENT_AGE[p.position] ?? 33) ? 1 : 0;
+    // camp bodies are fictional filler; they go before anyone real
+    const filler = p.id.startsWith("p_depth_") ? 1 : 0;
+    return p.overall - pastIt * 15 - filler * 10;
+  };
+  market.sort((a, b) => worthKeeping(a) - worthKeeping(b));
+  for (const p of market.slice(0, market.length - MARKET_CEILING)) {
+    p.retired = true;
+    p.retirement_status = "retiring";
+    p.contract = null;
+  }
+  const gone = new Set(market.slice(0, market.length - MARKET_CEILING).map((p) => p.id));
+  state.standingFreeAgents = state.standingFreeAgents.filter((id) => !gone.has(id));
 }
 
 /**
