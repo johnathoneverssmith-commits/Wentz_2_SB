@@ -9,7 +9,7 @@
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
 import {
@@ -36,6 +36,7 @@ import {
   createLeague,
   expireContracts,
   fillRosterGaps,
+  forgetOldRetirees,
   marketDeal,
   normalizePool,
   pruneFreeAgentMarket,
@@ -122,6 +123,22 @@ function clearReadiness(state: LeagueState): void {
 }
 function faField(subject: Subject): "freeAgency" | "coachingHire" {
   return subject === "players" ? "freeAgency" : "coachingHire";
+}
+
+/**
+ * Whether the last attempt to write the save failed (localStorage full, or
+ * disabled entirely — a private window blocks it). The shell watches this so
+ * the player is told rather than losing a dynasty silently.
+ */
+let saveBroken = false;
+const saveWatchers = new Set<(broken: boolean) => void>();
+function notifySaveState(): void {
+  for (const fn of saveWatchers) fn(saveBroken);
+}
+export function onSaveStateChange(fn: (broken: boolean) => void): () => void {
+  saveWatchers.add(fn);
+  fn(saveBroken);
+  return () => saveWatchers.delete(fn);
 }
 
 export const useStore = create<Store>()(
@@ -231,6 +248,7 @@ export const useStore = create<Store>()(
             s.pendingGameDay = null;
             clearInjuries(s); // an offseason outlasts any injury
             pruneFreeAgentMarket(s); // careers that stopped going anywhere end
+            forgetOldRetirees(s); // and a save file shouldn't carry them forever
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
             s.draftClass = sim.generateDraftClass(s.season, s.season);
@@ -654,6 +672,28 @@ export const useStore = create<Store>()(
     {
       name: "nfl-sim-ui.league",
       version: 2,
+      // A quota error out of `localStorage.setItem` is swallowed by the
+      // persist middleware — it logs and carries on, so a dynasty that
+      // outgrows its storage just quietly stops saving and the player finds
+      // out when they reopen the tab. This surfaces it instead.
+      storage: createJSONStorage(() => ({
+        getItem: (k) => window.localStorage.getItem(k),
+        removeItem: (k) => window.localStorage.removeItem(k),
+        setItem: (k, v) => {
+          try {
+            window.localStorage.setItem(k, v);
+            if (saveBroken) {
+              saveBroken = false;
+              notifySaveState();
+            }
+          } catch {
+            if (!saveBroken) {
+              saveBroken = true;
+              notifySaveState();
+            }
+          }
+        },
+      })),
       partialize: (s) => {
         const rest: Partial<Store> = { ...s };
         for (const k of Object.keys(rest) as (keyof Store)[]) {
@@ -1273,6 +1313,7 @@ export function commitRetirements(s: LeagueState): void {
     if (!p) continue;
     p.retired = true;
     p.retirement_status = "retiring";
+    p.retired_season = s.season;
   }
 }
 

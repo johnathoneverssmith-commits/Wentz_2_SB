@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { LeagueState, Player } from "@/domain";
 
-import { createLeague, DEFAULT_CONFIG, pruneFreeAgentMarket } from "./seed.ts";
+import {
+  createLeague,
+  DEFAULT_CONFIG,
+  forgetOldRetirees,
+  pruneFreeAgentMarket,
+} from "./seed.ts";
 
 /**
  * Nothing ever left the free-agent market. Every offseason added a draft
@@ -70,5 +75,58 @@ describe("free agent market pruning", () => {
     s.standingFreeAgents = marketOf(s).map((p) => p.id);
     pruneFreeAgentMarket(s);
     for (const id of s.standingFreeAgents) expect(s.players[id]!.retired).toBe(false);
+  });
+});
+
+/**
+ * Retired players were kept forever. Nothing reads them — `history` scores
+ * GMs, not players, and every screen filters them out — but the save grows
+ * ~300 records a season at ~760 bytes each, and zustand's `persist` fails
+ * *silently* when localStorage runs out: a dynasty would have quietly stopped
+ * saving somewhere around its fifteenth year.
+ */
+describe("forgetting old retirees", () => {
+  function withRetirees(currentSeason: number): LeagueState {
+    const s = createLeague(9, DEFAULT_CONFIG);
+    s.season = currentSeason;
+    const all = Object.values(s.players);
+    all[0]!.retired = true;
+    all[0]!.retired_season = currentSeason; // this year
+    all[1]!.retired = true;
+    all[1]!.retired_season = currentSeason - 1; // last year
+    all[2]!.retired = true;
+    all[2]!.retired_season = currentSeason - 4; // long gone
+    all[3]!.retired = true; // from a save written before the field existed
+    return s;
+  }
+
+  it("keeps this year's and last year's, drops the rest", () => {
+    const s = withRetirees(2030);
+    const ids = Object.values(s.players).filter((p) => p.retired).map((p) => p.id);
+    forgetOldRetirees(s);
+    expect(s.players[ids[0]!]).toBeDefined();
+    expect(s.players[ids[1]!]).toBeDefined();
+    expect(s.players[ids[2]!]).toBeUndefined();
+  });
+
+  it("drops a retiree from an older save that has no season stamped", () => {
+    const s = withRetirees(2030);
+    const unstamped = Object.values(s.players).find((p) => p.retired && !p.retired_season)!;
+    forgetOldRetirees(s);
+    expect(s.players[unstamped.id]).toBeUndefined();
+  });
+
+  it("never drops an active player", () => {
+    const s = withRetirees(2030);
+    const active = Object.values(s.players).filter((p) => !p.retired).map((p) => p.id);
+    forgetOldRetirees(s);
+    for (const id of active) expect(s.players[id]).toBeDefined();
+  });
+
+  it("leaves no dangling id on the standing-market list", () => {
+    const s = withRetirees(2030);
+    s.standingFreeAgents = Object.keys(s.players);
+    forgetOldRetirees(s);
+    for (const id of s.standingFreeAgents) expect(s.players[id]).toBeDefined();
   });
 });

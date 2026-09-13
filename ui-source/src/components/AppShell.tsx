@@ -1,7 +1,8 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
-import { useStore, isInSeason } from "@/state/store";
+import { isInSeason, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
 
 import "./app-shell.css";
@@ -39,6 +40,10 @@ const active = ({ isActive }: { isActive: boolean }) => (isActive ? "active" : "
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   useTeamTheme();
+  // losing a dynasty to a silent storage failure is the worst bug this app
+  // could have, so it is the one thing the shell always says out loud
+  const [saveBroken, setSaveBroken] = useState(false);
+  useEffect(() => onSaveStateChange(setSaveBroken), []);
   const stage = useStore((s) => s.stage);
   const season = useStore((s) => s.season);
   const week = useStore((s) => s.week);
@@ -111,7 +116,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           New league
         </button>
       </nav>
-      <main className="app-main">{children}</main>
+      <main className="app-main">
+        {saveBroken && (
+          <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>This dynasty isn't being saved.</strong> The browser refused to write to
+            storage — usually a full quota, or a private window, which blocks it entirely. Play
+            continues, but closing this tab will lose everything since the last successful save.
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

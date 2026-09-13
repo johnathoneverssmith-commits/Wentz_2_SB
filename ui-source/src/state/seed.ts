@@ -284,10 +284,30 @@ export function pruneFreeAgentMarket(state: LeagueState): void {
   for (const p of market.slice(0, market.length - MARKET_CEILING)) {
     p.retired = true;
     p.retirement_status = "retiring";
+    p.retired_season = state.season;
     p.contract = null;
   }
   const gone = new Set(market.slice(0, market.length - MARKET_CEILING).map((p) => p.id));
   state.standingFreeAgents = state.standingFreeAgents.filter((id) => !gone.has(id));
+}
+
+/**
+ * Drops players who retired more than a season ago.
+ *
+ * Retired players were kept forever. Nothing reads them — `history` scores
+ * GMs, not players, and every screen filters them out — but the save grows
+ * about 300 records a season at ~760 bytes each, and zustand's `persist`
+ * fails *silently* when localStorage runs out. A dynasty would have quietly
+ * stopped saving somewhere around its fifteenth year. One season of grace is
+ * kept so a "who hung it up" view has something to show.
+ */
+export function forgetOldRetirees(state: LeagueState): void {
+  for (const [id, p] of Object.entries(state.players)) {
+    if (!p.retired) continue;
+    if ((p.retired_season ?? 0) >= state.season - 1) continue;
+    delete state.players[id];
+  }
+  state.standingFreeAgents = state.standingFreeAgents.filter((id) => state.players[id]);
 }
 
 /**

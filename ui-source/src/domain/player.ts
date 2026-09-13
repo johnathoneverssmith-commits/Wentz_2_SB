@@ -167,6 +167,8 @@ export interface Player {
   // --- UI / franchise extensions (spec §6.3) ---
   draft_info?: DraftInfo;
   retirement_status?: RetirementStatus;
+  /** Season a player retired in — how `forgetOldRetirees` knows when to let go. */
+  retired_season?: number;
   /** College, for rookies (spec §6.3 identity). */
   college?: string;
   /** Accumulating current-season stats; reset per season (preseason resets at Wk1). */
