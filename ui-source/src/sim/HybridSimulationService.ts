@@ -245,6 +245,9 @@ export class HybridSimulationService implements SimulationService {
         slate,
         rosters,
         viewerGame ? { homeTeam: viewerGame.homeTeam, awayTeam: viewerGame.awayTeam } : null,
+        // a GM's depth chart is the only lineup instruction the game takes;
+        // the engine sorts by rating unless it's given one
+        state.depthChart ?? {},
       );
     }, () => this.mock.simulateWeek(state, week, phase));
   }

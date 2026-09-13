@@ -114,10 +114,18 @@ export class HttpSimulationService {
     games: { homeTeam: string; awayTeam: string }[],
     rosters: Record<string, Player[]>,
     viewer: { homeTeam: string; awayTeam: string } | null,
+    depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
   ): Promise<GameResult[]> {
     const engineRosters: Record<string, Player[]> = {};
     for (const [team, players] of Object.entries(rosters)) {
       engineRosters[toEngine(team)] = players.map(playerToEngine);
+    }
+    const engineDepth: Record<string, Record<string, string[]>> = {};
+    for (const [team, chart] of Object.entries(depthCharts)) {
+      const entries = Object.entries(chart).filter(([, ids]) => ids && ids.length > 0);
+      if (entries.length > 0) {
+        engineDepth[toEngine(team)] = Object.fromEntries(entries) as Record<string, string[]>;
+      }
     }
     const body = {
       seed,
@@ -127,6 +135,7 @@ export class HttpSimulationService {
       games: games.map((g) => ({ homeTeam: toEngine(g.homeTeam), awayTeam: toEngine(g.awayTeam) })),
       viewer: viewer ? { homeTeam: toEngine(viewer.homeTeam), awayTeam: toEngine(viewer.awayTeam) } : null,
       rosters: engineRosters,
+      depthCharts: engineDepth,
     };
     const results = await post<
       (GameResult & { broadcast?: GameBroadcast & { home: string; away: string } })[]

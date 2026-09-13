@@ -1,0 +1,5 @@
+Y1 season=2027 n=1696 sizes=53-53 ovr top/med/low=98/70/50 age=27.5 fa=358 retired=19 rooms=1..42.6 ghosts=0 players=2073
+Y2 season=2028 n=1696 sizes=53-53 ovr top/med/low=97/68/43 age=28.7 fa=344 retired=42 rooms=15.8..82.2 ghosts=0 players=2082
+Y3 season=2029 n=1696 sizes=53-53 ovr top/med/low=99/68/41 age=29.5 fa=311 retired=84 rooms=24..117.3 ghosts=0 players=2091
+Y4 season=2030 n=1696 sizes=53-53 ovr top/med/low=99/67/41 age=30.4 fa=265 retired=144 rooms=18.2..152.5 ghosts=0 players=2105
+Y5 season=2031 n=1696 sizes=53-53 ovr top/med/low=99/65/40 age=31.1 fa=214 retired=212 rooms=32.7..180.3 ghosts=0 players=2122

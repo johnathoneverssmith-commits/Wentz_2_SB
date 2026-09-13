@@ -194,22 +194,55 @@ function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
  * they're worth, on staggered terms so free agency has something to do in
  * later years (see `expireContracts`).
  */
-export function normalizePool(players: Player[], fantasyDraft: boolean, seed: number): void {
+export function normalizePool(
+  players: Player[],
+  fantasyDraft: boolean,
+  seed: number,
+  capTotal = 255,
+): void {
   const rng = new Rng(seed ^ 0x5ee1);
-  for (const p of players) {
-    if (fantasyDraft) {
+  if (fantasyDraft) {
+    for (const p of players) {
       p.free_agent = true;
       p.nfl_team = "FA";
       p.contract = null;
-      continue;
     }
+    return;
+  }
+
+  const squads = new Map<string, Player[]>();
+  for (const p of players) {
     if (!p.nfl_team || p.nfl_team === "FA") {
       p.free_agent = true;
       p.contract = null;
       continue;
     }
     p.free_agent = false;
-    if (!p.contract) p.contract = marketDeal(p.nfl_team, p, rng.int(2, 5));
+    const list = squads.get(p.nfl_team);
+    if (list) list.push(p);
+    else squads.set(p.nfl_team, [p]);
+  }
+
+  // Price each squad to fit its cap rather than at raw market value.
+  //
+  // A real NFL roster priced by `contractValueFor` costs about $350M against
+  // a $255M cap — the valuation curve was fitted for free-agent asking prices,
+  // not for buying 60 players at once. Left alone, every team started ~$160M
+  // over, the preseason trim had to shed a third of the league, and it got
+  // there by cutting the biggest contracts: Baltimore opened the season with
+  // three camp-body quarterbacks. Scaling keeps the *shape* of a payroll (the
+  // stars still cost the most) while landing the total where a front office
+  // would actually have it.
+  const target = capTotal * 0.88;
+  for (const [team, squad] of squads) {
+    const raw = squad.map((p) => Math.max(MIN_SALARY_M, contractValueFor(p.overall, p.position)));
+    const total = raw.reduce((a, b) => a + b, 0);
+    const scale = total > target ? target / total : 1;
+    squad.forEach((p, i) => {
+      if (p.contract) return;
+      const salary = Math.max(MIN_SALARY_M, Math.round(raw[i]! * scale * 10) / 10);
+      p.contract = dealFor(team, salary, rng.int(2, 5));
+    });
   }
 }
 
@@ -541,14 +574,34 @@ export function fillRosterGaps(state: LeagueState): void {
   }
 }
 
-/** The starting lineup for a team: top-N by overall at each starter position. */
+/**
+ * Players at `pos` on `code`, in depth order: the GM's own order where they
+ * have set one, otherwise best-first by overall.
+ *
+ * The depth chart used to live in one screen's `useState`, so re-ordering it
+ * changed nothing and survived nothing — an entire stage of the annual cycle
+ * that did not do anything. This is what makes it mean something.
+ */
+export function depthAt(state: LeagueState, code: string, pos: Position): Player[] {
+  const at = Object.values(state.players).filter(
+    (p) => p.nfl_team === code && !p.retired && p.position === pos,
+  );
+  const order = state.depthChart?.[code]?.[pos];
+  if (!order || order.length === 0) return at.sort((a, b) => b.overall - a.overall);
+  const rank = new Map(order.map((id, i) => [id, i]));
+  // anyone signed since the chart was set falls in behind it, by overall
+  return at.sort(
+    (a, b) =>
+      (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+      b.overall - a.overall,
+  );
+}
+
+/** The starting lineup for a team: the top of the depth chart at each spot. */
 export function startingLineup(state: LeagueState, code: string): Player[] {
-  const roster = Object.values(state.players)
-    .filter((p) => p.nfl_team === code && !p.retired)
-    .sort((a, b) => b.overall - a.overall);
   const out: Player[] = [];
   for (const [pos, n] of Object.entries(STARTER_COUNTS) as [Position, number][]) {
-    out.push(...roster.filter((p) => p.position === pos).slice(0, n));
+    out.push(...depthAt(state, code, pos).slice(0, n));
   }
   return out;
 }
@@ -683,6 +736,7 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
     rookieOutcomes: {},
     freeAgency: null,
     standingFreeAgents: [],
+    depthChart: {},
     coachingHire: null,
     bracket: null,
     trades: [],

@@ -3,6 +3,7 @@ import type { Coach } from "./coach.ts";
 import type { DraftProspect, DraftState, DraftPickAsset } from "./draft.ts";
 import type { GameResult, ScheduledGame } from "./game.ts";
 import type { Player } from "./player.ts";
+import type { Position } from "./player.ts";
 import type { TeamState } from "./team.ts";
 
 /**
@@ -175,6 +176,13 @@ export interface LeagueState {
   freeAgency: FreeAgencyState | null;
   /** persistent in-season FA market (open from the hub). */
   standingFreeAgents: string[];
+  /**
+   * Per-team depth chart: position -> player ids, best first. Only positions
+   * the GM has actually reordered appear; everything else falls back to
+   * overall. This is the one place a GM's lineup preference is recorded, so
+   * it has to outlive the screen that sets it.
+   */
+  depthChart: Record<string, Partial<Record<Position, string[]>>>;
   /** initial coaching-hire period. */
   coachingHire: FreeAgencyState | null;
   bracket: BracketState | null;

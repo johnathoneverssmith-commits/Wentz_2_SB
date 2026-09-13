@@ -8,6 +8,7 @@ describe("soak", () => {
     const viewer = () => S().gms.find((g) => g.id === S().viewerGmId)?.teamCode ?? "";
     await S().newLeague(404, { ...DEFAULT_CONFIG, humanGmCount: 1 });
 
+    const lines: string[] = [];
     const report = (tag: string) => {
       const s = S();
       const rostered = Object.values(s.players).filter((p) => !p.retired && !p.free_agent && p.nfl_team !== "FA");
@@ -18,8 +19,7 @@ describe("soak", () => {
       const rooms = Object.keys(s.teams).map((c) => +(s.teams[c]!.cap.total - s.teams[c]!.cap.used).toFixed(1));
       const retired = Object.values(s.players).filter((p) => p.retired).length;
       const ghosts = Object.values(s.players).filter((p) => !p.retired && p.free_agent && p.nfl_team !== "FA").length;
-      // eslint-disable-next-line no-console
-      console.log(
+      lines.push(
         `${tag} season=${s.season} n=${rostered.length} sizes=${Math.min(...sizes)}-${Math.max(...sizes)}` +
           ` ovr top/med/low=${ovr[0]}/${ovr[Math.floor(ovr.length / 2)]}/${ovr[ovr.length - 1]}` +
           ` age=${(ages.reduce((a, b) => a + b, 0) / ages.length).toFixed(1)}` +
@@ -51,5 +51,7 @@ describe("soak", () => {
       else await S().tryAdvance();
       if (stage === "offseasonDepthChart" && S().stage === "preseason") { years++; report(`Y${years}`); }
     }
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync("soak-report.txt", lines.join(String.fromCharCode(10)));
   }, 900000);
 });

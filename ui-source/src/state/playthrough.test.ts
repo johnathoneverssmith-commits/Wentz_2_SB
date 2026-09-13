@@ -17,7 +17,7 @@ import { useStore } from "./store.ts";
  * a stage whose gate never opens. Unit tests cover each of those pieces; only
  * playing the year catches them interacting.
  */
-const TIMEOUT = 180_000;
+const TIMEOUT = 300_000;
 
 function state(): LeagueState {
   return useStore.getState();

@@ -97,6 +97,10 @@ export interface StoreActions {
   signRookie: (prospectId: string, teamCode: string) => void;
   releaseRookie: (prospectId: string, teamCode: string) => void;
 
+  /** Record the GM's depth order at one position. Ids are best-first;
+   *  anyone left out falls in behind by overall. */
+  setDepthOrder: (teamCode: string, position: Position, playerIds: string[]) => void;
+
   /** Cut a player from the roster. He goes straight onto the standing free
    *  agent market and his whole cap hit comes off the books — see
    *  `releaseToMarket` for why no dead money is charged. */
@@ -245,9 +249,11 @@ export const useStore = create<Store>()(
             fillRosterGaps(s);
           }
 
-          // leaving rookie signings → the draft class has just been added on
-          // top of a full roster, so cut back to legal before the market opens
+          // leaving rookie signings → the AI teams put their own classes under
+          // contract, then every roster is cut back to legal before the market
+          // opens
           if (s.stage === "offseasonSignings" && t.stage === "offseasonFreeAgency") {
+            signAiDraftPicks(s);
             trimRosters(s);
           }
 
@@ -504,6 +510,12 @@ export const useStore = create<Store>()(
         });
         return { ok: true };
       },
+
+      setDepthOrder: (teamCode, position, playerIds) =>
+        set((s) => {
+          const forTeam = (s.depthChart[teamCode] ??= {});
+          forTeam[position] = playerIds;
+        }),
 
       releasePlayer: (playerId) =>
         set((s) => {
@@ -1172,6 +1184,26 @@ function openStandingMarketFromUndrafted(s: LeagueState): void {
     p.free_agent = true;
     p.nfl_team = "FA";
     p.contract = null;
+  }
+}
+
+/**
+ * Signs every draft pick the AI teams made.
+ *
+ * Only the viewer's picks were ever signed: the Rookie Signings screen is the
+ * human's, and nothing did the same for the other 31 teams. So each year 217
+ * drafted players simply vanished and the league never got any younger. Over
+ * five seasons the average age climbed 27.5 -> 31.1, the median overall fell
+ * 70 -> 65, and free agency drained from 358 players to 214 — a league quietly
+ * ageing to death while its draft classes evaporated.
+ */
+function signAiDraftPicks(s: LeagueState): void {
+  const humanTeams = new Set(s.gms.filter((g) => g.isHuman).map((g) => g.teamCode));
+  for (const r of s.draft?.results ?? []) {
+    if (!r.selectedId || humanTeams.has(r.teamCode)) continue;
+    if (s.rookieOutcomes[r.selectedId]) continue;
+    upsertRookiePlayer(s, r.selectedId, r.teamCode, r.round, false);
+    s.rookieOutcomes[r.selectedId] = "signed";
   }
 }
 

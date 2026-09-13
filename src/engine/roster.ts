@@ -42,19 +42,46 @@ export function loadPool(): Map<string, Player[]> {
   return byTeam;
 }
 
+/**
+ * An explicit depth chart: position -> player ids, starter first.
+ *
+ * Rating order is the right default and stays the default — the pool has no
+ * depth-chart data and nothing in the validation paths supplies one. It
+ * exists for the franchise layer, where a GM sets a lineup by hand and that
+ * choice has to reach the simulator; without it the UI's depth-chart stage
+ * was a screen whose output nothing read. A position the order omits, and any
+ * player it doesn't mention, falls back to `overall` exactly as before.
+ */
+export type DepthOrder = Readonly<Record<string, readonly string[]>>;
+
 export class Roster {
   readonly team: string;
-  /** position -> players, sorted by `overall` descending */
+  /** position -> players, in depth order (by `overall` unless one was given) */
   readonly depth: Map<string, Player[]>;
   private _off: Lineup | null = null;
   private readonly _def = new Map<boolean, Lineup>();
 
-  constructor(team: string, players: Player[]) {
+  constructor(team: string, players: Player[], order?: DepthOrder) {
     this.team = team;
     this.depth = new Map();
     for (const p of players) pushInto(this.depth, p.position, p);
-    for (const list of this.depth.values()) {
-      list.sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0));
+    for (const [pos, list] of this.depth) {
+      const named = order?.[pos];
+      if (!named || named.length === 0) {
+        list.sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0));
+        continue;
+      }
+      // named players in the order given, then everyone else by rating —
+      // a player signed after the chart was set slots in behind it
+      const rank = new Map(named.map((id, i) => [id, i]));
+      list.sort((a, b) => {
+        const ra = rank.get(a.id);
+        const rb = rank.get(b.id);
+        if (ra != null && rb != null) return ra - rb;
+        if (ra != null) return -1;
+        if (rb != null) return 1;
+        return (b.overall ?? 0) - (a.overall ?? 0);
+      });
     }
   }
 

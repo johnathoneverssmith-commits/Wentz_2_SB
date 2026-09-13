@@ -31,7 +31,7 @@ import {
   type PlayoffProgress,
 } from "../src/engine/playoffs.js";
 import { nflSchedule } from "../src/engine/schedule.js";
-import { Roster } from "../src/engine/roster.js";
+import { Roster, type DepthOrder } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
 import { allStaffs } from "../src/engine/staff-data.js";
 import {
@@ -90,8 +90,12 @@ function send(res: ServerResponse, status: number, body: unknown): void {
 }
 
 /** Build a `Roster` from a franchise's current players for one team, if given. */
-function rosterFrom(team: string, players: Player[] | undefined): Roster | undefined {
-  return players && players.length ? new Roster(team, players) : undefined;
+function rosterFrom(
+  team: string,
+  players: Player[] | undefined,
+  order?: DepthOrder,
+): Roster | undefined {
+  return players && players.length ? new Roster(team, players, order) : undefined;
 }
 
 interface SimulateWeekBody {
@@ -102,16 +106,18 @@ interface SimulateWeekBody {
   games: { homeTeam: string; awayTeam: string }[];
   /** the slate's viewer game, if any — gets the full broadcast/gamecast trace. */
   viewer?: { homeTeam: string; awayTeam: string } | null;
+  /** team code -> that team's depth chart (position -> player ids, starter first). */
+  depthCharts?: Record<string, DepthOrder>;
   /** team code -> that franchise's current players, for roster injection. */
   rosters?: Record<string, Player[]>;
 }
 
 function handleSimulateWeek(body: SimulateWeekBody) {
-  const { seed, season, week, phase, games, viewer, rosters } = body;
+  const { seed, season, week, phase, games, viewer, rosters, depthCharts } = body;
   return games.map(({ homeTeam, awayTeam }) => {
     const gameSeed = hashStr(`${seed}|${week}|${phase}|${homeTeam}|${awayTeam}`);
-    const homeRoster = rosterFrom(homeTeam, rosters?.[homeTeam]);
-    const awayRoster = rosterFrom(awayTeam, rosters?.[awayTeam]);
+    const homeRoster = rosterFrom(homeTeam, rosters?.[homeTeam], depthCharts?.[homeTeam]);
+    const awayRoster = rosterFrom(awayTeam, rosters?.[awayTeam], depthCharts?.[awayTeam]);
     const isViewer =
       viewer && viewer.homeTeam === homeTeam && viewer.awayTeam === awayTeam;
 

@@ -9,9 +9,12 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import {
   POSITION_GROUPS,
   POSITION_TO_GROUP,
+  type Player,
+  type Position,
   type PositionGroup,
 } from "@/domain";
 import { useStore } from "@/state/store";
+import { depthAt } from "@/state/seed";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
@@ -26,7 +29,6 @@ export function RosterCapManagement() {
   const s = useStore();
   const { active, setActive } = useTabs("roster");
   const [group, setGroup] = useState<PositionGroup>("QB");
-  const [manualOrder, setManualOrder] = useState<Record<string, string[]>>({});
   const [confirming, setConfirming] = useState<string | null>(null);
   const code = viewerTeamCode(s);
   const isDepthChartStage = s.stage === "offseasonDepthChart";
@@ -57,10 +59,23 @@ export function RosterCapManagement() {
     .filter((c) => c.team === code)
     .reduce((n, c) => n + (c.contract?.annualValue ?? 0), 0);
 
-  const grouped = roster.filter((p) => POSITION_TO_GROUP[p.position] === group);
-  const ordered = manualOrder[group]
-    ? manualOrder[group]!.map((id) => grouped.find((p) => p.id === id)!).filter(Boolean)
-    : grouped;
+  // Depth is per position, not per group: "OL" covers three of them, and a
+  // left tackle isn't competing with a centre for a spot.
+  const positionsInGroup = (Object.keys(POSITION_TO_GROUP) as Position[]).filter(
+    (pos) => POSITION_TO_GROUP[pos] === group,
+  );
+  const ordered = positionsInGroup.flatMap((pos) => depthAt(s, code, pos));
+
+  /** Move a player one place up or down the chart at his own position. */
+  const nudge = (p: Player, by: -1 | 1): void => {
+    const line = depthAt(s, code, p.position).map((x) => x.id);
+    const i = line.indexOf(p.id);
+    const j = i + by;
+    if (i < 0 || j < 0 || j >= line.length) return;
+    [line[i], line[j]] = [line[j]!, line[i]!];
+    s.setDepthOrder(code, p.position, line);
+  };
+  const lineAt = (pos: Position) => ordered.filter((x) => x.position === pos);
 
   const needs = POSITION_GROUPS.map((g) => {
     const players = roster.filter((p) => POSITION_TO_GROUP[p.position] === g);
@@ -144,9 +159,7 @@ export function RosterCapManagement() {
               ))}
             </select>
           </div>
-          <button
-            onClick={() => setManualOrder((m) => ({ ...m, [group]: [...grouped].sort((a, b) => b.overall - a.overall).map((p) => p.id) }))}
-          >
+          <button onClick={() => positionsInGroup.forEach((pos) => s.setDepthOrder(code, pos, []))}>
             Auto-reorder by overall
           </button>
         </div>
@@ -154,13 +167,13 @@ export function RosterCapManagement() {
         {ordered.length === 0 ? (
           <div className="emptystate">No players in this group.</div>
         ) : (
-          ordered.map((p, i) => (
+          ordered.map((p) => (
             <ExpandableRow
               key={p.id}
               gridTemplate="28px 1.5fr 0.5fr 0.5fr 0.7fr 0.9fr 16px"
               columns={
                 <>
-                  <span className="rank-num">{i + 1}</span>
+                  <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}</span>
                   <span className="pname">
                     {p.name} <span className="ppos">{p.position}</span>
                   </span>
@@ -193,6 +206,20 @@ export function RosterCapManagement() {
                     </div>
                   </div>
                   <div className="actions">
+                    <button
+                      onClick={() => nudge(p, -1)}
+                      disabled={lineAt(p.position)[0]?.id === p.id}
+                      title={`Move up the ${p.position} depth chart`}
+                    >
+                      Move up
+                    </button>
+                    <button
+                      onClick={() => nudge(p, 1)}
+                      disabled={lineAt(p.position).at(-1)?.id === p.id}
+                      title={`Move down the ${p.position} depth chart`}
+                    >
+                      Move down
+                    </button>
                     <button disabled title="Not available in this build yet">Restructure</button>
                     <button disabled title="Not available in this build yet">Extend</button>
                     {confirming === p.id ? (
