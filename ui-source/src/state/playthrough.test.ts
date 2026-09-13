@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LeagueState, Player, Stage } from "@/domain";
-import { ROSTER_SIZE } from "@/sim/roster-template.ts";
+import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 
 import { DEFAULT_CONFIG } from "./seed.ts";
 import { useStore } from "./store.ts";
@@ -140,7 +140,9 @@ describe("a full franchise year", () => {
           const s = state();
           for (const code of Object.keys(s.teams)) {
             const roster = rosterOf(s, code);
-            expect(roster.length, `${code} roster into free agency`).toBeLessThanOrEqual(ROSTER_SIZE);
+            expect(roster.length, `${code} roster into free agency`).toBeLessThanOrEqual(
+              OFFSEASON_ROSTER_SIZE,
+            );
             const used = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
             expect(Math.round(used * 10) / 10, `${code} cap into free agency`).toBeLessThanOrEqual(
               s.teams[code]!.cap.total,

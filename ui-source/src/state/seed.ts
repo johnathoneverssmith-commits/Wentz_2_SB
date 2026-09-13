@@ -17,7 +17,7 @@ import { TEAMS } from "@/data/teams";
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { personName } from "@/sim/names.ts";
 import { Rng } from "@/sim/rng.ts";
-import { ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
+import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
 
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
 
@@ -231,6 +231,7 @@ function trimToLegalRoster(
   state: LeagueState,
   roster: Player[],
   capTotal: number,
+  sizeLimit: number = ROSTER_SIZE,
 ): { used: number; released: number } {
   let used = roster.reduce((n, p) => n + capHitOf(p), 0);
   let released = 0;
@@ -259,7 +260,7 @@ function trimToLegalRoster(
   };
 
   // size first — every cut here also frees cap, so the cap pass has less to do
-  while (roster.length > ROSTER_SIZE) {
+  while (roster.length > sizeLimit) {
     const overstocked = roster.filter((p) => countAt(p.position) > templateCount(p.position));
     const pool = overstocked.length > 0 ? overstocked : roster;
     const worst = pool.reduce((a, b) => (b.overall < a.overall ? b : a));
@@ -304,7 +305,9 @@ function trimToLegalRoster(
 export function trimRosters(state: LeagueState): void {
   for (const code of Object.keys(state.teams)) {
     const roster = Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired);
-    trimToLegalRoster(state, roster, state.teams[code]?.cap.total ?? 255);
+    // the offseason ceiling, not 53 — cutting to 53 here would leave a team
+    // that drafted well unable to sign anyone in the window that follows
+    trimToLegalRoster(state, roster, state.teams[code]?.cap.total ?? 255, OFFSEASON_ROSTER_SIZE);
   }
 }
 

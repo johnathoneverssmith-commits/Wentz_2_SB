@@ -28,7 +28,7 @@ import {
 import { TEAMS } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { contractValueFor } from "@/sim/MockSimulationService";
-import { ROSTER_SIZE } from "@/sim/roster-template.ts";
+import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
 import {
@@ -846,11 +846,8 @@ function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState
       if (!team) continue;
       const hit = offerToContract(winning).cap_hit_by_year[0] ?? 0;
       const room = team.cap.total - team.cap.used - (spentToday[winning.teamCode] ?? 0);
-      const roster = Object.values(s.players).filter(
-        (x) => x.nfl_team === winning.teamCode && !x.retired,
-      ).length;
       // he stays on the market rather than being signed into an illegal roster
-      if (hit > room || roster >= ROSTER_SIZE) continue;
+      if (hit > room || rosterCountOf(s, winning.teamCode) >= rosterLimitFor(s.stage)) continue;
       spentToday[winning.teamCode] = (spentToday[winning.teamCode] ?? 0) + hit;
       fa.signed.push({ id: p.id, toTeam: winning.teamCode, ...offerFields(winning), at: fa.day });
       p.free_agent = false;
@@ -1218,13 +1215,11 @@ export function checkStandingSign(
   if (!p || !p.free_agent) return { ok: false, reason: "This player is no longer a free agent." };
   const team = s.teams[offer.teamCode];
   if (!team) return { ok: false, reason: "Unknown team." };
-  const rosterCount = Object.values(s.players).filter(
-    (x) => x.nfl_team === offer.teamCode && !x.retired,
-  ).length;
-  if (rosterCount >= ROSTER_SIZE) {
+  const limit = rosterLimitFor(s.stage);
+  if (rosterCountOf(s, offer.teamCode) >= limit) {
     return {
       ok: false,
-      reason: `Your roster is full at ${ROSTER_SIZE}. Release a player on Roster & Cap to open a spot.`,
+      reason: `Your roster is full at ${limit}. Release a player on Roster & Cap to open a spot.`,
     };
   }
   const capHitYear1 = offerToContract(offer).cap_hit_by_year[0] ?? 0;
@@ -1236,6 +1231,23 @@ export function checkStandingSign(
     };
   }
   return { ok: true };
+}
+
+/**
+ * How many players a team may carry right now. The 53-man limit is a
+ * season rule; between the last game and the preseason gate a team may carry
+ * the offseason ceiling, which is what makes the free-agency window playable
+ * (see `OFFSEASON_ROSTER_SIZE`).
+ */
+export function rosterLimitFor(stage: Stage): number {
+  return stage.startsWith("offseason") || stage.startsWith("endOfSeason")
+    ? OFFSEASON_ROSTER_SIZE
+    : ROSTER_SIZE;
+}
+
+/** Players currently counting against `teamCode`'s roster limit. */
+function rosterCountOf(s: LeagueState, teamCode: string): number {
+  return Object.values(s.players).filter((p) => p.nfl_team === teamCode && !p.retired).length;
 }
 
 /**

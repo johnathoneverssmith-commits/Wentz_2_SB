@@ -22,6 +22,19 @@ export const ROSTER_TEMPLATE: Array<{ pos: Position; count: number; starters: nu
 /** 53 — the NFL active-roster limit, and what `fillRosterGaps` builds to. */
 export const ROSTER_SIZE = ROSTER_TEMPLATE.reduce((n, r) => n + r.count, 0);
 
+/**
+ * What a team may carry between the end of a season and the preseason gate.
+ *
+ * The NFL's equivalent is the 90-man offseason roster; 90 would be fiction
+ * here, because the pool holds ~1,700 players for what would be 2,880 spots.
+ * The number exists so free agency is playable at all: holding teams to 53
+ * through the offseason meant a team that came out of the draft full could
+ * not sign a single free agent, and neither could the AI — the window
+ * resolved two signings a day league-wide. The cap is the constraint that
+ * actually binds; this is just the ceiling that stops a team hoarding.
+ */
+export const OFFSEASON_ROSTER_SIZE = 65;
+
 /** Rough position-prior overall (mean) the generator centres ratings on. */
 export const POSITION_PRIOR: Record<Position, number> = {
   QB: 74, RB: 72, WR: 73, TE: 71, OT: 73, OG: 72, C: 72,
