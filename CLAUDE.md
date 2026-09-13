@@ -39,7 +39,11 @@ week-by-week loop (`startSeason` → `playWeek` → `finishSeason`, plus
 stepper (`startPlayoffs` → `playPlayoffRound` → `finishPlayoffs`). Both step functions are pure and
 byte-identical to their one-shot equivalents (`simulateNflSeason` /
 `simulatePlayoffs`); `serde.ts` saves/loads the progress states with a
-version + shape check. A **coaching layer** (`staff.ts` / `staff-shift.ts` /
+version + shape check. `Roster` also takes an optional **depth order** (position -> player ids)
+so a franchise UI's hand-set lineup reaches the sim; omitting it sorts by
+`overall` exactly as before, so every validation path is byte-identical, and
+like roster injection it is TS/adapter-only surface with no Python mirror.
+A **coaching layer** (`staff.ts` / `staff-shift.ts` /
 `staff-data.ts`, mirrored in `analysis/engine/staff*.py`) adds subtle HC/OC/DC
 effects on top of the player ratings — `simulateGame(…, {homeStaff, awayStaff})`,
 default ON in the season sims with the 32 authored v0 staffs; a

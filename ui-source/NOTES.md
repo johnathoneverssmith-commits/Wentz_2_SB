@@ -132,3 +132,33 @@ them soft-locked the game. `src/state/rosterLegality.test.ts`,
 - **Open bids are committed money** (`checkBid`), and a day's own signings
   count against the room as they resolve. Otherwise a GM with $7M of room won
   four $20M bids on day five.
+- **A trade has to fit both sides** (`checkTrade`), on the cap and on the
+  roster limit. `applyTrade` only swapped team codes, which made the trade
+  screen a free way around every other gate.
+- **Squads coming off the engine pool are priced to fit the cap**, not at raw
+  market value. `contractValueFor` was fitted for one free agent's asking
+  price; applied to 60 players at once it costs ~$350M against a $255M cap,
+  and the trim that followed cut the biggest contracts on every roster.
+- **The fill spends the room it has.** Taking only the cheapest free agent for
+  every spot behind the starters left teams sitting on $18-124M while the
+  league's median rating slid 69 to 61 and 1,070 free agents went unsigned.
+- **AI teams sign their own draft classes** (`signAiDraftPicks`). Only the
+  viewer's picks were, so 217 drafted players a year evaporated and the
+  league's average age climbed 27.5 to 31.1 over five seasons.
+
+## Things that are real, and easy to assume aren't
+
+- **Injuries** (`src/state/injuries.ts`). The engine simulates them on every
+  game; the adapter returns each game's log; a week's injuries land on the
+  players who suffered them, heal a week per Game Day, and clear each
+  offseason. An injured player is left out of the roster handed to the
+  simulator, so an injury costs the team the player — except at a position
+  stripped bare, where the least-hurt man suits up, because the engine builds
+  its depth chart from what it's given.
+- **The depth chart** (`state.depthChart`, `depthAt`). Persisted per team and
+  per position, it decides the starting lineup and therefore the team rating,
+  and it rides to the engine, whose `Roster` takes an optional depth order
+  instead of always sorting by `overall`.
+- **The test suite is hermetic.** `src/test-setup.ts` stubs `fetch` to reject,
+  so nothing depends on whether a dev adapter happens to be running —
+  `adapterFallback.test.ts` is the one place that seam is exercised on purpose.
