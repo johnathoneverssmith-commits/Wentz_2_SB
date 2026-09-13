@@ -33,6 +33,23 @@ export function playedGames(s: LeagueState, phase?: "PRE" | "REG"): GameResult[]
   return s.games.filter((g) => g.played && (!phase || g.phase === phase));
 }
 
+/**
+ * Whether a game carries the team/player splits the box score and the stats
+ * leaderboards are built from.
+ *
+ * The mock simulator fills these in; the real engine adapter currently
+ * returns only the score (plus a broadcast for the viewer's game), so with
+ * `npm run server` running every game is score-only. Screens check this
+ * instead of linking to a box score that would render empty.
+ */
+export function hasBoxScore(g: GameResult | undefined): boolean {
+  return !!g?.totals;
+}
+
+export function anyBoxScores(s: LeagueState): boolean {
+  return s.games.some((g) => g.totals);
+}
+
 export function teamRoster(s: LeagueState, code: string): Player[] {
   return Object.values(s.players)
     .filter((p) => p.nfl_team === code && !p.retired)

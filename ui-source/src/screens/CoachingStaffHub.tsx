@@ -110,7 +110,8 @@ function HiringWindow({ code }: { code: string | undefined }) {
         {missing.length > 0 ? (
           <div className="team-callout" style={{ marginBottom: 14 }} role="status">
             Still need a {missing.map((r) => ROLE_LABEL[r]).join(", ")}. Make offers below — hires resolve at the end
-            of each day, and the window closes after Day 5.
+            of each day, and the window closes after Day 5. Any role you haven't filled by then gets assigned from
+            whoever's left, so bid for the staff you actually want.
           </div>
         ) : (
           <div

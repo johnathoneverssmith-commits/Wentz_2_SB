@@ -10,6 +10,7 @@ import { useStore } from "@/state/store";
 import {
   currentPhase,
   divisionRivals,
+  hasBoxScore,
   humanHeadToHead,
   injuredOn,
   leagueInjuries,
@@ -284,7 +285,7 @@ export function WeeklyTeamHub() {
         </button>
         {(() => {
           const last = lastResult(s, code);
-          return last && phase ? (
+          return last && phase && hasBoxScore(last) ? (
             <button type="button" className="btnlink btn-primary" onClick={() => nav(`/box/${last.id}`)}>
               Latest box score
             </button>

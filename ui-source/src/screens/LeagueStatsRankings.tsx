@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { teamStatRows, type TeamStatRow } from "@/state/leagueStats";
 import { useStore } from "@/state/store";
-import { playedGames, viewerTeamCode } from "@/state/selectors";
+import { anyBoxScores, playedGames, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
 type SortKey = keyof Pick<
@@ -25,13 +26,22 @@ export function LeagueStatsRankings() {
   const [defBy, setDefBy] = useState<SortKey>("defTotal");
   const [stBy, setStBy] = useState<SortKey>("fgPct");
 
-  if (played === 0) {
+  if (played === 0 || !anyBoxScores(s)) {
     return (
       <Card maxWidth={800}>
         <CardHeader badge="NFL" title="League Stats & Rankings" subtitle={`${s.season} season`} />
         <div className="panel open">
-          <div className="emptystate">Rankings populate once the first regular-season week is simulated.</div>
+          <div className="emptystate">
+            {played === 0
+              ? "Rankings populate once the first regular-season week is simulated."
+              : "These rankings are built from per-game team stats. The engine adapter returns scores and the play-by-play gamecast, but not those splits yet, so there's nothing to rank."}
+          </div>
         </div>
+        <Footer>
+          <button type="button" className="btnlink" onClick={() => nav("/hub")}>
+            Return to team hub
+          </button>
+        </Footer>
       </Card>
     );
   }

@@ -5,7 +5,7 @@ import { Card, CardHeader, Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { ROUND_LABEL, type PlayoffRound } from "@/domain";
 import { useStore } from "@/state/store";
-import { viewerTeamCode } from "@/state/selectors";
+import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 
 import { Gamecast } from "./gamecast/Gamecast";
 
@@ -119,12 +119,13 @@ export function GameDay() {
             <div style={{ maxHeight: 320, overflowY: "auto" }}>
               {slate.map((g) => {
                 const homeWon = g.homeScore > g.awayScore;
+                const openable = hasBoxScore(g);
                 return (
                   <div
                     key={g.id}
-                    {...pressable(() => nav(`/box/${g.id}`))}
-                    title="Open the box score"
-                    style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, padding: "9px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
+                    {...(openable ? pressable(() => nav(`/box/${g.id}`)) : {})}
+                    title={openable ? "Open the box score" : "No box score for this game"}
+                    style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, padding: "9px 6px", borderBottom: "1px solid var(--line)", cursor: openable ? "pointer" : "default", borderRadius: "var(--r-sm)" }}
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <TeamBadge code={g.homeTeam} size={20} />
@@ -158,8 +159,8 @@ export function GameDay() {
       </div>
 
       <Footer>
-        {viewerGame && (
-          <button type="button" className="btnlink" onClick={() => nav(`/box/${viewerGame.id}`)}>
+        {hasBoxScore(viewerGame) && (
+          <button type="button" className="btnlink" onClick={() => nav(`/box/${viewerGame!.id}`)}>
             Full box score
           </button>
         )}

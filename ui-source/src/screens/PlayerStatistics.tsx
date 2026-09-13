@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { leaders, mvpTracker } from "@/state/leagueStats";
 import { useStore } from "@/state/store";
-import { playedGames } from "@/state/selectors";
+import { anyBoxScores, playedGames } from "@/state/selectors";
 
 const CATS = ["passing", "rushing", "receiving", "defense", "kicking", "returns"] as const;
 
@@ -16,13 +16,22 @@ export function PlayerStatistics() {
   const mvp = useMemo(() => mvpTracker(s), [s]);
   const rows = useMemo(() => leaders(s, active as (typeof CATS)[number]), [s, active]);
 
-  if (played === 0) {
+  if (played === 0 || !anyBoxScores(s)) {
     return (
       <Card maxWidth={800}>
         <CardHeader badge="NFL" title="Player Statistics" subtitle={`${s.season} season`} />
         <div className="panel open">
-          <div className="emptystate">Leaderboards populate once the first regular-season week is simulated.</div>
+          <div className="emptystate">
+            {played === 0
+              ? "Leaderboards populate once the first regular-season week is simulated."
+              : "Leaderboards are built from per-game player lines. The engine adapter returns scores and the play-by-play gamecast, but not those lines yet, so no season totals are accruing."}
+          </div>
         </div>
+        <Footer>
+          <button type="button" className="btnlink" onClick={() => nav("/hub")}>
+            Return to team hub
+          </button>
+        </Footer>
       </Card>
     );
   }

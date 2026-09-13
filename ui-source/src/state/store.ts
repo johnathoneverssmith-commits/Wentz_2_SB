@@ -15,6 +15,7 @@ import { immer } from "zustand/middleware/immer";
 import {
   ROUND_ORDER,
   type Coach,
+  type CoachRole,
   type ContractOffer,
   type DraftMode,
   type FreeAgencyState,
@@ -397,6 +398,8 @@ export const useStore = create<Store>()(
           if (!fa || fa.mode !== "main") return;
           resolveBiddingDay(s, subject, fa);
           if (fa.day >= 5) {
+            // closing day — no team is left without a coaching staff
+            if (subject === "coaches") fillVacantStaffs(s, fa);
             fa.mode = "standing";
             fa.interstitialVisible = false;
           } else {
@@ -760,6 +763,63 @@ function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState
       fa.signed.push({ id: c.id, toTeam: winning.teamCode, ...offerFields(winning), at: fa.day });
       c.team = winning.teamCode;
       c.contract = { yearsRemaining: winning.years, annualValue: winning.baseSalary };
+    }
+  }
+}
+
+/** Rough "who's the better hire" ordering, for the closing-day backfill. */
+function coachQuality(c: Coach): number {
+  return c.role === "HC"
+    ? (c.discipline ?? 0) + (c.gameManagement ?? 0) + (c.aggressiveness ?? 0) / 2
+    : (c.playCallIq ?? 0) * 2;
+}
+
+/**
+ * Nobody leaves the hiring window without a staff.
+ *
+ * The 5-day window only signs coaches to teams that actually bid, and it
+ * resolves 6-13 of them a day — so a full window left ~29 of 32 teams short
+ * and, if the player never bid, gave them nothing. There is no other way to
+ * hire: `startBidding` won't reopen a window that already exists, and the
+ * Coaching Staff hub is read-only. Teams were stranded with "Vacant" in every
+ * role for the rest of the dynasty, which also means no scheme for
+ * `computeSchemeFit` and no staff for the engine's coaching layer.
+ *
+ * So when the window closes, the league fills what's left: best remaining
+ * candidate per role, teams taken in a seeded order so nobody is
+ * systematically served last, at the coach's own asking price. Supply covers
+ * it — the market is built with 40 HCs and 42 of each coordinator for 32
+ * jobs apiece.
+ */
+function fillVacantStaffs(s: LeagueState, fa: FreeAgencyState): void {
+  for (const role of ["HC", "OC", "DC"] as CoachRole[]) {
+    const filled = new Set(
+      Object.values(s.coaches)
+        .filter((c) => c.team && c.role === role)
+        .map((c) => c.team!),
+    );
+    const needy = shuffle(
+      Object.keys(s.teams).filter((t) => !filled.has(t)),
+      s.season * 31 + role.length,
+    );
+    const pool = Object.values(s.coaches)
+      .filter((c) => c.team === null && c.role === role)
+      .sort((a, b) => coachQuality(b) - coachQuality(a));
+    for (const team of needy) {
+      const c = pool.shift();
+      if (!c) break;
+      const asking = coachPriorities(c).expectation;
+      c.team = team;
+      c.contract = { yearsRemaining: asking.years, annualValue: asking.baseSalary };
+      fa.signed.push({
+        id: c.id,
+        toTeam: team,
+        baseSalary: asking.baseSalary,
+        signingBonus: asking.signingBonus,
+        years: asking.years,
+        guaranteed: asking.guaranteed,
+        at: fa.day,
+      });
     }
   }
 }

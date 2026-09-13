@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
-import { Card, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { PlayerGameLine, TeamGameTotals } from "@/domain";
 import { useStore } from "@/state/store";
@@ -16,8 +16,13 @@ export function FullBoxScore() {
   if (!game || !game.totals) {
     return (
       <Card maxWidth={860}>
+        <CardHeader badge="NFL" title="Box Score" subtitle={game ? "Not available for this game" : "Unknown game"} />
         <div className="panel open">
-          <div className="emptystate">That box score isn't available — it may be from a game that hasn't been played yet.</div>
+          <div className="emptystate">
+            {game
+              ? "This game was played by the engine adapter, which returns the score and the play-by-play gamecast but not the team/player splits a box score needs yet."
+              : "That game isn't in this league's history — it may have been from a previous save."}
+          </div>
         </div>
         <Footer>
           <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
