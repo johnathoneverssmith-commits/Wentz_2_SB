@@ -84,6 +84,21 @@ export function PlayerStatistics() {
           </table>
         </Panel>
       ))}
+      <p
+        style={{
+          margin: 0,
+          padding: "0 26px 16px",
+          fontSize: 11,
+          color: "var(--ink-faint)",
+          textAlign: "center",
+          lineHeight: 1.5,
+        }}
+      >
+        Individual lines are credited from each game's play-by-play. The simulation models team
+        outcomes, so who gets the carry or the target is an accounting of the game that was played
+        rather than a per-player usage forecast.
+      </p>
+
       <Footer>
         <button type="button" className="btnlink" onClick={() => nav("/hub")}>
           Return to team hub

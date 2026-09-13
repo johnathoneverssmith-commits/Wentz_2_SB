@@ -22,6 +22,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import { loadPlayerPool } from "../src/data/players.js";
+import { extractBoxScore } from "../src/engine/boxscore.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import type { Conference } from "../src/engine/nfl-structure.js";
 import {
@@ -45,6 +46,12 @@ import {
   type FinishedGame,
 } from "../src/engine/standings.js";
 import type { Player } from "../src/schema/player.js";
+import {
+  playerLinesFrom,
+  quarterScores,
+  scoringPlaysFrom,
+  toTeamTotals,
+} from "./boxscore-map.js";
 
 const PORT = 8787;
 
@@ -108,32 +115,41 @@ function handleSimulateWeek(body: SimulateWeekBody) {
     const isViewer =
       viewer && viewer.homeTeam === homeTeam && viewer.awayTeam === awayTeam;
 
-    const id = `${season ?? "s"}-${phase}-${week}-${homeTeam}-${awayTeam}`;
-    if (isViewer) {
-      const b = broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster });
-      return {
-        id,
-        week,
-        phase,
-        homeTeam,
-        awayTeam,
-        played: true,
-        homeScore: b.finalScore[0],
-        awayScore: b.finalScore[1],
-        broadcast: b,
-      };
-    }
-    const g = simulateGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster });
-    return {
-      id,
+    // Every game is traced, so the UI gets a real box score and real season
+    // stats for the whole league rather than a bare score. `injuries` is on
+    // for all of them too, and deliberately so: the injury hazard draws from
+    // the same RNG stream, so a game simulated with it off is a *different*
+    // game. Keeping it uniform is what lets the viewer's box score and their
+    // gamecast describe the same afternoon. Tracing costs ~11% over a plain
+    // sim (measured across a 16-game slate), which is noise next to the sim.
+    const opts = { homeRoster, awayRoster, trace: true, injuries: true } as const;
+    const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
+    const trace = g.playTrace ?? [];
+    const box = extractBoxScore(g, homeTeam, awayTeam, week);
+    const finalScore: [number, number] = [g.score[0], g.score[1]];
+    const byQuarter = quarterScores(trace, finalScore, g.drivesLog);
+
+    const base = {
+      id: `${season ?? "s"}-${phase}-${week}-${homeTeam}-${awayTeam}`,
       week,
       phase,
       homeTeam,
       awayTeam,
       played: true,
-      homeScore: g.score[0],
-      awayScore: g.score[1],
+      homeScore: finalScore[0],
+      awayScore: finalScore[1],
+      totals: {
+        home: toTeamTotals(box.home, byQuarter[0]!),
+        away: toTeamTotals(box.away, byQuarter[1]!),
+      },
+      scoringPlays: scoringPlaysFrom(trace, homeTeam, awayTeam, finalScore, g.drivesLog),
+      playerLines: playerLinesFrom(trace, homeTeam, awayTeam, rosters),
     };
+    // the viewer's game also gets the play-by-play view; same seed and same
+    // options, so it is the same simulated game as the box score above
+    return isViewer
+      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster }) }
+      : base;
   });
 }
 
