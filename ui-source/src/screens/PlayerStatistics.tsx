@@ -24,7 +24,7 @@ export function PlayerStatistics() {
           <div className="emptystate">
             {played === 0
               ? "Leaderboards populate once the first regular-season week is simulated."
-              : "Leaderboards are built from per-game player lines. The engine adapter returns scores and the play-by-play gamecast, but not those lines yet, so no season totals are accruing."}
+              : "Leaderboards are built from per-game player lines, and none of this season's games recorded any. Weeks played from here on will fill them in."}
           </div>
         </div>
         <Footer>

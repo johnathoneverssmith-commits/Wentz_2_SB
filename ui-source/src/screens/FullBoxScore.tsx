@@ -20,7 +20,7 @@ export function FullBoxScore() {
         <div className="panel open">
           <div className="emptystate">
             {game
-              ? "This game was played by the engine adapter, which returns the score and the play-by-play gamecast but not the team/player splits a box score needs yet."
+              ? "No box score was recorded for this game — the final score is all that was kept. Games played from here on carry the full detail."
               : "That game isn't in this league's history — it may have been from a previous save."}
           </div>
         </div>
