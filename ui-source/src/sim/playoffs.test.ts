@@ -16,8 +16,12 @@ import { HybridSimulationService } from "./HybridSimulationService.ts";
  * BracketState, end to end through a full postseason.
  *
  * Network-gated: skips (not fails) if the adapter isn't reachable, same
- * spirit as the engine's pool-gated tests.
+ * spirit as the engine's pool-gated tests. The two full-postseason cases
+ * make a dozen-plus adapter round-trips each and sat right on vitest's 5s
+ * default, so they carry an explicit timeout — a slow local machine
+ * shouldn't read as a failure.
  */
+const ADAPTER_TIMEOUT_MS = 30_000;
 
 let adapterUp = false;
 beforeAll(async () => {
@@ -116,7 +120,7 @@ describe("HybridSimulationService playoffs (network-gated)", () => {
         }
       }
     }
-  });
+  }, ADAPTER_TIMEOUT_MS);
 
   it("is deterministic for the same season/seed", async () => {
     if (!adapterUp) return;
@@ -129,5 +133,5 @@ describe("HybridSimulationService playoffs (network-gated)", () => {
     };
     const [a, b] = await Promise.all([runOnce(), runOnce()]);
     expect(a).toBe(b);
-  });
+  }, ADAPTER_TIMEOUT_MS);
 });

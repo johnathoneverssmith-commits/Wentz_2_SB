@@ -116,6 +116,7 @@
   justify-content: center;
 }
 
+/* narrow: the rail becomes a sticky, horizontally-scrolling strip */
 @media (max-width: 900px) {
   .app {
     flex-direction: column;
@@ -123,15 +124,53 @@
   .rail {
     width: 100%;
     height: auto;
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 30;
     flex-direction: row;
-    flex-wrap: wrap;
-    gap: 2px;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+  .rail .brand {
+    padding: 0 8px 0 0;
+    flex-shrink: 0;
+  }
+  .rail .brand span {
+    display: none;
+  }
+  .rail .stagechip {
+    margin: 0 6px 0 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .rail .railgroup,
+  .rail .railnote,
   .rail .spacer {
     display: none;
   }
+  .rail a {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 7px 10px;
+  }
+  .rail a.active {
+    box-shadow: inset 0 -2px 0 var(--team);
+  }
+  .rail button.reset {
+    margin: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
   .app-main {
-    padding: 24px 12px 48px;
+    padding: 20px 12px 48px;
   }
 }

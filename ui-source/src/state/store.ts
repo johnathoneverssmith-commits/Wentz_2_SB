@@ -328,16 +328,17 @@ export const useStore = create<Store>()(
 
       makePick: (selectedId) => set((s) => { if (s.draft) applyPick(s, selectedId); }),
 
-      autopickRemaining: () =>
+      autopickRemaining: () => {
+        // decided outside the producer — see planAutopicks
+        const picks = planAutopicks(get());
+        if (picks.length === 0) return;
         set((s) => {
-          if (!s.draft) return;
-          let guard = 0;
-          while (s.draft.currentPickIndex < s.draft.pickOrder.length && guard++ < 6000) {
-            const pick = bestAvailable(s);
-            if (!pick) break;
-            applyPick(s, pick);
+          for (const id of picks) {
+            if (!s.draft || s.draft.currentPickIndex >= s.draft.pickOrder.length) break;
+            applyPick(s, id);
           }
-        }),
+        });
+      },
 
       toggleDraftTarget: (gmId, id) =>
         set((s) => {
@@ -543,7 +544,12 @@ function applyPick(s: LeagueState, selectedId: string): void {
   const d = s.draft!;
   const idx = d.currentPickIndex;
   const teamCode = d.pickOrder[idx]!;
-  const round = Math.floor(idx / s.gms.length) + 1;
+  // every team picks once per round (startDraft builds pickOrder from all 32
+  // teams), so the round is the pick index over the team count — not over
+  // the number of human GMs, which put pick 33 in "round 12" and drove the
+  // slotted rookie contract (36 - round*4.5) negative for later picks
+  const teamsPerRound = Object.keys(s.teams).length || 32;
+  const round = Math.floor(idx / teamsPerRound) + 1;
   if (d.mode === "rookie") {
     const pr = s.draftClass.find((p) => p.id === selectedId);
     d.results.push({
@@ -582,24 +588,132 @@ export function bestAvailable(s: LeagueState): string | null {
   const d = s.draft!;
   const teamCode = d.pickOrder[d.currentPickIndex];
   const taken = new Set(d.results.map((r) => r.selectedId));
+  // Need only depends on the picking team's roster, not on which two players
+  // are being compared — compute it once per position per call. (It used to
+  // run inside the sort comparator: ~40k full roster scans per pick, which
+  // made "Autopick remaining" freeze the browser for minutes.)
+  const needByPos = new Map<Position, number>();
+  const need = (pos: Position): number => {
+    let v = needByPos.get(pos);
+    if (v === undefined) {
+      v = teamCode ? positionalNeed(s, teamCode, pos) * NEED_WEIGHT : 0;
+      needByPos.set(pos, v);
+    }
+    return v;
+  };
+  // first-max scan == stable sort's [0]: ties keep the earliest candidate
+  let bestId: string | null = null;
+  let bestScore = -Infinity;
   if (d.mode === "rookie") {
-    const p = [...s.draftClass]
-      .filter((x) => !taken.has(x.id))
-      .sort((a, b) => {
-        const scoreB = b.collegeOverall + (teamCode ? positionalNeed(s, teamCode, b.position) * NEED_WEIGHT : 0);
-        const scoreA = a.collegeOverall + (teamCode ? positionalNeed(s, teamCode, a.position) * NEED_WEIGHT : 0);
-        return scoreB - scoreA;
-      })[0];
-    return p?.id ?? null;
+    for (const x of s.draftClass) {
+      if (taken.has(x.id)) continue;
+      const score = x.collegeOverall + need(x.position);
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = x.id;
+      }
+    }
+    return bestId;
   }
-  const p = Object.values(s.players)
-    .filter((x) => !taken.has(x.id) && !x.retired)
-    .sort((a, b) => {
-      const scoreB = b.overall + (teamCode ? positionalNeed(s, teamCode, b.position) * NEED_WEIGHT : 0);
-      const scoreA = a.overall + (teamCode ? positionalNeed(s, teamCode, a.position) * NEED_WEIGHT : 0);
-      return scoreB - scoreA;
-    })[0];
-  return p?.id ?? null;
+  for (const x of Object.values(s.players)) {
+    if (taken.has(x.id) || x.retired) continue;
+    const score = x.overall + need(x.position);
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = x.id;
+    }
+  }
+  return bestId;
+}
+
+/**
+ * Every pick "Autopick remaining" would make, decided up front on plain data.
+ *
+ * Running the loop inside the immer producer meant `bestAvailable` re-read the
+ * proxied player map on every pick (a 20-round fantasy draft is 640 picks over
+ * ~1,700 players), and immer's proxies cost ~100x a plain property read: the
+ * button froze the tab for over a minute. This mirrors the handful of fields
+ * the scoring actually reads, runs the same first-max scan and the same
+ * need-tempered score, and hands the producer a finished list of ids — same
+ * picks, no proxy in the hot path. `positionalNeed` is maintained incrementally
+ * here (a fantasy pick moves a player between teams, changing both teams' need
+ * at that position) rather than rescanned per candidate.
+ */
+function planAutopicks(s: LeagueState): string[] {
+  const d = s.draft;
+  if (!d) return [];
+  const rookie = d.mode === "rookie";
+
+  // candidate order mirrors bestAvailable's, so ties resolve identically
+  const candidates = rookie
+    ? s.draftClass.map((p) => ({ id: p.id, position: p.position, overall: p.collegeOverall }))
+    : Object.values(s.players)
+        .filter((p) => !p.retired)
+        .map((p) => ({ id: p.id, position: p.position, overall: p.overall }));
+  const byId = new Map(candidates.map((c) => [c.id, c]));
+
+  const taken = new Set<string>();
+  for (const r of d.results) if (r.selectedId) taken.add(r.selectedId);
+
+  // team -> position -> overalls currently on that roster; positionalNeed only
+  // ever asks for the max of one of these groups
+  const rosters = new Map<string, Map<Position, number[]>>();
+  const groupFor = (team: string, pos: Position): number[] => {
+    let byPos = rosters.get(team);
+    if (!byPos) rosters.set(team, (byPos = new Map()));
+    let list = byPos.get(pos);
+    if (!list) byPos.set(pos, (list = []));
+    return list;
+  };
+  for (const p of Object.values(s.players)) {
+    if (!p.retired) groupFor(p.nfl_team, p.position).push(p.overall);
+  }
+  const needOf = (team: string | undefined, pos: Position): number => {
+    if (!team) return 0;
+    const list = rosters.get(team)?.get(pos);
+    let best = 0;
+    if (list) for (const v of list) if (v > best) best = v;
+    return Math.max(1, 78 - (best || 40)) * NEED_WEIGHT;
+  };
+
+  const out: string[] = [];
+  for (let i = d.currentPickIndex; i < d.pickOrder.length; i++) {
+    const teamCode = d.pickOrder[i];
+    const needByPos = new Map<Position, number>();
+    const need = (pos: Position): number => {
+      let v = needByPos.get(pos);
+      if (v === undefined) needByPos.set(pos, (v = needOf(teamCode, pos)));
+      return v;
+    };
+
+    let bestId: string | null = null;
+    let bestScore = -Infinity;
+    for (const c of candidates) {
+      if (taken.has(c.id)) continue;
+      const score = c.overall + need(c.position);
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = c.id;
+      }
+    }
+    if (!bestId) break;
+    out.push(bestId);
+    taken.add(bestId);
+
+    // a fantasy pick moves the player onto the picking team; a rookie pick
+    // doesn't touch `players` until the signing stage, so nothing shifts
+    if (!rookie && teamCode) {
+      const c = byId.get(bestId);
+      const from = s.players[bestId]?.nfl_team;
+      if (c && from && from !== teamCode) {
+        const old = groupFor(from, c.position);
+        const at = old.indexOf(c.overall);
+        if (at >= 0) old.splice(at, 1);
+        groupFor(teamCode, c.position).push(c.overall);
+      }
+    }
+  }
+  return out;
 }
 
 function offerToContract(o: ContractOffer) {

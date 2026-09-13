@@ -297,7 +297,19 @@ export function WeeklyTeamHub() {
         )}
       </Footer>
 
-      {phase && (
+      {phase && s.pendingGameDay && (
+        // results for this week already exist — never offer to sim it again
+        <div className="readiness">
+          <div className="readiness-top">
+            <p>This week's results are in</p>
+            <span>Continue from Game Day to move to the next week</span>
+          </div>
+          <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => nav("/game-day")}>
+            View Game Day results
+          </button>
+        </div>
+      )}
+      {phase && !s.pendingGameDay && (
         <ReadinessGate
           title="Game day readiness"
           label="Ready for Game Day"

@@ -321,6 +321,10 @@ a:focus-visible,
   padding: 0 26px;
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 .tab {
   background: none;

@@ -7,7 +7,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { POSITIONS, type DraftMode, type Position } from "@/domain";
-import { useStore } from "@/state/store";
+import { bestAvailable, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
@@ -120,10 +120,21 @@ export function DraftRoom() {
     );
   }
 
-  const round = Math.floor(draft.currentPickIndex / s.gms.length) + 1;
+  const round = Math.floor(draft.currentPickIndex / draft.pickOrder.length * (mode === "fantasy" ? 20 : 7)) + 1;
   const maxRounds = mode === "fantasy" ? 20 : 7;
   const myResults = draft.results.filter((r) => r.teamCode === code);
-  const myRoster = code ? teamRoster(s, code) : [];
+  // in a fantasy draft every roster is being rebuilt from the pool, so the
+  // only players that count are the ones drafted so far — not whoever still
+  // carries this team's code from the pre-draft pool
+  const myRoster = !code
+    ? []
+    : mode === "fantasy"
+      ? myResults.map((r) => s.players[r.selectedId ?? ""]).filter((p): p is NonNullable<typeof p> => !!p)
+      : teamRoster(s, code);
+  // the same need-weighted pick the AI would make for this roster, offered
+  // as a one-click suggestion whenever it's the viewer's turn
+  const suggestedId = yourPick && !complete ? bestAvailable(s) : null;
+  const suggested = suggestedId ? available.find((a) => a.id === suggestedId) : undefined;
 
   return (
     <Card maxWidth={860}>
@@ -180,8 +191,35 @@ export function DraftRoom() {
 
       <Panel open={active === "available"}>
         {yourPick && !complete && (
-          <div className="team-callout" style={{ marginBottom: 12 }} role="status">
-            You're on the clock — make your selection.
+          <div
+            className="team-callout"
+            style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+            role="status"
+          >
+            <span style={{ flex: 1, minWidth: 200 }}>
+              You're on the clock
+              {suggested ? (
+                <>
+                  {" "}
+                  — best fit for your roster:{" "}
+                  <strong style={{ color: "var(--ink)" }}>{suggested.name}</strong>{" "}
+                  <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
+                    ({suggested.position}, {suggested.ovr} OVR)
+                  </span>
+                </>
+              ) : (
+                " — make your selection."
+              )}
+            </span>
+            {suggested && (
+              <button
+                className="btn-primary"
+                style={{ fontSize: 11.5, padding: "7px 12px" }}
+                onClick={() => makePick(suggested.id)}
+              >
+                Draft {suggested.name}
+              </button>
+            )}
           </div>
         )}
         {filtered.length === 0 && (

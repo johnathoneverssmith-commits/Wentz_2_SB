@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import type { BracketMatchup } from "@/domain";
+import type { BracketMatchup, PlayoffRound } from "@/domain";
 import { ROUND_LABEL } from "@/domain";
 import { useStore } from "@/state/store";
 import { viewerTeamCode } from "@/state/selectors";
@@ -105,7 +105,21 @@ export function PostseasonBracket() {
         </button>
       </Footer>
 
-      {isPlayoffStage && !b.champion && (
+      {isPlayoffStage && s.pendingGameDay && (
+        // a round has been played but not "continued" from Game Day yet (this
+        // is also how the Super Bowl result is left after it sims) — offer
+        // the way forward instead of the gate, which would sim again
+        <div className="readiness">
+          <div className="readiness-top">
+            <p>{b.champion ? "The Super Bowl has been played" : `${ROUND_LABEL[s.pendingGameDay.phase as PlayoffRound]} results are in`}</p>
+            <span>Continue from Game Day to move on</span>
+          </div>
+          <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => nav("/game-day")}>
+            {b.champion ? "See the final result" : "View round results"}
+          </button>
+        </div>
+      )}
+      {isPlayoffStage && !s.pendingGameDay && !b.champion && (
         <ReadinessGate
           title={`${ROUND_LABEL[b.currentRound]} readiness`}
           label={`Simulate the ${ROUND_LABEL[b.currentRound]}`}

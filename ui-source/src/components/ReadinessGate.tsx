@@ -5,7 +5,7 @@
  *  - by default `tryAdvance()` runs the stage transition, then `onAdvance()`;
  *  - if `action` is given (e.g. the hub's "simulate the week"), it runs instead.
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { STAGE_READY_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
@@ -48,20 +48,30 @@ export function ReadinessGate({
     return () => clearTimeout(t);
   }, [stage, autoReadyNonViewers]);
 
+  // Always call the latest onAdvance, and never drop it once the transition
+  // has run: several screens unmount this gate the moment the stage changes
+  // (League Setup locks, the FA window closes, the bracket hides it after the
+  // Super Bowl), and swallowing the navigation there strands the player on
+  // a screen whose stage has already moved on. The timer itself is still
+  // cancelled on re-render so a transition can't be triggered twice.
+  const onAdvanceRef = useRef(onAdvance);
+  onAdvanceRef.current = onAdvance;
+  const advancingRef = useRef(false);
   useEffect(() => {
     if (!allReady) return;
-    let cancelled = false;
     const t = setTimeout(async () => {
-      const res = await (action ? action() : tryAdvance());
-      if (cancelled) return;
-      const moved = "moved" in res ? res.moved : true;
-      if (moved) onAdvance(res.route);
+      if (advancingRef.current) return;
+      advancingRef.current = true;
+      try {
+        const res = await (action ? action() : tryAdvance());
+        const moved = "moved" in res ? res.moved : true;
+        if (moved) onAdvanceRef.current(res.route);
+      } finally {
+        advancingRef.current = false;
+      }
     }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [allReady, action, tryAdvance, onAdvance]);
+    return () => clearTimeout(t);
+  }, [allReady, action, tryAdvance]);
 
   const waiting = humans.length - readyCount;
 

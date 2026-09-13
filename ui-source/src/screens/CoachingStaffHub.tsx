@@ -107,6 +107,20 @@ function HiringWindow({ code }: { code: string | undefined }) {
       />
 
       <div className="panel open">
+        {missing.length > 0 ? (
+          <div className="team-callout" style={{ marginBottom: 14 }} role="status">
+            Still need a {missing.map((r) => ROLE_LABEL[r]).join(", ")}. Make offers below — hires resolve at the end
+            of each day, and the window closes after Day 5.
+          </div>
+        ) : (
+          <div
+            className="team-callout"
+            style={{ marginBottom: 14, color: "var(--good)", background: "rgba(111,200,150,0.08)", borderColor: "rgba(111,200,150,0.35)" }}
+            role="status"
+          >
+            Full staff signed — you can keep browsing, or mark ready to move on.
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
           <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Role</label>
           <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as "ALL" | CoachRole)}>
@@ -117,6 +131,9 @@ function HiringWindow({ code }: { code: string | undefined }) {
           </select>
         </div>
         <div style={{ maxHeight: 430, overflowY: "auto" }}>
+          {open.filter((c) => roleFilter === "ALL" || c.role === roleFilter).length === 0 && (
+            <div className="emptystate">Every {roleFilter === "ALL" ? "coach" : ROLE_LABEL[roleFilter]} on the market has been hired.</div>
+          )}
           {open
             .filter((c) => roleFilter === "ALL" || c.role === roleFilter)
             .slice(0, 30)
