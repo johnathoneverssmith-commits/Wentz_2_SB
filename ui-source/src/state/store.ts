@@ -30,7 +30,7 @@ import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { contractValueFor } from "@/sim/MockSimulationService";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
-import { applySeasonAging, createLeague, recomputeTeamRatings } from "./seed.ts";
+import { applySeasonAging, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 import {
   PRESEASON_WEEKS,
   REGULAR_SEASON_WEEKS,
@@ -202,6 +202,7 @@ export const useStore = create<Store>()(
             s.rookieOutcomes = {};
             s.pendingGameDay = null;
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
+            fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
             s.draftClass = sim.generateDraftClass(s.season, s.season);
             for (const code of Object.keys(s.teams)) {
               const team = s.teams[code]!;
@@ -212,9 +213,12 @@ export const useStore = create<Store>()(
             s.schedule = newSchedule!;
           }
 
-          // leaving the fantasy draft → undrafted players seed the standing FA market
+          // leaving the fantasy draft → undrafted players seed the standing FA
+          // market, then every team tops up to a legal starting lineup (20
+          // rounds only hands each team 20 players)
           if (s.stage === "fantasyDraft" && t.stage === "fantasyDraftSummary") {
             openStandingMarketFromUndrafted(s);
+            fillRosterGaps(s);
           }
 
           // leaving retirement review → actually retire the players it showed

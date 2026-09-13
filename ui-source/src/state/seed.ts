@@ -88,6 +88,65 @@ const STARTER_COUNTS: Partial<Record<Position, number>> = {
   EDGE: 2, DT: 2, ILB: 2, CB: 2, S: 2, K: 1, P: 1,
 };
 
+/**
+ * Fills any position where a team can't even field its starters, from the
+ * standing free-agent market, at a minimum-salary one-year deal.
+ *
+ * A 20-round fantasy draft hands out 640 of ~1,630 players, so teams start
+ * around 20 men against a 53-man template and the rest sit in the standing
+ * market. Nothing refills them: AI teams only sign during the 5-day offseason
+ * window (~63 signings league-wide), so by the second season teams were
+ * carrying 18-26 players and several had nobody at a position at all — four
+ * with no running back, two with no punter. `startingLineup` silently skips
+ * those slots and `recomputeTeamRatings` falls back to a flat 72, so the
+ * rating stops describing the roster and the engine is handed a team that
+ * can't line up legally.
+ *
+ * This is the floor, not roster management: it tops each team up to its
+ * starters and no further, leaving actual depth-building to the player (and
+ * to whatever fills the AI side later). Cap room is deliberately not checked
+ * — a team still has to put eleven players on the field.
+ */
+export function fillRosterGaps(state: LeagueState): void {
+  const free = Object.values(state.players)
+    .filter((p) => p.free_agent && !p.retired)
+    .sort((a, b) => b.overall - a.overall);
+  const byPos = new Map<Position, Player[]>();
+  for (const p of free) {
+    const list = byPos.get(p.position);
+    if (list) list.push(p);
+    else byPos.set(p.position, [p]);
+  }
+
+  const signed = new Set<string>();
+  for (const code of Object.keys(state.teams)) {
+    const roster = Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired);
+    for (const [pos, needed] of Object.entries(STARTER_COUNTS) as [Position, number][]) {
+      let have = roster.filter((p) => p.position === pos).length;
+      const pool = byPos.get(pos);
+      while (have < needed && pool && pool.length > 0) {
+        const p = pool.shift()!;
+        if (signed.has(p.id)) continue;
+        signed.add(p.id);
+        p.free_agent = false;
+        p.nfl_team = code;
+        p.contract = {
+          team_id: code,
+          years_remaining: 1,
+          total_value: 1,
+          guaranteed: 0,
+          cap_hit_by_year: [1],
+          signing_bonus: 0,
+        };
+        have += 1;
+      }
+    }
+  }
+  if (signed.size > 0) {
+    state.standingFreeAgents = state.standingFreeAgents.filter((id) => !signed.has(id));
+  }
+}
+
 /** The starting lineup for a team: top-N by overall at each starter position. */
 export function startingLineup(state: LeagueState, code: string): Player[] {
   const roster = Object.values(state.players)
