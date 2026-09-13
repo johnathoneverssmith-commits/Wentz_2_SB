@@ -49,13 +49,17 @@ seeded, plausible-but-fake generator (`src/sim/rng.ts`, `src/sim/names.ts`,
 priorities). `src/state/seed.ts` (`createLeague`) calls it once to build a
 fresh league. `src/state/store.ts` calls it on every sim action.
 
-**To wire in the real engine**: write an `EngineSimulationService` that
-implements `SimulationService` by calling into `nfl-franchise-sim/src/engine/`
-— *but* that engine reads model artifacts via `node:fs`, so it can't run in the
-browser directly. The intended path (see this project's own README) is a thin
-Node adapter (Fastify or similar) that imports the engine and an
-`HttpSimulationService` that calls it over HTTP; the store and every screen
-stay unchanged either way, since they only ever touch `SimulationService`.
+**The real engine is wired in.** `src/sim/HttpSimulationService.ts` calls the
+dependency-free Node adapter at `nfl-franchise-sim/server/index.ts`
+(`npm run server`, port 8787), and `HybridSimulationService` is what the store
+actually holds: the real-backed methods go over HTTP and fall back to Mock
+when the adapter isn't running, so the standalone single-file build still
+works offline. A refused connection is remembered for 30 seconds rather than
+retried on every call — a season is ~20 `simulateWeek` round-trips, and
+retrying each one filled the console with hundreds of identical errors.
+
+Still Mock-only, for want of a calibrated engine model: `generateDraftClass`,
+`evaluateTrade`, `retirementOutcomes`, `finalizeSeasonOutcomes`.
 
 **`src/domain/player.ts`** is a field-for-field mirror of the engine's zod
 `Player` schema (`nfl-franchise-sim/src/schema/player.ts`) plus a few UI-only
@@ -63,19 +67,18 @@ additions (`draft_info`, `retirement_status`, `college`, `season_stats`,
 `scheme_fit`) the engine schema doesn't carry yet. `src/data/teams.ts` is real
 data (the 32 actual NFL teams/colors/divisions), not mock.
 
-**The Game Day screen** (`src/screens/GameDay.tsx`) is intentionally a thin
-placeholder — it just proves the "week simulated, here's the score, continue"
-flow. This is almost certainly where your `broadcastGame()` play-by-play view
-belongs: today it shows the final score + around-the-league scores; it should
-grow into the actual gamecast presentation, reading from whatever your engine
-returns per game instead of `MockSimulationService`'s output.
+**The Game Day screen** (`src/screens/GameDay.tsx`) renders the real
+play-by-play: `src/screens/gamecast/` is a native React port of the field
+visualization, driven by the `broadcast` the adapter returns for the viewer's
+game. Its CSS classes are all `gc-` prefixed on purpose — the app's globals
+own `.panel`, `.card`, `.drive`, `.board` and `.player`.
 
 ## Routes / screens — all real, nothing left as a placeholder
 
 Every route in `src/App.tsx` points at a fully built screen in `src/screens/`
-(20 screens total). There used to be a generic `Placeholder.tsx` component
-used while screens were being built out; it's no longer imported anywhere —
-safe to delete if you want, kept only for reference.
+(20 screens total), wrapped in a `ScreenBoundary` so a crash in one screen
+can't blank the app — reloading out of that state doesn't help, because the
+stage is persisted too.
 
 | Route | Screen | Notes |
 |---|---|---|
@@ -83,7 +86,7 @@ safe to delete if you want, kept only for reference.
 | `/draft`, `/fantasy-draft-summary` | `DraftRoom`, `FantasyDraftSummary` | fantasy draft (Y1) + annual rookie draft share `DraftRoom` |
 | `/coaching` | `CoachingStaffHub` | includes the 5-day initial coach-hiring window |
 | `/hub` | `WeeklyTeamHub` | base screen, preseason + regular season |
-| `/game-day` | `GameDay` | **the light one — see above** |
+| `/game-day` | `GameDay` | drive chart + the `gamecast/` field view |
 | `/bracket` | `PostseasonBracket` | becomes base screen during playoffs |
 | `/roster`, `/league-rosters` | `RosterCapManagement`, `LeagueRosters` | |
 | `/trade` | `TradeProposal` | |
@@ -97,3 +100,35 @@ safe to delete if you want, kept only for reference.
 
 `docs/screen-map.md` in this folder has the full spec-section-by-spec-section
 mapping if useful context for the merge.
+
+## Franchise economy — the rules that hold the league together
+
+These are invariants, not preferences: several of them exist because breaking
+them soft-locked the game. `src/state/rosterLegality.test.ts`,
+`contracts.test.ts` and `playthrough.test.ts` are the guards.
+
+- **A player is either on a team with a contract, or on the market with
+  neither.** Nothing may be both. The engine's `/pool` violates this on
+  arrival — real team code, `free_agent: true`, no contract — so
+  `normalizePool` fixes it at the seam, and `applyPick` clears the flag when a
+  fantasy pick joins a team. When it slipped, the roster fill "signed" players
+  a team already had and left it short of 53.
+- **53 from kickoff; `OFFSEASON_ROSTER_SIZE` (65) between the last game and
+  the preseason gate.** Holding teams to 53 year-round made free agency
+  unplayable — a team that came out of the draft full could sign nobody, and
+  the window resolved two signings a day league-wide.
+- **`fillRosterGaps` cuts before it fills.** Size first (worst player at an
+  overstocked position), then salary in three tiers: the priciest non-starter,
+  then the priciest whose position has someone behind him, and the one man a
+  team can't replace at his spot only as a last resort. Cutting minimum-salary
+  depth to fix a $38M overage took a team to 22 players; cutting simply the
+  biggest contract took its quarterback.
+- **The fill leaves `CAP_WORKING_ROOM` unspent.** Spending to the line put all
+  32 teams on exactly $255.0M — legal, and nobody could sign anyone.
+- **A season takes a year off every contract** (`expireContracts`, run from
+  `finalizeSeason`), and deals that run out stock the next offseason's market.
+  Terms are staggered on purpose: with every fill deal written for one year,
+  the first expiry dropped rosters to 12-21 players.
+- **Open bids are committed money** (`checkBid`), and a day's own signings
+  count against the room as they resolve. Otherwise a GM with $7M of room won
+  four $20M bids on day five.
