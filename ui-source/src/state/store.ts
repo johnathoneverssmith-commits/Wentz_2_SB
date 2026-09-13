@@ -28,6 +28,7 @@ import {
 import { TEAMS } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { contractValueFor } from "@/sim/MockSimulationService";
+import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
 import {
@@ -76,7 +77,10 @@ export interface StoreActions {
   toggleDraftTarget: (gmId: string, id: string) => void;
 
   startBidding: (subject: Subject) => void;
-  placeOffer: (subject: Subject, id: string, offer: ContractOffer) => void;
+  /** Place/replace this team's bid in the live window. Rejects (changing
+   *  nothing) when the offer plus the team's other open bids wouldn't fit
+   *  under the cap — see `checkBid`. */
+  placeOffer: (subject: Subject, id: string, offer: ContractOffer) => { ok: boolean; reason?: string };
   advanceBiddingDay: (subject: Subject) => void;
   dismissInterstitial: (subject: Subject) => void;
 
@@ -432,7 +436,9 @@ export const useStore = create<Store>()(
           };
         }),
 
-      placeOffer: (subject, id, offer) =>
+      placeOffer: (subject, id, offer) => {
+        const check = checkBid(get(), subject, id, offer);
+        if (!check.ok) return check;
         set((s) => {
           const fa = s[faField(subject)];
           if (!fa) return;
@@ -440,7 +446,9 @@ export const useStore = create<Store>()(
           const mine = list.findIndex((o) => o.teamCode === offer.teamCode);
           if (mine >= 0) list[mine] = offer;
           else list.push(offer);
-        }),
+        });
+        return { ok: true };
+      },
 
       advanceBiddingDay: (subject) =>
         set((s) => {
@@ -819,10 +827,24 @@ function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState
   if (subject === "players") {
     const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
     const signCount = 8 + Math.floor(rng() * 12);
+    // `cap.used` is only recomputed once the day is over, so a day's own
+    // signings are tracked here — otherwise four winning bids on one day each
+    // see the same room and the team ends the day well past the cap.
+    const spentToday: Record<string, number> = {};
     for (let i = 0; i < signCount; i++) {
       const p = pool[Math.floor(rng() * pool.length)];
       if (!p || fa.signed.some((x) => x.id === p.id)) continue;
       const winning = bestOfferFor(fa, "players", p.id, s) ?? aiOfferForPlayer(rng, s, p);
+      const team = s.teams[winning.teamCode];
+      if (!team) continue;
+      const hit = offerToContract(winning).cap_hit_by_year[0] ?? 0;
+      const room = team.cap.total - team.cap.used - (spentToday[winning.teamCode] ?? 0);
+      const roster = Object.values(s.players).filter(
+        (x) => x.nfl_team === winning.teamCode && !x.retired,
+      ).length;
+      // he stays on the market rather than being signed into an illegal roster
+      if (hit > room || roster >= ROSTER_SIZE) continue;
+      spentToday[winning.teamCode] = (spentToday[winning.teamCode] ?? 0) + hit;
       fa.signed.push({ id: p.id, toTeam: winning.teamCode, ...offerFields(winning), at: fa.day });
       p.free_agent = false;
       p.nfl_team = winning.teamCode;
@@ -1189,12 +1211,66 @@ export function checkStandingSign(
   if (!p || !p.free_agent) return { ok: false, reason: "This player is no longer a free agent." };
   const team = s.teams[offer.teamCode];
   if (!team) return { ok: false, reason: "Unknown team." };
+  const rosterCount = Object.values(s.players).filter(
+    (x) => x.nfl_team === offer.teamCode && !x.retired,
+  ).length;
+  if (rosterCount >= ROSTER_SIZE) {
+    return {
+      ok: false,
+      reason: `Your roster is full at ${ROSTER_SIZE}. Release a player on Roster & Cap to open a spot.`,
+    };
+  }
   const capHitYear1 = offerToContract(offer).cap_hit_by_year[0] ?? 0;
   const room = Math.round((team.cap.total - team.cap.used) * 10) / 10;
   if (capHitYear1 > room) {
     return {
       ok: false,
       reason: `Not enough cap space: this deal needs $${capHitYear1.toFixed(1)}M this year, you have $${room.toFixed(1)}M free.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * The live free-agency window's equivalent of `checkStandingSign`.
+ *
+ * A bid isn't a signing, so nothing was charged when it was placed — which
+ * meant a GM with $7M of room could sit on six $20M offers and wake up on day
+ * 5 having won four of them and blown $80M past the cap. The gate the player
+ * then hit was the preseason trim cutting their own roster back down.
+ *
+ * So outstanding bids are treated as committed money: a new offer has to fit
+ * the room left after every other bid this team still has live. Coach bids
+ * aren't checked — coaching salaries aren't a player-cap charge.
+ */
+export function checkBid(
+  s: LeagueState,
+  subject: Subject,
+  targetId: string,
+  offer: ContractOffer,
+): { ok: boolean; reason?: string } {
+  if (subject === "coaches") return { ok: true };
+  const team = s.teams[offer.teamCode];
+  const fa = s.freeAgency;
+  if (!team || !fa) return { ok: true };
+
+  const committed = Object.entries(fa.bids).reduce((sum, [id, list]) => {
+    if (id === targetId) return sum; // this offer replaces that one
+    if (fa.signed.some((x) => x.id === id)) return sum; // already resolved
+    const mine = list.find((o) => o.teamCode === offer.teamCode);
+    return mine ? sum + (offerToContract(mine).cap_hit_by_year[0] ?? 0) : sum;
+  }, 0);
+
+  const room = Math.round((team.cap.total - team.cap.used) * 10) / 10;
+  const thisBid = offerToContract(offer).cap_hit_by_year[0] ?? 0;
+  if (thisBid + committed > room) {
+    const free = Math.round((room - committed) * 10) / 10;
+    return {
+      ok: false,
+      reason:
+        committed > 0
+          ? `You have $${committed.toFixed(1)}M already tied up in open bids, leaving $${free.toFixed(1)}M. This offer needs $${thisBid.toFixed(1)}M.`
+          : `Not enough cap space: this offer needs $${thisBid.toFixed(1)}M this year, you have $${room.toFixed(1)}M free.`,
     };
   }
   return { ok: true };

@@ -96,6 +96,17 @@ const MIN_SALARY_M = 1;
 /** How many free agents the market keeps so it never empties out. */
 const MARKET_RESERVE = 140;
 
+/**
+ * Cap room ($M) the automatic roster fill refuses to spend.
+ *
+ * Without it the fill signs the best player it can afford at every hole and
+ * lands every team on exactly $255.0M — legal, and unplayable: free agency is
+ * the offseason's headline feature and no GM, human or AI, could make a single
+ * signing. Real front offices carry working room for in-season injuries and
+ * deadline moves; this is that, and it's what keeps the market alive.
+ */
+const CAP_WORKING_ROOM = 18;
+
 function minimumDeal(teamCode: string): Player["contract"] {
   return {
     team_id: teamCode,
@@ -221,10 +232,17 @@ function trimToLegalRoster(
   // Then the cap — against a budget, not the raw number. Every roster spot
   // still empty gets filled at the minimum right after this, so cutting to
   // exactly the cap just lands the team back over it once the depth arrives.
-  const budget = (): number =>
+  const limit = (): number =>
     capTotal - Math.max(0, ROSTER_SIZE - roster.length) * MIN_SALARY_M;
+  // A team that has to cut at all cuts far enough to operate afterwards.
+  // Shedding exactly enough to be legal leaves it at $0.0M of space, unable
+  // to sign anyone all year; a team already under the limit is left alone.
+  // `limit()` is re-read every pass because each cut opens a roster spot the
+  // fill will charge the minimum for.
+  const mustCut = used > limit();
+  const target = (): number => (mustCut ? limit() - CAP_WORKING_ROOM : limit());
   let guard = ROSTER_SIZE;
-  while (used > budget() && roster.length > 0 && guard-- > 0) {
+  while (used > target() && roster.length > 0 && guard-- > 0) {
     const keep = protectedIds();
     const expendable = roster.filter((p) => !keep.has(p.id));
     const pool = expendable.length > 0 ? expendable : roster;
@@ -300,9 +318,16 @@ export function fillRosterGaps(state: LeagueState): void {
     let used = trimmed.used;
     marketSize += trimmed.released; // the cuts are on the market now
 
-    /** room left once every remaining roster spot is covered at the minimum */
+    /**
+     * What pass 1 may spend on one starter: the cap, less the working room it
+     * leaves untouched, less the minimum every roster spot still to be filled
+     * will cost.
+     */
     const spendable = (): number =>
-      capTotal - used - Math.max(0, ROSTER_SIZE - roster.length - 1) * MIN_SALARY_M;
+      capTotal -
+      CAP_WORKING_ROOM -
+      used -
+      Math.max(0, ROSTER_SIZE - roster.length - 1) * MIN_SALARY_M;
 
     // Pass 1 — a usable starter at every position. Best player the team can
     // actually *afford*, not best available: signing best-available at market

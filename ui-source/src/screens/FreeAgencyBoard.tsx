@@ -272,8 +272,13 @@ export function FreeAgencyBoard() {
           onSubmit={(offer) => {
             const full: ContractOffer = { ...offer, teamCode: code };
             if (isWindowStage) {
-              placeOffer("players", negotiating.id, full);
-              setNegotiating(null);
+              const result = placeOffer("players", negotiating.id, full);
+              if (result.ok) {
+                setSignError(null);
+                setNegotiating(null);
+              } else {
+                setSignError(result.reason ?? "Unable to bid on this player.");
+              }
             } else {
               const result = signStanding(negotiating.id, full);
               if (result.ok) {

@@ -107,6 +107,18 @@ describe("roster legality", () => {
     }
   });
 
+  it("leaves every team room to actually sign someone", () => {
+    // The fill used to buy the best starter it could afford at every hole and
+    // park all 32 teams on exactly $255.0M. Legal, and unplayable: free agency
+    // is the offseason's headline feature and nobody could make a signing.
+    const s = fixture();
+    fillRosterGaps(s);
+    for (const code of Object.keys(s.teams)) {
+      const room = s.teams[code]!.cap.total - capUsed(s, code);
+      expect(room, `${code} has working cap room`).toBeGreaterThan(5);
+    }
+  });
+
   it("the cap figure the UI reads agrees with the contracts on the roster", () => {
     const s = fixture();
     fillRosterGaps(s);
