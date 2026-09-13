@@ -12,7 +12,13 @@ export function RosterNeeds({ roster }: { roster: Player[] }) {
     counts.set(g, (counts.get(g) ?? 0) + 1);
   }
   return (
-    <div className="needgrid">
+    <>
+      {/* "3 / 2" is unreadable without this: the second number is the floor,
+          not a target, and green means you're above it. */}
+      <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+        On the roster / the minimum a legal lineup needs.
+      </p>
+      <div className="needgrid">
       {POSITION_GROUPS.map((g) => {
         const have = counts.get(g) ?? 0;
         const min = POSITION_MINIMUMS[g] ?? 1;
@@ -27,6 +33,7 @@ export function RosterNeeds({ roster }: { roster: Player[] }) {
           </div>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
