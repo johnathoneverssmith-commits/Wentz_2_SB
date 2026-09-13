@@ -164,3 +164,22 @@ describe("a full franchise year", () => {
     TIMEOUT,
   );
 });
+
+/**
+ * League Setup offers a league with no fantasy draft, which keeps every team's
+ * real roster. Those rosters are lopsided by NFL standards next to
+ * `ROSTER_TEMPLATE`, and that shape found a bug the fantasy path never did:
+ * trimming only the total left the surplus in place, the fill topped up the
+ * short positions, and three teams kicked off at 56.
+ */
+describe("a league with no fantasy draft", () => {
+  it("still reaches the preseason with a legal roster everywhere", async () => {
+    await useStore.getState().newLeague(55, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false });
+
+    let guard = 12;
+    while (state().stage !== "preseason" && guard-- > 0) await playStage();
+
+    expect(state().stage).toBe("preseason");
+    expectSeasonLegal(state());
+  }, TIMEOUT);
+});
