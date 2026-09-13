@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import type { LeagueState, Player } from "@/domain";
 import { ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
 
-import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
+import {
+  createLeague,
+  DEFAULT_CONFIG,
+  fillRosterGaps,
+  recomputeTeamRatings,
+  trimRosters,
+} from "./seed.ts";
 
 /**
  * `fillRosterGaps` used to only ever *add* players. That was fine right after
@@ -157,5 +163,66 @@ describe("roster bookkeeping", () => {
         expect(roster.filter((p) => p.position === pos).length, `${code} ${pos}`).toBe(count);
       }
     }
+  });
+});
+
+/**
+ * Signing a draft class puts a team tens of millions over the cap, and the
+ * trim that follows has to fix that without dismantling the roster. It used
+ * to cut whoever was expendable — and after a draft almost every real player
+ * is the best at his position, so "expendable" meant camp bodies. One team
+ * shed 38 players at $1M each and walked into free agency with 22.
+ */
+describe("getting cap-compliant after a draft class", () => {
+  function signedDraftClass(s: LeagueState, code: string): void {
+    let n = 0;
+    for (const salary of [7, 6, 5, 4, 3, 2, 1]) {
+      const id = `p_rook_${code}_${++n}`;
+      s.players[id] = {
+        ...Object.values(s.players).find((p) => p.nfl_team === code)!,
+        id,
+        nfl_team: code,
+        free_agent: false,
+        overall: 70,
+        contract: {
+          team_id: code,
+          years_remaining: 4,
+          total_value: salary * 4,
+          guaranteed: salary * 4,
+          cap_hit_by_year: [salary, salary, salary, salary],
+          signing_bonus: salary,
+        },
+      };
+    }
+  }
+
+  it("pays for it with contracts, not by gutting the roster", () => {
+    const s = fixture();
+    fillRosterGaps(s);
+    const code = Object.keys(s.teams)[0]!;
+    // spend up to the line first, the way a team arrives at its draft
+    s.teams[code]!.cap.total = capUsed(s, code);
+    const before = rosterOf(s, code).length;
+    signedDraftClass(s, code);
+
+    trimRosters(s);
+
+    const after = rosterOf(s, code);
+    expect(capUsed(s, code)).toBeLessThanOrEqual(s.teams[code]!.cap.total);
+    // a $28M overage is a handful of contracts, not three dozen bodies
+    expect(before + 7 - after.length).toBeLessThan(12);
+  });
+
+  it("keeps free agency reachable — the roster it hands over is still a team", () => {
+    const s = fixture();
+    fillRosterGaps(s);
+    const code = Object.keys(s.teams)[0]!;
+    s.teams[code]!.cap.total = capUsed(s, code);
+    signedDraftClass(s, code);
+
+    trimRosters(s);
+
+    // enough bodies left that the position minimums are within reach
+    expect(rosterOf(s, code).length).toBeGreaterThan(40);
   });
 });

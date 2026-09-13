@@ -328,8 +328,16 @@ function trimToLegalRoster(
   while (used > target() && roster.length > 0 && guard-- > 0) {
     const keep = protectedIds();
     const expendable = roster.filter((p) => !keep.has(p.id));
-    const pool = expendable.length > 0 ? expendable : roster;
-    const priciest = pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
+    const dearest = (pool: Player[]): Player =>
+      pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
+    let priciest = expendable.length > 0 ? dearest(expendable) : dearest(roster);
+    // A roster is mostly minimum-salary depth, and after a draft class almost
+    // every real player is the best at his position and so "protected" — so
+    // the expendable pool is camp bodies. Cutting those to fix a $38M overage
+    // doesn't fix it: one team shed 38 players at $1M each and came out of
+    // the draft with 22. When the best expendable cut is at the minimum, the
+    // overage is a contract problem, so take the biggest contract instead.
+    if (capHitOf(priciest) <= MIN_SALARY_M) priciest = dearest(roster);
     if (capHitOf(priciest) <= 0) break; // nothing left to shed
     used -= drop(priciest);
   }
