@@ -122,23 +122,50 @@ function wcMatchupsFor(conf: "AFC" | "NFC", seeds: string[], state: LeagueState)
 
 const engConfToUi = (c: string): "AFC" | "NFC" | "SB" => (c === "NFL" ? "SB" : (c as "AFC" | "NFC"));
 
+/**
+ * How long to stop calling the adapter after it refuses a connection.
+ *
+ * Without this, every single call retried: a season is ~20 `simulateWeek`
+ * round-trips, so playing with no adapter running (the standalone build's
+ * normal state) filled the console with hundreds of identical
+ * ERR_CONNECTION_REFUSED lines and made anything else in there unreadable.
+ * Short enough that starting `npm run server` mid-session is picked up
+ * without a reload.
+ */
+const ADAPTER_RETRY_MS = 30_000;
+
 export class HybridSimulationService implements SimulationService {
   private readonly http = new HttpSimulationService();
   private readonly mock = new MockSimulationService();
   private baseline: SchemeFitBaseline | null = null;
   private baselineRequested = false;
+  /** epoch ms before which the adapter is assumed still unreachable */
+  private adapterDownUntil = 0;
 
-  async generateInitialPool(seed: number, mode: "fantasyPool" | "realRosters"): Promise<Player[]> {
-    if (mode === "fantasyPool") return this.mock.generateInitialPool(seed, mode);
+  /** Runs `real` against the adapter, falling back to Mock — and remembers a
+   *  refusal for `ADAPTER_RETRY_MS` instead of retrying on the next call. */
+  private async viaAdapter<T>(real: () => Promise<T>, fallback: () => T | Promise<T>): Promise<T> {
+    if (Date.now() < this.adapterDownUntil) return fallback();
     try {
-      return await this.http.generateInitialPool();
+      const out = await real();
+      this.adapterDownUntil = 0;
+      return out;
     } catch {
-      return this.mock.generateInitialPool(seed, mode);
+      this.adapterDownUntil = Date.now() + ADAPTER_RETRY_MS;
+      return fallback();
     }
   }
 
+  async generateInitialPool(seed: number, mode: "fantasyPool" | "realRosters"): Promise<Player[]> {
+    if (mode === "fantasyPool") return this.mock.generateInitialPool(seed, mode);
+    return this.viaAdapter(
+      () => this.http.generateInitialPool(),
+      () => this.mock.generateInitialPool(seed, mode),
+    );
+  }
+
   async generateCoachMarket(seed: number): Promise<Coach[]> {
-    try {
+    return this.viaAdapter(async () => {
       const { real, generated } = await this.http.generateCoachMarket(seed);
       const rng = new Rng(seed ^ 0x2222);
       let cid = 0;
@@ -177,21 +204,17 @@ export class HybridSimulationService implements SimulationService {
         };
       };
       return [...real, ...generated].map(toCoach);
-    } catch {
-      return this.mock.generateCoachMarket(seed);
-    }
+    }, () => this.mock.generateCoachMarket(seed));
   }
 
   async generateSchedule(seed: number, teamCodes: string[]): Promise<ScheduledGame[]> {
     // preseason has no real-engine model — keep Mock's synthetic 3 weeks,
     // splice in the real regular season underneath it.
     const preseason = this.mock.generateSchedule(seed, teamCodes).filter((g) => g.phase === "PRE");
-    try {
-      const reg = await this.http.generateSchedule();
-      return [...preseason, ...reg];
-    } catch {
-      return this.mock.generateSchedule(seed, teamCodes);
-    }
+    return this.viaAdapter(
+      async () => [...preseason, ...(await this.http.generateSchedule())],
+      () => this.mock.generateSchedule(seed, teamCodes),
+    );
   }
 
   generateDraftClass(seed: number, year: number): DraftProspect[] {
@@ -201,7 +224,7 @@ export class HybridSimulationService implements SimulationService {
   async simulateWeek(state: LeagueState, week: number, phase: "PRE" | "REG"): Promise<GameResult[]> {
     const slate = state.schedule.filter((g) => g.week === week && g.phase === phase);
     if (slate.length === 0) return [];
-    try {
+    return this.viaAdapter(async () => {
       const rosters: Record<string, Player[]> = {};
       for (const t of TEAMS) {
         rosters[t.code] = Object.values(state.players).filter(
@@ -219,13 +242,11 @@ export class HybridSimulationService implements SimulationService {
         rosters,
         viewerGame ? { homeTeam: viewerGame.homeTeam, awayTeam: viewerGame.awayTeam } : null,
       );
-    } catch {
-      return this.mock.simulateWeek(state, week, phase);
-    }
+    }, () => this.mock.simulateWeek(state, week, phase));
   }
 
   async seedBracket(state: LeagueState): Promise<BracketState> {
-    try {
+    return this.viaAdapter(async () => {
       const regGames = state.games
         .filter((g) => g.phase === "REG" && g.played)
         .map((g) => ({ home: g.homeTeam, away: g.awayTeam, homeScore: g.homeScore, awayScore: g.awayScore }));
@@ -240,15 +261,13 @@ export class HybridSimulationService implements SimulationService {
         matchups,
         champion: null,
       };
-    } catch {
-      return this.mock.seedBracket(state);
-    }
+    }, () => this.mock.seedBracket(state));
   }
 
   async simulatePlayoffRound(state: LeagueState, round: PlayoffRound): Promise<BracketState> {
     const bracket = state.bracket;
     if (!bracket) return this.mock.simulatePlayoffRound(state, round);
-    try {
+    return this.viaAdapter(async () => {
       const asRaw = (seeds: string[]): RawConferenceSeeding => ({ seeds, divisionWinners: [], wildCards: [] });
       const roundsPlayed = ROUND_ORDER.indexOf(round);
       const result = await this.http.playoffRound(
@@ -290,9 +309,7 @@ export class HybridSimulationService implements SimulationService {
         }
       }
       return { ...bracket, matchups, currentRound, champion };
-    } catch {
-      return this.mock.simulatePlayoffRound(state, round);
-    }
+    }, () => this.mock.simulatePlayoffRound(state, round));
   }
 
   evaluateTrade(
@@ -306,7 +323,7 @@ export class HybridSimulationService implements SimulationService {
   }
 
   computeSchemeFit(player: Player, oc: Coach | null, dc: Coach | null): number {
-    if (!this.baselineRequested) {
+    if (!this.baselineRequested && Date.now() >= this.adapterDownUntil) {
       this.baselineRequested = true;
       this.http
         .schemeFitBaseline()
@@ -314,7 +331,8 @@ export class HybridSimulationService implements SimulationService {
           this.baseline = b;
         })
         .catch(() => {
-          /* stay on Mock's heuristic */
+          this.adapterDownUntil = Date.now() + ADAPTER_RETRY_MS;
+          this.baselineRequested = false; // try again after the cooldown
         });
     }
     if (!this.baseline) return this.mock.computeSchemeFit(player, oc, dc);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LeagueState, Player } from "@/domain";
-import { ROSTER_SIZE } from "@/sim/roster-template.ts";
+import { ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
 
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 
@@ -126,6 +126,36 @@ describe("roster legality", () => {
     for (const code of Object.keys(s.teams)) {
       expect(s.teams[code]!.cap.used).toBeCloseTo(capUsed(s, code), 0);
       expect(s.teams[code]!.cap.used).toBeLessThanOrEqual(s.teams[code]!.cap.total);
+    }
+  });
+});
+
+/**
+ * A fantasy-drafted player kept `free_agent: true` — `applyPick` set only his
+ * team code. He then counted twice: once as a rostered player and once as
+ * market supply. The roster fill would "sign" a man the team already had,
+ * push a duplicate into its working roster, read that as a filled spot, and
+ * stop one real body short — eight teams reached kickoff with 52 players and
+ * two quarterbacks where the template asks for three.
+ */
+describe("roster bookkeeping", () => {
+  it("never counts a player as rostered and available at the same time", () => {
+    const s = fixture();
+    fillRosterGaps(s);
+    const confused = Object.values(s.players).filter(
+      (p) => !p.retired && p.free_agent && p.nfl_team !== "FA",
+    );
+    expect(confused.map((p) => `${p.id}@${p.nfl_team}`)).toEqual([]);
+  });
+
+  it("fills to exactly the template at every position", () => {
+    const s = fixture();
+    fillRosterGaps(s);
+    for (const code of Object.keys(s.teams)) {
+      const roster = rosterOf(s, code);
+      for (const { pos, count } of ROSTER_TEMPLATE) {
+        expect(roster.filter((p) => p.position === pos).length, `${code} ${pos}`).toBe(count);
+      }
     }
   });
 });

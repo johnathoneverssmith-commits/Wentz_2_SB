@@ -661,7 +661,15 @@ function applyPick(s: LeagueState, selectedId: string): void {
     });
   } else {
     const p = s.players[selectedId];
-    if (p) p.nfl_team = teamCode;
+    if (p) {
+      // A drafted player is on the team — all of it, not just the team code.
+      // Leaving `free_agent` set made him count as rostered *and* as market
+      // supply, so the roster fill would "sign" a man it already had and stop
+      // one real body short of 53.
+      p.nfl_team = teamCode;
+      p.free_agent = false;
+      s.standingFreeAgents = s.standingFreeAgents.filter((id) => id !== selectedId);
+    }
     d.results.push({
       pickNumber: idx + 1,
       round,

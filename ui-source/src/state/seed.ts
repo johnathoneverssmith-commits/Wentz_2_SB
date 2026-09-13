@@ -304,7 +304,13 @@ function trimToLegalRoster(
  */
 export function trimRosters(state: LeagueState): void {
   for (const code of Object.keys(state.teams)) {
-    const roster = Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired);
+    // `!p.free_agent` matters: a player carrying a stale team code while on
+    // the market would otherwise be counted both here and in `byPos`, and
+    // signing him would push a duplicate into `roster` — which reads as a
+    // filled spot and leaves the team one real body short of 53.
+    const roster = Object.values(state.players).filter(
+      (p) => p.nfl_team === code && !p.retired && !p.free_agent,
+    );
     // the offseason ceiling, not 53 — cutting to 53 here would leave a team
     // that drafted well unable to sign anyone in the window that follows
     trimToLegalRoster(state, roster, state.teams[code]?.cap.total ?? 255, OFFSEASON_ROSTER_SIZE);
