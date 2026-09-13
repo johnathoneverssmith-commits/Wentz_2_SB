@@ -144,6 +144,9 @@ export class HttpSimulationService {
       ...g,
       homeTeam: toUi(g.homeTeam),
       awayTeam: toUi(g.awayTeam),
+      // team codes come back in the engine's vocabulary; anything the UI
+      // filters by team has to be translated, this list included
+      injuries: (g.injuries ?? []).map((e) => ({ ...e, team: toUi(e.team) })),
       broadcast: g.broadcast
         ? {
             ...g.broadcast,

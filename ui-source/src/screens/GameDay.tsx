@@ -47,6 +47,9 @@ export function GameDay() {
 
   const slate = s.games.filter((g) => pgd.gameIds.includes(g.id));
   const viewerGame = slate.find((g) => g.homeTeam === code || g.awayTeam === code);
+  const myInjuries = (viewerGame?.injuries ?? [])
+    .filter((e) => e.team === code)
+    .sort((a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0));
 
   const roundMatchups = isPlayoff
     ? (s.bracket?.matchups ?? []).filter((m) => m.round === pgd.phase && m.winner)
@@ -109,6 +112,27 @@ export function GameDay() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* The one thing a GM needs off a game day besides the score: who they
+            lost. It's in the box score too, but nobody opens a box score to
+            find out their left tackle is gone for six weeks. */}
+        {myInjuries.length > 0 && (
+          <>
+            <p className="subhead" style={{ marginTop: viewerGame ? 18 : 0 }}>
+              Your injury report
+            </p>
+            {myInjuries.map((e, i) => (
+              <div key={`${e.playerId}-${i}`} className="neg-row">
+                <span className="pname">
+                  {e.player} <span className="ppos">{e.position}</span>
+                </span>
+                <span style={{ fontSize: 12.5, color: "var(--bad)", fontWeight: 600 }}>
+                  {e.bodyPart} · {e.projectedWeeks[0]}–{e.projectedWeeks[1]} wks
+                </span>
+              </div>
+            ))}
+          </>
         )}
 
         {!isPlayoff && (

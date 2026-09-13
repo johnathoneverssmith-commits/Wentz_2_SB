@@ -38,6 +38,10 @@ export function FullBoxScore() {
 
   const { home, away } = game.totals;
   const homeWin = game.homeScore > game.awayScore;
+  // worst first, because that's the one the reader came for
+  const injuries = [...(game.injuries ?? [])].sort(
+    (a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0),
+  );
   const homeMeta = TEAMS_BY_CODE[game.homeTeam]!;
   const awayMeta = TEAMS_BY_CODE[game.awayTeam]!;
 
@@ -78,6 +82,8 @@ export function FullBoxScore() {
           { id: "scoring", label: "Scoring Summary" },
           { id: "home", label: TEAMS_BY_CODE[game.homeTeam]!.city },
           { id: "away", label: TEAMS_BY_CODE[game.awayTeam]!.city },
+          // only when there were any: an empty tab is a worse answer than no tab
+          ...(injuries.length > 0 ? [{ id: "injuries", label: "Injuries" }] : []),
         ]}
         active={active}
         onChange={setActive}
@@ -145,6 +151,34 @@ export function FullBoxScore() {
       </Panel>
       <Panel open={active === "away"}>
         <TeamLines lines={game.playerLines?.away ?? []} />
+      </Panel>
+
+      <Panel open={active === "injuries"}>
+        <p className="sectionlabel">Left the game</p>
+        {injuries.map((e, i) => (
+          <div key={`${e.playerId}-${i}`} className="neg-row">
+            <div>
+              <span className="pname">
+                {e.player} <span className="ppos">{e.position}</span>
+              </span>
+              <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
+                {TEAMS_BY_CODE[e.team]?.abbr ?? e.team} · Q{e.quarter} {e.clock} · {e.bodyPart}
+              </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, textTransform: "capitalize" }}>
+                {e.severity}
+              </span>
+              <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+                {e.projectedWeeks[0]}–{e.projectedWeeks[1]} wks
+              </p>
+            </div>
+          </div>
+        ))}
+        <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+          An injury keeps a player out of the roster sheet until he's back, so these are the
+          weeks his team plays without him.
+        </p>
       </Panel>
 
       <Footer>
