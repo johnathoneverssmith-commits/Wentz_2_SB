@@ -55,6 +55,8 @@ import {
   type RawConferenceSeeding,
   type SchemeFitBaseline,
 } from "./HttpSimulationService.ts";
+import { availableRoster } from "@/state/injuries.ts";
+
 import { MockSimulationService } from "./MockSimulationService.ts";
 import { fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
@@ -227,8 +229,10 @@ export class HybridSimulationService implements SimulationService {
     return this.viaAdapter(async () => {
       const rosters: Record<string, Player[]> = {};
       for (const t of TEAMS) {
-        rosters[t.code] = Object.values(state.players).filter(
-          (p) => p.nfl_team === t.code && !p.retired,
+        // an injury has to cost the team the player, or it's just a label on
+        // a hub tab — `availableRoster` sits out whoever is out
+        rosters[t.code] = availableRoster(
+          Object.values(state.players).filter((p) => p.nfl_team === t.code && !p.retired),
         );
       }
       const viewerTeam = state.gms.find((g) => g.id === state.viewerGmId)?.teamCode;

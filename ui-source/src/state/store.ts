@@ -48,6 +48,7 @@ import {
   resolveTransition,
   STAGE_HOME,
 } from "./stageMachine.ts";
+import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
   recomputeStandings,
@@ -223,6 +224,7 @@ export const useStore = create<Store>()(
             s.trades = [];
             s.rookieOutcomes = {};
             s.pendingGameDay = null;
+            clearInjuries(s); // an offseason outlasts any injury
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
             s.draftClass = sim.generateDraftClass(s.season, s.season);
@@ -289,6 +291,7 @@ export const useStore = create<Store>()(
             const viewerTeam = s.gms.find((g) => g.id === s.viewerGmId)?.teamCode;
             const phase = s.stage === "preseason" ? "PRE" : "REG";
             s.games.push(...results);
+            applyInjuries(s, results, s.season);
             if (phase === "REG") {
               accrueSeasonStats(s, results);
               recomputeStandings(s);
@@ -325,6 +328,7 @@ export const useStore = create<Store>()(
         set((s) => {
           if (newBracket && !s.bracket) s.bracket = newBracket;
           if (t.resetStats) resetSeasonStats(s);
+          healOneWeek(s); // a week has passed, so everyone hurt is a week closer
           // the season is scored the moment the playoffs end, so the End-of-Season
           // screens can show this year's row in the tracker.
           if (t.stage === "endOfSeasonAnnounce") finalizeSeason(s);

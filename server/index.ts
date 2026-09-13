@@ -144,6 +144,11 @@ function handleSimulateWeek(body: SimulateWeekBody) {
       },
       scoringPlays: scoringPlaysFrom(trace, homeTeam, awayTeam, finalScore, g.drivesLog),
       playerLines: playerLinesFrom(trace, homeTeam, awayTeam, rosters),
+      // Every game already simulates its injuries (see `injuries: true`
+      // above); they were being thrown away for all but the viewer's game,
+      // where they rode along inside `broadcast`. The franchise layer needs
+      // them league-wide — an injury has to actually cost a team its player.
+      injuries: g.injuryLog ?? [],
     };
     // the viewer's game also gets the play-by-play view; same seed and same
     // options, so it is the same simulated game as the box score above

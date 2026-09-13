@@ -1,5 +1,5 @@
 import type { Position } from "./player.ts";
-import type { GameBroadcast } from "./broadcast.ts";
+import type { GameBroadcast, InjuryEvent } from "./broadcast.ts";
 
 export interface PlayerGameLine {
   playerId: string;
@@ -66,6 +66,8 @@ export interface GameResult {
   playerLines?: { home: PlayerGameLine[]; away: PlayerGameLine[] };
   /** full play-by-play + injuries, engine-backed — populated for the viewer's game only. */
   broadcast?: GameBroadcast;
+  /** every injury the game produced, for every game in the slate. */
+  injuries?: InjuryEvent[];
 }
 
 export interface ScheduledGame {

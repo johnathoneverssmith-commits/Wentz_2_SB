@@ -12,6 +12,7 @@ import {
   type CoachRole,
   type DraftProspect,
   type GameResult,
+  type InjuryEvent,
   type LeagueState,
   type PlayerGameLine,
   type Player,
@@ -389,7 +390,50 @@ export class MockSimulationService implements SimulationService {
       totals,
       scoringPlays: this.scoringPlays(rng, home, away, homeScore, awayScore),
       playerLines,
+      injuries: [...this.injuriesFor(rng, state, home), ...this.injuriesFor(rng, state, away)],
     };
+  }
+
+  /**
+   * A rough stand-in for the engine's per-play injury hazard, so the fallback
+   * path has injuries too. Without it the hub's Injuries tab and the whole
+   * injury-history input to retirement went dark whenever the adapter wasn't
+   * running — which is the standalone build's normal state.
+   */
+  private injuriesFor(rng: Rng, state: LeagueState, team: string): InjuryEvent[] {
+    // ~0.55 per team-game, which is the right order for a 53-man roster
+    if (rng.float(0, 1) > 0.42) return [];
+    const roster = Object.values(state.players).filter(
+      (p) => p.nfl_team === team && !p.retired && !p.injury_status,
+    );
+    const p = roster[rng.int(0, Math.max(0, roster.length - 1))];
+    if (!p) return [];
+    const severity = rng.weighted(
+      ["minor", "moderate", "significant", "severe", "season"] as const,
+      [50, 28, 14, 6, 2],
+    );
+    const weeks: Record<string, [number, number]> = {
+      minor: [1, 1], moderate: [2, 4], significant: [4, 8], severe: [8, 14], season: [17, 17],
+    };
+    const bodyPart = rng.pick(["hamstring", "ankle", "knee", "shoulder", "concussion", "groin"]);
+    return [
+      {
+        team,
+        playerId: p.id,
+        player: p.name,
+        position: p.position,
+        slot: p.position,
+        quarter: rng.int(1, 4),
+        clock: "0:00",
+        bodyPart,
+        suspectedType: bodyPart,
+        severity,
+        projectedWeeks: weeks[severity]!,
+        mechanism: "contact",
+        onPlay: "",
+        narrative: `${p.name} left the game with a ${bodyPart} injury.`,
+      },
+    ];
   }
 
   private teamTotals(rng: Rng, points: number): TeamGameTotals {
