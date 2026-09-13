@@ -154,6 +154,33 @@ describe("roster bookkeeping", () => {
     expect(confused.map((p) => `${p.id}@${p.nfl_team}`)).toEqual([]);
   });
 
+  it("fills to exactly the template even when a roster starts lopsided", () => {
+    // Trimming only the *total* left a lopsided roster lopsided: a team at 53
+    // with six quarterbacks and two corners passed the size check untouched,
+    // then the fill topped every short position up and landed at 56. Real
+    // rosters (the non-fantasy path, straight off the engine pool) are
+    // exactly that shape, and three teams took the field over the limit.
+    const s = fixture();
+    fillRosterGaps(s);
+    const code = Object.keys(s.teams)[0]!;
+    // stack quarterbacks well past the template
+    const spares = Object.values(s.players).filter((p) => p.free_agent && !p.retired).slice(0, 6);
+    for (const p of spares) {
+      p.free_agent = false;
+      p.nfl_team = code;
+      p.position = "QB";
+      p.contract = {
+        team_id: code, years_remaining: 2, total_value: 2, guaranteed: 0,
+        cap_hit_by_year: [1], signing_bonus: 0,
+      };
+    }
+
+    fillRosterGaps(s);
+
+    expect(rosterOf(s, code).length).toBe(ROSTER_SIZE);
+    expect(rosterOf(s, code).filter((p) => p.position === "QB").length).toBe(3);
+  });
+
   it("fills to exactly the template at every position", () => {
     const s = fixture();
     fillRosterGaps(s);

@@ -277,6 +277,8 @@ function trimToLegalRoster(
   roster: Player[],
   capTotal: number,
   sizeLimit: number = ROSTER_SIZE,
+  /** also cap each position at its `ROSTER_TEMPLATE` count */
+  shapeToTemplate = true,
 ): { used: number; released: number } {
   let used = roster.reduce((n, p) => n + capHitOf(p), 0);
   let released = 0;
@@ -310,7 +312,23 @@ function trimToLegalRoster(
   /** The single best player at each position — the last thing a team gives up. */
   const coreIds = (): Set<string> => bestAtEachPosition(() => 1);
 
-  // size first — every cut here also frees cap, so the cap pass has less to do
+  // Shape before size. Trimming only the total leaves a lopsided roster
+  // lopsided: a team sitting at 53 with six quarterbacks and two corners
+  // passes the size check untouched, and then the fill tops every short
+  // position up to its template count and lands at 56. Cutting the surplus
+  // first means the fill can only ever bring the team back to exactly 53.
+  if (shapeToTemplate) {
+    for (const { pos, count } of ROSTER_TEMPLATE) {
+      while (countAt(pos) > count) {
+        const worst = roster
+          .filter((p) => p.position === pos)
+          .reduce((a, b) => (b.overall < a.overall ? b : a));
+        used -= drop(worst);
+      }
+    }
+  }
+
+  // size next — every cut here also frees cap, so the cap pass has less to do
   while (roster.length > sizeLimit) {
     const overstocked = roster.filter((p) => countAt(p.position) > templateCount(p.position));
     const pool = overstocked.length > 0 ? overstocked : roster;
@@ -383,7 +401,16 @@ export function trimRosters(state: LeagueState): void {
     );
     // the offseason ceiling, not 53 — cutting to 53 here would leave a team
     // that drafted well unable to sign anyone in the window that follows
-    trimToLegalRoster(state, roster, state.teams[code]?.cap.total ?? 255, OFFSEASON_ROSTER_SIZE);
+    // no position shaping here: the offseason ceiling is a ceiling, not a
+    // roster plan, and the draft class a team just signed is allowed to stack
+    // a position until the preseason gate says otherwise
+    trimToLegalRoster(
+      state,
+      roster,
+      state.teams[code]?.cap.total ?? 255,
+      OFFSEASON_ROSTER_SIZE,
+      false,
+    );
   }
 }
 
