@@ -191,8 +191,9 @@ export function TradeProposal() {
             onClick={() => {
               const id = proposeTrade(partner, give, get);
               setTradeId(id);
-              const created = useStore.getState().trades.find((t) => t.id === id);
-              if (!created?.vote) resolveTrade(id);
+              // resolveTrade decides: an AI partner can refuse outright, and
+              // only a deal it accepts goes on to the league vote
+              resolveTrade(id);
             }}
           >
             Propose trade

@@ -311,11 +311,41 @@ export const useStore = create<Store>()(
 
       startDraft: (mode) =>
         set((s) => {
-          const humanCodes = s.gms.filter((g) => g.isHuman).map((g) => g.teamCode);
-          const aiCodes = Object.keys(s.teams).filter((c) => !humanCodes.includes(c));
-          let base = [...humanCodes];
-          if (s.config.draftOrder === "randomized") base = shuffle(base, s.season + 7);
-          const fullFirstRound = [...base, ...shuffle(aiCodes, s.season + 11)];
+          // a GM who somehow reached the draft without a team contributes no
+          // slot, rather than an empty string in the pick order
+          const humanCodes = s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
+          const allCodes = Object.keys(s.teams);
+          const aiCodes = allCodes.filter((c) => !humanCodes.includes(c));
+
+          let fullFirstRound: string[];
+          if (mode === "rookie") {
+            // real NFL order: worst record picks first. Falls back to a shuffle
+            // before any games have been played.
+            const played = allCodes.some((c) => {
+              const t = s.teams[c]!;
+              return t.wins + t.losses + t.ties > 0;
+            });
+            const pct = (code: string): number => {
+              const t = s.teams[code]!;
+              const g = t.wins + t.losses + t.ties;
+              return g === 0 ? 0.5 : (t.wins + 0.5 * t.ties) / g;
+            };
+            const diff = (code: string): number => {
+              const t = s.teams[code]!;
+              return t.pointsFor - t.pointsAgainst;
+            };
+            fullFirstRound = played
+              ? [...allCodes].sort((a, b) => pct(a) - pct(b) || diff(a) - diff(b))
+              : shuffle(allCodes, s.season + 11);
+          } else if (s.config.draftOrder === "randomized") {
+            // every team in the hat — not the humans first and the AI after,
+            // which handed the human GMs the top picks of all 20 rounds
+            fullFirstRound = shuffle(allCodes, s.season + 7);
+          } else {
+            // "in order": GM 1 first, GM 2 second, …, then the AI teams
+            fullFirstRound = [...humanCodes, ...shuffle(aiCodes, s.season + 11)];
+          }
+
           const rounds = mode === "fantasy" ? 20 : 7;
           const order: string[] = [];
           for (let r = 0; r < rounds; r++) {
@@ -488,7 +518,10 @@ export const useStore = create<Store>()(
                   outcome: "pending",
                 }
               : undefined,
-            status: needsVote ? "pending" : "draft",
+            // always a draft: `resolveTrade` is what decides, and for a trade
+            // that needs a league vote it is also what lets the partner refuse
+            // before the vote is ever taken
+            status: "draft",
           });
         });
         return id;
@@ -499,9 +532,15 @@ export const useStore = create<Store>()(
           const t = s.trades.find((x) => x.id === tradeId);
           if (!t?.vote) return;
           t.vote.votes[gmId] = vote;
+          // The rest of the league is a collusion guard: wave through a deal
+          // that looks roughly fair, block one that is lopsided either way.
+          // This used to vote "for" whenever the deal wasn't bad *for the
+          // proposer*, which rubber-stamped precisely the fleecings the vote
+          // exists to stop — a 2%-acceptance heist passed 3-0.
+          const lopsided = t.aiAcceptLikelihood >= 0.85 || t.aiAcceptLikelihood <= 0.2;
           for (const g of s.gms) {
             if (g.isHuman && g.id !== gmId && t.vote.votes[g.id] == null) {
-              t.vote.votes[g.id] = t.aiValueDelta >= -3 ? "for" : "against";
+              t.vote.votes[g.id] = lopsided ? "against" : "for";
             }
           }
           const vals = Object.values(t.vote.votes);
@@ -516,9 +555,23 @@ export const useStore = create<Store>()(
         set((s) => {
           const t = s.trades.find((x) => x.id === tradeId);
           if (!t || t.status !== "draft") return;
-          const accepted = t.aiAcceptLikelihood >= 0.5;
-          t.status = accepted ? "accepted" : "rejected";
-          if (accepted) applyTrade(s, t);
+          const partnerIsHuman = s.gms.some((g) => g.isHuman && g.teamCode === t.toTeam);
+          // An AI partner decides for itself, first and regardless of any vote.
+          // A league vote exists to block a blockbuster, never to force an
+          // unwilling team into one — without this, any trade involving a 90+
+          // player skipped the partner entirely and a star could be prised off
+          // a team that wanted no part of the deal.
+          if (!partnerIsHuman && t.aiAcceptLikelihood < 0.5) {
+            t.status = "rejected";
+            delete t.vote;
+            return;
+          }
+          if (t.vote) {
+            t.status = "pending"; // the partner is willing; the league still votes
+            return;
+          }
+          t.status = "accepted";
+          applyTrade(s, t);
         }),
     })),
     {
