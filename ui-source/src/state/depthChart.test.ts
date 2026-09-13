@@ -60,6 +60,17 @@ describe("depth chart", () => {
     expect(useStore.getState().depthChart[code]!.WR).toEqual(["a", "b", "c"]);
   });
 
+  it("re-rates the team on the spot, so benching a starter is visible", () => {
+    const s = useStore.getState();
+    const code = Object.keys(s.teams)[0]!;
+    s.setDepthOrder(code, "QB", []);
+    const before = useStore.getState().teams[code]!.ratings.overall;
+    const qbs = depthAt(useStore.getState(), code, "QB");
+    if (qbs.length < 2) return;
+    s.setDepthOrder(code, "QB", [qbs[qbs.length - 1]!.id]);
+    expect(useStore.getState().teams[code]!.ratings.overall).toBeLessThanOrEqual(before);
+  });
+
   it("an empty order means 'go back to rating order'", () => {
     const s = useStore.getState();
     const code = Object.keys(s.teams)[0]!;

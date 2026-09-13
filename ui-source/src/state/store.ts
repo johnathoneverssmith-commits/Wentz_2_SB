@@ -515,6 +515,9 @@ export const useStore = create<Store>()(
         set((s) => {
           const forTeam = (s.depthChart[teamCode] ??= {});
           forTeam[position] = playerIds;
+          // the lineup is what the team rating averages, so benching a starter
+          // has to show up on the screen that just did it
+          recomputeTeamRatings(s);
         }),
 
       releasePlayer: (playerId) =>
