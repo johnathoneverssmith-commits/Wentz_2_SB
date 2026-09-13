@@ -123,6 +123,8 @@ export interface TradeProposal {
     outcome: "pending" | "passed" | "blocked";
   };
   status: "draft" | "pending" | "accepted" | "rejected" | "blocked";
+  /** Why a trade was refused on cap or roster grounds, rather than on value. */
+  blockedReason?: string;
 }
 
 export interface SeasonOutcome {

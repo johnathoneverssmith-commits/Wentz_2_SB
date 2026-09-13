@@ -25,7 +25,7 @@ import {
   type Position,
   type Stage,
 } from "@/domain";
-import { TEAMS } from "@/data/teams";
+import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { contractValueFor } from "@/sim/MockSimulationService";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
@@ -587,7 +587,15 @@ export const useStore = create<Store>()(
           const againstN = vals.filter((v) => v === "against").length;
           t.vote.outcome = forN > againstN ? "passed" : "blocked";
           t.status = t.vote.outcome === "passed" ? "accepted" : "blocked";
-          if (t.status === "accepted") applyTrade(s, t);
+          if (t.status === "accepted") {
+            const legal = checkTrade(s, t);
+            if (!legal.ok) {
+              t.status = "rejected";
+              t.blockedReason = legal.reason;
+              return;
+            }
+            applyTrade(s, t);
+          }
         }),
 
       resolveTrade: (tradeId) =>
@@ -602,6 +610,15 @@ export const useStore = create<Store>()(
           // a team that wanted no part of the deal.
           if (!partnerIsHuman && t.aiAcceptLikelihood < 0.5) {
             t.status = "rejected";
+            delete t.vote;
+            return;
+          }
+          // willing is not the same as able — neither side may come out of a
+          // trade over the cap or over the roster limit
+          const legal = checkTrade(s, t);
+          if (!legal.ok) {
+            t.status = "rejected";
+            t.blockedReason = legal.reason;
             delete t.vote;
             return;
           }
@@ -1313,17 +1330,73 @@ export function checkBid(
   return { ok: true };
 }
 
+/**
+ * Whether both sides can legally absorb a trade.
+ *
+ * `applyTrade` only ever swapped team codes, so a trade was a free way around
+ * every gate the rest of the app enforces: a GM with $2M of room could take
+ * back a $40M contract, and a three-for-one put a team over the roster limit
+ * with nothing to say about it. The cap is the point of the franchise layer;
+ * it can't be optional on the one screen that moves the most money.
+ *
+ * Read-only, so the Trade Proposal screen can preview the answer before the
+ * player commits to a deal that would be refused.
+ */
+export function checkTrade(
+  s: LeagueState,
+  t: Pick<LeagueState["trades"][number], "fromTeam" | "toTeam" | "fromAssets" | "toAssets">,
+): { ok: boolean; reason?: string } {
+  const hitOf = (ids: string[]): number =>
+    ids.reduce((n, id) => n + (s.players[id]?.contract?.cap_hit_by_year[0] ?? 0), 0);
+  const idsOf = (assets: LeagueState["trades"][number]["fromAssets"]): string[] =>
+    assets.filter((a) => a.kind === "player" && a.playerId).map((a) => a.playerId!);
+
+  const out = idsOf(t.fromAssets); // leaving fromTeam
+  const back = idsOf(t.toAssets); // leaving toTeam
+  const limit = rosterLimitFor(s.stage);
+
+  for (const [code, gains, loses] of [
+    [t.fromTeam, back, out],
+    [t.toTeam, out, back],
+  ] as const) {
+    const team = s.teams[code];
+    if (!team) return { ok: false, reason: "Unknown team." };
+    const name = TEAMS_BY_CODE[code]?.abbr ?? code;
+
+    const size = rosterCountOf(s, code) - loses.length + gains.length;
+    if (size > limit) {
+      return {
+        ok: false,
+        reason: `${name} would carry ${size} players, over the ${limit}-man limit. Even the trade up, or release someone first.`,
+      };
+    }
+
+    const used = Math.round((team.cap.used - hitOf(loses) + hitOf(gains)) * 10) / 10;
+    if (used > team.cap.total) {
+      const over = Math.round((used - team.cap.total) * 10) / 10;
+      return {
+        ok: false,
+        reason: `${name} would be $${over.toFixed(1)}M over the cap. Send back more salary, or take back less.`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
 function applyTrade(s: LeagueState, t: LeagueState["trades"][number]): void {
-  for (const a of t.fromAssets) {
-    if (a.kind === "player" && a.playerId && s.players[a.playerId]) {
-      s.players[a.playerId]!.nfl_team = t.toTeam;
+  // a contract moves with the player: `team_id` used to keep pointing at the
+  // team he just left
+  const move = (assets: LeagueState["trades"][number]["fromAssets"], to: string): void => {
+    for (const a of assets) {
+      if (a.kind !== "player" || !a.playerId) continue;
+      const p = s.players[a.playerId];
+      if (!p) continue;
+      p.nfl_team = to;
+      if (p.contract) p.contract.team_id = to;
     }
-  }
-  for (const a of t.toAssets) {
-    if (a.kind === "player" && a.playerId && s.players[a.playerId]) {
-      s.players[a.playerId]!.nfl_team = t.fromTeam;
-    }
-  }
+  };
+  move(t.fromAssets, t.toTeam);
+  move(t.toAssets, t.fromTeam);
   recomputeTeamRatings(s);
 }
 

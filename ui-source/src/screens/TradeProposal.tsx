@@ -5,7 +5,7 @@ import { pressable } from "@/components/bits";
 import { Card, Footer } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
-import { useStore } from "@/state/store";
+import { checkTrade, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
@@ -23,6 +23,20 @@ export function TradeProposal() {
   const [give, setGive] = useState<string[]>([]);
   const [get, setGet] = useState<string[]>([]);
   const [tradeId, setTradeId] = useState<string | null>(null);
+
+  // live cap/roster preview of the deal as it's being built
+  const legality = useMemo(
+    () =>
+      !myCode || (give.length === 0 && get.length === 0)
+        ? { ok: true }
+        : checkTrade(s, {
+            fromTeam: myCode,
+            toTeam: partner,
+            fromAssets: give.map((playerId) => ({ kind: "player" as const, playerId })),
+            toAssets: get.map((playerId) => ({ kind: "player" as const, playerId })),
+          }),
+    [s, myCode, partner, give, get],
+  );
 
   const myRoster = useMemo(() => (myCode ? teamRoster(s, myCode) : []), [s, myCode]);
   const theirRoster = useMemo(() => teamRoster(s, partner), [s, partner]);
@@ -174,7 +188,18 @@ export function TradeProposal() {
 
         {trade && !trade.vote && (
           <p style={{ marginTop: 12, fontSize: 12.5, color: trade.status === "accepted" ? "var(--good)" : "var(--bad)", fontWeight: 600 }}>
-            {trade.status === "accepted" ? `${TEAMS_BY_CODE[partner]!.city} accepted the trade.` : `${TEAMS_BY_CODE[partner]!.city} rejected the trade.`}
+            {trade.status === "accepted"
+              ? `${TEAMS_BY_CODE[partner]!.city} accepted the trade.`
+              : (trade.blockedReason ?? `${TEAMS_BY_CODE[partner]!.city} rejected the trade.`)}
+          </p>
+        )}
+
+        {/* The cap and roster answer is knowable before anyone is asked, so
+            say it here rather than letting the player build a deal that gets
+            refused on arithmetic. */}
+        {!trade && legality && !legality.ok && (
+          <p className="form-error" style={{ marginTop: 12 }}>
+            {legality.reason}
           </p>
         )}
       </div>
@@ -187,7 +212,8 @@ export function TradeProposal() {
         {!trade ? (
           <button
             className="btn-primary"
-            disabled={give.length === 0 && get.length === 0}
+            disabled={(give.length === 0 && get.length === 0) || !legality?.ok}
+            title={legality?.ok === false ? legality.reason : undefined}
             onClick={() => {
               const id = proposeTrade(partner, give, get);
               setTradeId(id);
