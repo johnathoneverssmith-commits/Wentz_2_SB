@@ -36,6 +36,8 @@ import {
   createLeague,
   expireContracts,
   fillRosterGaps,
+  marketDeal,
+  normalizePool,
   recomputeTeamRatings,
   releaseToMarket,
   trimRosters,
@@ -131,9 +133,12 @@ export const useStore = create<Store>()(
             sim.generateCoachMarket(seed),
           ]);
           set((s) => {
+            // the engine pool arrives unowned and unpaid — see `normalizePool`
+            normalizePool(pool, s.config.fantasyDraft, seed);
             const players: Record<string, Player> = {};
             for (const p of pool) players[p.id] = p;
             s.players = players;
+            s.standingFreeAgents = pool.filter((p) => p.free_agent).map((p) => p.id);
             s.schedule = schedule;
             const coaches: Store["coaches"] = {};
             for (const c of coachList) {
@@ -668,6 +673,11 @@ function applyPick(s: LeagueState, selectedId: string): void {
       // one real body short of 53.
       p.nfl_team = teamCode;
       p.free_agent = false;
+      // a fantasy pick is a signing: pay him, on a term staggered by round so
+      // a team's twenty deals don't all run out in the same offseason. (By
+      // pick index they would: 32 teams pick per round, so every pick a team
+      // owns shares the same index mod 4.)
+      if (!p.contract) p.contract = marketDeal(teamCode, p, 2 + ((round - 1) % 4));
       s.standingFreeAgents = s.standingFreeAgents.filter((id) => id !== selectedId);
     }
     d.results.push({

@@ -131,6 +131,20 @@ function dealFor(teamCode: string, salary: number, years: number): NonNullable<P
   };
 }
 
+/**
+ * A market-rate deal for an established pro joining a team.
+ *
+ * The engine's pool (`/pool` on the adapter) carries real names, teams and
+ * ratings but no contracts at all — every player comes back `contract: null`
+ * and `free_agent: true`. Left alone that makes the salary cap decorative:
+ * with the adapter running, 637 rostered players cost nothing and every team
+ * sat $190M under the line. This is what the franchise layer pays them.
+ */
+export function marketDeal(teamCode: string, p: Player, years: number): NonNullable<Player["contract"]> {
+  const salary = Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, p.position) * 10) / 10);
+  return dealFor(teamCode, salary, Math.max(1, years));
+}
+
 let depthSeq = 0;
 
 /**
@@ -166,6 +180,37 @@ function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
     retirement_status: "active",
     season_stats: { gamesPlayed: 0 },
   };
+}
+
+/**
+ * Puts an incoming player pool into the shape the franchise layer assumes:
+ * a player either belongs to a team, with a contract, or is on the market
+ * with neither. The engine's pool satisfies neither half — it hands back a
+ * real team code *and* `free_agent: true` *and* no contract, so the same
+ * player counted as rostered and as market supply at once.
+ *
+ * In a fantasy-draft league nobody starts anywhere: the draft is what assigns
+ * them. Otherwise they keep the team they really play for and are paid what
+ * they're worth, on staggered terms so free agency has something to do in
+ * later years (see `expireContracts`).
+ */
+export function normalizePool(players: Player[], fantasyDraft: boolean, seed: number): void {
+  const rng = new Rng(seed ^ 0x5ee1);
+  for (const p of players) {
+    if (fantasyDraft) {
+      p.free_agent = true;
+      p.nfl_team = "FA";
+      p.contract = null;
+      continue;
+    }
+    if (!p.nfl_team || p.nfl_team === "FA") {
+      p.free_agent = true;
+      p.contract = null;
+      continue;
+    }
+    p.free_agent = false;
+    if (!p.contract) p.contract = marketDeal(p.nfl_team, p, rng.int(2, 5));
+  }
 }
 
 /**
