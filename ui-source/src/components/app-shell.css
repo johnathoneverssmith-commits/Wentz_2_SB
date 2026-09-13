@@ -109,6 +109,9 @@
   padding: 40px 24px 64px;
   display: flex;
   justify-content: center;
+  /* without this the card is a stretched flex item and every short screen
+     renders as a full-height panel with a large dead area under its footer */
+  align-items: flex-start;
 }
 .app-card-wrap {
   width: 100%;

@@ -94,7 +94,18 @@ export function RosterCapManagement() {
           { label: "Roster strength", value: `${team.ratings.overallRank} of 32`, className: team.ratings.overallRank <= 12 ? "good" : undefined },
           { label: "Cap space", value: millions(capSpace), className: capSpace >= 0 ? "good" : "bad" },
           { label: "Cap used", value: millions(capUsed), className: "sm" },
-          { label: "Roster", value: `${roster.length}` },
+          {
+            // the 53-man target makes the gap legible — teams are topped up
+            // to their starters only, the rest is yours to sign
+            label: "Roster",
+            value: (
+              <>
+                {roster.length}
+                <span style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 400 }}> / 53</span>
+              </>
+            ),
+            className: roster.length < 46 ? "bad" : undefined,
+          },
         ]}
       />
       <Tabs

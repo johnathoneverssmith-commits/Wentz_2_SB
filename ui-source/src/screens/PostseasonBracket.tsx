@@ -5,7 +5,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { BracketMatchup, PlayoffRound } from "@/domain";
-import { ROUND_LABEL } from "@/domain";
+import { record, ROUND_LABEL, winPct } from "@/domain";
 import { useStore } from "@/state/store";
 import { viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
@@ -19,12 +19,51 @@ export function PostseasonBracket() {
   const b = s.bracket;
 
   if (!b) {
+    const inHunt = (conf: "AFC" | "NFC") =>
+      Object.values(s.teams)
+        .filter((t) => TEAMS_BY_CODE[t.code]?.conference === conf)
+        .sort((x, y) => winPct(y) - winPct(x) || y.pointsFor - y.pointsAgainst - (x.pointsFor - x.pointsAgainst))
+        .slice(0, 7);
+    const started = s.games.some((g) => g.phase === "REG" && g.played);
     return (
       <Card maxWidth={940}>
-        <CardHeader badge="NFL" title="Postseason" subtitle={`${s.season} playoffs`} />
+        <CardHeader badge="NFL" title="Postseason" subtitle={`${s.season} playoffs · not seeded yet`} />
         <div className="panel open">
-          <div className="emptystate">The bracket is seeded when the regular season ends.</div>
+          <div className="emptystate" style={{ marginBottom: started ? 20 : 0 }}>
+            The bracket is seeded when the regular season ends
+            {started ? " — here's how the field looks right now." : "."}
+          </div>
+          {started && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+              {(["AFC", "NFC"] as const).map((conf) => (
+                <div key={conf}>
+                  <p className="subhead" style={{ marginTop: 0 }}>
+                    {conf} — current top 7
+                  </p>
+                  <table className="stbl">
+                    <tbody>
+                      {inHunt(conf).map((t, i) => (
+                        <tr key={t.code} className={t.code === code ? "highlight" : ""}>
+                          <td className="c" style={{ width: 22, color: "var(--ink-faint)" }}>{i + 1}</td>
+                          <td className="name">{TEAMS_BY_CODE[t.code]!.city}</td>
+                          <td className="r">{record(t)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+        <Footer>
+          <button type="button" className="btnlink" onClick={() => nav("/hub")}>
+            Team hub
+          </button>
+          <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
+            Full schedule
+          </button>
+        </Footer>
       </Card>
     );
   }
