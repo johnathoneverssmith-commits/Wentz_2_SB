@@ -14,9 +14,12 @@ import {
   type PositionGroup,
 } from "@/domain";
 import { useStore } from "@/state/store";
+import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { depthAt } from "@/state/seed";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
+
+const sim = new HybridSimulationService();
 
 const GROUP_LABEL: Record<PositionGroup, string> = {
   QB: "Quarterback", RB: "Running back", WR: "Wide receiver", TE: "Tight end",
@@ -38,6 +41,9 @@ export function RosterCapManagement() {
 
   const roster = useMemo(() => (code ? teamRoster(s, code) : []), [s, code]);
   const team = code ? s.teams[code] : undefined;
+  const staff = Object.values(s.coaches).filter((c) => c.team === code);
+  const oc = staff.find((c) => c.role === "OC") ?? null;
+  const dc = staff.find((c) => c.role === "DC") ?? null;
 
   if (!code || !team) {
     return (
@@ -202,7 +208,12 @@ export function RosterCapManagement() {
                     </div>
                     <div>
                       <p>Scheme fit</p>
-                      <p>{p.scheme_fit ?? "—"}%</p>
+                      {/* computed against the coordinators this team has right
+                          now, not a number frozen into the player: a hiring
+                          window changes every fit on the roster, and the
+                          engine's pool carries no `scheme_fit` at all, so the
+                          stored field read "—%" for every real player. */}
+                      <p>{sim.computeSchemeFit(p, oc, dc)}%</p>
                     </div>
                   </div>
                   <div className="actions">

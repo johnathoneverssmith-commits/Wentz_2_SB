@@ -546,12 +546,34 @@ export function fillRosterGaps(state: LeagueState): void {
       }
     }
 
-    // pass 2 — depth to a full 53, cheapest real bodies first, then camp bodies
+    // Pass 2 — depth to a full 53. Best the team can still afford first, then
+    // the cheapest real bodies, then camp bodies.
+    //
+    // This used to take only the cheapest, always at the minimum. That was
+    // right when a fantasy-drafted roster left no room, and wrong every year
+    // after: once contracts started expiring, teams had $18-124M spare and
+    // spent none of it, the back thirty of every roster refilled with the
+    // worst players available, and good free agents piled up unsigned — 1,070
+    // of them by season five, with the league's median rating sliding 69 to
+    // 61. A team with money in hand signs someone worth having.
     for (const { pos, count } of ROSTER_TEMPLATE) {
       const pool = byPos.get(pos) ?? [];
       while (countAt(pos) < count) {
         let p: Player | undefined;
-        while (marketSize > MARKET_RESERVE && pool.length > 0) {
+        let salary = MIN_SALARY_M;
+        const room = spendable();
+        const idx =
+          room > MIN_SALARY_M
+            ? pool.findIndex(
+                (x) => !signed.has(x.id) && contractValueFor(x.overall, x.position) <= room,
+              )
+            : -1;
+        if (idx >= 0) {
+          p = pool.splice(idx, 1)[0]!;
+          salary = Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos) * 10) / 10);
+          marketSize--;
+        }
+        while (!p && marketSize > MARKET_RESERVE && pool.length > 0) {
           const candidate = pool.pop()!;
           if (signed.has(candidate.id)) continue;
           p = candidate;
@@ -562,8 +584,8 @@ export function fillRosterGaps(state: LeagueState): void {
           p = makeDepthPlayer(pos, state.season, rng);
           state.players[p.id] = p;
         }
-        sign(p, code, MIN_SALARY_M, DEPTH_YEARS);
-        used += MIN_SALARY_M;
+        sign(p, code, salary, DEPTH_YEARS);
+        used += salary;
         roster.push(p);
       }
     }
