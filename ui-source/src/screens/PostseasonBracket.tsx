@@ -303,7 +303,11 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
       {bye && <div style={{ padding: "4px 12px 9px", fontSize: 9.5, color: "var(--ink-faint)", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Bye — auto-advance</div>}
       {!played && !bye && favCode && (
         <div style={{ padding: "6px 12px 9px", fontSize: 11, color: "var(--good)", textAlign: "center", borderTop: "1px solid var(--line)" }}>
-          {TEAMS_BY_CODE[favCode]!.city} favored · {favProb}%
+          {/* "favored · 50%" is a contradiction, and two evenly matched teams
+              land there often enough to notice */}
+          {favProb === 50
+            ? "Pick 'em · 50%"
+            : `${TEAMS_BY_CODE[favCode]!.city} favored · ${favProb}%`}
         </div>
       )}
     </div>

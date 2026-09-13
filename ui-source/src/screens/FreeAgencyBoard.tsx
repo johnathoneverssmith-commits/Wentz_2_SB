@@ -88,17 +88,22 @@ export function FreeAgencyBoard() {
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title="Free Agency"
+        // The window closing doesn't end the stage — bidding is over but the
+        // market stays open, and the header used to keep saying "Live window ·
+        // Day 5 of 5" while a signing was a straight purchase.
         subtitle={
-          isWindowStage
+          inWindow
             ? `Live window · Day ${fa?.day ?? 1} of 5`
-            : "Standing market · open through the season"
+            : isWindowStage
+              ? "Window closed · open market until the season starts"
+              : "Standing market · open through the season"
         }
       />
       <Ticker
         stats={[
-          isWindowStage
+          inWindow
             ? { label: "Time left today", value: seconds(remaining), className: remaining <= 60 ? "urgent" : undefined }
-            : { label: "Mode", value: "Standing", className: "sm" },
+            : { label: "Mode", value: isWindowStage ? "Open market" : "Standing", className: "sm" },
           { label: "Cap space", value: millions(capSpace), className: capSpace >= 0 ? "good" : "bad" },
           { label: "Available", value: freeAgents.length },
           { label: isWindowStage ? "Signed" : "Your bids", value: isWindowStage ? (fa?.signed.length ?? 0) : bidsCount(fa, code) },

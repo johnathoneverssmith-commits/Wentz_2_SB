@@ -188,6 +188,104 @@ function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
 }
 
 /**
+ * Clears `needed` ($M) of cap room on one team, cutting the priciest players
+ * it can spare. Returns whether it got there.
+ *
+ * An elite free agent costs more than any team ever holds in reserve — a
+ * 96-overall quarterback is worth $51M a year and the richest team in the
+ * league carried $29M — so the two best quarterbacks in football went
+ * unsigned through a whole free agency and into the following season. Real
+ * teams don't sit that out; they clear the room for the player and take the
+ * roster hit. This is that move, and like the trim it protects a team's best
+ * player at each position, so the cost of signing a star is depth, never the
+ * rest of the starting eleven.
+ */
+export function clearRoomFor(state: LeagueState, teamCode: string, needed: number): boolean {
+  const capTotal = state.teams[teamCode]?.cap.total ?? 255;
+  const roster = Object.values(state.players).filter(
+    (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent,
+  );
+  let used = roster.reduce((n, p) => n + capHitOf(p), 0);
+  if (capTotal - used >= needed) return true;
+
+  const core = (): Set<string> => {
+    const keep = new Set<string>();
+    for (const pos of new Set(roster.map((p) => p.position))) {
+      const best = roster
+        .filter((p) => p.position === pos)
+        .reduce((a, b) => (b.overall > a.overall ? b : a));
+      keep.add(best.id);
+    }
+    return keep;
+  };
+
+  let guard = 10;
+  while (capTotal - used < needed && guard-- > 0) {
+    const keep = core();
+    const candidates = roster.filter((p) => !keep.has(p.id) && capHitOf(p) > MIN_SALARY_M);
+    if (candidates.length === 0) return false;
+    const cut = candidates.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
+    used -= capHitOf(cut);
+    roster.splice(roster.indexOf(cut), 1);
+    releaseToMarket(state, cut);
+  }
+  return capTotal - used >= needed;
+}
+
+/** Share of the cap an AI team tries to have free when the window opens. */
+const FREE_AGENCY_WAR_CHEST = 0.16;
+
+/**
+ * Cut day: AI teams clear room before free agency opens.
+ *
+ * The league arrived at its window carrying 98.9% of the cap, rosters at
+ * 52-62, and no money — so nobody could sign anybody, and a five-day window
+ * closed with the two best quarterbacks in football still unsigned. That
+ * isn't a bidding problem, it's a balance-sheet one: every real offseason
+ * starts with teams cutting the contracts they no longer want, and this is
+ * that day.
+ *
+ * Expensive backups go first (the same tiering the preseason trim uses), a
+ * team's best player at each position is never touched, and a human GM's team
+ * is left alone entirely — deciding who to cut is the job, and they have the
+ * Release button and a roster screen that tells them where they stand.
+ */
+export function openCapRoomForFreeAgency(state: LeagueState): void {
+  const humanTeams = new Set(
+    state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode),
+  );
+  for (const code of Object.keys(state.teams)) {
+    if (humanTeams.has(code)) continue;
+    const capTotal = state.teams[code]?.cap.total ?? 255;
+    const target = capTotal * (1 - FREE_AGENCY_WAR_CHEST);
+    const roster = Object.values(state.players).filter(
+      (p) => p.nfl_team === code && !p.retired && !p.free_agent,
+    );
+    let used = roster.reduce((n, p) => n + capHitOf(p), 0);
+    const core = (): Set<string> => {
+      const keep = new Set<string>();
+      for (const pos of new Set(roster.map((p) => p.position))) {
+        const best = roster
+          .filter((p) => p.position === pos)
+          .reduce((a, b) => (b.overall > a.overall ? b : a));
+        keep.add(best.id);
+      }
+      return keep;
+    };
+    let guard = 12; // a cut day, not a teardown
+    while (used > target && guard-- > 0) {
+      const keep = core();
+      const candidates = roster.filter((p) => !keep.has(p.id) && capHitOf(p) > MIN_SALARY_M);
+      if (candidates.length === 0) break;
+      const cut = candidates.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
+      used -= capHitOf(cut);
+      roster.splice(roster.indexOf(cut), 1);
+      releaseToMarket(state, cut);
+    }
+  }
+}
+
+/**
  * Puts an incoming player pool into the shape the franchise layer assumes:
  * a player either belongs to a team, with a contract, or is on the market
  * with neither. The engine's pool satisfies neither half — it hands back a

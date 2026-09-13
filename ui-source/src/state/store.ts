@@ -33,12 +33,14 @@ import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
 import {
   applySeasonAging,
+  clearRoomFor,
   createLeague,
   expireContracts,
   fillRosterGaps,
   forgetOldRetirees,
   marketDeal,
   normalizePool,
+  openCapRoomForFreeAgency,
   pruneFreeAgentMarket,
   recomputeTeamRatings,
   releaseToMarket,
@@ -460,6 +462,9 @@ export const useStore = create<Store>()(
               if (p.retired || p.free_agent) continue;
               if (p.contract && p.contract.years_remaining <= 0) releaseToMarket(s, p);
             }
+            // then cut day, so there is money in the league to spend
+            if (s.stage === "offseasonFreeAgency") openCapRoomForFreeAgency(s);
+            recomputeTeamRatings(s);
           } else {
             // coaching: every team starts with zero coaches — all coaches to market
             for (const c of Object.values(s.coaches)) {
@@ -928,22 +933,43 @@ function offerToContract(o: ContractOffer) {
 function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgencyState): void {
   const rng = mulberry(s.season * 131 + fa.day * 7 + (subject === "players" ? 1 : 2));
   if (subject === "players") {
-    const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
-    const signCount = 8 + Math.floor(rng() * 12);
+    // Best available first, and more so on the opening days.
+    //
+    // A day used to pick uniformly at random out of the whole market, which
+    // meant the 96-overall quarterback was no likelier to sign than the last
+    // camp body on the board: a five-day window closed with Josh Allen and
+    // Lamar Jackson still unsigned among 452 free agents. Real free agency
+    // clears from the top and clears fast. `rng() ** bias` pulls the draw
+    // toward the front of a best-first list, hard on day one and flattening
+    // out as the week goes on and the names left are ordinary.
+    const pool = Object.values(s.players)
+      .filter((p) => p.free_agent && !p.retired)
+      .sort((a, b) => b.overall - a.overall);
+    const bias = Math.max(1.2, 4 - (fa.day - 1) * 0.7);
+    const signCount = 12 + Math.floor(rng() * 17);
     // `cap.used` is only recomputed once the day is over, so a day's own
     // signings are tracked here — otherwise four winning bids on one day each
     // see the same room and the team ends the day well past the cap.
     const spentToday: Record<string, number> = {};
+    const humanTeams = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
     for (let i = 0; i < signCount; i++) {
-      const p = pool[Math.floor(rng() * pool.length)];
+      const p = pool[Math.floor(pool.length * rng() ** bias)];
       if (!p || fa.signed.some((x) => x.id === p.id)) continue;
       const winning = bestOfferFor(fa, "players", p.id, s) ?? aiOfferForPlayer(rng, s, p);
       const team = s.teams[winning.teamCode];
       if (!team) continue;
       const hit = offerToContract(winning).cap_hit_by_year[0] ?? 0;
       const room = team.cap.total - team.cap.used - (spentToday[winning.teamCode] ?? 0);
-      // he stays on the market rather than being signed into an illegal roster
-      if (hit > room || rosterCountOf(s, winning.teamCode) >= rosterLimitFor(s.stage)) continue;
+      if (rosterCountOf(s, winning.teamCode) >= rosterLimitFor(s.stage)) continue;
+      if (hit > room) {
+        // A player this good is worth clearing room for — no team ever holds
+        // $51M in reserve, so without this the best quarterback in football
+        // goes unsigned through a whole free agency. Anyone ordinary stays on
+        // the market instead, which is what a team short of money does.
+        const worthIt = p.overall >= 85 && !humanTeams.has(winning.teamCode);
+        if (!worthIt || !clearRoomFor(s, winning.teamCode, hit + (spentToday[winning.teamCode] ?? 0)))
+          continue;
+      }
       spentToday[winning.teamCode] = (spentToday[winning.teamCode] ?? 0) + hit;
       fa.signed.push({ id: p.id, toTeam: winning.teamCode, ...offerFields(winning), at: fa.day });
       p.free_agent = false;
