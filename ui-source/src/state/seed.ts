@@ -291,18 +291,24 @@ function trimToLegalRoster(
   const countAt = (pos: Position): number => roster.filter((p) => p.position === pos).length;
   const templateCount = (pos: Position): number =>
     ROSTER_TEMPLATE.find((r) => r.pos === pos)?.count ?? 0;
-  /** Projected starters, who are cut only as a last resort. */
-  const protectedIds = (): Set<string> => {
+  /** The best `depth` players at each position, by overall. */
+  const bestAtEachPosition = (depth: (pos: Position) => number): Set<string> => {
     const keep = new Set<string>();
-    for (const [pos, n] of Object.entries(STARTER_COUNTS) as [Position, number][]) {
+    const positions = new Set(roster.map((p) => p.position));
+    for (const pos of positions) {
       roster
         .filter((p) => p.position === pos)
         .sort((a, b) => b.overall - a.overall)
-        .slice(0, n)
+        .slice(0, depth(pos))
         .forEach((p) => keep.add(p.id));
     }
     return keep;
   };
+  /** Projected starters, cut only once the depth behind them is gone. */
+  const protectedIds = (): Set<string> =>
+    bestAtEachPosition((pos) => STARTER_COUNTS[pos] ?? 0);
+  /** The single best player at each position — the last thing a team gives up. */
+  const coreIds = (): Set<string> => bestAtEachPosition(() => 1);
 
   // size first — every cut here also frees cap, so the cap pass has less to do
   while (roster.length > sizeLimit) {
@@ -330,14 +336,25 @@ function trimToLegalRoster(
     const expendable = roster.filter((p) => !keep.has(p.id));
     const dearest = (pool: Player[]): Player =>
       pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
-    let priciest = expendable.length > 0 ? dearest(expendable) : dearest(roster);
+    // Three tiers, and the order is the whole point of this pass.
+    //
     // A roster is mostly minimum-salary depth, and after a draft class almost
     // every real player is the best at his position and so "protected" — so
     // the expendable pool is camp bodies. Cutting those to fix a $38M overage
     // doesn't fix it: one team shed 38 players at $1M each and came out of
-    // the draft with 22. When the best expendable cut is at the minimum, the
-    // overage is a contract problem, so take the biggest contract instead.
-    if (capHitOf(priciest) <= MIN_SALARY_M) priciest = dearest(roster);
+    // the draft with 22. So when the best expendable cut is at the minimum,
+    // the overage is a contract problem and a contract has to go.
+    //
+    // But not just the biggest one: that cut the franchise quarterback and
+    // left the team its two worst. The expensive *second* man at a position
+    // goes first, and the one player a team can't replace at each spot goes
+    // only when there is nothing else left to shed.
+    let priciest = expendable.length > 0 ? dearest(expendable) : dearest(roster);
+    if (capHitOf(priciest) <= MIN_SALARY_M) {
+      const core = coreIds();
+      const replaceable = roster.filter((p) => !core.has(p.id) && capHitOf(p) > MIN_SALARY_M);
+      priciest = replaceable.length > 0 ? dearest(replaceable) : dearest(roster);
+    }
     if (capHitOf(priciest) <= 0) break; // nothing left to shed
     used -= drop(priciest);
   }

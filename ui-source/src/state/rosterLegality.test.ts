@@ -213,6 +213,29 @@ describe("getting cap-compliant after a draft class", () => {
     expect(before + 7 - after.length).toBeLessThan(12);
   });
 
+  it("keeps the best player at each position — the QB1 is the last thing to go", () => {
+    // "take the biggest contract" cut the franchise quarterback and left the
+    // team its two worst, both under 60 overall.
+    const s = fixture();
+    fillRosterGaps(s);
+    const code = Object.keys(s.teams)[0]!;
+    const core = new Map<string, string>();
+    for (const pos of new Set(rosterOf(s, code).map((p) => p.position))) {
+      const best = rosterOf(s, code)
+        .filter((p) => p.position === pos)
+        .reduce((a, b) => (b.overall > a.overall ? b : a));
+      core.set(pos, best.id);
+    }
+    s.teams[code]!.cap.total = capUsed(s, code);
+    signedDraftClass(s, code);
+
+    trimRosters(s);
+
+    for (const [pos, id] of core) {
+      expect(s.players[id]!.nfl_team, `${code} best ${pos} kept`).toBe(code);
+    }
+  });
+
   it("keeps free agency reachable — the roster it hands over is still a team", () => {
     const s = fixture();
     fillRosterGaps(s);
