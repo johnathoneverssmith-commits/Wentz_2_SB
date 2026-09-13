@@ -64,3 +64,36 @@ describe("generateDraftClass", () => {
     expect(a).toEqual(b);
   });
 });
+
+/**
+ * A draft class has to be worse than the league it enters, or the league
+ * inflates every year and a veteran roster loses value for free. The old
+ * curve ran `trueOverall` straight off the college grade and produced a
+ * median prospect of 77 against a league median of ~70.
+ */
+describe("draft class strength", () => {
+  const klass = new MockSimulationService().generateDraftClass(5, 2027);
+  const trues = klass.map((p) => p.trueOverall).sort((a, b) => b - a);
+
+  it("puts the median prospect below a median NFL roster player", () => {
+    const median = trues[Math.floor(trues.length / 2)]!;
+    expect(median).toBeGreaterThan(55); // still a draftable pro
+    expect(median).toBeLessThan(68); // but below the ~70 league median
+  });
+
+  it("decays sharply from the top of the board to the end of day three", () => {
+    const top10 = trues.slice(0, 10).reduce((a, b) => a + b, 0) / 10;
+    const last10 = trues.slice(-10).reduce((a, b) => a + b, 0) / 10;
+    expect(top10 - last10).toBeGreaterThan(20);
+  });
+
+  it("never hands out an All-Pro rookie", () => {
+    expect(trues[0]).toBeLessThanOrEqual(90);
+  });
+
+  it("orders the board by talent, so an earlier pick is better on average", () => {
+    const firstRound = klass.slice(0, 32).reduce((a, p) => a + p.trueOverall, 0) / 32;
+    const lastRound = klass.slice(-32).reduce((a, p) => a + p.trueOverall, 0) / 32;
+    expect(firstRound).toBeGreaterThan(lastRound + 12);
+  });
+});

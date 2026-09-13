@@ -170,7 +170,8 @@ export class MockSimulationService implements SimulationService {
     attributes.awareness = clamp(Math.round(overall + rng.normal(0, 5)), 40, 99);
 
     const capHit = round1(contractValueFor(overall, pos) * rng.float(0.7, 1.3));
-    const years = rng.int(1, 4);
+    // staggered so roughly a fifth of the league reaches free agency each year
+    const years = rng.int(2, 5);
     const injured = rng.bool(0.06);
 
     return {
@@ -302,8 +303,23 @@ export class MockSimulationService implements SimulationService {
       // a prospect's *projected* slot wobbles around its board position
       const projPick = clamp(Math.round(i + 1 + rng.normal(0, 8)), 1, 260);
       const projectedRound = clamp(Math.ceil(projPick / 32), 1, 7);
+      // The college grade tracks where the board *thinks* he goes; it's a
+      // college-production number, which is why it runs high.
       const collegeOverall = clamp(Math.round(92 - projPick * 0.14 + rng.normal(0, 4)), 55, 96);
-      const trueOverall = clamp(Math.round(collegeOverall + rng.normal(0, 8)), 50, 96);
+      // What he actually is as a rookie tracks his true board rank, on a much
+      // steeper curve: a straight line off the college grade made the median
+      // prospect a 77 — better than the median player already in the league
+      // (~70) — so every class inflated the league it entered and a veteran
+      // roster was worth less every year. Real classes decay fast: a top-five
+      // pick starts, a third-rounder rotates, and most of day three never
+      // makes a roster. The top is capped below the league's best players
+      // because no rookie arrives as an All-Pro; `agingDelta` is what grows
+      // him from here.
+      const trueOverall = clamp(
+        Math.round(86 - 13 * Math.log10(i + 2) + rng.normal(0, 4)),
+        48,
+        90,
+      );
       const ageDist = AGE_BY_POSITION[pos];
       out.push({
         id: `d${year}_${i + 1}`,

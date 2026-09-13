@@ -14,12 +14,18 @@ export function EndOfSeasonAnnounce() {
   const nav = useNavigate();
   const s = useStore();
   const setReady = useStore((st) => st.setReady);
+  const autoReady = useStore((st) => st.autoReadyNonViewers);
   const tryAdvance = useStore((st) => st.tryAdvance);
 
+  // This is the one stage screen with no ReadinessGate, and the gate is what
+  // readies the other human GMs. Without that, "click anywhere" did nothing
+  // at all in a multi-GM league: `tryAdvance` refuses until every human is
+  // ready, and it routes back to this same screen when it refuses.
   const goOn = async () => {
     setReady(s.viewerGmId, true);
-    const { route } = await tryAdvance();
-    nav(route);
+    autoReady();
+    const { moved, route } = await tryAdvance();
+    if (moved) nav(route);
   };
 
   return (
@@ -121,7 +127,13 @@ export function SeasonComplete() {
       <Panel open={active === "season"}>
         <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
           <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            {humanChampGm ? "Super Bowl Champions" : "Furthest advanced"}
+            {humanChampGm
+              ? "Super Bowl Champions"
+              : furthest?.round === "none"
+                ? // nobody advanced, so "furthest advanced" would be a boast
+                  // about missing the playoffs
+                  "Your season"
+                : "Furthest advanced"}
           </p>
           <p className="oswald" style={{ margin: "10px 0 0", fontSize: 32, fontWeight: 700, color: humanChampGm ? "var(--team)" : "var(--ink)" }}>
             {winnerGm && winnerCode ? `${gmPossessive(winnerGm)} ${teamFullName(winnerCode)}` : winnerCode ? teamFullName(winnerCode) : "—"}

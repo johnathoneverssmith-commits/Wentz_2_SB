@@ -133,6 +133,20 @@ describe("a full franchise year", () => {
           expectSeasonLegal(state());
           checkedKickoff = true;
         }
+        // free agency has to open on a legal roster with money to spend —
+        // walking in seven players over and tens of millions past the cap
+        // means the board refuses every signing
+        if (before === "offseasonSignings" && after === "offseasonFreeAgency") {
+          const s = state();
+          for (const code of Object.keys(s.teams)) {
+            const roster = rosterOf(s, code);
+            expect(roster.length, `${code} roster into free agency`).toBeLessThanOrEqual(ROSTER_SIZE);
+            const used = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+            expect(Math.round(used * 10) / 10, `${code} cap into free agency`).toBeLessThanOrEqual(
+              s.teams[code]!.cap.total,
+            );
+          }
+        }
         // and again a year later, after aging, retirements, the draft and FA
         if (before === "offseasonDepthChart" && after === "preseason") {
           expectSeasonLegal(state());

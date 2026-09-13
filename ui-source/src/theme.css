@@ -910,6 +910,12 @@ table.mtable td.val {
   border-radius: var(--r-lg);
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--line-strong);
   overflow: hidden;
+  /* the body scrolls inside a short window; the header, any error, and the
+     submit/cancel row stay put. Without this the card just grew past the
+     viewport and clipped whatever was at the bottom. */
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
 }
 .modal-head {
   display: flex;
@@ -942,12 +948,21 @@ table.mtable td.val {
 }
 .modal-body {
   padding: 18px 20px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.modal-error {
+  margin: 0;
+  padding: 10px 20px;
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
 }
 .modal-foot {
   display: flex;
   gap: 10px;
   padding: 14px 20px;
   border-top: 1px solid var(--line);
+  flex-shrink: 0;
 }
 .modal-foot button {
   flex: 1;

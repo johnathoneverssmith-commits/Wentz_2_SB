@@ -34,9 +34,11 @@ import { coachPriorities, playerPriorities } from "@/sim/priorities";
 import {
   applySeasonAging,
   createLeague,
+  expireContracts,
   fillRosterGaps,
   recomputeTeamRatings,
   releaseToMarket,
+  trimRosters,
 } from "./seed.ts";
 import {
   PRESEASON_WEEKS,
@@ -236,6 +238,12 @@ export const useStore = create<Store>()(
             fillRosterGaps(s);
           }
 
+          // leaving rookie signings → the draft class has just been added on
+          // top of a full roster, so cut back to legal before the market opens
+          if (s.stage === "offseasonSignings" && t.stage === "offseasonFreeAgency") {
+            trimRosters(s);
+          }
+
           // Hard stop before the season: free agency is optional, so a team can
           // reach this point still short. Nobody takes the field without a full,
           // position-legal roster.
@@ -409,14 +417,13 @@ export const useStore = create<Store>()(
           const field = faField(subject);
           if (s[field]) return;
           if (subject === "players") {
-            // offseason player FA: last-year contracts + anyone currently a FA
-            const pool = Object.values(s.players).filter(
-              (p) => !p.retired && (p.free_agent || (p.contract && p.contract.years_remaining <= 1)),
-            );
-            for (const p of pool.slice(0, 160)) {
-              p.free_agent = true;
-              p.contract = null;
-              p.nfl_team = "FA";
+            // The market is whoever's deal has run out, which `expireContracts`
+            // settled when the season was finalized. This used to release an
+            // arbitrary first-160 slice of everyone on a one-year-or-less deal,
+            // so which teams lost players came down to object key order.
+            for (const p of Object.values(s.players)) {
+              if (p.retired || p.free_agent) continue;
+              if (p.contract && p.contract.years_remaining <= 0) releaseToMarket(s, p);
             }
           } else {
             // coaching: every team starts with zero coaches — all coaches to market
@@ -1299,6 +1306,10 @@ function sbWonByHuman(s: LeagueState): boolean {
 function finalizeSeason(s: LeagueState): void {
   if (s.history.some((h) => h.season === s.season)) return;
   s.history.push(...sim.finalizeSeasonOutcomes(s));
+  // the year has been played, so every contract is a year shorter — and the
+  // ones that just ran out hit the market in time for this offseason's window
+  expireContracts(s);
+  recomputeTeamRatings(s);
 }
 
 export function isInSeason(stage: Stage): boolean {

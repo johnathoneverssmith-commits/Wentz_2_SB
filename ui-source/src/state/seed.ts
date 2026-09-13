@@ -90,8 +90,21 @@ const STARTER_COUNTS: Partial<Record<Position, number>> = {
   EDGE: 2, DT: 2, ILB: 2, CB: 2, S: 2, K: 1, P: 1,
 };
 
-/** League-minimum depth deal — one year, no guarantee. */
+/** League-minimum depth deal — no guarantee. */
 const MIN_SALARY_M = 1;
+
+/**
+ * Contract length ranges the roster fill signs to, inclusive.
+ *
+ * Every fill signing used to be written for one year, which meant ~30 of a
+ * team's 53 deals ran out every single offseason. Once contracts actually
+ * expired, that emptied the league: rosters fell to 12-21 players and 1,296
+ * players hit the market at once. Staggering the terms keeps annual turnover
+ * near the real NFL's (roughly a quarter to a third of a roster) — enough to
+ * stock a free-agency window, not enough to dissolve a team.
+ */
+const STARTER_YEARS = [3, 5] as const;
+const DEPTH_YEARS = [2, 4] as const;
 
 /** How many free agents the market keeps so it never empties out. */
 const MARKET_RESERVE = 140;
@@ -107,13 +120,13 @@ const MARKET_RESERVE = 140;
  */
 const CAP_WORKING_ROOM = 18;
 
-function minimumDeal(teamCode: string): Player["contract"] {
+function dealFor(teamCode: string, salary: number, years: number): NonNullable<Player["contract"]> {
   return {
     team_id: teamCode,
-    years_remaining: 1,
-    total_value: MIN_SALARY_M,
+    years_remaining: years,
+    total_value: Math.round(salary * years * 10) / 10,
     guaranteed: 0,
-    cap_hit_by_year: [MIN_SALARY_M],
+    cap_hit_by_year: Array.from({ length: years }, () => salary),
     signing_bonus: 0,
   };
 }
@@ -169,6 +182,30 @@ export function releaseToMarket(state: LeagueState, p: Player): void {
   p.nfl_team = "FA";
   p.contract = null;
   if (!state.standingFreeAgents.includes(p.id)) state.standingFreeAgents.push(p.id);
+}
+
+/**
+ * Ages every contract by the season just played.
+ *
+ * Nothing decremented `years_remaining` anywhere, so contracts were
+ * permanent: the "2y" on the roster screen never changed, cap space never
+ * came back, and free agency had nothing in it but the minimum-salary depth
+ * whose deals happened to be written for one year. A team went into its
+ * second offseason with $2.6M of room against a market asking $17M.
+ *
+ * A year off every deal also steps `cap_hit_by_year` forward, so the
+ * escalating hits the pool was built with actually escalate. A deal that runs
+ * out sends the player to the open market, which is what stocks the offseason
+ * window with real players instead of camp bodies.
+ */
+export function expireContracts(state: LeagueState): void {
+  for (const p of Object.values(state.players)) {
+    const c = p.contract;
+    if (!c || p.retired || p.free_agent) continue;
+    c.years_remaining -= 1;
+    if (c.cap_hit_by_year.length > 1) c.cap_hit_by_year.shift();
+    if (c.years_remaining <= 0) releaseToMarket(state, p);
+  }
 }
 
 /** Cap hit a player is currently charging his team, in $M. */
@@ -255,6 +292,23 @@ function trimToLegalRoster(
 }
 
 /**
+ * Cuts every team back to a legal roster without filling anyone up.
+ *
+ * Run when the rookie class has just been signed and free agency is next. A
+ * team leaves the draft seven players over the limit and tens of millions
+ * over the cap, and walking into the market like that means the board refuses
+ * every signing — the offseason's headline feature, dead on arrival. Trimming
+ * here (but *not* filling, which would spend the room free agency is for)
+ * hands the player a legal roster and money to work with.
+ */
+export function trimRosters(state: LeagueState): void {
+  for (const code of Object.keys(state.teams)) {
+    const roster = Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired);
+    trimToLegalRoster(state, roster, state.teams[code]?.cap.total ?? 255);
+  }
+}
+
+/**
  * Brings every team to a full, legal 53-man roster, shaped by
  * `ROSTER_TEMPLATE` — cutting down to the limit first, then filling up to it.
  *
@@ -299,11 +353,11 @@ export function fillRosterGaps(state: LeagueState): void {
   for (const list of byPos.values()) list.sort((a, b) => b.overall - a.overall);
 
   const signed = new Set<string>();
-  const sign = (p: Player, teamCode: string, salary: number): void => {
+  const sign = (p: Player, teamCode: string, salary: number, term: readonly [number, number]): void => {
     signed.add(p.id);
     p.free_agent = false;
     p.nfl_team = teamCode;
-    p.contract = { ...minimumDeal(teamCode)!, total_value: salary, cap_hit_by_year: [salary] };
+    p.contract = dealFor(teamCode, salary, rng.int(term[0], term[1]));
   };
 
   for (const code of Object.keys(state.teams)) {
@@ -347,7 +401,7 @@ export function fillRosterGaps(state: LeagueState): void {
         marketSize--;
         const salary =
           idx >= 0 ? Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos) * 10) / 10) : MIN_SALARY_M;
-        sign(p, code, salary);
+        sign(p, code, salary, STARTER_YEARS);
         used += salary;
         roster.push(p);
       }
@@ -369,7 +423,7 @@ export function fillRosterGaps(state: LeagueState): void {
           p = makeDepthPlayer(pos, state.season, rng);
           state.players[p.id] = p;
         }
-        sign(p, code, MIN_SALARY_M);
+        sign(p, code, MIN_SALARY_M, DEPTH_YEARS);
         used += MIN_SALARY_M;
         roster.push(p);
       }

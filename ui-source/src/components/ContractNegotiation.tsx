@@ -85,12 +85,15 @@ export function ContractNegotiation({
               {verdict} — they expect ~{millions(exp.baseSalary)}/yr, {millions(exp.guaranteed)} gtd
             </span>
           </div>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
         </div>
+
+        {/* outside the scrolling body: a rejection the player can't see is a
+            submit button that silently does nothing */}
+        {error && (
+          <p className="form-error modal-error" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="modal-foot">
           <button onClick={onClose}>Cancel</button>
