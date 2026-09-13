@@ -2,7 +2,21 @@ import { describe, it } from "vitest";
 import { DEFAULT_CONFIG } from "@/state/seed.ts";
 import { useStore } from "@/state/store.ts";
 
-describe("soak", () => {
+/**
+ * A five-season soak, for looking at where a league *drifts* rather than
+ * whether a year is legal — the kind of thing only a dynasty shows. It found
+ * every long-run bug this file's neighbours now guard: the league ageing to
+ * death on evaporating draft classes, its median rating sliding as teams
+ * refilled with the cheapest body available, free agency swelling to 1,072
+ * unsigned players, and a save file growing ~300 records a season.
+ *
+ * Ten minutes to run, so it is opt-in rather than part of the suite:
+ *
+ *     SOAK=1 npx vitest run src/state/__soak.test.ts
+ *
+ * It writes `soak-report.txt` (git-ignored) — one line per season.
+ */
+describe.skipIf(!process.env.SOAK)("soak", () => {
   it("five seasons", async () => {
     const S = () => useStore.getState();
     const viewer = () => S().gms.find((g) => g.id === S().viewerGmId)?.teamCode ?? "";
