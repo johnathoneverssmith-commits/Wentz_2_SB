@@ -48,6 +48,22 @@ export interface Applied {
     | undefined;
 }
 
+/**
+ * Called after a league's transaction commits, with its new version.
+ *
+ * This exists so the SSE stream can tell an open tab the instant something
+ * lands, without `db.ts` knowing what a stream is. Listeners run after
+ * COMMIT and must not throw — a broken notifier is not a reason to fail an
+ * action that already succeeded.
+ */
+type CommitListener = (leagueId: string, version: string) => void;
+const commitListeners = new Set<CommitListener>();
+
+export function onLeagueCommit(fn: CommitListener): () => void {
+  commitListeners.add(fn);
+  return () => commitListeners.delete(fn);
+}
+
 export class ActionError extends Error {
   constructor(
     message: string,
@@ -160,6 +176,13 @@ export async function withLeague<T>(
     }
 
     await client.query("COMMIT");
+    for (const fn of commitListeners) {
+      try {
+        fn(leagueId, newVersion);
+      } catch {
+        // a notifier is not allowed to undo a committed action
+      }
+    }
     return { result: out.result, version: newVersion };
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});

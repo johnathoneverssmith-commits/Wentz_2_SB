@@ -22,7 +22,7 @@ import {
   setDepthOrder,
   signFreeAgent,
 } from "./actions.js";
-import { isCommissioner, login, register, signSession } from "./auth.js";
+import { franchiseOf, isCommissioner, login, register, signSession } from "./auth.js";
 import { ActionError, migrate, readLeague } from "./db.js";
 import {
   clearSessionCookie,
@@ -37,6 +37,7 @@ import { feed, inboxFor } from "./inbox.js";
 import { claimTeam, createOnlineLeague, leagueByInvite, leaguesFor, openTeams } from "./leagues.js";
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
 import { simulateWeekForLeague } from "./simulate.js";
+import { openStream } from "./stream.js";
 
 /** Body fields, checked at the door so a handler can trust what it reads. */
 function field<T>(ctx: Ctx, name: string, kind: "string" | "number" | "boolean" | "object"): T {
@@ -113,8 +114,7 @@ get("/leagues/:id", async (ctx) => {
   const user = requireUser(ctx);
   const loaded = await readLeague(ctx.params.id!);
   if (!loaded) throw new ActionError("No such league.", 404);
-  const mine = (await import("./auth.js")).franchiseOf;
-  const franchise = await mine(ctx.params.id!, user.id);
+  const franchise = await franchiseOf(ctx.params.id!, user.id);
 
   const state = structuredClone(loaded.state);
   // A live window's bids are sealed until the day resolves; showing another
@@ -144,6 +144,31 @@ get("/leagues/:id/feed", async (ctx) => {
 });
 
 get("/inbox", async (ctx) => ({ leagues: await inboxFor(requireUser(ctx).id) }));
+
+/**
+ * The league, as it happens.
+ *
+ * An open tab holds this and hears about a trade offer or a draft clock
+ * without asking. The frames are small on purpose — a version and the
+ * one-line summaries — and the client pulls the league itself only when the
+ * version it's holding has gone stale. See `stream.ts`.
+ *
+ * The response is hijacked: `openStream` writes the headers and keeps the
+ * socket, so the router's usual "serialise the return value as JSON" step
+ * sees `headersSent` and leaves it alone.
+ */
+get("/leagues/:id/stream", async (ctx) => {
+  const user = requireUser(ctx);
+  const leagueId = ctx.params.id!;
+  if (!(await franchiseOf(leagueId, user.id))) {
+    throw new ActionError("You're not in that league.", 403);
+  }
+  await openStream(ctx.res, leagueId, user.id, (fn) => {
+    ctx.req.on("aborted", fn);
+    ctx.res.on("error", fn);
+  });
+  return undefined;
+});
 
 /* ---- actions --------------------------------------------------------- */
 

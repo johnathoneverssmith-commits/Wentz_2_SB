@@ -56,6 +56,12 @@ export interface InboxLeague {
   items: InboxItem[];
 }
 
+/** One push from the league's stream: what changed, in the league's own words. */
+export interface StreamChange {
+  version: string;
+  events: { id: string; kind: string; summary: string; teamCode: string | null; at: string }[];
+}
+
 /** A refusal the server issued, with the sentence it wants shown. */
 export class OnlineError extends Error {
   constructor(
@@ -202,6 +208,51 @@ export class OnlineLeagueClient {
       `/leagues/${leagueId}/actions/simulate-week`,
       {},
     );
+
+  /**
+   * Hold the league's stream open and hear about changes as they land.
+   *
+   * The frames are small — a version and the one-line summaries of what
+   * happened — so this is a notification channel, not a replication one. Act
+   * on a change by calling `load` again; the point of the stream is that you
+   * only do that when there's something to load.
+   *
+   * `EventSource` reconnects on its own, which is most of why it's worth
+   * using over a socket for something this one-directional. Returns a close
+   * function; environments without `EventSource` (a test, a server render)
+   * get a no-op rather than an exception, and fall back to whatever polling
+   * the caller already does.
+   */
+  watch(
+    leagueId: string,
+    on: {
+      change?: (news: StreamChange) => void;
+      open?: (version: string) => void;
+      error?: () => void;
+    },
+  ): () => void {
+    if (typeof EventSource === "undefined") return () => {};
+    const source = new EventSource(`${this.baseUrl}/leagues/${leagueId}/stream`, {
+      withCredentials: true,
+    });
+    const parse =
+      (fn: ((news: never) => void) | undefined) =>
+      (ev: MessageEvent<string>): void => {
+        if (!fn) return;
+        try {
+          fn(JSON.parse(ev.data) as never);
+        } catch {
+          // a malformed frame is not worth tearing the stream down for
+        }
+      };
+    source.addEventListener("change", parse(on.change) as EventListener);
+    source.addEventListener(
+      "hello",
+      parse(((h: { version: string }) => on.open?.(h.version)) as never) as EventListener,
+    );
+    if (on.error) source.addEventListener("error", () => on.error?.());
+    return () => source.close();
+  }
 
   /** Commissioner only: move the league on now. */
   forceAdvance = (leagueId: string) =>

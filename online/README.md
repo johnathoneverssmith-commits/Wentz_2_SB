@@ -87,6 +87,7 @@ src/actions.ts      the same actions as endpoints: lock, decide, persist, log
 src/phases.ts       readiness, deadlines, and the AI taking an absent GM's turn
 src/simulate.ts     running a week once every human GM is ready
 src/inbox.ts        "what's waiting on me", and the league's event feed
+src/stream.ts       server-sent events: telling an open tab the league moved
 src/leagues.ts      create, invite, claim
 test/               decisions and phases run without a database; concurrency
                     needs one and says so in the test name when it's missing
@@ -100,7 +101,7 @@ test/               decisions and phases run without a database; concurrency
 npm run online:test
 ```
 
-35 pass without a database. The five concurrency tests need one — set
+47 pass without a database. The five concurrency tests need one — set
 `DATABASE_URL` and they'll run; without it they report themselves as skipped
 in the test name rather than passing quietly.
 
@@ -124,6 +125,31 @@ Single-player is finished and working; converting twenty screens to `await`
 for a mode that isn't switched on would risk a working game for no gain
 today. Screens move onto the hook one at a time, and the ones that haven't go
 on calling the store directly.
+
+## Hearing about it
+
+A GM with the app open should not have to refresh to find out they've been
+offered a trade, and should not have to poll to avoid it — eight clients each
+re-downloading a multi-megabyte league every few seconds to learn that
+nothing happened is worse than the problem.
+
+So `GET /leagues/:id/stream` holds a server-sent-events connection open and
+pushes a small frame when the league changes: the new version, and the
+one-line summaries of what happened. The client compares versions and only
+pulls the league when the frame says something it doesn't already have —
+which means its own actions, which it has already applied, cost nothing.
+
+Two things deliver a change. An in-process hook fires the instant a
+`withLeague` transaction commits, which is the path that actually runs and is
+immediate. A slow poll of `league_state.version` covers what that hook can't
+see — a second server process — and costs one indexed query every few
+seconds, only while somebody is watching. `LISTEN`/`NOTIFY` would replace the
+second and is more elegant, but it wants a dedicated connection with its own
+reconnect story; for a league whose interesting events are hours apart, a
+five-second floor on cross-process news buys nothing worth that.
+
+`EventSource` reconnects on its own, and a browser without it falls back to
+the polling the caller already does rather than failing to join.
 
 ## Still to do
 

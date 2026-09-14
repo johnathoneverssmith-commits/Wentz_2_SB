@@ -14,11 +14,11 @@
  * working game at risk for no gain today. Screens migrate to this hook one
  * at a time, and the ones that haven't go on calling the store directly.
  */
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import type { ContractOffer, Position } from "@/domain";
 
-import { isOnline, onlineSession, pull, send } from "./online.ts";
+import { isOnline, onLeagueChange, onlineSession, pull, send } from "./online.ts";
 import { useStore } from "./store.ts";
 
 export interface ActionResult {
@@ -158,6 +158,25 @@ export function useLeagueActions(): LeagueActions {
       },
     };
   }, [online, store, replaceState]);
+}
+
+/**
+ * Keep the store in step with the server while a tab is open.
+ *
+ * Mount this once, high up. Everything below it goes on reading the store
+ * exactly as it does in a single-player game and simply finds the league
+ * already changed — which is the behaviour worth having, because the
+ * alternative is a GM reasoning about a roster that was traded away ten
+ * minutes ago.
+ */
+export function useOnlineSync(): void {
+  useEffect(
+    () =>
+      onLeagueChange((state) => {
+        useStore.setState(state as never);
+      }),
+    [],
+  );
 }
 
 /** Team code the caller is playing as, either way. */
