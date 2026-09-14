@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { REAL_STARTER_RATE_BY_ROUND } from "./draft-outcomes.ts";
 import { MockSimulationService } from "./MockSimulationService.ts";
 import { POSITIONS } from "@/domain";
 
@@ -71,6 +72,59 @@ describe("generateDraftClass", () => {
  * curve ran `trueOverall` straight off the college grade and produced a
  * median prospect of 77 against a league median of ~70.
  */
+/**
+ * The mapping from career Approximate Value onto this game's 0-99 scale is
+ * the one judgement call in `draft-outcomes.ts` — AV is a career total and
+ * `trueOverall` is a rookie-year rating, and nothing in the data fixes the
+ * relationship between them. What *can* be checked is the consequence: how
+ * often each round produces a player good enough to start, against how often
+ * each round really did (3,562 picks, 2006-2019).
+ */
+describe("draft classes against the real thing", () => {
+  const STARTER = 68; // the rating at which a rookie is a plausible NFL starter
+
+  function starterRateByRound(seed: number): Record<number, number> {
+    const klass = new MockSimulationService().generateDraftClass(seed, 2027);
+    const out: Record<number, number> = {};
+    for (let round = 1; round <= 7; round++) {
+      const picks = klass.slice((round - 1) * 32, round * 32);
+      out[round] = picks.filter((p) => p.trueOverall >= STARTER).length / picks.length;
+    }
+    return out;
+  }
+
+  it("produces starters at roughly the rate each round really does", () => {
+    // averaged over several classes, since one class is only 32 picks a round
+    const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
+    for (let round = 1; round <= 7; round++) {
+      const modelled =
+        seeds.reduce((n, s) => n + starterRateByRound(s)[round]!, 0) / seeds.length;
+      const real = REAL_STARTER_RATE_BY_ROUND[round]!;
+      // within 20 points: the mapping is anchored, not fitted, and "started a
+      // season" is a career outcome while this is a day-one rating
+      expect(Math.abs(modelled - real), `round ${round}: ${modelled.toFixed(2)} vs ${real}`).toBeLessThan(0.2);
+    }
+  });
+
+  it("falls off round by round, the way the board does", () => {
+    const rates = starterRateByRound(11);
+    expect(rates[1]).toBeGreaterThan(rates[4]!);
+    expect(rates[4]).toBeGreaterThan(rates[7]!);
+  });
+
+  it("is less predictable the further down the board it goes", () => {
+    const klass = new MockSimulationService().generateDraftClass(5, 2027);
+    const spread = (from: number, to: number): number => {
+      const xs = klass.slice(from, to).map((p) => p.trueOverall);
+      const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+      return Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length);
+    };
+    // a top-ten pick is a fairly known quantity; a seventh-rounder is a
+    // lottery ticket, and that gap is the whole reason scouting is a job
+    expect(spread(160, 224)).toBeGreaterThan(spread(0, 32));
+  });
+});
+
 describe("draft class strength", () => {
   const klass = new MockSimulationService().generateDraftClass(5, 2027);
   const trues = klass.map((p) => p.trueOverall).sort((a, b) => b - a);

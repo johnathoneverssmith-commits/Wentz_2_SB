@@ -36,6 +36,7 @@ import {
   ROSTER_TEMPLATE,
 } from "./roster-template.ts";
 import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
+import { expectedRookieOverall, rookieOverallSpread } from "./draft-outcomes.ts";
 import { futureDiscount } from "@/state/draftPicks.ts";
 import {
   DEFENSE_SCHEMES,
@@ -308,19 +309,19 @@ export class MockSimulationService implements SimulationService {
       // The college grade tracks where the board *thinks* he goes; it's a
       // college-production number, which is why it runs high.
       const collegeOverall = clamp(Math.round(92 - projPick * 0.14 + rng.normal(0, 4)), 55, 96);
-      // What he actually is as a rookie tracks his true board rank, on a much
-      // steeper curve: a straight line off the college grade made the median
-      // prospect a 77 — better than the median player already in the league
-      // (~70) — so every class inflated the league it entered and a veteran
-      // roster was worth less every year. Real classes decay fast: a top-five
-      // pick starts, a third-rounder rotates, and most of day three never
-      // makes a roster. The top is capped below the league's best players
-      // because no rookie arrives as an All-Pro; `agingDelta` is what grows
-      // him from here.
+      // What he actually is as a rookie comes off the measured curve in
+      // `draft-outcomes.ts` — 3,562 real picks, 2006-2019, by weighted career
+      // Approximate Value — not the reasoned-at guess this used to be. The
+      // spread widens down the board the way the real data does: a top-ten
+      // pick is a fairly known quantity and a seventh-rounder is a lottery
+      // ticket, which is the entire reason scouting is a job.
+      const boardSlot = i + 1;
       const trueOverall = clamp(
-        Math.round(86 - 13 * Math.log10(i + 2) + rng.normal(0, 4)),
-        48,
-        90,
+        Math.round(
+          expectedRookieOverall(boardSlot) + rng.normal(0, rookieOverallSpread(boardSlot)),
+        ),
+        40,
+        92,
       );
       const ageDist = AGE_BY_POSITION[pos];
       out.push({

@@ -176,6 +176,13 @@ them soft-locked the game. `src/state/rosterLegality.test.ts`,
   human GM, filtered through `checkTrade` so nothing is offered that the
   offering team couldn't honour, and surfaced with a count on the rail.
 
+- **Draft outcomes are measured** (`sim/draft-outcomes.ts`). What a pick is
+  worth, and how uncertain it is, come from 3,562 real picks (2006-2019,
+  nflverse `draft_picks`, weighted career Approximate Value) rather than the
+  reasoned-at curve that was there before. `draftClass.test.ts` checks the
+  generated classes against the real per-round rate of producing a player who
+  ever started.
+
 ## Accessibility, and what's already been checked
 
 Worth knowing before changing markup, because these were all found by
