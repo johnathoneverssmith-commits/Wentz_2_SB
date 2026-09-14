@@ -1666,3 +1666,26 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.6;
   color: var(--ink-faint);
 }
+
+/* ---- readiness: empty seats and the commissioner's override ---------- */
+.gmchip.open {
+  border-style: dashed;
+  color: var(--ink-faint);
+}
+.gmchip.open .dot {
+  background: var(--ink-faint);
+  opacity: 0.55;
+}
+.readiness-held {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+.readiness-force {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  text-align: center;
+  font-size: 11.5px;
+}

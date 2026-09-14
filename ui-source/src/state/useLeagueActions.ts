@@ -55,6 +55,11 @@ export interface LeagueActions {
     terms: { baseSalary: number; years: number; guaranteed: number },
   ) => Promise<ActionResult>;
   readyUp: (ready: boolean) => Promise<ActionResult>;
+  /**
+   * Commissioner override: move the league on now, whoever is or isn't here.
+   * Offline there is nobody to overrule, so it refuses rather than pretending.
+   */
+  forceAdvance: () => Promise<ActionResult>;
   /** Pull the server's copy and replace the local one. No-op offline. */
   refresh: () => Promise<void>;
 }
@@ -111,6 +116,7 @@ export function useLeagueActions(): LeagueActions {
           store.setReady(store.viewerGmId, ready);
           return { ok: true };
         },
+        forceAdvance: async () => ({ ok: false, reason: "Only an online league has a commissioner." }),
         refresh: async () => {},
       };
     }
@@ -162,6 +168,8 @@ export function useLeagueActions(): LeagueActions {
         ).then(after),
       readyUp: (ready) =>
         attempt(() => send((s) => s.client.readyUp(s.leagueId, ready))).then(after),
+      forceAdvance: () =>
+        attempt(() => send((s) => s.client.forceAdvance(s.leagueId))).then(after),
       refresh: async () => {
         replaceState();
       },

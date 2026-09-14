@@ -16,6 +16,8 @@
  */
 import { useEffect, useRef, useState } from "react";
 
+import { openSlots as countOpenSlots, rosterGate } from "@/state/rules";
+import { onlineSession } from "@/state/online";
 import { STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -53,7 +55,18 @@ export function ReadinessGate({
   const humans = gms.filter((g) => g.isHuman);
   const readyCount = humans.filter((g) => readiness[g.id]).length;
   const viewerReady = !!readiness[viewerGmId];
-  const allReady = readyCount === humans.length;
+
+  // Starting the league is the one transition that waits for the seats as
+  // well as the people in them; see `rosterGate`. Every later stage passes
+  // this trivially, so the extra term costs nothing after kickoff.
+  //
+  // Built from the subscribed `gms`/`stage` rather than a `getState()` read,
+  // so the gate re-renders the moment somebody claims the last seat — which
+  // is the one time anyone is watching it.
+  const seatsOpen = countOpenSlots({ gms, stage } as Parameters<typeof countOpenSlots>[0]);
+  const heldForSeats = !rosterGate({ gms, stage } as Parameters<typeof rosterGate>[0]);
+  const allReady = readyCount === humans.length && !heldForSeats;
+  const isCommissioner = onlineSession()?.isCommissioner ?? false;
 
   useEffect(() => {
     // online the other GMs are people, and a person is ready when they say so
@@ -100,7 +113,11 @@ export function ReadinessGate({
         {/* the one thing on the page that changes without the player doing
             anything — other GMs readying up — so it's worth announcing */}
         <span aria-live="polite">
-          {waiting === 0 ? "All GMs ready" : `Waiting on ${waiting} of ${humans.length} GMs`}
+          {heldForSeats
+            ? `Waiting on ${seatsOpen} more ${seatsOpen === 1 ? "GM" : "GMs"} to join`
+            : waiting === 0
+              ? "All GMs ready"
+              : `Waiting on ${waiting} of ${humans.length} GMs`}
         </span>
       </div>
       <div className="gmchiprow">
@@ -110,7 +127,23 @@ export function ReadinessGate({
             {g.id === viewerGmId ? "You" : g.name} &mdash; {readiness[g.id] ? "ready" : "pending"}
           </div>
         ))}
+        {Array.from({ length: seatsOpen }, (_, i) => (
+          <div key={`open-${i}`} className="gmchip open">
+            <span className="dot" />
+            Empty seat &mdash; nobody yet
+          </div>
+        ))}
       </div>
+
+      {heldForSeats && (
+        <p className="readiness-held">
+          The league can't start until every seat is taken — otherwise whoever joins later
+          arrives to a fantasy draft that already happened.
+          {isCommissioner
+            ? " If they aren't coming, you can start without them and the AI will run the empty teams."
+            : " Your commissioner can start without them if they aren't coming."}
+        </p>
+      )}
       <button
         className="btn-primary"
         style={{ width: "100%" }}
@@ -140,9 +173,47 @@ export function ReadinessGate({
           : disabled
             ? (disabledHint ?? "Not ready yet")
             : viewerReady
-              ? "You're ready — waiting on the league"
+              ? heldForSeats
+                ? "You're ready — waiting on the empty seats"
+                : "You're ready — waiting on the league"
               : (label ?? STAGE_READY_LABEL[stage])}
       </button>
+
+      {heldForSeats && isCommissioner && (
+        <button
+          type="button"
+          className="btnlink readiness-force"
+          disabled={busy}
+          onClick={() => {
+            const teams = seatsOpen === 1 ? "team" : "teams";
+            if (
+              !confirm(
+                `Start without the missing ${seatsOpen === 1 ? "GM" : "GMs"}?
+
+` +
+                  `The AI will run ${seatsOpen} ${teams} for the life of the league, and nobody ` +
+                  `else can join it. This can't be undone.`,
+              )
+            ) {
+              return;
+            }
+            setBusy(true);
+            void actions
+              .forceAdvance()
+              .then((res) => {
+                if (!res.ok) {
+                  alert(res.reason ?? "The league wouldn't start.");
+                  return;
+                }
+                const next = useStore.getState().stage;
+                if (next !== stage) onAdvanceRef.current(STAGE_HOME[next]);
+              })
+              .finally(() => setBusy(false));
+          }}
+        >
+          Start without them — the AI takes the {seatsOpen === 1 ? "empty team" : "empty teams"}
+        </button>
+      )}
     </div>
   );
 }

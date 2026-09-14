@@ -24,7 +24,9 @@ import {
   clearReadiness,
   humanGate,
   isInSeason,
+  openSlots,
   planAutopicks,
+  rosterGate,
   applyPick,
 } from "@/state/rules.ts";
 
@@ -48,6 +50,17 @@ export function waitingOn(state: LeagueState): string[] {
     .map((g) => g.teamCode);
 }
 
+/**
+ * Why a stage is being held, when it isn't a GM who hasn't clicked.
+ *
+ * Only setup has such a reason, and only ever the one: seats nobody has
+ * taken. Null means the stage is held by readiness alone, which the GM chips
+ * already explain.
+ */
+export function heldBy(state: LeagueState): { openSlots: number } | null {
+  return rosterGate(state) ? null : { openSlots: openSlots(state) };
+}
+
 export interface AdvanceOutcome {
   moved: boolean;
   stage: string;
@@ -68,7 +81,12 @@ export async function readyUp(
 ): Promise<AdvanceOutcome> {
   const { result } = await withLeague(leagueId, async ({ state, league }) => {
     state.readiness[gmId] = ready;
-    const outcome = ready && humanGate(state) ? advanceStage(state) : { moved: false, autopiloted: [] as string[] };
+    // `rosterGate` is what stops one GM starting a league by themselves while
+    // the other seats are still empty — see its note in `rules.ts`.
+    const outcome =
+      ready && humanGate(state) && rosterGate(state)
+        ? advanceStage(state)
+        : { moved: false, autopiloted: [] as string[] };
     return {
       result: { moved: outcome.moved, stage: state.stage, autopiloted: outcome.autopiloted },
       state,
@@ -169,7 +187,8 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
     try {
       const { result } = await withLeague(leagueId, async ({ state, league }) => {
         const autopiloted = autopilotAbsent(state);
-        const moved = humanGate(state) ? advanceStage(state).moved : false;
+        // a deadline may not start a league that nobody has finished joining
+        const moved = humanGate(state) && rosterGate(state) ? advanceStage(state).moved : false;
         return {
           result: { autopiloted, moved },
           state,

@@ -52,6 +52,37 @@ export function humanGate(state: LeagueState): boolean {
   return state.gms.filter((g) => g.isHuman).every((g) => state.readiness[g.id]);
 }
 
+/**
+ * GM slots in an online league that nobody has claimed yet.
+ *
+ * An unclaimed slot is the one thing in the league with no team *and* no
+ * person: claiming sets both in the same transaction, and the single-player
+ * seed hands every GM a team up front. So this counts exactly the seats still
+ * waiting for someone to sit in them, and is zero in a local dynasty.
+ */
+export function openSlots(state: LeagueState): number {
+  return state.gms.filter((g) => !g.teamCode && !g.isHuman).length;
+}
+
+/**
+ * Setup does not close while a seat is still empty.
+ *
+ * Readiness alone cannot carry this. An unclaimed slot is marked ready the
+ * moment the stage opens — correctly, because for every stage after this one
+ * it is an AI team with nobody to wait for — so the first GM to click ready
+ * was the last one too, and the league fell into the fantasy draft with one
+ * human in it. Whoever joined afterwards arrived to a draft already run.
+ *
+ * Starting is the one decision a league cannot take back, so it is the one
+ * that waits for everybody. Afterwards the ordinary rules apply: latecomers
+ * do not exist, absent GMs get played by their staff, and no single person
+ * can stall a league by refusing to click. A commissioner who is done waiting
+ * still has the override, which is the deliberate way to start short.
+ */
+export function rosterGate(state: LeagueState): boolean {
+  return state.stage !== "setup" || openSlots(state) === 0;
+}
+
 /** Reset for a new stage: everyone but the viewer is ready by default. */
 export function clearReadiness(state: LeagueState): void {
   for (const g of state.gms) state.readiness[g.id] = g.id !== state.viewerGmId;
