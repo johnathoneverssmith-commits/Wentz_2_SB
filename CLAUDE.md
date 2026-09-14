@@ -57,7 +57,7 @@ Postgres, accounts and asynchronous multi-GM play — written and tested, and
 **deliberately not deployed**. See the top-level `README.md` for where each
 part stands and `online/README.md` for the multiplayer design.
 
-`analysis/27_win_probability.ts` is TypeScript rather than Python because it
+`analysis/30_win_probability.ts` is TypeScript rather than Python because it
 measures the TS engine: what a rating gap is worth, over 47,616 simulated
 games — and, incidentally, that the engine has no home-field advantage
 (`docs/decisions.md` → OQ-10). The draft-outcome fit behind

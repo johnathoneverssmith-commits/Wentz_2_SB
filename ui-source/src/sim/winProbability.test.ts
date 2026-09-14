@@ -6,7 +6,7 @@ import { winChance, winProbability } from "./win-probability.ts";
  * The measured curve, checked against the measurement.
  *
  * These numbers are not the fit's own output — they are the empirical
- * win rates from `analysis/27_win_probability.ts`, 47,616 engine games
+ * win rates from `analysis/30_win_probability.ts`, 47,616 engine games
  * bucketed by rating gap. The fit has to land on them, because agreeing with
  * itself would test nothing.
  *

@@ -7,7 +7,7 @@
  * home edge` — which had never been checked against a single simulated game.
  * It was wrong in both directions at once.
  *
- * `analysis/27_win_probability.ts` ran the engine over **47,616 games**: every
+ * `analysis/30_win_probability.ts` ran the engine over **47,616 games**: every
  * ordered pair of the 32 real rosters, three seeds each, plus weakened copies
  * of every roster so the measurement covers the gaps a franchise four years
  * in actually produces (the real league spans about eight rating points; the

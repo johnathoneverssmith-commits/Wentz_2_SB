@@ -24,7 +24,7 @@
  *
  * Opt-in, because it is about fifteen minutes of engine time:
  *
- *     npx tsx analysis/27_win_probability.ts [--seeds 12]
+ *     npx tsx analysis/30_win_probability.ts [--seeds 12]
  *
  * It prints the fitted coefficients, the empirical curve it fitted to, and
  * the old formula's error against the same data, then stops. Copying the

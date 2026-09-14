@@ -869,7 +869,7 @@ shipping, not just "does the roster's average `overall` look plausible."
 
 **Status: open — a known gap in the engine, quantified but not closed.**
 
-Measuring what a rating gap is worth (`analysis/27_win_probability.ts`,
+Measuring what a rating gap is worth (`analysis/30_win_probability.ts`,
 47,616 games: every ordered pair of the 32 rosters plus weakened copies, three
 seeds each, injuries on, no coaching layer) answered a question it wasn't
 asked. Fitting
@@ -906,3 +906,35 @@ alongside the next §22 re-calibration, when the validation is being re-run
 anyway. `B = 0.147` per rating point is the yardstick for how large a shift
 any home-field term would need to be: +2.5 percentage points at an even
 matchup is about a third of a rating point.
+
+## OQ-10 addendum — the engine as validated vs the engine as played
+
+The §22/§26 work settled on a residual of **≈ −0.8 ± 0.4 points per team-game**
+against the real league — "small, borderline, and diffuse", and left open.
+Worth recording alongside it: the franchise game does not run the engine in
+the configuration that residual was measured in.
+
+Measured over 500 games per configuration, real rosters:
+
+| configuration | points/team-game |
+|---|---|
+| staff on, injuries off — the validation path | 21.17 |
+| neither | 21.09 |
+| injuries on, staff off — **what `server/index.ts` runs** | 20.71 |
+| both on | 20.52 |
+
+So in-game injuries cost about **0.46 points per team-game**, and the
+franchise adapter has them on while the validation harness does not. That is
+not an error in either — a game with injuries in it *should* score slightly
+less — but it means the played game sits about half a point below the
+calibrated one, which roughly doubles the known residual for anyone reading
+the box scores rather than the validation report.
+
+Two things follow, neither urgent:
+
+- Any future re-calibration should decide which configuration it is
+  calibrating, and say so. Closing the −0.8 gap against the no-injury path
+  would leave the played game still low.
+- The coaching layer is very nearly free in aggregate (+0.08 without
+  injuries), which is what `leagueAverageStaff` being exactly zero predicts.
+  It shifts individual matchups, not the league's scoring.
