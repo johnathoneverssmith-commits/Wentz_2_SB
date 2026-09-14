@@ -4,11 +4,21 @@
  * GMs auto-ready a moment after the stage loads. When all are ready:
  *  - by default `tryAdvance()` runs the stage transition, then `onAdvance()`;
  *  - if `action` is given (e.g. the hub's "simulate the week"), it runs instead.
+ *
+ * Online it is the same control over a different machine, and the difference
+ * is worth stating because it is the whole point of the mode. The other GMs
+ * are people: nobody auto-readies, and "waiting on 2 of 4" means two humans
+ * who may be asleep. And this client does not advance the league — it tells
+ * the server it is ready, and the server decides, either when the last GM
+ * readies up or when the phase clock runs out and the absent GMs' staffs act
+ * for them. So the local transition is skipped entirely, and the new stage
+ * arrives the same way any other change does: pushed.
  */
 import { useEffect, useRef, useState } from "react";
 
-import { STAGE_READY_LABEL } from "@/state/stageMachine";
+import { STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
 
 export function ReadinessGate({
   title,
@@ -30,6 +40,8 @@ export function ReadinessGate({
   disabled?: boolean;
   disabledHint?: string;
 }) {
+  const actions = useLeagueActions();
+  const online = actions.online;
   const gms = useStore((s) => s.gms);
   const readiness = useStore((s) => s.readiness);
   const viewerGmId = useStore((s) => s.viewerGmId);
@@ -44,9 +56,11 @@ export function ReadinessGate({
   const allReady = readyCount === humans.length;
 
   useEffect(() => {
+    // online the other GMs are people, and a person is ready when they say so
+    if (online) return;
     const t = setTimeout(() => autoReadyNonViewers(), 1400);
     return () => clearTimeout(t);
-  }, [stage, autoReadyNonViewers]);
+  }, [stage, autoReadyNonViewers, online]);
 
   // Always call the latest onAdvance, and never drop it once the transition
   // has run: several screens unmount this gate the moment the stage changes
@@ -59,7 +73,8 @@ export function ReadinessGate({
   onAdvanceRef.current = onAdvance;
   const advancingRef = useRef(false);
   useEffect(() => {
-    if (!allReady) return;
+    // the server owns the transition online; it arrives on the stream
+    if (online || !allReady) return;
     const t = setTimeout(async () => {
       if (advancingRef.current) return;
       advancingRef.current = true;
@@ -74,7 +89,7 @@ export function ReadinessGate({
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [allReady, action, tryAdvance]);
+  }, [allReady, action, tryAdvance, online]);
 
   const waiting = humans.length - readyCount;
 
@@ -104,7 +119,21 @@ export function ReadinessGate({
         // clicks again.
         disabled={disabled || busy}
         aria-busy={busy || undefined}
-        onClick={() => setReady(viewerGmId, !viewerReady)}
+        onClick={() => {
+          if (!online) {
+            setReady(viewerGmId, !viewerReady);
+            return;
+          }
+          setBusy(true);
+          void actions
+            .readyUp(!viewerReady)
+            .then(() => {
+              // the server may have moved the league on the strength of this
+              const next = useStore.getState().stage;
+              if (next !== stage) onAdvanceRef.current(STAGE_HOME[next]);
+            })
+            .finally(() => setBusy(false));
+        }}
       >
         {busy
           ? "Simulating…"

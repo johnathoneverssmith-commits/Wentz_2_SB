@@ -13,6 +13,7 @@ import type { ContractOffer, Player } from "@/domain";
 import { playerPriorities } from "@/sim/priorities";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions, seconds } from "@/util/format";
 
@@ -21,12 +22,14 @@ export function FreeAgencyBoard() {
   const s = useStore();
   const { active, setActive } = useTabs("unsigned");
   const code = viewerTeamCode(s);
+  // one interface over "spend locally" and "ask the server"; identical
+  // shapes, and the only difference a screen sees is that online a refusal
+  // arrives after a round trip against the league as it is *now*
+  const actions = useLeagueActions();
 
   const startBidding = useStore((st) => st.startBidding);
-  const placeOffer = useStore((st) => st.placeOffer);
   const advanceDay = useStore((st) => st.advanceBiddingDay);
   const dismiss = useStore((st) => st.dismissInterstitial);
-  const signStanding = useStore((st) => st.signStandingFreeAgent);
 
   const isWindowStage = s.stage === "offseasonFreeAgency";
   const [negotiating, setNegotiating] = useState<Player | null>(null);
@@ -295,23 +298,23 @@ export function FreeAgencyBoard() {
           }}
           onSubmit={(offer) => {
             const full: ContractOffer = { ...offer, teamCode: code };
-            if (isWindowStage) {
-              const result = placeOffer("players", negotiating.id, full);
+            const target = negotiating.id;
+            const run = isWindowStage
+              ? actions.placeBid("players", target, full)
+              : actions.signFreeAgent(target, full);
+            void run.then((result) => {
               if (result.ok) {
                 setSignError(null);
                 setNegotiating(null);
               } else {
-                setSignError(result.reason ?? "Unable to bid on this player.");
+                setSignError(
+                  result.reason ??
+                    (isWindowStage
+                      ? "Unable to bid on this player."
+                      : "Unable to sign this player."),
+                );
               }
-            } else {
-              const result = signStanding(negotiating.id, full);
-              if (result.ok) {
-                setSignError(null);
-                setNegotiating(null);
-              } else {
-                setSignError(result.reason ?? "Unable to sign this player.");
-              }
-            }
+            });
           }}
         />
       )}

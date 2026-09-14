@@ -14,6 +14,7 @@ import {
 } from "@/state/draftPicks";
 import { pickTradeValue } from "@/sim/MockSimulationService";
 import { checkTrade, useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
@@ -23,6 +24,7 @@ export function TradeProposal() {
   const nav = useNavigate();
   const s = useStore();
   const myCode = viewerTeamCode(s);
+  const actions = useLeagueActions();
   const proposeTrade = useStore((st) => st.proposeTrade);
   const castVote = useStore((st) => st.castTradeVote);
   const resolveTrade = useStore((st) => st.resolveTrade);
@@ -31,6 +33,9 @@ export function TradeProposal() {
   const [give, setGive] = useState<string[]>([]);
   const [get, setGet] = useState<string[]>([]);
   const [tradeId, setTradeId] = useState<string | null>(null);
+  // a refusal from the server, which arrives after the click rather than
+  // before it — locally `checkTrade` has already greyed the button out
+  const [onlineError, setOnlineError] = useState<string | null>(null);
 
   // live cap/roster preview of the deal as it's being built
   const legality = useMemo(
@@ -86,7 +91,6 @@ export function TradeProposal() {
 
   const trade = tradeId ? s.trades.find((t) => t.id === tradeId) : undefined;
   const offers = s.trades.filter((t) => t.status === "offered" && t.toTeam === myCode);
-  const respond = useStore((st) => st.respondToOffer);
 
   // the bars have to price a pick too, or a first-rounder reads as worth nothing
   const assetVal = (id: string): number => {
@@ -176,10 +180,20 @@ export function TradeProposal() {
                   {o.blockedReason && <p className="form-error">{o.blockedReason}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button className="btn-primary" onClick={() => respond(o.id, true)}>
+                  <button
+                    className="btn-primary"
+                    onClick={() => {
+                      setOnlineError(null);
+                      void actions.respondToTrade(o.id, true).then((res) => {
+                        if (!res.ok) {
+                          setOnlineError(res.reason ?? "That trade could not be accepted.");
+                        }
+                      });
+                    }}
+                  >
                     Accept
                   </button>
-                  <button onClick={() => respond(o.id, false)}>Decline</button>
+                  <button onClick={() => void actions.respondToTrade(o.id, false)}>Decline</button>
                 </div>
               </div>
             );
@@ -283,6 +297,22 @@ export function TradeProposal() {
             {legality.reason}
           </p>
         )}
+
+        {/* Online the same check runs again at commit time, against a league
+            that may have moved since this page loaded — the offer the other
+            GM accepted a minute ago spends the cap room this one needed. */}
+        {onlineError && (
+          <p className="form-error" style={{ marginTop: 12 }}>
+            {onlineError}
+          </p>
+        )}
+
+        {actions.online && !trade && (
+          <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+            Proposing sends the offer to the other GM. They'll see it next time they open the
+            league — there's no answer to wait for here.
+          </p>
+        )}
       </div>
 
       <Footer>
@@ -296,6 +326,21 @@ export function TradeProposal() {
             disabled={(give.length === 0 && get.length === 0) || !legality?.ok}
             title={legality?.ok === false ? legality.reason : undefined}
             onClick={() => {
+              setOnlineError(null);
+              if (actions.online) {
+                // the server re-checks both rosters and both caps at commit
+                // time, then leaves the offer for a person to answer — there
+                // is no AI partner to decide on the spot
+                void actions.proposeTrade(partner, give, get).then((res) => {
+                  if (res.ok) {
+                    setGive([]);
+                    setGet([]);
+                  } else {
+                    setOnlineError(res.reason ?? "That trade was refused.");
+                  }
+                });
+                return;
+              }
               const id = proposeTrade(partner, give, get);
               setTradeId(id);
               // resolveTrade decides: an AI partner can refuse outright, and
