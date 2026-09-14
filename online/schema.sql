@@ -91,3 +91,13 @@ CREATE INDEX IF NOT EXISTS events_league_idx ON events (league_id, id DESC);
 -- Sessions are signed cookies rather than rows, so there is no table here on
 -- purpose; see online/src/auth.ts. Revoking one user everywhere means bumping
 -- their password, which is the same thing most small sites do.
+
+-- One-time data repairs that have already been applied.
+--
+-- A repair that scans every league document is fine once and wasteful every
+-- boot after — the state blobs are ~1.4MB each, and loading them all at once
+-- is exactly what the denormalised columns above exist to avoid.
+CREATE TABLE IF NOT EXISTS schema_meta (
+  key        TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

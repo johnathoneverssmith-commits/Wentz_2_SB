@@ -105,6 +105,9 @@ export async function createOnlineLeague(
   return { leagueId: id, inviteCode: code };
 }
 
+/** Marks the one-time GM repair as applied, so it runs once and not per boot. */
+const REPAIR_KEY = "repair.unclaimed_gms.v1";
+
 /**
  * Retire the phantom GMs in leagues that were created before the fix above.
  *
@@ -123,9 +126,16 @@ export async function createOnlineLeague(
  * run repeatedly.
  */
 export async function repairUnclaimedGms(): Promise<number> {
-  const rows = await pool.query<{ league_id: string; state: LeagueState }>(
-    `SELECT league_id, state FROM league_state`,
-  );
+  // Already done once? Then never again: this walks every league document,
+  // and at ~1.4MB apiece that is a real cost to pay on each boot forever.
+  const done = await pool.query(`SELECT 1 FROM schema_meta WHERE key = $1`, [REPAIR_KEY]);
+  if (done.rows[0]) return 0;
+
+  // ids first, then one document at a time. Loading every state at once was
+  // ~77MB of JSON for fifty leagues before V8 overhead, on a host with 512MB
+  // — the repair would have grown into the thing that stopped the server
+  // booting at all.
+  const ids = await pool.query<{ league_id: string }>(`SELECT league_id FROM league_state`);
   // who actually owns each slot, for leagues claimed before the name of the
   // person claiming it was recorded on the GM
   const owners = await pool.query<{ league_id: string; gm_id: string; name: string }>(
@@ -136,7 +146,13 @@ export async function repairUnclaimedGms(): Promise<number> {
   const nameOf = new Map(owners.rows.map((r) => [`${r.league_id}:${r.gm_id}`, r.name]));
 
   let fixed = 0;
-  for (const row of rows.rows) {
+  for (const { league_id } of ids.rows) {
+    const rows = await pool.query<{ state: LeagueState }>(
+      `SELECT state FROM league_state WHERE league_id = $1`,
+      [league_id],
+    );
+    const row = rows.rows[0];
+    if (!row) continue;
     const state = row.state;
     if (!Array.isArray(state?.gms)) continue;
     let changed = false;
@@ -146,7 +162,7 @@ export async function repairUnclaimedGms(): Promise<number> {
         changed = true;
       }
       // a real person still wearing the seed's invented AI name
-      const owner = nameOf.get(`${row.league_id}:${gm.id}`);
+      const owner = nameOf.get(`${league_id}:${gm.id}`);
       if (owner && gm.name !== owner) {
         gm.name = owner;
         changed = true;
@@ -156,10 +172,14 @@ export async function repairUnclaimedGms(): Promise<number> {
     await pool.query(
       `UPDATE league_state SET state = $2, version = version + 1, updated_at = now()
         WHERE league_id = $1`,
-      [row.league_id, state],
+      [league_id, state],
     );
     fixed++;
   }
+  await pool.query(
+    `INSERT INTO schema_meta (key) VALUES ($1) ON CONFLICT DO NOTHING`,
+    [REPAIR_KEY],
+  );
   return fixed;
 }
 
