@@ -31,6 +31,22 @@ league/schedule/week-sim call, not just at startup), including in the
 standalone single-file build (`npm run build` → `dist/index.html`, openable via
 `file://` with no server at all — just without real fidelity then).
 
+### Checking the standalone build
+
+`npm run build` produces one ~480 KB `index.html` with no local assets and no
+root-absolute paths. To exercise it at its own origin — so it doesn't share
+the dev server's saved dynasty — serve it separately:
+
+```bash
+npm run preview -- --port 4173
+```
+
+Its only external dependency is Google Fonts, which by definition won't load
+in the offline case the build exists for. Both faces have real fallback stacks
+(`--font-display`, `--font-body` in `theme.css`), so it degrades to system
+type rather than breaking; inlining the two families as data URIs would remove
+the dependency entirely at a cost of a few hundred KB, and hasn't been done.
+
 If `esbuild`'s postinstall is blocked (`npm warn allow-scripts`), run
 `npm approve-scripts esbuild && npm rebuild esbuild` once.
 
