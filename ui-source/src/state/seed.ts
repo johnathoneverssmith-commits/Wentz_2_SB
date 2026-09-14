@@ -900,7 +900,9 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
     coaches[c.id] = c;
   }
 
-  const schedule = sim.generateSchedule(seed, TEAMS.map((t) => t.code));
+  // the season, not the seed: the year drives the division-pairing rotations,
+  // and a random number there would rotate the league arbitrarily
+  const schedule = sim.generateSchedule(2026, TEAMS.map((t) => t.code));
   const draftClass = sim.generateDraftClass(seed, 2026);
 
   const state: LeagueState = {

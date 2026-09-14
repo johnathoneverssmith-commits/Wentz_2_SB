@@ -27,6 +27,12 @@ import {
   projectionLabel,
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
+import { nflSchedule } from "../../../src/engine/schedule.js";
+import { NFL_TEAMS } from "../../../src/engine/nfl-structure.js";
+
+/** The engine spells the Rams "LA"; this app spells them "LAR". */
+const fromEngineCode = (code: string): string => (code === "LA" ? "LAR" : code);
+
 
 import { fullPersonName, personName, school } from "./names.ts";
 import { Rng } from "./rng.ts";
@@ -258,8 +264,29 @@ export class MockSimulationService implements SimulationService {
     return out;
   }
 
-  generateSchedule(seed: number, teamCodes: string[]): ScheduledGame[] {
-    const rng = new Rng(seed ^ 0x3333);
+  /**
+   * The real 17-game formula, not a shuffle.
+   *
+   * This used to pair the league off at random every week. It produced the
+   * right *number* of games — seventeen each, byes in the right range — and
+   * nothing else about it was a season: division rivals met twice by
+   * coincidence or not at all. Measured over two seasons before the fix, 6 of
+   * 48 division pairs met twice in one year and 2 of 48 in the next, with 24
+   * and 33 pairs never meeting. A GM could go a whole year without playing
+   * the team they share a division with, which quietly empties the standings
+   * of meaning.
+   *
+   * The engine has had the real formula since A1 — division opponents home
+   * and away, the division-versus-division rotations anchored to the
+   * published pairings, byes confined to weeks 5–14 — and it is pure
+   * arithmetic over `nfl-structure`, no data files, so it belongs here rather
+   * than only behind the optional adapter.
+   *
+   * Preseason stays a shuffle, because preseason opponents genuinely are
+   * arbitrary.
+   */
+  generateSchedule(season: number, teamCodes: string[]): ScheduledGame[] {
+    const rng = new Rng(season ^ 0x3333);
     const games: ScheduledGame[] = [];
 
     // preseason: 3 weeks, everyone plays, no byes
@@ -270,15 +297,33 @@ export class MockSimulationService implements SimulationService {
       }
     }
 
-    // regular season: 18 weeks; bye weeks 6–13, 4 teams per bye week
-    const byeWeek = new Map(teamCodes.map((c, i) => [c, 6 + (i % 8)]));
-    for (let w = 1; w <= 18; w++) {
-      const playing = rng.shuffle(teamCodes.filter((c) => byeWeek.get(c) !== w));
-      for (let i = 0; i + 1 < playing.length; i += 2) {
-        const home = w % 2 === 0 ? playing[i]! : playing[i + 1]!;
-        const away = w % 2 === 0 ? playing[i + 1]! : playing[i]!;
-        games.push({ week: w, phase: "REG", homeTeam: home, awayTeam: away });
+    // The formula is defined over the real league. A league that isn't the
+    // thirty-two (a test fixture, say) has no such thing as a division
+    // rotation, so it keeps the old pairing rather than failing.
+    const known = new Set(NFL_TEAMS.map(fromEngineCode));
+    const isRealLeague =
+      teamCodes.length === 32 && teamCodes.every((c) => known.has(c));
+
+    if (!isRealLeague) {
+      const byeWeek = new Map(teamCodes.map((c, i) => [c, 6 + (i % 8)]));
+      for (let w = 1; w <= 18; w++) {
+        const playing = rng.shuffle(teamCodes.filter((c) => byeWeek.get(c) !== w));
+        for (let i = 0; i + 1 < playing.length; i += 2) {
+          const home = w % 2 === 0 ? playing[i]! : playing[i + 1]!;
+          const away = w % 2 === 0 ? playing[i + 1]! : playing[i]!;
+          games.push({ week: w, phase: "REG", homeTeam: home, awayTeam: away });
+        }
       }
+      return games;
+    }
+
+    for (const pair of nflSchedule({ year: season })) {
+      games.push({
+        week: pair.week,
+        phase: "REG",
+        homeTeam: fromEngineCode(pair.home),
+        awayTeam: fromEngineCode(pair.away),
+      });
     }
     return games;
   }
