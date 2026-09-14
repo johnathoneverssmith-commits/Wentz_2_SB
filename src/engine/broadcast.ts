@@ -46,6 +46,16 @@ export interface BroadcastPlay {
   distance?: number | undefined;
   /** injuries that happened on this exact play (almost always empty). */
   injuries: InjuryEvent[];
+  /**
+   * [home, away] once this play and anything it caused is over.
+   *
+   * The score a replay should be showing while this play is on screen. It is
+   * *after* rather than before because a pick-six is traced as the
+   * interception — the six points land after that record is written — and a
+   * viewer watching the pick-six wants to see the seven go up, not on the
+   * next snap.
+   */
+  scoreAfter: [number, number];
 }
 
 export interface BroadcastDrive {
@@ -58,7 +68,18 @@ export interface BroadcastDrive {
   plays: BroadcastPlay[];
   /** how the drive ended — inferred from its last play. */
   ended: "touchdown" | "turnover" | "field_goal" | "missed_field_goal" | "punt" | "punt_return_td" | "stalled";
+  /** points this team scored on the drive — measured, extra point included. */
   points: number;
+  /**
+   * Points the *other* team scored during this drive: a pick-six, a scoop-six,
+   * a punt returned for a touchdown.
+   *
+   * This used to be invisible. `points` was hardcoded to 7 for a touchdown
+   * and 3 for a made kick, so a drive that ended in a defensive touchdown read
+   * as a turnover worth nothing and a seven-point swing vanished from the
+   * drive chart entirely.
+   */
+  pointsAgainst: number;
 }
 
 export interface GameBroadcast {
@@ -66,7 +87,11 @@ export interface GameBroadcast {
   away: string;
   finalScore: [number, number];
   drives: BroadcastDrive[];
-  /** indices into `drives` that put points on the board (touchdown or made field goal). */
+  /**
+   * Indices into `drives` on which the scoreboard moved — including the
+   * drives where it moved for the *other* team, which is exactly when a
+   * viewer most wants the drive chart to say something.
+   */
   scoringDrives: number[];
   /** every injury in the game, in play order (also attached to its own play). */
   injuries: InjuryEvent[];
@@ -113,8 +138,21 @@ function describe(p: {
   return s;
 }
 
-/** Group the flat trace into possessions; attach each injury to its exact play. */
-function toDrives(trace: PlayRec[], injuries: InjuryEvent[], home: string, away: string): BroadcastDrive[] {
+/**
+ * Group the flat trace into possessions; attach each injury to its exact play.
+ *
+ * `finalScore` closes the last play's running score: every other play's
+ * `scoreAfter` is the *next* play's `scoreBefore`, which catches the points
+ * that land between two traced records — a pick-six, a scoop-six, a punt
+ * taken back, a kickoff return.
+ */
+function toDrives(
+  trace: PlayRec[],
+  injuries: InjuryEvent[],
+  home: string,
+  away: string,
+  finalScore: readonly [number, number],
+): BroadcastDrive[] {
   const byPlayIndex = new Map<number, InjuryEvent[]>();
   injuries.forEach((e) => {
     if (e.playIndex === undefined) return;
@@ -136,6 +174,7 @@ function toDrives(trace: PlayRec[], injuries: InjuryEvent[], home: string, away:
         plays: [],
         ended: "stalled",
         points: 0,
+        pointsAgainst: 0,
       };
       drives.push(cur);
     }
@@ -160,23 +199,40 @@ function toDrives(trace: PlayRec[], injuries: InjuryEvent[], home: string, away:
       returner: r.returner,
       distance: r.distance,
       injuries: byPlayIndex.get(i) ?? [],
+      // filled in below, once we know what the next snap saw
+      scoreAfter: [0, 0],
     });
     if (r.call === "field_goal") {
       cur.ended = r.outcome === "made" ? "field_goal" : "missed_field_goal";
-      cur.points = r.outcome === "made" ? 3 : 0;
       cur = null;
     } else if (r.call === "punt") {
       cur.ended = r.outcome === "return_td" ? "punt_return_td" : "punt";
       cur = null;
     } else if (r.touchdown) {
       cur.ended = "touchdown";
-      cur.points = 7;
       cur = null;
     } else if (r.turnover) {
       cur.ended = "turnover";
       cur = null;
     }
   });
+
+  // running score, then each drive's swing measured off it rather than
+  // assumed — an extra point can miss, and a defensive touchdown belongs to
+  // the team that didn't have the ball
+  const flat = drives.flatMap((d) => d.plays);
+  flat.forEach((p, i) => {
+    p.scoreAfter = i + 1 < flat.length ? [...trace[i + 1]!.scoreBefore] : [finalScore[0], finalScore[1]];
+  });
+  let cursor = 0;
+  for (const d of drives) {
+    const before = trace[cursor]?.scoreBefore ?? [0, 0];
+    cursor += d.plays.length;
+    const after = d.plays.at(-1)?.scoreAfter ?? before;
+    const mine = d.side === "home" ? 0 : 1;
+    d.points = Math.max(0, after[mine]! - before[mine]!);
+    d.pointsAgainst = Math.max(0, after[1 - mine]! - before[1 - mine]!);
+  }
   return drives;
 }
 
@@ -193,13 +249,13 @@ export function broadcastGame(
 ): GameBroadcast {
   const g = simulateGame(seed, home, away, { ...opts, trace: true, injuries: true });
   const injuries = g.injuryLog ?? [];
-  const drives = toDrives(g.playTrace ?? [], injuries, home, away);
+  const drives = toDrives(g.playTrace ?? [], injuries, home, away, [g.score[0], g.score[1]]);
   return {
     home,
     away,
     finalScore: [g.score[0], g.score[1]],
     drives,
-    scoringDrives: drives.flatMap((d, i) => (d.points > 0 ? [i] : [])),
+    scoringDrives: drives.flatMap((d, i) => (d.points > 0 || d.pointsAgainst > 0 ? [i] : [])),
     injuries,
   };
 }

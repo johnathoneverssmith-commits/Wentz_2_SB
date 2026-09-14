@@ -51,6 +51,11 @@ export interface BroadcastPlay {
   returner?: string;
   distance?: number;
   injuries: InjuryEvent[];
+  /**
+   * [home, away] once this play and anything it set off is over — the score
+   * a replay should be showing while this play is on screen.
+   */
+  scoreAfter: [number, number];
 }
 
 export interface BroadcastDrive {
@@ -68,7 +73,10 @@ export interface BroadcastDrive {
     | "punt"
     | "punt_return_td"
     | "stalled";
+  /** points this team scored on the drive, extra point included. */
   points: number;
+  /** points the *other* team scored during it: a pick-six, a punt taken back. */
+  pointsAgainst: number;
 }
 
 export interface GameBroadcast {

@@ -114,3 +114,88 @@ describe.runIf(hasPool)("broadcastGame", () => {
     expect(again.injuries.map((e) => e.narrative)).toEqual(b.injuries.map((e) => e.narrative));
   });
 });
+
+/**
+ * The running score.
+ *
+ * A replay whose scoreboard shows the final score from the opening kickoff
+ * isn't a replay. What makes this awkward enough to be worth a suite of its
+ * own is that points do not all arrive on the play that produced them: a
+ * pick-six is traced as an interception and scores afterwards, a punt taken
+ * back scores after the punt, and a kickoff return scores between two traced
+ * plays. So each play carries the score as it stands once everything that
+ * play set off is done, and these check it end to end rather than by
+ * construction.
+ *
+ * Points that land between two drives are credited to the drive that just
+ * ended, because in almost every case that drive is what caused them: the
+ * punt that was taken back, the interception returned for a score. The one
+ * case where that reads oddly is a kickoff return touchdown, which lands in
+ * the same gap and gets credited to the possession before it — which is why
+ * a single drive can carry points both ways.
+ */
+describe("broadcast running score", () => {
+  const games = Array.from({ length: 40 }, (_, i) => broadcastGame(9_000 + i * 37, "KC", "BUF"));
+
+  it("never goes backwards", () => {
+    for (const b of games) {
+      let prev: readonly [number, number] = [0, 0];
+      for (const p of b.drives.flatMap((d) => d.plays)) {
+        expect(p.scoreAfter[0]).toBeGreaterThanOrEqual(prev[0]);
+        expect(p.scoreAfter[1]).toBeGreaterThanOrEqual(prev[1]);
+        prev = p.scoreAfter;
+      }
+    }
+  });
+
+  it("arrives at the final score on the last play", () => {
+    for (const b of games) {
+      const last = b.drives.flatMap((d) => d.plays).at(-1);
+      expect(last?.scoreAfter).toEqual(b.finalScore);
+    }
+  });
+
+  it("starts at nothing to nothing", () => {
+    for (const b of games) {
+      const first = b.drives[0]?.plays[0];
+      // the opening drive's first snap can only be 0-0 unless the game
+      // opened with a kickoff return touchdown
+      expect(first?.scoreAfter[0]).toBeLessThanOrEqual(8);
+      expect(first?.scoreAfter[1]).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it("credits every point to a drive, including the other team's", () => {
+    for (const b of games) {
+      const total: [number, number] = [0, 0];
+      for (const d of b.drives) {
+        const mine = d.side === "home" ? 0 : 1;
+        total[mine] += d.points;
+        total[1 - mine === 0 ? 0 : 1] += d.pointsAgainst;
+      }
+      expect(total).toEqual(b.finalScore);
+    }
+  });
+
+  it("gives a defensive or return score to the team that scored it", () => {
+    // across forty games at least one drive ends with the other team scoring
+    const swings = games.flatMap((b) => b.drives.filter((d) => d.pointsAgainst > 0));
+    expect(swings.length).toBeGreaterThan(0);
+    for (const d of swings) {
+      // a safety is two, a pick-six / scoop-six / punt return is six or seven
+      expect([2, 6, 7, 8]).toContain(d.pointsAgainst);
+    }
+    // and at least one of them is a touchdown rather than only safeties
+    expect(swings.some((d) => d.pointsAgainst >= 6)).toBe(true);
+  });
+
+  it("lists every scoring drive, whichever way the points went", () => {
+    for (const b of games) {
+      const moved = b.drives
+        .map((d, i) => [d, i] as const)
+        .filter(([d]) => d.points > 0 || d.pointsAgainst > 0)
+        .map(([, i]) => i);
+      expect(b.scoringDrives).toEqual(moved);
+    }
+  });
+});

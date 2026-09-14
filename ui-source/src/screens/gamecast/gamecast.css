@@ -113,15 +113,49 @@
 }
 
 /* ---- layout ---- */
+/*
+ * The field is the point of this screen, so it gets the width.
+ *
+ * It used to sit in the middle column of `200px 1fr 240px`, which inside a
+ * 760px card left it about 270px — a postage stamp of a football field with
+ * a drive chart and an injury report either side of it, both of which are
+ * reference material you glance at. Now the field spans the top and the two
+ * reference panels sit under it.
+ *
+ * The breakpoint is a *container* query, not a media query. The old one
+ * asked the viewport, and the viewport is not what constrains this: on a
+ * 1440px screen the card is still 760px wide, so `max-width: 1100px` never
+ * fired and the field stayed narrow on exactly the screens with room to
+ * spare.
+ */
+.gc {
+  container-type: inline-size;
+}
 .gc-grid {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr) 240px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "stage stage"
+    "drives injuries";
   gap: 12px;
   align-items: start;
 }
-@media (max-width: 1100px) {
+.gc-grid > .gc-panel:first-of-type {
+  grid-area: drives;
+}
+.gc-grid > .gc-stage {
+  grid-area: stage;
+}
+.gc-grid > .gc-panel:last-of-type {
+  grid-area: injuries;
+}
+@container (max-width: 560px) {
   .gc-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "stage"
+      "drives"
+      "injuries";
   }
 }
 .gc-panel {
@@ -235,6 +269,12 @@
 .gc-dtag.special {
   background: color-mix(in srgb, var(--gc-special) 22%, var(--panel-raised));
   color: var(--gc-special);
+}
+/* points the other team took off this possession — a pick-six, a punt back */
+.gc-dtag.against {
+  background: color-mix(in srgb, var(--gc-injury) 34%, var(--panel-raised));
+  color: #fff;
+  margin-left: 4px;
 }
 
 /* ---- field ---- */

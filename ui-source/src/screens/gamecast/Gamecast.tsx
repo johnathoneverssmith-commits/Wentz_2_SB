@@ -387,7 +387,28 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
   }
 
   const marker = next ?? cur;
-  const [hs, as] = bc.finalScore;
+
+  /**
+   * The scoreboard as of where the replay has reached.
+   *
+   * This used to read `bc.finalScore`, which meant the board showed the final
+   * from the opening kickoff — a replay that tells you the answer before it
+   * starts, sat next to an injury panel that carefully reveals itself play by
+   * play. The score after a play is on the play itself, so this is the last
+   * one the viewer has seen.
+   *
+   * A league saved before the running score existed has no `scoreAfter`; for
+   * those the board falls back to the final rather than sitting on 0-0.
+   */
+  const liveScore = ((): readonly [number, number] => {
+    for (let i = gi - 1; i >= 0; i--) {
+      const st = steps[i];
+      if (st?.type !== "play") continue;
+      return st.p.scoreAfter ?? bc.finalScore;
+    }
+    return steps.some((st) => st.type === "play" && st.p.scoreAfter) ? [0, 0] : bc.finalScore;
+  })();
+  const [hs, as] = liveScore;
   const done = gi >= total;
   const it = pending[0];
 
@@ -448,18 +469,29 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
           </div>
           <div className="gc-drives">
             {drives.map((dr, k) => {
+              // what the possession itself did
               const tag =
-                dr.ended === "touchdown" || dr.ended === "punt_return_td"
+                dr.ended === "touchdown"
                   ? { cls: "td", label: "TD" }
                   : dr.ended === "field_goal"
                     ? { cls: "td", label: "FG" }
                     : dr.ended === "missed_field_goal"
                       ? { cls: "to", label: "MISS" }
-                      : dr.ended === "punt"
+                      : dr.ended === "punt" || dr.ended === "punt_return_td"
                         ? { cls: "special", label: "PUNT" }
                         : dr.ended === "turnover"
                           ? { cls: "to", label: "TO" }
                           : null;
+              // and what it cost — a punt taken back or a pick-six used to
+              // show as a plain PUNT or TO with the seven points nowhere
+              const conceded =
+                dr.pointsAgainst >= 6
+                  ? dr.ended === "punt_return_td"
+                    ? "RET TD"
+                    : "DEF TD"
+                  : dr.pointsAgainst === 2
+                    ? "SAFETY"
+                    : null;
               return (
                 <button
                   key={k}
@@ -475,6 +507,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                   <span className="gc-dmeta">
                     {dr.plays.length} plays · from the {spot(dr.startBallOn)}
                     {tag && <span className={`gc-dtag ${tag.cls}`}>{tag.label}</span>}
+                    {conceded && <span className="gc-dtag against">{conceded}</span>}
                   </span>
                 </button>
               );

@@ -131,6 +131,19 @@ export interface PlayRec {
   returner?: string | undefined;
   /** field_goal attempt distance, or punt gross distance, in yards. */
   distance?: number | undefined;
+  /**
+   * [home, away] as the play is snapped.
+   *
+   * Recorded rather than derived because points don't all arrive on the play
+   * that produced them: a pick-six is traced as an interception and *then*
+   * scores, and a kickoff return can score between two traced plays. A
+   * consumer that wants the score after a play reads the next play's
+   * `scoreBefore` (and the game's final score for the last one), which is
+   * exact in every one of those cases.
+   *
+   * Only populated when the trace is on, and costs no RNG draws.
+   */
+  scoreBefore: [number, number];
 }
 
 function clip(x: number, lo: number, hi: number): number {
@@ -300,6 +313,7 @@ export class Game {
     if (this.playTrace)
       this.playTrace.push({
         team: this.pos as 0 | 1,
+        scoreBefore: [this.score[0], this.score[1]],
         ...p,
         gained: Math.round(p.gained),
         ballOn: Math.round(p.ballOn),
@@ -696,6 +710,7 @@ export class Game {
     if (this.playTrace)
       this.playTrace.push({
         team: this.pos as 0 | 1,
+        scoreBefore: [this.score[0], this.score[1]],
         quarter: preQtr,
         clock: preClock,
         down: preDown,
@@ -776,6 +791,7 @@ export class Game {
         if (!this.playTrace) return;
         this.playTrace.push({
           team: this.pos as 0 | 1,
+          scoreBefore: [this.score[0], this.score[1]],
           quarter: preQtr,
           clock: preClock,
           down: preDown,
