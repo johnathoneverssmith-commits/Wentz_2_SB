@@ -162,3 +162,35 @@ them soft-locked the game. `src/state/rosterLegality.test.ts`,
 - **The test suite is hermetic.** `src/test-setup.ts` stubs `fetch` to reject,
   so nothing depends on whether a dev adapter happens to be running —
   `adapterFallback.test.ts` is the one place that seam is exercised on purpose.
+- **Restructure and extend** (`state/contracts.ts`). A restructure converts
+  salary to prorated bonus — cheaper now, dearer later, and the carried money
+  follows the player through an extension so the pair isn't free money. An
+  extension is negotiated in free agency's own modal against what the player
+  would get on the open market a year early.
+- **Draft picks** (`state/draftPicks.ts`). A ledger of every pick for this
+  draft and the next two. The rookie draft's slots are earned by record; who
+  *uses* each one comes from the ledger. Picks trade alongside players and are
+  priced off `PICK_VALUE_BY_ROUND`, discounted for distance.
+- **The AI proposes trades** (`state/aiTrades.ts`), at the end of a season and
+  when free agency opens. Offers are seeded per stage (no rerolling), made per
+  human GM, filtered through `checkTrade` so nothing is offered that the
+  offering team couldn't honour, and surfaced with a count on the rail.
+
+## Accessibility, and what's already been checked
+
+Worth knowing before changing markup, because these were all found by
+measuring rather than by reading the code:
+
+- `Tabs`/`Panel` in `components/primitives.tsx` are a real ARIA tablist —
+  roving tabindex, arrow/Home/End, each panel pointing back at its tab. Pass
+  `<Panel id="...">` matching the tab id or the pairing breaks.
+- The three overlays share `components/useDialog.ts`: `role="dialog"`, focus
+  trap, Escape, focus returned to whatever opened them.
+- Every rendered text node was measured against its *composited* background.
+  `--ink-faint` was 2.85:1 and is now 5.2:1; team accents lift against the
+  measurement (`readableAccent`) rather than a luminance threshold, and
+  `onColorFor` picks black or white on a team fill by contrast. A test holds
+  all 32 teams to AA.
+- Layouts that set columns inline can't be reached by a media query. The
+  `.split-2` / `.split-3` classes in `theme.css` exist for that reason; use
+  them rather than an inline `gridTemplateColumns` for anything multi-column.
