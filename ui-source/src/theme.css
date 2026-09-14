@@ -1590,3 +1590,79 @@ input[type="range"]::-moz-range-thumb {
     transform: none;
   }
 }
+
+/* ---- online league roster ------------------------------------------- */
+/* Reports who's in; never blocks play. See LeagueRoster.tsx. */
+.leagueroster {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.leagueroster-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.leagueroster-count {
+  font-size: 12px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.leagueroster-count.full {
+  color: var(--good, var(--accent));
+}
+.leagueroster-bar {
+  margin: 10px 0 12px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.leagueroster-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 240ms ease;
+}
+.leagueroster-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.leagueroster-list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+}
+.leagueroster-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+}
+.leagueroster-name em {
+  font-style: normal;
+  color: var(--ink-faint);
+}
+.leagueroster-team {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.leagueroster-open .leagueroster-name {
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+.leagueroster-invite {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}

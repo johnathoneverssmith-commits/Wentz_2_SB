@@ -32,6 +32,8 @@ export interface LeagueView {
   /** Null until you've claimed a team. */
   you: { teamCode: string; gmId: string } | null;
   isCommissioner: boolean;
+  /** The league's invite code — commissioner only, null for everyone else. */
+  inviteCode: string | null;
   /** Milliseconds until this phase closes without you, or null if untimed. */
   msLeft: number | null;
   /** Team codes the league is still waiting on. */

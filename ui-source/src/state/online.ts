@@ -27,6 +27,7 @@ interface OnlineSession {
   teamCode: string;
   gmId: string;
   isCommissioner: boolean;
+  inviteCode: string | null;
   msLeft: number | null;
   waitingOn: string[];
   /** Closes the change stream. Null when nothing is listening. */
@@ -34,6 +35,25 @@ interface OnlineSession {
 }
 
 let session: OnlineSession | null = null;
+
+/**
+ * Say which GM the person at this keyboard is.
+ *
+ * The server's league is written from nobody's point of view — it has to be,
+ * since every GM in it loads the same document. `viewerGmId` is the one field
+ * that is about the reader rather than the league, and it arrives holding
+ * whatever the seed put there: `gm_you`, a slot that in an online league is
+ * just another unclaimed team. So the whole app asked "who am I" and got back
+ * an empty slot, and every screen that keys off the viewer — starting with
+ * the team hub — decided you had no team, no matter which one you had
+ * claimed.
+ *
+ * Stamping it here means every path is covered at once: the first load, the
+ * stream's refetch, and the state that comes back from an action.
+ */
+function asViewer(state: LeagueState, gmId: string): LeagueState {
+  return state.viewerGmId === gmId ? state : { ...state, viewerGmId: gmId };
+}
 
 /**
  * The league's own words for what just happened, newest last, capped.
@@ -137,13 +157,14 @@ export async function joinLeague(
     teamCode: view.you.teamCode,
     gmId: view.you.gmId,
     isCommissioner: view.isCommissioner,
+    inviteCode: view.inviteCode,
     msLeft: view.msLeft,
     waitingOn: view.waitingOn,
     stopWatching: null,
   };
   watch();
   announce();
-  return { state: view.state, teamCode: view.you.teamCode };
+  return { state: asViewer(view.state, view.you.gmId), teamCode: view.you.teamCode };
 }
 
 /** Fetch the league again. The server's copy always wins. */
@@ -159,8 +180,9 @@ export async function pull(): Promise<LeagueState | null> {
   s.msLeft = view.msLeft;
   s.waitingOn = view.waitingOn;
   s.isCommissioner = view.isCommissioner;
+  s.inviteCode = view.inviteCode;
   announce();
-  return view.state;
+  return asViewer(view.state, s.gmId);
 }
 
 /**

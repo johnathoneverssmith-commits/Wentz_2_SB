@@ -155,12 +155,16 @@ get("/leagues/:id", async (ctx) => {
     }
   }
 
+  const commissioner = await isCommissioner(ctx.params.id!, user.id);
   return {
     league: { id: loaded.league.id, name: loaded.league.name },
     state,
     version: loaded.version,
     you: franchise?.teamCode.startsWith("unclaimed:") ? null : franchise,
-    isCommissioner: await isCommissioner(ctx.params.id!, user.id),
+    isCommissioner: commissioner,
+    // so whoever is waiting on the rest of the league can chase them from
+    // inside it, rather than going back out to the lobby for the code
+    inviteCode: commissioner ? loaded.league.inviteCode : null,
     msLeft: timeLeft(loaded),
     waitingOn: waitingOn(loaded.state),
   };

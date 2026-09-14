@@ -2,10 +2,12 @@ import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
 import {
   currentPhase,
@@ -41,11 +43,27 @@ export function WeeklyTeamHub() {
 
   const code = viewerTeamCode(s);
   if (!code) {
+    // Online this is not a setup problem and League Setup cannot fix it —
+    // teams are claimed in the lobby, and being here without one means the
+    // claim did not reach this client. Say that instead of sending someone
+    // to a single-player screen that will not help.
+    const online = onlineSession() !== null;
     return (
       <Card>
         <CardHeader badge="FS" title="Weekly Team Hub" subtitle="No team selected" />
         <div className="panel open">
-          <div className="emptystate">Pick a team in League Setup to see your team hub.</div>
+          {online ? (
+            <>
+              <LeagueRoster />
+              <div className="notice bad" role="status">
+                <strong>This league hasn't told us which team is yours.</strong> Open it again
+                from Online Leagues — if it still lands here, your claim didn't save and the team
+                is free to take again.
+              </div>
+            </>
+          ) : (
+            <div className="emptystate">Pick a team in League Setup to see your team hub.</div>
+          )}
         </div>
       </Card>
     );
@@ -144,6 +162,8 @@ export function WeeklyTeamHub() {
       />
 
       <Panel id="overview" open={active === "overview"}>
+        {/* inert in a single-player dynasty; the component decides */}
+        <LeagueRoster />
         <p className="subhead" style={{ marginTop: 0 }}>
           Around the league — things to watch
         </p>
