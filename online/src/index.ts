@@ -45,6 +45,8 @@ import {
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
 import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
 import { simulateWeekForLeague } from "./simulate.js";
+import type { LeagueState } from "@/domain";
+import { isInSeason } from "@/state/rules.ts";
 import { openStream } from "./stream.js";
 
 /** Body fields, checked at the door so a handler can trust what it reads. */
@@ -304,7 +306,23 @@ post("/leagues/:id/actions/contract", async (ctx) =>
 
 post("/leagues/:id/actions/ready", async (ctx) => {
   const a = await actor(ctx);
-  return readyUp(a.leagueId, a.gmId, optional<boolean>(ctx, "ready") ?? true);
+  const res = await readyUp(a.leagueId, a.gmId, optional<boolean>(ctx, "ready") ?? true);
+
+  // In season, "everybody is ready" means *play the week* — there is nothing
+  // else for a stage gate to do, because a week advances by being simulated
+  // rather than by a transition. Nothing did this: `advanceStage` returns
+  // early for an in-season stage, the client never called simulate-week, and
+  // so a league readied up and then sat on week one forever.
+  //
+  // A separate call rather than part of the same transaction, deliberately:
+  // `simulateWeekForLeague` takes the league's row lock itself, and it
+  // refuses when the week's games are already on file, so two GMs clicking
+  // ready at the same moment still produce exactly one week.
+  if (isInSeason(res.stage as LeagueState["stage"])) {
+    const week = await simulateWeekForLeague(a.leagueId);
+    if (week.played) return { ...res, week };
+  }
+  return res;
 });
 
 post("/leagues/:id/actions/simulate-week", async (ctx) => {

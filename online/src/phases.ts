@@ -387,7 +387,7 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
         const moved =
           humanGate(state) && rosterGate(state) ? advanceOrTurnDay(state).moved : false;
         return {
-          result: { autopiloted, moved },
+          result: { autopiloted, moved, inSeason: isInSeason(state.stage) },
           state,
           // whether or not the stage moved, the clock restarts: a draft that
           // autopicked has a new team on the clock and its own fresh window
@@ -397,9 +397,26 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
             kind: "phase.autopiloted",
             summary: `${teamCode} ran out of time; their staff acted for them.`,
           })),
-        } satisfies { result: { autopiloted: string[]; moved: boolean } } & Applied;
+        } satisfies {
+          result: { autopiloted: string[]; moved: boolean; inSeason: boolean };
+        } & Applied;
       });
       out.push({ leagueId, autopiloted: result.autopiloted });
+
+      // A game week has no stage gate to open — it advances by being played.
+      // The autopilot above marked the absent GMs ready, so if the league is
+      // in season and now unblocked, the week itself is what the deadline was
+      // waiting on. Deliberately outside the transaction above: this takes
+      // the league's lock itself, and refuses when the week is already on
+      // file, so it is safe to reach here twice.
+      if (result.inSeason) {
+        const { simulateWeekForLeague } = await import("./simulate.js");
+        await simulateWeekForLeague(leagueId).catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error(`sweep could not play the week for ${leagueId}`, err);
+          return null;
+        });
+      }
     } catch (err) {
       // one bad league must not stop the sweep for the rest
       // eslint-disable-next-line no-console

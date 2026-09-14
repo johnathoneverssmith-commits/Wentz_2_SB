@@ -30,6 +30,7 @@ import { TEAMS } from "@/data/teams";
 import poolJson from "@/data/pool-2026.json";
 import { nflSchedule } from "../../../src/engine/schedule.js";
 import { NFL_TEAMS } from "../../../src/engine/nfl-structure.js";
+import { allStaffs } from "../../../src/engine/staff-data.js";
 
 /** The engine spells the Rams "LA"; this app spells them "LAR". */
 const fromEngineCode = (code: string): string => (code === "LA" ? "LAR" : code);
@@ -334,17 +335,87 @@ export class MockSimulationService implements SimulationService {
     };
   }
 
+  /**
+   * The thirty-two staffs are the real ones; the open market is invented.
+   *
+   * Every coach in the game used to be `fullPersonName(rng)` — a randomly
+   * generated person with randomly generated ratings. The engine has carried
+   * the real 2026 head coaches and coordinators for all thirty-two teams the
+   * whole time (`src/engine/staff-data.ts`, cross-checked against Wikipedia's
+   * current-coordinator lists rather than recalled), and the UI simply never
+   * read them. Same shape of mistake as the schedule: the real thing existed
+   * behind the optional adapter, and the game people actually played used the
+   * random stand-in.
+   *
+   * The two scheme vocabularies are identical, so those carry across as they
+   * are. The numbers do not: the engine deliberately compresses its ratings
+   * into a narrow band (~40–66) so the aggregate coaching effect on a game
+   * stays subtle, while the UI shows coaches on a familiar 0–99 scale. They
+   * are mapped, not reinterpreted — the order is preserved exactly, and the
+   * bands are stated below so the arithmetic is auditable rather than magic.
+   *
+   * The unsigned coaches at the end stay generated. They are hypothetical
+   * candidates for jobs that do not exist yet, so inventing them is honest in
+   * the way inventing a draft class is; naming real people as available would
+   * be the dishonest half.
+   */
   generateCoachMarket(seed: number): Coach[] {
     const rng = new Rng(seed ^ 0x2222);
     const out: Coach[] = [];
     let cid = 0;
-    const make = (role: CoachRole, team: string | null): Coach => {
+
+    /** Engine band → UI band, order-preserving and clamped. */
+    const band = (v: number, lo: number, hi: number, outLo: number, outHi: number): number =>
+      clamp(Math.round(outLo + ((v - lo) / (hi - lo)) * (outHi - outLo)), outLo, outHi);
+
+    const staffs = allStaffs();
+    for (const t of TEAMS) {
+      // the engine spells the Rams "LA"
+      const staff = staffs[t.code === "LAR" ? "LA" : t.code];
+      if (!staff) continue;
+      const deal = () => ({ yearsRemaining: rng.int(1, 4), annualValue: round1(rng.float(2, 9)) });
+
+      out.push({
+        id: `c_${++cid}`,
+        name: staff.headCoach.name,
+        role: "HC",
+        team: t.code,
+        contract: deal(),
+        // engine game-management/discipline sit ~44–66; aggression is 0–0.45
+        gameManagement: band(staff.headCoach.gameManagement, 44, 66, 55, 95),
+        discipline: band(staff.headCoach.discipline, 44, 66, 55, 95),
+        aggressiveness: band(staff.headCoach.aggression, 0, 0.45, 40, 95),
+      });
+      out.push({
+        id: `c_${++cid}`,
+        name: staff.oc.name,
+        role: "OC",
+        team: t.code,
+        contract: deal(),
+        scheme: staff.oc.scheme,
+        playCallIq: band(staff.oc.rating, 46, 66, 55, 95),
+        tendencyPassRate: band(staff.oc.passBias, -0.05, 0.2, 48, 68),
+      });
+      out.push({
+        id: `c_${++cid}`,
+        name: staff.dc.name,
+        role: "DC",
+        team: t.code,
+        contract: deal(),
+        scheme: staff.dc.scheme,
+        playCallIq: band(staff.dc.rating, 46, 66, 55, 95),
+        tendencyBlitzRate: band(staff.dc.blitzBias, 0, 0.45, 18, 42),
+      });
+    }
+
+    // the open market: nobody real is unemployed here
+    const make = (role: CoachRole): Coach => {
       const c: Coach = {
         id: `c_${++cid}`,
         name: fullPersonName(rng),
         role,
-        team,
-        contract: team ? { yearsRemaining: rng.int(1, 4), annualValue: round1(rng.float(2, 9)) } : null,
+        team: null,
+        contract: null,
       };
       if (role === "HC") {
         c.discipline = rng.int(55, 95);
@@ -358,13 +429,9 @@ export class MockSimulationService implements SimulationService {
       }
       return c;
     };
-    // one filled staff per team + an open market
-    for (const t of TEAMS) {
-      out.push(make("HC", t.code), make("OC", t.code), make("DC", t.code));
-    }
-    for (let i = 0; i < 8; i++) out.push(make("HC", null));
-    for (let i = 0; i < 10; i++) out.push(make("OC", null));
-    for (let i = 0; i < 10; i++) out.push(make("DC", null));
+    for (let i = 0; i < 8; i++) out.push(make("HC"));
+    for (let i = 0; i < 10; i++) out.push(make("OC"));
+    for (let i = 0; i < 10; i++) out.push(make("DC"));
     return out;
   }
 
