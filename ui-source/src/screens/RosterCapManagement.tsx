@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill } from "@/components/bits";
+import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
@@ -15,6 +16,8 @@ import {
 } from "@/domain";
 import { useStore } from "@/state/store";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
+import { playerPriorities } from "@/sim/priorities";
+import { extensionAsk, previewRestructure } from "@/state/contracts";
 import { depthAt } from "@/state/seed";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
@@ -33,6 +36,9 @@ export function RosterCapManagement() {
   const { active, setActive } = useTabs("roster");
   const [group, setGroup] = useState<PositionGroup>("QB");
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [extending, setExtending] = useState<Player | null>(null);
+  const [extendError, setExtendError] = useState<string | null>(null);
+  const [moveNote, setMoveNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
   const code = viewerTeamCode(s);
   const isDepthChartStage = s.stage === "offseasonDepthChart";
   const back = s.returnTo
@@ -231,8 +237,23 @@ export function RosterCapManagement() {
                     >
                       Move down
                     </button>
-                    <button disabled title="Not available in this build yet">Restructure</button>
-                    <button disabled title="Not available in this build yet">Extend</button>
+                    <button
+                      onClick={() => {
+                        const r = s.restructurePlayer(p.id);
+                        setMoveNote({
+                          id: p.id,
+                          ok: r.ok,
+                          text: r.ok
+                            ? `Restructured — ${millions(r.freed ?? 0)} off this year's cap, moved into the rest of the deal.`
+                            : (r.reason ?? "Couldn't restructure that deal."),
+                        });
+                      }}
+                      disabled={!previewRestructure(p).ok}
+                      title={previewRestructure(p).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
+                    >
+                      Restructure
+                    </button>
+                    <button onClick={() => setExtending(p)}>Extend</button>
                     {confirming === p.id ? (
                       <>
                         <button className="btn-danger" onClick={() => { s.releasePlayer(p.id); setConfirming(null); }}>
@@ -246,10 +267,19 @@ export function RosterCapManagement() {
                       </button>
                     )}
                   </div>
-                  <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
-                    {confirming === p.id
-                      ? `Releasing ${p.name} frees ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} and sends him to the free agent market. This can't be undone.`
-                      : "Restructures and extensions aren't modeled yet. Releasing a player frees his full cap hit — there's no dead money in this build."}
+                  <p
+                    className={moveNote?.id === p.id && !moveNote.ok ? "form-error" : undefined}
+                    style={
+                      moveNote?.id === p.id && !moveNote.ok
+                        ? { margin: "8px 0 0", fontSize: 11.5 }
+                        : { margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }
+                    }
+                  >
+                    {moveNote?.id === p.id
+                      ? moveNote.text
+                      : confirming === p.id
+                        ? `Releasing ${p.name} frees ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} and sends him to the free agent market. This can't be undone.`
+                        : "A restructure moves money into later years; it doesn't make it go away. Releasing a player frees his full cap hit — there's no dead money in this build."}
                   </p>
                 </>
               }
@@ -308,6 +338,42 @@ export function RosterCapManagement() {
 
       {isDepthChartStage && (
         <ReadinessGate title="Depth chart readiness" onAdvance={(r) => nav(r)} />
+      )}
+
+      {extending && (
+        <ContractNegotiation
+          title={`Extend — ${extending.name}`}
+          subtitle={`${extending.position} · age ${extending.age} · ${extending.overall} OVR · ${extending.contract?.years_remaining ?? 0}y left`}
+          priorities={{
+            ...playerPriorities(extending),
+            // an extension is negotiated against what he'd get on the open
+            // market a year from now, not what a free agent asks today
+            expectation: { ...extensionAsk(extending), signingBonus: 0 },
+          }}
+          error={extendError}
+          onClose={() => {
+            setExtendError(null);
+            setExtending(null);
+          }}
+          onSubmit={(offer) => {
+            const r = s.extendPlayer(extending.id, {
+              baseSalary: offer.baseSalary,
+              years: offer.years,
+              guaranteed: offer.guaranteed,
+            });
+            if (r.ok) {
+              setExtendError(null);
+              setMoveNote({
+                id: extending.id,
+                ok: true,
+                text: `Extended — ${offer.years} more years at ${millions(offer.baseSalary)} a year.`,
+              });
+              setExtending(null);
+            } else {
+              setExtendError(r.reason ?? "He turned it down.");
+            }
+          }}
+        />
       )}
     </Card>
   );

@@ -52,6 +52,11 @@ import {
   resolveTransition,
   STAGE_HOME,
 } from "./stageMachine.ts";
+import {
+  type ContractMoveResult,
+  extendContract,
+  restructureContract,
+} from "./contracts.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -104,6 +109,14 @@ export interface StoreActions {
   /** Record the GM's depth order at one position. Ids are best-first;
    *  anyone left out falls in behind by overall. */
   setDepthOrder: (teamCode: string, position: Position, playerIds: string[]) => void;
+
+  /** Convert base salary to prorated bonus: cheaper now, dearer later. */
+  restructurePlayer: (playerId: string) => ContractMoveResult;
+  /** Add years to a deal at a newly negotiated rate. */
+  extendPlayer: (
+    playerId: string,
+    offer: { baseSalary: number; years: number; guaranteed: number },
+  ) => ContractMoveResult;
 
   /** Cut a player from the roster. He goes straight onto the standing free
    *  agent market and his whole cap hit comes off the books — see
@@ -544,6 +557,28 @@ export const useStore = create<Store>()(
           // has to show up on the screen that just did it
           recomputeTeamRatings(s);
         }),
+
+      restructurePlayer: (playerId) => {
+        let result: ContractMoveResult = { ok: false, reason: "Unknown player." };
+        set((s) => {
+          const p = s.players[playerId];
+          if (!p || p.free_agent || p.retired) return;
+          result = restructureContract(p);
+          if (result.ok) recomputeTeamRatings(s);
+        });
+        return result;
+      },
+
+      extendPlayer: (playerId, offer) => {
+        let result: ContractMoveResult = { ok: false, reason: "Unknown player." };
+        set((s) => {
+          const p = s.players[playerId];
+          if (!p || p.free_agent || p.retired) return;
+          result = extendContract(s, p, offer);
+          if (result.ok) recomputeTeamRatings(s);
+        });
+        return result;
+      },
 
       releasePlayer: (playerId) =>
         set((s) => {

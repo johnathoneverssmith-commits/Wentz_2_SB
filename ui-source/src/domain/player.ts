@@ -79,6 +79,12 @@ export interface Contract {
   /** Cap hit per remaining contract year, index 0 === upcoming season. */
   cap_hit_by_year: number[];
   signing_bonus: number;
+  /**
+   * Bonus money already prorated onto every remaining year, from a
+   * restructure. It rides along through an extension — that is what stops
+   * "restructure now, extend the debt away later" from being free money.
+   */
+  prorated_per_year?: number;
 }
 
 export interface InjuryStatus {
