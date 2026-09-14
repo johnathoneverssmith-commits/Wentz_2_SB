@@ -5,7 +5,7 @@
  *  - by default `tryAdvance()` runs the stage transition, then `onAdvance()`;
  *  - if `action` is given (e.g. the hub's "simulate the week"), it runs instead.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { STAGE_READY_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
@@ -54,6 +54,7 @@ export function ReadinessGate({
   // Super Bowl), and swallowing the navigation there strands the player on
   // a screen whose stage has already moved on. The timer itself is still
   // cancelled on re-render so a transition can't be triggered twice.
+  const [busy, setBusy] = useState(false);
   const onAdvanceRef = useRef(onAdvance);
   onAdvanceRef.current = onAdvance;
   const advancingRef = useRef(false);
@@ -62,12 +63,14 @@ export function ReadinessGate({
     const t = setTimeout(async () => {
       if (advancingRef.current) return;
       advancingRef.current = true;
+      setBusy(true);
       try {
         const res = await (action ? action() : tryAdvance());
         const moved = "moved" in res ? res.moved : true;
         if (moved) onAdvanceRef.current(res.route);
       } finally {
         advancingRef.current = false;
+        setBusy(false);
       }
     }, 300);
     return () => clearTimeout(t);
@@ -96,14 +99,20 @@ export function ReadinessGate({
       <button
         className="btn-primary"
         style={{ width: "100%" }}
-        disabled={disabled}
+        // Simulating a week is sixteen games over HTTP; without this the
+        // player clicks, nothing visibly happens for a second or two, and
+        // clicks again.
+        disabled={disabled || busy}
+        aria-busy={busy || undefined}
         onClick={() => setReady(viewerGmId, !viewerReady)}
       >
-        {disabled
-          ? (disabledHint ?? "Not ready yet")
-          : viewerReady
-            ? "You're ready — waiting on the league"
-            : (label ?? STAGE_READY_LABEL[stage])}
+        {busy
+          ? "Simulating…"
+          : disabled
+            ? (disabledHint ?? "Not ready yet")
+            : viewerReady
+              ? "You're ready — waiting on the league"
+              : (label ?? STAGE_READY_LABEL[stage])}
       </button>
     </div>
   );

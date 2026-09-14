@@ -183,14 +183,16 @@ a:focus-visible,
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card {
-    animation: none;
-  }
-  .chev,
-  button,
-  .btnlink,
-  body {
-    transition: none;
+  /* A per-selector list goes stale the moment anyone adds a transition —
+     the gamecast's field, the expandable rows and the modal all arrived
+     after this rule was written and none of them were in it. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 .card::before {
