@@ -57,11 +57,11 @@ Postgres, accounts and asynchronous multi-GM play — written and tested, and
 **deliberately not deployed**. See the top-level `README.md` for where each
 part stands and `online/README.md` for the multiplayer design.
 
-Two measurements live in `analysis/` as TypeScript rather than Python, because
-they measure the TS engine: `26_*`/`27_win_probability.ts` (what a rating gap
-is worth — and the finding that the engine has no home-field advantage,
-`docs/decisions.md` → OQ-10) and the draft-outcome fit behind
-`ui-source/src/sim/draft-outcomes.ts`.
+`analysis/27_win_probability.ts` is TypeScript rather than Python because it
+measures the TS engine: what a rating gap is worth, over 47,616 simulated
+games — and, incidentally, that the engine has no home-field advantage
+(`docs/decisions.md` → OQ-10). The draft-outcome fit behind
+`ui-source/src/sim/draft-outcomes.ts` is the other measurement of this kind.
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
 `hyparquet`); everything from Phase B on is Python (scikit-learn) in
