@@ -1,6 +1,7 @@
 import { teamFullName } from "@/data/teams";
 import { useStore } from "@/state/store";
 import { buildScoreTracker } from "@/state/scoreTracker";
+import { points } from "@/util/format";
 
 /** The cross-season score tracker table (spec §5). Shared by League History and
  * the Season Complete screen's "Score Tracker" tab. */
@@ -34,7 +35,7 @@ export function ScoreTrackerTable() {
                 <tr key={gid} className={gid === s.viewerGmId ? "highlight" : ""}>
                   <td className="name">{g.id === s.viewerGmId ? "You" : g.name}</td>
                   <td>{g.teamCode ? teamFullName(g.teamCode) : "—"}</td>
-                  <td className="r">{total}</td>
+                  <td className="r">{points(total)}</td>
                 </tr>
               );
             })}
@@ -62,11 +63,11 @@ export function ScoreTrackerTable() {
                 return (
                   <tr key={b.gmId} className={b.gmId === s.viewerGmId ? "highlight" : ""}>
                     <td className="name">{g.id === s.viewerGmId ? "You" : g.name}</td>
-                    <td className="c">{b.bucketA}</td>
-                    <td className="c">{b.bucketB}</td>
-                    <td className="c">{b.bucketC}</td>
-                    <td className="c">{b.bucketD}</td>
-                    <td className="r">{b.seasonTotal}</td>
+                    <td className="c">{points(b.bucketA)}</td>
+                    <td className="c">{points(b.bucketB)}</td>
+                    <td className="c">{points(b.bucketC)}</td>
+                    <td className="c">{points(b.bucketD)}</td>
+                    <td className="r">{points(b.seasonTotal)}</td>
                   </tr>
                 );
               })}

@@ -4,6 +4,7 @@ import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { useStore } from "@/state/store";
 import { buildScoreTracker } from "@/state/scoreTracker";
+import { points } from "@/util/format";
 
 export function LeagueHistory() {
   const nav = useNavigate();
@@ -24,7 +25,7 @@ export function LeagueHistory() {
             value: tracker.leader?.gmId === s.viewerGmId ? "You" : leaderName,
             className: "accent sm",
           },
-          { label: "Leader points", value: tracker.leader?.total ?? 0 },
+          { label: "Leader points", value: points(tracker.leader?.total ?? 0) },
         ]}
       />
       <div className="panel open">

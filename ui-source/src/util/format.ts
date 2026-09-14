@@ -39,3 +39,17 @@ export function seconds(total: number): string {
 export function pct(n: number, digits = 0): string {
   return Number.isFinite(n) ? `${(n * 100).toFixed(digits)}%` : NO_VALUE;
 }
+
+/**
+ * Tracker points — whole most of the time, a fraction when a point is split.
+ *
+ * Three GMs finishing level splits the placement point three ways, and the
+ * score tracker rendered the result of that division: `11.333333333333334`
+ * in the standings and `-0.6666666666666667` beside it. Two decimals, with
+ * the zeros trimmed, so a whole number still reads as a whole number.
+ */
+export function points(n: number): string {
+  if (!Number.isFinite(n)) return NO_VALUE;
+  const rounded = Math.round(n * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0$/, "");
+}
