@@ -3,6 +3,9 @@ import { NavLink } from "react-router-dom";
 
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { useOnlineSync } from "@/state/useLeagueActions";
+import { useGameAudio } from "@/audio/useGameAudio";
+
+import { SoundControl } from "./SoundControl.tsx";
 import { isInSeason, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
 
@@ -56,6 +59,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // in an online league, take the server's copy whenever it says the league
   // moved; inert (and it costs nothing) in a single-player game
   useOnlineSync();
+  // the score follows where you are; the cues follow what happens to you.
+  // Silent until the player turns it on — see `SoundControl`.
+  useGameAudio();
   // losing a dynasty to a silent storage failure is the worst bug this app
   // could have, so it is the one thing the shell always says out loud
   const [saveBroken, setSaveBroken] = useState(false);
@@ -115,6 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         <div className="spacer" />
+        <SoundControl />
         {!inSetup && (
           <NavLink to="/setup" className={active}>
             League settings

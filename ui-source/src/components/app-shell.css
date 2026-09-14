@@ -58,6 +58,7 @@
   font-weight: 600;
 }
 .rail a {
+  position: relative;
   text-decoration: none;
   color: var(--ink-dim);
   font-size: 12.5px;
@@ -67,6 +68,9 @@
   display: flex;
   align-items: center;
   gap: 9px;
+  transition:
+    background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 .rail a:hover {
   background: var(--panel-raised);
@@ -75,7 +79,27 @@
 .rail a.active {
   background: color-mix(in srgb, var(--team) 13%, transparent);
   color: var(--ink);
-  box-shadow: inset 2px 0 0 var(--team);
+}
+/*
+ * The marker on the active item grows out of the middle rather than snapping
+ * on with the background. It is the only thing in the rail that moves, which
+ * is the point — the eye follows it from one screen to the next instead of
+ * re-reading the list.
+ */
+.rail a::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 2px;
+  height: 0;
+  border-radius: 0 2px 2px 0;
+  background: var(--team);
+  transform: translateY(-50%);
+  transition: height var(--dur) var(--ease);
+}
+.rail a.active::before {
+  height: 62%;
 }
 .rail .railnote {
   margin: 2px 8px 0;
@@ -112,6 +136,42 @@
   /* without this the card is a stretched flex item and every short screen
      renders as a full-height panel with a large dead area under its footer */
   align-items: flex-start;
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+ * The room the card is standing in.
+ *
+ * Every screen is one panel floating on a flat near-black field, and on a wide
+ * monitor that is a lot of nothing — the card reads as pasted onto the page
+ * rather than lit by it. This is a very soft wash of the controlled team's
+ * colour behind and above it, which does three things at once: it gives the
+ * card somewhere to cast its shadow, it ties the page to the franchise you
+ * are running (it recolours with `--team`), and it makes the whole app feel
+ * like one object instead of a panel on a backdrop.
+ *
+ * Deliberately faint. At 7% it should not be nameable as a colour — you
+ * should only notice it by turning it off.
+ */
+.app-main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      120% 65% at 50% -8%,
+      color-mix(in srgb, var(--team) 7%, transparent) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      80% 50% at 50% 108%,
+      color-mix(in srgb, var(--team) 4%, transparent) 0%,
+      transparent 70%
+    );
+  transition: background var(--dur-slow) var(--ease-soft);
 }
 .app-card-wrap {
   width: 100%;

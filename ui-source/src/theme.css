@@ -44,6 +44,26 @@
      small text: tab labels, stat captions, helper lines, chevrons. */
   --ink-faint: #858c94;
 
+  /*
+   * Motion, as a system rather than a habit.
+   *
+   * Every transition in the app used to pick its own duration and say `ease`,
+   * which is the browser default curve and is symmetric — it accelerates and
+   * decelerates equally, which reads as mechanical. These are the two curves
+   * worth having: `--ease` leaves quickly and arrives gently, which is how a
+   * thing that responds to you should feel, and `--ease-soft` is for the
+   * larger, slower movements where the overshoot of a springier curve would
+   * be distracting.
+   *
+   * Three durations, and no fourth. Anything that needs a different one
+   * probably wants a different curve instead.
+   */
+  --ease: cubic-bezier(0.16, 0.84, 0.28, 1);
+  --ease-soft: cubic-bezier(0.33, 0, 0.2, 1);
+  --dur-fast: 0.13s;
+  --dur: 0.22s;
+  --dur-slow: 0.42s;
+
   /* --team is the controlled team's *readable* accent (see readableAccent in
      data/teams.ts — very dark brands get their lighter secondary), --team-deep
      the header wash, --team-on the text color that reads on --team. All three
@@ -121,8 +141,10 @@ button,
   font-size: 12.5px;
   font-weight: 500;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease;
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
 }
 .btnlink {
   text-decoration: none;
@@ -133,6 +155,16 @@ button,
 button:hover,
 .btnlink:hover {
   background: var(--panel-raised);
+  border-color: color-mix(in srgb, var(--line-strong) 70%, var(--team));
+}
+/* A control with no pressed state feels dead however fast it responds. */
+button:active:not(:disabled),
+.btnlink:active {
+  transform: translateY(1px) scale(0.994);
+  transition-duration: 0.04s;
+}
+button:disabled {
+  transform: none;
 }
 button:disabled {
   background: var(--panel-raised);
@@ -187,12 +219,12 @@ a:focus-visible,
     0 40px 90px rgba(0, 0, 0, 0.55),
     0 0 0 1px var(--line);
   position: relative;
-  animation: card-in 0.28s ease-out;
+  animation: card-in var(--dur-slow) var(--ease);
 }
 @keyframes card-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px) scale(0.994);
   }
   to {
     opacity: 1;
@@ -386,13 +418,44 @@ a:focus-visible,
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
+.tab {
+  transition:
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
 .tab:hover {
   background: none;
   color: var(--ink-dim);
 }
+/*
+ * The underline grows from the middle rather than appearing.
+ *
+ * A border-bottom that switches on is the cheapest possible tab indicator and
+ * reads that way. This is the same two pixels, drawn as a pseudo-element that
+ * scales out from its centre — no extra layout, no JS measuring positions,
+ * and the panel underneath fades in over the same duration so the two read as
+ * one movement.
+ */
+.tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--team);
+  border-radius: 2px 2px 0 0;
+  transform: scaleX(0);
+  transition: transform var(--dur) var(--ease);
+}
+.tab {
+  position: relative;
+}
+.tab.active::after {
+  transform: scaleX(1);
+}
 .tab.active {
   color: var(--ink);
-  border-bottom-color: var(--team);
 }
 .tab.locked {
   color: var(--ink-faint);
@@ -409,6 +472,55 @@ a:focus-visible,
 }
 .panel.open {
   display: block;
+  /* the panel arrives as the underline slides, so switching tabs reads as one
+     movement rather than two unrelated ones */
+  animation: panel-in var(--dur) var(--ease);
+}
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * Scrollbars.
+ *
+ * The app is a dark panel and the platform's default scrollbar is a light
+ * grey slab bolted to the side of it — on Windows especially, it is the one
+ * thing on screen that doesn't belong to the design. These are the same
+ * scrollbars, thin and in the app's own greys, and they still behave exactly
+ * as the platform's do.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  /* inset from the edge, so the bar reads as floating over the panel rather
+     than as a channel cut into it */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ---- section labels ------------------------------------------- */
@@ -688,8 +800,16 @@ table.mtable td.val {
   border-radius: var(--r-sm);
   cursor: pointer;
 }
+.prow {
+  transition:
+    background var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
 .prow:hover {
   background: var(--panel-raised);
+  /* a hairline of the team's colour down the left edge, drawn inside so it
+     costs no layout and can't shift the row */
+  box-shadow: inset 2px 0 0 var(--team);
 }
 .prow:hover .draghandle {
   opacity: 1;
@@ -1368,4 +1488,105 @@ table.mtable td.val {
   padding: 9px 10px;
   font-size: 12.5px;
   text-align: left;
+}
+
+/* ---- the sound control ---------------------------------------------- *
+ *
+ * Sits above the rail's other footer links because it is a setting rather
+ * than a destination, and because it has to be found the first time without
+ * being hunted for — everything it controls is off until it is clicked.
+ */
+.soundbox {
+  margin: 0 10px 6px;
+  padding: 2px 0;
+  border-top: 1px solid var(--line);
+}
+.soundtoggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 8px;
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.16s ease, background 0.16s ease;
+}
+.soundtoggle:hover {
+  color: var(--ink);
+  background: var(--panel-raised);
+}
+.soundbox.on .soundtoggle {
+  color: var(--team);
+}
+.soundmix {
+  display: grid;
+  gap: 5px;
+  padding: 2px 8px 8px;
+}
+.soundmix label {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Range inputs: the app has exactly two, here and the gamecast scrubber. */
+input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--team);
+  border: none;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--team);
+  border: none;
+  cursor: pointer;
+}
+
+/*
+ * A summary figure that just changed.
+ *
+ * Brief, and only on a real change — see `StatValue`. The colour comes back
+ * to whatever the value's own class says, so a cap figure that has gone
+ * negative is red before the flash and red after it.
+ */
+.stat-value.moved {
+  animation: stat-moved 0.62s var(--ease);
+}
+@keyframes stat-moved {
+  0% {
+    transform: translateY(-2px);
+    color: var(--team);
+  }
+  40% {
+    color: var(--team);
+  }
+  100% {
+    transform: none;
+  }
 }

@@ -18,6 +18,7 @@
  * original — see `segPath` and `buildSteps`.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cue } from "@/audio/cues";
 
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { BroadcastDrive, BroadcastPlay, GameResult, InjuryEvent } from "@/domain";
@@ -289,7 +290,15 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
   const step = steps[gi - 1];
   const drive = step ? drives[step.k] : undefined;
 
-  /** advance one beat, queueing the quarter/injury interstitials it reveals */
+  /**
+   * Advance one beat, queueing the quarter/injury interstitials it reveals
+   * and sounding whatever just happened.
+   *
+   * Cues fire here and not in `jumpTo`, which is the whole distinction: this
+   * is the replay moving forward a play at a time, and that is a thing you
+   * watch. Dragging the scrubber across a game is a thing you *do*, and
+   * sounding forty touchdowns on the way past would be unbearable.
+   */
   const advance = useCallback(() => {
     if (gi >= total) return;
     const next = gi + 1;
@@ -299,8 +308,14 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
       queued.push({ kind: "quarter", quarter: st.quarter });
       setLastQuarter(st.quarter);
     }
-    if (st.type === "play" && st.p.injuries.length) {
-      for (const e of st.p.injuries) queued.push({ kind: "injury", event: e });
+    if (st.type === "play") {
+      const p = st.p;
+      if (p.injuries.length) for (const e of p.injuries) queued.push({ kind: "injury", event: e });
+      // one cue per play, in the order a viewer would rank them
+      if (p.touchdown) cue("touchdown");
+      else if (p.call === "field_goal" && p.outcome === "made") cue("fieldGoal");
+      else if (p.turnover || p.outcome === "return_td") cue("turnover");
+      else if (p.injuries.length) cue("injury");
     }
     setGi(next);
     if (queued.length) setPending((q) => [...q, ...queued]);

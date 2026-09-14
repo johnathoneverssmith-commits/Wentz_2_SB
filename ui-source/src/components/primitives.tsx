@@ -3,7 +3,7 @@
  * header with a team badge, the stat ticker, underline tabs, and tab panels.
  * Class names match the mockups so screen markup ports 1:1.
  */
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 export function Card({
   children,
@@ -65,10 +65,57 @@ export function Ticker({ stats }: { stats: TickerStat[] }) {
       {stats.map((s, i) => (
         <div className="stat" key={i}>
           <p className="stat-label">{s.label}</p>
-          <p className={`stat-value${s.className ? ` ${s.className}` : ""}`}>{s.value}</p>
+          <StatValue stat={s} />
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * A summary figure that says when it changed.
+ *
+ * These are the numbers a decision moves — cap space after a signing, the
+ * roster count after a release — and they used to change silently between one
+ * render and the next, which leaves the player to notice for themselves that
+ * the thing they just did had the effect they wanted. A brief lift in the
+ * team's colour ties the action to its consequence.
+ *
+ * Only for a value that actually changed: mounting the screen is not an
+ * event, so the first render never flashes.
+ */
+function StatValue({ stat }: { stat: TickerStat }) {
+  // Only a primitive can be compared for "did this change". Several tickers
+  // pass an element — the hub's team overall is a number with a `vs 74` span
+  // beside it — and those are not comparable, not even by serialising them:
+  // a React element holds a circular reference through its context provider,
+  // so `JSON.stringify` throws and takes the screen down with it. Anything
+  // that isn't a string or a number simply doesn't flash.
+  const key =
+    typeof stat.value === "string" || typeof stat.value === "number" ? String(stat.value) : null;
+  const seen = useRef<string | null>(null);
+  const [moved, setMoved] = useState(false);
+
+  useEffect(() => {
+    if (key === null) return undefined;
+    if (seen.current !== null && seen.current !== key) {
+      setMoved(true);
+      const t = setTimeout(() => setMoved(false), 620);
+      return () => clearTimeout(t);
+    }
+    seen.current = key;
+    return undefined;
+  }, [key]);
+
+  // hold the new value as "seen" once the flash has run its course
+  useEffect(() => {
+    if (!moved && key !== null) seen.current = key;
+  }, [moved, key]);
+
+  return (
+    <p className={`stat-value${stat.className ? ` ${stat.className}` : ""}${moved ? " moved" : ""}`}>
+      {stat.value}
+    </p>
   );
 }
 
