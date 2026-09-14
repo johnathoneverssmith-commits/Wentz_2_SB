@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
+import { useListFilter } from "@/components/ListFilter";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { POSITIONS, type DraftMode, type Position } from "@/domain";
+import type { DraftMode, Position } from "@/domain";
 import { bestAvailable, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
@@ -25,7 +26,6 @@ export function DraftRoom() {
   const nav = useNavigate();
   const s = useStore();
   const { active, setActive } = useTabs("available");
-  const [posFilter, setPosFilter] = useState<"ALL" | Position>("ALL");
   const [overlayDismissed, setOverlayDismissed] = useState(false);
 
   const code = viewerTeamCode(s);
@@ -82,10 +82,11 @@ export function DraftRoom() {
       }));
   }, [draft, mode, s.players, s.draftClass, taken]);
 
-  const filtered = useMemo(
-    () => available.filter((p) => posFilter === "ALL" || p.position === posFilter).slice(0, 100),
-    [available, posFilter],
-  );
+  // One control set for the board: a name search as well as a position, and
+  // the same `position` drives the league draft board tab below.
+  const market = useListFilter<Available>(available, 100);
+  const filtered = market.shown;
+  const posFilter = market.position;
 
   // AI auto-picks when it's not your turn
   useEffect(() => {
@@ -175,19 +176,7 @@ export function DraftRoom() {
         onChange={setActive}
       />
 
-      {active !== "needs" && (
-        <div style={{ padding: "12px 26px 0", display: "flex", alignItems: "center", gap: 9 }}>
-          <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
-          <select value={posFilter} onChange={(e) => setPosFilter(e.target.value as "ALL" | Position)}>
-            <option value="ALL">All positions</option>
-            {POSITIONS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {active !== "needs" && <div style={{ padding: "12px 26px 0" }}>{market.controls}</div>}
 
       <Panel id="available" open={active === "available"}>
         {yourPick && !complete && (
@@ -227,7 +216,7 @@ export function DraftRoom() {
             No {posFilter === "ALL" ? "players" : posFilter} left on the board.
           </div>
         )}
-        <div style={{ overflowX: "auto", maxHeight: 460, overflowY: "auto" }}>
+        <div className="scroll-list" style={{ overflowX: "auto" }}>
           <table className="stbl">
             <thead>
               <tr>
@@ -320,7 +309,7 @@ export function DraftRoom() {
       </Panel>
 
       <Panel id="board" open={active === "board"}>
-        <div style={{ maxHeight: 480, overflowY: "auto" }}>
+        <div className="scroll-list">
           {[...draft.results]
             .reverse()
             .filter((r) => posFilter === "ALL" || r.selectedPosition === posFilter)

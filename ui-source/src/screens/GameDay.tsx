@@ -140,7 +140,7 @@ export function GameDay() {
             <p className="subhead" style={{ marginTop: viewerGame ? 18 : 0 }}>
               Around the league
             </p>
-            <div style={{ maxHeight: 320, overflowY: "auto" }}>
+            <div className="scroll-list short">
               {slate.map((g) => {
                 const homeWon = g.homeScore > g.awayScore;
                 const openable = hasBoxScore(g);

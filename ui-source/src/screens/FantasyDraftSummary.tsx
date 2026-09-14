@@ -99,7 +99,7 @@ export function FantasyDraftSummary() {
         )}
 
         <p className="subhead">Every team</p>
-        <div style={{ overflowX: "auto", maxHeight: 320, overflowY: "auto" }}>
+        <div className="scroll-list short" style={{ overflowX: "auto" }}>
           <table className="stbl">
             <thead>
               <tr>

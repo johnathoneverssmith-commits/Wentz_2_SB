@@ -414,6 +414,90 @@ select:disabled {
   cursor: default;
 }
 
+/*
+ * Search boxes. The game was entirely selects and buttons until the free-agent
+ * market grew past what anyone can scroll — a 560-man board needs a way to
+ * type a name.
+ */
+input[type="search"],
+input[type="text"] {
+  background: var(--panel-raised);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: "Inter", sans-serif;
+  font-weight: 500;
+  min-width: 0;
+}
+input::placeholder {
+  color: var(--ink-faint);
+}
+input[type="search"]::-webkit-search-cancel-button {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+/*
+ * A list that scrolls inside the card, so the header and the summary numbers
+ * stay put while you work down it.
+ *
+ * Viewport-relative rather than a fixed pixel height on purpose: the fixed
+ * heights this replaced showed five rows on a laptop and still five rows on a
+ * 27-inch monitor, and on a short window they nested one scrollbar inside
+ * another. The floor is high enough to always show several rows; the ceiling
+ * stops a very tall screen from turning the list into the whole page.
+ */
+.scroll-list {
+  max-height: clamp(300px, 56vh, 760px);
+  overflow-y: auto;
+}
+.scroll-list.short {
+  max-height: clamp(220px, 34vh, 460px);
+}
+
+/*
+ * Column labels for a list of `.prow`s. Same grid as the rows beneath it, so
+ * the numbers in a column are actually named — an unlabelled 94 next to an
+ * unlabelled 27 is a guessing game.
+ */
+.rowhead {
+  display: grid;
+  align-items: end;
+  gap: 10px;
+  padding: 0 6px 7px;
+  border-bottom: 1px solid var(--line-strong);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+/*
+ * The filter bar above a long list: search, position, and what's left.
+ *
+ * A grid rather than a wrapping flex row so the count sits in the same place
+ * whatever the column is wide enough for. Two of these side by side — the
+ * trade screen — used to start their lists at different heights because one
+ * count wrapped and the other didn't.
+ */
+.listfilter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 9px;
+  margin-bottom: 10px;
+}
+.listfilter .count {
+  grid-column: 1 / -1;
+  justify-self: end;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
 /* ---- data tables ------------------------------------------- */
 table.stbl {
   width: 100%;

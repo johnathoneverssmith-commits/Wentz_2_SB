@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpandableRow } from "@/components/ExpandableRow";
+import { RowHeader } from "@/components/ListFilter";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { useStore } from "@/state/store";
@@ -13,6 +14,8 @@ import { millions } from "@/util/format";
 function slotValue(round: number): number {
   return Math.round((36 - round * 4.5) * 10) / 10;
 }
+
+const ROOKIE_GRID = "0.5fr 1.5fr 1fr 0.9fr auto 16px";
 
 export function RookieSignings() {
   const nav = useNavigate();
@@ -68,6 +71,12 @@ export function RookieSignings() {
         {myPicks.length === 0 ? (
           <div className="emptystate">Your team didn't draft anyone this year — nothing to sign. You can advance whenever you're ready.</div>
         ) : (
+          <RowHeader
+            gridTemplate={ROOKIE_GRID}
+            labels={["Pick", "Player", "Slot value", "Year one", "", ""]}
+          />
+        )}
+        {myPicks.length > 0 &&
           myPicks.map(({ pick, prospect }) => {
             const p = prospect!;
             const outcome = outcomes[p.id];
@@ -75,7 +84,7 @@ export function RookieSignings() {
             return (
               <ExpandableRow
                 key={p.id}
-                gridTemplate="0.5fr 1.5fr 1fr 0.9fr auto 16px"
+                gridTemplate={ROOKIE_GRID}
                 columns={
                   <>
                     <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>R{pick.round}</span>
@@ -164,8 +173,7 @@ export function RookieSignings() {
                 }
               />
             );
-          })
-        )}
+          })}
       </Panel>
 
       <Panel id="summary" open={active === "summary"}>

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { OvrPill } from "@/components/bits";
 import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
+import { RowHeader } from "@/components/ListFilter";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -29,6 +30,8 @@ const GROUP_LABEL: Record<PositionGroup, string> = {
   OL: "Offensive line", DL: "Defensive line", EDGE: "Edge rusher", LB: "Linebacker",
   CB: "Cornerback", S: "Safety", K: "Kicker", P: "Punter",
 };
+
+const ROSTER_GRID = "28px 1.5fr 0.5fr 0.5fr 0.7fr 0.9fr 16px";
 
 export function RosterCapManagement() {
   const nav = useNavigate();
@@ -179,10 +182,23 @@ export function RosterCapManagement() {
         {ordered.length === 0 ? (
           <div className="emptystate">No players in this group.</div>
         ) : (
-          ordered.map((p) => (
+          <RowHeader
+            gridTemplate={ROSTER_GRID}
+            labels={[
+              "#",
+              "Player",
+              "Ovr",
+              "Age",
+              "Yrs",
+              { label: "Cap hit", align: "right" },
+              "",
+            ]}
+          />
+        )}
+        {ordered.map((p) => (
             <ExpandableRow
               key={p.id}
-              gridTemplate="28px 1.5fr 0.5fr 0.5fr 0.7fr 0.9fr 16px"
+              gridTemplate={ROSTER_GRID}
               columns={
                 <>
                   <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}</span>
@@ -284,8 +300,7 @@ export function RosterCapManagement() {
                 </>
               }
             />
-          ))
-        )}
+        ))}
       </Panel>
 
       <Panel id="cap" open={active === "cap"}>

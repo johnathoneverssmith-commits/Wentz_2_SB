@@ -65,7 +65,7 @@ export function FullSchedule() {
         </select>
       </div>
 
-      <div style={{ padding: "14px 20px 20px", maxHeight: 560, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div className="scroll-list" style={{ padding: "14px 20px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
         {weekGames.map((g, i) => {
           const r = resultFor(g.homeTeam, g.awayTeam);
           const mine = g.homeTeam === code || g.awayTeam === code;

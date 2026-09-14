@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { pressable } from "@/components/bits";
+import { useListFilter } from "@/components/ListFilter";
 import { Card, Footer } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
@@ -340,10 +341,8 @@ function TradeColumn({
   selected: string[];
   onToggle: (id: string) => void;
 }) {
-  const [pos, setPos] = useState("ALL");
   // "PICK" sorts to the front of the filter so draft capital is one click away
-  const positions = ["ALL", ...Array.from(new Set(roster.map((p) => p.position)))];
-  const shown = roster.filter((p) => pos === "ALL" || p.position === pos);
+  const market = useListFilter(roster, 150);
   return (
     <div style={{ padding: "22px 24px", borderRight: role === "you" ? "1px solid var(--line)" : undefined }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
@@ -352,15 +351,9 @@ function TradeColumn({
           {title}
         </span>
       </div>
-      <select value={pos} onChange={(e) => setPos(e.target.value)} style={{ marginBottom: 12, fontSize: 12 }}>
-        {positions.map((p) => (
-          <option key={p} value={p}>
-            {p === "ALL" ? "All positions" : p === "PICK" ? "Draft picks" : p}
-          </option>
-        ))}
-      </select>
-      <div style={{ maxHeight: 320, overflowY: "auto" }}>
-        {shown.slice(0, 40).map((p) => {
+      {market.controls}
+      <div className="scroll-list short">
+        {market.shown.map((p) => {
           const on = selected.includes(p.id);
           return (
             <div

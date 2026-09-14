@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpandableRow } from "@/components/ExpandableRow";
+import { RowHeader } from "@/components/ListFilter";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
@@ -12,6 +13,8 @@ import { viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
 const sim = new MockSimulationService();
+
+const RETIREE_GRID = "1.6fr 0.5fr 0.9fr 16px";
 
 export function RetirementReview() {
   const nav = useNavigate();
@@ -70,10 +73,13 @@ export function RetirementReview() {
         {yours.length === 0 ? (
           <div className="emptystate">No players on your team are retiring this offseason.</div>
         ) : (
+          <RowHeader gridTemplate={RETIREE_GRID} labels={["Player", "Ovr", "Chance", ""]} />
+        )}
+        {yours.length > 0 &&
           yours.map((p) => (
             <ExpandableRow
               key={p.id}
-              gridTemplate="1.6fr 0.5fr 0.9fr 16px"
+              gridTemplate={RETIREE_GRID}
               columns={
                 <>
                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -116,8 +122,7 @@ export function RetirementReview() {
                 </>
               }
             />
-          ))
-        )}
+          ))}
       </Panel>
 
       <Panel id="league" open={active === "league"}>

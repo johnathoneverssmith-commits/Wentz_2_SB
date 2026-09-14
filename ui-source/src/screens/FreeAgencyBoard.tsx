@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
+import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
@@ -50,6 +51,7 @@ export function FreeAgencyBoard() {
   }, [inWindow, remaining, fa?.interstitialVisible, advanceDay]);
 
   const windowSigned = new Set(fa?.signed.map((x) => x.id) ?? []);
+  const FA_GRID = "1.7fr 0.45fr 0.5fr 1fr auto 16px";
   const freeAgents = useMemo(
     () =>
       Object.values(s.players)
@@ -57,6 +59,11 @@ export function FreeAgencyBoard() {
         .sort((a, b) => b.overall - a.overall),
     [s.players, windowSigned],
   );
+
+  // 560 players go on the market in a fantasy offseason. Sorting by overall
+  // and showing the top 50 meant the punters, and every depth signing a
+  // rebuilding team actually wants, were simply unreachable.
+  const market = useListFilter(freeAgents);
 
   // the store's own figure (players + staff) — identical to what the signing
   // check enforces, so the number here is the number that decides a signing
@@ -124,15 +131,27 @@ export function FreeAgencyBoard() {
         {freeAgents.length === 0 && (
           <div className="emptystate">Nobody is on the market right now.</div>
         )}
-        <div style={{ maxHeight: 440, overflowY: "auto" }}>
-          {freeAgents.slice(0, 50).map((p) => {
+        {market.controls}
+        {freeAgents.length > 0 && market.matched === 0 && (
+          <div className="emptystate">
+            Nobody on the market matches that. Clear the search or pick another position.
+          </div>
+        )}
+        {market.matched > 0 && (
+          <RowHeader
+            gridTemplate={FA_GRID}
+            labels={["Player", "Ovr", "Age", isWindowStage ? "Leading offer" : "Status", "", ""]}
+          />
+        )}
+        <div className="scroll-list">
+          {market.shown.map((p) => {
             const mine = myOffer(p.id);
             const lead = leadOffer(p.id);
             const exp = playerPriorities(p).expectation;
             return (
               <ExpandableRow
                 key={p.id}
-                gridTemplate="1.7fr 0.45fr 0.5fr 1fr auto 16px"
+                gridTemplate={FA_GRID}
                 columns={
                   <>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>

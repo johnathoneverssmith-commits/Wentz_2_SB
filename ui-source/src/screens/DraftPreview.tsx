@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill } from "@/components/bits";
@@ -6,17 +6,18 @@ import { ExpandableRow } from "@/components/ExpandableRow";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { RosterNeeds } from "@/components/RosterNeeds";
+import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { POSITIONS, type Position } from "@/domain";
 import { picksOwnedBy } from "@/state/draftPicks";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
+
+const PROSPECT_GRID = "24px 1.7fr 0.5fr 0.8fr 16px";
 
 export function DraftPreview() {
   const nav = useNavigate();
   const s = useStore();
   const { active, setActive } = useTabs("prospects");
-  const [posFilter, setPosFilter] = useState<"ALL" | Position>("ALL");
   const code = viewerTeamCode(s);
   const myPicks = code ? picksOwnedBy(s, code, s.season) : [];
   const toggleTarget = useStore((st) => st.toggleDraftTarget);
@@ -35,7 +36,7 @@ export function DraftPreview() {
   );
 
   const myRoster = useMemo(() => (code ? teamRoster(s, code) : []), [s, code]);
-  const filtered = prospects.filter((p) => posFilter === "ALL" || p.position === posFilter);
+  const market = useListFilter(prospects, 120);
   const targetProspects = prospects.filter((p) => targets.includes(p.id));
 
   return (
@@ -76,24 +77,23 @@ export function DraftPreview() {
       />
 
       <Panel id="prospects" open={active === "prospects"}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
-          <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
-          <select value={posFilter} onChange={(e) => setPosFilter(e.target.value as "ALL" | Position)}>
-            <option value="ALL">All positions</option>
-            {POSITIONS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={{ maxHeight: 460, overflowY: "auto" }}>
-          {filtered.slice(0, 80).map((p) => {
+        {market.controls}
+        {market.matched === 0 && (
+          <div className="emptystate">No prospect matches that search.</div>
+        )}
+        {market.matched > 0 && (
+          <RowHeader
+            gridTemplate={PROSPECT_GRID}
+            labels={["", "Prospect", "Ovr", "Projected", ""]}
+          />
+        )}
+        <div className="scroll-list">
+          {market.shown.map((p) => {
             const starred = targets.includes(p.id);
             return (
               <ExpandableRow
                 key={p.id}
-                gridTemplate="24px 1.7fr 0.5fr 0.8fr 16px"
+                gridTemplate={PROSPECT_GRID}
                 columns={
                   <>
                     <button

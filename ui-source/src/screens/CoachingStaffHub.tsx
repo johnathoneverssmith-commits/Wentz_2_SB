@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow, RatingBar } from "@/components/ExpandableRow";
+import { RowHeader } from "@/components/ListFilter";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
@@ -23,6 +24,8 @@ const ROLE_LABEL: Record<CoachRole, string> = {
 };
 const schemeLabel = (s: OffenseScheme | DefenseScheme | undefined): string =>
   s ? SCHEME_LABEL[s] : "—";
+
+const COACH_GRID = "1.7fr 0.6fr 0.9fr auto 16px";
 
 export function CoachingStaffHub() {
   const s = useStore();
@@ -131,13 +134,17 @@ function HiringWindow({ code }: { code: string | undefined }) {
             <option value="DC">Defensive Coordinator</option>
           </select>
         </div>
-        <div style={{ maxHeight: 430, overflowY: "auto" }}>
+        <RowHeader
+          gridTemplate={COACH_GRID}
+          labels={["Coach", "Tendency", "Leading offer", "", ""]}
+        />
+        <div className="scroll-list">
           {open.filter((c) => roleFilter === "ALL" || c.role === roleFilter).length === 0 && (
             <div className="emptystate">Every {roleFilter === "ALL" ? "coach" : ROLE_LABEL[roleFilter]} on the market has been hired.</div>
           )}
           {open
             .filter((c) => roleFilter === "ALL" || c.role === roleFilter)
-            .slice(0, 30)
+            .slice(0, 120)
             .map((c) => {
               const myOffer = fa.bids[c.id]?.find((o) => o.teamCode === code);
               const lead = [...(fa.bids[c.id] ?? [])].sort(
@@ -146,7 +153,7 @@ function HiringWindow({ code }: { code: string | undefined }) {
               return (
                 <ExpandableRow
                   key={c.id}
-                  gridTemplate="1.7fr 0.6fr 0.9fr auto 16px"
+                  gridTemplate={COACH_GRID}
                   columns={
                     <>
                       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
