@@ -18,6 +18,7 @@ import { LeagueHistory } from "./screens/LeagueHistory.tsx";
 import { LeagueRosters } from "./screens/LeagueRosters.tsx";
 import { LeagueSetup } from "./screens/LeagueSetup.tsx";
 import { LeagueStatsRankings } from "./screens/LeagueStatsRankings.tsx";
+import { OnlineLobby } from "./screens/OnlineLobby.tsx";
 import { PlayerStatistics } from "./screens/PlayerStatistics.tsx";
 import { PostseasonBracket } from "./screens/PostseasonBracket.tsx";
 import { RetirementReview } from "./screens/RetirementReview.tsx";
@@ -65,6 +66,7 @@ export function App() {
           <Route path="/end-of-season" element={<EndOfSeasonAnnounce />} />
           <Route path="/season-complete" element={<SeasonComplete />} />
           <Route path="/history" element={<LeagueHistory />} />
+          <Route path="/online" element={<OnlineLobby />} />
           <Route path="/gallery" element={<ScreenGallery />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

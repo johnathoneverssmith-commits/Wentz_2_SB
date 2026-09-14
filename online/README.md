@@ -151,12 +151,23 @@ five-second floor on cross-process news buys nothing worth that.
 `EventSource` reconnects on its own, and a browser without it falls back to
 the polling the caller already does rather than failing to join.
 
+## The way in
+
+`ui-source/src/screens/OnlineLobby.tsx`, at `#/online`. Sign in or create an
+account, see the leagues you're in and what each one is waiting on you for,
+join one with an invite code, or start your own and get a code to hand out.
+
+It is the only screen that talks to this server directly rather than through
+the store, and that's deliberate: signing in, creating a league and claiming a
+team all happen *before* there is a league to put in the store.
+
+With nothing listening on :8788 it says so — plainly, with the two commands
+that would start it — rather than spinning. A single-player dynasty is
+untouched either way.
+
 ## Still to do
 
 - Move the screens onto `useLeagueActions` — Free Agency and Trade Proposal
   first, since they're the ones where a stale view actually costs something.
-- A sign-in / league-lobby entry point, so there's a way into online mode at
-  all from the UI.
-- An SSE endpoint so an open tab hears about a trade offer without polling.
 - Deploy: a host, a managed Postgres, and a check that the engine's
   `artifacts/**/portable/*.json` reads work from the deployed filesystem.

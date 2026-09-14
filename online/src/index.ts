@@ -96,6 +96,21 @@ get("/invites/:code", async (ctx) => {
   return { league, openTeams: await openTeams(league.id) };
 });
 
+/**
+ * Which teams are still free in a league you're already in.
+ *
+ * The invite lookup answers this for someone joining from outside. A
+ * commissioner who just created a league is *inside* it with no team yet, and
+ * had no way to ask.
+ */
+get("/leagues/:id/teams", async (ctx) => {
+  const user = requireUser(ctx);
+  if (!(await franchiseOf(ctx.params.id!, user.id))) {
+    throw new ActionError("You're not in that league.", 403);
+  }
+  return { openTeams: await openTeams(ctx.params.id!) };
+});
+
 post("/leagues/:id/claim", async (ctx) => {
   const user = requireUser(ctx);
   return claimTeam(ctx.params.id!, user.id, field(ctx, "teamCode", "string"));

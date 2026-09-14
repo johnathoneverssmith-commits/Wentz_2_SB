@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { useOnlineSync } from "@/state/useLeagueActions";
 import { isInSeason, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
 
@@ -52,6 +53,9 @@ const active = ({ isActive }: { isActive: boolean }) => (isActive ? "active" : "
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   useTeamTheme();
+  // in an online league, take the server's copy whenever it says the league
+  // moved; inert (and it costs nothing) in a single-player game
+  useOnlineSync();
   // losing a dynasty to a silent storage failure is the worst bug this app
   // could have, so it is the one thing the shell always says out loud
   const [saveBroken, setSaveBroken] = useState(false);
@@ -116,6 +120,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             League settings
           </NavLink>
         )}
+        <NavLink to="/online" className={active}>
+          Online leagues
+        </NavLink>
         {import.meta.env.DEV && (
           <NavLink to="/gallery" className={active}>
             Screen Gallery
