@@ -43,6 +43,7 @@ import {
   repairUnclaimedGms,
 } from "./leagues.js";
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
+import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
 import { simulateWeekForLeague } from "./simulate.js";
 import { openStream } from "./stream.js";
 
@@ -62,15 +63,46 @@ function optional<T>(ctx: Ctx, name: string): T | undefined {
 
 /* ---- accounts -------------------------------------------------------- */
 
+/**
+ * Who is making this attempt, for throttling purposes.
+ *
+ * Address *and* name together: keyed on the name alone, anyone could lock a
+ * GM out of their own league by guessing at their name from the outside,
+ * which turns a brake into a weapon.
+ */
+function attemptKey(ctx: Ctx, name: string): string {
+  const fwd = ctx.req.headers["x-forwarded-for"];
+  const addr =
+    (Array.isArray(fwd) ? fwd[0] : fwd)?.split(",")[0]?.trim() ||
+    ctx.req.socket.remoteAddress ||
+    "unknown";
+  return `${addr}|${name.trim().toLowerCase()}`;
+}
+
 post("/auth/register", async (ctx) => {
-  const user = await register(field(ctx, "name", "string"), field(ctx, "password", "string"));
+  const name = field<string>(ctx, "name", "string");
+  const key = attemptKey(ctx, name);
+  if (tooManyAttempts(key)) {
+    ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
+    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+  }
+  const user = await register(name, field(ctx, "password", "string"));
+  clearAttempts(key);
   setSessionCookie(ctx.res, signSession(user.id));
   return { user };
 });
 
 post("/auth/login", async (ctx) => {
-  const user = await login(field(ctx, "name", "string"), field(ctx, "password", "string"));
+  const name = field<string>(ctx, "name", "string");
+  const key = attemptKey(ctx, name);
+  if (tooManyAttempts(key)) {
+    ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
+    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+  }
+  const user = await login(name, field(ctx, "password", "string"));
   if (!user) throw new ActionError("That name and password don't match.", 401);
+  // a correct password means this was never an attack
+  clearAttempts(key);
   setSessionCookie(ctx.res, signSession(user.id));
   return { user };
 });
