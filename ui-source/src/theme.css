@@ -290,9 +290,33 @@ a:focus-visible,
   padding: 16px 18px;
   text-align: center;
   border-right: 1px solid var(--line);
+  min-width: 0;
 }
 .stat:last-child {
   border-right: none;
+}
+/*
+ * Four summary figures in 375px is about 49px of content each once padding
+ * is paid for, and `$62.5M` doesn't fit in 49px — the last stat was running
+ * off the side of the card. Two up on a phone.
+ */
+@media (max-width: 560px) {
+  .ticker {
+    grid-auto-flow: row;
+    grid-template-columns: 1fr 1fr;
+  }
+  .stat {
+    padding: 13px 10px;
+  }
+  .stat:nth-child(2n) {
+    border-right: none;
+  }
+  .stat:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .stat-value {
+    font-size: 17px;
+  }
 }
 .stat-label {
   margin: 0;
@@ -450,6 +474,7 @@ input[type="search"]::-webkit-search-cancel-button {
  * stops a very tall screen from turning the list into the whole page.
  */
 .scroll-list {
+  position: relative;
   max-height: clamp(300px, 56vh, 760px);
   overflow-y: auto;
 }
@@ -461,18 +486,53 @@ input[type="search"]::-webkit-search-cancel-button {
  * Column labels for a list of `.prow`s. Same grid as the rows beneath it, so
  * the numbers in a column are actually named — an unlabelled 94 next to an
  * unlabelled 27 is a guessing game.
+ *
+ * Sticky, and inside the scrolling list rather than above it: that keeps the
+ * labels in view while you work down two hundred free agents, and — the part
+ * that matters on a phone — keeps them in step with the row grid when the
+ * list scrolls sideways.
  */
 .rowhead {
   display: grid;
   align-items: end;
   gap: 10px;
-  padding: 0 6px 7px;
+  padding: 4px 6px 7px;
   border-bottom: 1px solid var(--line-strong);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-faint);
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
+/*
+ * A list of rows that has to survive a phone.
+ *
+ * Six columns of player data do not fit in 375px, and making them try is how
+ * you get a name broken over two lines beside a wrapped "No offers" and a
+ * row 250px tall — three players per screen. So below a breakpoint the list
+ * keeps its shape and scrolls sideways, the way every data table on a phone
+ * does. `.scroll-list` is this plus a vertical clamp; a list that's short
+ * enough not to need one uses `.rowlist` alone.
+ */
+.rowlist {
+  position: relative;
+}
+@media (max-width: 700px) {
+  .rowlist,
+  .scroll-list {
+    overflow-x: auto;
+  }
+  .rowlist .prow,
+  .rowlist .rowhead,
+  .scroll-list .prow,
+  .scroll-list .rowhead {
+    min-width: 460px;
+  }
 }
 
 /*

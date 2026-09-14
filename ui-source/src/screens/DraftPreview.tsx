@@ -81,13 +81,13 @@ export function DraftPreview() {
         {market.matched === 0 && (
           <div className="emptystate">No prospect matches that search.</div>
         )}
-        {market.matched > 0 && (
-          <RowHeader
-            gridTemplate={PROSPECT_GRID}
-            labels={["", "Prospect", "Ovr", "Projected", ""]}
-          />
-        )}
         <div className="scroll-list">
+          {market.matched > 0 && (
+            <RowHeader
+              gridTemplate={PROSPECT_GRID}
+              labels={["", { label: "Prospect", align: "left" }, "Ovr", "Projected", ""]}
+            />
+          )}
           {market.shown.map((p) => {
             const starred = targets.includes(p.id);
             return (

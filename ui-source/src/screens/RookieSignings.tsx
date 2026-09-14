@@ -70,14 +70,15 @@ export function RookieSignings() {
       <Panel id="signings" open={active === "signings"}>
         {myPicks.length === 0 ? (
           <div className="emptystate">Your team didn't draft anyone this year — nothing to sign. You can advance whenever you're ready.</div>
-        ) : (
-          <RowHeader
-            gridTemplate={ROOKIE_GRID}
-            labels={["Pick", "Player", "Slot value", "Year one", "", ""]}
-          />
-        )}
-        {myPicks.length > 0 &&
-          myPicks.map(({ pick, prospect }) => {
+        ) : null}
+        <div className="rowlist">
+          {myPicks.length > 0 && (
+            <RowHeader
+              gridTemplate={ROOKIE_GRID}
+              labels={["Pick", { label: "Player", align: "left" }, "Slot value", "Year one", "", ""]}
+            />
+          )}
+          {myPicks.map(({ pick, prospect }) => {
             const p = prospect!;
             const outcome = outcomes[p.id];
             const total = slotValue(pick.round);
@@ -174,6 +175,7 @@ export function RookieSignings() {
               />
             );
           })}
+        </div>
       </Panel>
 
       <Panel id="summary" open={active === "summary"}>

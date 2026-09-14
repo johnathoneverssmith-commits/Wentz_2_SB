@@ -137,13 +137,13 @@ export function FreeAgencyBoard() {
             Nobody on the market matches that. Clear the search or pick another position.
           </div>
         )}
-        {market.matched > 0 && (
-          <RowHeader
-            gridTemplate={FA_GRID}
-            labels={["Player", "Ovr", "Age", isWindowStage ? "Leading offer" : "Status", "", ""]}
-          />
-        )}
         <div className="scroll-list">
+          {market.matched > 0 && (
+            <RowHeader
+              gridTemplate={FA_GRID}
+              labels={["Player", "Ovr", "Age", isWindowStage ? "Leading offer" : "Status", "", ""]}
+            />
+          )}
           {market.shown.map((p) => {
             const mine = myOffer(p.id);
             const lead = leadOffer(p.id);

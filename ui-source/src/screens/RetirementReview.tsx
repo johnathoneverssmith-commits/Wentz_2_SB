@@ -72,11 +72,12 @@ export function RetirementReview() {
         </div>
         {yours.length === 0 ? (
           <div className="emptystate">No players on your team are retiring this offseason.</div>
-        ) : (
-          <RowHeader gridTemplate={RETIREE_GRID} labels={["Player", "Ovr", "Chance", ""]} />
-        )}
-        {yours.length > 0 &&
-          yours.map((p) => (
+        ) : null}
+        <div className="rowlist">
+          {yours.length > 0 && (
+            <RowHeader gridTemplate={RETIREE_GRID} labels={["Player", "Ovr", "Chance", ""]} />
+          )}
+          {yours.map((p) => (
             <ExpandableRow
               key={p.id}
               gridTemplate={RETIREE_GRID}
@@ -123,6 +124,7 @@ export function RetirementReview() {
               }
             />
           ))}
+        </div>
       </Panel>
 
       <Panel id="league" open={active === "league"}>

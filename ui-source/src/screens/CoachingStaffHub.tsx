@@ -134,11 +134,11 @@ function HiringWindow({ code }: { code: string | undefined }) {
             <option value="DC">Defensive Coordinator</option>
           </select>
         </div>
-        <RowHeader
-          gridTemplate={COACH_GRID}
-          labels={["Coach", "Tendency", "Leading offer", "", ""]}
-        />
         <div className="scroll-list">
+          <RowHeader
+            gridTemplate={COACH_GRID}
+            labels={["Coach", "Tendency", "Leading offer", "", ""]}
+          />
           {open.filter((c) => roleFilter === "ALL" || c.role === roleFilter).length === 0 && (
             <div className="emptystate">Every {roleFilter === "ALL" ? "coach" : ROLE_LABEL[roleFilter]} on the market has been hired.</div>
           )}

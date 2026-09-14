@@ -21,7 +21,7 @@ import {
   watchNotes,
   weekGame,
 } from "@/state/selectors";
-import { ordinal } from "@/util/format";
+import { millions, ordinal } from "@/util/format";
 
 function favWinProb(a: { overall: number }, b: { overall: number }, homeEdge = 4): number {
   return Math.round(Math.min(0.9, Math.max(0.1, 0.5 + (a.overall - b.overall) * 0.02 + homeEdge / 100)) * 100);
@@ -95,7 +95,16 @@ export function WeeklyTeamHub() {
 
       <Ticker
         stats={[
-          { label: "Win probability", value: oppCode ? `${winProb}%` : "—" },
+          // Out of season there is no opponent and this tile read "—" for
+          // months. Cap space is the number a GM is actually working against
+          // in an offseason, so the tile says something either way.
+          oppCode
+            ? { label: "Win probability", value: `${winProb}%` }
+            : {
+                label: "Cap space",
+                value: millions(Math.round((team.cap.total - team.cap.used) * 10) / 10),
+                className: team.cap.used <= team.cap.total ? "good" : "bad",
+              },
           {
             label: "Team overall",
             value: (

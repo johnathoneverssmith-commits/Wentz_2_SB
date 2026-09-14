@@ -179,23 +179,25 @@ export function RosterCapManagement() {
           </button>
         </div>
 
-        {ordered.length === 0 ? (
+        {ordered.length === 0 && (
           <div className="emptystate">No players in this group.</div>
-        ) : (
-          <RowHeader
-            gridTemplate={ROSTER_GRID}
-            labels={[
-              "#",
-              "Player",
-              "Ovr",
-              "Age",
-              "Yrs",
-              { label: "Cap hit", align: "right" },
-              "",
-            ]}
-          />
         )}
-        {ordered.map((p) => (
+        <div className="rowlist">
+          {ordered.length > 0 && (
+            <RowHeader
+              gridTemplate={ROSTER_GRID}
+              labels={[
+                "#",
+                { label: "Player", align: "left" },
+                "Ovr",
+                "Age",
+                "Yrs",
+                { label: "Cap hit", align: "right" },
+                "",
+              ]}
+            />
+          )}
+          {ordered.map((p) => (
             <ExpandableRow
               key={p.id}
               gridTemplate={ROSTER_GRID}
@@ -300,7 +302,8 @@ export function RosterCapManagement() {
                 </>
               }
             />
-        ))}
+          ))}
+        </div>
       </Panel>
 
       <Panel id="cap" open={active === "cap"}>
