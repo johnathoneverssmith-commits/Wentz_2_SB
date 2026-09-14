@@ -105,6 +105,17 @@ npm run online:test
 `DATABASE_URL` and they'll run; without it they report themselves as skipped
 in the test name rather than passing quietly.
 
+**An in-memory Postgres won't do.** `pg-mem` was tried, so that the database
+half could run in CI without one. It applies `schema.sql` cleanly and handles
+the inserts, the versioned update, `BIGSERIAL` and the joins — and then fails
+on the two things that matter. `SELECT … FOR UPDATE OF s` doesn't parse,
+which is the row lock the whole concurrency design rests on. Worse,
+`WHERE league_id = ANY(ARRAY[…])` — the stream's poll — returns no rows
+rather than an error, which is a wrong answer rather than a missing feature.
+A suite that passes against a database behaving differently from the one this
+server requires is worse than a suite that says it was skipped. Run a real
+Postgres.
+
 ## The client seam
 
 `ui-source/src/sim/OnlineLeagueClient.ts` is the transport.
