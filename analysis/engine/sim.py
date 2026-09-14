@@ -275,6 +275,44 @@ class Game:
         }
 
     # ---- clock -------------------------------------------------------
+    def _roll_quarter(self):
+        """Move to the next quarter once this one is spent.
+
+        Every path that can take `qsr` to zero has to call this, and for a
+        long time two of them did not - see `_burn`.
+        """
+        if self.qsr == 0 and self.gsr > 0:
+            self.qtr += 1
+            self.qsr = 900
+            if self.qtr == 3:  # halftime: second-half kickoff to the other opener
+                self.hsr = 1800
+                self.to_remaining = [3, 3]
+                self._kickoff(receiving=1 - self.received_opening, result="end_of_half")
+
+    def _burn(self, seconds: int):
+        """Take `seconds` off every clock at once, credit them as possession,
+        and roll the quarter if that spent it.
+
+        The three counters have to move together, and not for neatness. `qsr`
+        floors at zero and `hsr` does not, so a runoff overshooting the end of
+        a quarter takes more off the half than off the quarter, and the gap can
+        never be recovered. A few of those and the half runs out while the
+        quarter still has time on it - the end-of-half machinery then has
+        nothing to end, no play advances the clock, and the game spins until
+        the play guard stops it. That was roughly one game in 370 finishing at
+        halftime, with a box score to match.
+
+        The two paths that used to subtract a fixed amount without capping or
+        rolling - a dead-ball penalty's four seconds and a spike's one - go
+        through here now.
+        """
+        e = min(seconds, self.qsr) if self.qsr > 0 else seconds
+        self.gsr = max(0, self.gsr - e)
+        self.hsr = max(0, self.hsr - e)
+        self.qsr = max(0, self.qsr - e)
+        self.teams[self.pos].s["top"] += e
+        self._roll_quarter()
+
     def advance_clock(self, bucket: str, no_huddle: int = 0, drive_ends: bool = False):
         # M24 elapsed spans snap -> next SAME-DRIVE snap (~35s incl. huddle). On the
         # play that ENDS a drive there is no offensive huddle after it — the clock
@@ -295,13 +333,7 @@ class Game:
         self.hsr = max(0, self.hsr - e)
         self.qsr = max(0, self.qsr - e)
         self.teams[self.pos].s["top"] += e
-        if self.qsr == 0 and self.gsr > 0:
-            self.qtr += 1
-            self.qsr = 900
-            if self.qtr == 3:  # halftime → second-half kickoff to the other opener
-                self.hsr = 1800
-                self.to_remaining = [3, 3]
-                self._kickoff(receiving=1 - self.received_opening, result="end_of_half")
+        self._roll_quarter()
 
     # ---- scoring / possession ------------------------------------
     def _score(self, pts: int, team: int | None = None):
@@ -379,9 +411,10 @@ class Game:
                 self._new_series(first_down=True)
             else:
                 self.ydstogo -= 5.0
-        # dead-ball: mostly play-clock cost; a little game clock on delay of game.
-        for a in ("gsr", "hsr", "qsr"):
-            setattr(self, a, max(0, getattr(self, a) - 4))
+        # dead-ball: mostly play-clock cost; a little game clock on delay of
+        # game. The offense still has the ball, so those four seconds are its
+        # possession like any other runoff.
+        self._burn(4)
         return True
 
     def _liveball_penalty(self, play_family: str, gained: float, s0: dict) -> bool:
@@ -456,13 +489,7 @@ class Game:
         self.hsr = max(0, self.hsr - e)
         self.qsr = max(0, self.qsr - e)
         self.teams[self.pos].s["top"] += e
-        if self.qsr == 0 and self.gsr > 0:          # end of Q2 → Q3 kickoff
-            self.qtr += 1
-            self.qsr = 900
-            if self.qtr == 3:
-                self.hsr = 1800
-                self.to_remaining = [3, 3]
-                self._kickoff(receiving=1 - self.received_opening, result="end_of_half")
+        self._roll_quarter()
 
     # ---- 2-minute-drill clock management (needed for play-by-play mode) ----
     def _hurry_up(self) -> bool:
@@ -481,8 +508,7 @@ class Game:
         """Clock the ball: ~1 s, clock stops, burns a down."""
         self.st("spike")
         self._dplays += 1
-        for a in ("gsr", "hsr", "qsr"):
-            setattr(self, a, max(0, getattr(self, a) - 1))
+        self._burn(1)
         self.clock_stopped = True
         self.down = min(self.down + 1, 4)
         self.ydstogo = self.ydstogo  # unchanged
@@ -522,6 +548,10 @@ class Game:
             self.st("fg_made")
             self._score(3)
         if end_of_half:
+            # whatever is left runs out on the kickoff and the return; nobody
+            # snaps it again, but the two teams' possession still has to add
+            # up to the sixty minutes the game lasted
+            self.teams[self.pos].s["top"] += self.qsr
             self.gsr = max(0, self.gsr - self.qsr)
             self.hsr = self.qsr = 0
             self._finish_drive(result if made else "missed_fg")

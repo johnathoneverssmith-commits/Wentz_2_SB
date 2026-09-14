@@ -487,6 +487,51 @@ export class Game {
   }
 
   // ---- clock ---------------------------------------------------------
+
+  /**
+   * Move to the next quarter once this one is spent.
+   *
+   * Every path that can take `qsr` to zero has to call this, and for a long
+   * time two of them didn't — see `burn`.
+   */
+  private rollQuarter(): void {
+    if (this.qsr === 0 && this.gsr > 0) {
+      this.qtr += 1;
+      this.qsr = 900;
+      if (this.qtr === 3) {
+        this.hsr = 1800;
+        this.toRemaining = [3, 3];
+        this.kickoff(1 - this.receivedOpening, "end_of_half");
+      }
+    }
+  }
+
+  /**
+   * Take `seconds` off every clock at once, credit them as possession, and
+   * roll the quarter if that spent it.
+   *
+   * The three counters have to move together, and the reason is not
+   * bookkeeping neatness. `qsr` floors at zero and `hsr` doesn't, so a runoff
+   * that overshoots the end of a quarter takes more off the half than off the
+   * quarter, and the gap can never be recovered. Let that happen a few times
+   * and the half runs out while the quarter still has time on it — at which
+   * point the end-of-half machinery has nothing to end, no play advances the
+   * clock, and the game spins until the 400-play guard stops it. That was
+   * roughly one game in 370 finishing at halftime, with a box score to match.
+   *
+   * The two paths that used to subtract a fixed amount without capping or
+   * rolling — a dead-ball penalty's four seconds and a spike's one — go
+   * through here now.
+   */
+  private burn(seconds: number): void {
+    const e = this.qsr > 0 ? Math.min(seconds, this.qsr) : seconds;
+    this.gsr = Math.max(0, this.gsr - e);
+    this.hsr = Math.max(0, this.hsr - e);
+    this.qsr = Math.max(0, this.qsr - e);
+    this.st("top", e);
+    this.rollQuarter();
+  }
+
   private advanceClock(bucket: string, noHuddle = 0, driveEnds = false): void {
     const cs = this.gsr <= 300 ? "final_5min" : this.gsr <= 600 ? "final_10min" : "normal";
     let e = sampleRunoff(bucket, noHuddle, cs, this.rng) * CLOCK_SCALE;
@@ -498,15 +543,7 @@ export class Game {
     this.hsr = Math.max(0, this.hsr - e);
     this.qsr = Math.max(0, this.qsr - e);
     this.st("top", e);
-    if (this.qsr === 0 && this.gsr > 0) {
-      this.qtr += 1;
-      this.qsr = 900;
-      if (this.qtr === 3) {
-        this.hsr = 1800;
-        this.toRemaining = [3, 3];
-        this.kickoff(1 - this.receivedOpening, "end_of_half");
-      }
-    }
+    this.rollQuarter();
   }
 
   // ---- scoring / possession ---------------------------------------
@@ -592,9 +629,18 @@ export class Game {
         this.ydstogo -= 5.0;
       }
     }
-    this.gsr = Math.max(0, this.gsr - 4);
-    this.hsr = Math.max(0, this.hsr - 4);
-    this.qsr = Math.max(0, this.qsr - 4);
+    // Capped at what's left in the quarter, like every other runoff.
+    //
+    // Uncapped, `qsr` floors at zero while `hsr` takes the whole four
+    // seconds, and the two drift apart by the difference — permanently,
+    // because the floor can't be undone. Enough of those and the half runs
+    // out while the quarter still has time on it, at which point the
+    // end-of-half logic has nothing to end and the game spins until the
+    // 400-play guard stops it. That is how roughly one game in 370 used to
+    // finish at halftime.
+    // the offense still has the ball through a dead-ball penalty, so the
+    // four seconds are its possession like any other runoff
+    this.burn(4);
     return true;
   }
 
@@ -662,15 +708,7 @@ export class Game {
     this.hsr = Math.max(0, this.hsr - e);
     this.qsr = Math.max(0, this.qsr - e);
     this.st("top", e);
-    if (this.qsr === 0 && this.gsr > 0) {
-      this.qtr += 1;
-      this.qsr = 900;
-      if (this.qtr === 3) {
-        this.hsr = 1800;
-        this.toRemaining = [3, 3];
-        this.kickoff(1 - this.receivedOpening, "end_of_half");
-      }
-    }
+    this.rollQuarter();
   }
 
   // ---- 2-minute-drill clock management (needed for play-by-play mode) ----
@@ -691,9 +729,7 @@ export class Game {
   private spike(): void {
     this.st("spike");
     this.dPlays += 1;
-    this.gsr = Math.max(0, this.gsr - 1);
-    this.hsr = Math.max(0, this.hsr - 1);
-    this.qsr = Math.max(0, this.qsr - 1);
+    this.burn(1);
     this.clockStopped = true;
     this.down = Math.min(this.down + 1, 4);
   }
@@ -731,6 +767,10 @@ export class Game {
       this.scorePts(3);
     }
     if (endOfHalf) {
+      // whatever is left runs out on the kickoff and the return; nobody
+      // snaps it again, but the two teams' possession still has to add up to
+      // the sixty minutes the game lasted
+      this.st("top", this.qsr);
       this.gsr = Math.max(0, this.gsr - this.qsr);
       this.hsr = 0;
       this.qsr = 0;
