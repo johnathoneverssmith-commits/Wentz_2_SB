@@ -105,7 +105,14 @@ get("/invites/:code", async (ctx) => {
  */
 get("/leagues/:id/teams", async (ctx) => {
   const user = requireUser(ctx);
-  if (!(await franchiseOf(ctx.params.id!, user.id))) {
+  // A franchise row is the usual proof of membership, but the commissioner
+  // who has not claimed yet has no such row — and they are the exact case
+  // this route was added for, so asking only about franchises answered 403
+  // to the one person it was meant to serve.
+  const member =
+    (await franchiseOf(ctx.params.id!, user.id)) !== null ||
+    (await isCommissioner(ctx.params.id!, user.id));
+  if (!member) {
     throw new ActionError("You're not in that league.", 403);
   }
   return { openTeams: await openTeams(ctx.params.id!) };

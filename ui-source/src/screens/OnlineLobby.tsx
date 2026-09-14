@@ -25,9 +25,10 @@ import type { Stage } from "@/domain";
  * so routing them through it would mean inventing store state for a league
  * you haven't joined.
  *
- * The server is not deployed and is not meant to be. Running locally it is
- * `npm run online` on :8788; with nothing there, every call fails the same
- * way and the screen says so plainly rather than spinning.
+ * The server is deployed now. Running locally it is `npm run online` on
+ * :8788; with nothing answering — a cold host, or no local server — every
+ * call fails the same way and the screen says so plainly rather than
+ * spinning.
  */
 type Mode = "signin" | "register";
 
@@ -39,6 +40,8 @@ interface LeagueRow {
   teamCode: string | null;
   stage: string;
   season: number;
+  isCommissioner: boolean;
+  inviteCode: string | null;
 }
 
 /** The server hands back the raw stage key; the app has a name for it. */
@@ -127,13 +130,14 @@ export function OnlineLobby() {
         <CardHeader badge="ON" title="Online Leagues" subtitle="No league server answered" />
         <div className="panel open">
           <div className="notice bad" role="status">
-            <strong>Nothing is listening on the league server.</strong> Online play needs it
-            running — it is a separate process from the engine adapter, and it is deliberately not
-            deployed anywhere yet.
+            <strong>The league server didn't answer.</strong> It sleeps when nobody has used it
+            for a while and takes up to a minute to wake — if that's all this is, waiting a moment
+            and trying again will fix it.
           </div>
           <p style={{ fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.6 }}>
-            To run it locally: create a Postgres database, point <code>DATABASE_URL</code> at it,
-            then <code>npm run online:migrate</code> once and <code>npm run online</code>. Your
+            If it keeps failing, the server is genuinely down. Running your own instead: create a
+            Postgres database, point <code>DATABASE_URL</code> at it, then{" "}
+            <code>npm run online:migrate</code> once and <code>npm run online</code>. Your
             single-player dynasty is untouched either way.
           </p>
         </div>
@@ -245,6 +249,21 @@ export function OnlineLobby() {
                     {l.season} · {stageName(l.stage)}
                     {box?.msLeft != null && ` · ${timeLeft(box.msLeft)} left in this phase`}
                   </p>
+                  {!l.teamCode && (
+                    <p className="lobby-todo now">
+                      Pick your franchise to start playing — the league is ready now, and any team
+                      nobody claims is run by the AI.
+                    </p>
+                  )}
+                  {l.inviteCode && (
+                    <p className="lobby-sub">
+                      Invite code:{" "}
+                      <span className="oswald" style={{ fontSize: 14, letterSpacing: "0.08em" }}>
+                        {l.inviteCode}
+                      </span>{" "}
+                      — send it to the other GMs; they register, then enter it under Join a League.
+                    </p>
+                  )}
                   {box?.items.map((item, i) => (
                     <p key={i} className={`lobby-todo${item.urgency === "now" ? " now" : ""}`}>
                       {item.title}
@@ -301,7 +320,18 @@ export function OnlineLobby() {
       </Panel>
 
       <Panel id="create" open={active === "create"}>
-        <CreateLeague busy={busy} attempt={attempt} onCreated={() => void attempt(refresh)} />
+        <CreateLeague
+          busy={busy}
+          attempt={attempt}
+          onCreated={() =>
+            void attempt(async () => {
+              await refresh();
+              // the league is real but teamless; the next thing to do is claim
+              // a team, and that lives on the list
+              setActive("leagues");
+            })
+          }
+        />
       </Panel>
 
       <Footer>
@@ -546,6 +576,8 @@ function CreateLeague({
           <span className="oswald" style={{ fontSize: 16, letterSpacing: "0.08em" }}>
             {invite}
           </span>
+          . It stays on the league under <em>Your Leagues</em>, so you can come back for it —
+          and that is where you pick your own team.
         </div>
       )}
     </>

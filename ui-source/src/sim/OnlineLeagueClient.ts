@@ -104,9 +104,18 @@ export class OnlineLeagueClient {
   /* ---- leagues ------------------------------------------------------- */
 
   myLeagues = () =>
-    this.call<{ leagues: { id: string; name: string; teamCode: string | null; stage: string; season: number }[] }>(
-      "/leagues",
-    );
+    this.call<{
+      leagues: {
+        id: string;
+        name: string;
+        teamCode: string | null;
+        stage: string;
+        season: number;
+        isCommissioner: boolean;
+        /** Only ever set for the commissioner; it is the league's only door. */
+        inviteCode: string | null;
+      }[];
+    }>("/leagues");
 
   createLeague = (input: { name: string; humanSlots?: number; phaseTimeoutHours?: number }) =>
     this.call<{ leagueId: string; inviteCode: string }>("/leagues", input);

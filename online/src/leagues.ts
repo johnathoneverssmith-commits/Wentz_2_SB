@@ -185,25 +185,52 @@ export async function claimTeam(
   }
 }
 
-/** The leagues a user is in, for the front page. */
+/**
+ * The leagues a user is in, for the front page.
+ *
+ * "In" has to include the commissioner who just created one and hasn't taken
+ * a team yet. Joining against their own franchise row excluded precisely that
+ * person: the league they had just made did not come back in this list, so
+ * there was nothing to click to claim a team, and a newly created league was
+ * unplayable by the one person guaranteed to be looking for it. The
+ * `unclaimed:` branch below was written for that case and could never fire.
+ *
+ * The invite code rides along for the commissioner because it is otherwise
+ * shown once, at creation, and never again — reload before sending it and
+ * nobody can ever join the league.
+ */
 export async function leaguesFor(userId: string): Promise<
-  { id: string; name: string; teamCode: string | null; stage: string; season: number }[]
+  {
+    id: string;
+    name: string;
+    teamCode: string | null;
+    stage: string;
+    season: number;
+    isCommissioner: boolean;
+    inviteCode: string | null;
+  }[]
 > {
   const rows = await pool.query(
-    `SELECT l.id, l.name, f.team_code, s.stage, s.season
+    `SELECT l.id, l.name, f.team_code, s.stage, s.season,
+            (l.commissioner = $1) AS is_commissioner, l.invite_code
        FROM leagues l
-       JOIN franchises f ON f.league_id = l.id AND f.user_id = $1
+       LEFT JOIN franchises f ON f.league_id = l.id AND f.user_id = $1
        JOIN league_state s ON s.league_id = l.id
       WHERE l.archived_at IS NULL
+        AND (f.user_id = $1 OR l.commissioner = $1)
       ORDER BY l.created_at DESC`,
     [userId],
   );
   return rows.rows.map((r) => ({
     id: r.id,
     name: r.name,
-    teamCode: String(r.team_code).startsWith("unclaimed:") ? null : r.team_code,
+    teamCode:
+      r.team_code == null || String(r.team_code).startsWith("unclaimed:") ? null : r.team_code,
     stage: r.stage,
     season: r.season,
+    isCommissioner: Boolean(r.is_commissioner),
+    // the code is the league's only door; it belongs to whoever runs it
+    inviteCode: r.is_commissioner ? r.invite_code : null,
   }));
 }
 
