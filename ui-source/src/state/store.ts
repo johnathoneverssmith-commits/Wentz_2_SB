@@ -48,12 +48,7 @@ import {
   extendContract,
   restructureContract,
 } from "./contracts.ts";
-import {
-  DRAFT_ROUNDS,
-  ensureDraftPicks,
-  forgetSpentPicks,
-  pickOrderFor,
-} from "./draftPicks.ts";
+import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -78,7 +73,7 @@ import {
   planAutopicks,
   resolveBiddingDay,
   sbWonByHuman,
-  shuffle,
+  beginDraft,
   signAiDraftPicks,
   type Subject,
   upsertRookiePlayer,
@@ -413,69 +408,7 @@ export const useStore = create<Store>()(
         return { route: STAGE_HOME[get().stage] };
       },
 
-      startDraft: (mode) =>
-        set((s) => {
-          // a GM who somehow reached the draft without a team contributes no
-          // slot, rather than an empty string in the pick order
-          const humanCodes = s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
-          const allCodes = Object.keys(s.teams);
-          const aiCodes = allCodes.filter((c) => !humanCodes.includes(c));
-
-          let fullFirstRound: string[];
-          if (mode === "rookie") {
-            // real NFL order: worst record picks first. Falls back to a shuffle
-            // before any games have been played.
-            const played = allCodes.some((c) => {
-              const t = s.teams[c]!;
-              return t.wins + t.losses + t.ties > 0;
-            });
-            const pct = (code: string): number => {
-              const t = s.teams[code]!;
-              const g = t.wins + t.losses + t.ties;
-              return g === 0 ? 0.5 : (t.wins + 0.5 * t.ties) / g;
-            };
-            const diff = (code: string): number => {
-              const t = s.teams[code]!;
-              return t.pointsFor - t.pointsAgainst;
-            };
-            fullFirstRound = played
-              ? [...allCodes].sort((a, b) => pct(a) - pct(b) || diff(a) - diff(b))
-              : shuffle(allCodes, s.season + 11);
-          } else if (s.config.draftOrder === "randomized") {
-            // every team in the hat — not the humans first and the AI after,
-            // which handed the human GMs the top picks of all 20 rounds
-            fullFirstRound = shuffle(allCodes, s.season + 7);
-          } else {
-            // "in order": GM 1 first, GM 2 second, …, then the AI teams
-            fullFirstRound = [...humanCodes, ...shuffle(aiCodes, s.season + 11)];
-          }
-
-          const rounds = mode === "fantasy" ? 20 : DRAFT_ROUNDS;
-          let order: string[] = [];
-          if (mode === "rookie") {
-            // the slots are earned by record; who *uses* each one is whoever
-            // owns that pick, which is the whole point of trading them
-            ensureDraftPicks(s, s.season);
-            order = pickOrderFor(s, s.season, fullFirstRound, rounds);
-          } else {
-            for (let r = 0; r < rounds; r++) {
-              const seq =
-                s.config.draftType === "snake" && r % 2 === 1
-                  ? [...fullFirstRound].reverse()
-                  : fullFirstRound;
-              order.push(...seq);
-            }
-          }
-          s.draft = {
-            mode,
-            year: s.season,
-            order: s.config.draftType,
-            pickOrder: order,
-            currentPickIndex: 0,
-            results: [],
-            targetsByGm: Object.fromEntries(s.gms.filter((g) => g.isHuman).map((g) => [g.id, []])),
-          };
-        }),
+      startDraft: (mode) => set((s) => beginDraft(s, mode)),
 
       makePick: (selectedId) => set((s) => { if (s.draft) applyPick(s, selectedId); }),
 

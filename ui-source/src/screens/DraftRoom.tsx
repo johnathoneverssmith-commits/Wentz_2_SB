@@ -42,8 +42,13 @@ export function DraftRoom() {
   const mode: DraftMode = s.stage === "fantasyDraft" ? "fantasy" : "rookie";
 
   useEffect(() => {
+    // Online the draft belongs to the server: it is made when the stage opens,
+    // and arrives with the league. Making one here would be this client
+    // inventing its own board — a different order per GM, and picks the server
+    // would refuse because they are against a draft only this browser can see.
+    if (actions.online) return;
     if (isDraftStage && (!s.draft || s.draft.mode !== mode)) startDraft(mode);
-  }, [isDraftStage, s.draft, mode, startDraft]);
+  }, [isDraftStage, s.draft, mode, startDraft, actions.online]);
 
   const draft = s.draft;
   const taken = useMemo(() => new Set(draft?.results.map((r) => r.selectedId) ?? []), [draft]);

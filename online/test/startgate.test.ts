@@ -90,6 +90,63 @@ describe("starting an online league", () => {
     expect(rosterGate(solo)).toBe(true);
   });
 
+  it("opens the fantasy draft as part of entering it", () => {
+    const state = onlineLeague(2);
+    claim(state, 0, "KC");
+    claim(state, 1, "BUF");
+    state.readiness[state.gms[0]!.id] = true;
+    state.readiness[state.gms[1]!.id] = true;
+
+    expect(state.draft).toBeFalsy();
+    expect(advanceStage(state).moved).toBe(true);
+    expect(state.stage).toBe("fantasyDraft");
+
+    // the server owns the board: without this the league enters the draft with
+    // nothing to draft on, and every pick is refused
+    expect(state.draft).toBeTruthy();
+    expect(state.draft!.mode).toBe("fantasy");
+    expect(state.draft!.pickOrder.length).toBeGreaterThan(0);
+    expect(state.draft!.currentPickIndex).toBe(0);
+    // every team drafts, not just the two humans
+    expect(new Set(state.draft!.pickOrder).size).toBe(32);
+  });
+
+  it("builds the same board twice from the same league", () => {
+    const a = onlineLeague(2);
+    claim(a, 0, "KC");
+    claim(a, 1, "BUF");
+    const b = JSON.parse(JSON.stringify(a)) as LeagueState;
+    advanceStage(a);
+    advanceStage(b);
+    // deterministic, or two GMs would disagree about who is on the clock
+    expect(a.draft!.pickOrder).toEqual(b.draft!.pickOrder);
+  });
+
+  it("leaves the draft with full rosters, not twenty-man ones", () => {
+    const state = onlineLeague(2);
+    claim(state, 0, "KC");
+    claim(state, 1, "BUF");
+    for (const g of state.gms) state.readiness[g.id] = true;
+    advanceStage(state); // -> fantasyDraft, board created
+    expect(state.stage).toBe("fantasyDraft");
+
+    // Take the board to the end without simulating 640 picks — what is under
+    // test is the transition out of the draft, not the AI's judgement inside
+    // it (`draftPerf.test.ts` covers that).
+    state.draft!.currentPickIndex = state.draft!.pickOrder.length;
+
+    for (const g of state.gms) state.readiness[g.id] = true;
+    advanceStage(state); // -> fantasyDraftSummary
+    expect(state.stage).toBe("fantasyDraftSummary");
+
+    // twenty rounds hands each team twenty players; the gap is filled on the
+    // way out, and online nothing was doing it
+    const kc = Object.values(state.players).filter(
+      (p) => p.nfl_team === "KC" && !p.retired && !p.free_agent,
+    );
+    expect(kc.length).toBeGreaterThan(40);
+  });
+
   it("lets the commissioner start short, deliberately", () => {
     const state = onlineLeague(4);
     claim(state, 0, "KC");

@@ -12,6 +12,8 @@ import { randomUUID } from "node:crypto";
 import type { LeagueConfig, LeagueState } from "@/domain";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 
+import { onStageEntered } from "./phases.js";
+
 import { ActionError, pool } from "./db.js";
 
 /** Short, unambiguous, sayable down a phone. No O/0 or I/1. */
@@ -106,7 +108,7 @@ export async function createOnlineLeague(
 }
 
 /** Marks the one-time GM repair as applied, so it runs once and not per boot. */
-const REPAIR_KEY = "repair.unclaimed_gms.v1";
+const REPAIR_KEY = "repair.unclaimed_gms.v2";
 
 /**
  * Retire the phantom GMs in leagues that were created before the fix above.
@@ -168,6 +170,11 @@ export async function repairUnclaimedGms(): Promise<number> {
         changed = true;
       }
     }
+    // a league that advanced into a draft stage back when nothing created the
+    // draft is stuck there permanently — no pick it sends can be applied
+    const before = state.draft?.mode;
+    onStageEntered(state);
+    if (state.draft?.mode !== before) changed = true;
     if (!changed) continue;
     await pool.query(
       `UPDATE league_state SET state = $2, version = version + 1, updated_at = now()

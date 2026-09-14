@@ -21,14 +21,19 @@
 import type { LeagueState } from "@/domain";
 import { resolveTransition } from "@/state/stageMachine.ts";
 import {
+  beginDraft,
   clearReadiness,
+  commitRetirements,
   humanGate,
   isInSeason,
   openSlots,
+  openStandingMarketFromUndrafted,
   planAutopicks,
   rosterGate,
+  signAiDraftPicks,
   applyPick,
 } from "@/state/rules.ts";
+import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
 
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
 
@@ -109,11 +114,57 @@ export async function readyUp(
  */
 export function advanceStage(state: LeagueState): { moved: boolean; autopiloted: string[] } {
   if (isInSeason(state.stage)) return { moved: false, autopiloted: [] };
+  const from = state.stage;
   const t = resolveTransition(state, {});
   state.stage = t.stage;
   state.week = t.week;
+  onStageEntered(state, from);
   clearReadinessOnline(state);
   return { moved: true, autopiloted: [] };
+}
+
+/**
+ * The work a stage needs doing before anybody can play it.
+ *
+ * Single-player this happens lazily, on the screen: the draft room opens,
+ * finds no draft, and makes one. That is fine when there is one client and it
+ * owns the league. Online it meant the server advanced into the fantasy draft
+ * holding no draft at all — every GM's client built its own private board
+ * from its own copy of the league, and the server answered every pick with
+ * "there's no draft running". The league became unplayable at exactly the
+ * stage the start gate had just worked so hard to enter together.
+ *
+ * The server owns the league, so the server opens the stage. One draft order,
+ * made once, from the state alone.
+ */
+export function onStageEntered(state: LeagueState, from?: string): void {
+  if (state.stage === "fantasyDraft" && state.draft?.mode !== "fantasy") {
+    beginDraft(state, "fantasy");
+  }
+  if (state.stage === "offseasonDraft" && state.draft?.mode !== "rookie") {
+    beginDraft(state, "rookie");
+  }
+
+  // The rest mirrors the single-player `tryAdvance`, which does this work in
+  // the same order. Online it was simply absent: the server set a stage field
+  // and nothing else, so a league left the draft with twenty-man rosters and
+  // reached the preseason unable to field a legal lineup.
+  if (from === "fantasyDraft" && state.stage === "fantasyDraftSummary") {
+    openStandingMarketFromUndrafted(state);
+    fillRosterGaps(state);
+  }
+  if (from === "offseasonSignings" && state.stage === "offseasonFreeAgency") {
+    signAiDraftPicks(state);
+    trimRosters(state);
+  }
+  if (from === "offseasonRetirement" && state.stage === "offseasonDraftPrep") {
+    commitRetirements(state);
+  }
+  // nobody takes the field short — free agency is optional, so a team can
+  // arrive here still missing a position entirely
+  if (state.stage === "preseason") fillRosterGaps(state);
+
+  recomputeTeamRatings(state);
 }
 
 /**
