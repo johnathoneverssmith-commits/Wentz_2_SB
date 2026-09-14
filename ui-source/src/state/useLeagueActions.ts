@@ -24,6 +24,15 @@ import { useStore } from "./store.ts";
 export interface ActionResult {
   ok: boolean;
   reason?: string;
+  /**
+   * Cap space a restructure freed, in millions — local only.
+   *
+   * The local action computes it as it applies it, so it is exact. The server
+   * answers with the new league instead, and a screen that wants the figure
+   * has to price it itself; `previewRestructure` is the same arithmetic and
+   * lands within a rounding step.
+   */
+  freed?: number;
 }
 
 export interface LeagueActions {

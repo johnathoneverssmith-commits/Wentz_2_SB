@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow, RatingBar } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
@@ -41,7 +42,7 @@ function HiringWindow({ code }: { code: string | undefined }) {
   const nav = useNavigate();
   const s = useStore();
   const startBidding = useStore((st) => st.startBidding);
-  const placeOffer = useStore((st) => st.placeOffer);
+  const actions = useLeagueActions();
   const advanceDay = useStore((st) => st.advanceBiddingDay);
   const dismiss = useStore((st) => st.dismissInterstitial);
   const [roleFilter, setRoleFilter] = useState<"ALL" | CoachRole>("ALL");
@@ -235,7 +236,7 @@ function HiringWindow({ code }: { code: string | undefined }) {
           prior={fa.bids[negotiating.id]?.find((o) => o.teamCode === code)}
           onClose={() => setNegotiating(null)}
           onSubmit={(offer) => {
-            placeOffer("coaches", negotiating.id, { ...offer, teamCode: code });
+            void actions.placeBid("coaches", negotiating.id, { ...offer, teamCode: code });
             setNegotiating(null);
           }}
         />

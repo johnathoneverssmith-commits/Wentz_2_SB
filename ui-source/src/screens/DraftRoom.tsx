@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { useListFilter } from "@/components/ListFilter";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -30,6 +31,7 @@ export function DraftRoom() {
 
   const code = viewerTeamCode(s);
   const startDraft = useStore((st) => st.startDraft);
+  const actions = useLeagueActions();
   const makePick = useStore((st) => st.makePick);
   const autopick = useStore((st) => st.autopickRemaining);
   const tryAdvance = useStore((st) => st.tryAdvance);
@@ -88,15 +90,20 @@ export function DraftRoom() {
   const filtered = market.shown;
   const posFilter = market.position;
 
-  // AI auto-picks when it's not your turn
+  // AI auto-picks when it's not your turn.
+  //
+  // Local only. Online, the team on the clock is either another GM — who gets
+  // their own pick clock — or a team the *server* picks for when that clock
+  // runs out. A tab doing it here would race every other open tab for the
+  // same pick.
   useEffect(() => {
-    if (!draft || complete || yourPick) return;
+    if (actions.online || !draft || complete || yourPick) return;
     const t = setTimeout(() => {
       const best = available[0];
       if (best) makePick(best.id);
     }, 200);
     return () => clearTimeout(t);
-  }, [draft, complete, yourPick, available, makePick]);
+  }, [draft, complete, yourPick, available, makePick, actions.online]);
 
   useEffect(() => {
     if (complete) {
@@ -204,7 +211,7 @@ export function DraftRoom() {
               <button
                 className="btn-primary"
                 style={{ fontSize: 11.5, padding: "7px 12px" }}
-                onClick={() => makePick(suggested.id)}
+                onClick={() => void actions.makeDraftPick(suggested.id)}
               >
                 Draft {suggested.name}
               </button>
@@ -246,7 +253,7 @@ export function DraftRoom() {
                       className="btn-primary"
                       style={{ fontSize: 11, padding: "6px 10px" }}
                       disabled={!yourPick || complete}
-                      onClick={() => makePick(p.id)}
+                      onClick={() => void actions.makeDraftPick(p.id)}
                     >
                       Draft
                     </button>

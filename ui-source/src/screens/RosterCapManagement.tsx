@@ -5,6 +5,7 @@ import { OvrPill } from "@/components/bits";
 import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -36,6 +37,7 @@ const ROSTER_GRID = "28px 1.5fr 0.5fr 0.5fr 0.7fr 0.9fr 16px";
 export function RosterCapManagement() {
   const nav = useNavigate();
   const s = useStore();
+  const actions = useLeagueActions();
   const { active, setActive } = useTabs("roster");
   const [group, setGroup] = useState<PositionGroup>("QB");
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export function RosterCapManagement() {
     const j = i + by;
     if (i < 0 || j < 0 || j >= line.length) return;
     [line[i], line[j]] = [line[j]!, line[i]!];
-    s.setDepthOrder(code, p.position, line);
+    void actions.setDepthOrder(p.position, line);
   };
   const lineAt = (pos: Position) => ordered.filter((x) => x.position === pos);
 
@@ -257,13 +259,18 @@ export function RosterCapManagement() {
                     </button>
                     <button
                       onClick={() => {
-                        const r = s.restructurePlayer(p.id);
-                        setMoveNote({
-                          id: p.id,
-                          ok: r.ok,
-                          text: r.ok
-                            ? `Restructured — ${millions(r.freed ?? 0)} off this year's cap, moved into the rest of the deal.`
-                            : (r.reason ?? "Couldn't restructure that deal."),
+                        // the local action knows exactly what it freed;
+                        // the server answers with the new league instead, so
+                        // online the preview's arithmetic stands in
+                        const estimate = previewRestructure(p).freed;
+                        void actions.restructure(p.id).then((r) => {
+                          setMoveNote({
+                            id: p.id,
+                            ok: r.ok,
+                            text: r.ok
+                              ? `Restructured — ${millions(r.freed ?? estimate ?? 0)} off this year's cap, moved into the rest of the deal.`
+                              : (r.reason ?? "Couldn't restructure that deal."),
+                          });
                         });
                       }}
                       disabled={!previewRestructure(p).ok}
@@ -274,7 +281,13 @@ export function RosterCapManagement() {
                     <button onClick={() => setExtending(p)}>Extend</button>
                     {confirming === p.id ? (
                       <>
-                        <button className="btn-danger" onClick={() => { s.releasePlayer(p.id); setConfirming(null); }}>
+                        <button
+                          className="btn-danger"
+                          onClick={() => {
+                            void actions.releasePlayer(p.id);
+                            setConfirming(null);
+                          }}
+                        >
                           Confirm release
                         </button>
                         <button onClick={() => setConfirming(null)}>Keep him</button>
@@ -374,22 +387,26 @@ export function RosterCapManagement() {
             setExtending(null);
           }}
           onSubmit={(offer) => {
-            const r = s.extendPlayer(extending.id, {
-              baseSalary: offer.baseSalary,
-              years: offer.years,
-              guaranteed: offer.guaranteed,
-            });
-            if (r.ok) {
-              setExtendError(null);
-              setMoveNote({
-                id: extending.id,
-                ok: true,
-                text: `Extended — ${offer.years} more years at ${millions(offer.baseSalary)} a year.`,
+            const who = extending.id;
+            void actions
+              .extend(who, {
+                baseSalary: offer.baseSalary,
+                years: offer.years,
+                guaranteed: offer.guaranteed,
+              })
+              .then((r) => {
+                if (r.ok) {
+                  setExtendError(null);
+                  setMoveNote({
+                    id: who,
+                    ok: true,
+                    text: `Extended — ${offer.years} more years at ${millions(offer.baseSalary)} a year.`,
+                  });
+                  setExtending(null);
+                } else {
+                  setExtendError(r.reason ?? "He turned it down.");
+                }
               });
-              setExtending(null);
-            } else {
-              setExtendError(r.reason ?? "He turned it down.");
-            }
           }}
         />
       )}
