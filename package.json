@@ -24,6 +24,7 @@
     "pool:import-csv": "tsx src/data/pool-csv.ts import",
     "analysis:audit": "node --max-old-space-size=4096 --import tsx analysis/00_schema_audit.ts",
     "online": "tsx watch --tsconfig online/tsconfig.json online/src/index.ts",
+    "online:start": "tsx --tsconfig online/tsconfig.json online/src/index.ts",
     "online:typecheck": "tsc -p online/tsconfig.json",
     "online:migrate": "tsx --tsconfig online/tsconfig.json online/src/migrate.ts",
     "online:test": "vitest run --root online"

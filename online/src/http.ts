@@ -68,18 +68,33 @@ function cookies(req: IncomingMessage): Record<string, string> {
   return out;
 }
 
+/**
+ * `SameSite=Lax` in dev, `SameSite=None; Secure` in production — and this
+ * isn't a style choice, it's the difference between the cookie working and
+ * silently not being sent.
+ *
+ * Locally the UI (`localhost:5173`) and the API (`localhost:8788`) are
+ * different ports but the same *site* ("localhost"), so `Lax` covers them.
+ * Deployed, they're two different subdomains of a host-provider domain
+ * (`onrender.com`), which is on the public suffix list — so each subdomain
+ * is its own site, and a cross-site `fetch(..., {credentials:'include'})`
+ * is exactly the request `Lax` exists to hold back. `None` is what a cookie
+ * needs to survive a real cross-origin API call, and browsers require
+ * `Secure` alongside it — which Render's HTTPS gives for free.
+ */
+const cookieAttrs = (): string =>
+  process.env.NODE_ENV === "production" ? "SameSite=None; Secure" : "SameSite=Lax";
+
 export function setSessionCookie(res: ServerResponse, token: string): void {
-  // HttpOnly so a script can't read it, SameSite=Lax so a cross-site form
-  // can't spend it, Secure whenever we're not on a developer's localhost.
-  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  // HttpOnly so a script can't read it either way.
   res.setHeader(
     "Set-Cookie",
-    `sid=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 86_400}${secure}`,
+    `sid=${token}; Path=/; HttpOnly; ${cookieAttrs()}; Max-Age=${30 * 86_400}`,
   );
 }
 
 export function clearSessionCookie(res: ServerResponse): void {
-  res.setHeader("Set-Cookie", "sid=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0");
+  res.setHeader("Set-Cookie", `sid=; Path=/; HttpOnly; ${cookieAttrs()}; Max-Age=0`);
 }
 
 export function requireUser(ctx: Ctx): User {

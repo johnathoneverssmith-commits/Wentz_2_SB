@@ -11,8 +11,17 @@ import type { LeagueState } from "@/domain";
 
 const { Pool } = pg;
 
+const url = process.env.DATABASE_URL ?? "postgres://localhost:5432/nfl_franchise";
+// Managed Postgres (Neon, Render, Supabase, ...) requires TLS and presents a
+// cert chain `pg` won't validate out of the box; a developer's own localhost
+// never does. `rejectUnauthorized: false` still encrypts the connection —
+// what it skips is verifying the CA, which is a reasonable trade for a
+// single small hobby database and not one worth a bundled root-cert file for.
+const isLocal = /^postgres(ql)?:\/\/(localhost|127\.0\.0\.1)([:/]|$)/.test(url);
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL ?? "postgres://localhost:5432/nfl_franchise",
+  connectionString: url,
+  ssl: isLocal ? undefined : { rejectUnauthorized: false },
   // a small league server; the default of 10 is already generous
   max: Number(process.env.DB_POOL_MAX ?? 8),
 });
