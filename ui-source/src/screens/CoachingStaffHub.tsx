@@ -52,7 +52,7 @@ function HiringWindow({ code }: { code: string | undefined }) {
     // see FreeAgencyBoard: online this market belongs to the server
     if (actions.online) return;
     if (!s.coachingHire) startBidding("coaches");
-  }, [s.coachingHire, startBidding]);
+  }, [s.coachingHire, startBidding, actions.online]);
 
   const fa = s.coachingHire;
   const [remaining, setRemaining] = useState(fa?.secondsRemaining ?? 720);
