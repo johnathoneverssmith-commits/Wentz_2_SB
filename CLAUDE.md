@@ -48,8 +48,20 @@ A **coaching layer** (`staff.ts` / `staff-shift.ts` /
 effects on top of the player ratings — `simulateGame(…, {homeStaff, awayStaff})`,
 default ON in the season sims with the 32 authored v0 staffs; a
 `leagueAverageStaff` is exactly zero (see `docs/decisions.md` → A1 add-on). Headless + deterministic; round-robin `simulateSeason`
-stays as the pool-free guard. No UI, no multiplayer yet. Next: the
-franchise/game layer (offseason: draft, FA, aging) on top of `src/engine/`.
+stays as the pool-free guard.
+
+**Phases 2-6 are built on top of this.** `ui-source/` is the franchise UI (a
+complete single-player dynasty, React + Vite); `server/` is the stateless
+adapter that lets it play real engine games; `online/` is a league server with
+Postgres, accounts and asynchronous multi-GM play — written and tested, and
+**deliberately not deployed**. See the top-level `README.md` for where each
+part stands and `online/README.md` for the multiplayer design.
+
+Two measurements live in `analysis/` as TypeScript rather than Python, because
+they measure the TS engine: `26_*`/`27_win_probability.ts` (what a rating gap
+is worth — and the finding that the engine has no home-field advantage,
+`docs/decisions.md` → OQ-10) and the draft-outcome fit behind
+`ui-source/src/sim/draft-outcomes.ts`.
 
 Engine toolchain split: the §28 audit is TypeScript (`analysis/00_schema_audit.ts`,
 `hyparquet`); everything from Phase B on is Python (scikit-learn) in
