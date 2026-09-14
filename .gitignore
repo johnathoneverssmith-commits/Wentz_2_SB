@@ -23,6 +23,9 @@ __pycache__/
 /data/players.local.json
 /data/*.local.json
 /data/*.csv
+# scratch output of `generate:pool`; the shipped copy lives in
+# ui-source/src/data/pool-2026.json (see CLAUDE.md)
+/data/pool_*.json
 
 # nflverse play-by-play — large; download separately (see analysis/README.md).
 # The engine's runtime never loads these; only analysis/ does, to build artifacts/.

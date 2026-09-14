@@ -131,6 +131,14 @@ docs/       engine_spec.md is the full engine build contract
 - Never commit `data/*.csv` or `data/*.local.json`. The CSV path is only for a
   user-supplied Madden export (EA's data — local use, not redistribution);
   generated pools are just large and regenerable.
+- The exception is `ui-source/src/data/pool-2026.json`, which **is** committed:
+  it is nflverse-derived (openly licensed real names/teams/ages, no EA data),
+  and it has to ship or the deployed game invents its players. Regenerate with
+  `npm run generate:pool -- --season <year> --out <path>` and copy it over.
+  Only identity comes from nflverse; every rating is still the `src/model/`
+  heuristic. Real rosters do not cover this game's roster template, so
+  `generateInitialPool` tops each team up with generated depth — the people
+  you have heard of are real, the practice squad is not.
 
 ## Conventions
 

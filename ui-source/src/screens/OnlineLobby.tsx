@@ -9,7 +9,7 @@ import { OnlineError, OnlineLeagueClient } from "@/sim/OnlineLeagueClient";
 import { goLocal, isOnline, joinLeague, onlineSession } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
-import type { Stage } from "@/domain";
+import type { DeadlineChoice, Difficulty, RandomEventRate, Stage } from "@/domain";
 
 /**
  * The door into an online league.
@@ -504,6 +504,45 @@ function JoinByInvite({
   );
 }
 
+/**
+ * One league rule, laid out like the single-player setup screen's.
+ *
+ * Kept local to this file rather than shared with `LeagueSetup`: that screen
+ * edits a league that already exists and can save as you go, while this one
+ * is a form that has to be complete before anything is created. They look the
+ * same on purpose and behave differently for a reason.
+ */
+function OnlineSetting({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "12px 0",
+        borderBottom: "1px solid var(--line)",
+        gap: 14,
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
+        <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
+          {hint}
+        </p>
+      </div>
+      <div style={{ flexShrink: 0 }}>{children}</div>
+    </div>
+  );
+}
+
 function CreateLeague({
   busy,
   attempt,
@@ -517,6 +556,18 @@ function CreateLeague({
   const [slots, setSlots] = useState(4);
   const [hours, setHours] = useState(48);
   const [invite, setInvite] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // The rules, with the same defaults the single-player game uses. These are
+  // fixed for the life of the league once it is created — there is no editing
+  // them out from under GMs who joined on the strength of them — so the form
+  // is the only place they can be set.
+  const [fantasyDraft, setFantasyDraft] = useState(true);
+  const [draftType, setDraftType] = useState<"snake" | "linear">("snake");
+  const [draftOrder, setDraftOrder] = useState<"randomized" | "inOrder">("randomized");
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [randomEvents, setRandomEvents] = useState<RandomEventRate>("some");
+  const [gameDayHours, setGameDayHours] = useState<DeadlineChoice>(24);
 
   return (
     <>
@@ -529,6 +580,15 @@ function CreateLeague({
               name: name.trim(),
               humanSlots: slots,
               phaseTimeoutHours: hours,
+              config: {
+                fantasyDraft,
+                draftType,
+                draftOrder,
+                difficulty,
+                randomEvents,
+                gameDayDeadlineHours: gameDayHours,
+                offseasonStageDeadlineHours: hours > 48 ? 48 : (hours as DeadlineChoice),
+              },
             });
             setInvite(made.inviteCode);
             onCreated();
@@ -559,6 +619,111 @@ function CreateLeague({
             ))}
           </select>
         </label>
+        <button
+          type="button"
+          className="btnlink"
+          onClick={() => setShowSettings((v) => !v)}
+          style={{ justifySelf: "start", padding: 0 }}
+        >
+          {showSettings ? "Hide league settings" : "League settings"}
+        </button>
+
+        {showSettings && (
+          <div style={{ marginTop: 2 }}>
+            <p style={{ margin: "0 0 4px", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+              These are fixed once the league is created — other GMs join on the strength of them,
+              so there is no changing them afterwards.
+            </p>
+
+            <OnlineSetting
+              label="Fantasy draft"
+              hint="Every team starts empty and the whole league is drafted. Off, teams keep their real rosters."
+            >
+              <select
+                value={fantasyDraft ? "on" : "off"}
+                onChange={(e) => setFantasyDraft(e.target.value === "on")}
+              >
+                <option value="on">On</option>
+                <option value="off">Off</option>
+              </select>
+            </OnlineSetting>
+
+            <OnlineSetting
+              label="Draft type"
+              hint="Snake reverses each round, so a late first-rounder picks early in the second."
+            >
+              <select
+                value={draftType}
+                disabled={!fantasyDraft}
+                onChange={(e) => setDraftType(e.target.value as "snake" | "linear")}
+              >
+                <option value="snake">Snake</option>
+                <option value="linear">Linear</option>
+              </select>
+            </OnlineSetting>
+
+            <OnlineSetting
+              label="Draft order"
+              hint="Randomized draws the whole league out of a hat. In order puts the GMs first, by slot."
+            >
+              <select
+                value={draftOrder}
+                disabled={!fantasyDraft}
+                onChange={(e) => setDraftOrder(e.target.value as "randomized" | "inOrder")}
+              >
+                <option value="randomized">Randomized</option>
+                <option value="inOrder">In order</option>
+              </select>
+            </OnlineSetting>
+
+            <OnlineSetting
+              label="Difficulty"
+              hint="How hard the AI GMs work at their rosters and their in-game decisions."
+            >
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value as Difficulty)}
+              >
+                <option value="easy">Easy</option>
+                <option value="normal">Normal</option>
+                <option value="hard">Hard</option>
+                <option value="impossible">Impossible</option>
+              </select>
+            </OnlineSetting>
+
+            <OnlineSetting
+              label="Random events"
+              hint="Mid-season holdouts, locker-room stories and the rest. None keeps it purely on the field."
+            >
+              <select
+                value={randomEvents}
+                onChange={(e) => setRandomEvents(e.target.value as RandomEventRate)}
+              >
+                <option value="none">None</option>
+                <option value="few">Few</option>
+                <option value="some">Some</option>
+                <option value="many">Many</option>
+              </select>
+            </OnlineSetting>
+
+            <OnlineSetting
+              label="Hours per game week"
+              hint="How long a game week waits on a GM before their staff plays it for them."
+            >
+              <select
+                value={gameDayHours}
+                onChange={(e) => setGameDayHours(Number(e.target.value) as DeadlineChoice)}
+              >
+                {[2, 6, 12, 24, 48].map((n) => (
+                  <option key={n} value={n}>
+                    {n}h
+                  </option>
+                ))}
+              </select>
+            </OnlineSetting>
+          </div>
+        )}
+
         <button type="submit" className="btn-primary" disabled={busy || name.trim() === ""}>
           Create league
         </button>

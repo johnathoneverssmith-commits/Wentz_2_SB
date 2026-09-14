@@ -18,7 +18,7 @@
  * moved on since, and the client is told to reload rather than silently
  * clobbering somebody.
  */
-import type { ContractOffer, LeagueState, Position } from "@/domain";
+import type { ContractOffer, LeagueConfig, LeagueState, Position } from "@/domain";
 
 export interface OnlineUser {
   id: string;
@@ -119,8 +119,13 @@ export class OnlineLeagueClient {
       }[];
     }>("/leagues");
 
-  createLeague = (input: { name: string; humanSlots?: number; phaseTimeoutHours?: number }) =>
-    this.call<{ leagueId: string; inviteCode: string }>("/leagues", input);
+  createLeague = (input: {
+    name: string;
+    humanSlots?: number;
+    phaseTimeoutHours?: number;
+    /** League rules. The server merges these over its defaults. */
+    config?: Partial<LeagueConfig>;
+  }) => this.call<{ leagueId: string; inviteCode: string }>("/leagues", input);
 
   lookUpInvite = (code: string) =>
     this.call<{ league: { id: string; name: string }; openTeams: string[] }>(

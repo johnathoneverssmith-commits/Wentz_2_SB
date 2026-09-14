@@ -27,11 +27,36 @@ import {
   projectionLabel,
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
+import poolJson from "@/data/pool-2026.json";
 import { nflSchedule } from "../../../src/engine/schedule.js";
 import { NFL_TEAMS } from "../../../src/engine/nfl-structure.js";
 
 /** The engine spells the Rams "LA"; this app spells them "LAR". */
 const fromEngineCode = (code: string): string => (code === "LA" ? "LAR" : code);
+
+/**
+ * The shipped 2026 pool, ready to hand to `normalizePool`.
+ *
+ * Deliberately defensive: a malformed or missing pool falls back to the
+ * invented league rather than leaving somebody unable to start a game at all.
+ * Parsed once — it is a megabyte and a half, and every new league would
+ * otherwise pay for it again.
+ */
+let cachedPool: Player[] | null = null;
+function realPool(): Player[] {
+  if (cachedPool) return cachedPool.map((p) => ({ ...p }));
+  try {
+    const raw = (poolJson as { players?: unknown }).players ?? poolJson;
+    if (!Array.isArray(raw)) return [];
+    const players = (raw as Player[])
+      .filter((p) => p && p.id && p.name && p.position)
+      .map((p) => ({ ...p, nfl_team: fromEngineCode(p.nfl_team) }));
+    cachedPool = players;
+    return players.map((p) => ({ ...p }));
+  } catch {
+    return [];
+  }
+}
 
 
 import { fullPersonName, personName, school } from "./names.ts";
@@ -133,11 +158,90 @@ export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: nu
   return -Math.round(loss);
 }
 
-let PID = 0;
+/**
+ * Generated player ids start past every real one.
+ *
+ * The shipped pool numbers its people `p_00001` upward, and this counter used
+ * to start at zero and produce exactly the same strings. Players are stored in
+ * a map keyed by id, so the first generated depth player landed on top of
+ * `p_00001` and took his place — the league quietly lost real players and put
+ * strangers on their teams, which is how Maxx Crosby turned up in Kansas City.
+ * Every later generator (rookies, market free agents) had the same collision
+ * waiting for it.
+ *
+ * Starting above the pool's highest id costs nothing and closes all of them.
+ */
+let PID = highestRealPid();
 const nextPid = () => `p_${String(++PID).padStart(5, "0")}`;
 
+function highestRealPid(): number {
+  let max = 0;
+  for (const p of realPool()) {
+    const n = Number(/^p_(\d+)$/.exec(p.id)?.[1] ?? 0);
+    if (n > max) max = n;
+  }
+  return max;
+}
+
 export class MockSimulationService implements SimulationService {
+  /**
+   * The real league, by name.
+   *
+   * This used to invent all 1,700-odd players from position priors and a
+   * name generator, so a deployed game was full of people who do not exist —
+   * plausible rosters, nobody you had ever heard of. The real pool was built
+   * from nflverse (openly licensed: real names, teams, ages, experience) and
+   * lived only on the machine that generated it, reachable through the
+   * optional local adapter, which meant the standalone build, the deployed
+   * site and every online league got the invented one.
+   *
+   * It ships with the app now. The engine's own ratings model derives the
+   * numbers, so only identity comes from nflverse, and the synthetic path
+   * stays as the fallback for a league that isn't the real thirty-two.
+   *
+   * Coaches were already real; the players are the half that wasn't.
+   */
   generateInitialPool(seed: number, mode: "fantasyPool" | "realRosters"): Player[] {
+    const real = realPool();
+    if (real.length === 0) return this.inventPool(seed, mode);
+
+    // A real roster is not a template. nflverse lists who is on the team, and
+    // that is routinely short of what this game needs to field a lineup — a
+    // scraped roster can have no listed centre, no kicker, no punter at all,
+    // and the first check of this showed 348 such holes across the league,
+    // with Seattle unable to put eleven men on either side of the ball.
+    //
+    // The synthetic pool never had the problem because it *was* the template.
+    // So the real players stay exactly as they are and the depth behind them
+    // is generated, which is the same split the game already makes everywhere
+    // else: the people you have heard of are real, the practice squad is not.
+    const rng = new Rng(seed ^ 0x5151);
+    const byTeam = new Map<string, Map<Position, number>>();
+    for (const p of real) {
+      if (p.retired) continue;
+      const have = byTeam.get(p.nfl_team) ?? new Map<Position, number>();
+      have.set(p.position, (have.get(p.position) ?? 0) + 1);
+      byTeam.set(p.nfl_team, have);
+    }
+
+    const filler: Player[] = [];
+    for (const team of TEAMS) {
+      const have = byTeam.get(team.code) ?? new Map<Position, number>();
+      for (const slot of ROSTER_TEMPLATE) {
+        const short = slot.count - (have.get(slot.pos) ?? 0);
+        for (let d = 0; d < short; d++) {
+          // depth, not starters: these sit behind whoever is really there
+          const base = POSITION_PRIOR[slot.pos] - 6 - d * 2 + rng.normal(0, 3);
+          filler.push(
+            this.buildPlayer(rng, slot.pos, clamp(Math.round(base), 52, 74), team.code, mode),
+          );
+        }
+      }
+    }
+    return [...real, ...filler];
+  }
+
+  private inventPool(seed: number, mode: "fantasyPool" | "realRosters"): Player[] {
     const rng = new Rng(seed ^ 0x1111);
     const players: Player[] = [];
     // team strength offsets so the league isn't flat

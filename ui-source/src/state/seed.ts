@@ -888,6 +888,13 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
   }
 
   const pool = sim.generateInitialPool(seed, "realRosters");
+  // The pool arrives unowned and unpaid — real players carry their team but
+  // no contract, because nflverse knows who is on a roster and not what the
+  // game should charge for them. `store.newLeague` has always normalised the
+  // adapter's pool for this reason; this synchronous path never had to,
+  // because the invented pool came pre-signed. Now that it is the real league,
+  // it does: without this every player is a free agent and no team has anyone.
+  normalizePool(pool, config.fantasyDraft, seed);
   const players: Record<string, Player> = {};
   for (const p of pool) players[p.id] = p;
 
