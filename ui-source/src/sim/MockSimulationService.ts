@@ -37,6 +37,7 @@ import {
 } from "./roster-template.ts";
 import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
 import { expectedRookieOverall, rookieOverallSpread } from "./draft-outcomes.ts";
+import { winChance, winProbability } from "./win-probability.ts";
 import { futureDiscount } from "@/state/draftPicks.ts";
 import {
   DEFENSE_SCHEMES,
@@ -608,7 +609,9 @@ export class MockSimulationService implements SimulationService {
       }
       const hi = this.teamOverall(state, m.highSeed.code);
       const lo = this.teamOverall(state, m.lowSeed.code);
-      const pHigh = clamp(0.5 + (hi - lo) * 0.02 + 0.04, 0.1, 0.9);
+      // the same measured curve the UI quotes, so the odds shown before a
+      // playoff game are the odds the fallback actually plays it at
+      const pHigh = winChance(hi, lo);
       m.favoredWinProb = Math.round(pHigh * 100);
       const highWins = rng.bool(pHigh);
       const winScore = rng.int(20, 34);
@@ -812,7 +815,7 @@ function wcMatchups(conf: "AFC" | "NFC", seeds: string[], state: LeagueState): B
 function favProb(state: LeagueState, a: string, b: string): number {
   const oa = state.teams[a]?.ratings.overall ?? 75;
   const ob = state.teams[b]?.ratings.overall ?? 75;
-  return clamp(Math.round((0.5 + (oa - ob) * 0.02) * 100), 10, 90);
+  return winProbability(oa, ob);
 }
 
 function buildNextRound(round: PlayoffRound, b: BracketState, state: LeagueState): BracketMatchup[] {

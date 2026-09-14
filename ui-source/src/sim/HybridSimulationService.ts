@@ -60,6 +60,7 @@ import { availableRoster } from "@/state/injuries.ts";
 import { MockSimulationService } from "./MockSimulationService.ts";
 import { fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
+import { winProbability } from "./win-probability.ts";
 import type { RetirementOutcome, SimulationService, TradeEvaluation } from "./SimulationService.ts";
 
 // mirrors nfl-franchise-sim/src/engine/staff.ts's OFF_SCHEME_TAGS/DEF_SCHEME_TAGS
@@ -85,12 +86,18 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 // stateless-replay adapter reproduces the same earlier rounds every call.
 const playoffSeed = (state: LeagueState): number => state.season * 1_000_003 + 777;
 
-/** Cosmetic pre-game favorite, from team ratings — same formula Mock uses;
- *  the engine doesn't expose a win probability, only the simulated result. */
+/**
+ * Pre-game favourite, from team ratings.
+ *
+ * The engine doesn't expose a win probability — only the result of playing
+ * the game — so this is the curve fitted to 47,616 of its games, which is as
+ * close to asking it as you can get without playing this one a thousand
+ * times. Same curve the Mock and the team hub quote.
+ */
 function favProb(state: LeagueState, a: string, b: string): number {
   const oa = state.teams[a]?.ratings.overall ?? 75;
   const ob = state.teams[b]?.ratings.overall ?? 75;
-  return clamp(Math.round((0.5 + (oa - ob) * 0.02) * 100), 10, 90);
+  return winProbability(oa, ob);
 }
 
 /** Wild Card round pairing (1-seed bye; 2v7, 3v6, 4v5) — pure, no RNG. */

@@ -864,3 +864,45 @@ not-yet-modeled draft-class evaluation and coach-hiring logic. Any
 `ui-source/src/sim/MockSimulationService.ts` replacement (or the UI's own
 AI-GM logic once real-backed) should be evaluated against this before
 shipping, not just "does the roster's average `overall` look plausible."
+
+## OQ-10 — Home-field advantage (measured: there isn't one)
+
+**Status: open — a known gap in the engine, quantified but not closed.**
+
+Measuring what a rating gap is worth (`analysis/27_win_probability.ts`,
+47,616 games: every ordered pair of the 32 rosters plus weakened copies, three
+seeds each, injuries on, no coaching layer) answered a question it wasn't
+asked. Fitting
+
+    P(home win) = 1 / (1 + exp(-(A + B * gap)))
+
+returns **A = -0.013**, i.e. 49.7% for an even matchup. And that residue is
+not a small home-field edge: 1.0% of games end tied, a tie is not a home win,
+and scoring ties against the home team moves an even matchup from 0.500 to
+about 0.495 — log-odds -0.02. The intercept *is* the tie rate. The engine
+gives the home team nothing.
+
+Real NFL home teams win about 55%, and have for decades (it fell to ~52% in
+2020 with no crowds, which is itself evidence the effect is real). So this is
+a genuine fidelity gap.
+
+**Why it isn't fixed here.** The engine's game model has been validated
+against §22 at 16/20 within 10%, and a home-field term touches every play:
+it would have to enter somewhere specific — a small shift in the rating layer,
+a penalty-rate asymmetry, a false-start / crowd-noise effect on the road
+offense — and whichever door it comes through, every validated number moves
+and the calibration has to be re-run. That is an engine change with a
+validation cost, not a constant to add to a tooltip.
+
+**What was done instead.** The UI stopped claiming an advantage the simulator
+doesn't grant. `ui-source/src/sim/win-probability.ts` reports the measured
+curve, and its intercept is exactly zero. The old display formula
+(`0.5 + 0.02 * gap + 4%`) asserted a 54% home team and was wrong about the
+slope as well — it called a twelve-point underdog a 30% chance where the
+engine says 16%.
+
+**When to revisit:** before any release that claims per-game realism, or
+alongside the next §22 re-calibration, when the validation is being re-run
+anyway. `B = 0.147` per rating point is the yardstick for how large a shift
+any home-field term would need to be: +2.5 percentage points at an even
+matchup is about a third of a rating point.
