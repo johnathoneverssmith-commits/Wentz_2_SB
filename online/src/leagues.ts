@@ -207,6 +207,17 @@ export async function claimTeam(
     if (gm) {
       gm.teamCode = teamCode;
       gm.isHuman = true;
+      // The slot still carries the name the single-player seed invented for
+      // whichever AI GM used to hold it, so a real person showed up around the
+      // league as "Priya" or "Marcus" — in the standings, in trade offers, in
+      // the weekly notes. Take the account's name instead; it is what they
+      // chose and what the other GMs know them by.
+      const named = await client.query<{ name: string }>(
+        `SELECT name FROM users WHERE id = $1`,
+        [userId],
+      );
+      const name = named.rows[0]?.name;
+      if (name) gm.name = name;
     }
     if (state.teams[teamCode]) {
       state.teams[teamCode]!.controlledBy = { kind: "human", gmId: open.gm_id };

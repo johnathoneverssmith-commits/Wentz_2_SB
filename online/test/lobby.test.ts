@@ -143,6 +143,20 @@ describe("a league you just created", () => {
     expect(gms.filter((g) => g.isHuman).map((g) => g.teamCode)).toEqual(["SEA"]);
   });
 
+  maybe()("puts the claiming account's own name on the GM slot", async () => {
+    const { leagueId } = await createOnlineLeague(userId, { name: "Naming Test", humanSlots: 4 });
+    madeLeagues.push(leagueId);
+    await claimTeam(leagueId, userId, "DEN");
+
+    const row = await pool.query<{ state: LeagueState }>(
+      `SELECT state FROM league_state WHERE league_id = $1`,
+      [leagueId],
+    );
+    const mine = row.rows[0]!.state.gms.find((g) => g.teamCode === "DEN");
+    // not the seed's invented AI name for whoever held the slot before
+    expect(mine!.name).toBe(userId);
+  });
+
   maybe()("does not leak the invite code to a GM who merely joined", async () => {
     const other = `lobby_other_${Date.now()}`;
     await pool.query(
