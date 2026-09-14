@@ -1,7 +1,9 @@
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
+import { isOnline, resumeLeague, lastLeagueId } from "@/state/online";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
@@ -34,9 +36,45 @@ function StageHome() {
   return <Navigate to={STAGE_HOME[stage]} replace />;
 }
 
+/**
+ * Put the online session back before anything reads the league.
+ *
+ * The store rehydrates the league from localStorage on its own, so without
+ * this a refresh renders a shared league that is no longer connected to the
+ * server — and every action writes to a private copy instead. Holding the
+ * first paint for one request is the cheaper mistake: it only happens when
+ * this browser was in a league, and getting it wrong is silent.
+ */
+function useResumeOnline(): boolean {
+  const [settled, setSettled] = useState(() => isOnline() || lastLeagueId() === null);
+  useEffect(() => {
+    if (settled) return;
+    let live = true;
+    void resumeLeague()
+      .then((state) => {
+        if (live && state) useStore.setState(state as never);
+      })
+      .finally(() => {
+        if (live) setSettled(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, [settled]);
+  return settled;
+}
+
 export function App() {
   // keyed on the route so navigating away from a crashed screen clears it
   const { pathname } = useLocation();
+  const settled = useResumeOnline();
+  if (!settled) {
+    return (
+      <AppShell>
+        <div className="emptystate">Reconnecting to your league…</div>
+      </AppShell>
+    );
+  }
   return (
     <AppShell>
       <ScreenBoundary resetKey={pathname}>

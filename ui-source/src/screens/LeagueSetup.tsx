@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
+import { isOnline } from "@/state/online";
 import { DIVISIONS, TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import type { DeadlineChoice, Difficulty, RandomEventRate, TeamMeta } from "@/domain";
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
@@ -26,6 +27,9 @@ export function LeagueSetup() {
   // Once the league has started, this screen is a read-only summary: switching
   // teams or rules mid-dynasty would corrupt the season in progress.
   const locked = stage !== "setup";
+  // the same screen serves both modes, and almost every sentence on it means
+  // something different depending on which one you are in
+  const online = isOnline();
 
   const viewer = gms.find((g) => g.id === viewerGmId)!;
   const humans = gms.filter((g) => g.isHuman);
@@ -72,12 +76,19 @@ export function LeagueSetup() {
             the online one both say "GM" and both have a headcount, and only
             one of them lets another person actually sit down. Say so before
             anyone spends ten minutes configuring slots nobody can join. */}
-        {!locked && (
+        {!locked && !online && (
           <div className="notice">
             <strong>This is a solo dynasty.</strong> Every GM below runs on
             this device — the slot count is flavor for scoring, not an
             invitation. For real people to join over an invite code, start a
             league from <Link to="/online">Online Leagues</Link> instead.
+          </div>
+        )}
+        {!locked && online && (
+          <div className="notice">
+            <strong>This is an online league.</strong> The GMs below are real
+            people, and the league starts when every seat is taken — the
+            readiness panel at the bottom says who is still missing.
           </div>
         )}
         <FranchiseBanner meta={myMeta} locked={locked} />

@@ -100,7 +100,70 @@ export function goLocal(): void {
   session?.stopWatching?.();
   session = null;
   news.length = 0;
+  forgetLeague();
   announce();
+}
+
+/**
+ * Which league this browser was last playing, across a reload.
+ *
+ * The league itself is persisted by the store, but the session that makes it
+ * *online* lived only in this module — so a refresh left the server's league
+ * sitting in local state with nothing connecting it to the server. Everything
+ * still rendered, which is what made it dangerous: readying up, signing,
+ * trading all quietly wrote to a private copy that no other GM would ever
+ * see, and the screens said "solo dynasty" while showing a shared league.
+ *
+ * Only the id is kept. The league, the version and who you are all come back
+ * from the server on the next load, which is the only copy that counts.
+ */
+const LAST_LEAGUE_KEY = "fs.online.leagueId";
+
+function rememberLeague(leagueId: string): void {
+  try {
+    window.localStorage.setItem(LAST_LEAGUE_KEY, leagueId);
+  } catch {
+    // a browser that refuses storage just means no resume; not fatal
+  }
+}
+
+function forgetLeague(): void {
+  try {
+    window.localStorage.removeItem(LAST_LEAGUE_KEY);
+  } catch {
+    /* nothing to do */
+  }
+}
+
+export function lastLeagueId(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_LEAGUE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Rejoin the league this browser was in, if it still has a session cookie.
+ *
+ * Failure is ordinary, not exceptional — signed out, league deleted, team
+ * given away, server asleep — and in every one of those cases the right
+ * answer is the same: stay local and say nothing. The caller learns whether
+ * it worked from `isOnline()`.
+ */
+export async function resumeLeague(): Promise<LeagueState | null> {
+  if (session) return null;
+  const leagueId = lastLeagueId();
+  if (!leagueId) return null;
+  try {
+    const { state } = await joinLeague(leagueId);
+    return state;
+  } catch {
+    // Don't forget the id on a transient failure — a sleeping free-tier
+    // server would permanently demote the league to a local copy. The next
+    // load tries again; `goLocal` is what actually clears it.
+    return null;
+  }
 }
 
 /**
@@ -163,6 +226,7 @@ export async function joinLeague(
     stopWatching: null,
   };
   watch();
+  rememberLeague(leagueId);
   announce();
   return { state: asViewer(view.state, view.you.gmId), teamCode: view.you.teamCode };
 }
