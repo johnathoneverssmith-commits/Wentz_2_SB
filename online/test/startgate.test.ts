@@ -106,7 +106,9 @@ describe("starting an online league", () => {
     expect(state.draft).toBeTruthy();
     expect(state.draft!.mode).toBe("fantasy");
     expect(state.draft!.pickOrder.length).toBeGreaterThan(0);
-    expect(state.draft!.currentPickIndex).toBe(0);
+    // the AI teams ahead of the first human have already picked, so the clock
+    // opens on a person rather than on a team nobody is running
+    expect(["KC", "BUF"]).toContain(state.draft!.pickOrder[state.draft!.currentPickIndex]);
     // every team drafts, not just the two humans
     expect(new Set(state.draft!.pickOrder).size).toBe(32);
   });
@@ -145,6 +147,37 @@ describe("starting an online league", () => {
       (p) => p.nfl_team === "KC" && !p.retired && !p.free_agent,
     );
     expect(kc.length).toBeGreaterThan(40);
+  });
+
+  it("hands the clock to a person, not to an AI team", () => {
+    const state = onlineLeague(2);
+    claim(state, 0, "KC");
+    claim(state, 1, "BUF");
+    for (const g of state.gms) state.readiness[g.id] = true;
+    advanceStage(state);
+
+    const d = state.draft!;
+    const onClock = d.pickOrder[d.currentPickIndex];
+    // the league plays its own teams up front; whoever holds the clock when
+    // the dust settles is a human, or the draft would never move again
+    expect(["KC", "BUF"]).toContain(onClock);
+    // and it actually made those picks rather than skipping them
+    expect(d.results.length).toBe(d.currentPickIndex);
+    for (const r of d.results) expect(r.selectedId).toBeTruthy();
+  });
+
+  it("never picks for a team a person runs", () => {
+    const state = onlineLeague(2);
+    claim(state, 0, "KC");
+    claim(state, 1, "BUF");
+    for (const g of state.gms) state.readiness[g.id] = true;
+    advanceStage(state);
+
+    const human = new Set(["KC", "BUF"]);
+    const d = state.draft!;
+    for (let i = 0; i < d.currentPickIndex; i++) {
+      expect(human.has(d.pickOrder[i]!)).toBe(false);
+    }
   });
 
   it("lets the commissioner start short, deliberately", () => {

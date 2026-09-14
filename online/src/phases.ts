@@ -30,6 +30,7 @@ import {
   openStandingMarketFromUndrafted,
   planAutopicks,
   rosterGate,
+  runAiPicks,
   signAiDraftPicks,
   applyPick,
 } from "@/state/rules.ts";
@@ -144,6 +145,9 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "offseasonDraft" && state.draft?.mode !== "rookie") {
     beginDraft(state, "rookie");
   }
+  // whoever opens the board, the league plays its own teams up to the first
+  // pick a person actually owes
+  runAiPicks(state);
 
   // The rest mirrors the single-player `tryAdvance`, which does this work in
   // the same order. Online it was simply absent: the server set a stage field
@@ -205,6 +209,8 @@ export function autopilotAbsent(state: LeagueState): string[] {
         played.push(onTheClock);
       }
     }
+    // and then the league's own teams, so the clock lands on a person again
+    played.push(...runAiPicks(state));
     return played;
   }
 

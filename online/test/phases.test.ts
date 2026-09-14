@@ -72,19 +72,30 @@ describe("when the clock runs out", () => {
     expect(state.draft.results).toHaveLength(1);
   });
 
-  it("leaves an AI team's pick to the draft itself", () => {
+  /**
+   * This used to expect the opposite — that an AI team's pick was "left to
+   * the draft itself". Nothing online was the draft itself: single-player the
+   * draft room makes those picks in the browser, and online the browser must
+   * not, so the first AI team to reach the clock held it forever and no
+   * deadline could free it. The clock is meant to come to rest on a person,
+   * and if the sweeper ever finds it on an AI team, playing that team is the
+   * recovery rather than the bug.
+   */
+  it("plays an AI team's pick rather than leaving the draft stuck", () => {
     state.stage = "offseasonDraft";
     state.gms[0]!.isHuman = false;
+    const aiTeam = state.gms[0]!.teamCode;
     state.draft = {
       mode: "rookie",
       year: state.season,
       order: "linear",
-      pickOrder: [state.gms[0]!.teamCode],
+      pickOrder: [aiTeam],
       currentPickIndex: 0,
       results: [],
       targetsByGm: {},
     };
-    expect(autopilotAbsent(state)).toEqual([]);
+    expect(autopilotAbsent(state)).toEqual([aiTeam]);
+    expect(state.draft.currentPickIndex).toBe(1);
   });
 });
 

@@ -293,6 +293,47 @@ export function planAutopicks(s: LeagueState): string[] {
   return out;
 }
 
+/** Nobody human is running this team, so the league plays it. */
+export function isAiTeam(s: LeagueState, teamCode: string | undefined): boolean {
+  if (!teamCode) return false;
+  return !s.gms.some((g) => g.isHuman && g.teamCode === teamCode);
+}
+
+/**
+ * Take every AI pick up to the next one a person owes.
+ *
+ * Single-player the draft room does this in the browser, between renders, and
+ * it is invisible. Online the browser must not: a client picking for twenty-
+ * eight teams it does not control is twenty-eight picks the other GMs never
+ * agreed to, made from whatever copy of the league that tab happened to hold.
+ * So the server does it, and the league moves to the next human in one step.
+ *
+ * Without this the draft simply stopped. The deadline sweeper only ever
+ * picked for *absent humans*, so the first AI team to reach the clock — pick
+ * one, most of the time — held it forever, and no timeout would free it.
+ *
+ * `planAutopicks` plans the whole remaining board in a single pass, so this
+ * costs one plan rather than one per pick.
+ */
+export function runAiPicks(s: LeagueState): string[] {
+  const d = s.draft;
+  if (!d) return [];
+  if (!isAiTeam(s, d.pickOrder[d.currentPickIndex])) return [];
+
+  const planned = planAutopicks(s);
+  const played: string[] = [];
+  let i = 0;
+  while (d.currentPickIndex < d.pickOrder.length) {
+    const team = d.pickOrder[d.currentPickIndex];
+    if (!isAiTeam(s, team)) break;
+    const pick = planned[i++];
+    if (!pick) break;
+    applyPick(s, pick);
+    played.push(team!);
+  }
+  return played;
+}
+
 export function offerToContract(o: ContractOffer) {
   return {
     team_id: o.teamCode,

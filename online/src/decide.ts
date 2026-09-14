@@ -25,6 +25,7 @@ import {
   checkStandingSign,
   checkTrade,
   offerToContract,
+  runAiPicks,
   type Subject,
 } from "@/state/rules.ts";
 import { extendContract, restructureContract } from "@/state/contracts.ts";
@@ -253,6 +254,9 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
   if (!name) throw new ActionError("That isn't someone you can pick.", 404);
 
   applyPick(state, selectedId);
+  // then the league takes its own picks, up to the next one a person owes —
+  // otherwise the clock stops dead on the first AI team after you
+  const aiPicked = runAiPicks(state);
   return {
     events: [
       {
@@ -261,6 +265,17 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
         summary: `${city(actor.teamCode)} selected ${name}.`,
         detail: { selectedId },
       },
+      ...(aiPicked.length
+        ? [
+            {
+              kind: "draft.ai",
+              summary:
+                aiPicked.length === 1
+                  ? `${city(aiPicked[0]!)} made their pick.`
+                  : `${aiPicked.length} teams made their picks.`,
+            },
+          ]
+        : []),
     ],
   };
 }
