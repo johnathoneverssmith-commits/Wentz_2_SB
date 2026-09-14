@@ -131,6 +131,30 @@ export class AudioEngine {
     this.announce();
   }
 
+  /**
+   * Come back on for someone who already said yes.
+   *
+   * The preference survives a reload but an `AudioContext` cannot: a browser
+   * will only start one inside a user gesture, and loading a page is not one.
+   * So a returning player used to see a control reading "Sound on" and hear
+   * nothing at all until they toggled it off and on again.
+   *
+   * This waits for the first gesture of the session — any click, any key —
+   * and resumes then. It is armed only when the player has already opted in,
+   * so it can never start audio nobody asked for, and it unhooks itself the
+   * moment it fires.
+   */
+  armResume(): void {
+    if (typeof window === "undefined" || !this.prefs.enabled || this.live) return;
+    const go = (): void => {
+      window.removeEventListener("pointerdown", go);
+      window.removeEventListener("keydown", go);
+      if (this.prefs.enabled) this.unlock();
+    };
+    window.addEventListener("pointerdown", go);
+    window.addEventListener("keydown", go);
+  }
+
   setEnabled(on: boolean): void {
     this.prefs = { ...this.prefs, enabled: on };
     this.save();
@@ -178,3 +202,11 @@ export class AudioEngine {
 
 /** One engine for the app. Audio hardware is not a thing to have two of. */
 export const audio = new AudioEngine();
+
+// Same convention as the store's `window.__store`, and it earns its place:
+// inspecting audio state from the console through a fresh `import()` gets you
+// a *different* module instance under Vite's dev server, which reports its own
+// untouched defaults and makes the real one look broken.
+if (import.meta.env.DEV && typeof window !== "undefined") {
+  (window as unknown as { __audio: AudioEngine }).__audio = audio;
+}

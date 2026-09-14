@@ -55,6 +55,10 @@ export function useGameAudio(): void {
   const viewerGmId = useStore((s) => s.viewerGmId);
   const myTeam = gms.find((g) => g.id === viewerGmId)?.teamCode ?? "";
 
+  // A player who turned sound on last session gets it back on their first
+  // click, rather than a control that says "on" over silence.
+  useEffect(() => audio.armResume(), []);
+
   // --- the score --------------------------------------------------------
   const mood = moodFor(pathname, stage);
   useEffect(() => {
