@@ -21,6 +21,8 @@
 import type { LeagueState } from "@/domain";
 import { resolveTransition } from "@/state/stageMachine.ts";
 import {
+  advanceBiddingDayOn,
+  beginBidding,
   beginDraft,
   clearReadiness,
   commitRetirements,
@@ -106,7 +108,7 @@ export async function readyUp(
     // the other seats are still empty — see its note in `rules.ts`.
     const outcome =
       ready && humanGate(state) && rosterGate(state)
-        ? advanceStage(state)
+        ? advanceOrTurnDay(state)
         : { moved: false, autopiloted: [] as string[] };
     return {
       result: { moved: outcome.moved, stage: state.stage, autopiloted: outcome.autopiloted },
@@ -118,6 +120,45 @@ export async function readyUp(
     } satisfies { result: AdvanceOutcome } & Applied;
   });
   return result;
+}
+
+/**
+ * Inside a sealed-bid window, "everyone is ready" means the day resolves —
+ * not that the stage is over.
+ *
+ * Single-player the day turns on a twelve-minute countdown in the browser.
+ * That cannot be the rule online: every client runs its own clock, and the
+ * first one to reach zero would resolve a day the others were still bidding
+ * in, against its own copy of the league. So the day turns when every GM says
+ * they are done with it, or when the phase deadline runs out — the same two
+ * things that move everything else in an asynchronous league.
+ */
+function advanceOrTurnDay(state: LeagueState): { moved: boolean; autopiloted: string[] } {
+  const subject =
+    state.stage === "coachingHiring"
+      ? ("coaches" as const)
+      : state.stage === "offseasonFreeAgency"
+        ? ("players" as const)
+        : null;
+  const fa = subject ? state[subject === "coaches" ? "coachingHire" : "freeAgency"] : null;
+  if (subject && fa && fa.mode === "main") {
+    advanceBiddingDayOn(state, subject);
+    // a new day needs everybody's attention again
+    clearReadinessOnline(state);
+    return { moved: false, autopiloted: [] };
+  }
+  return advanceStage(state);
+}
+
+/**
+ * What `readyUp` decides, without a database — the seam the tests use.
+ * Returns whether the *stage* moved (a bidding day turning is not that).
+ */
+export function readyUpLocal(state: LeagueState): boolean {
+  if (!humanGate(state) || !rosterGate(state)) return false;
+  const before = state.stage;
+  advanceOrTurnDay(state);
+  return state.stage !== before;
 }
 
 /**
@@ -240,6 +281,13 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // pick a person actually owes
   runAiPicks(state);
 
+  // The two sealed-bid markets have exactly the draft's problem: the screen
+  // used to open them, so online they never opened at all. A league walked
+  // through `coachingHiring` with nothing to hire from and reached free
+  // agency with nobody on the market.
+  if (state.stage === "coachingHiring") beginBidding(state, "coaches");
+  if (state.stage === "offseasonFreeAgency") beginBidding(state, "players");
+
   // The rest mirrors the single-player `tryAdvance`, which does this work in
   // the same order. Online it was simply absent: the server set a stage field
   // and nothing else, so a league left the draft with twenty-man rosters and
@@ -336,7 +384,8 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
       const { result } = await withLeague(leagueId, async ({ state, league }) => {
         const autopiloted = autopilotAbsent(state);
         // a deadline may not start a league that nobody has finished joining
-        const moved = humanGate(state) && rosterGate(state) ? advanceStage(state).moved : false;
+        const moved =
+          humanGate(state) && rosterGate(state) ? advanceOrTurnDay(state).moved : false;
         return {
           result: { autopiloted, moved },
           state,

@@ -31,7 +31,6 @@ import {
   fillRosterGaps,
   forgetOldRetirees,
   normalizePool,
-  openCapRoomForFreeAgency,
   pruneFreeAgentMarket,
   recomputeTeamRatings,
   releaseToMarket,
@@ -65,14 +64,14 @@ import {
   clearReadiness,
   commitRetirements,
   faField,
-  fillVacantStaffs,
   finalizeSeason,
   humanGate,
   offerToContract,
   openStandingMarketFromUndrafted,
   planAutopicks,
-  resolveBiddingDay,
   sbWonByHuman,
+  advanceBiddingDayOn,
+  beginBidding,
   beginDraft,
   signAiDraftPicks,
   type Subject,
@@ -433,39 +432,7 @@ export const useStore = create<Store>()(
           else list.push(id);
         }),
 
-      startBidding: (subject) =>
-        set((s) => {
-          const field = faField(subject);
-          if (s[field]) return;
-          if (subject === "players") {
-            // The market is whoever's deal has run out, which `expireContracts`
-            // settled when the season was finalized. This used to release an
-            // arbitrary first-160 slice of everyone on a one-year-or-less deal,
-            // so which teams lost players came down to object key order.
-            for (const p of Object.values(s.players)) {
-              if (p.retired || p.free_agent) continue;
-              if (p.contract && p.contract.years_remaining <= 0) releaseToMarket(s, p);
-            }
-            // then cut day, so there is money in the league to spend
-            if (s.stage === "offseasonFreeAgency") openCapRoomForFreeAgency(s);
-            recomputeTeamRatings(s);
-          } else {
-            // coaching: every team starts with zero coaches — all coaches to market
-            for (const c of Object.values(s.coaches)) {
-              c.team = null;
-              c.contract = null;
-            }
-          }
-          s[field] = {
-            subject,
-            mode: "main",
-            day: 1,
-            secondsRemaining: 12 * 60,
-            interstitialVisible: false,
-            bids: {},
-            signed: [],
-          };
-        }),
+      startBidding: (subject) => set((s) => beginBidding(s, subject)),
 
       placeOffer: (subject, id, offer) => {
         const check = checkBid(get(), subject, id, offer);
@@ -483,20 +450,7 @@ export const useStore = create<Store>()(
 
       advanceBiddingDay: (subject) =>
         set((s) => {
-          const fa = s[faField(subject)];
-          if (!fa || fa.mode !== "main") return;
-          resolveBiddingDay(s, subject, fa);
-          if (fa.day >= 5) {
-            // closing day — no team is left without a coaching staff
-            if (subject === "coaches") fillVacantStaffs(s, fa);
-            fa.mode = "standing";
-            fa.interstitialVisible = false;
-          } else {
-            fa.day += 1;
-            fa.secondsRemaining = 12 * 60;
-            fa.interstitialVisible = true;
-          }
-          recomputeTeamRatings(s);
+          advanceBiddingDayOn(s, subject);
         }),
 
       dismissInterstitial: (subject) =>

@@ -36,6 +36,9 @@ export function FreeAgencyBoard() {
   const [signError, setSignError] = useState<string | null>(null);
 
   useEffect(() => {
+    // online the server opens the window when the stage does; a client
+    // opening its own would be a private market nobody else can bid into
+    if (actions.online) return;
     if (isWindowStage && !s.freeAgency) startBidding("players");
   }, [isWindowStage, s.freeAgency, startBidding]);
 
@@ -50,8 +53,13 @@ export function FreeAgencyBoard() {
     return () => clearInterval(t);
   }, [inWindow, fa?.interstitialVisible, fa?.day]);
   useEffect(() => {
+    // online the day is the server's to turn: every client runs its own
+    // countdown, and the first to hit zero would resolve a day the others
+    // were still bidding in. There it turns when every GM is ready, or when
+    // the phase clock runs out.
+    if (actions.online) return;
     if (inWindow && remaining === 0 && !fa?.interstitialVisible) advanceDay("players");
-  }, [inWindow, remaining, fa?.interstitialVisible, advanceDay]);
+  }, [inWindow, remaining, fa?.interstitialVisible, advanceDay, actions.online]);
 
   const windowSigned = new Set(fa?.signed.map((x) => x.id) ?? []);
   const FA_GRID = "1.7fr 0.45fr 0.5fr 1fr auto 16px";

@@ -49,6 +49,8 @@ function HiringWindow({ code }: { code: string | undefined }) {
   const [negotiating, setNegotiating] = useState<Coach | null>(null);
 
   useEffect(() => {
+    // see FreeAgencyBoard: online this market belongs to the server
+    if (actions.online) return;
     if (!s.coachingHire) startBidding("coaches");
   }, [s.coachingHire, startBidding]);
 
@@ -61,6 +63,8 @@ function HiringWindow({ code }: { code: string | undefined }) {
     return () => clearInterval(t);
   }, [fa?.day, fa?.interstitialVisible, fa?.mode]);
   useEffect(() => {
+    // see FreeAgencyBoard: online the server turns the day
+    if (actions.online) return;
     if (fa && fa.mode === "main" && remaining === 0 && !fa.interstitialVisible) advanceDay("coaches");
   }, [remaining, fa?.interstitialVisible, fa?.mode, advanceDay]);
 
@@ -211,7 +215,14 @@ function HiringWindow({ code }: { code: string | undefined }) {
           {missing.length ? `Still need: ${missing.map((r) => ROLE_LABEL[r]).join(", ")}.` : "Full staff signed."}
         </span>
         {fa.mode === "main" ? (
-          <button className="btn-primary" onClick={() => advanceDay("coaches")}>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              // online, readying up is what turns the day — the server owns it
+              if (actions.online) void actions.readyUp(true);
+              else advanceDay("coaches");
+            }}
+          >
             Mark ready for next day
           </button>
         ) : (

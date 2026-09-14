@@ -32,7 +32,9 @@ import {
   clearRoomFor,
   expireContracts,
   marketDeal,
+  openCapRoomForFreeAgency,
   recomputeTeamRatings,
+  releaseToMarket,
 } from "./seed.ts";
 import { DRAFT_ROUNDS, ensureDraftPicks, pickKey, pickOrderFor } from "./draftPicks.ts";
 
@@ -291,6 +293,74 @@ export function planAutopicks(s: LeagueState): string[] {
     }
   }
   return out;
+}
+
+/**
+ * Open a bidding window — the free-agent market, or the coaching market.
+ *
+ * Like the draft, this used to be the screen's job: open Free Agency, find no
+ * window, make one. Online the server never made one, so a league walked
+ * through `coachingHiring` with nothing to hire from and `offseasonFreeAgency`
+ * with nobody to sign — the stage advanced, and the market it existed for
+ * never happened. Verified on the deployed server: a league reached the
+ * preseason with `coachingHire` still null.
+ *
+ * Idempotent: a window that already exists is left exactly as it is, because
+ * re-opening one would throw away everybody's bids.
+ */
+export function beginBidding(s: LeagueState, subject: Subject): void {
+  const field = faField(subject);
+  if (s[field]) return;
+  if (subject === "players") {
+    // the market is whoever's deal has run out
+    for (const p of Object.values(s.players)) {
+      if (p.retired || p.free_agent) continue;
+      if (p.contract && p.contract.years_remaining <= 0) releaseToMarket(s, p);
+    }
+    // then cut day, so there is money in the league to spend
+    if (s.stage === "offseasonFreeAgency") openCapRoomForFreeAgency(s);
+    recomputeTeamRatings(s);
+  } else {
+    // coaching: every team starts with zero coaches — all coaches to market
+    for (const c of Object.values(s.coaches)) {
+      c.team = null;
+      c.contract = null;
+    }
+  }
+  s[field] = {
+    subject,
+    mode: "main",
+    day: 1,
+    secondsRemaining: 12 * 60,
+    interstitialVisible: false,
+    bids: {},
+    signed: [],
+  };
+}
+
+/**
+ * Settle one day of sealed bids and move to the next.
+ *
+ * The day is what makes a sealed-bid market a market: bids go in, the day
+ * turns, everyone finds out together. Online nothing turned the day, so bids
+ * went in and stayed in — the window opened on day one and stopped there.
+ */
+export function advanceBiddingDayOn(s: LeagueState, subject: Subject): boolean {
+  const fa = s[faField(subject)];
+  if (!fa || fa.mode !== "main") return false;
+  resolveBiddingDay(s, subject, fa);
+  if (fa.day >= 5) {
+    // closing day — no team is left without a coaching staff
+    if (subject === "coaches") fillVacantStaffs(s, fa);
+    fa.mode = "standing";
+    fa.interstitialVisible = false;
+  } else {
+    fa.day += 1;
+    fa.secondsRemaining = 12 * 60;
+    fa.interstitialVisible = true;
+  }
+  recomputeTeamRatings(s);
+  return true;
 }
 
 /** Nobody human is running this team, so the league plays it. */
