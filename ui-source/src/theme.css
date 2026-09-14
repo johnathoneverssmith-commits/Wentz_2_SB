@@ -21,7 +21,11 @@
 
   --ink: #f3f4f5;
   --ink-dim: #9ca2a8;
-  --ink-faint: #5c6167;
+  /* 5.2:1 on --panel, and still clears 4.5 on the tinted rows that sit on
+     top of it. Was #5c6167, which measured 2.85:1 — under the 4.5
+     WCAG AA wants for body text, and this token carries most of the app's
+     small text: tab labels, stat captions, helper lines, chevrons. */
+  --ink-faint: #858c94;
 
   /* --team is the controlled team's *readable* accent (see readableAccent in
      data/teams.ts — very dark brands get their lighter secondary), --team-deep

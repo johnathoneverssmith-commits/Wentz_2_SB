@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from "react";
 
-import { TEAMS_BY_CODE } from "@/data/teams";
+import { onColorFor, TEAMS_BY_CODE } from "@/data/teams";
 
 /**
  * Props that make a clickable div behave like a button for keyboard users:
@@ -32,7 +32,8 @@ export function TeamBadge({ code, size = 30 }: { code: string; size?: number }) 
         height: size,
         borderRadius: size <= 22 ? 6 : 8,
         background: t.color,
-        color: t.onColor,
+        // measured, not assumed: white on the Chargers' powder blue is 3.6:1
+        color: onColorFor(t.color),
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",

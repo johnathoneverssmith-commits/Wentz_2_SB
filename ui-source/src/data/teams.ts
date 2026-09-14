@@ -86,12 +86,42 @@ function mixToward(hex: string, target: string, amount: number): string {
  * enough toward white to read against the near-black panels (deep navies like
  * the Colts' would otherwise disappear as button fills and accent text).
  */
+/** WCAG contrast ratio between two hex colours. */
+export function contrastRatio(a: string, b: string): number {
+  const l1 = relativeLuminance(a);
+  const l2 = relativeLuminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+/**
+ * Black or white, whichever is actually readable on `bg`.
+ *
+ * Team badges painted white on the team's own colour regardless, so the
+ * light-primary teams — the Chargers' powder blue, Miami's aqua — printed
+ * white on light at about 3.6:1. Measuring beats the usual luminance
+ * threshold because it gets the near-misses right.
+ */
+export function onColorFor(bg: string): string {
+  return contrastRatio(bg, "#ffffff") >= contrastRatio(bg, "#000000") ? "#ffffff" : "#000000";
+}
+
+/** The surface a team accent is read against, for the lift below. */
+const PANEL_BG = "#15181b";
+
+/**
+ * A team's colour, lightened until it can be *read* on the panel.
+ *
+ * The old rule lifted until relative luminance cleared 0.09, which lands
+ * around 3:1 — fine for a border, short of the 4.5 body text needs. The
+ * Ravens' purple came out at 2.82:1, and it's used for text ("You ·
+ * Baltimore", "BAL vs TEN"), not just chrome. This lifts against the real
+ * measurement instead, so every one of the 32 clears AA.
+ */
 export function readableAccent(t: TeamMeta): { color: string; onColor: string } {
-  if (t.accent) return { color: t.accent, onColor: t.onAccent ?? "#fff" };
-  let c = t.color;
+  let c = t.accent ?? t.color;
   let guard = 0;
-  while (relativeLuminance(c) < 0.09 && guard++ < 12) c = mixToward(c, "#ffffff", 0.14);
-  return { color: c, onColor: relativeLuminance(c) > 0.4 ? "#000" : "#fff" };
+  while (contrastRatio(c, PANEL_BG) < 4.5 && guard++ < 24) c = mixToward(c, "#ffffff", 0.1);
+  return { color: c, onColor: onColorFor(c) };
 }
 
 export const TEAMS_BY_CODE: Record<string, TeamMeta> = Object.fromEntries(

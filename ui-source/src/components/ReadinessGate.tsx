@@ -79,7 +79,11 @@ export function ReadinessGate({
     <div className="readiness">
       <div className="readiness-top">
         <p>{title ?? "Readiness"}</p>
-        <span>{waiting === 0 ? "All GMs ready" : `Waiting on ${waiting} of ${humans.length} GMs`}</span>
+        {/* the one thing on the page that changes without the player doing
+            anything — other GMs readying up — so it's worth announcing */}
+        <span aria-live="polite">
+          {waiting === 0 ? "All GMs ready" : `Waiting on ${waiting} of ${humans.length} GMs`}
+        </span>
       </div>
       <div className="gmchiprow">
         {humans.map((g) => (

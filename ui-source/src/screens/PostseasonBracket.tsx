@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
-import { TEAMS_BY_CODE } from "@/data/teams";
+import { onColorFor, TEAMS_BY_CODE } from "@/data/teams";
 import type { BracketMatchup, PlayoffRound } from "@/domain";
 import { record, ROUND_LABEL, winPct } from "@/domain";
 import { useStore } from "@/state/store";
@@ -273,7 +273,7 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", gap: 8, background: isWinner ? "rgba(111,200,150,0.07)" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-          <span className="oswald" style={{ width: 20, height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, background: t.color, color: t.onColor }}>
+          <span className="oswald" style={{ width: 20, height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, background: t.color, color: onColorFor(t.color) }}>
             {side.seed || "•"}
           </span>
           <span style={{ fontSize: 13, fontWeight: 500 }}>{t.city}</span>
