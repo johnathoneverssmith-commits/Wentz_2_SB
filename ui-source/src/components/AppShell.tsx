@@ -138,10 +138,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           className="reset"
           onClick={() => {
-            if (confirm("Start a brand-new league? This clears the current save.")) newLeague();
+            if (confirm("Start a brand-new solo dynasty? This clears the current save.")) newLeague();
           }}
+          title="Solo play on this device. For a league real people can join, use Online leagues above."
         >
-          New league
+          New solo dynasty
         </button>
       </nav>
       <main className="app-main">

@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -68,6 +68,18 @@ export function LeagueSetup() {
       />
 
       <Panel id="lobby" open={active === "lobby"}>
+        {/* The single most common way to land here confused: this screen and
+            the online one both say "GM" and both have a headcount, and only
+            one of them lets another person actually sit down. Say so before
+            anyone spends ten minutes configuring slots nobody can join. */}
+        {!locked && (
+          <div className="notice">
+            <strong>This is a solo dynasty.</strong> Every GM below runs on
+            this device — the slot count is flavor for scoring, not an
+            invitation. For real people to join over an invite code, start a
+            league from <Link to="/online">Online Leagues</Link> instead.
+          </div>
+        )}
         <FranchiseBanner meta={myMeta} locked={locked} />
 
         <p className="sectionlabel">GM lobby</p>
@@ -182,7 +194,14 @@ export function LeagueSetup() {
         )}
         <SettingRow
           label="Human GM slots"
-          hint="How many people are drafting a team. Remaining teams are AI-controlled."
+          hint={
+            <>
+              Simulated opponents on this device, not real people — this
+              count doesn't create seats anyone else can join. For that,
+              start a league from <Link to="/online">Online Leagues</Link>{" "}
+              instead.
+            </>
+          }
         >
           <select
             value={config.humanGmCount}
@@ -427,7 +446,7 @@ function SettingRow({
   children,
 }: {
   label: string;
-  hint: string;
+  hint: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
