@@ -225,9 +225,9 @@ function StaticField(): JSX.Element {
         const x = OWN + m * U;
         return (
           <g key={`n${m}`}>
-            <text x={x} y={108} textAnchor="middle" fontFamily="Oswald,sans-serif" fontWeight={600}
+            <text x={x} y={108} textAnchor="middle" className="gc-figure" fontWeight={600}
               fontSize={32} letterSpacing={3} fill="var(--gc-turf-line)" fillOpacity={0.62}>{label}</text>
-            <text x={x} y={402} textAnchor="middle" fontFamily="Oswald,sans-serif" fontWeight={600}
+            <text x={x} y={402} textAnchor="middle" className="gc-figure" fontWeight={600}
               fontSize={32} letterSpacing={3} fill="var(--gc-turf-line)" fillOpacity={0.62}
               transform={`rotate(180 ${x} 396)`}>{label}</text>
           </g>
@@ -252,7 +252,7 @@ function Ball({ x, y, team, glow }: { x: number; y: number; team: string; glow: 
       </g>
       <g transform={`translate(${x} ${y - 36})`}>
         <rect x={-24} y={-14} width={48} height={25} rx={6} fill={teamColor(team)} />
-        <text textAnchor="middle" y={5} fontFamily="Oswald,sans-serif" fontWeight={700} fontSize={16}
+        <text textAnchor="middle" y={5} className="gc-figure" fontWeight={700} fontSize={16}
           letterSpacing={0.5} fill="#fff">{team}</text>
       </g>
     </>
@@ -548,7 +548,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
               {([[OWN - EZ / 2, atkRight ? defTeam : dTeam], [TARGET + EZ / 2, atkRight ? dTeam : defTeam]] as const).map(
                 ([x, team]) => (
                   <text key={`ez${x}`} x={x} y={(TOP + BOT) / 2} textAnchor="middle"
-                    transform={`rotate(-90 ${x} ${(TOP + BOT) / 2})`} fontFamily="Oswald,sans-serif"
+                    transform={`rotate(-90 ${x} ${(TOP + BOT) / 2})`} className="gc-figure"
                     fontWeight={700} fontSize={29} letterSpacing={4} fill="var(--gc-turf-ink)" fillOpacity={0.92}>
                     {teamNick(team)}
                   </text>
@@ -557,7 +557,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
 
               {/* who's driving, and which way */}
               <text x={atkRight ? OWN + 10 : TARGET - 10} y={TOP - 22}
-                textAnchor={atkRight ? "start" : "end"} fontFamily="Oswald,sans-serif" fontWeight={600}
+                textAnchor={atkRight ? "start" : "end"} className="gc-figure" fontWeight={600}
                 fontSize={15} letterSpacing={1.5} fill="var(--ink-dim)">
                 {atkRight ? `${dTeam} driving ▶` : `◀ ${dTeam} driving`}
               </text>

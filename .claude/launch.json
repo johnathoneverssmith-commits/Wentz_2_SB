@@ -4,14 +4,37 @@
     {
       "name": "ui",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "ui-source"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "ui-source"
+      ],
       "port": 5173
     },
     {
       "name": "engine-adapter",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "server"],
+      "runtimeArgs": [
+        "run",
+        "server"
+      ],
       "port": 8787
+    },
+    {
+      "name": "standalone-build",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "--prefix",
+        "ui-source",
+        "--",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }

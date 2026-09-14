@@ -64,14 +64,14 @@
   flex-shrink: 0;
 }
 .gc-code {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 26px;
   letter-spacing: 0.05em;
   line-height: 1;
 }
 .gc-score {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 34px;
   line-height: 1;
@@ -94,7 +94,7 @@
   min-width: 120px;
 }
 .gc-status {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: 0.12em;
   font-size: 12px;
@@ -169,7 +169,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.14em;
@@ -217,7 +217,7 @@
   background: color-mix(in srgb, var(--gc-chalk) 14%, var(--panel-sunken));
 }
 .gc-dteam {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.04em;
@@ -249,7 +249,7 @@
   align-items: center;
 }
 .gc-dtag {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 9px;
   letter-spacing: 0.06em;
@@ -277,6 +277,18 @@
   margin-left: 4px;
 }
 
+/*
+ * Numbers painted on the turf, and the names in the end zones.
+ *
+ * An SVG presentation attribute can't take a `var()`, so these were naming
+ * Oswald directly with `sans-serif` behind it — the one place a fallback hurts
+ * most, since the yard numbers are laid out on fixed coordinates and a wide
+ * face collides with the hash marks.
+ */
+.gc-figure {
+  font-family: var(--font-display);
+}
+
 /* ---- field ---- */
 .gc-fieldwrap {
   padding: 11px;
@@ -299,7 +311,7 @@
   padding: 0 13px;
 }
 .gc-dd {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 17px;
   letter-spacing: 0.03em;
@@ -378,7 +390,7 @@
   padding: 0 8px;
 }
 .gc-transport .gc-skip {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.05em;
@@ -415,7 +427,7 @@
   margin-bottom: 4px;
 }
 .gc-who {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.03em;
@@ -476,7 +488,7 @@
   border-top: 4px solid var(--gc-accent, var(--gc-chalk));
 }
 .gc-kicker {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
   font-size: 10.5px;
   letter-spacing: 0.16em;
@@ -485,7 +497,7 @@
   margin: 0 0 6px;
 }
 .gc-card h2 {
-  font-family: "Oswald", sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 24px;
   letter-spacing: 0.02em;
