@@ -123,7 +123,8 @@ export interface TradeProposal {
     votes: Record<string, "for" | "against" | null>;
     outcome: "pending" | "passed" | "blocked";
   };
-  status: "draft" | "pending" | "accepted" | "rejected" | "blocked";
+  /** `offered` is one the AI made *to* a human GM, waiting on their answer. */
+  status: "draft" | "offered" | "pending" | "accepted" | "rejected" | "blocked";
   /** Why a trade was refused on cap or roster grounds, rather than on value. */
   blockedReason?: string;
 }

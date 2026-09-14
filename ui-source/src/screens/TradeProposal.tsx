@@ -84,6 +84,8 @@ export function TradeProposal() {
   const needsVote = involves90 && (partnerIsHuman || true /* viewer is human */);
 
   const trade = tradeId ? s.trades.find((t) => t.id === tradeId) : undefined;
+  const offers = s.trades.filter((t) => t.status === "offered" && t.toTeam === myCode);
+  const respond = useStore((st) => st.respondToOffer);
 
   // the bars have to price a pick too, or a first-rounder reads as worth nothing
   const assetVal = (id: string): number => {
@@ -140,6 +142,49 @@ export function TradeProposal() {
           ))}
         </select>
       </div>
+
+      {/* Offers the league made you. Every trade in the game used to start
+          with the human — the phone never rang, which is half of what makes
+          the job feel like a job. */}
+      {offers.length > 0 && (
+        <div style={{ padding: "18px 26px 4px", borderBottom: "1px solid var(--line)" }}>
+          <p className="sectionlabel" style={{ marginTop: 0 }}>
+            Offers on the table ({offers.length})
+          </p>
+          {offers.map((o) => {
+            const asked = o.toAssets
+              .map((a) => s.players[a.playerId ?? ""]?.name)
+              .filter(Boolean)
+              .join(", ");
+            const back = o.fromAssets
+              .map((a) =>
+                a.kind === "pick" && a.pick
+                  ? pickLabel(a.pick)
+                  : (s.players[a.playerId ?? ""]?.name ?? "a player"),
+              )
+              .join(" + ");
+            return (
+              <div key={o.id} className="neg-row" style={{ alignItems: "flex-start", gap: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
+                    {TEAMS_BY_CODE[o.fromTeam]?.city ?? o.fromTeam} want {asked}
+                  </p>
+                  <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
+                    They're offering {back}.
+                  </p>
+                  {o.blockedReason && <p className="form-error">{o.blockedReason}</p>}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button className="btn-primary" onClick={() => respond(o.id, true)}>
+                    Accept
+                  </button>
+                  <button onClick={() => respond(o.id, false)}>Decline</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="split-2">
         <TradeColumn

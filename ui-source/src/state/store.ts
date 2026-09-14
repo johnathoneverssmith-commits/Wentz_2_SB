@@ -65,6 +65,7 @@ import {
   pickKey,
   pickOrderFor,
 } from "./draftPicks.ts";
+import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -132,6 +133,8 @@ export interface StoreActions {
   releasePlayer: (playerId: string) => void;
 
   proposeTrade: (toTeam: string, fromPlayerIds: string[], toPlayerIds: string[]) => string;
+  /** Answer an offer the league made you. */
+  respondToOffer: (tradeId: string, accept: boolean) => { ok: boolean; reason?: string };
   castTradeVote: (tradeId: string, gmId: string, vote: "for" | "against") => void;
   resolveTrade: (tradeId: string) => void;
 }
@@ -306,6 +309,20 @@ export const useStore = create<Store>()(
           // reach this point still short. Nobody takes the field without a full,
           // position-legal roster.
           if (t.stage === "preseason") fillRosterGaps(s);
+
+          // The league goes shopping at the two moments it would: the day the
+          // season ends, and the week of the deadline. Seeded on the stage, so
+          // an offer can't be rerolled by bouncing off the screen.
+          if (t.stage === "offseasonRetirement" || t.stage === "offseasonFreeAgency") {
+            const fresh = generateAiTradeOffers(s, t.stage === "offseasonRetirement" ? 1 : 2, 1);
+            for (const offer of fresh) {
+              // never offer a deal the offering team couldn't honour — an AI
+              // that proposes something it can't fit under its own cap looks
+              // incompetent, and it wastes the GM's decision
+              if (!checkTrade(s, offer).ok) continue;
+              if (!s.trades.some((x) => x.id === offer.id)) s.trades.push(offer);
+            }
+          }
 
           // leaving retirement review → actually retire the players it showed
           if (s.stage === "offseasonRetirement" && t.stage === "offseasonDraftPrep") {
@@ -667,6 +684,29 @@ export const useStore = create<Store>()(
           });
         });
         return id;
+      },
+
+      respondToOffer: (tradeId, accept) => {
+        let result: { ok: boolean; reason?: string } = { ok: false, reason: "No such offer." };
+        set((s) => {
+          const t = s.trades.find((x) => x.id === tradeId);
+          if (!t || t.status !== "offered") return;
+          if (!accept) {
+            t.status = "rejected";
+            result = { ok: true };
+            return;
+          }
+          const legal = checkTrade(s, t);
+          if (!legal.ok) {
+            t.blockedReason = legal.reason;
+            result = legal;
+            return;
+          }
+          t.status = "accepted";
+          applyTrade(s, t);
+          result = { ok: true };
+        });
+        return result;
       },
 
       castTradeVote: (tradeId, gmId, vote) =>

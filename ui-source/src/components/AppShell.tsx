@@ -8,6 +8,11 @@ import { teamFullName } from "@/data/teams";
 import "./app-shell.css";
 import { useTeamTheme } from "./useTeamTheme.ts";
 
+/** The viewer's team, for the counts the rail badges show. */
+function teamCodeOf(s: { gms: { id: string; teamCode: string }[]; viewerGmId: string }): string {
+  return s.gms.find((g) => g.id === s.viewerGmId)?.teamCode ?? "";
+}
+
 interface NavItem {
   to: string;
   label: string;
@@ -28,10 +33,17 @@ const IN_SEASON_NAV: NavItem[] = [
   { to: "/history", label: "League History" },
 ];
 
-/** Reference screens that are safe to browse from any offseason stage. */
+/**
+ * Reference screens that are safe to browse from any offseason stage.
+ *
+ * Trade Proposal was missing, which is backwards: the offseason is when
+ * trades happen, and it's when the league sends offers. A GM could be sitting
+ * on two of them with no way to reach the screen from the rail.
+ */
 const OFFSEASON_REFERENCE_NAV: NavItem[] = [
   { to: "/roster", label: "Roster & Cap" },
   { to: "/league-rosters", label: "League Rosters" },
+  { to: "/trade", label: "Trade Proposal" },
   { to: "/coaching", label: "Coaching Staff" },
   { to: "/history", label: "League History" },
 ];
@@ -44,6 +56,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // could have, so it is the one thing the shell always says out loud
   const [saveBroken, setSaveBroken] = useState(false);
   useEffect(() => onSaveStateChange(setSaveBroken), []);
+  // things waiting on the GM, so an offer doesn't sit unseen on a screen
+  // they had no reason to open
+  const offers = useStore((s) =>
+    s.trades.filter((t) => t.status === "offered" && t.toTeam === teamCodeOf(s)).length,
+  );
+  const navBadges = { "/trade": offers };
   const stage = useStore((s) => s.stage);
   const season = useStore((s) => s.season);
   const week = useStore((s) => s.week);
@@ -79,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
 
-        {!inSetup && seasonScreens && renderGroupedNav(IN_SEASON_NAV)}
+        {!inSetup && seasonScreens && renderGroupedNav(IN_SEASON_NAV, navBadges)}
 
         {!inSetup && !seasonScreens && (
           <>
@@ -88,11 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {STAGE_LABEL[stage]}
             </NavLink>
             <div className="railgroup">Reference</div>
-            {OFFSEASON_REFERENCE_NAV.map((item) => (
-              <NavLink key={item.to} to={item.to} className={active}>
-                {item.label}
-              </NavLink>
-            ))}
+            {renderGroupedNav(OFFSEASON_REFERENCE_NAV, navBadges)}
           </>
         )}
 
@@ -130,7 +144,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function renderGroupedNav(items: NavItem[]) {
+/** Count of things waiting on the GM at a route, shown as a rail badge. */
+function renderGroupedNav(items: NavItem[], badges: Record<string, number> = {}) {
   const out: React.ReactNode[] = [];
   let lastGroup: string | undefined;
   for (const item of items) {
@@ -142,9 +157,15 @@ function renderGroupedNav(items: NavItem[]) {
       );
       lastGroup = item.group;
     }
+    const badge = badges[item.to] ?? 0;
     out.push(
       <NavLink key={item.to} to={item.to} className={active}>
         {item.label}
+        {badge > 0 && (
+          <span className="railbadge" aria-label={`${badge} waiting`}>
+            {badge}
+          </span>
+        )}
       </NavLink>,
     );
   }
