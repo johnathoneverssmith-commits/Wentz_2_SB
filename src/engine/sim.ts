@@ -36,6 +36,7 @@ import {
   makeInjury,
 } from "./injury.js";
 import { Rng } from "./rng.js";
+import { homePenaltyScale, homeShift, type HomeEdge } from "./home-field.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
@@ -170,6 +171,8 @@ export class Game {
   receivedOpening = 1;
   rosters: [Roster, Roster] | null;
   staff: [Staff, Staff] | null;
+  /** No home team: the Super Bowl, and any sim with no real venue behind it. */
+  neutralSite = false;
   rzFlag = false;
   clockStopped = true; // running-clock state for 2-minute-drill management
 
@@ -195,10 +198,12 @@ export class Game {
     rng: Rng,
     rosters: [Roster, Roster] | null = null,
     staff: [Staff, Staff] | null = null,
+    neutralSite = false,
   ) {
     this.rng = rng;
     this.rosters = rosters;
     this.staff = staff;
+    this.neutralSite = neutralSite;
   }
 
   // ---- helpers ---------------------------------------------------------
@@ -211,6 +216,18 @@ export class Game {
   private get staffOn(): boolean {
     return this.staff !== null;
   }
+  /**
+   * Which side of the home-field advantage the offense is on.
+   *
+   * Team index 0 is the home team. Gated on the rating layer for the same
+   * reason the coaching layer is: a pool-free `simulateGame(seed)` has two
+   * anonymous sides and no venue, so it stays byte-identical to what it was.
+   */
+  private get homeEdge(): HomeEdge {
+    if (!this.ratingsOn || this.neutralSite) return 0;
+    return this.pos === 0 ? 1 : -1;
+  }
+
   private off(): Roster {
     return this.rosters![this.pos as 0 | 1];
   }
@@ -405,14 +422,24 @@ export class Game {
     const ol = [o.LT, o.LG, o.C, o.RG, o.RT];
     const rush = [d.EDGE1, d.EDGE2, d.DT1, d.DT2];
     const staff = this.staffOffShift();
+    // home field rides the same rails as the coaching layer: a logit nudge on
+    // the resolvers where the real advantage was measured (`home-field.ts`)
+    const edge = this.homeEdge;
     if (kind === "M09") {
       return {
-        COMPLETE: completionLogitShift(catchers, dbs, o.QB1 ?? null) + staff.complete,
-        INTERCEPTION: interceptionLogitShift(o.QB1 ?? null),
+        COMPLETE:
+          completionLogitShift(catchers, dbs, o.QB1 ?? null) +
+          staff.complete +
+          homeShift(edge, "complete"),
+        INTERCEPTION: interceptionLogitShift(o.QB1 ?? null) + homeShift(edge, "interception"),
       };
     }
-    if (kind === "M04") return { SACK: sackLogitShift(ol, rush) + staff.sack };
-    if (kind === "M20") return { MADE: fgLogitShift(this.off().kicker()) };
+    if (kind === "M04") {
+      return { SACK: sackLogitShift(ol, rush) + staff.sack + homeShift(edge, "sack") };
+    }
+    if (kind === "M20") {
+      return { MADE: fgLogitShift(this.off().kicker()) + homeShift(edge, "fgMade") };
+    }
     return null;
   }
 
@@ -421,7 +448,11 @@ export class Game {
     const o = this.offLineup();
     const d = this.defLineup();
     const front7 = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2];
-    return rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) + this.staffOffShift().rush;
+    return (
+      rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) +
+      this.staffOffShift().rush +
+      homeShift(this.homeEdge, "rushYards")
+    );
   }
 
   private yacYdMod(): number {
@@ -609,8 +640,13 @@ export class Game {
   }
 
   private presnapPenalty(): boolean {
+    // the crowd-noise channel: a road offense that can't hear its own snap
+    // count false-starts more, and that is where the measured foul gap is
     const p =
-      (predictProba("M25a", this.penCtx()).DEADBALL_PEN ?? 0.032) * PENALTY_HAZARD_SCALE * this.penScale();
+      (predictProba("M25a", this.penCtx()).DEADBALL_PEN ?? 0.032) *
+      PENALTY_HAZARD_SCALE *
+      this.penScale() *
+      homePenaltyScale(this.homeEdge);
     if (this.rng.random() >= p) return false;
     const b = samplePenaltyBucket("deadball", "ALL", this.rng);
     const onOff = this.rng.random() < b.off_share;
@@ -1256,6 +1292,12 @@ export interface GameStaff {
    */
   homeRoster?: Roster | undefined;
   awayRoster?: Roster | undefined;
+  /**
+   * No home team. The Super Bowl is the case that exists: both sides travel,
+   * so neither gets the crowd. Leaves every home-field shift at exactly zero
+   * (`home-field.ts`).
+   */
+  neutralSite?: boolean | undefined;
 }
 
 /**
@@ -1265,6 +1307,9 @@ export interface GameStaff {
  * opt-in flavour outputs — both are inert (zero RNG draws) when off, so the
  * validation / parity paths are unchanged. Pass `homeRoster`/`awayRoster` to
  * sim a specific roster pair instead of the file-backed pool.
+ *
+ * `home` gets the home-field advantage (`home-field.ts`) whenever the rating
+ * layer is on; pass `neutralSite` to withhold it, which the Super Bowl does.
  */
 export function simulateGame(
   seed: number,
@@ -1283,7 +1328,7 @@ export function simulateGame(
     rosters && opts?.homeStaff && opts?.awayStaff
       ? [opts.homeStaff, opts.awayStaff]
       : null;
-  const g = new Game(new Rng(seed), rosters, staffPair);
+  const g = new Game(new Rng(seed), rosters, staffPair, opts?.neutralSite ?? false);
   if (opts?.trace) g.playTrace = [];
   if (opts?.injuries && rosters) g.injuryLog = [];
   return g.run();

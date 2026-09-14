@@ -60,7 +60,7 @@ import { availableRoster } from "@/state/injuries.ts";
 import { MockSimulationService } from "./MockSimulationService.ts";
 import { fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
-import { winProbability } from "./win-probability.ts";
+import { winProbability, type Venue } from "./win-probability.ts";
 import type { RetirementOutcome, SimulationService, TradeEvaluation } from "./SimulationService.ts";
 
 // mirrors nfl-franchise-sim/src/engine/staff.ts's OFF_SCHEME_TAGS/DEF_SCHEME_TAGS
@@ -94,10 +94,10 @@ const playoffSeed = (state: LeagueState): number => state.season * 1_000_003 + 7
  * close to asking it as you can get without playing this one a thousand
  * times. Same curve the Mock and the team hub quote.
  */
-function favProb(state: LeagueState, a: string, b: string): number {
+function favProb(state: LeagueState, a: string, b: string, venue: Venue = "home"): number {
   const oa = state.teams[a]?.ratings.overall ?? 75;
   const ob = state.teams[b]?.ratings.overall ?? 75;
-  return winProbability(oa, ob);
+  return winProbability(oa, ob, venue);
 }
 
 /** Wild Card round pairing (1-seed bye; 2v7, 3v6, 4v5) — pure, no RNG. */
@@ -315,7 +315,7 @@ export class HybridSimulationService implements SimulationService {
             conference: engConfToUi(p.conference),
             highSeed: { code: p.home, seed: p.homeSeed },
             lowSeed: { code: p.away, seed: p.awaySeed },
-            favoredWinProb: favProb(state, p.home, p.away),
+            favoredWinProb: favProb(state, p.home, p.away, nextRound === "SB" ? "neutral" : "home"),
             homeScore: null,
             awayScore: null,
             winner: null,

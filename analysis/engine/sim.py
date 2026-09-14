@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .home_field import home_penalty_scale, home_shift
 from .loaders import (
     predict_proba,
     sample_air_yards,
@@ -89,6 +90,7 @@ class Game:
     received_opening: int = 1  # team that received the opening kickoff
     rosters: list | None = None  # [Roster, Roster] to enable the rating layer, else off
     staff: list | None = None  # [Staff, Staff] to enable the coaching layer on top
+    neutral_site: bool = False  # no home team: the Super Bowl, or no real venue
     injury_log: list | None = None  # [] to roll & collect in-game injuries, else off
     injured_out: set = field(default_factory=set)  # ids pulled from THIS game
     rz_flag: bool = False  # current drive has reached the red zone (<=20)
@@ -121,6 +123,20 @@ class Game:
     @property
     def staff_on(self) -> bool:
         return self.staff is not None
+
+    @property
+    def home_edge(self) -> int:
+        """Which side of the home-field advantage the offense is on.
+
+        Team index 0 is the home team. Gated on the rating layer for the same
+        reason the coaching layer is: a pool-free `simulate_game(seed)` has two
+        anonymous sides and no venue, so it stays byte-identical - which is
+        what keeps the §22/§23 validation untouched, since those sim without
+        team codes.
+        """
+        if not self.ratings_on or self.neutral_site:
+            return 0
+        return 1 if self.pos == 0 else -1
 
     def _off(self):
         return self.rosters[self.pos]
@@ -201,13 +217,18 @@ class Game:
         rush = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"]]
         front7 = rush + [d["ILB1"], d["ILB2"]]
         staff = self._staff_off_shift()
+        # home field rides the same rails as the coaching layer: a logit nudge
+        # on the resolvers where the real advantage was measured (home_field)
+        edge = self.home_edge
         if kind == "M09":
-            return {"COMPLETE": R.completion_logit_shift(catchers, dbs, o["QB1"]) + staff["complete"],
-                    "INTERCEPTION": R.interception_logit_shift(o["QB1"])}
+            return {"COMPLETE": (R.completion_logit_shift(catchers, dbs, o["QB1"])
+                                 + staff["complete"] + home_shift(edge, "complete")),
+                    "INTERCEPTION": (R.interception_logit_shift(o["QB1"])
+                                     + home_shift(edge, "interception"))}
         if kind == "M04":
-            return {"SACK": R.sack_logit_shift(ol, rush) + staff["sack"]}
+            return {"SACK": R.sack_logit_shift(ol, rush) + staff["sack"] + home_shift(edge, "sack")}
         if kind == "M20":
-            return {"MADE": R.fg_logit_shift(self._off().kicker())}
+            return {"MADE": R.fg_logit_shift(self._off().kicker()) + home_shift(edge, "fg_made")}
         return None
 
     def _rush_yd_mod(self) -> float:
@@ -217,7 +238,8 @@ class Game:
         o, d = self._off_lineup(), self._def_lineup()
         front7 = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"], d["ILB1"], d["ILB2"]]
         return (R.rush_yards_shift([o["LT"], o["LG"], o["C"], o["RG"], o["RT"]], front7, o["RB1"])
-                + self._staff_off_shift()["rush"])
+                + self._staff_off_shift()["rush"]
+                + home_shift(self.home_edge, "rush_yards"))
 
     def _yac_yd_mod(self) -> float:
         if not self.ratings_on:
@@ -393,7 +415,10 @@ class Game:
     def _presnap_penalty(self) -> bool:
         """M25a: a dead-ball foul before the snap. Enforced (not declinable),
         the down is replayed. Returns True if one occurred."""
-        p = predict_proba("M25a", self._pen_ctx()).get("DEADBALL_PEN", 0.032) * PENALTY_HAZARD_SCALE * self._pen_scale()
+        # the crowd-noise channel: a road offense that can't hear its own snap
+        # count false-starts more, and that is where the measured foul gap is
+        p = (predict_proba("M25a", self._pen_ctx()).get("DEADBALL_PEN", 0.032)
+             * PENALTY_HAZARD_SCALE * self._pen_scale() * home_penalty_scale(self.home_edge))
         if self.rng.random() >= p:
             return False
         b = sample_penalty_bucket("deadball", "ALL", self.rng)
@@ -907,19 +932,24 @@ class Game:
 
 def simulate_game(seed: int, home: str | None = None, away: str | None = None,
                   home_staff=None, away_staff=None, injuries: bool = False,
-                  trace: bool = False) -> Game:
+                  trace: bool = False, neutral_site: bool = False) -> Game:
     """`home`/`away` team codes enable the rating layer (spec §12–§14).
     Team index 0 is `home`, 1 is `away`. Pass `home_staff`/`away_staff` (both,
     and only with rosters) to enable the coaching layer on top; omitting them
     leaves every coaching shift at exactly zero. `injuries` / `trace` are opt-in
     flavour outputs — inert (zero RNG draws) when off, so the validation /
-    parity paths are unchanged."""
+    parity paths are unchanged.
+
+    `home` gets the home-field advantage (`home_field.py`) whenever the rating
+    layer is on; pass `neutral_site` to withhold it, which the Super Bowl
+    does."""
     rosters = None
     if home and away:
         from .roster import roster
         rosters = [roster(home), roster(away)]
     staff = [home_staff, away_staff] if (rosters and home_staff and away_staff) else None
-    g = Game(rng=np.random.default_rng(seed), rosters=rosters, staff=staff)
+    g = Game(rng=np.random.default_rng(seed), rosters=rosters, staff=staff,
+             neutral_site=neutral_site)
     if injuries and rosters:
         g.injury_log = []
     if trace:

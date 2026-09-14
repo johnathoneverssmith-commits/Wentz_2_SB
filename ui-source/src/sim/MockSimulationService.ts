@@ -37,7 +37,7 @@ import {
 } from "./roster-template.ts";
 import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
 import { expectedRookieOverall, rookieOverallSpread } from "./draft-outcomes.ts";
-import { winChance, winProbability } from "./win-probability.ts";
+import { winChance, winProbability, type Venue } from "./win-probability.ts";
 import { futureDiscount } from "@/state/draftPicks.ts";
 import {
   DEFENSE_SCHEMES,
@@ -610,8 +610,9 @@ export class MockSimulationService implements SimulationService {
       const hi = this.teamOverall(state, m.highSeed.code);
       const lo = this.teamOverall(state, m.lowSeed.code);
       // the same measured curve the UI quotes, so the odds shown before a
-      // playoff game are the odds the fallback actually plays it at
-      const pHigh = winChance(hi, lo);
+      // playoff game are the odds the fallback actually plays it at — and the
+      // higher seed hosts every round but the last
+      const pHigh = winChance(hi, lo, m.round === "SB" ? "neutral" : "home");
       m.favoredWinProb = Math.round(pHigh * 100);
       const highWins = rng.bool(pHigh);
       const winScore = rng.int(20, 34);
@@ -812,10 +813,15 @@ function wcMatchups(conf: "AFC" | "NFC", seeds: string[], state: LeagueState): B
   ];
 }
 
-function favProb(state: LeagueState, a: string, b: string): number {
+/**
+ * Pre-game favourite. `a` hosts unless told otherwise — in this bracket the
+ * higher seed always does, and the Super Bowl is the one game that doesn't
+ * have a host at all.
+ */
+function favProb(state: LeagueState, a: string, b: string, venue: Venue = "home"): number {
   const oa = state.teams[a]?.ratings.overall ?? 75;
   const ob = state.teams[b]?.ratings.overall ?? 75;
-  return winProbability(oa, ob);
+  return winProbability(oa, ob, venue);
 }
 
 function buildNextRound(round: PlayoffRound, b: BracketState, state: LeagueState): BracketMatchup[] {
@@ -828,7 +834,7 @@ function buildNextRound(round: PlayoffRound, b: BracketState, state: LeagueState
         conference: "SB",
         highSeed: afc ? { code: afc, seed: 0 } : null,
         lowSeed: nfc ? { code: nfc, seed: 0 } : null,
-        favoredWinProb: afc && nfc ? favProb(state, afc, nfc) : 50,
+        favoredWinProb: afc && nfc ? favProb(state, afc, nfc, "neutral") : 50,
         homeScore: null,
         awayScore: null,
         winner: null,

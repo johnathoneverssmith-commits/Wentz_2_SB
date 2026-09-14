@@ -1,0 +1,164 @@
+{
+  "seasons": [
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "games": {
+    "games": 2127,
+    "home_win_pct": 0.5401974612129761,
+    "home_win_rate_strict": 0.538316878232252,
+    "tie_rate": 0.0037611659614480487,
+    "mean_home_margin": 1.5726375176304654,
+    "sd_home_margin": 14.313361182026828,
+    "by_season": [
+      {
+        "season": 2018,
+        "games": 256,
+        "home_win": 0.59765625,
+        "tie": 0.0078125,
+        "mean_margin": 2.203125
+      },
+      {
+        "season": 2019,
+        "games": 256,
+        "home_win": 0.515625,
+        "tie": 0.00390625,
+        "mean_margin": -0.140625
+      },
+      {
+        "season": 2020,
+        "games": 256,
+        "home_win": 0.49609375,
+        "tie": 0.00390625,
+        "mean_margin": 0.0546875
+      },
+      {
+        "season": 2021,
+        "games": 272,
+        "home_win": 0.5147058823529411,
+        "tie": 0.003676470588235294,
+        "mean_margin": 1.713235294117647
+      },
+      {
+        "season": 2022,
+        "games": 271,
+        "home_win": 0.5571955719557196,
+        "tie": 0.007380073800738007,
+        "mean_margin": 1.977859778597786
+      },
+      {
+        "season": 2023,
+        "games": 272,
+        "home_win": 0.5551470588235294,
+        "tie": 0.0,
+        "mean_margin": 2.6838235294117645
+      },
+      {
+        "season": 2024,
+        "games": 272,
+        "home_win": 0.5330882352941176,
+        "tie": 0.0,
+        "mean_margin": 1.8676470588235294
+      },
+      {
+        "season": 2025,
+        "games": 272,
+        "home_win": 0.5367647058823529,
+        "tie": 0.003676470588235294,
+        "mean_margin": 2.0698529411764706
+      }
+    ]
+  },
+  "channels": [
+    {
+      "metric": "pre-snap fouls per play, offense",
+      "home": 0.0185704750376161,
+      "away": 0.019643928785757152,
+      "home_minus_away": -0.001073453748141051
+    },
+    {
+      "metric": "any foul on offense per play",
+      "home": 0.04035953073207155,
+      "away": 0.04157974452033264,
+      "home_minus_away": -0.001220213788261093
+    },
+    {
+      "metric": "EPA per scrimmage play",
+      "home": -0.0034939395384077,
+      "away": 0.007130163623230302,
+      "home_minus_away": -0.010624103161638001,
+      "n_home": 132859,
+      "n_away": 132030
+    },
+    {
+      "metric": "completion rate",
+      "home": 0.6081103841419965,
+      "away": 0.5964723429090202,
+      "home_minus_away": 0.011638041232976293,
+      "n_home": 77185,
+      "n_away": 77105
+    },
+    {
+      "metric": "sack rate per dropback",
+      "home": 0.06195662912467892,
+      "away": 0.06472664231316946,
+      "home_minus_away": -0.0027700131884905443,
+      "n_home": 80976,
+      "n_away": 80755
+    },
+    {
+      "metric": "third-down conversion",
+      "home": 0.4034095111308335,
+      "away": 0.3901831501831502,
+      "home_minus_away": 0.013226360947683313,
+      "n_home": 27042,
+      "n_away": 27300
+    },
+    {
+      "metric": "yards per carry",
+      "home": 4.556784209199294,
+      "away": 4.496221662468514,
+      "home_minus_away": 0.060562546730779765,
+      "n_home": 55674,
+      "n_away": 54925
+    },
+    {
+      "metric": "interception rate per dropback",
+      "home": 0.01999357834420075,
+      "away": 0.020556002724289518,
+      "home_minus_away": -0.0005624243800887684,
+      "n_home": 80976,
+      "n_away": 80755
+    },
+    {
+      "metric": "fumble lost per scrimmage play",
+      "home": 0.007361187424261811,
+      "away": 0.007521017950465803,
+      "home_minus_away": -0.00015983052620399153,
+      "n_home": 132859,
+      "n_away": 132030
+    },
+    {
+      "metric": "field goals made",
+      "home": 0.8502298572465521,
+      "away": 0.8417721518987342,
+      "home_minus_away": 0.008457705347817868,
+      "n_home": 4133,
+      "n_away": 4108
+    },
+    {
+      "metric": "field goal distance attempted",
+      "home": 39.15485119767723,
+      "away": 39.20666991236612,
+      "home_minus_away": -0.05181871468888488,
+      "n_home": 4133,
+      "n_away": 4108
+    }
+  ]
+}

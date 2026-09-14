@@ -49,9 +49,11 @@ function decide(
   seed: number,
   home: Contender,
   away: Contender,
+  neutralSite = false,
 ): { homeScore: number; awayScore: number; winner: string; decidedBySeed: boolean } {
+  const opts = { neutralSite };
   for (let k = 0; k < TIE_BREAK_TRIES; k += 1) {
-    const g = simulateGame(seed + k * SEED_STRIDE, home.team, away.team);
+    const g = simulateGame(seed + k * SEED_STRIDE, home.team, away.team, opts);
     const [hs, as] = g.score;
     if (hs !== as) {
       return {
@@ -63,7 +65,7 @@ function decide(
     }
   }
   // deadlocked: the better seed (listed home) advances
-  const g = simulateGame(seed, home.team, away.team);
+  const g = simulateGame(seed, home.team, away.team, opts);
   return {
     homeScore: g.score[0],
     awayScore: g.score[1],
@@ -79,9 +81,10 @@ function play(
   a: Contender,
   b: Contender,
 ): PlayoffGame {
-  // higher seed (smaller number) hosts
+  // higher seed (smaller number) hosts — except the Super Bowl, where the
+  // better seed is only *listed* home and both teams travel
   const [home, away] = a.seed <= b.seed ? [a, b] : [b, a];
-  const r = decide(seed, home, away);
+  const r = decide(seed, home, away, round === "superbowl");
   return {
     round,
     conference,

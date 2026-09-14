@@ -28,23 +28,14 @@
  * says 16%. Mean absolute error against the measured curve: 0.007, against
  * the old formula 0.064.
  *
- * And **the engine has no home-field advantage.** The fitted intercept came
- * out at -0.013 — 49.7% for an even matchup — and that residue is fully
- * explained by something other than home field: 1.0% of games end tied, and a
- * tie is not a home win, which pulls an even matchup from 0.500 to about
- * 0.495 and the log-odds to about -0.02. So the intercept is set to exactly
- * zero here, both because nothing in 7,980 even matchups argues for anything
- * else and because a non-zero one would make the curve asymmetric: two teams
- * would each be a 49.7% favourite over the other.
- *
- * That the engine has no home field is a real gap against the NFL, where home
- * teams win about 55%, and it is worth being precise about whose gap it is —
- * it belongs to the *engine*, not to this file. Showing 54% because the old
- * formula assumed a home edge was the UI telling the player something about a
- * game the simulator was never going to honour. So the curve reports what the
- * sim does; adding a home-field term to the engine would shift every result
- * it has been validated against, and that is a decision for the engine rather
- * than for a tooltip.
+ * **Where the home team comes in.** The first version of this file reported
+ * an intercept of zero and said so loudly, because the engine genuinely had
+ * no home-field advantage — a real gap against a league where the home team
+ * wins 54% of the time. That gap is now closed in the engine itself
+ * (`src/engine/home-field.ts`, `docs/decisions.md` → OQ-10), so the curve has
+ * a venue term again. The difference from the formula this replaced is that
+ * the number is measured rather than assumed, and that the engine will
+ * actually honour it.
  *
  * The fit is very slightly optimistic at the extremes — the +12 bucket
  * measured 77.8% where the logistic says 84.8%, on 324 games — so the widest
@@ -52,10 +43,17 @@
  */
 
 /**
- * Home-field advantage: none, measured. See the header — the -0.013 the fit
- * returned is the tie rate, not an edge, and zero keeps the curve symmetric.
+ * Log-odds the home team gets, and the visitor gives up.
+ *
+ * The league's own figure over the 2018-2025 regular seasons the engine is
+ * calibrated against: 2,127 games, 54.02% won by the home team (ties as half)
+ * — `analysis/31_home_field.py`. The engine is fitted to reproduce it and
+ * measures 53.97% over 19,840 simulated games, so quoting the league's number
+ * and quoting the simulator's are the same thing to two decimal places.
+ *
+ * A neutral site gets zero, which is what the Super Bowl is.
  */
-const A = 0;
+const HOME_EDGE = 0.1611;
 
 /** Per point of starting-lineup overall. */
 const B = 0.1467;
@@ -70,25 +68,32 @@ const B = 0.1467;
  */
 const MEASURED_TO = 14;
 
+/** Where the first team is playing. The Super Bowl is the neutral one. */
+export type Venue = "home" | "away" | "neutral";
+
 /**
  * Chance the first team beats the second, as a percentage, 1–99.
  *
- * `homeEdge` exists for callers that want to reflect a home-field advantage
- * the engine doesn't model; the default is the measured zero. Leave it alone
- * unless the engine grows one.
+ * `venue` is where the *first* team is playing, so a matchup asked both ways
+ * gives answers that add to 100.
  */
 export function winProbability(
   teamOverall: number,
   opponentOverall: number,
-  homeEdge = 0,
+  venue: Venue = "neutral",
 ): number {
   if (!Number.isFinite(teamOverall) || !Number.isFinite(opponentOverall)) return 50;
   const gap = Math.max(-MEASURED_TO, Math.min(MEASURED_TO, teamOverall - opponentOverall));
-  const p = 1 / (1 + Math.exp(-(A + homeEdge + B * gap)));
+  const edge = venue === "home" ? HOME_EDGE : venue === "away" ? -HOME_EDGE : 0;
+  const p = 1 / (1 + Math.exp(-(edge + B * gap)));
   return Math.max(1, Math.min(99, Math.round(p * 100)));
 }
 
 /** The same curve as a 0–1 probability, for code that samples an outcome. */
-export function winChance(teamOverall: number, opponentOverall: number): number {
-  return winProbability(teamOverall, opponentOverall) / 100;
+export function winChance(
+  teamOverall: number,
+  opponentOverall: number,
+  venue: Venue = "neutral",
+): number {
+  return winProbability(teamOverall, opponentOverall, venue) / 100;
 }

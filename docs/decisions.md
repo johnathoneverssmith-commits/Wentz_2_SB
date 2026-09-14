@@ -865,48 +865,114 @@ not-yet-modeled draft-class evaluation and coach-hiring logic. Any
 AI-GM logic once real-backed) should be evaluated against this before
 shipping, not just "does the roster's average `overall` look plausible."
 
-## OQ-10 — Home-field advantage (measured: there isn't one)
+## OQ-10 — Home-field advantage
 
-**Status: open — a known gap in the engine, quantified but not closed.**
+**Status: closed.** The engine gives the home team a measured advantage, fitted
+to the league's own home win rate. `src/engine/home-field.ts`, mirrored in
+`analysis/engine/home_field.py`.
+
+### How the gap was found
 
 Measuring what a rating gap is worth (`analysis/30_win_probability.ts`,
-47,616 games: every ordered pair of the 32 rosters plus weakened copies, three
-seeds each, injuries on, no coaching layer) answered a question it wasn't
-asked. Fitting
+47,616 games) answered a question it wasn't asked. Fitting
 
     P(home win) = 1 / (1 + exp(-(A + B * gap)))
 
-returns **A = -0.013**, i.e. 49.7% for an even matchup. And that residue is
-not a small home-field edge: 1.0% of games end tied, a tie is not a home win,
-and scoring ties against the home team moves an even matchup from 0.500 to
-about 0.495 — log-odds -0.02. The intercept *is* the tie rate. The engine
-gives the home team nothing.
+returned **A = -0.013** — 49.7% for an even matchup. And that residue was not
+a small home-field edge: 1.0% of games end tied, a tie is not a home win, and
+scoring ties against the home team moves an even matchup from 0.500 to about
+0.495. The intercept *was* the tie rate. The engine gave the home team
+nothing.
 
-Real NFL home teams win about 55%, and have for decades (it fell to ~52% in
-2020 with no crowds, which is itself evidence the effect is real). So this is
-a genuine fidelity gap.
+### How big it should be, and where it lives
 
-**Why it isn't fixed here.** The engine's game model has been validated
-against §22 at 16/20 within 10%, and a home-field term touches every play:
-it would have to enter somewhere specific — a small shift in the rating layer,
-a penalty-rate asymmetry, a false-start / crowd-noise effect on the road
-offense — and whichever door it comes through, every validated number moves
-and the calibration has to be re-run. That is an engine change with a
-validation cost, not a constant to add to a tooltip.
+`analysis/31_home_field.py` reads both off the same 2018-2025 play-by-play the
+engine is calibrated against — 2,127 regular-season games:
 
-**What was done instead.** The UI stopped claiming an advantage the simulator
-doesn't grant. `ui-source/src/sim/win-probability.ts` reports the measured
-curve, and its intercept is exactly zero. The old display formula
-(`0.5 + 0.02 * gap + 4%`) asserted a 54% home team and was wrong about the
-slope as well — it called a twelve-point underdog a 30% chance where the
-engine says 16%.
+- **54.02%** of games won by the home team (ties as half), by a mean margin of
+  **+1.573**. Worth measuring rather than quoting: the historical figure is
+  nearer 57%, and the answer for the era this engine models is not.
+- And, by splitting each channel on `posteam_type`, *where* the advantage
+  shows up. Every channel favours the home offense:
 
-**When to revisit:** before any release that claims per-game realism, or
-alongside the next §22 re-calibration, when the validation is being re-run
-anyway. `B = 0.147` per rating point is the yardstick for how large a shift
-any home-field term would need to be: +2.5 percentage points at an even
-matchup is about a third of a rating point.
+  | channel | home | away |
+  |---|---|---|
+  | completion rate | 0.60811 | 0.59647 |
+  | sack rate per dropback | 0.06196 | 0.06473 |
+  | interception rate per dropback | 0.01999 | 0.02056 |
+  | field goals made | 0.85023 | 0.84177 |
+  | yards per carry | 4.557 | 4.496 |
+  | pre-snap fouls per play | 0.01857 | 0.01964 |
 
+Two of those readings carry weight beyond their size. Field-goal *distance*
+attempted is 39.15 at home against 39.21 away, so the kicking gap is kickers
+kicking better rather than an easier set of attempts. And the foul gap is
+almost entirely pre-snap: subtract those and the live-ball rate differs by
+0.7%, which is nothing. That is the crowd-noise story appearing exactly where
+the story says it should, in the snap count.
+
+One column points the wrong way. Raw EPA per play is *higher* for the away
+offense, which is score-state confounding rather than a finding: the home team
+leads more often, so it runs more and throws shorter. The same confound
+suppresses every other column, which matters for reading the fit below.
+
+### The design
+
+Each channel's home-away difference is halved and applied as `+half` to the
+home offense and `-half` to the away one, through the same shift points the
+coaching layer already uses — M09 COMPLETE and INTERCEPTION, M04 SACK, M20
+MADE, the rushing modifier, and the dead-ball penalty hazard.
+
+**Symmetry is the load-bearing part.** Because the split is symmetric and
+every team plays half its games at home, the league average does not move.
+Measured across scales that shift the home win rate by twelve points, points
+per team-game reads 20.84, 20.82, 20.84. Nothing §22 measures league-wide
+changes.
+
+**And it is gated on the rating layer**, so a pool-free `simulateGame(seed)`
+is byte-identical to the pre-OQ-10 engine. That is not a detail:
+`23_full_sim_validation.py` sims with no team codes, so the validation the
+engine was signed off against is untouched rather than re-run.
+
+The Super Bowl passes `neutralSite` and gets nothing, which is what a neutral
+site means.
+
+### The fit, and the one target it misses
+
+`analysis/32_fit_home_field.ts` sweeps the one scalar over every ordered pair
+of the 32 teams — a design where roster strength cancels exactly, so the home
+win rate that comes out is the home-field effect and nothing else.
+
+| scale | home win % | mean margin | points/team-game | games |
+|---|---|---|---|---|
+| 0 | 50.18% | +0.13 | 20.84 | 3,968 |
+| 1.00 | 53.62% | +1.19 | 20.70 | 19,840 |
+| **1.11** | **54.23%** | **+1.36** | **20.77** | **19,840** |
+| 2.00 | 57.27% | +2.53 | 20.82 | 3,968 |
+| 4.00 | 62.51% | +4.31 | 20.84 | 3,968 |
+
+Anchored on the scale-1 point, the league's 54.02% wanted **1.11**, and a
+second 19,840-game run at that value returned **54.23% — 0.21pp high, inside
+the 0.36pp standard error**. So the measured per-channel gaps need scaling by
+a tenth and no more: the mechanism is doing essentially all of the work, which
+was not the expected result given the score-state confound above would have
+justified a scale of two or three.
+
+**Win rate was fitted; mean margin was not, and misses.** The league's +1.573
+margin would want a scale of 1.32, which puts the win rate at 54.8% — two
+standard errors *above* the league, trading a miss inside the noise for one
+outside it. So the engine's home teams win as often as the league's (54.23%
+against 54.02%) by a smaller margin than the league's (+1.36 against +1.57). Efficiency shifts convert into wins more
+readily than into points; closing the rest would mean modelling the part of
+the advantage that isn't efficiency — field position off returns, and
+fourth-down nerve in front of a crowd.
+
+### What the UI does with it
+
+`ui-source/src/sim/win-probability.ts` has a venue term again, and the team
+hub, the bracket and the Mock's own playoff coin-flip all pass home, away or
+neutral. The advantage is worth about 1.1 rating points, so a one-point
+underdog at home is a coin flip and a two-point underdog is not.
 ## OQ-10 addendum — the engine as validated vs the engine as played
 
 The §22/§26 work settled on a residual of **≈ −0.8 ± 0.4 points per team-game**

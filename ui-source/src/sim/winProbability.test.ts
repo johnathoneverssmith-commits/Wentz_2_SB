@@ -10,6 +10,13 @@ import { winChance, winProbability } from "./win-probability.ts";
  * bucketed by rating gap. The fit has to land on them, because agreeing with
  * itself would test nothing.
  *
+ * They were measured before the engine had a home-field advantage, which
+ * makes them exactly the right thing to check the **neutral** curve against:
+ * every game in that run was, in effect, at a neutral site. Home field enters
+ * as an intercept and leaves the slope alone, so `B` is still what those
+ * games say it is — and the venue term is checked separately below, against
+ * the league rate the engine is fitted to.
+ *
  * Tolerance is 2.5 points, which is roughly two standard errors on the
  * thinnest bucket (n≈320) and far more than that on the thick ones. The two
  * widest gaps are excluded and tested separately: the logistic runs slightly
@@ -87,5 +94,44 @@ describe("win probability", () => {
 
   it("hands the same answer back as a probability", () => {
     expect(winChance(85, 75)).toBeCloseTo(winProbability(85, 75) / 100, 5);
+  });
+});
+
+/**
+ * The venue.
+ *
+ * The engine gives the home team a real advantage now (OQ-10), fitted so it
+ * wins 54% of games against an even opponent — the league's own rate over
+ * 2018-2025. These check that the display agrees with the simulator, and that
+ * asking about a matchup from both ends gives two answers that add up.
+ */
+describe("home field", () => {
+  it("makes an even matchup at home about a 54% proposition", () => {
+    expect(winProbability(76, 76, "home")).toBe(54);
+    expect(winProbability(76, 76, "away")).toBe(46);
+  });
+
+  it("is worth nothing at a neutral site — which the Super Bowl is", () => {
+    expect(winProbability(76, 76, "neutral")).toBe(50);
+    // the same eight-point favourite, three ways round
+    expect(winProbability(84, 76, "neutral")).toBeLessThan(winProbability(84, 76, "home"));
+    expect(winProbability(84, 76, "neutral")).toBeGreaterThan(winProbability(84, 76, "away"));
+  });
+
+  it("gives two views of one game that add to 100", () => {
+    for (let gap = -10; gap <= 10; gap += 5) {
+      expect(
+        winProbability(75 + gap, 75, "home") + winProbability(75, 75 + gap, "away"),
+      ).toBe(100);
+    }
+  });
+
+  it("is worth about one rating point, and not two", () => {
+    // 0.1611 of log-odds against a slope of 0.1467 a point: the venue buys
+    // you 1.1 points of roster. A one-point underdog at home is a coin flip;
+    // a two-point underdog is still an underdog.
+    expect(winProbability(75, 76, "home")).toBe(50);
+    expect(winProbability(75, 77, "home")).toBeLessThan(50);
+    expect(winProbability(76, 75, "away")).toBe(50);
   });
 });

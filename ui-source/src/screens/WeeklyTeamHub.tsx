@@ -25,10 +25,13 @@ import { winProbability } from "@/sim/win-probability";
 import { millions, ordinal } from "@/util/format";
 
 // Was `0.5 + 0.02 * gap + a 4% home edge`, which was a guess in both terms.
-// `win-probability.ts` is the same question answered by 47,616 engine games;
-// the home edge is gone because the engine hasn't got one.
-const favWinProb = (a: { overall: number }, b: { overall: number }): number =>
-  winProbability(a.overall, b.overall);
+// `win-probability.ts` is the same question answered by 47,616 engine games,
+// and the home edge is back because the engine has one now (OQ-10).
+const favWinProb = (
+  a: { overall: number },
+  b: { overall: number },
+  atHome: boolean,
+): number => winProbability(a.overall, b.overall, atHome ? "home" : "away");
 
 export function WeeklyTeamHub() {
   const nav = useNavigate();
@@ -70,7 +73,7 @@ export function WeeklyTeamHub() {
     .sort((a, b) => winPct(b.t) - winPct(a.t));
 
   const notes = watchNotes(s);
-  const winProb = opp ? favWinProb(team.ratings, opp.ratings) : 50;
+  const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost) : 50;
 
   return (
     <Card maxWidth={760}>
