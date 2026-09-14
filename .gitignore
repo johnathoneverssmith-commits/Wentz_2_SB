@@ -27,3 +27,6 @@ __pycache__/
 # nflverse play-by-play — large; download separately (see analysis/README.md).
 # The engine's runtime never loads these; only analysis/ does, to build artifacts/.
 /data/*.parquet
+
+# online server — local database URL and any dump of it
+online/.env

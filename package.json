@@ -22,9 +22,15 @@
     "generate:pool": "tsx src/data/generate-pool.ts",
     "pool:export-csv": "tsx src/data/pool-csv.ts export",
     "pool:import-csv": "tsx src/data/pool-csv.ts import",
-    "analysis:audit": "node --max-old-space-size=4096 --import tsx analysis/00_schema_audit.ts"
+    "analysis:audit": "node --max-old-space-size=4096 --import tsx analysis/00_schema_audit.ts",
+    "online": "tsx watch --tsconfig online/tsconfig.json online/src/index.ts",
+    "online:typecheck": "tsc -p online/tsconfig.json",
+    "online:migrate": "tsx --tsconfig online/tsconfig.json online/src/migrate.ts",
+    "online:test": "vitest run --root online"
   },
   "dependencies": {
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

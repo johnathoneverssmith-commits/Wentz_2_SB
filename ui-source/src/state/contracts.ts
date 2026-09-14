@@ -27,7 +27,7 @@ export interface ContractMoveResult {
   ok: boolean;
   reason?: string;
   /** cap freed this year, for the confirmation the screen shows */
-  freed?: number;
+  freed?: number | undefined;
 }
 
 /** What a restructure would do, without doing it. */

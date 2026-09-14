@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // The rules this server enforces live in the client package
+    // (ui-source/src/state/rules.ts) and import through its `@/` alias.
+    // Pointing the alias at the same place is what lets one copy of the game's
+    // rules govern both sides — see the header of rules.ts.
+    "baseUrl": "..",
+    "paths": { "@/*": ["ui-source/src/*"] },
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src", "test"]
+}

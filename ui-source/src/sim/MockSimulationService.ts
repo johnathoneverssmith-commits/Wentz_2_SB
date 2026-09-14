@@ -441,11 +441,13 @@ export class MockSimulationService implements SimulationService {
   private teamTotals(rng: Rng, points: number): TeamGameTotals {
     const pass = clamp(Math.round(rng.normal(230, 55)), 90, 430);
     const rush = clamp(Math.round(rng.normal(110, 35)), 20, 240);
-    const q = [0, 0, 0, 0];
+    // a tuple rather than a number[], so whatever is left over at the end has
+    // somewhere provably safe to land
+    const q: [number, number, number, number] = [0, 0, 0, 0];
     let left = points;
     for (let i = 0; i < 4 && left > 0; i++) {
       const s = Math.min(left, rng.pick([0, 0, 3, 7, 7, 10, 14]));
-      q[i] = s;
+      q[i as 0 | 1 | 2 | 3] = s;
       left -= s;
     }
     if (left > 0) q[3] += left;

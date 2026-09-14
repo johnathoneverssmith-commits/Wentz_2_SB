@@ -1,0 +1,250 @@
+/**
+ * The online league server.
+ *
+ * Distinct from `server/index.ts`, which stays what it always was: a
+ * stateless dev adapter that exposes the engine as pure functions, with
+ * permissive CORS and no auth, for a single-player client on the same
+ * machine. This one owns leagues — it has a database, accounts, and the
+ * authority to say no.
+ *
+ * Run it with `npm run online` (and `npm run online:migrate` once).
+ */
+import { createServer } from "node:http";
+
+import {
+  actorFor,
+  contractMove,
+  makeDraftPick,
+  placeBid,
+  proposeTrade,
+  releasePlayer,
+  respondToTrade,
+  setDepthOrder,
+  signFreeAgent,
+} from "./actions.js";
+import { isCommissioner, login, register, signSession } from "./auth.js";
+import { ActionError, migrate, readLeague } from "./db.js";
+import {
+  clearSessionCookie,
+  get,
+  handle,
+  post,
+  requireUser,
+  setSessionCookie,
+  type Ctx,
+} from "./http.js";
+import { feed, inboxFor } from "./inbox.js";
+import { claimTeam, createOnlineLeague, leagueByInvite, leaguesFor, openTeams } from "./leagues.js";
+import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
+import { simulateWeekForLeague } from "./simulate.js";
+
+/** Body fields, checked at the door so a handler can trust what it reads. */
+function field<T>(ctx: Ctx, name: string, kind: "string" | "number" | "boolean" | "object"): T {
+  const body = (ctx.body ?? {}) as Record<string, unknown>;
+  const v = body[name];
+  if (typeof v !== kind || v === null) {
+    throw new ActionError(`\`${name}\` is required and must be a ${kind}.`);
+  }
+  return v as T;
+}
+function optional<T>(ctx: Ctx, name: string): T | undefined {
+  const body = (ctx.body ?? {}) as Record<string, unknown>;
+  return body[name] as T | undefined;
+}
+
+/* ---- accounts -------------------------------------------------------- */
+
+post("/auth/register", async (ctx) => {
+  const user = await register(field(ctx, "name", "string"), field(ctx, "password", "string"));
+  setSessionCookie(ctx.res, signSession(user.id));
+  return { user };
+});
+
+post("/auth/login", async (ctx) => {
+  const user = await login(field(ctx, "name", "string"), field(ctx, "password", "string"));
+  if (!user) throw new ActionError("That name and password don't match.", 401);
+  setSessionCookie(ctx.res, signSession(user.id));
+  return { user };
+});
+
+post("/auth/logout", async (ctx) => {
+  clearSessionCookie(ctx.res);
+  return { ok: true };
+});
+
+get("/auth/me", async (ctx) => ({ user: ctx.user }));
+
+/* ---- leagues --------------------------------------------------------- */
+
+get("/leagues", async (ctx) => ({ leagues: await leaguesFor(requireUser(ctx).id) }));
+
+post("/leagues", async (ctx) => {
+  const user = requireUser(ctx);
+  return createOnlineLeague(user.id, {
+    name: field(ctx, "name", "string"),
+    humanSlots: optional<number>(ctx, "humanSlots"),
+    config: optional(ctx, "config"),
+    phaseTimeoutHours: optional<number>(ctx, "phaseTimeoutHours"),
+    pickTimeoutHours: optional<number>(ctx, "pickTimeoutHours"),
+  });
+});
+
+get("/invites/:code", async (ctx) => {
+  const league = await leagueByInvite(ctx.params.code!);
+  if (!league) throw new ActionError("That invite code doesn't match a league.", 404);
+  return { league, openTeams: await openTeams(league.id) };
+});
+
+post("/leagues/:id/claim", async (ctx) => {
+  const user = requireUser(ctx);
+  return claimTeam(ctx.params.id!, user.id, field(ctx, "teamCode", "string"));
+});
+
+/**
+ * The whole league, for a client that wants to render it.
+ *
+ * Handing over the entire `LeagueState` is the deliberate choice: the client
+ * already knows how to render exactly this object, and hiding parts of it
+ * would mean inventing a second, smaller shape and keeping the two in step.
+ * The only thing genuinely secret in a league is a sealed free-agency bid,
+ * and those are stripped below.
+ */
+get("/leagues/:id", async (ctx) => {
+  const user = requireUser(ctx);
+  const loaded = await readLeague(ctx.params.id!);
+  if (!loaded) throw new ActionError("No such league.", 404);
+  const mine = (await import("./auth.js")).franchiseOf;
+  const franchise = await mine(ctx.params.id!, user.id);
+
+  const state = structuredClone(loaded.state);
+  // A live window's bids are sealed until the day resolves; showing another
+  // team's offer would turn an auction into a staring contest.
+  for (const fa of [state.freeAgency, state.coachingHire]) {
+    if (!fa) continue;
+    for (const [id, bids] of Object.entries(fa.bids)) {
+      fa.bids[id] = bids.filter((b) => b.teamCode === franchise?.teamCode);
+    }
+  }
+
+  return {
+    league: { id: loaded.league.id, name: loaded.league.name },
+    state,
+    version: loaded.version,
+    you: franchise?.teamCode.startsWith("unclaimed:") ? null : franchise,
+    isCommissioner: await isCommissioner(ctx.params.id!, user.id),
+    msLeft: timeLeft(loaded),
+    waitingOn: waitingOn(loaded.state),
+  };
+});
+
+get("/leagues/:id/feed", async (ctx) => {
+  requireUser(ctx);
+  const since = Number(ctx.url.searchParams.get("since") ?? 0);
+  return { events: await feed(ctx.params.id!, Number.isFinite(since) ? since : 0) };
+});
+
+get("/inbox", async (ctx) => ({ leagues: await inboxFor(requireUser(ctx).id) }));
+
+/* ---- actions --------------------------------------------------------- */
+
+/** Every action resolves the caller's franchise first; none of them trust the body. */
+async function actor(ctx: Ctx) {
+  const user = requireUser(ctx);
+  return actorFor(ctx.params.id!, user.id);
+}
+const version = (ctx: Ctx) => optional<string>(ctx, "version");
+
+post("/leagues/:id/actions/sign", async (ctx) =>
+  signFreeAgent(await actor(ctx), field(ctx, "playerId", "string"), field(ctx, "offer", "object"), version(ctx)),
+);
+
+post("/leagues/:id/actions/bid", async (ctx) =>
+  placeBid(
+    await actor(ctx),
+    (optional<string>(ctx, "subject") ?? "players") as "players" | "coaches",
+    field(ctx, "targetId", "string"),
+    field(ctx, "offer", "object"),
+    version(ctx),
+  ),
+);
+
+post("/leagues/:id/actions/trade/propose", async (ctx) =>
+  proposeTrade(
+    await actor(ctx),
+    field(ctx, "toTeam", "string"),
+    (optional<string[]>(ctx, "give") ?? []),
+    (optional<string[]>(ctx, "get") ?? []),
+    version(ctx),
+  ),
+);
+
+post("/leagues/:id/actions/trade/respond", async (ctx) =>
+  respondToTrade(
+    await actor(ctx),
+    field(ctx, "tradeId", "string"),
+    field(ctx, "accept", "boolean"),
+    version(ctx),
+  ),
+);
+
+post("/leagues/:id/actions/draft/pick", async (ctx) =>
+  makeDraftPick(await actor(ctx), field(ctx, "selectedId", "string"), version(ctx)),
+);
+
+post("/leagues/:id/actions/depth", async (ctx) =>
+  setDepthOrder(
+    await actor(ctx),
+    field(ctx, "position", "string"),
+    optional<string[]>(ctx, "playerIds") ?? [],
+  ),
+);
+
+post("/leagues/:id/actions/release", async (ctx) =>
+  releasePlayer(await actor(ctx), field(ctx, "playerId", "string"), version(ctx)),
+);
+
+post("/leagues/:id/actions/contract", async (ctx) =>
+  contractMove(
+    await actor(ctx),
+    field(ctx, "playerId", "string"),
+    field(ctx, "move", "object"),
+    version(ctx),
+  ),
+);
+
+post("/leagues/:id/actions/ready", async (ctx) => {
+  const a = await actor(ctx);
+  return readyUp(a.leagueId, a.gmId, optional<boolean>(ctx, "ready") ?? true);
+});
+
+post("/leagues/:id/actions/simulate-week", async (ctx) => {
+  const a = await actor(ctx);
+  return simulateWeekForLeague(a.leagueId);
+});
+
+/* ---- commissioner ---------------------------------------------------- */
+
+post("/leagues/:id/admin/advance", async (ctx) => {
+  const user = requireUser(ctx);
+  if (!(await isCommissioner(ctx.params.id!, user.id))) {
+    throw new ActionError("Only the commissioner can do that.", 403);
+  }
+  return forceAdvance(ctx.params.id!);
+});
+
+/* ---- lifecycle ------------------------------------------------------- */
+
+const PORT = Number(process.env.PORT ?? 8788);
+
+export const server = createServer((req, res) => void handle(req, res));
+
+if (process.env.NODE_ENV !== "test") {
+  await migrate();
+  server.listen(PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`online league server on :${PORT}`);
+  });
+  // The deadline sweeper. A minute is far finer than the hours-long phases it
+  // polices; it's cheap because it only touches leagues whose clock has run.
+  setInterval(() => void sweep(), 60_000).unref();
+}
