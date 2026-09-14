@@ -79,7 +79,7 @@ export function LeagueStatsRankings() {
         onChange={setActive}
       />
 
-      <Panel open={active === "offense"}>
+      <Panel id="offense" open={active === "offense"}>
         <RankedBy
           value={offBy}
           onChange={setOffBy}
@@ -101,7 +101,7 @@ export function LeagueStatsRankings() {
         />
       </Panel>
 
-      <Panel open={active === "defense"}>
+      <Panel id="defense" open={active === "defense"}>
         <RankedBy
           value={defBy}
           onChange={setDefBy}
@@ -123,7 +123,7 @@ export function LeagueStatsRankings() {
         />
       </Panel>
 
-      <Panel open={active === "scoring"}>
+      <Panel id="scoring" open={active === "scoring"}>
         <RankTable
           rows={sorted("ppg", true)}
           me={code}
@@ -135,7 +135,7 @@ export function LeagueStatsRankings() {
         />
       </Panel>
 
-      <Panel open={active === "special"}>
+      <Panel id="special" open={active === "special"}>
         <RankedBy
           value={stBy}
           onChange={setStBy}

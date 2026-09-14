@@ -159,7 +159,7 @@ export function RosterCapManagement() {
         onChange={setActive}
       />
 
-      <Panel open={active === "roster"}>
+      <Panel id="roster" open={active === "roster"}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
@@ -288,7 +288,7 @@ export function RosterCapManagement() {
         )}
       </Panel>
 
-      <Panel open={active === "cap"}>
+      <Panel id="cap" open={active === "cap"}>
         <p className="sectionlabel">Cap allocation</p>
         <CapBar label="Offense" value={capByUnit.offense} max={capUsed} />
         <CapBar label="Defense" value={capByUnit.defense} max={capUsed} />
@@ -299,14 +299,14 @@ export function RosterCapManagement() {
         <p className="sectionlabel" style={{ marginTop: 22 }}>
           Cap summary
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
+        <div className="split-3" style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
           <ProjCell label="Cap total" value={millions(capTotalM)} />
           <ProjCell label="Cap used" value={millions(capUsed)} />
           <ProjCell label="Cap space" value={millions(capSpace)} />
         </div>
       </Panel>
 
-      <Panel open={active === "needs"}>
+      <Panel id="needs" open={active === "needs"}>
         <p className="sectionlabel" style={{ marginBottom: 4 }}>
           Positions needing attention
         </p>

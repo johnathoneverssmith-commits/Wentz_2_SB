@@ -1,6 +1,7 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Player } from "@/domain";
 import { millions } from "@/util/format";
+import { useDialog } from "./useDialog.ts";
 
 /**
  * Full read-out for one player: identity, contract, this season's counting
@@ -10,20 +11,29 @@ import { millions } from "@/util/format";
 export function PlayerStatsModal({ player, onClose }: { player: Player; onClose: () => void }) {
   const st = player.season_stats;
   const attrs = Object.entries(player.attributes).filter(([, v]) => typeof v === "number");
+  const dialogRef = useDialog(onClose);
 
   return (
     <div className="modal-scrim" onClick={onClose}>
-      <div className="modal-card" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal-card"
+        style={{ maxWidth: 520 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="player-card-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <div>
-            <p className="modal-title">
+            <p className="modal-title" id="player-card-title">
               {player.name} · {player.position}
             </p>
             <p className="modal-sub">
               {TEAMS_BY_CODE[player.nfl_team]?.city ?? "Free agent"} · age {player.age} · {player.overall} OVR
             </p>
           </div>
-          <button className="modal-x" onClick={onClose}>
+          <button className="modal-x" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
@@ -57,7 +67,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
           )}
 
           <p className="subhead">Attributes</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "6px 12px" }}>
+          <div className="split-3" style={{ gap: "6px 12px" }}>
             {attrs.map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
                 <span style={{ color: "var(--ink-dim)" }}>{k.replace(/_/g, " ")}</span>

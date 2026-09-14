@@ -34,7 +34,7 @@ export function PostseasonBracket() {
             {started ? " — here's how the field looks right now." : "."}
           </div>
           {started && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+            <div className="split-2" style={{ gap: 24 }}>
               {(["AFC", "NFC"] as const).map((conf) => (
                 <div key={conf}>
                   <p className="subhead" style={{ marginTop: 0 }}>
@@ -119,7 +119,7 @@ export function PostseasonBracket() {
         </Panel>
       ))}
 
-      <Panel open={active === "sb"}>
+      <Panel id="sb" open={active === "sb"}>
         <div style={{ maxWidth: 340, margin: "0 auto" }}>
           {b.matchups
             .filter((m) => m.round === "SB")
@@ -237,7 +237,7 @@ function ConferenceBracket({
           <path key={i} d={d} fill="none" stroke="var(--line-strong)" strokeWidth={1} />
         ))}
       </svg>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 40 }}>
+      <div className="split-3" style={{ gap: 40 }}>
         {(["WC", "DIV", "CONF"] as const).map((round, ci) => (
           <div key={round}>
             <p className="subhead" style={{ textAlign: "center", marginTop: 0 }}>

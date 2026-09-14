@@ -141,7 +141,7 @@ export function TradeProposal() {
         </select>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+      <div className="split-2">
         <TradeColumn
           title={`${TEAMS_BY_CODE[myCode]!.city} sends`}
           role="you"

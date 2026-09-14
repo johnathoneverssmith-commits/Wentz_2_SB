@@ -3,6 +3,8 @@ import { useMemo, useState } from "react";
 import type { ContractOffer, FreePriorities } from "@/domain";
 import { millions } from "@/util/format";
 
+import { useDialog } from "./useDialog.ts";
+
 /**
  * The negotiation popup used by Free Agency and the coaching hiring window.
  * You set base salary, signing bonus, years and guaranteed money; the target's
@@ -32,6 +34,7 @@ export function ContractNegotiation({
   const [bonus, setBonus] = useState(round1(start.signingBonus));
   const [years, setYears] = useState(start.years);
   const [gtd, setGtd] = useState(round1(start.guaranteed));
+  const dialogRef = useDialog(onClose);
 
   const total = useMemo(() => round1(base * years + bonus), [base, years, bonus]);
   const exp = priorities.expectation;
@@ -41,13 +44,22 @@ export function ContractNegotiation({
 
   return (
     <div className="modal-scrim" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="negotiation-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <div>
-            <p className="modal-title">{title}</p>
+            <p className="modal-title" id="negotiation-title">
+              {title}
+            </p>
             {subtitle && <p className="modal-sub">{subtitle}</p>}
           </div>
-          <button className="modal-x" onClick={onClose}>
+          <button className="modal-x" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>

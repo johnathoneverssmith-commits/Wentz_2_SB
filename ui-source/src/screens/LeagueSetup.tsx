@@ -67,7 +67,7 @@ export function LeagueSetup() {
         onChange={setActive}
       />
 
-      <Panel open={active === "lobby"}>
+      <Panel id="lobby" open={active === "lobby"}>
         <FranchiseBanner meta={myMeta} locked={locked} />
 
         <p className="sectionlabel">GM lobby</p>
@@ -137,7 +137,7 @@ export function LeagueSetup() {
                       <p style={{ margin: "0 0 6px", fontSize: 10.5, color: "var(--ink-faint)", fontWeight: 500 }}>
                         {conf} {d.division}
                       </p>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div className="split-2" style={{ gap: 8 }}>
                         {d.teams.map((t) => {
                           const owner = takenBy.get(t.code);
                           const mine = owner === viewerGmId;
@@ -173,7 +173,7 @@ export function LeagueSetup() {
         )}
       </Panel>
 
-      <Panel open={active === "settings"}>
+      <Panel id="settings" open={active === "settings"}>
         {locked && (
           <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
             Rules are shown for reference — they can't change once the league is underway. Start a new league from the sidebar

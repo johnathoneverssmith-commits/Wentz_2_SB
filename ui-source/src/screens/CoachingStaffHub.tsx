@@ -293,7 +293,7 @@ function NormalHub({ code }: { code: string | undefined }) {
         active={active}
         onChange={setActive}
       />
-      <Panel open={active === "current"}>
+      <Panel id="current" open={active === "current"}>
         {(["HC", "OC", "DC"] as CoachRole[]).map((role) => {
           const c = staff[role];
           return (
@@ -329,7 +329,7 @@ function NormalHub({ code }: { code: string | undefined }) {
           );
         })}
       </Panel>
-      <Panel open={active === "fit"}>
+      <Panel id="fit" open={active === "fit"}>
         <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
           Against current schemes: {oc ? schemeLabel(oc.scheme) : "no OC"} (offense), {dc ? schemeLabel(dc.scheme) : "no DC"} (defense)
         </p>

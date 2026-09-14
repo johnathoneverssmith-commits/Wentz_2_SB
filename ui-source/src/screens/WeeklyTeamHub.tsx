@@ -128,7 +128,7 @@ export function WeeklyTeamHub() {
         onChange={setActive}
       />
 
-      <Panel open={active === "overview"}>
+      <Panel id="overview" open={active === "overview"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           Around the league — things to watch
         </p>
@@ -144,14 +144,14 @@ export function WeeklyTeamHub() {
         ))}
 
         <p className="subhead">Unit ranks</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div className="split-3" style={{ gap: 10 }}>
           <UnitCard label="Offense" rank={team.ratings.offenseRank} rating={team.ratings.offense} />
           <UnitCard label="Defense" rank={team.ratings.defenseRank} rating={team.ratings.defense} />
           <UnitCard label="Special teams" rank={team.ratings.specialTeamsRank} rating={team.ratings.specialTeams} />
         </div>
       </Panel>
 
-      <Panel open={active === "matchup"}>
+      <Panel id="matchup" open={active === "matchup"}>
         {oppCode && opp ? (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12, marginBottom: 16 }}>
@@ -197,14 +197,14 @@ export function WeeklyTeamHub() {
         )}
       </Panel>
 
-      <Panel open={active === "division"}>
+      <Panel id="division" open={active === "division"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           {meta.conference} {meta.division}
         </p>
         <StandingsTable s={s} codes={divCodes} me={code} />
       </Panel>
 
-      <Panel open={active === "league"}>
+      <Panel id="league" open={active === "league"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           {meta.conference} — playoff seeding
         </p>
@@ -214,7 +214,7 @@ export function WeeklyTeamHub() {
         </p>
       </Panel>
 
-      <Panel open={active === "gms"}>
+      <Panel id="gms" open={active === "gms"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           Human GM standings
         </p>
@@ -258,7 +258,7 @@ export function WeeklyTeamHub() {
         </div>
       </Panel>
 
-      <Panel open={active === "injuries"}>
+      <Panel id="injuries" open={active === "injuries"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           Your team
         </p>

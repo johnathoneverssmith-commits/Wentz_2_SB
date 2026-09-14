@@ -189,7 +189,7 @@ export function DraftRoom() {
         </div>
       )}
 
-      <Panel open={active === "available"}>
+      <Panel id="available" open={active === "available"}>
         {yourPick && !complete && (
           <div
             className="team-callout"
@@ -269,7 +269,7 @@ export function DraftRoom() {
         </div>
       </Panel>
 
-      <Panel open={active === "mine"}>
+      <Panel id="mine" open={active === "mine"}>
         {myResults.length === 0 ? (
           <div className="emptystate">You haven't drafted anyone yet.</div>
         ) : (
@@ -306,7 +306,7 @@ export function DraftRoom() {
         )}
       </Panel>
 
-      <Panel open={active === "needs"}>
+      <Panel id="needs" open={active === "needs"}>
         {code ? (
           <>
             <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink-faint)" }}>
@@ -319,7 +319,7 @@ export function DraftRoom() {
         )}
       </Panel>
 
-      <Panel open={active === "board"}>
+      <Panel id="board" open={active === "board"}>
         <div style={{ maxHeight: 480, overflowY: "auto" }}>
           {[...draft.results]
             .reverse()

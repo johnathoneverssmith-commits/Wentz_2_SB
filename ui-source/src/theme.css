@@ -832,6 +832,36 @@ table.mtable td.val {
   }
 }
 
+/* ---- column splits that have to survive a phone --------------------- *
+ *
+ * Several screens laid out two or three columns with an inline
+ * `gridTemplateColumns`, which no media query can reach. At 375px the trade
+ * builder's two columns were 160px each: "2027 Round 1 (via BAL)" wrapped to
+ * three lines and the add button was clipped off the edge. These are the same
+ * layouts, in CSS, where a breakpoint can get at them.
+ */
+.split-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.split-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 720px) {
+  .split-2 {
+    grid-template-columns: 1fr;
+  }
+  .pdetail .grid4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .split-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---- roster-needs chips -------------------------------------------- */
 .needgrid {
   display: grid;

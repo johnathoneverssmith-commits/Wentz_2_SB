@@ -89,7 +89,7 @@ export function FullBoxScore() {
         onChange={setActive}
       />
 
-      <Panel open={active === "team"}>
+      <Panel id="team" open={active === "team"}>
         <table className="mtable">
           <thead>
             <tr>
@@ -112,7 +112,7 @@ export function FullBoxScore() {
         </table>
       </Panel>
 
-      <Panel open={active === "scoring"}>
+      <Panel id="scoring" open={active === "scoring"}>
         <p className="subhead">By quarter</p>
         <table className="stbl" style={{ marginBottom: 18 }}>
           <thead>
@@ -146,14 +146,14 @@ export function FullBoxScore() {
         ))}
       </Panel>
 
-      <Panel open={active === "home"}>
+      <Panel id="home" open={active === "home"}>
         <TeamLines lines={game.playerLines?.home ?? []} />
       </Panel>
-      <Panel open={active === "away"}>
+      <Panel id="away" open={active === "away"}>
         <TeamLines lines={game.playerLines?.away ?? []} />
       </Panel>
 
-      <Panel open={active === "injuries"}>
+      <Panel id="injuries" open={active === "injuries"}>
         <p className="sectionlabel">Left the game</p>
         {injuries.map((e, i) => (
           <div key={`${e.playerId}-${i}`} className="neg-row">

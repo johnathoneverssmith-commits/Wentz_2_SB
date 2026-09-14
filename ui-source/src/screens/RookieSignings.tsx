@@ -64,7 +64,7 @@ export function RookieSignings() {
         onChange={setActive}
       />
 
-      <Panel open={active === "signings"}>
+      <Panel id="signings" open={active === "signings"}>
         {myPicks.length === 0 ? (
           <div className="emptystate">Your team didn't draft anyone this year — nothing to sign. You can advance whenever you're ready.</div>
         ) : (
@@ -168,7 +168,7 @@ export function RookieSignings() {
         )}
       </Panel>
 
-      <Panel open={active === "summary"}>
+      <Panel id="summary" open={active === "summary"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           Your class
         </p>

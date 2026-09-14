@@ -61,7 +61,7 @@ export function FantasyDraftSummary() {
             <p className="subhead" style={{ marginTop: 0 }}>
               Your team — the numbers that matter
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 8 }}>
+            <div className="split-3" style={{ gap: 10, marginBottom: 8 }}>
               <UnitStat label="Starting offense" value={mine.offense} rank={mine.offenseRank} />
               <UnitStat label="Starting defense" value={mine.defense} rank={mine.defenseRank} />
               <UnitStat label="Starting special teams" value={mine.specialTeams} rank={mine.specialTeamsRank} />

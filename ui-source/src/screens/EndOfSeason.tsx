@@ -124,7 +124,7 @@ export function SeasonComplete() {
         onChange={setActive}
       />
 
-      <Panel open={active === "season"}>
+      <Panel id="season" open={active === "season"}>
         <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
           <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             {humanChampGm
@@ -154,7 +154,7 @@ export function SeasonComplete() {
         </div>
       </Panel>
 
-      <Panel open={active === "tracker"}>
+      <Panel id="tracker" open={active === "tracker"}>
         <ScoreTrackerTable />
       </Panel>
 

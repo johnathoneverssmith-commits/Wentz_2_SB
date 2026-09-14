@@ -120,7 +120,7 @@ export function FreeAgencyBoard() {
         onChange={setActive}
       />
 
-      <Panel open={active === "unsigned"}>
+      <Panel id="unsigned" open={active === "unsigned"}>
         {freeAgents.length === 0 && (
           <div className="emptystate">Nobody is on the market right now.</div>
         )}
@@ -197,7 +197,7 @@ export function FreeAgencyBoard() {
         )}
       </Panel>
 
-      <Panel open={active === "needs"}>
+      <Panel id="needs" open={active === "needs"}>
         {code ? (
           <RosterNeeds roster={teamRoster(s, code)} />
         ) : (
@@ -205,7 +205,7 @@ export function FreeAgencyBoard() {
         )}
       </Panel>
 
-      <Panel open={active === "signed"}>
+      <Panel id="signed" open={active === "signed"}>
         {isWindowStage ? (
           (fa?.signed ?? []).length === 0 ? (
             <div className="emptystate">No signings yet.</div>

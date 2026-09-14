@@ -63,7 +63,7 @@ export function RetirementReview() {
         onChange={setActive}
       />
 
-      <Panel open={active === "yours"}>
+      <Panel id="yours" open={active === "yours"}>
         <div className="infonote" style={{ padding: "11px 14px", marginBottom: 16, background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
           Retirement odds rise with age relative to the position-typical retirement age and with prior significant injuries.
         </div>
@@ -120,7 +120,7 @@ export function RetirementReview() {
         )}
       </Panel>
 
-      <Panel open={active === "league"}>
+      <Panel id="league" open={active === "league"}>
         <table className="stbl">
           <thead>
             <tr>

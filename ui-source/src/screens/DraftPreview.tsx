@@ -75,7 +75,7 @@ export function DraftPreview() {
         onChange={setActive}
       />
 
-      <Panel open={active === "prospects"}>
+      <Panel id="prospects" open={active === "prospects"}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
           <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
           <select value={posFilter} onChange={(e) => setPosFilter(e.target.value as "ALL" | Position)}>
@@ -147,11 +147,11 @@ export function DraftPreview() {
         </div>
       </Panel>
 
-      <Panel open={active === "needs"}>
+      <Panel id="needs" open={active === "needs"}>
         {code ? <RosterNeeds roster={myRoster} /> : <div className="emptystate">Pick a team first.</div>}
       </Panel>
 
-      <Panel open={active === "targets"}>
+      <Panel id="targets" open={active === "targets"}>
         {targetProspects.length === 0 ? (
           <div className="emptystate">No prospects marked yet. Star a prospect on the Prospects tab.</div>
         ) : (
