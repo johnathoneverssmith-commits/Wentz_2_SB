@@ -104,10 +104,33 @@ npm run online:test
 `DATABASE_URL` and they'll run; without it they report themselves as skipped
 in the test name rather than passing quietly.
 
+## The client seam
+
+`ui-source/src/sim/OnlineLeagueClient.ts` is the transport.
+`ui-source/src/state/online.ts` holds the session — which league, which team,
+and the version token that goes out with anything that spends money.
+`ui-source/src/state/useLeagueActions.ts` is the interface a screen uses: one
+set of async verbs that either mutate the local store or call the server,
+depending on which kind of league you're in.
+
+Every verb is async, and that's the design problem in one word. Locally a cap
+check fails instantly; online it fails after a round trip, against a league
+that may have moved since the page loaded. A screen that assumes the first
+can never work online, so the shared interface takes the slower shape and the
+local implementation resolves immediately.
+
+The store's own actions keep their synchronous signatures on purpose.
+Single-player is finished and working; converting twenty screens to `await`
+for a mode that isn't switched on would risk a working game for no gain
+today. Screens move onto the hook one at a time, and the ones that haven't go
+on calling the store directly.
+
 ## Still to do
 
-- Wire the client's store to `OnlineLeagueClient` behind a mode switch, so
-  the same screens drive either a local league or an online one.
+- Move the screens onto `useLeagueActions` — Free Agency and Trade Proposal
+  first, since they're the ones where a stale view actually costs something.
+- A sign-in / league-lobby entry point, so there's a way into online mode at
+  all from the UI.
 - An SSE endpoint so an open tab hears about a trade offer without polling.
 - Deploy: a host, a managed Postgres, and a check that the engine's
   `artifacts/**/portable/*.json` reads work from the deployed filesystem.

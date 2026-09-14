@@ -1,0 +1,168 @@
+/**
+ * One interface over "act locally" and "ask the server", so a screen doesn't
+ * have to know which league it's in.
+ *
+ * Every verb here is async, and that's the whole design problem in one word.
+ * Locally a cap check fails instantly; online it fails after a round trip,
+ * against a league that may have moved since the page loaded. A screen that
+ * assumes the first can never work online, so the shared interface takes the
+ * slower shape and the local implementation simply resolves immediately.
+ *
+ * The store's own actions keep their synchronous signatures. That is
+ * deliberate: single-player is finished and working, and converting twenty
+ * screens to `await` for a mode that isn't switched on yet would put a
+ * working game at risk for no gain today. Screens migrate to this hook one
+ * at a time, and the ones that haven't go on calling the store directly.
+ */
+import { useCallback, useMemo } from "react";
+
+import type { ContractOffer, Position } from "@/domain";
+
+import { isOnline, onlineSession, pull, send } from "./online.ts";
+import { useStore } from "./store.ts";
+
+export interface ActionResult {
+  ok: boolean;
+  reason?: string;
+}
+
+export interface LeagueActions {
+  /** True when these calls are going to a server rather than to memory. */
+  online: boolean;
+  signFreeAgent: (playerId: string, offer: ContractOffer) => Promise<ActionResult>;
+  placeBid: (
+    subject: "players" | "coaches",
+    targetId: string,
+    offer: ContractOffer,
+  ) => Promise<ActionResult>;
+  proposeTrade: (toTeam: string, give: string[], get: string[]) => Promise<ActionResult>;
+  respondToTrade: (tradeId: string, accept: boolean) => Promise<ActionResult>;
+  makeDraftPick: (selectedId: string) => Promise<ActionResult>;
+  setDepthOrder: (position: Position, playerIds: string[]) => Promise<ActionResult>;
+  releasePlayer: (playerId: string) => Promise<ActionResult>;
+  restructure: (playerId: string) => Promise<ActionResult>;
+  extend: (
+    playerId: string,
+    terms: { baseSalary: number; years: number; guaranteed: number },
+  ) => Promise<ActionResult>;
+  readyUp: (ready: boolean) => Promise<ActionResult>;
+  /** Pull the server's copy and replace the local one. No-op offline. */
+  refresh: () => Promise<void>;
+}
+
+/** Turns a thrown `OnlineError` into the same shape a local refusal has. */
+async function attempt(run: () => Promise<unknown>): Promise<ActionResult> {
+  try {
+    await run();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: (err as Error).message };
+  }
+}
+
+export function useLeagueActions(): LeagueActions {
+  const store = useStore();
+  const online = isOnline();
+
+  const replaceState = useCallback(() => {
+    // the server's copy is the league; this is not a merge
+    void pull().then((state) => {
+      if (state) useStore.setState(state as never);
+    });
+  }, []);
+
+  return useMemo<LeagueActions>(() => {
+    if (!online) {
+      return {
+        online: false,
+        signFreeAgent: async (playerId, offer) => store.signStandingFreeAgent(playerId, offer),
+        placeBid: async (subject, targetId, offer) => store.placeOffer(subject, targetId, offer),
+        proposeTrade: async (toTeam, give, get) => {
+          const id = store.proposeTrade(toTeam, give, get);
+          store.resolveTrade(id);
+          return { ok: true };
+        },
+        respondToTrade: async (tradeId, accept) => store.respondToOffer(tradeId, accept),
+        makeDraftPick: async (selectedId) => {
+          store.makePick(selectedId);
+          return { ok: true };
+        },
+        setDepthOrder: async (position, playerIds) => {
+          const code = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
+          if (code) store.setDepthOrder(code, position, playerIds);
+          return { ok: true };
+        },
+        releasePlayer: async (playerId) => {
+          store.releasePlayer(playerId);
+          return { ok: true };
+        },
+        restructure: async (playerId) => store.restructurePlayer(playerId),
+        extend: async (playerId, terms) => store.extendPlayer(playerId, terms),
+        readyUp: async (ready) => {
+          store.setReady(store.viewerGmId, ready);
+          return { ok: true };
+        },
+        refresh: async () => {},
+      };
+    }
+
+    const after = async (result: ActionResult): Promise<ActionResult> => {
+      if (result.ok) replaceState();
+      return result;
+    };
+
+    return {
+      online: true,
+      signFreeAgent: (playerId, offer) =>
+        attempt(() =>
+          send((s) => s.client.signFreeAgent(s.leagueId, playerId, offer, s.version)),
+        ).then(after),
+      placeBid: (subject, targetId, offer) =>
+        attempt(() =>
+          send((s) => s.client.placeBid(s.leagueId, targetId, offer, s.version, subject)),
+        ).then(after),
+      proposeTrade: (toTeam, give, get) =>
+        attempt(() =>
+          send((s) => s.client.proposeTrade(s.leagueId, toTeam, give, get, s.version)),
+        ).then(after),
+      respondToTrade: (tradeId, accept) =>
+        attempt(() =>
+          send((s) => s.client.respondToTrade(s.leagueId, tradeId, accept, s.version)),
+        ).then(after),
+      makeDraftPick: (selectedId) =>
+        attempt(() =>
+          send((s) => s.client.makeDraftPick(s.leagueId, selectedId, s.version)),
+        ).then(after),
+      setDepthOrder: (position, playerIds) =>
+        attempt(() => send((s) => s.client.setDepthOrder(s.leagueId, position, playerIds))).then(
+          after,
+        ),
+      releasePlayer: (playerId) =>
+        attempt(() => send((s) => s.client.releasePlayer(s.leagueId, playerId, s.version))).then(
+          after,
+        ),
+      restructure: (playerId) =>
+        attempt(() =>
+          send((s) => s.client.contractMove(s.leagueId, playerId, { kind: "restructure" }, s.version)),
+        ).then(after),
+      extend: (playerId, terms) =>
+        attempt(() =>
+          send((s) =>
+            s.client.contractMove(s.leagueId, playerId, { kind: "extend", ...terms }, s.version),
+          ),
+        ).then(after),
+      readyUp: (ready) =>
+        attempt(() => send((s) => s.client.readyUp(s.leagueId, ready))).then(after),
+      refresh: async () => {
+        replaceState();
+      },
+    };
+  }, [online, store, replaceState]);
+}
+
+/** Team code the caller is playing as, either way. */
+export function useMyTeamCode(): string | undefined {
+  const gms = useStore((s) => s.gms);
+  const viewerGmId = useStore((s) => s.viewerGmId);
+  return onlineSession()?.teamCode ?? gms.find((g) => g.id === viewerGmId)?.teamCode;
+}
