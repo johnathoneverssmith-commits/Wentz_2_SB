@@ -115,6 +115,10 @@ export async function createOnlineLeague(
  * league has never been claimed (claiming assigns the team in the same
  * transaction), so the empty-team test is exactly the unclaimed set.
  *
+ * It also puts the owner's real name back on any slot claimed before the
+ * name was recorded, for the same reason and from the same authority — the
+ * franchise row already says who holds it.
+ *
  * Runs at boot, writes only the leagues that actually change, and is safe to
  * run repeatedly.
  */
@@ -122,6 +126,15 @@ export async function repairUnclaimedGms(): Promise<number> {
   const rows = await pool.query<{ league_id: string; state: LeagueState }>(
     `SELECT league_id, state FROM league_state`,
   );
+  // who actually owns each slot, for leagues claimed before the name of the
+  // person claiming it was recorded on the GM
+  const owners = await pool.query<{ league_id: string; gm_id: string; name: string }>(
+    `SELECT f.league_id, f.gm_id, u.name
+       FROM franchises f JOIN users u ON u.id = f.user_id
+      WHERE f.user_id IS NOT NULL`,
+  );
+  const nameOf = new Map(owners.rows.map((r) => [`${r.league_id}:${r.gm_id}`, r.name]));
+
   let fixed = 0;
   for (const row of rows.rows) {
     const state = row.state;
@@ -130,6 +143,12 @@ export async function repairUnclaimedGms(): Promise<number> {
     for (const gm of state.gms) {
       if (!gm.teamCode && gm.isHuman) {
         gm.isHuman = false;
+        changed = true;
+      }
+      // a real person still wearing the seed's invented AI name
+      const owner = nameOf.get(`${row.league_id}:${gm.id}`);
+      if (owner && gm.name !== owner) {
+        gm.name = owner;
         changed = true;
       }
     }
