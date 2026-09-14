@@ -824,7 +824,7 @@ function favProb(state: LeagueState, a: string, b: string, venue: Venue = "home"
   return winProbability(oa, ob, venue);
 }
 
-function buildNextRound(round: PlayoffRound, b: BracketState, state: LeagueState): BracketMatchup[] {
+export function buildNextRound(round: PlayoffRound, b: BracketState, state: LeagueState): BracketMatchup[] {
   if (round === "SB") {
     const afc = b.matchups.filter((m) => m.round === "CONF" && m.conference === "AFC")[0]?.winner;
     const nfc = b.matchups.filter((m) => m.round === "CONF" && m.conference === "NFC")[0]?.winner;

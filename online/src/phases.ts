@@ -31,12 +31,27 @@ import {
   planAutopicks,
   rosterGate,
   runAiPicks,
+  sbWonByHuman,
+  finalizeSeason,
   signAiDraftPicks,
   applyPick,
 } from "@/state/rules.ts";
 import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
 
+import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
+import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
+import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
+import { resetSeasonStats } from "@/state/standings.ts";
+import { MockSimulationService } from "@/sim/MockSimulationService";
+
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
+
+/**
+ * Only ever asked for things it computes rather than invents: seeding a
+ * bracket from the standings, and building a schedule. The games themselves
+ * are played by the real engine in `simulate.ts`.
+ */
+const sim = new MockSimulationService();
 
 /** How long this stage should stay open for, from now. */
 export function deadlineFor(state: LeagueState, league: { phaseTimeoutHours: number; pickTimeoutHours: number }): Date {
@@ -116,12 +131,88 @@ export async function readyUp(
 export function advanceStage(state: LeagueState): { moved: boolean; autopiloted: string[] } {
   if (isInSeason(state.stage)) return { moved: false, autopiloted: [] };
   const from = state.stage;
-  const t = resolveTransition(state, {});
+  const t = resolveTransition(state, { humanGmWonSuperBowl: sbWonByHuman(state) });
+  if (t.seasonRollover) rollOverSeason(state);
+  if (t.resetStats) resetSeasonStats(state);
   state.stage = t.stage;
   state.week = t.week;
   onStageEntered(state, from);
   clearReadinessOnline(state);
   return { moved: true, autopiloted: [] };
+}
+
+/**
+ * Turn the page on a season.
+ *
+ * The single-player `tryAdvance` does all of this and online none of it ran,
+ * so a league that finished its first year would have walked into the next
+ * one carrying last year's schedule, last year's records, last year's
+ * injuries and no draft class — which is to say it would not have worked at
+ * all. Everything here is deliberate housekeeping rather than rules, and it
+ * is kept in the same order as the single-player version so the two leagues
+ * age identically.
+ */
+function rollOverSeason(state: LeagueState): void {
+  finalizeSeason(state);
+  state.season += 1;
+  state.bracket = null;
+  state.games = [];
+  state.draft = null;
+  state.freeAgency = null;
+  state.coachingHire = null;
+  state.trades = [];
+  state.rookieOutcomes = {};
+  state.pendingGameDay = null;
+  forgetSpentPicks(state, state.season); // that draft has happened
+  ensureDraftPicks(state, state.season); // and two more are now tradeable
+  clearInjuries(state); // an offseason outlasts any injury
+  pruneFreeAgentMarket(state); // careers that stopped going anywhere end
+  forgetOldRetirees(state); // and a save shouldn't carry them forever
+  applySeasonAging(state, state.season);
+  fillRosterGaps(state);
+  state.draftClass = sim.generateDraftClass(state.season, state.season);
+  for (const code of Object.keys(state.teams)) {
+    const team = state.teams[code]!;
+    team.wins = team.losses = team.ties = 0;
+    team.pointsFor = team.pointsAgainst = 0;
+    team.playoffSeed = 0;
+  }
+  state.schedule = sim.generateSchedule(state.season, Object.keys(state.teams));
+}
+
+/**
+ * Step the clock once a week has actually been played.
+ *
+ * Single-player this is `finishGameDay`: the Game Day screen shows the
+ * scores, the player hits continue, and the league moves to the next week or
+ * out of the season entirely. Online there was no equivalent at all —
+ * `simulateWeekForLeague` pushed the results and stopped. The week never
+ * advanced, so the next request found the games already on file and answered
+ * "that week has already been played", forever. An online league could play
+ * week one and nothing else.
+ *
+ * Kept beside `onStageEntered` because it is the same idea from the other
+ * side: that one opens a stage, this one closes a week.
+ */
+export function finishPlayedWeek(state: LeagueState): { stage: string; week: number } {
+  const t = resolveTransition(state, { humanGmWonSuperBowl: sbWonByHuman(state) });
+  if (t.stage === "playoffs" && !state.bracket) {
+    // seeding is a pure reading of the standings, so the server can do it
+    state.bracket = sim.seedBracket(state);
+  }
+  if (t.resetStats) resetSeasonStats(state);
+  healOneWeek(state); // a week has passed; everyone hurt is a week closer
+  // the season is scored the moment the playoffs end, so the end-of-season
+  // screens have this year's row to show
+  if (t.stage === "endOfSeasonAnnounce") finalizeSeason(state);
+
+  const from = state.stage;
+  state.stage = t.stage;
+  state.week = t.week;
+  state.pendingGameDay = null;
+  onStageEntered(state, from);
+  clearReadinessOnline(state);
+  return { stage: state.stage, week: state.week };
 }
 
 /**

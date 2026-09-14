@@ -15,12 +15,18 @@ import { simulateGame } from "../../src/engine/sim.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
 
-import type { GameResult, LeagueState } from "@/domain";
+import {
+  ROUND_ORDER,
+  type GameResult,
+  type LeagueState,
+  type PlayoffRound,
+} from "@/domain";
 import { availableRoster } from "@/state/injuries.ts";
+import { buildNextRound } from "@/sim/MockSimulationService";
 import { humanGate, isInSeason } from "@/state/rules.ts";
 
 import { ActionError, withLeague, type Applied } from "./db.js";
-import { deadlineFor } from "./phases.js";
+import { deadlineFor, finishPlayedWeek } from "./phases.js";
 
 /** The engine spells the Rams "LA"; this UI spells them "LAR". */
 const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
@@ -56,6 +62,62 @@ export interface WeekOutcome {
   results: number;
 }
 
+/**
+ * Play the live matchups of the current playoff round, with the real engine.
+ *
+ * The regular season online is played by `simulateGame` against the rosters
+ * the GMs actually built, and the playoffs had no server path at all — the
+ * week simulator only ever looks at PRE/REG fixtures, so a league that
+ * reached the bracket found nothing to play and stopped there.
+ *
+ * The bracket's shape (seeding, who meets whom next) comes from the same
+ * helpers the single-player game uses. Only the result of each game is taken
+ * from the engine rather than a coin flip, so a playoff game is decided the
+ * same way every other game in the league was.
+ */
+function playPlayoffRound(state: LeagueState, rosterFor: (code: string) => Roster): number {
+  const bracket = state.bracket;
+  if (!bracket) return 0;
+  const round = bracket.currentRound;
+  const live = bracket.matchups.filter((m) => m.round === round && m.winner == null);
+
+  let played = 0;
+  for (const m of live) {
+    if (!m.highSeed || !m.lowSeed) {
+      // a bye: somebody advances without playing
+      m.winner = m.highSeed?.code ?? m.lowSeed?.code ?? null;
+      continue;
+    }
+    // the higher seed hosts every round but the Super Bowl
+    const home = m.highSeed.code;
+    const away = m.lowSeed.code;
+    const seed = gameSeed(state, 0, `PO-${round}`, home, away);
+    const sim = simulateGame(seed, toEngine(home), toEngine(away), {
+      homeRoster: rosterFor(home),
+      awayRoster: rosterFor(away),
+      neutralSite: round === "SB",
+      injuries: true,
+    });
+    let [hs, as] = [sim.score[0], sim.score[1]];
+    // somebody has to go home; break a tie with the seed rather than leaving
+    // the bracket with no winner
+    if (hs === as) hs += 1;
+    m.homeScore = hs;
+    m.awayScore = as;
+    m.winner = hs > as ? home : away;
+    played++;
+  }
+
+  const next = ROUND_ORDER[ROUND_ORDER.indexOf(round) + 1] as PlayoffRound | undefined;
+  if (round === "SB") {
+    bracket.champion = bracket.matchups.find((x) => x.round === "SB")?.winner ?? null;
+  } else if (next) {
+    bracket.currentRound = next;
+    bracket.matchups.push(...buildNextRound(next, bracket, state));
+  }
+  return played;
+}
+
 export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutcome> {
   const { result } = await withLeague<WeekOutcome>(leagueId, async ({ state, league }) => {
     if (!isInSeason(state.stage)) {
@@ -77,17 +139,6 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       } satisfies { result: WeekOutcome } & Applied;
     }
 
-    const phase = state.stage === "preseason" ? "PRE" : "REG";
-    const slate = state.schedule.filter((g) => g.week === state.week && g.phase === phase);
-    const already = new Set(state.games.filter((g) => g.week === state.week && g.phase === phase).map((g) => g.id));
-    const todo = slate.filter((g) => !already.has(`${state.season}-${phase}-${state.week}-${g.homeTeam}-${g.awayTeam}`));
-    if (todo.length === 0) {
-      return {
-        result: { played: false, reason: "That week has already been played.", week: state.week, results: 0 },
-        state,
-      } satisfies { result: WeekOutcome } & Applied;
-    }
-
     const rosterFor = (code: string): Roster => {
       const squad = availableRoster(
         Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent),
@@ -98,6 +149,49 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         state.depthChart[code] as Record<string, readonly string[]> | undefined,
       );
     };
+
+    // The playoffs are not a week of fixtures; they are a round of a bracket,
+    // and the slate below would never find them.
+    if (state.stage === "playoffs") {
+      if (!state.bracket) {
+        return {
+          result: { played: false, reason: "The bracket isn't set yet.", week: state.week, results: 0 },
+          state,
+        } satisfies { result: WeekOutcome } & Applied;
+      }
+      const round = state.bracket.currentRound;
+      const games = playPlayoffRound(state, rosterFor);
+      if (games === 0 && !state.bracket.champion) {
+        return {
+          result: { played: false, reason: "That round has already been played.", week: state.week, results: 0 },
+          state,
+        } satisfies { result: WeekOutcome } & Applied;
+      }
+      const moved = finishPlayedWeek(state);
+      return {
+        result: { played: true, reason: null, week: state.week, results: games },
+        state,
+        phaseEndsAt: deadlineFor(state, league),
+        events: [
+          { kind: "season.playoffs", summary: `The ${round} round was played — ${games} games.` },
+          ...(state.bracket.champion
+            ? [{ kind: "season.champion", summary: `${state.bracket.champion} won the Super Bowl.` }]
+            : []),
+          { kind: "season.advanced", summary: `The league moved on to ${moved.stage}.` },
+        ],
+      } satisfies { result: WeekOutcome } & Applied;
+    }
+
+    const phase = state.stage === "preseason" ? "PRE" : "REG";
+    const slate = state.schedule.filter((g) => g.week === state.week && g.phase === phase);
+    const already = new Set(state.games.filter((g) => g.week === state.week && g.phase === phase).map((g) => g.id));
+    const todo = slate.filter((g) => !already.has(`${state.season}-${phase}-${state.week}-${g.homeTeam}-${g.awayTeam}`));
+    if (todo.length === 0) {
+      return {
+        result: { played: false, reason: "That week has already been played.", week: state.week, results: 0 },
+        state,
+      } satisfies { result: WeekOutcome } & Applied;
+    }
 
     const results: GameResult[] = [];
     for (const g of todo) {
@@ -130,14 +224,28 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       recomputeStandings(state);
     }
 
+    // The week is played; now the league has to move off it. Single-player
+    // the Game Day screen does this on "continue"; online nothing did, so the
+    // next request found the games already on file and refused to play them
+    // again — which is correct, and left the league on week one for good.
+    const playedWeek = state.week;
+    const moved = finishPlayedWeek(state);
+
     return {
-      result: { played: true, reason: null, week: state.week, results: results.length },
+      result: { played: true, reason: null, week: playedWeek, results: results.length },
       state,
       phaseEndsAt: deadlineFor(state, league),
       events: [
         {
           kind: "season.week",
-          summary: `Week ${state.week} was played — ${results.length} games.`,
+          summary: `Week ${playedWeek} was played — ${results.length} games.`,
+        },
+        {
+          kind: "season.advanced",
+          summary:
+            moved.stage === "playoffs"
+              ? "The regular season is over — the bracket is set."
+              : `The league moved on to ${moved.stage} week ${moved.week}.`,
         },
       ],
     } satisfies { result: WeekOutcome } & Applied;
