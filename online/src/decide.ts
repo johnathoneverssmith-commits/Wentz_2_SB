@@ -44,7 +44,7 @@ export interface Decision {
   events: { teamCode?: string | undefined; kind: string; summary: string; detail?: unknown }[];
 }
 
-const city = (code: string): string => TEAMS_BY_CODE[code]?.city ?? code;
+const city = (code: string): string => TEAMS_BY_CODE[code]?.label ?? code;
 
 /**
  * Sign a standing free agent.

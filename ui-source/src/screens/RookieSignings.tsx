@@ -48,7 +48,7 @@ export function RookieSignings() {
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title="Rookie Signings"
-        subtitle={`${s.season} Draft Class · ${code ? TEAMS_BY_CODE[code]!.city : ""}`}
+        subtitle={`${s.season} Draft Class · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
       />
       <Ticker
         stats={[

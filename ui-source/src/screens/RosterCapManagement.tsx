@@ -113,7 +113,7 @@ export function RosterCapManagement() {
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Roster & Cap"
-        subtitle={`${TEAMS_BY_CODE[code]!.city} · ${isDepthChartStage ? "Re-order the depth chart" : "Roster management"}`}
+        subtitle={`${TEAMS_BY_CODE[code]!.label} · ${isDepthChartStage ? "Re-order the depth chart" : "Roster management"}`}
         action={
           <button className="btn-ghost" onClick={() => nav("/trade")}>
             Propose trade

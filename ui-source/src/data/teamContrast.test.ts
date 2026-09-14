@@ -46,3 +46,29 @@ describe("team colours", () => {
     }
   });
 });
+
+/**
+ * Two teams a reader cannot tell apart.
+ *
+ * Four franchises share a city — the Giants and the Jets, the Rams and the
+ * Chargers — so a league table that printed `city` had two identical "New
+ * York" rows and two identical "Los Angeles" ones, with nothing in the row to
+ * say which was which. `label` is the name to put on screen, and its one
+ * requirement is that it is a name and not a category.
+ */
+describe("team labels", () => {
+  it("names every team distinctly", () => {
+    const labels = TEAMS.map((t) => t.label);
+    expect(new Set(labels).size).toBe(TEAMS.length);
+  });
+
+  it("keeps the city for the 28 teams that have one to themselves", () => {
+    const shared = new Set(
+      TEAMS.map((t) => t.city).filter((c, _, all) => all.filter((x) => x === c).length > 1),
+    );
+    for (const t of TEAMS) {
+      if (shared.has(t.city)) expect(t.label).toContain(t.name);
+      else expect(t.label).toBe(t.city);
+    }
+  });
+});

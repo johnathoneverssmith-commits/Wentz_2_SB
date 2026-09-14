@@ -45,7 +45,7 @@ export function PostseasonBracket() {
                       {inHunt(conf).map((t, i) => (
                         <tr key={t.code} className={t.code === code ? "highlight" : ""}>
                           <td className="c" style={{ width: 22, color: "var(--ink-faint)" }}>{i + 1}</td>
-                          <td className="name">{TEAMS_BY_CODE[t.code]!.city}</td>
+                          <td className="name">{TEAMS_BY_CODE[t.code]!.label}</td>
                           <td className="r">{record(t)}</td>
                         </tr>
                       ))}
@@ -99,8 +99,8 @@ export function PostseasonBracket() {
             className: "accent",
           },
           { label: "Seed", value: inField ? `${mySeed} (${TEAMS_BY_CODE[code!]!.conference})` : "—" },
-          { label: "Next game", value: myNextOpp ? `vs ${TEAMS_BY_CODE[myNextOpp]!.city}` : b.champion ? "—" : "TBD", className: "sm" },
-          { label: "Champion", value: b.champion ? TEAMS_BY_CODE[b.champion]!.city : "—", className: "sm" },
+          { label: "Next game", value: myNextOpp ? `vs ${TEAMS_BY_CODE[myNextOpp]!.label}` : b.champion ? "—" : "TBD", className: "sm" },
+          { label: "Champion", value: b.champion ? TEAMS_BY_CODE[b.champion]!.label : "—", className: "sm" },
         ]}
       />
       <Tabs
@@ -276,7 +276,7 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
           <span className="oswald" style={{ width: 20, height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, background: t.color, color: onColorFor(t.color) }}>
             {side.seed || "•"}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{t.city}</span>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{t.label}</span>
         </div>
         {score != null && (
           <span className="oswald" style={{ fontSize: 14, fontWeight: 600, color: isWinner ? "var(--good)" : "var(--ink-dim)" }}>
@@ -307,7 +307,7 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
               land there often enough to notice */}
           {favProb === 50
             ? "Pick 'em · 50%"
-            : `${TEAMS_BY_CODE[favCode]!.city} favored · ${favProb}%`}
+            : `${TEAMS_BY_CODE[favCode]!.label} favored · ${favProb}%`}
         </div>
       )}
     </div>

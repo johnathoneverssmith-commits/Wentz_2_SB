@@ -78,7 +78,7 @@ export function DraftRoom() {
         age: p.age,
         ovr: p.overall,
         proj: ordinal(i + 1),
-        sub: TEAMS_BY_CODE[p.nfl_team]?.city ?? "Free agent",
+        sub: TEAMS_BY_CODE[p.nfl_team]?.label ?? "Free agent",
       }));
   }, [draft, mode, s.players, s.draftClass, taken]);
 
@@ -157,7 +157,7 @@ export function DraftRoom() {
         stats={[
           {
             label: "On the clock",
-            value: complete ? "Complete" : onClockTeam ? TEAMS_BY_CODE[onClockTeam]!.city : "—",
+            value: complete ? "Complete" : onClockTeam ? TEAMS_BY_CODE[onClockTeam]!.label : "—",
             className: yourPick ? "accent" : undefined,
           },
           { label: "Pick", value: `${Math.min(draft.currentPickIndex + 1, draft.pickOrder.length)} / ${draft.pickOrder.length}`, className: "sm" },
@@ -319,7 +319,7 @@ export function DraftRoom() {
                 <span style={{ fontSize: 13, color: "var(--ink-dim)" }}>#{r.pickNumber}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 500 }}>
                   <TeamBadge code={r.teamCode} size={18} />
-                  {TEAMS_BY_CODE[r.teamCode]?.city ?? r.teamCode}
+                  {TEAMS_BY_CODE[r.teamCode]?.label ?? r.teamCode}
                 </span>
                 <span style={{ fontSize: 12.5, textAlign: "right", color: "var(--ink)" }}>
                   {r.selectedName} · {r.selectedPosition}

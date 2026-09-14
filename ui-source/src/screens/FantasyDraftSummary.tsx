@@ -120,7 +120,7 @@ export function FantasyDraftSummary() {
                   <td>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
                       <TeamBadge code={row.code} size={20} />
-                      {TEAMS_BY_CODE[row.code]!.city}
+                      {TEAMS_BY_CODE[row.code]!.label}
                     </span>
                   </td>
                   <td className="c" style={{ fontWeight: 600, color: "var(--ink)" }}>{row.r.overall}</td>

@@ -282,7 +282,7 @@ function NormalHub({ code }: { code: string | undefined }) {
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Coaching Staff"
-        subtitle={`${TEAMS_BY_CODE[code]!.city} · Front office`}
+        subtitle={`${TEAMS_BY_CODE[code]!.label} · Front office`}
       />
       <Ticker
         stats={[

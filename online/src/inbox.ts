@@ -34,7 +34,7 @@ export interface Inbox {
   items: InboxItem[];
 }
 
-const city = (code: string): string => TEAMS_BY_CODE[code]?.city ?? code;
+const city = (code: string): string => TEAMS_BY_CODE[code]?.label ?? code;
 
 function itemsFor(state: LeagueState, teamCode: string, gmId: string): InboxItem[] {
   const items: InboxItem[] = [];

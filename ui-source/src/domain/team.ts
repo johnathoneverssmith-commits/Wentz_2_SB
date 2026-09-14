@@ -7,6 +7,15 @@ export interface TeamMeta {
   city: string;
   name: string;
   abbr: string;
+  /**
+   * What to call this team on screen.
+   *
+   * The city, except for the four teams that share one: two "New York" rows
+   * in a league table are two rows a reader cannot tell apart, and the same
+   * went for the Chargers and the Rams. Those four carry the nickname —
+   * "N.Y. Giants", "L.A. Rams" — which is what a real standings page does.
+   */
+  label: string;
   /** Primary brand color (hex). Used for badges/chips everywhere. */
   color: string;
   /** Text color that reads on `color` (for badges). */

@@ -102,8 +102,8 @@ export function GameDay() {
               {roundMatchups.map((m, i) => (
                 <tr key={i}>
                   <td className="name">
-                    {m.highSeed ? TEAMS_BY_CODE[m.highSeed.code]!.city : "—"} vs{" "}
-                    {m.lowSeed ? TEAMS_BY_CODE[m.lowSeed.code]!.city : "(bye)"}
+                    {m.highSeed ? TEAMS_BY_CODE[m.highSeed.code]!.label : "—"} vs{" "}
+                    {m.lowSeed ? TEAMS_BY_CODE[m.lowSeed.code]!.label : "(bye)"}
                   </td>
                   <td className="r">
                     {m.homeScore != null ? `${m.homeScore}–${m.awayScore}` : m.lowSeed ? "—" : "advances"}
@@ -153,14 +153,14 @@ export function GameDay() {
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <TeamBadge code={g.homeTeam} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.homeTeam]!.city}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.homeTeam]!.label}</span>
                     </span>
                     <span className="oswald" style={{ fontSize: 13 }}>
                       {g.homeScore}–{g.awayScore}
                     </span>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
                       <TeamBadge code={g.awayTeam} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: !homeWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.awayTeam]!.city}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: !homeWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.awayTeam]!.label}</span>
                     </span>
                   </div>
                 );
@@ -223,7 +223,7 @@ function ScoreSide({
         <p className="oswald" style={{ margin: 0, fontSize: 30, fontWeight: 700, color: won ? "var(--good)" : "var(--ink)" }}>
           {score}
         </p>
-        <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{TEAMS_BY_CODE[code]!.city}</p>
+        <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{TEAMS_BY_CODE[code]!.label}</p>
       </div>
     </div>
   );

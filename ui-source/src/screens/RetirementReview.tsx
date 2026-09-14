@@ -47,7 +47,7 @@ export function RetirementReview() {
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title="Retirement Review"
-        subtitle={`Offseason · ${code ? TEAMS_BY_CODE[code]!.city : ""}`}
+        subtitle={`Offseason · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
       />
       <Ticker
         stats={[

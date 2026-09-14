@@ -65,7 +65,7 @@ export function LeagueStatsRankings() {
           { label: "Your offense rank", value: ordinal(myOffRank), className: "accent" },
           { label: "Your defense rank", value: ordinal(myDefRank), className: "accent" },
           { label: "Points per game", value: myPpg.toFixed(1) },
-          { label: "Scoring leader", value: scoringLeader ? TEAMS_BY_CODE[scoringLeader.code]!.city : "—", className: "sm" },
+          { label: "Scoring leader", value: scoringLeader ? TEAMS_BY_CODE[scoringLeader.code]!.label : "—", className: "sm" },
         ]}
       />
       <Tabs
@@ -218,7 +218,7 @@ function RankTable({
             <tr key={r.code} className={r.code === me ? "highlight" : ""}>
               <td style={{ color: "var(--ink-faint)" }}>{i + 1}</td>
               <td className="name">
-                {TEAMS_BY_CODE[r.code]!.city}
+                {TEAMS_BY_CODE[r.code]!.label}
               </td>
               {cols.map(([h, fn]) => (
                 <td className="c" key={h}>

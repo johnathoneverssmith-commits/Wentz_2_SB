@@ -80,8 +80,8 @@ export function FullBoxScore() {
         tabs={[
           { id: "team", label: "Team Stats" },
           { id: "scoring", label: "Scoring Summary" },
-          { id: "home", label: TEAMS_BY_CODE[game.homeTeam]!.city },
-          { id: "away", label: TEAMS_BY_CODE[game.awayTeam]!.city },
+          { id: "home", label: TEAMS_BY_CODE[game.homeTeam]!.label },
+          { id: "away", label: TEAMS_BY_CODE[game.awayTeam]!.label },
           // only when there were any: an empty tab is a worse answer than no tab
           ...(injuries.length > 0 ? [{ id: "injuries", label: "Injuries" }] : []),
         ]}
@@ -127,8 +127,8 @@ export function FullBoxScore() {
             </tr>
           </thead>
           <tbody>
-            <QuarterRow name={TEAMS_BY_CODE[game.homeTeam]!.city} q={home.byQuarter} total={game.homeScore} />
-            <QuarterRow name={TEAMS_BY_CODE[game.awayTeam]!.city} q={away.byQuarter} total={game.awayScore} />
+            <QuarterRow name={TEAMS_BY_CODE[game.homeTeam]!.label} q={home.byQuarter} total={game.homeScore} />
+            <QuarterRow name={TEAMS_BY_CODE[game.awayTeam]!.label} q={away.byQuarter} total={game.awayScore} />
           </tbody>
         </table>
         <p className="subhead">Scoring plays</p>
@@ -211,7 +211,7 @@ function TeamSide({
         <span className="oswald" style={{ display: "block", fontSize: 26, fontWeight: 700, color: won ? "var(--good)" : "#fff" }}>
           {score}
         </span>
-        <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.6)" }}>{meta.city}</span>
+        <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.6)" }}>{meta.label}</span>
       </div>
     </div>
   );

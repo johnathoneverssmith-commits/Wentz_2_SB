@@ -30,7 +30,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
               {player.name} · {player.position}
             </p>
             <p className="modal-sub">
-              {TEAMS_BY_CODE[player.nfl_team]?.city ?? "Free agent"} · age {player.age} · {player.overall} OVR
+              {TEAMS_BY_CODE[player.nfl_team]?.label ?? "Free agent"} · age {player.age} · {player.overall} OVR
             </p>
           </div>
           <button className="modal-x" onClick={onClose} aria-label="Close">

@@ -124,7 +124,7 @@ export function TradeProposal() {
           <div style={{ marginLeft: 6 }}>
             <h1 style={{ fontSize: 12, letterSpacing: "0.08em", color: "rgba(255,255,255,0.55)" }}>Trade Proposal</h1>
             <p style={{ fontSize: 17, fontWeight: 600, margin: "3px 0 0" }}>
-              {TEAMS_BY_CODE[myCode]!.city} ↔ {TEAMS_BY_CODE[partner]!.city}
+              {TEAMS_BY_CODE[myCode]!.label} ↔ {TEAMS_BY_CODE[partner]!.label}
             </p>
           </div>
         </div>
@@ -168,7 +168,7 @@ export function TradeProposal() {
               <div key={o.id} className="neg-row" style={{ alignItems: "flex-start", gap: 14 }}>
                 <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
-                    {TEAMS_BY_CODE[o.fromTeam]?.city ?? o.fromTeam} want {asked}
+                    {TEAMS_BY_CODE[o.fromTeam]?.label ?? o.fromTeam} want {asked}
                   </p>
                   <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
                     They're offering {back}.
@@ -189,14 +189,14 @@ export function TradeProposal() {
 
       <div className="split-2">
         <TradeColumn
-          title={`${TEAMS_BY_CODE[myCode]!.city} sends`}
+          title={`${TEAMS_BY_CODE[myCode]!.label} sends`}
           role="you"
           roster={myRoster}
           selected={give}
           onToggle={(id) => setGive((g) => (g.includes(id) ? g.filter((x) => x !== id) : [...g, id]))}
         />
         <TradeColumn
-          title={`${TEAMS_BY_CODE[partner]!.city} sends`}
+          title={`${TEAMS_BY_CODE[partner]!.label} sends`}
           role="them"
           roster={theirRoster}
           selected={get}
@@ -206,8 +206,8 @@ export function TradeProposal() {
 
       <div style={{ padding: "22px 26px", borderTop: "1px solid var(--line)" }}>
         <div style={{ marginBottom: 16 }}>
-          <ValueBar label={TEAMS_BY_CODE[myCode]!.city} pct={(giveVal / total) * 100} value={Math.round(giveVal)} kind="you" />
-          <ValueBar label={TEAMS_BY_CODE[partner]!.city} pct={(getVal / total) * 100} value={Math.round(getVal)} kind="them" />
+          <ValueBar label={TEAMS_BY_CODE[myCode]!.label} pct={(giveVal / total) * 100} value={Math.round(giveVal)} kind="you" />
+          <ValueBar label={TEAMS_BY_CODE[partner]!.label} pct={(getVal / total) * 100} value={Math.round(getVal)} kind="them" />
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-dim)" }}>
@@ -216,7 +216,7 @@ export function TradeProposal() {
               {evalResult.valueDelta >= 0 ? "+" : ""}
               {evalResult.valueDelta}
             </span>{" "}
-            (for {TEAMS_BY_CODE[myCode]!.city})
+            (for {TEAMS_BY_CODE[myCode]!.label})
           </p>
           <span
             style={{
@@ -238,7 +238,7 @@ export function TradeProposal() {
                     : "var(--bad)",
             }}
           >
-            {TEAMS_BY_CODE[partner]!.city} accept likelihood: {Math.round(evalResult.acceptLikelihood * 100)}%
+            {TEAMS_BY_CODE[partner]!.label} accept likelihood: {Math.round(evalResult.acceptLikelihood * 100)}%
           </span>
         </div>
 
@@ -270,8 +270,8 @@ export function TradeProposal() {
         {trade && !trade.vote && (
           <p style={{ marginTop: 12, fontSize: 12.5, color: trade.status === "accepted" ? "var(--good)" : "var(--bad)", fontWeight: 600 }}>
             {trade.status === "accepted"
-              ? `${TEAMS_BY_CODE[partner]!.city} accepted the trade.`
-              : (trade.blockedReason ?? `${TEAMS_BY_CODE[partner]!.city} rejected the trade.`)}
+              ? `${TEAMS_BY_CODE[partner]!.label} accepted the trade.`
+              : (trade.blockedReason ?? `${TEAMS_BY_CODE[partner]!.label} rejected the trade.`)}
           </p>
         )}
 
@@ -322,7 +322,7 @@ export function TradeProposal() {
       </Footer>
 
       <p style={{ margin: 0, padding: "0 26px 18px", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
-        Overall/offense/defense — {TEAMS_BY_CODE[myCode]!.city} {ordinal(s.teams[myCode]!.ratings.overallRank)} · {TEAMS_BY_CODE[partner]!.city} {ordinal(s.teams[partner]!.ratings.overallRank)}
+        Overall/offense/defense — {TEAMS_BY_CODE[myCode]!.label} {ordinal(s.teams[myCode]!.ratings.overallRank)} · {TEAMS_BY_CODE[partner]!.label} {ordinal(s.teams[partner]!.ratings.overallRank)}
       </p>
     </Card>
   );

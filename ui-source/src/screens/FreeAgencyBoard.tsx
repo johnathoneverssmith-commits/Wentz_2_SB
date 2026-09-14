@@ -192,7 +192,7 @@ export function FreeAgencyBoard() {
                         .map((o, i) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid var(--line)", fontSize: 12 }}>
                             <span style={{ color: o.teamCode === code ? "var(--good)" : "var(--ink-dim)", fontWeight: o.teamCode === code ? 600 : 400 }}>
-                              {TEAMS_BY_CODE[o.teamCode]?.city ?? o.teamCode}
+                              {TEAMS_BY_CODE[o.teamCode]?.label ?? o.teamCode}
                               {o.teamCode === code ? " (you)" : ""}
                             </span>
                             <span className="oswald">
@@ -238,7 +238,7 @@ export function FreeAgencyBoard() {
                       {p?.name ?? sg.id} <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>· {p?.position}</span>
                     </p>
                     <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>
-                      <TeamBadge code={sg.toTeam} size={16} /> {TEAMS_BY_CODE[sg.toTeam]?.city ?? sg.toTeam} · Day {sg.at}
+                      <TeamBadge code={sg.toTeam} size={16} /> {TEAMS_BY_CODE[sg.toTeam]?.label ?? sg.toTeam} · Day {sg.at}
                     </span>
                   </div>
                   <span className="oswald" style={{ fontSize: 13 }}>

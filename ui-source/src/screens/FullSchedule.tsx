@@ -87,7 +87,7 @@ export function FullSchedule() {
               <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                 <TeamBadge code={g.homeTeam} />
                 <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[g.homeTeam]!.city}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[g.homeTeam]!.label}</span>
                   <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{record(s.teams[g.homeTeam]!)}</span>
                 </span>
               </div>
@@ -110,7 +110,7 @@ export function FullSchedule() {
               <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 10, minWidth: 0, textAlign: "right" }}>
                 <TeamBadge code={g.awayTeam} />
                 <span style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end", minWidth: 0 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[g.awayTeam]!.city}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[g.awayTeam]!.label}</span>
                   <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{record(s.teams[g.awayTeam]!)}</span>
                 </span>
               </div>
@@ -132,7 +132,7 @@ export function FullSchedule() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <TeamBadge code={c} />
-              <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[c]!.city}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[c]!.label}</span>
               <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{record(s.teams[c]!)}</span>
             </div>
             <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 600, letterSpacing: "0.03em", textTransform: "uppercase" }}>

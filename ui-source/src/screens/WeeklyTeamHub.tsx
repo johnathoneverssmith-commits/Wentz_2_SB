@@ -73,7 +73,7 @@ export function WeeklyTeamHub() {
     <Card maxWidth={760}>
       <CardHeader
         badge={meta.abbr}
-        title={meta.city}
+        title={meta.label}
         subtitle={
           isPreseason
             ? `Preseason · starting lineup ${team.ratings.overall} OVR`
@@ -84,7 +84,7 @@ export function WeeklyTeamHub() {
             <p>{!phase ? "Offseason" : isPreseason ? `Preseason Wk ${s.week}` : `Week ${s.week}`}</p>
             <p>
               {oppCode
-                ? `${iHost ? "vs" : "@"} ${TEAMS_BY_CODE[oppCode]!.city} (${record(s.teams[oppCode]!)})`
+                ? `${iHost ? "vs" : "@"} ${TEAMS_BY_CODE[oppCode]!.label} (${record(s.teams[oppCode]!)})`
                 : phase
                   ? "Bye week"
                   : STAGE_LABEL[s.stage]}
@@ -144,7 +144,7 @@ export function WeeklyTeamHub() {
         {notes.map((n) => (
           <div className="watchnote" key={n.gmId}>
             <div className="who">
-              {n.gmName} · {TEAMS_BY_CODE[n.teamCode]!.city}
+              {n.gmName} · {TEAMS_BY_CODE[n.teamCode]!.label}
             </div>
             <p className="txt">
               <strong style={{ color: "var(--ink)" }}>{n.player}</strong> {n.note}.
@@ -166,7 +166,7 @@ export function WeeklyTeamHub() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12, marginBottom: 16 }}>
               <div style={{ textAlign: "center" }}>
                 <TeamBadge code={code} size={40} />
-                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600 }}>{meta.city}</p>
+                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600 }}>{meta.label}</p>
                 <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{record(team)}{iHost ? " · home" : " · away"}</p>
               </div>
               <div style={{ textAlign: "center", fontSize: 12, color: "var(--ink-faint)" }}>
@@ -177,7 +177,7 @@ export function WeeklyTeamHub() {
               </div>
               <div style={{ textAlign: "center" }}>
                 <TeamBadge code={oppCode} size={40} />
-                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600 }}>{TEAMS_BY_CODE[oppCode]!.city}</p>
+                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600 }}>{TEAMS_BY_CODE[oppCode]!.label}</p>
                 <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{record(opp)}{iHost ? " · away" : " · home"}</p>
               </div>
             </div>
@@ -247,7 +247,7 @@ export function WeeklyTeamHub() {
               {gmRows.map((r) => (
                 <tr key={r.gm.id} className={r.gm.teamCode === code ? "highlight" : ""}>
                   <td className="name">{r.gm.id === s.viewerGmId ? "You" : r.gm.name}</td>
-                  <td>{TEAMS_BY_CODE[r.gm.teamCode]!.city}</td>
+                  <td>{TEAMS_BY_CODE[r.gm.teamCode]!.label}</td>
                   <td className="c">{r.t.ratings.overall}</td>
                   <td className="c">{record(r.t)}</td>
                   <td className="c">{playoffOdds(s, r.gm.teamCode)}%</td>
@@ -274,7 +274,7 @@ export function WeeklyTeamHub() {
         <InjuryTable players={injuredOn(s, code)} />
         {oppCode && (
           <>
-            <p className="subhead">{TEAMS_BY_CODE[oppCode]!.city}</p>
+            <p className="subhead">{TEAMS_BY_CODE[oppCode]!.label}</p>
             <InjuryTable players={injuredOn(s, oppCode)} />
           </>
         )}
