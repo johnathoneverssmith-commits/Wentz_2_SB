@@ -34,7 +34,14 @@ import {
   type Ctx,
 } from "./http.js";
 import { feed, inboxFor } from "./inbox.js";
-import { claimTeam, createOnlineLeague, leagueByInvite, leaguesFor, openTeams } from "./leagues.js";
+import {
+  claimTeam,
+  createOnlineLeague,
+  leagueByInvite,
+  leaguesFor,
+  openTeams,
+  repairUnclaimedGms,
+} from "./leagues.js";
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
 import { simulateWeekForLeague } from "./simulate.js";
 import { openStream } from "./stream.js";
@@ -287,6 +294,13 @@ export const server = createServer((req, res) => void handle(req, res));
 
 if (process.env.NODE_ENV !== "test") {
   await migrate();
+  // leagues made before unclaimed slots stopped counting as people are still
+  // blocked on GMs who don't exist; this unblocks them in place
+  const repaired = await repairUnclaimedGms();
+  if (repaired > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`unblocked ${repaired} league(s) waiting on unclaimed GM slots`);
+  }
   server.listen(PORT, () => {
     // eslint-disable-next-line no-console
     console.log(`online league server on :${PORT}`);

@@ -47,7 +47,17 @@ export async function createOnlineLeague(
   // Nobody has claimed anything yet, so every GM slot starts unowned. The
   // single-player seed hands GM 1 to "You" and pre-assigns the rest; online,
   // teams are taken by people, so clear them all.
-  for (const gm of state.gms) gm.teamCode = "";
+  //
+  // `isHuman` has to go too, and it is the more important half. A slot nobody
+  // has claimed is not a person — and `humanGate` waits for every human GM to
+  // mark themselves ready before a stage can advance. Leaving these true
+  // meant a league sat at setup forever, blocked on GMs who did not exist,
+  // showing "2 of 4 ready" with no way to ever reach 4. `claimTeam` sets it
+  // back to true when a real person takes the slot.
+  for (const gm of state.gms) {
+    gm.teamCode = "";
+    gm.isHuman = false;
+  }
   for (const code of Object.keys(state.teams)) state.teams[code]!.controlledBy = { kind: "ai" };
 
   const id = randomUUID();
@@ -93,6 +103,45 @@ export async function createOnlineLeague(
     client.release();
   }
   return { leagueId: id, inviteCode: code };
+}
+
+/**
+ * Retire the phantom GMs in leagues that were created before the fix above.
+ *
+ * Those leagues have unclaimed slots marked `isHuman`, which `humanGate`
+ * reads as people who have not marked ready yet — so they are stuck at their
+ * current stage with no way forward, and no amount of claiming fixes it,
+ * because the empty slots outlive every claim. A GM with no team in an online
+ * league has never been claimed (claiming assigns the team in the same
+ * transaction), so the empty-team test is exactly the unclaimed set.
+ *
+ * Runs at boot, writes only the leagues that actually change, and is safe to
+ * run repeatedly.
+ */
+export async function repairUnclaimedGms(): Promise<number> {
+  const rows = await pool.query<{ league_id: string; state: LeagueState }>(
+    `SELECT league_id, state FROM league_state`,
+  );
+  let fixed = 0;
+  for (const row of rows.rows) {
+    const state = row.state;
+    if (!Array.isArray(state?.gms)) continue;
+    let changed = false;
+    for (const gm of state.gms) {
+      if (!gm.teamCode && gm.isHuman) {
+        gm.isHuman = false;
+        changed = true;
+      }
+    }
+    if (!changed) continue;
+    await pool.query(
+      `UPDATE league_state SET state = $2, version = version + 1, updated_at = now()
+        WHERE league_id = $1`,
+      [row.league_id, state],
+    );
+    fixed++;
+  }
+  return fixed;
 }
 
 export async function leagueByInvite(code: string): Promise<{ id: string; name: string } | null> {
