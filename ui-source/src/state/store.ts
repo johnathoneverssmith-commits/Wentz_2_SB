@@ -24,6 +24,7 @@ import {
   type Player,
   type Position,
   type Stage,
+  type TradeAsset,
 } from "@/domain";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
@@ -57,6 +58,13 @@ import {
   extendContract,
   restructureContract,
 } from "./contracts.ts";
+import {
+  DRAFT_ROUNDS,
+  ensureDraftPicks,
+  forgetSpentPicks,
+  pickKey,
+  pickOrderFor,
+} from "./draftPicks.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -261,6 +269,8 @@ export const useStore = create<Store>()(
             s.trades = [];
             s.rookieOutcomes = {};
             s.pendingGameDay = null;
+            forgetSpentPicks(s, s.season); // this draft has happened
+            ensureDraftPicks(s, s.season); // and two more are now tradeable
             clearInjuries(s); // an offseason outlasts any injury
             pruneFreeAgentMarket(s); // careers that stopped going anywhere end
             forgetOldRetirees(s); // and a save file shouldn't carry them forever
@@ -419,14 +429,21 @@ export const useStore = create<Store>()(
             fullFirstRound = [...humanCodes, ...shuffle(aiCodes, s.season + 11)];
           }
 
-          const rounds = mode === "fantasy" ? 20 : 7;
-          const order: string[] = [];
-          for (let r = 0; r < rounds; r++) {
-            const seq =
-              s.config.draftType === "snake" && r % 2 === 1
-                ? [...fullFirstRound].reverse()
-                : fullFirstRound;
-            order.push(...seq);
+          const rounds = mode === "fantasy" ? 20 : DRAFT_ROUNDS;
+          let order: string[] = [];
+          if (mode === "rookie") {
+            // the slots are earned by record; who *uses* each one is whoever
+            // owns that pick, which is the whole point of trading them
+            ensureDraftPicks(s, s.season);
+            order = pickOrderFor(s, s.season, fullFirstRound, rounds);
+          } else {
+            for (let r = 0; r < rounds; r++) {
+              const seq =
+                s.config.draftType === "snake" && r % 2 === 1
+                  ? [...fullFirstRound].reverse()
+                  : fullFirstRound;
+              order.push(...seq);
+            }
           }
           s.draft = {
             mode,
@@ -612,8 +629,15 @@ export const useStore = create<Store>()(
         const id = `trade_${Date.now()}`;
         set((s) => {
           const fromTeam = s.gms.find((g) => g.id === s.viewerGmId)?.teamCode ?? "";
-          const fromAssets = fromPlayerIds.map((pid) => ({ kind: "player" as const, playerId: pid }));
-          const toAssets = toPlayerIds.map((pid) => ({ kind: "player" as const, playerId: pid }));
+          // ids prefixed `pick:` are draft capital, not people
+          const asAssets = (ids: string[]): TradeAsset[] =>
+            ids.map((id) =>
+              id.startsWith("pick:")
+                ? { kind: "pick" as const, pick: s.draftPicks[id.slice(5)] }
+                : { kind: "player" as const, playerId: id },
+            );
+          const fromAssets = asAssets(fromPlayerIds);
+          const toAssets = asAssets(toPlayerIds);
           const evalResult = sim.evaluateTrade(s, fromTeam, toTeam, fromAssets, toAssets);
           const involves90 = [...fromPlayerIds, ...toPlayerIds].some(
             (pid) => (s.players[pid]?.overall ?? 0) >= 90,
@@ -711,7 +735,18 @@ export const useStore = create<Store>()(
     })),
     {
       name: "nfl-sim-ui.league",
-      version: 2,
+      version: 3,
+      // A save written before draft picks existed has no ledger, and a league
+      // already under way would never grow one — `ensureDraftPicks` otherwise
+      // only runs at league creation and the season rollover.
+      migrate: (persisted) => {
+        const st = persisted as LeagueState;
+        if (st && st.teams) {
+          st.depthChart ??= {};
+          ensureDraftPicks(st, st.season);
+        }
+        return st as never;
+      },
       // A quota error out of `localStorage.setItem` is swallowed by the
       // persist middleware — it logs and carries on, so a dynasty that
       // outgrows its storage just quietly stops saving and the player finds
@@ -1531,6 +1566,11 @@ function applyTrade(s: LeagueState, t: LeagueState["trades"][number]): void {
   // team he just left
   const move = (assets: LeagueState["trades"][number]["fromAssets"], to: string): void => {
     for (const a of assets) {
+      if (a.kind === "pick" && a.pick) {
+        const held = s.draftPicks?.[pickKey(a.pick.year, a.pick.round, a.pick.originalTeam)];
+        if (held) held.ownedBy = to;
+        continue;
+      }
       if (a.kind !== "player" || !a.playerId) continue;
       const p = s.players[a.playerId];
       if (!p) continue;

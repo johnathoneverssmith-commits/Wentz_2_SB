@@ -183,6 +183,11 @@ export interface LeagueState {
    * it has to outlive the screen that sets it.
    */
   depthChart: Record<string, Partial<Record<Position, string[]>>>;
+  /**
+   * Every tradeable draft pick, keyed `year-round-originalTeam`. Covers this
+   * draft and the next two, the same horizon the real rule allows.
+   */
+  draftPicks: Record<string, DraftPickAsset>;
   /** initial coaching-hire period. */
   coachingHire: FreeAgencyState | null;
   bracket: BracketState | null;

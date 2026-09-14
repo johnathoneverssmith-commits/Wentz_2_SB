@@ -16,6 +16,7 @@ import { TEAMS } from "@/data/teams";
 
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { personName } from "@/sim/names.ts";
+import { ensureDraftPicks } from "./draftPicks.ts";
 import { Rng } from "@/sim/rng.ts";
 import {
   OFFSEASON_ROSTER_SIZE,
@@ -921,6 +922,7 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
     freeAgency: null,
     standingFreeAgents: [],
     depthChart: {},
+    draftPicks: {},
     coachingHire: null,
     bracket: null,
     trades: [],
@@ -931,5 +933,7 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
     history: [],
   };
   recomputeTeamRatings(state);
+  // draft capital exists from day one — it's tradeable before it's spent
+  ensureDraftPicks(state, state.season);
   return state;
 }

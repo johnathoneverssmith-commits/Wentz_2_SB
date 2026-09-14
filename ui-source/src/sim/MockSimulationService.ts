@@ -36,6 +36,7 @@ import {
   ROSTER_TEMPLATE,
 } from "./roster-template.ts";
 import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
+import { futureDiscount } from "@/state/draftPicks.ts";
 import {
   DEFENSE_SCHEMES,
   OFFENSE_SCHEMES,
@@ -637,7 +638,10 @@ export class MockSimulationService implements SimulationService {
         const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.7) / 12;
         return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1);
       }
-      return PICK_VALUE_BY_ROUND[a.pick?.round ?? 4] ?? PICK_VALUE_BY_ROUND[7]!;
+      const round = a.pick?.round ?? 4;
+      const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
+      // and a pick two drafts away is worth less than the same pick this year
+      return a.pick ? raw * futureDiscount(a.pick, state.season) : raw;
     };
     // fromAssets: what the proposer (fromTeam, usually the viewer) gives up —
     // toTeam (the AI being asked to accept) receives these.
@@ -909,6 +913,9 @@ const STRENGTH_BASE: Record<Position, number> = {
  * implied before — which is the actual, well-documented shape of how NFL
  * teams value draft capital, not just this codebase's old guess.
  */
+export const pickTradeValue = (round: number): number =>
+  PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
+
 const PICK_VALUE_BY_ROUND: Record<number, number> = {
   1: 82.7,
   2: 29.7,

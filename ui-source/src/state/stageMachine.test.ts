@@ -33,6 +33,7 @@ function base(p: Partial<LeagueState>): LeagueState {
     freeAgency: null,
     standingFreeAgents: [],
     depthChart: {},
+    draftPicks: {},
     coachingHire: null,
     bracket: null,
     trades: [],

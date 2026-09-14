@@ -8,6 +8,7 @@ import { ReadinessGate } from "@/components/ReadinessGate";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { POSITIONS, type Position } from "@/domain";
+import { picksOwnedBy } from "@/state/draftPicks";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 
@@ -17,6 +18,7 @@ export function DraftPreview() {
   const { active, setActive } = useTabs("prospects");
   const [posFilter, setPosFilter] = useState<"ALL" | Position>("ALL");
   const code = viewerTeamCode(s);
+  const myPicks = code ? picksOwnedBy(s, code, s.season) : [];
   const toggleTarget = useStore((st) => st.toggleDraftTarget);
   const startDraft = useStore((st) => st.startDraft);
 
@@ -48,9 +50,21 @@ export function DraftPreview() {
           { label: "Prospects", value: prospects.length },
           { label: "Your targets", value: targets.length, className: "accent" },
           { label: "Top prospect", value: prospects[0]?.projectedRange ?? "—", className: "sm" },
-          { label: "First pick", value: `R1` },
+          // "R1" was a constant — it said the same thing whether you held
+          // three firsts or had traded them all away
+          {
+            label: "Your picks",
+            value: myPicks.length === 0 ? "None" : myPicks.map((p) => `R${p.round}`).join(" "),
+            className: "sm",
+          },
         ]}
       />
+      {myPicks.length === 0 && (
+        <div className="notice bad" role="status">
+          <strong>You have no picks in this draft.</strong> Every one of them has been traded away
+          — you'll sit this one out unless you deal for a pick before it starts.
+        </div>
+      )}
       <Tabs
         tabs={[
           { id: "prospects", label: "Prospects" },

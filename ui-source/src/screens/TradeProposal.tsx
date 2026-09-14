@@ -5,6 +5,13 @@ import { pressable } from "@/components/bits";
 import { Card, Footer } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
+import {
+  futureDiscount,
+  pickKey,
+  pickLabel,
+  picksOwnedBy,
+} from "@/state/draftPicks";
+import { pickTradeValue } from "@/sim/MockSimulationService";
 import { checkTrade, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
@@ -38,18 +45,38 @@ export function TradeProposal() {
     [s, myCode, partner, give, get],
   );
 
-  const myRoster = useMemo(() => (myCode ? teamRoster(s, myCode) : []), [s, myCode]);
-  const theirRoster = useMemo(() => teamRoster(s, partner), [s, partner]);
+  /** Picks appear in the same lists as players, under a `pick:` id. */
+  const pickRows = (code: string) =>
+    picksOwnedBy(s, code).map((pk) => ({
+      id: `pick:${pickKey(pk.year, pk.round, pk.originalTeam)}`,
+      name: pickLabel(pk),
+      position: "PICK",
+      overall: 0,
+      badge: `R${pk.round}`,
+    }));
+
+  const myRoster = useMemo(
+    () => (myCode ? [...pickRows(myCode), ...teamRoster(s, myCode)] : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [s, myCode],
+  );
+  const theirRoster = useMemo(
+    () => [...pickRows(partner), ...teamRoster(s, partner)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [s, partner],
+  );
+
+  const toAssets = (ids: string[]) =>
+    ids.map((id) =>
+      id.startsWith("pick:")
+        ? { kind: "pick" as const, pick: s.draftPicks[id.slice(5)] }
+        : { kind: "player" as const, playerId: id },
+    );
 
   const evalResult = useMemo(() => {
     if (!myCode) return { valueDelta: 0, acceptLikelihood: 0.5 };
-    return sim.evaluateTrade(
-      s,
-      myCode,
-      partner,
-      give.map((id) => ({ kind: "player" as const, playerId: id })),
-      get.map((id) => ({ kind: "player" as const, playerId: id })),
-    );
+    return sim.evaluateTrade(s, myCode, partner, toAssets(give), toAssets(get));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s, myCode, partner, give, get]);
 
   const involves90 = [...give, ...get].some((id) => (s.players[id]?.overall ?? 0) >= 90);
@@ -58,8 +85,16 @@ export function TradeProposal() {
 
   const trade = tradeId ? s.trades.find((t) => t.id === tradeId) : undefined;
 
-  const giveVal = give.reduce((n, id) => n + Math.max(0, (s.players[id]?.overall ?? 0) - 50), 0);
-  const getVal = get.reduce((n, id) => n + Math.max(0, (s.players[id]?.overall ?? 0) - 50), 0);
+  // the bars have to price a pick too, or a first-rounder reads as worth nothing
+  const assetVal = (id: string): number => {
+    if (id.startsWith("pick:")) {
+      const pk = s.draftPicks[id.slice(5)];
+      return pk ? Math.round(pickTradeValue(pk.round) * futureDiscount(pk, s.season)) : 0;
+    }
+    return Math.max(0, (s.players[id]?.overall ?? 0) - 50);
+  };
+  const giveVal = give.reduce((n, id) => n + assetVal(id), 0);
+  const getVal = get.reduce((n, id) => n + assetVal(id), 0);
   const total = giveVal + getVal || 1;
 
   if (!myCode) {
@@ -256,11 +291,12 @@ function TradeColumn({
 }: {
   title: string;
   role: "you" | "them";
-  roster: { id: string; name: string; position: string; overall: number }[];
+  roster: { id: string; name: string; position: string; overall: number; badge?: string }[];
   selected: string[];
   onToggle: (id: string) => void;
 }) {
   const [pos, setPos] = useState("ALL");
+  // "PICK" sorts to the front of the filter so draft capital is one click away
   const positions = ["ALL", ...Array.from(new Set(roster.map((p) => p.position)))];
   const shown = roster.filter((p) => pos === "ALL" || p.position === pos);
   return (
@@ -274,7 +310,7 @@ function TradeColumn({
       <select value={pos} onChange={(e) => setPos(e.target.value)} style={{ marginBottom: 12, fontSize: 12 }}>
         {positions.map((p) => (
           <option key={p} value={p}>
-            {p === "ALL" ? "All positions" : p}
+            {p === "ALL" ? "All positions" : p === "PICK" ? "Draft picks" : p}
           </option>
         ))}
       </select>
@@ -299,11 +335,13 @@ function TradeColumn({
                 cursor: "pointer",
               }}
             >
-              <span className="oswald" style={{ fontSize: 13, fontWeight: 600, color: p.overall >= 85 ? "var(--good)" : "var(--ink-dim)", minWidth: 20, textAlign: "center" }}>
-                {p.overall}
+              <span className="oswald" style={{ fontSize: 13, fontWeight: 600, color: p.overall >= 85 ? "var(--good)" : "var(--ink-dim)", minWidth: 26, textAlign: "center" }}>
+                {p.badge ?? p.overall}
               </span>
               <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
-                {p.name} <span className="ppos">{p.position}</span>
+                {p.name}
+                {/* a pick's "position" is only there to drive the filter */}
+                {p.position !== "PICK" && <span className="ppos"> {p.position}</span>}
               </span>
               <span style={{ fontSize: 13, color: on ? "var(--bad)" : "var(--good)" }}>{on ? "×" : "+"}</span>
             </div>
