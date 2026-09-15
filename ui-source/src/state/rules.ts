@@ -882,6 +882,43 @@ export function commitRetirements(s: LeagueState): void {
  * safe to call from the action just to preview the result before committing.
  */
 /**
+ * Sign or release a drafted rookie.
+ *
+ * Lived in the store as a local mutation, which meant that online it was not
+ * a league action at all: a GM signed their first-rounder, the server never
+ * heard about it, and the next frame from the league replaced the answer with
+ * one where the pick was still unresolved. Same shape as the draft and the
+ * two markets — the decision is league state, so the league has to own it.
+ */
+export function checkRookieOutcome(
+  s: LeagueState,
+  prospectId: string,
+  teamCode: string,
+): { ok: boolean; reason?: string } {
+  const pr = s.draftClass.find((d) => d.id === prospectId);
+  if (!pr) return { ok: false, reason: "No such prospect." };
+  if (s.rookieOutcomes[prospectId]) return { ok: false, reason: "That pick is already settled." };
+  const pick = s.draft?.results.find((r) => r.selectedId === prospectId);
+  if (pick && pick.teamCode !== teamCode) {
+    return { ok: false, reason: "You didn't draft him." };
+  }
+  return { ok: true };
+}
+
+/** Applies it. Call `checkRookieOutcome` first; this assumes it passed. */
+export function applyRookieOutcome(
+  s: LeagueState,
+  prospectId: string,
+  teamCode: string,
+  released: boolean,
+): void {
+  const round = s.draft?.results.find((r) => r.selectedId === prospectId)?.round ?? 4;
+  upsertRookiePlayer(s, prospectId, teamCode, round, released);
+  s.rookieOutcomes[prospectId] = released ? "released" : "signed";
+  recomputeTeamRatings(s);
+}
+
+/**
  * Hire a coach who is out of work, straight away.
  *
  * The only way to change a coordinator used to be a five-day sealed-bid

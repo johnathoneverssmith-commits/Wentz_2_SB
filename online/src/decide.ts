@@ -24,6 +24,8 @@ import {
   checkBid,
   checkStandingSign,
   checkCoachHire,
+  checkRookieOutcome,
+  applyRookieOutcome,
   applyCoachHire,
   checkTrade,
   offerToContract,
@@ -239,6 +241,29 @@ export function decideRespondToTrade(
 }
 
 /** Make the pick on the clock, if it's yours. */
+/** Settling a drafted rookie, online: sign him or let him go. */
+export function decideRookieOutcome(
+  state: LeagueState,
+  actor: Actor,
+  prospectId: string,
+  released: boolean,
+): Decision {
+  const check = checkRookieOutcome(state, prospectId, actor.teamCode);
+  if (!check.ok) throw new ActionError(check.reason ?? "You can't settle that pick.");
+  const name = state.draftClass.find((d) => d.id === prospectId)?.name ?? "the pick";
+  applyRookieOutcome(state, prospectId, actor.teamCode, released);
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: released ? "rookie.released" : "rookie.signed",
+        summary: `${city(actor.teamCode)} ${released ? "released" : "signed"} ${name}.`,
+        detail: { prospectId },
+      },
+    ],
+  };
+}
+
 /** Hiring a coach, online: same ruling, applied by the server. */
 export function decideCoachHire(state: LeagueState, actor: Actor, coachId: string): Decision {
   const check = checkCoachHire(state, coachId, actor.teamCode);

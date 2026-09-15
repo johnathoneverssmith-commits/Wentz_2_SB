@@ -48,11 +48,28 @@ const rosterOf = (code: string) =>
   Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent);
 
 describe("signing a free agent", () => {
+  /**
+   * A free agent, and a roster with room for him.
+   *
+   * The pool holds real rosters now, and a real roster arrives at or over the
+   * 53-man limit — so every one of these signings was refused for want of a
+   * spot before it could exercise the thing under test. Clearing the seat is
+   * part of the fixture, not part of the ruling.
+   */
   function aFreeAgent() {
     const p = Object.values(state.players).find((x) => !x.retired && !x.free_agent)!;
     p.free_agent = true;
     p.nfl_team = "FA";
     p.contract = null;
+    // make sure the signing team is under the limit with a seat to spare
+    const mine = Object.values(state.players).filter(
+      (x) => x.nfl_team === alice.teamCode && !x.retired && !x.free_agent,
+    );
+    for (const extra of mine.slice(52)) {
+      extra.free_agent = true;
+      extra.nfl_team = "FA";
+      extra.contract = null;
+    }
     return p;
   }
 

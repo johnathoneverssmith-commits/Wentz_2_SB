@@ -15,6 +15,7 @@ import {
   actorFor,
   contractMove,
   hireCoach,
+  settleRookie,
   makeDraftPick,
   placeBid,
   proposeTrade,
@@ -282,6 +283,15 @@ post("/leagues/:id/actions/trade/respond", async (ctx) =>
 
 post("/leagues/:id/actions/draft/pick", async (ctx) =>
   makeDraftPick(await actor(ctx), field(ctx, "selectedId", "string"), version(ctx)),
+);
+
+post("/leagues/:id/actions/rookie", async (ctx) =>
+  settleRookie(
+    await actor(ctx),
+    field(ctx, "prospectId", "string"),
+    optional<boolean>(ctx, "released") ?? false,
+    version(ctx),
+  ),
 );
 
 post("/leagues/:id/actions/coach", async (ctx) =>

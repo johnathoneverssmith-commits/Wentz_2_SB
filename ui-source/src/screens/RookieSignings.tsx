@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -7,6 +7,7 @@ import { RowHeader } from "@/components/ListFilter";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
@@ -22,8 +23,22 @@ export function RookieSignings() {
   const s = useStore();
   const { active, setActive } = useTabs("signings");
   const code = viewerTeamCode(s);
-  const signRookie = useStore((st) => st.signRookie);
-  const releaseRookie = useStore((st) => st.releaseRookie);
+  // Through the league's actions, not the store's: online this is a decision
+  // the server has to make, and calling the store directly wrote it into a
+  // private copy that the next frame from the league silently discarded.
+  const actions = useLeagueActions();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const settle = (prospectId: string, released: boolean): void => {
+    setBusy(true);
+    setError(null);
+    void actions
+      .settleRookie(prospectId, released)
+      .then((res) => {
+        if (!res.ok) setError(res.reason ?? "That didn't go through.");
+      })
+      .finally(() => setBusy(false));
+  };
 
   const myPicks = useMemo(
     () =>
@@ -68,6 +83,13 @@ export function RookieSignings() {
       />
 
       <Panel id="signings" open={active === "signings"}>
+        {/* online a refusal arrives after a round trip, so it has to be shown
+            rather than assumed away */}
+        {error && (
+          <div className="notice bad" role="status">
+            {error}
+          </div>
+        )}
         {myPicks.length === 0 ? (
           <div className="emptystate">Your team didn't draft anyone this year — nothing to sign. You can advance whenever you're ready.</div>
         ) : null}
@@ -117,9 +139,10 @@ export function RookieSignings() {
                         <button
                           className="btn-primary"
                           style={{ fontSize: 11, padding: "6px 10px" }}
+                          disabled={busy}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (code) signRookie(p.id, code);
+                            settle(p.id, false);
                           }}
                         >
                           Sign
@@ -127,9 +150,10 @@ export function RookieSignings() {
                         <button
                           className="btn-danger"
                           style={{ fontSize: 11, padding: "6px 10px" }}
+                          disabled={busy}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (code) releaseRookie(p.id, code);
+                            settle(p.id, true);
                           }}
                         >
                           Release

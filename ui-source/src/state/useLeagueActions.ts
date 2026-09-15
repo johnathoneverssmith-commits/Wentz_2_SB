@@ -54,6 +54,8 @@ export interface LeagueActions {
     playerId: string,
     terms: { baseSalary: number; years: number; guaranteed: number },
   ) => Promise<ActionResult>;
+  /** Sign or release a rookie you drafted. */
+  settleRookie: (prospectId: string, released: boolean) => Promise<ActionResult>;
   hireCoach: (coachId: string) => Promise<ActionResult>;
   readyUp: (ready: boolean) => Promise<ActionResult>;
   /**
@@ -113,6 +115,13 @@ export function useLeagueActions(): LeagueActions {
         },
         restructure: async (playerId) => store.restructurePlayer(playerId),
         extend: async (playerId, terms) => store.extendPlayer(playerId, terms),
+        settleRookie: async (prospectId, released) => {
+          const code = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
+          if (!code) return { ok: false, reason: "You don't have a team." };
+          if (released) store.releaseRookie(prospectId, code);
+          else store.signRookie(prospectId, code);
+          return { ok: true };
+        },
         hireCoach: async (coachId) => store.hireCoach(coachId),
         readyUp: async (ready) => {
           store.setReady(store.viewerGmId, ready);
@@ -167,6 +176,10 @@ export function useLeagueActions(): LeagueActions {
           send((s) =>
             s.client.contractMove(s.leagueId, playerId, { kind: "extend", ...terms }, s.version),
           ),
+        ).then(after),
+      settleRookie: (prospectId, released) =>
+        attempt(() =>
+          send((s) => s.client.settleRookie(s.leagueId, prospectId, released, s.version)),
         ).then(after),
       hireCoach: (coachId) =>
         attempt(() => send((s) => s.client.hireCoach(s.leagueId, coachId, s.version))).then(after),

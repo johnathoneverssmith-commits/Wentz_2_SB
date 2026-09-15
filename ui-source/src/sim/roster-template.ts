@@ -9,10 +9,16 @@ export const ROSTER_TEMPLATE: Array<{ pos: Position; count: number; starters: nu
   { pos: "OT", count: 4, starters: 2 },
   { pos: "OG", count: 4, starters: 2 },
   { pos: "C", count: 2, starters: 1 },
-  { pos: "EDGE", count: 4, starters: 2 },
+  { pos: "EDGE", count: 5, starters: 2 },
   { pos: "DT", count: 5, starters: 2 },
-  { pos: "ILB", count: 4, starters: 2 },
-  { pos: "OLB", count: 2, starters: 0 },
+  { pos: "ILB", count: 5, starters: 2 },
+  // OLB is deliberately zero. The pool classifies linebackers the way the
+  // source data does — on the line as EDGE, off it as ILB — and there are two
+  // OLBs in nearly two thousand players. Asking for two per team meant sixty
+  // invented players sitting on real rosters at a position that never starts,
+  // purely to satisfy a row in this table. The slots go to the positions the
+  // players actually hold, so the roster is the same size and everyone real.
+  { pos: "OLB", count: 0, starters: 0 },
   { pos: "CB", count: 6, starters: 2 },
   { pos: "S", count: 4, starters: 2 },
   { pos: "K", count: 1, starters: 1 },

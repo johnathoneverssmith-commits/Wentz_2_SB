@@ -61,6 +61,8 @@ import {
   checkBid,
   checkStandingSign,
   checkCoachHire,
+  checkRookieOutcome,
+  applyRookieOutcome,
   applyCoachHire,
   checkTrade,
   clearReadiness,
@@ -77,7 +79,6 @@ import {
   beginDraft,
   signAiDraftPicks,
   type Subject,
-  upsertRookiePlayer,
 } from "./rules.ts";
 
 // the rules live in `rules.ts` so a server can enforce them too; everything
@@ -536,22 +537,14 @@ export const useStore = create<Store>()(
 
       signRookie: (prospectId, teamCode) =>
         set((s) => {
-          const pr = s.draftClass.find((d) => d.id === prospectId);
-          if (!pr || s.rookieOutcomes[prospectId]) return;
-          const round = s.draft?.results.find((r) => r.selectedId === prospectId)?.round ?? 4;
-          upsertRookiePlayer(s, prospectId, teamCode, round, false);
-          s.rookieOutcomes[prospectId] = "signed";
-          recomputeTeamRatings(s);
+          if (!checkRookieOutcome(s, prospectId, teamCode).ok) return;
+          applyRookieOutcome(s, prospectId, teamCode, false);
         }),
 
       releaseRookie: (prospectId, teamCode) =>
         set((s) => {
-          const pr = s.draftClass.find((d) => d.id === prospectId);
-          if (!pr || s.rookieOutcomes[prospectId]) return;
-          const round = s.draft?.results.find((r) => r.selectedId === prospectId)?.round ?? 4;
-          upsertRookiePlayer(s, prospectId, teamCode, round, true);
-          s.rookieOutcomes[prospectId] = "released";
-          recomputeTeamRatings(s);
+          if (!checkRookieOutcome(s, prospectId, teamCode).ok) return;
+          applyRookieOutcome(s, prospectId, teamCode, true);
         }),
 
       proposeTrade: (toTeam, fromPlayerIds, toPlayerIds) => {

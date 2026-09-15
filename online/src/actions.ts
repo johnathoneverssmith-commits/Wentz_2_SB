@@ -21,6 +21,7 @@ import { ActionError, withLeague, type Applied } from "./db.js";
 import {
   decideContractMove,
   decideCoachHire,
+  decideRookieOutcome,
   decideDraftPick,
   decidePlaceBid,
   decideProposeTrade,
@@ -103,6 +104,13 @@ export const respondToTrade = (
 
 export const makeDraftPick = (actor: Actor, selectedId: string, expectedVersion?: string) =>
   run(actor, expectedVersion, (s) => decideDraftPick(s, actor, selectedId));
+
+export const settleRookie = (
+  actor: Actor,
+  prospectId: string,
+  released: boolean,
+  expectedVersion?: string,
+) => run(actor, expectedVersion, (s) => decideRookieOutcome(s, actor, prospectId, released));
 
 export const hireCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
   run(actor, expectedVersion, (s) => decideCoachHire(s, actor, coachId));
