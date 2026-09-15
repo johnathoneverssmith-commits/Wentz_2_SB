@@ -51,9 +51,6 @@ export function GameDay() {
     .filter((e) => e.team === code)
     .sort((a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0));
 
-  const roundMatchups = isPlayoff
-    ? (s.bracket?.matchups ?? []).filter((m) => m.round === pgd.phase && m.winner)
-    : [];
   const hadBye =
     isPlayoff &&
     !!code &&
@@ -88,30 +85,6 @@ export function GameDay() {
             <div style={{ textAlign: "center", color: "var(--ink-faint)", fontSize: 11 }}>FINAL</div>
             <ScoreSide code={viewerGame.awayTeam} score={viewerGame.awayScore} won={viewerGame.awayScore > viewerGame.homeScore} right />
           </div>
-        )}
-
-        {isPlayoff && (
-          <table className="stbl">
-            <thead>
-              <tr>
-                <th>{label} results</th>
-                <th className="r">Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roundMatchups.map((m, i) => (
-                <tr key={i}>
-                  <td className="name">
-                    {m.highSeed ? TEAMS_BY_CODE[m.highSeed.code]!.label : "—"} vs{" "}
-                    {m.lowSeed ? TEAMS_BY_CODE[m.lowSeed.code]!.label : "(bye)"}
-                  </td>
-                  <td className="r">
-                    {m.homeScore != null ? `${m.homeScore}–${m.awayScore}` : m.lowSeed ? "—" : "advances"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
 
         {/* The one thing a GM needs off a game day besides the score: who they

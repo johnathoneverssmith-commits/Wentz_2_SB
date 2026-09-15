@@ -60,6 +60,8 @@ import {
   applyTrade,
   checkBid,
   checkStandingSign,
+  checkCoachHire,
+  applyCoachHire,
   checkTrade,
   clearReadiness,
   commitRetirements,
@@ -120,6 +122,8 @@ export interface StoreActions {
    * the signing team's remaining cap room. */
   signStandingFreeAgent: (playerId: string, offer: ContractOffer) => { ok: boolean; reason?: string };
 
+  /** Hire an out-of-work coach into his role, replacing whoever holds it. */
+  hireCoach: (coachId: string) => { ok: boolean; reason?: string };
   signRookie: (prospectId: string, teamCode: string) => void;
   releaseRookie: (prospectId: string, teamCode: string) => void;
 
@@ -298,7 +302,11 @@ export const useStore = create<Store>()(
           // leaving rookie signings → the AI teams put their own classes under
           // contract, then every roster is cut back to legal before the market
           // opens
-          if (s.stage === "offseasonSignings" && t.stage === "offseasonFreeAgency") {
+          // Was keyed on the free-agency window opening. That stage is gone, so
+          // this now runs on the way to the depth chart — without it the AI
+          // never signs its draft class and nobody trims, and every team walks
+          // into the next season over the cap and over the roster limit.
+          if (s.stage === "offseasonSignings" && t.stage === "offseasonDepthChart") {
             signAiDraftPicks(s);
             trimRosters(s);
           }
@@ -311,7 +319,7 @@ export const useStore = create<Store>()(
           // The league goes shopping at the two moments it would: the day the
           // season ends, and the week of the deadline. Seeded on the stage, so
           // an offer can't be rerolled by bouncing off the screen.
-          if (t.stage === "offseasonRetirement" || t.stage === "offseasonFreeAgency") {
+          if (t.stage === "offseasonRetirement" || t.stage === "offseasonDepthChart") {
             const fresh = generateAiTradeOffers(s, t.stage === "offseasonRetirement" ? 1 : 2, 1);
             for (const offer of fresh) {
               // never offer a deal the offering team couldn't honour — an AI
@@ -458,6 +466,19 @@ export const useStore = create<Store>()(
           const fa = s[faField(subject)];
           if (fa) fa.interstitialVisible = false;
         }),
+
+      hireCoach: (coachId) => {
+        const st = get();
+        const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
+        if (!code) return { ok: false, reason: "You don't have a team." };
+        const check = checkCoachHire(st, coachId, code);
+        if (!check.ok) return check;
+        set((s) => {
+          applyCoachHire(s, coachId, code);
+          recomputeTeamRatings(s);
+        });
+        return { ok: true };
+      },
 
       signStandingFreeAgent: (playerId, offer) => {
         const check = checkStandingSign(get(), playerId, offer);

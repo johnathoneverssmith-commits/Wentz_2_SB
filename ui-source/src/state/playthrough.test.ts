@@ -128,15 +128,19 @@ describe("a full franchise year", () => {
         const after = await playStage();
         seen.push(before);
 
-        // entering the preseason is the hard stop: rosters must be legal here
-        if (before === "coachingHiring" && after === "preseason") {
+        // Entering the preseason is the hard stop: rosters must be legal here.
+        // Anchored on arriving rather than on the stage you came from, because
+        // what comes before it changed when the timed hiring window was
+        // removed — the check is about kickoff, not about the door.
+        if (after === "preseason" && !checkedKickoff) {
           expectSeasonLegal(state());
           checkedKickoff = true;
         }
-        // free agency has to open on a legal roster with money to spend —
-        // walking in seven players over and tens of millions past the cap
-        // means the board refuses every signing
-        if (before === "offseasonSignings" && after === "offseasonFreeAgency") {
+        // Signing has to be possible on a legal roster with money to spend —
+        // seven players over and tens of millions past the cap means the board
+        // refuses everything. Free agency has no stage of its own any more, so
+        // this lands on the last offseason gate instead of the window's door.
+        if (before === "offseasonSignings" && after === "offseasonDepthChart") {
           const s = state();
           for (const code of Object.keys(s.teams)) {
             const roster = rosterOf(s, code);

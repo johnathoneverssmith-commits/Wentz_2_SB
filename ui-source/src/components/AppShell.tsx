@@ -49,6 +49,9 @@ const OFFSEASON_REFERENCE_NAV: NavItem[] = [
   { to: "/roster", label: "Roster & Cap" },
   { to: "/league-rosters", label: "League Rosters" },
   { to: "/trade", label: "Trade Proposal" },
+  // Signing is asynchronous now — there is no free-agency stage to visit, so
+  // the market has to be reachable from wherever you happen to be.
+  { to: "/free-agency", label: "Free Agency" },
   { to: "/coaching", label: "Coaching Staff" },
   { to: "/history", label: "League History" },
 ];

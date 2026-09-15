@@ -901,9 +901,11 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
   const coachList = sim.generateCoachMarket(seed);
   const coaches: Record<string, Coach> = {};
   for (const c of coachList) {
-    // every team starts with 0 coaches — the hiring window fills them
-    c.team = null;
-    c.contract = null;
+    // Every team keeps the staff it actually has. This used to strip all of
+    // them, because a five-day hiring window opened the league by handing
+    // ninety-six coaches to thirty-two teams — so Kansas City started without
+    // Andy Reid and might never get him back. There is no window now: you
+    // start with your real staff and change it when you want to.
     coaches[c.id] = c;
   }
 

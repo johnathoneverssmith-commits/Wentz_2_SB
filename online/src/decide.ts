@@ -23,6 +23,8 @@ import {
   applyTrade,
   checkBid,
   checkStandingSign,
+  checkCoachHire,
+  applyCoachHire,
   checkTrade,
   offerToContract,
   runAiPicks,
@@ -237,6 +239,24 @@ export function decideRespondToTrade(
 }
 
 /** Make the pick on the clock, if it's yours. */
+/** Hiring a coach, online: same ruling, applied by the server. */
+export function decideCoachHire(state: LeagueState, actor: Actor, coachId: string): Decision {
+  const check = checkCoachHire(state, coachId, actor.teamCode);
+  if (!check.ok) throw new ActionError(check.reason ?? "You can't hire him.");
+  const coach = state.coaches[coachId]!;
+  applyCoachHire(state, coachId, actor.teamCode);
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "coach.hired",
+        summary: `${city(actor.teamCode)} hired ${coach.name} as ${coach.role}.`,
+        detail: { coachId },
+      },
+    ],
+  };
+}
+
 export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: string): Decision {
   const draft = state.draft;
   if (!draft) throw new ActionError("There's no draft running.");

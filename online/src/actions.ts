@@ -20,6 +20,7 @@ import { franchiseOf, isCommissioner } from "./auth.js";
 import { ActionError, withLeague, type Applied } from "./db.js";
 import {
   decideContractMove,
+  decideCoachHire,
   decideDraftPick,
   decidePlaceBid,
   decideProposeTrade,
@@ -102,6 +103,9 @@ export const respondToTrade = (
 
 export const makeDraftPick = (actor: Actor, selectedId: string, expectedVersion?: string) =>
   run(actor, expectedVersion, (s) => decideDraftPick(s, actor, selectedId));
+
+export const hireCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
+  run(actor, expectedVersion, (s) => decideCoachHire(s, actor, coachId));
 
 export const setDepthOrder = (actor: Actor, position: Position, playerIds: string[]) =>
   run(actor, undefined, (s) => decideSetDepth(s, actor, position, playerIds));

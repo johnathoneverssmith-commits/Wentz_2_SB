@@ -881,6 +881,47 @@ export function commitRetirements(s: LeagueState): void {
  * already gated, this action wasn't). Read-only: never mutates `s`, so it's
  * safe to call from the action just to preview the result before committing.
  */
+/**
+ * Hire a coach who is out of work, straight away.
+ *
+ * The only way to change a coordinator used to be a five-day sealed-bid
+ * window at a fixed point in the calendar. With the window gone that would
+ * have left no way at all, so this is its asynchronous replacement: an open
+ * coach, a role, and the job is yours. Whoever held the role is out of work
+ * and back on the market, which is what happens when you replace a coach.
+ *
+ * Coaching salaries are not a player-cap charge (the cap in this game is the
+ * player cap, as `recomputeTeamRatings` has always treated it), so there is
+ * no room to check — the constraint is simply that the coach is available.
+ */
+export function checkCoachHire(
+  s: LeagueState,
+  coachId: string,
+  teamCode: string,
+): { ok: boolean; reason?: string } {
+  const coach = s.coaches[coachId];
+  if (!coach) return { ok: false, reason: "No such coach." };
+  if (coach.team === teamCode) return { ok: false, reason: "He already works for you." };
+  if (coach.team) return { ok: false, reason: `${coach.name} is under contract at ${coach.team}.` };
+  if (!s.teams[teamCode]) return { ok: false, reason: "Unknown team." };
+  return { ok: true };
+}
+
+/** Applies the hire. Call `checkCoachHire` first; this assumes it passed. */
+export function applyCoachHire(s: LeagueState, coachId: string, teamCode: string): void {
+  const coach = s.coaches[coachId];
+  if (!coach) return;
+  // the incumbent in that role is let go, and goes back on the market
+  for (const other of Object.values(s.coaches)) {
+    if (other.team === teamCode && other.role === coach.role && other.id !== coach.id) {
+      other.team = null;
+      other.contract = null;
+    }
+  }
+  coach.team = teamCode;
+  coach.contract ??= { yearsRemaining: 3, annualValue: 5 };
+}
+
 export function checkStandingSign(
   s: LeagueState,
   playerId: string,

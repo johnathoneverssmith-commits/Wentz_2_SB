@@ -90,11 +90,13 @@ export function resolveTransition(
     case "setup":
       return config.fantasyDraft
         ? { stage: "fantasyDraft", week: 0 }
-        : { stage: "coachingHiring", week: 0 };
+        : { stage: "preseason", week: 1 };
     case "fantasyDraft":
       return { stage: "fantasyDraftSummary", week: 0 };
     case "fantasyDraftSummary":
-      return { stage: "coachingHiring", week: 0 };
+      return { stage: "preseason", week: 1 };
+    // Kept only so a league that was already sitting in the old timed hiring
+    // window when this shipped has somewhere to go. Nothing routes into it.
     case "coachingHiring":
       return { stage: "preseason", week: 1 };
 
@@ -131,7 +133,8 @@ export function resolveTransition(
     case "offseasonDraft":
       return { stage: "offseasonSignings", week: 0 };
     case "offseasonSignings":
-      return { stage: "offseasonFreeAgency", week: 0 };
+      return { stage: "offseasonDepthChart", week: 0 };
+    // As above: only a way out for a league caught mid-window.
     case "offseasonFreeAgency":
       return { stage: "offseasonDepthChart", week: 0 };
     case "offseasonDepthChart":

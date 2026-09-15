@@ -27,7 +27,6 @@ export function FreeAgencyBoard() {
   // arrives after a round trip against the league as it is *now*
   const actions = useLeagueActions();
 
-  const startBidding = useStore((st) => st.startBidding);
   const advanceDay = useStore((st) => st.advanceBiddingDay);
   const dismiss = useStore((st) => st.dismissInterstitial);
 
@@ -35,13 +34,11 @@ export function FreeAgencyBoard() {
   const [negotiating, setNegotiating] = useState<Player | null>(null);
   const [signError, setSignError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // online the server opens the window when the stage does; a client
-    // opening its own would be a private market nobody else can bid into
-    if (actions.online) return;
-    if (isWindowStage && !s.freeAgency) startBidding("players");
-  }, [isWindowStage, s.freeAgency, startBidding]);
-
+  // The five-day sealed-bid window is gone. `offseasonFreeAgency` is no longer
+  // a stage the league passes through, so `isWindowStage` is false and this
+  // screen is the standing market — open all year, signings resolve at once,
+  // no clock. `inWindow` survives only so a league that was mid-window when
+  // this shipped still renders its last day correctly.
   const fa = s.freeAgency;
   const inWindow = isWindowStage && fa?.mode === "main";
 
@@ -222,7 +219,7 @@ export function FreeAgencyBoard() {
         </div>
         {isWindowStage && (
           <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
-            After Day 5 the unsigned market rolls into the standing free-agent market.
+            Free agents can be signed at any time; there is no window and no deadline.
           </p>
         )}
       </Panel>

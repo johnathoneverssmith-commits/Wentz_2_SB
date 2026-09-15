@@ -135,6 +135,12 @@ export class OnlineLeagueClient {
   /** Teams still free in a league you're already in (the invite lookup's twin). */
   openTeams = (leagueId: string) => this.call<{ openTeams: string[] }>(`/leagues/${leagueId}/teams`);
 
+  hireCoach = (leagueId: string, coachId: string, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/coach`, {
+      coachId,
+      version,
+    });
+
   claimTeam = (leagueId: string, teamCode: string) =>
     this.call<{ teamCode: string; gmId: string }>(`/leagues/${leagueId}/claim`, { teamCode });
 

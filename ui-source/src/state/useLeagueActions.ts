@@ -54,6 +54,7 @@ export interface LeagueActions {
     playerId: string,
     terms: { baseSalary: number; years: number; guaranteed: number },
   ) => Promise<ActionResult>;
+  hireCoach: (coachId: string) => Promise<ActionResult>;
   readyUp: (ready: boolean) => Promise<ActionResult>;
   /**
    * Commissioner override: move the league on now, whoever is or isn't here.
@@ -112,6 +113,7 @@ export function useLeagueActions(): LeagueActions {
         },
         restructure: async (playerId) => store.restructurePlayer(playerId),
         extend: async (playerId, terms) => store.extendPlayer(playerId, terms),
+        hireCoach: async (coachId) => store.hireCoach(coachId),
         readyUp: async (ready) => {
           store.setReady(store.viewerGmId, ready);
           return { ok: true };
@@ -166,6 +168,8 @@ export function useLeagueActions(): LeagueActions {
             s.client.contractMove(s.leagueId, playerId, { kind: "extend", ...terms }, s.version),
           ),
         ).then(after),
+      hireCoach: (coachId) =>
+        attempt(() => send((s) => s.client.hireCoach(s.leagueId, coachId, s.version))).then(after),
       readyUp: (ready) =>
         attempt(() => send((s) => s.client.readyUp(s.leagueId, ready))).then(after),
       forceAdvance: () =>

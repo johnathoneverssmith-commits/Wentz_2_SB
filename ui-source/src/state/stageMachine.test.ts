@@ -51,10 +51,12 @@ describe("resolveTransition", () => {
     expect(resolveTransition(base({ stage: "setup" })).stage).toBe("fantasyDraft");
   });
 
-  it("setup → coachingHiring when fantasy draft is off", () => {
+  it("setup → preseason when fantasy draft is off", () => {
     const s = base({ stage: "setup" });
     s.config.fantasyDraft = false;
-    expect(resolveTransition(s).stage).toBe("coachingHiring");
+    // there is no hiring window to pass through any more: teams start with
+    // the staff they have, and signing happens whenever you like
+    expect(resolveTransition(s).stage).toBe("preseason");
   });
 
   it("preseason advances week by week then resets stats entering regular week 1", () => {
@@ -91,13 +93,12 @@ describe("resolveTransition", () => {
     ).toBe("endOfSeasonConsolation");
   });
 
-  it("offseason order: retirement → draft prep → draft → signings → free agency → depth chart → preseason", () => {
+  it("offseason order: retirement → draft prep → draft → signings → depth chart → preseason", () => {
     const chain = [
       "offseasonRetirement",
       "offseasonDraftPrep",
       "offseasonDraft",
       "offseasonSignings",
-      "offseasonFreeAgency",
       "offseasonDepthChart",
     ] as const;
     const nexts = chain.map((stage) => resolveTransition(base({ stage })).stage);
@@ -105,10 +106,20 @@ describe("resolveTransition", () => {
       "offseasonDraftPrep",
       "offseasonDraft",
       "offseasonSignings",
-      "offseasonFreeAgency",
+      // free agency used to sit here as a five-day window; it is asynchronous
+      // now and has no stage of its own
       "offseasonDepthChart",
       "preseason",
     ]);
+  });
+
+  it("leaves a league caught mid-window a way out", () => {
+    // nothing routes into these any more, but a save made before the windows
+    // were removed can still be sitting in one
+    expect(resolveTransition(base({ stage: "coachingHiring" })).stage).toBe("preseason");
+    expect(resolveTransition(base({ stage: "offseasonFreeAgency" })).stage).toBe(
+      "offseasonDepthChart",
+    );
   });
 
   it("depth chart loops back to preseason with a season rollover", () => {

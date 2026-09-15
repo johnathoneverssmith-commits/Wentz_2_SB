@@ -22,7 +22,6 @@ import type { LeagueState } from "@/domain";
 import { resolveTransition } from "@/state/stageMachine.ts";
 import {
   advanceBiddingDayOn,
-  beginBidding,
   beginDraft,
   clearReadiness,
   commitRetirements,
@@ -286,12 +285,8 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // pick a person actually owes
   runAiPicks(state);
 
-  // The two sealed-bid markets have exactly the draft's problem: the screen
-  // used to open them, so online they never opened at all. A league walked
-  // through `coachingHiring` with nothing to hire from and reached free
-  // agency with nobody on the market.
-  if (state.stage === "coachingHiring") beginBidding(state, "coaches");
-  if (state.stage === "offseasonFreeAgency") beginBidding(state, "players");
+  // The timed sealed-bid windows are gone: signing is asynchronous and lives
+  // on the hub, so there is no window to open here.
 
   // The rest mirrors the single-player `tryAdvance`, which does this work in
   // the same order. Online it was simply absent: the server set a stage field
@@ -301,7 +296,9 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     openStandingMarketFromUndrafted(state);
     fillRosterGaps(state);
   }
-  if (from === "offseasonSignings" && state.stage === "offseasonFreeAgency") {
+  // see the same note in the store: the free-agency stage is gone, so the AI's
+  // draft-class signings and the roster trim hang off the depth-chart gate
+  if (from === "offseasonSignings" && state.stage === "offseasonDepthChart") {
     signAiDraftPicks(state);
     trimRosters(state);
   }
