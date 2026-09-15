@@ -42,7 +42,6 @@ import {
   leagueByInvite,
   leaguesFor,
   openTeams,
-  repairUnclaimedGms,
 } from "./leagues.js";
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
 import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
@@ -362,34 +361,29 @@ const PORT = Number(process.env.PORT ?? 8788);
 export const server = createServer((req, res) => void handle(req, res));
 
 if (process.env.NODE_ENV !== "test") {
-  await migrate();
-
-  // Listen first. Nothing else may stand between the process starting and the
-  // port opening — this used to await the one-time league repair, and when
-  // that repair grew teeth (it walks every league, recomputes ratings, and
-  // will plan a draft board for one that needs it) it stopped finishing on a
-  // database with fifty-odd leagues on it. The server never listened, so
-  // every request to it hung with no response at all: the whole product down,
-  // for a migration nobody was waiting on.
+  // Listen first, unconditionally. This used to await `migrate()`, so a
+  // database that refused the connection took the process down with it —
+  // Render marked the deploy failed and served nothing at all, which looks
+  // from the outside exactly like the server having vanished. It is far more
+  // useful to be up and able to say what is wrong.
   server.listen(PORT, () => {
     // eslint-disable-next-line no-console
     console.log(`online league server on :${PORT}`);
   });
 
-  // ...then repair, in the background, where being slow costs nothing and
-  // failing outright costs only itself.
-  void repairUnclaimedGms()
-    .then((repaired) => {
-      if (repaired > 0) {
-        // eslint-disable-next-line no-console
-        console.log(`repaired ${repaired} league(s)`);
-      }
+  // The schema still has to exist before anything works, so this is not
+  // optional — but it is recoverable, and a failure here is worth reporting
+  // rather than dying over. The usual cause is the database being unreachable
+  // or over quota, neither of which restarting fixes.
+  void migrate()
+    .then(() => {
+      // eslint-disable-next-line no-console
+      console.log("schema ready");
     })
     .catch((err: unknown) => {
       // eslint-disable-next-line no-console
-      console.error("league repair failed; the server is serving regardless", err);
+      console.error("could not reach the database — serving, but league calls will fail", err);
     });
-  // The deadline sweeper. A minute is far finer than the hours-long phases it
-  // polices; it's cheap because it only touches leagues whose clock has run.
-  setInterval(() => void sweep(), 60_000).unref();
+
+setInterval(() => void sweep(), 60_000).unref();
 }

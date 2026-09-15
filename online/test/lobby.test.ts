@@ -3,12 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { LeagueState } from "@/domain";
 
 import { migrate, pool } from "../src/db.js";
-import {
-  claimTeam,
-  createOnlineLeague,
-  leaguesFor,
-  repairUnclaimedGms,
-} from "../src/leagues.js";
+import { claimTeam, createOnlineLeague, leaguesFor } from "../src/leagues.js";
 
 /**
  * The commissioner's first two minutes.
@@ -113,34 +108,6 @@ describe("a league you just created", () => {
     expect(gms.filter((g) => g.isHuman).map((g) => g.teamCode)).toEqual(["KC"]);
     // and the rest are still not people
     expect(gms.filter((g) => g.isHuman)).toHaveLength(1);
-  });
-
-  maybe()("repairs a league that was created with phantom human slots", async () => {
-    const { leagueId } = await createOnlineLeague(userId, { name: "Repair Test", humanSlots: 4 });
-    madeLeagues.push(leagueId);
-    await claimTeam(leagueId, userId, "SEA");
-
-    // put the league back into the broken shape the old code produced
-    const row = await pool.query<{ state: LeagueState }>(
-      `SELECT state FROM league_state WHERE league_id = $1`,
-      [leagueId],
-    );
-    const broken = row.rows[0]!.state;
-    for (const gm of broken.gms) gm.isHuman = true;
-    await pool.query(`UPDATE league_state SET state = $2 WHERE league_id = $1`, [
-      leagueId,
-      broken,
-    ]);
-
-    expect(await repairUnclaimedGms()).toBeGreaterThan(0);
-
-    const after = await pool.query<{ state: LeagueState }>(
-      `SELECT state FROM league_state WHERE league_id = $1`,
-      [leagueId],
-    );
-    const gms = after.rows[0]!.state.gms;
-    // the real GM survives; the phantoms don't
-    expect(gms.filter((g) => g.isHuman).map((g) => g.teamCode)).toEqual(["SEA"]);
   });
 
   maybe()("puts the claiming account's own name on the GM slot", async () => {
