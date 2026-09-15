@@ -363,17 +363,32 @@ export const server = createServer((req, res) => void handle(req, res));
 
 if (process.env.NODE_ENV !== "test") {
   await migrate();
-  // leagues made before unclaimed slots stopped counting as people are still
-  // blocked on GMs who don't exist; this unblocks them in place
-  const repaired = await repairUnclaimedGms();
-  if (repaired > 0) {
-    // eslint-disable-next-line no-console
-    console.log(`unblocked ${repaired} league(s) waiting on unclaimed GM slots`);
-  }
+
+  // Listen first. Nothing else may stand between the process starting and the
+  // port opening — this used to await the one-time league repair, and when
+  // that repair grew teeth (it walks every league, recomputes ratings, and
+  // will plan a draft board for one that needs it) it stopped finishing on a
+  // database with fifty-odd leagues on it. The server never listened, so
+  // every request to it hung with no response at all: the whole product down,
+  // for a migration nobody was waiting on.
   server.listen(PORT, () => {
     // eslint-disable-next-line no-console
     console.log(`online league server on :${PORT}`);
   });
+
+  // ...then repair, in the background, where being slow costs nothing and
+  // failing outright costs only itself.
+  void repairUnclaimedGms()
+    .then((repaired) => {
+      if (repaired > 0) {
+        // eslint-disable-next-line no-console
+        console.log(`repaired ${repaired} league(s)`);
+      }
+    })
+    .catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error("league repair failed; the server is serving regardless", err);
+    });
   // The deadline sweeper. A minute is far finer than the hours-long phases it
   // polices; it's cheap because it only touches leagues whose clock has run.
   setInterval(() => void sweep(), 60_000).unref();

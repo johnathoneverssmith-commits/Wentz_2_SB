@@ -11,8 +11,7 @@ import { randomUUID } from "node:crypto";
 
 import type { LeagueConfig, LeagueState } from "@/domain";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
-
-import { onStageEntered } from "./phases.js";
+import { beginDraft } from "@/state/rules.ts";
 
 import { ActionError, pool } from "./db.js";
 
@@ -170,11 +169,18 @@ export async function repairUnclaimedGms(): Promise<number> {
         changed = true;
       }
     }
-    // a league that advanced into a draft stage back when nothing created the
-    // draft is stuck there permanently — no pick it sends can be applied
-    const before = state.draft?.mode;
-    onStageEntered(state);
-    if (state.draft?.mode !== before) changed = true;
+    // A league that advanced into a draft stage back when nothing created the
+    // draft is stuck there permanently — no pick it sends can be applied. Only
+    // that case, and only the board: `onStageEntered` also recomputes every
+    // team's ratings and runs the AI's picks, which is right when a stage
+    // genuinely opens and absurd to do to fifty leagues that do not need it.
+    const needsBoard =
+      (state.stage === "fantasyDraft" && state.draft?.mode !== "fantasy") ||
+      (state.stage === "offseasonDraft" && state.draft?.mode !== "rookie");
+    if (needsBoard) {
+      beginDraft(state, state.stage === "fantasyDraft" ? "fantasy" : "rookie");
+      changed = true;
+    }
     if (!changed) continue;
     await pool.query(
       `UPDATE league_state SET state = $2, version = version + 1, updated_at = now()
