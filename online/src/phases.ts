@@ -335,7 +335,12 @@ export function clearReadinessOnline(state: LeagueState): void {
  * AI-controlled team does all season.
  */
 export function autopilotAbsent(state: LeagueState): string[] {
-  const absent = state.gms.filter((g) => g.isHuman && g.teamCode && !state.readiness[g.id]);
+  // Change 2: a checkpoint has no clock. Marking an absent GM ready is exactly
+  // the thing committing was supposed to rule out — the league moving without
+  // you — so the deadline no longer stands in for anybody at a stage gate.
+  // The consequence is deliberate and recorded in the change log: a GM who
+  // never returns ends that league. Only the draft, where a turn genuinely
+  // blocks a queue, still plays for someone who is not there.
   const played: string[] = [];
 
   const draft = state.draft;
@@ -355,10 +360,6 @@ export function autopilotAbsent(state: LeagueState): string[] {
     return played;
   }
 
-  for (const g of absent) {
-    state.readiness[g.id] = true;
-    played.push(g.teamCode);
-  }
   return played;
 }
 

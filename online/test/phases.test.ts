@@ -46,11 +46,20 @@ describe("readiness, online", () => {
 });
 
 describe("when the clock runs out", () => {
-  it("marks the absent ready rather than leaving the league stuck", () => {
+  /**
+   * This used to expect the opposite — that the clock marked absent GMs ready
+   * so the league was never stuck. Change 2 overturns it deliberately. A
+   * checkpoint is a commitment, and a commitment means the league cannot move
+   * without you; a deadline that commits on your behalf is exactly the thing
+   * it was meant to rule out. The cost is accepted and written down: a GM who
+   * never returns ends that league.
+   */
+  it("does not commit for an absent GM at a stage gate", () => {
     state.readiness[state.gms[0]!.id] = true;
     const played = autopilotAbsent(state);
-    expect(played).toContain(state.gms[1]!.teamCode);
-    expect(waitingOn(state)).toHaveLength(0);
+    expect(played).toHaveLength(0);
+    // still waiting on the one who has not committed
+    expect(waitingOn(state)).toContain(state.gms[1]!.teamCode);
   });
 
   it("only takes the pick of the team actually on the clock", () => {

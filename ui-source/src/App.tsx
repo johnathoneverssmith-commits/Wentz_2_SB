@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
+import { Checkpoint } from "./screens/Checkpoint.tsx";
 import { isOnline, resumeLeague, lastLeagueId } from "@/state/online";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
@@ -87,10 +88,41 @@ function useResumeOnline(): boolean {
   return resuming;
 }
 
+/**
+ * Stages that end at a checkpoint, and what the checkpoint says.
+ *
+ * A stage is listed here when finishing it is a commitment rather than a
+ * navigation — the GM is done, the league is not, and they wait. Change 2
+ * adds them one at a time as each section is converted; anything absent still
+ * advances the old way.
+ */
+const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
+  fantasyDraftSummary: { from: "Draft Summary", to: "Coaching Fantasy Draft" },
+};
+
+/**
+ * Hold a committed GM at the checkpoint.
+ *
+ * This is what makes committing irreversible, and it is deliberately a fact
+ * about saved state rather than about navigation: you are here because the
+ * server has you ready for a stage that has not advanced. Typing a URL, going
+ * back, or reconnecting on another device all land here too, because all of
+ * them ask the same question and get the same answer.
+ */
+function useCheckpoint(): { from: string; to: string } | null {
+  const stage = useStore((s) => s.stage);
+  const readiness = useStore((s) => s.readiness);
+  const viewerGmId = useStore((s) => s.viewerGmId);
+  if (!isOnline()) return null;
+  if (!readiness[viewerGmId]) return null;
+  return CHECKPOINTS[stage] ?? null;
+}
+
 export function App() {
   // keyed on the route so navigating away from a crashed screen clears it
   const { pathname } = useLocation();
   const resuming = useResumeOnline();
+  const checkpoint = useCheckpoint();
   return (
     <AppShell>
       {resuming && (
@@ -99,6 +131,9 @@ export function App() {
           below is your last saved copy until it does.
         </div>
       )}
+      {checkpoint ? (
+        <Checkpoint previousStage={checkpoint.from} nextStage={checkpoint.to} />
+      ) : (
       <ScreenBoundary resetKey={pathname}>
         <Routes>
           <Route path="/" element={<StageHome />} />
@@ -131,6 +166,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ScreenBoundary>
+      )}
     </AppShell>
   );
 }

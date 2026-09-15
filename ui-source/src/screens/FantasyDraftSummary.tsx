@@ -1,11 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
-import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
@@ -24,6 +25,8 @@ function grade(rank: number, total: number): string {
 
 export function FantasyDraftSummary() {
   const nav = useNavigate();
+  const actions = useLeagueActions();
+  const [committing, setCommitting] = useState(false);
   const s = useStore();
   const code = viewerTeamCode(s);
 
@@ -144,7 +147,39 @@ export function FantasyDraftSummary() {
         </span>
       </Footer>
 
-      <ReadinessGate title="Fantasy draft summary readiness" onAdvance={(r) => nav(r)} />
+      {/*
+        Change 2: no readiness panel here. Other GMs' states are not this
+        screen's business — this is a single-player section, and the one thing
+        it owes the league is the moment you say you are done with it.
+      */}
+      <Footer>
+        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
+          Take as long as you like. Advancing is final — you can&rsquo;t come back to this summary.
+        </span>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={committing}
+          onClick={() => {
+            if (!confirm("Advance to the coaching draft? You can't return to this summary.")) return;
+            setCommitting(true);
+            void actions
+              .readyUp(true)
+              .then((res) => {
+                // Online this puts the GM at the checkpoint and holds them
+                // there; the league moves when the last GM does the same.
+                if (!res.ok) {
+                  alert(res.reason ?? "Couldn't advance.");
+                  return;
+                }
+                if (!actions.online) nav(STAGE_HOME[useStore.getState().stage]);
+              })
+              .finally(() => setCommitting(false));
+          }}
+        >
+          {committing ? "Advancing…" : "Advance to Coaching"}
+        </button>
+      </Footer>
     </Card>
   );
 }

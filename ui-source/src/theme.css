@@ -1689,3 +1689,81 @@ input[type="range"]::-moz-range-thumb {
   text-align: center;
   font-size: 11.5px;
 }
+
+/* ---- multiplayer checkpoint ----------------------------------------- */
+/* The only screen that waits. Deliberately quiet — see Checkpoint.tsx. */
+.checkpoint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 34px 20px 30px;
+}
+.checkpoint-spinner {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 22px;
+}
+.checkpoint-spinner span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.35;
+  animation: checkpoint-pulse 1.25s ease-in-out infinite;
+}
+.checkpoint-spinner span:nth-child(2) { animation-delay: 0.16s; }
+.checkpoint-spinner span:nth-child(3) { animation-delay: 0.32s; }
+@keyframes checkpoint-pulse {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkpoint-spinner span { animation: none; opacity: 0.6; }
+}
+.checkpoint-wait {
+  margin: 0 0 26px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+.checkpoint-stages {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-sunken);
+}
+.checkpoint-stages > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.checkpoint-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.checkpoint-stage {
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+.checkpoint-stage.next { color: var(--accent); }
+.checkpoint-arrow {
+  color: var(--ink-faint);
+  font-size: 16px;
+}
+.checkpoint-note {
+  margin: 22px 0 0;
+  max-width: 44ch;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--ink-faint);
+}
