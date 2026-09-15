@@ -119,6 +119,11 @@ function playPlayoffRound(state: LeagueState, rosterFor: (code: string) => Roste
   return played;
 }
 
+/** The week that just closed, for reporting. */
+function playedWeekOf(state: LeagueState, moved: { week: number }): number {
+  return moved.week > 1 ? moved.week - 1 : state.week;
+}
+
 export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutcome> {
   const { result } = await withLeague<WeekOutcome>(leagueId, async ({ state, league }) => {
     if (!isInSeason(state.stage)) {
@@ -189,9 +194,27 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
     const already = new Set(state.games.filter((g) => g.week === state.week && g.phase === phase).map((g) => g.id));
     const todo = slate.filter((g) => !already.has(`${state.season}-${phase}-${state.week}-${g.homeTeam}-${g.awayTeam}`));
     if (todo.length === 0) {
+      // The slate is done but the league is still sitting on this week, which
+      // means it was played before the server knew to step the clock. Refusing
+      // here is what made those leagues unplayable: every ready-up returned
+      // "already played" and returned *before* the advance, so the week never
+      // moved and the standings never changed again. The games are finished —
+      // what is missing is the week ending, so end it.
+      const moved = finishPlayedWeek(state);
       return {
-        result: { played: false, reason: "That week has already been played.", week: state.week, results: 0 },
+        result: { played: false, reason: null, week: playedWeekOf(state, moved), results: 0 },
         state,
+        phaseEndsAt: deadlineFor(state, league),
+        events: [
+          {
+            kind: "season.advanced",
+            summary: `That week was already played — the league moved on to ${moved.stage}${
+              moved.stage === "preseason" || moved.stage === "regularSeason"
+                ? ` week ${moved.week}`
+                : ""
+            }.`,
+          },
+        ],
       } satisfies { result: WeekOutcome } & Applied;
     }
 

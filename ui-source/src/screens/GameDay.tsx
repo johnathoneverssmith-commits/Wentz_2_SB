@@ -4,6 +4,8 @@ import { pressable, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { ROUND_LABEL, type PlayoffRound } from "@/domain";
+import { isOnline } from "@/state/online";
+import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 
@@ -19,6 +21,7 @@ export function GameDay() {
   const nav = useNavigate();
   const s = useStore();
   const finishGameDay = useStore((st) => st.finishGameDay);
+  const online = isOnline();
   const pgd = s.pendingGameDay;
   const code = viewerTeamCode(s);
 
@@ -167,6 +170,16 @@ export function GameDay() {
         <button
           className="btn-primary"
           onClick={async () => {
+            // Online the week is already over — the server played it and moved
+            // the clock before this screen ever appeared. Calling
+            // `finishGameDay` here would step it a second time in this browser
+            // only, and the copy would drift until the next frame corrected
+            // it. There is nothing to decide on a results screen either, so
+            // nobody waits: read it and leave whenever you like.
+            if (online) {
+              nav(STAGE_HOME[useStore.getState().stage]);
+              return;
+            }
             const { route } = await finishGameDay();
             nav(route);
           }}
