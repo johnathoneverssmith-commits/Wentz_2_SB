@@ -250,7 +250,12 @@ export function finishPlayedWeek(state: LeagueState): { stage: string; week: num
   const from = state.stage;
   state.stage = t.stage;
   state.week = t.week;
-  state.pendingGameDay = null;
+  // `pendingGameDay` is deliberately left alone. It is what the Game Day
+  // screen renders, and clearing it here meant the server played a week and
+  // then immediately threw away the only record that there was anything to
+  // watch — online you got new scores in the standings and never saw a game.
+  // Single-player clears it when the player hits continue; online each GM
+  // reads it in their own time, so it stands until the next week replaces it.
   onStageEntered(state, from);
   clearReadinessOnline(state);
   return { stage: state.stage, week: state.week };

@@ -163,6 +163,50 @@ export function applyPick(s: LeagueState, selectedId: string): void {
  */
 const NEED_WEIGHT = 0.6;
 
+/**
+ * What a position is worth, in overall points, when comparing across
+ * positions.
+ *
+ * `overall` is graded *within* a position — a 95 safety is elite among
+ * safeties, not the equal of a 95 quarterback — so ranking a draft board by
+ * raw overall compares two things that were never on the same scale. Left
+ * alone it drafted a 31-year-old safety first and a punter thirteenth, which
+ * is the report that prompted this.
+ *
+ * The ordering here is the uncontroversial part of positional value: a
+ * quarterback is worth more than anyone else by a wide margin, the premium
+ * positions are the ones that protect or hunt him and cover receivers, and
+ * kickers and punters go last however well they kick. The exact numbers are
+ * a v0 judgement in the same spirit as the coaching ratings — informed, not
+ * measured — and are deliberately small enough that a genuinely great player
+ * still outranks a mediocre one at a richer position. At +14 the quarterback
+ * premium alone lifted a 38-year-old Stafford above Ja'Marr Chase, which is
+ * the failure in the other direction; +10 keeps the elite quarterbacks at the
+ * top of the board without making the position itself the whole argument.
+ */
+const POSITION_VALUE: Record<Position, number> = {
+  QB: 10,
+  EDGE: 8,
+  OT: 7,
+  WR: 6,
+  CB: 6,
+  DT: 4,
+  TE: 3,
+  OG: 2,
+  S: 2,
+  OLB: 2,
+  ILB: 1,
+  C: 1,
+  RB: 0,
+  K: -14,
+  P: -14,
+};
+
+/** Cross-position draft value: what he is, plus what the position is worth. */
+export function draftValue(overall: number, position: Position): number {
+  return overall + POSITION_VALUE[position];
+}
+
 export function bestAvailable(s: LeagueState): string | null {
   const d = s.draft!;
   const teamCode = d.pickOrder[d.currentPickIndex];
@@ -196,7 +240,7 @@ export function bestAvailable(s: LeagueState): string | null {
   }
   for (const x of Object.values(s.players)) {
     if (taken.has(x.id) || x.retired) continue;
-    const score = x.overall + need(x.position);
+    const score = draftValue(x.overall, x.position) + need(x.position);
     if (score > bestScore) {
       bestScore = score;
       bestId = x.id;
@@ -269,7 +313,7 @@ export function planAutopicks(s: LeagueState): string[] {
     let bestScore = -Infinity;
     for (const c of candidates) {
       if (taken.has(c.id)) continue;
-      const score = c.overall + need(c.position);
+      const score = draftValue(c.overall, c.position) + need(c.position);
       if (score > bestScore) {
         bestScore = score;
         bestId = c.id;

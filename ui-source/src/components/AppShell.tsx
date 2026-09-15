@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { useOnlineSync } from "@/state/useLeagueActions";
 import { useGameAudio } from "@/audio/useGameAudio";
 
 import { SoundControl } from "./SoundControl.tsx";
+import { isOnline } from "@/state/online";
 import { isInSeason, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
 
@@ -54,8 +55,42 @@ const OFFSEASON_REFERENCE_NAV: NavItem[] = [
 
 const active = ({ isActive }: { isActive: boolean }) => (isActive ? "active" : "");
 
+/**
+ * Take everyone to Game Day when a week is actually played.
+ *
+ * Single-player the action that simulates the week also routes to the screen
+ * that shows it. Online the week is played by the server, so the result
+ * arrives as a state change with nothing to carry anyone there — GMs got new
+ * standings and never saw a game, which is the whole point of playing one.
+ *
+ * Driven by the league's own `pendingGameDay` rather than by whoever clicked,
+ * so the GM who readied last and the three who were already waiting all land
+ * on the same screen. It fires on the change, not on the value, so reloading
+ * or navigating away afterwards doesn't drag you back.
+ */
+function useGameDayArrival(): void {
+  const nav = useNavigate();
+  const { pathname } = useLocation();
+  const pending = useStore((s) => s.pendingGameDay);
+  const key = pending ? `${pending.phase}-${pending.week}-${pending.gameIds.length}` : null;
+  const seen = useRef<string | null>(key);
+  useEffect(() => {
+    if (!isOnline()) {
+      seen.current = key;
+      return;
+    }
+    if (key && key !== seen.current && pathname !== "/game-day") {
+      seen.current = key;
+      nav("/game-day");
+      return;
+    }
+    seen.current = key;
+  }, [key, nav, pathname]);
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   useTeamTheme();
+  useGameDayArrival();
   // in an online league, take the server's copy whenever it says the league
   // moved; inert (and it costs nothing) in a single-player game
   useOnlineSync();

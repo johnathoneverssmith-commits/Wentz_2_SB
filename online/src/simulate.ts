@@ -12,6 +12,7 @@
  * only who calls it and where the answer goes.
  */
 import { simulateGame } from "../../src/engine/sim.js";
+import { broadcastGame } from "../../src/engine/broadcast.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
 
@@ -161,6 +162,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       }
       const round = state.bracket.currentRound;
       const games = playPlayoffRound(state, rosterFor);
+      state.pendingGameDay = { phase: round, week: 0, gameIds: [], viewerGameId: null };
       if (games === 0 && !state.bracket.champion) {
         return {
           result: { played: false, reason: "That round has already been played.", week: state.week, results: 0 },
@@ -193,15 +195,28 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       } satisfies { result: WeekOutcome } & Applied;
     }
 
+    // Whose game gets a play-by-play. A broadcast is ~44KB, and the league
+    // document travels whole on every action and every stream frame — sixteen
+    // of them a week, kept for a season, would put six megabytes into it. So
+    // only the games a person is actually in get one, and only the current
+    // week keeps it.
+    const humanTeams = new Set(
+      state.gms.filter((gm) => gm.isHuman && gm.teamCode).map((gm) => gm.teamCode),
+    );
+    for (const old of state.games) delete (old as { broadcast?: unknown }).broadcast;
+
     const results: GameResult[] = [];
     for (const g of todo) {
       const seed = gameSeed(state, state.week, phase, g.homeTeam, g.awayTeam);
+      const homeRoster = rosterFor(g.homeTeam);
+      const awayRoster = rosterFor(g.awayTeam);
       const sim = simulateGame(seed, toEngine(g.homeTeam), toEngine(g.awayTeam), {
-        homeRoster: rosterFor(g.homeTeam),
-        awayRoster: rosterFor(g.awayTeam),
+        homeRoster,
+        awayRoster,
         trace: true,
         injuries: true,
       });
+      const watched = humanTeams.has(g.homeTeam) || humanTeams.has(g.awayTeam);
       results.push({
         id: `${state.season}-${phase}-${state.week}-${g.homeTeam}-${g.awayTeam}`,
         week: state.week,
@@ -212,6 +227,16 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         homeScore: sim.score[0],
         awayScore: sim.score[1],
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
+        // same seed and the same rosters, so the drives it walks through are
+        // the drives that produced the score above
+        ...(watched
+          ? {
+              broadcast: broadcastGame(seed, toEngine(g.homeTeam), toEngine(g.awayTeam), {
+                homeRoster,
+                awayRoster,
+              }) as NonNullable<GameResult["broadcast"]>,
+            }
+          : {}),
       });
     }
 
@@ -229,6 +254,15 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
     // next request found the games already on file and refused to play them
     // again — which is correct, and left the league on week one for good.
     const playedWeek = state.week;
+    // What the Game Day screen shows. `viewerGameId` stays null because the
+    // league document is shared and "your game" is different for every GM —
+    // the client resolves it from its own team against `gameIds`.
+    state.pendingGameDay = {
+      phase,
+      week: playedWeek,
+      gameIds: results.map((g) => g.id),
+      viewerGameId: null,
+    };
     const moved = finishPlayedWeek(state);
 
     return {
