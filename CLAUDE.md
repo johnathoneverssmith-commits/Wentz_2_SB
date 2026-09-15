@@ -123,8 +123,11 @@ docs/       engine_spec.md is the full engine build contract
 - `loadPlayerPool()` / `resolveDefaultPoolPath()` prefer `data/players.local.json`,
   falling back to the committed sample. Tests that assert on the sample pass
   `SAMPLE_POOL_PATH` explicitly so a generated pool does not break them.
-- `generate:pool` is the real pool (OQ-1): real roster facts from nflverse +
-  the `src/model/` heuristic ratings. It is deterministic per `--seed`.
+- `generate:pool` builds a pool from nflverse roster facts plus the
+  `src/model/` heuristic ratings, deterministic per `--seed`. It is how the
+  committed pool was first built and is still the way to pick up a new
+  season's rosters — but see the warning below before copying its output over
+  `ui-source/src/data/pool-2026.json`, whose ratings are authored.
   Network I/O lives only in `fetch*Csv` / `loadPerfSignal`; the row->player
   logic (`buildPoolFromRosterRows`, `aggregateSnapCounts`, `buildPlayer`) is
   pure and unit-tested with inline fixtures.
@@ -133,12 +136,21 @@ docs/       engine_spec.md is the full engine build contract
   generated pools are just large and regenerable.
 - The exception is `ui-source/src/data/pool-2026.json`, which **is** committed:
   it is nflverse-derived (openly licensed real names/teams/ages, no EA data),
-  and it has to ship or the deployed game invents its players. Regenerate with
-  `npm run generate:pool -- --season <year> --out <path>` and copy it over.
-  Only identity comes from nflverse; every rating is still the `src/model/`
-  heuristic. Real rosters do not cover this game's roster template, so
-  `generateInitialPool` tops each team up with generated depth — the people
-  you have heard of are real, the practice squad is not.
+  and it has to ship or the deployed game invents its players. Real rosters do
+  not cover this game's roster template, so `generateInitialPool` tops each
+  team up with generated depth — the people you have heard of are real, the
+  practice squad is not.
+- **Do not regenerate the committed pool from `generate:pool` and copy it over.**
+  That is how it used to be built, and the `src/model/` heuristic scores a
+  player on snap share, draft capital and years survived — whether he is a
+  starter with pedigree, not whether he is any good. It rated Jamal Adams 95
+  (the best player in the league), Jameis Winston level with Joe Burrow, and
+  Drew Lock 91, and the fantasy draft faithfully opened with a declining
+  safety. The shipped pool's **ratings are authored** rather than heuristic
+  output, which is the only reason the draft board reads like a draft board.
+  Regenerating would quietly undo that while looking like an update.
+  Edit it through `pool:export-csv` / `pool:import-csv` instead, which
+  round-trips losslessly and validates every row against the schema.
 
 ## Conventions
 
