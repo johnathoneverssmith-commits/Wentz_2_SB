@@ -565,6 +565,9 @@ function CreateLeague({
   const [fantasyDraft, setFantasyDraft] = useState(true);
   const [draftType, setDraftType] = useState<"snake" | "linear">("snake");
   const [draftOrder, setDraftOrder] = useState<"randomized" | "inOrder">("randomized");
+  // Change 1: how many picks each GM makes before the board finishes itself.
+  // "" is the Never option — the whole draft by hand.
+  const [simAfter, setSimAfter] = useState<string>("5");
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [randomEvents, setRandomEvents] = useState<RandomEventRate>("some");
   const [gameDayHours, setGameDayHours] = useState<DeadlineChoice>(24);
@@ -584,6 +587,7 @@ function CreateLeague({
                 fantasyDraft,
                 draftType,
                 draftOrder,
+                draftSimulateAfterPicks: simAfter === "" ? null : Number(simAfter),
                 difficulty,
                 randomEvents,
                 gameDayDeadlineHours: gameDayHours,
@@ -673,6 +677,24 @@ function CreateLeague({
               >
                 <option value="randomized">Randomized</option>
                 <option value="inOrder">In order</option>
+              </select>
+            </OnlineSetting>
+
+            <OnlineSetting
+              label="Manual picks each"
+              hint="How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. Twenty rounds by hand is a long evening."
+            >
+              <select
+                value={simAfter}
+                disabled={!fantasyDraft}
+                onChange={(e) => setSimAfter(e.target.value)}
+              >
+                {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n} {n === 1 ? "pick" : "picks"}
+                  </option>
+                ))}
+                <option value="">Never — draft all 20 rounds by hand</option>
               </select>
             </OnlineSetting>
 

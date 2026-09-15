@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
@@ -9,7 +8,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Position } from "@/domain";
-import { bestAvailable, useStore } from "@/state/store";
+import { bestAvailable, picksMadeBy, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
@@ -24,7 +23,6 @@ interface Available {
 }
 
 export function DraftRoom() {
-  const nav = useNavigate();
   const s = useStore();
   const { active, setActive } = useTabs("available");
   const [overlayDismissed, setOverlayDismissed] = useState(false);
@@ -33,9 +31,6 @@ export function DraftRoom() {
   const startDraft = useStore((st) => st.startDraft);
   const actions = useLeagueActions();
   const makePick = useStore((st) => st.makePick);
-  const autopick = useStore((st) => st.autopickRemaining);
-  const tryAdvance = useStore((st) => st.tryAdvance);
-  const setReady = useStore((st) => st.setReady);
   const autoReady = useStore((st) => st.autoReadyNonViewers);
 
   const isDraftStage = s.stage === "fantasyDraft" || s.stage === "offseasonDraft";
@@ -55,6 +50,10 @@ export function DraftRoom() {
   const onClockTeam = draft ? draft.pickOrder[draft.currentPickIndex] : undefined;
   const yourPick = onClockTeam === code;
   const complete = draft ? draft.currentPickIndex >= draft.pickOrder.length : false;
+  // how much hand-drafting this GM still owes before the board finishes itself
+  const threshold = s.config.draftSimulateAfterPicks;
+  const picksLeftForYou =
+    threshold == null || !code ? 0 : Math.max(0, threshold - picksMadeBy(s, code));
 
   // the whole board, best first — filtered *before* the display slice so a
   // position filter can always reach every player at that position (a K/P
@@ -343,23 +342,20 @@ export function DraftRoom() {
       </Panel>
 
       <Footer>
-        {!complete ? (
-          <button onClick={() => autopick()}>Autopick remaining</button>
-        ) : (
-          <button
-            className="btn-primary"
-            onClick={() => {
-              setReady(s.viewerGmId, true);
-              autoReady();
-              setTimeout(async () => {
-                const { moved, route } = await tryAdvance();
-                if (moved) nav(route);
-              }, 300);
-            }}
-          >
-            {mode === "fantasy" ? "Continue to draft summary" : "Continue to signings"}
-          </button>
-        )}
+        {/*
+          Change 1: no Autopick Rest and no Advance to Draft Summary. When
+          every GM has taken the picks the commissioner asked for, the rest of
+          the board completes on the server and the league moves on by itself
+          — there is nothing left to decide, so there is nothing to press.
+          Offline the same rule applies locally.
+        */}
+        <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
+          {threshold == null
+            ? "Every pick in this draft is made by hand."
+            : picksLeftForYou > 0
+              ? `${picksLeftForYou} more ${picksLeftForYou === 1 ? "pick" : "picks"} to make. The rest of the draft completes itself once every GM reaches ${threshold}.`
+              : "You're done. The draft completes once every other GM reaches their picks."}
+        </span>
       </Footer>
     </Card>
   );

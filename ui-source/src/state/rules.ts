@@ -407,6 +407,58 @@ export function advanceBiddingDayOn(s: LeagueState, subject: Subject): boolean {
   return true;
 }
 
+/**
+ * How many picks this team has made by hand in the running draft.
+ *
+ * Counts results rather than pick index, because the two diverge the moment
+ * anything is autopicked on a team's behalf.
+ */
+export function picksMadeBy(s: LeagueState, teamCode: string): number {
+  return (s.draft?.results ?? []).filter((r) => r.teamCode === teamCode).length;
+}
+
+/**
+ * Every human GM has taken the number of picks the commissioner asked for.
+ *
+ * This is the condition that ends manual drafting. It is deliberately about
+ * *every* human rather than the one who just picked: a draft order can give
+ * one GM two picks before another has had one, and finishing early because
+ * the fastest GM hit the number would take the draft away from everybody
+ * else mid-round.
+ *
+ * `draftSimulateAfterPicks` of `null` means the commissioner chose to run the
+ * whole thing by hand, so this is never true and the draft ends only when the
+ * board does.
+ */
+export function draftThresholdMet(s: LeagueState): boolean {
+  const threshold = s.config.draftSimulateAfterPicks;
+  if (threshold == null) return false;
+  if (!s.draft) return false;
+  const humans = s.gms.filter((g) => g.isHuman && g.teamCode);
+  if (humans.length === 0) return true;
+  return humans.every((g) => picksMadeBy(s, g.teamCode) >= threshold);
+}
+
+/**
+ * Finish the board, however much of it is left.
+ *
+ * One `planAutopicks` call plans every remaining slot in a single pass, so
+ * completing four hundred picks costs one plan rather than four hundred.
+ * Returns how many it made, so the caller can say so.
+ */
+export function completeDraft(s: LeagueState): number {
+  const d = s.draft;
+  if (!d) return 0;
+  const planned = planAutopicks(s);
+  let made = 0;
+  for (const id of planned) {
+    if (d.currentPickIndex >= d.pickOrder.length) break;
+    applyPick(s, id);
+    made++;
+  }
+  return made;
+}
+
 /** Nobody human is running this team, so the league plays it. */
 export function isAiTeam(s: LeagueState, teamCode: string | undefined): boolean {
   if (!teamCode) return false;

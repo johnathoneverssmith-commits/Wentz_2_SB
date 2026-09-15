@@ -15,6 +15,7 @@ function base(p: Partial<LeagueState>): LeagueState {
       fantasyDraft: true,
       draftOrder: "randomized",
       draftType: "linear",
+    draftSimulateAfterPicks: 5,
       gameDayDeadlineHours: 12,
       offseasonStageDeadlineHours: 24,
       randomEvents: "some",

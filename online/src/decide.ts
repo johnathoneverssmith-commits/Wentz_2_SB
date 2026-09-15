@@ -25,6 +25,8 @@ import {
   checkStandingSign,
   checkCoachHire,
   checkRookieOutcome,
+  completeDraft,
+  draftThresholdMet,
   applyRookieOutcome,
   applyCoachHire,
   checkTrade,
@@ -33,6 +35,9 @@ import {
   type Subject,
 } from "@/state/rules.ts";
 import { extendContract, restructureContract } from "@/state/contracts.ts";
+import { resolveTransition } from "@/state/stageMachine.ts";
+
+import { clearReadinessOnline, onStageEntered } from "./phases.js";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
@@ -302,6 +307,21 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
   // then the league takes its own picks, up to the next one a person owes —
   // otherwise the clock stops dead on the first AI team after you
   const aiPicked = runAiPicks(state);
+
+  // Change 1: manual drafting runs until every human GM has taken the number
+  // of picks the commissioner asked for. The moment the last of them does,
+  // the rest of the board completes at once and the league moves on — there
+  // is nothing left for anyone to decide, so nobody is asked to confirm it.
+  const finishing = draftThresholdMet(state);
+  const autoCompleted = finishing ? completeDraft(state) : 0;
+  if (finishing) {
+    const t = resolveTransition(state, {});
+    state.stage = t.stage;
+    state.week = t.week;
+    onStageEntered(state, "fantasyDraft");
+    clearReadinessOnline(state);
+  }
+
   return {
     events: [
       {
@@ -310,7 +330,7 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
         summary: `${city(actor.teamCode)} selected ${name}.`,
         detail: { selectedId },
       },
-      ...(aiPicked.length
+      ...(aiPicked.length && !finishing
         ? [
             {
               kind: "draft.ai",
@@ -318,6 +338,14 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
                 aiPicked.length === 1
                   ? `${city(aiPicked[0]!)} made their pick.`
                   : `${aiPicked.length} teams made their picks.`,
+            },
+          ]
+        : []),
+      ...(finishing
+        ? [
+            {
+              kind: "draft.completed",
+              summary: `Every GM has made their picks — the remaining ${autoCompleted} selections were completed automatically.`,
             },
           ]
         : []),

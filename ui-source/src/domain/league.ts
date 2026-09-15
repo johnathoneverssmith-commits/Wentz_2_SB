@@ -41,6 +41,15 @@ export interface LeagueConfig {
   fantasyDraft: boolean;
   draftOrder: "randomized" | "inOrder";
   draftType: "snake" | "linear";
+  /**
+   * How many picks each human GM makes by hand before the rest of the fantasy
+   * draft completes itself. `null` means never — the whole draft is manual.
+   *
+   * Chosen by the commissioner at league creation and locked once the draft
+   * begins, because changing it mid-draft would change how many picks some
+   * GMs had already been asked for.
+   */
+  draftSimulateAfterPicks: number | null;
   gameDayDeadlineHours: DeadlineChoice;
   offseasonStageDeadlineHours: DeadlineChoice;
   /** how often mid-season random events fire. */

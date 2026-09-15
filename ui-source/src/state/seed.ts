@@ -42,6 +42,9 @@ export const DEFAULT_CONFIG: LeagueConfig = {
   fantasyDraft: true,
   draftOrder: "randomized",
   draftType: "linear",
+  // twenty rounds by hand is a long evening; five picks is enough to shape a
+  // roster before the rest fills itself in
+  draftSimulateAfterPicks: 5,
   gameDayDeadlineHours: 12,
   offseasonStageDeadlineHours: 24,
   randomEvents: "some",
