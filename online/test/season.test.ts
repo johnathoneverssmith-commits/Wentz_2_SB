@@ -4,6 +4,8 @@ import type { LeagueState } from "@/domain";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 
+import { humanGate } from "@/state/rules.ts";
+
 import { advanceStage, clearReadinessOnline, finishPlayedWeek } from "../src/phases.js";
 
 /**
@@ -34,6 +36,50 @@ function leagueInPreseason(): LeagueState {
   clearReadinessOnline(state);
   return state;
 }
+
+describe("the readiness gate holds the week", () => {
+  /**
+   * The one thing that must not loosen.
+   *
+   * A week only plays when every human GM has said they are ready, and the
+   * "Ready for Game Day" button is how they say it. `simulateWeekForLeague`
+   * checks `humanGate` as its second guard — ahead of the playoff round and
+   * ahead of the branch that ends a week whose games are already on file — so
+   * no path through it can advance a league that is still waiting on somebody.
+   * These pin the condition that guard reads.
+   */
+  it("is closed while any GM is still pending", () => {
+    const s = leagueInPreseason();
+    s.readiness[s.gms[0]!.id] = true;
+    s.readiness[s.gms[1]!.id] = false;
+    expect(humanGate(s)).toBe(false);
+  });
+
+  it("opens only once the last one readies up", () => {
+    const s = leagueInPreseason();
+    for (const g of s.gms) s.readiness[g.id] = false;
+    expect(humanGate(s)).toBe(false);
+    s.readiness[s.gms[0]!.id] = true;
+    expect(humanGate(s)).toBe(false);
+    s.readiness[s.gms[1]!.id] = true;
+    expect(humanGate(s)).toBe(true);
+  });
+
+  it("never waits on a team nobody is running", () => {
+    const s = leagueInPreseason();
+    // an AI team has no one to wait for, or a short league could never play
+    for (const g of s.gms) s.readiness[g.id] = true;
+    expect(humanGate(s)).toBe(true);
+  });
+
+  it("closes again for the next week once a stage opens", () => {
+    const s = leagueInPreseason();
+    for (const g of s.gms) s.readiness[g.id] = true;
+    clearReadinessOnline(s);
+    // everybody has to say so again, every week
+    expect(humanGate(s)).toBe(false);
+  });
+});
 
 describe("a season on the server", () => {
   it("moves off a week once it has been played", () => {
