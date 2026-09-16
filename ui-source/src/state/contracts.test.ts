@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LeagueState, Player } from "@/domain";
 
-import { createLeague, DEFAULT_CONFIG, expireContracts } from "./seed.ts";
+import { createLeague, fillRosterGaps, DEFAULT_CONFIG, expireContracts } from "./seed.ts";
 
 /**
  * Nothing decremented `years_remaining` anywhere in the app, so contracts were
@@ -12,7 +12,9 @@ import { createLeague, DEFAULT_CONFIG, expireContracts } from "./seed.ts";
  * offseason with $2.6M of room against a market asking $17M a year.
  */
 function fixture(): LeagueState {
-  return createLeague(3, DEFAULT_CONFIG);
+  const s = createLeague(3, DEFAULT_CONFIG);
+  fillRosterGaps(s);
+  return s;
 }
 
 function rostered(s: LeagueState): Player[] {

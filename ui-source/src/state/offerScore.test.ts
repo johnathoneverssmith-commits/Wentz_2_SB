@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ContractOffer, LeagueState, Player } from "@/domain";
 import { playerPriorities } from "@/sim/priorities";
 
-import { createLeague, DEFAULT_CONFIG } from "./seed.ts";
+import { createLeague, fillRosterGaps, DEFAULT_CONFIG } from "./seed.ts";
 import { offerScore } from "./store.ts";
 
 /**
@@ -15,7 +15,9 @@ import { offerScore } from "./store.ts";
  */
 
 function fixture(): LeagueState {
-  return createLeague(1, DEFAULT_CONFIG);
+  const s = createLeague(1, DEFAULT_CONFIG);
+  fillRosterGaps(s);
+  return s;
 }
 
 function offer(teamCode: string, amount = 10): ContractOffer {

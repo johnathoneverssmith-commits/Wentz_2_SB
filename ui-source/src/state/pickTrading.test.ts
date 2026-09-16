@@ -14,7 +14,7 @@ import {
 } from "./draftPicks.ts";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 
-import { createLeague, DEFAULT_CONFIG } from "./seed.ts";
+import { createLeague, fillRosterGaps, DEFAULT_CONFIG } from "./seed.ts";
 import { useStore } from "./store.ts";
 
 /**
@@ -26,6 +26,7 @@ import { useStore } from "./store.ts";
  */
 function fixture(): LeagueState {
   const s = createLeague(29, DEFAULT_CONFIG);
+  fillRosterGaps(s);
   ensureDraftPicks(s, s.season);
   return s;
 }
@@ -72,7 +73,11 @@ describe("the pick ledger", () => {
 
 describe("trading a pick", () => {
   it("moves it, and the draft order follows", () => {
-    useStore.setState(() => createLeague(31, DEFAULT_CONFIG) as never);
+    useStore.setState(() => {
+      const st = createLeague(31, DEFAULT_CONFIG);
+      fillRosterGaps(st);
+      return st as never;
+    });
     useStore.setState((d) => {
       ensureDraftPicks(d, d.season);
       d.gms[0]!.teamCode = Object.keys(d.teams)[0]!;
@@ -99,7 +104,11 @@ describe("trading a pick", () => {
   });
 
   it("prices a first-rounder as real value, not as nothing", () => {
-    useStore.setState(() => createLeague(33, DEFAULT_CONFIG) as never);
+    useStore.setState(() => {
+      const st = createLeague(33, DEFAULT_CONFIG);
+      fillRosterGaps(st);
+      return st as never;
+    });
     useStore.setState((d) => {
       ensureDraftPicks(d, d.season);
     });

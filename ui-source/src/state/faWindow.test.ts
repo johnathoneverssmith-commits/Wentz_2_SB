@@ -98,15 +98,31 @@ describe("the free agency window", () => {
 describe("signing a star nobody can afford", () => {
   it("clears the room rather than leaving him on the board", () => {
     leagueWithBigMarket();
-    // one obvious superstar, and no money anywhere
-    const starId = Object.values(useStore.getState().players).find(
-      (p) => p.free_agent && !p.retired,
-    )!.id;
+    // One obvious superstar, no money anywhere, and — the part the fixture
+    // has to supply — contracts worth cutting. Clearing room means releasing
+    // expensive players who are not the best at their position; a league of
+    // minimum-salary depth has nothing to clear, and the rule would have
+    // nothing to demonstrate.
+    const starId = Object.values(useStore.getState().players)
+      .filter((p) => p.free_agent && !p.retired)
+      .sort((a, b) => b.overall - a.overall)[0]!.id;
     useStore.setState((d) => {
       const star = d.players[starId]!;
-      star.overall = 96;
+      star.overall = 99;
       star.position = "QB";
-      for (const code of Object.keys(d.teams)) d.teams[code]!.cap.total = d.teams[code]!.cap.used + 5;
+      for (const code of Object.keys(d.teams)) {
+        const roster = Object.values(d.players).filter(
+          (p) => p.nfl_team === code && !p.retired && !p.free_agent,
+        );
+        // the back half of each roster on real money, so there is fat to cut
+        const byOverall = [...roster].sort((a, b) => b.overall - a.overall);
+        for (const p of byOverall.slice(Math.ceil(byOverall.length / 2))) {
+          if (p.contract) p.contract.cap_hit_by_year[0] = 12;
+        }
+        const used = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+        d.teams[code]!.cap.used = Math.round(used * 10) / 10;
+        d.teams[code]!.cap.total = d.teams[code]!.cap.used + 5;
+      }
     });
 
     useStore.getState().startBidding("players");
@@ -125,21 +141,29 @@ describe("signing a star nobody can afford", () => {
       star.position = "QB";
       for (const code of Object.keys(d.teams)) d.teams[code]!.cap.total = d.teams[code]!.cap.used + 5;
     });
-    const bestBefore = new Map<string, string>();
-    for (const code of Object.keys(useStore.getState().teams)) {
+    // The claim is about quality, not identity. Four of Arizona's tackles are
+    // rated 74, so "its best OT" does not name a player — cutting any one of
+    // them leaves the team exactly as good at the position, which is what the
+    // rule is actually protecting. Asserting on an id made the test fail on a
+    // tie-break rather than on anything going wrong.
+    const bestOtOf = (code: string): number => {
       const roster = Object.values(useStore.getState().players).filter(
         (p) => p.nfl_team === code && !p.retired && !p.free_agent && p.position === "OT",
       );
-      if (roster.length > 0) {
-        bestBefore.set(code, roster.reduce((a, b) => (b.overall > a.overall ? b : a)).id);
-      }
-    }
+      return roster.reduce((n, p) => Math.max(n, p.overall), 0);
+    };
+    const before = new Map(
+      Object.keys(useStore.getState().teams).map((code) => [code, bestOtOf(code)]),
+    );
 
     useStore.getState().startBidding("players");
     for (let d = 0; d < 5; d++) useStore.getState().advanceBiddingDay("players");
 
-    for (const [code, id] of bestBefore) {
-      expect(useStore.getState().players[id]!.nfl_team, `${code} kept its best OT`).toBe(code);
+    for (const [code, was] of before) {
+      if (was === 0) continue;
+      // greater-or-equal, not equal: a team is free to come out of free
+      // agency better at the position than it went in
+      expect(bestOtOf(code), `${code} is no worse at OT than it was`).toBeGreaterThanOrEqual(was);
     }
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLeague, DEFAULT_CONFIG, recomputeTeamRatings } from "./seed.ts";
+import { createLeague, fillRosterGaps, DEFAULT_CONFIG, recomputeTeamRatings } from "./seed.ts";
 import {
   affordableTeams,
   aiControlledTeams,
@@ -20,7 +20,9 @@ import type { Coach, LeagueState, Player } from "@/domain";
  */
 
 function fixtureLeague(): LeagueState {
-  return createLeague(1, DEFAULT_CONFIG);
+  const s = createLeague(1, DEFAULT_CONFIG);
+  fillRosterGaps(s);
+  return s;
 }
 
 describe("weightedPick", () => {
@@ -159,6 +161,10 @@ describe("aiOfferForCoach", () => {
     for (const code of Object.keys(s.teams)) s.teams[code]!.controlledBy = { kind: "ai" };
     const codes = Object.keys(s.teams);
     const [fitTeam] = codes;
+    // Every team starts with a real OC, and a team without a vacancy makes no
+    // offer at all — so without this the question ("which team does he go
+    // to?") has no answers rather than the wrong ones.
+    for (const c of Object.values(s.coaches)) if (c.role === "OC") c.team = null;
     for (const p of Object.values(s.players)) {
       if (p.nfl_team === fitTeam) p.scheme_tags = ["west_coast", "play_action"];
       else p.scheme_tags = ["power_run"];

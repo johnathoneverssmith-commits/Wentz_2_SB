@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_CONFIG, createLeague } from "../state/seed.ts";
+import { DEFAULT_CONFIG, createLeague, fillRosterGaps } from "../state/seed.ts";
 import { contractValueFor, MockSimulationService } from "./MockSimulationService.ts";
 import type { LeagueState, TradeAsset } from "@/domain";
 
@@ -12,7 +12,9 @@ import type { LeagueState, TradeAsset } from "@/domain";
  */
 
 function fixture(): LeagueState {
-  return createLeague(1, DEFAULT_CONFIG);
+  const s = createLeague(1, DEFAULT_CONFIG);
+  fillRosterGaps(s);
+  return s;
 }
 
 const sim = new MockSimulationService();

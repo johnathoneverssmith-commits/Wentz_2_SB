@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ContractOffer, LeagueState } from "@/domain";
 
-import { createLeague, DEFAULT_CONFIG } from "./seed.ts";
+import { createLeague, fillRosterGaps, DEFAULT_CONFIG } from "./seed.ts";
 import { checkBid, checkStandingSign } from "./store.ts";
 
 /**
@@ -14,7 +14,9 @@ import { checkBid, checkStandingSign } from "./store.ts";
  */
 
 function fixture(): LeagueState {
-  return createLeague(1, DEFAULT_CONFIG);
+  const s = createLeague(1, DEFAULT_CONFIG);
+  fillRosterGaps(s);
+  return s;
 }
 
 function offerFor(teamCode: string, baseSalary: number, years = 1): ContractOffer {
