@@ -108,6 +108,50 @@ before changing anything: correlated within-game outcomes (the engine treats
 too many plays as independent), missing garbage-time behaviour, and turnover
 clustering.
 
+#### `points_sd`: investigated, not fixed (2026-09-16)
+
+Measured over 4,000 team-games on the pool-free path, so the arithmetic is
+done and the next person starts from here rather than from scratch:
+
+| quantity | engine | real |
+|---|---|---|
+| points/team-game | 21.72, sd **8.76** | 22.56, sd **9.93** |
+| drives/team-game | 10.92, sd 1.53 | 10.74 |
+| points per drive | 2.02, sd 0.85 | — |
+
+**The drive count is not the problem.** Decomposing points = drives ×
+points-per-drive: the drive-count term contributes 9.6 of the variance and the
+points-per-drive term 86.2, against a total of 76.7. (The two sum to more than
+the total because they are negatively correlated, which is football working
+correctly — a team that scores quickly hands the ball back and gets more
+drives.) So essentially all the missing variance is in **how well a team plays
+on a given day**, not in how many chances it gets.
+
+**The mechanism that would fix it** is the one named above: the engine has no
+game-level latent "form". Every play is drawn from the same distribution given
+the ratings, so a team's efficiency has no day-to-day swing, and the league
+comes out under-dispersed. A multiplicative per-game, per-team form factor is
+the standard way to add exactly that, and it adds variance without moving the
+mean.
+
+**How big it would have to be: sd ≈ 0.215.** That is a ±21% game-to-game swing
+in team scoring efficiency, which is a big number and is exactly why this was
+not shipped as a constant. It closes the summary statistic by construction
+while being completely unvalidated on *shape*, and it would feed straight into
+win probability, the home-field calibration (§32) and the playoff model.
+
+**What is needed to do it properly** is the empirical per-game scoring
+distribution — percentiles, not just the mean and sd, which is all
+`artifacts/validation/simulation_validation.json` carries. That means a run of
+`analysis/` against the parquet data, which is git-ignored, so it could not be
+checked here. The specific question to ask of it: **is the real left tail
+fatter than the engine's?** The engine's own distribution is 5th pct 7, 10th
+10, 25th 16, 50th 21, 75th 27, 90th 34, 95th 37, 99th 44, with 6.9% of
+team-games under 10 points and 6.1% over 35. If real football has materially
+more sub-10 performances and a similar right tail, the missing variance is
+*bad days*, not shootouts — and a symmetric form factor would be the wrong
+shape even though it fixes the number.
+
 ### Known residuals, already investigated
 
 - **≈ −0.8 ± 0.4 points per team-game** against the real league after the §26
