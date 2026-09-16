@@ -332,3 +332,26 @@ export function preseasonRoasts(s: LeagueState): { teamCode: string; gmName: str
       };
     });
 }
+
+/**
+ * The in-season set: one line per human GM, off the week just watched.
+ *
+ * Keyed to a week rather than to a GM's progress, which is what makes it
+ * both spoiler-free and identical for everyone. A GM sitting on week two
+ * reads the week-two cards; a GM who has raced to week nine reads the
+ * week-nine cards; and when the first one catches up they read exactly what
+ * the second one read. Nothing here can mention a week the viewer has not
+ * watched, because the only games it looks at are the ones from the week
+ * before the hub they are standing on.
+ *
+ * `throughWeek` is the last week this GM has revealed. Week one has no
+ * preceding week, so it falls back to the preseason set.
+ */
+export function weeklyRoasts(
+  s: LeagueState,
+  throughWeek: number,
+): { teamCode: string; gmName: string; line: string }[] {
+  if (throughWeek < 1) return preseasonRoasts(s);
+  const games = s.games.filter((g) => g.phase === "REG" && g.played && g.week === throughWeek);
+  return roastsForWeek(s, games, `week|${s.season}|${throughWeek}`);
+}

@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
 import { Checkpoint } from "./screens/Checkpoint.tsx";
 import { isOnline, resumeLeague, lastLeagueId } from "@/state/online";
+import { currentBlock } from "@/state/revealBlocks";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
@@ -111,10 +112,6 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // Training camp itself is single-player — the checkpoint is after the depth
   // chart, which is the last thing before the league needs to be in step.
   offseasonDepthChart: { from: "Re-order Depth Chart", to: "Preseason" },
-  // Change 6: advancing out of the preseason is individual and irreversible,
-  // and the league waits here while the last GM finishes watching. The wipe
-  // and the week 1-9 block both happen on the far side of this.
-  preseason: { from: "Preseason", to: "Regular Season" },
 };
 
 /**
@@ -130,8 +127,13 @@ function useCheckpoint(): { from: string; to: string } | null {
   const stage = useStore((s) => s.stage);
   const readiness = useStore((s) => s.readiness);
   const viewerGmId = useStore((s) => s.viewerGmId);
+  const block = useStore(currentBlock);
   if (!isOnline()) return null;
   if (!readiness[viewerGmId]) return null;
+  // Changes 6 and 7: the preseason and each half of the regular season end at
+  // a checkpoint too, and which one depends on the block rather than on the
+  // stage — `regularSeason` is the stage on both sides of the trade deadline.
+  if (block) return block.checkpoint;
   return CHECKPOINTS[stage] ?? null;
 }
 

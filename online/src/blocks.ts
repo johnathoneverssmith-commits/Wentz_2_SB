@@ -3,8 +3,9 @@ import { simulateGame } from "../../src/engine/sim.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
 
-import type { GameResult, LeagueState } from "@/domain";
+import type { GameResult, LeagueState, Player as UiPlayer } from "@/domain";
 import { availableRoster, applyInjuries, healOneWeek } from "@/state/injuries.ts";
+import { makeEmergencyPlayer, positionalMinimums } from "@/state/reconciliation.ts";
 import { accrueSeasonStats, recomputeStandings } from "@/state/standings.ts";
 
 /** The engine spells the Rams "LA"; this UI spells them "LAR". */
@@ -28,6 +29,38 @@ function gameSeed(
     h = Math.imul(h, 0x01000193);
   }
   return h >>> 0;
+}
+
+/**
+ * Enough bodies at every position to finish the game, and not one more.
+ *
+ * Weeks 1 through 9 are locked — no signings, no promotions, no waiver
+ * claims — so a run of injuries at one position can leave a team with nobody
+ * to line up there. The simulation still has to produce a game, so it gets
+ * 0 OVR placeholders.
+ *
+ * They exist for the length of one `simulateGame` call and nowhere else.
+ * Not in `state.players`, not on the roster, not against the cap, not in the
+ * transaction log, and never carrying a statistic into a season total — a
+ * placeholder that got saved would be a 0 OVR quarterback who could then be
+ * traded, and that is a worse bug than a team playing a man short.
+ */
+function withPlaceholders(
+  state: LeagueState,
+  teamCode: string,
+  squad: UiPlayer[],
+): UiPlayer[] {
+  const mins = positionalMinimums();
+  const out = [...squad];
+  for (const [pos, need] of Object.entries(mins)) {
+    let have = out.filter((p) => p.position === pos).length;
+    while (have < need) {
+      // deliberately not written into state.players
+      out.push(makeEmergencyPlayer(state, teamCode, pos, have));
+      have++;
+    }
+  }
+  return out;
 }
 
 /**
@@ -56,7 +89,10 @@ export function simulateBlock(
     );
     const squad = availableRoster(all);
     const dressed = new Set(squad.map((p) => p.id));
-    return { squad, sidelined: all.filter((p) => !dressed.has(p.id)).map((p) => p.id) };
+    return {
+      squad: withPlaceholders(state, code, squad),
+      sidelined: all.filter((p) => !dressed.has(p.id)).map((p) => p.id),
+    };
   };
 
   const rosterOf = (code: string, squad: { id: string }[]): Roster =>
@@ -135,8 +171,12 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
 
   const out = new Set([...(game.sidelined?.home ?? []), ...(game.sidelined?.away ?? [])]);
   const rosterFor = (code: string): Roster => {
-    const squad = Object.values(state.players).filter(
-      (p) => p.nfl_team === code && !p.retired && !p.free_agent && !out.has(p.id),
+    const squad = withPlaceholders(
+      state,
+      code,
+      Object.values(state.players).filter(
+        (p) => p.nfl_team === code && !p.retired && !p.free_agent && !out.has(p.id),
+      ),
     );
     return new Roster(
       toEngine(code),

@@ -7,9 +7,10 @@ import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
-import { PRESEASON_WEEKS, REGULAR_SEASON_WEEKS, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { hasMoreToReveal, revealedWeek, visibleGames } from "@/state/reveal";
-import { preseasonRoasts } from "@/state/roasts";
+import { preseasonRoasts, weeklyRoasts } from "@/state/roasts";
+import { currentBlock } from "@/state/revealBlocks";
 import { rankBy, staffCards } from "@/state/staffRatings";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { onlineSession } from "@/state/online";
@@ -79,7 +80,15 @@ export function WeeklyTeamHub() {
   const phase = currentPhase(s);
   // online the block is precomputed and these weeks are revealed, not played
   const online = onlineSession() !== null;
-  const roasts = s.stage === "preseason" ? preseasonRoasts(s) : [];
+  // Change 7: the same card rail carries the in-season roasts, off the last
+  // week this GM actually watched — see weeklyRoasts for why that is keyed to
+  // the week rather than to the GM.
+  const roasts =
+    s.stage === "preseason"
+      ? preseasonRoasts(s)
+      : s.stage === "regularSeason"
+        ? weeklyRoasts(s, revealedWeek(s, s.viewerGmId, "REG"))
+        : [];
   const staffCardsAll = staffCards(s);
   const staffOvr = staffCardsAll.find((c) => c.teamCode === code)?.overall ?? 0;
   const staffRank = rankBy(staffCardsAll, "overall").get(code) ?? 0;
@@ -183,9 +192,9 @@ export function WeeklyTeamHub() {
           than about football.
         */}
         <p className="subhead" style={{ marginTop: 0 }}>
-          {s.stage === "preseason" ? "Around the league" : "Around the league — things to watch"}
+          {roasts.length > 0 ? "Around the league" : "Around the league — things to watch"}
         </p>
-        {s.stage === "preseason"
+        {roasts.length > 0
           ? roasts.map((r) => (
               <div className="watchnote" key={r.teamCode}>
                 <div className="who">
@@ -429,9 +438,10 @@ function RevealControls() {
   const nav = useNavigate();
   const [busy, setBusy] = useState(false);
 
-  const phase: "PRE" | "REG" = s.stage === "preseason" ? "PRE" : "REG";
-  const lastWeek = phase === "PRE" ? PRESEASON_WEEKS : REGULAR_SEASON_WEEKS;
-  const seen = revealedWeek(s, s.viewerGmId, phase);
+  const block = currentBlock(s);
+  if (!block) return null;
+  const { phase, firstWeek, lastWeek } = block;
+  const seen = Math.max(revealedWeek(s, s.viewerGmId, phase), firstWeek - 1);
   const more = hasMoreToReveal(s, s.viewerGmId, phase, lastWeek);
 
   const reveal = (through: number): void => {
@@ -451,8 +461,8 @@ function RevealControls() {
     return (
       <div className="readiness">
         <div className="readiness-top">
-          <p>{phase === "PRE" ? "Preseason complete" : "Regular season complete"}</p>
-          <span>You&rsquo;ve watched all {lastWeek} weeks</span>
+          <p>{phase === "PRE" ? "Preseason complete" : `Watched through Week ${lastWeek}`}</p>
+          <span>Nobody waits on you until you press this</span>
         </div>
         <button
           className="btn-primary"
@@ -463,7 +473,7 @@ function RevealControls() {
             void actions.readyUp(true).finally(() => setBusy(false));
           }}
         >
-          {phase === "PRE" ? "Advance to the Regular Season" : "Advance to the Playoffs"}
+          {block.advanceLabel}
         </button>
       </div>
     );
@@ -474,7 +484,7 @@ function RevealControls() {
       <div className="readiness-top">
         <p>{phase === "PRE" ? "Preseason" : "Regular season"}</p>
         <span aria-live="polite">
-          Watched {seen} of {lastWeek} weeks
+          Watched through week {seen} of {lastWeek}
         </span>
       </div>
       <p className="readiness-held">
@@ -496,7 +506,7 @@ function RevealControls() {
           disabled={busy}
           onClick={() => reveal(lastWeek)}
         >
-          {phase === "PRE" ? "Simulate the preseason" : "Simulate to the end"}
+          {block.watchAllLabel}
         </button>
       </div>
     </div>

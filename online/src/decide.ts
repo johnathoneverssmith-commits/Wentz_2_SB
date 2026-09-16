@@ -557,12 +557,31 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
 }
 
 /** Set the depth order at one position, for your own team only. */
+/**
+ * Whether the league is inside a precomputed block right now.
+ *
+ * Changes 6 and 7 lock the roster, the depth chart and the coaching staff for
+ * the length of a block, and this is where that lock is actually enforced.
+ * The UI already hides the controls, but hiding a button is a courtesy, not a
+ * rule: a stale tab, a replayed request or a second device would otherwise
+ * change a lineup that games already played against, and every result from
+ * that week onward would stop matching the roster it was produced from.
+ */
+function refuseDuringBlock(state: LeagueState, what: string): void {
+  if (state.stage === "preseason" || state.stage === "regularSeason") {
+    throw new ActionError(
+      `${what} is locked — these weeks are already played. You'll get it back at the next break.`,
+    );
+  }
+}
+
 export function decideSetDepth(
   state: LeagueState,
   actor: Actor,
   position: Position,
   playerIds: string[],
 ): Decision {
+  refuseDuringBlock(state, "The depth chart");
   const mine = new Set(
     Object.values(state.players)
       .filter((p) => p.nfl_team === actor.teamCode)
@@ -575,6 +594,7 @@ export function decideSetDepth(
 
 /** Release a player. */
 export function decideRelease(state: LeagueState, actor: Actor, playerId: string): Decision {
+  refuseDuringBlock(state, "Releasing players");
   const p = state.players[playerId];
   if (!p) throw new ActionError("No such player.", 404);
   if (p.nfl_team !== actor.teamCode) throw new ActionError("He isn't yours to release.", 403);
