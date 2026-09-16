@@ -23,6 +23,22 @@ const SCREENS: Array<{ to: string; title: string; note: string }> = [
   { to: "/end-of-season", title: "End of Season", note: "Announcement" },
   { to: "/season-complete", title: "Season Complete", note: "Recap + score tracker" },
   { to: "/history", title: "League History", note: "Score tracker" },
+
+  // The redesign's screens. They were built and shipped without ever being
+  // opened by hand, because the routes are stage-guarded and there was no
+  // league in the right stage to open them from — which is exactly the hole
+  // this gallery exists to fill.
+  { to: "/coaching-draft", title: "Coaching Draft Room", note: "12-round snake" },
+  { to: "/coaching-draft-summary", title: "Coaching Draft Summary", note: "Staff grades" },
+  { to: "/free-agency-board", title: "Free Agency (turns)", note: "5 rounds, one offer each" },
+  { to: "/free-agency-summary", title: "Free Agency Summary", note: "Signings + reconciliation" },
+  { to: "/training-camp", title: "Training Camp", note: "Focuses + investment" },
+  { to: "/training-camp-results", title: "Training Camp Results", note: "Every delta" },
+  { to: "/results/PRE/1/3", title: "Results (block)", note: "Weekly tabs" },
+  { to: "/results/round/WC", title: "Results (playoff round)", note: "One round" },
+  { to: "/trade-deadline", title: "Trade Deadline", note: "3 rounds of turns" },
+  { to: "/trade-summary", title: "Trade Summary", note: "4 tabs + violations" },
+  { to: "/rookie-draft-summary", title: "Rookie Draft Summary", note: "Round 1 grades" },
 ];
 
 export function ScreenGallery() {
