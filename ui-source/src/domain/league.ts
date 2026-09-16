@@ -29,6 +29,9 @@ export type Stage =
   | "regularSeason"
   | "tradeDeadline" // three rounds of turns, between weeks 9 and 10
   | "tradeDeadlineSummary"
+  | "midseasonFreeAgency" // Change 9: the same five-round market, at midseason
+  | "midseasonFreeAgencySummary"
+  | "midseasonDepthChart"
   | "playoffs"
   | "endOfSeasonAnnounce" // "END OF {year} SEASON" — click past, no gate
   | "endOfSeasonWin" // Super Bowl champion screen (tabs: this season / score tracker)

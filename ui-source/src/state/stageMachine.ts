@@ -35,6 +35,12 @@ export const STAGE_HOME: Record<Stage, string> = {
   regularSeason: "/hub",
   tradeDeadline: "/trade-deadline",
   tradeDeadlineSummary: "/trade-summary",
+  // Change 9 deliberately reuses Change 4's screens rather than copying them:
+  // it is the same market, the same reconciliation and the same depth chart,
+  // and a second set would be two implementations of one set of rules.
+  midseasonFreeAgency: "/free-agency-board",
+  midseasonFreeAgencySummary: "/free-agency-summary",
+  midseasonDepthChart: "/roster",
   playoffs: "/bracket",
   endOfSeasonAnnounce: "/end-of-season",
   endOfSeasonWin: "/season-complete",
@@ -62,6 +68,9 @@ export const STAGE_READY_LABEL: Record<Stage, string> = {
   regularSeason: "Ready for Game Day",
   tradeDeadline: "Trade deadline in progress",
   tradeDeadlineSummary: "Advance to Mid-Season Free Agency",
+  midseasonFreeAgency: "Free agency in progress",
+  midseasonFreeAgencySummary: "Advance to Re-order Depth Chart",
+  midseasonDepthChart: "Ready for Week 10",
   playoffs: "Ready to simulate this round",
   endOfSeasonAnnounce: "Continue",
   endOfSeasonWin: "Ready to advance to the offseason",
@@ -89,6 +98,9 @@ export const STAGE_LABEL: Record<Stage, string> = {
   regularSeason: "Regular Season",
   tradeDeadline: "Trade Deadline",
   tradeDeadlineSummary: "Trade Summary",
+  midseasonFreeAgency: "Mid-Season Free Agency",
+  midseasonFreeAgencySummary: "Mid-Season Free Agency Summary",
+  midseasonDepthChart: "Depth Chart",
   playoffs: "Playoffs",
   endOfSeasonAnnounce: "Season Complete",
   endOfSeasonWin: "Season Complete",
@@ -164,6 +176,12 @@ export function resolveTransition(
     case "tradeDeadline":
       return { stage: "tradeDeadlineSummary", week: FIRST_BLOCK_LAST_WEEK };
     case "tradeDeadlineSummary":
+      return { stage: "midseasonFreeAgency", week: FIRST_BLOCK_LAST_WEEK };
+    case "midseasonFreeAgency":
+      return { stage: "midseasonFreeAgencySummary", week: FIRST_BLOCK_LAST_WEEK };
+    case "midseasonFreeAgencySummary":
+      return { stage: "midseasonDepthChart", week: FIRST_BLOCK_LAST_WEEK };
+    case "midseasonDepthChart":
       return { stage: "regularSeason", week: FIRST_BLOCK_LAST_WEEK + 1 };
 
     case "playoffs": {

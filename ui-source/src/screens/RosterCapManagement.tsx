@@ -45,7 +45,10 @@ export function RosterCapManagement() {
   const [extendError, setExtendError] = useState<string | null>(null);
   const [moveNote, setMoveNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
   const code = viewerTeamCode(s);
-  const isDepthChartStage = s.stage === "offseasonDepthChart";
+  // Change 9 reuses this screen at midseason, so the flag is about what the
+  // stage is for rather than about one stage's name
+  const isDepthChartStage =
+    s.stage === "offseasonDepthChart" || s.stage === "midseasonDepthChart";
   const back = s.returnTo
     ? { to: s.returnTo, label: "Return to retirements" }
     : { to: isDepthChartStage ? "/" : "/hub", label: isDepthChartStage ? "Back to stage" : "Return to team hub" };

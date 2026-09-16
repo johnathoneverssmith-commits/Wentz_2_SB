@@ -117,6 +117,11 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // Change 8: the summary is the last thing before mid-season free agency,
   // and advancing out of it is the commitment.
   tradeDeadlineSummary: { from: "Trade Deadline", to: "Mid-Season Free Agency" },
+  midseasonFreeAgencySummary: { from: "Mid-Season Free Agency", to: "Depth Chart" },
+  // Change 9: the last gate before weeks 10-18 are simulated, which is why
+  // this one actually has to hold everyone — the block is built from the
+  // rosters and depth charts on the far side of it.
+  midseasonDepthChart: { from: "Midseason Roster Finalization", to: "Week 10" },
 };
 
 /**

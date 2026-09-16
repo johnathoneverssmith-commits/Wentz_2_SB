@@ -322,6 +322,16 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     runCpuTurns(state, humanTeamsOf(state));
   }
 
+  // Change 9: the same market again, halfway through the season. The old
+  // event is cleared first rather than resumed — it is a different five
+  // rounds with a different order and a different pool, and reusing the
+  // saved one would reopen the offseason's offers.
+  if (state.stage === "midseasonFreeAgency" && from !== "midseasonFreeAgency") {
+    state.freeAgencyEvent = null;
+    beginFreeAgencyEvent(state);
+    runCpuTurns(state, humanTeamsOf(state));
+  }
+
   // Change 4: the cap and the roster limits come back here. The CPU teams
   // sort themselves out on the way in, so a human arriving at the summary is
   // the only one with anything left to fix — and the league is never carrying
@@ -332,7 +342,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     runCpuTrainingCamps(state, humanTeamsOf(state));
   }
 
-  if (state.stage === "freeAgencySummary") {
+  if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
     const humans = humanTeamsOf(state);
     for (const teamCode of Object.keys(state.teams)) {
       if (humans.has(teamCode)) continue;
@@ -396,7 +406,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
 
   // Change 7's second block: weeks 10 through 18, precomputed with the
   // rosters the deadline left behind.
-  if (state.stage === "regularSeason" && from === "tradeDeadlineSummary") {
+  if (state.stage === "regularSeason" && from === "midseasonDepthChart") {
     const alreadyPlayed = state.games.some(
       (g) => g.phase === "REG" && g.played && g.week > FIRST_BLOCK_LAST_WEEK,
     );
