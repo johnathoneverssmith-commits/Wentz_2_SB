@@ -30,6 +30,7 @@ function base(p: Partial<LeagueState>): LeagueState {
     games: [],
     draftClass: [],
     draft: null,
+    coachingDraft: null,
     rookieOutcomes: {},
     freeAgency: null,
     standingFreeAgents: [],
@@ -52,12 +53,18 @@ describe("resolveTransition", () => {
     expect(resolveTransition(base({ stage: "setup" })).stage).toBe("fantasyDraft");
   });
 
-  it("setup → preseason when fantasy draft is off", () => {
+  it("setup → coaching draft when the fantasy draft is off", () => {
     const s = base({ stage: "setup" });
     s.config.fantasyDraft = false;
-    // there is no hiring window to pass through any more: teams start with
-    // the staff they have, and signing happens whenever you like
-    expect(resolveTransition(s).stage).toBe("preseason");
+    // Turning off the *player* draft does not skip the coaching one. A staff
+    // is drafted in this league rather than inherited, so every league passes
+    // through it however it chose to fill its roster.
+    expect(resolveTransition(s).stage).toBe("coachingDraft");
+  });
+
+  it("runs the coaching draft between the player summary and its own summary", () => {
+    expect(resolveTransition(base({ stage: "fantasyDraftSummary" })).stage).toBe("coachingDraft");
+    expect(resolveTransition(base({ stage: "coachingDraft" })).stage).toBe("coachingDraftSummary");
   });
 
   it("preseason advances week by week then resets stats entering regular week 1", () => {

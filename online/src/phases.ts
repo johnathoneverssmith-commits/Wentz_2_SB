@@ -39,6 +39,7 @@ import {
 } from "@/state/rules.ts";
 import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
 
+import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
@@ -274,6 +275,11 @@ export function finishPlayedWeek(state: LeagueState): { stage: string; week: num
  * The server owns the league, so the server opens the stage. One draft order,
  * made once, from the state alone.
  */
+/** Teams a person is running, for anything that must stop and ask. */
+function humanTeamsOf(state: LeagueState): Set<string> {
+  return new Set(state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+}
+
 export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "fantasyDraft" && state.draft?.mode !== "fantasy") {
     beginDraft(state, "fantasy");
@@ -287,6 +293,14 @@ export function onStageEntered(state: LeagueState, from?: string): void {
 
   // The timed sealed-bid windows are gone: signing is asynchronous and lives
   // on the hub, so there is no window to open here.
+
+  // Change 3: the coaching draft opens with the stage, the same way the player
+  // draft does — the board is league state and belongs to the server, not to
+  // whichever client happened to load the screen first.
+  if (state.stage === "coachingDraft") {
+    beginCoachingDraft(state);
+    runAiCoachingPicks(state, humanTeamsOf(state));
+  }
 
   // The rest mirrors the single-player `tryAdvance`, which does this work in
   // the same order. Online it was simply absent: the server set a stage field

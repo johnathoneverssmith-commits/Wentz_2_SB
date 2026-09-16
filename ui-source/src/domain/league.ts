@@ -18,6 +18,8 @@ export type Stage =
   | "setup"
   | "fantasyDraft"
   | "fantasyDraftSummary"
+  | "coachingDraft"
+  | "coachingDraftSummary"
   | "coachingHiring" // 5-day coach free-agency period (0 coaches to start)
   | "preseason"
   | "regularSeason"
@@ -161,6 +163,8 @@ export interface PendingGameDay {
   viewerGameId: string | null;
 }
 
+import type { CoachingDraftState } from "@/state/coachingDraft";
+
 export interface LeagueState {
   schemaVersion: number;
   season: number;
@@ -180,6 +184,8 @@ export interface LeagueState {
 
   draftClass: DraftProspect[];
   draft: DraftState | null;
+  /** The twelve-round staff draft. Null until the coaching stage opens. */
+  coachingDraft: CoachingDraftState | null;
   /** rookie prospect id → whether the viewer's team signed or released them. */
   rookieOutcomes: Record<string, "signed" | "released">;
   /** offseason player FA period. */

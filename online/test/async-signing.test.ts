@@ -44,10 +44,16 @@ describe("the offseason calendar", () => {
     expect([...seen]).not.toContain("offseasonFreeAgency");
   });
 
-  it("goes from the draft summary straight to the preseason", () => {
+  /**
+   * Was "straight to the preseason" when the timed hiring window was removed
+   * and nothing stood between the draft summary and kickoff. Change 3 puts
+   * the coaching fantasy draft there deliberately — a staff is drafted now
+   * rather than hired, so the summary hands off to it.
+   */
+  it("goes from the draft summary to the coaching draft", () => {
     const s = league();
     s.stage = "fantasyDraftSummary";
-    expect(resolveTransition(s, {}).stage).toBe("preseason");
+    expect(resolveTransition(s, {}).stage).toBe("coachingDraft");
   });
 
   it("opens no bidding window when a stage begins", () => {

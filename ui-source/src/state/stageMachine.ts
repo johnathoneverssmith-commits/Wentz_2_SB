@@ -16,6 +16,8 @@ export const STAGE_HOME: Record<Stage, string> = {
   setup: "/setup",
   fantasyDraft: "/draft",
   fantasyDraftSummary: "/fantasy-draft-summary",
+  coachingDraft: "/coaching-draft",
+  coachingDraftSummary: "/coaching-draft-summary",
   coachingHiring: "/coaching",
   preseason: "/hub",
   regularSeason: "/hub",
@@ -34,7 +36,9 @@ export const STAGE_HOME: Record<Stage, string> = {
 export const STAGE_READY_LABEL: Record<Stage, string> = {
   setup: "I'm ready to begin",
   fantasyDraft: "Ready — start the draft",
-  fantasyDraftSummary: "Ready to advance to coaching",
+  fantasyDraftSummary: "Advance to Coaching",
+  coachingDraft: "Coaching draft in progress",
+  coachingDraftSummary: "Advance to Free Agency",
   coachingHiring: "Ready to advance to the preseason",
   preseason: "Ready for Game Day",
   regularSeason: "Ready for Game Day",
@@ -54,6 +58,8 @@ export const STAGE_LABEL: Record<Stage, string> = {
   setup: "League Setup",
   fantasyDraft: "Fantasy Draft",
   fantasyDraftSummary: "Fantasy Draft Summary",
+  coachingDraft: "Coaching Fantasy Draft",
+  coachingDraftSummary: "Coaching Draft Summary",
   coachingHiring: "Coaching Staff — Hiring Window",
   preseason: "Preseason",
   regularSeason: "Regular Season",
@@ -90,10 +96,16 @@ export function resolveTransition(
     case "setup":
       return config.fantasyDraft
         ? { stage: "fantasyDraft", week: 0 }
-        : { stage: "preseason", week: 1 };
+        : { stage: "coachingDraft", week: 0 };
     case "fantasyDraft":
       return { stage: "fantasyDraftSummary", week: 0 };
     case "fantasyDraftSummary":
+      return { stage: "coachingDraft", week: 0 };
+    case "coachingDraft":
+      return { stage: "coachingDraftSummary", week: 0 };
+    case "coachingDraftSummary":
+      // Change 4 puts turn-based free agency here; until then the circuit
+      // continues to the preseason so a league is never stranded.
       return { stage: "preseason", week: 1 };
     // Kept only so a league that was already sitting in the old timed hiring
     // window when this shipped has somewhere to go. Nothing routes into it.
