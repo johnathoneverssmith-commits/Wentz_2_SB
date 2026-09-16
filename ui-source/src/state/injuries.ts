@@ -10,6 +10,8 @@
  */
 import type { GameResult, InjuryEvent, LeagueState, Player } from "@/domain";
 
+import { recoveryScaleFor } from "./coachEffects.ts";
+
 /** Weeks a severity costs, when the event doesn't project a range itself. */
 const FALLBACK_WEEKS: Record<string, [number, number]> = {
   minor: [1, 1],
@@ -50,7 +52,16 @@ export function applyInjuries(state: LeagueState, results: GameResult[], season:
     for (const ev of game.injuries ?? []) {
       const p = state.players[ev.playerId];
       if (!p || p.retired) continue;
-      const [lo, hi] = weeksFor(ev);
+      // Change 3: the training room scales how long this keeps him out. It
+      // never changes whether he got hurt — the engine decided that, and a
+      // medical staff that prevented injuries would be doing a different job
+      // — only the recovery the engine generated. Scaled at the moment the
+      // injury is recorded rather than while healing, so the timeline a GM is
+      // shown on day one is the one that actually plays out.
+      const scale = p.nfl_team ? recoveryScaleFor(state, p.nfl_team) : 1;
+      const [rawLo, rawHi] = weeksFor(ev);
+      const lo = Math.max(1, Math.round(rawLo * scale));
+      const hi = Math.max(lo, Math.round(rawHi * scale));
       const out = Math.max(1, Math.round((lo + hi) / 2));
       const already = p.injury_status?.weeks_out_est?.[1] ?? 0;
       if (out < already) continue;

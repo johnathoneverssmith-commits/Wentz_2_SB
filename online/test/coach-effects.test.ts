@@ -107,3 +107,98 @@ describe("who coaches whom", () => {
     expect(coachRoleForPosition("LS")).toBeNull();
   });
 });
+
+describe("coaches reaching the actual game", () => {
+  it("makes a good staff develop a roster faster than a poor one", async () => {
+    const { createLeague, DEFAULT_CONFIG, fillRosterGaps, applySeasonAging } = await import(
+      "@/state/seed.ts"
+    );
+    const { beginDraft } = await import("@/state/rules.ts");
+    const { beginCoachingDraft, runAiCoachingPicks } = await import("@/state/coachingDraft.ts");
+
+    /** A league whose staffs are all set to one rating. */
+    const leagueWithStaffAt = (rating: number) => {
+      const s = createLeague(9090, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+      fillRosterGaps(s);
+      s.gms[0]!.teamCode = "KC";
+      s.gms[0]!.isHuman = true;
+      s.stage = "fantasyDraft";
+      beginDraft(s, "fantasy");
+      s.stage = "coachingDraft";
+      beginCoachingDraft(s);
+      runAiCoachingPicks(s, new Set());
+      for (const c of Object.values(s.coaches)) if (c.team) c.overall = rating;
+      return s;
+    };
+
+    const young = (s: ReturnType<typeof leagueWithStaffAt>) =>
+      Object.values(s.players).filter(
+        (p) => !p.retired && p.nfl_team && p.age < p.dev_age_threshold,
+      );
+
+    const great = leagueWithStaffAt(99);
+    const poor = leagueWithStaffAt(35);
+    const beforeGreat = new Map(young(great).map((p) => [p.id, p.overall]));
+    const beforePoor = new Map(young(poor).map((p) => [p.id, p.overall]));
+
+    applySeasonAging(great, great.season);
+    applySeasonAging(poor, poor.season);
+
+    const gained = (s: typeof great, before: Map<string, number>) =>
+      [...before].reduce((n, [id, was]) => n + Math.max(0, (s.players[id]?.overall ?? was) - was), 0);
+
+    // the same players, the same aging seed — only the staff differs
+    expect(gained(great, beforeGreat)).toBeGreaterThan(gained(poor, beforePoor));
+  }, 180_000);
+
+  it("makes a good training room shorten injuries", async () => {
+    const { createLeague, DEFAULT_CONFIG, fillRosterGaps } = await import("@/state/seed.ts");
+    const { applyInjuries } = await import("@/state/injuries.ts");
+
+    const leagueWithMedicalAt = (rating: number) => {
+      const s = createLeague(5151, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+      fillRosterGaps(s);
+      const someone = Object.values(s.players).find((p) => p.nfl_team === "KC" && !p.retired)!;
+      // one trainer, one rating
+      const med = Object.values(s.coaches)[0]!;
+      med.role = "MED";
+      med.team = "KC";
+      med.overall = rating;
+      return { s, someone };
+    };
+
+    const hurt = (rating: number): number => {
+      const { s, someone } = leagueWithMedicalAt(rating);
+      applyInjuries(
+        s,
+        [
+          {
+            id: "g1",
+            week: 1,
+            phase: "REG",
+            homeTeam: "KC",
+            awayTeam: "BUF",
+            played: true,
+            homeScore: 20,
+            awayScore: 17,
+            injuries: [
+              {
+                playerId: someone.id,
+                player: someone.name,
+                position: someone.position,
+                team: "KC",
+                severity: "moderate",
+                bodyPart: "knee",
+                projectedWeeks: [4, 6],
+              },
+            ],
+          } as never,
+        ],
+        s.season,
+      );
+      return s.players[someone.id]!.injury_status?.weeks_out_est?.[1] ?? 0;
+    };
+
+    expect(hurt(99)).toBeLessThan(hurt(35));
+  }, 180_000);
+});

@@ -16,6 +16,7 @@ import { TEAMS } from "@/data/teams";
 
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { personName } from "@/sim/names.ts";
+import { applyCoachToDelta, coachModifiersFor } from "./coachEffects.ts";
 import { ensureDraftPicks } from "./draftPicks.ts";
 import { Rng } from "@/sim/rng.ts";
 import {
@@ -870,8 +871,18 @@ export function applySeasonAging(state: LeagueState, season: number): void {
     if (p.retired) continue;
     const rng = new Rng((season * 7349) ^ hashSeed(p.id));
     p.age += 1;
-    const delta = agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold);
-    if (delta === 0) continue;
+    const base = agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold);
+    if (base === 0) continue;
+
+    // Change 3: the position coach scales the move the aging model already
+    // decided on. He never decides *whether* a player is still improving —
+    // that is this function's call, from age and position — only how much of
+    // the improvement or the decline actually lands. A player without a team
+    // has nobody coaching him and ages on the raw curve.
+    const delta = p.nfl_team
+      ? applyCoachToDelta(base, coachModifiersFor(state, p.nfl_team, p.position))
+      : base;
+
     p.overall = clamp(p.overall + delta, 40, 99);
     for (const k of Object.keys(p.attributes)) {
       p.attributes[k] = clamp(p.attributes[k]! + delta, 40, 99);
