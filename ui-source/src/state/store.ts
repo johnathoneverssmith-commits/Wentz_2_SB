@@ -59,6 +59,13 @@ import {
   runTrainingCamp,
   type TrainingCampPlan,
 } from "./trainingCamp.ts";
+import {
+  proposeAtDeadline,
+  respondAtDeadline,
+  runCpuTurns as runDeadlineTurns,
+  skipTurn,
+  type DeadlineMove,
+} from "./tradeDeadline.ts";
 import { markRevealed } from "./reveal.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
@@ -139,6 +146,8 @@ export interface StoreActions {
   revealThrough: (through: number) => { ok: boolean; reason?: string };
   /** Run this team's training camp. */
   submitTrainingCamp: (plan: TrainingCampPlan) => { ok: boolean; reason?: string };
+  /** One trade-deadline turn: propose, skip, accept, deny or counter. */
+  deadlineTurn: (move: DeadlineMove) => { ok: boolean; reason?: string };
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -492,6 +501,47 @@ export const useStore = create<Store>()(
           const fa = s[faField(subject)];
           if (fa) fa.interstitialVisible = false;
         }),
+
+      /**
+       * The same deadline rules the server runs, applied locally.
+       *
+       * Single-player has no server to be authoritative, so the store calls
+       * the rules module directly — which is the point of the module existing
+       * apart from either. The CPU sweep afterwards is what carries the order
+       * on to the viewer's next turn.
+       */
+      deadlineTurn: (move) => {
+        let result: { ok: boolean; reason?: string } = { ok: false, reason: "No team." };
+        set((s) => {
+          const code = s.gms.find((g) => g.id === s.viewerGmId)?.teamCode;
+          if (!code) return;
+          const give = (ids: string[]) =>
+            ids.map((id) =>
+              id.startsWith("pick:")
+                ? { kind: "pick" as const, pick: s.draftPicks[id.slice(5)] }
+                : { kind: "player" as const, playerId: id },
+            );
+          switch (move.kind) {
+            case "propose":
+              result = proposeAtDeadline(s, code, move.toTeam, give(move.give), give(move.get));
+              break;
+            case "skip":
+              result = skipTurn(s, code);
+              break;
+            case "modify":
+              result = respondAtDeadline(s, code, {
+                kind: "modify",
+                fromAssets: give(move.proposerGives),
+                toAssets: give(move.proposerGets),
+              });
+              break;
+            default:
+              result = respondAtDeadline(s, code, { kind: move.kind });
+          }
+          if (result.ok) runDeadlineTurns(s);
+        });
+        return result;
+      },
 
       revealThrough: (through) => {
         set((s) => {

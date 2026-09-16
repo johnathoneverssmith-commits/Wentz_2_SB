@@ -55,6 +55,12 @@ import {
 } from "@/state/trainingCamp.ts";
 import { markRevealed, revealedWeek } from "@/state/reveal.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
+import {
+  proposeAtDeadline,
+  respondAtDeadline,
+  runCpuTurns as runDeadlineTurns,
+  skipTurn,
+} from "@/state/tradeDeadline.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
@@ -642,4 +648,68 @@ export function decideContractMove(
       },
     ],
   };
+}
+
+/**
+ * A trade-deadline turn, whichever kind it is.
+ *
+ * All four verbs land here because they share one postcondition: whatever a
+ * human just did, the league then runs itself forward to the next human. If
+ * that ran anywhere else, a CPU-only stretch of the order would sit there
+ * until somebody happened to poll.
+ */
+export function decideDeadlineTurn(
+  state: LeagueState,
+  actor: Actor,
+  move:
+    | { kind: "propose"; toTeam: string; give: string[]; get: string[] }
+    | { kind: "skip" }
+    | { kind: "accept" }
+    | { kind: "deny" }
+    /**
+     * A counter replaces the whole package, and always in the original
+     * orientation: `proposerGives` is what the team that opened the
+     * negotiation sends, whichever side is doing the countering. Stating it
+     * that way is the only version that survives the offer changing hands.
+     */
+    | { kind: "modify"; proposerGives: string[]; proposerGets: string[] },
+): Decision {
+  if (state.stage !== "tradeDeadline") throw new ActionError("The deadline isn't open.");
+
+  let result: { ok: boolean; reason?: string };
+  let summary: string;
+  switch (move.kind) {
+    case "propose":
+      result = proposeAtDeadline(
+        state,
+        actor.teamCode,
+        move.toTeam,
+        assetsFrom(state, move.give),
+        assetsFrom(state, move.get),
+      );
+      summary = `${city(actor.teamCode)} made an offer to ${city(move.toTeam)}.`;
+      break;
+    case "skip":
+      result = skipTurn(state, actor.teamCode);
+      summary = `${city(actor.teamCode)} passed on their turn.`;
+      break;
+    case "modify":
+      result = respondAtDeadline(state, actor.teamCode, {
+        kind: "modify",
+        fromAssets: assetsFrom(state, move.proposerGives),
+        toAssets: assetsFrom(state, move.proposerGets),
+      });
+      summary = `${city(actor.teamCode)} countered.`;
+      break;
+    default:
+      result = respondAtDeadline(state, actor.teamCode, { kind: move.kind });
+      summary =
+        move.kind === "accept"
+          ? `${city(actor.teamCode)} accepted a trade.`
+          : `${city(actor.teamCode)} turned an offer down.`;
+  }
+  if (!result.ok) throw new ActionError(result.reason ?? "That move isn't available.");
+
+  runDeadlineTurns(state);
+  return { events: [{ teamCode: actor.teamCode, kind: "trade.deadline", summary }] };
 }

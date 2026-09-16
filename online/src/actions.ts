@@ -26,6 +26,7 @@ import {
   decideFreeAgencyTurn,
   decideTrainingCamp,
   decideReveal,
+  decideDeadlineTurn,
   decideRookieOutcome,
   decideDraftPick,
   decidePlaceBid,
@@ -164,3 +165,10 @@ export function autopickFor(state: LeagueState, teamCode: string): string | null
 }
 
 export { isCommissioner };
+
+/** One trade-deadline turn: propose, skip, accept, deny or counter. */
+export const deadlineTurn = (
+  actor: Actor,
+  move: Parameters<typeof decideDeadlineTurn>[2],
+  expectedVersion?: string,
+) => run(actor, expectedVersion, (s) => decideDeadlineTurn(s, actor, move));

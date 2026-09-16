@@ -19,7 +19,13 @@
  * it twice, or while somebody is mid-action, is safe.
  */
 import type { LeagueState } from "@/domain";
-import { FIRST_BLOCK_LAST_WEEK, PRESEASON_WEEKS, resolveTransition } from "@/state/stageMachine.ts";
+import {
+  FIRST_BLOCK_LAST_WEEK,
+  PRESEASON_WEEKS,
+  REGULAR_SEASON_WEEKS,
+  resolveTransition,
+} from "@/state/stageMachine.ts";
+import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tradeDeadline.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
 import { simulateBlock } from "./blocks.js";
@@ -377,6 +383,26 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     wipePreseason(state);
     const alreadyPlayed = state.games.some((g) => g.phase === "REG" && g.played);
     if (!alreadyPlayed) simulateBlock(state, "REG", 1, FIRST_BLOCK_LAST_WEEK);
+  }
+
+  // Change 8: the deadline builds its order from the week 1-9 standings and
+  // then runs itself forward until a human is on the clock. Every CPU turn in
+  // the league can resolve before anyone sees the screen, which is the point
+  // — a GM opens it and it is their move or it is over.
+  if (state.stage === "tradeDeadline" && from !== "tradeDeadline") {
+    beginTradeDeadline(state);
+    runDeadlineTurns(state);
+  }
+
+  // Change 7's second block: weeks 10 through 18, precomputed with the
+  // rosters the deadline left behind.
+  if (state.stage === "regularSeason" && from === "tradeDeadlineSummary") {
+    const alreadyPlayed = state.games.some(
+      (g) => g.phase === "REG" && g.played && g.week > FIRST_BLOCK_LAST_WEEK,
+    );
+    if (!alreadyPlayed) {
+      simulateBlock(state, "REG", FIRST_BLOCK_LAST_WEEK + 1, REGULAR_SEASON_WEEKS);
+    }
   }
 
   recomputeTeamRatings(state);

@@ -33,6 +33,8 @@ export const STAGE_HOME: Record<Stage, string> = {
   coachingHiring: "/coaching",
   preseason: "/hub",
   regularSeason: "/hub",
+  tradeDeadline: "/trade-deadline",
+  tradeDeadlineSummary: "/trade-summary",
   playoffs: "/bracket",
   endOfSeasonAnnounce: "/end-of-season",
   endOfSeasonWin: "/season-complete",
@@ -58,6 +60,8 @@ export const STAGE_READY_LABEL: Record<Stage, string> = {
   coachingHiring: "Ready to advance to the preseason",
   preseason: "Ready for Game Day",
   regularSeason: "Ready for Game Day",
+  tradeDeadline: "Trade deadline in progress",
+  tradeDeadlineSummary: "Advance to Mid-Season Free Agency",
   playoffs: "Ready to simulate this round",
   endOfSeasonAnnounce: "Continue",
   endOfSeasonWin: "Ready to advance to the offseason",
@@ -83,6 +87,8 @@ export const STAGE_LABEL: Record<Stage, string> = {
   coachingHiring: "Coaching Staff — Hiring Window",
   preseason: "Preseason",
   regularSeason: "Regular Season",
+  tradeDeadline: "Trade Deadline",
+  tradeDeadlineSummary: "Trade Summary",
   playoffs: "Playoffs",
   endOfSeasonAnnounce: "Season Complete",
   endOfSeasonWin: "Season Complete",
@@ -144,9 +150,21 @@ export function resolveTransition(
         : { stage: "regularSeason", week: 1, resetStats: true };
 
     case "regularSeason":
+      // Changes 7 and 8: the season stops at the deadline on the way past
+      // week 9, and only once. `tradeDeadline` being non-null is what says
+      // the league has already been through it this year — the week alone
+      // cannot say so, since the stage is `regularSeason` on both sides.
+      if (week <= FIRST_BLOCK_LAST_WEEK && !state.tradeDeadline) {
+        return { stage: "tradeDeadline", week: FIRST_BLOCK_LAST_WEEK };
+      }
       return week < REGULAR_SEASON_WEEKS
         ? { stage: "regularSeason", week: week + 1 }
         : { stage: "playoffs", week: 0 };
+
+    case "tradeDeadline":
+      return { stage: "tradeDeadlineSummary", week: FIRST_BLOCK_LAST_WEEK };
+    case "tradeDeadlineSummary":
+      return { stage: "regularSeason", week: FIRST_BLOCK_LAST_WEEK + 1 };
 
     case "playoffs": {
       // leave the playoffs only once the Super Bowl has actually been played

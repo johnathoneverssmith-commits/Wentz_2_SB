@@ -27,6 +27,7 @@ import {
   respondToTrade,
   setDepthOrder,
   signFreeAgent,
+  deadlineTurn,
 } from "./actions.js";
 import { franchiseOf, isCommissioner, login, register, signSession } from "./auth.js";
 import { regenerateBroadcast } from "./blocks.js";
@@ -326,6 +327,11 @@ post("/leagues/:id/actions/rookie", async (ctx) =>
 post("/leagues/:id/actions/reveal", async (ctx) => {
   const a = await actor(ctx);
   return revealThrough(a, field(ctx, "through", "number"), version(ctx));
+});
+
+post("/leagues/:id/actions/deadline", async (ctx) => {
+  const a = await actor(ctx);
+  return deadlineTurn(a, field(ctx, "move", "object"), version(ctx));
 });
 
 post("/leagues/:id/actions/training-camp", async (ctx) => {

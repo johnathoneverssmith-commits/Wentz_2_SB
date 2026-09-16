@@ -23,6 +23,8 @@ import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
 import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
 import { SeasonResults } from "./screens/SeasonResults.tsx";
+import { TradeDeadlineRoom } from "./screens/TradeDeadlineRoom.tsx";
+import { TradeSummary } from "./screens/TradeSummary.tsx";
 import { WatchGame } from "./screens/WatchGame.tsx";
 import { FullSchedule } from "./screens/FullSchedule.tsx";
 import { GameDay } from "./screens/GameDay.tsx";
@@ -112,6 +114,9 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // Training camp itself is single-player — the checkpoint is after the depth
   // chart, which is the last thing before the league needs to be in step.
   offseasonDepthChart: { from: "Re-order Depth Chart", to: "Preseason" },
+  // Change 8: the summary is the last thing before mid-season free agency,
+  // and advancing out of it is the commitment.
+  tradeDeadlineSummary: { from: "Trade Deadline", to: "Mid-Season Free Agency" },
 };
 
 /**
@@ -175,6 +180,8 @@ export function App() {
           <Route path="/roster" element={<RosterCapManagement />} />
           <Route path="/league-rosters" element={<LeagueRosters />} />
           <Route path="/trade" element={<TradeProposal />} />
+          <Route path="/trade-deadline" element={<TradeDeadlineRoom />} />
+          <Route path="/trade-summary" element={<TradeSummary />} />
           <Route path="/free-agency" element={<FreeAgencyBoard />} />
           <Route path="/schedule" element={<FullSchedule />} />
           <Route path="/league-stats" element={<LeagueStatsRankings />} />

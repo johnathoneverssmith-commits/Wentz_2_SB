@@ -19,6 +19,7 @@
  * clobbering somebody.
  */
 import type { ContractOffer, GameBroadcast, LeagueConfig, LeagueState, Position } from "@/domain";
+import type { DeadlineMove } from "@/state/tradeDeadline";
 
 export interface OnlineUser {
   id: string;
@@ -145,6 +146,12 @@ export class OnlineLeagueClient {
   revealThrough = (leagueId: string, through: number, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/reveal`, {
       through,
+      version,
+    });
+
+  deadlineTurn = (leagueId: string, move: DeadlineMove, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/deadline`, {
+      move,
       version,
     });
 

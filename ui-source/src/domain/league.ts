@@ -27,6 +27,8 @@ export type Stage =
   | "coachingHiring" // 5-day coach free-agency period (0 coaches to start)
   | "preseason"
   | "regularSeason"
+  | "tradeDeadline" // three rounds of turns, between weeks 9 and 10
+  | "tradeDeadlineSummary"
   | "playoffs"
   | "endOfSeasonAnnounce" // "END OF {year} SEASON" — click past, no gate
   | "endOfSeasonWin" // Super Bowl champion screen (tabs: this season / score tracker)
@@ -170,6 +172,7 @@ export interface PendingGameDay {
 import type { CoachingDraftState } from "@/state/coachingDraft";
 import type { FreeAgencyEventState } from "@/state/freeAgencyEvent";
 import type { TrainingCampState } from "@/state/trainingCamp";
+import type { TradeDeadlineState } from "@/state/tradeDeadline";
 import type { RevealState } from "@/state/reveal";
 
 export interface LeagueState {
@@ -197,6 +200,8 @@ export interface LeagueState {
   freeAgencyEvent: FreeAgencyEventState | null;
   /** Per-team camp plans and their saved results. */
   trainingCamp: TrainingCampState | null;
+  /** The three-round turn-based deadline. Null until the stage opens. */
+  tradeDeadline: TradeDeadlineState | null;
   /** How far each GM has watched. Precomputed blocks are revealed, not played. */
   reveal: RevealState | null;
   /** rookie prospect id → whether the viewer's team signed or released them. */

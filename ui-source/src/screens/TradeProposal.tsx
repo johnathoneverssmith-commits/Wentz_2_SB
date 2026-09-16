@@ -373,7 +373,15 @@ export function TradeProposal() {
   );
 }
 
-function TradeColumn({
+/**
+ * One side's tradeable assets, as a filterable list of toggles.
+ *
+ * Exported because the trade deadline builds its offers with exactly this
+ * control. The spec asks for the existing trade interface rather than a
+ * second one, and two pickers that had to agree about what a pick id looks
+ * like would eventually stop agreeing.
+ */
+export function TradeColumn({
   title,
   role,
   roster,

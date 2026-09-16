@@ -21,6 +21,7 @@ import type { ContractOffer, Position } from "@/domain";
 import { isOnline, onLeagueChange, onlineSession, pull, send } from "./online.ts";
 import { useStore } from "./store.ts";
 import type { TrainingCampPlan } from "./trainingCamp.ts";
+import type { DeadlineMove } from "./tradeDeadline.ts";
 
 export interface ActionResult {
   ok: boolean;
@@ -61,6 +62,7 @@ export interface LeagueActions {
   revealThrough: (through: number) => Promise<ActionResult>;
   /** Run this team's training camp. */
   submitTrainingCamp: (plan: TrainingCampPlan) => Promise<ActionResult>;
+  deadlineTurn: (move: DeadlineMove) => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -138,6 +140,7 @@ export function useLeagueActions(): LeagueActions {
         },
         revealThrough: async (through) => store.revealThrough(through),
         submitTrainingCamp: async (plan) => store.submitTrainingCamp(plan),
+        deadlineTurn: async (move) => store.deadlineTurn(move),
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         draftCoach: async (coachId) => store.draftCoach(coachId),
         hireCoach: async (coachId) => store.hireCoach(coachId),
@@ -205,6 +208,8 @@ export function useLeagueActions(): LeagueActions {
         attempt(() =>
           send((s) => s.client.submitTrainingCamp(s.leagueId, plan, s.version)),
         ).then(after),
+      deadlineTurn: (move) =>
+        attempt(() => send((s) => s.client.deadlineTurn(s.leagueId, move, s.version))).then(after),
       freeAgencyTurn: (move) =>
         attempt(() => send((s) => s.client.freeAgencyTurn(s.leagueId, move, s.version))).then(after),
       draftCoach: (coachId) =>
