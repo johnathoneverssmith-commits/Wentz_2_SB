@@ -1,6 +1,6 @@
 import type { LeagueState, Player } from "@/domain";
 
-import { recoveryScaleFor, staffAt } from "./coachEffects";
+import { staffAt } from "./coachEffects";
 import { coachRoleForPosition } from "@/domain";
 
 /**
