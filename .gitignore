@@ -33,3 +33,4 @@ __pycache__/
 
 # online server — local database URL and any dump of it
 online/.env
+scratch/
