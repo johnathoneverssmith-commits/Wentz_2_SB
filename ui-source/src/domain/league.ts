@@ -170,6 +170,7 @@ export interface PendingGameDay {
 import type { CoachingDraftState } from "@/state/coachingDraft";
 import type { FreeAgencyEventState } from "@/state/freeAgencyEvent";
 import type { TrainingCampState } from "@/state/trainingCamp";
+import type { RevealState } from "@/state/reveal";
 
 export interface LeagueState {
   schemaVersion: number;
@@ -196,6 +197,8 @@ export interface LeagueState {
   freeAgencyEvent: FreeAgencyEventState | null;
   /** Per-team camp plans and their saved results. */
   trainingCamp: TrainingCampState | null;
+  /** How far each GM has watched. Precomputed blocks are revealed, not played. */
+  reveal: RevealState | null;
   /** rookie prospect id → whether the viewer's team signed or released them. */
   rookieOutcomes: Record<string, "signed" | "released">;
   /** offseason player FA period. */

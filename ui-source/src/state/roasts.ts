@@ -1,0 +1,250 @@
+import type { LeagueState } from "@/domain";
+import { TEAMS_BY_CODE } from "@/data/teams";
+
+/**
+ * Around the League, with teeth.
+ *
+ * One line per human team, chosen from a fixed library rather than generated,
+ * so every GM provably reads the same thing, nothing can fail at a checkpoint,
+ * and there is no API in the path. The variety comes from the selection being
+ * driven by what actually happened: the templates are sorted into situations,
+ * the situation is computed from real numbers, and only then does a hash pick
+ * which of that situation's lines to use.
+ *
+ * That ordering is the whole trick. Picking a random line and bending the
+ * facts to fit would produce jokes about a blowout after a one-point game.
+ * Picking the situation first means the joke is always *about* something —
+ * and a GM who got beaten by forty knows we noticed.
+ */
+
+export interface RoastContext {
+  teamCode: string;
+  gmName: string;
+  /** Points for and against across the games this roast covers. */
+  pointsFor: number;
+  pointsAgainst: number;
+  wins: number;
+  losses: number;
+  /** Biggest margin either way, signed: positive is a win. */
+  biggestMargin: number;
+  /** Best player on the roster, for the "carrying them" lines. */
+  bestPlayer: string;
+  bestOverall: number;
+  /** Weakest starting unit, named. */
+  weakestUnit: string;
+  onBye: boolean;
+  /** Season one has no prior games; the roast comes off the draft instead. */
+  fromDraft: boolean;
+}
+
+type Situation =
+  | "blowoutWin"
+  | "blowoutLoss"
+  | "narrowWin"
+  | "narrowLoss"
+  | "undefeated"
+  | "winless"
+  | "bye"
+  | "draftReach"
+  | "draftStrong"
+  | "mediocre";
+
+/**
+ * The library. Roughly a thousand lines once the situations are multiplied
+ * out by the substitutions below — each template draws from the context, so
+ * the same line about two different teams reads differently.
+ *
+ * `{team}` `{gm}` `{star}` `{unit}` `{margin}` are filled from the context.
+ */
+const LIBRARY: Record<Situation, string[]> = {
+  blowoutWin: [
+    "{team} won by {margin}. At some point running it up stops being a strategy and starts being a personality.",
+    "{gm} beat someone by {margin} and somehow still looks unhappy about the third-quarter punt.",
+    "{team} put up {margin} points of margin. The tape is not so much film study as a hostage video.",
+    "A {margin}-point win for {team}. Somewhere a defensive coordinator is updating his LinkedIn.",
+    "{team} by {margin}. The scoreboard operator has asked for hazard pay.",
+    "{gm} is winning by {margin} and still describing this as a rebuild. Nobody believes you.",
+    "{team} won by {margin}, which is less a football result than a weather event.",
+  ],
+  blowoutLoss: [
+    "{team} lost by {margin}. There is no polite way to write that sentence, so we didn't try.",
+    "{gm} was beaten by {margin}. The good news is the season is long. That is also the bad news.",
+    "{team} conceded enough to lose by {margin}. The {unit} were last seen asking for directions.",
+    "A {margin}-point defeat for {team}. Even {star} looked like he wanted to be substituted into a different franchise.",
+    "{team} lost by {margin}. At this point the film session is just a group therapy circle.",
+    "{gm} down by {margin}. We checked: yes, they were allowed to tackle.",
+    "{team} by minus {margin}. Some teams lose games; this one lost an argument with physics.",
+  ],
+  narrowWin: [
+    "{team} squeaked one out. A win is a win, and this one needed the receipt kept.",
+    "{gm} won by a hair. The heart rate monitor in the booth is being examined as evidence.",
+    "{team} got there in the end, which is more than the {unit} deserved.",
+    "{star} dragged {team} over the line. He should be invoicing by the snap.",
+    "{team} won narrowly. They'll take it, hide it, and never speak of the third quarter again.",
+    "{gm} escaped with a win. Escaped is doing a lot of work in that sentence.",
+  ],
+  narrowLoss: [
+    "{team} lost a close one. Which is somehow worse — at least a blowout is a clean break.",
+    "{gm} came up just short. The {unit} would like to apologise to everybody.",
+    "{team} fell by a whisker. {star} was excellent and it did not matter even slightly.",
+    "{team} lost narrowly, which in this league counts as character building. Allegedly.",
+    "{gm} was a play away. They are always a play away. That is the problem.",
+  ],
+  undefeated: [
+    "{team} haven't lost yet. {gm} has started using the word 'process' unironically.",
+    "Unbeaten {team}. Enjoy it — regression is undefeated too, and it has a longer record.",
+    "{team} are perfect so far, which means the only way left is the interesting way.",
+    "{gm} is undefeated and has become insufferable at roughly twice the expected rate.",
+  ],
+  winless: [
+    "{team} are still looking for a win. The {unit} are still looking for the ball.",
+    "{gm} remains winless. At this rate the draft pick will be worth more than the roster.",
+    "{team} haven't won yet, but {star} is playing well enough to make it genuinely tragic.",
+    "Winless {team}. Somewhere, a moral victory is being quietly awarded in private.",
+  ],
+  bye: [
+    "{team} were on bye and it is the best they've looked all year.",
+    "{gm} had a bye week. Undefeated in games not played — a proud tradition.",
+    "{team} rested. The {unit} needed it more than anyone has ever needed anything.",
+    "Bye week for {team}. No notes. Genuinely their strongest performance to date.",
+  ],
+  draftReach: [
+    "{gm} drafted like a man being timed. The {unit} will be a talking point all year.",
+    "{team}'s draft had a plan. We're just not sure whose.",
+    "{gm} reached early and often. {star} is excellent; the rest is an act of faith.",
+    "{team} built a roster with one obvious strength and a {unit} held together by optimism.",
+    "{gm} came out of the draft with {star} and a long list of things to explain.",
+  ],
+  draftStrong: [
+    "{gm} drafted well and knows it. The smugness is already at midseason levels.",
+    "{team} look loaded. {star} headlines a roster that has no business being this deep this early.",
+    "{gm} had a good draft. Annoyingly, infuriatingly good.",
+    "{team} came out of the draft with {star} and very few excuses left.",
+  ],
+  mediocre: [
+    "{team} were fine. Aggressively, forgettably fine.",
+    "{gm} did enough. Nobody is writing a documentary about it.",
+    "{team} exist. The {unit} are a project. {star} is carrying more than his share.",
+    "{gm}'s team is neither good nor bad, which is its own kind of crime.",
+    "{team} continue to be a rounding error with a logo.",
+  ],
+};
+
+/** Which bucket this team's week falls into. */
+function situationOf(c: RoastContext): Situation {
+  if (c.onBye) return "bye";
+  if (c.fromDraft) {
+    return c.bestOverall >= 88 ? "draftStrong" : "draftReach";
+  }
+  const played = c.wins + c.losses;
+  if (played >= 2 && c.losses === 0) return "undefeated";
+  if (played >= 2 && c.wins === 0) return "winless";
+  if (c.biggestMargin >= 17) return "blowoutWin";
+  if (c.biggestMargin <= -17) return "blowoutLoss";
+  if (c.biggestMargin > 0) return "narrowWin";
+  if (c.biggestMargin < 0) return "narrowLoss";
+  return "mediocre";
+}
+
+function hash(seed: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * One line, deterministic in the league, the team and the week.
+ *
+ * Deterministic so every GM sees the same thing and a reload does not reroll
+ * the joke — a comment that changed when you refreshed would read as broken
+ * rather than as variety.
+ */
+export function roastFor(c: RoastContext, seedKey: string): string {
+  const situation = situationOf(c);
+  const lines = LIBRARY[situation];
+  const line = lines[hash(`${seedKey}|${c.teamCode}`) % lines.length]!;
+  const team = TEAMS_BY_CODE[c.teamCode]?.label ?? c.teamCode;
+  return line
+    .replace(/\{team\}/g, team)
+    .replace(/\{gm\}/g, c.gmName)
+    .replace(/\{star\}/g, c.bestPlayer)
+    .replace(/\{unit\}/g, c.weakestUnit)
+    .replace(/\{margin\}/g, String(Math.abs(c.biggestMargin)));
+}
+
+/** Build the context for one team from what actually happened. */
+export function roastContext(
+  s: LeagueState,
+  teamCode: string,
+  gmName: string,
+  games: { homeTeam: string; awayTeam: string; homeScore: number; awayScore: number }[],
+  fromDraft: boolean,
+): RoastContext {
+  const mine = games.filter((g) => g.homeTeam === teamCode || g.awayTeam === teamCode);
+  let pointsFor = 0;
+  let pointsAgainst = 0;
+  let wins = 0;
+  let losses = 0;
+  let biggestMargin = 0;
+
+  for (const g of mine) {
+    const home = g.homeTeam === teamCode;
+    const us = home ? g.homeScore : g.awayScore;
+    const them = home ? g.awayScore : g.homeScore;
+    pointsFor += us;
+    pointsAgainst += them;
+    if (us > them) wins++;
+    else if (them > us) losses++;
+    const margin = us - them;
+    if (Math.abs(margin) > Math.abs(biggestMargin)) biggestMargin = margin;
+  }
+
+  const roster = Object.values(s.players).filter(
+    (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent,
+  );
+  const best = roster.reduce<{ name: string; overall: number }>(
+    (n, p) => (p.overall > n.overall ? { name: p.name, overall: p.overall } : n),
+    { name: "somebody", overall: 0 },
+  );
+
+  const team = s.teams[teamCode];
+  const units: { label: string; value: number }[] = [
+    { label: "offensive line", value: team?.ratings.offense ?? 60 },
+    { label: "secondary", value: team?.ratings.defense ?? 60 },
+    { label: "special teams", value: team?.ratings.specialTeams ?? 60 },
+  ];
+  const weakest = units.reduce((a, b) => (b.value < a.value ? b : a));
+
+  return {
+    teamCode,
+    gmName,
+    pointsFor,
+    pointsAgainst,
+    wins,
+    losses,
+    biggestMargin,
+    bestPlayer: best.name,
+    bestOverall: best.overall,
+    weakestUnit: weakest.label,
+    onBye: mine.length === 0 && !fromDraft,
+    fromDraft,
+  };
+}
+
+/** One roast per human team, for a given week key. */
+export function roastsForWeek(
+  s: LeagueState,
+  games: { homeTeam: string; awayTeam: string; homeScore: number; awayScore: number }[],
+  seedKey: string,
+  fromDraft = false,
+): { teamCode: string; gmName: string; line: string }[] {
+  return s.gms
+    .filter((g) => g.isHuman && g.teamCode)
+    .map((g) => {
+      const ctx = roastContext(s, g.teamCode, g.name, games, fromDraft);
+      return { teamCode: g.teamCode, gmName: g.name, line: roastFor(ctx, seedKey) };
+    });
+}
