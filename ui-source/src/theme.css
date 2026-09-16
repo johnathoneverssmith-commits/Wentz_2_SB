@@ -1767,3 +1767,28 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.65;
   color: var(--ink-faint);
 }
+
+/* ---- coaching draft role filter ------------------------------------- */
+.rolefilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.rolefilter button {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-sunken);
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.rolefilter button:hover:not(:disabled) { border-color: var(--line-strong); color: var(--ink); }
+.rolefilter button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent, #fff);
+}
+.rolefilter button:disabled { opacity: 0.32; cursor: default; }

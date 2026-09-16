@@ -142,6 +142,12 @@ export class OnlineLeagueClient {
       version,
     });
 
+  draftCoach = (leagueId: string, coachId: string, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/coach-draft`, {
+      coachId,
+      version,
+    });
+
   hireCoach = (leagueId: string, coachId: string, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/coach`, {
       coachId,

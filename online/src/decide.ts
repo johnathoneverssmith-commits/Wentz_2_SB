@@ -35,6 +35,12 @@ import {
   type Subject,
 } from "@/state/rules.ts";
 import { extendContract, restructureContract } from "@/state/contracts.ts";
+import {
+  applyCoachingPick,
+  checkCoachingPick,
+  coachingDraftComplete,
+  runAiCoachingPicks,
+} from "@/state/coachingDraft.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
@@ -265,6 +271,58 @@ export function decideRookieOutcome(
         summary: `${city(actor.teamCode)} ${released ? "released" : "signed"} ${name}.`,
         detail: { prospectId },
       },
+    ],
+  };
+}
+
+/**
+ * A coaching-draft pick, online.
+ *
+ * Mirrors the player draft: the human's pick, then the league takes its own
+ * until the clock reaches another person. Without that second half the board
+ * stops dead on the first AI team, which with thirty-two teams and three GMs
+ * is almost immediately.
+ */
+export function decideCoachingPick(
+  state: LeagueState,
+  actor: Actor,
+  coachId: string,
+): Decision {
+  const check = checkCoachingPick(state, actor.teamCode, coachId);
+  if (!check.ok) throw new ActionError(check.reason ?? "You can't take him.");
+  const coach = state.coaches[coachId]!;
+  applyCoachingPick(state, actor.teamCode, coachId);
+
+  const humans = new Set(
+    state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode),
+  );
+  const aiPicks = runAiCoachingPicks(state, humans);
+
+  // When the last job is filled the stage is over — there is nothing left to
+  // decide, so nobody is asked to confirm it, the same as the player draft.
+  const finished = coachingDraftComplete(state);
+  if (finished) {
+    const t = resolveTransition(state, {});
+    state.stage = t.stage;
+    state.week = t.week;
+    onStageEntered(state, "coachingDraft");
+    clearReadinessOnline(state);
+  }
+
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "coach.drafted",
+        summary: `${city(actor.teamCode)} hired ${coach.name} as ${coach.role}.`,
+        detail: { coachId },
+      },
+      ...(aiPicks > 0 && !finished
+        ? [{ kind: "coach.ai", summary: `${aiPicks} staff picks were made around the league.` }]
+        : []),
+      ...(finished
+        ? [{ kind: "coach.draft.done", summary: "Every staff is complete." }]
+        : []),
     ],
   };
 }

@@ -8,6 +8,7 @@ import { isOnline, resumeLeague, lastLeagueId } from "@/state/online";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
+import { CoachingDraftRoom } from "./screens/CoachingDraftRoom.tsx";
 import { CoachingStaffHub } from "./screens/CoachingStaffHub.tsx";
 import { DraftPreview } from "./screens/DraftPreview.tsx";
 import { DraftRoom } from "./screens/DraftRoom.tsx";
@@ -146,6 +147,7 @@ export function App() {
             path="/fantasy-draft-summary"
             element={<FantasyDraftSummary />}
           />
+          <Route path="/coaching-draft" element={<CoachingDraftRoom />} />
           <Route path="/coaching" element={<CoachingStaffHub />} />
           <Route path="/roster" element={<RosterCapManagement />} />
           <Route path="/league-rosters" element={<LeagueRosters />} />

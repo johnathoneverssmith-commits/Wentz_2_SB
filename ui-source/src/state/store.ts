@@ -48,6 +48,11 @@ import {
   restructureContract,
 } from "./contracts.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
+import {
+  applyCoachingPick,
+  checkCoachingPick,
+  runAiCoachingPicks,
+} from "./coachingDraft.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -123,6 +128,8 @@ export interface StoreActions {
    * the signing team's remaining cap room. */
   signStandingFreeAgent: (playerId: string, offer: ContractOffer) => { ok: boolean; reason?: string };
 
+  /** Take a coach in the coaching fantasy draft. */
+  draftCoach: (coachId: string) => { ok: boolean; reason?: string };
   /** Hire an out-of-work coach into his role, replacing whoever holds it. */
   hireCoach: (coachId: string) => { ok: boolean; reason?: string };
   signRookie: (prospectId: string, teamCode: string) => void;
@@ -467,6 +474,21 @@ export const useStore = create<Store>()(
           const fa = s[faField(subject)];
           if (fa) fa.interstitialVisible = false;
         }),
+
+      draftCoach: (coachId) => {
+        const st = get();
+        const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
+        if (!code) return { ok: false, reason: "You don't have a team." };
+        const check = checkCoachingPick(st, code, coachId);
+        if (!check.ok) return check;
+        set((s) => {
+          const code2 = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
+          applyCoachingPick(s, code2, coachId);
+          const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+          runAiCoachingPicks(s, humans);
+        });
+        return { ok: true };
+      },
 
       hireCoach: (coachId) => {
         const st = get();

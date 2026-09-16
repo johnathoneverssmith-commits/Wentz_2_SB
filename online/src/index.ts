@@ -14,6 +14,7 @@ import { createServer } from "node:http";
 import {
   actorFor,
   contractMove,
+  draftCoach,
   hireCoach,
   settleRookie,
   makeDraftPick,
@@ -291,6 +292,10 @@ post("/leagues/:id/actions/rookie", async (ctx) =>
     optional<boolean>(ctx, "released") ?? false,
     version(ctx),
   ),
+);
+
+post("/leagues/:id/actions/coach-draft", async (ctx) =>
+  draftCoach(await actor(ctx), field(ctx, "coachId", "string"), version(ctx)),
 );
 
 post("/leagues/:id/actions/coach", async (ctx) =>
