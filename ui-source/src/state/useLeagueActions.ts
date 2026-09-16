@@ -56,6 +56,13 @@ export interface LeagueActions {
   ) => Promise<ActionResult>;
   /** Sign or release a rookie you drafted. */
   settleRookie: (prospectId: string, released: boolean) => Promise<ActionResult>;
+  /** One free-agency turn: an offer, or a pass. */
+  freeAgencyTurn: (move: {
+    playerId?: string;
+    salary?: number;
+    years?: number;
+    pass?: boolean;
+  }) => Promise<ActionResult>;
   /** Take a coach in the coaching fantasy draft. */
   draftCoach: (coachId: string) => Promise<ActionResult>;
   hireCoach: (coachId: string) => Promise<ActionResult>;
@@ -124,6 +131,7 @@ export function useLeagueActions(): LeagueActions {
           else store.signRookie(prospectId, code);
           return { ok: true };
         },
+        freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         draftCoach: async (coachId) => store.draftCoach(coachId),
         hireCoach: async (coachId) => store.hireCoach(coachId),
         readyUp: async (ready) => {
@@ -184,6 +192,8 @@ export function useLeagueActions(): LeagueActions {
         attempt(() =>
           send((s) => s.client.settleRookie(s.leagueId, prospectId, released, s.version)),
         ).then(after),
+      freeAgencyTurn: (move) =>
+        attempt(() => send((s) => s.client.freeAgencyTurn(s.leagueId, move, s.version))).then(after),
       draftCoach: (coachId) =>
         attempt(() => send((s) => s.client.draftCoach(s.leagueId, coachId, s.version))).then(after),
       hireCoach: (coachId) =>

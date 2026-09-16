@@ -36,6 +36,13 @@ import {
 } from "@/state/rules.ts";
 import { extendContract, restructureContract } from "@/state/contracts.ts";
 import {
+  applyOffer,
+  applyPass,
+  checkOffer,
+  onTheClock,
+  runCpuTurns,
+} from "@/state/freeAgencyEvent.ts";
+import {
   applyCoachingPick,
   checkCoachingPick,
   coachingDraftComplete,
@@ -322,6 +329,78 @@ export function decideCoachingPick(
         : []),
       ...(finished
         ? [{ kind: "coach.draft.done", summary: "Every staff is complete." }]
+        : []),
+    ],
+  };
+}
+
+/**
+ * One free-agency turn: an offer, or a pass.
+ *
+ * The turn ends either way, and the CPU teams behind you take theirs before
+ * this returns — so the league comes back to the next human rather than
+ * stopping on the first computer. When the last team in a round acts the
+ * round resolves inside the same transaction, which is what makes "nothing
+ * signs mid-round" true rather than merely intended.
+ */
+export function decideFreeAgencyTurn(
+  state: LeagueState,
+  actor: Actor,
+  move: {
+    playerId?: string | undefined;
+    salary?: number | undefined;
+    years?: number | undefined;
+    pass?: boolean | undefined;
+  },
+): Decision {
+  const e = state.freeAgencyEvent;
+  if (!e || e.complete) throw new ActionError("Free agency isn't running.");
+  if (onTheClock(state) !== actor.teamCode) throw new ActionError("It isn't your turn.", 409);
+
+  const roundBefore = e.round;
+  let summary: string;
+
+  if (move.pass || !move.playerId) {
+    applyPass(state, actor.teamCode);
+    summary = `${city(actor.teamCode)} passed.`;
+  } else {
+    const salary = Number(move.salary);
+    const years = Number(move.years);
+    const check = checkOffer(state, actor.teamCode, move.playerId, salary, years);
+    if (!check.ok) throw new ActionError(check.reason ?? "That offer isn't valid.");
+    const name = state.players[move.playerId]?.name ?? "a free agent";
+    applyOffer(state, actor.teamCode, move.playerId, salary, years);
+    summary = `${city(actor.teamCode)} offered ${name} $${salary}M over ${years} years.`;
+  }
+
+  const humans = new Set(
+    state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode),
+  );
+  runCpuTurns(state, humans);
+
+  const resolved = state.freeAgencyEvent!.round !== roundBefore || state.freeAgencyEvent!.complete;
+  const signedThisRound = state.freeAgencyEvent!.signed.filter((x) => x.round === roundBefore);
+
+  // The event ending is a stage change, not a prompt — there is nothing left
+  // to decide once the fifth round resolves.
+  if (state.freeAgencyEvent!.complete && state.stage === "freeAgency") {
+    const t = resolveTransition(state, {});
+    state.stage = t.stage;
+    state.week = t.week;
+    onStageEntered(state, "freeAgency");
+    clearReadinessOnline(state);
+  }
+
+  return {
+    events: [
+      { teamCode: actor.teamCode, kind: "fa.turn", summary },
+      ...(resolved && signedThisRound.length > 0
+        ? [
+            {
+              kind: "fa.round",
+              summary: `Round ${roundBefore} closed — ${signedThisRound.length} players signed.`,
+            },
+          ]
         : []),
     ],
   };

@@ -53,6 +53,7 @@ import {
   checkCoachingPick,
   runAiCoachingPicks,
 } from "./coachingDraft.ts";
+import { applyOffer, applyPass, checkOffer, runCpuTurns } from "./freeAgencyEvent.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -128,6 +129,13 @@ export interface StoreActions {
    * the signing team's remaining cap room. */
   signStandingFreeAgent: (playerId: string, offer: ContractOffer) => { ok: boolean; reason?: string };
 
+  /** One free-agency turn: an offer, or a pass. */
+  freeAgencyTurn: (move: {
+    playerId?: string;
+    salary?: number;
+    years?: number;
+    pass?: boolean;
+  }) => { ok: boolean; reason?: string };
   /** Take a coach in the coaching fantasy draft. */
   draftCoach: (coachId: string) => { ok: boolean; reason?: string };
   /** Hire an out-of-work coach into his role, replacing whoever holds it. */
@@ -474,6 +482,24 @@ export const useStore = create<Store>()(
           const fa = s[faField(subject)];
           if (fa) fa.interstitialVisible = false;
         }),
+
+      freeAgencyTurn: (move) => {
+        const st = get();
+        const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
+        if (!code) return { ok: false, reason: "You don't have a team." };
+        if (!move.pass && move.playerId) {
+          const check = checkOffer(st, code, move.playerId, Number(move.salary), Number(move.years));
+          if (!check.ok) return check;
+        }
+        set((s) => {
+          const mine = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
+          if (move.pass || !move.playerId) applyPass(s, mine);
+          else applyOffer(s, mine, move.playerId, Number(move.salary), Number(move.years));
+          const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+          runCpuTurns(s, humans);
+        });
+        return { ok: true };
+      },
 
       draftCoach: (coachId) => {
         const st = get();

@@ -15,6 +15,7 @@ import {
   actorFor,
   contractMove,
   draftCoach,
+  freeAgencyTurn,
   hireCoach,
   settleRookie,
   makeDraftPick,
@@ -293,6 +294,20 @@ post("/leagues/:id/actions/rookie", async (ctx) =>
     version(ctx),
   ),
 );
+
+post("/leagues/:id/actions/fa-turn", async (ctx) => {
+  const a = await actor(ctx);
+  return freeAgencyTurn(
+    a,
+    {
+      playerId: optional<string>(ctx, "playerId"),
+      salary: optional<number>(ctx, "salary"),
+      years: optional<number>(ctx, "years"),
+      pass: optional<boolean>(ctx, "pass"),
+    },
+    version(ctx),
+  );
+});
 
 post("/leagues/:id/actions/coach-draft", async (ctx) =>
   draftCoach(await actor(ctx), field(ctx, "coachId", "string"), version(ctx)),

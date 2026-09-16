@@ -22,6 +22,7 @@ import {
   decideContractMove,
   decideCoachHire,
   decideCoachingPick,
+  decideFreeAgencyTurn,
   decideRookieOutcome,
   decideDraftPick,
   decidePlaceBid,
@@ -112,6 +113,17 @@ export const settleRookie = (
   released: boolean,
   expectedVersion?: string,
 ) => run(actor, expectedVersion, (s) => decideRookieOutcome(s, actor, prospectId, released));
+
+export const freeAgencyTurn = (
+  actor: Actor,
+  move: {
+    playerId?: string | undefined;
+    salary?: number | undefined;
+    years?: number | undefined;
+    pass?: boolean | undefined;
+  },
+  expectedVersion?: string,
+) => run(actor, expectedVersion, (s) => decideFreeAgencyTurn(s, actor, move));
 
 export const draftCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
   run(actor, expectedVersion, (s) => decideCoachingPick(s, actor, coachId));

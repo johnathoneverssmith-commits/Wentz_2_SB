@@ -40,6 +40,7 @@ import {
 import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
 
 import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
+import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
@@ -300,6 +301,13 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "coachingDraft") {
     beginCoachingDraft(state);
     runAiCoachingPicks(state, humanTeamsOf(state));
+  }
+
+  // Change 4: the market opens with the stage, and the CPU teams ahead of the
+  // first human take their turns straight away.
+  if (state.stage === "freeAgency") {
+    beginFreeAgencyEvent(state);
+    runCpuTurns(state, humanTeamsOf(state));
   }
 
   // The rest mirrors the single-player `tryAdvance`, which does this work in

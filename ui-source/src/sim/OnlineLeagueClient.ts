@@ -142,6 +142,15 @@ export class OnlineLeagueClient {
       version,
     });
 
+  freeAgencyTurn = (
+    leagueId: string,
+    move: { playerId?: string; salary?: number; years?: number; pass?: boolean },
+    version: string,
+  ) => this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/fa-turn`, {
+    ...move,
+    version,
+  });
+
   draftCoach = (leagueId: string, coachId: string, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/coach-draft`, {
       coachId,

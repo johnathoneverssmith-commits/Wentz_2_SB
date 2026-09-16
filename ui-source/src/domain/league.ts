@@ -20,6 +20,8 @@ export type Stage =
   | "fantasyDraftSummary"
   | "coachingDraft"
   | "coachingDraftSummary"
+  | "freeAgency"
+  | "freeAgencySummary"
   | "coachingHiring" // 5-day coach free-agency period (0 coaches to start)
   | "preseason"
   | "regularSeason"

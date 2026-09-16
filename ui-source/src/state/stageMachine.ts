@@ -18,6 +18,8 @@ export const STAGE_HOME: Record<Stage, string> = {
   fantasyDraftSummary: "/fantasy-draft-summary",
   coachingDraft: "/coaching-draft",
   coachingDraftSummary: "/coaching-draft-summary",
+  freeAgency: "/free-agency-board",
+  freeAgencySummary: "/free-agency-summary",
   coachingHiring: "/coaching",
   preseason: "/hub",
   regularSeason: "/hub",
@@ -39,6 +41,8 @@ export const STAGE_READY_LABEL: Record<Stage, string> = {
   fantasyDraftSummary: "Advance to Coaching",
   coachingDraft: "Coaching draft in progress",
   coachingDraftSummary: "Advance to Free Agency",
+  freeAgency: "Free agency in progress",
+  freeAgencySummary: "Advance to Training Camp",
   coachingHiring: "Ready to advance to the preseason",
   preseason: "Ready for Game Day",
   regularSeason: "Ready for Game Day",
@@ -60,6 +64,8 @@ export const STAGE_LABEL: Record<Stage, string> = {
   fantasyDraftSummary: "Fantasy Draft Summary",
   coachingDraft: "Coaching Fantasy Draft",
   coachingDraftSummary: "Coaching Draft Summary",
+  freeAgency: "Free Agency",
+  freeAgencySummary: "Free Agency Summary",
   coachingHiring: "Coaching Staff — Hiring Window",
   preseason: "Preseason",
   regularSeason: "Regular Season",
@@ -104,8 +110,12 @@ export function resolveTransition(
     case "coachingDraft":
       return { stage: "coachingDraftSummary", week: 0 };
     case "coachingDraftSummary":
-      // Change 4 puts turn-based free agency here; until then the circuit
-      // continues to the preseason so a league is never stranded.
+      return { stage: "freeAgency", week: 0 };
+    case "freeAgency":
+      return { stage: "freeAgencySummary", week: 0 };
+    case "freeAgencySummary":
+      // Change 5 puts Training Camp here; until then the circuit continues to
+      // the preseason so a league is never stranded.
       return { stage: "preseason", week: 1 };
     // Kept only so a league that was already sitting in the old timed hiring
     // window when this shipped has somewhere to go. Nothing routes into it.
