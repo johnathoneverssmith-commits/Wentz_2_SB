@@ -8,6 +8,45 @@ This document is the source of truth for redesign decisions covering the franchi
 |---------------------|------------------------------|
 | **Last updated**    | September 15 2026            |
 
+# Implementation status
+
+All thirteen changes are implemented, on `main`, with 210 online tests
+passing. The fifteen failing UI tests predate this work — their fixtures
+assume the generated player pool that the authored `pool-2026.json`
+replaced — and are unrelated to anything below.
+
+What was built, in one paragraph per idea rather than per change:
+
+**Blocks and reveals.** Football is simulated once, at a checkpoint, and
+watched afterwards. A block runs from one checkpoint to the next thing that
+could change its inputs, which is why the regular season is two of them
+either side of the trade deadline. `state/revealBlocks.ts` is the single
+answer to "how far can I watch" and "what happens at the end"; `state/reveal.ts`
+holds each GM's own markers, and `visibleGames` / `visibleBracket` are the
+filters everything downstream reads. Nothing a GM has not revealed may appear
+anywhere, including in a standings table or a bracket header.
+
+**Turn-based events.** The coaching draft, both free-agency periods, the trade
+deadline and the rookie draft are all one order, one turn, one thing happening
+at a time. The deadline (Change 8) is the sharpest case: one unresolved
+negotiation ever, one counter per negotiation, and an order fixed from the
+week 1-9 standings that does not move when a trade changes a roster.
+
+**Per-GM position inside a stage.** Changes 12 and 13 put two screens inside
+one league stage. The league keeps a single `stage` — it really is all in the
+offseason together — and `reveal.step` records which screen each GM is on,
+which is also what returns a disconnected GM to the screen they committed to.
+
+**Deliberate illegality.** The trade deadline, the rookie draft and both
+free-agency periods all allow a team to break the cap, the roster limit and
+positional minimums. Reconciliation is where that gets enforced. A deadline
+whose last legal move is blocked by arithmetic is a deadline nobody uses.
+
+**Open optimization bookmarks**, as the spec calls them: CPU training-camp
+focus and investment priorities, and CPU trade valuation, contention
+assessment and future-value discounting. Both are deterministic and
+deliberately simple, pending a season of results to calibrate against.
+
 # Decisions taken during implementation
 
 Four questions were resolved before implementation began. Two of them change

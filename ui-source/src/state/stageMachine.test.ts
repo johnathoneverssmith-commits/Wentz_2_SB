@@ -105,22 +105,24 @@ describe("resolveTransition", () => {
     ).toBe("endOfSeasonConsolation");
   });
 
-  it("offseason order: retirement → draft prep → draft → signings → depth chart → preseason", () => {
+  it("offseason order: retirement → draft prep → draft → summary → free agency", () => {
     const chain = [
       "offseasonRetirement",
       "offseasonDraftPrep",
       "offseasonDraft",
-      "offseasonSignings",
+      "offseasonDraftSummary",
       "offseasonDepthChart",
     ] as const;
     const nexts = chain.map((stage) => resolveTransition(base({ stage })).stage);
     expect(nexts).toEqual([
       "offseasonDraftPrep",
       "offseasonDraft",
-      "offseasonSignings",
-      // free agency used to sit here as a five-day window; it is asynchronous
-      // now and has no stage of its own
-      "offseasonDepthChart",
+      // Change 13: the rookie draft ends at a summary, and rookie signings
+      // are the second per-GM step of that same stage
+      "offseasonDraftSummary",
+      // which leads into annual free agency rather than the depth chart —
+      // from there the circuit is the one Changes 4 and 5 built
+      "freeAgency",
       "preseason",
     ]);
   });
