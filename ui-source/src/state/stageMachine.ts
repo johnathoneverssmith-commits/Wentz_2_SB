@@ -48,6 +48,7 @@ export const STAGE_HOME: Record<Stage, string> = {
   offseasonRetirement: "/retirement",
   offseasonDraftPrep: "/draft-preview",
   offseasonDraft: "/draft",
+  offseasonDraftSummary: "/rookie-draft-summary",
   offseasonSignings: "/rookie-signings",
   offseasonFreeAgency: "/free-agency",
   offseasonDepthChart: "/roster",
@@ -78,6 +79,7 @@ export const STAGE_READY_LABEL: Record<Stage, string> = {
   offseasonRetirement: "Ready to advance to the draft",
   offseasonDraftPrep: "Ready to advance to the NFL Draft",
   offseasonDraft: "Ready to advance to signings",
+  offseasonDraftSummary: "Continue to Rookie Signings",
   offseasonSignings: "Ready to advance to free agency",
   offseasonFreeAgency: "Ready to re-order the depth chart",
   offseasonDepthChart: "Ready to start the season",
@@ -108,6 +110,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
   offseasonRetirement: "Retirement Review",
   offseasonDraftPrep: "Draft Preview",
   offseasonDraft: "NFL Draft",
+  offseasonDraftSummary: "Rookie Draft Summary",
   offseasonSignings: "Rookie Signings",
   offseasonFreeAgency: "Free Agency",
   offseasonDepthChart: "Depth Chart",
@@ -205,9 +208,18 @@ export function resolveTransition(
     case "offseasonDraftPrep":
       return { stage: "offseasonDraft", week: 0 };
     case "offseasonDraft":
-      return { stage: "offseasonSignings", week: 0 };
+      return { stage: "offseasonDraftSummary", week: 0 };
+    // Change 13: the summary and rookie signings are one stage and two
+    // per-GM steps, like the retirement review and the draft preview — a GM
+    // crosses between them alone, and the league only gathers again at free
+    // agency. See `stepOf` in state/reveal.
+    case "offseasonDraftSummary":
+      return { stage: "freeAgency", week: 0 };
+    // Change 13: signings lead into annual free agency rather than straight
+    // to the depth chart. From free agency onward the circuit is the one
+    // Changes 4 and 5 already built, which is why it rejoins it here.
     case "offseasonSignings":
-      return { stage: "offseasonDepthChart", week: 0 };
+      return { stage: "freeAgency", week: 0 };
     // As above: only a way out for a league caught mid-window.
     case "offseasonFreeAgency":
       return { stage: "offseasonDepthChart", week: 0 };

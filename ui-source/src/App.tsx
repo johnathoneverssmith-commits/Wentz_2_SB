@@ -25,6 +25,7 @@ import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
 import { SeasonResults } from "./screens/SeasonResults.tsx";
 import { PlayoffRoundResults } from "./screens/PlayoffRoundResults.tsx";
+import { RookieDraftSummary } from "./screens/RookieDraftSummary.tsx";
 import { TradeDeadlineRoom } from "./screens/TradeDeadlineRoom.tsx";
 import { TradeSummary } from "./screens/TradeSummary.tsx";
 import { WatchGame } from "./screens/WatchGame.tsx";
@@ -59,6 +60,9 @@ function StageHome() {
   const step = useStore((s) => stepOf(s, s.viewerGmId));
   if (stage === "offseasonRetirement" && step === "draftPreview") {
     return <Navigate to="/draft-preview" replace />;
+  }
+  if (stage === "offseasonDraftSummary" && step === "rookieSignings") {
+    return <Navigate to="/rookie-signings" replace />;
   }
   return <Navigate to={STAGE_HOME[stage]} replace />;
 }
@@ -132,6 +136,9 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // Change 8: the summary is the last thing before mid-season free agency,
   // and advancing out of it is the commitment.
   tradeDeadlineSummary: { from: "Trade Deadline", to: "Mid-Season Free Agency" },
+  // Change 13: rookie signings are the last screen of this stage, so its
+  // checkpoint is the one that opens annual free agency.
+  offseasonDraftSummary: { from: "Rookie Signings", to: "Free Agency" },
   midseasonFreeAgencySummary: { from: "Mid-Season Free Agency", to: "Depth Chart" },
   // Change 9: the last gate before weeks 10-18 are simulated, which is why
   // this one actually has to hold everyone — the block is built from the
@@ -212,6 +219,7 @@ export function App() {
           <Route path="/results/:phase/:from/:to" element={<SeasonResults />} />
           <Route path="/results/:phase/:from/:to/:week" element={<SeasonResults />} />
           <Route path="/retirement" element={<RetirementReview />} />
+          <Route path="/rookie-draft-summary" element={<RookieDraftSummary />} />
           <Route path="/rookie-signings" element={<RookieSignings />} />
           <Route path="/draft-preview" element={<DraftPreview />} />
           <Route path="/end-of-season" element={<EndOfSeasonAnnounce />} />

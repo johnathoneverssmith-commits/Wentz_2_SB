@@ -39,6 +39,7 @@ export type Stage =
   | "offseasonRetirement"
   | "offseasonDraftPrep"
   | "offseasonDraft"
+  | "offseasonDraftSummary" // Change 13: how round one went, before signings
   | "offseasonSignings"
   | "offseasonFreeAgency" // 5-day, starts on Day 1
   | "offseasonDepthChart"; // re-order depth chart, then next preseason

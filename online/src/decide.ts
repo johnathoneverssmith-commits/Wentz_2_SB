@@ -584,10 +584,13 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
   const finishing = draftThresholdMet(state);
   const autoCompleted = finishing ? completeDraft(state) : 0;
   if (finishing) {
+    const was = state.stage;
     const t = resolveTransition(state, {});
     state.stage = t.stage;
     state.week = t.week;
-    onStageEntered(state, "fantasyDraft");
+    // the stage it came from, not a guess: the rookie and fantasy drafts both
+    // end here and they enter different stages afterwards
+    onStageEntered(state, was);
     clearReadinessOnline(state);
   }
 

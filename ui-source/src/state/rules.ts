@@ -431,6 +431,14 @@ export function picksMadeBy(s: LeagueState, teamCode: string): number {
  * board does.
  */
 export function draftThresholdMet(s: LeagueState): boolean {
+  // Change 13: the rookie draft is one manual round and six automatic ones,
+  // for everybody, regardless of what the commissioner set for the fantasy
+  // draft. Seven rounds of turn-taking across eight GMs is a week of
+  // real time spent on picks that are mostly special-teamers; round one is
+  // the part with decisions in it.
+  if (s.draft?.mode === "rookie") {
+    return s.draft.currentPickIndex >= Object.keys(s.teams).length;
+  }
   const threshold = s.config.draftSimulateAfterPicks;
   if (threshold == null) return false;
   if (!s.draft) return false;

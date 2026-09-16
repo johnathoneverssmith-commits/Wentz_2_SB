@@ -24,7 +24,24 @@ function grade(rank: number, total: number): string {
   return "F";
 }
 
-export function FantasyDraftSummary() {
+/**
+ * How everybody's draft graded out.
+ *
+ * Change 13 reuses this for the rookie draft, which is the same screen with
+ * a different title and a different thing on the far side of the button —
+ * the league-wide comparison table, the per-GM tabs and the NFL roster tab
+ * are all the same question about a different draft.
+ */
+export function FantasyDraftSummary({
+  title = "Fantasy Draft Summary",
+  advanceLabel = "Advance to Coaching",
+  onAdvance,
+}: {
+  title?: string;
+  advanceLabel?: string;
+  /** Overrides the default commit, for a summary that is not a checkpoint. */
+  onAdvance?: () => Promise<void>;
+} = {}) {
   const nav = useNavigate();
   const actions = useLeagueActions();
   const [committing, setCommitting] = useState(false);
@@ -50,7 +67,7 @@ export function FantasyDraftSummary() {
     <Card maxWidth={840}>
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
-        title="Fantasy Draft Summary"
+        title={title}
         subtitle={`${s.season} · how every team's draft graded out`}
       />
       <Ticker
@@ -203,8 +220,12 @@ export function FantasyDraftSummary() {
           className="btn-primary"
           disabled={committing}
           onClick={() => {
-            if (!confirm("Advance to the coaching draft? You can't return to this summary.")) return;
+            if (!confirm(`${advanceLabel}? You can't return to this summary.`)) return;
             setCommitting(true);
+            if (onAdvance) {
+              void onAdvance().finally(() => setCommitting(false));
+              return;
+            }
             void actions
               .readyUp(true)
               .then((res) => {
@@ -219,7 +240,7 @@ export function FantasyDraftSummary() {
               .finally(() => setCommitting(false));
           }}
         >
-          {committing ? "Advancing…" : "Advance to Coaching"}
+          {committing ? "Advancing…" : advanceLabel}
         </button>
       </Footer>
     </Card>

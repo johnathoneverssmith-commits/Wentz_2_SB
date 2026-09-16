@@ -317,7 +317,12 @@ export function onStageEntered(state: LeagueState, from?: string): void {
 
   // Change 4: the market opens with the stage, and the CPU teams ahead of the
   // first human take their turns straight away.
-  if (state.stage === "freeAgency") {
+  if (state.stage === "freeAgency" && from !== "freeAgency") {
+    // Change 13: the saved event is midseason's by now, so it is cleared for
+    // the same reason midseason cleared the offseason's — this is a different
+    // five rounds, with an order recalculated from post-draft roster strength
+    // and a pool that no longer contains the rookies who just signed.
+    state.freeAgencyEvent = null;
     beginFreeAgencyEvent(state);
     runCpuTurns(state, humanTeamsOf(state));
   }
