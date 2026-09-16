@@ -10,13 +10,17 @@ has a working V1 end to end: Phases A–E all done at V1.** `analysis/` holds th
 Python pipeline, `analysis/engine/` the headless game loop, `artifacts/` the
 committed outputs the loop consumes. Done: §28 audit, 15 league-baseline
 resolvers (Phase B), usage-role priors (C), player-effect calibration (D),
-full-sim validation §22 (E, **16/20 within 10%** after V1.6 —
+full-sim validation §22 (E, **16/20 within 10%** as last regenerated; the
+three penalty metrics were fixed after that table was written, see below —
 `docs/v16_points_gap_plan.md` took points/team-game **−11.8% → −2.0%**:
 `CLOCK_SCALE` (M24 snap gaps ran long), `rz_yac` table (goal-line catch YAC),
 end-of-half clock management (2-min drill / spikes / kick unit), punt
 field-position bugs, RZ air-yards by goal-line distance, pick-6/scoop-6 rates,
 punt-return-TD drive labeling), rating-layer validation §23 (E), penalty module §25
-V1.5, portable resolver export + a TypeScript runtime port (`src/engine/`, runs
+V1.5 + a **V1.7 global hazard calibration** (`PENALTY_HAZARD_SCALE` 1.0 → 1.22,
+measured over 1,500 games: penalties −20.8% → −2.8%, penalty yards −15.7% →
++3.3%, DPI −26.7% → −6.0%; the §22 table predates it and wants regenerating.
+`points_sd` is the one open miss and is diagnosed in `docs/ENGINE_HANDOFF.md`), portable resolver export + a TypeScript runtime port (`src/engine/`, runs
 on `artifacts/**/portable/*.json`, no Python). Residual-variance anchors use the
 wide 2018–2025 window + team-season units; §13.6 joint-calibration harness
 (`26_joint_calibration.py`) run — layer is emergently sound (margin widens,
@@ -53,9 +57,35 @@ stays as the pool-free guard.
 **Phases 2-6 are built on top of this.** `ui-source/` is the franchise UI (a
 complete single-player dynasty, React + Vite); `server/` is the stateless
 adapter that lets it play real engine games; `online/` is a league server with
-Postgres, accounts and asynchronous multi-GM play — written and tested, and
-**deliberately not deployed**. See the top-level `README.md` for where each
-part stands and `online/README.md` for the multiplayer design.
+Postgres, accounts and asynchronous multi-GM play. See the top-level
+`README.md` for where each part stands and `online/README.md` for the
+multiplayer design.
+
+**The off-field circuit redesign is done** (`docs/REDESIGN_CHANGE_LOG.md`, all
+thirteen changes). The shape to know before touching anything in `online/` or
+`ui-source/src/state/`:
+
+- **Football is simulated once, at a checkpoint, and revealed afterwards.** A
+  *block* runs from one checkpoint to the next thing that could change its
+  inputs — which is why the regular season is two blocks either side of the
+  trade deadline. `ui-source/src/state/revealBlocks.ts` defines them;
+  `reveal.ts` holds each GM's own markers. **`visibleGames` and
+  `visibleBracket` are load-bearing**: anything that reads `state.games` or
+  `state.bracket` directly will show a GM a result they have not watched.
+- **Reveals do not move `state.week`.** A preseason watched to the end still
+  reads week 1. Ask `currentBlock`, not the week.
+- **Play-by-play is not stored.** It is rebuilt from the game's seed plus the
+  saved `sidelined` list (`online/src/blocks.ts`, `regenerateBroadcast`).
+- **The turn-based events** (coaching draft, both free-agency periods, the
+  trade deadline, the rookie draft) are one order, one turn, one thing at a
+  time, and their CPU turns run server-side in a sweep.
+- **Illegality is deliberate** at the trade deadline, the rookie draft and
+  both free-agency periods — cap, roster limit and positional minimums are all
+  allowed to break there and are enforced at reconciliation.
+
+`online/test/full-circuit.test.ts` walks a whole season by pressing the
+buttons the screens press. Run it after changing any stage wiring; it is what
+catches a league that cannot leave a stage.
 
 `analysis/30_win_probability.ts` is TypeScript rather than Python because it
 measures the TS engine: what a rating gap is worth, over 47,616 simulated

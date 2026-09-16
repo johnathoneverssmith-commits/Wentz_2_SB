@@ -63,7 +63,7 @@ SACK_YARDS_P = SACK_YARDS_P / SACK_YARDS_P.sum()
 # metric, not a points lever. NFLSIM_PEN_SCALE is a Python-dev sweep override
 # only; unset (the default) it is exactly 1.0, matching src/engine/sim.ts.
 import os as _os
-# V1.6 global penalty calibration — see the long note on the same constant in
+# V1.7 global penalty calibration — see the long note on the same constant in
 # src/engine/sim.ts. The fitted hazards all came out light (4.88 flags per
 # team-game against a real 6.16), so this scales them rather than refitting:
 # *when* fouls happen is the part the model earned. Still overridable from the

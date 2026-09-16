@@ -78,7 +78,7 @@ const SACK_YARDS = [-12, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0];
 const _syp = [2, 4, 6, 9, 12, 16, 16, 12, 9, 5, 2, 1];
 const SACK_YARDS_P = _syp.map((x) => x / _syp.reduce((p, q) => p + q, 0));
 /**
- * Global penalty-hazard calibration (V1.6).
+ * Global penalty-hazard calibration (V1.7).
  *
  * The penalty module's hazards are fit per situation, and every one of them
  * came out light: the league drew 4.88 flags per team-game against a real
