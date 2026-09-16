@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .home_field import home_penalty_scale, home_shift
+from .team_strength import strength_index, strength_shift
 from .loaders import (
     predict_proba,
     sample_air_yards,
@@ -210,6 +211,21 @@ class Game:
             "sack": dc["sack"],
         }
 
+    def _strength_edge(self, channel: str) -> float:
+        """Team-strength edge for the offense, in index points.
+
+        Gated on the rating layer like everything else that reads a roster: a
+        pool-free game has no teams to be better or worse than each other, and
+        must stay byte-identical to what it was.
+        """
+        if not self.ratings_on:
+            return 0.0
+        return strength_shift(
+            strength_index(self.rosters[self.pos]),
+            strength_index(self.rosters[self.other()]),
+            channel,
+        )
+
     def _off_shift(self, kind: str, **kw) -> dict[str, float] | None:
         """Compute a per-class logit shift for a resolver from the current lineups."""
         if not self.ratings_on:
@@ -227,11 +243,13 @@ class Game:
         edge = self.home_edge
         if kind == "M09":
             return {"COMPLETE": (R.completion_logit_shift(catchers, dbs, o["QB1"])
-                                 + staff["complete"] + home_shift(edge, "complete")),
+                                 + staff["complete"] + home_shift(edge, "complete")
+                                 + self._strength_edge("complete")),
                     "INTERCEPTION": (R.interception_logit_shift(o["QB1"])
                                      + home_shift(edge, "interception"))}
         if kind == "M04":
-            return {"SACK": R.sack_logit_shift(ol, rush) + staff["sack"] + home_shift(edge, "sack")}
+            return {"SACK": (R.sack_logit_shift(ol, rush) + staff["sack"]
+                             + home_shift(edge, "sack") + self._strength_edge("sack"))}
         if kind == "M20":
             return {"MADE": R.fg_logit_shift(self._off().kicker()) + home_shift(edge, "fg_made")}
         return None
@@ -244,7 +262,8 @@ class Game:
         front7 = [d["EDGE1"], d["EDGE2"], d["DT1"], d["DT2"], d["ILB1"], d["ILB2"]]
         return (R.rush_yards_shift([o["LT"], o["LG"], o["C"], o["RG"], o["RT"]], front7, o["RB1"])
                 + self._staff_off_shift()["rush"]
-                + home_shift(self.home_edge, "rush_yards"))
+                + home_shift(self.home_edge, "rush_yards")
+                + self._strength_edge("rush_yards"))
 
     def _yac_yd_mod(self) -> float:
         if not self.ratings_on:

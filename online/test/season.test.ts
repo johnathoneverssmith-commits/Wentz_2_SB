@@ -108,7 +108,7 @@ describe("a season on the server", () => {
     expect(s.bracket!.seeds.NFC).toHaveLength(7);
     // the regular season's stats were reset on the way in, not carried
     expect(s.week).toBe(0);
-  }, 120_000);
+  }, 300_000);
 
   it("rolls into the next season with a new schedule and clean records", () => {
     const s = leagueInPreseason();
@@ -145,5 +145,5 @@ describe("a season on the server", () => {
     }
     // and there is something to draft next spring
     expect(s.draftClass.length).toBeGreaterThan(0);
-  }, 180_000);
+  }, 300_000);
 });

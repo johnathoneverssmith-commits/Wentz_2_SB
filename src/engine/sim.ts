@@ -37,6 +37,7 @@ import {
 } from "./injury.js";
 import { Rng } from "./rng.js";
 import { homePenaltyScale, homeShift, type HomeEdge } from "./home-field.js";
+import { strengthIndex, strengthShift } from "./team-strength.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
@@ -253,6 +254,22 @@ export class Game {
     return this.pos === 0 ? 1 : -1;
   }
 
+  /**
+   * The team-strength edge for the offense, in index points.
+   *
+   * Gated on the rating layer like everything else that reads a roster: a
+   * pool-free `simulateGame(seed)` has no teams to be better or worse than
+   * each other, and must stay byte-identical to what it was.
+   */
+  private strengthEdge(channel: "complete" | "sack" | "rushYards"): number {
+    if (!this.ratingsOn) return 0;
+    return strengthShift(
+      strengthIndex(this.rosters![this.pos as 0 | 1]),
+      strengthIndex(this.rosters![this.other() as 0 | 1]),
+      channel,
+    );
+  }
+
   private off(): Roster {
     return this.rosters![this.pos as 0 | 1];
   }
@@ -455,12 +472,16 @@ export class Game {
         COMPLETE:
           completionLogitShift(catchers, dbs, o.QB1 ?? null) +
           staff.complete +
-          homeShift(edge, "complete"),
+          homeShift(edge, "complete") +
+          this.strengthEdge("complete"),
         INTERCEPTION: interceptionLogitShift(o.QB1 ?? null) + homeShift(edge, "interception"),
       };
     }
     if (kind === "M04") {
-      return { SACK: sackLogitShift(ol, rush) + staff.sack + homeShift(edge, "sack") };
+      return {
+        SACK:
+          sackLogitShift(ol, rush) + staff.sack + homeShift(edge, "sack") + this.strengthEdge("sack"),
+      };
     }
     if (kind === "M20") {
       return { MADE: fgLogitShift(this.off().kicker()) + homeShift(edge, "fgMade") };
@@ -476,7 +497,8 @@ export class Game {
     return (
       rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) +
       this.staffOffShift().rush +
-      homeShift(this.homeEdge, "rushYards")
+      homeShift(this.homeEdge, "rushYards") +
+      this.strengthEdge("rushYards")
     );
   }
 
