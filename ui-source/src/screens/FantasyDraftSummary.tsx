@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
+import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
+import { RosterByPosition } from "@/components/RosterByPosition";
 import { viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
@@ -29,6 +30,9 @@ export function FantasyDraftSummary() {
   const [committing, setCommitting] = useState(false);
   const s = useStore();
   const code = viewerTeamCode(s);
+  const humanTeams = s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
+  const { active, setActive } = useTabs(code ?? "league");
+  const [nflTeam, setNflTeam] = useState<string>(code ?? Object.keys(s.teams)[0] ?? "KC");
 
   const rows = useMemo(
     () =>
@@ -58,7 +62,45 @@ export function FantasyDraftSummary() {
         ]}
       />
 
-      <div className="panel open">
+      <Tabs
+        tabs={[
+          ...humanTeams.map((t) => ({
+            id: t,
+            label: t === code ? "Your Team" : TEAMS_BY_CODE[t]?.abbr ?? t,
+          })),
+          { id: "league", label: "Every Team" },
+          { id: "nfl", label: "NFL" },
+        ]}
+        active={active}
+        onChange={setActive}
+        label="Draft summary"
+      />
+
+      {humanTeams.map((t) => (
+        <Panel key={t} id={t} open={active === t}>
+          <RosterByPosition teamCode={t} detailed />
+        </Panel>
+      ))}
+
+      <Panel id="nfl" open={active === "nfl"}>
+        <label className="lobby-form inline" style={{ marginBottom: 14 }}>
+          <span>Team</span>
+          <select value={nflTeam} onChange={(e) => setNflTeam(e.target.value)}>
+            {Object.keys(s.teams)
+              .sort((a, b) =>
+                (TEAMS_BY_CODE[a]?.label ?? a).localeCompare(TEAMS_BY_CODE[b]?.label ?? b),
+              )
+              .map((t) => (
+                <option key={t} value={t}>
+                  {TEAMS_BY_CODE[t]?.label ?? t}
+                </option>
+              ))}
+          </select>
+        </label>
+        <RosterByPosition teamCode={nflTeam} />
+      </Panel>
+
+      <Panel id="league" open={active === "league"}>
         {mine && (
           <>
             <p className="subhead" style={{ marginTop: 0 }}>
@@ -139,7 +181,7 @@ export function FantasyDraftSummary() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
 
       <Footer bordered={false}>
         <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
