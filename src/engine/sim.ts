@@ -77,7 +77,32 @@ const PUNT_RETURN_TD_RATE = 0.02;
 const SACK_YARDS = [-12, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0];
 const _syp = [2, 4, 6, 9, 12, 16, 16, 12, 9, 5, 2, 1];
 const SACK_YARDS_P = _syp.map((x) => x / _syp.reduce((p, q) => p + q, 0));
-const PENALTY_HAZARD_SCALE = 1.0;
+/**
+ * Global penalty-hazard calibration (V1.6).
+ *
+ * The penalty module's hazards are fit per situation, and every one of them
+ * came out light: the league drew 4.88 flags per team-game against a real
+ * 6.16, and three of the four §22 misses were this one number. So this is a
+ * single global scale on the fitted hazards rather than a refit — the shape
+ * of *when* fouls happen is the part the model earned, and it is not what was
+ * wrong.
+ *
+ * 1.22 measured over 1,500 games, pool-free path:
+ *
+ *   penalties/team-game   4.88 -> 5.99  (real 6.16, -20.8% -> -2.8%)
+ *   penalty yds/team-game 42.2 -> 51.7  (real 50.0, -15.7% -> +3.3%)
+ *   DPI/team-game         0.38 -> 0.49  (real 0.52, -26.7% -> -6.0%)
+ *
+ * Three metrics move from failing to passing. The response is not linear —
+ * 1.22 buys 1.23x the flags — because more flags thrown also means more of
+ * them are worth accepting, and a declined flag is not a penalty.
+ *
+ * Points per team-game moves 21.79 -> 21.85, inside the noise at this sample,
+ * so this does not disturb the §26 joint calibration. `points_sd` is
+ * untouched at 8.87 and remains the one open miss; it is a different problem
+ * (the league is too consistent) and wants its own work.
+ */
+const PENALTY_HAZARD_SCALE = 1.22;
 
 const ENV = { roof: "outdoors", env_temp: 60.0, env_wind: 5.0, temp_missing: 0 } as const;
 

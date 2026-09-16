@@ -83,6 +83,17 @@ The four that miss, in order of size:
 Everything else lands inside 10%, most inside 5%: points/team-game −2.0%,
 completion % +2.2%, yards/attempt +4.4%, FG make % +1.5%.
 
+> **Update (V1.6, 2026-09-16).** Three of the four misses are closed. A single
+> global scale on the fitted penalty hazards (`PENALTY_HAZARD_SCALE`, 1.0 ->
+> 1.22 in both `src/engine/sim.ts` and `analysis/engine/sim.py`) moved
+> penalties/team-game from -20.8% to -2.8%, penalty yards from -15.7% to
+> +3.3%, and DPI from -26.7% to -6.0%, measured over 1,500 games on the
+> pool-free path. Points per team-game moved 21.79 -> 21.85, inside the noise,
+> so the §26 joint calibration is undisturbed. **The §22 table below has not
+> been regenerated** — it wants a run of `analysis/` with the parquet data,
+> which is git-ignored. `points_sd` is unchanged at 8.87 and is now the only
+> open miss. The paragraph below is kept as the record of what was wrong.
+
 **Three of the four misses are one subsystem.** The penalty module is at V1.5
 (`docs/penalty_module_plan.md`, `analysis/25_penalties.py`,
 `analysis/25c_penalty_enforcement.py`) and under-calls fouls across the board.
