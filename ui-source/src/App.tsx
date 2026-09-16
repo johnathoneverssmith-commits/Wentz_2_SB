@@ -12,6 +12,8 @@ import { CoachingDraftRoom } from "./screens/CoachingDraftRoom.tsx";
 import { CoachingDraftSummary } from "./screens/CoachingDraftSummary.tsx";
 import { FreeAgencyBoardTurns } from "./screens/FreeAgencyBoardTurns.tsx";
 import { FreeAgencySummary } from "./screens/FreeAgencySummary.tsx";
+import { TrainingCamp } from "./screens/TrainingCamp.tsx";
+import { TrainingCampResults } from "./screens/TrainingCampResults.tsx";
 import { CoachingStaffHub } from "./screens/CoachingStaffHub.tsx";
 import { DraftPreview } from "./screens/DraftPreview.tsx";
 import { DraftRoom } from "./screens/DraftRoom.tsx";
@@ -104,6 +106,9 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   fantasyDraftSummary: { from: "Draft Summary", to: "Coaching Fantasy Draft" },
   coachingDraftSummary: { from: "Coaching Draft Summary", to: "Free Agency" },
   freeAgencySummary: { from: "Free Agency", to: "Training Camp" },
+  // Training camp itself is single-player — the checkpoint is after the depth
+  // chart, which is the last thing before the league needs to be in step.
+  offseasonDepthChart: { from: "Re-order Depth Chart", to: "Preseason" },
 };
 
 /**
@@ -156,6 +161,8 @@ export function App() {
           <Route path="/coaching-draft-summary" element={<CoachingDraftSummary />} />
           <Route path="/free-agency-board" element={<FreeAgencyBoardTurns />} />
           <Route path="/free-agency-summary" element={<FreeAgencySummary />} />
+          <Route path="/training-camp" element={<TrainingCamp />} />
+          <Route path="/training-camp-results" element={<TrainingCampResults />} />
           <Route path="/coaching" element={<CoachingStaffHub />} />
           <Route path="/roster" element={<RosterCapManagement />} />
           <Route path="/league-rosters" element={<LeagueRosters />} />

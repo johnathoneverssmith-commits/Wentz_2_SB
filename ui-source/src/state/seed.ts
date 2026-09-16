@@ -945,6 +945,7 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
     draft: null,
     coachingDraft: null,
     freeAgencyEvent: null,
+    trainingCamp: null,
     rookieOutcomes: {},
     freeAgency: null,
     standingFreeAgents: [],

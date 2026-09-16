@@ -42,6 +42,7 @@ import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.
 import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconcileCpuTeam } from "@/state/reconciliation.ts";
+import { runCpuTrainingCamps } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
@@ -315,6 +316,12 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // sort themselves out on the way in, so a human arriving at the summary is
   // the only one with anything left to fix — and the league is never carrying
   // thirty-one illegal rosters while one person reads their signings.
+  // Change 5: the CPU teams run their camps as the stage opens, so a human
+  // arriving at the depth chart is the only one with anything outstanding.
+  if (state.stage === "trainingCamp") {
+    runCpuTrainingCamps(state, humanTeamsOf(state));
+  }
+
   if (state.stage === "freeAgencySummary") {
     const humans = humanTeamsOf(state);
     for (const teamCode of Object.keys(state.teams)) {

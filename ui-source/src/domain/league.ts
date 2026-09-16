@@ -22,6 +22,8 @@ export type Stage =
   | "coachingDraftSummary"
   | "freeAgency"
   | "freeAgencySummary"
+  | "trainingCamp"
+  | "trainingCampResults"
   | "coachingHiring" // 5-day coach free-agency period (0 coaches to start)
   | "preseason"
   | "regularSeason"
@@ -167,6 +169,7 @@ export interface PendingGameDay {
 
 import type { CoachingDraftState } from "@/state/coachingDraft";
 import type { FreeAgencyEventState } from "@/state/freeAgencyEvent";
+import type { TrainingCampState } from "@/state/trainingCamp";
 
 export interface LeagueState {
   schemaVersion: number;
@@ -191,6 +194,8 @@ export interface LeagueState {
   coachingDraft: CoachingDraftState | null;
   /** The five-round turn-based free-agency market. */
   freeAgencyEvent: FreeAgencyEventState | null;
+  /** Per-team camp plans and their saved results. */
+  trainingCamp: TrainingCampState | null;
   /** rookie prospect id → whether the viewer's team signed or released them. */
   rookieOutcomes: Record<string, "signed" | "released">;
   /** offseason player FA period. */

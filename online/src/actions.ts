@@ -14,6 +14,7 @@
  */
 import type { ContractOffer, Position } from "@/domain";
 import { planAutopicks, type Subject } from "@/state/rules.ts";
+import type { TrainingCampPlan } from "@/state/trainingCamp.ts";
 import type { LeagueState } from "@/domain";
 
 import { franchiseOf, isCommissioner } from "./auth.js";
@@ -23,6 +24,7 @@ import {
   decideCoachHire,
   decideCoachingPick,
   decideFreeAgencyTurn,
+  decideTrainingCamp,
   decideRookieOutcome,
   decideDraftPick,
   decidePlaceBid,
@@ -113,6 +115,12 @@ export const settleRookie = (
   released: boolean,
   expectedVersion?: string,
 ) => run(actor, expectedVersion, (s) => decideRookieOutcome(s, actor, prospectId, released));
+
+export const submitTrainingCamp = (
+  actor: Actor,
+  plan: TrainingCampPlan,
+  expectedVersion?: string,
+) => run(actor, expectedVersion, (s) => decideTrainingCamp(s, actor, plan));
 
 export const freeAgencyTurn = (
   actor: Actor,

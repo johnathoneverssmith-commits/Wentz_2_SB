@@ -16,6 +16,7 @@ import {
   contractMove,
   draftCoach,
   freeAgencyTurn,
+  submitTrainingCamp,
   hireCoach,
   settleRookie,
   makeDraftPick,
@@ -294,6 +295,11 @@ post("/leagues/:id/actions/rookie", async (ctx) =>
     version(ctx),
   ),
 );
+
+post("/leagues/:id/actions/training-camp", async (ctx) => {
+  const a = await actor(ctx);
+  return submitTrainingCamp(a, field(ctx, "plan", "object"), version(ctx));
+});
 
 post("/leagues/:id/actions/fa-turn", async (ctx) => {
   const a = await actor(ctx);

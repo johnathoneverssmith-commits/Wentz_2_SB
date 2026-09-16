@@ -20,6 +20,7 @@ import type { ContractOffer, Position } from "@/domain";
 
 import { isOnline, onLeagueChange, onlineSession, pull, send } from "./online.ts";
 import { useStore } from "./store.ts";
+import type { TrainingCampPlan } from "./trainingCamp.ts";
 
 export interface ActionResult {
   ok: boolean;
@@ -56,6 +57,8 @@ export interface LeagueActions {
   ) => Promise<ActionResult>;
   /** Sign or release a rookie you drafted. */
   settleRookie: (prospectId: string, released: boolean) => Promise<ActionResult>;
+  /** Run this team's training camp. */
+  submitTrainingCamp: (plan: TrainingCampPlan) => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -131,6 +134,7 @@ export function useLeagueActions(): LeagueActions {
           else store.signRookie(prospectId, code);
           return { ok: true };
         },
+        submitTrainingCamp: async (plan) => store.submitTrainingCamp(plan),
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         draftCoach: async (coachId) => store.draftCoach(coachId),
         hireCoach: async (coachId) => store.hireCoach(coachId),
@@ -191,6 +195,10 @@ export function useLeagueActions(): LeagueActions {
       settleRookie: (prospectId, released) =>
         attempt(() =>
           send((s) => s.client.settleRookie(s.leagueId, prospectId, released, s.version)),
+        ).then(after),
+      submitTrainingCamp: (plan) =>
+        attempt(() =>
+          send((s) => s.client.submitTrainingCamp(s.leagueId, plan, s.version)),
         ).then(after),
       freeAgencyTurn: (move) =>
         attempt(() => send((s) => s.client.freeAgencyTurn(s.leagueId, move, s.version))).then(after),

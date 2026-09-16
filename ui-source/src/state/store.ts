@@ -54,6 +54,11 @@ import {
   runAiCoachingPicks,
 } from "./coachingDraft.ts";
 import { applyOffer, applyPass, checkOffer, runCpuTurns } from "./freeAgencyEvent.ts";
+import {
+  checkCampSubmission,
+  runTrainingCamp,
+  type TrainingCampPlan,
+} from "./trainingCamp.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -129,6 +134,8 @@ export interface StoreActions {
    * the signing team's remaining cap room. */
   signStandingFreeAgent: (playerId: string, offer: ContractOffer) => { ok: boolean; reason?: string };
 
+  /** Run this team's training camp. */
+  submitTrainingCamp: (plan: TrainingCampPlan) => { ok: boolean; reason?: string };
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -482,6 +489,19 @@ export const useStore = create<Store>()(
           const fa = s[faField(subject)];
           if (fa) fa.interstitialVisible = false;
         }),
+
+      submitTrainingCamp: (plan) => {
+        const st = get();
+        const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
+        if (!code) return { ok: false, reason: "You don't have a team." };
+        const check = checkCampSubmission(st, code, plan);
+        if (!check.ok) return check;
+        set((s) => {
+          const mine = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
+          runTrainingCamp(s, mine, plan);
+        });
+        return { ok: true };
+      },
 
       freeAgencyTurn: (move) => {
         const st = get();

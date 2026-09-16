@@ -142,6 +142,12 @@ export class OnlineLeagueClient {
       version,
     });
 
+  submitTrainingCamp = (leagueId: string, plan: unknown, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/training-camp`, {
+      plan,
+      version,
+    });
+
   freeAgencyTurn = (
     leagueId: string,
     move: { playerId?: string; salary?: number; years?: number; pass?: boolean },

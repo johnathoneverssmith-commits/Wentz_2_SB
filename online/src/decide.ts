@@ -48,6 +48,11 @@ import {
   coachingDraftComplete,
   runAiCoachingPicks,
 } from "@/state/coachingDraft.ts";
+import {
+  checkCampSubmission,
+  runTrainingCamp,
+  type TrainingCampPlan,
+} from "@/state/trainingCamp.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
@@ -402,6 +407,35 @@ export function decideFreeAgencyTurn(
             },
           ]
         : []),
+    ],
+  };
+}
+
+/** Running one team's training camp. */
+export function decideTrainingCamp(
+  state: LeagueState,
+  actor: Actor,
+  plan: TrainingCampPlan,
+): Decision {
+  if (state.stage !== "trainingCamp") throw new ActionError("It isn't training camp.");
+  if (state.trainingCamp?.plans[actor.teamCode]?.submitted) {
+    throw new ActionError("You've already run camp.");
+  }
+  const check = checkCampSubmission(state, actor.teamCode, plan);
+  if (!check.ok) throw new ActionError(check.reason ?? "Camp can't run yet.");
+
+  runTrainingCamp(state, actor.teamCode, plan);
+
+  // Camp is a single-player section: this GM moves on alone, and the others
+  // run theirs whenever they get to it. The checkpoint is later, after the
+  // depth chart.
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "camp.run",
+        summary: `${city(actor.teamCode)} finished training camp.`,
+      },
     ],
   };
 }
