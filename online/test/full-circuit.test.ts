@@ -157,3 +157,77 @@ describe("stages that should not move", () => {
     expect(s.stage).not.toBe(before === "preseason" ? "preseason" : before);
   }, 900_000);
 });
+
+/**
+ * And round again.
+ *
+ * The in-season half of this file found two stages that could not be left.
+ * The offseason has more stages than the season does, and Changes 12 and 13
+ * rewired most of them, so it gets the same treatment: press the buttons in
+ * order and check the league arrives back where it started, a year older.
+ */
+describe("the offseason, driven by the buttons", () => {
+  function atEndOfSeason(): LeagueState {
+    const s = leagueInPreseason();
+    for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), PRESEASON_WEEKS);
+    everyoneReady(s);
+    for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), FIRST_BLOCK_LAST_WEEK);
+    everyoneReady(s);
+    s.tradeDeadline!.done = true;
+    everyoneReady(s);
+    everyoneReady(s);
+    s.freeAgencyEvent!.complete = true;
+    everyoneReady(s);
+    everyoneReady(s);
+    everyoneReady(s);
+    for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), REGULAR_SEASON_WEEKS);
+    everyoneReady(s);
+    for (const a of [actorFor(s, 0), actorFor(s, 1)]) {
+      for (let i = 0; i < 4; i++) decideRevealRound(s, a);
+    }
+    everyoneReady(s);
+    return s;
+  }
+
+  it("walks from the end of the season back to a preseason", () => {
+    const s = atEndOfSeason();
+    const seasonPlayed = s.season;
+    expect(s.stage).toBe("endOfSeasonAnnounce");
+
+    const route: Stage[] = [];
+    for (let i = 0; i < 20 && s.stage !== "preseason"; i++) {
+      // the turn-based events end when their own state says so; the gate is
+      // what releases the GMs afterwards, which is what is under test here
+      if (s.stage === "offseasonDraft") {
+        // Change 13: round one is manual, the rest completes on the last pick
+        s.draft!.currentPickIndex = Object.keys(s.teams).length;
+      }
+      if (s.freeAgencyEvent) s.freeAgencyEvent.complete = true;
+      const before = s.stage;
+      const moved = everyoneReady(s);
+      expect(moved, `stuck in ${before}`).toBe(true);
+      route.push(s.stage);
+    }
+
+    expect(s.stage).toBe("preseason");
+    // Changes 12 and 13, in the order the spec puts them
+    expect(route).toContain("offseasonRetirement");
+    expect(route).toContain("offseasonDraft");
+    expect(route).toContain("offseasonDraftSummary");
+    expect(route).toContain("freeAgency");
+    expect(route).toContain("trainingCamp");
+    expect(route).toContain("offseasonDepthChart");
+    // a year has passed and the new season is the one after the one played
+    expect(s.season).toBe(seasonPlayed + 1);
+  }, 1_800_000);
+
+  it("retires players and builds a draft class on the way in", () => {
+    const s = atEndOfSeason();
+    // the splash screen and the follow-up sit between, and each is its own
+    // press — they are single-player screens, not checkpoints
+    while (s.stage !== "offseasonRetirement") expect(everyoneReady(s)).toBe(true);
+    // Change 12: both happen at the checkpoint, so the review is a review
+    expect(s.draftClass.length).toBeGreaterThan(0);
+    expect(Object.values(s.players).some((p) => p.retired)).toBe(true);
+  }, 1_800_000);
+});
