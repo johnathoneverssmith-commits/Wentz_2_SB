@@ -27,10 +27,22 @@ export interface RevealState {
   regularWeek: Record<string, number>;
   /** Playoff rounds revealed, in order. */
   playoffRounds: Record<string, string[]>;
+  /**
+   * How far each GM has walked through a stage that is really several
+   * screens.
+   *
+   * Change 12 puts two screens inside one league stage — retirement review
+   * and draft preview — and lets a GM cross between them without the league
+   * moving. The league has exactly one `stage`, and it should: the league
+   * really is all in the offseason together. What differs is which of that
+   * stage's screens each GM is looking at, and that is a fact about the GM,
+   * so it lives here with the rest of them.
+   */
+  step: Record<string, string>;
 }
 
 export function emptyReveal(): RevealState {
-  return { preseasonWeek: {}, regularWeek: {}, playoffRounds: {} };
+  return { preseasonWeek: {}, regularWeek: {}, playoffRounds: {}, step: {} };
 }
 
 export function revealOf(s: LeagueState): RevealState {
@@ -53,6 +65,18 @@ export function markRevealed(
   s.reveal ??= emptyReveal();
   const map = phase === "PRE" ? s.reveal.preseasonWeek : s.reveal.regularWeek;
   map[gmId] = Math.max(map[gmId] ?? 0, week);
+}
+
+/** Which screen of a multi-screen stage this GM has reached. */
+export function stepOf(s: LeagueState, gmId: string): string | null {
+  return revealOf(s).step?.[gmId] ?? null;
+}
+
+/** Move one GM forward within a stage. Never backward — like every reveal. */
+export function markStep(s: LeagueState, gmId: string, step: string): void {
+  s.reveal ??= emptyReveal();
+  s.reveal.step ??= {};
+  s.reveal.step[gmId] = step;
 }
 
 export function revealedRounds(s: LeagueState, gmId: string): string[] {

@@ -149,6 +149,12 @@ export class OnlineLeagueClient {
       version,
     });
 
+  stepForward = (leagueId: string, step: string, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/step`, {
+      step,
+      version,
+    });
+
   revealRound = (leagueId: string, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/reveal-round`, {
       version,

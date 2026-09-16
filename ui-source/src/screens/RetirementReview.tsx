@@ -1,14 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
-import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { RETIREMENT_AGE } from "@/sim/roster-template";
 import { useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
@@ -21,11 +21,8 @@ export function RetirementReview() {
   const s = useStore();
   const { active, setActive } = useTabs("yours");
   const code = viewerTeamCode(s);
-  const setReturnTo = useStore((st) => st.setReturnTo);
-  const goPreview = (to: string) => {
-    setReturnTo("/retirement");
-    nav(to);
-  };
+  const actions = useLeagueActions();
+  const [busy, setBusy] = useState(false);
 
   const outcomes = useMemo(
     () => sim.retirementOutcomes(s.season, Object.values(s.players).filter((p) => !p.retired)),
@@ -154,19 +151,33 @@ export function RetirementReview() {
         </table>
       </Panel>
 
+      {/*
+        Change 12: the roster, free agency and trade links come off this
+        screen. The draft class has already been generated and the order is
+        already fixed, so none of those could change anything the next screen
+        is about — and free agency does not open for two more stages.
+      */}
       <Footer>
-        <button type="button" className="btnlink" onClick={() => goPreview("/roster")}>
-          Preview roster &amp; cap
-        </button>
-        <button type="button" className="btnlink" onClick={() => goPreview("/free-agency")}>
-          Free agency
-        </button>
-        <button type="button" className="btnlink" onClick={() => goPreview("/trade")}>
-          Propose trade
+        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
+          Nobody waits on you — the draft preview is yours alone.
+        </span>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void actions
+              .stepForward("draftPreview")
+              .then((res) => {
+                if (res.ok) nav("/draft-preview");
+              })
+              .finally(() => setBusy(false));
+          }}
+        >
+          Advance to Draft Preview
         </button>
       </Footer>
-
-      <ReadinessGate title="Retirement review readiness" onAdvance={(r) => nav(r)} />
     </Card>
   );
 }

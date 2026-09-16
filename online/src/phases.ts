@@ -364,8 +364,14 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     signAiDraftPicks(state);
     trimRosters(state);
   }
-  if (from === "offseasonRetirement" && state.stage === "offseasonDraftPrep") {
+  // Change 12: retirements are applied and the draft class is built on the
+  // way *into* the offseason rather than on the way out of the retirement
+  // screen. The review is a review — it shows what already happened — and
+  // every GM has to be shown the same set, which cannot be true if it is
+  // computed when the first one leaves the screen.
+  if (state.stage === "offseasonRetirement" && from !== "offseasonRetirement") {
     commitRetirements(state);
+    state.draftClass ??= sim.generateDraftClass(state.season + 1, state.season);
   }
   // nobody takes the field short — free agency is optional, so a team can
   // arrive here still missing a position entirely

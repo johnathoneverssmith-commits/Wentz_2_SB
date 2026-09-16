@@ -1,22 +1,22 @@
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
 
 import { OvrPill } from "@/components/bits";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
-import { ReadinessGate } from "@/components/ReadinessGate";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { picksOwnedBy } from "@/state/draftPicks";
 import { useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 
 const PROSPECT_GRID = "24px 1.7fr 0.5fr 0.8fr 16px";
 
 export function DraftPreview() {
-  const nav = useNavigate();
   const s = useStore();
+  const actions = useLeagueActions();
+  const [busy, setBusy] = useState(false);
   const { active, setActive } = useTabs("prospects");
   const code = viewerTeamCode(s);
   const myPicks = code ? picksOwnedBy(s, code, s.season) : [];
@@ -168,13 +168,29 @@ export function DraftPreview() {
         )}
       </Panel>
 
+      {/*
+        Change 12: one control, from either tab, and it is the commitment —
+        the league waits at the checkpoint on the far side of it while the
+        last GM finishes reading. The stars survive it; they stay editable on
+        the draft board itself.
+      */}
       <Footer>
         <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
           Draft Targets are private — no other GM sees your stars.
         </span>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy}
+          onClick={() => {
+            if (!confirm("Advance to the draft? You can't come back to the preview.")) return;
+            setBusy(true);
+            void actions.readyUp(true).finally(() => setBusy(false));
+          }}
+        >
+          Advance to Draft
+        </button>
       </Footer>
-
-      <ReadinessGate title="Draft preview readiness" onAdvance={(r) => nav(r)} />
     </Card>
   );
 }

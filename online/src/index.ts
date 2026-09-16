@@ -29,6 +29,7 @@ import {
   signFreeAgent,
   deadlineTurn,
   revealRound,
+  stepForward,
 } from "./actions.js";
 import { franchiseOf, isCommissioner, login, register, signSession } from "./auth.js";
 import { regenerateBroadcast } from "./blocks.js";
@@ -198,6 +199,16 @@ get("/leagues/:id", async (ctx) => {
     }
   }
 
+  // Change 12: draft stars are private. They live on the shared draft object
+  // because the board reads them there, but the league document goes to
+  // everybody — so another GM's targets are stripped on the way out rather
+  // than merely not rendered.
+  if (state.draft?.targetsByGm && franchise) {
+    state.draft.targetsByGm = Object.fromEntries(
+      Object.entries(state.draft.targetsByGm).filter(([gmId]) => gmId === franchise.gmId),
+    );
+  }
+
   const commissioner = await isCommissioner(ctx.params.id!, user.id);
   return {
     league: { id: loaded.league.id, name: loaded.league.name },
@@ -328,6 +339,11 @@ post("/leagues/:id/actions/rookie", async (ctx) =>
 post("/leagues/:id/actions/reveal", async (ctx) => {
   const a = await actor(ctx);
   return revealThrough(a, field(ctx, "through", "number"), version(ctx));
+});
+
+post("/leagues/:id/actions/step", async (ctx) => {
+  const a = await actor(ctx);
+  return stepForward(a, field(ctx, "step", "string"), version(ctx));
 });
 
 post("/leagues/:id/actions/reveal-round", async (ctx) => {

@@ -66,7 +66,7 @@ import {
   skipTurn,
   type DeadlineMove,
 } from "./tradeDeadline.ts";
-import { markRevealed, markRoundRevealed, revealedRounds } from "./reveal.ts";
+import { markRevealed, markRoundRevealed, markStep, revealedRounds } from "./reveal.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -150,6 +150,8 @@ export interface StoreActions {
   deadlineTurn: (move: DeadlineMove) => { ok: boolean; reason?: string };
   /** Reveal the next playoff round to the viewing GM. */
   revealRound: () => { ok: boolean; reason?: string };
+  /** Move the viewing GM to the next screen inside this stage. */
+  stepForward: (step: string) => { ok: boolean; reason?: string };
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -543,6 +545,11 @@ export const useStore = create<Store>()(
           if (result.ok) runDeadlineTurns(s);
         });
         return result;
+      },
+
+      stepForward: (step) => {
+        set((s) => markStep(s, s.viewerGmId, step));
+        return { ok: true };
       },
 
       revealRound: () => {

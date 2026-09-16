@@ -27,6 +27,7 @@ import {
   decideTrainingCamp,
   decideReveal,
   decideRevealRound,
+  decideStep,
   decideDeadlineTurn,
   decideRookieOutcome,
   decideDraftPick,
@@ -177,3 +178,7 @@ export const deadlineTurn = (
 /** Reveal the next playoff round to this GM alone. */
 export const revealRound = (actor: Actor, expectedVersion?: string) =>
   run(actor, expectedVersion, (s) => decideRevealRound(s, actor));
+
+/** Move this GM to the next screen inside the current stage. */
+export const stepForward = (actor: Actor, step: string, expectedVersion?: string) =>
+  run(actor, expectedVersion, (s) => decideStep(s, actor, step));

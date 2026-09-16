@@ -6,6 +6,7 @@ import { ScreenBoundary } from "@/components/ScreenBoundary";
 import { Checkpoint } from "./screens/Checkpoint.tsx";
 import { isOnline, resumeLeague, lastLeagueId } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
+import { stepOf } from "@/state/reveal";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
@@ -44,8 +45,21 @@ import { TradeProposal } from "./screens/TradeProposal.tsx";
 import { WeeklyTeamHub } from "./screens/WeeklyTeamHub.tsx";
 
 /** Redirect the bare "/" to the current stage's canonical screen. */
+/**
+ * Where a GM belongs right now.
+ *
+ * Almost always a pure function of the league stage. The exception is Change
+ * 12's offseason, where one stage holds two screens and each GM crosses
+ * between them on their own — so the marker, when set, wins. This is also
+ * what puts a returning disconnected GM back on the screen they committed
+ * to rather than at the start of the stage.
+ */
 function StageHome() {
   const stage = useStore((s) => s.stage);
+  const step = useStore((s) => stepOf(s, s.viewerGmId));
+  if (stage === "offseasonRetirement" && step === "draftPreview") {
+    return <Navigate to="/draft-preview" replace />;
+  }
   return <Navigate to={STAGE_HOME[stage]} replace />;
 }
 

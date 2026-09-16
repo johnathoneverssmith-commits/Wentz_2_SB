@@ -54,7 +54,13 @@ import {
   runTrainingCamp,
   type TrainingCampPlan,
 } from "@/state/trainingCamp.ts";
-import { markRevealed, markRoundRevealed, revealedRounds, revealedWeek } from "@/state/reveal.ts";
+import {
+  markRevealed,
+  markRoundRevealed,
+  markStep,
+  revealedRounds,
+  revealedWeek,
+} from "@/state/reveal.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
 import {
   proposeAtDeadline,
@@ -463,6 +469,28 @@ export function decideTrainingCamp(
  * decides who is left, and watching them in a batch is watching the season
  * end in a paragraph.
  */
+/**
+ * Step one GM forward inside a stage that holds several screens.
+ *
+ * Change 12: the retirement review and the draft preview are one league
+ * stage and two screens, and crossing between them is this GM's business
+ * alone. Irreversible like every other advance — the marker only moves
+ * forward, so a back button lands on the screen they committed to rather
+ * than on the one they left.
+ */
+export function decideStep(state: LeagueState, actor: Actor, step: string): Decision {
+  markStep(state, actor.gmId, step);
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "step",
+        summary: `${city(actor.teamCode)} moved on.`,
+      },
+    ],
+  };
+}
+
 export function decideRevealRound(state: LeagueState, actor: Actor): Decision {
   if (state.stage !== "playoffs") throw new ActionError("There's no round to reveal.");
   const seen = revealedRounds(state, actor.gmId);
