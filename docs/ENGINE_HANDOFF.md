@@ -108,49 +108,53 @@ before changing anything: correlated within-game outcomes (the engine treats
 too many plays as independent), missing garbage-time behaviour, and turnover
 clustering.
 
-#### `points_sd`: investigated, not fixed (2026-09-16)
+#### `points_sd`: diagnosed (2026-09-16)
 
-Measured over 4,000 team-games on the pool-free path, so the arithmetic is
-done and the next person starts from here rather than from scratch:
+**The first version of this section was wrong** and is replaced. It guessed
+that the engine lacked a game-level "form" factor and that the missing
+variance was week-to-week. The data says the opposite. Measured against
+2023–25 (1,632 team-games) and against the engine with the rating layer on
+(2,000 team-games):
 
-| quantity | engine | real |
-|---|---|---|
-| points/team-game | 21.72, sd **8.76** | 22.56, sd **9.93** |
-| drives/team-game | 10.92, sd 1.53 | 10.74 |
-| points per drive | 2.02, sd 0.85 | — |
+| | real | engine |
+|---|---:|---:|
+| points/team-game | 22.56 | 20.73 |
+| points sd | **9.93** | 8.92 |
+| **between**-team-season sd | **4.28** | **2.15** |
+| within-team-season sd | 8.96 | 8.68 |
 
-**The drive count is not the problem.** Decomposing points = drives ×
-points-per-drive: the drive-count term contributes 9.6 of the variance and the
-points-per-drive term 86.2, against a total of 76.7. (The two sum to more than
-the total because they are negatively correlated, which is football working
-correctly — a team that scores quickly hands the ball back and gets more
-drives.) So essentially all the missing variance is in **how well a team plays
-on a given day**, not in how many chances it gets.
+**Week-to-week variation is already right** — 8.68 against 8.96, about 3%
+light. What is missing is *between* teams: the engine's good teams are not
+good enough and its bad teams are not bad enough, by almost exactly a factor
+of two. Put the real between-team spread on the engine's within-team spread
+and you get `sqrt(4.28² + 8.68²) = 9.68`, which is inside tolerance of 9.93.
 
-**The mechanism that would fix it** is the one named above: the engine has no
-game-level latent "form". Every play is drawn from the same distribution given
-the ratings, so a team's efficiency has no day-to-day swing, and the league
-comes out under-dispersed. A multiplicative per-game, per-team form factor is
-the standard way to add exactly that, and it adds variance without moving the
-mean.
+The right tail is where it shows up. Real football puts 20.7% of team-games
+over 30 points; the engine manages 14.9%. The left tails already agree (8.5%
+vs 8.1% under 10 points), which is the reverse of what the earlier guess
+predicted.
 
-**How big it would have to be: sd ≈ 0.215.** That is a ±21% game-to-game swing
-in team scoring efficiency, which is a big number and is exactly why this was
-not shipped as a constant. It closes the summary statistic by construction
-while being completely unvalidated on *shape*, and it would feed straight into
-win probability, the home-field calibration (§32) and the playoff model.
+**This is independently confirmed by a number already in the repo.**
+`artifacts/models/m24b_rating_layer_validation.report.md` records the
+favourite-by-overall win rate at **58.8%**, and the favourite-by-modelled-edge
+rate at 60.0%, against NFL point-spread favourites at **66–70%**. Two
+unrelated measurements — scoring spread and win rate — both say the rating
+layer carries about half the team-quality signal it should.
 
-**What is needed to do it properly** is the empirical per-game scoring
-distribution — percentiles, not just the mean and sd, which is all
-`artifacts/validation/simulation_validation.json` carries. That means a run of
-`analysis/` against the parquet data, which is git-ignored, so it could not be
-checked here. The specific question to ask of it: **is the real left tail
-fatter than the engine's?** The engine's own distribution is 5th pct 7, 10th
-10, 25th 16, 50th 21, 75th 27, 90th 34, 95th 37, 99th 44, with 6.9% of
-team-games under 10 points and 6.1% over 35. If real football has materially
-more sub-10 performances and a similar right tail, the missing variance is
-*bad days*, not shootouts — and a symmetric form factor would be the wrong
-shape even though it fixes the number.
+**Why, and what not to do about it.** The same report shows all seven modelled
+families landing at 0.99–1.0× their historical anchors by design magnitude.
+Each modelled channel is calibrated correctly. So the shortfall is not a bad
+fit to be scaled away — multiplying the betas would make every one of those
+seven ratios wrong by 2× in order to fix an aggregate. The report names the
+actual cause in passing: *"overall folds in depth / special teams / blocking
+the V1 engine does not model yet."* Team quality acts through more channels
+than V1 models, each modelled one is right, and the unmodelled remainder is
+missing entirely.
+
+That makes the fix an **addition, not a rescaling**: a team-quality channel
+carrying what the modelled families cannot see, calibrated against two targets
+that should move together — between-team points sd 2.15 → 4.28, and favourite
+win rate 58.8% → 66–70%.
 
 ### Known residuals, already investigated
 
