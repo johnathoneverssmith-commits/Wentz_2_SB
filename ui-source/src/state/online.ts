@@ -16,7 +16,7 @@
  * which is the honest answer, and why the actions that spend money return a
  * promise and the screens already show the reason they come back with.
  */
-import type { LeagueState } from "@/domain";
+import type { GameBroadcast, LeagueState } from "@/domain";
 import { OnlineError, OnlineLeagueClient, type StreamChange } from "@/sim/OnlineLeagueClient";
 
 interface OnlineSession {
@@ -264,6 +264,19 @@ export async function send<T>(
   if (!session) throw new OnlineError("Not in an online league.", 400);
   const result = await act(session);
   return { result, state: await pull() };
+}
+
+/**
+ * Fetch one game's play-by-play, or null when this is a local league.
+ *
+ * Offline the broadcast is already on the game — only the online block
+ * throws it away, so only the online path has to ask for it back.
+ */
+export async function fetchBroadcast(gameId: string): Promise<GameBroadcast | null> {
+  const s = session;
+  if (!s) return null;
+  const { broadcast } = await s.client.broadcast(s.leagueId, gameId);
+  return broadcast;
 }
 
 /** Milliseconds until this phase closes without you, for the countdown. */

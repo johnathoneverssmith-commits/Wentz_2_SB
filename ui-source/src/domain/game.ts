@@ -68,6 +68,16 @@ export interface GameResult {
   broadcast?: GameBroadcast;
   /** every injury the game produced, for every game in the slate. */
   injuries?: InjuryEvent[];
+  /**
+   * Who was unavailable when this game was simulated, by team.
+   *
+   * Play-by-play is not saved — it is re-derived from the game's seed when a
+   * GM asks to watch it. Re-deriving only lands on the same game if the two
+   * rosters are the same ones the block used, and the only thing that moves
+   * between weeks of a block is who is hurt. So the exclusions are saved (a
+   * handful of ids) and the rosters are not (a hundred each).
+   */
+  sidelined?: { home: string[]; away: string[] };
 }
 
 export interface ScheduledGame {

@@ -1,3 +1,4 @@
+import { broadcastGame } from "../../src/engine/broadcast.js";
 import { simulateGame } from "../../src/engine/sim.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
@@ -49,18 +50,21 @@ export function simulateBlock(
   fromWeek: number,
   toWeek: number,
 ): number {
-  const rosterFor = (code: string): Roster => {
-    const squad = availableRoster(
-      Object.values(state.players).filter(
-        (p) => p.nfl_team === code && !p.retired && !p.free_agent,
-      ),
+  const squadFor = (code: string) => {
+    const all = Object.values(state.players).filter(
+      (p) => p.nfl_team === code && !p.retired && !p.free_agent,
     );
-    return new Roster(
+    const squad = availableRoster(all);
+    const dressed = new Set(squad.map((p) => p.id));
+    return { squad, sidelined: all.filter((p) => !dressed.has(p.id)).map((p) => p.id) };
+  };
+
+  const rosterOf = (code: string, squad: { id: string }[]): Roster =>
+    new Roster(
       toEngine(code),
       squad as unknown as EnginePlayer[],
       state.depthChart[code] as Record<string, readonly string[]> | undefined,
     );
-  };
 
   let played = 0;
   for (let week = fromWeek; week <= toWeek; week++) {
@@ -74,9 +78,11 @@ export function simulateBlock(
       const id = `${state.season}-${phase}-${week}-${g.homeTeam}-${g.awayTeam}`;
       if (already.has(id)) continue;
       const seed = gameSeed(state, week, phase, g.homeTeam, g.awayTeam);
+      const home = squadFor(g.homeTeam);
+      const away = squadFor(g.awayTeam);
       const sim = simulateGame(seed, toEngine(g.homeTeam), toEngine(g.awayTeam), {
-        homeRoster: rosterFor(g.homeTeam),
-        awayRoster: rosterFor(g.awayTeam),
+        homeRoster: rosterOf(g.homeTeam, home.squad),
+        awayRoster: rosterOf(g.awayTeam, away.squad),
         trace: true,
         injuries: true,
       });
@@ -90,6 +96,7 @@ export function simulateBlock(
         homeScore: sim.score[0],
         awayScore: sim.score[1],
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
+        sidelined: { home: home.sidelined, away: away.sidelined },
       });
       played++;
     }
@@ -109,3 +116,47 @@ export function simulateBlock(
   return played;
 }
 
+
+/**
+ * The play-by-play for one already-played game, rebuilt rather than read.
+ *
+ * The block saved the score and threw the trace away, so this re-runs the
+ * game from the same seed against the same two lineups. It is exact, not
+ * approximate: the seed is a pure function of the matchup, ratings do not
+ * move during a season, and the one thing that does move between weeks —
+ * who was hurt — was written down at the time.
+ *
+ * Nothing here touches `state`. A GM watching week three cannot change week
+ * four by watching it.
+ */
+export function regenerateBroadcast(state: LeagueState, gameId: string) {
+  const game = state.games.find((g) => g.id === gameId);
+  if (!game || !game.played) return null;
+
+  const out = new Set([...(game.sidelined?.home ?? []), ...(game.sidelined?.away ?? [])]);
+  const rosterFor = (code: string): Roster => {
+    const squad = Object.values(state.players).filter(
+      (p) => p.nfl_team === code && !p.retired && !p.free_agent && !out.has(p.id),
+    );
+    return new Roster(
+      toEngine(code),
+      squad as unknown as EnginePlayer[],
+      state.depthChart[code] as Record<string, readonly string[]> | undefined,
+    );
+  };
+
+  const seed = gameSeed(state, game.week, game.phase, game.homeTeam, game.awayTeam);
+  const cast = broadcastGame(seed, toEngine(game.homeTeam), toEngine(game.awayTeam), {
+    homeRoster: rosterFor(game.homeTeam),
+    awayRoster: rosterFor(game.awayTeam),
+  });
+  // the engine spells the Rams differently; the UI should never see that
+  const toUi = (c: string): string => (c === "LA" ? "LAR" : c);
+  return {
+    ...cast,
+    home: game.homeTeam,
+    away: game.awayTeam,
+    drives: cast.drives.map((d) => ({ ...d, team: toUi(d.team) })),
+    injuries: cast.injuries.map((i) => ({ ...i, team: toUi(i.team) })),
+  };
+}

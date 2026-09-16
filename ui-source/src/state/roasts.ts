@@ -35,6 +35,17 @@ export interface RoastContext {
   onBye: boolean;
   /** Season one has no prior games; the roast comes off the draft instead. */
   fromDraft: boolean;
+  /**
+   * How last season went, when there was one. A preseason roast has no games
+   * to work with — the joke has to come off the year that just ended.
+   */
+  lastSeason?: {
+    wins: number;
+    losses: number;
+    madePlayoffs: boolean;
+    wonSuperBowl: boolean;
+    furthestRound: string;
+  };
 }
 
 type Situation =
@@ -47,6 +58,10 @@ type Situation =
   | "bye"
   | "draftReach"
   | "draftStrong"
+  | "champion"
+  | "lastSeasonGood"
+  | "lastSeasonBad"
+  | "collapse"
   | "mediocre";
 
 /**
@@ -121,6 +136,29 @@ const LIBRARY: Record<Situation, string[]> = {
     "{gm} had a good draft. Annoyingly, infuriatingly good.",
     "{team} came out of the draft with {star} and very few excuses left.",
   ],
+  champion: [
+    "{team} won it all and {gm} has not shut up since. The ring is load-bearing.",
+    "Defending champions {team}. Every opponent this year has that game circled and {gm} knows it.",
+    "{gm} is a champion, which is the only reason anyone is still pretending the {unit} were fine.",
+    "{team} raise a banner. Historically, the year after is where this gets funny.",
+  ],
+  lastSeasonGood: [
+    "{team} went {margin} games over .500 last year, and {gm} has taken that as a personality.",
+    "{gm}'s team was good last season. {star} was the reason, and he would like that noted.",
+    "{team} were one of the better outfits in the league and still could not fix the {unit}.",
+    "{gm} had a winning season, which in this league buys roughly nine weeks of patience.",
+  ],
+  lastSeasonBad: [
+    "{team} lost {margin} more than they won last season. {gm} calls it a foundation.",
+    "{gm} is coming off a bad year and has spent the offseason blaming the {unit}. Fairly, mind you.",
+    "{team} were dreadful last season. {star} is still here, which is either loyalty or paperwork.",
+    "{gm} returns from a losing season with the same plan and more confidence. Bold.",
+  ],
+  collapse: [
+    "{team} made the playoffs and went out immediately. {gm} has described this as progress.",
+    "{gm}'s season ended the moment it mattered. The {unit} picked a memorable week to show up late.",
+    "{team} got in and got out. {star} deserved better and has said so in several interviews.",
+  ],
   mediocre: [
     "{team} were fine. Aggressively, forgettably fine.",
     "{gm} did enough. Nobody is writing a documentary about it.",
@@ -135,6 +173,14 @@ function situationOf(c: RoastContext): Situation {
   if (c.onBye) return "bye";
   if (c.fromDraft) {
     return c.bestOverall >= 88 ? "draftStrong" : "draftReach";
+  }
+  if (c.lastSeason) {
+    const { wins, losses, wonSuperBowl, madePlayoffs, furthestRound } = c.lastSeason;
+    if (wonSuperBowl) return "champion";
+    if (madePlayoffs && furthestRound === "WC") return "collapse";
+    if (wins - losses >= 3) return "lastSeasonGood";
+    if (losses - wins >= 3) return "lastSeasonBad";
+    return "mediocre";
   }
   const played = c.wins + c.losses;
   if (played >= 2 && c.losses === 0) return "undefeated";
@@ -246,5 +292,43 @@ export function roastsForWeek(
     .map((g) => {
       const ctx = roastContext(s, g.teamCode, g.name, games, fromDraft);
       return { teamCode: g.teamCode, gmName: g.name, line: roastFor(ctx, seedKey) };
+    });
+}
+
+/**
+ * The preseason set: one line per human GM, fixed for the whole preseason.
+ *
+ * Not derived from revealed games on purpose. Every GM has to read the same
+ * cards — a roast that changed depending on how far you had watched would be
+ * a spoiler channel, since the line about somebody's 0-3 start would tell you
+ * they had started 0-3. So it comes off the completed prior season, or off
+ * the fantasy draft in season one, and does not move again until the regular
+ * season starts.
+ */
+export function preseasonRoasts(s: LeagueState): { teamCode: string; gmName: string; line: string }[] {
+  const priorSeason = s.season - 1;
+  return s.gms
+    .filter((g) => g.isHuman && g.teamCode)
+    .map((g) => {
+      const outcome = s.history.find((h) => h.gmId === g.id && h.season === priorSeason);
+      const ctx = roastContext(s, g.teamCode, g.name, [], !outcome);
+      // no games went into this, so "they were on bye" is not the reading
+      ctx.onBye = false;
+      if (outcome) {
+        ctx.lastSeason = {
+          wins: outcome.regularSeasonRecord.wins,
+          losses: outcome.regularSeasonRecord.losses,
+          madePlayoffs: outcome.madePlayoffs,
+          wonSuperBowl: outcome.wonSuperBowl,
+          furthestRound: outcome.furthestRound,
+        };
+        // {margin} reads as "games over .500" in the last-season lines
+        ctx.biggestMargin = outcome.regularSeasonRecord.wins - outcome.regularSeasonRecord.losses;
+      }
+      return {
+        teamCode: g.teamCode,
+        gmName: g.name,
+        line: roastFor(ctx, `preseason|${s.season}`),
+      };
     });
 }

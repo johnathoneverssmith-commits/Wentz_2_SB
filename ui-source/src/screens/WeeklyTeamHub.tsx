@@ -8,7 +8,9 @@ import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
 import { PRESEASON_WEEKS, REGULAR_SEASON_WEEKS, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
-import { hasMoreToReveal, revealedWeek } from "@/state/reveal";
+import { hasMoreToReveal, revealedWeek, visibleGames } from "@/state/reveal";
+import { preseasonRoasts } from "@/state/roasts";
+import { rankBy, staffCards } from "@/state/staffRatings";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
@@ -77,6 +79,10 @@ export function WeeklyTeamHub() {
   const phase = currentPhase(s);
   // online the block is precomputed and these weeks are revealed, not played
   const online = onlineSession() !== null;
+  const roasts = s.stage === "preseason" ? preseasonRoasts(s) : [];
+  const staffCardsAll = staffCards(s);
+  const staffOvr = staffCardsAll.find((c) => c.teamCode === code)?.overall ?? 0;
+  const staffRank = rankBy(staffCardsAll, "overall").get(code) ?? 0;
   const isPreseason = s.stage === "preseason";
   const g = weekGame(s, code);
   const oppCode = opponentOf(g, code);
@@ -169,25 +175,44 @@ export function WeeklyTeamHub() {
       <Panel id="overview" open={active === "overview"}>
         {/* inert in a single-player dynasty; the component decides */}
         <LeagueRoster />
+        {/*
+          Change 6: in the preseason this is one roast per human GM instead of
+          scouting notes. The notes were true and nobody read them; a league
+          of four friends wants to know what the league thinks of them, and it
+          is the only thing on this screen that is about the other GMs rather
+          than about football.
+        */}
         <p className="subhead" style={{ marginTop: 0 }}>
-          Around the league — things to watch
+          {s.stage === "preseason" ? "Around the league" : "Around the league — things to watch"}
         </p>
-        {notes.map((n) => (
-          <div className="watchnote" key={n.gmId}>
-            <div className="who">
-              {n.gmName} · {TEAMS_BY_CODE[n.teamCode]!.label}
-            </div>
-            <p className="txt">
-              <strong style={{ color: "var(--ink)" }}>{n.player}</strong> {n.note}.
-            </p>
-          </div>
-        ))}
+        {s.stage === "preseason"
+          ? roasts.map((r) => (
+              <div className="watchnote" key={r.teamCode}>
+                <div className="who">
+                  {r.gmName} · {TEAMS_BY_CODE[r.teamCode]!.label}
+                </div>
+                <p className="txt">{r.line}</p>
+              </div>
+            ))
+          : notes.map((n) => (
+              <div className="watchnote" key={n.gmId}>
+                <div className="who">
+                  {n.gmName} · {TEAMS_BY_CODE[n.teamCode]!.label}
+                </div>
+                <p className="txt">
+                  <strong style={{ color: "var(--ink)" }}>{n.player}</strong> {n.note}.
+                </p>
+              </div>
+            ))}
 
         <p className="subhead">Unit ranks</p>
-        <div className="split-3" style={{ gap: 10 }}>
+        <div className="split-4" style={{ gap: 10 }}>
           <UnitCard label="Offense" rank={team.ratings.offenseRank} rating={team.ratings.offense} />
           <UnitCard label="Defense" rank={team.ratings.defenseRank} rating={team.ratings.defense} />
           <UnitCard label="Special teams" rank={team.ratings.specialTeamsRank} rating={team.ratings.specialTeams} />
+          {/* Change 6: a staff is a unit like any other, and after drafting
+              twelve of them a GM should be able to see where that landed. */}
+          <UnitCard label="Coaching" rank={staffRank} rating={staffOvr} />
         </div>
       </Panel>
 
@@ -314,21 +339,39 @@ export function WeeklyTeamHub() {
       </Panel>
 
       <Footer>
-        <button type="button" className="btnlink" onClick={() => nav("/roster")}>
-          Roster &amp; Cap
+        {/*
+          Change 6: roster, coaching and free agency come off the in-season
+          hub. Weeks 1-9 are precomputed, so a roster move now could not
+          affect a game that has already been played — offering the controls
+          would promise something the schedule cannot deliver. They return in
+          the offseason, where they mean something.
+        */}
+        <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
+          Full Schedule
         </button>
-        <button type="button" className="btnlink" onClick={() => nav("/coaching")}>
-          Coaching Staff
+        <button type="button" className="btnlink" onClick={() => nav("/player-stats")}>
+          Player Statistics
         </button>
-        <button type="button" className="btnlink" onClick={() => nav("/free-agency")}>
-          Free Agency
+        <button type="button" className="btnlink" onClick={() => nav("/league-stats")}>
+          League Statistics
         </button>
         {(() => {
-          const last = lastResult(s, code);
+          // locked until this GM has revealed a game of their own — there is
+          // no box score to open for a week they have not watched
+          const last = lastRevealedResult(s, code);
           return last && phase && hasBoxScore(last) ? (
-            <button type="button" className="btnlink btn-primary" onClick={() => nav(`/box/${last.id}`)}>
-              Latest box score
-            </button>
+            <>
+              <button type="button" className="btnlink" onClick={() => nav(`/box/${last.id}`)}>
+                Latest Box Score
+              </button>
+              <button
+                type="button"
+                className="btnlink btn-primary"
+                onClick={() => nav(`/watch/${last.id}`)}
+              >
+                Watch Play-by-Play
+              </button>
+            </>
           ) : null;
         })()}
         {!phase && (
@@ -457,8 +500,16 @@ function RevealControls() {
   );
 }
 
-function lastResult(s: ReturnType<typeof useStore.getState>, code: string) {
-  return [...s.games]
+/**
+ * The most recent game this GM has actually watched.
+ *
+ * Deliberately not "the most recent game played" — online the block runs
+ * ahead of every viewer, and opening a box score for a week they have not
+ * revealed would hand them the result they were about to watch.
+ */
+function lastRevealedResult(s: ReturnType<typeof useStore.getState>, code: string) {
+  const seen = onlineSession() ? visibleGames(s, s.viewerGmId) : s.games;
+  return [...seen]
     .filter((x) => x.played && (x.homeTeam === code || x.awayTeam === code))
     .sort((a, b) => b.week - a.week)[0];
 }

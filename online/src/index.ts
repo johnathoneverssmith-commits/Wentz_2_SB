@@ -29,6 +29,7 @@ import {
   signFreeAgent,
 } from "./actions.js";
 import { franchiseOf, isCommissioner, login, register, signSession } from "./auth.js";
+import { regenerateBroadcast } from "./blocks.js";
 import { ActionError, migrate, readLeague } from "./db.js";
 import {
   clearSessionCookie,
@@ -52,6 +53,7 @@ import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js
 import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
 import { isInSeason } from "@/state/rules.ts";
+import { visibleGames } from "@/state/reveal.ts";
 import { openStream } from "./stream.js";
 
 /** Body fields, checked at the door so a handler can trust what it reads. */
@@ -207,6 +209,30 @@ get("/leagues/:id", async (ctx) => {
     msLeft: timeLeft(loaded),
     waitingOn: waitingOn(loaded.state),
   };
+});
+
+/**
+ * Play-by-play for one game, rebuilt on request.
+ *
+ * Gated on the asking GM having revealed it: the league document holds every
+ * game of the block, so an ungated endpoint would hand out next week's result
+ * to anyone who could guess an id.
+ */
+get("/leagues/:id/games/:gameId/broadcast", async (ctx) => {
+  const user = requireUser(ctx);
+  const loaded = await readLeague(ctx.params.id!);
+  if (!loaded) throw new ActionError("No such league.", 404);
+  const franchise = await franchiseOf(ctx.params.id!, user.id);
+  if (!franchise) throw new ActionError("You're not in this league.", 403);
+
+  const gameId = ctx.params.gameId!;
+  const seen = visibleGames(loaded.state, franchise.gmId);
+  if (!seen.some((g) => g.id === gameId)) {
+    throw new ActionError("You haven't watched that game yet.", 403);
+  }
+  const broadcast = regenerateBroadcast(loaded.state, gameId);
+  if (!broadcast) throw new ActionError("No such game.", 404);
+  return { broadcast };
 });
 
 get("/leagues/:id/feed", async (ctx) => {

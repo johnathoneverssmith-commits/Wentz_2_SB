@@ -21,6 +21,7 @@ import { EndOfSeasonAnnounce, SeasonComplete } from "./screens/EndOfSeason.tsx";
 import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
 import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
+import { WatchGame } from "./screens/WatchGame.tsx";
 import { FullSchedule } from "./screens/FullSchedule.tsx";
 import { GameDay } from "./screens/GameDay.tsx";
 import { LeagueHistory } from "./screens/LeagueHistory.tsx";
@@ -172,6 +173,7 @@ export function App() {
           <Route path="/league-stats" element={<LeagueStatsRankings />} />
           <Route path="/player-stats" element={<PlayerStatistics />} />
           <Route path="/box/:gameId" element={<FullBoxScore />} />
+          <Route path="/watch/:gameId" element={<WatchGame />} />
           <Route path="/retirement" element={<RetirementReview />} />
           <Route path="/rookie-signings" element={<RookieSignings />} />
           <Route path="/draft-preview" element={<DraftPreview />} />

@@ -18,7 +18,7 @@
  * moved on since, and the client is told to reload rather than silently
  * clobbering somebody.
  */
-import type { ContractOffer, LeagueConfig, LeagueState, Position } from "@/domain";
+import type { ContractOffer, GameBroadcast, LeagueConfig, LeagueState, Position } from "@/domain";
 
 export interface OnlineUser {
   id: string;
@@ -180,6 +180,19 @@ export class OnlineLeagueClient {
 
   /** The whole league, as the server has it. This is the source of truth. */
   load = (leagueId: string) => this.call<LeagueView>(`/leagues/${leagueId}`);
+
+  /**
+   * The play-by-play for one revealed game, rebuilt server-side.
+   *
+   * Fetched on demand rather than carried in the league document: a
+   * broadcast is ~44KB and the document travels whole on every pull, so
+   * shipping them all would cost every GM six megabytes per request for
+   * something opened a handful of times a season.
+   */
+  broadcast = (leagueId: string, gameId: string) =>
+    this.call<{ broadcast: GameBroadcast }>(
+      `/leagues/${leagueId}/games/${encodeURIComponent(gameId)}/broadcast`,
+    );
 
   /** What's waiting on you, across every league you're in. */
   inbox = () => this.call<{ leagues: InboxLeague[] }>("/inbox");
