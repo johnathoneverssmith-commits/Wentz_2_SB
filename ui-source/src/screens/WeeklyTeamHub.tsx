@@ -436,10 +436,13 @@ function RevealControls() {
 
   const reveal = (through: number): void => {
     setBusy(true);
+    // the weeks this press uncovers, which is what the results screen shows:
+    // one tab for a single week, one per week for "simulate the rest"
+    const from = seen + 1;
     void actions
       .revealThrough(through)
       .then((res) => {
-        if (res.ok) nav("/game-day");
+        if (res.ok) nav(`/results/${phase}/${from}/${through}`);
       })
       .finally(() => setBusy(false));
   };

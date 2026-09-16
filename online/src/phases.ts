@@ -19,10 +19,11 @@
  * it twice, or while somebody is mid-action, is safe.
  */
 import type { LeagueState } from "@/domain";
-import { PRESEASON_WEEKS, resolveTransition } from "@/state/stageMachine.ts";
+import { FIRST_BLOCK_LAST_WEEK, PRESEASON_WEEKS, resolveTransition } from "@/state/stageMachine.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
 import { simulateBlock } from "./blocks.js";
+import { wipePreseason } from "@/state/preseasonWipe.ts";
 import {
   advanceBiddingDayOn,
   beginDraft,
@@ -364,6 +365,18 @@ export function onStageEntered(state: LeagueState, from?: string): void {
       simulateBlock(state, "PRE", 1, PRESEASON_WEEKS);
       state.reveal = emptyReveal();
     }
+  }
+
+  // Change 6: the preseason is deleted on the way into the regular season,
+  // once, after every GM has committed — which is exactly here, since this
+  // only runs when the stage actually moved. Change 7: weeks 1-9 are then
+  // precomputed the same way the preseason was, and week 10 deliberately is
+  // not; the trade deadline sits between them and has to be able to change
+  // what happens after it.
+  if (state.stage === "regularSeason" && from === "preseason") {
+    wipePreseason(state);
+    const alreadyPlayed = state.games.some((g) => g.phase === "REG" && g.played);
+    if (!alreadyPlayed) simulateBlock(state, "REG", 1, FIRST_BLOCK_LAST_WEEK);
   }
 
   recomputeTeamRatings(state);

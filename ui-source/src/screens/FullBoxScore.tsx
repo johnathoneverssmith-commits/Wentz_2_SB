@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -10,6 +10,9 @@ import { seconds } from "@/util/format";
 export function FullBoxScore() {
   const { gameId } = useParams();
   const nav = useNavigate();
+  // A results screen passes its own URL in `back`, so the one way out of this
+  // screen is the week the GM left — see SeasonResults.
+  const back = useSearchParams()[0].get("back");
   const game = useStore((s) => s.games.find((g) => g.id === gameId));
   const { active, setActive } = useTabs("team");
 
@@ -182,12 +185,20 @@ export function FullBoxScore() {
       </Panel>
 
       <Footer>
-        <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
-          Full schedule
-        </button>
-        <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
-          Back to team hub
-        </button>
+        {back ? (
+          <button type="button" className="btnlink btn-primary" onClick={() => nav(back)}>
+            Return to Game Results
+          </button>
+        ) : (
+          <>
+            <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
+              Full schedule
+            </button>
+            <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
+              Back to team hub
+            </button>
+          </>
+        )}
       </Footer>
     </Card>
   );

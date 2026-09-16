@@ -21,6 +21,7 @@ import { EndOfSeasonAnnounce, SeasonComplete } from "./screens/EndOfSeason.tsx";
 import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
 import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
+import { SeasonResults } from "./screens/SeasonResults.tsx";
 import { WatchGame } from "./screens/WatchGame.tsx";
 import { FullSchedule } from "./screens/FullSchedule.tsx";
 import { GameDay } from "./screens/GameDay.tsx";
@@ -110,6 +111,10 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // Training camp itself is single-player — the checkpoint is after the depth
   // chart, which is the last thing before the league needs to be in step.
   offseasonDepthChart: { from: "Re-order Depth Chart", to: "Preseason" },
+  // Change 6: advancing out of the preseason is individual and irreversible,
+  // and the league waits here while the last GM finishes watching. The wipe
+  // and the week 1-9 block both happen on the far side of this.
+  preseason: { from: "Preseason", to: "Regular Season" },
 };
 
 /**
@@ -174,6 +179,8 @@ export function App() {
           <Route path="/player-stats" element={<PlayerStatistics />} />
           <Route path="/box/:gameId" element={<FullBoxScore />} />
           <Route path="/watch/:gameId" element={<WatchGame />} />
+          <Route path="/results/:phase/:from/:to" element={<SeasonResults />} />
+          <Route path="/results/:phase/:from/:to/:week" element={<SeasonResults />} />
           <Route path="/retirement" element={<RetirementReview />} />
           <Route path="/rookie-signings" element={<RookieSignings />} />
           <Route path="/draft-preview" element={<DraftPreview />} />

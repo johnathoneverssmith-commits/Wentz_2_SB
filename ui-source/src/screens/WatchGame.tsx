@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Card, CardHeader, Footer } from "@/components/primitives";
 import type { GameBroadcast } from "@/domain";
@@ -24,6 +24,11 @@ import { Gamecast } from "./gamecast/Gamecast";
 export function WatchGame() {
   const { gameId } = useParams();
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  // Where the GM came from. A results screen hands it its own URL, week and
+  // all, so "Return to Game Results" lands on the tab they left rather than
+  // on the default one.
+  const back = params.get("back");
   const game = useStore((s) => s.games.find((g) => g.id === gameId));
 
   const [fetched, setFetched] = useState<GameBroadcast | null>(null);
@@ -55,7 +60,15 @@ export function WatchGame() {
 
   const broadcast = saved ?? fetched;
 
-  const back = (
+  // Coming from a results screen, that is the only way out the spec allows:
+  // the detail views are a side trip, not a fork in the road.
+  const footer = back ? (
+    <Footer>
+      <button type="button" className="btnlink btn-primary" onClick={() => nav(back)}>
+        Return to Game Results
+      </button>
+    </Footer>
+  ) : (
     <Footer>
       {game && (
         <button type="button" className="btnlink" onClick={() => nav(`/box/${game.id}`)}>
@@ -77,7 +90,7 @@ export function WatchGame() {
             {game ? "That game hasn't been played yet." : "That game isn't in this league."}
           </div>
         </div>
-        {back}
+        {footer}
       </Card>
     );
   }
@@ -103,7 +116,7 @@ export function WatchGame() {
           </div>
         )}
       </div>
-      {back}
+      {footer}
     </Card>
   );
 }

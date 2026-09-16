@@ -11,6 +11,14 @@ import type { LeagueState, Stage } from "@/domain";
 
 export const PRESEASON_WEEKS = 3;
 export const REGULAR_SEASON_WEEKS = 18;
+/**
+ * The last week of the first precomputed regular-season block.
+ *
+ * Nine, not ten, because the trade deadline sits between them. A block is
+ * only sound while nothing can change its inputs, and a deadline trade
+ * changes both rosters — so the block has to stop before it.
+ */
+export const FIRST_BLOCK_LAST_WEEK = 9;
 
 export const STAGE_HOME: Record<Stage, string> = {
   setup: "/setup",
