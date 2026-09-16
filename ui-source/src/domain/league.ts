@@ -164,6 +164,7 @@ export interface PendingGameDay {
 }
 
 import type { CoachingDraftState } from "@/state/coachingDraft";
+import type { FreeAgencyEventState } from "@/state/freeAgencyEvent";
 
 export interface LeagueState {
   schemaVersion: number;
@@ -186,6 +187,8 @@ export interface LeagueState {
   draft: DraftState | null;
   /** The twelve-round staff draft. Null until the coaching stage opens. */
   coachingDraft: CoachingDraftState | null;
+  /** The five-round turn-based free-agency market. */
+  freeAgencyEvent: FreeAgencyEventState | null;
   /** rookie prospect id → whether the viewer's team signed or released them. */
   rookieOutcomes: Record<string, "signed" | "released">;
   /** offseason player FA period. */
