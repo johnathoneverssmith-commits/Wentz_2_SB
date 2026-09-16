@@ -25,6 +25,7 @@ import {
   decideCoachingPick,
   decideFreeAgencyTurn,
   decideTrainingCamp,
+  decideReveal,
   decideRookieOutcome,
   decideDraftPick,
   decidePlaceBid,
@@ -115,6 +116,9 @@ export const settleRookie = (
   released: boolean,
   expectedVersion?: string,
 ) => run(actor, expectedVersion, (s) => decideRookieOutcome(s, actor, prospectId, released));
+
+export const revealThrough = (actor: Actor, through: number, expectedVersion?: string) =>
+  run(actor, expectedVersion, (s) => decideReveal(s, actor, through));
 
 export const submitTrainingCamp = (
   actor: Actor,

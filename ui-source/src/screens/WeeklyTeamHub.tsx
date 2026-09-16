@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -6,7 +7,9 @@ import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
-import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { PRESEASON_WEEKS, REGULAR_SEASON_WEEKS, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { hasMoreToReveal, revealedWeek } from "@/state/reveal";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
 import {
@@ -72,6 +75,8 @@ export function WeeklyTeamHub() {
   const meta = TEAMS_BY_CODE[code]!;
   const team = s.teams[code]!;
   const phase = currentPhase(s);
+  // online the block is precomputed and these weeks are revealed, not played
+  const online = onlineSession() !== null;
   const isPreseason = s.stage === "preseason";
   const g = weekGame(s, code);
   const oppCode = opponentOf(g, code);
@@ -345,7 +350,17 @@ export function WeeklyTeamHub() {
           </button>
         </div>
       )}
-      {phase && !s.pendingGameDay && (
+      {/*
+        Change 6: in a precomputed block there is nothing to be ready *for* —
+        the games are already played and saved. These reveal them to this GM
+        alone, at whatever pace they like, and cannot change a result or
+        anybody else's screen. The readiness gate belongs to stages where the
+        league genuinely has to move together, and this is not one.
+      */}
+      {phase && !s.pendingGameDay && online && (
+        <RevealControls />
+      )}
+      {phase && !s.pendingGameDay && !online && (
         <ReadinessGate
           title="Game day readiness"
           label="Ready for Game Day"
@@ -354,6 +369,91 @@ export function WeeklyTeamHub() {
         />
       )}
     </Card>
+  );
+}
+
+/**
+ * Simulate Game / Simulate Season, which are reveals despite the word.
+ *
+ * The label keeps "Simulate" because that is what a GM expects the button to
+ * be called and because from their side it is indistinguishable — they press
+ * it, football happens. What it actually does is move their own marker
+ * through results that already exist.
+ */
+function RevealControls() {
+  const s = useStore();
+  const actions = useLeagueActions();
+  const nav = useNavigate();
+  const [busy, setBusy] = useState(false);
+
+  const phase: "PRE" | "REG" = s.stage === "preseason" ? "PRE" : "REG";
+  const lastWeek = phase === "PRE" ? PRESEASON_WEEKS : REGULAR_SEASON_WEEKS;
+  const seen = revealedWeek(s, s.viewerGmId, phase);
+  const more = hasMoreToReveal(s, s.viewerGmId, phase, lastWeek);
+
+  const reveal = (through: number): void => {
+    setBusy(true);
+    void actions
+      .revealThrough(through)
+      .then((res) => {
+        if (res.ok) nav("/game-day");
+      })
+      .finally(() => setBusy(false));
+  };
+
+  if (!more) {
+    return (
+      <div className="readiness">
+        <div className="readiness-top">
+          <p>{phase === "PRE" ? "Preseason complete" : "Regular season complete"}</p>
+          <span>You&rsquo;ve watched all {lastWeek} weeks</span>
+        </div>
+        <button
+          className="btn-primary"
+          style={{ width: "100%" }}
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void actions.readyUp(true).finally(() => setBusy(false));
+          }}
+        >
+          {phase === "PRE" ? "Advance to the Regular Season" : "Advance to the Playoffs"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="readiness">
+      <div className="readiness-top">
+        <p>{phase === "PRE" ? "Preseason" : "Regular season"}</p>
+        <span aria-live="polite">
+          Watched {seen} of {lastWeek} weeks
+        </span>
+      </div>
+      <p className="readiness-held">
+        These are already played — you&rsquo;re watching at your own pace, and nobody else&rsquo;s
+        screen moves when you do.
+      </p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          className="btn-primary"
+          style={{ flex: 1 }}
+          disabled={busy}
+          onClick={() => reveal(seen + 1)}
+        >
+          {busy ? "…" : `Simulate week ${seen + 1}`}
+        </button>
+        <button
+          className="btnlink"
+          style={{ flex: 1 }}
+          disabled={busy}
+          onClick={() => reveal(lastWeek)}
+        >
+          {phase === "PRE" ? "Simulate the preseason" : "Simulate to the end"}
+        </button>
+      </div>
+    </div>
   );
 }
 

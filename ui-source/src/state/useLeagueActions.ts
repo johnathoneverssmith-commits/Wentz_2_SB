@@ -57,6 +57,8 @@ export interface LeagueActions {
   ) => Promise<ActionResult>;
   /** Sign or release a rookie you drafted. */
   settleRookie: (prospectId: string, released: boolean) => Promise<ActionResult>;
+  /** Reveal saved results through a week. Never simulates. */
+  revealThrough: (through: number) => Promise<ActionResult>;
   /** Run this team's training camp. */
   submitTrainingCamp: (plan: TrainingCampPlan) => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
@@ -134,6 +136,7 @@ export function useLeagueActions(): LeagueActions {
           else store.signRookie(prospectId, code);
           return { ok: true };
         },
+        revealThrough: async (through) => store.revealThrough(through),
         submitTrainingCamp: async (plan) => store.submitTrainingCamp(plan),
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         draftCoach: async (coachId) => store.draftCoach(coachId),
@@ -196,6 +199,8 @@ export function useLeagueActions(): LeagueActions {
         attempt(() =>
           send((s) => s.client.settleRookie(s.leagueId, prospectId, released, s.version)),
         ).then(after),
+      revealThrough: (through) =>
+        attempt(() => send((s) => s.client.revealThrough(s.leagueId, through, s.version))).then(after),
       submitTrainingCamp: (plan) =>
         attempt(() =>
           send((s) => s.client.submitTrainingCamp(s.leagueId, plan, s.version)),

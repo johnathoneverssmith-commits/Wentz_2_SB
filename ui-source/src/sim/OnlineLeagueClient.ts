@@ -142,6 +142,12 @@ export class OnlineLeagueClient {
       version,
     });
 
+  revealThrough = (leagueId: string, through: number, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/reveal`, {
+      through,
+      version,
+    });
+
   submitTrainingCamp = (leagueId: string, plan: unknown, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/training-camp`, {
       plan,

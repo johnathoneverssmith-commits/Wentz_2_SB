@@ -59,6 +59,7 @@ import {
   runTrainingCamp,
   type TrainingCampPlan,
 } from "./trainingCamp.ts";
+import { markRevealed } from "./reveal.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -134,6 +135,8 @@ export interface StoreActions {
    * the signing team's remaining cap room. */
   signStandingFreeAgent: (playerId: string, offer: ContractOffer) => { ok: boolean; reason?: string };
 
+  /** Reveal saved results through a week. Never simulates. */
+  revealThrough: (through: number) => { ok: boolean; reason?: string };
   /** Run this team's training camp. */
   submitTrainingCamp: (plan: TrainingCampPlan) => { ok: boolean; reason?: string };
   /** One free-agency turn: an offer, or a pass. */
@@ -489,6 +492,14 @@ export const useStore = create<Store>()(
           const fa = s[faField(subject)];
           if (fa) fa.interstitialVisible = false;
         }),
+
+      revealThrough: (through) => {
+        set((s) => {
+          const phase = s.stage === "preseason" ? "PRE" : "REG";
+          markRevealed(s, s.viewerGmId, phase, through);
+        });
+        return { ok: true };
+      },
 
       submitTrainingCamp: (plan) => {
         const st = get();

@@ -17,6 +17,7 @@ import {
   draftCoach,
   freeAgencyTurn,
   submitTrainingCamp,
+  revealThrough,
   hireCoach,
   settleRookie,
   makeDraftPick,
@@ -295,6 +296,11 @@ post("/leagues/:id/actions/rookie", async (ctx) =>
     version(ctx),
   ),
 );
+
+post("/leagues/:id/actions/reveal", async (ctx) => {
+  const a = await actor(ctx);
+  return revealThrough(a, field(ctx, "through", "number"), version(ctx));
+});
 
 post("/leagues/:id/actions/training-camp", async (ctx) => {
   const a = await actor(ctx);

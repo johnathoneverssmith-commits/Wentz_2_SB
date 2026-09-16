@@ -53,6 +53,7 @@ import {
   runTrainingCamp,
   type TrainingCampPlan,
 } from "@/state/trainingCamp.ts";
+import { markRevealed, revealedWeek } from "@/state/reveal.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
@@ -435,6 +436,37 @@ export function decideTrainingCamp(
         teamCode: actor.teamCode,
         kind: "camp.run",
         summary: `${city(actor.teamCode)} finished training camp.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Reveal saved results to one GM.
+ *
+ * Never simulates. The block was played at the checkpoint, so this only moves
+ * this GM's marker — which is why one person racing ahead cannot change
+ * anybody else's screen or the league's results.
+ */
+export function decideReveal(
+  state: LeagueState,
+  actor: Actor,
+  through: number,
+): Decision {
+  const phase = state.stage === "preseason" ? "PRE" : "REG";
+  if (state.stage !== "preseason" && state.stage !== "regularSeason") {
+    throw new ActionError("There's nothing to reveal right now.");
+  }
+  const already = revealedWeek(state, actor.gmId, phase);
+  if (through <= already) throw new ActionError("You've already seen that week.");
+
+  markRevealed(state, actor.gmId, phase, through);
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "reveal",
+        summary: `${city(actor.teamCode)} watched through week ${through}.`,
       },
     ],
   };
