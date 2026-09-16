@@ -804,7 +804,10 @@ export function aiOfferForCoach(rng: () => number, s: LeagueState, c: Coach): Co
   const pool = candidates.length > 0 ? candidates : vacant;
   if (pool.length === 0) return null;
   const weights = pool.map((code) => {
-    if (c.role === "HC") return 1; // no roster-composition signal for HC fit
+    // Scheme fit only means something for the two coordinators — a head
+    // coach has no scheme, and the nine development coaches work between
+    // seasons rather than on the field.
+    if (c.role !== "OC" && c.role !== "DC") return 1;
     const fit = rosterSchemeFit(s, code, c.role, c.scheme);
     return 1 + fit * 3; // a well-fitting scheme is preferred, not required
   });

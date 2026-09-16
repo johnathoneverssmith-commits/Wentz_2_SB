@@ -1,4 +1,73 @@
-export type CoachRole = "HC" | "OC" | "DC";
+/**
+ * The twelve jobs on a staff.
+ *
+ * The first three are real people carried from `src/engine/staff-data.ts` and
+ * have gameplay effects on how a game is played. The nine after them are
+ * fictional and work on a different axis entirely: they do not touch a single
+ * play, they change how fast a player develops or declines between seasons,
+ * and — for the trainers — how long an injury keeps somebody out.
+ */
+export const COACH_ROLES = [
+  "HC",
+  "OC",
+  "DC",
+  "QB",
+  "RB",
+  "OL",
+  "WR",
+  "DL",
+  "LB",
+  "DB",
+  "ST",
+  "MED",
+] as const;
+export type CoachRole = (typeof COACH_ROLES)[number];
+
+/** The nine roles drafted from the generated pool rather than the real staffs. */
+export const DEVELOPMENT_ROLES = ["QB", "RB", "OL", "WR", "DL", "LB", "DB", "ST", "MED"] as const;
+export type DevelopmentRole = (typeof DEVELOPMENT_ROLES)[number];
+
+export const COACH_ROLE_LABEL: Record<CoachRole, string> = {
+  HC: "Head Coach",
+  OC: "Offensive Coordinator",
+  DC: "Defensive Coordinator",
+  QB: "Quarterbacks Coach",
+  RB: "Running Backs Coach",
+  OL: "Offensive Line Coach",
+  WR: "Wide Receivers Coach",
+  DL: "Defensive Line Coach",
+  LB: "Linebackers Coach",
+  DB: "Defensive Backs Coach",
+  ST: "Special Teams Coach",
+  MED: "Medical Training Staff",
+};
+
+/**
+ * Which players each development coach is responsible for.
+ *
+ * Long snappers do not exist in this league, so nothing maps to them. The
+ * medical staff is absent from this table on purpose — it works on injury
+ * recovery for everyone rather than on a position group.
+ */
+export const COACH_POSITION_GROUPS: Record<DevelopmentRole, readonly string[]> = {
+  QB: ["QB"],
+  RB: ["RB"],
+  OL: ["C", "OG", "OT"],
+  WR: ["WR", "TE"],
+  DL: ["DT", "EDGE"],
+  LB: ["ILB", "OLB"],
+  DB: ["CB", "S"],
+  ST: ["K", "P"],
+  MED: [],
+};
+
+/** The staff member who develops this position, or null if nobody does. */
+export function coachRoleForPosition(position: string): DevelopmentRole | null {
+  for (const role of DEVELOPMENT_ROLES) {
+    if (COACH_POSITION_GROUPS[role].includes(position)) return role;
+  }
+  return null;
+}
 
 /**
  * Scheme identifiers — match `nfl-franchise-sim/src/engine/staff.ts`'s
@@ -54,6 +123,12 @@ export interface Coach {
   discipline?: number;
   gameManagement?: number;
   aggressiveness?: number;
+
+  /**
+   * The development roles' single number. HC/OC/DC carry their own detailed
+   * characteristics instead and do not use this.
+   */
+  overall?: number;
 
   // OC/DC ratings
   scheme?: OffenseScheme | DefenseScheme;

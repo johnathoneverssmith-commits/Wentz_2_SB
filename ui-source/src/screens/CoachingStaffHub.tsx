@@ -6,18 +6,15 @@ import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Coach, CoachRole, DefenseScheme, OffenseScheme } from "@/domain";
-import { SCHEME_LABEL } from "@/domain";
+import { COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } from "@/domain";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
 const sim = new HybridSimulationService();
-const ROLE_LABEL: Record<CoachRole, string> = {
-  HC: "Head Coach",
-  OC: "Offensive Coordinator",
-  DC: "Defensive Coordinator",
-};
+// the twelve-role table now lives in the domain, with the position groups
+const ROLE_LABEL = COACH_ROLE_LABEL;
 const schemeLabel = (s: OffenseScheme | DefenseScheme | undefined): string =>
   s ? SCHEME_LABEL[s] : "—";
 
@@ -38,7 +35,10 @@ export function CoachingStaffHub() {
 function useStaff(code: string | undefined) {
   const coaches = useStore((s) => s.coaches);
   return useMemo(() => {
-    const byRole: Record<CoachRole, Coach | undefined> = { HC: undefined, OC: undefined, DC: undefined };
+    const byRole = Object.fromEntries(COACH_ROLES.map((r) => [r, undefined])) as Record<
+      CoachRole,
+      Coach | undefined
+    >;
     for (const c of Object.values(coaches)) if (c.team === code) byRole[c.role] = c;
     return byRole;
   }, [coaches, code]);

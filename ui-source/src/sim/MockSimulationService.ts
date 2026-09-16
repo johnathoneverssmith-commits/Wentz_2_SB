@@ -61,6 +61,7 @@ function realPool(): Player[] {
 
 
 import { fullPersonName, personName, school } from "./names.ts";
+import { DEVELOPMENT_ROLES } from "@/domain";
 import { Rng } from "./rng.ts";
 import {
   POSITION_PRIOR,
@@ -406,6 +407,30 @@ export class MockSimulationService implements SimulationService {
         playCallIq: band(staff.dc.rating, 46, 66, 55, 95),
         tendencyBlitzRate: band(staff.dc.blitzBias, 0, 0.45, 18, 42),
       });
+    }
+
+    // Change 3: the nine development roles, thirty-two candidates each.
+    //
+    // Exactly thirty-two so the coaching draft consumes the pool precisely —
+    // every candidate is drafted and no team is left choosing between
+    // leftovers. The distribution is the one the spec names: mean 72, sd 15,
+    // clamped to 35-99 by redrawing rather than by clipping, because clipping
+    // piles probability mass onto the two endpoints and would make 35s and
+    // 99s far commoner than a normal curve says they should be.
+    for (const role of DEVELOPMENT_ROLES) {
+      for (let i = 0; i < 32; i++) {
+        let ovr = Math.round(rng.normal(72, 15));
+        let guard = 0;
+        while ((ovr < 35 || ovr > 99) && guard++ < 50) ovr = Math.round(rng.normal(72, 15));
+        out.push({
+          id: `c_${++cid}`,
+          name: fullPersonName(rng),
+          role,
+          team: null,
+          contract: null,
+          overall: clamp(ovr, 35, 99),
+        });
+      }
     }
 
     // the open market: nobody real is unemployed here
