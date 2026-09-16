@@ -128,7 +128,11 @@ describe("a season on the server", () => {
     }
 
     expect(s.season).toBe(startSeason + 1);
-    expect(s.games).toHaveLength(0);
+    // Last season's games are gone. What remains is the *new* preseason,
+    // which Change 6 precomputes the moment the stage opens — so "no games at
+    // all" stopped being the right claim; "none of last season's" is.
+    expect(s.games.every((g) => g.phase === "PRE")).toBe(true);
+    expect(s.games.some((g) => g.phase === "REG")).toBe(false);
     expect(s.bracket).toBeNull();
     expect(s.schedule.length).toBeGreaterThan(0);
     for (const code of Object.keys(s.teams)) {
