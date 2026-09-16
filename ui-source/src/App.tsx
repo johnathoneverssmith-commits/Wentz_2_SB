@@ -11,6 +11,7 @@ import { useStore } from "@/state/store";
 import { CoachingDraftRoom } from "./screens/CoachingDraftRoom.tsx";
 import { CoachingDraftSummary } from "./screens/CoachingDraftSummary.tsx";
 import { FreeAgencyBoardTurns } from "./screens/FreeAgencyBoardTurns.tsx";
+import { FreeAgencySummary } from "./screens/FreeAgencySummary.tsx";
 import { CoachingStaffHub } from "./screens/CoachingStaffHub.tsx";
 import { DraftPreview } from "./screens/DraftPreview.tsx";
 import { DraftRoom } from "./screens/DraftRoom.tsx";
@@ -102,6 +103,7 @@ function useResumeOnline(): boolean {
 const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   fantasyDraftSummary: { from: "Draft Summary", to: "Coaching Fantasy Draft" },
   coachingDraftSummary: { from: "Coaching Draft Summary", to: "Free Agency" },
+  freeAgencySummary: { from: "Free Agency", to: "Training Camp" },
 };
 
 /**
@@ -153,6 +155,7 @@ export function App() {
           <Route path="/coaching-draft" element={<CoachingDraftRoom />} />
           <Route path="/coaching-draft-summary" element={<CoachingDraftSummary />} />
           <Route path="/free-agency-board" element={<FreeAgencyBoardTurns />} />
+          <Route path="/free-agency-summary" element={<FreeAgencySummary />} />
           <Route path="/coaching" element={<CoachingStaffHub />} />
           <Route path="/roster" element={<RosterCapManagement />} />
           <Route path="/league-rosters" element={<LeagueRosters />} />
