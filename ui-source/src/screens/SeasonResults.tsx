@@ -7,6 +7,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import type { GameResult } from "@/domain";
 import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
+import { currentBlock } from "@/state/revealBlocks";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
@@ -37,8 +38,9 @@ export function SeasonResults() {
   const weeks: number[] = [];
   for (let w = first; w <= last; w++) weeks.push(w);
 
-  // default to the newest week, which is what the reveal was for
-  const active = weeks.includes(Number(week)) ? Number(week) : last;
+  // Which week this opens on is a property of the block — see `resultsOpenOn`.
+  const openOn = currentBlock(s)?.resultsOpenOn === "first" ? first : last;
+  const active = weeks.includes(Number(week)) ? Number(week) : openOn;
 
   // Restoring the scroll position the GM left from, so a trip into a box
   // score and back does not dump them at the top of a long screen.
@@ -109,11 +111,20 @@ export function SeasonResults() {
   );
 }
 
-function WeekResults({
+/**
+ * One slate: the viewer's game, their injuries, and the scoreboard.
+ *
+ * Exported because a playoff round is the same screen with a different set
+ * of games in it — the only thing the postseason changes is that every game
+ * gets detail controls, since with two games in a round a GM watches the
+ * whole league rather than only themselves.
+ */
+export function WeekResults({
   slate,
   code,
   label,
   showDetail,
+  detailOnEvery = false,
   onBox,
   onWatch,
 }: {
@@ -121,6 +132,8 @@ function WeekResults({
   code: string | null;
   label: string;
   showDetail: boolean;
+  /** Playoffs only: detail controls on every game, not just the viewer's. */
+  detailOnEvery?: boolean;
   onBox: (gameId: string) => void;
   onWatch: (gameId: string) => void;
 }) {
@@ -220,6 +233,20 @@ function WeekResults({
               <span className="oswald" style={{ fontSize: 13 }}>
                 {g.homeScore}–{g.awayScore}
               </span>
+              {detailOnEvery && (
+                <span style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btnlink sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onWatch(g.id);
+                    }}
+                  >
+                    Play-by-Play
+                  </button>
+                </span>
+              )}
               <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
                 <TeamBadge code={g.awayTeam} size={20} />
                 <span style={{ fontSize: 12.5, fontWeight: !homeWon ? 600 : 400 }}>

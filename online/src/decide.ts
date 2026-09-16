@@ -16,6 +16,7 @@
  * `actions.ts` wraps each of these in `withLeague`, which supplies the row
  * lock, the version check and the event log.
  */
+import { ROUND_ORDER } from "@/domain";
 import type { ContractOffer, LeagueState, Position, TradeAsset } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import {
@@ -53,7 +54,7 @@ import {
   runTrainingCamp,
   type TrainingCampPlan,
 } from "@/state/trainingCamp.ts";
-import { markRevealed, revealedWeek } from "@/state/reveal.ts";
+import { markRevealed, markRoundRevealed, revealedRounds, revealedWeek } from "@/state/reveal.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
 import {
   proposeAtDeadline,
@@ -454,6 +455,37 @@ export function decideTrainingCamp(
  * this GM's marker — which is why one person racing ahead cannot change
  * anybody else's screen or the league's results.
  */
+/**
+ * Reveal the next playoff round to one GM.
+ *
+ * One round at a time and no reveal-all, which is the one place the playoffs
+ * differ from the regular season on purpose: there are four of them, each
+ * decides who is left, and watching them in a batch is watching the season
+ * end in a paragraph.
+ */
+export function decideRevealRound(state: LeagueState, actor: Actor): Decision {
+  if (state.stage !== "playoffs") throw new ActionError("There's no round to reveal.");
+  const seen = revealedRounds(state, actor.gmId);
+  const next = ROUND_ORDER.find((r) => !seen.includes(r));
+  if (!next) throw new ActionError("You've watched the whole postseason.");
+  // a round a GM has not been given yet cannot be revealed — it exists in
+  // saved state, which is exactly why this has to be checked rather than
+  // assumed from the button being on screen
+  const exists = state.bracket?.matchups.some((m) => m.round === next && m.winner != null);
+  if (!exists) throw new ActionError("That round hasn't been played yet.");
+
+  markRoundRevealed(state, actor.gmId, next);
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "reveal",
+        summary: `${city(actor.teamCode)} watched the ${next}.`,
+      },
+    ],
+  };
+}
+
 export function decideReveal(
   state: LeagueState,
   actor: Actor,

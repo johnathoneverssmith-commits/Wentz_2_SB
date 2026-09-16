@@ -149,6 +149,11 @@ export class OnlineLeagueClient {
       version,
     });
 
+  revealRound = (leagueId: string, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/reveal-round`, {
+      version,
+    });
+
   deadlineTurn = (leagueId: string, move: DeadlineMove, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/deadline`, {
       move,

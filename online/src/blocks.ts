@@ -3,7 +3,9 @@ import { simulateGame } from "../../src/engine/sim.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
 
+import { ROUND_ORDER } from "@/domain";
 import type { GameResult, LeagueState, Player as UiPlayer } from "@/domain";
+import { buildNextRound } from "@/sim/MockSimulationService";
 import { availableRoster, applyInjuries, healOneWeek } from "@/state/injuries.ts";
 import { makeEmergencyPlayer, positionalMinimums } from "@/state/reconciliation.ts";
 import { accrueSeasonStats, recomputeStandings } from "@/state/standings.ts";
@@ -199,4 +201,115 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
     drives: cast.drives.map((d) => ({ ...d, team: toUi(d.team) })),
     injuries: cast.injuries.map((i) => ({ ...i, team: toUi(i.team) })),
   };
+}
+
+/**
+ * Play the whole postseason, once, at the checkpoint that opens it.
+ *
+ * Change 11: the playoffs get the same treatment the regular season already
+ * has. Four rounds are decided here, in order, each from the winners of the
+ * last, and every GM afterwards reveals them one round at a time at their own
+ * pace. It has to happen in one pass because a bracket cannot be built
+ * halfway — the divisional round does not exist until the wild card is
+ * settled, so there is no partial state worth saving.
+ *
+ * Unlike the regular season these are written as `GameResult`s as well as
+ * bracket matchups. The bracket is what the postseason *looks* like; the
+ * games are what every other screen in the app already knows how to read —
+ * box scores, statistics, and the reveal filter, which keys playoff games off
+ * their round rather than their week.
+ */
+export function simulatePlayoffBlock(state: LeagueState): number {
+  const bracket = state.bracket;
+  if (!bracket) return 0;
+
+  const squadFor = (code: string) => {
+    const all = Object.values(state.players).filter(
+      (p) => p.nfl_team === code && !p.retired && !p.free_agent,
+    );
+    const squad = availableRoster(all);
+    const dressed = new Set(squad.map((p) => p.id));
+    return {
+      squad: withPlaceholders(state, code, squad),
+      sidelined: all.filter((p) => !dressed.has(p.id)).map((p) => p.id),
+    };
+  };
+  const rosterOf = (code: string, squad: { id: string }[]): Roster =>
+    new Roster(
+      toEngine(code),
+      squad as unknown as EnginePlayer[],
+      state.depthChart[code] as Record<string, readonly string[]> | undefined,
+    );
+
+  let played = 0;
+  // four rounds, plus a stop in case a bracket ever fails to advance
+  for (let guard = 0; guard < ROUND_ORDER.length + 1; guard++) {
+    const round = bracket.currentRound;
+    const live = bracket.matchups.filter((m) => m.round === round && m.winner == null);
+    const results: GameResult[] = [];
+
+    for (const m of live) {
+      if (!m.highSeed || !m.lowSeed) {
+        // the one seed's bye: they advance without a game, and there is no
+        // box score to write because no football was played
+        m.winner = m.highSeed?.code ?? m.lowSeed?.code ?? null;
+        continue;
+      }
+      const home = m.highSeed.code;
+      const away = m.lowSeed.code;
+      const id = `${state.season}-${round}-${home}-${away}`;
+      if (state.games.some((g) => g.id === id)) continue;
+
+      const seed = gameSeed(state, 0, `PO-${round}`, home, away);
+      const h = squadFor(home);
+      const a = squadFor(away);
+      const sim = simulateGame(seed, toEngine(home), toEngine(away), {
+        homeRoster: rosterOf(home, h.squad),
+        awayRoster: rosterOf(away, a.squad),
+        neutralSite: round === "SB",
+        trace: true,
+        injuries: true,
+      });
+      let [hs, as] = [sim.score[0], sim.score[1]];
+      // somebody has to go home; break a tie with the seed rather than
+      // leaving the bracket without a winner
+      if (hs === as) hs += 1;
+
+      m.homeScore = hs;
+      m.awayScore = as;
+      m.winner = hs > as ? home : away;
+      results.push({
+        id,
+        week: 0,
+        phase: round,
+        homeTeam: home,
+        awayTeam: away,
+        played: true,
+        homeScore: hs,
+        awayScore: as,
+        injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
+        sidelined: { home: h.sidelined, away: a.sidelined },
+      });
+      played++;
+    }
+
+    if (results.length > 0) {
+      state.games.push(...results);
+      applyInjuries(state, results, state.season);
+    }
+
+    const next = ROUND_ORDER[ROUND_ORDER.indexOf(round) + 1] as
+      | (typeof ROUND_ORDER)[number]
+      | undefined;
+    if (round === "SB") {
+      bracket.champion = bracket.matchups.find((x) => x.round === "SB")?.winner ?? null;
+      break;
+    }
+    if (!next) break;
+    bracket.currentRound = next;
+    bracket.matchups.push(...buildNextRound(next, bracket, state));
+    // a round has passed for everybody, hurt or not
+    healOneWeek(state);
+  }
+  return played;
 }

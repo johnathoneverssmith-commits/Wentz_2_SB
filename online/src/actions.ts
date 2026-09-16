@@ -26,6 +26,7 @@ import {
   decideFreeAgencyTurn,
   decideTrainingCamp,
   decideReveal,
+  decideRevealRound,
   decideDeadlineTurn,
   decideRookieOutcome,
   decideDraftPick,
@@ -172,3 +173,7 @@ export const deadlineTurn = (
   move: Parameters<typeof decideDeadlineTurn>[2],
   expectedVersion?: string,
 ) => run(actor, expectedVersion, (s) => decideDeadlineTurn(s, actor, move));
+
+/** Reveal the next playoff round to this GM alone. */
+export const revealRound = (actor: Actor, expectedVersion?: string) =>
+  run(actor, expectedVersion, (s) => decideRevealRound(s, actor));

@@ -5,7 +5,10 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { onColorFor, TEAMS_BY_CODE } from "@/data/teams";
 import type { BracketMatchup, PlayoffRound } from "@/domain";
-import { record, ROUND_LABEL, winPct } from "@/domain";
+import { record, ROUND_LABEL, ROUND_ORDER, winPct } from "@/domain";
+import { onlineSession } from "@/state/online";
+import { revealedRounds, visibleBracket } from "@/state/reveal";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { useStore } from "@/state/store";
 import { viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
@@ -16,7 +19,13 @@ export function PostseasonBracket() {
   const { active, setActive } = useTabs("afc");
   const code = viewerTeamCode(s);
   const simulateGameDay = useStore((st) => st.simulateGameDay);
-  const b = s.bracket;
+  // Online the saved bracket already holds the whole postseason, so what
+  // this screen renders is the GM's own view of it — see `visibleBracket`.
+  const b = s.bracket
+    ? onlineSession()
+      ? visibleBracket(s.bracket, s, s.viewerGmId)
+      : s.bracket
+    : null;
 
   if (!b) {
     const inHunt = (conf: "AFC" | "NFC") =>
@@ -87,6 +96,7 @@ export function PostseasonBracket() {
     );
 
   const isPlayoffStage = s.stage === "playoffs";
+  const online = onlineSession() !== null;
 
   return (
     <Card maxWidth={960}>
@@ -133,18 +143,21 @@ export function PostseasonBracket() {
       </Panel>
 
       <Footer>
-        <button type="button" className="btnlink" onClick={() => nav("/hub")}>
-          Team hub
-        </button>
-        <button type="button" className="btnlink" onClick={() => nav("/roster")}>
-          Roster &amp; Cap
-        </button>
+        {/*
+          Change 11: the team hub and the roster come off the postseason.
+          There is nothing left to manage — the bracket was decided before
+          anyone saw it — and a roster screen here would be a control that
+          cannot affect anything it appears to be about.
+        */}
         <button type="button" className="btnlink" onClick={() => nav("/player-stats")}>
           Player Statistics
         </button>
+        <button type="button" className="btnlink" onClick={() => nav("/league-stats")}>
+          League Statistics
+        </button>
       </Footer>
 
-      {isPlayoffStage && s.pendingGameDay && (
+      {isPlayoffStage && !online && s.pendingGameDay && (
         // a round has been played but not "continued" from Game Day yet (this
         // is also how the Super Bowl result is left after it sims) — offer
         // the way forward instead of the gate, which would sim again
@@ -158,7 +171,8 @@ export function PostseasonBracket() {
           </button>
         </div>
       )}
-      {isPlayoffStage && !s.pendingGameDay && !b.champion && (
+      {isPlayoffStage && online && <RoundReveal />}
+      {isPlayoffStage && !online && !s.pendingGameDay && !b.champion && (
         <ReadinessGate
           title={`${ROUND_LABEL[b.currentRound]} readiness`}
           label={`Simulate the ${ROUND_LABEL[b.currentRound]}`}
@@ -315,3 +329,74 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
 }
 
 export { ordinal };
+
+/**
+ * Simulate Playoff Round, which is a reveal.
+ *
+ * One round, and no reveal-all. Everything is already played and saved, so
+ * this only moves this GM's marker — and it keeps moving after their team is
+ * out, because a GM knocked out in the wild card is still in the league and
+ * still wants to see who wins it.
+ */
+function RoundReveal() {
+  const s = useStore();
+  const nav = useNavigate();
+  const actions = useLeagueActions();
+  const [busy, setBusy] = useState(false);
+
+  const seen = revealedRounds(s, s.viewerGmId);
+  const next = ROUND_ORDER.find((r) => !seen.includes(r)) as PlayoffRound | undefined;
+
+  if (!next) {
+    return (
+      <div className="readiness">
+        <div className="readiness-top">
+          <p>The postseason is over</p>
+          <span>You&rsquo;ve watched every round</span>
+        </div>
+        <button
+          className="btn-primary"
+          style={{ width: "100%" }}
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void actions.readyUp(true).finally(() => setBusy(false));
+          }}
+        >
+          Advance to the Offseason
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="readiness">
+      <div className="readiness-top">
+        <p>{ROUND_LABEL[next]}</p>
+        <span aria-live="polite">
+          {seen.length} of {ROUND_ORDER.length} rounds watched
+        </span>
+      </div>
+      <p className="readiness-held">
+        Already played — you&rsquo;re watching at your own pace, one round at a time, and nobody
+        else&rsquo;s bracket moves when you do.
+      </p>
+      <button
+        className="btn-primary"
+        style={{ width: "100%" }}
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          void actions
+            .revealRound()
+            .then((res) => {
+              if (res.ok) nav(`/results/round/${next}`);
+            })
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? "…" : `Simulate the ${ROUND_LABEL[next]}`}
+      </button>
+    </div>
+  );
+}

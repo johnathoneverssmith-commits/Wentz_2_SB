@@ -1,5 +1,6 @@
 import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { REGULAR_SEASON_WEEKS } from "./stageMachine";
 
 /**
  * Around the League, with teeth.
@@ -39,6 +40,13 @@ export interface RoastContext {
    * How last season went, when there was one. A preseason roast has no games
    * to work with — the joke has to come off the year that just ended.
    */
+  /**
+   * Where this team stands in the playoff race, when the season is running.
+   *
+   * Absent before week one and after elimination, which is exactly when the
+   * race is not the story.
+   */
+  race?: { inField: boolean; gamesBack: number; eliminated: boolean };
   lastSeason?: {
     wins: number;
     losses: number;
@@ -62,6 +70,9 @@ type Situation =
   | "lastSeasonGood"
   | "lastSeasonBad"
   | "collapse"
+  | "raceLeading"
+  | "raceHunting"
+  | "raceFading"
   | "mediocre";
 
 /**
@@ -159,6 +170,23 @@ const LIBRARY: Record<Situation, string[]> = {
     "{gm}'s season ended the moment it mattered. The {unit} picked a memorable week to show up late.",
     "{team} got in and got out. {star} deserved better and has said so in several interviews.",
   ],
+  raceLeading: [
+    "{team} are in the field at {margin} games over. {gm} has started using the phrase 'championship window' out loud.",
+    "{gm} holds a playoff spot. The {unit} are doing their best to give it back weekly.",
+    "{team} look like a playoff team, which around here counts as an unsolved mystery.",
+    "{star} is dragging {team} into the bracket more or less by himself. Somebody get the man a defense.",
+  ],
+  raceHunting: [
+    "{team} are still alive, in the sense that a dropped call is still a conversation.",
+    "{gm} needs help, results and possibly a lawyer. The path exists. It is narrow.",
+    "{team} are hanging around the race. The {unit} would like everyone to stop looking at them.",
+    "{star} is playing like a man who has read the tiebreakers. Nobody else on {team} has.",
+  ],
+  raceFading: [
+    "{team} are technically not eliminated, which is the nicest thing available to say.",
+    "{gm} is working the scenarios. There are eleven of them and they all require a miracle in Cleveland.",
+    "{team} need to win out and get help from people who dislike them. Good luck.",
+  ],
   mediocre: [
     "{team} were fine. Aggressively, forgettably fine.",
     "{gm} did enough. Nobody is writing a documentary about it.",
@@ -173,6 +201,13 @@ function situationOf(c: RoastContext): Situation {
   if (c.onBye) return "bye";
   if (c.fromDraft) {
     return c.bestOverall >= 88 ? "draftStrong" : "draftReach";
+  }
+  // Change 10: while a team can still get in, the joke is about the race —
+  // that is the thing a GM in November actually wants read back to them.
+  // Once the maths says no, it goes back to being a roast.
+  if (c.race && !c.race.eliminated) {
+    if (c.race.inField) return "raceLeading";
+    return c.race.gamesBack <= 2 ? "raceHunting" : "raceFading";
   }
   if (c.lastSeason) {
     const { wins, losses, wonSuperBowl, madePlayoffs, furthestRound } = c.lastSeason;
@@ -280,7 +315,12 @@ export function roastContext(
   };
 }
 
-/** One roast per human team, for a given week key. */
+/**
+ * One roast per human team off an arbitrary set of games.
+ *
+ * The general form the two callers below specialise: they differ only in
+ * which games they hand it and what they seed the choice with.
+ */
 export function roastsForWeek(
   s: LeagueState,
   games: { homeTeam: string; awayTeam: string; homeScore: number; awayScore: number }[],
@@ -353,5 +393,85 @@ export function weeklyRoasts(
 ): { teamCode: string; gmName: string; line: string }[] {
   if (throughWeek < 1) return preseasonRoasts(s);
   const games = s.games.filter((g) => g.phase === "REG" && g.played && g.week === throughWeek);
-  return roastsForWeek(s, games, `week|${s.season}|${throughWeek}`);
+  return s.gms
+    .filter((g) => g.isHuman && g.teamCode)
+    .map((g) => {
+      const ctx = roastContext(s, g.teamCode, g.name, games, false);
+      const race = raceFor(s, g.teamCode, throughWeek);
+      if (race) {
+        ctx.race = race;
+        // in the race lines {margin} reads as games over .500, not as a score
+        const rec = recordThrough(s, g.teamCode, throughWeek);
+        ctx.biggestMargin = rec.wins - rec.losses;
+      }
+      return {
+        teamCode: g.teamCode,
+        gmName: g.name,
+        line: roastFor(ctx, `week|${s.season}|${throughWeek}`),
+      };
+    });
+}
+
+/**
+ * Where a team sits in its conference, and whether it can still get in.
+ *
+ * Elimination is the plain arithmetic version: you are out when winning
+ * every remaining game still leaves you short of the seventh seed's current
+ * total. That is conservative — it ignores tiebreakers and the fact that the
+ * teams ahead have to play each other — which is the right direction to be
+ * wrong in. Telling a GM they are eliminated when they are not would be a
+ * much worse mistake than being slow to say it.
+ */
+export function raceFor(
+  s: LeagueState,
+  teamCode: string,
+  throughWeek: number,
+): { inField: boolean; gamesBack: number; eliminated: boolean } | undefined {
+  if (throughWeek < 1) return undefined;
+  const conference = TEAMS_BY_CODE[teamCode]?.conference;
+  if (!conference) return undefined;
+
+  const winsOf = (code: string): number => {
+    let wins = 0;
+    for (const g of s.games) {
+      if (g.phase !== "REG" || !g.played || g.week > throughWeek) continue;
+      const home = g.homeTeam === code;
+      if (!home && g.awayTeam !== code) continue;
+      if ((home ? g.homeScore : g.awayScore) > (home ? g.awayScore : g.homeScore)) wins++;
+    }
+    return wins;
+  };
+
+  const rivals = Object.keys(s.teams)
+    .filter((c) => TEAMS_BY_CODE[c]?.conference === conference)
+    .map((c) => ({ code: c, wins: winsOf(c) }))
+    .sort((a, b) => b.wins - a.wins);
+
+  const mine = rivals.find((r) => r.code === teamCode);
+  if (!mine) return undefined;
+  const cut = rivals[6]?.wins ?? 0;
+  const rank = rivals.findIndex((r) => r.code === teamCode);
+  const left = Math.max(0, REGULAR_SEASON_WEEKS - throughWeek);
+
+  return {
+    inField: rank < 7,
+    gamesBack: Math.max(0, cut - mine.wins),
+    eliminated: mine.wins + left < cut,
+  };
+}
+
+/** A team's record through a given week, from the games themselves. */
+function recordThrough(s: LeagueState, teamCode: string, throughWeek: number) {
+  let wins = 0;
+  let losses = 0;
+  for (const g of s.games) {
+    if (g.phase !== "REG" || !g.played || g.week > throughWeek) continue;
+    const home = g.homeTeam === teamCode;
+    if (!home && g.awayTeam !== teamCode) continue;
+    const us = home ? g.homeScore : g.awayScore;
+    const them = home ? g.awayScore : g.homeScore;
+    if (us > them) wins++;
+    else if (them > us) losses++;
+  }
+  return { wins, losses };
 }

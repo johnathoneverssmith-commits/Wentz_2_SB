@@ -66,7 +66,7 @@ import {
   skipTurn,
   type DeadlineMove,
 } from "./tradeDeadline.ts";
-import { markRevealed } from "./reveal.ts";
+import { markRevealed, markRoundRevealed, revealedRounds } from "./reveal.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -148,6 +148,8 @@ export interface StoreActions {
   submitTrainingCamp: (plan: TrainingCampPlan) => { ok: boolean; reason?: string };
   /** One trade-deadline turn: propose, skip, accept, deny or counter. */
   deadlineTurn: (move: DeadlineMove) => { ok: boolean; reason?: string };
+  /** Reveal the next playoff round to the viewing GM. */
+  revealRound: () => { ok: boolean; reason?: string };
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -539,6 +541,18 @@ export const useStore = create<Store>()(
               result = respondAtDeadline(s, code, { kind: move.kind });
           }
           if (result.ok) runDeadlineTurns(s);
+        });
+        return result;
+      },
+
+      revealRound: () => {
+        let result: { ok: boolean; reason?: string } = { ok: false, reason: "Nothing to reveal." };
+        set((s) => {
+          const seen = revealedRounds(s, s.viewerGmId);
+          const next = ROUND_ORDER.find((r) => !seen.includes(r));
+          if (!next) return;
+          markRoundRevealed(s, s.viewerGmId, next);
+          result = { ok: true };
         });
         return result;
       },

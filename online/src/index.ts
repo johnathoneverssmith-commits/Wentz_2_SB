@@ -28,6 +28,7 @@ import {
   setDepthOrder,
   signFreeAgent,
   deadlineTurn,
+  revealRound,
 } from "./actions.js";
 import { franchiseOf, isCommissioner, login, register, signSession } from "./auth.js";
 import { regenerateBroadcast } from "./blocks.js";
@@ -327,6 +328,11 @@ post("/leagues/:id/actions/rookie", async (ctx) =>
 post("/leagues/:id/actions/reveal", async (ctx) => {
   const a = await actor(ctx);
   return revealThrough(a, field(ctx, "through", "number"), version(ctx));
+});
+
+post("/leagues/:id/actions/reveal-round", async (ctx) => {
+  const a = await actor(ctx);
+  return revealRound(a, version(ctx));
 });
 
 post("/leagues/:id/actions/deadline", async (ctx) => {

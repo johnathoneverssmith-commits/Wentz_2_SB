@@ -23,6 +23,7 @@ import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
 import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
 import { SeasonResults } from "./screens/SeasonResults.tsx";
+import { PlayoffRoundResults } from "./screens/PlayoffRoundResults.tsx";
 import { TradeDeadlineRoom } from "./screens/TradeDeadlineRoom.tsx";
 import { TradeSummary } from "./screens/TradeSummary.tsx";
 import { WatchGame } from "./screens/WatchGame.tsx";
@@ -193,6 +194,7 @@ export function App() {
           <Route path="/player-stats" element={<PlayerStatistics />} />
           <Route path="/box/:gameId" element={<FullBoxScore />} />
           <Route path="/watch/:gameId" element={<WatchGame />} />
+          <Route path="/results/round/:round" element={<PlayoffRoundResults />} />
           <Route path="/results/:phase/:from/:to" element={<SeasonResults />} />
           <Route path="/results/:phase/:from/:to/:week" element={<SeasonResults />} />
           <Route path="/retirement" element={<RetirementReview />} />

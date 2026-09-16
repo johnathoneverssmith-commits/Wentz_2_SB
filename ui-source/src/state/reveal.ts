@@ -1,4 +1,5 @@
-import type { LeagueState } from "@/domain";
+import { ROUND_ORDER } from "@/domain";
+import type { BracketState, LeagueState } from "@/domain";
 
 /**
  * Who has seen what.
@@ -91,4 +92,37 @@ export function hasMoreToReveal(
   lastWeek: number,
 ): boolean {
   return revealedWeek(s, gmId, phase) < lastWeek;
+}
+
+/**
+ * The bracket as this GM is allowed to see it.
+ *
+ * The saved bracket holds the whole postseason the moment the checkpoint
+ * closes — every winner, every score, the champion. Rendering that directly
+ * would put the Super Bowl result on screen before the GM has watched the
+ * wild card, which is the one thing the reveal architecture exists to
+ * prevent. So rounds the GM has not revealed are stripped back to the shape
+ * of a fixture: who is in it, and nothing about how it went.
+ *
+ * `currentRound` is moved back to the first unrevealed round for the same
+ * reason — it is what the header reads, and a header saying "Super Bowl" to
+ * somebody still on the divisional round gives away that their team is out.
+ */
+export function visibleBracket(
+  bracket: BracketState,
+  s: LeagueState,
+  gmId: string,
+): BracketState {
+  const seen = revealedRounds(s, gmId);
+  const firstUnseen = ROUND_ORDER.find((r) => !seen.includes(r));
+  return {
+    ...bracket,
+    currentRound: firstUnseen ?? bracket.currentRound,
+    champion: seen.includes("SB") ? bracket.champion : null,
+    matchups: bracket.matchups.map((m) =>
+      seen.includes(m.round)
+        ? m
+        : { ...m, winner: null, homeScore: null, awayScore: null },
+    ),
+  };
 }

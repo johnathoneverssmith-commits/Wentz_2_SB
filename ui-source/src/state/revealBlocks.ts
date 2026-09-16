@@ -25,6 +25,15 @@ export interface Block {
   advanceLabel: string;
   /** Checkpoint copy, once they press it. */
   checkpoint: { from: string; to: string };
+  /**
+   * Which tab a multi-week results screen opens on.
+   *
+   * The first two blocks open on the newest week, because a GM who pressed
+   * "watch the rest" wants the result they were waiting for. The run to the
+   * playoffs opens on the oldest: nine weeks decide who is in, and reading
+   * them out of order spoils the only part of the season with a shape.
+   */
+  resultsOpenOn: "first" | "last";
 }
 
 const PRESEASON: Block = {
@@ -34,6 +43,7 @@ const PRESEASON: Block = {
   watchAllLabel: "Simulate the preseason",
   advanceLabel: "Advance to Regular Season",
   checkpoint: { from: "Preseason", to: "Regular Season" },
+  resultsOpenOn: "last",
 };
 
 const FIRST_HALF: Block = {
@@ -43,6 +53,7 @@ const FIRST_HALF: Block = {
   watchAllLabel: `Simulate to Week ${FIRST_BLOCK_LAST_WEEK + 1}`,
   advanceLabel: "Advance to Trade Deadline",
   checkpoint: { from: `Regular Season Weeks 1–${FIRST_BLOCK_LAST_WEEK}`, to: "Trade Deadline" },
+  resultsOpenOn: "last",
 };
 
 const SECOND_HALF: Block = {
@@ -52,6 +63,7 @@ const SECOND_HALF: Block = {
   watchAllLabel: "Simulate to the playoffs",
   advanceLabel: "Advance to Playoffs",
   checkpoint: { from: "Regular Season", to: "Playoffs" },
+  resultsOpenOn: "first",
 };
 
 /**

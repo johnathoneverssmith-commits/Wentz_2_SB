@@ -63,6 +63,7 @@ export interface LeagueActions {
   /** Run this team's training camp. */
   submitTrainingCamp: (plan: TrainingCampPlan) => Promise<ActionResult>;
   deadlineTurn: (move: DeadlineMove) => Promise<ActionResult>;
+  revealRound: () => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -141,6 +142,7 @@ export function useLeagueActions(): LeagueActions {
         revealThrough: async (through) => store.revealThrough(through),
         submitTrainingCamp: async (plan) => store.submitTrainingCamp(plan),
         deadlineTurn: async (move) => store.deadlineTurn(move),
+        revealRound: async () => store.revealRound(),
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         draftCoach: async (coachId) => store.draftCoach(coachId),
         hireCoach: async (coachId) => store.hireCoach(coachId),
@@ -210,6 +212,8 @@ export function useLeagueActions(): LeagueActions {
         ).then(after),
       deadlineTurn: (move) =>
         attempt(() => send((s) => s.client.deadlineTurn(s.leagueId, move, s.version))).then(after),
+      revealRound: () =>
+        attempt(() => send((s) => s.client.revealRound(s.leagueId, s.version))).then(after),
       freeAgencyTurn: (move) =>
         attempt(() => send((s) => s.client.freeAgencyTurn(s.leagueId, move, s.version))).then(after),
       draftCoach: (coachId) =>

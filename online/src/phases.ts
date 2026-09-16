@@ -28,7 +28,7 @@ import {
 import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tradeDeadline.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
-import { simulateBlock } from "./blocks.js";
+import { simulateBlock, simulatePlayoffBlock } from "./blocks.js";
 import { wipePreseason } from "@/state/preseasonWipe.ts";
 import {
   advanceBiddingDayOn,
@@ -413,6 +413,17 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     if (!alreadyPlayed) {
       simulateBlock(state, "REG", FIRST_BLOCK_LAST_WEEK + 1, REGULAR_SEASON_WEEKS);
     }
+  }
+
+  // Change 11: the whole postseason is decided here, in one pass, for the
+  // same reason the regular season is — except that a bracket has no partial
+  // state worth saving. The divisional round does not exist until the wild
+  // card is settled, so it is all four rounds or none.
+  if (state.stage === "playoffs" && from !== "playoffs") {
+    // seeding is a pure reading of the completed standings, so the server
+    // does it here rather than waiting for a screen to ask
+    state.bracket ??= sim.seedBracket(state);
+    simulatePlayoffBlock(state);
   }
 
   recomputeTeamRatings(state);
