@@ -19,7 +19,10 @@
  * it twice, or while somebody is mid-action, is safe.
  */
 import type { LeagueState } from "@/domain";
-import { resolveTransition } from "@/state/stageMachine.ts";
+import { PRESEASON_WEEKS, resolveTransition } from "@/state/stageMachine.ts";
+import { emptyReveal } from "@/state/reveal.ts";
+
+import { simulateBlock } from "./blocks.js";
 import {
   advanceBiddingDayOn,
   beginDraft,
@@ -350,6 +353,18 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // nobody takes the field short — free agency is optional, so a team can
   // arrive here still missing a position entirely
   if (state.stage === "preseason") fillRosterGaps(state);
+
+  // Change 6: the whole preseason is played here, once, before anybody sees
+  // it. Everything afterwards is a reveal of what this produced — which is
+  // what lets four GMs watch the same three weeks at four different speeds
+  // without any of them changing the result.
+  if (state.stage === "preseason" && from !== "preseason") {
+    const alreadyPlayed = state.games.some((g) => g.phase === "PRE" && g.played);
+    if (!alreadyPlayed) {
+      simulateBlock(state, "PRE", 1, PRESEASON_WEEKS);
+      state.reveal = emptyReveal();
+    }
+  }
 
   recomputeTeamRatings(state);
 }
