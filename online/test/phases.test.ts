@@ -122,10 +122,20 @@ describe("advancing", () => {
     expect(waitingOn(state).length).toBeGreaterThan(0);
   });
 
-  it("won't step a game week — those advance by being played", () => {
+  it("ends an in-season block, but never steps a week inside one", () => {
+    // This used to assert that in-season stages never move here at all,
+    // which was right while a week advanced by being played. Changes 6
+    // through 11 make a block precomputed and then revealed, so the only
+    // thing that ends the preseason or either half of the season is every
+    // GM committing — and under the old rule that press did nothing.
     state.stage = "regularSeason";
+    state.week = 1;
     for (const g of state.gms) state.readiness[g.id] = true;
-    expect(advanceStage(state).moved).toBe(false);
+
+    expect(advanceStage(state).moved).toBe(true);
+    // to the next thing, not to week 2
+    expect(state.stage).toBe("tradeDeadline");
+    expect(state.week).not.toBe(2);
   });
 });
 

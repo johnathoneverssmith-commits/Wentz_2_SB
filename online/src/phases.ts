@@ -26,6 +26,7 @@ import {
   resolveTransition,
 } from "@/state/stageMachine.ts";
 import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tradeDeadline.ts";
+import { currentBlock } from "@/state/revealBlocks.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
 import { simulateBlock, simulatePlayoffBlock } from "./blocks.js";
@@ -136,6 +137,39 @@ export async function readyUp(
 }
 
 /**
+ * The transition a readiness gate should apply, or null when there isn't one.
+ *
+ * In-season stages used to be excluded outright, because a week advanced by
+ * being played rather than by anyone pressing a button. Changes 6 through 11
+ * changed that: a block is played at a checkpoint and then *revealed*, so the
+ * only thing that ends the preseason, either half of the regular season, or
+ * the postseason is every human GM committing — and with the old exclusion
+ * that press did nothing at all. A league reaching the end of its preseason
+ * simply stopped.
+ *
+ * The week is not the test any more either. Reveals do not move `state.week`,
+ * so a preseason that has been watched to the end still reads week 1. What
+ * says a block is over is the block itself, so the transition is resolved
+ * against the block's last week rather than against the league's.
+ */
+function inSeasonTransition(state: LeagueState) {
+  const opts = { humanGmWonSuperBowl: sbWonByHuman(state) };
+  if (!isInSeason(state.stage)) return resolveTransition(state, opts);
+
+  const block = currentBlock(state);
+  if (state.stage === "playoffs") {
+    // the postseason ends when it has been played, which after Change 11 is
+    // true the moment the stage opens — the readiness gate is what releases
+    // the GMs, not what decides the games
+    const t = resolveTransition(state, opts);
+    return t.stage === state.stage ? null : t;
+  }
+  if (!block) return null;
+  const t = resolveTransition({ ...state, week: block.lastWeek }, opts);
+  return t.stage === state.stage ? null : t;
+}
+
+/**
  * Inside a sealed-bid window, "everyone is ready" means the day resolves —
  * not that the stage is over.
  *
@@ -183,9 +217,9 @@ export function readyUpLocal(state: LeagueState): boolean {
  * *simulated*, not by a gate opening — see `simulateWeek`.
  */
 export function advanceStage(state: LeagueState): { moved: boolean; autopiloted: string[] } {
-  if (isInSeason(state.stage)) return { moved: false, autopiloted: [] };
   const from = state.stage;
-  const t = resolveTransition(state, { humanGmWonSuperBowl: sbWonByHuman(state) });
+  const t = inSeasonTransition(state);
+  if (!t) return { moved: false, autopiloted: [] };
   if (t.seasonRollover) rollOverSeason(state);
   if (t.resetStats) resetSeasonStats(state);
   state.stage = t.stage;
@@ -256,10 +290,6 @@ export function finishPlayedWeek(state: LeagueState): { stage: string; week: num
   }
   if (t.resetStats) resetSeasonStats(state);
   healOneWeek(state); // a week has passed; everyone hurt is a week closer
-  // the season is scored the moment the playoffs end, so the end-of-season
-  // screens have this year's row to show
-  if (t.stage === "endOfSeasonAnnounce") finalizeSeason(state);
-
   const from = state.stage;
   state.stage = t.stage;
   state.week = t.week;
@@ -425,6 +455,18 @@ export function onStageEntered(state: LeagueState, from?: string): void {
       simulateBlock(state, "REG", FIRST_BLOCK_LAST_WEEK + 1, REGULAR_SEASON_WEEKS);
     }
   }
+
+  // The season is scored the moment the playoffs end, so the end-of-season
+  // screens, the score tracker and next year's roasts all have this year's
+  // row to read.
+  //
+  // It lives here rather than beside the transition because there are two
+  // ways into this stage now — a played week and a readiness gate — and it
+  // was only wired to the first. A league that revealed its way to the Super
+  // Bowl reached the end-of-season screens with no season on the books.
+  // `finalizeSeason` already refuses to write the same year twice, so being
+  // called from the shared path is free.
+  if (state.stage === "endOfSeasonAnnounce") finalizeSeason(state);
 
   // Change 11: the whole postseason is decided here, in one pass, for the
   // same reason the regular season is — except that a bracket has no partial
