@@ -93,8 +93,8 @@ export function planFor(s: LeagueState, teamCode: string): TrainingCampPlan {
  * does not actively make his players worse by paying attention to them.
  */
 export function focusStrength(coordinatorRating: number): number {
-  const raw = 0.1 + 0.005 * (coordinatorRating - 72);
-  return Math.max(0.03, Math.min(0.24, raw));
+  const raw = 0.2 + 0.01 * (coordinatorRating - 72);
+  return Math.max(0.05, Math.min(0.45, raw));
 }
 
 /** The coordinator whose focus covers this group. */

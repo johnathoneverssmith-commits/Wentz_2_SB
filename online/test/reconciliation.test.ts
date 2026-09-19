@@ -83,10 +83,12 @@ describe("releasing a player", () => {
     const p = rosterOf(s, "KC").find((x) => x.contract)!;
     const annual = p.contract!.cap_hit_by_year[0] ?? 0;
     p.contract!.years_remaining = 5;
-    // five years at twenty percent each is capped at eighty percent of a year
-    expect(releasePenalty(p)).toBeCloseTo(Math.round(annual * 0.8 * 10) / 10, 5);
+    // Free Agency + Contracts optimization pass (contracts.release_penalty):
+    // five years at twenty-two percent each is capped at seventy-five
+    // percent of a year.
+    expect(releasePenalty(p)).toBeCloseTo(Math.round(annual * 0.75 * 10) / 10, 5);
     p.contract!.years_remaining = 1;
-    expect(releasePenalty(p)).toBeCloseTo(Math.round(annual * 0.2 * 10) / 10, 5);
+    expect(releasePenalty(p)).toBeCloseTo(Math.round(annual * 0.22 * 10) / 10, 5);
   }, 60_000);
 
   it("puts the player back in the pool and the penalty on the cap", () => {

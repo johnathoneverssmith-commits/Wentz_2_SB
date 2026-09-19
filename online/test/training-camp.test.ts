@@ -47,24 +47,26 @@ const plan = (over: Partial<TrainingCampPlan> = {}): TrainingCampPlan => ({
 });
 
 describe("coordinator focus strength", () => {
-  it("is ten percent at a league-average coordinator", () => {
-    expect(focusStrength(72)).toBeCloseTo(0.1, 10);
+  // Aging + Training Camp optimization pass, coordinator_focus: base 0.2,
+  // slope 0.01/OVR point, floor 0.05, ceiling 0.45 (up from 0.1/0.005/0.03/0.24).
+  it("is twenty percent at a league-average coordinator", () => {
+    expect(focusStrength(72)).toBeCloseTo(0.2, 10);
   });
 
-  it("moves half a point per point of rating", () => {
-    expect(focusStrength(92)).toBeCloseTo(0.2, 10);
-    expect(focusStrength(52)).toBeCloseTo(0.0, 1);
+  it("moves one point per point of rating", () => {
+    expect(focusStrength(92)).toBeCloseTo(0.4, 10);
+    expect(focusStrength(62)).toBeCloseTo(0.1, 10);
   });
 
-  it("never goes below three percent, however poor the coordinator", () => {
+  it("never goes below five percent, however poor the coordinator", () => {
     // spending practice time on a group cannot make them worse
-    expect(focusStrength(0)).toBeGreaterThanOrEqual(0.03);
-    expect(focusStrength(35)).toBeGreaterThanOrEqual(0.03);
+    expect(focusStrength(0)).toBeGreaterThanOrEqual(0.05);
+    expect(focusStrength(35)).toBeGreaterThanOrEqual(0.05);
   });
 
-  it("caps at twenty-four percent, however good", () => {
-    expect(focusStrength(99)).toBeLessThanOrEqual(0.24);
-    expect(focusStrength(200)).toBeLessThanOrEqual(0.24);
+  it("caps at forty-five percent, however good", () => {
+    expect(focusStrength(99)).toBeLessThanOrEqual(0.45);
+    expect(focusStrength(200)).toBeLessThanOrEqual(0.45);
   });
 });
 
@@ -120,8 +122,18 @@ describe("submitting a camp", () => {
   }, 120_000);
 
   it("is deterministic — a retry produces the same camp", () => {
+    // Built once and cloned, rather than called twice: `campLeague` can
+    // generate a filler player when the draft leaves a real position
+    // (kickers and punters most often) short, and that generator's id comes
+    // from a module-level counter shared across every league this process
+    // creates — a second, separately-built "identical" league can end up
+    // with a differently-numbered filler even though nothing about the
+    // league itself was random. A save's own replay never hits this: the
+    // filler is generated once and then persisted like any other player,
+    // never regenerated from the seed alone. Cloning one built league is
+    // what actually isolates the property this test means to check.
     const a = campLeague();
-    const b = campLeague();
+    const b = structuredClone(a);
     runTrainingCamp(a, "KC", plan());
     runTrainingCamp(b, "KC", plan());
     const byId = (s: LeagueState) =>

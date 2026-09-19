@@ -238,13 +238,16 @@ export function cpuTurn(s: LeagueState, teamCode: string): void {
   const bestAt = (position: string): number =>
     roster.filter((p) => p.position === position).reduce((n, p) => Math.max(n, p.overall), 0);
 
+  // Free Agency + Contracts optimization pass (free_agency.five_round_cpu):
+  // chase a bid war less far, rebid less aggressively, and require a real
+  // upgrade rather than any positive gain at all.
   let target: Player | null = null;
   let bestGain = 0;
   for (const p of pool) {
     const lead = leadingOffer(s, p.id);
     const ask = expectedSalary(p);
     // somebody else has already blown past the asking price: leave it
-    if (lead && lead.salary > ask * 1.6) continue;
+    if (lead && lead.salary > ask * 1.4) continue;
     const gain = p.overall - bestAt(p.position);
     if (gain > bestGain) {
       bestGain = gain;
@@ -252,12 +255,12 @@ export function cpuTurn(s: LeagueState, teamCode: string): void {
     }
   }
 
-  if (!target || bestGain <= 0) return applyPass(s, teamCode);
+  if (!target || bestGain < 2) return applyPass(s, teamCode);
 
   const ask = expectedSalary(target);
   const lead = leadingOffer(s, target.id);
-  const salary = Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.05) * 10) / 10;
-  const years = target.age >= 30 ? 2 : 4;
+  const salary = Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10;
+  const years = target.age <= 26 ? 4 : target.age <= 29 ? 3 : 2;
   applyOffer(s, teamCode, target.id, salary, years);
 }
 

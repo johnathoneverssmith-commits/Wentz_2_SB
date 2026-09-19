@@ -30,7 +30,8 @@ function needAt(s: LeagueState, code: string, pos: string): number {
   const best = ROSTER_OF(s, code)
     .filter((p) => p.position === pos)
     .reduce((m, p) => Math.max(m, p.overall), 0);
-  return Math.max(0, 80 - (best || 40));
+  // Trade Valuation optimization pass (trade.ai_generated_offers.need_bar).
+  return Math.max(0, 77 - (best || 40));
 }
 
 /**
@@ -75,12 +76,12 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
         const mine = bestOf(myRoster, pos);
         return { pos, gain: (mine?.overall ?? 0) - (theirs?.overall ?? 40), need: needAt(s, suitor, pos) };
       })
-      .sort((a, b) => b.gain + b.need / 4 - (a.gain + a.need / 4));
+      .sort((a, b) => b.gain + b.need / 5 - (a.gain + a.need / 5));
     const wanted = positions.find((p) => {
-      if (p.gain < 5) return false;
+      if (p.gain < 4) return false;
       const mine = myRoster.filter((x) => x.position === p.pos).sort((a, b) => b.overall - a.overall);
       // they ask for the best one *only* if there's someone behind him
-      return mine.length >= 2 && mine[0]!.overall >= 70;
+      return mine.length >= 2 && mine[0]!.overall >= 72;
     });
     if (!wanted) continue;
 
@@ -92,13 +93,13 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
 
     // a package: their best spare player at a position they're deep in, plus
     // a pick, aimed at landing a little over what they're asking for
-    const targetValue = Math.max(0, askFor.overall - 50);
+    const targetValue = Math.max(0, askFor.overall - 42);
     const spares = theirRoster
       .filter((p) => {
         const better = theirRoster.filter(
           (x) => x.position === p.position && x.overall > p.overall,
         ).length;
-        return better >= 1 && p.overall >= 60;
+        return better >= 1 && p.overall >= 62;
       })
       .sort((a, b) => Math.abs(a.overall - askFor.overall) - Math.abs(b.overall - askFor.overall));
     const give: TradeAsset[] = [];
@@ -106,12 +107,12 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     for (const p of spares) {
       if (offered >= targetValue) break;
       give.push({ kind: "player", playerId: p.id });
-      offered += Math.max(0, p.overall - 50);
+      offered += Math.max(0, p.overall - 42);
     }
     // top it up with draft capital — the round scaled to what's still owed
     if (offered < targetValue) {
       const short = targetValue - offered;
-      const round = short > 20 ? 1 : short > 10 ? 2 : short > 5 ? 3 : 4;
+      const round = short > 28 ? 1 : short > 14 ? 2 : short > 7 ? 3 : short > 3 ? 4 : 5;
       const theirPick = picksOwnedBy(s, suitor).find((p) => p.round === round);
       if (theirPick) {
         give.push({ kind: "pick", pick: theirPick });

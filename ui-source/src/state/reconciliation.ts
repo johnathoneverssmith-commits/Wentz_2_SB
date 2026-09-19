@@ -102,8 +102,9 @@ export function releasePenalty(p: Player): number {
   const c = p.contract;
   if (!c) return 0;
   const annual = c.cap_hit_by_year[0] ?? 0;
-  const byYears = annual * 0.2 * c.years_remaining;
-  const capped = annual * 0.8;
+  // Free Agency + Contracts optimization pass (contracts.release_penalty).
+  const byYears = annual * 0.22 * c.years_remaining;
+  const capped = annual * 0.75;
   return Math.round(Math.min(byYears, capped) * 10) / 10;
 }
 

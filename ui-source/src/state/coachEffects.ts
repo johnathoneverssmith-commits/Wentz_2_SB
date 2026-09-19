@@ -26,16 +26,25 @@ import { coachRoleForPosition } from "@/domain";
 /** The rating at which a coach changes nothing. */
 export const NEUTRAL_COACH_OVERALL = 72;
 
-/** One percent per point, as a plain multiplier around 1. */
-function swing(overall: number): number {
-  return (overall - NEUTRAL_COACH_OVERALL) / 100;
+/**
+ * Position-coach development/regression slope, per point of OVR either side
+ * of neutral. The Aging + Training Camp optimization pass raised this from
+ * an even 1% to 1.5%: at 1%, an already-small integer rating delta rounded
+ * the coaching effect away for most players, and 1.5% is what it takes for
+ * a real coach to visibly move outcomes after that rounding.
+ */
+const POSITION_COACH_SWING_PER_OVR = 0.015;
+
+/** One point of OVR either side of neutral, as a plain fraction. */
+function swing(overall: number, perOvr: number): number {
+  return (overall - NEUTRAL_COACH_OVERALL) * perOvr;
 }
 
 /**
  * How much of a player's gain this coach delivers. Better coach, bigger gain.
  */
 export function developmentMultiplier(overall: number): number {
-  return Math.max(0, 1 + swing(overall));
+  return Math.max(0, 1 + swing(overall, POSITION_COACH_SWING_PER_OVR));
 }
 
 /**
@@ -43,8 +52,17 @@ export function developmentMultiplier(overall: number): number {
  * the multiplier moves the opposite way from development.
  */
 export function regressionMultiplier(overall: number): number {
-  return Math.max(0, 1 - swing(overall));
+  return Math.max(0, 1 - swing(overall, POSITION_COACH_SWING_PER_OVR));
 }
+
+/**
+ * Medical staff's recovery-duration slope. Kept at the plain 1% development
+ * and regression used before the optimization pass raised those to 1.5% —
+ * recovery scales *weeks*, where even 1% is visible after the week rounds,
+ * so reusing 1.5% here would let an elite medical staff cut an ordinary
+ * injury timeline by closer to 40% than the intended third.
+ */
+const MEDICAL_SWING_PER_OVR = 0.01;
 
 /**
  * How long an injury keeps a player out, as a share of what the injury
@@ -53,9 +71,14 @@ export function regressionMultiplier(overall: number): number {
  * Note this is recovery *duration* only. It does not make anybody less likely
  * to get hurt — the injury engine decides that on its own, and a training
  * room that prevented injuries would be doing a different job.
+ *
+ * Bounded both ways (0.65-1.35): a true season-ending injury should stay
+ * season-ending even for an elite staff, and a poor staff should slow
+ * recovery without making an ordinary injury open-ended.
  */
 export function recoveryMultiplier(overall: number): number {
-  return Math.max(0.1, 1 - swing(overall));
+  const raw = 1 - swing(overall, MEDICAL_SWING_PER_OVR);
+  return Math.min(1.35, Math.max(0.65, raw));
 }
 
 /** The staff member on `teamCode` who holds `role`, if anybody does. */

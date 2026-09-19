@@ -9,52 +9,64 @@ import { ratingOf } from "./coachingDraft";
  * Two different questions get asked of a staff and they want different
  * weights, so both live here rather than being improvised at the call site.
  *
- * *How good is this staff overall* is a weighted average across all twelve,
- * with the head coach counting triple and the two coordinators double. That
- * ratio is a judgement rather than a measurement — it says a head coach
- * matters about as much as three position coaches, which is defensible and
- * unproven, and is flagged in the change log for calibration once there is
- * simulated evidence to calibrate against.
+ * *How good is this staff overall* is a weighted average across all twelve.
+ * The weights are the Staff Summary optimization pass's calibrated values
+ * (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json -> staff_summary), not an
+ * unproven judgement call any more — the HC counts a little above two
+ * position coaches, each coordinator a little more than that, and every
+ * position-coach weight moves with how much marginal value that role's
+ * rating channels actually carry in the frozen engine (QB and WR/DB coaches
+ * above 1, RB/LB/ST below it).
  *
  * *How good is this staff on offence* is a different question with a
- * different answer: the coordinator carries a third of it and the four
- * position coaches share the rest. The head coach is deliberately absent from
- * both unit composites — he is not an offensive or a defensive coach, and
- * counting him in each would double-count the one person already weighted
- * most heavily in the overall.
+ * different answer: the coordinator carries two fifths of it and the
+ * position coaches share the rest, weighted by the same engine-relevance
+ * reasoning. The head coach is deliberately absent from both unit composites
+ * — he is not an offensive or a defensive coach, and counting him in each
+ * would double-count the one person already weighted most heavily in the
+ * overall.
  */
 
-/** Weight per job in the overall staff rating. */
+/**
+ * Weight per job in the overall staff rating.
+ *
+ * Staff summary optimization pass (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json
+ * -> staff_summary.overall_weights): the HC weight comes down and the
+ * coordinators' come up, because in the frozen engine the OC and DC each
+ * touch multiple high-frequency play-outcome channels while the HC mostly
+ * affects game management/aggression and discipline — closer to two
+ * coordinators than to three position coaches.
+ */
 export const STAFF_WEIGHTS: Record<CoachRole, number> = {
-  HC: 3,
-  OC: 2,
-  DC: 2,
-  QB: 1,
-  RB: 1,
-  OL: 1,
-  WR: 1,
-  DL: 1,
-  LB: 1,
-  DB: 1,
-  ST: 1,
-  MED: 1,
+  HC: 2.5,
+  OC: 2.25,
+  DC: 2.25,
+  QB: 1.2,
+  RB: 0.9,
+  OL: 1.0,
+  WR: 1.1,
+  DL: 1.0,
+  LB: 0.9,
+  DB: 1.1,
+  ST: 0.7,
+  MED: 1.0,
 };
 
-/** The offensive composite: coordinator a third, four position coaches the rest. */
+/** The offensive composite: coordinator two fifths, position coaches the rest. */
 const OFFENSE_COMPOSITE: Partial<Record<CoachRole, number>> = {
-  OC: 1 / 3,
-  QB: 1 / 6,
-  RB: 1 / 6,
-  OL: 1 / 6,
-  WR: 1 / 6,
+  OC: 0.4,
+  QB: 0.2,
+  OL: 0.15,
+  WR: 0.15,
+  RB: 0.1,
 };
 
-/** The defensive composite: coordinator two fifths, three position coaches a fifth each. */
+/** The defensive composite: coordinator two fifths, position coaches the rest. */
 const DEFENSE_COMPOSITE: Partial<Record<CoachRole, number>> = {
   DC: 0.4,
+  DB: 0.25,
   DL: 0.2,
-  LB: 0.2,
-  DB: 0.2,
+  LB: 0.15,
 };
 
 /** Every coach a team employs, by job. */

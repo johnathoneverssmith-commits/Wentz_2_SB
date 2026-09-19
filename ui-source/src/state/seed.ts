@@ -128,7 +128,8 @@ const MARKET_RESERVE = 140;
  * signing. Real front offices carry working room for in-season injuries and
  * deadline moves; this is that, and it's what keeps the market alive.
  */
-const CAP_WORKING_ROOM = 18;
+// CPU Cap Preparation optimization pass (cpu_cap_prep.cap_working_room_m).
+const CAP_WORKING_ROOM = 16;
 
 function dealFor(teamCode: string, salary: number, years: number): NonNullable<Player["contract"]> {
   return {
@@ -237,8 +238,12 @@ export function clearRoomFor(state: LeagueState, teamCode: string, needed: numbe
   return capTotal - used >= needed;
 }
 
-/** Share of the cap an AI team tries to have free when the window opens. */
-const FREE_AGENCY_WAR_CHEST = 0.16;
+/**
+ * Share of the cap an AI team tries to have free when the window opens.
+ *
+ * CPU Cap Preparation optimization pass (cpu_cap_prep.free_agency_war_chest).
+ */
+const FREE_AGENCY_WAR_CHEST = 0.14;
 
 /**
  * Cut day: AI teams clear room before free agency opens.

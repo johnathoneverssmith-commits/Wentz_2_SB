@@ -160,8 +160,12 @@ export function applyPick(s: LeagueState, selectedId: string): void {
  * maximal need (no one at all on the roster at that position) can tip a
  * close call but won't make a team reach for a real reach over a
  * meaningfully better prospect at a position they're already fine at.
+ *
+ * CPU Fantasy Draft + Roster Need optimization pass
+ * (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json -> cpu_draft) raised this from
+ * 0.6, alongside `positionalNeed`'s own constants below.
  */
-const NEED_WEIGHT = 0.6;
+const NEED_WEIGHT = 0.72;
 
 /**
  * What a position is worth, in overall points, when comparing across
@@ -296,7 +300,9 @@ export function planAutopicks(s: LeagueState): string[] {
     const list = rosters.get(team)?.get(pos);
     let best = 0;
     if (list) for (const v of list) if (v > best) best = v;
-    return Math.max(1, 78 - (best || 40)) * NEED_WEIGHT;
+    const raw =
+      STARTER_QUALITY_BAR - (best || EMPTY_POSITION_BASE) + (POSITION_NEED_BONUS[pos] ?? 0);
+    return Math.max(MIN_RAW_NEED, raw) * NEED_WEIGHT;
   };
 
   const out: string[] = [];
@@ -670,27 +676,31 @@ export function offerScore(o: ContractOffer, subject: Subject, subjectId: string
   const dollar = o.baseSalary * o.years + o.signingBonus;
   const team = s.teams[o.teamCode];
   if (!team) return dollar;
+  // Free Agency + Contracts optimization pass (free_agency.general_context):
+  // each context term moves the score less per point, and the overall swing
+  // it can produce is tighter (±0.22, down from ±0.3) — dollars still decide
+  // most offers; context breaks the close ones.
   let bonus = 0;
   if (subject === "players") {
     const p = s.players[subjectId];
     if (p) {
       const ranked = playerPriorities(p).ranked;
-      if (ranked.includes("winning now")) bonus += (team.ratings.overall - 75) / 50;
-      if (ranked.includes("a starting role")) bonus += (positionalNeed(s, o.teamCode, p.position) - 10) / 100;
+      if (ranked.includes("winning now")) bonus += (team.ratings.overall - 75) / 60;
+      if (ranked.includes("a starting role")) bonus += (positionalNeed(s, o.teamCode, p.position) - 10) / 120;
       if (ranked.includes("scheme fit")) {
         const oc = Object.values(s.coaches).find((c) => c.team === o.teamCode && c.role === "OC") ?? null;
         const dc = Object.values(s.coaches).find((c) => c.team === o.teamCode && c.role === "DC") ?? null;
-        bonus += (sim.computeSchemeFit(p, oc, dc) - 62) / 150;
+        bonus += (sim.computeSchemeFit(p, oc, dc) - 62) / 180;
       }
     }
   } else {
     const c = s.coaches[subjectId];
     if (c) {
       const ranked = coachPriorities(c).ranked;
-      if (ranked.includes("roster talent")) bonus += (team.ratings.rosterOverall - 75) / 50;
+      if (ranked.includes("roster talent")) bonus += (team.ratings.rosterOverall - 75) / 60;
     }
   }
-  return dollar * (1 + clamp(bonus, -0.3, 0.3));
+  return dollar * (1 + clamp(bonus, -0.22, 0.22));
 }
 
 export function bestOfferFor(fa: FreeAgencyState, subject: Subject, id: string, s: LeagueState): ContractOffer | null {
@@ -727,13 +737,50 @@ export function weightedPick<T>(rng: () => number, items: T[], weights: number[]
   return items[items.length - 1]!;
 }
 
+/** The "starter-quality" bar `positionalNeed` measures the gap below. */
+const STARTER_QUALITY_BAR = 77;
+/** Stand-in "best at the position" when a team has nobody there at all. */
+const EMPTY_POSITION_BASE = 42;
+/** `positionalNeed` never reads as fully satisfied — there's always a little
+ *  room to want an upgrade, so a maxed-out position never drops out of a
+ *  weighted pick entirely. */
+const MIN_RAW_NEED = 0.5;
+
+/**
+ * A flat need adjustment by position, on top of the roster gap.
+ *
+ * Independent of `POSITION_VALUE` (the draft-value premium a great player at
+ * a position is worth) — this instead biases how urgently the AI treats
+ * *needing* the position at all, most visibly at quarterback (proactively
+ * seeks one even over a middling gap) and kicker/punter (needs to be truly
+ * empty there before it registers as a real need).
+ */
+const POSITION_NEED_BONUS: Partial<Record<Position, number>> = {
+  QB: 13,
+  RB: 6,
+  WR: 7,
+  TE: 1,
+  OT: 2,
+  OG: 1,
+  C: 1,
+  EDGE: 3,
+  DT: 3,
+  ILB: 3,
+  OLB: -6,
+  CB: 5,
+  S: 4,
+  K: -9,
+  P: -18,
+};
+
 /** How much a team needs help at `position` — bigger gap below a "starter-quality"
- *  bar (~78 overall) = more urgent; no one on the roster at all = most urgent. */
+ *  bar (~77 overall) = more urgent; no one on the roster at all = most urgent. */
 export function positionalNeed(s: LeagueState, teamCode: string, position: Position): number {
   const best = Object.values(s.players)
     .filter((p) => p.nfl_team === teamCode && p.position === position && !p.retired)
     .reduce((max, p) => Math.max(max, p.overall), 0);
-  return Math.max(1, 78 - (best || 40));
+  const raw = STARTER_QUALITY_BAR - (best || EMPTY_POSITION_BASE) + (POSITION_NEED_BONUS[position] ?? 0);
+  return Math.max(MIN_RAW_NEED, raw);
 }
 
 /** Teams with at least `needed` ($M) of cap room — falls back to every AI
@@ -749,19 +796,23 @@ export function affordableTeams(s: LeagueState, needed: number): string[] {
   return can.length > 0 ? can : all;
 }
 
+// Free Agency + Contracts optimization pass (free_agency.standing_ai_offer):
+// a narrower market-noise band, a stronger pull toward genuine need, a
+// signing bonus that can't dwarf the base salary it rides on, and a lower
+// guaranteed-money band.
 export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): ContractOffer {
   // real value (overall-driven), with market noise so it isn't a single fixed number
-  const base = Math.round(contractValueFor(p.overall, p.position) * (0.85 + rng() * 0.4) * 10) / 10;
+  const base = Math.round(contractValueFor(p.overall, p.position) * (0.95 + rng() * 0.2) * 10) / 10;
   const candidates = affordableTeams(s, base);
-  const weights = candidates.map((code) => positionalNeed(s, code, p.position) ** 1.6);
+  const weights = candidates.map((code) => positionalNeed(s, code, p.position) ** 1.4);
   const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";
   const years = 1 + Math.floor(rng() * 4);
   return {
     teamCode,
     baseSalary: base,
-    signingBonus: Math.round(base * rng() * 1.5 * 10) / 10,
+    signingBonus: Math.round(base * rng() * 1.0 * 10) / 10,
     years,
-    guaranteed: Math.round(base * years * (0.3 + rng() * 0.4) * 10) / 10,
+    guaranteed: Math.round(base * years * (0.4 + rng() * 0.25) * 10) / 10,
   };
 }
 

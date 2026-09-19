@@ -12,8 +12,11 @@ import { coachRoleForPosition } from "@/domain";
 /**
  * Change 3 — what the nine development coaches are worth.
  *
- * 72 is neutral and every point either side moves the relevant rate by one
- * percent, applied in opposite directions to development and regression. The
+ * 72 is neutral and every point either side moves development/regression by
+ * one and a half percent (raised from one, by the Aging + Training Camp
+ * optimization pass — at one percent, integer rating-delta rounding
+ * swallowed most of the effect) and recovery duration by one percent,
+ * applied in opposite directions to development and regression. The
  * symmetry is the substance: the same distance from neutral has to be worth
  * the same amount whichever way it runs, or a good hire and a bad one are not
  * the same decision reversed.
@@ -26,11 +29,11 @@ describe("coach effect scale", () => {
     expect(NEUTRAL_COACH_OVERALL).toBe(72);
   });
 
-  it("moves one percent per point", () => {
-    expect(developmentMultiplier(82)).toBeCloseTo(1.1, 10);
-    expect(developmentMultiplier(62)).toBeCloseTo(0.9, 10);
-    expect(regressionMultiplier(82)).toBeCloseTo(0.9, 10);
-    expect(regressionMultiplier(62)).toBeCloseTo(1.1, 10);
+  it("moves one and a half percent per point", () => {
+    expect(developmentMultiplier(82)).toBeCloseTo(1.15, 10);
+    expect(developmentMultiplier(62)).toBeCloseTo(0.85, 10);
+    expect(regressionMultiplier(82)).toBeCloseTo(0.85, 10);
+    expect(regressionMultiplier(62)).toBeCloseTo(1.15, 10);
   });
 
   it("is symmetric — a bad hire costs what a good one gains", () => {

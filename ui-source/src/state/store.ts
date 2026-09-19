@@ -804,7 +804,8 @@ export const useStore = create<Store>()(
           // This used to vote "for" whenever the deal wasn't bad *for the
           // proposer*, which rubber-stamped precisely the fleecings the vote
           // exists to stop — a 2%-acceptance heist passed 3-0.
-          const lopsided = t.aiAcceptLikelihood >= 0.85 || t.aiAcceptLikelihood <= 0.2;
+          // Trade Valuation optimization pass (trade.vote_safeguard).
+          const lopsided = t.aiAcceptLikelihood >= 0.82 || t.aiAcceptLikelihood <= 0.18;
           for (const g of s.gms) {
             if (g.isHuman && g.id !== gmId && t.vote.votes[g.id] == null) {
               t.vote.votes[g.id] = lopsided ? "against" : "for";

@@ -107,24 +107,46 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
  * injury, ranked by its own severity, counts for less) — durability erodes
  * with repeated injuries of any kind, but the effect isn't purely additive.
  */
+// Aging + Training Camp / Retirement optimization pass (Pass 5) —
+// MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json -> retirement.injury_type_age_years.
+// The shipped pool's injury history uses a wider vocabulary than the old
+// table recognized (severe/major severities, and types like acl/achilles/
+// patellar_tendon), so every unrecognized entry fell through to the same
+// default — this gives the real vocabulary its own values instead.
 const INJURY_TYPE_AGE_YEARS: Record<string, number> = {
-  concussion: 3.5,
-  knee: 2,
-  shoulder: 1,
-  ankle: 0.8,
-  hamstring: 0.5,
+  concussion: 1.8,
+  achilles: 1.4,
+  patellar_tendon: 1.4,
+  acl_mcl: 1.3,
+  acl: 1.2,
+  knee: 1.2,
+  neck: 0.9,
+  back: 0.8,
+  shoulder: 0.6,
+  ankle: 0.5,
+  foot: 0.5,
+  pectoral: 0.5,
+  biceps: 0.45,
+  quad: 0.35,
+  hamstring: 0.3,
 };
+const INJURY_TYPE_AGE_YEARS_DEFAULT = 0.5;
 const INJURY_SEVERITY_MULT: Record<string, number> = {
-  significant: 1.3,
-  moderate: 0.7,
-  minor: 0.3,
+  severe: 1.4,
+  significant: 1.2,
+  major: 1.0,
+  moderate: 0.6,
+  minor: 0.25,
 };
+const INJURY_SEVERITY_MULT_DEFAULT = 0.6;
 export function injuryAgeReduction(history: Player["injury_history"]): number {
   if (history.length === 0) return 0;
   const perInjury = history
-    .map((h) => (INJURY_TYPE_AGE_YEARS[h.type] ?? 0.8) * (INJURY_SEVERITY_MULT[h.severity] ?? 0.7))
+    .map((h) => (INJURY_TYPE_AGE_YEARS[h.type] ?? INJURY_TYPE_AGE_YEARS_DEFAULT) * (INJURY_SEVERITY_MULT[h.severity] ?? INJURY_SEVERITY_MULT_DEFAULT))
     .sort((a, b) => b - a);
-  return perInjury.reduce((total, effect, i) => total + effect * Math.pow(0.6, i), 0);
+  // repeat_injury_decay: each additional injury (ranked by its own severity)
+  // counts for less, at this rate per rank.
+  return perInjury.reduce((total, effect, i) => total + effect * Math.pow(0.55, i), 0);
 }
 /** Deep clone that works on immer drafts (structuredClone chokes on the proxy). */
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
@@ -145,18 +167,29 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
  * (`src/model/positions.ts`): a plausible shape, not fit to real
  * year-over-year rating deltas (no reliable public dataset of that for a
  * heuristic 0-99 rating scale) - tracked as OQ-4 in docs/decisions.md.
+ *
+ * The constants below are the Aging + Training Camp optimization pass's
+ * calibrated values (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json ->
+ * aging_training_camp), not hand-picked. They target the shipped pool's
+ * empirical by-round career-starter rates without changing this function's
+ * architecture — in particular, `runTrainingCamp` calls this a second time
+ * per established-player season on top of `applySeasonAging`'s call, so
+ * these are deliberately the *per-call* numbers that make the two-call
+ * shipped behavior approximate the one-call distribution the original
+ * single-mean/SD pair implied, not a distribution meant to look right on
+ * its own if only called once.
  */
 export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: number): number {
   if (age < devAge) {
     const yearsToGo = Math.max(1, devAge - age);
-    const growth = clamp(rng.normal(3, 1.5), 0, 7);
-    return Math.round(yearsToGo >= 3 ? growth : growth * 0.6);
+    const growth = clamp(rng.normal(0.5, 1.4), 0, 7);
+    return Math.round(yearsToGo >= 3 ? growth : growth * 0.7);
   }
   if (age < declineAge) {
-    return Math.round(clamp(rng.normal(0, 1.2), -2, 2));
+    return Math.round(clamp(rng.normal(0, 1.0), -1, 1));
   }
   const yearsPast = age - declineAge + 1;
-  const loss = clamp(rng.normal(1.5 + yearsPast * 0.8, 1.5), 1, 14);
+  const loss = clamp(rng.normal(0.2 + yearsPast * 0.5, 1.2), 1, 7);
   return -Math.round(loss);
 }
 
@@ -883,7 +916,7 @@ export class MockSimulationService implements SimulationService {
     const val = (a: TradeAsset) => {
       if (a.kind === "player") {
         const p = state.players[a.playerId ?? ""];
-        const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.7) / 12;
+        const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.72) / 12.5;
         return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1);
       }
       const round = a.pick?.round ?? 4;
@@ -930,9 +963,13 @@ export class MockSimulationService implements SimulationService {
     return {
       valueDelta: delta,
       // acceptLikelihood is the AI's (toTeam's) own willingness — falls as the
-      // deal favors the proposer more (-delta/40), rises when the incoming
+      // deal favors the proposer more (-delta/36), rises when the incoming
       // players address a real need, falls when the outgoing ones leave one.
-      acceptLikelihood: clamp(0.5 - delta / 40 + (needGained - needLost) / 60, 0.02, 0.98),
+      // Coefficients from the Trade Valuation optimization pass
+      // (trade.accept_likelihood): the need term's divisor widened from 60 to
+      // 90 as the value term's (40 to 36) narrowed, so a real roster need
+      // moves the AI's willingness less relative to raw value than before.
+      acceptLikelihood: clamp(0.5 - delta / 36 + (needGained - needLost) / 90, 0.02, 0.98),
     };
   }
 
@@ -952,7 +989,7 @@ export class MockSimulationService implements SimulationService {
       const reduction = injuryAgeReduction(p.injury_history);
       const norm = baseNorm - reduction;
       const over = p.age - norm;
-      const pRetire = clamp(0.02 + Math.max(0, over) * 0.16, 0, 0.95);
+      const pRetire = clamp(0.025 + Math.max(0, over) * 0.22, 0, 0.92);
       if (p.age >= norm - 2 || p.injury_history.length >= 2) {
         const retiring = rng.bool(pRetire);
         out.push({
@@ -1179,22 +1216,30 @@ const PICK_VALUE_BY_ROUND: Record<number, number> = {
   7: 0.5,
 };
 
+// Trade Valuation + AI Trade Behavior optimization pass
+// (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json -> trade.position_value):
+// blends the real-market hierarchy this table started from with what the
+// frozen engine's rating channels actually reward — QB and RB come up (the
+// engine's own value-slope audit found QB by far the largest marginal
+// effect, with RB ahead of most of the front seven it had been priced
+// below), EDGE/OT/OLB come down, and this feeds both trade value and
+// `contractValueFor`'s free-agent asking-price scaling below.
 export const POSITION_VALUE: Record<Position, number> = {
-  QB: 2.2,
-  EDGE: 1.35,
-  WR: 1.3,
-  OT: 1.3,
-  CB: 1.15,
-  DT: 1.05,
-  S: 0.95,
-  ILB: 0.9,
-  OLB: 0.9,
-  TE: 0.85,
-  OG: 0.85,
+  QB: 2.35,
+  EDGE: 1.15,
+  WR: 1.35,
+  OT: 1.1,
+  CB: 1.2,
+  DT: 1.0,
+  S: 1.05,
+  ILB: 1.0,
+  OLB: 0.6,
+  TE: 0.82,
+  OG: 0.8,
   C: 0.8,
-  RB: 0.7,
-  K: 0.4,
-  P: 0.35,
+  RB: 0.95,
+  K: 0.5,
+  P: 0.25,
 };
 
 /** $M/year, roughly convex in overall, scaled by position value if given —

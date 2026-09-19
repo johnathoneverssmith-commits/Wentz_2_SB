@@ -48,13 +48,15 @@ function setStaff(s: LeagueState, team: string, ratings: Partial<Record<string, 
 }
 
 describe("staff weighting", () => {
-  it("weights the head coach triple and the coordinators double", () => {
-    expect(STAFF_WEIGHTS.HC).toBe(3);
-    expect(STAFF_WEIGHTS.OC).toBe(2);
-    expect(STAFF_WEIGHTS.DC).toBe(2);
+  it("weights the head coach and coordinators above the position coaches", () => {
+    // Staff Summary optimization pass's calibrated weights — see
+    // MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json -> staff_summary.
+    expect(STAFF_WEIGHTS.HC).toBe(2.5);
+    expect(STAFF_WEIGHTS.OC).toBe(2.25);
+    expect(STAFF_WEIGHTS.DC).toBe(2.25);
     for (const r of COACH_ROLES) {
       if (r === "HC" || r === "OC" || r === "DC") continue;
-      expect(STAFF_WEIGHTS[r], r).toBe(1);
+      expect(STAFF_WEIGHTS[r], r).toBeLessThan(STAFF_WEIGHTS.HC);
     }
   });
 

@@ -68,6 +68,18 @@ function hash(id: string): number {
   return h >>> 0;
 }
 
+/** A deterministic weighted pick from `h`, in whatever units the weights sum to. */
+function weightedChoice<T extends string>(h: number, weights: Partial<Record<T, number>>): T {
+  const entries = Object.entries(weights) as [T, number][];
+  const total = entries.reduce((sum, [, w]) => sum + w, 0);
+  let r = ((h % 100000) / 100000) * total;
+  for (const [key, w] of entries) {
+    r -= w;
+    if (r <= 0) return key;
+  }
+  return entries[entries.length - 1]![0];
+}
+
 /**
  * The one thing this player cares about most.
  *
@@ -75,29 +87,34 @@ function hash(id: string): number {
  * good player near the end of his career wants a ring, a fringe player wants
  * a job, a young one wants to be coached. The hash only breaks ties within a
  * band, which is what keeps two similar players from being identical.
+ *
+ * The bands and the split within each are the Free Agency + Contracts
+ * optimization pass's calibrated values (free_agency.profile_bands /
+ * profile_probabilities), not an even coin flip within a band — a star in
+ * his thirties chases a ring three times as often as a payday, for instance.
  */
 export function primaryValueOf(p: Player): PrimaryValue {
   const h = hash(p.id);
   const old = p.age >= 30;
-  const young = p.age <= 24;
+  const young = p.age <= 25;
   const star = p.overall >= 85;
-  const fringe = p.overall < 70;
+  const fringe = p.overall < 68;
 
-  if (star && old) return h % 3 === 0 ? "salary" : "championship";
-  if (old && !fringe) return h % 3 === 0 ? "rebuildLeadership" : "championship";
-  if (fringe) return h % 3 === 0 ? "warmClimate" : "startingOpportunity";
-  if (young) return h % 3 === 0 ? "location" : "positionCoach";
+  if (star && old) return weightedChoice(h, { salary: 0.25, championship: 0.75 });
+  if (old && !fringe) return weightedChoice(h, { rebuildLeadership: 0.4, championship: 0.6 });
+  if (fringe) return weightedChoice(h, { warmClimate: 0.2, startingOpportunity: 0.8 });
+  if (young) return weightedChoice(h, { location: 0.25, positionCoach: 0.75 });
   if (star) return "salary";
-  // the broad middle: spread across the rest so no one motive dominates
-  const rest: PrimaryValue[] = [
-    "salary",
-    "startingOpportunity",
-    "championship",
-    "location",
-    "warmClimate",
-    "positionCoach",
-  ];
-  return rest[h % rest.length]!;
+  // the broad middle: spread across the rest so no one motive dominates,
+  // though location and warm climate matter to fewer people than the others
+  return weightedChoice(h, {
+    salary: 0.2,
+    startingOpportunity: 0.2,
+    championship: 0.2,
+    location: 0.1,
+    warmClimate: 0.1,
+    positionCoach: 0.2,
+  });
 }
 
 /** The region a player would rather be in, fixed to him. */
@@ -110,9 +127,16 @@ export function preferredRegion(p: Player): string {
 export function expectedSalary(p: Player): number {
   // a curve rather than a line: the top of the market is much steeper than
   // the middle, which is what makes a star genuinely expensive
+  //
+  // Free Agency + Contracts optimization pass (free_agency.expected_salary):
+  // a least-squares fit to the repo's own contractValueFor() backbone — the
+  // old curve was too low through the middle of the market and too steep at
+  // the very top relative to it.
   const over = Math.max(0, p.overall - 60);
-  const base = 0.9 + Math.pow(over / 39, 2.6) * 34;
-  const agePenalty = p.age >= 31 ? 0.82 : p.age >= 29 ? 0.92 : 1;
+  const base = 1.35 + Math.pow(over / 39, 1.9) * 27.7;
+  // the aging model has softened since these were set, so the old veteran
+  // discount was too aggressive relative to it
+  const agePenalty = p.age >= 31 ? 0.86 : p.age >= 29 ? 0.94 : 1;
   return Math.round(base * agePenalty * 10) / 10;
 }
 
@@ -141,7 +165,7 @@ export function fitFor(s: LeagueState, p: Player, teamCode: string): number {
       const best = atPosition.reduce((n, x) => Math.max(n, x.overall), 0);
       // a clear path to the field is worth the most; a crowded room the least
       if (atPosition.length === 0) return 1;
-      return Math.max(0, Math.min(1, (p.overall - best + 12) / 24));
+      return Math.max(0, Math.min(1, (p.overall - best + 10) / 20));
     }
 
     case "championship": {
@@ -153,17 +177,17 @@ export function fitFor(s: LeagueState, p: Player, teamCode: string): number {
     }
 
     case "location":
-      return REGION[teamCode] === preferredRegion(p) ? 1 : 0.2;
+      return REGION[teamCode] === preferredRegion(p) ? 1 : 0.3;
 
     case "warmClimate":
-      return WARM_TEAMS.has(teamCode) ? 1 : 0.15;
+      return WARM_TEAMS.has(teamCode) ? 1 : 0.3;
 
     case "positionCoach": {
       const role = coachRoleForPosition(p.position);
       if (!role) return 0.5;
       const coach = staffAt(s, teamCode, role);
       const ovr = coach?.overall ?? 72;
-      return Math.max(0, Math.min(1, (ovr - 40) / 55));
+      return Math.max(0, Math.min(1, (ovr - 45) / 50));
     }
 
     case "rebuildLeadership": {
@@ -176,7 +200,7 @@ export function fitFor(s: LeagueState, p: Player, teamCode: string): number {
       );
       const best = atPosition.reduce((n, x) => Math.max(n, x.overall), 0);
       const room = p.overall >= best ? 1 : 0.4;
-      return weak * 0.7 + room * 0.3;
+      return weak * 0.65 + room * 0.35;
     }
   }
 }
@@ -207,7 +231,9 @@ export function scoreOffer(s: LeagueState, p: Player, offer: Offer): number {
   // diminishing: doubling the money is not twice as persuasive
   const money = Math.min(2, Math.sqrt(premium));
   const fit = fitFor(s, p, offer.teamCode);
-  return money * 0.65 + fit * 0.35;
+  // Free Agency + Contracts optimization pass (free_agency.offer_score):
+  // money weighs more relative to fit than before.
+  return money * 0.75 + fit * 0.25;
 }
 
 /** Whether an offer is even eligible — below what he expects, nothing else matters. */

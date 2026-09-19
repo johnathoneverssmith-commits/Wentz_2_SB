@@ -62,7 +62,9 @@ export function picksOwnedBy(state: LeagueState, teamCode: string, year?: number
  */
 export function futureDiscount(pick: DraftPickAsset, season: number): number {
   const yearsOut = Math.max(0, pick.year - season);
-  return Math.max(0.5, 1 - yearsOut * 0.14);
+  // Trade Valuation optimization pass (trade.future_pick_discount): steeper
+  // per-year discount and a slightly higher floor than before.
+  return Math.max(0.55, 1 - yearsOut * 0.18);
 }
 
 /** "2027 Round 1 (via CLE)" — the label every screen shows a pick by. */
