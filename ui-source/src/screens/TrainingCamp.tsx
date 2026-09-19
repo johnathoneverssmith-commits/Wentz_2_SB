@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -34,6 +35,7 @@ import { millions } from "@/util/format";
  * a promise.
  */
 export function TrainingCamp() {
+  const nav = useNavigate();
   const s = useStore();
   const actions = useLeagueActions();
   const code = viewerTeamCode(s);
@@ -52,6 +54,27 @@ export function TrainingCamp() {
         <div className="panel open">
           <div className="emptystate">Pick a team first.</div>
         </div>
+      </Card>
+    );
+  }
+
+  // This GM's own camp already ran — most often a refresh or a reconnect
+  // after a successful submission that never got acknowledged locally, or a
+  // league saved before this screen learned to move on by itself. Camp is
+  // not resubmittable (the server rejects a second run outright), so there
+  // is nothing to do here but go see the result that already exists.
+  if (s.trainingCamp?.plans[code]?.submitted) {
+    return (
+      <Card>
+        <CardHeader badge="TC" title="Training Camp" subtitle="Already run" />
+        <div className="panel open">
+          <div className="emptystate">You already ran camp this season.</div>
+        </div>
+        <Footer>
+          <button type="button" className="btn-primary" onClick={() => nav("/training-camp-results")}>
+            See Your Results
+          </button>
+        </Footer>
       </Card>
     );
   }
@@ -80,7 +103,18 @@ export function TrainingCamp() {
     void actions
       .submitTrainingCamp(plan)
       .then((res) => {
-        if (!res.ok) setError(res.reason ?? "Camp didn't run.");
+        if (!res.ok) {
+          setError(res.reason ?? "Camp didn't run.");
+          return;
+        }
+        // Camp is single-player and the league keeps waiting on the other
+        // GMs, so nothing here moves the shared stage — only this GM's own
+        // marker, the same way the retirement review hands off to the draft
+        // preview. Without it this screen has no way to leave: `check.ok`
+        // still reads true after a submit that already succeeded, so a
+        // second click here would hit the server's "You've already run
+        // camp" and strand the GM looking at a form they can't resubmit.
+        void actions.stepForward("trainingCampResults").then(() => nav("/training-camp-results"));
       })
       .finally(() => setBusy(false));
   };

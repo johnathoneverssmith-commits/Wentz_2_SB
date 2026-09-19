@@ -8,6 +8,7 @@ import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } fr
 import {
   availableCoaches,
   coachingOnTheClock,
+  COACHING_ROUNDS,
   ratingOf,
   vacantRoles,
 } from "@/state/coachingDraft";
@@ -66,7 +67,10 @@ export function CoachingDraftRoom() {
   }
 
   const teams = Object.keys(s.teams).length;
-  const round = Math.floor(draft.currentPickIndex / teams) + 1;
+  // `currentPickIndex` reaches `teams * COACHING_ROUNDS` once the last pick is
+  // made, which is one pick past the last real round — clamp the display so
+  // a finished draft reads "Round 12 of 12", not "Round 13 of 12".
+  const round = Math.min(Math.floor(draft.currentPickIndex / teams) + 1, COACHING_ROUNDS);
   const pickInRound = (draft.currentPickIndex % teams) + 1;
   const staff = Object.values(s.coaches).filter((c) => c.team === code);
 
@@ -86,7 +90,7 @@ export function CoachingDraftRoom() {
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Coaching Draft"
-        subtitle={`Round ${round} of 12 · pick ${pickInRound} of ${teams}`}
+        subtitle={`Round ${round} of ${COACHING_ROUNDS} · pick ${pickInRound} of ${teams}`}
         right={
           <>
             <p>{yourPick ? "You're on the clock" : "On the clock"}</p>

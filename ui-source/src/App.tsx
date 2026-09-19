@@ -64,6 +64,9 @@ function StageHome() {
   if (stage === "offseasonDraftSummary" && step === "rookieSignings") {
     return <Navigate to="/rookie-signings" replace />;
   }
+  if (stage === "trainingCamp" && step === "trainingCampResults") {
+    return <Navigate to="/training-camp-results" replace />;
+  }
   return <Navigate to={STAGE_HOME[stage]} replace />;
 }
 

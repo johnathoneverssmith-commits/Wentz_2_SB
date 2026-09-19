@@ -15,6 +15,7 @@ import { viewerTeamCode } from "@/state/selectors";
 import { rankBy, staffCards } from "@/state/staffRatings";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
+import { ordinal } from "@/util/format";
 
 /**
  * What everybody ended up with.
@@ -81,8 +82,16 @@ export function CoachingDraftSummary() {
             value: mine ? `${overallRank.get(mine)} of ${teams}` : "—",
             className: "sm",
           },
-          { label: "Offense", value: mine ? `${offenseRank.get(mine)}th` : "—", className: "sm" },
-          { label: "Defense", value: mine ? `${defenseRank.get(mine)}th` : "—", className: "sm" },
+          {
+            label: "Offense",
+            value: mine ? ordinal(offenseRank.get(mine)!) : "—",
+            className: "sm",
+          },
+          {
+            label: "Defense",
+            value: mine ? ordinal(defenseRank.get(mine)!) : "—",
+            className: "sm",
+          },
         ]}
       />
 
