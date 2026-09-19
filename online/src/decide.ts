@@ -401,12 +401,17 @@ export function decideFreeAgencyTurn(
   const signedThisRound = state.freeAgencyEvent!.signed.filter((x) => x.round === roundBefore);
 
   // The event ending is a stage change, not a prompt — there is nothing left
-  // to decide once the fifth round resolves.
-  if (state.freeAgencyEvent!.complete && state.stage === "freeAgency") {
+  // to decide once the fifth round resolves. This event runs twice a season
+  // (the opening market and Change 9's midseason window), on two different
+  // stages, so the guard has to recognise both — checking only "freeAgency"
+  // left a league that played midseason free agency to its natural
+  // conclusion stuck there forever, with no other way off the stage.
+  const from = state.stage;
+  if (state.freeAgencyEvent!.complete && (from === "freeAgency" || from === "midseasonFreeAgency")) {
     const t = resolveTransition(state, {});
     state.stage = t.stage;
     state.week = t.week;
-    onStageEntered(state, "freeAgency");
+    onStageEntered(state, from);
     clearReadinessOnline(state);
   }
 
