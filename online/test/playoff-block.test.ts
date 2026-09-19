@@ -54,6 +54,26 @@ describe("simulating the postseason up front", () => {
     // the tie-break is real: somebody has to go home
     expect(s.bracket!.champion).toBe(sb.homeScore > sb.awayScore ? sb.homeTeam : sb.awayTeam);
   }, 600_000);
+
+  it("is deterministic — the same league state twice gives the same champion", () => {
+    // seeded() is itself deterministic (fixed league seed, fixed weeks
+    // simulated), so two independent builds are the "same state" the season-
+    // flow spec asks for: a retry after a failed save, or a second server
+    // reading the same checkpoint, must not be able to reroll the postseason.
+    const a = seeded();
+    const b = seeded();
+    simulatePlayoffBlock(a);
+    simulatePlayoffBlock(b);
+    expect(a.bracket!.champion).toBe(b.bracket!.champion);
+    for (const round of ROUND_ORDER) {
+      const scoresOf = (s: LeagueState) =>
+        s.games
+          .filter((g) => g.phase === round)
+          .map((g) => `${g.homeTeam}${g.homeScore}-${g.awayScore}${g.awayTeam}`)
+          .sort();
+      expect(scoresOf(a)).toEqual(scoresOf(b));
+    }
+  }, 600_000);
 });
 
 describe("what a GM can see", () => {
