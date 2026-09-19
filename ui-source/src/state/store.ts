@@ -48,6 +48,7 @@ import {
   restructureContract,
 } from "./contracts.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
+import { CURRENT_SAVE_VERSION, migrateLeagueSave } from "./saveMigration.ts";
 import {
   applyCoachingPick,
   checkCoachingPick,
@@ -206,6 +207,35 @@ export function onSaveStateChange(fn: (broken: boolean) => void): () => void {
   saveWatchers.add(fn);
   fn(saveBroken);
   return () => saveWatchers.delete(fn);
+}
+
+const SAVE_KEY = "nfl-sim-ui.league";
+/** Where a save that failed to parse is copied before anything can overwrite it. */
+const CORRUPT_BACKUP_KEY = `${SAVE_KEY}.corrupted-backup`;
+
+/**
+ * Whether the save on this device exists but could not be read back — bad
+ * JSON, most likely from a browser crash mid-write or a hand-edited value.
+ *
+ * Loading a save must never fail silently: without this, `persist` swallows
+ * the parse error, hydrates the store from its own fresh initial state, and
+ * says nothing — a dynasty that looked lost only *looked* lost, right up
+ * until the next autosave, which would have quietly overwritten the one copy
+ * of it that still existed with that fresh empty state. `onRehydrateStorage`
+ * below backs the raw string up to `CORRUPT_BACKUP_KEY` the moment the parse
+ * fails, before any further write can touch it, and the shell surfaces this
+ * flag instead of pretending the fresh state the player is now looking at
+ * was always what was there.
+ */
+let saveCorrupted = false;
+const corruptWatchers = new Set<(corrupted: boolean) => void>();
+function notifyCorruptState(): void {
+  for (const fn of corruptWatchers) fn(saveCorrupted);
+}
+export function onSaveCorrupted(fn: (corrupted: boolean) => void): () => void {
+  corruptWatchers.add(fn);
+  fn(saveCorrupted);
+  return () => corruptWatchers.delete(fn);
 }
 
 export const useStore = create<Store>()(
@@ -829,18 +859,31 @@ export const useStore = create<Store>()(
         }),
     })),
     {
-      name: "nfl-sim-ui.league",
-      version: 3,
-      // A save written before draft picks existed has no ledger, and a league
-      // already under way would never grow one — `ensureDraftPicks` otherwise
-      // only runs at league creation and the season rollover.
-      migrate: (persisted) => {
-        const st = persisted as LeagueState;
-        if (st && st.teams) {
-          st.depthChart ??= {};
-          ensureDraftPicks(st, st.season);
+      name: SAVE_KEY,
+      version: CURRENT_SAVE_VERSION,
+      migrate: (persisted, version) => migrateLeagueSave(persisted, version) as never,
+      // Fires once, after the one hydration attempt `persist` makes on
+      // startup, whether it succeeded or not — this is the only hook it
+      // gives a parse failure, since the failure happens inside its own
+      // `JSON.parse` of whatever storage.getItem returned, not in the
+      // storage object below.
+      onRehydrateStorage: () => (_state, error) => {
+        if (!error) {
+          if (saveCorrupted) {
+            saveCorrupted = false;
+            notifyCorruptState();
+          }
+          return;
         }
-        return st as never;
+        try {
+          const raw = window.localStorage.getItem(SAVE_KEY);
+          if (raw != null) window.localStorage.setItem(CORRUPT_BACKUP_KEY, raw);
+        } catch {
+          // the backup is a courtesy on top of the flag, not the fix itself —
+          // a device where even this write fails still gets the warning
+        }
+        saveCorrupted = true;
+        notifyCorruptState();
       },
       // A quota error out of `localStorage.setItem` is swallowed by the
       // persist middleware — it logs and carries on, so a dynasty that
@@ -875,6 +918,6 @@ export const useStore = create<Store>()(
   ),
 );
 
-if (import.meta.env.DEV && typeof window !== "undefined") {
+if (import.meta.env?.DEV && typeof window !== "undefined") {
   (window as unknown as { __store: typeof useStore }).__store = useStore;
 }

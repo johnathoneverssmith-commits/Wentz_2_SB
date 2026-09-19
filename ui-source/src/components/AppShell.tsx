@@ -7,7 +7,7 @@ import { useGameAudio } from "@/audio/useGameAudio";
 
 import { SoundControl } from "./SoundControl.tsx";
 import { isOnline } from "@/state/online";
-import { isInSeason, onSaveStateChange, useStore } from "@/state/store";
+import { isInSeason, onSaveCorrupted, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
 
 import "./app-shell.css";
@@ -104,6 +104,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // could have, so it is the one thing the shell always says out loud
   const [saveBroken, setSaveBroken] = useState(false);
   useEffect(() => onSaveStateChange(setSaveBroken), []);
+  // a save that failed to *read back* is a different failure from one that
+  // failed to write — the player is looking at a fresh league right now and
+  // needs to know that isn't the dynasty they left, not just that saving is
+  // currently broken
+  const [saveCorrupted, setSaveCorrupted] = useState(false);
+  useEffect(() => onSaveCorrupted(setSaveCorrupted), []);
   // things waiting on the GM, so an offer doesn't sit unseen on a screen
   // they had no reason to open
   const offers = useStore((s) =>
@@ -184,6 +190,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
       </nav>
       <main className="app-main">
+        {saveCorrupted && (
+          <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>Your saved dynasty couldn&rsquo;t be read.</strong> What you&rsquo;re looking at
+            now is a fresh one, not the one you left — the old save was unreadable rather than
+            gone, and a copy of the raw data has been kept in this browser's storage in case it can
+            be recovered. Playing on from here will not get it back.
+          </div>
+        )}
         {saveBroken && (
           <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
             <strong>This dynasty isn't being saved.</strong> The browser refused to write to
