@@ -66,7 +66,7 @@ function planRestructure(
 }
 
 /** What a restructure would do, without doing it. */
-export function previewRestructure(p: Player): ContractMoveResult {
+export function previewRestructure(p: Player, season: number): ContractMoveResult {
   const c = p.contract;
   if (!c) return { ok: false, reason: "He isn't under contract." };
   if (c.years_remaining < 2) {
@@ -74,6 +74,15 @@ export function previewRestructure(p: Player): ContractMoveResult {
       ok: false,
       reason: "A restructure pushes money into later years, and this deal has none left. Extend him first.",
     };
+  }
+  // exploit audit (contracts §3, "repeated restructure loop"): the 75%-of-
+  // margin conversion cap is meant to apply once — without this gate, a GM
+  // could click Restructure repeatedly in one sitting and, across three or
+  // four clicks, convert nearly all of a contract's remaining value instead
+  // of 75% of it (e.g. a $20M year-one hit: one restructure frees ~$14.3M;
+  // three back-to-back restructures free ~$18.7M of the same contract).
+  if (c.restructured_season === season) {
+    return { ok: false, reason: "Already restructured this season. One restructure a year, same as real cap rules." };
   }
   const thisYear = c.cap_hit_by_year[0] ?? 0;
   const convertible = round1(Math.max(0, thisYear - MIN_SALARY_M) * CONVERTIBLE_SHARE);
@@ -93,8 +102,8 @@ export function previewRestructure(p: Player): ContractMoveResult {
  * the one the real rule has too — the money doesn't go away, it just arrives
  * later, and it becomes guaranteed on the way.
  */
-export function restructureContract(p: Player): ContractMoveResult {
-  const check = previewRestructure(p);
+export function restructureContract(p: Player, season: number): ContractMoveResult {
+  const check = previewRestructure(p, season);
   if (!check.ok) return check;
   const c = p.contract!;
   const { convertible, perYear, hits } = planRestructure(c);
@@ -105,6 +114,7 @@ export function restructureContract(p: Player): ContractMoveResult {
   // through an extension — otherwise restructuring and then extending would
   // make the bill disappear, which is the one thing proration never does
   c.prorated_per_year = round1((c.prorated_per_year ?? 0) + perYear);
+  c.restructured_season = season;
   return { ok: true, freed: check.freed };
 }
 

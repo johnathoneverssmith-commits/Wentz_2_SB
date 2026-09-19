@@ -265,7 +265,7 @@ export function RosterCapManagement() {
                         // the local action knows exactly what it freed;
                         // the server answers with the new league instead, so
                         // online the preview's arithmetic stands in
-                        const estimate = previewRestructure(p).freed;
+                        const estimate = previewRestructure(p, s.season).freed;
                         void actions.restructure(p.id).then((r) => {
                           setMoveNote({
                             id: p.id,
@@ -276,8 +276,8 @@ export function RosterCapManagement() {
                           });
                         });
                       }}
-                      disabled={!previewRestructure(p).ok}
-                      title={previewRestructure(p).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
+                      disabled={!previewRestructure(p, s.season).ok}
+                      title={previewRestructure(p, s.season).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
                     >
                       Restructure
                     </button>

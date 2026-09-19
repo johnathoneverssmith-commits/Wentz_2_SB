@@ -105,7 +105,17 @@ export function releasePenalty(p: Player): number {
   // Free Agency + Contracts optimization pass (contracts.release_penalty).
   const byYears = annual * 0.22 * c.years_remaining;
   const capped = annual * 0.75;
-  return Math.round(Math.min(byYears, capped) * 10) / 10;
+  const base = Math.min(byYears, capped);
+  // exploit audit (contracts §3, "restructure then release"): a restructure
+  // converts base salary into bonus money prorated across the *later* years
+  // (`prorated_per_year`) — this formula otherwise only looks at this year's
+  // (now-shrunk) hit, so restructuring a contract down and releasing him
+  // right after made the deferred money vanish instead of ever coming due.
+  // `extendContract` already carries this money forward through an
+  // extension; releasing has to accelerate the same remaining amount onto
+  // the cap now, the way a real signing bonus's unamortized proration does.
+  const acceleratedProration = (c.prorated_per_year ?? 0) * c.years_remaining;
+  return Math.round(Math.max(base, acceleratedProration) * 10) / 10;
 }
 
 export interface ReleaseCheck {

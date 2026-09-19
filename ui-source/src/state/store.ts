@@ -690,7 +690,7 @@ export const useStore = create<Store>()(
         set((s) => {
           const p = s.players[playerId];
           if (!p || p.free_agent || p.retired) return;
-          result = restructureContract(p);
+          result = restructureContract(p, s.season);
           if (result.ok) recomputeTeamRatings(s);
         });
         return result;

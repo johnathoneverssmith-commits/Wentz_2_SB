@@ -700,7 +700,7 @@ export function decideContractMove(
   const p = state.players[playerId];
   if (!p) throw new ActionError("No such player.", 404);
   if (p.nfl_team !== actor.teamCode) throw new ActionError("He isn't yours.", 403);
-  const out = move.kind === "restructure" ? restructureContract(p) : extendContract(state, p, move);
+  const out = move.kind === "restructure" ? restructureContract(p, state.season) : extendContract(state, p, move);
   if (!out.ok) throw new ActionError(out.reason ?? "That contract move isn't allowed.");
   recomputeTeamRatings(state);
   return {

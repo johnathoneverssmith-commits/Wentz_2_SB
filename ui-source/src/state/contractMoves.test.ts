@@ -4,6 +4,7 @@ import type { LeagueState, Player } from "@/domain";
 
 import { extendContract, extensionAsk, previewRestructure, restructureContract } from "./contracts.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
+import { releasePenalty } from "./reconciliation.ts";
 
 /**
  * Restructure and Extend were buttons that said "Not available in this build
@@ -26,12 +27,12 @@ function hits(p: Player): number[] {
 
 describe("restructure", () => {
   it("takes money off this year and puts it on the later ones", () => {
-    const { p } = fixture();
+    const { s, p } = fixture();
     p.contract!.years_remaining = 4;
     p.contract!.cap_hit_by_year = [20, 20, 20, 20];
 
     const before = hits(p).reduce((a, b) => a + b, 0);
-    const r = restructureContract(p);
+    const r = restructureContract(p, s.season);
 
     expect(r.ok).toBe(true);
     expect(hits(p)[0]).toBeLessThan(20);
@@ -41,39 +42,71 @@ describe("restructure", () => {
   });
 
   it("reports the room it frees, and frees it", () => {
-    const { p } = fixture();
+    const { s, p } = fixture();
     p.contract!.years_remaining = 3;
     p.contract!.cap_hit_by_year = [30, 10, 10];
     const before = hits(p)[0]!;
 
-    const r = restructureContract(p);
+    const r = restructureContract(p, s.season);
 
     expect(before - hits(p)[0]!).toBeCloseTo(r.freed!, 1);
   });
 
   it("refuses a deal with no later years to push money into", () => {
-    const { p } = fixture();
+    const { s, p } = fixture();
     p.contract!.years_remaining = 1;
     p.contract!.cap_hit_by_year = [20];
-    const r = previewRestructure(p);
+    const r = previewRestructure(p, s.season);
     expect(r.ok).toBe(false);
     expect(r.reason).toMatch(/later years/i);
   });
 
   it("refuses a deal already at the minimum", () => {
-    const { p } = fixture();
+    const { s, p } = fixture();
     p.contract!.years_remaining = 3;
     p.contract!.cap_hit_by_year = [1, 1, 1];
-    expect(previewRestructure(p).ok).toBe(false);
+    expect(previewRestructure(p, s.season).ok).toBe(false);
   });
 
   it("guarantees the money it converts", () => {
-    const { p } = fixture();
+    const { s, p } = fixture();
     p.contract!.years_remaining = 4;
     p.contract!.cap_hit_by_year = [20, 20, 20, 20];
     const before = p.contract!.guaranteed;
-    restructureContract(p);
+    restructureContract(p, s.season);
     expect(p.contract!.guaranteed).toBeGreaterThan(before);
+  });
+});
+
+/**
+ * exploit_regression_contracts_repeated_restructure — audit finding
+ * (contracts §3, "repeated restructure loop"): one restructure a season is
+ * the whole rule. Without a gate, clicking Restructure repeatedly in one
+ * sitting converted far more than the intended 75% of this year's margin
+ * (a $20M hit: one restructure frees ~$14.3M; three back-to-back calls used
+ * to free ~$18.7M of the same contract, for free, with no time cost).
+ */
+describe("exploit: repeated restructure in one season", () => {
+  it("refuses a second restructure on the same contract this season", () => {
+    const { s, p } = fixture();
+    p.contract!.years_remaining = 4;
+    p.contract!.cap_hit_by_year = [20, 20, 20, 20];
+
+    const first = restructureContract(p, s.season);
+    expect(first.ok).toBe(true);
+
+    const second = restructureContract(p, s.season);
+    expect(second.ok).toBe(false);
+    expect(second.reason).toMatch(/already restructured/i);
+  });
+
+  it("allows exactly one restructure per season, not per contract lifetime", () => {
+    const { s, p } = fixture();
+    p.contract!.years_remaining = 4;
+    p.contract!.cap_hit_by_year = [20, 20, 20, 20];
+
+    restructureContract(p, s.season);
+    expect(restructureContract(p, s.season + 1).ok).toBe(true);
   });
 });
 
@@ -130,7 +163,7 @@ describe("restructure then extend", () => {
     p.contract!.years_remaining = 4;
     p.contract!.cap_hit_by_year = [24, 24, 24, 24];
 
-    restructureContract(p);
+    restructureContract(p, s.season);
     const carried = p.contract!.prorated_per_year!;
     expect(carried).toBeGreaterThan(0);
 
@@ -145,11 +178,45 @@ describe("restructure then extend", () => {
     const { s, p } = fixture();
     p.contract!.years_remaining = 4;
     p.contract!.cap_hit_by_year = [24, 24, 24, 24];
-    restructureContract(p);
+    restructureContract(p, s.season);
     const ask = extensionAsk(p);
     // exactly enough room for the salary alone, none for the carried bonus
     s.teams[p.nfl_team]!.cap.total =
       s.teams[p.nfl_team]!.cap.used - (p.contract!.cap_hit_by_year[1] ?? 0) + ask.baseSalary;
     expect(extendContract(s, p, ask).ok).toBe(false);
+  });
+});
+
+/**
+ * exploit_regression_contracts_restructure_release — audit finding
+ * (contracts §3, "restructure then release"): `releasePenalty` only ever
+ * read `cap_hit_by_year[0]`, so restructuring a big contract down (pushing
+ * most of its value into `prorated_per_year` on later years) and then
+ * releasing him immediately made that pushed-forward money vanish — never
+ * charged to anyone — instead of coming due, which is the one guarantee
+ * `extendContract`'s `carried` term already protects on the extension path.
+ */
+describe("exploit: restructure then release", () => {
+  it("still owes the money it pushed forward, as an accelerated release penalty", () => {
+    const { s, p } = fixture();
+    p.contract!.years_remaining = 4;
+    p.contract!.cap_hit_by_year = [24, 24, 24, 24];
+
+    const withoutRestructure = releasePenalty(p);
+    restructureContract(p, s.season);
+    const carried = p.contract!.prorated_per_year!;
+    expect(carried).toBeGreaterThan(0);
+
+    const afterRestructure = releasePenalty(p);
+    // the accelerated proration (carried * years_remaining) has to come due
+    // on release — this is what closes the actual exploit (before this fix,
+    // restructuring first cut the release penalty by more than half, from
+    // $18M to $8.325M on this fixture, by making the vanished money simply
+    // not count). A small residual gap remains (here ~$0.8M, driven by the
+    // 0.22x/0.75x formula itself now running against a smaller "this year"
+    // figure) — real, but no longer the large, repeatable value transfer
+    // the audit flagged.
+    expect(afterRestructure).toBeGreaterThanOrEqual(carried * p.contract!.years_remaining - 0.05);
+    expect(afterRestructure).toBeGreaterThanOrEqual(withoutRestructure * 0.9);
   });
 });

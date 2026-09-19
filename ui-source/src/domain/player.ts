@@ -85,6 +85,14 @@ export interface Contract {
    * "restructure now, extend the debt away later" from being free money.
    */
   prorated_per_year?: number;
+  /**
+   * The season this deal was last restructured, if any. One restructure a
+   * season is the whole rule — the 75%-of-this-year's-margin conversion cap
+   * only means something once; without this a GM could click Restructure
+   * repeatedly in one sitting and convert most of a contract's remaining
+   * value instead of 75% of it (exploit audit, contracts §3).
+   */
+  restructured_season?: number;
 }
 
 export interface InjuryStatus {
