@@ -1,0 +1,42 @@
+{
+  "seasons": [
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025
+  ],
+  "n_punts": 16701,
+  "n_distinct_punters": 93,
+  "punt_power_distance": {
+    "n_qualifying_punters": 62,
+    "min_attempts": 50,
+    "sd_yards": 1.2784545899956006,
+    "p10_yards": -1.3648484261861178,
+    "p90_yards": 1.4576864061409314
+  },
+  "returnability": {
+    "no_return_rate": {
+      "n_qualifying_punters": 62,
+      "sd": 0.047822927224911646
+    },
+    "return_yards_when_returned": {
+      "n_qualifying_punters": 69,
+      "sd_yards": 0.7475312420253079,
+      "population_mean": 3.816238548589905
+    }
+  },
+  "placement_near_goal_line": {
+    "n_qualifying_punters": 40,
+    "min_attempts": 15,
+    "touchback_rate": {
+      "sd": 0.028310328819724128
+    },
+    "useful_placement_rate": {
+      "sd": 0.04498386472790833
+    }
+  }
+}

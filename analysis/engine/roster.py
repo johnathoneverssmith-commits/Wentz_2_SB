@@ -95,6 +95,9 @@ class Roster:
     def kicker(self) -> dict | None:
         return self._nth("K", 0)
 
+    def punter(self) -> dict | None:
+        return self._nth("P", 0)
+
 
 @functools.lru_cache(maxsize=64)
 def roster(team: str) -> Roster:

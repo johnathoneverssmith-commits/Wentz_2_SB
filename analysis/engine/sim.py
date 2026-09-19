@@ -625,15 +625,24 @@ class Game:
             return self._kick_fg("field_goal")
         if act == "PUNT":
             self.st("punt")
+            punter = self._off().punter() if self.ratings_on else None
             d = sample_punt_distance(self.yardline_100, self.rng)
+            if self.ratings_on:
+                from . import ratings as R
+                d = d + R.punt_distance_shift(punter)
             landing = self.yardline_100 - d
             self.advance_clock("run_inbounds", drive_ends=True)
             if landing <= 0:
                 self.st("touchback")
                 self._flip_field(80.0)  # receiving team, 1st-and-10 at its own 20
             else:
+                punter_shift = None
+                if self.ratings_on:
+                    from . import ratings as R
+                    punter_shift = R.punt_placement_logit_shift(punter, self.yardline_100)
                 out = sample_class("M21", {"yardline_100": self.yardline_100, "roof": "outdoors",
-                                           "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}, self.rng)
+                                           "env_temp": 60.0, "env_wind": 5.0, "temp_missing": 0}, self.rng,
+                                    punter_shift)
                 if out == "RETURNED" and self.rng.random() < PUNT_RETURN_TD_RATE:
                     r = self.other()
                     self._score(6, team=r)
@@ -643,7 +652,13 @@ class Game:
                     # nflverse codes the punting team's drive as "Opp touchdown"
                     self._kickoff(receiving=self.pos, result="opp_touchdown")
                     return
-                ret = sample_punt_return(self.rng) if out == "RETURNED" else 0
+                if out == "RETURNED":
+                    ret = sample_punt_return(self.rng)
+                    if self.ratings_on:
+                        from . import ratings as R
+                        ret = max(0.0, ret + R.punt_return_yards_shift(punter))
+                else:
+                    ret = 0
                 # receiving team's yardline_100 = 100 − landing spot, then a return
                 # advances them toward the punting team's goal (−ret).
                 self._flip_field(100 - landing - ret)

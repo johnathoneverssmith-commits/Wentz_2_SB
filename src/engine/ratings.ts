@@ -123,6 +123,22 @@ export function offsets(): Record<string, number> {
   let sk = 0;
   for (const t of teams) sk += familyModifier("kicking", [roster(t).kicker()]);
   out.kicking = sk / teams.length;
+
+  const PUNT_FAMILIES = [
+    "punt_power",
+    "punt_accuracy_touchback",
+    "punt_accuracy_placement",
+    "punt_coffin_corner_touchback",
+    "punt_coffin_corner_placement",
+    "punt_hang_time_return",
+    "punt_hang_time_return_yards",
+  ] as const;
+  for (const fam of PUNT_FAMILIES) {
+    let s = 0;
+    for (const t of teams) s += familyModifier(fam, [roster(t).punter()]);
+    out[fam] = s / teams.length;
+  }
+
   _offsets = out;
   return out;
 }
@@ -173,4 +189,37 @@ export function yacYardsShift(receiver: Player | null | undefined, tacklers: Uni
 /** M20 MADE: kicking (+). */
 export function fgLogitShift(kicker: Player | null | undefined): number {
   return centered("kicking", [kicker]);
+}
+
+/** M21 distance: punt_power (+), added to the sampled gross punt distance. */
+export function puntDistanceShift(punter: Player | null | undefined): number {
+  return centered("punt_power", [punter]);
+}
+
+/**
+ * M21 class logits: touchback (−) / useful downed-or-out-of-bounds (+) /
+ * returned (−). `punt_accuracy` applies everywhere; `coffin_corner` is
+ * weighted by proximity to the punting team's target end zone, so a
+ * coffin-corner specialist gets no benefit on an ordinary midfield punt.
+ */
+export function puntPlacementLogitShift(
+  punter: Player | null | undefined,
+  yardline100: number,
+): Record<string, number> {
+  const ccWeight = Math.max(0, Math.min(1, (40 - yardline100) / 40));
+  const touchback =
+    centered("punt_accuracy_touchback", [punter]) + centered("punt_coffin_corner_touchback", [punter]) * ccWeight;
+  const useful =
+    centered("punt_accuracy_placement", [punter]) + centered("punt_coffin_corner_placement", [punter]) * ccWeight;
+  return {
+    TOUCHBACK: touchback,
+    DOWNED: useful,
+    OUT_OF_BOUNDS: useful,
+    RETURNED: centered("punt_hang_time_return", [punter]),
+  };
+}
+
+/** M21 return yards: hang_time (−), subtracted from the sampled return. */
+export function puntReturnYardsShift(punter: Player | null | undefined): number {
+  return centered("punt_hang_time_return_yards", [punter]);
 }

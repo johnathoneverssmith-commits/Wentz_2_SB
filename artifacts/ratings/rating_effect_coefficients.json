@@ -496,6 +496,132 @@
         }
       ],
       "note": "magnitude = half the historical p10\u2194p90 shrunk residual spread on this side of the matchup; split by weight; Phase E joint loss (\u00a713.6) will refine."
+    },
+    "punt_power": {
+      "resolver": "M21b",
+      "target": "distance_yards",
+      "units": "yards",
+      "sign_constraint": "positive",
+      "anchor_unit": "m21_punter_distance_residual_sd",
+      "anchor_shrunk_sd": 1.278,
+      "attributes": [
+        {
+          "attribute": "punt_power",
+          "weight": 1.0,
+          "beta_per_z": 0.426,
+          "reference_mean": 88.469,
+          "reference_sd": 3.742
+        }
+      ],
+      "note": "beta_per_z = anchor_shrunk_sd / 3 (SD/3 convention for a direct-unit, additive resolver output, adopted for M21 since no prior documented derivation existed to replicate exactly). Source: analysis/19b_punt_residual_variance.py -> artifacts/models/m21_punter_residual_variance.json (punt_power_distance.sd_yards)."
+    },
+    "punt_accuracy_touchback": {
+      "resolver": "M21",
+      "target": "TOUCHBACK",
+      "units": "logit",
+      "sign_constraint": "negative",
+      "anchor_unit": "m21_touchback_near_gl_residual_sd",
+      "anchor_shrunk_sd": 0.0283,
+      "attributes": [
+        {
+          "attribute": "punt_accuracy",
+          "weight": 0.5,
+          "beta_per_z": -0.0302,
+          "reference_mean": 82.406,
+          "reference_sd": 4.641
+        }
+      ],
+      "note": "half of the delta-method touchback logit budget (the other half is coffin_corner's context-scaled share). Delta-method: Delta_logit_at_z3 = sd/(p*(1-p)) at baseline touchback-near-goal-line rate p=0.1939; beta_per_z = that /3, split 50/50 between punt_accuracy (applied at all field positions) and coffin_corner (context-scaled by proximity to the target end zone, applied in src/engine/ratings.ts::puntPlacementLogitShift, not through the generic offsets() centering)."
+    },
+    "punt_accuracy_placement": {
+      "resolver": "M21",
+      "target": "DOWNED+OUT_OF_BOUNDS",
+      "units": "logit",
+      "sign_constraint": "positive",
+      "anchor_unit": "m21_useful_placement_near_gl_residual_sd",
+      "anchor_shrunk_sd": 0.045,
+      "attributes": [
+        {
+          "attribute": "punt_accuracy",
+          "weight": 0.5,
+          "beta_per_z": 0.0316,
+          "reference_mean": 82.406,
+          "reference_sd": 4.641
+        }
+      ],
+      "note": "half of the delta-method useful-placement logit budget; see punt_accuracy_touchback for the derivation and split rationale."
+    },
+    "punt_coffin_corner_touchback": {
+      "resolver": "M21",
+      "target": "TOUCHBACK",
+      "units": "logit",
+      "sign_constraint": "negative",
+      "anchor_unit": "m21_touchback_near_gl_residual_sd",
+      "anchor_shrunk_sd": 0.0283,
+      "attributes": [
+        {
+          "attribute": "coffin_corner",
+          "weight": 0.5,
+          "beta_per_z": -0.0302,
+          "reference_mean": 83.031,
+          "reference_sd": 4.468
+        }
+      ],
+      "note": "other half of the touchback budget. Context-scaled at call time by proximity to the punting team's target end zone (weight ~0 at midfield, ~1 inside the opponent's 40) so a coffin-corner specialist gets no benefit on an ordinary midfield punt; see punt_accuracy_touchback."
+    },
+    "punt_coffin_corner_placement": {
+      "resolver": "M21",
+      "target": "DOWNED+OUT_OF_BOUNDS",
+      "units": "logit",
+      "sign_constraint": "positive",
+      "anchor_unit": "m21_useful_placement_near_gl_residual_sd",
+      "anchor_shrunk_sd": 0.045,
+      "attributes": [
+        {
+          "attribute": "coffin_corner",
+          "weight": 0.5,
+          "beta_per_z": 0.0316,
+          "reference_mean": 83.031,
+          "reference_sd": 4.468
+        }
+      ],
+      "note": "other half of the useful-placement budget; same context-scaling as punt_coffin_corner_touchback."
+    },
+    "punt_hang_time_return": {
+      "resolver": "M21",
+      "target": "RETURNED",
+      "units": "logit",
+      "sign_constraint": "negative",
+      "anchor_unit": "m21_no_return_rate_residual_sd",
+      "anchor_shrunk_sd": 0.0478,
+      "attributes": [
+        {
+          "attribute": "hang_time",
+          "weight": 1.0,
+          "beta_per_z": -0.066,
+          "reference_mean": 84.438,
+          "reference_sd": 3.852
+        }
+      ],
+      "note": "delta-method at baseline no-return rate p=0.4066 (equivalently p=0.5934 for RETURNED, same p*(1-p)); beta_per_z = Delta_logit_at_z3/3."
+    },
+    "punt_hang_time_return_yards": {
+      "resolver": "M21c",
+      "target": "return_yards",
+      "units": "yards",
+      "sign_constraint": "negative",
+      "anchor_unit": "m21_return_yards_when_returned_residual_sd",
+      "anchor_shrunk_sd": 0.748,
+      "attributes": [
+        {
+          "attribute": "hang_time",
+          "weight": 1.0,
+          "beta_per_z": -0.249,
+          "reference_mean": 84.438,
+          "reference_sd": 3.852
+        }
+      ],
+      "note": "beta_per_z = anchor_shrunk_sd / 3 (SD/3 convention), subtracted from the sampled return yardage when a return occurs."
     }
   },
   "sensitivity": {

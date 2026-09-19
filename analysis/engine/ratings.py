@@ -102,6 +102,18 @@ def _offsets() -> dict[str, float]:
         out[fam] = sum(vals) / len(vals)
     kx = [family_modifier("kicking", [roster(t).kicker()]) for t in teams]
     out["kicking"] = sum(kx) / len(kx)
+
+    for fam in (
+        "punt_power",
+        "punt_accuracy_touchback",
+        "punt_accuracy_placement",
+        "punt_coffin_corner_touchback",
+        "punt_coffin_corner_placement",
+        "punt_hang_time_return",
+        "punt_hang_time_return_yards",
+    ):
+        px = [family_modifier(fam, [roster(t).punter()]) for t in teams]
+        out[fam] = sum(px) / len(px)
     return out
 
 
@@ -142,3 +154,37 @@ def yac_yards_shift(receiver, tacklers) -> float:
 
 def fg_logit_shift(kicker) -> float:
     return _centered("kicking", [kicker])
+
+
+def punt_distance_shift(punter) -> float:
+    """M21 distance: punt_power (+), added to the sampled gross punt distance."""
+    return _centered("punt_power", [punter])
+
+
+def punt_placement_logit_shift(punter, yardline_100: float) -> dict[str, float]:
+    """M21 class logits: touchback (-) / useful downed-or-out-of-bounds (+) / returned (-).
+
+    `punt_accuracy` applies everywhere; `coffin_corner` is weighted by
+    proximity to the punting team's target end zone, so a coffin-corner
+    specialist gets no benefit on an ordinary midfield punt.
+    """
+    cc_weight = max(0.0, min(1.0, (40.0 - yardline_100) / 40.0))
+    touchback = (
+        _centered("punt_accuracy_touchback", [punter])
+        + _centered("punt_coffin_corner_touchback", [punter]) * cc_weight
+    )
+    useful = (
+        _centered("punt_accuracy_placement", [punter])
+        + _centered("punt_coffin_corner_placement", [punter]) * cc_weight
+    )
+    return {
+        "TOUCHBACK": touchback,
+        "DOWNED": useful,
+        "OUT_OF_BOUNDS": useful,
+        "RETURNED": _centered("punt_hang_time_return", [punter]),
+    }
+
+
+def punt_return_yards_shift(punter) -> float:
+    """M21 return yards: hang_time (-), subtracted from the sampled return."""
+    return _centered("punt_hang_time_return_yards", [punter])

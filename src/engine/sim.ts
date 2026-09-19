@@ -25,6 +25,9 @@ import {
   completionLogitShift,
   fgLogitShift,
   interceptionLogitShift,
+  puntDistanceShift,
+  puntPlacementLogitShift,
+  puntReturnYardsShift,
   rushYardsShift,
   sackLogitShift,
   yacYardsShift,
@@ -906,10 +909,11 @@ export class Game {
       const preYl = this.yardline100;
       const preQtr = this.qtr;
       const preClock = this.clockText();
-      const dist = samplePuntDistance(this.yardline100, this.rng);
+      const punter = this.ratingsOn ? this.off().punter() : undefined;
+      const dist = samplePuntDistance(this.yardline100, this.rng) + (this.ratingsOn ? puntDistanceShift(punter) : 0);
       const landing = this.yardline100 - dist;
       this.advanceClock("run_inbounds", 0, true);
-      const kicker = this.ratingsOn ? (this.off().punter()?.name ?? undefined) : undefined;
+      const kicker = this.ratingsOn ? (punter?.name ?? undefined) : undefined;
       const tracePunt = (outcome: string, newYl: number, returner?: string | undefined): void => {
         if (!this.playTrace) return;
         this.playTrace.push({
@@ -937,7 +941,8 @@ export class Game {
         tracePunt("touchback", 80.0);
         this.flipField(80.0); // receiving team, 1st-and-10 at its own 20
       } else {
-        const out = sampleClass("M21", { yardline_100: this.yardline100, ...ENV }, this.rng);
+        const punterShift = this.ratingsOn ? puntPlacementLogitShift(punter, this.yardline100) : undefined;
+        const out = sampleClass("M21", { yardline_100: this.yardline100, ...ENV }, this.rng, punterShift);
         if (out === "RETURNED" && this.rng.random() < PUNT_RETURN_TD_RATE) {
           const r = this.other();
           // the return carries the ball to the kicking team's own goal line —
@@ -950,7 +955,12 @@ export class Game {
           this.kickoff(this.pos, "opp_touchdown");
           return;
         }
-        const ret = out === "RETURNED" ? samplePuntReturn(this.rng) : 0;
+        const ret =
+          out === "RETURNED"
+            ? this.ratingsOn
+              ? Math.max(0, samplePuntReturn(this.rng) + puntReturnYardsShift(punter))
+              : samplePuntReturn(this.rng)
+            : 0;
         // receiving team's yardline_100 = 100 − landing spot, then a return
         // advances them toward the punting team's goal (−ret).
         const newYl = 100 - landing - ret;
