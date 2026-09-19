@@ -37,6 +37,14 @@ import {
   releaseToMarket,
 } from "./seed.ts";
 import { DRAFT_ROUNDS, ensureDraftPicks, pickKey, pickOrderFor } from "./draftPicks.ts";
+import {
+  strategyAgeBonus,
+  strategyCoachBonus,
+  strategyEliteBonus,
+  strategyFor,
+  strategyNeedAdjustment,
+  strategyPositionBonus,
+} from "./aiStrategy.ts";
 
 /** Which side of the market an action is about. */
 export type Subject = "players" | "coaches";
@@ -228,13 +236,23 @@ export function bestAvailable(s: LeagueState): string | null {
     }
     return v;
   };
+  // Strategy is a CPU preference layer (§1.1/§18) — mirrors planAutopicks'
+  // scoring exactly (isAiTeam gate, same bonus terms) so the two paths never
+  // diverge; draftPerf.test.ts guards this invariant directly.
+  const strategy = teamCode && isAiTeam(s, teamCode) ? strategyFor(teamCode, s.season) : "balanced";
   // first-max scan == stable sort's [0]: ties keep the earliest candidate
   let bestId: string | null = null;
   let bestScore = -Infinity;
   if (d.mode === "rookie") {
+    const youngestAge = Math.min(...s.draftClass.filter((x) => !taken.has(x.id)).map((x) => x.age));
     for (const x of s.draftClass) {
       if (taken.has(x.id)) continue;
-      const score = x.collegeOverall + need(x.position);
+      let score =
+        x.collegeOverall +
+        need(x.position) +
+        strategyPositionBonus(strategy, x.position, 0.75) +
+        strategyEliteBonus(strategy, x.collegeOverall);
+      if (strategy === "high_ceiling" && x.age === youngestAge) score += 1;
       if (score > bestScore) {
         bestScore = score;
         bestId = x.id;
@@ -244,7 +262,13 @@ export function bestAvailable(s: LeagueState): string | null {
   }
   for (const x of Object.values(s.players)) {
     if (taken.has(x.id) || x.retired) continue;
-    const score = draftValue(x.overall, x.position) + need(x.position);
+    const score =
+      draftValue(x.overall, x.position) +
+      need(x.position) +
+      strategyPositionBonus(strategy, x.position) +
+      strategyEliteBonus(strategy, x.overall) +
+      strategyAgeBonus(strategy, x.age) +
+      strategyNeedAdjustment(strategy, need(x.position) / NEED_WEIGHT);
     if (score > bestScore) {
       bestScore = score;
       bestId = x.id;
@@ -273,11 +297,15 @@ export function planAutopicks(s: LeagueState): string[] {
 
   // candidate order mirrors bestAvailable's, so ties resolve identically
   const candidates = rookie
-    ? s.draftClass.map((p) => ({ id: p.id, position: p.position, overall: p.collegeOverall }))
+    ? s.draftClass.map((p) => ({ id: p.id, position: p.position, overall: p.collegeOverall, age: p.age }))
     : Object.values(s.players)
         .filter((p) => !p.retired)
-        .map((p) => ({ id: p.id, position: p.position, overall: p.overall }));
+        .map((p) => ({ id: p.id, position: p.position, overall: p.overall, age: p.age }));
   const byId = new Map(candidates.map((c) => [c.id, c]));
+  // rookie prospects are clustered young (§5): only the youngest visible
+  // prospect at the table gets high-ceiling's small nod, never a general age
+  // preference the way the fantasy draft's veteran ages support one.
+  const youngestRookieAge = rookie ? Math.min(...candidates.map((c) => c.age)) : 0;
 
   const taken = new Set<string>();
   for (const r of d.results) if (r.selectedId) taken.add(r.selectedId);
@@ -314,12 +342,31 @@ export function planAutopicks(s: LeagueState): string[] {
       if (v === undefined) needByPos.set(pos, (v = needOf(teamCode, pos)));
       return v;
     };
+    // Strategy is a CPU preference layer (§1.1/§18): a human's own team,
+    // even when autopicked on their behalf, uses the shared base evaluator
+    // only — the same guarantee `isAiTeam` already gives every other gate.
+    const strategy = teamCode && isAiTeam(s, teamCode) ? strategyFor(teamCode, s.season) : "balanced";
+    const posScale = rookie ? 0.75 : 1;
 
     let bestId: string | null = null;
     let bestScore = -Infinity;
     for (const c of candidates) {
       if (taken.has(c.id)) continue;
-      const score = draftValue(c.overall, c.position) + need(c.position);
+      let score =
+        draftValue(c.overall, c.position) +
+        need(c.position) +
+        strategyPositionBonus(strategy, c.position, posScale) +
+        strategyEliteBonus(strategy, c.overall);
+      if (rookie) {
+        if (strategy === "high_ceiling" && c.age === youngestRookieAge) score += 1;
+      } else {
+        // `need(pos)` is already memoized per pick (see above) and pre-scaled
+        // by NEED_WEIGHT; un-scale it back to the raw need `strategyNeedAdjustment`
+        // expects rather than calling `positionalNeed` again per candidate —
+        // that recomputation (an O(roster) scan) inside this per-candidate,
+        // per-pick loop is what made a 640-pick draft cost billions of scans.
+        score += strategyAgeBonus(strategy, c.age) + strategyNeedAdjustment(strategy, need(c.position) / NEED_WEIGHT);
+      }
       if (score > bestScore) {
         bestScore = score;
         bestId = c.id;
@@ -804,7 +851,21 @@ export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): 
   // real value (overall-driven), with market noise so it isn't a single fixed number
   const base = Math.round(contractValueFor(p.overall, p.position) * (0.95 + rng() * 0.2) * 10) / 10;
   const candidates = affordableTeams(s, base);
-  const weights = candidates.map((code) => positionalNeed(s, code, p.position) ** 1.4);
+  // AI GM season strategy (§7): the target-ranking score gets the same
+  // bounded preference terms as the draft, folded into the need-based weight
+  // as a multiplier so it can never turn a team's real need negative or hand
+  // strategy a bigger say than the base evaluator has. No strategy changes
+  // the price, the cap check, or which teams can afford to bid at all.
+  const weights = candidates.map((code) => {
+    const strategy = strategyFor(code, s.season);
+    const raw = positionalNeed(s, code, p.position);
+    const adj =
+      strategyPositionBonus(strategy, p.position) +
+      strategyAgeBonus(strategy, p.age) +
+      strategyEliteBonus(strategy, p.overall) +
+      strategyNeedAdjustment(strategy, raw);
+    return raw ** 1.4 * clamp(1 + adj / 20, 0.5, 2);
+  });
   const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";
   const years = 1 + Math.floor(rng() * 4);
   return {
@@ -863,12 +924,16 @@ export function aiOfferForCoach(rng: () => number, s: LeagueState, c: Coach): Co
   const pool = candidates.length > 0 ? candidates : vacant;
   if (pool.length === 0) return null;
   const weights = pool.map((code) => {
+    const strategy = strategyFor(code, s.season);
+    // §6: the same bounded role bonus the coaching draft uses, folded into
+    // the hiring weight the same way a position bonus folds into free agency.
+    const roleAdj = 1 + clamp(strategyCoachBonus(strategy, c.role) / 8, -0.4, 0.4);
     // Scheme fit only means something for the two coordinators — a head
     // coach has no scheme, and the nine development coaches work between
     // seasons rather than on the field.
-    if (c.role !== "OC" && c.role !== "DC") return 1;
+    if (c.role !== "OC" && c.role !== "DC") return roleAdj;
     const fit = rosterSchemeFit(s, code, c.role, c.scheme);
-    return 1 + fit * 3; // a well-fitting scheme is preferred, not required
+    return (1 + fit * 3) * roleAdj; // a well-fitting scheme is preferred, not required
   });
   const teamCode = weightedPick(rng, pool, weights) ?? pool[0]!;
   const years = 1 + Math.floor(rng() * 4);

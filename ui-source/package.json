@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "franchise:stress": "tsx --tsconfig tsconfig.app.json scripts/franchise_stress_test.ts",
     "franchise:stress:typecheck": "tsc -p tsconfig.stress.json",
+    "ai-strategy:validate": "tsx --tsconfig tsconfig.app.json scripts/ai_strategy_validation.ts",
     "lint": "eslint ."
   },
   "dependencies": {

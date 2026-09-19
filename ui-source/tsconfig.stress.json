@@ -4,5 +4,5 @@
     "types": ["node"],
     "noUnusedLocals": true
   },
-  "include": ["scripts/franchise_stress_test.ts", "src"]
+  "include": ["scripts/franchise_stress_test.ts", "scripts/ai_strategy_validation.ts", "src"]
 }

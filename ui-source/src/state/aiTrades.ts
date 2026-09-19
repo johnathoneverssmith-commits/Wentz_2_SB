@@ -10,6 +10,7 @@
 import type { LeagueState, Player, TradeAsset, TradeProposal } from "@/domain";
 
 import { pickKey, picksOwnedBy } from "./draftPicks.ts";
+import { strategyAgeBonus, strategyEliteBonus, strategyFor, strategyPositionBonus } from "./aiStrategy.ts";
 
 /** Deterministic per league + season + stage, so an offer isn't reroll-able. */
 function rng(seed: number): () => number {
@@ -70,13 +71,25 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // what an AI team can see from across the league.
     const bestOf = (roster: Player[], pos: string): Player | undefined =>
       roster.filter((p) => p.position === pos).sort((a, b) => b.overall - a.overall)[0];
+    // §8.1: the suitor's own season strategy biases which near-equivalent
+    // target it goes after — a bounded add-on to gain+need, not a
+    // replacement for either.
+    const strategy = strategyFor(suitor, s.season);
     const positions = [...new Set(myRoster.map((p) => p.position))]
       .map((pos) => {
         const theirs = bestOf(theirRoster, pos);
         const mine = bestOf(myRoster, pos);
-        return { pos, gain: (mine?.overall ?? 0) - (theirs?.overall ?? 40), need: needAt(s, suitor, pos) };
+        const wantedScore =
+          strategyPositionBonus(strategy, pos as Player["position"]) +
+          (mine ? strategyAgeBonus(strategy, mine.age) + strategyEliteBonus(strategy, mine.overall) : 0);
+        return {
+          pos,
+          gain: (mine?.overall ?? 0) - (theirs?.overall ?? 40),
+          need: needAt(s, suitor, pos),
+          wantedScore,
+        };
       })
-      .sort((a, b) => b.gain + b.need / 5 - (a.gain + a.need / 5));
+      .sort((a, b) => b.gain + b.need / 5 + b.wantedScore - (a.gain + a.need / 5 + a.wantedScore));
     const wanted = positions.find((p) => {
       if (p.gain < 4) return false;
       const mine = myRoster.filter((x) => x.position === p.pos).sort((a, b) => b.overall - a.overall);

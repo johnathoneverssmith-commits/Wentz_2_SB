@@ -5,6 +5,7 @@ import { agingDelta } from "@/sim/MockSimulationService";
 
 import { applyCoachToDelta, coachModifiersFor } from "./coachEffects";
 import { ratingOf } from "./coachingDraft";
+import { strategyFor, strategyGroupBonus, strategyWeaknessMultiplier } from "./aiStrategy.ts";
 
 /**
  * Training camp: where a season's development actually happens.
@@ -237,21 +238,29 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
     if (humanTeams.has(teamCode)) continue;
     if (s.trainingCamp!.plans[teamCode]?.submitted) continue;
 
+    // AI GM season strategy (§11): a bounded group preference on top of the
+    // shared weakest-group evaluator. `strategyWeaknessMultiplier` only ever
+    // amplifies the real weakness signal (high-floor), and the additive group
+    // bonus is small enough that a catastrophically weak group still wins its
+    // own focus regardless of what the strategy would otherwise prefer.
+    const strategy = strategyFor(teamCode, s.season);
     const weakest = (groups: readonly string[]): string => {
-      let worst = groups[0]!;
-      let worstRating = Infinity;
+      let best = groups[0]!;
+      let bestScore = -Infinity;
       for (const g of groups) {
         const positions = COACH_POSITION_GROUPS[g as keyof typeof COACH_POSITION_GROUPS] ?? [];
         const men = Object.values(s.players).filter(
           (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent && positions.includes(p.position),
         );
-        const best = men.reduce((n, p) => Math.max(n, p.overall), 0);
-        if (best < worstRating) {
-          worstRating = best;
-          worst = g;
+        const bestOvr = men.reduce((n, p) => Math.max(n, p.overall), 0);
+        const weakness = (77 - bestOvr) * strategyWeaknessMultiplier(strategy);
+        const score = weakness + strategyGroupBonus(strategy, g as OffensiveFocus | DefensiveFocus);
+        if (score > bestScore) {
+          bestScore = score;
+          best = g;
         }
       }
-      return worst;
+      return best;
     };
 
     runTrainingCamp(s, teamCode, {

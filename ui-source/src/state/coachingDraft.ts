@@ -1,5 +1,6 @@
 import type { Coach, CoachRole, LeagueState } from "@/domain";
 import { COACH_ROLES } from "@/domain";
+import { strategyCoachBonus, strategyFor } from "./aiStrategy.ts";
 
 /**
  * The coaching fantasy draft.
@@ -159,10 +160,16 @@ export function applyCoachingPick(s: LeagueState, teamCode: string, coachId: str
  */
 export function bestCoachingPick(s: LeagueState, teamCode: string): string | null {
   const vacancies = new Set(vacantRoles(s, teamCode));
+  // AI GM season strategy (§6): a bounded role preference on top of the same
+  // rating-based evaluator — a strategy can break a close tie between two
+  // similarly-rated candidates for different roles, never hand a team a
+  // meaningfully worse coach because the role fits its personality.
+  const strategy = strategyFor(teamCode, s.season);
+  const score = (c: Coach): number => ratingOf(c) + strategyCoachBonus(strategy, c.role);
   let best: Coach | null = null;
   for (const c of availableCoaches(s)) {
     if (!vacancies.has(c.role)) continue;
-    if (!best || ratingOf(c) > ratingOf(best)) best = c;
+    if (!best || score(c) > score(best)) best = c;
   }
   return best?.id ?? null;
 }

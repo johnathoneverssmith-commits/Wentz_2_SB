@@ -72,6 +72,7 @@ import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
 import { expectedRookieOverall, rookieOverallSpread } from "./draft-outcomes.ts";
 import { winChance, winProbability, type Venue } from "./win-probability.ts";
 import { futureDiscount } from "@/state/draftPicks.ts";
+import { strategyFor, strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
 import {
   DEFENSE_SCHEMES,
   OFFENSE_SCHEMES,
@@ -960,6 +961,21 @@ export class MockSimulationService implements SimulationService {
       0,
     );
 
+    // AI GM season strategy (§8.2): a bounded ±0.05 preference shift on top
+    // of the optimized base acceptance model — never enough on its own to
+    // turn a clearly bad deal attractive, and never touching valueDelta,
+    // which is the plain-value number the trade screen shows.
+    const strategy = strategyFor(toTeam, state.season);
+    const incomingPlayers = fromAssets
+      .filter((a) => a.kind === "player" && a.playerId)
+      .map((a) => state.players[a.playerId!])
+      .filter((p): p is Player => !!p)
+      .map((p) => ({ position: p.position, age: p.age }));
+    const incomingHasFuturePick = fromAssets.some(
+      (a) => a.kind === "pick" && a.pick && a.pick.year > state.season,
+    );
+    const strategyShift = strategyTradeAcceptanceShift(strategy, incomingPlayers, incomingHasFuturePick);
+
     return {
       valueDelta: delta,
       // acceptLikelihood is the AI's (toTeam's) own willingness — falls as the
@@ -969,7 +985,7 @@ export class MockSimulationService implements SimulationService {
       // (trade.accept_likelihood): the need term's divisor widened from 60 to
       // 90 as the value term's (40 to 36) narrowed, so a real roster need
       // moves the AI's willingness less relative to raw value than before.
-      acceptLikelihood: clamp(0.5 - delta / 36 + (needGained - needLost) / 90, 0.02, 0.98),
+      acceptLikelihood: clamp(0.5 - delta / 36 + (needGained - needLost) / 90 + strategyShift, 0.02, 0.98),
     };
   }
 

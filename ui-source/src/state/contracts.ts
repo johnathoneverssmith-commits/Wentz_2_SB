@@ -57,8 +57,9 @@ function planRestructure(
   let othersChange = 0;
   for (let i = 1; i < years; i++) {
     const before = hits[i] ?? 0;
-    hits[i] = round1(before + perYear);
-    othersChange += hits[i] - before;
+    const after = round1(before + perYear);
+    hits[i] = after;
+    othersChange += after - before;
   }
   hits[0] = round1((hits[0] ?? 0) - othersChange);
   return { convertible, perYear, hits };
