@@ -266,15 +266,15 @@ export function LeagueSetup() {
           </select>
         </SettingRow>
         <SettingRow
-          label="Difficulty"
-          hint="How aggressively the AI GMs optimise their roster moves and in-game decisions."
+          label="AI Difficulty"
+          hint="How competently CPU GMs make decisions — never a rules, rating, or cap change."
         >
           <select
             value={config.difficulty}
             disabled={locked}
             onChange={(e) => setConfig({ difficulty: e.target.value as Difficulty })}
           >
-            {(["easy", "normal", "hard", "impossible"] as const).map((d) => (
+            {(["casual", "standard", "competitive", "expert"] as const).map((d) => (
               <option key={d} value={d}>
                 {cap(d)}
               </option>

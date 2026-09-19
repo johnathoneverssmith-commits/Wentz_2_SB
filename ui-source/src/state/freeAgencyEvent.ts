@@ -2,6 +2,7 @@ import type { LeagueState, Player } from "@/domain";
 
 import { offerToContract } from "./rules";
 import { bestOfferFor, expectedSalary, type Offer } from "./freeAgencyValues";
+import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 
 /**
  * Turn-based free agency: five rounds, one offer or pass per team per round.
@@ -238,17 +239,32 @@ export function cpuTurn(s: LeagueState, teamCode: string): void {
   const bestAt = (position: string): number =>
     roster.filter((p) => p.position === position).reduce((n, p) => Math.max(n, p.overall), 0);
 
+  // AI Difficulty (§13.1): search only the top `candidateDepth` plausible
+  // targets by raw gain — Expert (Infinity) considers every legal target,
+  // exactly the prior behavior.
+  const difficulty = difficultyProfile(s.config.difficulty);
+  const shortlist = shortlistByBaseScore(pool, (p) => p.overall - bestAt(p.position), difficulty.candidateDepth);
+
   // Free Agency + Contracts optimization pass (free_agency.five_round_cpu):
   // chase a bid war less far, rebid less aggressively, and require a real
-  // upgrade rather than any positive gain at all.
+  // upgrade rather than any positive gain at all. §13.2: the 1.4x rational
+  // chase ceiling is the same league rule at every difficulty; a lower
+  // difficulty may just give up on a bid war earlier within it, by a
+  // deterministic amount keyed to the decision itself.
+  const RATIONAL_CHASE_CEILING = 1.4;
   let target: Player | null = null;
-  let bestGain = 0;
-  for (const p of pool) {
+  let bestGain = -Infinity;
+  for (const p of shortlist) {
     const lead = leadingOffer(s, p.id);
     const ask = expectedSalary(p);
-    // somebody else has already blown past the asking price: leave it
-    if (lead && lead.salary > ask * 1.4) continue;
-    const gain = p.overall - bestAt(p.position);
+    const ceilingUnit = (deterministicNoiseUnit(teamCode, s.season, "fa_chase_ceiling", p.id) + 1) / 2; // [0,1]
+    const ceilingMultiplier = difficulty.chaseCeilingFloor + (1 - difficulty.chaseCeilingFloor) * ceilingUnit;
+    // somebody else has already blown past this difficulty's effective chase ceiling: leave it
+    if (lead && lead.salary > ask * RATIONAL_CHASE_CEILING * ceilingMultiplier) continue;
+    // §13.1: bounded valuation noise on the target-ranking score, same as draft/coaching.
+    const noise =
+      difficulty.evaluationNoise === 0 ? 0 : deterministicNoiseUnit(teamCode, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
+    const gain = p.overall - bestAt(p.position) + noise;
     if (gain > bestGain) {
       bestGain = gain;
       target = p;
@@ -257,8 +273,16 @@ export function cpuTurn(s: LeagueState, teamCode: string): void {
 
   if (!target || bestGain < 2) return applyPass(s, teamCode);
 
-  const ask = expectedSalary(target);
   const lead = leadingOffer(s, target.id);
+  // §13.3: a rebid over an existing offer can be deterministically missed
+  // even though the target is still rational; a fresh, uncontested offer
+  // never is (there is no "rebid" to miss).
+  if (lead && difficulty.missedRebidRate > 0) {
+    const missUnit = (deterministicNoiseUnit(teamCode, s.season, "fa_rebid", target.id) + 1) / 2; // [0,1)
+    if (missUnit < difficulty.missedRebidRate) return applyPass(s, teamCode);
+  }
+
+  const ask = expectedSalary(target);
   const salary = Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10;
   const years = target.age <= 26 ? 4 : target.age <= 29 ? 3 : 2;
   applyOffer(s, teamCode, target.id, salary, years);

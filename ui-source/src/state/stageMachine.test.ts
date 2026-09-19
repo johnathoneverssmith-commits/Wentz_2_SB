@@ -19,7 +19,7 @@ function base(p: Partial<LeagueState>): LeagueState {
       gameDayDeadlineHours: 12,
       offseasonStageDeadlineHours: 24,
       randomEvents: "some",
-      difficulty: "normal",
+      difficulty: "standard",
     },
     gms: [],
     viewerGmId: "gm_you",

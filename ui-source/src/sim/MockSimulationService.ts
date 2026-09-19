@@ -73,6 +73,7 @@ import { expectedRookieOverall, rookieOverallSpread } from "./draft-outcomes.ts"
 import { winChance, winProbability, type Venue } from "./win-probability.ts";
 import { futureDiscount } from "@/state/draftPicks.ts";
 import { strategyFor, strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
+import { clampTradeAcceptance, deterministicNoiseUnit, difficultyProfile } from "@/state/aiDifficulty.ts";
 import {
   DEFENSE_SCHEMES,
   OFFENSE_SCHEMES,
@@ -976,6 +977,25 @@ export class MockSimulationService implements SimulationService {
     );
     const strategyShift = strategyTradeAcceptanceShift(strategy, incomingPlayers, incomingHasFuturePick);
 
+    // AI Difficulty (§15): a deterministic shift to the CPU's internal
+    // acceptance threshold, keyed on the canonical asset sets so reordering
+    // the same offer (or resubmitting it identically) can never reroll it —
+    // only the assets actually offered can move it.
+    const difficulty = difficultyProfile(state.config.difficulty);
+    const canonicalKey = (assets: TradeAsset[]): string =>
+      [...assets]
+        .map((a) => (a.kind === "player" ? `p:${a.playerId}` : `k:${a.pick?.year}.${a.pick?.round}.${a.pick?.originalTeam}`))
+        .sort()
+        .join(",");
+    const tradeKey = `${canonicalKey(fromAssets)}|${canonicalKey(toAssets)}`;
+    const thresholdShift =
+      difficulty.tradeAcceptanceThresholdVariation === 0
+        ? 0
+        : deterministicNoiseUnit(toTeam, state.season, "trade_accept", tradeKey) *
+          difficulty.tradeAcceptanceThresholdVariation;
+
+    const raw = clamp(0.5 - delta / 36 + (needGained - needLost) / 90 + strategyShift + thresholdShift, 0.02, 0.98);
+
     return {
       valueDelta: delta,
       // acceptLikelihood is the AI's (toTeam's) own willingness — falls as the
@@ -985,7 +1005,10 @@ export class MockSimulationService implements SimulationService {
       // (trade.accept_likelihood): the need term's divisor widened from 60 to
       // 90 as the value term's (40 to 36) narrowed, so a real roster need
       // moves the AI's willingness less relative to raw value than before.
-      acceptLikelihood: clamp(0.5 - delta / 36 + (needGained - needLost) / 90 + strategyShift, 0.02, 0.98),
+      // §15 hard floor/ceiling: below 0.20 always rejects, above 0.85 always
+      // accepts (legality permitting), whatever difficulty's threshold noise
+      // says — the guard against an absurd exploit at any level.
+      acceptLikelihood: clampTradeAcceptance(raw),
     };
   }
 

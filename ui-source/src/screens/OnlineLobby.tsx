@@ -568,7 +568,7 @@ function CreateLeague({
   // Change 1: how many picks each GM makes before the board finishes itself.
   // "" is the Never option — the whole draft by hand.
   const [simAfter, setSimAfter] = useState<string>("5");
-  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [difficulty, setDifficulty] = useState<Difficulty>("standard");
   const [randomEvents, setRandomEvents] = useState<RandomEventRate>("some");
   const [gameDayHours, setGameDayHours] = useState<DeadlineChoice>(24);
 
@@ -699,17 +699,17 @@ function CreateLeague({
             </OnlineSetting>
 
             <OnlineSetting
-              label="Difficulty"
-              hint="How hard the AI GMs work at their rosters and their in-game decisions."
+              label="AI Difficulty"
+              hint="How competently CPU GMs make decisions — never a rules, rating, or cap change."
             >
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value as Difficulty)}
               >
-                <option value="easy">Easy</option>
-                <option value="normal">Normal</option>
-                <option value="hard">Hard</option>
-                <option value="impossible">Impossible</option>
+                <option value="casual">Casual</option>
+                <option value="standard">Standard</option>
+                <option value="competitive">Competitive</option>
+                <option value="expert">Expert</option>
               </select>
             </OnlineSetting>
 

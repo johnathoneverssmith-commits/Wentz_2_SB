@@ -11,6 +11,7 @@ import type { LeagueState, Player, TradeAsset, TradeProposal } from "@/domain";
 
 import { pickKey, picksOwnedBy } from "./draftPicks.ts";
 import { strategyAgeBonus, strategyEliteBonus, strategyFor, strategyPositionBonus } from "./aiStrategy.ts";
+import { deterministicNoiseUnit, difficultyProfile } from "./aiDifficulty.ts";
 
 /** Deterministic per league + season + stage, so an offer isn't reroll-able. */
 function rng(seed: number): () => number {
@@ -75,17 +76,26 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // target it goes after — a bounded add-on to gain+need, not a
     // replacement for either.
     const strategy = strategyFor(suitor, s.season);
+    // AI Difficulty (§14): the same bounded valuation noise and need-
+    // awareness scaling as every other target-ranking call site — never a
+    // change to the canonical trade-value formula itself.
+    const difficulty = difficultyProfile(s.config.difficulty);
     const positions = [...new Set(myRoster.map((p) => p.position))]
       .map((pos) => {
         const theirs = bestOf(theirRoster, pos);
         const mine = bestOf(myRoster, pos);
+        const noise =
+          difficulty.tradeEvaluationNoise === 0
+            ? 0
+            : deterministicNoiseUnit(suitor, s.season, "trade_target", `${target}:${pos}`) * difficulty.tradeEvaluationNoise;
         const wantedScore =
           strategyPositionBonus(strategy, pos as Player["position"]) +
-          (mine ? strategyAgeBonus(strategy, mine.age) + strategyEliteBonus(strategy, mine.overall) : 0);
+          (mine ? strategyAgeBonus(strategy, mine.age) + strategyEliteBonus(strategy, mine.overall) : 0) +
+          noise;
         return {
           pos,
           gain: (mine?.overall ?? 0) - (theirs?.overall ?? 40),
-          need: needAt(s, suitor, pos),
+          need: needAt(s, suitor, pos) * difficulty.needAwareness,
           wantedScore,
         };
       })

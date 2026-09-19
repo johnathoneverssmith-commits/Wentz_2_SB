@@ -46,7 +46,12 @@ export type Stage =
 
 export type DeadlineChoice = 2 | 6 | 12 | 24 | 48;
 export type RandomEventRate = "none" | "few" | "some" | "many";
-export type Difficulty = "easy" | "normal" | "hard" | "impossible";
+/**
+ * AI decision-quality level (07_AI_DIFFICULTY_SYSTEM_V1.md) — how competently
+ * CPU GMs pursue their goals, never a rules/rating/cap change. See
+ * `ui-source/src/state/aiDifficulty.ts` for the profile this drives.
+ */
+export type Difficulty = "casual" | "standard" | "competitive" | "expert";
 
 export interface LeagueConfig {
   humanGmCount: number;

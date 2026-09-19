@@ -159,6 +159,14 @@ describe("running the board", () => {
 
   it("takes the best available rather than filling roles in order", () => {
     const s = leagueAfterPlayerDraft();
+    // AI Difficulty (07_AI_DIFFICULTY_SYSTEM_V1.md §12) adds deterministic
+    // score noise at every level below Expert, which can legitimately swap
+    // two candidates whose ratings are close — exactly the "Standard may
+    // differ on close decisions" behavior the spec calls for. This test is
+    // about the underlying best-available logic itself, so it isolates that
+    // from noise by pinning Expert (candidateDepth: all, noise: 0) rather
+    // than asserting an invariant the feature now intentionally relaxes.
+    s.config.difficulty = "expert";
     beginCoachingDraft(s);
     const team = coachingOnTheClock(s)!;
     const pick = bestCoachingPick(s, team)!;

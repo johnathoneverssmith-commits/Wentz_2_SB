@@ -6,6 +6,7 @@ import { agingDelta } from "@/sim/MockSimulationService";
 import { applyCoachToDelta, coachModifiersFor } from "./coachEffects";
 import { ratingOf } from "./coachingDraft";
 import { strategyFor, strategyGroupBonus, strategyWeaknessMultiplier } from "./aiStrategy.ts";
+import { deterministicNoiseUnit, difficultyProfile } from "./aiDifficulty.ts";
 
 /**
  * Training camp: where a season's development actually happens.
@@ -244,6 +245,12 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
     // bonus is small enough that a catastrophically weak group still wins its
     // own focus regardless of what the strategy would otherwise prefer.
     const strategy = strategyFor(teamCode, s.season);
+    // AI Difficulty (§18): focus-selection quality only — the optimized
+    // development magnitudes in runTrainingCamp never change. Casual reads
+    // the roster's weakness noisily; Expert adds a small tie-break toward
+    // the group with more players still in their developing years, on top
+    // of the same exact weakness signal every other level uses.
+    const difficulty = difficultyProfile(s.config.difficulty);
     const weakest = (groups: readonly string[]): string => {
       let best = groups[0]!;
       let bestScore = -Infinity;
@@ -253,8 +260,18 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
           (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent && positions.includes(p.position),
         );
         const bestOvr = men.reduce((n, p) => Math.max(n, p.overall), 0);
-        const weakness = (77 - bestOvr) * strategyWeaknessMultiplier(strategy);
-        const score = weakness + strategyGroupBonus(strategy, g as OffensiveFocus | DefensiveFocus);
+        const noise =
+          difficulty.evaluationNoise === 0
+            ? 0
+            : deterministicNoiseUnit(teamCode, s.season, "camp_focus", g) * difficulty.evaluationNoise;
+        const weakness = (77 - bestOvr) * strategyWeaknessMultiplier(strategy) + noise;
+        // Expert-only: up to +1.5, toward whichever group has the larger
+        // share of players still below their development-age threshold.
+        const developingShare =
+          s.config.difficulty === "expert" && men.length > 0
+            ? men.filter((p) => p.age < p.dev_age_threshold).length / men.length
+            : 0;
+        const score = weakness + strategyGroupBonus(strategy, g as OffensiveFocus | DefensiveFocus) + developingShare * 1.5;
         if (score > bestScore) {
           bestScore = score;
           best = g;

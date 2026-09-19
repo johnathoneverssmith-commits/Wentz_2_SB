@@ -45,6 +45,7 @@ import {
   strategyNeedAdjustment,
   strategyPositionBonus,
 } from "./aiStrategy.ts";
+import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 
 /** Which side of the market an action is about. */
 export type Subject = "players" | "coaches";
@@ -236,22 +237,29 @@ export function bestAvailable(s: LeagueState): string | null {
     }
     return v;
   };
-  // Strategy is a CPU preference layer (§1.1/§18) — mirrors planAutopicks'
-  // scoring exactly (isAiTeam gate, same bonus terms) so the two paths never
-  // diverge; draftPerf.test.ts guards this invariant directly.
-  const strategy = teamCode && isAiTeam(s, teamCode) ? strategyFor(teamCode, s.season) : "balanced";
+  // Strategy and difficulty mirror planAutopicks' scoring exactly (isAiTeam
+  // gate, same bonus/noise/shortlist terms) so the two paths never diverge;
+  // draftPerf.test.ts guards this invariant directly.
+  const isAi = !!teamCode && isAiTeam(s, teamCode);
+  const strategy = isAi ? strategyFor(teamCode!, s.season) : "balanced";
+  const difficulty = isAi ? difficultyProfile(s.config.difficulty) : difficultyProfile("expert");
+  const pickIndex = d.currentPickIndex;
   // first-max scan == stable sort's [0]: ties keep the earliest candidate
   let bestId: string | null = null;
   let bestScore = -Infinity;
   if (d.mode === "rookie") {
-    const youngestAge = Math.min(...s.draftClass.filter((x) => !taken.has(x.id)).map((x) => x.age));
-    for (const x of s.draftClass) {
-      if (taken.has(x.id)) continue;
+    const untaken = s.draftClass.filter((x) => !taken.has(x.id));
+    const youngestAge = Math.min(...untaken.map((x) => x.age));
+    const baseScore = (x: (typeof untaken)[number]): number =>
+      x.collegeOverall + need(x.position) * difficulty.needAwareness;
+    const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
+    for (const x of shortlist) {
+      const noise =
+        difficulty.rookieEvaluationNoise === 0
+          ? 0
+          : deterministicNoiseUnit(teamCode ?? "", s.season, "draft", x.id, pickIndex) * difficulty.rookieEvaluationNoise;
       let score =
-        x.collegeOverall +
-        need(x.position) +
-        strategyPositionBonus(strategy, x.position, 0.75) +
-        strategyEliteBonus(strategy, x.collegeOverall);
+        baseScore(x) + strategyPositionBonus(strategy, x.position, 0.75) + strategyEliteBonus(strategy, x.collegeOverall) + noise;
       if (strategy === "high_ceiling" && x.age === youngestAge) score += 1;
       if (score > bestScore) {
         bestScore = score;
@@ -260,15 +268,21 @@ export function bestAvailable(s: LeagueState): string | null {
     }
     return bestId;
   }
-  for (const x of Object.values(s.players)) {
-    if (taken.has(x.id) || x.retired) continue;
+  const untaken = Object.values(s.players).filter((x) => !taken.has(x.id) && !x.retired);
+  const baseScore = (x: (typeof untaken)[number]): number => draftValue(x.overall, x.position) + need(x.position) * difficulty.needAwareness;
+  const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
+  for (const x of shortlist) {
+    const noise =
+      difficulty.evaluationNoise === 0
+        ? 0
+        : deterministicNoiseUnit(teamCode ?? "", s.season, "draft", x.id, pickIndex) * difficulty.evaluationNoise;
     const score =
-      draftValue(x.overall, x.position) +
-      need(x.position) +
+      baseScore(x) +
       strategyPositionBonus(strategy, x.position) +
       strategyEliteBonus(strategy, x.overall) +
       strategyAgeBonus(strategy, x.age) +
-      strategyNeedAdjustment(strategy, need(x.position) / NEED_WEIGHT);
+      strategyNeedAdjustment(strategy, need(x.position) / NEED_WEIGHT) +
+      noise;
     if (score > bestScore) {
       bestScore = score;
       bestId = x.id;
@@ -342,21 +356,33 @@ export function planAutopicks(s: LeagueState): string[] {
       if (v === undefined) needByPos.set(pos, (v = needOf(teamCode, pos)));
       return v;
     };
-    // Strategy is a CPU preference layer (§1.1/§18): a human's own team,
-    // even when autopicked on their behalf, uses the shared base evaluator
-    // only — the same guarantee `isAiTeam` already gives every other gate.
-    const strategy = teamCode && isAiTeam(s, teamCode) ? strategyFor(teamCode, s.season) : "balanced";
+    // Strategy and difficulty are both CPU-only preference/competence
+    // layers (§1.1/§18, difficulty §20): a human's own team, even when
+    // autopicked on their behalf, uses the shared base evaluator only — the
+    // same guarantee `isAiTeam` already gives every other gate.
+    const isAi = !!teamCode && isAiTeam(s, teamCode);
+    const strategy = isAi ? strategyFor(teamCode!, s.season) : "balanced";
+    const difficulty = isAi ? difficultyProfile(s.config.difficulty) : difficultyProfile("expert");
     const posScale = rookie ? 0.75 : 1;
+    const noiseScale = rookie ? difficulty.rookieEvaluationNoise : difficulty.evaluationNoise;
+
+    // §10/§20: base value first (player value + need scaled by difficulty's
+    // need-awareness), then difficulty's candidate-depth search limit, then
+    // strategy preference and evaluation noise only within that shortlist —
+    // a lower difficulty can miss the true best candidate because it never
+    // seriously considered it, not just because it mis-ranked something.
+    const untaken = candidates.filter((c) => !taken.has(c.id));
+    const baseScore = (c: (typeof untaken)[number]): number =>
+      rookie
+        ? c.overall + need(c.position) * difficulty.needAwareness
+        : draftValue(c.overall, c.position) + need(c.position) * difficulty.needAwareness;
+    const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
 
     let bestId: string | null = null;
     let bestScore = -Infinity;
-    for (const c of candidates) {
-      if (taken.has(c.id)) continue;
-      let score =
-        draftValue(c.overall, c.position) +
-        need(c.position) +
-        strategyPositionBonus(strategy, c.position, posScale) +
-        strategyEliteBonus(strategy, c.overall);
+    for (const c of shortlist) {
+      const noise = noiseScale === 0 ? 0 : deterministicNoiseUnit(teamCode ?? "", s.season, "draft", c.id, i) * noiseScale;
+      let score = baseScore(c) + strategyPositionBonus(strategy, c.position, posScale) + strategyEliteBonus(strategy, c.overall) + noise;
       if (rookie) {
         if (strategy === "high_ceiling" && c.age === youngestRookieAge) score += 1;
       } else {
@@ -858,12 +884,22 @@ export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): 
   // the price, the cap check, or which teams can afford to bid at all.
   const weights = candidates.map((code) => {
     const strategy = strategyFor(code, s.season);
-    const raw = positionalNeed(s, code, p.position);
+    // AI Difficulty (§13.1): need-awareness scales the shared need term
+    // before strategy ever sees it, and deterministic noise sits alongside
+    // strategy's bounded adjustment — same cap deal, same asking price,
+    // just a less accurate read of which team needs this player most.
+    const difficulty = difficultyProfile(s.config.difficulty);
+    const raw = positionalNeed(s, code, p.position) * difficulty.needAwareness;
+    const noise =
+      difficulty.evaluationNoise === 0
+        ? 0
+        : deterministicNoiseUnit(code, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
     const adj =
       strategyPositionBonus(strategy, p.position) +
       strategyAgeBonus(strategy, p.age) +
       strategyEliteBonus(strategy, p.overall) +
-      strategyNeedAdjustment(strategy, raw);
+      strategyNeedAdjustment(strategy, raw) +
+      noise;
     return raw ** 1.4 * clamp(1 + adj / 20, 0.5, 2);
   });
   const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";

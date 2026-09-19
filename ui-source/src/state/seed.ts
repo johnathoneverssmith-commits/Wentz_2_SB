@@ -49,7 +49,7 @@ export const DEFAULT_CONFIG: LeagueConfig = {
   gameDayDeadlineHours: 12,
   offseasonStageDeadlineHours: 24,
   randomEvents: "some",
-  difficulty: "normal",
+  difficulty: "standard",
 };
 
 const AI_GM_NAMES = ["Priya", "Marcus", "Dana", "Theo", "Nadia", "Wes", "Iris"];

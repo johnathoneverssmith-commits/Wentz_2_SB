@@ -1,6 +1,7 @@
 import type { Coach, CoachRole, LeagueState } from "@/domain";
 import { COACH_ROLES } from "@/domain";
 import { strategyCoachBonus, strategyFor } from "./aiStrategy.ts";
+import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 
 /**
  * The coaching fantasy draft.
@@ -165,10 +166,21 @@ export function bestCoachingPick(s: LeagueState, teamCode: string): string | nul
   // similarly-rated candidates for different roles, never hand a team a
   // meaningfully worse coach because the role fits its personality.
   const strategy = strategyFor(teamCode, s.season);
-  const score = (c: Coach): number => ratingOf(c) + strategyCoachBonus(strategy, c.role);
+  // AI Difficulty (§12): a narrower search (fewer candidates seriously
+  // evaluated) plus deterministic score noise on top of the same base
+  // rating — role vacancies/availability stay identical at every level.
+  const difficulty = difficultyProfile(s.config.difficulty);
+  const eligible = availableCoaches(s).filter((c) => vacancies.has(c.role));
+  const shortlist = shortlistByBaseScore(eligible, ratingOf, difficulty.candidateDepth);
+  const score = (c: Coach): number => {
+    const noise =
+      difficulty.coachEvaluationNoise === 0
+        ? 0
+        : deterministicNoiseUnit(teamCode, s.season, "coaching_draft", c.id) * difficulty.coachEvaluationNoise;
+    return ratingOf(c) + strategyCoachBonus(strategy, c.role) + noise;
+  };
   let best: Coach | null = null;
-  for (const c of availableCoaches(s)) {
-    if (!vacancies.has(c.role)) continue;
+  for (const c of shortlist) {
     if (!best || score(c) > score(best)) best = c;
   }
   return best?.id ?? null;

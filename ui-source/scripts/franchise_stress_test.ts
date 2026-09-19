@@ -56,8 +56,8 @@ if (!["cpu_only", "scripted_human"].includes(leagueMode)) throw new Error("--lea
 if (process.argv.includes("--strategies") || process.argv.includes("--hooded-figure")) {
   throw new Error("This franchise store does not expose AI strategy or Hooded Figure state");
 }
-const difficulty = option("difficulty") ?? "normal";
-if (!["easy", "normal", "hard", "impossible"].includes(difficulty)) throw new Error("Unsupported difficulty");
+const difficulty = option("difficulty") ?? "standard";
+if (!["casual", "standard", "competitive", "expert"].includes(difficulty)) throw new Error("Unsupported difficulty");
 const replay = !process.argv.includes("--no-replay") && (process.argv.includes("--replay") || mode === "smoke");
 const output = option("output") ?? join("..", "artifacts", "franchise_validation");
 mkdirSync(output, { recursive: true });
