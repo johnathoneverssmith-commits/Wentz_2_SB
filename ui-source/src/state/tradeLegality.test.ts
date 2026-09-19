@@ -99,3 +99,54 @@ describe("checkTrade", () => {
     expect(result.ok).toBe(false);
   });
 });
+
+/**
+ * exploit_regression_trade_stale_asset — audit finding (trades, "duplicate
+ * asset" class): two trade proposals can sit unresolved at once, both
+ * referencing the same player. `applyTrade` reassigns `nfl_team`
+ * unconditionally, so resolving the first moved the player away and
+ * resolving the second (still built from the state as it was when proposed)
+ * silently seized him a second time from whoever legitimately received him,
+ * with no consent or cap accounting on that third team at all.
+ */
+describe("exploit: stale trade assets", () => {
+  it("refuses a trade whose offered player no longer belongs to fromTeam", () => {
+    const { s, a, b } = fixture();
+    const mine = rosterOf(s, a)[0]!;
+    const theirs = rosterOf(s, b).find(
+      (p) => Math.abs((p.contract?.cap_hit_by_year[0] ?? 0) - (mine.contract?.cap_hit_by_year[0] ?? 0)) < 2,
+    );
+    if (!theirs) return;
+    const proposal = deal(a, b, [mine.id], [theirs.id]);
+    // some other, earlier-resolving trade already moved `mine` off team a
+    mine.nfl_team = "FA";
+    const result = checkTrade(s, proposal);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/stale/i);
+  });
+
+  it("refuses a trade whose requested player no longer belongs to toTeam", () => {
+    const { s, a, b } = fixture();
+    const mine = rosterOf(s, a)[0]!;
+    const theirs = rosterOf(s, b).find(
+      (p) => Math.abs((p.contract?.cap_hit_by_year[0] ?? 0) - (mine.contract?.cap_hit_by_year[0] ?? 0)) < 2,
+    );
+    if (!theirs) return;
+    const proposal = deal(a, b, [mine.id], [theirs.id]);
+    // theirs already left team b through some other resolved trade
+    theirs.nfl_team = "FA";
+    const result = checkTrade(s, proposal);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/stale/i);
+  });
+
+  it("still passes a normal deal where both sides currently hold what they're offering", () => {
+    const { s, a, b } = fixture();
+    const mine = rosterOf(s, a)[0]!;
+    const theirs = rosterOf(s, b).find(
+      (p) => Math.abs((p.contract?.cap_hit_by_year[0] ?? 0) - (mine.contract?.cap_hit_by_year[0] ?? 0)) < 2,
+    );
+    if (!theirs) return;
+    expect(checkTrade(s, deal(a, b, [mine.id], [theirs.id])).ok).toBe(true);
+  });
+});

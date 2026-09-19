@@ -1284,6 +1284,38 @@ export function checkTrade(
   const idsOf = (assets: LeagueState["trades"][number]["fromAssets"]): string[] =>
     assets.filter((a) => a.kind === "player" && a.playerId).map((a) => a.playerId!);
 
+  // exploit audit (trades, "stale asset" / ownership bypass): two trade
+  // proposals can sit in `s.trades` at once, both listing the same player or
+  // pick, before either resolves. `applyTrade` reassigns unconditionally —
+  // without this check, resolving the second trade after the first already
+  // moved the asset elsewhere silently reassigns him a second time, seizing
+  // him from whoever legitimately received him in the first trade, with no
+  // consent or cap check on that team's side at all. A trade whose assets
+  // have moved since it was proposed is stale and refused outright, the same
+  // way a stale re-sign attempt already is.
+  for (const a of t.fromAssets) {
+    if (a.kind === "player" && a.playerId && s.players[a.playerId]?.nfl_team !== t.fromTeam) {
+      return { ok: false, reason: "That deal is stale — one of the players offered has already moved. Propose it again." };
+    }
+    if (a.kind === "pick" && a.pick) {
+      const held = s.draftPicks?.[pickKey(a.pick.year, a.pick.round, a.pick.originalTeam)];
+      if (held && held.ownedBy !== t.fromTeam) {
+        return { ok: false, reason: "That deal is stale — one of the picks offered has already moved. Propose it again." };
+      }
+    }
+  }
+  for (const a of t.toAssets) {
+    if (a.kind === "player" && a.playerId && s.players[a.playerId]?.nfl_team !== t.toTeam) {
+      return { ok: false, reason: "That deal is stale — one of the players requested has already moved. Propose it again." };
+    }
+    if (a.kind === "pick" && a.pick) {
+      const held = s.draftPicks?.[pickKey(a.pick.year, a.pick.round, a.pick.originalTeam)];
+      if (held && held.ownedBy !== t.toTeam) {
+        return { ok: false, reason: "That deal is stale — one of the picks requested has already moved. Propose it again." };
+      }
+    }
+  }
+
   const out = idsOf(t.fromAssets); // leaving fromTeam
   const back = idsOf(t.toAssets); // leaving toTeam
   const limit = rosterLimitFor(s.stage);
