@@ -56,7 +56,7 @@ import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js
 import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
 import { isInSeason } from "@/state/rules.ts";
-import { visibleGames } from "@/state/reveal.ts";
+import { redactedGames, visibleBracket, visibleGames } from "@/state/reveal.ts";
 import { openStream } from "./stream.js";
 
 /** Body fields, checked at the door so a handler can trust what it reads. */
@@ -208,6 +208,18 @@ get("/leagues/:id", async (ctx) => {
       Object.entries(state.draft.targetsByGm).filter(([gmId]) => gmId === franchise.gmId),
     );
   }
+
+  // A block is simulated once, for every game at once, the moment the
+  // checkpoint runs — every result already sits in `state.games` (and, in
+  // the postseason, `state.bracket`) whether or not anyone has watched that
+  // far. `structuredClone` above copies the whole thing as-is, so without
+  // this every GM's own client request was the spoiler: next week's scores
+  // and the eventual champion were sitting in the JSON the moment the page
+  // loaded, regardless of what the UI chose to render from it. Someone with
+  // no franchise in this league (there isn't a legitimate case today, but
+  // nothing stops the route being hit that way) sees nothing revealed at all.
+  state.games = redactedGames(state, franchise?.gmId ?? "");
+  if (state.bracket) state.bracket = visibleBracket(state.bracket, state, franchise?.gmId ?? "");
 
   const commissioner = await isCommissioner(ctx.params.id!, user.id);
   return {

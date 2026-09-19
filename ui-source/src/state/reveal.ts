@@ -1,5 +1,5 @@
 import { ROUND_ORDER } from "@/domain";
-import type { BracketState, LeagueState } from "@/domain";
+import type { BracketState, GameResult, LeagueState } from "@/domain";
 
 /**
  * Who has seen what.
@@ -106,6 +106,40 @@ export function visibleGames(s: LeagueState, gmId: string) {
     // playoff games carry their round in the phase field
     return revealedRounds(s, gmId).includes(g.phase);
   });
+}
+
+/**
+ * `state.games` as this GM is allowed to see it, shape-preserved.
+ *
+ * Unlike `visibleGames`, this keeps every entry — including games nobody has
+ * watched yet — because the schedule and the standings still need to show
+ * that a game exists and who it's between. What it strips is the *outcome*:
+ * a game this GM hasn't revealed comes back looking exactly like an unplayed
+ * one, the same way `visibleBracket` nulls out an unrevealed matchup's score
+ * rather than removing it from the bracket.
+ *
+ * This is what a league's full state has to be passed through before it
+ * reaches a client. The block is simulated once, at the checkpoint, for
+ * every game at once — so an unfiltered `state.games` already holds next
+ * week's scores and the whole rest of the postseason the moment the
+ * checkpoint runs, whether or not anyone has watched that far yet.
+ */
+export function redactedGames(s: LeagueState, gmId: string): GameResult[] {
+  const seen = new Set(visibleGames(s, gmId).map((g) => g.id));
+  return s.games.map((g) =>
+    seen.has(g.id)
+      ? g
+      : {
+          id: g.id,
+          week: g.week,
+          phase: g.phase,
+          homeTeam: g.homeTeam,
+          awayTeam: g.awayTeam,
+          played: false,
+          homeScore: 0,
+          awayScore: 0,
+        },
+  );
 }
 
 /** Whether this GM still has something left to reveal in the block. */
