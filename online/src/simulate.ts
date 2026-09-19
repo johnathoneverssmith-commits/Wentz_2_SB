@@ -16,14 +16,8 @@ import { broadcastGame } from "../../src/engine/broadcast.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
 
-import {
-  ROUND_ORDER,
-  type GameResult,
-  type LeagueState,
-  type PlayoffRound,
-} from "@/domain";
+import { type GameResult, type LeagueState } from "@/domain";
 import { availableRoster } from "@/state/injuries.ts";
-import { buildNextRound } from "@/sim/MockSimulationService";
 import { humanGate, isInSeason } from "@/state/rules.ts";
 
 import { ActionError, withLeague, type Applied } from "./db.js";
@@ -63,62 +57,6 @@ export interface WeekOutcome {
   results: number;
 }
 
-/**
- * Play the live matchups of the current playoff round, with the real engine.
- *
- * The regular season online is played by `simulateGame` against the rosters
- * the GMs actually built, and the playoffs had no server path at all — the
- * week simulator only ever looks at PRE/REG fixtures, so a league that
- * reached the bracket found nothing to play and stopped there.
- *
- * The bracket's shape (seeding, who meets whom next) comes from the same
- * helpers the single-player game uses. Only the result of each game is taken
- * from the engine rather than a coin flip, so a playoff game is decided the
- * same way every other game in the league was.
- */
-function playPlayoffRound(state: LeagueState, rosterFor: (code: string) => Roster): number {
-  const bracket = state.bracket;
-  if (!bracket) return 0;
-  const round = bracket.currentRound;
-  const live = bracket.matchups.filter((m) => m.round === round && m.winner == null);
-
-  let played = 0;
-  for (const m of live) {
-    if (!m.highSeed || !m.lowSeed) {
-      // a bye: somebody advances without playing
-      m.winner = m.highSeed?.code ?? m.lowSeed?.code ?? null;
-      continue;
-    }
-    // the higher seed hosts every round but the Super Bowl
-    const home = m.highSeed.code;
-    const away = m.lowSeed.code;
-    const seed = gameSeed(state, 0, `PO-${round}`, home, away);
-    const sim = simulateGame(seed, toEngine(home), toEngine(away), {
-      homeRoster: rosterFor(home),
-      awayRoster: rosterFor(away),
-      neutralSite: round === "SB",
-      injuries: true,
-    });
-    let [hs, as] = [sim.score[0], sim.score[1]];
-    // somebody has to go home; break a tie with the seed rather than leaving
-    // the bracket with no winner
-    if (hs === as) hs += 1;
-    m.homeScore = hs;
-    m.awayScore = as;
-    m.winner = hs > as ? home : away;
-    played++;
-  }
-
-  const next = ROUND_ORDER[ROUND_ORDER.indexOf(round) + 1] as PlayoffRound | undefined;
-  if (round === "SB") {
-    bracket.champion = bracket.matchups.find((x) => x.round === "SB")?.winner ?? null;
-  } else if (next) {
-    bracket.currentRound = next;
-    bracket.matchups.push(...buildNextRound(next, bracket, state));
-  }
-  return played;
-}
-
 /** The week that just closed, for reporting. */
 function playedWeekOf(state: LeagueState, moved: { week: number }): number {
   return moved.week > 1 ? moved.week - 1 : state.week;
@@ -156,36 +94,29 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       );
     };
 
-    // The playoffs are not a week of fixtures; they are a round of a bracket,
-    // and the slate below would never find them.
+    // The whole postseason is decided once, in one pass, the moment the
+    // playoffs stage opens (`onStageEntered` -> `simulatePlayoffBlock`,
+    // phases.ts) — the same "simulate the block at the checkpoint, reveal it
+    // after" design the rest of the season uses, and there is no partial
+    // bracket state worth a request like this one acting on. This branch
+    // used to play one round per request, from before that design existed;
+    // nothing reaches this function while the league is still in the
+    // playoffs stage without `state.bracket.champion` already set. It stays
+    // as an inert refusal — never as a second place that can move the
+    // bracket or announce the champion — because "nothing currently calls
+    // this that way" is a property of the surrounding request flow, not a
+    // rule this function enforces, and a future change to that flow must
+    // not be able to turn this back into a second, ungated way to resolve
+    // or re-announce a postseason the checkpoint already decided.
     if (state.stage === "playoffs") {
-      if (!state.bracket) {
-        return {
-          result: { played: false, reason: "The bracket isn't set yet.", week: state.week, results: 0 },
-          state,
-        } satisfies { result: WeekOutcome } & Applied;
-      }
-      const round = state.bracket.currentRound;
-      const games = playPlayoffRound(state, rosterFor);
-      state.pendingGameDay = { phase: round, week: 0, gameIds: [], viewerGameId: null };
-      if (games === 0 && !state.bracket.champion) {
-        return {
-          result: { played: false, reason: "That round has already been played.", week: state.week, results: 0 },
-          state,
-        } satisfies { result: WeekOutcome } & Applied;
-      }
-      const moved = finishPlayedWeek(state);
       return {
-        result: { played: true, reason: null, week: state.week, results: games },
+        result: {
+          played: false,
+          reason: "The postseason is decided at the checkpoint, not here.",
+          week: state.week,
+          results: 0,
+        },
         state,
-        phaseEndsAt: deadlineFor(state, league),
-        events: [
-          { kind: "season.playoffs", summary: `The ${round} round was played — ${games} games.` },
-          ...(state.bracket.champion
-            ? [{ kind: "season.champion", summary: `${state.bracket.champion} won the Super Bowl.` }]
-            : []),
-          { kind: "season.advanced", summary: `The league moved on to ${moved.stage}.` },
-        ],
       } satisfies { result: WeekOutcome } & Applied;
     }
 
