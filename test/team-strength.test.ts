@@ -30,34 +30,61 @@ describe("the strength index", () => {
     expect(wr.length).toBeGreaterThan(1);
     wr[1]!.overall = Math.min(99, wr[1]!.overall + 20);
 
-    expect(strengthIndex(lifted)).toBeGreaterThan(strengthIndex(base));
+    expect(strengthIndex(lifted).offense).toBeGreaterThan(strengthIndex(base).offense);
+    // and a receiver does not make the defense better
+    expect(strengthIndex(lifted).defense).toBeCloseTo(strengthIndex(base).defense, 10);
   });
 
-  it("separates the league's teams", () => {
-    const xs = [...NFL_TEAMS].map((c) => strengthIndex(roster(c)));
-    const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
-    const sd = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length);
-    // a channel with no spread would be a no-op dressed as a mechanism
-    expect(sd).toBeGreaterThan(0.5);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(2);
+  it("separates the league's teams, on both sides of the ball", () => {
+    for (const side of ["offense", "defense"] as const) {
+      const xs = [...NFL_TEAMS].map((c) => strengthIndex(roster(c))[side]);
+      const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+      const sd = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length);
+      // a channel with no spread would be a no-op dressed as a mechanism
+      expect(sd, side).toBeGreaterThan(0.5);
+      expect(Math.max(...xs) - Math.min(...xs), side).toBeGreaterThan(2);
+    }
+  });
+
+  it("does not make a team's offense and defense the same number", () => {
+    // the whole point of the split: if these moved together, a matchup would
+    // be a mirror again and margins would blow out
+    const gaps = [...NFL_TEAMS].map((c) => {
+      const ix = strengthIndex(roster(c));
+      return ix.offense - ix.defense;
+    });
+    const spread = Math.max(...gaps) - Math.min(...gaps);
+    expect(spread).toBeGreaterThan(1);
   });
 });
 
 describe("the shift", () => {
-  it("is zero between equals, and symmetric", () => {
-    expect(strengthShift(75, 75, "complete")).toBe(0);
-    expect(strengthShift(80, 70, "complete")).toBeCloseTo(-strengthShift(70, 80, "complete"), 10);
+  const ix = (offense: number, defense: number) => ({ offense, defense });
+
+  it("is zero between equals", () => {
+    expect(strengthShift(ix(75, 75), ix(75, 75), "complete")).toBe(0);
+    expect(strengthShift(ix(80, 60), ix(60, 80), "complete")).toBe(0);
   });
 
   it("helps the better offense and hurts it on sacks", () => {
     // signs are from the offense's side: completing more, sacked less
-    expect(strengthShift(80, 70, "complete")).toBeGreaterThan(0);
-    expect(strengthShift(80, 70, "sack")).toBeLessThan(0);
-    expect(strengthShift(80, 70, "rushYards")).toBeGreaterThan(0);
+    const good = ix(80, 70);
+    const weakD = ix(70, 70);
+    expect(strengthShift(good, weakD, "complete")).toBeGreaterThan(0);
+    expect(strengthShift(good, weakD, "sack")).toBeLessThan(0);
+    expect(strengthShift(good, weakD, "rushYards")).toBeGreaterThan(0);
+  });
+
+  it("reads this offense against that defense, not team against team", () => {
+    // a team with a great offense and a poor defense should still move the
+    // ball against a poor defense; a team-wide index would cancel it out
+    const lopsided = ix(85, 65); // team mean 75
+    const average = ix(75, 75); // same team mean
+    expect(strengthShift(lopsided, average, "complete")).toBeGreaterThan(0);
   });
 
   it("scales with the fitted constant", () => {
-    const edge = strengthShift(80, 70, "complete");
+    const edge = strengthShift(ix(80, 0), ix(0, 70), "complete");
     expect(edge / TEAM_STRENGTH_SCALE).toBeCloseTo(10 * 0.055, 10);
   });
 });

@@ -19,8 +19,16 @@ from __future__ import annotations
 # roster of camp bodies dominate the average.
 DEPTH_WEIGHTS = [1.0, 0.35, 0.12, 0.05]
 
+# Which side of the ball a position is on. The index is per side, not per
+# team: a single team-wide index makes every matchup exactly zero-sum, so the
+# two scores come out almost perfectly anti-correlated and margins blow out
+# (measured at margin sd 16.15 against a real 14.33, while the individual
+# scores were fine). See the TypeScript file.
+OFFENSE = {"QB", "RB", "FB", "WR", "TE", "OT", "OG", "C", "OL"}
+DEFENSE = {"EDGE", "DT", "DL", "ILB", "OLB", "LB", "CB", "S", "DB"}
+
 # Fitted, not chosen — see the sweep table in the TypeScript file.
-TEAM_STRENGTH_SCALE = 1.2
+TEAM_STRENGTH_SCALE = 1.0
 
 # Per point of index, from the offense's point of view. The one fitted number
 # is the scale above; these set how it spreads across the channels.
@@ -31,8 +39,8 @@ PER_POINT = {
 }
 
 
-def strength_index(roster) -> float:
-    """How good is the team that actually takes the field, 0-99.
+def strength_index(roster) -> dict:
+    """How good is the team that actually takes the field, by side.
 
     Memoised on the roster object: this is read three times a play, and
     walking a 53-man roster each time cost about two orders of magnitude. A
@@ -43,16 +51,29 @@ def strength_index(roster) -> float:
     if hit is not None:
         return hit
 
-    num = 0.0
-    den = 0.0
-    for players in roster.depth.values():
+    off_num = off_den = def_num = def_den = 0.0
+    for pos, players in roster.depth.items():
+        if pos in OFFENSE:
+            side = "off"
+        elif pos in DEFENSE:
+            side = "def"
+        else:
+            continue  # kickers and punters are their own model
         for i, p in enumerate(players):
             w = DEPTH_WEIGHTS[i] if i < len(DEPTH_WEIGHTS) else 0.0
             if w == 0.0:
                 continue
-            num += w * float(p.get("overall", 0) or 0)
-            den += w
-    out = num / den if den > 0 else 0.0
+            ov = w * float(p.get("overall", 0) or 0)
+            if side == "off":
+                off_num += ov
+                off_den += w
+            else:
+                def_num += ov
+                def_den += w
+    out = {
+        "offense": off_num / off_den if off_den > 0 else 0.0,
+        "defense": def_num / def_den if def_den > 0 else 0.0,
+    }
     try:
         roster._strength_index = out
     except AttributeError:  # a slotted roster: correct, just uncached
@@ -60,12 +81,12 @@ def strength_index(roster) -> float:
     return out
 
 
-def strength_shift(off: float, deff: float, channel: str) -> float:
-    """The shift for one channel, from the two teams' indices.
+def strength_shift(offense: dict, defense: dict, channel: str) -> float:
+    """The shift for one channel: this offense against that defense.
 
     A difference and nothing else: centring both on a league mean before
     subtracting reads as though it matters and cancels exactly. It is also why
     the league average cannot move — across a balanced schedule every team is
     on both sides of this.
     """
-    return (off - deff) * PER_POINT[channel] * TEAM_STRENGTH_SCALE
+    return (offense["offense"] - defense["defense"]) * PER_POINT[channel] * TEAM_STRENGTH_SCALE

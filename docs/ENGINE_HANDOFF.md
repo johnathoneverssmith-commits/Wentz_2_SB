@@ -156,6 +156,44 @@ carrying what the modelled families cannot see, calibrated against two targets
 that should move together — between-team points sd 2.15 → 4.28, and favourite
 win rate 58.8% → 66–70%.
 
+> **Update (V1.8, 2026-09-17/19).** Built as `src/engine/team-strength.ts`
+> (mirrored in `analysis/engine/team_strength.py`): a snap-weighted mean of
+> the *whole* roster, entered as a shift on completion, sacks and rush yards.
+>
+> **First cut used one index per team and overshot margin.** A single
+> team-wide number makes every matchup exactly zero-sum — the same gap that
+> helps one offense hurts the other by the identical amount — so scores went
+> almost perfectly anti-correlated: at scale 1.2, `points_sd` landed fine
+> (9.58 vs real 9.93) but score-margin sd came out **16.15 vs a real 14.33**,
+> +12.7%. That failure mode is invisible if you only check the summary
+> statistic the channel was built to fix.
+>
+> **Fixed by splitting the index into offense and defense.** A team's
+> offense and its own defense are different numbers; what decides a play is
+> *this* offense against *that* defense, not team-mean against team-mean.
+> With the split, `TEAM_STRENGTH_SCALE` re-swept to **1.0** (not chosen —
+> see the table in the source file) and the §22/§23 pipeline, regenerated
+> for real against the parquet data:
+>
+> | metric | before (rating layer on) | after | real |
+> |---|---:|---:|---:|
+> | points_sd | 8.65 | **9.58–9.88** | 9.93 |
+> | score-margin sd | n/a (not measured) | **15.9–16.1*** | 14.33 |
+> | favourite-by-overall win % | 58.8% | **65.8–71.7%*** | 66–70% |
+>
+> \* the §23 harness runs only 100–120 pairs, so these two are noisier than
+> the 2,816-game sweep in the source file (margin 14.58–14.75, favourite
+> 67.8–68.3%) — trust the source file's numbers over the small-sample report
+> for anything past one significant figure. All three land inside or at the
+> edge of the ±10% band; none of the seven modelled families' design ratios
+> moved (still 0.99–1.0×), and the pool-free §22 path is unchanged (19/20
+> within 10%, `points_sd` −12.9% because that path never turns the rating
+> layer on — expected, and the one metric this channel cannot touch there).
+>
+> `artifacts/models/m23_full_sim_validation.report.md`,
+> `m24b_rating_layer_validation.report.md`, and both `artifacts/validation/*.json`
+> are regenerated and current as of this update.
+
 ### Known residuals, already investigated
 
 - **≈ −0.8 ± 0.4 points per team-game** against the real league after the §26

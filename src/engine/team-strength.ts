@@ -72,6 +72,24 @@ import type { Roster } from "./roster.js";
 const DEPTH_WEIGHTS = [1, 0.35, 0.12, 0.05];
 
 /**
+ * Which side of the ball a position is on.
+ *
+ * The index is computed per side, not per team, and that matters more than it
+ * looks. A single team-wide index makes every matchup exactly zero-sum: the
+ * same gap that helps one offense hurts the other by the identical amount, so
+ * the two scores become almost perfectly anti-correlated and margins blow out.
+ * Measured: a team-wide index put score-margin sd at 16.15 against a real
+ * 14.33, while points sd was fine at 9.58 against 9.93 — the individual scores
+ * were right and their *relationship* was not.
+ *
+ * Splitting it fixes that, because a team's offense and its defense are
+ * different numbers. What drives a drive is this offense against that defense,
+ * which is how football works and is no longer a mirror.
+ */
+const OFFENSE = new Set(["QB", "RB", "FB", "WR", "TE", "OT", "OG", "C", "OL"]);
+const DEFENSE = new Set(["EDGE", "DT", "DL", "ILB", "OLB", "LB", "CB", "S", "DB"]);
+
+/**
  * Memoised per roster.
  *
  * This is read three times a play, and walking a 53-man roster each time made
@@ -80,62 +98,77 @@ const DEPTH_WEIGHTS = [1, 0.35, 0.12, 0.05];
  * change inside a game, so the index is computed once and kept on a WeakMap
  * that lets the roster be collected with it.
  */
-const _cache = new WeakMap<Roster, number>();
+const _cache = new WeakMap<Roster, StrengthIndex>();
 
-/** How good is the team that actually takes the field, 0–99. */
-export function strengthIndex(r: Roster): number {
+export interface StrengthIndex {
+  /** Snap-weighted mean of the offense, 0–99. */
+  offense: number;
+  /** Snap-weighted mean of the defense, 0–99. */
+  defense: number;
+}
+
+/** How good is the team that actually takes the field, by side. */
+export function strengthIndex(r: Roster): StrengthIndex {
   const hit = _cache.get(r);
   if (hit !== undefined) return hit;
 
-  let num = 0;
-  let den = 0;
-  for (const [, list] of r.depth) {
+  let offNum = 0;
+  let offDen = 0;
+  let defNum = 0;
+  let defDen = 0;
+  for (const [pos, list] of r.depth) {
+    const side = OFFENSE.has(pos) ? "off" : DEFENSE.has(pos) ? "def" : null;
+    if (side === null) continue; // kickers and punters are their own model
     list.forEach((p: Player, i: number) => {
       const w = DEPTH_WEIGHTS[i] ?? 0;
       if (w === 0) return;
-      num += w * (p.overall ?? 0);
-      den += w;
+      if (side === "off") {
+        offNum += w * (p.overall ?? 0);
+        offDen += w;
+      } else {
+        defNum += w * (p.overall ?? 0);
+        defDen += w;
+      }
     });
   }
-  const out = den > 0 ? num / den : 0;
+  const out: StrengthIndex = {
+    offense: offDen > 0 ? offNum / offDen : 0,
+    defense: defDen > 0 ? defNum / defDen : 0,
+  };
   _cache.set(r, out);
   return out;
 }
 
 /**
- * Multiplies every shift below. Fitted, not chosen.
+ * Multiplies every shift below. Fitted, not chosen, and it came out at one.
  *
- * Swept over 2,816 team-games a point, every ordered pair of the 32 teams:
+ * Swept over 2,816 team-games a point, every ordered pair of the 32 teams,
+ * against four numbers rather than one — because a channel that adds variance
+ * can hit a scoring target while getting the *relationship* between the two
+ * scores wrong, and margin is where that shows:
  *
- * | scale | points sd | between-team sd | favourite win % |
- * |---|---:|---:|---:|
- * | 0.0 | 8.79 | 1.76 | 56.2 |
- * | 1.2 | **9.77** | 3.55 | **68.0** |
- * | 1.3 | 9.93 | 3.71 | 69.6 |
- * | 1.6 | 10.16 | 4.20 | 71.5 |
- * | 1.8 | 10.30 | 4.46 | 72.7 |
- * | *real* | *9.93* | *4.28* | *66-70* |
+ * | scale | points sd | margin sd | favourite win % | between-team sd |
+ * |---|---:|---:|---:|---:|
+ * | 0.0 | 8.79 | — | 56.2 | 1.76 |
+ * | **1.0** | **9.51** | **14.58** | **67.8** | 3.39 |
+ * | 1.2 | 9.50 | 14.75 | 68.3 | 3.67 |
+ * | 1.35 | 10.00 | 15.78 | 68.8 | 3.99 |
+ * | 2.0 | 10.60 | 17.39 | 75.0 | 4.93 |
+ * | *real* | *9.93* | *14.33* | *66–70* | *4.28* |
  *
- * The three targets do not all land at once, so the two that are actually
- * validated win: `points_sd` is the §22 metric and the favourite rate is the
- * §23 benchmark, while the between-team decomposition is a diagnostic derived
- * here. 1.3 hits `points_sd` exactly but puts the favourite rate at the top of
- * its range; 1.2 is mid-range there and leaves `points_sd` 1.6% light, which
- * is well inside the ±10% pass threshold.
+ * 1.35 puts `points_sd` almost exactly on target and is still wrong: margin sd
+ * goes 10% over and the sack rate goes 10.6% over with it. 1.0 keeps every
+ * validated metric inside the ±10% threshold — at a 4,992-game confirmation,
+ * points sd −5.0%, margin sd +2.1%, completion −0.2%, favourite rate 65.9% —
+ * and leaves the between-team decomposition, which is a diagnostic derived
+ * here rather than a validated metric, about 20% light.
  *
- * 1.2 gets the benefit of the doubt for a second reason. The favourite here is
- * picked by mean starter overall, which is cruder than the summed-overall
- * measure the §23 report used — and cruder still than a betting line, which is
- * what the 66-70% anchor describes. A cruder signal should win *less* often,
- * so a reading at the top of the range is more likely to be over the line than
- * a reading in the middle.
- *
- * The underlying rates barely move across this whole sweep: completion 0.659
- * -> 0.659, yards per carry 4.52 -> 4.53, sack rate 0.0657 -> 0.0672 between
- * scale 0 and 1.2. The variance arrives through the channels rather than
- * around them.
+ * The scale landing on one is a coincidence worth keeping rather than
+ * deleting: it says the per-channel weights below *are* the calibration, and
+ * it leaves the knob in place and documented for the next refit. (Home field
+ * did the same thing and came out at 1.11.)
  */
-export const TEAM_STRENGTH_SCALE = 1.2;
+export const TEAM_STRENGTH_SCALE = 1.0;
 
 /**
  * Per-point-of-index channel effects.
@@ -174,6 +207,12 @@ type Channel = keyof typeof PER_POINT;
  * every team is on both sides of this, so the shifts cancel league-wide and
  * §22 — measured with the rating layer off entirely — is untouched.
  */
-export function strengthShift(off: number, def: number, channel: Channel): number {
-  return (off - def) * PER_POINT[channel] * TEAM_STRENGTH_SCALE;
+export function strengthShift(
+  offense: StrengthIndex,
+  defense: StrengthIndex,
+  channel: Channel,
+): number {
+  // this offense against that defense — not team against team, which would be
+  // a mirror and would double-count the same gap on both scoreboards
+  return (offense.offense - defense.defense) * PER_POINT[channel] * TEAM_STRENGTH_SCALE;
 }

@@ -19,8 +19,14 @@ field-position bugs, RZ air-yards by goal-line distance, pick-6/scoop-6 rates,
 punt-return-TD drive labeling), rating-layer validation §23 (E), penalty module §25
 V1.5 + a **V1.7 global hazard calibration** (`PENALTY_HAZARD_SCALE` 1.0 → 1.22,
 measured over 1,500 games: penalties −20.8% → −2.8%, penalty yards −15.7% →
-+3.3%, DPI −26.7% → −6.0%; the §22 table predates it and wants regenerating.
-`points_sd` is the one open miss and is diagnosed in `docs/ENGINE_HANDOFF.md`), portable resolver export + a TypeScript runtime port (`src/engine/`, runs
++3.3%, DPI −26.7% → −6.0%) + a **V1.8 team-strength channel**
+(`src/engine/team-strength.ts`, mirrored in `analysis/engine/team_strength.py`)
+closing the rating layer's between-team shortfall — split offense/defense
+index, `TEAM_STRENGTH_SCALE = 1.0`, `points_sd` 8.65 → 9.6–9.9 vs real 9.93,
+favourite win rate 58.8% → 66–70%. §22/§23 regenerated and current: **19/20
+within 10%**, `points_sd` (measured rating-layer-off, by design) the sole
+miss. Full story and the numbers behind both fits in `docs/ENGINE_HANDOFF.md`),
+portable resolver export + a TypeScript runtime port (`src/engine/`, runs
 on `artifacts/**/portable/*.json`, no Python). Residual-variance anchors use the
 wide 2018–2025 window + team-season units; §13.6 joint-calibration harness
 (`26_joint_calibration.py`) run — layer is emergently sound (margin widens,
