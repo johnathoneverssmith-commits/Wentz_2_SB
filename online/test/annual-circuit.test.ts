@@ -52,6 +52,9 @@ describe("a season, end to end", () => {
       "freeAgencySummary",
       "trainingCamp",
       "trainingCampResults",
+      // the hooded-figure catch-up mechanic's offer, resolved (or skipped by
+      // whoever isn't eligible) before the depth chart re-order
+      "hoodedFigureEncounter",
       "offseasonDepthChart",
       "preseason",
     ]);
@@ -83,6 +86,9 @@ describe("a season, end to end", () => {
       if (t.stage === "regularSeason" && t.week > 9) s.week = 18;
     }
     expect(steps).toEqual([
+      // the hooded-figure mechanic's league-wide reveal, shown once preseason
+      // is actually simulated and before the regular season starts
+      "leagueDevelopments",
       "regularSeason",
       "tradeDeadline",
       "tradeDeadlineSummary",

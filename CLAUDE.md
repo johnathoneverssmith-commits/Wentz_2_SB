@@ -93,6 +93,43 @@ thirteen changes). The shape to know before touching anything in `online/` or
 buttons the screens press. Run it after changing any stage wiring; it is what
 catches a league that cannot leave a stage.
 
+**Three CPU-behavior layers sit on top of the shared evaluators, and are
+deliberately orthogonal to each other:**
+
+- **AI GM Season Strategy** (`ui-source/src/state/aiStrategy.ts`) answers
+  "what kind of roster does this GM want?" Eight strategies
+  (balanced/offense-heavy/defense-heavy/pass-heavy/run-heavy/high-floor/
+  high-ceiling/trenches-first), assigned deterministically by a hash of
+  `teamCode + season` — no persisted field, so a save/reload or a second
+  multiplayer client can't reroll it. Wired into the draft, coaching draft,
+  free agency, AI trade offers/acceptance, and Training Camp focus as a
+  small bounded bonus on top of the base evaluator.
+- **AI Difficulty** (`ui-source/src/state/aiDifficulty.ts`) answers "how
+  well does it search for and evaluate the options?" — never a rules/rating/
+  cap change. Four levels (casual/standard/competitive/expert) via
+  `LeagueConfig.difficulty` (a field that predates this and was previously
+  wired to nothing), controlling candidate-search depth, deterministic score
+  noise, need-awareness, and FA chase-ceiling/rebid discipline. Same
+  integration points as strategy, applied first in the pipeline (base value →
+  difficulty's search/noise limits → strategy preference → hard constraints).
+- **The Hooded Figure catch-up mechanic**
+  (`ui-source/src/state/hoodedFigure.ts`) is unrelated to either: a rare,
+  dark-comedy offer for a *human* team that's counted as the league's losing
+  franchise two seasons running. It adds two stages to the season flow —
+  `hoodedFigureEncounter` (right after Training Camp results, before the
+  depth chart) and `leagueDevelopments` (a league-wide reveal screen, after
+  preseason is simulated and before the regular season starts) — see
+  `stageMachine.ts`'s `resolveTransition`. Fully deterministic once a payment
+  is submitted: thresholds, the swindle roll, the positive/negative branch,
+  the specific event and its target are all seeded from
+  `teamCode|season|payment`, so nothing about a reload can change the
+  outcome. Replaced an older, never-actually-wired Training Camp
+  "investment"/`oddsMultiplier` system, which is gone.
+
+All three are covered by their own acceptance-test files
+(`aiStrategy.test.ts`, `aiDifficulty.test.ts`, `hoodedFigure.test.ts`) keyed
+to their source specs' own numbered acceptance lists.
+
 `analysis/30_win_probability.ts` is TypeScript rather than Python because it
 measures the TS engine: what a rating gap is worth, over 47,616 simulated
 games — and, incidentally, that the engine has no home-field advantage

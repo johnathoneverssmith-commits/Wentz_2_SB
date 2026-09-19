@@ -62,6 +62,8 @@ export interface LeagueActions {
   revealThrough: (through: number) => Promise<ActionResult>;
   /** Run this team's training camp. */
   submitTrainingCamp: (plan: TrainingCampPlan) => Promise<ActionResult>;
+  /** Commit a hooded-figure payment (0 = decline) and resolve it immediately. */
+  submitHoodedFigurePayment: (payment: number) => Promise<ActionResult>;
   deadlineTurn: (move: DeadlineMove) => Promise<ActionResult>;
   revealRound: () => Promise<ActionResult>;
   stepForward: (step: string) => Promise<ActionResult>;
@@ -142,6 +144,7 @@ export function useLeagueActions(): LeagueActions {
         },
         revealThrough: async (through) => store.revealThrough(through),
         submitTrainingCamp: async (plan) => store.submitTrainingCamp(plan),
+        submitHoodedFigurePayment: async (payment) => store.submitHoodedFigurePayment(payment),
         deadlineTurn: async (move) => store.deadlineTurn(move),
         revealRound: async () => store.revealRound(),
         stepForward: async (step) => store.stepForward(step),
@@ -211,6 +214,10 @@ export function useLeagueActions(): LeagueActions {
       submitTrainingCamp: (plan) =>
         attempt(() =>
           send((s) => s.client.submitTrainingCamp(s.leagueId, plan, s.version)),
+        ).then(after),
+      submitHoodedFigurePayment: (payment) =>
+        attempt(() =>
+          send((s) => s.client.submitHoodedFigurePayment(s.leagueId, payment, s.version)),
         ).then(after),
       deadlineTurn: (move) =>
         attempt(() => send((s) => s.client.deadlineTurn(s.leagueId, move, s.version))).then(after),

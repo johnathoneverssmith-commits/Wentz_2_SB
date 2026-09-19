@@ -48,7 +48,6 @@ export const DEFAULT_CONFIG: LeagueConfig = {
   draftSimulateAfterPicks: 5,
   gameDayDeadlineHours: 12,
   offseasonStageDeadlineHours: 24,
-  randomEvents: "some",
   difficulty: "standard",
 };
 
@@ -966,6 +965,7 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
     pendingGameDay: null,
     returnTo: null,
     history: [],
+    hoodedFigure: null,
   };
   recomputeTeamRatings(state);
   // draft capital exists from day one — it's tradeable before it's spent

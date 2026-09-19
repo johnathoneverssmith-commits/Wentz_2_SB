@@ -30,8 +30,10 @@ export const STAGE_HOME: Record<Stage, string> = {
   freeAgencySummary: "/free-agency-summary",
   trainingCamp: "/training-camp",
   trainingCampResults: "/training-camp-results",
+  hoodedFigureEncounter: "/hooded-figure",
   coachingHiring: "/coaching",
   preseason: "/hub",
+  leagueDevelopments: "/league-developments",
   regularSeason: "/hub",
   tradeDeadline: "/trade-deadline",
   tradeDeadlineSummary: "/trade-summary",
@@ -63,9 +65,11 @@ export const STAGE_READY_LABEL: Record<Stage, string> = {
   freeAgency: "Free agency in progress",
   freeAgencySummary: "Advance to Training Camp",
   trainingCamp: "Advance to End of Training Camp",
-  trainingCampResults: "Advance to Re-order Depth Chart",
+  trainingCampResults: "Advance",
+  hoodedFigureEncounter: "Advance to Re-order Depth Chart",
   coachingHiring: "Ready to advance to the preseason",
   preseason: "Ready for Game Day",
+  leagueDevelopments: "Continue",
   regularSeason: "Ready for Game Day",
   tradeDeadline: "Trade deadline in progress",
   tradeDeadlineSummary: "Advance to Mid-Season Free Agency",
@@ -95,8 +99,10 @@ export const STAGE_LABEL: Record<Stage, string> = {
   freeAgencySummary: "Free Agency Summary",
   trainingCamp: "Training Camp",
   trainingCampResults: "Training Camp Results",
+  hoodedFigureEncounter: "Hooded Figure",
   coachingHiring: "Coaching Staff — Hiring Window",
   preseason: "Preseason",
+  leagueDevelopments: "League Developments",
   regularSeason: "Regular Season",
   tradeDeadline: "Trade Deadline",
   tradeDeadlineSummary: "Trade Summary",
@@ -153,6 +159,11 @@ export function resolveTransition(
     case "trainingCamp":
       return { stage: "trainingCampResults", week: 0 };
     case "trainingCampResults":
+      return { stage: "hoodedFigureEncounter", week: 0 };
+    // The catch-up mechanic's offer, resolved (or auto-skipped for a GM who
+    // isn't eligible this season) before the depth chart re-order — always
+    // before preseason simulation, per the mechanic's own timing rule.
+    case "hoodedFigureEncounter":
       return { stage: "offseasonDepthChart", week: 0 };
     // Kept only so a league that was already sitting in the old timed hiring
     // window when this shipped has somewhere to go. Nothing routes into it.
@@ -162,7 +173,11 @@ export function resolveTransition(
     case "preseason":
       return week < PRESEASON_WEEKS
         ? { stage: "preseason", week: week + 1 }
-        : { stage: "regularSeason", week: 1, resetStats: true };
+        : { stage: "leagueDevelopments", week };
+    // The league-wide reveal of this season's hooded-figure consequences,
+    // shown once preseason has actually been simulated — never before.
+    case "leagueDevelopments":
+      return { stage: "regularSeason", week: 1, resetStats: true };
 
     case "regularSeason":
       // Changes 7 and 8: the season stops at the deadline on the way past

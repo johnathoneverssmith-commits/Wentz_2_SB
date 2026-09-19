@@ -7,3 +7,4 @@ export * from "./game.ts";
 export * from "./bracket.ts";
 export * from "./league.ts";
 export * from "./history.ts";
+export * from "./hoodedFigure.ts";

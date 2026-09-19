@@ -18,7 +18,6 @@ function base(p: Partial<LeagueState>): LeagueState {
     draftSimulateAfterPicks: 5,
       gameDayDeadlineHours: 12,
       offseasonStageDeadlineHours: 24,
-      randomEvents: "some",
       difficulty: "standard",
     },
     gms: [],
@@ -48,6 +47,7 @@ function base(p: Partial<LeagueState>): LeagueState {
     pendingGameDay: null,
     returnTo: null,
     history: [],
+    hoodedFigure: null,
     ...p,
   };
 }
@@ -71,11 +71,14 @@ describe("resolveTransition", () => {
     expect(resolveTransition(base({ stage: "coachingDraft" })).stage).toBe("coachingDraftSummary");
   });
 
-  it("preseason advances week by week then resets stats entering regular week 1", () => {
+  it("preseason advances week by week then hands off to League Developments before regular week 1", () => {
     const mid = resolveTransition(base({ stage: "preseason", week: 1 }));
     expect(mid).toMatchObject({ stage: "preseason", week: 2 });
 
-    const last = resolveTransition(base({ stage: "preseason", week: PRESEASON_WEEKS }));
+    const afterLastWeek = resolveTransition(base({ stage: "preseason", week: PRESEASON_WEEKS }));
+    expect(afterLastWeek).toMatchObject({ stage: "leagueDevelopments" });
+
+    const last = resolveTransition(base({ stage: "leagueDevelopments" }));
     expect(last).toMatchObject({ stage: "regularSeason", week: 1, resetStats: true });
   });
 
@@ -139,5 +142,10 @@ describe("resolveTransition", () => {
   it("depth chart loops back to preseason with a season rollover", () => {
     const t = resolveTransition(base({ stage: "offseasonDepthChart" }));
     expect(t).toMatchObject({ stage: "preseason", week: 1, seasonRollover: true });
+  });
+
+  it("training camp results hand off through the hooded-figure encounter before the depth chart", () => {
+    expect(resolveTransition(base({ stage: "trainingCampResults" })).stage).toBe("hoodedFigureEncounter");
+    expect(resolveTransition(base({ stage: "hoodedFigureEncounter" })).stage).toBe("offseasonDepthChart");
   });
 });

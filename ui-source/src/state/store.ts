@@ -68,6 +68,13 @@ import {
   type DeadlineMove,
 } from "./tradeDeadline.ts";
 import { markRevealed, markRoundRevealed, markStep, revealedRounds } from "./reveal.ts";
+import {
+  checkHoodedFigurePayment,
+  clearHoodedFigureTemporaryEffects,
+  ensureHoodedFigureEncounters,
+  hoodedFigureEncounterFor,
+  resolveHoodedFigureEncounter,
+} from "./hoodedFigure.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -147,6 +154,8 @@ export interface StoreActions {
   revealThrough: (through: number) => { ok: boolean; reason?: string };
   /** Run this team's training camp. */
   submitTrainingCamp: (plan: TrainingCampPlan) => { ok: boolean; reason?: string };
+  /** Commit a hooded-figure payment (0 = decline) and resolve it immediately. */
+  submitHoodedFigurePayment: (payment: number) => { ok: boolean; reason?: string };
   /** One trade-deadline turn: propose, skip, accept, deny or counter. */
   deadlineTurn: (move: DeadlineMove) => { ok: boolean; reason?: string };
   /** Reveal the next playoff round to the viewing GM. */
@@ -350,6 +359,7 @@ export const useStore = create<Store>()(
             forgetOldRetirees(s); // and a save file shouldn't carry them forever
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
+            clearHoodedFigureTemporaryEffects(s); // §28: this season's bargains have run their course
             s.draftClass = sim.generateDraftClass(s.season, s.season);
             for (const code of Object.keys(s.teams)) {
               const team = s.teams[code]!;
@@ -402,6 +412,12 @@ export const useStore = create<Store>()(
           // leaving retirement review → actually retire the players it showed
           if (s.stage === "offseasonRetirement" && t.stage === "offseasonDraftPrep") {
             commitRetirements(s);
+          }
+
+          // the catch-up mechanic's offer, generated once per eligible human
+          // GM the moment the stage opens — never regenerated on a later visit
+          if (t.stage === "hoodedFigureEncounter") {
+            ensureHoodedFigureEncounters(s);
           }
 
           s.stage = t.stage;
@@ -606,11 +622,27 @@ export const useStore = create<Store>()(
         const st = get();
         const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
         if (!code) return { ok: false, reason: "You don't have a team." };
-        const check = checkCampSubmission(st, code, plan);
+        const check = checkCampSubmission(plan);
         if (!check.ok) return check;
         set((s) => {
           const mine = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
           runTrainingCamp(s, mine, plan);
+        });
+        return { ok: true };
+      },
+
+      submitHoodedFigurePayment: (payment) => {
+        const st = get();
+        const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
+        if (!code) return { ok: false, reason: "You don't have a team." };
+        const existing = hoodedFigureEncounterFor(st, code);
+        if (existing?.resolved) return { ok: false, reason: "You've already answered the figure this year." };
+        const check = checkHoodedFigurePayment(st, code, payment);
+        if (!check.ok) return check;
+        set((s) => {
+          const mine = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
+          resolveHoodedFigureEncounter(s, mine, payment);
+          recomputeTeamRatings(s);
         });
         return { ok: true };
       },

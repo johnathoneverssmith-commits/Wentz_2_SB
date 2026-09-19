@@ -78,8 +78,6 @@ describe("fault A/B/F — double click, two tabs, retry after a dropped response
     const plan: TrainingCampPlan = {
       offensiveFocus: "QB",
       defensiveFocus: "DL",
-      positiveInvestment: 0,
-      negativeInvestment: 0,
       submitted: false,
     };
     decideTrainingCamp(state, alice, plan);

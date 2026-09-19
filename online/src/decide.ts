@@ -55,6 +55,11 @@ import {
   type TrainingCampPlan,
 } from "@/state/trainingCamp.ts";
 import {
+  checkHoodedFigurePayment,
+  hoodedFigureEncounterFor,
+  resolveHoodedFigureEncounter,
+} from "@/state/hoodedFigure.ts";
+import {
   markRevealed,
   markRoundRevealed,
   markStep,
@@ -440,7 +445,7 @@ export function decideTrainingCamp(
   if (state.trainingCamp?.plans[actor.teamCode]?.submitted) {
     throw new ActionError("You've already run camp.");
   }
-  const check = checkCampSubmission(state, actor.teamCode, plan);
+  const check = checkCampSubmission(plan);
   if (!check.ok) throw new ActionError(check.reason ?? "Camp can't run yet.");
 
   runTrainingCamp(state, actor.teamCode, plan);
@@ -448,6 +453,39 @@ export function decideTrainingCamp(
   // Camp is a single-player section: this GM moves on alone, and the others
   // run theirs whenever they get to it. The checkpoint is later, after the
   // depth chart.
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "camp.run",
+        summary: `${city(actor.teamCode)} finished training camp.`,
+      },
+    ],
+  };
+}
+
+/**
+ * Committing (or declining) the hooded-figure offer.
+ *
+ * Resolved immediately and permanently, same as every other bargain rule —
+ * `resolveHoodedFigureEncounter` is the one place this ever happens, and it
+ * refuses outright if this GM's encounter is already resolved.
+ */
+export function decideHoodedFigurePayment(state: LeagueState, actor: Actor, payment: number): Decision {
+  if (state.stage !== "hoodedFigureEncounter") throw new ActionError("It isn't that time yet.");
+  const existing = hoodedFigureEncounterFor(state, actor.teamCode);
+  if (existing?.resolved) throw new ActionError("You've already answered the figure this year.");
+  const check = checkHoodedFigurePayment(state, actor.teamCode, payment);
+  if (!check.ok) throw new ActionError(check.reason ?? "That offer isn't valid.");
+
+  resolveHoodedFigureEncounter(state, actor.teamCode, payment);
+  recomputeTeamRatings(state);
+
+  // §25.5/§29: the event feed is readable by every GM in the league, so this
+  // has to be indistinguishable from an ordinary training-camp event —
+  // "kind" included. Whatever actually happened is only ever visible to this
+  // GM (the encounter record itself) and, once resolved, to everyone equally
+  // through the League Developments screen — never through the feed.
   return {
     events: [
       {

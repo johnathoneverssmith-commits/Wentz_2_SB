@@ -55,6 +55,7 @@ import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconcileCpuTeam } from "@/state/reconciliation.ts";
 import { runCpuTrainingCamps } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
+import { clearHoodedFigureTemporaryEffects, ensureHoodedFigureEncounters } from "@/state/hoodedFigure.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
 import { resetSeasonStats } from "@/state/standings.ts";
@@ -258,6 +259,7 @@ function rollOverSeason(state: LeagueState): void {
   forgetOldRetirees(state); // and a save shouldn't carry them forever
   applySeasonAging(state, state.season);
   fillRosterGaps(state);
+  clearHoodedFigureTemporaryEffects(state); // §28: this season's bargains have run their course
   state.draftClass = sim.generateDraftClass(state.season, state.season);
   for (const code of Object.keys(state.teams)) {
     const team = state.teams[code]!;
@@ -377,6 +379,13 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     runCpuTrainingCamps(state, humanTeamsOf(state));
   }
 
+  // The catch-up mechanic's offer: CPU teams never receive it (§3), so there
+  // is nothing to sweep here — just generate the encounter for whichever
+  // human GMs are eligible, once, the moment the stage opens.
+  if (state.stage === "hoodedFigureEncounter") {
+    ensureHoodedFigureEncounters(state);
+  }
+
   if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
     const humans = humanTeamsOf(state);
     for (const teamCode of Object.keys(state.teams)) {
@@ -430,7 +439,12 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // precomputed the same way the preseason was, and week 10 deliberately is
   // not; the trade deadline sits between them and has to be able to change
   // what happens after it.
-  if (state.stage === "regularSeason" && from === "preseason") {
+  // The hooded-figure mechanic's League Developments screen now sits between
+  // preseason and the regular season (it has to be shown only after preseason
+  // is simulated), so `from` is "leagueDevelopments" here, not "preseason" —
+  // both have to trigger this, since a league with nobody eligible for an
+  // encounter still passes straight through that stage in one plain click.
+  if (state.stage === "regularSeason" && (from === "preseason" || from === "leagueDevelopments")) {
     wipePreseason(state);
     const alreadyPlayed = state.games.some((g) => g.phase === "REG" && g.played);
     if (!alreadyPlayed) simulateBlock(state, "REG", 1, FIRST_BLOCK_LAST_WEEK);

@@ -16,6 +16,7 @@ import {
   contractMove,
   draftCoach,
   freeAgencyTurn,
+  submitHoodedFigurePayment,
   submitTrainingCamp,
   revealThrough,
   hireCoach,
@@ -387,6 +388,11 @@ post("/leagues/:id/actions/deadline", async (ctx) => {
 post("/leagues/:id/actions/training-camp", async (ctx) => {
   const a = await actor(ctx);
   return submitTrainingCamp(a, field(ctx, "plan", "object"), version(ctx));
+});
+
+post("/leagues/:id/actions/hooded-figure", async (ctx) => {
+  const a = await actor(ctx);
+  return submitHoodedFigurePayment(a, field(ctx, "payment", "number"), version(ctx));
 });
 
 post("/leagues/:id/actions/fa-turn", async (ctx) => {

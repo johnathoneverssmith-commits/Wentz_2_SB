@@ -5,7 +5,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { isOnline } from "@/state/online";
 import { DIVISIONS, TEAMS_BY_CODE, teamFullName } from "@/data/teams";
-import type { DeadlineChoice, Difficulty, RandomEventRate, TeamMeta } from "@/domain";
+import type { DeadlineChoice, Difficulty, TeamMeta } from "@/domain";
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
@@ -277,22 +277,6 @@ export function LeagueSetup() {
             {(["casual", "standard", "competitive", "expert"] as const).map((d) => (
               <option key={d} value={d}>
                 {cap(d)}
-              </option>
-            ))}
-          </select>
-        </SettingRow>
-        <SettingRow
-          label="Random events"
-          hint="How often mid-season storylines fire — holdouts, locker-room drama, surprise breakouts, coaching turmoil."
-        >
-          <select
-            value={config.randomEvents}
-            disabled={locked}
-            onChange={(e) => setConfig({ randomEvents: e.target.value as RandomEventRate })}
-          >
-            {(["none", "few", "some", "many"] as const).map((r) => (
-              <option key={r} value={r}>
-                {cap(r)}
               </option>
             ))}
           </select>

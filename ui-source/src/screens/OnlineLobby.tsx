@@ -9,7 +9,7 @@ import { OnlineError, OnlineLeagueClient } from "@/sim/OnlineLeagueClient";
 import { goLocal, isOnline, joinLeague, onlineSession } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
-import type { DeadlineChoice, Difficulty, RandomEventRate, Stage } from "@/domain";
+import type { DeadlineChoice, Difficulty, Stage } from "@/domain";
 
 /**
  * The door into an online league.
@@ -569,7 +569,6 @@ function CreateLeague({
   // "" is the Never option — the whole draft by hand.
   const [simAfter, setSimAfter] = useState<string>("5");
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
-  const [randomEvents, setRandomEvents] = useState<RandomEventRate>("some");
   const [gameDayHours, setGameDayHours] = useState<DeadlineChoice>(24);
 
   return (
@@ -589,7 +588,6 @@ function CreateLeague({
                 draftOrder,
                 draftSimulateAfterPicks: simAfter === "" ? null : Number(simAfter),
                 difficulty,
-                randomEvents,
                 gameDayDeadlineHours: gameDayHours,
                 offseasonStageDeadlineHours: hours > 48 ? 48 : (hours as DeadlineChoice),
               },
@@ -710,21 +708,6 @@ function CreateLeague({
                 <option value="standard">Standard</option>
                 <option value="competitive">Competitive</option>
                 <option value="expert">Expert</option>
-              </select>
-            </OnlineSetting>
-
-            <OnlineSetting
-              label="Random events"
-              hint="Mid-season holdouts, locker-room stories and the rest. None keeps it purely on the field."
-            >
-              <select
-                value={randomEvents}
-                onChange={(e) => setRandomEvents(e.target.value as RandomEventRate)}
-              >
-                <option value="none">None</option>
-                <option value="few">Few</option>
-                <option value="some">Some</option>
-                <option value="many">Many</option>
               </select>
             </OnlineSetting>
 

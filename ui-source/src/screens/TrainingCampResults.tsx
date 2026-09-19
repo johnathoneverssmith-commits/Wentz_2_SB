@@ -7,7 +7,6 @@ import { FOCUS_LABEL, planFor } from "@/state/trainingCamp";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import { millions } from "@/util/format";
 
 /**
  * What camp did to the roster.
@@ -17,9 +16,6 @@ import { millions } from "@/util/format";
  * the positive colour with a plus, a loss in the negative one, and a player
  * who held steady as a plain 0 rather than a blank — "nothing happened" is a
  * real result and worth saying, because a missing row reads like a bug.
- *
- * The investments are shown as confirmation only. Camp never resolves an
- * event; the money bought odds for a season that has not started.
  */
 const GROUPS: { label: string; positions: string[] }[] = [
   { label: "Offense", positions: ["QB", "RB", "WR", "TE", "OT", "OG", "C"] },
@@ -63,13 +59,6 @@ export function TrainingCampResults() {
           { label: "Improved", value: improved, className: "good" },
           { label: "Declined", value: declined, className: declined > 0 ? "bad" : undefined },
           { label: "Unchanged", value: results.length - improved - declined },
-          {
-            label: "Invested",
-            value: millions(
-              Math.round(((plan?.positiveInvestment ?? 0) + (plan?.negativeInvestment ?? 0)) * 10) / 10,
-            ),
-            className: "sm",
-          },
         ]}
       />
 
@@ -77,10 +66,7 @@ export function TrainingCampResults() {
         <div className="notice" role="status">
           <strong>Camp is done.</strong> You concentrated on{" "}
           {plan?.offensiveFocus ? FOCUS_LABEL[plan.offensiveFocus] : "—"} and{" "}
-          {plan?.defensiveFocus ? FOCUS_LABEL[plan.defensiveFocus] : "—"}, and put{" "}
-          {millions(plan?.positiveInvestment ?? 0)} toward good things and{" "}
-          {millions(plan?.negativeInvestment ?? 0)} against bad ones. Those odds apply all season —
-          nothing has been rolled yet.
+          {plan?.defensiveFocus ? FOCUS_LABEL[plan.defensiveFocus] : "—"}.
         </div>
 
         {GROUPS.map((group) => {

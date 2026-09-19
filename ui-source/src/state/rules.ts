@@ -46,6 +46,7 @@ import {
   strategyPositionBonus,
 } from "./aiStrategy.ts";
 import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
 /** Which side of the market an action is about. */
 export type Subject = "players" | "coaches";
@@ -1383,6 +1384,9 @@ export function finalizeSeason(s: LeagueState): void {
   // ones that just ran out hit the market in time for this offseason's window
   expireContracts(s);
   recomputeTeamRatings(s);
+  // Hooded Figure eligibility (§4): reads the history rows just pushed above,
+  // so this has to run after them, not before.
+  updateHoodedFigureStreaks(s);
 }
 
 export function isInSeason(stage: Stage): boolean {

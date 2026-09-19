@@ -2,6 +2,7 @@ import type { BracketState } from "./bracket.ts";
 import type { Coach } from "./coach.ts";
 import type { DraftProspect, DraftState, DraftPickAsset } from "./draft.ts";
 import type { GameResult, ScheduledGame } from "./game.ts";
+import type { HoodedFigureLeagueState } from "./hoodedFigure.ts";
 import type { Player } from "./player.ts";
 import type { Position } from "./player.ts";
 import type { TeamState } from "./team.ts";
@@ -24,8 +25,10 @@ export type Stage =
   | "freeAgencySummary"
   | "trainingCamp"
   | "trainingCampResults"
+  | "hoodedFigureEncounter" // per-GM: the catch-up mechanic offer, only shown to eligible losers
   | "coachingHiring" // 5-day coach free-agency period (0 coaches to start)
   | "preseason"
+  | "leagueDevelopments" // league-wide post-preseason reveal of the season's hooded-figure consequences
   | "regularSeason"
   | "tradeDeadline" // three rounds of turns, between weeks 9 and 10
   | "tradeDeadlineSummary"
@@ -45,7 +48,6 @@ export type Stage =
   | "offseasonDepthChart"; // re-order depth chart, then next preseason
 
 export type DeadlineChoice = 2 | 6 | 12 | 24 | 48;
-export type RandomEventRate = "none" | "few" | "some" | "many";
 /**
  * AI decision-quality level (07_AI_DIFFICULTY_SYSTEM_V1.md) — how competently
  * CPU GMs pursue their goals, never a rules/rating/cap change. See
@@ -69,8 +71,6 @@ export interface LeagueConfig {
   draftSimulateAfterPicks: number | null;
   gameDayDeadlineHours: DeadlineChoice;
   offseasonStageDeadlineHours: DeadlineChoice;
-  /** how often mid-season random events fire. */
-  randomEvents: RandomEventRate;
   /** how well the AI GMs optimise their roster / game decisions. */
   difficulty: Difficulty;
 }
@@ -245,4 +245,6 @@ export interface LeagueState {
   returnTo: string | null;
 
   history: SeasonOutcome[];
+  /** Hooded Figure catch-up mechanic state. Null until first needed. */
+  hoodedFigure: HoodedFigureLeagueState | null;
 }

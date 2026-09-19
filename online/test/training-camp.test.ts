@@ -6,9 +6,7 @@ import { beginDraft } from "@/state/rules.ts";
 import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
 import {
   checkCampSubmission,
-  checkInvestments,
   focusStrength,
-  oddsMultiplier,
   runCpuTrainingCamps,
   runTrainingCamp,
   type TrainingCampPlan,
@@ -40,8 +38,6 @@ function campLeague(): LeagueState {
 const plan = (over: Partial<TrainingCampPlan> = {}): TrainingCampPlan => ({
   offensiveFocus: "QB",
   defensiveFocus: "DL",
-  positiveInvestment: 0,
-  negativeInvestment: 0,
   submitted: false,
   ...over,
 });
@@ -70,47 +66,12 @@ describe("coordinator focus strength", () => {
   });
 });
 
-describe("event investments", () => {
-  it("buys odds rather than probability", () => {
-    expect(oddsMultiplier(0)).toBe(1);
-    expect(oddsMultiplier(4)).toBeCloseTo(1.2, 10);
-    expect(oddsMultiplier(25)).toBeCloseTo(1.5, 10);
-  });
-
-  it("has diminishing returns — the first million beats the tenth", () => {
-    const first = oddsMultiplier(1) - oddsMultiplier(0);
-    const tenth = oddsMultiplier(10) - oddsMultiplier(9);
-    expect(first).toBeGreaterThan(tenth);
-  });
-
-  it("refuses more than the team has", () => {
-    const s = campLeague();
-    const room = s.teams["KC"]!.cap.total - s.teams["KC"]!.cap.used;
-    expect(checkInvestments(s, "KC", room + 10, 0).ok).toBe(false);
-    expect(checkInvestments(s, "KC", 0, 0).ok).toBe(true);
-  }, 120_000);
-
-  it("refuses negatives and nonsense", () => {
-    const s = campLeague();
-    expect(checkInvestments(s, "KC", -1, 0).ok).toBe(false);
-    expect(checkInvestments(s, "KC", Number.NaN, 0).ok).toBe(false);
-  }, 120_000);
-});
-
 describe("submitting a camp", () => {
   it("requires both focuses", () => {
-    const s = campLeague();
-    expect(checkCampSubmission(s, "KC", plan({ offensiveFocus: null })).ok).toBe(false);
-    expect(checkCampSubmission(s, "KC", plan({ defensiveFocus: null })).ok).toBe(false);
-    expect(checkCampSubmission(s, "KC", plan()).ok).toBe(true);
-  }, 120_000);
-
-  it("spends the money off the cap", () => {
-    const s = campLeague();
-    const before = s.teams["KC"]!.cap.used;
-    runTrainingCamp(s, "KC", plan({ positiveInvestment: 2, negativeInvestment: 1.5 }));
-    expect(s.teams["KC"]!.cap.used).toBeCloseTo(before + 3.5, 5);
-  }, 120_000);
+    expect(checkCampSubmission(plan({ offensiveFocus: null })).ok).toBe(false);
+    expect(checkCampSubmission(plan({ defensiveFocus: null })).ok).toBe(false);
+    expect(checkCampSubmission(plan()).ok).toBe(true);
+  });
 
   it("records a result for every player on the roster", () => {
     const s = campLeague();

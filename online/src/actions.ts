@@ -24,6 +24,7 @@ import {
   decideCoachHire,
   decideCoachingPick,
   decideFreeAgencyTurn,
+  decideHoodedFigurePayment,
   decideTrainingCamp,
   decideReveal,
   decideRevealRound,
@@ -128,6 +129,12 @@ export const submitTrainingCamp = (
   plan: TrainingCampPlan,
   expectedVersion?: string,
 ) => run(actor, expectedVersion, (s) => decideTrainingCamp(s, actor, plan));
+
+export const submitHoodedFigurePayment = (
+  actor: Actor,
+  payment: number,
+  expectedVersion?: string,
+) => run(actor, expectedVersion, (s) => decideHoodedFigurePayment(s, actor, payment));
 
 export const freeAgencyTurn = (
   actor: Actor,

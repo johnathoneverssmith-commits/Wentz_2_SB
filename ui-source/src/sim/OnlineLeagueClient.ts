@@ -172,6 +172,12 @@ export class OnlineLeagueClient {
       version,
     });
 
+  submitHoodedFigurePayment = (leagueId: string, payment: number, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/hooded-figure`, {
+      payment,
+      version,
+    });
+
   freeAgencyTurn = (
     leagueId: string,
     move: { playerId?: string; salary?: number; years?: number; pass?: boolean },

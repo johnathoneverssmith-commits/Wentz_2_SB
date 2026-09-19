@@ -23,6 +23,8 @@ import { EndOfSeasonAnnounce, SeasonComplete } from "./screens/EndOfSeason.tsx";
 import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
 import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
+import { HoodedFigureEncounter } from "./screens/HoodedFigureEncounter.tsx";
+import { LeagueDevelopments } from "./screens/LeagueDevelopments.tsx";
 import { SeasonResults } from "./screens/SeasonResults.tsx";
 import { PlayoffRoundResults } from "./screens/PlayoffRoundResults.tsx";
 import { RookieDraftSummary } from "./screens/RookieDraftSummary.tsx";
@@ -206,6 +208,8 @@ export function App() {
           <Route path="/free-agency-summary" element={<FreeAgencySummary />} />
           <Route path="/training-camp" element={<TrainingCamp />} />
           <Route path="/training-camp-results" element={<TrainingCampResults />} />
+          <Route path="/hooded-figure" element={<HoodedFigureEncounter />} />
+          <Route path="/league-developments" element={<LeagueDevelopments />} />
           <Route path="/coaching" element={<CoachingStaffHub />} />
           <Route path="/roster" element={<RosterCapManagement />} />
           <Route path="/league-rosters" element={<LeagueRosters />} />

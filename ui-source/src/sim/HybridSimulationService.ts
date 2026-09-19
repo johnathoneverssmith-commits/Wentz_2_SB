@@ -56,6 +56,7 @@ import {
   type SchemeFitBaseline,
 } from "./HttpSimulationService.ts";
 import { availableRoster } from "@/state/injuries.ts";
+import { filterHoodedFigureAvailable } from "@/state/hoodedFigure.ts";
 
 import { MockSimulationService } from "./MockSimulationService.ts";
 import { fullPersonName } from "./names.ts";
@@ -238,8 +239,16 @@ export class HybridSimulationService implements SimulationService {
       for (const t of TEAMS) {
         // an injury has to cost the team the player, or it's just a label on
         // a hub tab — `availableRoster` sits out whoever is out
+        // a hooded-figure bargain can sit a whole roster (minus K/P) out too —
+        // filtered before injuries' own coverage fallback so a genuinely
+        // wiped position stays wiped rather than sending the "least hurt" man
+        // out anyway
         rosters[t.code] = availableRoster(
-          Object.values(state.players).filter((p) => p.nfl_team === t.code && !p.retired),
+          filterHoodedFigureAvailable(
+            state,
+            Object.values(state.players).filter((p) => p.nfl_team === t.code && !p.retired),
+            week,
+          ),
         );
       }
       const viewerTeam = state.gms.find((g) => g.id === state.viewerGmId)?.teamCode;

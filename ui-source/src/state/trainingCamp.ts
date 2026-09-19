@@ -45,10 +45,6 @@ export const FOCUS_LABEL: Record<OffensiveFocus | DefensiveFocus, string> = {
 export interface TrainingCampPlan {
   offensiveFocus: OffensiveFocus | null;
   defensiveFocus: DefensiveFocus | null;
-  /** $M put toward making good things likelier. */
-  positiveInvestment: number;
-  /** $M put toward making bad things rarer. */
-  negativeInvestment: number;
   submitted: boolean;
 }
 
@@ -69,8 +65,6 @@ export function emptyPlan(): TrainingCampPlan {
   return {
     offensiveFocus: null,
     defensiveFocus: null,
-    positiveInvestment: 0,
-    negativeInvestment: 0,
     submitted: false,
   };
 }
@@ -113,65 +107,15 @@ function inFocus(position: string, focus: string | null): boolean {
   return !!group && group.includes(position);
 }
 
-export interface InvestmentCheck {
-  ok: boolean;
-  reason?: string;
-}
-
-/**
- * Whether these two numbers are spendable.
- *
- * Both must be real, non-negative and together within the cap room the team
- * actually has. The money is gone once submitted, which is why this is strict
- * about it rather than clamping quietly — a GM who typed 40 when they meant 4
- * should be told, not silently charged 4.
- */
-export function checkInvestments(
-  s: LeagueState,
-  teamCode: string,
-  positive: number,
-  negative: number,
-): InvestmentCheck {
-  if (!Number.isFinite(positive) || !Number.isFinite(negative)) {
-    return { ok: false, reason: "Enter a number in each field, or leave them at 0." };
-  }
-  if (positive < 0 || negative < 0) {
-    return { ok: false, reason: "Investments can't be negative." };
-  }
-  const team = s.teams[teamCode];
-  if (!team) return { ok: false, reason: "Unknown team." };
-  const room = Math.round((team.cap.total - team.cap.used) * 10) / 10;
-  const asked = Math.round((positive + negative) * 10) / 10;
-  if (asked > room) {
-    return {
-      ok: false,
-      reason: `That's $${asked.toFixed(1)}M against $${room.toFixed(1)}M of cap space.`,
-    };
-  }
-  return { ok: true };
-}
-
-/**
- * The odds multiplier bought by an investment.
- *
- * Applied to odds rather than added to a probability, so money can shift the
- * balance a long way without ever guaranteeing a good season or eliminating a
- * bad one. The square root is what makes the first million worth more than
- * the tenth — spending is worthwhile without being the whole game.
- */
-export function oddsMultiplier(investmentMillions: number): number {
-  return 1 + 0.1 * Math.sqrt(Math.max(0, investmentMillions));
-}
-
 export interface CampCheck {
   ok: boolean;
   reason?: string;
 }
 
-export function checkCampSubmission(s: LeagueState, teamCode: string, plan: TrainingCampPlan): CampCheck {
+export function checkCampSubmission(plan: TrainingCampPlan): CampCheck {
   if (!plan.offensiveFocus) return { ok: false, reason: "Choose an offensive focus." };
   if (!plan.defensiveFocus) return { ok: false, reason: "Choose a defensive focus." };
-  return checkInvestments(s, teamCode, plan.positiveInvestment, plan.negativeInvestment);
+  return { ok: true };
 }
 
 /**
@@ -219,13 +163,6 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
       }
     }
     results.push({ playerId: p.id, position: p.position, previous, delta: next - previous, next });
-  }
-
-  // the money leaves the cap for the season, whatever it buys
-  const team = s.teams[teamCode];
-  if (team) {
-    team.cap.used =
-      Math.round((team.cap.used + plan.positiveInvestment + plan.negativeInvestment) * 10) / 10;
   }
 
   camp.plans[teamCode] = { ...plan, submitted: true };
@@ -283,9 +220,6 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
     runTrainingCamp(s, teamCode, {
       offensiveFocus: weakest(OFFENSIVE_FOCUSES) as OffensiveFocus,
       defensiveFocus: weakest(DEFENSIVE_FOCUSES) as DefensiveFocus,
-      // the CPU does not gamble on events; the money is worth more on the cap
-      positiveInvestment: 0,
-      negativeInvestment: 0,
       submitted: true,
     });
   }

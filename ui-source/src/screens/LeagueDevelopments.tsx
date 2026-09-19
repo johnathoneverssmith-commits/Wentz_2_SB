@@ -1,0 +1,113 @@
+import { useState } from "react";
+
+import { Card, CardHeader, Footer } from "@/components/primitives";
+import { TEAMS_BY_CODE } from "@/data/teams";
+import { leagueDevelopmentsFor, swindleLineFor, type LeagueDevelopmentEntry } from "@/state/hoodedFigure";
+import { useStore } from "@/state/store";
+import { useLeagueActions } from "@/state/useLeagueActions";
+import { millions } from "@/util/format";
+
+function teamName(code: string): string {
+  return TEAMS_BY_CODE[code]?.name ?? code;
+}
+
+/**
+ * League-wide, post-preseason offseason news (spec §25).
+ *
+ * Every human sees the exact same list in the exact same order — deterministic
+ * by tier then team code, never personalized — because this is the one place
+ * the hooded-figure mechanic is allowed to surface at all, and only for the
+ * swindle case. Everything else here reads like ordinary league news.
+ */
+function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number }) {
+  if (e.kind === "swindle") {
+    return (
+      <div className="panel open" style={{ borderColor: "var(--bad)" }}>
+        <p style={{ margin: 0, fontWeight: 700 }}>
+          ***{e.swindleGmName} gave {millions(e.swindlePayment ?? 0)} to a hooded figure.
+        </p>
+        <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--ink-faint)" }}>
+          {swindleLineFor(e.teamCode, season)}
+        </p>
+      </div>
+    );
+  }
+
+  const o = e.outcome;
+  if (!o) return null;
+
+  return (
+    <div className="panel open">
+      <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: 1 }}>
+        {teamName(e.teamCode)}
+      </p>
+      <p style={{ margin: "4px 0 0" }}>{o.publicText}</p>
+
+      {o.playerChanges && o.playerChanges.length > 0 && (
+        <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+          {o.playerChanges.map((c) => (
+            <div key={c.playerId} style={{ fontSize: 12.5 }}>
+              <strong>{c.name}</strong> — {c.position} — OVR {c.before} → <strong>{c.after}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {o.negativePlayers && o.negativePlayers.length > 0 && (
+        <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+          {o.negativePlayers.map((p) => (
+            <div key={p.playerId} style={{ fontSize: 12.5 }}>
+              <strong>{p.name}</strong> — {p.position} — OVR {p.overall}
+              <br />
+              <span style={{ color: "var(--ink-faint)" }}>
+                Unavailable: {o.absenceWeeks == null ? "rest of season" : `${o.absenceWeeks} week${o.absenceWeeks === 1 ? "" : "s"}`}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {o.coachFired && (
+        <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--ink-faint)" }}>The head coach has been let go.</p>
+      )}
+      {o.wholeRosterOut && (
+        <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--ink-faint)" }}>
+          Kicker and punter excepted — everyone else is out for the season.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function LeagueDevelopments() {
+  const s = useStore();
+  const actions = useLeagueActions();
+  const [busy, setBusy] = useState(false);
+  const entries = leagueDevelopmentsFor(s);
+
+  return (
+    <Card maxWidth={760}>
+      <CardHeader badge="NEWS" title="League Developments" subtitle={`${s.season} preseason wrap-up`} />
+      <div className="panel open" style={{ display: "grid", gap: 12 }}>
+        {entries.length === 0 ? (
+          <div className="emptystate">A quiet offseason around the league.</div>
+        ) : (
+          entries.map((e, i) => <EntryCard key={`${e.teamCode}-${i}`} e={e} season={s.season} />)
+        )}
+      </div>
+      <Footer>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            void actions.readyUp(true).finally(() => setBusy(false));
+          }}
+        >
+          Continue to the Regular Season
+        </button>
+      </Footer>
+    </Card>
+  );
+}
