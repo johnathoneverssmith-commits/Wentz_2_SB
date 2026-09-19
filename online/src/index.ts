@@ -188,6 +188,17 @@ get("/leagues/:id", async (ctx) => {
   const loaded = await readLeague(ctx.params.id!);
   if (!loaded) throw new ActionError("No such league.", 404);
   const franchise = await franchiseOf(ctx.params.id!, user.id);
+  const commissioner = await isCommissioner(ctx.params.id!, user.id);
+  // `/leagues/:id/stream` and `/leagues/:id/teams` already refuse a
+  // non-member; this route — the one that hands back the whole document —
+  // did not, and had no test to notice. The league id is an unguessable
+  // UUID today, which is the only thing that made that safe in practice
+  // rather than in principle: anyone who ever saw one (a pasted link, a
+  // support request, a referrer header) could otherwise read a league they
+  // have never been invited to for as long as it exists.
+  if (!franchise && !commissioner) {
+    throw new ActionError("You're not in that league.", 403);
+  }
 
   const state = structuredClone(loaded.state);
   // A live window's bids are sealed until the day resolves; showing another
@@ -215,13 +226,13 @@ get("/leagues/:id", async (ctx) => {
   // far. `structuredClone` above copies the whole thing as-is, so without
   // this every GM's own client request was the spoiler: next week's scores
   // and the eventual champion were sitting in the JSON the moment the page
-  // loaded, regardless of what the UI chose to render from it. Someone with
-  // no franchise in this league (there isn't a legitimate case today, but
-  // nothing stops the route being hit that way) sees nothing revealed at all.
+  // loaded, regardless of what the UI chose to render from it. A
+  // commissioner who has not claimed a team yet has no `gmId` of their own
+  // to reveal against, so they see nothing revealed either — the same as
+  // anyone else who has not watched it.
   state.games = redactedGames(state, franchise?.gmId ?? "");
   if (state.bracket) state.bracket = visibleBracket(state.bracket, state, franchise?.gmId ?? "");
 
-  const commissioner = await isCommissioner(ctx.params.id!, user.id);
   return {
     league: { id: loaded.league.id, name: loaded.league.name },
     state,
@@ -261,7 +272,12 @@ get("/leagues/:id/games/:gameId/broadcast", async (ctx) => {
 });
 
 get("/leagues/:id/feed", async (ctx) => {
-  requireUser(ctx);
+  const user = requireUser(ctx);
+  // same gap as `/leagues/:id` had: this is a member-only feed of what
+  // happened in the league, and nothing here checked membership before now.
+  if (!(await franchiseOf(ctx.params.id!, user.id)) && !(await isCommissioner(ctx.params.id!, user.id))) {
+    throw new ActionError("You're not in that league.", 403);
+  }
   const since = Number(ctx.url.searchParams.get("since") ?? 0);
   return { events: await feed(ctx.params.id!, Number.isFinite(since) ? since : 0) };
 });
