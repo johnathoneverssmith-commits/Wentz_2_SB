@@ -12,6 +12,8 @@
     "start": "tsx src/index.ts",
     "server": "tsx watch server/index.ts",
     "season": "tsx src/run-season.ts",
+    "franchise:stress": "npm --prefix ui-source run franchise:stress --",
+    "franchise:stress:typecheck": "npm --prefix ui-source run franchise:stress:typecheck",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
