@@ -51,6 +51,7 @@ import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
 import { CURRENT_SAVE_VERSION, migrateLeagueSave } from "./saveMigration.ts";
 import {
   applyCoachingPick,
+  beginCoachingDraft,
   checkCoachingPick,
   runAiCoachingPicks,
 } from "./coachingDraft.ts";
@@ -94,12 +95,15 @@ import {
   checkTrade,
   clearReadiness,
   commitRetirements,
+  completeDraft,
+  draftThresholdMet,
   faField,
   finalizeSeason,
   humanGate,
   offerToContract,
   openStandingMarketFromUndrafted,
   planAutopicks,
+  runAiPicks,
   sbWonByHuman,
   advanceBiddingDayOn,
   beginBidding,
@@ -420,6 +424,17 @@ export const useStore = create<Store>()(
             ensureHoodedFigureEncounters(s);
           }
 
+          // the twelve-round coaching board opens with the stage, the same
+          // way the online server does it (phases.ts's onStageEntered) —
+          // without this, `s.coachingDraft` stayed null forever and the
+          // screen (which refuses to do anything until it exists) was stuck
+          // on "One moment." permanently. Nobody could ever get a staff.
+          if (t.stage === "coachingDraft" && !s.coachingDraft) {
+            beginCoachingDraft(s);
+            const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+            runAiCoachingPicks(s, humans);
+          }
+
           s.stage = t.stage;
           s.week = t.week;
           s.returnTo = null;
@@ -500,9 +515,58 @@ export const useStore = create<Store>()(
         return { route: STAGE_HOME[get().stage] };
       },
 
-      startDraft: (mode) => set((s) => beginDraft(s, mode)),
+      // Whoever opens the board, the league plays its own teams up to the
+      // first pick a person owes — the same rule online's onStageEntered
+      // applies. Without it, a draft that opens on an AI team's pick (any
+      // fantasy draft not using "in order" with a human first) sat dead: the
+      // old fix for that was a screen-local useEffect that polled every
+      // 200ms and picked literal #1 overall, which is also what caused the
+      // AI-drafts-by-pure-overall bug — removed along with it.
+      startDraft: (mode) =>
+        set((s) => {
+          beginDraft(s, mode);
+          runAiPicks(s);
+        }),
 
-      makePick: (selectedId) => set((s) => { if (s.draft) applyPick(s, selectedId); }),
+      // Mirrors online's decideDraftPick exactly (online/src/decide.ts) —
+      // single-player had drifted from it in three ways, all found in the
+      // same playtest: the AI's own picks (made by a screen-local `useEffect`
+      // that just took literal #1 overall) never went through the need/
+      // strategy/difficulty-aware evaluator at all; `draftThresholdMet` and
+      // `completeDraft` were defined but never called from here, so the
+      // promised "the rest of the board completes itself" never happened;
+      // and with no completion, the stage had nothing to advance it into the
+      // summary. `runAiPicks` is the same call online makes for the same
+      // reason: the clock cannot stop dead on the first AI team after you.
+      makePick: (selectedId) =>
+        set((s) => {
+          if (!s.draft) return;
+          applyPick(s, selectedId);
+          runAiPicks(s);
+          // `draftThresholdMet` covers the early-auto-complete case; a
+          // manual draft (threshold null) never trips it, but the board can
+          // still finish naturally once the human's own last pick lets
+          // `runAiPicks` sweep every remaining (all-AI) slot in one pass —
+          // that also has to advance the stage, there's just nothing left
+          // for `completeDraft` to do.
+          const draft = s.draft;
+          const boardDone = draft.currentPickIndex >= draft.pickOrder.length;
+          if (draftThresholdMet(s) || boardDone) {
+            if (!boardDone) completeDraft(s);
+            const was = s.stage;
+            const t = resolveTransition(s, {});
+            s.stage = t.stage;
+            s.week = t.week;
+            // the one side effect the fantasy draft's own exit needs locally
+            // (tryAdvance's equivalent block, mirrored here since completing
+            // the draft from a pick doesn't go through tryAdvance at all)
+            if (was === "fantasyDraft" && t.stage === "fantasyDraftSummary") {
+              openStandingMarketFromUndrafted(s);
+              fillRosterGaps(s);
+            }
+            clearReadiness(s);
+          }
+        }),
 
       autopickRemaining: () => {
         // decided outside the producer — see planAutopicks

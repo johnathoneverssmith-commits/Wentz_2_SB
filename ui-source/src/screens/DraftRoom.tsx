@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
@@ -9,6 +10,7 @@ import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Position } from "@/domain";
 import { bestAvailable, picksMadeBy, useStore } from "@/state/store";
+import { STAGE_HOME } from "@/state/stageMachine";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
 
@@ -24,13 +26,13 @@ interface Available {
 
 export function DraftRoom() {
   const s = useStore();
+  const nav = useNavigate();
   const { active, setActive } = useTabs("available");
   const [overlayDismissed, setOverlayDismissed] = useState(false);
 
   const code = viewerTeamCode(s);
   const startDraft = useStore((st) => st.startDraft);
   const actions = useLeagueActions();
-  const makePick = useStore((st) => st.makePick);
   const autoReady = useStore((st) => st.autoReadyNonViewers);
 
   const isDraftStage = s.stage === "fantasyDraft" || s.stage === "offseasonDraft";
@@ -44,6 +46,16 @@ export function DraftRoom() {
     if (actions.online) return;
     if (isDraftStage && (!s.draft || s.draft.mode !== mode)) startDraft(mode);
   }, [isDraftStage, s.draft, mode, startDraft, actions.online]);
+
+  // Reaching the manual-pick threshold completes the board and advances the
+  // stage from inside `makePick` itself, not through a "ready" click — this
+  // screen has no button for that (see the Footer note below). Without this,
+  // the stage moved on but the URL stayed on `/draft`, and the completed
+  // board just sat there with nothing to press: the fantasy draft's "no
+  // functional exit" bug.
+  useEffect(() => {
+    if (!isDraftStage) nav(STAGE_HOME[s.stage], { replace: true });
+  }, [isDraftStage, s.stage, nav]);
 
   const draft = s.draft;
   const taken = useMemo(() => new Set(draft?.results.map((r) => r.selectedId) ?? []), [draft]);
@@ -94,20 +106,13 @@ export function DraftRoom() {
   const filtered = market.shown;
   const posFilter = market.position;
 
-  // AI auto-picks when it's not your turn.
-  //
-  // Local only. Online, the team on the clock is either another GM — who gets
-  // their own pick clock — or a team the *server* picks for when that clock
-  // runs out. A tab doing it here would race every other open tab for the
-  // same pick.
-  useEffect(() => {
-    if (actions.online || !draft || complete || yourPick) return;
-    const t = setTimeout(() => {
-      const best = available[0];
-      if (best) makePick(best.id);
-    }, 200);
-    return () => clearTimeout(t);
-  }, [draft, complete, yourPick, available, makePick, actions.online]);
+  // AI picks are no longer driven from here. `startDraft` sweeps the board
+  // up to the first pick a human owes, and `makePick` sweeps again after
+  // every human pick — both server-side online, both in the store locally
+  // (the same `runAiPicks`, which is need/strategy/difficulty-aware). A
+  // screen-local useEffect polling every 200ms and taking literal #1
+  // overall used to stand in for that and is why the AI drafted by pure
+  // overall regardless of position or need.
 
   useEffect(() => {
     if (complete) {

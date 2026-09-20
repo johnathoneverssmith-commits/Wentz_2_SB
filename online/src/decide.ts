@@ -624,8 +624,13 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
   // of picks the commissioner asked for. The moment the last of them does,
   // the rest of the board completes at once and the league moves on — there
   // is nothing left for anyone to decide, so nobody is asked to confirm it.
-  const finishing = draftThresholdMet(state);
-  const autoCompleted = finishing ? completeDraft(state) : 0;
+  // A fully manual draft (threshold null) never trips that, but the board
+  // can still finish on its own once this human's last pick lets
+  // `runAiPicks` sweep every remaining (all-AI) slot — that has to advance
+  // the stage too, there's just nothing left for `completeDraft` to do.
+  const boardDone = draft.currentPickIndex >= draft.pickOrder.length;
+  const finishing = draftThresholdMet(state) || boardDone;
+  const autoCompleted = finishing && !boardDone ? completeDraft(state) : 0;
   if (finishing) {
     const was = state.stage;
     const t = resolveTransition(state, {});

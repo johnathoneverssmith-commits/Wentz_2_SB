@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { bestAvailable, positionalNeed, useStore } from "./store.ts";
+import { applyPick, bestAvailable, positionalNeed } from "./rules.ts";
+import { useStore } from "./store.ts";
 
 /**
  * "Autopick remaining" used to run `bestAvailable` for every remaining pick
@@ -25,14 +26,32 @@ describe("draft autopick", () => {
         for (const p of Object.values(s.players)) p.nfl_team = teamsBefore.get(p.id)!;
       });
 
-    // reference: the slow path, one pick at a time through the store
+    // reference: the slow path, one pick at a time — applyPick directly
+    // rather than the public `makePick` action, since `makePick` now sweeps
+    // every subsequent AI turn on its own (the fix for issue 1/2 in the
+    // playtest notes: a human's pick used to leave the very next AI team
+    // dead on the clock). That sweep is exactly what `autopickRemaining`
+    // also does, so driving picks through it here would just be comparing
+    // the fast path against itself. This loop isolates what the test is
+    // actually guarding: bestAvailable and planAutopicks score the same
+    // slot the same way, one pick at a time vs. planned in one shot.
+    // startDraft itself now sweeps any leading AI picks up to the first one
+    // the viewer owes (the fix for issue 1: a draft that didn't open on a
+    // human turn used to sit dead) — those picks are already in
+    // `draft.results` before the loop below runs a single iteration, so they
+    // have to seed `reference` too, or it would end up comparing against the
+    // wrong slice of the fast path's results.
     st.startDraft("fantasy");
-    const reference: string[] = [];
-    for (let i = 0; i < 40; i++) {
+    const reference: string[] = useStore
+      .getState()
+      .draft!.results.map((r) => r.selectedId);
+    while (reference.length < 40) {
       const id = bestAvailable(useStore.getState());
       if (!id) break;
       reference.push(id);
-      useStore.getState().makePick(id);
+      useStore.setState((s) => {
+        applyPick(s, id);
+      });
     }
 
     // same starting point, planned in one shot
