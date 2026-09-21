@@ -142,35 +142,46 @@ export function FreeAgencyBoardTurns() {
           pool.slice(0, 80).map((p) => {
             const lead = leadingOffer(s, p.id);
             const ask = expectedSalary(p);
+            const isOffering = offering?.id === p.id;
             return (
-              <div key={p.id} className="lobby-row">
-                <div>
-                  <p className="pname">
-                    {p.name}
-                    <span className="ppos">{p.position}</span>
-                  </p>
-                  <p className="lobby-sub">
-                    Age {p.age} · asking {millions(ask)}/yr · wants{" "}
-                    {PRIMARY_VALUE_LABEL[primaryValueOf(p)]}
-                  </p>
-                  {lead && (
-                    <p className="lobby-sub" style={{ color: "var(--accent)" }}>
-                      Leading: {TEAMS_BY_CODE[lead.teamCode]?.abbr ?? lead.teamCode} ·{" "}
-                      {millions(lead.salary)}/yr × {lead.years}y
+              <div key={p.id}>
+                <div className="lobby-row">
+                  <div>
+                    <p className="pname">
+                      {p.name}
+                      <span className="ppos">{p.position}</span>
                     </p>
-                  )}
+                    <p className="lobby-sub">
+                      Age {p.age} · asking {millions(ask)}/yr · wants{" "}
+                      {PRIMARY_VALUE_LABEL[primaryValueOf(p)]}
+                    </p>
+                    {lead && (
+                      <p className="lobby-sub" style={{ color: "var(--accent)" }}>
+                        Leading: {TEAMS_BY_CODE[lead.teamCode]?.abbr ?? lead.teamCode} ·{" "}
+                        {millions(lead.salary)}/yr × {lead.years}y
+                      </p>
+                    )}
+                  </div>
+                  <div className="lobby-actions">
+                    <OvrPill value={p.overall} />
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={!yourTurn || busy}
+                      onClick={() => setOffering(isOffering ? null : p)}
+                    >
+                      {isOffering ? "Cancel" : "Offer"}
+                    </button>
+                  </div>
                 </div>
-                <div className="lobby-actions">
-                  <OvrPill value={p.overall} />
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    disabled={!yourTurn || busy}
-                    onClick={() => setOffering(p)}
-                  >
-                    Offer
-                  </button>
-                </div>
+                {isOffering && (
+                  <OfferDialog
+                    player={p}
+                    busy={busy}
+                    onCancel={() => setOffering(null)}
+                    onSubmit={(salary, years) => act({ playerId: p.id, salary, years })}
+                  />
+                )}
               </div>
             );
           })
@@ -220,15 +231,6 @@ export function FreeAgencyBoardTurns() {
           Pass this round
         </button>
       </Footer>
-
-      {offering && (
-        <OfferDialog
-          player={offering}
-          busy={busy}
-          onCancel={() => setOffering(null)}
-          onSubmit={(salary, years) => act({ playerId: offering.id, salary, years })}
-        />
-      )}
     </Card>
   );
 }

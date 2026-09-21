@@ -75,18 +75,41 @@ export class OnlineError extends Error {
   }
 }
 
+/**
+ * A hung connection never rejects on its own — no response, no error, just
+ * silence — and `fetch` has no default timeout. Finding 17: that's what left
+ * the Online Leagues page reading "Looking for the league server…"
+ * indefinitely, since `checking` only ever flips to `false` in the request's
+ * own `finally`. A free-tier server can genuinely take up to a minute to wake
+ * from cold, so this has to be generous rather than snappy.
+ */
+const REQUEST_TIMEOUT_MS = 45_000;
+
 export class OnlineLeagueClient {
   constructor(private readonly baseUrl = import.meta.env.VITE_LEAGUE_API ?? "http://localhost:8788") {}
 
   private async call<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      method: body === undefined ? "GET" : "POST",
-      // the session is an HttpOnly cookie, so it rides along rather than
-      // being read and re-sent by script
-      credentials: "include",
-      headers: body === undefined ? {} : { "content-type": "application/json" },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}${path}`, {
+        method: body === undefined ? "GET" : "POST",
+        // the session is an HttpOnly cookie, so it rides along rather than
+        // being read and re-sent by script
+        credentials: "include",
+        headers: body === undefined ? {} : { "content-type": "application/json" },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error("The league server didn't answer in time.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
     const text = await res.text();
     const payload = text ? (JSON.parse(text) as { error?: string }) : {};
     if (!res.ok) {

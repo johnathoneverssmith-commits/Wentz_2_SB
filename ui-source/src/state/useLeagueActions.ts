@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo } from "react";
 
 import type { ContractOffer, Position } from "@/domain";
 
-import { isOnline, onLeagueChange, onlineSession, pull, send } from "./online.ts";
+import { isOnline, onLeagueChange, OnlineError, onlineSession, pull, send } from "./online.ts";
 import { useStore } from "./store.ts";
 import type { TrainingCampPlan } from "./trainingCamp.ts";
 import type { DeadlineMove } from "./tradeDeadline.ts";
@@ -26,6 +26,18 @@ import type { DeadlineMove } from "./tradeDeadline.ts";
 export interface ActionResult {
   ok: boolean;
   reason?: string;
+  /**
+   * True when the request itself never got a definite answer from the
+   * server — a dropped connection, a timeout, a tab that lost focus mid
+   * request — as opposed to the server answering "no" outright. Finding 17:
+   * the two used to look identical (a refusal with a message), which is
+   * dangerous to retry blindly and confusing to leave alone, since the
+   * action may well have gone through. `attempt` always reconciles with the
+   * server before returning either kind, so `state` reflects the truth by
+   * the time a screen reads `ok` — the flag is only for deciding what to
+   * *tell the player* about why this attempt reads as a refusal.
+   */
+  pending?: boolean;
   /**
    * Cap space a restructure freed, in millions — local only.
    *
@@ -87,13 +99,44 @@ export interface LeagueActions {
   refresh: () => Promise<void>;
 }
 
-/** Turns a thrown `OnlineError` into the same shape a local refusal has. */
+/**
+ * Turns a thrown error into the same shape a local refusal has — and, on
+ * failure, always reconciles with the server first (finding 17).
+ *
+ * `OnlineError` means the request reached the server and got a definite
+ * answer: a validation refusal, or the 409 the version check throws when the
+ * league moved on first. Either way nothing was applied, and the server's
+ * own sentence says why. Anything else — a dropped connection, a timeout, a
+ * backgrounded tab — never got an answer at all, and the action may have
+ * gone through anyway; that's `pending`, and the reconciling pull below is
+ * what turns "I don't know" into an answer the screen can act on before it
+ * ever shows the player anything.
+ */
 async function attempt(run: () => Promise<unknown>): Promise<ActionResult> {
+  const versionBefore = onlineSession()?.version;
   try {
     await run();
     return { ok: true };
   } catch (err) {
-    return { ok: false, reason: (err as Error).message };
+    const online = onlineSession();
+    const state = await pull().catch(() => null);
+    if (state) useStore.setState(state as never);
+
+    if (err instanceof OnlineError) {
+      return { ok: false, reason: err.message };
+    }
+    // an unanswered request: if the reconciling pull shows the league moved
+    // since we last knew about it, the action most likely landed — the
+    // player asked for something and, as far as this client can tell, got
+    // it, so there's nothing left to retry.
+    const landed = !!online && online.version !== versionBefore;
+    return {
+      ok: false,
+      pending: true,
+      reason: landed
+        ? "Lost the connection, but the league has moved since — this most likely went through. Refreshed to the current state."
+        : "Lost the connection before hearing back. Nothing changed — refreshed to the current state; try again.",
+    };
   }
 }
 

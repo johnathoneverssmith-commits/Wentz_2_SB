@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { pickKey, pickLabel, picksOwnedBy } from "@/state/draftPicks";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
+import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import {
   onTheClock,
@@ -31,10 +33,19 @@ import { TradeColumn } from "./TradeProposal";
  */
 export function TradeDeadlineRoom() {
   const s = useStore();
+  const nav = useNavigate();
   const actions = useLeagueActions();
   const code = viewerTeamCode(s);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // round three's last turn completes the deadline and moves the stage on
+  // from inside deadlineTurn itself (store.ts / online's decideDeadlineTurn)
+  // — nobody presses a button for that, so this screen has to notice and
+  // leave on its own rather than sit on a deadline that's already over.
+  useEffect(() => {
+    if (s.stage !== "tradeDeadline") nav(STAGE_HOME[s.stage], { replace: true });
+  }, [s.stage, nav]);
 
   const d = s.tradeDeadline;
   const duty = code ? pendingFor(s, code) : null;
