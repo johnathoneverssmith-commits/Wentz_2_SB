@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LeagueState } from "@/domain";
 
-import { generateAiTradeOffers } from "./aiTrades.ts";
+import { generateAiTradeOffers, pickStrengthFor } from "./aiTrades.ts";
 import { ensureDraftPicks } from "./draftPicks.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 import { useStore } from "./store.ts";
@@ -64,6 +64,48 @@ describe("offers the league makes you", () => {
     const s = league();
     for (const g of s.gms) g.isHuman = false;
     expect(generateAiTradeOffers(s, 1, 2)).toEqual([]);
+  });
+
+  it("varies package shape across offers — not always players for a player (finding 15)", () => {
+    const s = league();
+    let sawPicksOnly = false;
+    let sawMixed = false;
+    let sawPlayersOnly = false;
+    for (let salt = 0; salt < 60; salt++) {
+      for (const o of generateAiTradeOffers(s, salt, 3)) {
+        const players = o.fromAssets.filter((a) => a.kind === "player").length;
+        const picks = o.fromAssets.filter((a) => a.kind === "pick").length;
+        if (picks > 0 && players === 0) sawPicksOnly = true;
+        else if (picks > 0 && players > 0) sawMixed = true;
+        else if (players > 0 && picks === 0) sawPlayersOnly = true;
+      }
+    }
+    expect(sawPicksOnly).toBe(true);
+    expect(sawMixed).toBe(true);
+    expect(sawPlayersOnly).toBe(true);
+  });
+});
+
+describe("pickStrengthFor (finding 14)", () => {
+  it("values a winless team's picks higher than an unbeaten team's", () => {
+    const s = league();
+    const [bad, good] = Object.keys(s.teams);
+    s.teams[bad!]!.wins = 0;
+    s.teams[bad!]!.losses = 9;
+    s.teams[bad!]!.ties = 0;
+    s.teams[good!]!.wins = 9;
+    s.teams[good!]!.losses = 0;
+    s.teams[good!]!.ties = 0;
+    expect(pickStrengthFor(s, bad!)).toBeGreaterThan(pickStrengthFor(s, good!));
+  });
+
+  it("doesn't project from a handful of early-season games", () => {
+    const s = league();
+    const [code] = Object.keys(s.teams);
+    s.teams[code!]!.wins = 0;
+    s.teams[code!]!.losses = 2;
+    s.teams[code!]!.ties = 0;
+    expect(pickStrengthFor(s, code!)).toBe(1);
   });
 });
 

@@ -37,6 +37,26 @@ function needAt(s: LeagueState, code: string, pos: string): number {
 }
 
 /**
+ * How much a future pick from this team is worth, relative to a .500 team's
+ * same-round pick (playtest finding 14). A first-rounder from a winless team
+ * is a top-five selection; the same round from an unbeaten team is the last
+ * pick of the night — record projects draft position, and draft position is
+ * most of what the pick is worth.
+ *
+ * 0.6 (best team in the league) .. 1.5 (worst) around 1.0 at .500. Games
+ * played gates it early in a season, when a handful of results shouldn't yet
+ * read as a full projection.
+ */
+export function pickStrengthFor(s: LeagueState, teamCode: string): number {
+  const team = s.teams[teamCode];
+  if (!team) return 1;
+  const games = team.wins + team.losses + team.ties;
+  if (games < 3) return 1;
+  const winPct = (team.wins + team.ties * 0.5) / games;
+  return 1.5 - winPct * 0.9;
+}
+
+/**
  * Builds the offers the AI makes the human this stage.
  *
  * An AI team shops for the position it's weakest at, asks for the best
@@ -114,8 +134,13 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // one GM shouldn't get two offers for the same man in the same window
     if (out.some((t) => t.toAssets.some((a) => a.playerId === askFor.id))) continue;
 
-    // a package: their best spare player at a position they're deep in, plus
-    // a pick, aimed at landing a little over what they're asking for
+    // a package: their best spare player(s) at a position they're deep in,
+    // draft capital, or both, aimed at landing a little over what they're
+    // asking for. Playtest finding 15: every offer used to be players-only
+    // (picks were a same-round-every-time top-up, never the point of the
+    // package), which reads as one AI GM copy-pasted thirty-two times — a
+    // package shape is rolled first, the same way a real front office
+    // sometimes leads with picks and sometimes doesn't.
     const targetValue = Math.max(0, askFor.overall - 42);
     const spares = theirRoster
       .filter((p) => {
@@ -125,21 +150,59 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
         return better >= 1 && p.overall >= 62;
       })
       .sort((a, b) => Math.abs(a.overall - askFor.overall) - Math.abs(b.overall - askFor.overall));
+    const availablePicks = picksOwnedBy(s, suitor).sort((a, b) => a.round - b.round);
+    const strength = pickStrengthFor(s, suitor);
+    // a pick's contribution scales with the team's own projected draft slot
+    // (finding 14) — a bad team's pick closes more of the gap than the same
+    // round from a good one, so it takes a later round to match it
+    const pickValue = (round: number): number => Math.max(3, (33 - round * 5) * strength);
+
+    const shapeRoll = random();
+    const shape: "players" | "picks" | "mixed" =
+      availablePicks.length === 0 ? "players" : shapeRoll < 0.25 ? "picks" : shapeRoll < 0.55 ? "mixed" : "players";
+
     const give: TradeAsset[] = [];
     let offered = 0;
-    for (const p of spares) {
-      if (offered >= targetValue) break;
-      give.push({ kind: "player", playerId: p.id });
-      offered += Math.max(0, p.overall - 42);
-    }
-    // top it up with draft capital — the round scaled to what's still owed
-    if (offered < targetValue) {
-      const short = targetValue - offered;
-      const round = short > 28 ? 1 : short > 14 ? 2 : short > 7 ? 3 : short > 3 ? 4 : 5;
-      const theirPick = picksOwnedBy(s, suitor).find((p) => p.round === round);
-      if (theirPick) {
-        give.push({ kind: "pick", pick: theirPick });
-        offered += short;
+    const usedPicks = new Set<string>();
+    const cheapestFirst = [...availablePicks].sort((a, b) => b.round - a.round);
+    // a top-up reaches for the least valuable pick still on the shelf first
+    // — the same instinct that keeps the best future assets out of a package
+    // that doesn't need them
+    const addBestPick = (): boolean => {
+      const pick = cheapestFirst.find((p) => !usedPicks.has(pickKey(p.year, p.round, p.originalTeam)));
+      if (!pick) return false;
+      usedPicks.add(pickKey(pick.year, pick.round, pick.originalTeam));
+      give.push({ kind: "pick", pick });
+      offered += pickValue(pick.round);
+      return true;
+    };
+
+    if (shape === "picks") {
+      // lead with capital, cheapest (latest) picks first, only reaching for
+      // an earlier round once the later ones run out
+      for (const p of [...availablePicks].sort((a, b) => b.round - a.round)) {
+        if (offered >= targetValue) break;
+        usedPicks.add(pickKey(p.year, p.round, p.originalTeam));
+        give.push({ kind: "pick", pick: p });
+        offered += pickValue(p.round);
+      }
+    } else {
+      if (shape === "mixed" && spares[0]) {
+        // exactly one player, so the pick(s) alongside it are load-bearing
+        // rather than an afterthought
+        give.push({ kind: "player", playerId: spares[0].id });
+        offered += Math.max(0, spares[0].overall - 42);
+      } else {
+        for (const p of spares) {
+          if (offered >= targetValue) break;
+          give.push({ kind: "player", playerId: p.id });
+          offered += Math.max(0, p.overall - 42);
+        }
+      }
+      // top up with draft capital either way, capped so a small gap can't
+      // turn into a handful of Day 3 picks nobody would actually attach
+      for (let n = 0; n < 2 && offered < targetValue; n++) {
+        if (!addBestPick()) break;
       }
     }
     if (give.length === 0) continue;
