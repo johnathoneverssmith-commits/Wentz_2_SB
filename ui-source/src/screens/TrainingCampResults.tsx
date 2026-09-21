@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { POSITIONS } from "@/domain";
 import { FOCUS_LABEL, planFor } from "@/state/trainingCamp";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
-import { useLeagueActions } from "@/state/useLeagueActions";
 
 /**
  * What camp did to the roster.
@@ -25,9 +26,8 @@ const GROUPS: { label: string; positions: string[] }[] = [
 
 export function TrainingCampResults() {
   const s = useStore();
-  const actions = useLeagueActions();
+  const nav = useNavigate();
   const code = viewerTeamCode(s);
-  const [busy, setBusy] = useState(false);
 
   const results = code ? (s.trainingCamp?.results[code] ?? []) : [];
   const plan = code ? planFor(s, code) : null;
@@ -135,19 +135,8 @@ export function TrainingCampResults() {
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
           Advancing is final — you can&rsquo;t come back to camp.
         </span>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy}
-          onClick={() => {
-            if (!confirm("Advance to the depth chart? You can't return to camp.")) return;
-            setBusy(true);
-            void actions.readyUp(true).finally(() => setBusy(false));
-          }}
-        >
-          Advance to Re-order Depth Chart
-        </button>
       </Footer>
+      <ReadinessGate title="Training camp readiness" onAdvance={(r) => nav(r)} />
     </Card>
   );
 }

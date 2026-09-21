@@ -53,6 +53,7 @@ import {
   applyCoachingPick,
   beginCoachingDraft,
   checkCoachingPick,
+  coachingDraftComplete,
   runAiCoachingPicks,
 } from "./coachingDraft.ts";
 import { applyOffer, applyPass, checkOffer, runCpuTurns } from "./freeAgencyEvent.ts";
@@ -62,6 +63,7 @@ import {
   type TrainingCampPlan,
 } from "./trainingCamp.ts";
 import {
+  beginTradeDeadline,
   proposeAtDeadline,
   respondAtDeadline,
   runCpuTurns as runDeadlineTurns,
@@ -434,6 +436,13 @@ export const useStore = create<Store>()(
             const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
             runAiCoachingPicks(s, humans);
           }
+          // the deadline builds its order and runs itself forward the same
+          // way online's onStageEntered does — without this `s.tradeDeadline`
+          // stayed null forever and the screen had nothing to show.
+          if (t.stage === "tradeDeadline" && !s.tradeDeadline) {
+            beginTradeDeadline(s);
+            runDeadlineTurns(s);
+          }
 
           s.stage = t.stage;
           s.week = t.week;
@@ -652,7 +661,19 @@ export const useStore = create<Store>()(
             default:
               result = respondAtDeadline(s, code, { kind: move.kind });
           }
-          if (result.ok) runDeadlineTurns(s);
+          if (result.ok) {
+            runDeadlineTurns(s);
+            // three rounds and tradeDeadline.ts marks itself `done`, but
+            // nothing read that flag — a league that finished round three
+            // had no further turns and no way off the stage (playtest
+            // finding 16), the same gap online's decideDeadlineTurn had.
+            if (s.tradeDeadline?.done) {
+              const t = resolveTransition(s, {});
+              s.stage = t.stage;
+              s.week = t.week;
+              clearReadiness(s);
+            }
+          }
         });
         return result;
       },
@@ -740,6 +761,16 @@ export const useStore = create<Store>()(
           applyCoachingPick(s, code2, coachId);
           const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
           runAiCoachingPicks(s, humans);
+          // mirrors online's decideCoachingPick — when the last job in the
+          // league is filled there is nothing left to decide, so the stage
+          // advances on its own instead of leaving the board sitting there
+          // with no way out (playtest finding 3).
+          if (coachingDraftComplete(s)) {
+            const t = resolveTransition(s, {});
+            s.stage = t.stage;
+            s.week = t.week;
+            clearReadiness(s);
+          }
         });
         return { ok: true };
       },

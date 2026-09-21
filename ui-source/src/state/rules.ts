@@ -627,6 +627,21 @@ export function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgen
     for (let i = 0; i < signCount; i++) {
       const p = pool[Math.floor(pool.length * rng() ** bias)];
       if (!p || fa.signed.some((x) => x.id === p.id)) continue;
+      // Playtest finding 6: `bestOfferFor` only ranks bids already on the
+      // board, and the AI fallback only ran when there were none at all —
+      // once any human placed a bid, however small, it simply won, because
+      // no AI team was ever asked whether it wanted the player too. A real
+      // market has other teams in on a good player; this gives them a
+      // chance to actually be there, weighted by how good he is, so a star
+      // draws real competition and a camp body still mostly doesn't.
+      const existing = fa.bids[p.id] ?? [];
+      const aiAlreadyIn = existing.some((o) => aiControlledTeams(s).includes(o.teamCode));
+      if (existing.length > 0 && !aiAlreadyIn) {
+        const competeChance = clamp((p.overall - 65) / 40, 0.05, 0.85);
+        if (rng() < competeChance) {
+          (fa.bids[p.id] ??= []).push(aiOfferForPlayer(rng, s, p));
+        }
+      }
       const winning = bestOfferFor(fa, "players", p.id, s) ?? aiOfferForPlayer(rng, s, p);
       const team = s.teams[winning.teamCode];
       if (!team) continue;

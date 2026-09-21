@@ -462,7 +462,7 @@ function RevealControls() {
       <div className="readiness">
         <div className="readiness-top">
           <p>{phase === "PRE" ? "Preseason complete" : `Watched through Week ${lastWeek}`}</p>
-          <span>Nobody waits on you until you press this</span>
+          <span>Ready whenever you are</span>
         </div>
         <button
           className="btn-primary"
@@ -488,8 +488,7 @@ function RevealControls() {
         </span>
       </div>
       <p className="readiness-held">
-        These are already played — you&rsquo;re watching at your own pace, and nobody else&rsquo;s
-        screen moves when you do.
+        Watch at your own pace — catching up here won&rsquo;t rush anyone else in the league.
       </p>
       <div style={{ display: "flex", gap: 8 }}>
         <button

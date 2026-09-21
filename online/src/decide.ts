@@ -822,5 +822,17 @@ export function decideDeadlineTurn(
   if (!result.ok) throw new ActionError(result.reason ?? "That move isn't available.");
 
   runDeadlineTurns(state);
+
+  // Three rounds and `tradeDeadline.ts` marks itself `done` — nothing ever
+  // read that flag, so a league that finished round three simply had no
+  // further turns to make and no way off the stage (playtest finding 16).
+  if (state.tradeDeadline?.done) {
+    const t = resolveTransition(state, {});
+    state.stage = t.stage;
+    state.week = t.week;
+    onStageEntered(state, "tradeDeadline");
+    clearReadinessOnline(state);
+  }
+
   return { events: [{ teamCode: actor.teamCode, kind: "trade.deadline", summary }] };
 }

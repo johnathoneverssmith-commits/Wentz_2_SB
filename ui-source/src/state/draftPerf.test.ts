@@ -44,7 +44,8 @@ describe("draft autopick", () => {
     st.startDraft("fantasy");
     const reference: string[] = useStore
       .getState()
-      .draft!.results.map((r) => r.selectedId);
+      .draft!.results.map((r) => r.selectedId)
+      .filter((id): id is string => id !== null);
     while (reference.length < 40) {
       const id = bestAvailable(useStore.getState());
       if (!id) break;

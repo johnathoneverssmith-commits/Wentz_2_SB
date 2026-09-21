@@ -12,7 +12,6 @@ import type { DraftMode, Position } from "@/domain";
 import { bestAvailable, picksMadeBy, useStore } from "@/state/store";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
-import { ordinal } from "@/util/format";
 
 interface Available {
   id: string;
@@ -20,7 +19,6 @@ interface Available {
   position: Position;
   age: number;
   ovr: number;
-  proj: string;
   sub: string;
 }
 
@@ -48,14 +46,12 @@ export function DraftRoom() {
   }, [isDraftStage, s.draft, mode, startDraft, actions.online]);
 
   // Reaching the manual-pick threshold completes the board and advances the
-  // stage from inside `makePick` itself, not through a "ready" click — this
-  // screen has no button for that (see the Footer note below). Without this,
-  // the stage moved on but the URL stayed on `/draft`, and the completed
-  // board just sat there with nothing to press: the fantasy draft's "no
-  // functional exit" bug.
-  useEffect(() => {
-    if (!isDraftStage) nav(STAGE_HOME[s.stage], { replace: true });
-  }, [isDraftStage, s.stage, nav]);
+  // stage from inside `makePick` itself. That used to double as the exit —
+  // this screen silently navigated itself away the instant the stage moved,
+  // which fixed the old "no functional exit" deadlock but replaced it with a
+  // teleport: the player never saw the board finish. Playtest finding 1a asks
+  // for an explicit moment to leave instead, so the stage change now just
+  // reveals a "draft complete" overlay (below) rather than triggering nav().
 
   const draft = s.draft;
   const taken = useMemo(() => new Set(draft?.results.map((r) => r.selectedId) ?? []), [draft]);
@@ -82,20 +78,18 @@ export function DraftRoom() {
           position: p.position,
           age: p.age,
           ovr: p.collegeOverall,
-          proj: p.projectedRange,
           sub: `${p.school} · ${p.classYear}`,
         }));
     }
     return Object.values(s.players)
       .filter((p) => !taken.has(p.id) && !p.retired)
       .sort((a, b) => b.overall - a.overall)
-      .map((p, i) => ({
+      .map((p) => ({
         id: p.id,
         name: p.name,
         position: p.position,
         age: p.age,
         ovr: p.overall,
-        proj: ordinal(i + 1),
         sub: TEAMS_BY_CODE[p.nfl_team]?.label ?? "Free agent",
       }));
   }, [draft, mode, s.players, s.draftClass, taken]);
@@ -161,6 +155,14 @@ export function DraftRoom() {
           big={`The ${TEAMS_BY_CODE[code!]!.city} ${TEAMS_BY_CODE[code!]!.name} are on the clock`}
           note="Click anywhere to make your selection."
           onDismiss={() => setOverlayDismissed(true)}
+        />
+      )}
+      {!isDraftStage && (
+        <FullScreenOverlay
+          kicker="Draft complete"
+          big="Every pick is in."
+          note={`Click anywhere to continue to the ${draft.mode === "fantasy" ? "Fantasy Draft Summary" : "Rookie Draft Summary"}.`}
+          onDismiss={() => nav(STAGE_HOME[s.stage])}
         />
       )}
 
@@ -240,7 +242,6 @@ export function DraftRoom() {
                 <th className="c">Pos</th>
                 <th className="c">OVR</th>
                 <th className="c">Age</th>
-                <th className="c">Projected</th>
                 <th className="r"></th>
               </tr>
             </thead>
@@ -256,7 +257,6 @@ export function DraftRoom() {
                     <OvrPill value={p.ovr} />
                   </td>
                   <td className="c">{p.age}</td>
-                  <td className="c" style={{ fontSize: 11.5 }}>{p.proj}</td>
                   <td className="r">
                     <button
                       className="btn-primary"

@@ -266,6 +266,25 @@ export function LeagueSetup() {
           </select>
         </SettingRow>
         <SettingRow
+          label="Manual picks each"
+          hint="How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. Twenty rounds by hand is a long evening."
+        >
+          <select
+            value={config.draftSimulateAfterPicks == null ? "" : String(config.draftSimulateAfterPicks)}
+            disabled={locked || !config.fantasyDraft}
+            onChange={(e) =>
+              setConfig({ draftSimulateAfterPicks: e.target.value === "" ? null : Number(e.target.value) })
+            }
+          >
+            {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
+              <option key={n} value={String(n)}>
+                {n} {n === 1 ? "pick" : "picks"}
+              </option>
+            ))}
+            <option value="">Never — draft all 20 rounds by hand</option>
+          </select>
+        </SettingRow>
+        <SettingRow
           label="AI Difficulty"
           hint="How competently CPU GMs make decisions — never a rules, rating, or cap change."
         >

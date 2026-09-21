@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { unsignedPool } from "@/state/freeAgencyEvent";
 import { expectedSalary } from "@/state/freeAgencyValues";
@@ -34,6 +36,7 @@ import { millions } from "@/util/format";
 export function FreeAgencySummary() {
   const s = useStore();
   const actions = useLeagueActions();
+  const nav = useNavigate();
   const code = viewerTeamCode(s);
   const { active, setActive } = useTabs("yours");
   const [busy, setBusy] = useState(false);
@@ -293,24 +296,13 @@ export function FreeAgencySummary() {
             ? "Advancing is final — you can't come back to free agency."
             : "Fix everything on Roster & Budget before you can advance."}
         </span>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={!legal || busy}
-          onClick={() => {
-            if (!confirm("Advance to Training Camp? You can't return to free agency.")) return;
-            setBusy(true);
-            void actions
-              .readyUp(true)
-              .then((res) => {
-                if (!res.ok) setError(res.reason ?? "Couldn't advance.");
-              })
-              .finally(() => setBusy(false));
-          }}
-        >
-          {legal ? "Advance to Training Camp" : "Roster not legal"}
-        </button>
       </Footer>
+      <ReadinessGate
+        title="Free agency readiness"
+        onAdvance={(r) => nav(r)}
+        disabled={!legal}
+        disabledHint="Roster not legal"
+      />
     </Card>
   );
 }
