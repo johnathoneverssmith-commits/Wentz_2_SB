@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { TeamBadge } from "@/components/bits";
+import { pressable, TeamBadge } from "@/components/bits";
+import { CoachDetailsModal } from "@/components/CoachDetailsModal";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { STAGE_HOME } from "@/state/stageMachine";
@@ -41,6 +42,7 @@ export function CoachingDraftRoom() {
   const [roleFilter, setRoleFilter] = useState<"ALL" | CoachRole>("ALL");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inspect, setInspect] = useState<Coach | null>(null);
 
   // the board completes itself once the last job in the league is filled
   // (store.ts's draftCoach) and moves the stage on with it — nothing here
@@ -177,6 +179,7 @@ export function CoachingDraftRoom() {
               coach={c}
               canTake={yourPick && openVacancies.has(c.role) && !busy}
               onTake={() => take(c.id)}
+              onInspect={() => setInspect(c)}
             />
           ))
         )}
@@ -189,7 +192,16 @@ export function CoachingDraftRoom() {
             <div key={role} className="lobby-row">
               <div>
                 <p className="pname">
-                  {hire ? hire.name : <span style={{ color: "var(--ink-faint)" }}>Vacant</span>}
+                  {hire ? (
+                    <span
+                      {...pressable(() => setInspect(hire))}
+                      style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
+                    >
+                      {hire.name}
+                    </span>
+                  ) : (
+                    <span style={{ color: "var(--ink-faint)" }}>Vacant</span>
+                  )}
                   <span className="ppos">{role}</span>
                 </p>
                 <p className="lobby-sub">{COACH_ROLE_LABEL[role]}</p>
@@ -215,7 +227,16 @@ export function CoachingDraftRoom() {
                 <div key={`${r.coachId}-${i}`} className="lobby-row">
                   <div>
                     <p className="pname">
-                      {c?.name ?? r.coachId}
+                      {c ? (
+                        <span
+                          {...pressable(() => setInspect(c))}
+                          style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
+                        >
+                          {c.name}
+                        </span>
+                      ) : (
+                        r.coachId
+                      )}
                       <span className="ppos">{r.role}</span>
                     </p>
                     <p className="lobby-sub">
@@ -237,6 +258,8 @@ export function CoachingDraftRoom() {
           is filled, and everyone moves to the summary together.
         </span>
       </Footer>
+
+      {inspect && <CoachDetailsModal coach={inspect} onClose={() => setInspect(null)} />}
     </Card>
   );
 }
@@ -246,17 +269,24 @@ function CoachRow({
   coach,
   canTake,
   onTake,
+  onInspect,
 }: {
   coach: Coach;
   canTake: boolean;
   onTake: () => void;
+  onInspect: () => void;
 }) {
   const group = COACH_POSITION_GROUPS[coach.role as keyof typeof COACH_POSITION_GROUPS];
   return (
     <div className="lobby-row">
       <div>
         <p className="pname">
-          {coach.name}
+          <span
+            {...pressable(onInspect)}
+            style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
+          >
+            {coach.name}
+          </span>
           <span className="ppos">{coach.role}</span>
         </p>
         <p className="lobby-sub">

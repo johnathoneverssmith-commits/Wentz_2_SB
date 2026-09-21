@@ -10,14 +10,27 @@ export function ExpandableRow({
   detail,
   dimmed = false,
   onRowClick,
+  open: openProp,
+  onOpenChange,
 }: {
   columns: ReactNode;
   gridTemplate: string;
   detail?: ReactNode;
   dimmed?: boolean;
   onRowClick?: () => void;
+  /** Controlled open state — e.g. forced open by an action elsewhere on the
+   *  row (Free Agency's "Negotiate" button opens straight to the offer
+   *  panel). Omit to let the row manage its own chevron toggle. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = (next: boolean | ((o: boolean) => boolean)): void => {
+    const resolved = typeof next === "function" ? next(open) : next;
+    if (onOpenChange) onOpenChange(resolved);
+    else setUncontrolledOpen(resolved);
+  };
   return (
     <div className={`prow-wrap${dimmed ? " dimmed" : ""}`}>
       <div

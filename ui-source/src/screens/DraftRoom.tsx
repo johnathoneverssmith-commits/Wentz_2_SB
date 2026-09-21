@@ -4,11 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { useListFilter } from "@/components/ListFilter";
+import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import type { DraftMode, Position } from "@/domain";
+import type { DraftMode, Player, Position } from "@/domain";
 import { bestAvailable, picksMadeBy, useStore } from "@/state/store";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
@@ -27,6 +28,7 @@ export function DraftRoom() {
   const nav = useNavigate();
   const { active, setActive } = useTabs("available");
   const [overlayDismissed, setOverlayDismissed] = useState(false);
+  const [inspect, setInspect] = useState<Player | null>(null);
 
   const code = viewerTeamCode(s);
   const startDraft = useStore((st) => st.startDraft);
@@ -249,7 +251,21 @@ export function DraftRoom() {
               {filtered.map((p) => (
                 <tr key={p.id}>
                   <td className="name">
-                    {p.name}
+                    {mode === "fantasy" ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setInspect(s.players[p.id] ?? null)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") setInspect(s.players[p.id] ?? null);
+                        }}
+                        style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
+                      >
+                        {p.name}
+                      </span>
+                    ) : (
+                      p.name
+                    )}
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
                   </td>
                   <td className="c">{p.position}</td>
@@ -348,10 +364,10 @@ export function DraftRoom() {
 
       <Footer>
         {/*
-          Change 1: no Autopick Rest and no Advance to Draft Summary. When
-          every GM has taken the picks the commissioner asked for, the rest of
-          the board completes on the server and the league moves on by itself
-          — there is nothing left to decide, so there is nothing to press.
+          Change 1: no manual "Autopick Rest" button. When every GM has taken
+          the picks the commissioner asked for, the rest of the board
+          completes on the server and the league moves on by itself — the
+          "draft complete" overlay above is what the player presses to leave.
           Offline the same rule applies locally.
         */}
         <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
@@ -362,6 +378,8 @@ export function DraftRoom() {
               : "You're done. The draft completes once every other GM reaches their picks."}
         </span>
       </Footer>
+
+      {inspect && <PlayerStatsModal player={inspect} onClose={() => setInspect(null)} />}
     </Card>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
-import { ContractNegotiation } from "@/components/ContractNegotiation";
+import { InlineNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
@@ -160,6 +160,13 @@ export function FreeAgencyBoard() {
               <ExpandableRow
                 key={p.id}
                 gridTemplate={FA_GRID}
+                open={negotiating?.id === p.id ? true : undefined}
+                onOpenChange={(o) => {
+                  if (!o) {
+                    setSignError(null);
+                    setNegotiating(null);
+                  }
+                }}
                 columns={
                   <>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -193,25 +200,54 @@ export function FreeAgencyBoard() {
                   </>
                 }
                 detail={
-                  <>
-                    {isWindowStage &&
-                      bidsFor(p.id)
-                        .sort((a, b) => b.baseSalary * b.years - a.baseSalary * a.years)
-                        .map((o, i) => (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid var(--line)", fontSize: 12 }}>
-                            <span style={{ color: o.teamCode === code ? "var(--good)" : "var(--ink-dim)", fontWeight: o.teamCode === code ? 600 : 400 }}>
-                              {TEAMS_BY_CODE[o.teamCode]?.label ?? o.teamCode}
-                              {o.teamCode === code ? " (you)" : ""}
-                            </span>
-                            <span className="oswald">
-                              {millions(o.baseSalary)}/yr · {o.years}yr · {millions(o.guaranteed)} gtd
-                            </span>
-                          </div>
-                        ))}
-                    <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
-                      Priorities: {playerPriorities(p).ranked.join(" · ")}.
-                    </p>
-                  </>
+                  negotiating?.id === p.id && code ? (
+                    <InlineNegotiation
+                      priorities={playerPriorities(p)}
+                      prior={myOffer(p.id)}
+                      error={signError}
+                      onClose={() => {
+                        setSignError(null);
+                        setNegotiating(null);
+                      }}
+                      onSubmit={(offer) => {
+                        const full: ContractOffer = { ...offer, teamCode: code };
+                        const run = isWindowStage
+                          ? actions.placeBid("players", p.id, full)
+                          : actions.signFreeAgent(p.id, full);
+                        void run.then((result) => {
+                          if (result.ok) {
+                            setSignError(null);
+                            setNegotiating(null);
+                          } else {
+                            setSignError(
+                              result.reason ??
+                                (isWindowStage ? "Unable to bid on this player." : "Unable to sign this player."),
+                            );
+                          }
+                        });
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {isWindowStage &&
+                        bidsFor(p.id)
+                          .sort((a, b) => b.baseSalary * b.years - a.baseSalary * a.years)
+                          .map((o, i) => (
+                            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid var(--line)", fontSize: 12 }}>
+                              <span style={{ color: o.teamCode === code ? "var(--good)" : "var(--ink-dim)", fontWeight: o.teamCode === code ? 600 : 400 }}>
+                                {TEAMS_BY_CODE[o.teamCode]?.label ?? o.teamCode}
+                                {o.teamCode === code ? " (you)" : ""}
+                              </span>
+                              <span className="oswald">
+                                {millions(o.baseSalary)}/yr · {o.years}yr · {millions(o.guaranteed)} gtd
+                              </span>
+                            </div>
+                          ))}
+                      <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
+                        Priorities: {playerPriorities(p).ranked.join(" · ")}.
+                      </p>
+                    </>
+                  )
                 }
               />
             );
@@ -290,39 +326,6 @@ export function FreeAgencyBoard() {
         />
       )}
 
-      {negotiating && code && (
-        <ContractNegotiation
-          title={`Offer — ${negotiating.name}`}
-          subtitle={`${negotiating.position} · age ${negotiating.age} · ${negotiating.overall} OVR`}
-          priorities={playerPriorities(negotiating)}
-          prior={myOffer(negotiating.id)}
-          error={signError}
-          onClose={() => {
-            setSignError(null);
-            setNegotiating(null);
-          }}
-          onSubmit={(offer) => {
-            const full: ContractOffer = { ...offer, teamCode: code };
-            const target = negotiating.id;
-            const run = isWindowStage
-              ? actions.placeBid("players", target, full)
-              : actions.signFreeAgent(target, full);
-            void run.then((result) => {
-              if (result.ok) {
-                setSignError(null);
-                setNegotiating(null);
-              } else {
-                setSignError(
-                  result.reason ??
-                    (isWindowStage
-                      ? "Unable to bid on this player."
-                      : "Unable to sign this player."),
-                );
-              }
-            });
-          }}
-        />
-      )}
     </Card>
   );
 }
