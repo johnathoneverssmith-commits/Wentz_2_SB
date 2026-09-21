@@ -132,6 +132,12 @@ function useResumeOnline(): boolean {
  * advances the old way.
  */
 const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
+  // finding 4: this one was never added when Draft Preview's own "Change 12"
+  // comment already promised it — the league waited at nothing, and the
+  // button just sat there once the viewer was ready.
+  offseasonDraftPrep: { from: "Draft Preview", to: "NFL Draft" },
+  leagueDevelopments: { from: "League Developments", to: "Regular Season" },
+  hoodedFigureEncounter: { from: "Training Camp", to: "Re-order Depth Chart" },
   fantasyDraftSummary: { from: "Draft Summary", to: "Coaching Fantasy Draft" },
   coachingDraftSummary: { from: "Coaching Draft Summary", to: "Free Agency" },
   freeAgencySummary: { from: "Free Agency", to: "Training Camp" },

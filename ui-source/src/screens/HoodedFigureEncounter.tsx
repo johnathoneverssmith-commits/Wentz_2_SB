@@ -1,6 +1,8 @@
 import { useState, type CSSProperties } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer } from "@/components/primitives";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import {
   checkHoodedFigurePayment,
@@ -28,6 +30,7 @@ const PAYMENT_STEP = 0.5;
 export function HoodedFigureEncounter() {
   const s = useStore();
   const actions = useLeagueActions();
+  const nav = useNavigate();
   const code = viewerTeamCode(s);
   const [payment, setPayment] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -48,19 +51,11 @@ export function HoodedFigureEncounter() {
               : "Nothing to see here. Advance when you're ready."}
           </div>
         </div>
-        <Footer>
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={busy}
-            onClick={() => {
-              setBusy(true);
-              void actions.readyUp(true).finally(() => setBusy(false));
-            }}
-          >
-            Advance to Re-order Depth Chart
-          </button>
-        </Footer>
+        <ReadinessGate
+          title="Training camp readiness"
+          label="Advance to Re-order Depth Chart"
+          onAdvance={(r) => nav(r)}
+        />
       </Card>
     );
   }

@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Coach, CoachRole } from "@/domain";
 import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } from "@/domain";
@@ -14,7 +16,6 @@ import {
 import { viewerTeamCode } from "@/state/selectors";
 import { rankBy, staffCards } from "@/state/staffRatings";
 import { useStore } from "@/state/store";
-import { useLeagueActions } from "@/state/useLeagueActions";
 import { ordinal } from "@/util/format";
 
 /**
@@ -50,11 +51,10 @@ const pct = (multiplier: number): string => {
 
 export function CoachingDraftSummary() {
   const s = useStore();
-  const actions = useLeagueActions();
+  const nav = useNavigate();
   const mine = viewerTeamCode(s);
   const humanTeams = s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
   const { active, setActive } = useTabs(mine ?? humanTeams[0] ?? "league");
-  const [committing, setCommitting] = useState(false);
 
   const cards = useMemo(() => staffCards(s), [s.coaches, s.teams]); // eslint-disable-line react-hooks/exhaustive-deps
   const overallRank = useMemo(() => rankBy(cards, "overall"), [cards]);
@@ -169,24 +169,9 @@ export function CoachingDraftSummary() {
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
           Advancing is final — you can&rsquo;t come back to this summary.
         </span>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={committing}
-          onClick={() => {
-            if (!confirm("Advance to Free Agency? You can't return to this summary.")) return;
-            setCommitting(true);
-            void actions
-              .readyUp(true)
-              .then((res) => {
-                if (!res.ok) alert(res.reason ?? "Couldn't advance.");
-              })
-              .finally(() => setCommitting(false));
-          }}
-        >
-          {committing ? "Advancing…" : "Advance to Free Agency"}
-        </button>
       </Footer>
+
+      <ReadinessGate title="Coaching summary readiness" label="Advance to Free Agency" onAdvance={(r) => nav(r)} />
     </Card>
   );
 }

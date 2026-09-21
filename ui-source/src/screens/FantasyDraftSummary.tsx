@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
-import { useLeagueActions } from "@/state/useLeagueActions";
 import { RosterByPosition } from "@/components/RosterByPosition";
 import { viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
@@ -39,11 +38,14 @@ export function FantasyDraftSummary({
 }: {
   title?: string;
   advanceLabel?: string;
-  /** Overrides the default commit, for a summary that is not a checkpoint. */
+  /**
+   * Overrides the default checkpoint commit, for a summary that steps this
+   * GM alone into the next screen rather than holding the league at a
+   * shared gate (the rookie draft summary into Rookie Signings).
+   */
   onAdvance?: () => Promise<void>;
 } = {}) {
   const nav = useNavigate();
-  const actions = useLeagueActions();
   const [committing, setCommitting] = useState(false);
   const s = useStore();
   const code = viewerTeamCode(s);
@@ -206,43 +208,29 @@ export function FantasyDraftSummary({
         </span>
       </Footer>
 
-      {/*
-        Change 2: no readiness panel here. Other GMs' states are not this
-        screen's business — this is a single-player section, and the one thing
-        it owes the league is the moment you say you are done with it.
-      */}
       <Footer>
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
           Take as long as you like. Advancing is final — you can&rsquo;t come back to this summary.
         </span>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={committing}
-          onClick={() => {
-            if (!confirm(`${advanceLabel}? You can't return to this summary.`)) return;
-            setCommitting(true);
-            if (onAdvance) {
+        {onAdvance && (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={committing}
+            onClick={() => {
+              if (!confirm(`${advanceLabel}? You can't return to this summary.`)) return;
+              setCommitting(true);
               void onAdvance().finally(() => setCommitting(false));
-              return;
-            }
-            void actions
-              .readyUp(true)
-              .then((res) => {
-                // Online this puts the GM at the checkpoint and holds them
-                // there; the league moves when the last GM does the same.
-                if (!res.ok) {
-                  alert(res.reason ?? "Couldn't advance.");
-                  return;
-                }
-                if (!actions.online) nav(STAGE_HOME[useStore.getState().stage]);
-              })
-              .finally(() => setCommitting(false));
-          }}
-        >
-          {committing ? "Advancing…" : advanceLabel}
-        </button>
+            }}
+          >
+            {committing ? "Advancing…" : advanceLabel}
+          </button>
+        )}
       </Footer>
+
+      {!onAdvance && (
+        <ReadinessGate title="Draft summary readiness" label={advanceLabel} onAdvance={(r) => nav(r)} />
+      )}
     </Card>
   );
 }

@@ -4,8 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
@@ -27,7 +27,6 @@ export function RookieSignings() {
   // the server has to make, and calling the store directly wrote it into a
   // private copy that the next frame from the league silently discarded.
   const actions = useLeagueActions();
-  const [committing, setCommitting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const settle = (prospectId: string, released: boolean): void => {
@@ -259,25 +258,15 @@ export function RookieSignings() {
               ? "Every pick is settled."
               : `${resolvedCount} / ${myPicks.length} picks resolved — sign or release the rest.`}
         </span>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={!allResolved || committing}
-          onClick={() => {
-            if (!confirm("Continue to free agency? You can't come back to signings.")) return;
-            setCommitting(true);
-            void actions
-              .readyUp(true)
-              .then((res) => {
-                if (!res.ok) alert(res.reason ?? "Couldn't advance.");
-                else if (!actions.online) nav(STAGE_HOME[useStore.getState().stage]);
-              })
-              .finally(() => setCommitting(false));
-          }}
-        >
-          {committing ? "Advancing…" : "Continue to Free Agency"}
-        </button>
       </Footer>
+
+      <ReadinessGate
+        title="Rookie signings readiness"
+        label="Continue to Free Agency"
+        onAdvance={(r) => nav(r)}
+        disabled={!allResolved}
+        disabledHint="Sign or release every pick first"
+      />
     </Card>
   );
 }

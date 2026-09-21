@@ -1,14 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { RosterByPosition } from "@/components/RosterByPosition";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker } from "@/components/primitives";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { pickLabel } from "@/state/draftPicks";
 import { reconciliationIssues, rosterOf } from "@/state/reconciliation";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { tradesFor, type ResolvedOffer } from "@/state/tradeDeadline";
-import { useLeagueActions } from "@/state/useLeagueActions";
 import { millions } from "@/util/format";
 
 /**
@@ -23,10 +24,9 @@ import { millions } from "@/util/format";
  */
 export function TradeSummary() {
   const s = useStore();
-  const actions = useLeagueActions();
+  const nav = useNavigate();
   const code = viewerTeamCode(s);
   const [active, setActive] = useState("mine");
-  const [busy, setBusy] = useState(false);
 
   if (!code) {
     return (
@@ -106,19 +106,13 @@ export function TradeSummary() {
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
           Advancing is final, and the league waits for everyone.
         </span>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy}
-          onClick={() => {
-            if (!confirm("Advance to Mid-Season Free Agency? You can't come back here.")) return;
-            setBusy(true);
-            void actions.readyUp(true).finally(() => setBusy(false));
-          }}
-        >
-          Advance to Mid-Season Free Agency
-        </button>
       </Footer>
+
+      <ReadinessGate
+        title="Trade summary readiness"
+        label="Advance to Mid-Season Free Agency"
+        onAdvance={(r) => nav(r)}
+      />
     </Card>
   );
 }

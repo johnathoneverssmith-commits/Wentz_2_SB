@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer } from "@/components/primitives";
+import { Card, CardHeader } from "@/components/primitives";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { leagueDevelopmentsFor, swindleLineFor, type LeagueDevelopmentEntry } from "@/state/hoodedFigure";
 import { useStore } from "@/state/store";
-import { useLeagueActions } from "@/state/useLeagueActions";
 import { millions } from "@/util/format";
 
 function teamName(code: string): string {
@@ -81,8 +81,7 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
 
 export function LeagueDevelopments() {
   const s = useStore();
-  const actions = useLeagueActions();
-  const [busy, setBusy] = useState(false);
+  const nav = useNavigate();
   const entries = leagueDevelopmentsFor(s);
 
   return (
@@ -95,19 +94,11 @@ export function LeagueDevelopments() {
           entries.map((e, i) => <EntryCard key={`${e.teamCode}-${i}`} e={e} season={s.season} />)
         )}
       </div>
-      <Footer>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            void actions.readyUp(true).finally(() => setBusy(false));
-          }}
-        >
-          Continue to the Regular Season
-        </button>
-      </Footer>
+      <ReadinessGate
+        title="League developments readiness"
+        label="Continue to the Regular Season"
+        onAdvance={(r) => nav(r)}
+      />
     </Card>
   );
 }
