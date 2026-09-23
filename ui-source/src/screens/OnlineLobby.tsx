@@ -568,6 +568,7 @@ function CreateLeague({
   // Change 1: how many picks each GM makes before the board finishes itself.
   // "" is the Never option — the whole draft by hand.
   const [simAfter, setSimAfter] = useState<string>("5");
+  const [faRounds, setFaRounds] = useState(20);
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
   const [gameDayHours, setGameDayHours] = useState<DeadlineChoice>(24);
 
@@ -587,6 +588,7 @@ function CreateLeague({
                 draftType,
                 draftOrder,
                 draftSimulateAfterPicks: simAfter === "" ? null : Number(simAfter),
+                fantasyDraftRounds: faRounds,
                 difficulty,
                 gameDayDeadlineHours: gameDayHours,
                 offseasonStageDeadlineHours: hours > 48 ? 48 : (hours as DeadlineChoice),
@@ -679,20 +681,37 @@ function CreateLeague({
             </OnlineSetting>
 
             <OnlineSetting
+              label="Fantasy draft rounds"
+              hint="How many players each team drafts. The rest of the 53-man roster is filled in afterwards."
+            >
+              <select
+                value={String(faRounds)}
+                disabled={!fantasyDraft}
+                onChange={(e) => setFaRounds(Number(e.target.value))}
+              >
+                {[5, 8, 10, 12, 15, 20, 25, 30].map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n} rounds
+                  </option>
+                ))}
+              </select>
+            </OnlineSetting>
+
+            <OnlineSetting
               label="Manual picks each"
-              hint="How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. Twenty rounds by hand is a long evening."
+              hint={`How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. All ${faRounds} rounds by hand is a long evening.`}
             >
               <select
                 value={simAfter}
                 disabled={!fantasyDraft}
                 onChange={(e) => setSimAfter(e.target.value)}
               >
-                {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
+                {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n <= faRounds).map((n) => (
                   <option key={n} value={String(n)}>
                     {n} {n === 1 ? "pick" : "picks"}
                   </option>
                 ))}
-                <option value="">Never — draft all 20 rounds by hand</option>
+                <option value="">Never — draft all {faRounds} rounds by hand</option>
               </select>
             </OnlineSetting>
 

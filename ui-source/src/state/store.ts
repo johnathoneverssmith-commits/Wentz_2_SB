@@ -85,6 +85,7 @@ import {
   resolveHoodedFigureEncounter,
 } from "./hoodedFigure.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
+import { reconcileCpuTeam } from "./reconciliation.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -317,6 +318,21 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // the catch-up mechanic's offer, generated once per eligible human GM the
   // moment the stage opens — never regenerated on a later visit
   if (to === "hoodedFigureEncounter") ensureHoodedFigureEncounters(s);
+
+  // The cap and the roster limit come back here, and the CPU teams sort
+  // themselves out on the way in — the same block online's onStageEntered
+  // runs. Solo never did, and a market that deliberately suspends both
+  // limits leaves a lot behind: measured at this point in a stock dynasty,
+  // 18 of the 31 CPU teams were over the roster limit and 5 over the cap.
+  // They stayed that way until the blanket trim much later in the offseason,
+  // so in the meantime League Rosters showed illegal squads and those teams
+  // could not take a trade, because `checkTrade` reads the same cap.
+  if (to === "freeAgencySummary" || to === "midseasonFreeAgencySummary") {
+    const humans = humanTeamsOf(s);
+    for (const code of Object.keys(s.teams)) {
+      if (!humans.has(code)) reconcileCpuTeam(s, code);
+    }
+  }
 
   // the twelve-round coaching board opens with the stage; without this
   // `s.coachingDraft` stayed null and the screen sat on "One moment."
@@ -601,17 +617,10 @@ export const useStore = create<Store>()(
           const boardDone = draft.currentPickIndex >= draft.pickOrder.length;
           if (draftThresholdMet(s) || boardDone) {
             if (!boardDone) completeDraft(s);
-            const was = s.stage;
             const t = resolveTransition(s, {});
+            applyStageEntry(s, s.stage, t.stage);
             s.stage = t.stage;
             s.week = t.week;
-            // the one side effect the fantasy draft's own exit needs locally
-            // (tryAdvance's equivalent block, mirrored here since completing
-            // the draft from a pick doesn't go through tryAdvance at all)
-            if (was === "fantasyDraft" && t.stage === "fantasyDraftSummary") {
-              openStandingMarketFromUndrafted(s);
-              fillRosterGaps(s);
-            }
             clearReadiness(s);
           }
         }),
@@ -708,6 +717,7 @@ export const useStore = create<Store>()(
             // finding 16), the same gap online's decideDeadlineTurn had.
             if (s.tradeDeadline?.done) {
               const t = resolveTransition(s, {});
+              applyStageEntry(s, s.stage, t.stage);
               s.stage = t.stage;
               s.week = t.week;
               clearReadiness(s);
@@ -796,6 +806,7 @@ export const useStore = create<Store>()(
           const from = s.stage;
           if (s.freeAgencyEvent?.complete && (from === "freeAgency" || from === "midseasonFreeAgency")) {
             const t = resolveTransition(s, {});
+            applyStageEntry(s, from, t.stage);
             s.stage = t.stage;
             s.week = t.week;
             clearReadiness(s);
@@ -821,6 +832,7 @@ export const useStore = create<Store>()(
           // with no way out (playtest finding 3).
           if (coachingDraftComplete(s)) {
             const t = resolveTransition(s, {});
+            applyStageEntry(s, s.stage, t.stage);
             s.stage = t.stage;
             s.week = t.week;
             clearReadiness(s);

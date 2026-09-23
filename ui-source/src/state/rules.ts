@@ -36,7 +36,7 @@ import {
   recomputeTeamRatings,
   releaseToMarket,
 } from "./seed.ts";
-import { DRAFT_ROUNDS, ensureDraftPicks, pickKey, pickOrderFor } from "./draftPicks.ts";
+import { DRAFT_ROUNDS, FANTASY_DRAFT_ROUNDS, ensureDraftPicks, pickKey, pickOrderFor } from "./draftPicks.ts";
 import {
   strategyAgeBonus,
   strategyCoachBonus,
@@ -1459,7 +1459,11 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     fullFirstRound = [...humanCodes, ...shuffle(aiCodes, s.season + 11)];
   }
 
-  const rounds = mode === "fantasy" ? 20 : DRAFT_ROUNDS;
+  // `?? FANTASY_DRAFT_ROUNDS` rather than a bare read: a save written before
+  // the round count was configurable has no such field, and a draft of
+  // `undefined` rounds is an empty board.
+  const rounds =
+    mode === "fantasy" ? (s.config.fantasyDraftRounds ?? FANTASY_DRAFT_ROUNDS) : DRAFT_ROUNDS;
   let order: string[] = [];
   if (mode === "rookie") {
     // the slots are earned by record; who *uses* each one is whoever

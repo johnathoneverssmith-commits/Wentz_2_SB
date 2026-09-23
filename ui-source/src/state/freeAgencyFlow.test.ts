@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { availableCoaches, vacantRoles } from "./coachingDraft.ts";
 import { FREE_AGENCY_ROUNDS, onTheClock } from "./freeAgencyEvent.ts";
+import { reconciliationIssues } from "./reconciliation.ts";
 import { DEFAULT_CONFIG } from "./seed.ts";
 import { useStore } from "./store.ts";
 
@@ -108,6 +109,24 @@ describe("free agency (single-player store)", () => {
       expect(s().stage, "free agency completed but the stage never moved").toBe(
         "freeAgencySummary",
       );
+
+      // Arriving at the summary reconciles the CPU teams, the way online's
+      // onStageEntered does. The market deliberately suspends the cap and the
+      // roster limit, and solo used to leave every team that way until a
+      // blanket trim much later in the offseason — measured here in a stock
+      // dynasty, 18 of the 31 were over the roster limit and 5 over the cap,
+      // which also meant none of them could take a trade.
+      //
+      // It doubles as the guard that the market's *own* completion path runs
+      // stage entry at all: it advances the stage from inside
+      // `freeAgencyTurn` rather than through a gate, and used to skip it.
+      const humanTeams = new Set(
+        s().gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode),
+      );
+      const illegal = Object.keys(s().teams)
+        .filter((code) => !humanTeams.has(code))
+        .filter((code) => reconciliationIssues(s(), code).length > 0);
+      expect(illegal, `CPU teams left illegal: ${illegal.join(", ")}`).toEqual([]);
 
       // A turn is one click, and it sweeps ~30 CPU teams inside one immer
       // producer. It measured 1325ms before the round index was hoisted out

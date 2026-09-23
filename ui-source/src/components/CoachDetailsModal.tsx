@@ -1,7 +1,18 @@
 import { COACH_POSITION_GROUPS, COACH_ROLE_LABEL, SCHEME_LABEL, type Coach, type DevelopmentRole } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import {
+  developmentMultiplier,
+  recoveryMultiplier,
+  regressionMultiplier,
+} from "@/state/coachEffects";
 import { ratingOf } from "@/state/coachingDraft";
 import { useDialog } from "./useDialog.ts";
+
+/** A multiplier as the swing it actually is: 1.12 reads "+12%". */
+const pct = (multiplier: number): string => {
+  const v = Math.round((multiplier - 1) * 100);
+  return v === 0 ? "—" : `${v > 0 ? "+" : ""}${v}%`;
+};
 
 /**
  * Full read-out for one coach: whichever rated characteristics his job
@@ -70,17 +81,29 @@ export function CoachDetailsModal({ coach, onClose }: { coach: Coach; onClose: (
             </>
           )}
 
+          {/* A development coach's rating is one number, which says nothing
+              on its own about what hiring him buys. These are the same
+              figures the Coaching Draft Summary already shows — what he
+              actually does to a player between seasons. */}
           {group && group.length > 0 && (
             <>
+              <p className="subhead">What he does</p>
+              <div className="split-3" style={{ gap: "6px 12px", marginBottom: 10 }}>
+                <Stat label="Development" text={pct(developmentMultiplier(ratingOf(coach)))} />
+                <Stat label="Regression" text={pct(regressionMultiplier(ratingOf(coach)))} />
+              </div>
               <p className="subhead">Develops</p>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-dim)" }}>{group.join(", ")}</p>
             </>
           )}
           {coach.role === "MED" && (
             <>
-              <p className="subhead">Develops</p>
+              <p className="subhead">What he does</p>
+              <div className="split-3" style={{ gap: "6px 12px", marginBottom: 10 }}>
+                <Stat label="Injury recovery" text={pct(recoveryMultiplier(ratingOf(coach)))} />
+              </div>
               <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-dim)" }}>
-                Injury recovery for the whole roster
+                Applies to the whole roster, not one position group.
               </p>
             </>
           )}
@@ -96,14 +119,24 @@ export function CoachDetailsModal({ coach, onClose }: { coach: Coach; onClose: (
   );
 }
 
-function Stat({ label, value, suffix = "" }: { label: string; value: number | undefined; suffix?: string }) {
-  if (value == null) return null;
+function Stat({
+  label,
+  value,
+  suffix = "",
+  text,
+}: {
+  label: string;
+  value?: number | undefined;
+  suffix?: string;
+  /** Pre-formatted, for the derived percentages. */
+  text?: string;
+}) {
+  if (text == null && value == null) return null;
   return (
     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
       <span style={{ color: "var(--ink-dim)" }}>{label}</span>
       <span className="oswald" style={{ fontWeight: 600 }}>
-        {value}
-        {suffix}
+        {text ?? `${value}${suffix}`}
       </span>
     </div>
   );

@@ -19,7 +19,6 @@ export function LeagueSetup() {
   const stage = useStore((s) => s.stage);
   const config = useStore((s) => s.config);
   const gms = useStore((s) => s.gms);
-  const teams = useStore((s) => s.teams);
   const viewerGmId = useStore((s) => s.viewerGmId);
   const setConfig = useStore((s) => s.setConfig);
   const pickTeam = useStore((s) => s.pickTeam);
@@ -32,11 +31,22 @@ export function LeagueSetup() {
   const online = isOnline();
 
   const viewer = gms.find((g) => g.id === viewerGmId)!;
-  const humans = gms.filter((g) => g.isHuman);
+  /**
+   * Everyone with a seat at this league, whether or not they are a person.
+   *
+   * Solo, the rival GM slots are named AI opponents holding real teams —
+   * they are not human, because nothing is going to take their turns, but
+   * they are still the franchises you are scored against and the lobby is
+   * where you meet them. Filtering this list on `isHuman` left a solo
+   * dynasty showing a lobby of one and every rival's team marked
+   * "Available". Online it is unchanged: an unclaimed slot has no team and
+   * is not human, so it stays out of here and `LeagueRoster` shows the
+   * empty seats instead.
+   */
+  const lobby = gms.filter((g) => g.isHuman || g.teamCode);
   const takenBy = new Map<string, string>();
-  for (const code of Object.keys(teams)) {
-    const c = teams[code]!.controlledBy;
-    if (c.kind === "human") takenBy.set(code, c.gmId);
+  for (const g of gms) {
+    if (g.teamCode) takenBy.set(g.teamCode, g.id);
   }
   const myMeta = viewer.teamCode ? TEAMS_BY_CODE[viewer.teamCode] : undefined;
 
@@ -48,13 +58,18 @@ export function LeagueSetup() {
         subtitle={
           locked
             ? `${STAGE_LABEL[stage]} · team and rules are locked while the league is running`
-            : `New Dynasty · ${config.humanGmCount} Human GMs`
+            : `New Dynasty · ${config.humanGmCount} ${online ? "Human GMs" : "GMs"}`
         }
       />
 
       <Ticker
         stats={[
-          { label: "Human GMs", value: `${humans.filter((g) => g.teamCode).length} / ${config.humanGmCount}` },
+          // solo, the other seats are AI rivals rather than people, so
+          // counting "human GMs" there reported 1 of 3 for a full league
+          {
+            label: online ? "Human GMs" : "GMs",
+            value: `${lobby.filter((g) => g.teamCode).length} / ${config.humanGmCount}`,
+          },
           { label: "Your team", value: myMeta ? myMeta.name : "Not selected", className: myMeta ? "accent sm" : "sm" },
           { label: "Fantasy draft", value: config.fantasyDraft ? "On" : "Off", className: "sm" },
           { label: "Draft type", value: config.fantasyDraft ? cap(config.draftType) : "N/A", className: "sm" },
@@ -95,7 +110,7 @@ export function LeagueSetup() {
 
         <p className="sectionlabel">GM lobby</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8, marginBottom: 6 }}>
-          {humans.map((g) => {
+          {lobby.map((g) => {
             const meta = g.teamCode ? TEAMS_BY_CODE[g.teamCode] : undefined;
             const you = g.id === viewerGmId;
             return (
@@ -266,8 +281,24 @@ export function LeagueSetup() {
           </select>
         </SettingRow>
         <SettingRow
+          label="Fantasy draft rounds"
+          hint="How many players each team drafts. Whatever is left of the 53-man roster is filled in afterwards, so a shorter draft means more of the roster is handed to you."
+        >
+          <select
+            value={String(config.fantasyDraftRounds)}
+            disabled={locked || !config.fantasyDraft}
+            onChange={(e) => setConfig({ fantasyDraftRounds: Number(e.target.value) })}
+          >
+            {[5, 8, 10, 12, 15, 20, 25, 30].map((n) => (
+              <option key={n} value={String(n)}>
+                {n} rounds
+              </option>
+            ))}
+          </select>
+        </SettingRow>
+        <SettingRow
           label="Manual picks each"
-          hint="How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. Twenty rounds by hand is a long evening."
+          hint={`How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. All ${config.fantasyDraftRounds} rounds by hand is a long evening.`}
         >
           <select
             value={config.draftSimulateAfterPicks == null ? "" : String(config.draftSimulateAfterPicks)}
@@ -276,12 +307,12 @@ export function LeagueSetup() {
               setConfig({ draftSimulateAfterPicks: e.target.value === "" ? null : Number(e.target.value) })
             }
           >
-            {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
+            {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n <= config.fantasyDraftRounds).map((n) => (
               <option key={n} value={String(n)}>
                 {n} {n === 1 ? "pick" : "picks"}
               </option>
             ))}
-            <option value="">Never — draft all 20 rounds by hand</option>
+            <option value="">Never — draft all {config.fantasyDraftRounds} rounds by hand</option>
           </select>
         </SettingRow>
         <SettingRow

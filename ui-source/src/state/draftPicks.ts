@@ -14,6 +14,13 @@ import type { DraftPickAsset, LeagueState } from "@/domain";
 export const DRAFT_ROUNDS = 7;
 
 /**
+ * The fantasy draft's default length, and the fallback for a save written
+ * before `LeagueConfig.fantasyDraftRounds` existed. Twenty rounds hands each
+ * team twenty players; `fillRosterGaps` makes up the rest of the 53.
+ */
+export const FANTASY_DRAFT_ROUNDS = 20;
+
+/**
  * How far ahead picks exist to be traded. The real rule is three drafts —
  * this year's and the next two — and the same limit keeps a GM from
  * mortgaging a decade they'll never play.

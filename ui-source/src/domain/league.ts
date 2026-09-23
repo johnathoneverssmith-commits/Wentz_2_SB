@@ -69,6 +69,14 @@ export interface LeagueConfig {
    * GMs had already been asked for.
    */
   draftSimulateAfterPicks: number | null;
+  /**
+   * How many rounds the fantasy draft runs — i.e. how many players each team
+   * ends up drafting before `fillRosterGaps` tops the roster up to 53.
+   *
+   * The rookie draft is not configurable: it is seven rounds because that is
+   * what the NFL's is, and its picks are tradeable assets keyed to rounds.
+   */
+  fantasyDraftRounds: number;
   gameDayDeadlineHours: DeadlineChoice;
   offseasonStageDeadlineHours: DeadlineChoice;
   /** how well the AI GMs optimise their roster / game decisions. */

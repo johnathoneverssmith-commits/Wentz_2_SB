@@ -16,6 +16,7 @@ function base(p: Partial<LeagueState>): LeagueState {
       draftOrder: "randomized",
       draftType: "linear",
     draftSimulateAfterPicks: 5,
+    fantasyDraftRounds: 20,
       gameDayDeadlineHours: 12,
       offseasonStageDeadlineHours: 24,
       difficulty: "standard",
