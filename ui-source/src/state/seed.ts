@@ -54,13 +54,31 @@ export const DEFAULT_CONFIG: LeagueConfig = {
 const AI_GM_NAMES = ["Priya", "Marcus", "Dana", "Theo", "Nadia", "Wes", "Iris"];
 const DEFAULT_GM_TEAMS = ["PIT", "KC", "SF", "DAL", "BAL", "PHI", "GB"];
 
+/**
+ * The GM slots a new league starts with: you, plus the rival GMs.
+ *
+ * The rivals are named characters with teams, and they are *not* human.
+ * `isHuman` is the flag every turn-based stage reads to decide whether to
+ * wait for a person — `isAiTeam`, the draft's `runAiPicks`, the coaching
+ * draft, both free-agency sweeps and the trade deadline all stop dead on a
+ * team a human GM owns. Marking the rivals human meant a solo dynasty
+ * deadlocked on the first one's turn: with stock settings the fantasy draft
+ * sat on Pittsburgh at pick 3 of 640 forever, because Priya is not at this
+ * keyboard and nothing was ever going to pick for her.
+ *
+ * Online hits the same wall from the other side and already solves it the
+ * same way — `leagues.ts` clears `isHuman` on every slot at creation,
+ * because "a slot nobody has claimed is not a person", and `claimTeam` sets
+ * it back to true when a real one takes the seat. This is that rule applied
+ * to the solo seed, where the seat is never going to be claimed at all.
+ */
 export function makeGms(config: LeagueConfig): Gm[] {
   const gms: Gm[] = [{ id: "gm_you", name: "You", isHuman: true, teamCode: "" }];
   for (let i = 1; i < config.humanGmCount; i++) {
     gms.push({
       id: `gm_${i}`,
       name: AI_GM_NAMES[i - 1] ?? `GM ${i + 1}`,
-      isHuman: true,
+      isHuman: false,
       teamCode: DEFAULT_GM_TEAMS[i - 1] ?? "",
     });
   }
@@ -900,7 +918,7 @@ export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): L
   const teams: Record<string, TeamState> = {};
   for (const t of TEAMS) teams[t.code] = blankTeam(t.code);
   for (const g of gms) {
-    if (g.teamCode && teams[g.teamCode]) {
+    if (g.isHuman && g.teamCode && teams[g.teamCode]) {
       teams[g.teamCode]!.controlledBy = { kind: "human", gmId: g.id };
     }
   }

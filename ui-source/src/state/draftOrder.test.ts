@@ -22,12 +22,28 @@ function humanCodes(): string[] {
   return s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
 }
 
+/**
+ * A league with several people in it.
+ *
+ * The solo seed gives the rival GM slots teams but marks them non-human —
+ * they are AI opponents, and nobody is going to take their turns. "Humans
+ * parked at the top of the order" is only a distinguishable bug when there
+ * is more than one human, so the guard below builds the multi-GM league it
+ * was written against rather than relying on the default.
+ */
+function makeMultiHuman(): void {
+  useStore.setState((s) => {
+    for (const g of s.gms) if (g.teamCode) g.isHuman = true;
+  });
+}
+
 describe("draft order", () => {
   it("randomized does not park the human GMs at the top of every round", () => {
     useStore.setState((s) => {
       s.config.draftOrder = "randomized";
       s.config.draftType = "linear";
     });
+    makeMultiHuman();
     const humans = new Set(humanCodes());
     const order = orderFor("fantasy");
     const teams = Object.keys(useStore.getState().teams).length;

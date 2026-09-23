@@ -56,7 +56,13 @@ import {
   coachingDraftComplete,
   runAiCoachingPicks,
 } from "./coachingDraft.ts";
-import { applyOffer, applyPass, checkOffer, runCpuTurns } from "./freeAgencyEvent.ts";
+import {
+  applyOffer,
+  applyPass,
+  beginFreeAgencyEvent,
+  checkOffer,
+  runCpuTurns as runFreeAgencyCpuTurns,
+} from "./freeAgencyEvent.ts";
 import {
   checkCampSubmission,
   runTrainingCamp,
@@ -443,6 +449,26 @@ export const useStore = create<Store>()(
             beginTradeDeadline(s);
             runDeadlineTurns(s);
           }
+          // Both five-round markets open with their stage, and the CPU teams
+          // ahead of the first human take their turns straight away — the
+          // same two blocks online's onStageEntered runs. Without this
+          // `s.freeAgencyEvent` stayed null and the board sat on "One
+          // moment." forever, the third screen to be stuck this way after
+          // the coaching draft and the trade deadline.
+          //
+          // The saved event is cleared rather than resumed for the reason
+          // online gives: each of these is a different five rounds, with an
+          // order recalculated from current roster strength and a pool that
+          // has moved on, and reusing the old one would reopen its offers.
+          if (
+            (t.stage === "freeAgency" && s.stage !== "freeAgency") ||
+            (t.stage === "midseasonFreeAgency" && s.stage !== "midseasonFreeAgency")
+          ) {
+            s.freeAgencyEvent = null;
+            beginFreeAgencyEvent(s);
+            const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+            runFreeAgencyCpuTurns(s, humans);
+          }
 
           s.stage = t.stage;
           s.week = t.week;
@@ -745,7 +771,22 @@ export const useStore = create<Store>()(
           if (move.pass || !move.playerId) applyPass(s, mine);
           else applyOffer(s, mine, move.playerId, Number(move.salary), Number(move.years));
           const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
-          runCpuTurns(s, humans);
+          runFreeAgencyCpuTurns(s, humans);
+
+          // The event ending is a stage change, not a prompt — there is
+          // nothing left to decide once the fifth round resolves, and this
+          // screen has no readiness gate to press. Without it the market
+          // played itself out and then sat there complete and unleavable,
+          // the same dead end the coaching draft and the trade deadline
+          // both had. Both stages run this event (the opening market and
+          // midseason's), so both have to be recognised.
+          const from = s.stage;
+          if (s.freeAgencyEvent?.complete && (from === "freeAgency" || from === "midseasonFreeAgency")) {
+            const t = resolveTransition(s, {});
+            s.stage = t.stage;
+            s.week = t.week;
+            clearReadiness(s);
+          }
         });
         return { ok: true };
       },

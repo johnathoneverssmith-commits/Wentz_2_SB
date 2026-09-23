@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Player } from "@/domain";
+import { STAGE_HOME } from "@/state/stageMachine";
 import {
   FREE_AGENCY_ROUNDS,
   leadingOffer,
@@ -37,12 +39,23 @@ import { millions } from "@/util/format";
  */
 export function FreeAgencyBoardTurns() {
   const s = useStore();
+  const nav = useNavigate();
   const actions = useLeagueActions();
   const code = viewerTeamCode(s);
   const { active, setActive } = useTabs("unsigned");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offering, setOffering] = useState<Player | null>(null);
+
+  // The fifth round resolving ends the market and moves the stage on from
+  // inside `freeAgencyTurn` itself — there is no gate to press, so nothing
+  // here would otherwise notice. Without this the league advanced to the
+  // summary while this screen went on showing a finished board with
+  // "On the clock" and a Pass button that no longer did anything.
+  const inMarket = s.stage === "freeAgency" || s.stage === "midseasonFreeAgency";
+  useEffect(() => {
+    if (!inMarket) nav(STAGE_HOME[s.stage], { replace: true });
+  }, [inMarket, s.stage, nav]);
 
   const e = s.freeAgencyEvent;
   const clock = onTheClock(s);

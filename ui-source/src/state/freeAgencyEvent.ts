@@ -226,18 +226,22 @@ export function resolveRound(s: LeagueState): void {
  * not chase a player another team has already bid far more for, which keeps
  * the AI from burning every round on the same name.
  */
-export function cpuTurn(s: LeagueState, teamCode: string): void {
+export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): void {
   const e = s.freeAgencyEvent;
   if (!e) return applyPass(s, teamCode);
 
-  const pool = unsignedPool(s);
+  // `runCpuTurns` hands these down so a sweep costs one pass over the players
+  // rather than two per team; a lone call still works on its own.
+  const idx = index ?? indexRound(s);
+  const pool = idx.pool;
   if (pool.length === 0) return applyPass(s, teamCode);
 
-  const roster = Object.values(s.players).filter(
-    (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent,
-  );
-  const bestAt = (position: string): number =>
-    roster.filter((p) => p.position === position).reduce((n, p) => Math.max(n, p.overall), 0);
+  // Best overall this team already has at each position. It is a map lookup
+  // rather than a roster re-scan because `shortlistByBaseScore` below asks
+  // once per player in the pool — the same mistake `bestAvailable` in
+  // rules.ts documents hitting inside the draft's sort comparator.
+  const bestByPosition = idx.bestByTeam.get(teamCode);
+  const bestAt = (position: string): number => bestByPosition?.get(position) ?? 0;
 
   // AI Difficulty (§13.1): search only the top `candidateDepth` plausible
   // targets by raw gain — Expert (Infinity) considers every legal target,
@@ -288,16 +292,55 @@ export function cpuTurn(s: LeagueState, teamCode: string): void {
   applyOffer(s, teamCode, target.id, salary, years);
 }
 
+/**
+ * Everything a CPU turn needs that does not change while a round is running.
+ *
+ * Nothing signs mid-round — `resolveRound` is the only thing that moves a
+ * player onto a roster — so the unsigned pool and every team's best-by-
+ * position are fixed for the whole round. Computing them per turn meant two
+ * full passes over ~2,000 players for each of ~30 CPU teams between one
+ * human turn and the next, and single-player runs all of that inside an
+ * immer producer where every read is a proxy trap. One click cost well over
+ * a second of frozen tab.
+ */
+interface RoundIndex {
+  round: number;
+  pool: Player[];
+  bestByTeam: Map<string, Map<string, number>>;
+}
+
+function indexRound(s: LeagueState): RoundIndex {
+  const signed = new Set((s.freeAgencyEvent?.signed ?? []).map((x) => x.playerId));
+  const pool: Player[] = [];
+  const bestByTeam = new Map<string, Map<string, number>>();
+  // one pass for both: who is still available, and what every roster already has
+  for (const p of Object.values(s.players)) {
+    if (p.retired) continue;
+    if (p.free_agent) {
+      if (!signed.has(p.id)) pool.push(p);
+      continue;
+    }
+    let byPos = bestByTeam.get(p.nfl_team);
+    if (!byPos) bestByTeam.set(p.nfl_team, (byPos = new Map()));
+    if (p.overall > (byPos.get(p.position) ?? 0)) byPos.set(p.position, p.overall);
+  }
+  return { round: s.freeAgencyEvent?.round ?? 0, pool, bestByTeam };
+}
+
 /** Run CPU turns until a human is on the clock or the event ends. */
 export function runCpuTurns(s: LeagueState, humanTeams: Set<string>): number {
   let acted = 0;
   let guard = 0;
+  let index = indexRound(s);
   while (guard++ < 400) {
     const e = s.freeAgencyEvent;
     if (!e || e.complete) break;
+    // a resolved round signs players, which is the one thing that invalidates
+    // the index — rebuild it then, and only then
+    if (e.round !== index.round) index = indexRound(s);
     const team = onTheClock(s);
     if (!team || humanTeams.has(team)) break;
-    cpuTurn(s, team);
+    cpuTurn(s, team, index);
     acted++;
   }
   return acted;

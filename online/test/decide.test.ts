@@ -42,6 +42,14 @@ beforeEach(() => {
   bob = { userId: "u2", leagueId: "l", teamCode: teamOf(1), gmId: "gm_1" };
   state.gms[0]!.teamCode = alice.teamCode;
   state.gms[1]!.teamCode = bob.teamCode;
+  // Two people have claimed these seats, which is what `claimTeam` records.
+  // The solo seed marks the rival GM slots non-human — they are AI opponents
+  // nobody is going to take turns for — and `leagues.ts` clears the flag on
+  // every slot at creation anyway, so an online fixture has to set it rather
+  // than inherit it. Without this the draft's `runAiPicks` treats bob's team
+  // as a CPU and picks for him the moment alice is done.
+  state.gms[0]!.isHuman = true;
+  state.gms[1]!.isHuman = true;
 });
 
 const rosterOf = (code: string) =>
