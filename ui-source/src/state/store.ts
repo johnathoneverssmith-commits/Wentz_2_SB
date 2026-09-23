@@ -249,6 +249,101 @@ const CORRUPT_BACKUP_KEY = `${SAVE_KEY}.corrupted-backup`;
  * was always what was there.
  */
 let saveCorrupted = false;
+/** Team codes a person is actually playing, for the CPU sweeps to stop on. */
+function humanTeamsOf(s: LeagueState): Set<string> {
+  return new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+}
+
+/**
+ * Everything a stage does on the way in, in one place.
+ *
+ * There are two ways the league changes stage — `tryAdvance` for the gated
+ * offseason stages, `finishGameDay` for the in-season ones — and they used
+ * to carry different halves of this list. Every stage whose screen refuses
+ * to work until its own state exists (the coaching draft's board, the
+ * deadline's turn order, free agency's five rounds) therefore worked when
+ * reached one way and dead-ended when reached the other: the trade deadline
+ * is entered from the regular season, i.e. through `finishGameDay`, so a
+ * league arrived at week 10 to "The deadline hasn't opened yet" and a screen
+ * with no controls on it at all.
+ *
+ * Online has always had exactly one of these (`phases.ts`'s
+ * `onStageEntered`) and does not have the matching bugs. This is that, for
+ * the store: both paths call it, so a stage's opening logic cannot depend on
+ * which door the league came through.
+ */
+function applyStageEntry(s: LeagueState, from: string, to: string): void {
+  // leaving the fantasy draft → undrafted players seed the standing FA
+  // market, then every team is brought up to a full 53 (20 rounds only
+  // hands each team 20 players)
+  if (from === "fantasyDraft" && to === "fantasyDraftSummary") {
+    openStandingMarketFromUndrafted(s);
+    fillRosterGaps(s);
+  }
+
+  // leaving rookie signings → the AI teams put their own classes under
+  // contract, then every roster is cut back to legal before the market
+  // opens. Without it the AI never signs its draft class and nobody trims,
+  // and every team walks into the next season over the cap and the limit.
+  if (from === "offseasonSignings" && to === "offseasonDepthChart") {
+    signAiDraftPicks(s);
+    trimRosters(s);
+  }
+
+  // Hard stop before the season: free agency is optional, so a team can
+  // reach this point still short. Nobody takes the field without a full,
+  // position-legal roster.
+  if (to === "preseason") fillRosterGaps(s);
+
+  // The league goes shopping at the two moments it would: the day the
+  // season ends, and the week of the deadline. Seeded on the stage, so an
+  // offer can't be rerolled by bouncing off the screen.
+  if (to === "offseasonRetirement" || to === "offseasonDepthChart") {
+    const fresh = generateAiTradeOffers(s, to === "offseasonRetirement" ? 1 : 2, 1);
+    for (const offer of fresh) {
+      // never offer a deal the offering team couldn't honour — an AI that
+      // proposes something it can't fit under its own cap looks incompetent,
+      // and it wastes the GM's decision
+      if (!checkTrade(s, offer).ok) continue;
+      if (!s.trades.some((x) => x.id === offer.id)) s.trades.push(offer);
+    }
+  }
+
+  // leaving retirement review → actually retire the players it showed
+  if (from === "offseasonRetirement" && to === "offseasonDraftPrep") {
+    commitRetirements(s);
+  }
+
+  // the catch-up mechanic's offer, generated once per eligible human GM the
+  // moment the stage opens — never regenerated on a later visit
+  if (to === "hoodedFigureEncounter") ensureHoodedFigureEncounters(s);
+
+  // the twelve-round coaching board opens with the stage; without this
+  // `s.coachingDraft` stayed null and the screen sat on "One moment."
+  if (to === "coachingDraft" && !s.coachingDraft) {
+    beginCoachingDraft(s);
+    runAiCoachingPicks(s, humanTeamsOf(s));
+  }
+
+  // the deadline builds its order from the week 1-9 standings and runs
+  // itself forward until a human is on the clock
+  if (to === "tradeDeadline" && !s.tradeDeadline) {
+    beginTradeDeadline(s);
+    runDeadlineTurns(s);
+  }
+
+  // Both five-round markets open with their stage, and the CPU teams ahead
+  // of the first human take their turns straight away. The saved event is
+  // cleared rather than resumed: each is a different five rounds, with an
+  // order recalculated from current roster strength and a pool that has
+  // moved on, and reusing the old one would reopen its offers.
+  if ((to === "freeAgency" && from !== "freeAgency") || (to === "midseasonFreeAgency" && from !== "midseasonFreeAgency")) {
+    s.freeAgencyEvent = null;
+    beginFreeAgencyEvent(s);
+    runFreeAgencyCpuTurns(s, humanTeamsOf(s));
+  }
+}
+
 const corruptWatchers = new Set<(corrupted: boolean) => void>();
 function notifyCorruptState(): void {
   for (const fn of corruptWatchers) fn(saveCorrupted);
@@ -382,93 +477,7 @@ export const useStore = create<Store>()(
             s.schedule = newSchedule!;
           }
 
-          // leaving the fantasy draft → undrafted players seed the standing FA
-          // market, then every team is brought up to a full 53 (20 rounds only
-          // hands each team 20 players)
-          if (s.stage === "fantasyDraft" && t.stage === "fantasyDraftSummary") {
-            openStandingMarketFromUndrafted(s);
-            fillRosterGaps(s);
-          }
-
-          // leaving rookie signings → the AI teams put their own classes under
-          // contract, then every roster is cut back to legal before the market
-          // opens
-          // Was keyed on the free-agency window opening. That stage is gone, so
-          // this now runs on the way to the depth chart — without it the AI
-          // never signs its draft class and nobody trims, and every team walks
-          // into the next season over the cap and over the roster limit.
-          if (s.stage === "offseasonSignings" && t.stage === "offseasonDepthChart") {
-            signAiDraftPicks(s);
-            trimRosters(s);
-          }
-
-          // Hard stop before the season: free agency is optional, so a team can
-          // reach this point still short. Nobody takes the field without a full,
-          // position-legal roster.
-          if (t.stage === "preseason") fillRosterGaps(s);
-
-          // The league goes shopping at the two moments it would: the day the
-          // season ends, and the week of the deadline. Seeded on the stage, so
-          // an offer can't be rerolled by bouncing off the screen.
-          if (t.stage === "offseasonRetirement" || t.stage === "offseasonDepthChart") {
-            const fresh = generateAiTradeOffers(s, t.stage === "offseasonRetirement" ? 1 : 2, 1);
-            for (const offer of fresh) {
-              // never offer a deal the offering team couldn't honour — an AI
-              // that proposes something it can't fit under its own cap looks
-              // incompetent, and it wastes the GM's decision
-              if (!checkTrade(s, offer).ok) continue;
-              if (!s.trades.some((x) => x.id === offer.id)) s.trades.push(offer);
-            }
-          }
-
-          // leaving retirement review → actually retire the players it showed
-          if (s.stage === "offseasonRetirement" && t.stage === "offseasonDraftPrep") {
-            commitRetirements(s);
-          }
-
-          // the catch-up mechanic's offer, generated once per eligible human
-          // GM the moment the stage opens — never regenerated on a later visit
-          if (t.stage === "hoodedFigureEncounter") {
-            ensureHoodedFigureEncounters(s);
-          }
-
-          // the twelve-round coaching board opens with the stage, the same
-          // way the online server does it (phases.ts's onStageEntered) —
-          // without this, `s.coachingDraft` stayed null forever and the
-          // screen (which refuses to do anything until it exists) was stuck
-          // on "One moment." permanently. Nobody could ever get a staff.
-          if (t.stage === "coachingDraft" && !s.coachingDraft) {
-            beginCoachingDraft(s);
-            const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
-            runAiCoachingPicks(s, humans);
-          }
-          // the deadline builds its order and runs itself forward the same
-          // way online's onStageEntered does — without this `s.tradeDeadline`
-          // stayed null forever and the screen had nothing to show.
-          if (t.stage === "tradeDeadline" && !s.tradeDeadline) {
-            beginTradeDeadline(s);
-            runDeadlineTurns(s);
-          }
-          // Both five-round markets open with their stage, and the CPU teams
-          // ahead of the first human take their turns straight away — the
-          // same two blocks online's onStageEntered runs. Without this
-          // `s.freeAgencyEvent` stayed null and the board sat on "One
-          // moment." forever, the third screen to be stuck this way after
-          // the coaching draft and the trade deadline.
-          //
-          // The saved event is cleared rather than resumed for the reason
-          // online gives: each of these is a different five rounds, with an
-          // order recalculated from current roster strength and a pool that
-          // has moved on, and reusing the old one would reopen its offers.
-          if (
-            (t.stage === "freeAgency" && s.stage !== "freeAgency") ||
-            (t.stage === "midseasonFreeAgency" && s.stage !== "midseasonFreeAgency")
-          ) {
-            s.freeAgencyEvent = null;
-            beginFreeAgencyEvent(s);
-            const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
-            runFreeAgencyCpuTurns(s, humans);
-          }
+          applyStageEntry(s, s.stage, t.stage);
 
           s.stage = t.stage;
           s.week = t.week;
@@ -541,6 +550,10 @@ export const useStore = create<Store>()(
           // the season is scored the moment the playoffs end, so the End-of-Season
           // screens can show this year's row in the tracker.
           if (t.stage === "endOfSeasonAnnounce") finalizeSeason(s);
+          // The in-season path changes stage too, and the stages it opens
+          // (the trade deadline above all) need their own state built exactly
+          // as much as the gated ones do — see `applyStageEntry`.
+          applyStageEntry(s, s.stage, t.stage);
           s.stage = t.stage;
           s.week = t.week;
           s.pendingGameDay = null;

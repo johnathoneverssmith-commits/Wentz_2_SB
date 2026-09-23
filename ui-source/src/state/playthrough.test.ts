@@ -43,6 +43,24 @@ function expectSeasonLegal(s: LeagueState): void {
   }
 }
 
+/**
+ * A stage that owns state has to have built it by the time you arrive.
+ *
+ * `actOn` has no case for the turn-based stages — it readies up and advances
+ * straight through them — so a stage whose screen refuses to work until its
+ * own state exists could dead-end in the app and still pass this test. That
+ * is exactly how the coaching draft ("One moment." forever), free agency
+ * (same) and the trade deadline ("The deadline hasn't opened yet", with no
+ * controls at all) each shipped. Arriving is the moment to check.
+ */
+function expectStageOpened(s: LeagueState, stage: Stage): void {
+  if (stage === "coachingDraft") expect(s.coachingDraft, "coaching draft never opened").toBeTruthy();
+  if (stage === "tradeDeadline") expect(s.tradeDeadline, "trade deadline never opened").toBeTruthy();
+  if (stage === "freeAgency" || stage === "midseasonFreeAgency") {
+    expect(s.freeAgencyEvent, `${stage} never opened`).toBeTruthy();
+  }
+}
+
 /** Does whatever this stage needs before its readiness gate can open. */
 async function actOn(stage: Stage): Promise<void> {
   const s = useStore.getState();
@@ -127,6 +145,7 @@ describe("a full franchise year", () => {
         const before = state().stage;
         const after = await playStage();
         seen.push(before);
+        expectStageOpened(state(), after);
 
         // Entering the preseason is the hard stop: rosters must be legal here.
         // Anchored on arriving rather than on the stage you came from, because
