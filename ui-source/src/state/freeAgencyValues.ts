@@ -2,6 +2,7 @@ import type { LeagueState, Player } from "@/domain";
 
 import { staffAt } from "./coachEffects";
 import { coachRoleForPosition } from "@/domain";
+import { POSITION_VALUE } from "@/sim/MockSimulationService";
 
 /**
  * What a free agent is actually weighing.
@@ -137,7 +138,17 @@ export function expectedSalary(p: Player): number {
   // the aging model has softened since these were set, so the old veteran
   // discount was too aggressive relative to it
   const agePenalty = p.age >= 31 ? 0.86 : p.age >= 29 ? 0.94 : 1;
-  return Math.round(base * agePenalty * 10) / 10;
+  // What the fit above was missing: `contractValueFor`, the backbone it was
+  // fit to, scales by position, and this did not — so the market priced a
+  // 95-overall kicker exactly like a 95-overall quarterback. The board asked
+  // $22.9M/yr for the best kicker in football, which is roughly four times
+  // the real top of that market and about half what a franchise quarterback
+  // should cost. `POSITION_VALUE` is the sourced hierarchy the repo already
+  // uses for this (QB 2.35 … K 0.5, P 0.25) and is centred on 1.0, so an
+  // average-value position is unchanged and the existing fit still holds
+  // where it was actually calibrated.
+  const posMult = POSITION_VALUE[p.position] ?? 1;
+  return Math.round(base * agePenalty * posMult * 10) / 10;
 }
 
 /**
