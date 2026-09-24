@@ -8,6 +8,7 @@
  * never grew, and `injuryAgeReduction` — the part of the retirement model that
  * exists to shorten a battered career — had nothing to work with.
  */
+import { INJURY_HISTORY_KEPT } from "./saveCompaction.ts";
 import type { GameResult, InjuryEvent, LeagueState, Player } from "@/domain";
 
 import { recoveryScaleFor } from "./coachEffects.ts";
@@ -71,7 +72,7 @@ export function applyInjuries(state: LeagueState, results: GameResult[], season:
         description: ev.bodyPart || ev.suspectedType || "undisclosed",
       };
       p.injury_history = [
-        ...(p.injury_history ?? []),
+        ...(p.injury_history ?? []).slice(-(INJURY_HISTORY_KEPT - 1)),
         {
           season,
           type: ev.suspectedType || ev.bodyPart || "undisclosed",

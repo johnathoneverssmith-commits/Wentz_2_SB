@@ -57,6 +57,7 @@ import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
 import { resetSeasonStats } from "@/state/standings.ts";
 import { draftClassTilt } from "@/state/draftSupply.ts";
+import { compactRetired } from "@/state/saveCompaction.ts";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
@@ -257,6 +258,7 @@ function rollOverSeason(state: LeagueState): void {
   ensureDraftPicks(state, state.season); // and two more are now tradeable
   clearInjuries(state); // an offseason outlasts any injury
   pruneFreeAgentMarket(state); // careers that stopped going anywhere end
+  compactRetired(state);
   forgetOldRetirees(state); // and a save shouldn't carry them forever
   applySeasonAging(state, state.season);
   fillRosterGaps(state);

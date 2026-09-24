@@ -90,6 +90,7 @@ import {
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { reconcileCpuTeam } from "./reconciliation.ts";
 import { draftClassTilt } from "./draftSupply.ts";
+import { compactRetired, trimStoredBoxScores } from "./saveCompaction.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -517,6 +518,7 @@ export const useStore = create<Store>()(
             ensureDraftPicks(s, s.season); // and two more are now tradeable
             clearInjuries(s); // an offseason outlasts any injury
             pruneFreeAgentMarket(s); // careers that stopped going anywhere end
+            compactRetired(s);
             forgetOldRetirees(s); // and a save file shouldn't carry them forever
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
@@ -567,6 +569,8 @@ export const useStore = create<Store>()(
               accrueSeasonStats(s, results);
               recomputeStandings(s);
             }
+            // stats are in; only the humans' games keep their player lines
+            trimStoredBoxScores(results, humanTeamsOf(s));
             const viewerGame = results.find(
               (g) => g.homeTeam === viewerTeam || g.awayTeam === viewerTeam,
             );

@@ -150,6 +150,11 @@ export function FullBoxScore() {
       </Panel>
 
       <Panel id="home" open={active === "home"}>
+        {!game.playerLines && (
+          <p style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "0 0 8px" }}>
+            Player lines are kept for your own games; this one keeps its team totals and scoring.
+          </p>
+        )}
         <TeamLines lines={game.playerLines?.home ?? []} />
       </Panel>
       <Panel id="away" open={active === "away"}>
