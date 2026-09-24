@@ -2,7 +2,7 @@ import type { LeagueState, Player } from "@/domain";
 
 import { unitGainer } from "./unitValue.ts";
 import { offerToContract } from "./rules";
-import { bestOfferFor, expectedSalary, type Offer } from "./freeAgencyValues";
+import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 
 /**
@@ -85,11 +85,11 @@ export function onTheClock(s: LeagueState): string | undefined {
 }
 
 /** The leading offer for a player right now, for the board to show. */
-export function leadingOffer(s: LeagueState, playerId: string): Offer | null {
+export function leadingOffer(s: LeagueState, playerId: string, index?: RosterRatings): Offer | null {
   const e = s.freeAgencyEvent;
   const p = s.players[playerId];
   if (!e || !p) return null;
-  return bestOfferFor(s, p, e.offers[playerId] ?? []);
+  return bestOfferFor(s, p, e.offers[playerId] ?? [], index);
 }
 
 export interface OfferCheck {
@@ -179,11 +179,15 @@ export function resolveRound(s: LeagueState): void {
   const e = s.freeAgencyEvent;
   if (!e) return;
 
+  // every player chooses against the rosters the round started with — the
+  // signings below land all at once, so none of them sways another
+  const index = rosterRatings(s);
+  const signedIds = new Set(e.signed.map((x) => x.playerId));
   for (const [playerId, offers] of Object.entries(e.offers)) {
-    if (e.signed.some((x) => x.playerId === playerId)) continue;
+    if (signedIds.has(playerId)) continue;
     const p = s.players[playerId];
     if (!p || !p.free_agent || p.retired) continue;
-    const win = bestOfferFor(s, p, offers);
+    const win = bestOfferFor(s, p, offers, index);
     if (!win) continue;
 
     p.free_agent = false;
@@ -265,7 +269,7 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
   let target: Player | null = null;
   let bestGain = -Infinity;
   for (const p of shortlist) {
-    const lead = leadingOffer(s, p.id);
+    const lead = leadingOffer(s, p.id, idx.ratingsByTeam);
     const ask = expectedSalary(p);
     const ceilingUnit = (deterministicNoiseUnit(teamCode, s.season, "fa_chase_ceiling", p.id) + 1) / 2; // [0,1]
     const ceilingMultiplier = difficulty.chaseCeilingFloor + (1 - difficulty.chaseCeilingFloor) * ceilingUnit;
@@ -284,7 +288,7 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
 
   if (!target || bestGain < 2) return applyPass(s, teamCode);
 
-  const lead = leadingOffer(s, target.id);
+  const lead = leadingOffer(s, target.id, idx.ratingsByTeam);
   // §13.3: a rebid over an existing offer can be deterministically missed
   // even though the target is still rational; a fresh, uncontested offer
   // never is (there is no "rebid" to miss).

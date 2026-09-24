@@ -158,7 +158,37 @@ export function expectedSalary(p: Player): number {
  * the same player depending on who else is on the roster and who is coaching
  * it, which is what makes the market move between rounds.
  */
-export function fitFor(s: LeagueState, p: Player, teamCode: string): number {
+/**
+ * Every rostered rating by team and position. Free agency signs a round's
+ * players all at once, so within a round the rosters a player weighs are the
+ * ones the round started with — and reading them from one index instead of
+ * rescanning ~2,000 players for every offer took the round that ends the
+ * market from ~0.9s to a few milliseconds.
+ */
+export type RosterRatings = ReadonlyMap<string, ReadonlyMap<string, readonly number[]>>;
+
+export function rosterRatings(s: LeagueState): RosterRatings {
+  const out = new Map<string, Map<string, number[]>>();
+  for (const x of Object.values(s.players)) {
+    if (x.retired || x.free_agent) continue;
+    let byPos = out.get(x.nfl_team);
+    if (!byPos) out.set(x.nfl_team, (byPos = new Map()));
+    const l = byPos.get(x.position);
+    if (l) l.push(x.overall);
+    else byPos.set(x.position, [x.overall]);
+  }
+  return out;
+}
+
+export function fitFor(s: LeagueState, p: Player, teamCode: string, index?: RosterRatings): number {
+  // ratings at this player's position on that roster — from the round's
+  // index when there is one, otherwise read straight off the league
+  const ratingsHere = (): readonly number[] =>
+    index
+      ? (index.get(teamCode)?.get(p.position) ?? [])
+      : Object.values(s.players)
+          .filter((x) => x.nfl_team === teamCode && x.position === p.position && !x.retired && !x.free_agent)
+          .map((x) => x.overall);
   const value = primaryValueOf(p);
   const team = s.teams[teamCode];
   if (!team) return 0;
@@ -170,10 +200,8 @@ export function fitFor(s: LeagueState, p: Player, teamCode: string): number {
       return 0.5;
 
     case "startingOpportunity": {
-      const atPosition = Object.values(s.players).filter(
-        (x) => x.nfl_team === teamCode && x.position === p.position && !x.retired && !x.free_agent,
-      );
-      const best = atPosition.reduce((n, x) => Math.max(n, x.overall), 0);
+      const atPosition = ratingsHere();
+      const best = atPosition.reduce((n, x) => Math.max(n, x), 0);
       // a clear path to the field is worth the most; a crowded room the least
       if (atPosition.length === 0) return 1;
       return Math.max(0, Math.min(1, (p.overall - best + 10) / 20));
@@ -206,10 +234,7 @@ export function fitFor(s: LeagueState, p: Player, teamCode: string): number {
       const max = Math.max(...ranks);
       const min = Math.min(...ranks);
       const weak = max === min ? 0.5 : 1 - (team.ratings.overall - min) / (max - min);
-      const atPosition = Object.values(s.players).filter(
-        (x) => x.nfl_team === teamCode && x.position === p.position && !x.retired && !x.free_agent,
-      );
-      const best = atPosition.reduce((n, x) => Math.max(n, x.overall), 0);
+      const best = ratingsHere().reduce((n, x) => Math.max(n, x), 0);
       const room = p.overall >= best ? 1 : 0.4;
       return weak * 0.65 + room * 0.35;
     }
@@ -236,12 +261,12 @@ export interface Offer {
  * what he expected rather than in absolute dollars, so a modest overpay for a
  * modest player is worth as much as a large one for a star.
  */
-export function scoreOffer(s: LeagueState, p: Player, offer: Offer): number {
+export function scoreOffer(s: LeagueState, p: Player, offer: Offer, index?: RosterRatings): number {
   const expected = expectedSalary(p);
   const premium = expected <= 0 ? 1 : offer.salary / expected;
   // diminishing: doubling the money is not twice as persuasive
   const money = Math.min(2, Math.sqrt(premium));
-  const fit = fitFor(s, p, offer.teamCode);
+  const fit = fitFor(s, p, offer.teamCode, index);
   // Free Agency + Contracts optimization pass (free_agency.offer_score):
   // money weighs more relative to fit than before.
   return money * 0.75 + fit * 0.25;
@@ -259,12 +284,14 @@ export function offerEligible(p: Player, offer: Offer): boolean {
  * first — so a team that moves early is rewarded for it rather than losing a
  * coin toss.
  */
-export function bestOfferFor(s: LeagueState, p: Player, offers: Offer[]): Offer | null {
+export function bestOfferFor(s: LeagueState, p: Player, offers: Offer[], index?: RosterRatings): Offer | null {
   const eligible = offers.filter((o) => offerEligible(p, o));
   if (eligible.length === 0) return null;
+  // each offer scored once, not once per comparison
+  const scores = new Map(eligible.map((o) => [o, scoreOffer(s, p, o, index)]));
   return eligible.reduce((best, o) => {
-    const a = scoreOffer(s, p, o);
-    const b = scoreOffer(s, p, best);
+    const a = scores.get(o)!;
+    const b = scores.get(best)!;
     if (a !== b) return a > b ? o : best;
     if (o.salary !== best.salary) return o.salary > best.salary ? o : best;
     if (o.round !== best.round) return o.round < best.round ? o : best;
