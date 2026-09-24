@@ -12,8 +12,8 @@ import type { Coach, CoachRole, LeagueState } from "@/domain";
  * - every CPU staff contract loses a year;
  * - a head coach whose team won four games or fewer is fired, and so is one
  *   whose deal ran out after a losing season;
- * - a coordinator whose unit ranked in the league's bottom six on a losing
- *   team is fired;
+ * - a coordinator whose unit ranked in the league's bottom eighth on a team
+ *   that won six or fewer is fired;
  * - an expiring coach on a winning team is extended, anyone else walks;
  * - every vacancy is filled with the best available coach at the role — a
  *   fired coach can land elsewhere, never back where he was fired.
@@ -43,7 +43,8 @@ export function runCoachingCarousel(s: LeagueState): CoachingChange[] {
   const teams = Object.keys(s.teams).filter((c) => s.teams[c]!.controlledBy.kind === "ai");
   const barred = new Map<string, string>(); // coach id -> team that let him go
   const vacancies: { team: string; role: CoachRole; departed: string | null; reason: CoachingChange["reason"] }[] = [];
-  const bottom = Math.max(1, Math.round(Object.keys(s.teams).length * 0.19));
+  // the bottom eighth — tuned so an offseason turns over ~20 of 96 jobs, not 40
+  const bottom = Math.max(1, Math.round(Object.keys(s.teams).length * 0.125));
   const nTeams = Object.keys(s.teams).length;
 
   for (const team of teams) {
@@ -61,8 +62,12 @@ export function runCoachingCarousel(s: LeagueState): CoachingChange[] {
       const fired =
         role === "HC"
           ? t.wins <= 4 || (expired && losing)
-          : losing && unitRank > nTeams - bottom;
-      if (fired || (expired && losing)) {
+          : t.wins <= 6 && unitRank > nTeams - bottom;
+      // an expiring coach on a losing team walks only if his side of the ball
+      // was below the league's middle too — the opening staffs' contracts all
+      // run out together, and "losing" alone emptied half the league at once
+      const underwhelming = role === "HC" ? losing : losing && unitRank > nTeams / 2;
+      if (fired || (expired && underwhelming)) {
         c.team = null;
         barred.set(c.id, team);
         vacancies.push({ team, role, departed: c.name, reason: fired ? "fired" : "contract" });

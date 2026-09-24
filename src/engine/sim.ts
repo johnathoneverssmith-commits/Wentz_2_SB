@@ -358,11 +358,11 @@ export class Game {
     const offRoster = this.off();
     const out = this.injuredOut;
     const tackleOnRun = (): string | undefined =>
-      weighted([[d.ILB1, 22], [d.ILB2, 16], [d.S1, 10], [d.S2, 8], [d.EDGE1, 9], [d.EDGE2, 8], [d.DT1, 7], [d.DT2, 6], [d.CB1, 7], [d.CB2, 7]]);
+      weighted([[d.ILB1, 15], [d.ILB2, 13], [d.S1, 10], [d.S2, 9], [d.EDGE1, 9], [d.EDGE2, 8], [d.DT1, 8], [d.DT2, 7], [d.CB1, 8], [d.CB2, 8]]);
     const tackleOnCatch = (): string | undefined =>
       depth === "DEEP"
         ? weighted([[d.S1, 30], [d.S2, 25], [d.CB1, 25], [d.CB2, 20]])
-        : weighted([[d.CB1, 18], [d.CB2, 16], [d.ILB1, 18], [d.ILB2, 13], [d.S1, 12], [d.S2, 10], [d.CB3, 8], [d.EDGE1, 3], [d.EDGE2, 2]]);
+        : weighted([[d.CB1, 18], [d.CB2, 17], [d.ILB1, 13], [d.ILB2, 12], [d.S1, 13], [d.S2, 11], [d.CB3, 8], [d.EDGE1, 4], [d.EDGE2, 4]]);
 
     const forcer = (): string | undefined =>
       pick(call === "run" ? [d.ILB1, d.EDGE1, d.DT1, d.CB1] : [d.CB1, d.S1, d.ILB1, d.EDGE1]);
