@@ -74,8 +74,10 @@ export function awardSeason(s: LeagueState): SeasonAward[] {
   const def = candidates.filter((p) => DEFENSE.has(p.position));
   const offS = (p: Player) => offenseScore(p.season_stats!);
   const defS = (p: Player) => defenseScore(p.season_stats!);
-  // the MVP is the best offensive season on a winning team
-  const mvp = best(off, (p) => offS(p) + wins(p) * 12);
+  // the MVP is the best offensive season on a winning team — and, as voters
+  // actually vote, a quarterback's season counts for more: unweighted, a
+  // 1,800-yard back out-polled a 4,800-yard, 37-touchdown passer
+  const mvp = best(off, (p) => offS(p) * (p.position === "QB" ? 1.3 : 1) + wins(p) * 12);
   const picks: [AwardKind, Player | undefined][] = [
     ["MVP", mvp],
     ["OPOY", best(off.filter((p) => p !== mvp), offS)],
