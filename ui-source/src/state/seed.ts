@@ -868,6 +868,26 @@ export function depthAt(state: LeagueState, code: string, pos: Position): Player
   );
 }
 
+/** `startingLineup` from a team's roster already in hand — same order rules as `depthAt`. */
+function lineupFrom(state: LeagueState, code: string, roster: readonly Player[]): Player[] {
+  const out: Player[] = [];
+  for (const [pos, n] of Object.entries(STARTER_COUNTS) as [Position, number][]) {
+    const at = roster.filter((p) => p.position === pos);
+    const order = state.depthChart?.[code]?.[pos];
+    if (!order || order.length === 0) at.sort((a, b) => b.overall - a.overall);
+    else {
+      const rank = new Map(order.map((id, i) => [id, i]));
+      at.sort(
+        (a, b) =>
+          (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+          b.overall - a.overall,
+      );
+    }
+    out.push(...at.slice(0, n));
+  }
+  return out;
+}
+
 /** The starting lineup for a team: the top of the depth chart at each spot. */
 export function startingLineup(state: LeagueState, code: string): Player[] {
   const out: Player[] = [];
@@ -886,12 +906,20 @@ export function recomputeTeamRatings(state: LeagueState): void {
   const mean = (arr: Player[], fallback = 72) =>
     arr.length ? Math.round(arr.reduce((s, p) => s + p.overall, 0) / arr.length) : fallback;
 
+  // One pass over the league instead of sixteen per team: this runs after
+  // every trade, signing and stage change, and rescanning all ~2,000 players
+  // for each team's roster and each of its lineup positions cost ~0.5s a call.
+  const byTeam = new Map<string, Player[]>();
+  for (const p of Object.values(state.players)) {
+    if (p.retired) continue;
+    const l = byTeam.get(p.nfl_team);
+    if (l) l.push(p);
+    else byTeam.set(p.nfl_team, [p]);
+  }
   const raw: Record<string, { o: number; off: number; def: number; st: number; roster: number }> = {};
   for (const code of codes) {
-    const starters = startingLineup(state, code);
-    const fullRoster = Object.values(state.players).filter(
-      (p) => p.nfl_team === code && !p.retired,
-    );
+    const fullRoster = byTeam.get(code) ?? [];
+    const starters = lineupFrom(state, code, fullRoster);
     raw[code] = {
       o: mean(starters),
       off: mean(starters.filter((p) => OFF.has(p.position))),
