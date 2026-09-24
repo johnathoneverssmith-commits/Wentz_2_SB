@@ -32,6 +32,7 @@ import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationSer
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { applyExtension, extensionAsk } from "./contracts";
 import { runCoachingCarousel } from "./coachingCarousel";
+import { accrueCareers, awardSeason } from "./seasonAwards";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
@@ -1639,6 +1640,10 @@ export function finalizeSeason(s: LeagueState): void {
   // toward every human team's Hooded Figure losing streak.
   if (!s.games.some((g) => g.phase === "REG" && g.played)) return;
   s.history.push(...sim.finalizeSeasonOutcomes(s));
+  // name the season's award winners and bank everyone's stats, before the
+  // next kickoff resets them
+  awardSeason(s);
+  accrueCareers(s);
   // the CPU teams keep the players worth keeping before their deals run out
   resignAiCore(s);
   // and turn over the staffs that failed

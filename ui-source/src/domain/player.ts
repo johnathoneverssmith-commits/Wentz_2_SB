@@ -187,6 +187,8 @@ export interface Player {
   college?: string;
   /** Accumulating current-season stats; reset per season (preseason resets at Wk1). */
   season_stats?: PlayerStatLine;
+  /** Career totals, folded in at each season's end (`seasonAwards.ts`). */
+  career?: PlayerStatLine & { seasons: number; lastSeason?: number };
   /** Scheme fit 0–99 vs the team's current OC/DC (spec §6.3). */
   scheme_fit?: number;
 }

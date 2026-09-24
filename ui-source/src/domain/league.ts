@@ -268,6 +268,10 @@ export interface LeagueState {
   history: SeasonOutcome[];
   /** Each position's starter quality when the league began (`draftSupply.ts`). */
   positionBaseline?: Partial<Record<Position, number>>;
+  /** The last season whose accrued years were credited (`accrueCareers`). */
+  accruedSeason?: number;
+  /** Every season's award winners (`seasonAwards.ts`). */
+  awards?: import("@/state/seasonAwards").SeasonAward[];
   /** CPU coaching changes, the last three offseasons (`coachingCarousel.ts`). */
   coachingChanges?: import("@/state/coachingCarousel").CoachingChange[];
   /** Hooded Figure catch-up mechanic state. Null until first needed. */

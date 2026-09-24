@@ -66,6 +66,22 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
             <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--ink-faint)" }}>No games logged yet this season.</p>
           )}
 
+          {player.career && player.career.seasons > 0 && (
+            <>
+              <p className="subhead">Career · {player.career.seasons} season{player.career.seasons === 1 ? "" : "s"} in the league</p>
+              <table className="stbl" style={{ marginBottom: 14 }}>
+                <tbody>
+                  {statLine("Games", player.career.gamesPlayed)}
+                  {maybe("Passing", (player.career.passYds ?? 0) > 0, `${player.career.passYds} yds, ${player.career.passTd ?? 0} TD, ${player.career.passInt ?? 0} INT`)}
+                  {maybe("Rushing", (player.career.rushYds ?? 0) > 0, `${player.career.rushAtt ?? 0} att, ${player.career.rushYds} yds, ${player.career.rushTd ?? 0} TD`)}
+                  {maybe("Receiving", (player.career.recYds ?? 0) > 0, `${player.career.rec ?? 0} rec, ${player.career.recYds} yds, ${player.career.recTd ?? 0} TD`)}
+                  {maybe("Defense", (player.career.tackles ?? 0) > 0 || (player.career.sacks ?? 0) > 0, `${player.career.tackles ?? 0} tkl, ${player.career.sacks ?? 0} sk, ${player.career.defInt ?? 0} INT`)}
+                  {maybe("Kicking", (player.career.fga ?? 0) > 0, `${player.career.fgm ?? 0}/${player.career.fga ?? 0} FG`)}
+                </tbody>
+              </table>
+            </>
+          )}
+
           <p className="subhead">Attributes</p>
           <div className="split-3" style={{ gap: "6px 12px" }}>
             {attrs.map(([k, v]) => (
