@@ -29,6 +29,7 @@ import {
 } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
+import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
@@ -191,31 +192,30 @@ const NEED_WEIGHT = 0.72;
  * alone it drafted a 31-year-old safety first and a punter thirteenth, which
  * is the report that prompted this.
  *
- * The ordering here is the uncontroversial part of positional value: a
- * quarterback is worth more than anyone else by a wide margin, the premium
- * positions are the ones that protect or hunt him and cover receivers, and
- * kickers and punters go last however well they kick. The exact numbers are
- * a v0 judgement in the same spirit as the coaching ratings — informed, not
- * measured — and are deliberately small enough that a genuinely great player
+ * The premiums are deliberately small enough that a genuinely great player
  * still outranks a mediocre one at a richer position. At +14 the quarterback
- * premium alone lifted a 38-year-old Stafford above Ja'Marr Chase, which is
- * the failure in the other direction; +10 keeps the elite quarterbacks at the
- * top of the board without making the position itself the whole argument.
+ * premium alone lifted a 38-year-old Stafford above Ja'Marr Chase; +10 keeps
+ * the elite quarterbacks at the top of the board without making the position
+ * itself the whole argument.
  */
+// Premiums follow what a point is measured to be worth in this engine
+// (see `POSITION_VALUE` in MockSimulationService — about 9·ln(value/0.8)),
+// not NFL convention: a running back or safety carries a game here, a tight
+// end or an outside linebacker barely touches one.
 const POSITION_VALUE: Record<Position, number> = {
   QB: 10,
-  EDGE: 8,
-  OT: 7,
-  WR: 6,
-  CB: 6,
-  DT: 4,
-  TE: 3,
-  OG: 2,
-  S: 2,
-  OLB: 2,
+  RB: 7,
+  S: 4,
+  EDGE: 4,
+  WR: 4,
+  CB: 3,
   ILB: 1,
-  C: 1,
-  RB: 0,
+  OT: 1,
+  OG: 0,
+  C: 0,
+  DT: 0,
+  TE: -3,
+  OLB: -8,
   K: -14,
   P: -14,
 };
@@ -255,6 +255,25 @@ export function bestAvailable(s: LeagueState): string | null {
   const strategy = isAi ? strategyFor(teamCode!, s.season) : "balanced";
   const difficulty = isAi ? difficultyProfile(s.config.difficulty) : difficultyProfile("expert");
   const pickIndex = d.currentPickIndex;
+  // what the team already carries at each position — the same lists
+  // `planAutopicks` keeps, so a pick that would only be cut is penalised alike
+  const carried = new Map<Position, number[]>();
+  if (teamCode) {
+    for (const p of Object.values(s.players)) {
+      if (p.retired || p.nfl_team !== teamCode) continue;
+      const l = carried.get(p.position);
+      if (l) l.push(p.overall);
+      else carried.set(p.position, [p.overall]);
+    }
+    if (d.mode === "rookie") {
+      for (const pk of draftedThisDraft(s).get(teamCode) ?? []) {
+        const l = carried.get(pk.position);
+        if (l) l.push(pk.collegeOverall);
+        else carried.set(pk.position, [pk.collegeOverall]);
+      }
+    }
+  }
+  const waste = surplusPenalties((pos) => carried.get(pos) ?? []);
   // Master only: what the candidate adds to this team's units — read from
   // exactly what `planAutopicks` keeps (roster by position, plus this rookie
   // draft's own picks) so the two paths still pick identically
@@ -314,7 +333,7 @@ export function bestAvailable(s: LeagueState): string | null {
     const untaken = s.draftClass.filter((x) => !taken.has(x.id));
     const youngestAge = Math.min(...untaken.map((x) => x.age));
     const baseScore = (x: (typeof untaken)[number]): number =>
-      x.collegeOverall + need(x.position) * difficulty.needAwareness;
+      x.collegeOverall + need(x.position) * difficulty.needAwareness - waste(x.position, x.collegeOverall);
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
     for (const x of shortlist) {
       const noise =
@@ -336,7 +355,8 @@ export function bestAvailable(s: LeagueState): string | null {
     return bestId;
   }
   const untaken = Object.values(s.players).filter((x) => !taken.has(x.id) && !x.retired);
-  const baseScore = (x: (typeof untaken)[number]): number => draftValue(x.overall, x.position) + need(x.position) * difficulty.needAwareness;
+  const baseScore = (x: (typeof untaken)[number]): number =>
+    draftValue(x.overall, x.position) + need(x.position) * difficulty.needAwareness - waste(x.position, x.overall);
   const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
   for (const x of shortlist) {
     const noise =
@@ -469,10 +489,12 @@ export function planAutopicks(s: LeagueState): string[] {
     // a lower difficulty can miss the true best candidate because it never
     // seriously considered it, not just because it mis-ranked something.
     const untaken = candidates.filter((c) => !taken.has(c.id));
+    const waste = surplusPenalties((pos) => (teamCode ? rosters.get(teamCode)?.get(pos) : undefined) ?? []);
     const baseScore = (c: (typeof untaken)[number]): number =>
-      rookie
+      (rookie
         ? c.overall + need(c.position) * difficulty.needAwareness
-        : draftValue(c.overall, c.position) + need(c.position) * difficulty.needAwareness;
+        : draftValue(c.overall, c.position) + need(c.position) * difficulty.needAwareness) -
+      waste(c.position, c.overall);
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
 
     let bestId: string | null = null;
@@ -1007,6 +1029,46 @@ export function draftAwareNeed(s: LeagueState, teamCode: string, position: Posit
   const raw = STARTER_QUALITY_BAR - (best || EMPTY_POSITION_BASE) + (POSITION_NEED_BONUS[position] ?? 0);
   return Math.max(MIN_RAW_NEED, raw);
 }
+
+/**
+ * A pick who would not make the roster is a wasted pick.
+ *
+ * The need floor (`MIN_RAW_NEED`) never lets a stacked position drop out, so
+ * a position's draft premium alone kept pulling the board toward it: CPU
+ * teams took a fourth and fifth quarterback in a fantasy draft, and the
+ * roster trim released every one of them before the summary screen — along
+ * with any outside linebacker, a position with no roster spots at all. Once
+ * a position holds its roster-template count, a candidate who is no better
+ * than the worst man already there would be the one cut, so he carries this
+ * penalty. One who is better is not wasted: he displaces the worst.
+ *
+ * `carried` is every rating the team holds at the position, any order.
+ */
+const SURPLUS_PENALTY = 25;
+export function surplusPenalty(position: Position, carried: readonly number[], value: number): number {
+  return surplusPenalties(() => carried)(position, value);
+}
+
+/** `surplusPenalty` for one team at one pick, with each position's cut line found once. */
+function surplusPenalties(carriedAt: (pos: Position) => readonly number[]): (pos: Position, value: number) => number {
+  const cutLines = new Map<Position, number>();
+  return (pos, value) => {
+    let line = cutLines.get(pos);
+    if (line === undefined) {
+      const count = ROSTER_TEMPLATE.find((r) => r.pos === pos)?.count ?? 0;
+      const carried = carriedAt(pos);
+      line =
+        carried.length < count
+          ? -Infinity
+          : count === 0
+            ? Infinity
+            : [...carried].sort((a, b) => b - a)[count - 1]!;
+      cutLines.set(pos, line);
+    }
+    return value <= line ? SURPLUS_PENALTY : 0;
+  };
+}
+
 
 export function positionalNeed(s: LeagueState, teamCode: string, position: Position): number {
   const best = Object.values(s.players)

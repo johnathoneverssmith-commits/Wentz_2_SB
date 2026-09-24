@@ -45,7 +45,7 @@ import {
   signUndraftedAsFreeAgents,
   applyPick,
 } from "@/state/rules.ts";
-import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
+import { fillRosterGaps, fitDraftedPayrolls, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
 
 import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
@@ -410,6 +410,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // reached the preseason unable to field a legal lineup.
   if (from === "fantasyDraft" && state.stage === "fantasyDraftSummary") {
     openStandingMarketFromUndrafted(state);
+    fitDraftedPayrolls(state);
     fillRosterGaps(state);
   }
   // the draft summary now leads straight into free agency (Change 13): the

@@ -30,6 +30,7 @@ import {
   applySeasonAging,
   createLeague,
   fillRosterGaps,
+  fitDraftedPayrolls,
   forgetOldRetirees,
   normalizePool,
   pruneFreeAgentMarket,
@@ -290,6 +291,7 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // hands each team 20 players)
   if (from === "fantasyDraft" && to === "fantasyDraftSummary") {
     openStandingMarketFromUndrafted(s);
+    fitDraftedPayrolls(s);
     fillRosterGaps(s);
   }
 

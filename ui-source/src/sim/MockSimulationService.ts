@@ -1310,28 +1310,32 @@ const PICK_VALUE_BY_ROUND: Record<number, number> = {
   7: 0.5,
 };
 
-// Trade Valuation + AI Trade Behavior optimization pass
-// (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json -> trade.position_value):
-// blends the real-market hierarchy this table started from with what the
-// frozen engine's rating channels actually reward — QB and RB come up (the
-// engine's own value-slope audit found QB by far the largest marginal
-// effect, with RB ahead of most of the front seven it had been priced
-// below), EDGE/OT/OLB come down, and this feeds both trade value and
-// `contractValueFor`'s free-agent asking-price scaling below.
+// What a point of rating is worth at each position — in trade value and in
+// free-agent asking prices (`contractValueFor`, `expectedSalary`).
+//
+// Two-thirds of the way from the real-market hierarchy this table started
+// from to what the engine *measures* a point to be worth in scoring margin
+// (`analysis/35_position_value.ts`, per starter, with the QB-WR1 pairing
+// credited to receivers), then rescaled so a roster's total payroll is
+// unchanged. The market used to price the NFL's hierarchy while games paid
+// out the engine's: a running back or a safety was worth nearly twice what
+// he cost, a tackle or a tight end far less, and the only GM who could
+// exploit it was the one who had measured it — the Master AI. Now the price
+// follows the game, and the unit grades and fit tags say why.
 export const POSITION_VALUE: Record<Position, number> = {
-  QB: 2.35,
-  EDGE: 1.15,
-  WR: 1.35,
-  OT: 1.1,
-  CB: 1.2,
-  DT: 1.0,
-  S: 1.05,
-  ILB: 1.0,
-  OLB: 0.6,
-  TE: 0.82,
-  OG: 0.8,
-  C: 0.8,
-  RB: 0.95,
+  QB: 2.41,
+  RB: 1.79,
+  S: 1.31,
+  EDGE: 1.24,
+  WR: 1.19,
+  CB: 1.18,
+  ILB: 0.94,
+  OT: 0.92,
+  OG: 0.82,
+  C: 0.82,
+  DT: 0.78,
+  TE: 0.58,
+  OLB: 0.27,
   K: 0.5,
   P: 0.25,
 };

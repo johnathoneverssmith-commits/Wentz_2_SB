@@ -380,6 +380,42 @@ export function normalizePool(
 }
 
 /**
+ * Prices each team's fantasy-drafted squad to fit its cap.
+ *
+ * A fantasy pick is signed at market value, and twenty market-value starters
+ * cost more than a cap that still has thirty-three roster spots to fill.
+ * The trim that follows then had to find the money by cutting starters: teams
+ * left the draft with fourteen men, and one released the 96-rated
+ * quarterback it had taken first overall. The real-roster start solves the
+ * same problem by scaling each squad's payroll (`normalizePool`); this is
+ * that, for the draft — the stars still cost the most, and the total lands
+ * where the depth fill and a little working room still fit under the line.
+ */
+export function fitDraftedPayrolls(state: LeagueState): void {
+  const squads = new Map<string, Player[]>();
+  for (const p of Object.values(state.players)) {
+    if (p.retired || p.free_agent || !p.contract || !state.teams[p.nfl_team]) continue;
+    const list = squads.get(p.nfl_team);
+    if (list) list.push(p);
+    else squads.set(p.nfl_team, [p]);
+  }
+  for (const [team, squad] of squads) {
+    const capTotal = state.teams[team]?.cap.total ?? 255;
+    const open = Math.max(0, ROSTER_SIZE - squad.length);
+    const target = capTotal - open * MIN_SALARY_M - CAP_WORKING_ROOM;
+    const total = squad.reduce((n, p) => n + capHitOf(p), 0);
+    if (total <= target || total <= 0) continue;
+    const scale = target / total;
+    for (const p of squad) {
+      const c = p.contract!;
+      c.cap_hit_by_year = c.cap_hit_by_year.map((x) => Math.max(MIN_SALARY_M, Math.round(x * scale * 10) / 10));
+      c.total_value = Math.round(c.cap_hit_by_year.reduce((a, b) => a + b, 0) * 10) / 10;
+      c.guaranteed = Math.min(c.guaranteed, c.total_value);
+    }
+  }
+}
+
+/**
  * How many unsigned players the market carries into a new season.
  *
  * Roughly ten per team, which is what a real "still available in July" pool

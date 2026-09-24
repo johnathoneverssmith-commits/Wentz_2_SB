@@ -92,5 +92,16 @@ describe("trimming to a legal roster", () => {
       if (p.nfl_team !== code) lost.push(`${code}: ${p.name} ${p.position} ${p.overall}`);
     }
     expect(lost, `top pick released: ${lost.join(" | ")}`).toEqual([]);
+
+    // and no pick at all: each squad is priced to fit its cap
+    // (`fitDraftedPayrolls`), so the trim has no starter to find money in
+    const cut = s()
+      .draft!.results.filter((r) => s().players[r.selectedId ?? ""]?.nfl_team !== r.teamCode)
+      .map((r) => `${r.teamCode}: ${r.selectedName}`);
+    expect(cut, `picks released: ${cut.join(" | ")}`).toEqual([]);
+    for (const code of Object.keys(s().teams)) {
+      const t = s().teams[code]!;
+      expect(t.cap.used, `${code} over the cap`).toBeLessThanOrEqual(t.cap.total);
+    }
   }, 180_000);
 });

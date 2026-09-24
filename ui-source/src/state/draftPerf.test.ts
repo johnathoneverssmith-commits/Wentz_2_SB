@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyPick, bestAvailable, positionalNeed } from "./rules.ts";
+import { applyPick, bestAvailable, positionalNeed, surplusPenalty } from "./rules.ts";
 import { useStore } from "./store.ts";
 
 /**
@@ -88,8 +88,14 @@ describe("draft autopick", () => {
     const id = bestAvailable(s)!;
     const taken = new Set(s.draft!.results.map((r) => r.selectedId));
     const team = s.draft!.pickOrder[s.draft!.currentPickIndex]!;
+    const carriedAt = (pos: string) =>
+      Object.values(s.players)
+        .filter((x) => x.nfl_team === team && x.position === pos && !x.retired)
+        .map((x) => x.overall);
     const scoreOf = (p: (typeof s.draftClass)[number]) =>
-      p.collegeOverall + positionalNeed(s, team, p.position) * 0.6;
+      p.collegeOverall +
+      positionalNeed(s, team, p.position) * 0.6 -
+      surplusPenalty(p.position, carriedAt(p.position), p.collegeOverall);
     const candidates = s.draftClass.filter((p) => !taken.has(p.id));
     const max = Math.max(...candidates.map(scoreOf));
     expect(id).toBe(candidates.find((p) => scoreOf(p) === max)!.id);
