@@ -2,6 +2,7 @@ import type { LeagueState } from "@/domain";
 import { COACH_POSITION_GROUPS } from "@/domain";
 import { Rng } from "@/sim/rng";
 import { agingDelta } from "@/sim/MockSimulationService";
+import { agingBalance } from "./draftSupply";
 
 import { applyCoachToDelta, coachModifiersFor } from "./coachEffects";
 import { ratingOf } from "./coachingDraft";
@@ -183,12 +184,14 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
   const offStrength = focusStrength(coordinatorFor(s, teamCode, plan.offensiveFocus ?? "QB"));
   const defStrength = focusStrength(coordinatorFor(s, teamCode, plan.defensiveFocus ?? "DL"));
 
+  const balance = agingBalance(s);
   for (const p of Object.values(s.players)) {
     if (p.nfl_team !== teamCode || p.retired || p.free_agent) continue;
 
-    // 1. what the aging model says, on its own
+    // 1. what the aging model says, nudged toward the league's positional
+    //    balance (`agingBalance`)
     const rng = new Rng((s.season * 9151) ^ hash(p.id));
-    const base = agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold);
+    const base = balance(p.position, agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold));
 
     // 2. the position coach
     const withCoach = applyCoachToDelta(base, coachModifiersFor(s, teamCode, p.position));

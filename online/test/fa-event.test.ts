@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import type { LeagueState } from "@/domain";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 import {
@@ -76,7 +77,9 @@ describe("taking a turn", () => {
     const team = onTheClock(s)!;
     const p = aFreeAgent(s);
     // the cap is suspended during bidding and restored at reconciliation
-    expect(checkOffer(s, team, p.id, 900, 5).ok).toBe(true);
+    // (up to the league's max deal: nothing pays more than that)
+    expect(checkOffer(s, team, p.id, MAX_CONTRACT_M, 5).ok).toBe(true);
+    expect(checkOffer(s, team, p.id, MAX_CONTRACT_M + 1, 5).ok).toBe(false);
   }, 60_000);
 
   it("passes the clock along", () => {

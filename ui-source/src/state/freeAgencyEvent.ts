@@ -1,6 +1,7 @@
 import type { LeagueState, Player } from "@/domain";
 
 import { unitGainer } from "./unitValue.ts";
+import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { offerToContract } from "./rules";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
@@ -123,6 +124,9 @@ export function checkOffer(
     return { ok: false, reason: "He's already signed." };
   }
   if (!Number.isFinite(salary) || salary <= 0) return { ok: false, reason: "Enter a salary." };
+  if (salary > MAX_CONTRACT_M) {
+    return { ok: false, reason: `No deal can pay more than $${MAX_CONTRACT_M}M a year.` };
+  }
   if (!Number.isInteger(years) || years < 1 || years > 5) {
     return { ok: false, reason: "Contracts run one to five years." };
   }
@@ -298,7 +302,10 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
   }
 
   const ask = expectedSalary(target);
-  const salary = Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10;
+  // a bidding war tops out at the league's max deal (a CPU outbid its way
+  // to $86M a year for one player)
+  const salary = Math.min(MAX_CONTRACT_M, Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10);
+  if (lead && salary <= lead.salary) return applyPass(s, teamCode);
   const years = target.age <= 26 ? 4 : target.age <= 29 ? 3 : 2;
   applyOffer(s, teamCode, target.id, salary, years);
 }

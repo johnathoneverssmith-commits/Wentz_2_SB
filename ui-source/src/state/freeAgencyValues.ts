@@ -2,7 +2,7 @@ import type { LeagueState, Player } from "@/domain";
 
 import { staffAt } from "./coachEffects";
 import { coachRoleForPosition } from "@/domain";
-import { POSITION_VALUE } from "@/sim/MockSimulationService";
+import { MAX_CONTRACT_M, POSITION_VALUE } from "@/sim/MockSimulationService";
 
 /**
  * What a free agent is actually weighing.
@@ -148,7 +148,7 @@ export function expectedSalary(p: Player): number {
   // average-value position is unchanged and the existing fit still holds
   // where it was actually calibrated.
   const posMult = POSITION_VALUE[p.position] ?? 1;
-  return Math.round(base * agePenalty * posMult * 10) / 10;
+  return Math.min(MAX_CONTRACT_M, Math.round(base * agePenalty * posMult * 10) / 10);
 }
 
 /**

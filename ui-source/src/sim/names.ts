@@ -5,6 +5,12 @@ const FIRST = [
   "Deshawn", "Cameron", "Brandon", "Trevor", "Isaiah", "Xavier", "Malik",
   "Darius", "Cole", "Jaylen", "Keenan", "Rashad", "Terrence", "Elijah",
   "Nolan", "Gavin", "Preston", "Bryce", "Kade", "Dominic", "Emmanuel", "Kai",
+  "Tyler", "Jordan", "Austin", "Caleb", "Devin", "Travis", "Quentin", "Ricky",
+  "Omar", "Luke", "Mason", "Ethan", "Zion", "Tariq", "Jamal", "Corey", "Derek",
+  "Hunter", "Garrett", "Sean", "Victor", "Wesley", "Brock", "Carson", "Drew",
+  "Evan", "Felix", "Grant", "Harrison", "Ivan", "Jace", "Kellen", "Landon",
+  "Micah", "Nate", "Otis", "Pierce", "Reggie", "Solomon", "Trent", "Ulysses",
+  "Vince", "Wade", "Xander", "Yusuf", "Zach", "Amari", "Bo", "Cedric", "Dante",
 ];
 const LAST = [
   "Carter", "Whitfield", "Alonso", "Beckwith", "Ferris", "Brannigan", "Okafor",
@@ -13,6 +19,15 @@ const LAST = [
   "Voss", "Boykins", "Marsh", "Sanderson", "Holloway", "Pruitt", "Vandermeer",
   "Kowalski", "Osei", "Ojo", "Sanders", "Ferro", "Bianchi", "Rutherford",
   "Aguilar", "Northcutt", "Devereaux", "Salois", "Yates",
+  "Abernathy", "Blackwell", "Calloway", "Dunmore", "Easley", "Fairchild",
+  "Gaines", "Hargrove", "Ingram", "Jefferson", "Kincaid", "Langford", "Mayfield",
+  "Nwosu", "Oduya", "Pennington", "Quarles", "Rhodes", "Stallworth", "Tolliver",
+  "Underwood", "Valentine", "Whitaker", "Adeyemi", "Burrell", "Crenshaw",
+  "Dorsett", "Ellison", "Fontenot", "Gideon", "Hollins", "Ivory", "Jarrett",
+  "Kilgore", "Lockett", "Montague", "Norwood", "Oyelaran", "Prescott", "Radcliffe",
+  "Sutherland", "Thibodeaux", "Umeh", "Vickers", "Wainwright", "Youngblood",
+  "Zeller", "Ashby", "Bristow", "Coleridge", "Dempsey", "Everett", "Faulk",
+  "Greer", "Hatcher", "Iwuchukwu", "Jennings", "Keaton", "Larkin", "Mbeki",
 ];
 
 const SCHOOLS = [

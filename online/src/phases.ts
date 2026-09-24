@@ -45,7 +45,7 @@ import {
   signUndraftedAsFreeAgents,
   applyPick,
 } from "@/state/rules.ts";
-import { fillRosterGaps, fitDraftedPayrolls, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
+import { campCuts, fillRosterGaps, fitDraftedPayrolls, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
 
 import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
@@ -440,7 +440,8 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   }
   // nobody takes the field short — free agency is optional, so a team can
   // arrive here still missing a position entirely
-  if (state.stage === "preseason") fillRosterGaps(state);
+  if (state.stage === "preseason" && from !== "preseason") campCuts(state);
+  if (state.stage === "preseason") fillRosterGaps(state, { lateMarket: true });
 
   // Change 6: the whole preseason is played here, once, before anybody sees
   // it. Everything afterwards is a reveal of what this produced — which is

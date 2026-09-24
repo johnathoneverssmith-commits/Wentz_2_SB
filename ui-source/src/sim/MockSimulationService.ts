@@ -196,7 +196,9 @@ export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: nu
 function agingStep(rng: Rng, age: number, devAge: number, declineAge: number): number {
   if (age < devAge) {
     const yearsToGo = Math.max(1, devAge - age);
-    const growth = clamp(rng.normal(0.5, 1.4), 0, 7);
+    // the youngest grow fastest: at the old flat rate a decade of leagues
+    // went from seventeen players rated 90+ at 25 or under to one or two
+    const growth = clamp(rng.normal(age <= 24 ? 0.85 : 0.5, 1.4), 0, 7);
     return Math.round(yearsToGo >= 3 ? growth : growth * 0.7);
   }
   if (age < declineAge) {
@@ -235,7 +237,8 @@ function highestRealPid(): number {
 /** Per-position nudges to a draft class (`state/draftSupply.ts`). */
 export type DraftClassTilt = Partial<Record<Position, { supply: number; quality: number }>>;
 
-const SPECIALIST_ROOKIE_OFFSET = 12;
+// +12 overshot: a decade lifted league kicking four points
+const SPECIALIST_ROOKIE_OFFSET = 9;
 
 export class MockSimulationService implements SimulationService {
   /**
@@ -344,7 +347,7 @@ export class MockSimulationService implements SimulationService {
 
     return {
       id: nextPid(),
-      name: personName(rng),
+      name: fullPersonName(rng),
       position: pos,
       age,
       nfl_team: team,
@@ -590,13 +593,34 @@ export class MockSimulationService implements SimulationService {
       "Late riser whose senior tape looks nothing like his junior tape.",
     ];
     const out: DraftProspect[] = [];
+    // full names, never two alike in one class: initials-only names looked
+    // like placeholders beside the real league, and a forty-name surname
+    // list gave one league two different "D. Fentress" rookies of the year
+    const usedNames = new Set<string>();
+    const uniqueName = (): string => {
+      for (let k = 0; k < 20; k++) {
+        const nm = fullPersonName(rng);
+        if (!usedNames.has(nm)) {
+          usedNames.add(nm);
+          return nm;
+        }
+      }
+      const nm = `${fullPersonName(rng)} Jr.`;
+      usedNames.add(nm);
+      return nm;
+    };
     for (let i = 0; i < n; i++) {
       // the slot this prospect nominally fills, pre-jitter - real draft-class
       // position mix (2018-2026 PFR data) is round-dependent (see
       // draft-history.ts), e.g. almost no kickers/punters in rounds 1-2.
       const slotRound = clamp(Math.ceil((i + 1) / 32), 1, 7);
       const roundDist = POSITION_BY_ROUND[slotRound]!;
-      const pos = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p] * (tilt?.[p]?.supply ?? 1)));
+      const drawn = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p] * (tilt?.[p]?.supply ?? 1)));
+      // The history data's "OLB" is off-ball linebackers and stand-up edge
+      // rushers; the league plays those as ILB and EDGE and carries no OLB at
+      // all. Drafted as OLB they went unused while inside linebacker ran dry —
+      // by year four every team's backup ILBs were invented camp bodies.
+      const pos: Position = drawn === "OLB" ? (i % 5 < 3 ? "ILB" : "EDGE") : drawn;
       // a prospect's *projected* slot wobbles around its board position
       const projPick = clamp(Math.round(i + 1 + rng.normal(0, 8)), 1, 260);
       const projectedRound = clamp(Math.ceil(projPick / 32), 1, 7);
@@ -622,12 +646,14 @@ export class MockSimulationService implements SimulationService {
           specialist +
           (tilt?.[pos]?.quality ?? 0),
         40,
-        92,
+        // a rookie tops out below the league's stars; camp and a first year
+        // take the best of them the rest of the way (a 95 rookie was possible)
+        pos === "K" || pos === "P" ? 90 : 88,
       );
       const ageDist = AGE_BY_POSITION[pos];
       out.push({
         id: `d${year}_${i + 1}`,
-        name: personName(rng),
+        name: uniqueName(),
         position: pos,
         school: school(rng),
         age: clamp(Math.round(rng.normal(ageDist.mean, ageDist.stdev)), 20, 26),
@@ -1071,8 +1097,14 @@ export class MockSimulationService implements SimulationService {
       const reduction = injuryAgeReduction(p.injury_history);
       const norm = baseNorm - reduction;
       const over = p.age - norm;
-      const pRetire = clamp(0.025 + Math.max(0, over) * 0.22, 0, 0.92);
-      if (p.age >= norm - 2 || p.injury_history.length >= 2) {
+      // Past his decline age a player's odds climb every year, and a veteran
+      // whose game has faded retires rather than hanging on at the bottom of
+      // a roster. Age against a position's outer limit alone let a league's
+      // 33-and-over share climb from 6% of rosters to 17% in a decade.
+      const pastDecline = Math.max(0, p.age - p.decline_age_threshold);
+      const faded = p.age >= 30 && p.overall < 68 ? 0.25 : p.age >= 31 && p.overall < 73 ? 0.12 : 0;
+      const pRetire = clamp(0.025 + Math.max(0, over) * 0.22 + pastDecline * 0.11 + faded, 0, 0.92);
+      if (p.age >= norm - 2 || p.injury_history.length >= 2 || pastDecline > 0 || faded > 0) {
         const retiring = rng.bool(pRetire);
         out.push({
           playerId: p.id,
@@ -1355,9 +1387,16 @@ export const POSITION_VALUE: Record<Position, number> = {
 /** $M/year, roughly convex in overall, scaled by position value if given —
  *  also used by store.ts's AI bidding (both for players and, without a
  *  position, for coach salaries off their own skill rating). */
+/**
+ * The most any one deal pays in a year: 24% of the $255M cap. The top of the
+ * NFL market sits around a fifth of the cap; uncapped, the curve asked $90M a
+ * year for an elite quarterback — over a third of a team's room for one man.
+ */
+export const MAX_CONTRACT_M = 61;
+
 export function contractValueFor(overall: number, position?: Position): number {
   const posMult = position ? (POSITION_VALUE[position] ?? 1) : 1;
-  return round1((0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2)) * posMult);
+  return Math.min(MAX_CONTRACT_M, round1((0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2)) * posMult));
 }
 
 /**

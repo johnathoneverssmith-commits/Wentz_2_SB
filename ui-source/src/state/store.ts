@@ -29,6 +29,7 @@ import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import {
   applySeasonAging,
   createLeague,
+  campCuts,
   fillRosterGaps,
   fitDraftedPayrolls,
   forgetOldRetirees,
@@ -319,7 +320,10 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // Hard stop before the season: free agency is optional, so a team can
   // reach this point still short. Nobody takes the field without a full,
   // position-legal roster.
-  if (to === "preseason") fillRosterGaps(s);
+  if (to === "preseason") {
+    campCuts(s);
+    fillRosterGaps(s, { lateMarket: true });
+  }
 
   // The league goes shopping at the two moments it would: the day the
   // season ends, and the week of the deadline. Seeded on the stage, so an

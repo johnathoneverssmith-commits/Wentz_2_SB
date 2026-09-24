@@ -16,7 +16,7 @@ import {
 import { TEAMS } from "@/data/teams";
 
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
-import { personName } from "@/sim/names.ts";
+import { fullPersonName } from "@/sim/names.ts";
 import { applyCoachToDelta, coachModifiersFor } from "./coachEffects.ts";
 import { ensureDraftPicks } from "./draftPicks.ts";
 import { Rng } from "@/sim/rng.ts";
@@ -191,7 +191,7 @@ function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
   const age = clamp(Math.round(rng.normal(25, 2)), 21, 31);
   return {
     id,
-    name: personName(rng),
+    name: fullPersonName(rng),
     position,
     age,
     nfl_team: "FA",
@@ -726,7 +726,65 @@ export function trimRosters(state: LeagueState): void {
  * instead. Those are fictional and capped in the 48-63 range, strictly under
  * every real player, so the ranked pool is never displaced.
  */
-export function fillRosterGaps(state: LeagueState): void {
+/**
+ * Camp cuts: CPU teams trade their camp bodies for real veterans.
+ *
+ * The roster fill at rollover tops every team up to 53 before free agency,
+ * inventing camp bodies whenever the market runs thin, and nothing ever
+ * revisited them — they stayed on multi-year deals while better veterans went
+ * unsigned all year. At the preseason gate each CPU team swaps a camp body
+ * for the best unsigned player at his position who is clearly better and
+ * fits on a camp deal. The camp body leaves the league (he was invented to
+ * fill a spot). Human rosters are left to their GMs.
+ */
+export function campCuts(state: LeagueState): number {
+  let swaps = 0;
+  const byPos = new Map<Position, Player[]>();
+  for (const p of Object.values(state.players)) {
+    if (!p.free_agent || p.retired || p.id.startsWith("p_depth_")) continue;
+    const l = byPos.get(p.position);
+    if (l) l.push(p);
+    else byPos.set(p.position, [p]);
+  }
+  for (const l of byPos.values()) l.sort((a, b) => b.overall - a.overall);
+  for (const code of Object.keys(state.teams)) {
+    if (state.teams[code]!.controlledBy.kind !== "ai") continue;
+    const team = state.teams[code]!;
+    let used = Object.values(state.players)
+      .filter((p) => p.nfl_team === code && !p.retired && !p.free_agent)
+      .reduce((n, p) => n + capHitOf(p), 0);
+    const bodies = Object.values(state.players).filter(
+      (p) => p.nfl_team === code && !p.retired && p.id.startsWith("p_depth_"),
+    );
+    for (const body of bodies) {
+      const pool = byPos.get(body.position) ?? [];
+      const i = pool.findIndex(
+        (x) => x.overall >= body.overall + 3 && used - capHitOf(body) + lateMarketDeal(x) <= team.cap.total - CAP_WORKING_ROOM / 2,
+      );
+      if (i < 0) continue;
+      const vet = pool.splice(i, 1)[0]!;
+      used -= capHitOf(body);
+      delete state.players[body.id];
+      const salary = lateMarketDeal(vet);
+      vet.free_agent = false;
+      vet.nfl_team = code;
+      vet.contract = dealFor(code, salary, 1);
+      state.standingFreeAgents = state.standingFreeAgents.filter((id) => id !== vet.id);
+      used += salary;
+      swaps++;
+    }
+  }
+  if (swaps) recomputeTeamRatings(state);
+  return swaps;
+}
+
+/** What an unsigned veteran accepts at the preseason gate: 35% of his price. */
+const lateMarketDeal = (p: Player): number =>
+  Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, p.position) * 0.35 * 10) / 10);
+
+export function fillRosterGaps(state: LeagueState, opts: { lateMarket?: boolean } = {}): void {
+  // the preseason gate: unsigned veterans take camp deals (see pass 2)
+  const lateMarket = opts.lateMarket ?? false;
   const rng = new Rng(state.season * 7717 + 13);
   const byPos = new Map<Position, Player[]>();
   let marketSize = 0;
@@ -821,6 +879,21 @@ export function fillRosterGaps(state: LeagueState): void {
           p = pool.splice(idx, 1)[0]!;
           salary = Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos) * 10) / 10);
           marketSize--;
+        }
+        // Late in camp a veteran nobody paid takes what he can get. At the
+        // preseason gate a team out of room for market prices signs the best
+        // real player it can at a camp deal, before it would invent a camp
+        // body: a decade in, 150 fictional depth players sat on rosters while
+        // 60 free agents rated 80+ went unsigned all year.
+        if (!p && lateMarket) {
+          const cheapIdx = pool.findIndex(
+            (x) => !signed.has(x.id) && lateMarketDeal(x) <= room && x.overall >= 60,
+          );
+          if (cheapIdx >= 0) {
+            p = pool.splice(cheapIdx, 1)[0]!;
+            salary = lateMarketDeal(p);
+            marketSize--;
+          }
         }
         while (!p && marketSize > MARKET_RESERVE && pool.length > 0) {
           const candidate = pool.pop()!;
