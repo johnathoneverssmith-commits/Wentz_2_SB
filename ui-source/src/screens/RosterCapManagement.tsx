@@ -220,6 +220,14 @@ export function RosterCapManagement() {
                   <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}</span>
                   <span className="pname">
                     {p.name} <span className="ppos">{p.position}</span>
+                    {p.injury_status && (
+                      <span
+                        title={`${p.injury_status.description}${p.injury_status.weeks_out_est ? `, ${p.injury_status.weeks_out_est[0]}-${p.injury_status.weeks_out_est[1]} weeks` : ""}`}
+                        style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}
+                      >
+                        {onInjuredReserve(p, s.stage) ? "IR" : p.injury_status.status === "questionable" ? "Q" : p.injury_status.status === "doubtful" ? "D" : "OUT"}
+                      </span>
+                    )}
                   </span>
                   <OvrPill value={p.overall} />
                   <span className="pcell" title={arcOf(p).hint}>

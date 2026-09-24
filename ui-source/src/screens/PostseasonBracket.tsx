@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -91,7 +92,8 @@ export function PostseasonBracket() {
             </div>
           )}
         </div>
-        <Footer>
+        {viewerTeamCode(s) && <ExpiringContracts teamCode={viewerTeamCode(s)!} />}
+      <Footer>
           <button type="button" className="btnlink" onClick={() => nav("/hub")}>
             Team hub
           </button>
@@ -186,6 +188,7 @@ export function PostseasonBracket() {
       </>
       )}
 
+      {viewerTeamCode(s) && <ExpiringContracts teamCode={viewerTeamCode(s)!} />}
       <Footer>
         {/*
           Change 11: the team hub and the roster come off the postseason.

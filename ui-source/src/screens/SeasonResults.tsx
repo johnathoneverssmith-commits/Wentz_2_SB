@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { TeamBadge, pressable } from "@/components/bits";
@@ -102,6 +103,7 @@ export function SeasonResults() {
         ))}
       </div>
 
+      {viewerTeamCode(s) && <ExpiringContracts teamCode={viewerTeamCode(s)!} />}
       <Footer>
         <button type="button" className="btn-primary" onClick={goHub}>
           Continue

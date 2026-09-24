@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill } from "@/components/bits";
@@ -17,6 +18,8 @@ import { millions } from "@/util/format";
  */
 export function ExpiringContracts({ teamCode }: { teamCode: string }) {
   const nav = useNavigate();
+  const actions = useLeagueActions();
+  const [note, setNote] = useState<Record<string, string>>({});
   const players = useStore((s) => s.players);
   const expiring = useMemo(
     () =>
@@ -48,8 +51,25 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
             <OvrPill value={p.overall} />
             <span style={{ fontWeight: 600 }}>{p.name}</span>
             <span style={{ color: "var(--ink-faint)" }}>
-              {p.position} · age {p.age} · asking {millions(extensionAsk(p).baseSalary)}/yr
+              {p.position} · age {p.age} · asking {millions(extensionAsk(p).baseSalary)}/yr × {extensionAsk(p).years}
             </span>
+            {note[p.id] ? (
+              <span style={{ color: "var(--ink-dim)" }}>{note[p.id]}</span>
+            ) : (
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ fontSize: 11, padding: "3px 8px", marginLeft: "auto" }}
+                onClick={() => {
+                  const ask = extensionAsk(p);
+                  void actions.extend(p.id, ask).then((r) =>
+                    setNote((n) => ({ ...n, [p.id]: r.ok ? "Extended" : (r.reason ?? "He turned it down.") })),
+                  );
+                }}
+              >
+                Extend at his ask
+              </button>
+            )}
           </div>
         ))}
         {expiring.length > shown.length && (
