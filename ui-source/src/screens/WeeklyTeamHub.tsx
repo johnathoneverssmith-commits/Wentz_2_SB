@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -17,6 +17,7 @@ import { useLeagueActions } from "@/state/useLeagueActions";
 import { onlineSession } from "@/state/online";
 import { isHumansOnly, playoffFieldSize } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
+import { sideRatings } from "@/state/unitReport";
 import {
   currentPhase,
   divisionRivals,
@@ -50,6 +51,11 @@ export function WeeklyTeamHub() {
   const simulateGameDay = useStore((st) => st.simulateGameDay);
 
   const code = viewerTeamCode(s);
+  // before any early return: hooks run in the same order every render
+  const sides = useMemo(
+    () => sideRatings({ players: s.players, teams: s.teams, depthChart: s.depthChart }),
+    [s.players, s.teams, s.depthChart],
+  );
   if (!code) {
     // Online this is not a setup problem and League Setup cannot fix it —
     // teams are claimed in the lobby, and being here without one means the
@@ -232,8 +238,9 @@ export function WeeklyTeamHub() {
 
         <p className="subhead">Unit ranks</p>
         <div className="split-4" style={{ gap: 10 }}>
-          <UnitCard label="Offense" rank={team.ratings.offenseRank} rating={team.ratings.offense} />
-          <UnitCard label="Defense" rank={team.ratings.defenseRank} rating={team.ratings.defense} />
+          {/* engine-weighted, the same reading as Roster & Cap's Unit grades */}
+          <UnitCard label="Offense" rank={sides[code]?.offenseRank ?? team.ratings.offenseRank} rating={sides[code]?.offense ?? team.ratings.offense} />
+          <UnitCard label="Defense" rank={sides[code]?.defenseRank ?? team.ratings.defenseRank} rating={sides[code]?.defense ?? team.ratings.defense} />
           <UnitCard label="Special teams" rank={team.ratings.specialTeamsRank} rating={team.ratings.specialTeams} />
           {/* Change 6: a staff is a unit like any other, and after drafting
               twelve of them a GM should be able to see where that landed. */}

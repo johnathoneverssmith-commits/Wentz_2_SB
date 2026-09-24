@@ -214,3 +214,51 @@ export function fitFor(
   const gain = unitGainer((pos) => byPos.get(pos) ?? []);
   return (position, overall) => fitLabel(gain(position, overall));
 }
+
+// ---- offense and defense, the way the engine weighs them ---------------------
+
+const OFFENSE_UNITS = ["quarterback", "runningBack", "receivers", "tightEnd", "offensiveLine"];
+const DEFENSE_UNITS = ["passRush", "interior", "linebackers", "corners", "safeties"];
+
+export interface SideRatings {
+  offense: number;
+  defense: number;
+  offenseRank: number;
+  defenseRank: number;
+}
+
+/**
+ * Every team's offense and defense as a weighted mean of its unit strengths
+ * — each unit weighted by what it is measured to be worth, each strength
+ * pulled toward its weakest starter. The hub used to show a flat average of
+ * the starters, so it could call an offense twentieth while Unit grades had
+ * its quarterback first and its line thirtieth: two screens, two answers.
+ */
+export function sideRatings(s: Pick<LeagueState, "players" | "teams" | "depthChart">): Record<string, SideRatings> {
+  const lines = depthLines(s as LeagueState);
+  const codes = [...lines.keys()];
+  const side = (code: string, keys: string[]): number => {
+    let num = 0;
+    let den = 0;
+    for (const key of keys) {
+      const unit = UNITS[key]!;
+      num += strengthOf(unit, startersFor(lines.get(code), key).map((x) => x.overall)) * unit.weight;
+      den += unit.weight;
+    }
+    return num / den;
+  };
+  const off = new Map(codes.map((c) => [c, side(c, OFFENSE_UNITS)]));
+  const def = new Map(codes.map((c) => [c, side(c, DEFENSE_UNITS)]));
+  const rank = (m: Map<string, number>, c: string) => 1 + codes.filter((x) => m.get(x)! > m.get(c)! + 1e-9).length;
+  return Object.fromEntries(
+    codes.map((c) => [
+      c,
+      {
+        offense: Math.round(off.get(c)!),
+        defense: Math.round(def.get(c)!),
+        offenseRank: rank(off, c),
+        defenseRank: rank(def, c),
+      },
+    ]),
+  );
+}
