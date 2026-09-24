@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill } from "@/components/bits";
@@ -44,7 +45,7 @@ export function DraftPreview() {
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title="Draft Preview"
-        subtitle={`${s.season} rookie class · scouting`}
+        subtitle={`${displaySeason(s)} rookie class · scouting`}
       />
       <Ticker
         stats={[

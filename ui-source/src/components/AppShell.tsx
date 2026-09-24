@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { displaySeasonFor } from "@/state/stageMachine";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
@@ -139,7 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="stagechip">
-          {STAGE_LABEL[stage]} · {season}
+          {STAGE_LABEL[stage]} · {displaySeasonFor(season, stage)}
           {week ? ` · Wk ${week}` : ""}
         </div>
 

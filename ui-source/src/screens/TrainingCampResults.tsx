@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
@@ -52,7 +53,7 @@ export function TrainingCampResults() {
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Training Camp Results"
-        subtitle={`${s.season} · ${improved} improved, ${declined} declined`}
+        subtitle={`${displaySeason(s)} · ${improved} improved, ${declined} declined`}
       />
       <Ticker
         stats={[

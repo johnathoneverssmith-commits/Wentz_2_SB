@@ -1536,6 +1536,12 @@ export function sbWonByHuman(s: LeagueState): boolean {
 
 export function finalizeSeason(s: LeagueState): void {
   if (s.history.some((h) => h.season === s.season)) return;
+  // Only a season that was played. A new league rolls over from its opening
+  // offseason into its first season without having played one, and
+  // finalizing there took a year off every contract the fantasy draft had
+  // just signed, wrote a 0-0 phantom season into history, and counted it
+  // toward every human team's Hooded Figure losing streak.
+  if (!s.games.some((g) => g.phase === "REG" && g.played)) return;
   s.history.push(...sim.finalizeSeasonOutcomes(s));
   // the year has been played, so every contract is a year shorter — and the
   // ones that just ran out hit the market in time for this offseason's window

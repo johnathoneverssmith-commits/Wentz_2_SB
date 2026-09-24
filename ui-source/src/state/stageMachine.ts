@@ -278,3 +278,47 @@ function firstBlockPlayed(state: LeagueState, lastWeek: number): boolean {
   const played = state.games.filter((g) => g.phase === "REG" && g.played && g.week <= lastWeek).length;
   return played >= scheduled;
 }
+
+/**
+ * The stages that get a team ready for a season rather than play one.
+ *
+ * `state.season` only turns over on the way into the preseason, so while a
+ * league is in any of these it still holds the *previous* year — a new league
+ * drafted in "2026" and then played 2027, and every later draft was labelled
+ * with the season it followed rather than the one it fed. By NFL convention
+ * the draft, free agency and camp before the 2027 season are all 2027's.
+ */
+const PREPARING_STAGES: ReadonlySet<Stage> = new Set<Stage>([
+  "setup",
+  "fantasyDraft",
+  "fantasyDraftSummary",
+  "coachingDraft",
+  "coachingDraftSummary",
+  "freeAgency",
+  "freeAgencySummary",
+  "trainingCamp",
+  "trainingCampResults",
+  "hoodedFigureEncounter",
+  "coachingHiring",
+  "offseasonRetirement",
+  "offseasonDraftPrep",
+  "offseasonDraft",
+  "offseasonDraftSummary",
+  "offseasonSignings",
+  "offseasonFreeAgency",
+  "offseasonDepthChart",
+]);
+
+/**
+ * The year a screen should show: the season being prepared for during the
+ * offseason, the season being played otherwise. Display only — every rule
+ * keyed on `state.season` (contracts, pick years, aging, the Hooded Figure)
+ * keeps using the real value.
+ */
+export function displaySeasonFor(season: number, stage: Stage): number {
+  return PREPARING_STAGES.has(stage) ? season + 1 : season;
+}
+
+export function displaySeason(s: Pick<LeagueState, "season" | "stage">): number {
+  return displaySeasonFor(s.season, s.stage);
+}

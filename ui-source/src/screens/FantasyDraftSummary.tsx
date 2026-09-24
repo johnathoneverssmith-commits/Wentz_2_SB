@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -70,7 +71,7 @@ export function FantasyDraftSummary({
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title={title}
-        subtitle={`${s.season} · how every team's draft graded out`}
+        subtitle={`${displaySeason(s)} · how every team's draft graded out`}
       />
       <Ticker
         stats={[

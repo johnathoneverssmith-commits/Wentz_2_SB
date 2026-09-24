@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -63,7 +64,7 @@ export function RookieSignings() {
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title="Rookie Signings"
-        subtitle={`${s.season} Draft Class · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
+        subtitle={`${displaySeason(s)} Draft Class · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
       />
       <Ticker
         stats={[

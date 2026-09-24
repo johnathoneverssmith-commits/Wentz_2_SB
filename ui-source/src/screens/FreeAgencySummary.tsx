@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
@@ -89,7 +90,7 @@ export function FreeAgencySummary() {
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Free Agency Summary"
-        subtitle={`${s.season} · ${mySignings.length} signed`}
+        subtitle={`${displaySeason(s)} · ${mySignings.length} signed`}
       />
       <Ticker
         stats={[

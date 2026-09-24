@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
@@ -112,7 +113,7 @@ export function TrainingCamp() {
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Training Camp"
-        subtitle={`${s.season} · set your focuses`}
+        subtitle={`${displaySeason(s)} · set your focuses`}
       />
       <Ticker
         stats={[

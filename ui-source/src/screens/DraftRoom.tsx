@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
@@ -203,7 +204,7 @@ export function DraftRoom() {
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title="Draft Room"
-        subtitle={`${draft.year} ${mode === "fantasy" ? "Fantasy Draft" : "Rookie Draft"} · Round ${Math.min(round, maxRounds)} · ${cap(draft.order)}`}
+        subtitle={`${displaySeason(s)} ${mode === "fantasy" ? "Fantasy Draft" : "Rookie Draft"} · Round ${Math.min(round, maxRounds)} · ${cap(draft.order)}`}
       />
       <Ticker
         stats={[

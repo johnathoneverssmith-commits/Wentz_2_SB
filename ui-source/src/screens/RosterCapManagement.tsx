@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill } from "@/components/bits";
@@ -224,7 +225,7 @@ export function RosterCapManagement() {
                 <>
                   <div className="grid4">
                     <div>
-                      <p>{s.season} cap hit</p>
+                      <p>{displaySeason(s)} cap hit</p>
                       <p>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</p>
                     </div>
                     <div>

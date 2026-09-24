@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { displaySeasonFor } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { humansOnlyLeagueSize, playoffFieldSize, seasonShapeFor } from "@/state/leagueFormat";
 import { useNavigate } from "react-router-dom";
@@ -248,7 +249,7 @@ export function OnlineLobby() {
                     )}
                   </p>
                   <p className="lobby-sub">
-                    {l.season} · {stageName(l.stage)}
+                    {displaySeasonFor(l.season, l.stage as Stage)} · {stageName(l.stage)}
                     {box?.msLeft != null && ` · ${timeLeft(box.msLeft)} left in this phase`}
                   </p>
                   {!l.teamCode && (

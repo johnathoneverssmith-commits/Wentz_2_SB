@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -72,7 +73,7 @@ export function CoachingDraftSummary() {
       <CardHeader
         badge="CD"
         title="Coaching Draft Summary"
-        subtitle={`${s.season} staffs · every job filled`}
+        subtitle={`${displaySeason(s)} staffs · every job filled`}
       />
       <Ticker
         stats={[
