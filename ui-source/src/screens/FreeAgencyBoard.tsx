@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
+import { FitTag } from "@/components/FitTag";
+import { fitFor } from "@/state/unitReport";
 import { InlineNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader, useListFilter } from "@/components/ListFilter";
@@ -57,6 +59,9 @@ export function FreeAgencyBoard() {
     if (actions.online) return;
     if (inWindow && remaining === 0 && !fa?.interstitialVisible) advanceDay("players");
   }, [inWindow, remaining, fa?.interstitialVisible, advanceDay, actions.online]);
+
+  // what each free agent would add to your starting units
+  const fit = useMemo(() => (code ? fitFor({ players: s.players }, code) : null), [s.players, code]);
 
   const windowSigned = new Set(fa?.signed.map((x) => x.id) ?? []);
   const FA_GRID = "1.7fr 0.45fr 0.5fr 1fr auto 16px";
@@ -172,6 +177,7 @@ export function FreeAgencyBoard() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <p className="pname">
                         {p.name} <span className="ppos">{p.position}</span>
+                        {fit && <FitTag fit={fit(p.position, p.overall)} />}
                       </p>
                       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
                         Age {p.age} · wants ~{millions(exp.baseSalary)}/yr

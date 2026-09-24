@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Player } from "@/domain";
@@ -19,6 +20,7 @@ import {
   primaryValueOf,
 } from "@/state/freeAgencyValues";
 import { viewerTeamCode } from "@/state/selectors";
+import { fitFor } from "@/state/unitReport";
 import { draftValue, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { millions } from "@/util/format";
@@ -69,16 +71,30 @@ export function FreeAgencyBoardTurns() {
     [s.players, code],
   );
 
+  const [sortBy, setSortBy] = useState<"value" | "fit">("value");
+  const fit = useMemo(() => (code ? fitFor({ players: s.players }, code) : null), [s.players, code]);
+
   const pool = useMemo(
     // Position-adjusted, the same way the draft board is: sorted on raw
     // overall, an 84 punter and an 84 kicker outrank every starter in the
     // market and the top of the list stops meaning anything. `draftValue` is
     // the league's own view of what a position is worth.
-    () =>
-      unsignedPool(s).sort(
-        (a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position),
-      ),
-    [s.players, s.freeAgencyEvent], // eslint-disable-line react-hooks/exhaustive-deps
+    // "Best fit" sorts by what a player would add to your starting units —
+    // the reading the Master AI signs by — so a GM can see a line with one
+    // hole in it is worth more than another star at a full position.
+    () => {
+      const list = unsignedPool(s);
+      if (sortBy === "fit" && fit) {
+        const g = new Map(list.map((p) => [p.id, fit(p.position, p.overall).gain]));
+        return list.sort(
+          (a, b) =>
+            g.get(b.id)! - g.get(a.id)! ||
+            draftValue(b.overall, b.position) - draftValue(a.overall, a.position),
+        );
+      }
+      return list.sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position));
+    },
+    [s.players, s.freeAgencyEvent, sortBy, fit], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   if (!e || !code) {
@@ -156,6 +172,15 @@ export function FreeAgencyBoardTurns() {
       />
 
       <Panel id="unsigned" open={active === "unsigned"}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
+          <label htmlFor="fa-sort" style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
+            Sort
+          </label>
+          <select id="fa-sort" value={sortBy} onChange={(ev) => setSortBy(ev.target.value as "value" | "fit")}>
+            <option value="value">Best player</option>
+            <option value="fit">Best fit for your units</option>
+          </select>
+        </div>
         {pool.length === 0 ? (
           <div className="emptystate">Everybody has signed.</div>
         ) : (
@@ -170,6 +195,7 @@ export function FreeAgencyBoardTurns() {
                     <p className="pname">
                       {p.name}
                       <span className="ppos">{p.position}</span>
+                      {fit && <FitTag fit={fit(p.position, p.overall)} />}
                     </p>
                     <p className="lobby-sub">
                       Age {p.age} · asking {millions(ask)}/yr · wants{" "}

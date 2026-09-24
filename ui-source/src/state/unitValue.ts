@@ -63,6 +63,7 @@ for (const [name, u] of Object.entries(UNITS)) for (const pos of Object.keys(u.s
  * first pick against 50 made every position look like a hole worth filling.
  */
 const REPLACEMENT = 68;
+export const REPLACEMENT_RATING = REPLACEMENT;
 
 /** Ratings at a position, any order. */
 export type RatingsAt = (position: string) => readonly number[];
@@ -84,6 +85,11 @@ function unitStrength(
     pool.sort((a, b) => b - a);
     for (let i = 0; i < n; i++) starters.push(pool[i] ?? replacement(pos));
   }
+  return strengthOf(unit, starters);
+}
+
+/** A unit's strength from its starters' ratings: their average, pulled toward the weakest. */
+export function strengthOf(unit: Unit, starters: readonly number[]): number {
   const mean = starters.reduce((a, b) => a + b, 0) / starters.length;
   const min = Math.min(...starters);
   return (1 - unit.weakLink) * mean + unit.weakLink * min;

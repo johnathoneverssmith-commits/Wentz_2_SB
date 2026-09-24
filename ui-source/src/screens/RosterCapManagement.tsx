@@ -9,6 +9,7 @@ import { RowHeader } from "@/components/ListFilter";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
+import { UnitGrades } from "@/components/UnitGrades";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import {
   POSITION_GROUPS,
@@ -162,6 +163,7 @@ export function RosterCapManagement() {
         tabs={[
           { id: "roster", label: "Roster" },
           { id: "cap", label: "Cap table" },
+          { id: "units", label: "Unit grades" },
           { id: "needs", label: "Positional needs" },
         ]}
         active={active}
@@ -339,6 +341,10 @@ export function RosterCapManagement() {
           <ProjCell label="Cap used" value={millions(capUsed)} />
           <ProjCell label="Cap space" value={millions(capSpace)} />
         </div>
+      </Panel>
+
+      <Panel id="units" open={active === "units"}>
+        {active === "units" && <UnitGrades teamCode={code} />}
       </Panel>
 
       <Panel id="needs" open={active === "needs"}>

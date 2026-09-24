@@ -8,12 +8,14 @@ import { useListFilter } from "@/components/ListFilter";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Player, Position } from "@/domain";
 import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
+import { fitFor } from "@/state/unitReport";
 
 interface Available {
   id: string;
@@ -32,6 +34,8 @@ export function DraftRoom() {
   const [inspect, setInspect] = useState<Player | null>(null);
 
   const code = viewerTeamCode(s);
+  // what each prospect would add to your starting units (public grades only)
+  const fit = useMemo(() => (code ? fitFor({ players: s.players }, code) : null), [s.players, code]);
   const startDraft = useStore((st) => st.startDraft);
   const actions = useLeagueActions();
   const autoReady = useStore((st) => st.autoReadyNonViewers);
@@ -299,6 +303,7 @@ export function DraftRoom() {
                     ) : (
                       p.name
                     )}
+                    {fit && <FitTag fit={fit(p.position, p.ovr)} />}
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
                   </td>
                   <td className="c">{p.position}</td>
