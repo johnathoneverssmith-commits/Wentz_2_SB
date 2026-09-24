@@ -98,7 +98,7 @@ export function leaders(
     const st = p.season_stats;
     if (!st || st.gamesPlayed === 0) continue;
     if (cat === "passing" && (st.passYds ?? 0) > 0) {
-      rows.push({ playerId: p.id, name: p.name, position: p.position, team: p.nfl_team, value: st.passYds!, line: `${st.passCmp ?? 0}/${st.passAtt ?? 0}, ${st.passTd ?? 0} TD, ${st.passInt ?? 0} INT` });
+      rows.push({ playerId: p.id, name: p.name, position: p.position, team: p.nfl_team, value: st.passYds!, line: `${st.passCmp ?? 0}/${st.passAtt ?? 0}, ${st.passTd ?? 0} TD, ${st.passInt ?? 0} INT${passerRating(st) !== null ? `, ${passerRating(st)!.toFixed(1)} rtg` : ""}` });
     } else if (cat === "rushing" && (st.rushYds ?? 0) > 0) {
       rows.push({ playerId: p.id, name: p.name, position: p.position, team: p.nfl_team, value: st.rushYds!, line: `${st.rushAtt ?? 0} att, ${st.rushTd ?? 0} TD` });
     } else if (cat === "receiving" && (st.recYds ?? 0) > 0) {
@@ -126,4 +126,19 @@ export function mvpTracker(s: LeagueState): LeaderRow[] {
       value: Math.round(score),
       line: `${p.position} · ${p.nfl_team}`,
     }));
+}
+
+/**
+ * The NFL passer rating (0 to 158.3), from a stat line. Undefined below a
+ * handful of attempts, where it says nothing.
+ */
+export function passerRating(st: { passAtt?: number; passCmp?: number; passYds?: number; passTd?: number; passInt?: number }): number | null {
+  const att = st.passAtt ?? 0;
+  if (att < 10) return null;
+  const clamp = (x: number) => Math.max(0, Math.min(2.375, x));
+  const a = clamp(((st.passCmp ?? 0) / att - 0.3) * 5);
+  const b = clamp(((st.passYds ?? 0) / att - 3) * 0.25);
+  const c = clamp(((st.passTd ?? 0) / att) * 20);
+  const d = clamp(2.375 - ((st.passInt ?? 0) / att) * 25);
+  return Math.round(((a + b + c + d) / 6) * 1000) / 10;
 }

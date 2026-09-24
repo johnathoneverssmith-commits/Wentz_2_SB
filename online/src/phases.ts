@@ -18,6 +18,8 @@
  * idempotent and takes the same row lock the action endpoints do, so running
  * it twice, or while somebody is mid-action, is safe.
  */
+import { checkTrade } from "@/state/rules.ts";
+import { generateAiTradeOffers } from "@/state/aiTrades.ts";
 import type { LeagueState } from "@/domain";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
@@ -395,6 +397,18 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // The catch-up mechanic's offer: CPU teams never receive it (§3), so there
   // is nothing to sweep here — just generate the encounter for whichever
   // human GMs are eligible, once, the moment the stage opens.
+  // The league goes shopping at the two moments it would: the day the season
+  // ends and the preseason depth chart — the same offers a single-player GM
+  // gets (store.ts). Online never generated them, so an online GM's phone
+  // only ever rang at the trade deadline.
+  if ((state.stage === "offseasonRetirement" || state.stage === "offseasonDepthChart") && from !== state.stage) {
+    const fresh = generateAiTradeOffers(state, state.stage === "offseasonRetirement" ? 1 : 2, 1);
+    for (const offer of fresh) {
+      if (!checkTrade(state, offer).ok) continue;
+      if (!state.trades.some((x) => x.id === offer.id)) state.trades.push(offer);
+    }
+  }
+
   if (state.stage === "hoodedFigureEncounter") {
     ensureHoodedFigureEncounters(state);
   }

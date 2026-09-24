@@ -53,10 +53,26 @@ export function TradeProposal() {
   );
 
   /** Picks appear in the same lists as players, under a `pick:` id. */
+  // where this year's picks would fall if the season ended today
+  const standing = useMemo(() => {
+    const order = Object.keys(s.teams).sort(
+      (a, b) =>
+        s.teams[a]!.wins - s.teams[b]!.wins || s.teams[b]!.losses - s.teams[a]!.losses || a.localeCompare(b),
+    );
+    return new Map(order.map((c, i) => [c, i + 1]));
+  }, [s.teams]);
+  const projectedSlot = (pk: { year: number; round: number; originalTeam: string }): string => {
+    const played = Object.values(s.teams).some((t) => t.wins + t.losses > 0);
+    if (!played || pk.year !== s.season) return ""; // this season's draft
+    const slot = standing.get(pk.originalTeam);
+    const n = Object.keys(s.teams).length;
+    return slot ? ` · projected #${(pk.round - 1) * n + slot}` : "";
+  };
+
   const pickRows = (code: string) =>
     picksOwnedBy(s, code).map((pk) => ({
       id: `pick:${pickKey(pk.year, pk.round, pk.originalTeam)}`,
-      name: pickLabel(pk),
+      name: pickLabel(pk) + projectedSlot(pk),
       position: "PICK",
       overall: 0,
       badge: `R${pk.round}`,

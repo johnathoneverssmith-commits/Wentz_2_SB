@@ -1,4 +1,5 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { passerRating } from "@/state/leagueStats";
 import type { Player } from "@/domain";
 import { millions } from "@/util/format";
 import { useDialog } from "./useDialog.ts";
@@ -74,7 +75,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
             <table className="stbl" style={{ marginBottom: 14 }}>
               <tbody>
                 {statLine("Games", st.gamesPlayed)}
-                {maybe("Passing", st.passYds != null && st.passYds > 0, `${st.passCmp ?? 0}/${st.passAtt ?? 0}, ${st.passYds} yds, ${st.passTd ?? 0} TD, ${st.passInt ?? 0} INT`)}
+                {maybe("Passing", st.passYds != null && st.passYds > 0, `${st.passCmp ?? 0}/${st.passAtt ?? 0}, ${st.passYds} yds, ${st.passTd ?? 0} TD, ${st.passInt ?? 0} INT${passerRating(st) !== null ? `, ${passerRating(st)!.toFixed(1)} rating` : ""}`)}
                 {maybe("Rushing", (st.rushYds ?? 0) !== 0, `${st.rushAtt ?? 0} att, ${st.rushYds ?? 0} yds, ${st.rushTd ?? 0} TD`)}
                 {maybe("Receiving", (st.recYds ?? 0) > 0, `${st.rec ?? 0} rec, ${st.recYds} yds, ${st.recTd ?? 0} TD`)}
                 {maybe("Defense", (st.tackles ?? 0) > 0 || (st.sacks ?? 0) > 0, `${st.tackles ?? 0} tkl, ${st.sacks ?? 0} sk, ${st.defInt ?? 0} INT, ${st.passDef ?? 0} PD`)}

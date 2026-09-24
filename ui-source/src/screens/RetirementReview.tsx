@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { LeagueState, Player } from "@/domain";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -114,6 +115,9 @@ export function RetirementReview() {
                       <p>{p.injury_history.length}</p>
                     </div>
                   </div>
+                  {careerSummary(s, p) && (
+                    <p style={{ margin: "12px 0 0", fontSize: 12.5, color: "var(--ink-dim)" }}>{careerSummary(s, p)}</p>
+                  )}
                   <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: "1px solid var(--line)", fontSize: 12.5, color: "var(--ink-dim)" }}>
                     Frees <strong style={{ color: "var(--good)" }}>{millions(p.contract?.cap_hit_by_year[0] ?? 0)}</strong> in cap space once the contract clears.
                   </p>
@@ -180,4 +184,23 @@ export function RetirementReview() {
       </Footer>
     </Card>
   );
+}
+
+/** A retiring player's career in this league, in a line: his totals and his honours. */
+function careerSummary(s: LeagueState, p: Player): string | null {
+  const c = p.career;
+  const honours = [
+    ...(s.awards ?? []).filter((a) => a.playerId === p.id).map((a) => `${a.season} ${a.award}`),
+    ...((s.allPro ?? []).some((a) => a.playerId === p.id) ? [`${(s.allPro ?? []).filter((a) => a.playerId === p.id).length}x All-Pro`] : []),
+  ];
+  const totals: string[] = [];
+  if (c) {
+    if ((c.passYds ?? 0) > 0) totals.push(`${c.passYds!.toLocaleString()} pass yds, ${c.passTd ?? 0} TD`);
+    if ((c.rushYds ?? 0) > 300) totals.push(`${c.rushYds!.toLocaleString()} rush yds`);
+    if ((c.recYds ?? 0) > 300) totals.push(`${c.recYds!.toLocaleString()} rec yds`);
+    if ((c.sacks ?? 0) > 5) totals.push(`${c.sacks} sacks`);
+    if ((c.defInt ?? 0) > 3) totals.push(`${c.defInt} INT`);
+  }
+  if (!totals.length && !honours.length) return null;
+  return [c ? `${c.seasons} seasons in this league` : null, ...totals, ...honours].filter(Boolean).join(" · ");
 }
