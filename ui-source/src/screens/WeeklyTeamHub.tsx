@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
+import { UnitMatchups } from "@/components/UnitMatchups";
 import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
@@ -18,6 +19,7 @@ import { onlineSession } from "@/state/online";
 import { isHumansOnly, playoffFieldSize } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
 import { sideRatings } from "@/state/unitReport";
+import { talentScaleOf } from "@/state/talentImpact";
 import {
   currentPhase,
   divisionRivals,
@@ -42,7 +44,8 @@ const favWinProb = (
   a: { overall: number },
   b: { overall: number },
   atHome: boolean,
-): number => winProbability(a.overall, b.overall, atHome ? "home" : "away");
+  talentScale: number,
+): number => winProbability(a.overall, b.overall, atHome ? "home" : "away", talentScale);
 
 export function WeeklyTeamHub() {
   const nav = useNavigate();
@@ -130,7 +133,7 @@ export function WeeklyTeamHub() {
     .sort((a, b) => winPct(b.t) - winPct(a.t));
 
   const notes = watchNotes(s);
-  const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost) : 50;
+  const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
   return (
     <Card maxWidth={760}>
@@ -288,6 +291,7 @@ export function WeeklyTeamHub() {
             <p style={{ margin: "10px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
               Green marks the team favored in that row.
             </p>
+            {active === "matchup" && <UnitMatchups teamCode={code} oppCode={oppCode} />}
           </>
         ) : (
           <div className="emptystate">{phase ? "Bye week — no matchup." : "No game this week — the league is in the offseason."}</div>

@@ -35,6 +35,11 @@ import type { Player } from "../src/schema/player.js";
 import { Roster, roster, teamList } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
 
+/** Talent impact to measure at (`--talent 1.5`); 1 is the validated engine. */
+const talentScale = process.argv.includes("--talent")
+  ? Number(process.argv[process.argv.indexOf("--talent") + 1])
+  : 1;
+
 const seedsPerPair = Number(
   process.argv[process.argv.indexOf("--seeds") + 1] || (process.argv.includes("--seeds") ? 12 : 12),
 );
@@ -129,6 +134,7 @@ function run(): void {
           injuries: true,
           homeRoster: h.roster,
           awayRoster: a.roster,
+          talentScale,
         });
         const [hs, as_] = g.score as [number, number];
         points += hs + as_;
@@ -149,6 +155,7 @@ function run(): void {
   console.log("");
   console.log(`games            ${games}`);
   console.log(`seeds per pair   ${seedsPerPair}`);
+  console.log(`talent scale     ${talentScale}`);
   console.log(`ties             ${ties} (${((ties / games) * 100).toFixed(2)}%)`);
   console.log(`points/game      ${(points / games).toFixed(1)}`);
   const ratings = entrants.map((e) => e.rating);

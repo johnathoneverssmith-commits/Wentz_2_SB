@@ -5,43 +5,51 @@ import { winChance, winProbability } from "./win-probability.ts";
 /**
  * The measured curve, checked against the measurement.
  *
- * These numbers are not the fit's own output — they are the empirical
- * win rates from `analysis/30_win_probability.ts`, 47,616 engine games
- * bucketed by rating gap. The fit has to land on them, because agreeing with
- * itself would test nothing.
+ * These are empirical home-team win rates from
+ * `analysis/30_win_probability.ts --talent 1` (15,872 engine games, every
+ * ordered pair of the 32 rosters and their weakened copies, the listed team
+ * hosting), bucketed by rating gap — not the fit's own output. Re-measured
+ * after synergy and the team-strength index made rosters far more decisive
+ * than the first curve (0.147 a point) knew.
  *
- * They were measured before the engine had a home-field advantage, which
- * makes them exactly the right thing to check the **neutral** curve against:
- * every game in that run was, in effect, at a neutral site. Home field enters
- * as an intercept and leaves the slope alone, so `B` is still what those
- * games say it is — and the venue term is checked separately below, against
- * the league rate the engine is fitted to.
- *
- * Tolerance is 2.5 points, which is roughly two standard errors on the
- * thinnest bucket (n≈320) and far more than that on the thick ones. The two
- * widest gaps are excluded and tested separately: the logistic runs slightly
- * ahead of the data there, which is why the curve clamps rather than
- * extrapolates.
+ * Tolerance is 3.5 points: the logistic is a slightly imperfect shape for
+ * the data around ±2 (about two points off on ~2,300 games a bucket).
  */
 const MEASURED: ReadonlyArray<readonly [gap: number, actualPct: number, games: number]> = [
-  [-10, 17.1, 1182],
-  [-8, 23.0, 2286],
-  [-6, 29.4, 3699],
-  [-4, 36.4, 5295],
-  [-2, 42.8, 6840],
-  [0, 50.0, 7980],
-  [2, 55.6, 6924],
-  [4, 62.9, 5310],
-  [6, 70.4, 3705],
-  [8, 77.9, 2316],
-  [10, 81.4, 1227],
+  [-10, 1.0, 394],
+  [-8, 2.1, 762],
+  [-6, 5.6, 1233],
+  [-4, 15.4, 1765],
+  [-2, 32.6, 2280],
+  [0, 54.6, 2660],
+  [2, 72.3, 2308],
+  [4, 86.8, 1770],
+  [6, 95.1, 1235],
+  [8, 99.1, 772],
+  [10, 99.8, 409],
+];
+
+/** The same measurement at Amplified talent (1.5), the default for new leagues. */
+const MEASURED_AMPLIFIED: ReadonlyArray<readonly [gap: number, actualPct: number]> = [
+  [-4, 8.7],
+  [-2, 24.0],
+  [0, 52.6],
+  [2, 79.3],
+  [4, 93.8],
 ];
 
 describe("win probability", () => {
   it("matches what the engine actually did, at every gap it was measured over", () => {
     for (const [gap, actual] of MEASURED) {
-      expect(Math.abs(winProbability(75 + gap, 75) - actual)).toBeLessThan(2.5);
+      expect(Math.abs(winProbability(75 + gap, 75, "home") - actual)).toBeLessThan(3.5);
     }
+  });
+
+  it("follows the talent-impact setting: amplified rosters decide more games", () => {
+    for (const [gap, actual] of MEASURED_AMPLIFIED) {
+      expect(Math.abs(winProbability(75 + gap, 75, "home", 1.5) - actual)).toBeLessThan(3.5);
+    }
+    expect(winProbability(78, 75, "neutral", 2)).toBeGreaterThan(winProbability(78, 75, "neutral", 1));
   });
 
   it("gives an even matchup an even chance — the engine has no home field", () => {
@@ -68,7 +76,7 @@ describe("win probability", () => {
   });
 
   it("stops extrapolating past the gaps that were measured", () => {
-    // beyond ±14 the logistic keeps climbing and the data doesn't, so a
+    // beyond ±12 the logistic keeps climbing and the data doesn't, so a
     // 25-point mismatch reads the same as an 18-point one rather than 99%
     expect(winProbability(75 + 18, 75)).toBe(winProbability(75 + 40, 75));
     expect(winProbability(75 - 18, 75)).toBe(winProbability(75 - 40, 75));
@@ -85,7 +93,7 @@ describe("win probability", () => {
     let theirs = 0;
     let n = 0;
     for (const [gap, actual, games] of MEASURED) {
-      mine += games * Math.abs(winProbability(75 + gap, 75) - actual);
+      mine += games * Math.abs(winProbability(75 + gap, 75, "home") - actual);
       theirs += games * Math.abs(old(gap) - actual);
       n += games;
     }
@@ -113,9 +121,9 @@ describe("home field", () => {
 
   it("is worth nothing at a neutral site — which the Super Bowl is", () => {
     expect(winProbability(76, 76, "neutral")).toBe(50);
-    // the same eight-point favourite, three ways round
-    expect(winProbability(84, 76, "neutral")).toBeLessThan(winProbability(84, 76, "home"));
-    expect(winProbability(84, 76, "neutral")).toBeGreaterThan(winProbability(84, 76, "away"));
+    // the same two-point favourite, three ways round
+    expect(winProbability(78, 76, "neutral")).toBeLessThan(winProbability(78, 76, "home"));
+    expect(winProbability(78, 76, "neutral")).toBeGreaterThan(winProbability(78, 76, "away"));
   });
 
   it("gives two views of one game that add to 100", () => {
@@ -126,12 +134,11 @@ describe("home field", () => {
     }
   });
 
-  it("is worth about one rating point, and not two", () => {
-    // 0.1611 of log-odds against a slope of 0.1467 a point: the venue buys
-    // you 1.1 points of roster. A one-point underdog at home is a coin flip;
-    // a two-point underdog is still an underdog.
-    expect(winProbability(75, 76, "home")).toBe(50);
-    expect(winProbability(75, 77, "home")).toBeLessThan(50);
-    expect(winProbability(76, 75, "away")).toBe(50);
+  it("is worth about a third of a rating point", () => {
+    // 0.1611 of log-odds against a slope of 0.478 a point: ratings decide
+    // games so strongly now that a one-point underdog is an underdog even at
+    // home, and home field only tips a dead-even game.
+    expect(winProbability(75, 76, "home")).toBeLessThan(50);
+    expect(winProbability(75, 75, "home")).toBeGreaterThan(50);
   });
 });

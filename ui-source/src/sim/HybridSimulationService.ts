@@ -141,7 +141,7 @@ function hashCode(s: string): number {
 function favProb(state: LeagueState, a: string, b: string, venue: Venue = "home"): number {
   const oa = state.teams[a]?.ratings.overall ?? 75;
   const ob = state.teams[b]?.ratings.overall ?? 75;
-  return winProbability(oa, ob, venue);
+  return winProbability(oa, ob, venue, talentScaleOf(state.config));
 }
 
 /** Wild Card round pairing (1-seed bye; 2v7, 3v6, 4v5) — pure, no RNG. */

@@ -55,8 +55,32 @@
  */
 const HOME_EDGE = 0.1611;
 
-/** Per point of starting-lineup overall. */
-const B = 0.1467;
+/**
+ * Per point of starting-lineup overall, by talent impact.
+ *
+ * Re-measured (analysis/30 with `--talent`, 15,872 games each) after the
+ * synergy layer and the team-strength index made rosters far more decisive
+ * than when the first curve was fitted: that curve's 0.147 said a
+ * four-point favourite wins 64% when the engine plays it at 87%, and the
+ * Amplified setting new leagues default to makes it 94%. Fit error is about
+ * one point of probability at every setting.
+ */
+const B_BY_TALENT: readonly [number, number][] = [
+  [1, 0.4777],
+  [1.5, 0.6869],
+  [2, 0.8471],
+];
+
+function slopeFor(talent: number): number {
+  const pts = B_BY_TALENT;
+  if (talent <= pts[0]![0]) return pts[0]![1];
+  for (let i = 1; i < pts.length; i++) {
+    const [t1, b1] = pts[i]!;
+    const [t0, b0] = pts[i - 1]!;
+    if (talent <= t1) return b0 + ((talent - t0) / (t1 - t0)) * (b1 - b0);
+  }
+  return pts[pts.length - 1]![1];
+}
 
 /**
  * The widest gap the measurement covers with enough games to trust.
@@ -66,7 +90,7 @@ const B = 0.1467;
  * more certain than an 18-point one, and claiming 99% would be a promise the
  * engine doesn't keep.
  */
-const MEASURED_TO = 14;
+const MEASURED_TO = 12;
 
 /** Where the first team is playing. The Super Bowl is the neutral one. */
 export type Venue = "home" | "away" | "neutral";
@@ -81,11 +105,12 @@ export function winProbability(
   teamOverall: number,
   opponentOverall: number,
   venue: Venue = "neutral",
+  talentScale = 1,
 ): number {
   if (!Number.isFinite(teamOverall) || !Number.isFinite(opponentOverall)) return 50;
   const gap = Math.max(-MEASURED_TO, Math.min(MEASURED_TO, teamOverall - opponentOverall));
   const edge = venue === "home" ? HOME_EDGE : venue === "away" ? -HOME_EDGE : 0;
-  const p = 1 / (1 + Math.exp(-(edge + B * gap)));
+  const p = 1 / (1 + Math.exp(-(edge + slopeFor(talentScale) * gap)));
   return Math.max(1, Math.min(99, Math.round(p * 100)));
 }
 
@@ -94,6 +119,7 @@ export function winChance(
   teamOverall: number,
   opponentOverall: number,
   venue: Venue = "neutral",
+  talentScale = 1,
 ): number {
-  return winProbability(teamOverall, opponentOverall, venue) / 100;
+  return winProbability(teamOverall, opponentOverall, venue, talentScale) / 100;
 }

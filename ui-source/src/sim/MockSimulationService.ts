@@ -1181,7 +1181,7 @@ function wcMatchups(conf: "AFC" | "NFC", seeds: string[], state: LeagueState): B
 function favProb(state: LeagueState, a: string, b: string, venue: Venue = "home"): number {
   const oa = state.teams[a]?.ratings.overall ?? 75;
   const ob = state.teams[b]?.ratings.overall ?? 75;
-  return winProbability(oa, ob, venue);
+  return winProbability(oa, ob, venue, talentScaleOf(state.config));
 }
 
 export function buildNextRound(round: PlayoffRound, b: BracketState, state: LeagueState): BracketMatchup[] {
