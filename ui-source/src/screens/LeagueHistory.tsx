@@ -34,7 +34,7 @@ export function LeagueHistory() {
       <div className="panel open">
         <ScoreTrackerTable />
       </div>
-      <LeagueMemory s={s} />
+      <LeagueMemory s={s} teamCode={s.gms.find((g) => g.id === s.viewerGmId)?.teamCode ?? null} />
       <AwardsHistory awards={s.awards ?? []} />
       <Footer>
         <button type="button" className="btnlink" onClick={() => nav("/")}>

@@ -144,6 +144,7 @@ export class HttpSimulationService {
     depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
     talentScale = 1,
     staffs: Record<string, EngineStaff> = {},
+    offenseAdjust = 0,
   ): Promise<GameResult[]> {
     const engineRosters: Record<string, Player[]> = {};
     for (const [team, players] of Object.entries(rosters)) {
@@ -167,6 +168,7 @@ export class HttpSimulationService {
       depthCharts: engineDepth,
       talentScale,
       staffs: this.engineStaffsOf(staffs),
+      offenseAdjust,
     };
     const results = await post<
       (GameResult & { broadcast?: GameBroadcast & { home: string; away: string } })[]
@@ -242,6 +244,7 @@ export class HttpSimulationService {
     depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
     talentScale = 1,
     staffs: Record<string, EngineStaff> = {},
+    offenseAdjust = 0,
   ): Promise<RawPlayoffRoundResult> {
     const body = {
       seed,
@@ -255,6 +258,7 @@ export class HttpSimulationService {
       ...this.engineRostersOf(rosters, depthCharts),
       talentScale,
       staffs: this.engineStaffsOf(staffs),
+      offenseAdjust,
     };
     const res = await post<RawPlayoffRoundResult>("/playoffs/round", body);
     const translateGame = (g: RawPlayoffGame): RawPlayoffGame => ({
@@ -281,6 +285,7 @@ export class HttpSimulationService {
     depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
     talentScale = 1,
     staffs: Record<string, EngineStaff> = {},
+    offenseAdjust = 0,
   ): Promise<{ homeScore: number; awayScore: number; winner: string }> {
     const res = await post<{ homeScore: number; awayScore: number; winner: string }>("/playoffs/game", {
       seed,
@@ -290,6 +295,7 @@ export class HttpSimulationService {
       ...this.engineRostersOf(rosters, depthCharts),
       talentScale,
       staffs: this.engineStaffsOf(staffs),
+      offenseAdjust,
     });
     return { homeScore: res.homeScore, awayScore: res.awayScore, winner: toUi(res.winner) };
   }

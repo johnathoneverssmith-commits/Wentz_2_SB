@@ -9,20 +9,45 @@ const abbr = (code: string | null | undefined) => (code ? (TEAMS_BY_CODE[code]?.
  * recent All-Pro first team and the Hall of Fame. Each section appears once
  * there is something in it.
  */
-export function LeagueMemory({ s }: { s: LeagueState }) {
+export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: string | null }) {
+  const mine = teamCode ? (s.teamSeasons ?? []).filter((r) => r.team === teamCode).sort((a, b) => b.season - a.season) : [];
   const champions = [...(s.champions ?? [])].sort((a, b) => b.season - a.season);
   const records = s.records ?? [];
   const latestAllPro = Math.max(0, ...(s.allPro ?? []).map((a) => a.season));
   const allPro = (s.allPro ?? []).filter((a) => a.season === latestAllPro);
   const hof = [...(s.hallOfFame ?? [])].sort((a, b) => b.inducted - a.inducted);
   const careers = careerLeaders(s);
-  if (!champions.length && !records.length && !allPro.length && !hof.length && !careers.length) return null;
+  if (!champions.length && !records.length && !allPro.length && !hof.length && !careers.length && !mine.length) return null;
 
   const title: React.CSSProperties = { margin: "0 0 8px" };
   const row: React.CSSProperties = { fontSize: 12.5, display: "flex", gap: 8, flexWrap: "wrap", padding: "3px 0" };
 
   return (
     <div className="panel open" style={{ display: "grid", gap: 20 }}>
+      {mine.length > 0 && (
+        <section>
+          <p className="sectionlabel" style={title}>
+            {TEAMS_BY_CODE[teamCode!]?.label ?? teamCode} by season
+          </p>
+          {mine.map((r) => (
+            <div key={r.season} style={row}>
+              <strong style={{ minWidth: 44 }}>{r.season}</strong>
+              <span style={{ minWidth: 60 }}>
+                {r.wins}-{r.losses}
+                {r.ties ? `-${r.ties}` : ""}
+              </span>
+              <span style={{ color: r.finish === "champion" ? "var(--good)" : "var(--ink-dim)", minWidth: 90 }}>
+                {r.finish === "champion" ? "Champions" : r.finish === "runner-up" ? "Runner-up" : r.finish === "playoffs" ? "Playoffs" : "—"}
+              </span>
+              <span style={{ color: "var(--ink-faint)" }}>
+                {r.pointsFor}-{r.pointsAgainst}
+                {r.headCoach ? ` · HC ${r.headCoach}` : ""}
+              </span>
+            </div>
+          ))}
+        </section>
+      )}
+
       {champions.length > 0 && (
         <section>
           <p className="sectionlabel" style={title}>

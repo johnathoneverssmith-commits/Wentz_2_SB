@@ -268,6 +268,8 @@ export interface LeagueState {
   history: SeasonOutcome[];
   /** Each position's starter quality when the league began (`draftSupply.ts`). */
   positionBaseline?: Partial<Record<Position, number>>;
+  /** This league's scoring correction for the engine (`scoringCommittee`). */
+  offenseAdjust?: number;
   /** The last season whose accrued years were credited (`accrueCareers`). */
   accruedSeason?: number;
   /** Every champion and runner-up (`seasonAwards.recordSeason`). */
@@ -276,6 +278,8 @@ export interface LeagueState {
   records?: import("@/state/seasonAwards").RecordRow[];
   /** All-Pro first teams, the last ten seasons. */
   allPro?: import("@/state/seasonAwards").AllProRow[];
+  /** Every team's season record and finish (`recordSeason`). */
+  teamSeasons?: import("@/state/seasonAwards").TeamSeasonRow[];
   /** Inducted as they retire (`inductHallOfFame`). */
   hallOfFame?: import("@/state/seasonAwards").HallOfFamer[];
   /** Every season's award winners (`seasonAwards.ts`). */

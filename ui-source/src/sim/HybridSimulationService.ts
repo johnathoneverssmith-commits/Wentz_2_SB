@@ -293,6 +293,7 @@ export class HybridSimulationService implements SimulationService {
         talentScaleOf(state.config),
         // the coaches each franchise actually employs
         engineStaffsFor(state),
+        state.offenseAdjust ?? 0,
       );
     }, () => this.mock.simulateWeek(state, week, phase));
   }
@@ -340,6 +341,7 @@ export class HybridSimulationService implements SimulationService {
             depth,
             talentScaleOf(state.config),
             engineStaffsFor(state),
+            state.offenseAdjust ?? 0,
           );
           m.homeScore = g.homeScore;
           m.awayScore = g.awayScore;
@@ -361,6 +363,7 @@ export class HybridSimulationService implements SimulationService {
         depth,
         talentScaleOf(state.config),
         engineStaffsFor(state),
+        state.offenseAdjust ?? 0,
       );
 
       const matchups = bracket.matchups.map((m) => ({ ...m }));

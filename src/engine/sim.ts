@@ -231,6 +231,8 @@ export class Game {
   overtime: "legacy" | "nfl" = "legacy";
   /** a playoff game: overtime runs until somebody wins */
   mustDecide = false;
+  /** a league's own scoring correction (`GameStaff.offenseAdjust`) */
+  offenseAdjust = 0;
 
   constructor(
     rng: Rng,
@@ -550,7 +552,8 @@ export class Game {
               synergyShift(o, d, "complete")) +
           staff.complete +
           homeShift(edge, "complete") +
-          OFFENSE_CALIB.complete,
+          OFFENSE_CALIB.complete +
+          this.offenseAdjust,
         INTERCEPTION:
           this.talent * (interceptionLogitShift(o.QB1 ?? null) + synergyShift(o, d, "interception")) +
           homeShift(edge, "interception"),
@@ -582,7 +585,8 @@ export class Game {
           synergyShift(o, d, "rushYards")) +
       this.staffOffShift().rush +
       homeShift(this.homeEdge, "rushYards") +
-      OFFENSE_CALIB.rushYards
+      OFFENSE_CALIB.rushYards +
+      this.offenseAdjust * 1.5
     );
   }
 
@@ -1523,6 +1527,13 @@ export interface GameStaff {
   overtime?: "legacy" | "nfl" | undefined;
   /** A playoff game: with the NFL rule, overtime continues until decided. */
   mustDecide?: boolean | undefined;
+  /**
+   * A franchise league's scoring correction, in completion log-odds (and
+   * half again in yards a carry), on top of the league-average calibration.
+   * Set each offseason from the league's own scoring (`scoringCommittee`);
+   * applies only with the rating layer on.
+   */
+  offenseAdjust?: number | undefined;
 }
 
 /**
@@ -1556,6 +1567,7 @@ export function simulateGame(
   const g = new Game(new Rng(seed), rosters, staffPair, opts?.neutralSite ?? false, opts?.talentScale ?? 1);
   if (opts?.overtime) g.overtime = opts.overtime;
   if (opts?.mustDecide) g.mustDecide = true;
+  if (opts?.offenseAdjust) g.offenseAdjust = opts.offenseAdjust;
   if (opts?.trace) g.playTrace = [];
   if (opts?.injuries && rosters) g.injuryLog = [];
   return g.run();

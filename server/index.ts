@@ -110,6 +110,7 @@ interface SimulateWeekBody {
   rosters?: Record<string, Player[]>;
   /** the league's talent-impact scale (`Game.talent`); omitted = 1, the validated engine */
   talentScale?: number;
+  offenseAdjust?: number;
   /**
    * team code -> the HC/OC/DC that franchise employs. Without them the
    * engine's coaching layer never ran in a franchise game at all.
@@ -118,7 +119,7 @@ interface SimulateWeekBody {
 }
 
 async function handleSimulateWeek(body: SimulateWeekBody) {
-  const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale, staffs } = body;
+  const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale, staffs, offenseAdjust } = body;
   // each game on a worker (`simPool.ts`) — same seeds, same games, in parallel
   return Promise.all(
     games.map(({ homeTeam, awayTeam }) =>
@@ -135,6 +136,7 @@ async function handleSimulateWeek(body: SimulateWeekBody) {
         homeDepth: depthCharts?.[homeTeam],
         awayDepth: depthCharts?.[awayTeam],
         talentScale,
+        offenseAdjust,
         homeStaff: staffs?.[homeTeam],
         awayStaff: staffs?.[awayTeam],
       }),
@@ -167,6 +169,7 @@ interface PlayoffRoundBody {
   rosters?: Record<string, Player[]>;
   depthCharts?: Record<string, DepthOrder>;
   talentScale?: number;
+  offenseAdjust?: number;
   staffs?: Record<string, Staff>;
   /** how many rounds have already been played, before this call plays the next one. */
   roundsPlayed: number;
@@ -188,6 +191,7 @@ function handlePlayoffRound(body: PlayoffRoundBody) {
     () => playoffRound(body),
     body.talentScale ?? 1,
     body.staffs ?? null,
+    body.offenseAdjust ?? 0,
   );
 }
 
@@ -200,6 +204,7 @@ function handlePlayoffGame(body: {
   rosters?: Record<string, Player[]>;
   depthCharts?: Record<string, DepthOrder>;
   talentScale?: number;
+  offenseAdjust?: number;
   staffs?: Record<string, Staff>;
 }) {
   return withPlayoffRosters(
@@ -207,6 +212,7 @@ function handlePlayoffGame(body: {
     () => decidePlayoffGame(body.seed, body.homeTeam, body.awayTeam, body.neutralSite ?? false),
     body.talentScale ?? 1,
     body.staffs ?? null,
+    body.offenseAdjust ?? 0,
   );
 }
 

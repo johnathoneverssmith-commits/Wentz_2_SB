@@ -127,6 +127,7 @@ export function simulateBlock(
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        offenseAdjust: state.offenseAdjust ?? 0,
         overtime: "nfl",
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
@@ -201,6 +202,7 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
     awayRoster: rosterFor(game.awayTeam),
     // the same scale and rules the game was played at, or the replay is another game
     talentScale: talentScaleOf(state.config),
+        offenseAdjust: state.offenseAdjust ?? 0,
     overtime: "nfl",
     mustDecide: game.phase !== "REG" && game.phase !== "PRE",
     neutralSite: game.phase === "SB",
@@ -284,6 +286,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        offenseAdjust: state.offenseAdjust ?? 0,
         overtime: "nfl",
         mustDecide: true,
         ...staffPairOf(state, home, away),

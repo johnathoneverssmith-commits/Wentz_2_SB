@@ -11,7 +11,7 @@ import type { LeagueState, Player, PlayerStatLine } from "@/domain";
  * every player's season into his career line.
  */
 
-export type AwardKind = "MVP" | "OPOY" | "DPOY" | "OROY" | "DROY";
+export type AwardKind = "MVP" | "OPOY" | "DPOY" | "OROY" | "DROY" | "COY";
 
 export interface SeasonAward {
   season: number;
@@ -30,6 +30,7 @@ export const AWARD_LABEL: Record<AwardKind, string> = {
   DPOY: "Defensive Player of the Year",
   OROY: "Offensive Rookie of the Year",
   DROY: "Defensive Rookie of the Year",
+  COY: "Coach of the Year",
 };
 
 const OFFENSE = new Set(["QB", "RB", "WR", "TE", "OT", "OG", "C"]);
@@ -190,6 +191,19 @@ export interface AllProRow {
   team: string;
 }
 
+/** One team's season, kept for franchise histories. */
+export interface TeamSeasonRow {
+  season: number;
+  team: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  finish: "champion" | "runner-up" | "playoffs" | "missed";
+  headCoach: string | null;
+}
+
 export interface HallOfFamer {
   playerId: string;
   name: string;
@@ -235,6 +249,58 @@ export function recordSeason(s: LeagueState): void {
     }
   }
   s.records = records;
+
+  // every team's season, for franchise histories and Coach of the Year
+  if (!(s.teamSeasons ?? []).some((r) => r.season === s.season)) {
+    const inPlayoffs = new Set(
+      s.games.filter((g) => g.phase !== "REG" && g.phase !== "PRE").flatMap((g) => [g.homeTeam, g.awayTeam]),
+    );
+    const champ = s.champions?.find((c) => c.season === s.season);
+    const rows: TeamSeasonRow[] = Object.keys(s.teams).map((code) => {
+      const t = s.teams[code]!;
+      const hc = Object.values(s.coaches).find((c) => c.team === code && c.role === "HC");
+      return {
+        season: s.season,
+        team: code,
+        wins: t.wins,
+        losses: t.losses,
+        ties: t.ties,
+        pointsFor: t.pointsFor,
+        pointsAgainst: t.pointsAgainst,
+        finish:
+          champ?.champion === code ? "champion" : champ?.runnerUp === code ? "runner-up" : inPlayoffs.has(code) ? "playoffs" : "missed",
+        headCoach: hc?.name ?? null,
+      };
+    });
+    const prior = new Map((s.teamSeasons ?? []).filter((r) => r.season === s.season - 1).map((r) => [r.team, r]));
+    s.teamSeasons = [...(s.teamSeasons ?? []), ...rows];
+
+    // Coach of the Year: the biggest turnaround among winning teams (a
+    // first season has no "before", so it goes to the best record)
+    if (!(s.awards ?? []).some((a) => a.season === s.season && a.award === "COY")) {
+      const score = (r: TeamSeasonRow) => {
+        const before = prior.get(r.team);
+        return before ? r.wins - before.wins + r.wins * 0.25 : r.wins;
+      };
+      const best = rows.filter((r) => r.wins > r.losses && r.headCoach).sort((a, b) => score(b) - score(a))[0];
+      const coach = best && Object.values(s.coaches).find((c) => c.team === best.team && c.role === "HC");
+      if (best && coach) {
+        const before = prior.get(best.team);
+        s.awards = [
+          ...(s.awards ?? []),
+          {
+            season: s.season,
+            award: "COY",
+            playerId: coach.id,
+            name: coach.name,
+            position: "HC",
+            team: best.team,
+            line: before ? `${before.wins}-${before.losses} to ${best.wins}-${best.losses}` : `${best.wins}-${best.losses}`,
+          },
+        ];
+      }
+    }
+  }
 
   if (!(s.allPro ?? []).some((a) => a.season === s.season)) {
     const team: AllProRow[] = [];
@@ -287,4 +353,26 @@ export function inductHallOfFame(s: LeagueState, retiringIds: readonly string[])
   }
   if (out.length) s.hallOfFame = [...(s.hallOfFame ?? []), ...out];
   return out;
+}
+
+/**
+ * The competition committee: keeps a league scoring like the NFL.
+ *
+ * The engine is calibrated to league-average NFL scoring on real rosters, but
+ * a league drifts from there as it turns over — generated players' skill
+ * profiles, recycled coaching staffs and the balance of young and old each
+ * move it a little, and a decade took scoring from 22.6 points a team-game to
+ * 20.5. The real league answers drift with rule changes; this answers it the
+ * same way. Each season's end measures the league's own scoring and moves a
+ * small offense correction toward the NFL's 22.6, at most 0.08 a season and
+ * 0.5 in all. It moves the level of every game alike — never who wins.
+ */
+export const NFL_POINTS_PER_TEAM_GAME = 22.56;
+export function scoringCommittee(s: LeagueState): void {
+  const reg = s.games.filter((g) => g.phase === "REG" && g.played);
+  if (reg.length < 50) return;
+  const ppg = reg.reduce((n, g) => n + g.homeScore + g.awayScore, 0) / (reg.length * 2);
+  // ~0.1 completion log-odds is ~1 point a team-game (analysis/37)
+  const step = Math.max(-0.08, Math.min(0.08, (NFL_POINTS_PER_TEAM_GAME - ppg) * 0.1));
+  s.offenseAdjust = Math.max(-0.5, Math.min(0.5, (s.offenseAdjust ?? 0) + step));
 }

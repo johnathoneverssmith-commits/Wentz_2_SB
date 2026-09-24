@@ -61,6 +61,7 @@ let _playoffRosters: Readonly<Record<string, Roster>> | null = null;
 
 let _playoffTalent = 1;
 let _playoffStaffs: Readonly<Record<string, Staff>> | null = null;
+let _playoffOffense = 0;
 
 /** Run `fn` with playoff games played by these rosters, at this talent scale. */
 export function withPlayoffRosters<T>(
@@ -68,16 +69,20 @@ export function withPlayoffRosters<T>(
   fn: () => T,
   talentScale = 1,
   staffs: Readonly<Record<string, Staff>> | null = null,
+  offenseAdjust = 0,
 ): T {
   const prev = _playoffRosters;
   const prevTalent = _playoffTalent;
   const prevStaffs = _playoffStaffs;
+  const prevOffense = _playoffOffense;
   _playoffRosters = rosters;
   _playoffTalent = talentScale;
   _playoffStaffs = staffs;
+  _playoffOffense = offenseAdjust;
   try {
     return fn();
   } finally {
+    _playoffOffense = prevOffense;
     _playoffRosters = prev;
     _playoffTalent = prevTalent;
     _playoffStaffs = prevStaffs;
@@ -106,6 +111,7 @@ function decide(
           // replay-on-tie loop below stays as the backstop
           overtime: "nfl" as const,
           mustDecide: true,
+          offenseAdjust: _playoffOffense,
         }
       : { neutralSite };
   for (let k = 0; k < TIE_BREAK_TRIES; k += 1) {

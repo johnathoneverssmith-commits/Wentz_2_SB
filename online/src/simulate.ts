@@ -175,6 +175,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        offenseAdjust: state.offenseAdjust ?? 0,
         overtime: "nfl",
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
@@ -201,6 +202,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
                 homeRoster,
                 awayRoster,
                 talentScale: talentScaleOf(state.config),
+        offenseAdjust: state.offenseAdjust ?? 0,
                 overtime: "nfl",
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
               }) as NonNullable<GameResult["broadcast"]>,

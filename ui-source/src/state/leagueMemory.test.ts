@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GameResult } from "@/domain";
 
 import { rookieSlotSalary } from "./rules.ts";
-import { inductHallOfFame, recordSeason } from "./seasonAwards.ts";
+import { inductHallOfFame, recordSeason, scoringCommittee } from "./seasonAwards.ts";
 import { createLeague, DEFAULT_CONFIG } from "./seed.ts";
 import { recomputeStandings } from "./standings.ts";
 
@@ -40,6 +40,45 @@ describe("league memory", () => {
     const inducted = inductHallOfFame(s, [star!.id, journeyman!.id]);
     expect(inducted.map((h) => h.playerId)).toEqual([star!.id]);
     expect(inductHallOfFame(s, [star!.id])).toEqual([]); // once
+  });
+});
+
+describe("team seasons and Coach of the Year", () => {
+  it("records every team's season and names the biggest turnaround", () => {
+    const s = league();
+    for (const c of Object.keys(s.teams)) {
+      s.teams[c]!.wins = 8;
+      s.teams[c]!.losses = 9;
+    }
+    recordSeason(s);
+    expect(s.teamSeasons!.filter((r) => r.season === s.season)).toHaveLength(32);
+    s.season += 1;
+    for (const c of Object.keys(s.teams)) {
+      s.teams[c]!.wins = 9;
+      s.teams[c]!.losses = 8;
+    }
+    s.teams.NYJ!.wins = 14;
+    s.teams.NYJ!.losses = 3;
+    recordSeason(s);
+    const coy = s.awards!.find((a) => a.season === s.season && a.award === "COY")!;
+    expect(coy.team).toBe("NYJ");
+    expect(coy.line).toBe("8-9 to 14-3");
+  });
+});
+
+describe("scoring committee", () => {
+  it("nudges a low-scoring league's offense up, a little at a time, within bounds", () => {
+    const s = league();
+    s.games = Array.from({ length: 100 }, (_, i) => ({
+      id: `g${i}`, week: 1, phase: "REG" as const, homeTeam: "KC", awayTeam: "LV", played: true, homeScore: 17, awayScore: 19,
+    }));
+    scoringCommittee(s);
+    expect(s.offenseAdjust).toBeCloseTo(0.08, 5); // capped step
+    for (let i = 0; i < 20; i++) scoringCommittee(s);
+    expect(s.offenseAdjust).toBe(0.5); // capped total
+    s.games = s.games.map((g) => ({ ...g, homeScore: 30, awayScore: 32 }));
+    scoringCommittee(s);
+    expect(s.offenseAdjust!).toBeLessThan(0.5);
   });
 });
 

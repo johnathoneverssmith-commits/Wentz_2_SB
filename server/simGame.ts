@@ -24,6 +24,7 @@ export interface GameInput {
   homeDepth?: DepthOrder | undefined;
   awayDepth?: DepthOrder | undefined;
   talentScale?: number | undefined;
+  offenseAdjust?: number | undefined;
   homeStaff?: Staff | undefined;
   awayStaff?: Staff | undefined;
 }
@@ -42,7 +43,7 @@ export function simulateOne(i: GameInput) {
   // game. The engine takes a staff pair or none — a game with only one side's
   // coaches would hand that side the whole coaching layer.
   const staffPair = i.homeStaff && i.awayStaff ? { homeStaff: i.homeStaff, awayStaff: i.awayStaff } : {};
-  const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, overtime: "nfl", ...staffPair } as const;
+  const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, offenseAdjust: i.offenseAdjust, overtime: "nfl", ...staffPair } as const;
   const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
   const trace = g.playTrace ?? [];
   const box = extractBoxScore(g, homeTeam, awayTeam, week);
@@ -79,6 +80,7 @@ export function simulateOne(i: GameInput) {
           homeRoster,
           awayRoster,
           talentScale,
+          offenseAdjust: i.offenseAdjust,
           overtime: "nfl",
           ...staffPair,
         }),

@@ -34,7 +34,7 @@ import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationSer
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { applyExtension, extensionAsk } from "./contracts";
 import { runCoachingCarousel } from "./coachingCarousel";
-import { accrueCareers, awardSeason, inductHallOfFame, recordSeason } from "./seasonAwards";
+import { accrueCareers, awardSeason, inductHallOfFame, recordSeason, scoringCommittee } from "./seasonAwards";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
@@ -1695,6 +1695,7 @@ export function finalizeSeason(s: LeagueState): void {
   // next kickoff resets them
   awardSeason(s);
   recordSeason(s);
+  scoringCommittee(s);
   accrueCareers(s);
   // the CPU teams keep the players worth keeping before their deals run out
   resignAiCore(s);
