@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { tradeUnitImpact } from "@/state/unitReport";
 import { useNavigate } from "react-router-dom";
 
 import { pressable } from "@/components/bits";
@@ -84,6 +85,21 @@ export function TradeProposal() {
     return sim.evaluateTrade(s, myCode, partner, toAssets(give), toAssets(get));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s, myCode, partner, give, get]);
+
+  // what this trade does to your starting units, the way the engine reads them
+  const unitImpact = useMemo(
+    () =>
+      myCode
+        ? tradeUnitImpact(
+            s,
+            myCode,
+            give.filter((id) => !id.startsWith("pick:")),
+            get.filter((id) => !id.startsWith("pick:")),
+          )
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [s.players, s.teams, s.depthChart, myCode, give, get],
+  );
 
   const involves90 = [...give, ...get].some((id) => (s.players[id]?.overall ?? 0) >= 90);
   const partnerIsHuman = s.gms.some((g) => g.isHuman && g.teamCode === partner);
@@ -307,6 +323,28 @@ export function TradeProposal() {
           </p>
         )}
 
+        {unitImpact.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <p className="sectionlabel" style={{ marginBottom: 6 }}>
+              Your units after this trade
+            </p>
+            {unitImpact.map((u) => {
+              const up = u.after > u.before;
+              return (
+                <div key={u.key} style={{ display: "flex", gap: 10, fontSize: 12, alignItems: "baseline" }}>
+                  <span style={{ minWidth: 130 }}>{u.label}</span>
+                  <span className="oswald">
+                    {Math.round(u.before)} → {Math.round(u.after)}
+                  </span>
+                  <span style={{ color: up ? "var(--good)" : "var(--bad)", fontWeight: 600 }}>
+                    {ordinalRank(u.rankBefore)} → {ordinalRank(u.rankAfter)} in the league
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {actions.online && !trade && (
           <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
             Proposing sends the offer to the other GM. They'll see it next time they open the
@@ -455,4 +493,9 @@ function ValueBar({ label, pct, value, kind }: { label: string; pct: number; val
       </span>
     </div>
   );
+}
+
+function ordinalRank(n: number): string {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${s}`;
 }

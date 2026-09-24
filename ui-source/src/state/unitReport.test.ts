@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createLeague, DEFAULT_CONFIG, depthAt } from "./seed.ts";
-import { fitFor, fitLabel, gradeFor, unitReport } from "./unitReport.ts";
+import { fitFor, fitLabel, gradeFor, tradeUnitImpact, unitReport } from "./unitReport.ts";
 
 describe("unitReport", () => {
   const s = createLeague(3, { ...DEFAULT_CONFIG, fantasyDraft: false });
@@ -58,5 +58,25 @@ describe("fitFor", () => {
     expect(fitLabel(0.6).label).toBe("Upgrade");
     expect(fitLabel(0.2).label).toBe("Minor upgrade");
     expect(fitLabel(0).label).toBe("Depth");
+  });
+});
+
+describe("tradeUnitImpact", () => {
+  it("reports the unit a trade strengthens, and nothing it leaves alone", () => {
+    const s = createLeague(3, { ...DEFAULT_CONFIG, fantasyDraft: false });
+    const theirBestDt = Object.values(s.players)
+      .filter((p) => p.position === "DT" && p.nfl_team !== "GB" && s.teams[p.nfl_team])
+      .sort((a, b) => b.overall - a.overall)[0]!;
+    const myWorstStartingDt = Object.values(s.players)
+      .filter((p) => p.position === "DT" && p.nfl_team === "GB")
+      .sort((a, b) => b.overall - a.overall)[1]!;
+    const d = tradeUnitImpact(s, "GB", [myWorstStartingDt.id], [theirBestDt.id]);
+    const interior = d.find((u) => u.key === "interior");
+    if (theirBestDt.overall > myWorstStartingDt.overall) {
+      expect(interior!.after).toBeGreaterThan(interior!.before);
+      expect(interior!.rankAfter).toBeLessThanOrEqual(interior!.rankBefore);
+    }
+    expect(d.every((u) => ["interior"].includes(u.key))).toBe(true);
+    expect(tradeUnitImpact(s, "GB", [], [])).toEqual([]);
   });
 });

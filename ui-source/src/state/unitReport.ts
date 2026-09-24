@@ -262,3 +262,43 @@ export function sideRatings(s: Pick<LeagueState, "players" | "teams" | "depthCha
     ]),
   );
 }
+
+// ---- what a trade does to your units -----------------------------------------
+
+export interface UnitDelta {
+  key: string;
+  label: string;
+  before: number;
+  after: number;
+  rankBefore: number;
+  rankAfter: number;
+}
+
+/**
+ * The units a trade would change for `team`, before and after.
+ *
+ * A trade is judged in the game the way it is played — by what it does to
+ * the starting units — but the trade screen only ever showed the value
+ * ledger. This plays the trade on a copy of the rosters (players out, players
+ * in) and reports each unit whose strength moves.
+ */
+export function tradeUnitImpact(
+  s: Pick<LeagueState, "players" | "teams" | "depthChart">,
+  team: string,
+  outgoing: readonly string[],
+  incoming: readonly string[],
+): UnitDelta[] {
+  if (outgoing.length === 0 && incoming.length === 0) return [];
+  const before = unitReport(s as LeagueState, team);
+  const players = { ...s.players };
+  for (const id of outgoing) if (players[id]) players[id] = { ...players[id]!, nfl_team: "__traded__" };
+  for (const id of incoming) if (players[id]) players[id] = { ...players[id]!, nfl_team: team };
+  const after = unitReport({ ...s, players } as LeagueState, team);
+  const out: UnitDelta[] = [];
+  for (const u of before.units) {
+    const a = after.units.find((x) => x.key === u.key)!;
+    if (Math.abs(a.strength - u.strength) < 0.05 || u.weight < 0.05) continue;
+    out.push({ key: u.key, label: u.label, before: u.strength, after: a.strength, rankBefore: u.rank, rankAfter: a.rank });
+  }
+  return out;
+}
