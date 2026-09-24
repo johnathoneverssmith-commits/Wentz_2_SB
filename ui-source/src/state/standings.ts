@@ -19,8 +19,39 @@ export function recomputeStandings(state: LeagueState): void {
     return games ? (t.wins + 0.5 * t.ties) / games : 0;
   };
   const diff = (t: TeamState) => t.pointsFor - t.pointsAgainst;
+  // NFL tiebreakers, in order: head-to-head, division record (division
+  // rivals), conference record, then point differential. Point differential
+  // alone used to decide every tie — on the standings and in playoff seeding.
+  const rec = new Map<string, { w: number; g: number }>();
+  const bump = (k: string, win: number) => {
+    const r = rec.get(k) ?? { w: 0, g: 0 };
+    r.w += win;
+    r.g += 1;
+    rec.set(k, r);
+  };
+  const conf = (c: string) => TEAMS_BY_CODE[c]?.conference;
+  const div = (c: string) => `${conf(c)}-${TEAMS_BY_CODE[c]?.division}`;
+  for (const g of state.games) {
+    if (g.phase !== "REG" || !g.played) continue;
+    const hw = g.homeScore > g.awayScore ? 1 : g.homeScore === g.awayScore ? 0.5 : 0;
+    for (const [me, them, w] of [
+      [g.homeTeam, g.awayTeam, hw],
+      [g.awayTeam, g.homeTeam, 1 - hw],
+    ] as const) {
+      bump(`h2h|${me}|${them}`, w);
+      if (div(me) === div(them)) bump(`div|${me}`, w);
+      if (conf(me) === conf(them)) bump(`conf|${me}`, w);
+    }
+  }
+  const rpct = (k: string) => {
+    const r = rec.get(k);
+    return r && r.g ? r.w / r.g : 0;
+  };
   const cmp = (a: string, b: string) =>
     pct(state.teams[b]!) - pct(state.teams[a]!) ||
+    rpct(`h2h|${b}|${a}`) - rpct(`h2h|${a}|${b}`) ||
+    (div(a) === div(b) ? rpct(`div|${b}`) - rpct(`div|${a}`) : 0) ||
+    (conf(a) === conf(b) ? rpct(`conf|${b}`) - rpct(`conf|${a}`) : 0) ||
     diff(state.teams[b]!) - diff(state.teams[a]!) ||
     state.teams[b]!.pointsFor - state.teams[a]!.pointsFor ||
     a.localeCompare(b);

@@ -124,10 +124,167 @@ export function accrueCareers(s: LeagueState): void {
     if (c.lastSeason === s.season) continue;
     c.lastSeason = s.season;
     c.seasons += 1;
+    c.peak = Math.max(c.peak ?? 0, p.overall);
     for (const [k, v] of Object.entries(st)) {
       if (typeof v !== "number" || v === 0) continue;
       const key = k as keyof PlayerStatLine;
       (c as unknown as Record<string, number>)[key] = ((c as unknown as Record<string, number>)[key] ?? 0) + v;
     }
   }
+}
+
+// ---- the MVP race, as the award will score it ---------------------------------
+
+/**
+ * The in-season MVP board, scored exactly the way the award is decided at
+ * season's end — the Player Statistics "front-runner" used a separate,
+ * passing-only heuristic, so the favourite all year could lose the award.
+ */
+export function mvpRace(s: LeagueState): { player: Player; score: number }[] {
+  return Object.values(s.players)
+    .filter((p) => !p.retired && p.season_stats && p.season_stats.gamesPlayed > 0 && OFFENSE.has(p.position))
+    .map((p) => ({
+      player: p,
+      score: offenseScore(p.season_stats!) * (p.position === "QB" ? 1.3 : 1) + (s.teams[p.nfl_team]?.wins ?? 0) * 12,
+    }))
+    .sort((a, b) => b.score - a.score);
+}
+
+// ---- champions, records, All-Pro, Hall of Fame --------------------------------
+
+export interface ChampionRow {
+  season: number;
+  champion: string;
+  runnerUp: string | null;
+}
+
+export type RecordStat = "passYds" | "passTd" | "rushYds" | "rushTd" | "rec" | "recYds" | "recTd" | "sacks" | "defInt" | "tackles";
+
+export interface RecordRow {
+  stat: RecordStat;
+  value: number;
+  playerId: string;
+  name: string;
+  team: string;
+  season: number;
+}
+
+export const RECORD_LABEL: Record<RecordStat, string> = {
+  passYds: "Passing yards",
+  passTd: "Passing touchdowns",
+  rushYds: "Rushing yards",
+  rushTd: "Rushing touchdowns",
+  rec: "Receptions",
+  recYds: "Receiving yards",
+  recTd: "Receiving touchdowns",
+  sacks: "Sacks",
+  defInt: "Interceptions",
+  tackles: "Tackles",
+};
+
+export interface AllProRow {
+  season: number;
+  playerId: string;
+  name: string;
+  position: string;
+  team: string;
+}
+
+export interface HallOfFamer {
+  playerId: string;
+  name: string;
+  position: string;
+  inducted: number;
+  seasons: number;
+  why: string;
+}
+
+/** The slots an All-Pro first team fills, by position. */
+const ALL_PRO: [string, number][] = [
+  ["QB", 1], ["RB", 1], ["WR", 3], ["TE", 1], ["OT", 2], ["OG", 2], ["C", 1],
+  ["EDGE", 2], ["DT", 2], ["ILB", 2], ["CB", 2], ["S", 2], ["K", 1], ["P", 1],
+];
+
+/**
+ * The league's memory of a season: its champion, any single-season records
+ * that fell, and the All-Pro first team (the best-rated player at each spot
+ * who played most of the year). Runs once, at season's end.
+ */
+export function recordSeason(s: LeagueState): void {
+  const bracket = s.bracket;
+  if (bracket?.champion && !(s.champions ?? []).some((c) => c.season === s.season)) {
+    const sb = bracket.matchups?.find((m) => m.round === "SB");
+    const runnerUp = sb ? ([sb.highSeed?.code, sb.lowSeed?.code].find((c) => c && c !== bracket.champion) ?? null) : null;
+    s.champions = [...(s.champions ?? []), { season: s.season, champion: bracket.champion, runnerUp }];
+  }
+
+  const records = [...(s.records ?? [])];
+  for (const stat of Object.keys(RECORD_LABEL) as RecordStat[]) {
+    let best: Player | undefined;
+    for (const p of Object.values(s.players)) {
+      const v = p.season_stats?.[stat] ?? 0;
+      if (v > 0 && (!best || v > (best.season_stats?.[stat] ?? 0))) best = p;
+    }
+    if (!best) continue;
+    const value = best.season_stats![stat] ?? 0;
+    const i = records.findIndex((r) => r.stat === stat);
+    if (i < 0 || value > records[i]!.value) {
+      const row: RecordRow = { stat, value, playerId: best.id, name: best.name, team: best.nfl_team, season: s.season };
+      if (i < 0) records.push(row);
+      else records[i] = row;
+    }
+  }
+  s.records = records;
+
+  if (!(s.allPro ?? []).some((a) => a.season === s.season)) {
+    const team: AllProRow[] = [];
+    for (const [pos, n] of ALL_PRO) {
+      Object.values(s.players)
+        .filter((p) => !p.retired && p.position === pos && s.teams[p.nfl_team] && (p.season_stats?.gamesPlayed ?? 0) >= 10)
+        .sort((a, b) => b.overall - a.overall)
+        .slice(0, n)
+        .forEach((p) => team.push({ season: s.season, playerId: p.id, name: p.name, position: pos, team: p.nfl_team }));
+    }
+    // ten seasons of teams is plenty of memory
+    s.allPro = [...(s.allPro ?? []).filter((a) => a.season > s.season - 10), ...team];
+  }
+}
+
+/**
+ * Inducts the greats as they retire: a real career (five seasons or more in
+ * this league) crowned by an MVP or Player of the Year, three All-Pro nods,
+ * or a peak among the best the game has seen. Kept apart from the player
+ * record, because retirees are forgotten a season after they leave.
+ */
+export function inductHallOfFame(s: LeagueState, retiringIds: readonly string[]): HallOfFamer[] {
+  const out: HallOfFamer[] = [];
+  const honours = (id: string) =>
+    (s.awards ?? []).filter((a) => a.playerId === id && (a.award === "MVP" || a.award === "OPOY" || a.award === "DPOY"));
+  const allPros = (id: string) => (s.allPro ?? []).filter((a) => a.playerId === id).length;
+  for (const id of retiringIds) {
+    const p = s.players[id];
+    if (!p || (s.hallOfFame ?? []).some((h) => h.playerId === id)) continue;
+    const seasons = p.career?.seasons ?? 0;
+    if (seasons < 7) continue;
+    const h = honours(id);
+    const ap = allPros(id);
+    const peak = p.career?.peak ?? p.overall;
+    const specialist = p.position === "K" || p.position === "P";
+    // A first pass inducted six a year — All-Pro nods by rating pile up and
+    // kickers rate high by nature. An honour now needs a real body of work:
+    // a top award with two All-Pro years, five All-Pro years, or (never for a
+    // specialist) an all-time peak over a long career.
+    const why =
+      h.length > 0 && ap >= 2
+        ? h.map((a) => `${a.season} ${a.award}`).join(", ")
+        : ap >= (specialist ? 7 : 5)
+          ? `${ap}x All-Pro`
+          : !specialist && peak >= 96 && seasons >= 9
+            ? `peaked at ${peak} overall`
+            : null;
+    if (!why) continue;
+    out.push({ playerId: id, name: p.name, position: p.position, inducted: s.season, seasons, why });
+  }
+  if (out.length) s.hallOfFame = [...(s.hallOfFame ?? []), ...out];
+  return out;
 }

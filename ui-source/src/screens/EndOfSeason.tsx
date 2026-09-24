@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { SeasonAwardsList } from "@/components/LeagueMemory";
 import { useNavigate } from "react-router-dom";
 
 import { pressable } from "@/components/bits";
@@ -42,6 +43,14 @@ export function EndOfSeasonAnnounce() {
         <p className="oswald" style={{ margin: "12px 0 0", fontSize: 46, fontWeight: 700, color: "var(--team)" }}>
           {s.season}
         </p>
+        {(s.awards ?? []).some((a) => a.season === s.season) && (
+          <div style={{ marginTop: 22 }} onClick={(e) => e.stopPropagation()}>
+            <p className="oswald" style={{ margin: "0 0 10px", fontSize: 12, letterSpacing: "0.2em", color: "var(--ink-faint)" }}>
+              SEASON AWARDS
+            </p>
+            <SeasonAwardsList awards={(s.awards ?? []).filter((a) => a.season === s.season)} />
+          </div>
+        )}
         <p style={{ margin: "16px 0 0", fontSize: 12.5, color: "var(--ink-dim)" }}>
           Click anywhere to see how the season graded out.
         </p>

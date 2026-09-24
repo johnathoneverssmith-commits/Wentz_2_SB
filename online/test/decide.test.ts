@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { LeagueState } from "@/domain";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "@/state/seed.ts";
 import { ensureDraftPicks, pickKey } from "@/state/draftPicks.ts";
+import { standingAsk } from "@/state/rules.ts";
 
 import {
   decideContractMove,
@@ -85,7 +86,7 @@ describe("signing a free agent", () => {
     const p = aFreeAgent();
     state.teams[alice.teamCode]!.cap.total = 400;
     const out = decideSignFreeAgent(state, alice, p.id, {
-      baseSalary: 5,
+      baseSalary: standingAsk(state, p),
       signingBonus: 0,
       years: 2,
       guaranteed: 0,
@@ -114,14 +115,14 @@ describe("signing a free agent", () => {
     state.teams[alice.teamCode]!.cap.total = 400;
     state.teams[bob.teamCode]!.cap.total = 400;
     decideSignFreeAgent(state, alice, p.id, {
-      baseSalary: 5,
+      baseSalary: standingAsk(state, p),
       signingBonus: 0,
       years: 2,
       guaranteed: 0,
     });
     expect(() =>
       decideSignFreeAgent(state, bob, p.id, {
-        baseSalary: 9,
+        baseSalary: standingAsk(state, p) + 4,
         signingBonus: 0,
         years: 2,
         guaranteed: 0,

@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 
 import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
+import { LeagueMemory } from "@/components/LeagueMemory";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { AWARD_LABEL, type SeasonAward } from "@/state/seasonAwards";
 import { useStore } from "@/state/store";
@@ -33,6 +34,7 @@ export function LeagueHistory() {
       <div className="panel open">
         <ScoreTrackerTable />
       </div>
+      <LeagueMemory s={s} />
       <AwardsHistory awards={s.awards ?? []} />
       <Footer>
         <button type="button" className="btnlink" onClick={() => nav("/")}>

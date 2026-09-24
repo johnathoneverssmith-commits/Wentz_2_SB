@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ContractOffer, LeagueState } from "@/domain";
 
 import { createLeague, fillRosterGaps, DEFAULT_CONFIG } from "./seed.ts";
-import { checkBid, checkStandingSign } from "./store.ts";
+import { checkBid, checkStandingSign, standingAsk } from "./store.ts";
 
 /**
  * signStandingFreeAgent (human-side follow-up to OQ-9's AI cap enforcement):
@@ -65,8 +65,20 @@ describe("checkStandingSign", () => {
     team.cap.total = 200;
     team.cap.used = 100; // 100M room
 
-    const result = checkStandingSign(s, fa.id, offerFor(teamCode, 5));
+    const result = checkStandingSign(s, fa.id, offerFor(teamCode, standingAsk(s, fa)));
     expect(result.ok).toBe(true);
+  });
+
+  it("rejects an offer below what the player is asking", () => {
+    const s = fixture();
+    const fa = makeFreeAgent(s);
+    fa.overall = 90;
+    const teamCode = Object.keys(s.teams)[0]!;
+    openSpots(s, teamCode, 1);
+    s.teams[teamCode]!.cap.used = 0;
+    const result = checkStandingSign(s, fa.id, offerFor(teamCode, 1));
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/asking/i);
   });
 
   it("rejects a signing that would put the team over the 53-man limit", () => {

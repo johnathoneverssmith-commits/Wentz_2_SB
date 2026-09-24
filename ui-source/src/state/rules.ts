@@ -12,6 +12,7 @@
  * same `LeagueState` it returns the same answer, on a server or in a tab,
  * which is what lets one set of rules govern both.
  */
+import { expectedSalary } from "./freeAgencyValues";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { Rng } from "@/sim/rng";
 import { replacementLevels, unitGainer } from "./unitValue.ts";
@@ -32,7 +33,7 @@ import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationSer
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { applyExtension, extensionAsk } from "./contracts";
 import { runCoachingCarousel } from "./coachingCarousel";
-import { accrueCareers, awardSeason } from "./seasonAwards";
+import { accrueCareers, awardSeason, inductHallOfFame, recordSeason } from "./seasonAwards";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
@@ -1274,6 +1275,11 @@ export function signUndraftedAsFreeAgents(s: LeagueState): number {
   return n;
 }
 
+/** Year-one salary ($M) for a pick: ~$10.7M at #1, ~$5M at #32, the minimum by round four. */
+export function rookieSlotSalary(pick: number): number {
+  return Math.round(Math.max(0.9, 11.2 * Math.exp(-(pick - 1) / 40)) * 10) / 10;
+}
+
 export function upsertRookiePlayer(
   s: LeagueState,
   prospectId: string,
@@ -1282,7 +1288,11 @@ export function upsertRookiePlayer(
   released: boolean,
 ): void {
   const pr = s.draftClass.find((d) => d.id === prospectId)!;
-  const slot = Math.max(0.9, 8 - round);
+  // The rookie wage scale runs by pick, not round: the first overall pick
+  // earns about three times the thirty-second. `8 - round` paid every
+  // first-rounder the same $7M and every seventh-rounder $1M.
+  const pickNo = (s.draft?.results ?? []).find((r) => r.selectedId === prospectId)?.pickNumber;
+  const slot = pickNo ? rookieSlotSalary(pickNo) : Math.max(0.9, 8 - round);
   const id = `p_rookie_${prospectId}`;
   // A rookie's skills, shaped like a real player's of his (true) overall —
   // he used to arrive with speed/strength/awareness only, so the engine's
@@ -1290,9 +1300,18 @@ export function upsertRookiePlayer(
   // Seeded by the prospect, so every machine builds the same rookie.
   const rng = new Rng(fnv(prospectId));
   const attributes = fittedAttributes(pr.position, pr.trueOverall, () => rng.normal(0, 1));
+  // generated names can repeat across classes; nobody in the league shares one
+  let name = pr.name;
+  if (!s.players[id]) {
+    const taken = new Set(Object.values(s.players).filter((p) => !p.retired).map((p) => p.name));
+    for (const suffix of [" Jr.", " II", " III", " IV"]) {
+      if (!taken.has(name)) break;
+      name = pr.name + suffix;
+    }
+  } else name = s.players[id]!.name;
   s.players[id] = {
     id,
-    name: pr.name,
+    name,
     position: pr.position,
     age: pr.age,
     nfl_team: released ? "FA" : teamCode,
@@ -1343,6 +1362,11 @@ export function commitRetirements(s: LeagueState): void {
     p.retirement_status = "retiring";
     p.retired_season = s.season;
   }
+  // the greats go into the Hall as they leave
+  inductHallOfFame(
+    s,
+    outcomes.filter((o) => o.decision === "retiring").map((o) => o.playerId),
+  );
 }
 
 /**
@@ -1429,6 +1453,20 @@ export function applyCoachHire(s: LeagueState, coachId: string, teamCode: string
   coach.contract ??= { yearsRemaining: 3, annualValue: 5 };
 }
 
+/**
+ * What an unsigned player asks for on the standing market.
+ *
+ * His full price in the offseason; once the season is under way it falls a
+ * little every week he sits at home, to a third of it late in the year — a
+ * veteran still unsigned in December takes what he can get.
+ */
+export function standingAsk(s: Pick<LeagueState, "stage" | "week">, p: Player): number {
+  const full = expectedSalary(p);
+  const inSeason = s.stage === "regularSeason" || s.stage === "tradeDeadline" || s.stage.startsWith("midseason");
+  const factor = inSeason ? Math.max(0.35, 1 - 0.04 * Math.max(0, s.week)) : 1;
+  return Math.max(1, Math.round(full * factor * 10) / 10);
+}
+
 export function checkStandingSign(
   s: LeagueState,
   playerId: string,
@@ -1451,6 +1489,15 @@ export function checkStandingSign(
     return {
       ok: false,
       reason: `Not enough cap space: this deal needs $${capHitYear1.toFixed(1)}M this year, you have $${room.toFixed(1)}M free.`,
+    };
+  }
+  // He signs for what he is asking, or not at all. Nothing checked this, so a
+  // GM could sign any unsigned star in-season for the league minimum.
+  const ask = standingAsk(s, p);
+  if (offer.baseSalary < ask * 0.96) {
+    return {
+      ok: false,
+      reason: `${p.name} is asking about $${ask.toFixed(1)}M a year.`,
     };
   }
   return { ok: true };
@@ -1643,6 +1690,7 @@ export function finalizeSeason(s: LeagueState): void {
   // name the season's award winners and bank everyone's stats, before the
   // next kickoff resets them
   awardSeason(s);
+  recordSeason(s);
   accrueCareers(s);
   // the CPU teams keep the players worth keeping before their deals run out
   resignAiCore(s);

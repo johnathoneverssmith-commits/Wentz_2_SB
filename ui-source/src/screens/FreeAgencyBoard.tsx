@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { FitTag } from "@/components/FitTag";
 import { fitFor } from "@/state/unitReport";
+import { standingAsk } from "@/state/rules";
 import { InlineNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader, useListFilter } from "@/components/ListFilter";
@@ -208,7 +209,15 @@ export function FreeAgencyBoard() {
                 detail={
                   negotiating?.id === p.id && code ? (
                     <InlineNegotiation
-                      priorities={playerPriorities(p)}
+                      priorities={
+                        isWindowStage
+                          ? playerPriorities(p)
+                          : // in season his price falls week by week (`standingAsk`)
+                            {
+                              ...playerPriorities(p),
+                              expectation: { ...playerPriorities(p).expectation, baseSalary: standingAsk(s, p) },
+                            }
+                      }
                       prior={myOffer(p.id)}
                       error={signError}
                       onClose={() => {

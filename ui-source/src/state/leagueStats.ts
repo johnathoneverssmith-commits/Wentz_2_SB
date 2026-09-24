@@ -1,4 +1,5 @@
 import { TEAMS } from "@/data/teams";
+import { mvpRace } from "./seasonAwards";
 import type { LeagueState } from "@/domain";
 
 export interface TeamStatRow {
@@ -113,31 +114,16 @@ export function leaders(
   return rows.sort((a, b) => b.value - a.value).slice(0, 20);
 }
 
-/** Simple MVP heuristic: QB passing production + a bump for team wins. */
+/** The MVP race, scored the way the award is decided (`seasonAwards.mvpRace`). */
 export function mvpTracker(s: LeagueState): LeaderRow[] {
-  const wins = new Map(Object.values(s.teams).map((t) => [t.code, t.wins]));
-  return Object.values(s.players)
-    .filter((p) => p.season_stats && p.season_stats.gamesPlayed > 0)
-    .map((p) => {
-      const st = p.season_stats!;
-      const score =
-        (st.passYds ?? 0) * 0.04 +
-        (st.passTd ?? 0) * 4 -
-        (st.passInt ?? 0) * 2 +
-        (st.rushYds ?? 0) * 0.05 +
-        (st.rushTd ?? 0) * 5 +
-        (st.recYds ?? 0) * 0.05 +
-        (st.recTd ?? 0) * 5 +
-        (wins.get(p.nfl_team) ?? 0) * 3;
-      return {
-        playerId: p.id,
-        name: p.name,
-        position: p.position,
-        team: p.nfl_team,
-        value: Math.round(score),
-        line: `${p.position} · ${p.nfl_team}`,
-      };
-    })
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+  return mvpRace(s)
+    .slice(0, 20)
+    .map(({ player: p, score }) => ({
+      playerId: p.id,
+      name: p.name,
+      position: p.position,
+      team: p.nfl_team,
+      value: Math.round(score),
+      line: `${p.position} · ${p.nfl_team}`,
+    }));
 }

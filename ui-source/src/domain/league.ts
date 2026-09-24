@@ -270,6 +270,14 @@ export interface LeagueState {
   positionBaseline?: Partial<Record<Position, number>>;
   /** The last season whose accrued years were credited (`accrueCareers`). */
   accruedSeason?: number;
+  /** Every champion and runner-up (`seasonAwards.recordSeason`). */
+  champions?: import("@/state/seasonAwards").ChampionRow[];
+  /** The league's single-season records. */
+  records?: import("@/state/seasonAwards").RecordRow[];
+  /** All-Pro first teams, the last ten seasons. */
+  allPro?: import("@/state/seasonAwards").AllProRow[];
+  /** Inducted as they retire (`inductHallOfFame`). */
+  hallOfFame?: import("@/state/seasonAwards").HallOfFamer[];
   /** Every season's award winners (`seasonAwards.ts`). */
   awards?: import("@/state/seasonAwards").SeasonAward[];
   /** CPU coaching changes, the last three offseasons (`coachingCarousel.ts`). */
