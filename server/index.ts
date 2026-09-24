@@ -49,12 +49,7 @@ import {
   type FinishedGame,
 } from "../src/engine/standings.js";
 import type { Player } from "../src/schema/player.js";
-import {
-  playerLinesFrom,
-  quarterScores,
-  scoringPlaysFrom,
-  toTeamTotals,
-} from "./boxscore-map.js";
+import { runGame, warmPool } from "./simPool.js";
 
 const PORT = 8787;
 
@@ -122,61 +117,29 @@ interface SimulateWeekBody {
   staffs?: Record<string, Staff>;
 }
 
-function handleSimulateWeek(body: SimulateWeekBody) {
+async function handleSimulateWeek(body: SimulateWeekBody) {
   const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale, staffs } = body;
-  return games.map(({ homeTeam, awayTeam }) => {
-    const gameSeed = hashStr(`${seed}|${week}|${phase}|${homeTeam}|${awayTeam}`);
-    const homeRoster = rosterFrom(homeTeam, rosters?.[homeTeam], depthCharts?.[homeTeam]);
-    const awayRoster = rosterFrom(awayTeam, rosters?.[awayTeam], depthCharts?.[awayTeam]);
-    const isViewer =
-      viewer && viewer.homeTeam === homeTeam && viewer.awayTeam === awayTeam;
-
-    // Every game is traced, so the UI gets a real box score and real season
-    // stats for the whole league rather than a bare score. `injuries` is on
-    // for all of them too, and deliberately so: the injury hazard draws from
-    // the same RNG stream, so a game simulated with it off is a *different*
-    // game. Keeping it uniform is what lets the viewer's box score and their
-    // gamecast describe the same afternoon. Tracing costs ~11% over a plain
-    // sim (measured across a 16-game slate), which is noise next to the sim.
-    // the engine takes a staff pair or none — a game with only one side's
-    // coaches would hand that side the whole coaching layer
-    const homeStaff = staffs?.[homeTeam];
-    const awayStaff = staffs?.[awayTeam];
-    const staffPair = homeStaff && awayStaff ? { homeStaff, awayStaff } : {};
-    const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, overtime: "nfl", ...staffPair } as const;
-    const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
-    const trace = g.playTrace ?? [];
-    const box = extractBoxScore(g, homeTeam, awayTeam, week);
-    const finalScore: [number, number] = [g.score[0], g.score[1]];
-    const byQuarter = quarterScores(trace, finalScore, g.drivesLog);
-
-    const base = {
-      id: `${season ?? "s"}-${phase}-${week}-${homeTeam}-${awayTeam}`,
-      week,
-      phase,
-      homeTeam,
-      awayTeam,
-      played: true,
-      homeScore: finalScore[0],
-      awayScore: finalScore[1],
-      totals: {
-        home: toTeamTotals(box.home, byQuarter[0]!),
-        away: toTeamTotals(box.away, byQuarter[1]!),
-      },
-      scoringPlays: scoringPlaysFrom(trace, homeTeam, awayTeam, finalScore, g.drivesLog),
-      playerLines: playerLinesFrom(trace, homeTeam, awayTeam, rosters),
-      // Every game already simulates its injuries (see `injuries: true`
-      // above); they were being thrown away for all but the viewer's game,
-      // where they rode along inside `broadcast`. The franchise layer needs
-      // them league-wide — an injury has to actually cost a team its player.
-      injuries: g.injuryLog ?? [],
-    };
-    // the viewer's game also gets the play-by-play view; same seed and same
-    // options, so it is the same simulated game as the box score above
-    return isViewer
-      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster, talentScale, overtime: "nfl", ...staffPair }) }
-      : base;
-  });
+  // each game on a worker (`simPool.ts`) — same seeds, same games, in parallel
+  return Promise.all(
+    games.map(({ homeTeam, awayTeam }) =>
+      runGame({
+        gameSeed: hashStr(`${seed}|${week}|${phase}|${homeTeam}|${awayTeam}`),
+        season,
+        week,
+        phase,
+        homeTeam,
+        awayTeam,
+        isViewer: !!viewer && viewer.homeTeam === homeTeam && viewer.awayTeam === awayTeam,
+        homePlayers: rosters?.[homeTeam],
+        awayPlayers: rosters?.[awayTeam],
+        homeDepth: depthCharts?.[homeTeam],
+        awayDepth: depthCharts?.[awayTeam],
+        talentScale,
+        homeStaff: staffs?.[homeTeam],
+        awayStaff: staffs?.[awayTeam],
+      }),
+    ),
+  );
 }
 
 /** team code -> Roster, for every team the body supplied players for. */
@@ -328,8 +291,8 @@ const server = createServer((req, res) => {
     return;
   }
   readJson(req)
-    .then((body) => {
-      const result = handler(body);
+    .then(async (body) => {
+      const result = await handler(body);
       send(res, 200, result);
     })
     .catch((err: unknown) => {
@@ -340,6 +303,7 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
+  warmPool();
   // eslint-disable-next-line no-console
   console.log(`nfl-franchise-sim adapter listening on http://localhost:${PORT}`);
 });

@@ -94,10 +94,23 @@ interface CompiledTree {
   leaf: Float64Array;
   cats: (Set<string> | null)[];
 }
+/** Every tree of one class packed end to end: roots index into the arrays. */
+interface PackedForest {
+  roots: Int32Array;
+  feat: Int32Array;
+  thr: Float64Array;
+  left: Int32Array;
+  right: Int32Array;
+  missingLeft: Uint8Array;
+  isLeaf: Uint8Array;
+  leaf: Float64Array;
+  cats: (Set<string> | null)[];
+}
 interface CompiledModel {
   names: string[];
   categorical: boolean[];
   forests: CompiledTree[][];
+  packed: PackedForest[];
   /** scratch space, reused by every call (the engine is single-threaded) */
   num: Float64Array;
   cat: (string | null)[];
@@ -142,13 +155,77 @@ function compile(model: HgbPortableModel): CompiledModel {
       names: model.features.map((f) => f.name),
       categorical: model.features.map((f) => f.categorical),
       forests: model.trees_per_class.map((forest) => forest.map((tree) => compileTree(tree, nf))),
+      packed: [],
       num: new Float64Array(nf),
       cat: new Array(nf).fill(null),
       raws: new Array(model.trees_per_class.length).fill(0),
     };
+    m.packed = m.forests.map(pack);
     compiled.set(model, m);
   }
   return m;
+}
+
+function pack(forest: CompiledTree[]): PackedForest {
+  const total = forest.reduce((n, t) => n + t.feat.length, 0);
+  const p: PackedForest = {
+    roots: new Int32Array(forest.length),
+    feat: new Int32Array(total),
+    thr: new Float64Array(total),
+    left: new Int32Array(total),
+    right: new Int32Array(total),
+    missingLeft: new Uint8Array(total),
+    isLeaf: new Uint8Array(total),
+    leaf: new Float64Array(total),
+    cats: new Array(total).fill(null),
+  };
+  let off = 0;
+  forest.forEach((t, k) => {
+    p.roots[k] = off;
+    const n = t.feat.length;
+    for (let i = 0; i < n; i++) {
+      p.feat[off + i] = t.feat[i]!;
+      p.thr[off + i] = t.thr[i]!;
+      // children are tree-local; rebase them, keeping "off the array" (-1)
+      // pointing off the array so a malformed tree still fails the same way
+      p.left[off + i] = t.left[i]! < 0 ? -1 : t.left[i]! + off;
+      p.right[off + i] = t.right[i]! < 0 ? -1 : t.right[i]! + off;
+      p.missingLeft[off + i] = t.missingLeft[i]!;
+      p.isLeaf[off + i] = t.isLeaf[i]!;
+      p.leaf[off + i] = t.leaf[i]!;
+      p.cats[off + i] = t.cats[i] ?? null;
+    }
+    off += n;
+  });
+  return p;
+}
+
+/** Sum of every tree's leaf for one class, walking the packed arrays. */
+function sumForest(f: PackedForest, num: Float64Array, cat: (string | null)[], categorical: boolean[], init: number): number {
+  let acc = init;
+  const { roots, feat, thr, left, right, missingLeft, isLeaf, leaf, cats } = f;
+  for (let k = 0; k < roots.length; k++) {
+    let i = roots[k]!;
+    for (let guard = 0; ; guard++) {
+      if (guard >= 1024 || i < 0) throw new Error("hgb-portable: malformed model (tree walk fell off the node array)");
+      if (isLeaf[i] === 1) {
+        acc += leaf[i]!;
+        break;
+      }
+      const fi = feat[i]!;
+      if (fi < 0) throw new Error("hgb-portable: malformed model (tree walk fell off the node array)");
+      let goLeft: boolean;
+      if (categorical[fi]) {
+        const v = cat[fi] ?? null;
+        goLeft = v === null ? missingLeft[i] === 1 : (cats[i]?.has(v) ?? false);
+      } else {
+        const v = num[fi]!;
+        goLeft = v !== v ? missingLeft[i] === 1 : v <= thr[i]!;
+      }
+      i = goLeft ? left[i]! : right[i]!;
+    }
+  }
+  return acc;
 }
 
 function walk(tree: CompiledTree, num: Float64Array, cat: (string | null)[], categorical: boolean[]): number {
@@ -191,10 +268,7 @@ export function predictProbaPortable(
     else num[f] = missing ? NaN : Number(val);
   }
   for (let k = 0; k < forests.length; k++) {
-    const forest = forests[k]!;
-    let acc = model.baseline[k] ?? model.baseline[0] ?? 0;
-    for (let j = 0; j < forest.length; j++) acc += walk(forest[j]!, num, cat, categorical);
-    raws[k] = acc;
+    raws[k] = sumForest(m.packed[k]!, num, cat, categorical, model.baseline[k] ?? model.baseline[0] ?? 0);
   }
 
   const { classes, labels } = model;
