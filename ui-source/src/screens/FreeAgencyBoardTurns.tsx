@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { careerArc } from "@/state/careerArc";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
@@ -198,7 +199,11 @@ export function FreeAgencyBoardTurns() {
                       {fit && <FitTag fit={fit(p.position, p.overall)} />}
                     </p>
                     <p className="lobby-sub">
-                      Age {p.age} · asking {millions(ask)}/yr · wants{" "}
+                      Age {p.age}{" "}
+                      <span style={{ color: careerArc(p).color }} title={careerArc(p).hint}>
+                        ({careerArc(p).label})
+                      </span>{" "}
+                      · asking {millions(ask)}/yr · wants{" "}
                       {PRIMARY_VALUE_LABEL[primaryValueOf(p)]}
                     </p>
                     {lead && (

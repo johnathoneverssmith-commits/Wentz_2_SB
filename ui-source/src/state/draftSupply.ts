@@ -99,7 +99,7 @@ export function starterMeans(s: LeagueState): Partial<Record<Position, number>> 
  * from how long those positions develop and how late they decline. So a
  * position whose starters run above the league's baseline grows a little
  * slower and declines a little faster in camp, and one running below does
- * the reverse — a gentle restoring force, at most ±40% of a year's move,
+ * the reverse — a gentle restoring force, at most ±50% of a year's move,
  * never a change of direction.
  *
  * Returns the multiplier for a player's development at `position`.
@@ -113,7 +113,9 @@ export function agingBalance(s: LeagueState): (position: Position, delta: number
     const c = now[position];
     if (delta === 0 || b === undefined || c === undefined) return delta;
     const hot = c - b; // positive = running above where the league began
-    const m = Math.min(1.4, Math.max(0.6, 1 - 0.1 * hot));
+    // gain and range from ten-season runs: at 0.1 / +-40% safeties and tight
+    // ends still lost ~3.5 points a decade and quarterbacks gained ~3
+    const m = Math.min(1.5, Math.max(0.5, 1 - 0.16 * hot));
     const scaled = delta > 0 ? delta * m : delta * (2 - m);
     const r = Math.round(scaled);
     return r === 0 ? Math.sign(delta) : r;

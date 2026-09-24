@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { careerArc } from "@/state/careerArc";
 import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
@@ -181,7 +182,11 @@ export function FreeAgencyBoard() {
                         {fit && <FitTag fit={fit(p.position, p.overall)} />}
                       </p>
                       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
-                        Age {p.age} · wants ~{millions(exp.baseSalary)}/yr
+                        Age {p.age}{" "}
+                        <span style={{ color: careerArc(p).color }} title={careerArc(p).hint}>
+                          ({careerArc(p).label})
+                        </span>{" "}
+                        · wants ~{millions(isWindowStage ? exp.baseSalary : standingAsk(s, p))}/yr
                       </p>
                     </div>
                     <OvrPill value={p.overall} />

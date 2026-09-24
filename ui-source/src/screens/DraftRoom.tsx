@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { rookieOverallSpread } from "@/sim/draft-outcomes";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
@@ -103,7 +104,9 @@ export function DraftRoom() {
           position: p.position,
           age: p.age,
           ovr: p.collegeOverall,
-          sub: `${p.school} · ${p.classYear}`,
+          // how far the true rating may sit from the college grade: a top
+          // pick is a known quantity, a late-rounder a lottery ticket
+          sub: `${p.school} · ${p.classYear} · grade ±${Math.round(rookieOverallSpread((p.projectedRound - 1) * 32 + 16))}`,
         }));
     }
     return (
