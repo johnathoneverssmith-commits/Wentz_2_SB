@@ -13,7 +13,7 @@ import { ROSTER_TEMPLATE } from "@/sim/roster-template";
  * scarcity — a thin position gets more attention and its best prospects go
  * higher. This does the same: a position whose starters have slipped below
  * the league's own baseline gets more prospects in the class and slightly
- * better ones, and one running above it gets fewer. The nudge is capped so a
+ * better ones, and one running above it gets fewer and weaker ones. The nudge is capped so a
  * class still looks like a draft class.
  *
  * The baseline is the league's own starters the first time a class is made,
@@ -28,9 +28,13 @@ export function draftClassTilt(s: LeagueState): DraftClassTilt {
     const cur = now[pos];
     if (base === undefined || cur === undefined) continue;
     const gap = base - cur; // positive = the position has slipped
+    // symmetric: a position running hot is cooled as firmly as a thin one is
+    // refilled. The first cut only pushed up (to +4, down to -2) and gently,
+    // and a decade still moved safeties -3 while quarterbacks and kickers
+    // inflated +3.5 and +4.
     tilt[pos] = {
-      supply: Math.min(1.6, Math.max(0.7, 1 + 0.08 * gap)),
-      quality: Math.round(Math.min(4, Math.max(-2, gap * 0.6))),
+      supply: Math.min(1.8, Math.max(0.6, 1 + 0.12 * gap)),
+      quality: Math.round(Math.min(5, Math.max(-5, gap))),
     };
   }
   return tilt;
