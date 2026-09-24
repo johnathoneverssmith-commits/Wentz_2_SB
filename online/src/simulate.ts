@@ -175,6 +175,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        overtime: "nfl",
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
       const watched = humanTeams.has(g.homeTeam) || humanTeams.has(g.awayTeam);
@@ -200,6 +201,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
                 homeRoster,
                 awayRoster,
                 talentScale: talentScaleOf(state.config),
+                overtime: "nfl",
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
               }) as NonNullable<GameResult["broadcast"]>,
             }

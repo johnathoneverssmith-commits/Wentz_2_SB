@@ -227,6 +227,11 @@ export class Game {
   private dPts0 = 0;
   private dFd0 = 0;
 
+  /** which overtime rule a tied game plays (`GameStaff.overtime`) */
+  overtime: "legacy" | "nfl" = "legacy";
+  /** a playoff game: overtime runs until somebody wins */
+  mustDecide = false;
+
   constructor(
     rng: Rng,
     rosters: [Roster, Roster] | null = null,
@@ -1361,6 +1366,47 @@ export class Game {
     this.startDrive();
   }
 
+  /**
+   * NFL overtime, as the league plays it now: a ten-minute period (fifteen in
+   * the playoffs), both teams guaranteed a possession, then sudden death. A
+   * regular-season game still tied when the period ends is a tie; a playoff
+   * game plays further periods until somebody wins.
+   *
+   * The legacy rule — each side one attempt, then stop — left one to six
+   * ties a season (the NFL averages well under one) and made every playoff
+   * caller break ties by fiat.
+   */
+  private nflOvertime(): void {
+    const period = this.mustDecide ? 900 : 600;
+    const first = 0 as 0 | 1; // home takes the ball; the coin toss is not worth an RNG draw
+    const second = 1 as 0 | 1;
+    const startPossession = (t: 0 | 1): void => {
+      this.pos = t;
+      this.yardline100 = 75.0;
+      this.down = 1;
+      this.ydstogo = 10.0;
+      this.startDrive();
+    };
+    let guard = 0;
+    for (let periods = 0; periods < (this.mustDecide ? 6 : 1); periods++) {
+      this.gsr = period;
+      if (periods === 0) {
+        // each side is guaranteed one possession: play the first until the
+        // ball changes hands, then the second's
+        startPossession(first);
+        while (this.pos === first && this.gsr > 0 && guard++ < 200) this.play();
+        if (this.pos !== second && this.gsr > 0) startPossession(second);
+        while (this.pos === second && this.gsr > 0 && guard++ < 400) this.play();
+      } else {
+        startPossession(periods % 2 === 1 ? second : first);
+      }
+      // sudden death from here
+      while (this.score[0] === this.score[1] && this.gsr > 0 && guard++ < 600) this.play();
+      this.finishDrive("end_of_half");
+      if (this.score[0] !== this.score[1]) return;
+    }
+  }
+
   // ---- run a full game --------------------------------------
   run(): this {
     this.receivedOpening = this.rng.random() < 0.5 ? 1 : 0;
@@ -1371,6 +1417,10 @@ export class Game {
       this.play();
     }
     this.finishDrive("end_of_half"); // clock expired mid-drive (regulation)
+    if (this.overtime !== "legacy") {
+      if (this.score[0] === this.score[1]) this.nflOvertime();
+      return this;
+    }
     // simple OT: one possession each if tied
     if (this.score[0] === this.score[1]) {
       for (const t of [0, 1] as const) {
@@ -1426,6 +1476,14 @@ export interface GameStaff {
    * impact" setting passes more.
    */
   talentScale?: number | undefined;
+  /**
+   * Overtime rule for a game tied after regulation. Omitted is the validated
+   * engine's legacy rule (one attempt each), byte-identical; the franchise
+   * game passes "nfl" — both teams possess, then sudden death.
+   */
+  overtime?: "legacy" | "nfl" | undefined;
+  /** A playoff game: with the NFL rule, overtime continues until decided. */
+  mustDecide?: boolean | undefined;
 }
 
 /**
@@ -1457,6 +1515,8 @@ export function simulateGame(
       ? [opts.homeStaff, opts.awayStaff]
       : null;
   const g = new Game(new Rng(seed), rosters, staffPair, opts?.neutralSite ?? false, opts?.talentScale ?? 1);
+  if (opts?.overtime) g.overtime = opts.overtime;
+  if (opts?.mustDecide) g.mustDecide = true;
   if (opts?.trace) g.playTrace = [];
   if (opts?.injuries && rosters) g.injuryLog = [];
   return g.run();

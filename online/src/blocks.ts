@@ -127,6 +127,7 @@ export function simulateBlock(
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        overtime: "nfl",
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
       results.push({
@@ -198,8 +199,11 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
   const cast = broadcastGame(seed, toEngine(game.homeTeam), toEngine(game.awayTeam), {
     homeRoster: rosterFor(game.homeTeam),
     awayRoster: rosterFor(game.awayTeam),
-    // the same scale the game was played at, or the replay is another game
+    // the same scale and rules the game was played at, or the replay is another game
     talentScale: talentScaleOf(state.config),
+    overtime: "nfl",
+    mustDecide: game.phase !== "REG" && game.phase !== "PRE",
+    neutralSite: game.phase === "SB",
         ...staffPairOf(state, game.homeTeam, game.awayTeam),
   });
   // the engine spells the Rams differently; the UI should never see that
@@ -280,6 +284,8 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        overtime: "nfl",
+        mustDecide: true,
         ...staffPairOf(state, home, away),
       });
       let [hs, as] = [sim.score[0], sim.score[1]];

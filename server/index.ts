@@ -143,7 +143,7 @@ function handleSimulateWeek(body: SimulateWeekBody) {
     const homeStaff = staffs?.[homeTeam];
     const awayStaff = staffs?.[awayTeam];
     const staffPair = homeStaff && awayStaff ? { homeStaff, awayStaff } : {};
-    const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, ...staffPair } as const;
+    const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, overtime: "nfl", ...staffPair } as const;
     const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
     const trace = g.playTrace ?? [];
     const box = extractBoxScore(g, homeTeam, awayTeam, week);
@@ -174,7 +174,7 @@ function handleSimulateWeek(body: SimulateWeekBody) {
     // the viewer's game also gets the play-by-play view; same seed and same
     // options, so it is the same simulated game as the box score above
     return isViewer
-      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster, talentScale, ...staffPair }) }
+      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster, talentScale, overtime: "nfl", ...staffPair }) }
       : base;
   });
 }

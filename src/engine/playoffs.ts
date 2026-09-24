@@ -102,6 +102,10 @@ function decide(
           awayRoster,
           talentScale: _playoffTalent,
           ...(homeStaff && awayStaff ? { homeStaff, awayStaff } : {}),
+          // a franchise's playoff game plays NFL overtime until decided; the
+          // replay-on-tie loop below stays as the backstop
+          overtime: "nfl" as const,
+          mustDecide: true,
         }
       : { neutralSite };
   for (let k = 0; k < TIE_BREAK_TRIES; k += 1) {
