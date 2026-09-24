@@ -89,6 +89,7 @@ import {
 } from "./hoodedFigure.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { reconcileCpuTeam } from "./reconciliation.ts";
+import { draftClassTilt } from "./draftSupply.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -519,7 +520,7 @@ export const useStore = create<Store>()(
             forgetOldRetirees(s); // and a save file shouldn't carry them forever
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
-            s.draftClass = sim.generateDraftClass(s.season, s.season);
+            s.draftClass = sim.generateDraftClass(s.season, s.season, draftClassTilt(s));
             for (const code of Object.keys(s.teams)) {
               const team = s.teams[code]!;
               team.wins = team.losses = team.ties = 0;

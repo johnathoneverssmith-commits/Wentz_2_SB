@@ -52,7 +52,7 @@ export interface SimulationService {
   generateSchedule(seed: number, teamCodes: string[]): ScheduledGame[] | Promise<ScheduledGame[]>;
 
   /** A rookie draft class (spec §6.5). */
-  generateDraftClass(seed: number, year: number): DraftProspect[];
+  generateDraftClass(seed: number, year: number, tilt?: import("./MockSimulationService").DraftClassTilt): DraftProspect[];
 
   /** Sim every game for `week` in the given phase; returns fully-populated results. */
   simulateWeek(

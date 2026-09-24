@@ -62,7 +62,7 @@ import {
 import { availableRoster } from "@/state/injuries.ts";
 import { filterHoodedFigureAvailable } from "@/state/hoodedFigure.ts";
 
-import { generateDevelopmentCoaches, MockSimulationService } from "./MockSimulationService.ts";
+import { type DraftClassTilt, generateDevelopmentCoaches, MockSimulationService } from "./MockSimulationService.ts";
 import { fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
 import { winProbability, type Venue } from "./win-probability.ts";
@@ -268,8 +268,8 @@ export class HybridSimulationService implements SimulationService {
     );
   }
 
-  generateDraftClass(seed: number, year: number): DraftProspect[] {
-    return this.mock.generateDraftClass(seed, year);
+  generateDraftClass(seed: number, year: number, tilt?: DraftClassTilt): DraftProspect[] {
+    return this.mock.generateDraftClass(seed, year, tilt);
   }
 
   async simulateWeek(state: LeagueState, week: number, phase: "PRE" | "REG"): Promise<GameResult[]> {

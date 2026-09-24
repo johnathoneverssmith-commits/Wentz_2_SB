@@ -266,6 +266,8 @@ export interface LeagueState {
   returnTo: string | null;
 
   history: SeasonOutcome[];
+  /** Each position's starter quality when the league began (`draftSupply.ts`). */
+  positionBaseline?: Partial<Record<Position, number>>;
   /** CPU coaching changes, the last three offseasons (`coachingCarousel.ts`). */
   coachingChanges?: import("@/state/coachingCarousel").CoachingChange[];
   /** Hooded Figure catch-up mechanic state. Null until first needed. */

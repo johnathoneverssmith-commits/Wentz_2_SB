@@ -232,6 +232,11 @@ function highestRealPid(): number {
   return max;
 }
 
+/** Per-position nudges to a draft class (`state/draftSupply.ts`). */
+export type DraftClassTilt = Partial<Record<Position, { supply: number; quality: number }>>;
+
+const SPECIALIST_ROOKIE_OFFSET = 12;
+
 export class MockSimulationService implements SimulationService {
   /**
    * The real league, by name.
@@ -568,7 +573,7 @@ export class MockSimulationService implements SimulationService {
     return games;
   }
 
-  generateDraftClass(seed: number, year: number): DraftProspect[] {
+  generateDraftClass(seed: number, year: number, tilt?: DraftClassTilt): DraftProspect[] {
     const rng = new Rng(seed ^ (0x4444 + year));
     // Seven rounds of 32 is 224 picks; the rest of the board goes undrafted
     // and reaches free agency (`signUndraftedAsFreeAgents`) — a real class is
@@ -591,7 +596,7 @@ export class MockSimulationService implements SimulationService {
       // draft-history.ts), e.g. almost no kickers/punters in rounds 1-2.
       const slotRound = clamp(Math.ceil((i + 1) / 32), 1, 7);
       const roundDist = POSITION_BY_ROUND[slotRound]!;
-      const pos = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p]));
+      const pos = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p] * (tilt?.[p]?.supply ?? 1)));
       // a prospect's *projected* slot wobbles around its board position
       const projPick = clamp(Math.round(i + 1 + rng.normal(0, 8)), 1, 260);
       const projectedRound = clamp(Math.ceil(projPick / 32), 1, 7);
@@ -605,10 +610,17 @@ export class MockSimulationService implements SimulationService {
       // pick is a fairly known quantity and a seventh-rounder is a lottery
       // ticket, which is the entire reason scouting is a job.
       const boardSlot = i + 1;
+      // Kickers and punters are rated on their own scale — the league's sit
+      // around 80 — and a specialist off the general rookie curve came in
+      // near 60, so every retiring kicker was replaced by a worse one and a
+      // league's kicking fell fourteen points in a decade.
+      const specialist = pos === "K" || pos === "P" ? SPECIALIST_ROOKIE_OFFSET : 0;
       const trueOverall = clamp(
         Math.round(
           expectedRookieOverall(boardSlot) + rng.normal(0, rookieOverallSpread(boardSlot)),
-        ),
+        ) +
+          specialist +
+          (tilt?.[pos]?.quality ?? 0),
         40,
         92,
       );
