@@ -1,6 +1,7 @@
 import { broadcastGame } from "../../src/engine/broadcast.js";
 import { talentScaleOf } from "@/state/talentImpact.ts";
 import { staffPairOf } from "./staffs.js";
+import { boxScoreOf, trimStoredBoxScores } from "./boxscore.js";
 import { simulateGame } from "../../src/engine/sim.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
@@ -137,6 +138,7 @@ export function simulateBlock(
         played: true,
         homeScore: sim.score[0],
         awayScore: sim.score[1],
+        ...boxScoreOf(sim, g.homeTeam, g.awayTeam, week, { home: home.squad, away: away.squad }),
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
         sidelined: { home: home.sidelined, away: away.sidelined },
       });
@@ -150,6 +152,7 @@ export function simulateBlock(
       accrueSeasonStats(state, results);
       recomputeStandings(state);
     }
+    trimStoredBoxScores(results, humanTeamsOf(state));
     // injuries heal between weeks the same way they would have if the weeks
     // had been played one at a time — the block must be indistinguishable
     // from having played it live, or the reveal shows a different season
@@ -296,6 +299,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         played: true,
         homeScore: hs,
         awayScore: as,
+        ...boxScoreOf(sim, home, away, 0, { home: h.squad, away: a.squad }),
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
         sidelined: { home: h.sidelined, away: a.sidelined },
       });
@@ -328,4 +332,8 @@ export function simulatePlayoffBlock(state: LeagueState): number {
     healOneWeek(state);
   }
   return played;
+}
+
+function humanTeamsOf(state: LeagueState): Set<string> {
+  return new Set(state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
 }

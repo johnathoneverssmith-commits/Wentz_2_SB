@@ -379,6 +379,9 @@ export function playerLinesFrom(
         else if (p.outcome === "incomplete") bump(l, "passDef");
         else if (p.outcome === "complete") bump(l, "tackles");
       }
+      if (p.tackler && p.outcome === "complete" && !p.touchdown) {
+        bump(lineFor(maps[def]!, p.tackler, rosterOf[def]!), "tackles");
+      }
     } else if (p.call === "run" || p.call === "scramble") {
       if (p.targetOrRusher) {
         const l = lineFor(maps[off]!, p.targetOrRusher, rosterOf[off]!);
@@ -387,6 +390,7 @@ export function playerLinesFrom(
         if (p.touchdown) bump(l, "rushTd");
       }
       if (p.defender) bump(lineFor(maps[def]!, p.defender, rosterOf[def]!), "tackles");
+      else if (p.tackler && !p.touchdown) bump(lineFor(maps[def]!, p.tackler, rosterOf[def]!), "tackles");
     } else if (p.call === "sack") {
       if (p.defender) {
         const l = lineFor(maps[def]!, p.defender, rosterOf[def]!);

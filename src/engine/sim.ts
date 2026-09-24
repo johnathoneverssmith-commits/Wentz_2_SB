@@ -44,6 +44,7 @@ import { strengthIndex, strengthShift } from "./team-strength.js";
 import { synergyShift } from "./synergy.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
+import type { Player } from "../schema/player.js";
 import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
 import {
   dcDefenseShift,
@@ -156,6 +157,8 @@ export interface PlayRec {
   targetOrRusher?: string | undefined;
   /** the defender credited on a sack / interception / forced fumble. */
   defender?: string | undefined;
+  /** who made the tackle on a run or a completed pass (cosmetic, like the rest). */
+  tackler?: string | undefined;
   /** kicker (field_goal) or punter (punt) — cosmetic attribution. */
   kicker?: string | undefined;
   /** punt returner, when the punt is fielded and run back — cosmetic attribution. */
@@ -319,22 +322,59 @@ export class Game {
     passer?: string | undefined;
     targetOrRusher?: string | undefined;
     defender?: string | undefined;
+    tackler?: string | undefined;
   } {
     if (!this.ratingsOn) return {};
     const o = this.offLineup();
     const d = this.defLineup();
-    const seed = down * 7 + Math.round(ydstogo) * 3 + depth.length;
+    // Still no RNG: a hash of where the game is (play count, clock, down,
+    // distance, depth). The old index was down/distance alone, so the same
+    // few situations always credited the same man — one edge rusher could
+    // collect a season of sacks from third-and-long.
+    let h = (this.playTrace?.length ?? 0) * 2654435761 + this.gsr * 40503 + down * 7919 + Math.round(ydstogo) * 131 + depth.length;
+    const next = (): number => {
+      h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+      h = Math.imul(h ^ (h >>> 12), 0x297a2d39) >>> 0;
+      return ((h ^ (h >>> 15)) >>> 0) / 0x100000000;
+    };
+    const seed = Math.floor(next() * 1e9);
     const pick = (pool: (Lineup[keyof Lineup] | undefined)[]): string | undefined => {
       const names = pool.filter((x): x is NonNullable<typeof x> => !!x).map((x) => x!.name);
       return names.length ? names[seed % names.length] : undefined;
     };
+    /** a weighted pick over [player, weight] pairs, skipping empty slots */
+    const weighted = (pool: [Player | null | undefined, number][]): string | undefined => {
+      const live = pool.filter((x): x is [Player, number] => !!x[0]);
+      const total = live.reduce((n, [, w]) => n + w, 0);
+      let r = next() * total;
+      for (const [p, w] of live) if ((r -= w) <= 0) return p.name;
+      return live.at(-1)?.[0].name;
+    };
+    const offRoster = this.off();
+    const out = this.injuredOut;
+    const tackleOnRun = (): string | undefined =>
+      weighted([[d.ILB1, 22], [d.ILB2, 16], [d.S1, 10], [d.S2, 8], [d.EDGE1, 9], [d.EDGE2, 8], [d.DT1, 7], [d.DT2, 6], [d.CB1, 7], [d.CB2, 7]]);
+    const tackleOnCatch = (): string | undefined =>
+      depth === "DEEP"
+        ? weighted([[d.S1, 30], [d.S2, 25], [d.CB1, 25], [d.CB2, 20]])
+        : weighted([[d.CB1, 18], [d.CB2, 16], [d.ILB1, 18], [d.ILB2, 13], [d.S1, 12], [d.S2, 10], [d.CB3, 8], [d.EDGE1, 3], [d.EDGE2, 2]]);
 
     const forcer = (): string | undefined =>
       pick(call === "run" ? [d.ILB1, d.EDGE1, d.DT1, d.CB1] : [d.CB1, d.S1, d.ILB1, d.EDGE1]);
 
     if (call === "run") {
-      const targetOrRusher = (o.RB1 ?? o.TE1)?.name; // designed run: the back (rare TE fallback)
-      return outcome === "fumble" ? { targetOrRusher, defender: forcer() } : { targetOrRusher };
+      // designed runs: the lead back most, his backup a real share, and the
+      // odd end-around or designed QB run — every carry to RB1 made a
+      // 3,000-yard rusher and a thousand-yard back on every team
+      const targetOrRusher = weighted([
+        [o.RB1 ?? o.TE1, 66],
+        [offRoster.depthAt("RB", 1, out), 24],
+        [o.QB1, 6],
+        [o.WR3, 4],
+      ]);
+      return outcome === "fumble"
+        ? { targetOrRusher, defender: forcer() }
+        : { targetOrRusher, tackler: tackleOnRun() };
     }
     if (call === "scramble") {
       const name = o.QB1?.name;
@@ -343,7 +383,10 @@ export class Game {
         : { passer: name, targetOrRusher: name };
     }
     if (call === "sack") {
-      return { passer: o.QB1?.name, defender: pick([d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1]) };
+      return {
+        passer: o.QB1?.name,
+        defender: weighted([[d.EDGE1, 30], [d.EDGE2, 24], [d.DT1, 15], [d.DT2, 10], [d.ILB1, 9], [d.ILB2, 5], [d.S1, 4], [d.CB1, 3]]),
+      };
     }
 
     // pass (complete / incomplete / interception / fumble after the catch)
@@ -360,6 +403,7 @@ export class Game {
       return { passer, targetOrRusher: target, defender: pick(dPool) };
     }
     if (outcome === "fumble") return { passer, targetOrRusher: target, defender: forcer() };
+    if (outcome === "complete") return { passer, targetOrRusher: target, tackler: tackleOnCatch() };
     return { passer, targetOrRusher: target };
   }
 

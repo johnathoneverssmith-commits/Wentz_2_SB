@@ -13,6 +13,7 @@
  */
 import { talentScaleOf } from "@/state/talentImpact.ts";
 import { staffPairOf } from "./staffs.js";
+import { boxScoreOf, trimStoredBoxScores } from "./boxscore.js";
 import { simulateGame } from "../../src/engine/sim.js";
 import { broadcastGame } from "../../src/engine/broadcast.js";
 import { Roster } from "../../src/engine/roster.js";
@@ -85,10 +86,12 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       } satisfies { result: WeekOutcome } & Applied;
     }
 
+    const squads = new Map<string, ReturnType<typeof availableRoster>>();
     const rosterFor = (code: string): Roster => {
       const squad = availableRoster(
         Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent),
       );
+      squads.set(code, squad);
       return new Roster(
         toEngine(code),
         squad as unknown as EnginePlayer[],
@@ -184,6 +187,10 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         played: true,
         homeScore: sim.score[0],
         awayScore: sim.score[1],
+        ...boxScoreOf(sim, g.homeTeam, g.awayTeam, state.week, {
+          home: squads.get(g.homeTeam) ?? [],
+          away: squads.get(g.awayTeam) ?? [],
+        }),
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
         // same seed and the same rosters, so the drives it walks through are
         // the drives that produced the score above
@@ -208,6 +215,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       accrueSeasonStats(state, results);
       recomputeStandings(state);
     }
+    trimStoredBoxScores(results, humanTeams);
 
     // The week is played; now the league has to move off it. Single-player
     // the Game Day screen does this on "continue"; online nothing did, so the

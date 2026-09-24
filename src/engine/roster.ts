@@ -89,6 +89,11 @@ export class Roster {
    * nth-*available* player at `pos`, clamped to the last, or null if none.
    * `out` (ids injured/unavailable) is skipped before counting to `i`.
    */
+  /** The `i`-th available player at a position — for trace attribution only; not a lineup slot. */
+  depthAt(pos: string, i: number, out?: ReadonlySet<string>): Player | null {
+    return this.nth(pos, i, out);
+  }
+
   private nth(pos: string, i: number, out?: ReadonlySet<string>): Player | null {
     let d = this.depth.get(pos) ?? [];
     if (out && out.size) {
