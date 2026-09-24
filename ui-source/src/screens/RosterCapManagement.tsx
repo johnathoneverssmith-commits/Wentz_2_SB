@@ -23,6 +23,7 @@ import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { playerPriorities } from "@/sim/priorities";
 import { extensionAsk, previewRestructure } from "@/state/contracts";
 import { depthAt } from "@/state/seed";
+import { onInjuredReserve } from "@/state/injuries";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
@@ -56,6 +57,9 @@ export function RosterCapManagement() {
     : { to: isDepthChartStage ? "/" : "/hub", label: isDepthChartStage ? "Back to stage" : "Return to team hub" };
 
   const roster = useMemo(() => (code ? teamRoster(s, code) : []), [s, code]);
+  // players on injured reserve don't hold one of the 53 spots
+  const onIr = roster.filter((p) => onInjuredReserve(p, s.stage)).length;
+  const activeCount = roster.length - onIr;
   const team = code ? s.teams[code] : undefined;
   const staff = Object.values(s.coaches).filter((c) => c.team === code);
   const oc = staff.find((c) => c.role === "OC") ?? null;
@@ -138,20 +142,22 @@ export function RosterCapManagement() {
             label: "Roster",
             value: (
               <>
-                {roster.length}
-                <span style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 400 }}> / 53</span>
+                {activeCount}
+                <span style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 400 }}>
+                  {" "}/ 53{onIr > 0 ? ` · ${onIr} on IR` : ""}
+                </span>
               </>
             ),
-            className: roster.length < 46 || roster.length > 53 ? "bad" : undefined,
+            className: activeCount < 46 || activeCount > 53 ? "bad" : undefined,
           },
         ]}
       />
-      {(capSpace < 0 || roster.length > 53) && (
+      {(capSpace < 0 || activeCount > 53) && (
         <div className="notice bad" role="status">
           <strong>Not season-legal yet.</strong>{" "}
           {[
             capSpace < 0 ? `${millions(-capSpace)} over the cap` : null,
-            roster.length > 53 ? `${roster.length - 53} over the 53-man limit` : null,
+            activeCount > 53 ? `${activeCount - 53} over the 53-man limit` : null,
           ]
             .filter(Boolean)
             .join(" and ")}
@@ -216,7 +222,10 @@ export function RosterCapManagement() {
                     {p.name} <span className="ppos">{p.position}</span>
                   </span>
                   <OvrPill value={p.overall} />
-                  <span className="pcell">{p.age}</span>
+                  <span className="pcell" title={arcOf(p).hint}>
+                    {p.age}
+                    <span style={{ display: "block", fontSize: 9.5, color: arcOf(p).color }}>{arcOf(p).label}</span>
+                  </span>
                   <span className="pcell">{p.contract ? `${p.contract.years_remaining}y` : "FA"}</span>
                   <span style={{ fontSize: 13, textAlign: "right", fontWeight: 500 }}>
                     {p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}
@@ -447,4 +456,15 @@ function ProjCell({ label, value }: { label: string; value: string }) {
       </p>
     </div>
   );
+}
+
+/**
+ * Where a player is in his career, from the thresholds the aging model uses:
+ * still improving, at his peak, or past it. A GM deciding who to extend or
+ * trade reads this more than the number beside it.
+ */
+function arcOf(p: Player): { label: string; color: string; hint: string } {
+  if (p.age < p.dev_age_threshold) return { label: "Rising", color: "var(--good)", hint: `Still developing until about ${p.dev_age_threshold}` };
+  if (p.age < p.decline_age_threshold) return { label: "Prime", color: "var(--ink-faint)", hint: `In his prime until about ${p.decline_age_threshold}` };
+  return { label: "Declining", color: "var(--bad)", hint: `Past his decline age (${p.decline_age_threshold})` };
 }

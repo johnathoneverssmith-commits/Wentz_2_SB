@@ -133,3 +133,29 @@ export function availableRoster(roster: Player[]): Player[] {
   }
   return [...healthy, ...bySpot.values()];
 }
+
+/**
+ * Injured reserve.
+ *
+ * During the season a player expected to miss at least four weeks goes on
+ * IR: he stops counting against the 53-man limit and the positional minimums
+ * (his salary still counts against the cap, as it does in the NFL), so a
+ * team can sign someone to play in his place. Before this a torn ACL held a
+ * roster spot all year and a GM had to cut a healthy player to replace him.
+ */
+export const IR_WEEKS = 4;
+const SEASON_STAGES = new Set([
+  "preseason",
+  "regularSeason",
+  "tradeDeadline",
+  "tradeDeadlineSummary",
+  "midseasonFreeAgency",
+  "midseasonFreeAgencySummary",
+  "midseasonDepthChart",
+  "leagueDevelopments",
+  "playoffs",
+]);
+
+export function onInjuredReserve(p: Player, stage: string): boolean {
+  return SEASON_STAGES.has(stage) && (p.injury_status?.weeks_out_est?.[0] ?? 0) >= IR_WEEKS;
+}

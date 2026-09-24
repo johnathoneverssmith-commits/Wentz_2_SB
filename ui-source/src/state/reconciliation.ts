@@ -1,4 +1,5 @@
 import type { LeagueState, Player } from "@/domain";
+import { onInjuredReserve } from "./injuries";
 import { POSITIONS } from "@/domain";
 import { ROSTER_TEMPLATE, ROSTER_SIZE } from "@/sim/roster-template";
 
@@ -50,11 +51,13 @@ export function positionalMinimums(): Record<string, number> {
 /** Everything wrong with this roster right now, together. */
 export function reconciliationIssues(s: LeagueState, teamCode: string): ReconciliationIssue[] {
   const issues: ReconciliationIssue[] = [];
-  const roster = rosterOf(s, teamCode);
+  const everyone = rosterOf(s, teamCode);
+  // the cap counts everyone; the roster limit and the minimums don't count IR
+  const roster = everyone.filter((p) => !onInjuredReserve(p, s.stage));
   const team = s.teams[teamCode];
 
   if (team) {
-    const used = Math.round(roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0) * 10) / 10;
+    const used = Math.round(everyone.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0) * 10) / 10;
     if (used > team.cap.total) {
       issues.push({
         kind: "cap",
@@ -229,7 +232,10 @@ export function fillPositionalGaps(s: LeagueState, teamCode: string): number {
   // team on the way out of each market and the deadline, and sixteen scans of
   // the whole league per team were ~0.5s of every one of those transitions
   const counts = new Map<string, number>();
-  for (const p of rosterOf(s, teamCode)) counts.set(p.position, (counts.get(p.position) ?? 0) + 1);
+  for (const p of rosterOf(s, teamCode)) {
+    if (onInjuredReserve(p, s.stage)) continue; // IR doesn't fill a position
+    counts.set(p.position, (counts.get(p.position) ?? 0) + 1);
+  }
   for (const pos of POSITIONS) {
     const need = mins[pos] ?? 0;
     if (need === 0) continue;

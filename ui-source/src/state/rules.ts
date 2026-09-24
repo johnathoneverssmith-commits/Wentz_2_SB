@@ -12,6 +12,7 @@
  * same `LeagueState` it returns the same answer, on a server or in a tab,
  * which is what lets one set of rules govern both.
  */
+import { onInjuredReserve } from "./injuries";
 import { expectedSalary } from "./freeAgencyValues";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { Rng } from "@/sim/rng";
@@ -1517,7 +1518,10 @@ export function rosterLimitFor(stage: Stage): number {
 
 /** Players currently counting against `teamCode`'s roster limit. */
 export function rosterCountOf(s: LeagueState, teamCode: string): number {
-  return Object.values(s.players).filter((p) => p.nfl_team === teamCode && !p.retired).length;
+  // players on injured reserve don't hold one of the 53 spots
+  return Object.values(s.players).filter(
+    (p) => p.nfl_team === teamCode && !p.retired && !onInjuredReserve(p, s.stage),
+  ).length;
 }
 
 /**
