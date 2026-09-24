@@ -2,14 +2,21 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Player } from "@/domain";
 import { millions } from "@/util/format";
 import { useDialog } from "./useDialog.ts";
+import { useStore } from "@/state/store";
 
 /**
  * Full read-out for one player: identity, contract, this season's counting
  * stats, and the 0–99 attributes. The sim predicts outcomes from these
  * individual numbers, not from `overall`.
  */
+const NONE: never[] = [];
+
 export function PlayerStatsModal({ player, onClose }: { player: Player; onClose: () => void }) {
   const st = player.season_stats;
+  // stable fallbacks: a fresh `[]` per render would re-render forever
+  const awards = (useStore((s) => s.awards) ?? NONE).filter((a) => a.playerId === player.id);
+  const allPros = (useStore((s) => s.allPro) ?? NONE).filter((a) => a.playerId === player.id).length;
+  const hof = (useStore((s) => s.hallOfFame) ?? NONE).some((h) => h.playerId === player.id);
   const attrs = Object.entries(player.attributes).filter(([, v]) => typeof v === "number");
   const dialogRef = useDialog(onClose);
 
@@ -49,6 +56,18 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
                 ? "Free agent"
                 : "—"}
           </p>
+
+          {(awards.length > 0 || allPros > 0 || hof) && (
+            <p style={{ margin: "0 0 14px", fontSize: 12, color: "var(--accent, var(--good))" }}>
+              {[
+                hof ? "Hall of Fame" : null,
+                ...awards.map((a) => `${a.season} ${a.award}`),
+                allPros > 0 ? `${allPros}x All-Pro` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
 
           <p className="subhead">This season</p>
           {st && st.gamesPlayed > 0 ? (

@@ -15,7 +15,8 @@ export function LeagueMemory({ s }: { s: LeagueState }) {
   const latestAllPro = Math.max(0, ...(s.allPro ?? []).map((a) => a.season));
   const allPro = (s.allPro ?? []).filter((a) => a.season === latestAllPro);
   const hof = [...(s.hallOfFame ?? [])].sort((a, b) => b.inducted - a.inducted);
-  if (!champions.length && !records.length && !allPro.length && !hof.length) return null;
+  const careers = careerLeaders(s);
+  if (!champions.length && !records.length && !allPro.length && !hof.length && !careers.length) return null;
 
   const title: React.CSSProperties = { margin: "0 0 8px" };
   const row: React.CSSProperties = { fontSize: 12.5, display: "flex", gap: 8, flexWrap: "wrap", padding: "3px 0" };
@@ -70,6 +71,31 @@ export function LeagueMemory({ s }: { s: LeagueState }) {
         </section>
       )}
 
+      {careers.length > 0 && (
+        <section>
+          <p className="sectionlabel" style={title}>
+            Career leaders
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "10px 20px" }}>
+            {careers.map((c) => (
+              <div key={c.label}>
+                <p style={{ margin: "0 0 4px", fontSize: 11.5, color: "var(--ink-faint)" }}>{c.label}</p>
+                {c.rows.map((r, i) => (
+                  <div key={r.id} style={{ fontSize: 12, display: "flex", gap: 6 }}>
+                    <span style={{ color: "var(--ink-faint)", minWidth: 14 }}>{i + 1}</span>
+                    <span style={{ flex: 1 }}>
+                      {r.name}
+                      {r.retired ? <span style={{ color: "var(--ink-faint)" }}> (ret.)</span> : null}
+                    </span>
+                    <strong>{r.value.toLocaleString()}</strong>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {hof.length > 0 && (
         <section>
           <p className="sectionlabel" style={title}>
@@ -105,4 +131,27 @@ export function SeasonAwardsList({ awards }: { awards: SeasonAward[] }) {
       ))}
     </div>
   );
+}
+
+const CAREER_STATS: [string, "passYds" | "passTd" | "rushYds" | "recYds" | "sacks" | "defInt"][] = [
+  ["Passing yards", "passYds"],
+  ["Passing touchdowns", "passTd"],
+  ["Rushing yards", "rushYds"],
+  ["Receiving yards", "recYds"],
+  ["Sacks", "sacks"],
+  ["Interceptions", "defInt"],
+];
+
+/** Top five in each career total this league has banked (current players and recent retirees). */
+function careerLeaders(s: LeagueState) {
+  const players = Object.values(s.players).filter((p) => p.career && p.career.seasons > 0);
+  if (players.length === 0) return [];
+  return CAREER_STATS.map(([label, key]) => ({
+    label,
+    rows: players
+      .map((p) => ({ id: p.id, name: p.name, retired: !!p.retired, value: p.career?.[key] ?? 0 }))
+      .filter((r) => r.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5),
+  })).filter((c) => c.rows.length > 0);
 }

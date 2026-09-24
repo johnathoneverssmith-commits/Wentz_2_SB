@@ -96,6 +96,23 @@ export function LeagueDevelopments() {
         )}
       </div>
       <CoachingCarousel changes={(s.coachingChanges ?? []).filter((c) => c.season === s.season - 1)} />
+      {(s.hallOfFame ?? []).some((h) => h.inducted === s.season - 1) && (
+        <div className="panel open" style={{ display: "grid", gap: 6, marginTop: 12 }}>
+          <p className="sectionlabel" style={{ margin: 0 }}>
+            Hall of Fame class of {s.season - 1}
+          </p>
+          {(s.hallOfFame ?? [])
+            .filter((h) => h.inducted === s.season - 1)
+            .map((h) => (
+              <div key={h.playerId} style={{ fontSize: 12.5 }}>
+                <strong>{h.name}</strong>{" "}
+                <span style={{ color: "var(--ink-dim)" }}>
+                  {h.position} · {h.seasons} seasons · {h.why}
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
       <ReadinessGate
         title="League developments readiness"
         label="Continue to the Regular Season"

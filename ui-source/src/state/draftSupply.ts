@@ -23,6 +23,7 @@ export function draftClassTilt(s: LeagueState): DraftClassTilt {
   const now = starterMeans(s);
   s.positionBaseline ??= now;
   const tilt: DraftClassTilt = {};
+  const short = shortage(s);
   for (const pos of POSITIONS) {
     const base = s.positionBaseline[pos];
     const cur = now[pos];
@@ -33,11 +34,37 @@ export function draftClassTilt(s: LeagueState): DraftClassTilt {
     // and a decade still moved safeties -3 while quarterbacks and kickers
     // inflated +3.5 and +4.
     tilt[pos] = {
-      supply: Math.min(1.8, Math.max(0.6, 1 + 0.12 * gap)),
+      supply: Math.min(2.2, Math.max(0.5, (1 + 0.12 * gap) * (short.get(pos) ?? 1))),
       quality: Math.round(Math.min(5, Math.max(-5, gap))),
     };
   }
   return tilt;
+}
+
+/**
+ * How short the league is of real players at each position, as a supply
+ * multiplier: the roster template's demand across every team, against the
+ * real (not invented) players rostered or on the market. Quality alone
+ * missed it — a decade in, the class still skimped on inside linebackers
+ * and interior linemen while safeties and tight ends went unsigned, and
+ * every team's backups at those spots were invented camp bodies.
+ */
+function shortage(s: LeagueState): Map<string, number> {
+  const have = new Map<string, number>();
+  for (const p of Object.values(s.players)) {
+    if (p.retired || p.id.startsWith("p_depth_") || p.id.startsWith("emg_")) continue;
+    if (!p.free_agent && !s.teams[p.nfl_team]) continue;
+    if (p.free_agent && p.overall < 60) continue;
+    have.set(p.position, (have.get(p.position) ?? 0) + 1);
+  }
+  const teams = Object.keys(s.teams).length;
+  const out = new Map<string, number>();
+  for (const { pos, count } of ROSTER_TEMPLATE) {
+    if (count === 0) continue;
+    const ratio = (count * teams * 1.15) / Math.max(1, have.get(pos) ?? 0);
+    out.set(pos, Math.min(2, Math.max(0.7, ratio)));
+  }
+  return out;
 }
 
 /** Mean overall of each position's starters across the league. */
