@@ -370,11 +370,12 @@ export class Game {
     if (call === "run") {
       // designed runs: the lead back most, his backup a real share, and the
       // odd end-around or designed QB run — every carry to RB1 made a
-      // 3,000-yard rusher and a thousand-yard back on every team
+      // 3,000-yard rusher and a thousand-yard back on every team; a lead back
+      // at two thirds still put ~25 backs over a thousand (the NFL has ~15)
       const targetOrRusher = weighted([
-        [o.RB1 ?? o.TE1, 66],
-        [offRoster.depthAt("RB", 1, out), 24],
-        [o.QB1, 6],
+        [o.RB1 ?? o.TE1, 56],
+        [offRoster.depthAt("RB", 1, out), 30],
+        [o.QB1, 10],
         [o.WR3, 4],
       ]);
       return outcome === "fumble"
