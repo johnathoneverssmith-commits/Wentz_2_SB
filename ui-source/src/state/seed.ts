@@ -50,6 +50,9 @@ export const DEFAULT_CONFIG: LeagueConfig = {
   gameDayDeadlineHours: 12,
   offseasonStageDeadlineHours: 24,
   difficulty: "standard",
+  // new leagues default to rosters mattering more than real football allows;
+  // Realistic is one setting away (see `talentImpact.ts`)
+  talentImpact: "amplified",
 };
 
 const AI_GM_NAMES = ["Priya", "Marcus", "Dana", "Theo", "Nadia", "Wes", "Iris"];
@@ -934,7 +937,13 @@ export function applySeasonAging(state: LeagueState, season: number): void {
   }
 }
 
-export function createLeague(seed = 1, config: LeagueConfig = DEFAULT_CONFIG): LeagueState {
+export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG): LeagueState {
+  // A humans-only league has no NFL rosters to inherit, so it always drafts.
+  // Settled here, at creation, because two things read it before the league
+  // ever forms: the stage machine choosing where setup leads, and the pool
+  // being normalised to free agents for the draft.
+  const config: LeagueConfig =
+    configIn.leagueFormat === "humansOnly" ? { ...configIn, fantasyDraft: true } : configIn;
   const sim = new MockSimulationService();
   const gms = makeGms(config);
   const teams: Record<string, TeamState> = {};

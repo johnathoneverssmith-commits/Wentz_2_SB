@@ -26,4 +26,24 @@ export interface BracketState {
   seeds: { AFC: string[]; NFC: string[] };
   matchups: BracketMatchup[];
   champion: string | null;
+  /**
+   * `single`: one table, one bracket, no conferences — a humans-only league
+   * (`state/singleBracket.ts`). Absent means the NFL's two-conference bracket.
+   */
+  format?: "single";
+  /** The rounds this bracket plays, in order. Absent means `ROUND_ORDER`. */
+  rounds?: PlayoffRound[];
+  /** A single bracket's field, index 0 = 1-seed. */
+  field?: string[];
+}
+
+/** The rounds a bracket plays, in order. */
+export function bracketRounds(b: Pick<BracketState, "rounds">): PlayoffRound[] {
+  return b.rounds ?? ROUND_ORDER;
+}
+
+/** What a round is called in this bracket. A single bracket's `CONF` is its semifinal. */
+export function roundLabelFor(b: Pick<BracketState, "format"> | null | undefined, round: PlayoffRound): string {
+  if (b?.format === "single" && round === "CONF") return "Semifinal";
+  return ROUND_LABEL[round];
 }

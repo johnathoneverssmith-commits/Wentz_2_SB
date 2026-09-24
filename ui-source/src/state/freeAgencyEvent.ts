@@ -1,5 +1,6 @@
 import type { LeagueState, Player } from "@/domain";
 
+import { unitGainer } from "./unitValue.ts";
 import { offerToContract } from "./rules";
 import { bestOfferFor, expectedSalary, type Offer } from "./freeAgencyValues";
 import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
@@ -256,6 +257,11 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
   // difficulty may just give up on a bid war earlier within it, by a
   // deterministic amount keyed to the decision itself.
   const RATIONAL_CHASE_CEILING = 1.4;
+  // Master only: a signing is worth what it adds to the team's units, not
+  // just how much better he is than the best man already there
+  const lists = idx.ratingsByTeam.get(teamCode);
+  const units =
+    difficulty.unitAwareness > 0 ? unitGainer((pos) => lists?.get(pos) ?? []) : null;
   let target: Player | null = null;
   let bestGain = -Infinity;
   for (const p of shortlist) {
@@ -268,7 +274,8 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
     // §13.1: bounded valuation noise on the target-ranking score, same as draft/coaching.
     const noise =
       difficulty.evaluationNoise === 0 ? 0 : deterministicNoiseUnit(teamCode, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
-    const gain = p.overall - bestAt(p.position) + noise;
+    const gain =
+      p.overall - bestAt(p.position) + noise + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0);
     if (gain > bestGain) {
       bestGain = gain;
       target = p;
@@ -307,6 +314,8 @@ interface RoundIndex {
   round: number;
   pool: Player[];
   bestByTeam: Map<string, Map<string, number>>;
+  /** every rostered rating by team and position, for the Master AI's unit model */
+  ratingsByTeam: Map<string, Map<string, number[]>>;
 }
 
 /**
@@ -331,7 +340,8 @@ function indexRound(s: LeagueState): RoundIndex {
   const signed = new Set((s.freeAgencyEvent?.signed ?? []).map((x) => x.playerId));
   const pool: Player[] = [];
   const bestByTeam = new Map<string, Map<string, number>>();
-  // one pass for both: who is still available, and what every roster already has
+  const ratingsByTeam = new Map<string, Map<string, number[]>>();
+  // one pass for all three: who is still available, and what every roster already has
   for (const p of Object.values(s.players)) {
     if (p.retired) continue;
     if (p.free_agent) {
@@ -341,8 +351,13 @@ function indexRound(s: LeagueState): RoundIndex {
     let byPos = bestByTeam.get(p.nfl_team);
     if (!byPos) bestByTeam.set(p.nfl_team, (byPos = new Map()));
     if (p.overall > (byPos.get(p.position) ?? 0)) byPos.set(p.position, p.overall);
+    let lists = ratingsByTeam.get(p.nfl_team);
+    if (!lists) ratingsByTeam.set(p.nfl_team, (lists = new Map()));
+    const l = lists.get(p.position);
+    if (l) l.push(p.overall);
+    else lists.set(p.position, [p.overall]);
   }
-  return { round: s.freeAgencyEvent?.round ?? 0, pool, bestByTeam };
+  return { round: s.freeAgencyEvent?.round ?? 0, pool, bestByTeam, ratingsByTeam };
 }
 
 /** Run CPU turns until a human is on the clock or the event ends. */

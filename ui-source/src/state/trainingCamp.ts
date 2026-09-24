@@ -230,7 +230,7 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
         // Expert-only: up to +1.5, toward whichever group has the larger
         // share of players still below their development-age threshold.
         const developingShare =
-          s.config.difficulty === "expert" && men.length > 0
+          (s.config.difficulty === "expert" || s.config.difficulty === "master") && men.length > 0
             ? men.filter((p) => p.age < p.dev_age_threshold).length / men.length
             : 0;
         const score = weakness + strategyGroupBonus(strategy, g as OffensiveFocus | DefensiveFocus) + developingShare * 1.5;

@@ -24,10 +24,13 @@ describe("stage entry is the same through either door", () => {
     const me = useStore.getState().viewerGmId;
     useStore.getState().pickTeam(me, "GB");
 
-    // park the league in the regular season, the way the preseason leaves it
+    // park the league at the last week before the deadline. (This used to
+    // park it at week 1 and expect the deadline straight away — which was
+    // the bug: locally the season is played a week at a time, and jumping
+    // from week 1 to the deadline skipped weeks 2 to 9 entirely.)
     useStore.setState((s) => {
       s.stage = "regularSeason";
-      s.week = 1;
+      s.week = 9;
       s.tradeDeadline = null;
     });
 
@@ -35,7 +38,7 @@ describe("stage entry is the same through either door", () => {
     await useStore.getState().finishGameDay();
 
     const s = useStore.getState();
-    expect(s.stage, "the season should stop at the deadline on the way past week 9").toBe(
+    expect(s.stage, "the season should stop at the deadline after week 9").toBe(
       "tradeDeadline",
     );
     expect(s.tradeDeadline, "the deadline opened with no turn order to show").toBeTruthy();

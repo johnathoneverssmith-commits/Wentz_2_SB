@@ -14,7 +14,7 @@ export function LeagueRosters() {
   const nav = useNavigate();
   const s = useStore();
   const myCode = viewerTeamCode(s);
-  const [teamCode, setTeamCode] = useState(() => myCode ?? TEAMS[0]!.code);
+  const [teamCode, setTeamCode] = useState(() => myCode ?? TEAMS.find((t) => s.teams[t.code])!.code);
   const [inspect, setInspect] = useState<Player | null>(null);
 
   const roster = useMemo(() => teamRoster(s, teamCode), [s, teamCode]);
@@ -28,7 +28,7 @@ export function LeagueRosters() {
         subtitle="Read-only depth chart for any team — click a name for full stats"
         action={
           <select value={teamCode} onChange={(e) => setTeamCode(e.target.value)}>
-            {TEAMS.map((t) => (
+            {TEAMS.filter((t) => s.teams[t.code]).map((t) => (
               <option key={t.code} value={t.code}>
                 {t.city} {t.name}
               </option>

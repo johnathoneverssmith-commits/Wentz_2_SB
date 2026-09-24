@@ -16,7 +16,7 @@
  * `actions.ts` wraps each of these in `withLeague`, which supplies the row
  * lock, the version check and the event log.
  */
-import { ROUND_ORDER } from "@/domain";
+import { bracketRounds, ROUND_ORDER } from "@/domain";
 import type { ContractOffer, LeagueState, Position, TradeAsset } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import {
@@ -537,7 +537,9 @@ export function decideStep(state: LeagueState, actor: Actor, step: string): Deci
 export function decideRevealRound(state: LeagueState, actor: Actor): Decision {
   if (state.stage !== "playoffs") throw new ActionError("There's no round to reveal.");
   const seen = revealedRounds(state, actor.gmId);
-  const next = ROUND_ORDER.find((r) => !seen.includes(r));
+  // the bracket's own rounds: a humans-only league's is just the final, or a
+  // semifinal and a final — not the NFL's four
+  const next = (state.bracket ? bracketRounds(state.bracket) : ROUND_ORDER).find((r) => !seen.includes(r));
   if (!next) throw new ActionError("You've watched the whole postseason.");
   // a round a GM has not been given yet cannot be revealed — it exists in
   // saved state, which is exactly why this has to be checked rather than

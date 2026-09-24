@@ -6,7 +6,14 @@ import { ReadinessGate } from "@/components/ReadinessGate";
 import { isOnline } from "@/state/online";
 import { DIVISIONS, TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import type { DeadlineChoice, Difficulty, TeamMeta } from "@/domain";
+import {
+  formatOf,
+  humansOnlyLeagueSize,
+  playoffFieldSize,
+  seasonShapeFor,
+} from "@/state/leagueFormat";
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { useStore } from "@/state/store";
 
 const DEADLINES: DeadlineChoice[] = [2, 6, 12, 24, 48];
@@ -18,6 +25,9 @@ export function LeagueSetup() {
 
   const stage = useStore((s) => s.stage);
   const config = useStore((s) => s.config);
+  const humansOnly = formatOf(config) === "humansOnly";
+  const leagueSize = humansOnlyLeagueSize(config.humanGmCount);
+  const seasonGames = seasonShapeFor("humansOnly", leagueSize).regularSeasonWeeks;
   const gms = useStore((s) => s.gms);
   const viewerGmId = useStore((s) => s.viewerGmId);
   const setConfig = useStore((s) => s.setConfig);
@@ -219,6 +229,29 @@ export function LeagueSetup() {
           </p>
         )}
         <SettingRow
+          label="League format"
+          hint={
+            humansOnly
+              ? `Just the GMs' teams — ${leagueSize} teams (${config.humanGmCount} GM${config.humanGmCount === 1 ? "" : "s"} + ${leagueSize - config.humanGmCount} CPU), a round robin of ${seasonGames} games alternating home and away, and a playoff for the top ${playoffFieldSize(leagueSize)}. The other NFL franchises don't exist in this league.`
+              : "All 32 NFL franchises, real divisions, a 17-game schedule and the 14-team playoff."
+          }
+        >
+          <select
+            value={config.leagueFormat ?? "nfl"}
+            disabled={locked}
+            onChange={(e) => {
+              const leagueFormat = e.target.value as "nfl" | "humansOnly";
+              // the NFL format's GM range is narrower; pull the count back into it
+              const humanGmCount =
+                leagueFormat === "nfl" ? Math.min(6, Math.max(2, config.humanGmCount)) : config.humanGmCount;
+              setConfig({ leagueFormat, humanGmCount, ...(leagueFormat === "humansOnly" ? { fantasyDraft: true } : {}) });
+            }}
+          >
+            <option value="nfl">Full NFL (32 teams)</option>
+            <option value="humansOnly">Human GMs only (round robin)</option>
+          </select>
+        </SettingRow>
+        <SettingRow
           label="Human GM slots"
           hint={
             <>
@@ -234,7 +267,7 @@ export function LeagueSetup() {
             disabled={locked}
             onChange={(e) => setConfig({ humanGmCount: Number(e.target.value) })}
           >
-            {[2, 3, 4, 5, 6].map((n) => (
+            {(humansOnly ? [1, 2, 3, 4, 5, 6, 7, 8] : [2, 3, 4, 5, 6]).map((n) => (
               <option key={n} value={n}>
                 {n} GMs
               </option>
@@ -243,11 +276,15 @@ export function LeagueSetup() {
         </SettingRow>
         <SettingRow
           label="Fantasy draft"
-          hint="When off, every team starts with its real current NFL roster instead of drafting the full player pool."
+          hint={
+            humansOnly
+              ? "Always on in a humans-only league — there are no NFL rosters to inherit, so every team is drafted from the full player pool."
+              : "When off, every team starts with its real current NFL roster instead of drafting the full player pool."
+          }
         >
           <select
             value={config.fantasyDraft ? "on" : "off"}
-            disabled={locked}
+            disabled={locked || humansOnly}
             onChange={(e) => setConfig({ fantasyDraft: e.target.value === "on" })}
           >
             <option value="on">On</option>
@@ -316,6 +353,22 @@ export function LeagueSetup() {
           </select>
         </SettingRow>
         <SettingRow
+          label="Talent impact"
+          hint={TALENT_IMPACT_HINT[config.talentImpact ?? "realistic"]}
+        >
+          <select
+            value={config.talentImpact ?? "realistic"}
+            disabled={locked}
+            onChange={(e) => setConfig({ talentImpact: e.target.value as TalentImpact })}
+          >
+            {(["realistic", "amplified", "extreme"] as const).map((v) => (
+              <option key={v} value={v}>
+                {TALENT_IMPACT_LABEL[v]}
+              </option>
+            ))}
+          </select>
+        </SettingRow>
+        <SettingRow
           label="AI Difficulty"
           hint="How competently CPU GMs make decisions — never a rules, rating, or cap change."
         >
@@ -324,7 +377,7 @@ export function LeagueSetup() {
             disabled={locked}
             onChange={(e) => setConfig({ difficulty: e.target.value as Difficulty })}
           >
-            {(["casual", "standard", "competitive", "expert"] as const).map((d) => (
+            {(["casual", "standard", "competitive", "expert", "master"] as const).map((d) => (
               <option key={d} value={d}>
                 {cap(d)}
               </option>

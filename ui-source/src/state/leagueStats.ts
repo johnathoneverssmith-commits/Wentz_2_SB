@@ -22,12 +22,15 @@ export interface TeamStatRow {
 /** Per-game team offense/defense/special aggregates from played REG games. */
 export function teamStatRows(s: LeagueState): TeamStatRow[] {
   const acc = new Map<string, { g: number; pf: number; pa: number; oy: number; opy: number; ory: number; dy: number; dpy: number; dry: number; fgm: number; fga: number }>();
-  for (const t of TEAMS) acc.set(t.code, { g: 0, pf: 0, pa: 0, oy: 0, opy: 0, ory: 0, dy: 0, dpy: 0, dry: 0, fgm: 0, fga: 0 });
+  // the league's own teams — a humans-only league has four, not 32
+  const league = TEAMS.filter((t) => s.teams[t.code]);
+  for (const t of league) acc.set(t.code, { g: 0, pf: 0, pa: 0, oy: 0, opy: 0, ory: 0, dy: 0, dpy: 0, dry: 0, fgm: 0, fga: 0 });
 
   for (const game of s.games) {
     if (game.phase !== "REG" || !game.played || !game.totals) continue;
-    const h = acc.get(game.homeTeam)!;
-    const a = acc.get(game.awayTeam)!;
+    const h = acc.get(game.homeTeam);
+    const a = acc.get(game.awayTeam);
+    if (!h || !a) continue;
     const { home, away } = game.totals;
     h.g++; a.g++;
     h.pf += home.points; h.pa += away.points;
@@ -46,7 +49,7 @@ export function teamStatRows(s: LeagueState): TeamStatRow[] {
     e.fga += p.season_stats.fga ?? 0;
   }
 
-  return TEAMS.map((t) => {
+  return league.map((t) => {
     const e = acc.get(t.code)!;
     const g = Math.max(1, e.g);
     return {

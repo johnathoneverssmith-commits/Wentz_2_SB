@@ -82,7 +82,9 @@ describe("a season, end to end", () => {
             }
           : {}),
       });
-      // jump the weeks the reveal controls would walk
+      // jump the weeks the reveal controls would walk — both blocks, the way
+      // online resolves them against the block's last week
+      if (t.stage === "regularSeason" && t.week <= 9) s.week = 9;
       if (t.stage === "regularSeason" && t.week > 9) s.week = 18;
     }
     expect(steps).toEqual([

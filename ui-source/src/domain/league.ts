@@ -53,7 +53,7 @@ export type DeadlineChoice = 2 | 6 | 12 | 24 | 48;
  * CPU GMs pursue their goals, never a rules/rating/cap change. See
  * `ui-source/src/state/aiDifficulty.ts` for the profile this drives.
  */
-export type Difficulty = "casual" | "standard" | "competitive" | "expert";
+export type Difficulty = "casual" | "standard" | "competitive" | "expert" | "master";
 
 export interface LeagueConfig {
   humanGmCount: number;
@@ -81,6 +81,19 @@ export interface LeagueConfig {
   offseasonStageDeadlineHours: DeadlineChoice;
   /** how well the AI GMs optimise their roster / game decisions. */
   difficulty: Difficulty;
+  /**
+   * `nfl` (all 32 franchises) or `humansOnly` (just the GMs' teams, padded to
+   * an even count of at least four, playing a round robin) — see
+   * `state/leagueFormat.ts`. Optional so a save from before it existed reads
+   * as `nfl`.
+   */
+  leagueFormat?: "nfl" | "humansOnly";
+  /**
+   * How hard players' ratings swing games — `state/talentImpact.ts`.
+   * Optional so a save from before it existed plays as it always did
+   * (`realistic`, the validated engine).
+   */
+  talentImpact?: "realistic" | "amplified" | "extreme";
 }
 
 export interface Gm {

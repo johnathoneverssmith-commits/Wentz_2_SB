@@ -1004,3 +1004,64 @@ Two things follow, neither urgent:
 - The coaching layer is very nearly free in aggregate (+0.08 without
   injuries), which is what `leagueAverageStaff` being exactly zero predicts.
   It shifts individual matchups, not the league's scoring.
+
+## Synergy — position groups that are more than their average
+
+**The gap.** Every rating family reads a unit through its *mean*, so the
+engine was exactly additive: five great linemen were worth five times one,
+one bad lineman cost exactly his fifth, and two great edge rushers were worth
+exactly twice one. The run game had it worst — `rushYardsShift` took the
+offensive line as an argument and ignored it, so blocking did nothing for the
+run at all. A fantasy draft lets a GM build units no real team could afford,
+which is where additivity reads most wrong.
+
+**The design** (`src/engine/synergy.ts`). One pairwise term over per-player
+skill z-scores, `J(a, b) = min(a, b) · |max(a, b)|`: superadditive when both
+are good, a drag when one is bad (the weak link), compounding when both are
+bad. Groups are weighted means of `J` over their pairs, with the pairs that
+work together weighted up (adjacent linemen, the corner pair, the edge pair).
+Units covered: OL pass protection and run blocking (with the TE), RB × line,
+QB × each receiver, the pass rush (edge pair dominant), the secondary, LBs
+who cover × the secondary, the front four's run defense, LBs who fit the run
+× the front, pressure × coverage — and one term that reads *both* teams, this
+defense's rush against this offense's protection (weak-link-weighted), which
+feeds sacks, completions and interceptions. It rides the same three channels
+as the rating layer and team strength (M09, M04, M14) plus interceptions;
+nothing touches the scoreboard directly.
+
+**Keeping the calibration.** Every term is centred on the 32 reference depth
+charts (the matchup term on every ordered pair of different teams), so an
+ordinary roster nets ~0. Each channel's total is soft-capped with `tanh` so
+compounding can't run past real-world extremes. TS-only (no Python mirror);
+pool-free paths never reach it and stay byte-identical.
+
+**The fit** (`analysis/33_synergy.ts`, every ordered pair of reference teams):
+
+| | synergy off | on | real |
+|---|---:|---:|---:|
+| points / team-game | 20.45 | 20.44 | — |
+| completion % | 64.4 | 64.3 | — |
+| sack % | 7.17 | 7.00 | — |
+| YPC | 4.43 | 4.42 | — |
+| points sd | 9.32 | 9.90 | 9.93 |
+| margin sd | 14.47 | 15.13 | 14.33 |
+| favourite win % | 68.8 | 67.2 | 66–70 |
+
+Means sit still; the spread moves toward real (points sd lands on it; margin
+sd +5.6%, inside the ±10% bar).
+
+Unit experiments on the median team (sack %, YPC, completion % — linear → synergy):
+five elite linemen 4.31 → 2.53 sacks and 4.38 → 4.77 YPC, where three elite
+went only to 3.71 / 4.48 and four elite plus one bad to 5.06 / 4.37; elite line
++ elite back 5.63 YPC; two elite edges force 2.6× the sacks of one over
+baseline (linear: 1.6×), one elite next to a bad one is *below* baseline;
+great QB + great WR 71.6% completion, horrible QB + great WR ~50%. The
+matchup: the league's weakest starting line against its two best rushers
+goes 18.2% sacks / 53.1% / 5.76 YPA / 4.7% INT, against 6.8 / 63.0 / 6.85 /
+2.7 for an ordinary matchup — +2.4 points of sacks beyond the two sides
+summed (linear: +0.3).
+
+**Knobs.** `SYNERGY_WEIGHTS` (per channel), `SATURATION` / `SACK_CEILING_UP`,
+and `setSynergyScale` for A/B runs. `test/engine-synergy.test.ts` pins the
+*shape* — superadditive, weak-link, >2× edge pair, bad QB tanks a great WR,
+matchup compounds, centring — not the sizes, which may be retuned.

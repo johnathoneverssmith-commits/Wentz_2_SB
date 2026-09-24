@@ -2,7 +2,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { Card, CardHeader, Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { ROUND_LABEL, type PlayoffRound } from "@/domain";
+import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleGames } from "@/state/reveal";
 import { viewerTeamCode } from "@/state/selectors";
@@ -46,7 +46,7 @@ export function PlayoffRoundResults() {
     <Card maxWidth={860}>
       <CardHeader
         badge="NFL"
-        title={ROUND_LABEL[r]}
+        title={roundLabelFor(s.bracket, r)}
         subtitle={`${s.season} postseason · results are in`}
       />
       <div className="panel open">
@@ -63,7 +63,7 @@ export function PlayoffRoundResults() {
             <WeekResults
               slate={slate}
               code={code}
-              label={ROUND_LABEL[r]}
+              label={roundLabelFor(s.bracket, r)}
               showDetail
               detailOnEvery
               onBox={(id) => nav(`/box/${id}?back=${encodeURIComponent(back)}`)}

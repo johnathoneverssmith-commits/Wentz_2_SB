@@ -5,7 +5,8 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { onColorFor, TEAMS_BY_CODE } from "@/data/teams";
 import type { BracketMatchup, PlayoffRound } from "@/domain";
-import { record, ROUND_LABEL, ROUND_ORDER, winPct } from "@/domain";
+import { bracketRounds, record, roundLabelFor, winPct } from "@/domain";
+import { isHumansOnly, playoffFieldSize } from "@/state/leagueFormat";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleBracket } from "@/state/reveal";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -16,7 +17,8 @@ import { ordinal } from "@/util/format";
 export function PostseasonBracket() {
   const nav = useNavigate();
   const s = useStore();
-  const { active, setActive } = useTabs("afc");
+  const single = isHumansOnly(s);
+  const { active, setActive } = useTabs(single ? "bracket" : "afc");
   const code = viewerTeamCode(s);
   const simulateGameDay = useStore((st) => st.simulateGameDay);
   // Online the saved bracket already holds the whole postseason, so what
@@ -42,7 +44,31 @@ export function PostseasonBracket() {
             The bracket is seeded when the regular season ends
             {started ? " — here's how the field looks right now." : "."}
           </div>
-          {started && (
+          {started && single && (
+            <div>
+              <p className="subhead" style={{ marginTop: 0 }}>
+                League — current top {playoffFieldSize(Object.keys(s.teams).length)}
+              </p>
+              <table className="stbl">
+                <tbody>
+                  {Object.values(s.teams)
+                    .sort((x, y) => winPct(y) - winPct(x) || y.pointsFor - y.pointsAgainst - (x.pointsFor - x.pointsAgainst))
+                    .map((t, i) => (
+                      <tr
+                        key={t.code}
+                        className={t.code === code ? "highlight" : ""}
+                        style={i >= playoffFieldSize(Object.keys(s.teams).length) ? { opacity: 0.55 } : undefined}
+                      >
+                        <td className="c" style={{ width: 22, color: "var(--ink-faint)" }}>{i + 1}</td>
+                        <td className="name">{TEAMS_BY_CODE[t.code]!.label}</td>
+                        <td className="r">{record(t)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {started && !single && (
             <div className="split-2" style={{ gap: 24 }}>
               {(["AFC", "NFC"] as const).map((conf) => (
                 <div key={conf}>
@@ -77,8 +103,13 @@ export function PostseasonBracket() {
     );
   }
 
-  const inField = code && (b.seeds.AFC.includes(code) || b.seeds.NFC.includes(code));
-  const mySeed = code ? ([...b.seeds.AFC, ...b.seeds.NFC].indexOf(code) % 7) + 1 : 0;
+  const inField =
+    code && (b.format === "single" ? (b.field ?? []).includes(code) : b.seeds.AFC.includes(code) || b.seeds.NFC.includes(code));
+  const mySeed = !code
+    ? 0
+    : b.format === "single"
+      ? (b.field ?? []).indexOf(code) + 1
+      : ([...b.seeds.AFC, ...b.seeds.NFC].indexOf(code) % 7) + 1;
   const myNext = code
     ? b.matchups.find((m) => m.winner == null && (m.highSeed?.code === code || m.lowSeed?.code === code))
     : undefined;
@@ -100,7 +131,7 @@ export function PostseasonBracket() {
 
   return (
     <Card maxWidth={960}>
-      <CardHeader badge="NFL" title="Postseason" subtitle={`${ROUND_LABEL[b.currentRound]} · ${s.season} playoffs`} />
+      <CardHeader badge="NFL" title="Postseason" subtitle={`${roundLabelFor(b, b.currentRound)} · ${s.season} playoffs`} />
       <Ticker
         stats={[
           {
@@ -108,11 +139,22 @@ export function PostseasonBracket() {
             value: b.champion === code ? "Champion" : eliminated ? "Eliminated" : inField ? "Alive" : "Missed",
             className: "accent",
           },
-          { label: "Seed", value: inField ? `${mySeed} (${TEAMS_BY_CODE[code!]!.conference})` : "—" },
+          {
+            label: "Seed",
+            value: !inField
+              ? "—"
+              : b.format === "single"
+                ? `${mySeed} of ${(b.field ?? []).length}`
+                : `${mySeed} (${TEAMS_BY_CODE[code!]!.conference})`,
+          },
           { label: "Next game", value: myNextOpp ? `vs ${TEAMS_BY_CODE[myNextOpp]!.label}` : b.champion ? "—" : "TBD", className: "sm" },
           { label: "Champion", value: b.champion ? TEAMS_BY_CODE[b.champion]!.label : "—", className: "sm" },
         ]}
       />
+      {b.format === "single" ? (
+        <SingleBracket b={b} me={code} />
+      ) : (
+      <>
       <Tabs
         tabs={[
           { id: "afc", label: "AFC" },
@@ -141,6 +183,8 @@ export function PostseasonBracket() {
           )}
         </div>
       </Panel>
+      </>
+      )}
 
       <Footer>
         {/*
@@ -163,7 +207,7 @@ export function PostseasonBracket() {
         // the way forward instead of the gate, which would sim again
         <div className="readiness">
           <div className="readiness-top">
-            <p>{b.champion ? "The Super Bowl has been played" : `${ROUND_LABEL[s.pendingGameDay.phase as PlayoffRound]} results are in`}</p>
+            <p>{b.champion ? "The Super Bowl has been played" : `${roundLabelFor(b, s.pendingGameDay.phase as PlayoffRound)} results are in`}</p>
             <span>Continue from Game Day to move on</span>
           </div>
           <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => nav("/game-day")}>
@@ -174,8 +218,8 @@ export function PostseasonBracket() {
       {isPlayoffStage && online && <RoundReveal />}
       {isPlayoffStage && !online && !s.pendingGameDay && !b.champion && (
         <ReadinessGate
-          title={`${ROUND_LABEL[b.currentRound]} readiness`}
-          label={`Simulate the ${ROUND_LABEL[b.currentRound]}`}
+          title={`${roundLabelFor(b, b.currentRound)} readiness`}
+          label={`Simulate the ${roundLabelFor(b, b.currentRound)}`}
           action={simulateGameDay}
           onAdvance={(r) => nav(r)}
         />
@@ -255,7 +299,7 @@ function ConferenceBracket({
         {(["WC", "DIV", "CONF"] as const).map((round, ci) => (
           <div key={round}>
             <p className="subhead" style={{ textAlign: "center", marginTop: 0 }}>
-              {ROUND_LABEL[round]}
+              {roundLabelFor(null, round)}
             </p>
             <div
               ref={ci === 0 ? wc : ci === 1 ? div : cc}
@@ -345,7 +389,8 @@ function RoundReveal() {
   const [busy, setBusy] = useState(false);
 
   const seen = revealedRounds(s, s.viewerGmId);
-  const next = ROUND_ORDER.find((r) => !seen.includes(r)) as PlayoffRound | undefined;
+  const rounds = s.bracket ? bracketRounds(s.bracket) : [];
+  const next = rounds.find((r) => !seen.includes(r)) as PlayoffRound | undefined;
 
   if (!next) {
     return (
@@ -372,9 +417,9 @@ function RoundReveal() {
   return (
     <div className="readiness">
       <div className="readiness-top">
-        <p>{ROUND_LABEL[next]}</p>
+        <p>{roundLabelFor(s.bracket, next)}</p>
         <span aria-live="polite">
-          {seen.length} of {ROUND_ORDER.length} rounds watched
+          {seen.length} of {rounds.length} rounds watched
         </span>
       </div>
       <p className="readiness-held">
@@ -395,8 +440,38 @@ function RoundReveal() {
             .finally(() => setBusy(false));
         }}
       >
-        {busy ? "…" : `Simulate the ${ROUND_LABEL[next]}`}
+        {busy ? "…" : `Simulate the ${roundLabelFor(s.bracket, next)}`}
       </button>
+    </div>
+  );
+}
+
+/**
+ * A humans-only league's bracket: one field, rounds as columns, best seed
+ * against worst in each. No conferences, so no tabs.
+ */
+function SingleBracket({ b, me }: { b: import("@/domain").BracketState; me: string | undefined }) {
+  const rounds = bracketRounds(b);
+  return (
+    <div className="panel open">
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${rounds.length}, minmax(0, 1fr))`, gap: 20, alignItems: "center" }}>
+        {rounds.map((round) => {
+          const games = b.matchups.filter((m) => m.round === round);
+          return (
+            <div key={round}>
+              <p className="subhead" style={{ marginTop: 0, textAlign: "center" }}>
+                {roundLabelFor(b, round)}
+              </p>
+              <div style={{ display: "grid", gap: 14 }}>
+                {games.map((m, i) => (
+                  <MatchBox key={i} m={m} me={me} />
+                ))}
+                {games.length === 0 && <div className="emptystate">Set once the previous round is played.</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

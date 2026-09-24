@@ -60,6 +60,19 @@ default ON in the season sims with the 32 authored v0 staffs; a
 `leagueAverageStaff` is exactly zero (see `docs/decisions.md` → A1 add-on). Headless + deterministic; round-robin `simulateSeason`
 stays as the pool-free guard.
 
+**Synergy (`src/engine/synergy.ts`) makes position groups more than their
+average** — superadditive complete units, weak links that cost more than
+their share, two great edge rushers worth >2× one, QB × each receiver both
+ways, and one cross-team term (this rush vs that line's protection) feeding
+sacks, completions and interceptions. It also gives the offensive line its
+missing effect on the run game. Centred on the reference depth charts and
+tanh-capped per channel, so league averages don't move (points/team-game
+20.45 → 20.44) while the spread lands on real (points sd 9.90 vs 9.93). TS
+only; calibration and unit/matchup experiments in `analysis/33_synergy.ts`,
+the story in `docs/decisions.md` → Synergy. Playoff games now take the
+franchise rosters too (`withPlayoffRosters` in `playoffs.ts`) — they used to
+fall back to the reference NFL teams.
+
 **Phases 2-6 are built on top of this.** `ui-source/` is the franchise UI (a
 complete single-player dynasty, React + Vite); `server/` is the stateless
 adapter that lets it play real engine games; `online/` is a league server with
@@ -89,6 +102,31 @@ thirteen changes). The shape to know before touching anything in `online/` or
   both free-agency periods — cap, roster limit and positional minimums are all
   allowed to break there and are enforced at reconciliation.
 
+**Talent impact** (`LeagueConfig.talentImpact`, `state/talentImpact.ts`) is
+the engine's `talentScale` game option: it multiplies every roster-driven
+shift (rating families, team strength, synergy) and leaves home field and
+coaching alone. Realistic 1.0 is the validated engine, byte-identical;
+Amplified 1.5 (the new-league default) and Extreme 2.0 make the favourite
+win 72% / 79% instead of 67%, with scoring levels flat. It is passed on
+*every* simulation and replay — adapter week sims, both playoff endpoints,
+the viewer broadcast, and online's block/simulate/broadcast calls — because
+a replay at a different scale is a different game. Saves without it play
+Realistic.
+
+**League formats** (`ui-source/src/state/leagueFormat.ts`). `nfl` is the
+32-team game. `humansOnly` is just the GMs' teams, padded with CPU teams to
+an even count of at least four, playing whole round robins nearest 17 games
+(venue alternating each meeting) and a single-bracket playoff for the top
+half rounded up to a power of two. The other franchises are deleted when
+setup closes (`formHumansOnlyLeague`, from both the local store's
+`applyStageEntry` and online's `onStageEntered`). Season length and the
+deadline week come from `seasonShape(state)` — never the old 3/18/9
+constants, which remain only as the NFL shape. Brackets carry `format` /
+`rounds`; step rounds with `bracketRounds(b)` and label them with
+`roundLabelFor`, never `ROUND_ORDER` / `ROUND_LABEL` directly.
+`humansOnlyLeague.test.ts` (local) and `online/test/humans-only-circuit.test.ts`
+(three human GMs) play a whole year each.
+
 `online/test/full-circuit.test.ts` walks a whole season by pressing the
 buttons the screens press. Run it after changing any stage wiring; it is what
 catches a league that cannot leave a stage.
@@ -112,6 +150,15 @@ deliberately orthogonal to each other:**
   noise, need-awareness, and FA chase-ceiling/rebid discipline. Same
   integration points as strategy, applied first in the pipeline (base value →
   difficulty's search/noise limits → strategy preference → hard constraints).
+  A fifth level, **Master**, is Expert's search with a better evaluator and
+  still no advantages: `state/unitValue.ts` values players in measured points
+  of margin (`analysis/35_position_value.ts` — per-position value on this
+  engine, e.g. RB ≈ QB, K/P ≈ 0, OLB not a lineup slot), by unit with
+  weak-link weighting and value over replacement, in the draft and free
+  agency; it also never accepts a trade that loses value. Measured against
+  Expert-built rosters from the same draft slot (`online/test/ai-master.test.ts`):
+  56% at Realistic talent, 60% Amplified, 61% Extreme. The honest ceiling for
+  a rules-abiding CPU — the user chose that over giving it an edge.
 - **The Hooded Figure catch-up mechanic**
   (`ui-source/src/state/hoodedFigure.ts`) is unrelated to either: a rare,
   dark-comedy offer for a *human* team that's counted as the league's losing

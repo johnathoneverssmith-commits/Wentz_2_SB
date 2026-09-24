@@ -14,6 +14,7 @@ import { immer } from "zustand/middleware/immer";
 
 import {
   ROUND_ORDER,
+  bracketRounds,
   type ContractOffer,
   type DraftMode,
   type LeagueConfig,
@@ -48,6 +49,7 @@ import {
   restructureContract,
 } from "./contracts.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
+import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly } from "./leagueFormat.ts";
 import { CURRENT_SAVE_VERSION, migrateLeagueSave } from "./saveMigration.ts";
 import {
   applyCoachingPick,
@@ -274,6 +276,10 @@ function humanTeamsOf(s: LeagueState): Set<string> {
  * which door the league came through.
  */
 function applyStageEntry(s: LeagueState, from: string, to: string): void {
+  // leaving setup in a humans-only league → the league becomes the GMs' teams
+  // plus the fewest CPU teams that make it even; every other franchise goes
+  if (from === "setup" && isHumansOnly(s)) formHumansOnlyLeague(s);
+
   // leaving the fantasy draft → undrafted players seed the standing FA
   // market, then every team is brought up to a full 53 (20 rounds only
   // hands each team 20 players)
@@ -391,7 +397,9 @@ export const useStore = create<Store>()(
             for (const p of pool) players[p.id] = p;
             s.players = players;
             s.standingFreeAgents = pool.filter((p) => p.free_agent).map((p) => p.id);
-            s.schedule = schedule;
+            // a humans-only league makes its own round robin when setup
+            // closes; this NFL slate is only a placeholder until then
+            if (!(isHumansOnly(s) && s.stage !== "setup")) s.schedule = schedule;
             const coaches: Store["coaches"] = {};
             for (const c of coachList) {
               c.team = null;
@@ -413,12 +421,17 @@ export const useStore = create<Store>()(
       setConfig: (partial) =>
         set((s) => {
           Object.assign(s.config, partial);
+          // a humans-only league has no NFL rosters to inherit
+          if (isHumansOnly(s)) s.config.fantasyDraft = true;
           if (s.stage === "setup" && partial.humanGmCount != null) {
             const fresh = createLeague(1, s.config);
             s.gms = fresh.gms.map((g) => s.gms.find((x) => x.id === g.id) ?? g);
             s.teams = fresh.teams;
+            // only humans' teams are human-controlled — the rival GMs are CPU,
+            // and `aiControlledTeams` (who bids in the offseason market) reads
+            // this; `createLeague` makes the same distinction
             for (const g of s.gms) {
-              if (g.teamCode && s.teams[g.teamCode]) {
+              if (g.isHuman && g.teamCode && s.teams[g.teamCode]) {
                 s.teams[g.teamCode]!.controlledBy = { kind: "human", gmId: g.id };
               }
             }
@@ -455,7 +468,9 @@ export const useStore = create<Store>()(
         // awaited outside it — immer producers must stay synchronous.
         const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
         const newSchedule = t.seasonRollover
-          ? await sim.generateSchedule(before.season + 1, Object.keys(before.teams))
+          ? isHumansOnly(before)
+            ? humansOnlySchedule({ teams: before.teams, season: before.season + 1 })
+            : await sim.generateSchedule(before.season + 1, Object.keys(before.teams))
           : null;
         const newBracket =
           t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
@@ -736,7 +751,7 @@ export const useStore = create<Store>()(
         let result: { ok: boolean; reason?: string } = { ok: false, reason: "Nothing to reveal." };
         set((s) => {
           const seen = revealedRounds(s, s.viewerGmId);
-          const next = ROUND_ORDER.find((r) => !seen.includes(r));
+          const next = (s.bracket ? bracketRounds(s.bracket) : ROUND_ORDER).find((r) => !seen.includes(r));
           if (!next) return;
           markRoundRevealed(s, s.viewerGmId, next);
           result = { ok: true };

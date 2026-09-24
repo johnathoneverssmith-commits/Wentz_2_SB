@@ -6,7 +6,7 @@ import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
 import { Card, CardHeader, Footer, Panel, Tabs, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
-import { ROUND_LABEL, type PlayoffRound } from "@/domain";
+import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { useStore } from "@/state/store";
 
 /** Big "END OF {year} SEASON" card. Any GM clicks past on their own. */
@@ -104,12 +104,12 @@ export function SeasonComplete() {
     : furthest
       ? furthest.round === "none"
         ? "Finished"
-        : `Advanced to the ${ROUND_LABEL[furthest.round as PlayoffRound]}`
+        : `Advanced to the ${roundLabelFor(s.bracket, furthest.round as PlayoffRound)}`
       : "";
   const roundBoldPart = humanChampGm
     ? "Super Bowl"
     : furthest && furthest.round !== "none"
-      ? ROUND_LABEL[furthest.round as PlayoffRound]
+      ? roundLabelFor(s.bracket, furthest.round as PlayoffRound)
       : furthest?.rec ?? "";
 
   return (

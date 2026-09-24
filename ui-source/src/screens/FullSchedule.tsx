@@ -5,7 +5,7 @@ import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record } from "@/domain";
-import { REGULAR_SEASON_WEEKS } from "@/state/stageMachine";
+import { seasonShape } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
 import { currentPhase, viewerTeamCode } from "@/state/selectors";
 
@@ -57,7 +57,7 @@ export function FullSchedule() {
 
       <div style={{ display: "flex", justifyContent: "center", padding: "16px 26px", borderBottom: "1px solid var(--line)" }}>
         <select value={viewWeek} onChange={(e) => setViewWeek(Number(e.target.value))}>
-          {Array.from({ length: REGULAR_SEASON_WEEKS }, (_, i) => i + 1).map((w) => (
+          {Array.from({ length: seasonShape(s).regularSeasonWeeks }, (_, i) => i + 1).map((w) => (
             <option key={w} value={w}>
               Week {w}
             </option>

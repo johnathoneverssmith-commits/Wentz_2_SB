@@ -11,6 +11,7 @@
  * function of a seed and two rosters, and that stays true. What changed is
  * only who calls it and where the answer goes.
  */
+import { talentScaleOf } from "@/state/talentImpact.ts";
 import { simulateGame } from "../../src/engine/sim.js";
 import { broadcastGame } from "../../src/engine/broadcast.js";
 import { Roster } from "../../src/engine/roster.js";
@@ -169,6 +170,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         awayRoster,
         trace: true,
         injuries: true,
+        talentScale: talentScaleOf(state.config),
       });
       const watched = humanTeams.has(g.homeTeam) || humanTeams.has(g.awayTeam);
       results.push({
@@ -188,6 +190,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
               broadcast: broadcastGame(seed, toEngine(g.homeTeam), toEngine(g.awayTeam), {
                 homeRoster,
                 awayRoster,
+                talentScale: talentScaleOf(state.config),
               }) as NonNullable<GameResult["broadcast"]>,
             }
           : {}),

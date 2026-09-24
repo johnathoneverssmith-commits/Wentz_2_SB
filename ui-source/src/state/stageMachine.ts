@@ -9,8 +9,15 @@
  */
 import type { LeagueState, Stage } from "@/domain";
 
-export const PRESEASON_WEEKS = 3;
-export const REGULAR_SEASON_WEEKS = 18;
+import { NFL_SEASON_SHAPE, seasonShape } from "./leagueFormat";
+
+/**
+ * The NFL format's season. A league's own shape comes from `seasonShape` —
+ * a humans-only round robin is a different length — so these are kept for
+ * NFL-only callers and tests, not read by the season logic below.
+ */
+export const PRESEASON_WEEKS = NFL_SEASON_SHAPE.preseasonWeeks;
+export const REGULAR_SEASON_WEEKS = NFL_SEASON_SHAPE.regularSeasonWeeks;
 /**
  * The last week of the first precomputed regular-season block.
  *
@@ -18,7 +25,7 @@ export const REGULAR_SEASON_WEEKS = 18;
  * only sound while nothing can change its inputs, and a deadline trade
  * changes both rosters — so the block has to stop before it.
  */
-export const FIRST_BLOCK_LAST_WEEK = 9;
+export const FIRST_BLOCK_LAST_WEEK = NFL_SEASON_SHAPE.deadlineWeek;
 
 export const STAGE_HOME: Record<Stage, string> = {
   setup: "/setup",
@@ -171,7 +178,7 @@ export function resolveTransition(
       return { stage: "preseason", week: 1 };
 
     case "preseason":
-      return week < PRESEASON_WEEKS
+      return week < seasonShape(state).preseasonWeeks
         ? { stage: "preseason", week: week + 1 }
         : { stage: "leagueDevelopments", week };
     // The league-wide reveal of this season's hooded-figure consequences,
@@ -184,23 +191,41 @@ export function resolveTransition(
       // week 9, and only once. `tradeDeadline` being non-null is what says
       // the league has already been through it this year — the week alone
       // cannot say so, since the stage is `regularSeason` on both sides.
-      if (week <= FIRST_BLOCK_LAST_WEEK && !state.tradeDeadline) {
-        return { stage: "tradeDeadline", week: FIRST_BLOCK_LAST_WEEK };
+      //
+      // "On the way past" means once the weeks before it have been played.
+      // Online they all have been the moment the stage opens — the first
+      // block is simulated on arrival and `state.week` deliberately stays at
+      // 1 — so the first readiness gate is the right time. Locally the season
+      // is played a week at a time, and checking the week number alone sent
+      // the league to the deadline straight after week 1: weeks 2 to 9 were
+      // never played, and every team reached the deadline 1-0 or 0-1.
+      //
+      // Online resolves an in-season transition against the block's last
+      // week (`inSeasonTransition` in online/src/phases.ts), so it arrives
+      // here at the deadline week itself; locally the league arrives there
+      // after playing it. Either way it is the deadline week, or a block that
+      // has already been played through, that opens the deadline.
+      if (
+        week <= seasonShape(state).deadlineWeek &&
+        !state.tradeDeadline &&
+        (week >= seasonShape(state).deadlineWeek || firstBlockPlayed(state, seasonShape(state).deadlineWeek))
+      ) {
+        return { stage: "tradeDeadline", week: seasonShape(state).deadlineWeek };
       }
-      return week < REGULAR_SEASON_WEEKS
+      return week < seasonShape(state).regularSeasonWeeks
         ? { stage: "regularSeason", week: week + 1 }
         : { stage: "playoffs", week: 0 };
 
     case "tradeDeadline":
-      return { stage: "tradeDeadlineSummary", week: FIRST_BLOCK_LAST_WEEK };
+      return { stage: "tradeDeadlineSummary", week: seasonShape(state).deadlineWeek };
     case "tradeDeadlineSummary":
-      return { stage: "midseasonFreeAgency", week: FIRST_BLOCK_LAST_WEEK };
+      return { stage: "midseasonFreeAgency", week: seasonShape(state).deadlineWeek };
     case "midseasonFreeAgency":
-      return { stage: "midseasonFreeAgencySummary", week: FIRST_BLOCK_LAST_WEEK };
+      return { stage: "midseasonFreeAgencySummary", week: seasonShape(state).deadlineWeek };
     case "midseasonFreeAgencySummary":
-      return { stage: "midseasonDepthChart", week: FIRST_BLOCK_LAST_WEEK };
+      return { stage: "midseasonDepthChart", week: seasonShape(state).deadlineWeek };
     case "midseasonDepthChart":
-      return { stage: "regularSeason", week: FIRST_BLOCK_LAST_WEEK + 1 };
+      return { stage: "regularSeason", week: seasonShape(state).deadlineWeek + 1 };
 
     case "playoffs": {
       // leave the playoffs only once the Super Bowl has actually been played
@@ -245,4 +270,11 @@ export function resolveTransition(
 
 export function baseScreen(stage: Stage): "hub" | "bracket" {
   return stage === "playoffs" ? "bracket" : "hub";
+}
+
+/** Whether every scheduled regular-season game up to `lastWeek` has a result. */
+function firstBlockPlayed(state: LeagueState, lastWeek: number): boolean {
+  const scheduled = state.schedule.filter((g) => g.phase === "REG" && g.week <= lastWeek).length;
+  const played = state.games.filter((g) => g.phase === "REG" && g.played && g.week <= lastWeek).length;
+  return played >= scheduled;
 }

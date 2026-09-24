@@ -4,6 +4,9 @@
  * Everything is deterministic in the seed so a session replays identically and
  * a later swap to the real engine is comparable.
  */
+import { isHumansOnly } from "@/state/leagueFormat";
+import { talentScaleOf } from "@/state/talentImpact";
+import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket";
 import {
   ROUND_ORDER,
   type BracketMatchup,
@@ -629,8 +632,15 @@ export class MockSimulationService implements SimulationService {
     );
   }
 
+  /**
+   * A team's strength as the fallback plays it. Talent impact
+   * (`talentImpact.ts`) widens every team's distance from an average one by
+   * the same scale the engine applies, so the offline game swings with
+   * talent as hard as the real one; at Realistic (1.0) nothing changes.
+   */
   private teamOverall(state: LeagueState, code: string): number {
-    return state.teams[code]?.ratings.overall ?? 75;
+    const ovr = state.teams[code]?.ratings.overall ?? 75;
+    return 75 + (ovr - 75) * talentScaleOf(state.config);
   }
 
   private simGame(
@@ -852,6 +862,11 @@ export class MockSimulationService implements SimulationService {
   }
 
   seedBracket(state: LeagueState): BracketState {
+    if (isHumansOnly(state)) {
+      return seedSingleBracket(state, (h, a, site) =>
+        100 * winChance(this.teamOverall(state, h), this.teamOverall(state, a), site),
+      );
+    }
     const bySeed = (conf: "AFC" | "NFC") =>
       TEAMS.filter((t) => t.conference === conf)
         .map((t) => t.code)
@@ -871,6 +886,17 @@ export class MockSimulationService implements SimulationService {
       matchups: [...wcMatchups("AFC", seeds.AFC, state), ...wcMatchups("NFC", seeds.NFC, state)],
       champion: null,
     };
+  }
+
+  /**
+   * After `round` of a humans-only (single) bracket: crown the champion or
+   * pair the next round, quoting odds on the same curve the round is played
+   * at. Shared with the online server's playoff block.
+   */
+  advanceSingle(b: BracketState, round: PlayoffRound, state: LeagueState): BracketState {
+    return advanceSingleBracket(b, round, (h, a, site) =>
+      100 * winChance(this.teamOverall(state, h), this.teamOverall(state, a), site),
+    );
   }
 
   simulatePlayoffRound(state: LeagueState, round: PlayoffRound): BracketState {
@@ -898,6 +924,7 @@ export class MockSimulationService implements SimulationService {
       m.winner = highWins ? m.highSeed.code : m.lowSeed.code;
     }
     // advance
+    if (b.format === "single") return this.advanceSingle(b, round, state);
     const next = ROUND_ORDER[ROUND_ORDER.indexOf(round) + 1] as PlayoffRound | undefined;
     if (round === "SB") {
       b.champion = b.matchups.find((m) => m.round === "SB")?.winner ?? null;
@@ -985,6 +1012,11 @@ export class MockSimulationService implements SimulationService {
           difficulty.tradeAcceptanceThresholdVariation;
 
     const raw = clamp(0.5 - delta / 36 + (needGained - needLost) / 90 + strategyShift + thresholdShift, 0.02, 0.98);
+    // Master: no coin flip. It takes a deal only when the deal helps it —
+    // its value side and its need side together, with a small margin — and
+    // turns down everything else, a fair swap included.
+    const strictGain = -delta / 36 + (needGained - needLost) / 90;
+    const acceptance = difficulty.strictTrades ? (strictGain > 0.03 ? 1 : 0) : clampTradeAcceptance(raw);
 
     return {
       valueDelta: delta,
@@ -998,7 +1030,7 @@ export class MockSimulationService implements SimulationService {
       // §15 hard floor/ceiling: below 0.20 always rejects, above 0.85 always
       // accepts (legality permitting), whatever difficulty's threshold noise
       // says — the guard against an absurd exploit at any level.
-      acceptLikelihood: clampTradeAcceptance(raw),
+      acceptLikelihood: acceptance,
     };
   }
 
@@ -1301,4 +1333,38 @@ export const POSITION_VALUE: Record<Position, number> = {
 export function contractValueFor(overall: number, position?: Position): number {
   const posMult = position ? (POSITION_VALUE[position] ?? 1) : 1;
   return round1((0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2)) * posMult);
+}
+
+/**
+ * The nine development roles, thirty-two candidates each — mean 72, sd 15,
+ * redrawn (not clipped) into 35-99. The same pool `generateCoachMarket`
+ * builds inline, on its own RNG stream so that function's output is
+ * unchanged.
+ *
+ * Exists for `HybridSimulationService`: the engine adapter's coach market is
+ * the real HC/OC/DC staffs plus generated coordinators and nothing else. A
+ * league created while the adapter was up therefore had no position coaches
+ * at all, and every coaching draft stopped dead after round three — no team
+ * could fill a QB-coach vacancy from a market of head coaches.
+ */
+export function generateDevelopmentCoaches(seed: number, idPrefix = "cd"): Coach[] {
+  const rng = new Rng(seed ^ 0x3d3d);
+  const out: Coach[] = [];
+  let n = 0;
+  for (const role of DEVELOPMENT_ROLES) {
+    for (let i = 0; i < 32; i++) {
+      let ovr = Math.round(rng.normal(72, 15));
+      let guard = 0;
+      while ((ovr < 35 || ovr > 99) && guard++ < 50) ovr = Math.round(rng.normal(72, 15));
+      out.push({
+        id: `${idPrefix}_${++n}`,
+        name: fullPersonName(rng),
+        role,
+        team: null,
+        contract: null,
+        overall: clamp(ovr, 35, 99),
+      });
+    }
+  }
+  return out;
 }

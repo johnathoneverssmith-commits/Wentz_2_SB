@@ -50,6 +50,10 @@ describe("AI trade offers", () => {
           insulting.push(`${o.fromTeam} offered ${(100 * gives) / asks | 0}% for ${want}`);
         }
         expect(e).toBeTruthy();
+        // and it looks like a trade: a real team does not send a dozen Day 3
+        // picks, which is what walking up the late rounds used to produce
+        const picks = o.fromAssets.filter((a) => a.kind === "pick").length;
+        expect(picks, `${o.fromTeam} offered ${picks} picks`).toBeLessThanOrEqual(4);
       }
     }
 

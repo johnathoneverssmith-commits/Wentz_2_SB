@@ -1,6 +1,6 @@
 import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { REGULAR_SEASON_WEEKS } from "./stageMachine";
+import { isHumansOnly, playoffFieldSize, seasonShape } from "./leagueFormat";
 
 /**
  * Around the League, with teeth.
@@ -442,19 +442,23 @@ export function raceFor(
     return wins;
   };
 
+  // a humans-only league is one table with no conferences, and its playoff
+  // line is its own field size rather than the NFL's seventh seed
+  const oneTable = isHumansOnly(s);
+  const field = oneTable ? playoffFieldSize(Object.keys(s.teams).length) : 7;
   const rivals = Object.keys(s.teams)
-    .filter((c) => TEAMS_BY_CODE[c]?.conference === conference)
+    .filter((c) => oneTable || TEAMS_BY_CODE[c]?.conference === conference)
     .map((c) => ({ code: c, wins: winsOf(c) }))
     .sort((a, b) => b.wins - a.wins);
 
   const mine = rivals.find((r) => r.code === teamCode);
   if (!mine) return undefined;
-  const cut = rivals[6]?.wins ?? 0;
+  const cut = rivals[field - 1]?.wins ?? 0;
   const rank = rivals.findIndex((r) => r.code === teamCode);
-  const left = Math.max(0, REGULAR_SEASON_WEEKS - throughWeek);
+  const left = Math.max(0, seasonShape(s).regularSeasonWeeks - throughWeek);
 
   return {
-    inField: rank < 7,
+    inField: rank < field,
     gamesBack: Math.max(0, cut - mine.wins),
     eliminated: mine.wins + left < cut,
   };

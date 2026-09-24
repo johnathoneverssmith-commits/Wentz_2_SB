@@ -1,11 +1,12 @@
 import { broadcastGame } from "../../src/engine/broadcast.js";
+import { talentScaleOf } from "@/state/talentImpact.ts";
 import { simulateGame } from "../../src/engine/sim.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
 
 import { ROUND_ORDER } from "@/domain";
 import type { GameResult, LeagueState, Player as UiPlayer } from "@/domain";
-import { buildNextRound } from "@/sim/MockSimulationService";
+import { buildNextRound, MockSimulationService } from "@/sim/MockSimulationService";
 import { availableRoster, applyInjuries, healOneWeek } from "@/state/injuries.ts";
 import { makeEmergencyPlayer, positionalMinimums } from "@/state/reconciliation.ts";
 import { accrueSeasonStats, recomputeStandings } from "@/state/standings.ts";
@@ -123,6 +124,7 @@ export function simulateBlock(
         awayRoster: rosterOf(g.awayTeam, away.squad),
         trace: true,
         injuries: true,
+        talentScale: talentScaleOf(state.config),
       });
       results.push({
         id,
@@ -191,6 +193,8 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
   const cast = broadcastGame(seed, toEngine(game.homeTeam), toEngine(game.awayTeam), {
     homeRoster: rosterFor(game.homeTeam),
     awayRoster: rosterFor(game.awayTeam),
+    // the same scale the game was played at, or the replay is another game
+    talentScale: talentScaleOf(state.config),
   });
   // the engine spells the Rams differently; the UI should never see that
   const toUi = (c: string): string => (c === "LA" ? "LAR" : c);
@@ -269,6 +273,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         neutralSite: round === "SB",
         trace: true,
         injuries: true,
+        talentScale: talentScaleOf(state.config),
       });
       let [hs, as] = [sim.score[0], sim.score[1]];
       // somebody has to go home; break a tie with the seed rather than
@@ -298,6 +303,13 @@ export function simulatePlayoffBlock(state: LeagueState): number {
       applyInjuries(state, results, state.season);
     }
 
+    // a humans-only league's single bracket pairs its own winners
+    if (bracket.format === "single") {
+      new MockSimulationService().advanceSingle(bracket, round, state);
+      if (bracket.champion) break;
+      healOneWeek(state);
+      continue;
+    }
     const next = ROUND_ORDER[ROUND_ORDER.indexOf(round) + 1] as
       | (typeof ROUND_ORDER)[number]
       | undefined;

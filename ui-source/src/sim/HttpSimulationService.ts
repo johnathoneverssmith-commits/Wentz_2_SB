@@ -106,6 +106,25 @@ export class HttpSimulationService {
    * injection). `viewer`: the slate's viewer game, if any — gets the full
    * broadcast/gamecast trace back.
    */
+  /** Franchise rosters and depth charts, in the engine's team-code vocabulary. */
+  private engineRostersOf(
+    rosters: Record<string, Player[]>,
+    depthCharts: Record<string, Partial<Record<string, string[]>>>,
+  ): { rosters: Record<string, Player[]>; depthCharts: Record<string, Record<string, string[]>> } {
+    const engineRosters: Record<string, Player[]> = {};
+    for (const [team, players] of Object.entries(rosters)) {
+      engineRosters[toEngine(team)] = players.map(playerToEngine);
+    }
+    const engineDepth: Record<string, Record<string, string[]>> = {};
+    for (const [team, chart] of Object.entries(depthCharts)) {
+      const entries = Object.entries(chart).filter(([, ids]) => ids && ids.length > 0);
+      if (entries.length > 0) {
+        engineDepth[toEngine(team)] = Object.fromEntries(entries) as Record<string, string[]>;
+      }
+    }
+    return { rosters: engineRosters, depthCharts: engineDepth };
+  }
+
   async simulateWeek(
     seed: number,
     season: number,
@@ -115,6 +134,7 @@ export class HttpSimulationService {
     rosters: Record<string, Player[]>,
     viewer: { homeTeam: string; awayTeam: string } | null,
     depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
+    talentScale = 1,
   ): Promise<GameResult[]> {
     const engineRosters: Record<string, Player[]> = {};
     for (const [team, players] of Object.entries(rosters)) {
@@ -136,6 +156,7 @@ export class HttpSimulationService {
       viewer: viewer ? { homeTeam: toEngine(viewer.homeTeam), awayTeam: toEngine(viewer.awayTeam) } : null,
       rosters: engineRosters,
       depthCharts: engineDepth,
+      talentScale,
     };
     const results = await post<
       (GameResult & { broadcast?: GameBroadcast & { home: string; away: string } })[]
@@ -207,6 +228,9 @@ export class HttpSimulationService {
     seed: number,
     seeding: { AFC: RawConferenceSeeding; NFC: RawConferenceSeeding },
     roundsPlayed: number,
+    rosters: Record<string, Player[]> = {},
+    depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
+    talentScale = 1,
   ): Promise<RawPlayoffRoundResult> {
     const body = {
       seed,
@@ -215,6 +239,10 @@ export class HttpSimulationService {
         NFC: { seeds: seeding.NFC.seeds.map(toEngine), divisionWinners: [], wildCards: [] },
       },
       roundsPlayed,
+      // the teams the GMs built — without these the engine plays the
+      // postseason with the reference NFL rosters
+      ...this.engineRostersOf(rosters, depthCharts),
+      talentScale,
     };
     const res = await post<RawPlayoffRoundResult>("/playoffs/round", body);
     const translateGame = (g: RawPlayoffGame): RawPlayoffGame => ({
@@ -229,5 +257,26 @@ export class HttpSimulationService {
       done: res.done,
       champion: res.champion ? toUi(res.champion) : null,
     };
+  }
+
+  /** One decided playoff game on the franchises' own rosters (humans-only brackets). */
+  async playoffGame(
+    seed: number,
+    homeTeam: string,
+    awayTeam: string,
+    neutralSite: boolean,
+    rosters: Record<string, Player[]>,
+    depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
+    talentScale = 1,
+  ): Promise<{ homeScore: number; awayScore: number; winner: string }> {
+    const res = await post<{ homeScore: number; awayScore: number; winner: string }>("/playoffs/game", {
+      seed,
+      homeTeam: toEngine(homeTeam),
+      awayTeam: toEngine(awayTeam),
+      neutralSite,
+      ...this.engineRostersOf(rosters, depthCharts),
+      talentScale,
+    });
+    return { homeScore: res.homeScore, awayScore: res.awayScore, winner: toUi(res.winner) };
   }
 }

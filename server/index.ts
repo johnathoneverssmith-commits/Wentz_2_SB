@@ -26,8 +26,10 @@ import { extractBoxScore } from "../src/engine/boxscore.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import type { Conference } from "../src/engine/nfl-structure.js";
 import {
+  decidePlayoffGame,
   playPlayoffRound,
   startPlayoffs,
+  withPlayoffRosters,
   type PlayoffProgress,
 } from "../src/engine/playoffs.js";
 import { nflSchedule } from "../src/engine/schedule.js";
@@ -110,10 +112,12 @@ interface SimulateWeekBody {
   depthCharts?: Record<string, DepthOrder>;
   /** team code -> that franchise's current players, for roster injection. */
   rosters?: Record<string, Player[]>;
+  /** the league's talent-impact scale (`Game.talent`); omitted = 1, the validated engine */
+  talentScale?: number;
 }
 
 function handleSimulateWeek(body: SimulateWeekBody) {
-  const { seed, season, week, phase, games, viewer, rosters, depthCharts } = body;
+  const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale } = body;
   return games.map(({ homeTeam, awayTeam }) => {
     const gameSeed = hashStr(`${seed}|${week}|${phase}|${homeTeam}|${awayTeam}`);
     const homeRoster = rosterFrom(homeTeam, rosters?.[homeTeam], depthCharts?.[homeTeam]);
@@ -128,7 +132,7 @@ function handleSimulateWeek(body: SimulateWeekBody) {
     // game. Keeping it uniform is what lets the viewer's box score and their
     // gamecast describe the same afternoon. Tracing costs ~11% over a plain
     // sim (measured across a 16-game slate), which is noise next to the sim.
-    const opts = { homeRoster, awayRoster, trace: true, injuries: true } as const;
+    const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale } as const;
     const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
     const trace = g.playTrace ?? [];
     const box = extractBoxScore(g, homeTeam, awayTeam, week);
@@ -159,14 +163,36 @@ function handleSimulateWeek(body: SimulateWeekBody) {
     // the viewer's game also gets the play-by-play view; same seed and same
     // options, so it is the same simulated game as the box score above
     return isViewer
-      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster }) }
+      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster, talentScale }) }
       : base;
   });
+}
+
+/** team code -> Roster, for every team the body supplied players for. */
+function rostersFrom(
+  rosters: Record<string, Player[]> | undefined,
+  depthCharts: Record<string, DepthOrder> | undefined,
+): Record<string, Roster> | null {
+  if (!rosters) return null;
+  const out: Record<string, Roster> = {};
+  for (const [team, players] of Object.entries(rosters)) {
+    const r = rosterFrom(team, players, depthCharts?.[team]);
+    if (r) out[team] = r;
+  }
+  return out;
 }
 
 interface PlayoffRoundBody {
   seed: number;
   seeding: { AFC: ConferenceSeeding; NFC: ConferenceSeeding };
+  /**
+   * The franchise's own players, per team. Without them the engine plays the
+   * postseason with the reference NFL rosters — which is what it always did,
+   * and why a GM's playoff games never reflected the team they had built.
+   */
+  rosters?: Record<string, Player[]>;
+  depthCharts?: Record<string, DepthOrder>;
+  talentScale?: number;
   /** how many rounds have already been played, before this call plays the next one. */
   roundsPlayed: number;
 }
@@ -182,6 +208,27 @@ interface PlayoffRoundBody {
  * seed-then-play flow the UI's bracket screen already expects.
  */
 function handlePlayoffRound(body: PlayoffRoundBody) {
+  return withPlayoffRosters(rostersFrom(body.rosters, body.depthCharts), () => playoffRound(body), body.talentScale ?? 1);
+}
+
+/** One humans-only playoff game: decided, never tied, on the teams GMs built. */
+function handlePlayoffGame(body: {
+  seed: number;
+  homeTeam: string;
+  awayTeam: string;
+  neutralSite?: boolean;
+  rosters?: Record<string, Player[]>;
+  depthCharts?: Record<string, DepthOrder>;
+  talentScale?: number;
+}) {
+  return withPlayoffRosters(
+    rostersFrom(body.rosters, body.depthCharts),
+    () => decidePlayoffGame(body.seed, body.homeTeam, body.awayTeam, body.neutralSite ?? false),
+    body.talentScale ?? 1,
+  );
+}
+
+function playoffRound(body: PlayoffRoundBody) {
   const seeding = body.seeding as Record<Conference, ConferenceSeeding>;
   let p: PlayoffProgress = startPlayoffs(body.seed, seeding);
   for (let i = 0; i < body.roundsPlayed; i++) p = playPlayoffRound(p).progress;
@@ -242,6 +289,7 @@ const routes: Record<string, (body: any) => unknown> = {
     return { AFC: standings.seeding.AFC, NFC: standings.seeding.NFC };
   },
   "/playoffs/round": handlePlayoffRound,
+  "/playoffs/game": handlePlayoffGame,
 };
 
 const server = createServer((req, res) => {

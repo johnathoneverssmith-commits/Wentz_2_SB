@@ -29,7 +29,7 @@ export function TradeProposal() {
   const castVote = useStore((st) => st.castTradeVote);
   const resolveTrade = useStore((st) => st.resolveTrade);
 
-  const [partner, setPartner] = useState(() => TEAMS.find((t) => t.code !== myCode)!.code);
+  const [partner, setPartner] = useState(() => TEAMS.find((t) => t.code !== myCode && s.teams[t.code])!.code);
   const [give, setGive] = useState<string[]>([]);
   const [get, setGet] = useState<string[]>([]);
   const [tradeId, setTradeId] = useState<string | null>(null);
@@ -140,7 +140,7 @@ export function TradeProposal() {
             setTradeId(null);
           }}
         >
-          {TEAMS.filter((t) => t.code !== myCode).map((t) => (
+          {TEAMS.filter((t) => t.code !== myCode && s.teams[t.code]).map((t) => (
             <option key={t.code} value={t.code}>
               {t.city} {t.name}
             </option>

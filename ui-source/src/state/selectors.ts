@@ -1,4 +1,5 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { isHumansOnly, seasonShape } from "./leagueFormat";
 import type { GameResult, LeagueState, Player, ScheduledGame } from "@/domain";
 
 export function viewerTeamCode(s: LeagueState): string | undefined {
@@ -114,8 +115,10 @@ export function playoffOdds(s: LeagueState, code: string): number {
   const games = t.wins + t.losses + t.ties;
   const pct = games ? (t.wins + 0.5 * t.ties) / games : 0.5;
   const strength = (t.ratings.overall - 75) / 25; // roughly -1..+1
-  const played = pct * (games / 17);
-  const projected = (0.5 + strength * 0.35) * (1 - games / 17);
+  // a humans-only round robin is not 17 games long
+  const season = isHumansOnly(s) ? seasonShape(s).regularSeasonWeeks : 17;
+  const played = pct * (games / season);
+  const projected = (0.5 + strength * 0.35) * (1 - games / season);
   return Math.round(Math.min(0.98, Math.max(0.02, played + projected + strength * 0.1)) * 100);
 }
 

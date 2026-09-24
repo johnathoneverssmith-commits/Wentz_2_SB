@@ -19,20 +19,23 @@ import type { Difficulty } from "@/domain";
 
 export type { Difficulty as AiDifficulty };
 
-export const AI_DIFFICULTY_LEVELS: readonly Difficulty[] = ["casual", "standard", "competitive", "expert"];
+export const AI_DIFFICULTY_LEVELS: readonly Difficulty[] = ["casual", "standard", "competitive", "expert", "master"];
 
 export const AI_DIFFICULTY_LABEL: Record<Difficulty, string> = {
   casual: "Casual",
   standard: "Standard",
   competitive: "Competitive",
   expert: "Expert",
+  master: "Master",
 };
 
 export const AI_DIFFICULTY_DESCRIPTION: Record<Difficulty, string> = {
   casual: "CPU GMs make more valuation and planning mistakes while following the same league rules.",
   standard: "Balanced CPU decision-making intended for normal play.",
   competitive: "CPU GMs search more thoroughly and make few valuation mistakes.",
-  expert: "CPU GMs use the strongest legal decision-making available without gameplay advantages.",
+  expert: "CPU GMs make no evaluation mistakes, with the same ratings-first judgment every level uses.",
+  master:
+    "The strongest CPU GMs the rules allow: they value players by what they are measured to be worth on the field, build complete units (lines, pass-rush pairs, a quarterback with his receivers) and never lose a trade. No rating, cap or rules advantages.",
 };
 
 export interface AiDifficultyProfile {
@@ -56,11 +59,24 @@ export interface AiDifficultyProfile {
   missedRebidRate: number;
   /** Deterministic variation applied to the trade-acceptance threshold. */
   tradeAcceptanceThresholdVariation: number;
+  /**
+   * How much a candidate's contribution to his team's *units* counts
+   * (`unitValue.ts`): complete lines, paired rushers, QB and WR1, no weak
+   * links — what the engine's synergy layer actually pays for. Zero below
+   * Master, which is what separates it from Expert: Expert makes no
+   * mistakes with the ratings-first model everyone uses; Master uses a
+   * better model.
+   */
+  unitAwareness: number;
+  /** Accept a trade only when it adds value — no coin-flip on a fair or losing deal. */
+  strictTrades: boolean;
 }
 
 // §5-§9, §11-§15 tables.
-export const DIFFICULTY_PROFILES: Record<Difficulty, AiDifficultyProfile> = {
+const BASE_PROFILES: Record<Exclude<Difficulty, "master">, AiDifficultyProfile> = {
   casual: {
+    unitAwareness: 0,
+    strictTrades: false,
     evaluationNoise: 4.0,
     rookieEvaluationNoise: 2.0,
     coachEvaluationNoise: 3.0,
@@ -74,6 +90,8 @@ export const DIFFICULTY_PROFILES: Record<Difficulty, AiDifficultyProfile> = {
     tradeAcceptanceThresholdVariation: 0.08,
   },
   standard: {
+    unitAwareness: 0,
+    strictTrades: false,
     evaluationNoise: 2.0,
     rookieEvaluationNoise: 1.0,
     coachEvaluationNoise: 1.5,
@@ -87,6 +105,8 @@ export const DIFFICULTY_PROFILES: Record<Difficulty, AiDifficultyProfile> = {
     tradeAcceptanceThresholdVariation: 0.04,
   },
   competitive: {
+    unitAwareness: 0,
+    strictTrades: false,
     evaluationNoise: 0.8,
     rookieEvaluationNoise: 0.4,
     coachEvaluationNoise: 0.5,
@@ -100,6 +120,8 @@ export const DIFFICULTY_PROFILES: Record<Difficulty, AiDifficultyProfile> = {
     tradeAcceptanceThresholdVariation: 0.015,
   },
   expert: {
+    unitAwareness: 0,
+    strictTrades: false,
     evaluationNoise: 0,
     rookieEvaluationNoise: 0,
     coachEvaluationNoise: 0,
@@ -112,6 +134,20 @@ export const DIFFICULTY_PROFILES: Record<Difficulty, AiDifficultyProfile> = {
     missedRebidRate: 0,
     tradeAcceptanceThresholdVariation: 0,
   },
+};
+
+/**
+ * Master: Expert's search (every candidate, no noise) with a better
+ * evaluator on top. Still bound by §1 — same rules, same ratings, same cap,
+ * no hidden information; it wins by knowing what the engine rewards.
+ */
+export const DIFFICULTY_PROFILES: Record<Difficulty, AiDifficultyProfile> = {
+  ...BASE_PROFILES,
+  // Unit gains are in points of margin per game; at 80 the measured unit
+  // model decides and the ratings-first score only breaks ties. Swept against
+  // Expert-built teams from the same draft slot (online/test/ai-master):
+  // 10 -> 54.0%, 30 -> 53.9%, 80 -> 56.0% over 320 games.
+  master: { ...BASE_PROFILES.expert, unitAwareness: 80, strictTrades: true },
 };
 
 export function difficultyProfile(difficulty: Difficulty): AiDifficultyProfile {

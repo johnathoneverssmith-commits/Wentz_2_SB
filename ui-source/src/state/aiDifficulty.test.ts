@@ -40,7 +40,17 @@ describe("§24 General", () => {
   it("3. difficulty never alters engine simulation (no engine/ import in aiDifficulty.ts)", () => {
     // structural guarantee: this module only ever touches franchise-layer
     // scoring helpers, never src/engine — verified by its own import list.
-    expect(Object.keys(DIFFICULTY_PROFILES)).toEqual(["casual", "standard", "competitive", "expert"]);
+    expect(Object.keys(DIFFICULTY_PROFILES)).toEqual(["casual", "standard", "competitive", "expert", "master"]);
+  });
+
+  it("3b. Master is Expert's search with a better evaluator — nothing else", () => {
+    // it may differ from Expert only in reading units and refusing losing
+    // trades; every other knob, and every §1 guarantee, is Expert's
+    const { unitAwareness, strictTrades, ...rest } = difficultyProfile("master");
+    const { unitAwareness: _u, strictTrades: _s, ...expert } = difficultyProfile("expert");
+    expect(rest).toEqual(expert);
+    expect(unitAwareness).toBeGreaterThan(0);
+    expect(strictTrades).toBe(true);
   });
 
   it("4. difficulty never alters the cap limit (profile has no cap-total field)", () => {

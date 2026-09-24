@@ -48,6 +48,9 @@ import type {
   TradeAsset,
 } from "@/domain";
 import { ROUND_ORDER } from "@/domain";
+import { isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
+import { talentScaleOf } from "@/state/talentImpact.ts";
+import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket.ts";
 
 import {
   HttpSimulationService,
@@ -58,7 +61,7 @@ import {
 import { availableRoster } from "@/state/injuries.ts";
 import { filterHoodedFigureAvailable } from "@/state/hoodedFigure.ts";
 
-import { MockSimulationService } from "./MockSimulationService.ts";
+import { generateDevelopmentCoaches, MockSimulationService } from "./MockSimulationService.ts";
 import { fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
 import { winProbability, type Venue } from "./win-probability.ts";
@@ -85,7 +88,46 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
 
 // stable per season, reused across every round of that postseason so the
 // stateless-replay adapter reproduces the same earlier rounds every call.
+/**
+ * Every league team's available players for a game in `week` — the rosters
+ * the engine plays with.
+ *
+ * An injury has to cost the team the player, or it's just a label on a hub
+ * tab, so `availableRoster` sits out whoever is out. A hooded-figure bargain
+ * can sit a whole roster (minus K/P) out too — filtered before injuries' own
+ * coverage fallback so a genuinely wiped position stays wiped rather than
+ * sending the "least hurt" man out anyway.
+ *
+ * Shared by the regular season and the playoffs; the playoffs used to send
+ * no rosters at all, so the engine played them with real-life NFL teams.
+ */
+function leagueRosters(state: LeagueState, week: number): Record<string, Player[]> {
+  const rosters: Record<string, Player[]> = {};
+  for (const t of TEAMS.filter((x) => state.teams[x.code])) {
+    rosters[t.code] = availableRoster(
+      filterHoodedFigureAvailable(
+        state,
+        Object.values(state.players).filter((p) => p.nfl_team === t.code && !p.retired),
+        week,
+      ),
+    );
+  }
+  return rosters;
+}
+
+/** Playoff games are played after the regular season's last week. */
+const playoffWeek = (state: LeagueState): number => seasonShape(state).regularSeasonWeeks + 1;
+
 const playoffSeed = (state: LeagueState): number => state.season * 1_000_003 + 777;
+
+function hashCode(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0) % 100_000;
+}
 
 /**
  * Pre-game favourite, from team ratings.
@@ -213,7 +255,9 @@ export class HybridSimulationService implements SimulationService {
           tendencyBlitzRate: clamp(Math.round(30 + (c.blitzBias ?? 0) * 50), 0, 100),
         };
       };
-      return [...real, ...generated].map(toCoach);
+      // the adapter knows head coaches and coordinators only; the nine
+      // development roles the coaching draft also fills come from here
+      return [...[...real, ...generated].map(toCoach), ...generateDevelopmentCoaches(seed)];
     }, () => this.mock.generateCoachMarket(seed));
   }
 
@@ -235,22 +279,7 @@ export class HybridSimulationService implements SimulationService {
     const slate = state.schedule.filter((g) => g.week === week && g.phase === phase);
     if (slate.length === 0) return [];
     return this.viaAdapter(async () => {
-      const rosters: Record<string, Player[]> = {};
-      for (const t of TEAMS) {
-        // an injury has to cost the team the player, or it's just a label on
-        // a hub tab — `availableRoster` sits out whoever is out
-        // a hooded-figure bargain can sit a whole roster (minus K/P) out too —
-        // filtered before injuries' own coverage fallback so a genuinely
-        // wiped position stays wiped rather than sending the "least hurt" man
-        // out anyway
-        rosters[t.code] = availableRoster(
-          filterHoodedFigureAvailable(
-            state,
-            Object.values(state.players).filter((p) => p.nfl_team === t.code && !p.retired),
-            week,
-          ),
-        );
-      }
+      const rosters = leagueRosters(state, week);
       const viewerTeam = state.gms.find((g) => g.id === state.viewerGmId)?.teamCode;
       const viewerGame = slate.find((g) => g.homeTeam === viewerTeam || g.awayTeam === viewerTeam);
       return await this.http.simulateWeek(
@@ -264,12 +293,17 @@ export class HybridSimulationService implements SimulationService {
         // a GM's depth chart is the only lineup instruction the game takes;
         // the engine sorts by rating unless it's given one
         state.depthChart ?? {},
+        talentScaleOf(state.config),
       );
     }, () => this.mock.simulateWeek(state, week, phase));
   }
 
   async seedBracket(state: LeagueState): Promise<BracketState> {
-    return this.viaAdapter(async () => {
+    // a humans-only league seeds its one bracket from its own table
+    if (isHumansOnly(state)) {
+      return seedSingleBracket(state, (h, a, site) => favProb(state, h, a, site));
+    }
+    return this.viaAdapter<BracketState>(async () => {
       const regGames = state.games
         .filter((g) => g.phase === "REG" && g.played)
         .map((g) => ({ home: g.homeTeam, away: g.awayTeam, homeScore: g.homeScore, awayScore: g.awayScore }));
@@ -290,13 +324,42 @@ export class HybridSimulationService implements SimulationService {
   async simulatePlayoffRound(state: LeagueState, round: PlayoffRound): Promise<BracketState> {
     const bracket = state.bracket;
     if (!bracket) return this.mock.simulatePlayoffRound(state, round);
-    return this.viaAdapter(async () => {
+    const rosters = leagueRosters(state, playoffWeek(state));
+    const depth = state.depthChart ?? {};
+
+    if (bracket.format === "single") {
+      return this.viaAdapter<BracketState>(async () => {
+        const b: BracketState = { ...bracket, matchups: bracket.matchups.map((m) => ({ ...m })) };
+        for (const m of b.matchups) {
+          if (m.round !== round || m.winner || !m.highSeed || !m.lowSeed) continue;
+          const g = await this.http.playoffGame(
+            playoffSeed(state) + hashCode(`${round}|${m.highSeed.code}|${m.lowSeed.code}`),
+            m.highSeed.code,
+            m.lowSeed.code,
+            round === "SB",
+            rosters,
+            depth,
+            talentScaleOf(state.config),
+          );
+          m.homeScore = g.homeScore;
+          m.awayScore = g.awayScore;
+          m.winner = g.winner;
+        }
+        return advanceSingleBracket(b, round, (h, a, site) => favProb(state, h, a, site));
+      }, () => this.mock.simulatePlayoffRound(state, round));
+    }
+
+    return this.viaAdapter<BracketState>(async () => {
       const asRaw = (seeds: string[]): RawConferenceSeeding => ({ seeds, divisionWinners: [], wildCards: [] });
       const roundsPlayed = ROUND_ORDER.indexOf(round);
       const result = await this.http.playoffRound(
         playoffSeed(state),
         { AFC: asRaw(bracket.seeds.AFC), NFC: asRaw(bracket.seeds.NFC) },
         roundsPlayed,
+        // the franchises' own teams, not the reference NFL rosters
+        rosters,
+        depth,
+        talentScaleOf(state.config),
       );
 
       const matchups = bracket.matchups.map((m) => ({ ...m }));

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
+import { humansOnlyLeagueSize, playoffFieldSize, seasonShapeFor } from "@/state/leagueFormat";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -563,6 +565,9 @@ function CreateLeague({
   // them out from under GMs who joined on the strength of them — so the form
   // is the only place they can be set.
   const [fantasyDraft, setFantasyDraft] = useState(true);
+  const [leagueFormat, setLeagueFormat] = useState<"nfl" | "humansOnly">("nfl");
+  const humansOnly = leagueFormat === "humansOnly";
+  const leagueSize = humansOnlyLeagueSize(slots);
   const [draftType, setDraftType] = useState<"snake" | "linear">("snake");
   const [draftOrder, setDraftOrder] = useState<"randomized" | "inOrder">("randomized");
   // Change 1: how many picks each GM makes before the board finishes itself.
@@ -570,6 +575,7 @@ function CreateLeague({
   const [simAfter, setSimAfter] = useState<string>("5");
   const [faRounds, setFaRounds] = useState(20);
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
+  const [talentImpact, setTalentImpact] = useState<TalentImpact>("amplified");
   const [gameDayHours, setGameDayHours] = useState<DeadlineChoice>(24);
 
   return (
@@ -584,12 +590,15 @@ function CreateLeague({
               humanSlots: slots,
               phaseTimeoutHours: hours,
               config: {
-                fantasyDraft,
+                leagueFormat,
+                // a humans-only league has no NFL rosters to inherit
+                fantasyDraft: humansOnly || fantasyDraft,
                 draftType,
                 draftOrder,
                 draftSimulateAfterPicks: simAfter === "" ? null : Number(simAfter),
                 fantasyDraftRounds: faRounds,
                 difficulty,
+                talentImpact,
                 gameDayDeadlineHours: gameDayHours,
                 offseasonStageDeadlineHours: hours > 48 ? 48 : (hours as DeadlineChoice),
               },
@@ -604,9 +613,30 @@ function CreateLeague({
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <label>
+          <span>League format</span>
+          <select
+            value={leagueFormat}
+            onChange={(e) => {
+              const f = e.target.value as "nfl" | "humansOnly";
+              setLeagueFormat(f);
+              if (f === "humansOnly") setSlots((n) => Math.min(8, n));
+            }}
+          >
+            <option value="nfl">Full NFL (32 teams)</option>
+            <option value="humansOnly">Human GMs only (round robin)</option>
+          </select>
+        </label>
+        {humansOnly && (
+          <p style={{ margin: "-4px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+            {leagueSize} teams ({slots} human + {leagueSize - slots} CPU), a round robin of{" "}
+            {seasonShapeFor("humansOnly", leagueSize).regularSeasonWeeks} games, and a playoff for the top{" "}
+            {playoffFieldSize(leagueSize)}. The other NFL franchises don&rsquo;t exist in this league.
+          </p>
+        )}
+        <label>
           <span>Human GMs</span>
           <select value={slots} onChange={(e) => setSlots(Number(e.target.value))}>
-            {[2, 3, 4, 6, 8, 12, 16].map((n) => (
+            {(humansOnly ? [2, 3, 4, 5, 6, 7, 8] : [2, 3, 4, 6, 8, 12, 16]).map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -644,7 +674,8 @@ function CreateLeague({
               hint="Every team starts empty and the whole league is drafted. Off, teams keep their real rosters."
             >
               <select
-                value={fantasyDraft ? "on" : "off"}
+                value={humansOnly || fantasyDraft ? "on" : "off"}
+                disabled={humansOnly}
                 onChange={(e) => setFantasyDraft(e.target.value === "on")}
               >
                 <option value="on">On</option>
@@ -715,6 +746,16 @@ function CreateLeague({
               </select>
             </OnlineSetting>
 
+            <OnlineSetting label="Talent impact" hint={TALENT_IMPACT_HINT[talentImpact]}>
+              <select value={talentImpact} onChange={(e) => setTalentImpact(e.target.value as TalentImpact)}>
+                {(["realistic", "amplified", "extreme"] as const).map((v) => (
+                  <option key={v} value={v}>
+                    {TALENT_IMPACT_LABEL[v]}
+                  </option>
+                ))}
+              </select>
+            </OnlineSetting>
+
             <OnlineSetting
               label="AI Difficulty"
               hint="How competently CPU GMs make decisions — never a rules, rating, or cap change."
@@ -727,6 +768,7 @@ function CreateLeague({
                 <option value="standard">Standard</option>
                 <option value="competitive">Competitive</option>
                 <option value="expert">Expert</option>
+                <option value="master">Master</option>
               </select>
             </OnlineSetting>
 

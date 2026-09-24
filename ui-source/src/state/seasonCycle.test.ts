@@ -149,6 +149,15 @@ describe("a season, played rather than skipped", () => {
         seen.push(before);
         expectOpened(after);
 
+        // Every scheduled game is played before the playoffs. Visiting the
+        // right stages is not enough: the league used to jump from week 1
+        // straight to the deadline, skip weeks 2-9, and still pass here.
+        if (before === "regularSeason" && after === "playoffs") {
+          const scheduled = s().schedule.filter((g) => g.phase === "REG").length;
+          const played = s().games.filter((g) => g.phase === "REG" && g.played).length;
+          expect(played, "regular-season games played before the playoffs").toBe(scheduled);
+        }
+
         if (before !== "preseason" && after === "preseason") {
           kickoffs++;
           // a second kickoff means a whole year went by in between

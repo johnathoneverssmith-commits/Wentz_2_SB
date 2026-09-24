@@ -122,6 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const gms = useStore((s) => s.gms);
   const viewerGmId = useStore((s) => s.viewerGmId);
   const newLeague = useStore((s) => s.newLeague);
+  const navTo = useNavigate();
 
   const teamCode = gms.find((g) => g.id === viewerGmId)?.teamCode;
   const seasonScreens = isInSeason(stage);
@@ -182,7 +183,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <button
           className="reset"
           onClick={() => {
-            if (confirm("Start a brand-new solo dynasty? This clears the current save.")) newLeague();
+            // a new league starts at setup — staying on the current screen left
+            // you looking at (say) rookie signings for a league with no team
+            if (confirm("Start a brand-new solo dynasty? This clears the current save.")) {
+              void newLeague();
+              navTo("/setup");
+            }
           }}
           title="Solo play on this device. For a league real people can join, use Online leagues above."
         >

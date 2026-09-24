@@ -19,12 +19,8 @@
  * it twice, or while somebody is mid-action, is safe.
  */
 import type { LeagueState } from "@/domain";
-import {
-  FIRST_BLOCK_LAST_WEEK,
-  PRESEASON_WEEKS,
-  REGULAR_SEASON_WEEKS,
-  resolveTransition,
-} from "@/state/stageMachine.ts";
+import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
+import { resolveTransition } from "@/state/stageMachine.ts";
 import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tradeDeadline.ts";
 import { currentBlock } from "@/state/revealBlocks.ts";
 import { emptyReveal } from "@/state/reveal.ts";
@@ -267,7 +263,10 @@ function rollOverSeason(state: LeagueState): void {
     team.pointsFor = team.pointsAgainst = 0;
     team.playoffSeed = 0;
   }
-  state.schedule = sim.generateSchedule(state.season, Object.keys(state.teams));
+  // a humans-only league plays its own round robin, reshuffled each season
+  state.schedule = isHumansOnly(state)
+    ? humansOnlySchedule(state)
+    : sim.generateSchedule(state.season, Object.keys(state.teams));
 }
 
 /**
@@ -326,6 +325,12 @@ function humanTeamsOf(state: LeagueState): Set<string> {
 }
 
 export function onStageEntered(state: LeagueState, from?: string): void {
+  // leaving setup in a humans-only league: the league becomes the claimed
+  // teams plus the fewest CPU teams that make it even (and at least four),
+  // before the draft builds anyone's roster — the same step the local store
+  // takes in `applyStageEntry`
+  if (from === "setup" && isHumansOnly(state)) formHumansOnlyLeague(state);
+
   if (state.stage === "fantasyDraft" && state.draft?.mode !== "fantasy") {
     beginDraft(state, "fantasy");
   }
@@ -428,7 +433,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "preseason" && from !== "preseason") {
     const alreadyPlayed = state.games.some((g) => g.phase === "PRE" && g.played);
     if (!alreadyPlayed) {
-      simulateBlock(state, "PRE", 1, PRESEASON_WEEKS);
+      simulateBlock(state, "PRE", 1, seasonShape(state).preseasonWeeks);
       state.reveal = emptyReveal();
     }
   }
@@ -447,7 +452,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "regularSeason" && (from === "preseason" || from === "leagueDevelopments")) {
     wipePreseason(state);
     const alreadyPlayed = state.games.some((g) => g.phase === "REG" && g.played);
-    if (!alreadyPlayed) simulateBlock(state, "REG", 1, FIRST_BLOCK_LAST_WEEK);
+    if (!alreadyPlayed) simulateBlock(state, "REG", 1, seasonShape(state).deadlineWeek);
   }
 
   // Change 8: the deadline builds its order from the week 1-9 standings and
@@ -463,10 +468,15 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // rosters the deadline left behind.
   if (state.stage === "regularSeason" && from === "midseasonDepthChart") {
     const alreadyPlayed = state.games.some(
-      (g) => g.phase === "REG" && g.played && g.week > FIRST_BLOCK_LAST_WEEK,
+      (g) => g.phase === "REG" && g.played && g.week > seasonShape(state).deadlineWeek,
     );
     if (!alreadyPlayed) {
-      simulateBlock(state, "REG", FIRST_BLOCK_LAST_WEEK + 1, REGULAR_SEASON_WEEKS);
+      simulateBlock(
+        state,
+        "REG",
+        seasonShape(state).deadlineWeek + 1,
+        seasonShape(state).regularSeasonWeeks,
+      );
     }
   }
 

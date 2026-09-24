@@ -12,6 +12,7 @@
 
 import type { Conference } from "./nfl-structure.js";
 import type { ConferenceSeeding } from "./standings.js";
+import type { Roster } from "./roster.js";
 import { simulateGame } from "./sim.js";
 
 export type PlayoffRound = "wildcard" | "divisional" | "conference" | "superbowl";
@@ -45,13 +46,50 @@ interface Contender {
 const TIE_BREAK_TRIES = 24;
 const SEED_STRIDE = 1_000_003; // spread re-sim seeds far apart
 
+/**
+ * The rosters playoff games are played with, when a caller supplies them.
+ *
+ * Every playoff game used to call `simulateGame(seed, home, away)` with team
+ * codes only, which falls back to the reference NFL depth charts — so in the
+ * franchise game the postseason was played by the real-life rosters, not the
+ * teams the GMs had built, with none of their signings, trades or depth
+ * charts. Scoped rather than threaded through every bracket function so the
+ * pool-free validation paths, which never set it, stay byte-identical.
+ */
+let _playoffRosters: Readonly<Record<string, Roster>> | null = null;
+
+let _playoffTalent = 1;
+
+/** Run `fn` with playoff games played by these rosters, at this talent scale. */
+export function withPlayoffRosters<T>(
+  rosters: Readonly<Record<string, Roster>> | null,
+  fn: () => T,
+  talentScale = 1,
+): T {
+  const prev = _playoffRosters;
+  const prevTalent = _playoffTalent;
+  _playoffRosters = rosters;
+  _playoffTalent = talentScale;
+  try {
+    return fn();
+  } finally {
+    _playoffRosters = prev;
+    _playoffTalent = prevTalent;
+  }
+}
+
 function decide(
   seed: number,
   home: Contender,
   away: Contender,
   neutralSite = false,
 ): { homeScore: number; awayScore: number; winner: string; decidedBySeed: boolean } {
-  const opts = { neutralSite };
+  const homeRoster = _playoffRosters?.[home.team];
+  const awayRoster = _playoffRosters?.[away.team];
+  const opts =
+    homeRoster && awayRoster
+      ? { neutralSite, homeRoster, awayRoster, talentScale: _playoffTalent }
+      : { neutralSite };
   for (let k = 0; k < TIE_BREAK_TRIES; k += 1) {
     const g = simulateGame(seed + k * SEED_STRIDE, home.team, away.team, opts);
     const [hs, as] = g.score;
@@ -239,4 +277,18 @@ export function finishPlayoffs(p: PlayoffProgress): PlayoffResult {
     champion: sb.winner,
     runnerUp: sb.winner === afc ? nfc : afc,
   };
+}
+
+/**
+ * One playoff game outside the NFL bracket — a humans-only league's
+ * semifinal or final. Same rules as every bracket game: the listed home team
+ * hosts unless the site is neutral, and a tie is replayed rather than kept.
+ */
+export function decidePlayoffGame(
+  seed: number,
+  homeTeam: string,
+  awayTeam: string,
+  neutralSite: boolean,
+): { homeScore: number; awayScore: number; winner: string; decidedBySeed: boolean } {
+  return decide(seed, { team: homeTeam, seed: 1 }, { team: awayTeam, seed: 2 }, neutralSite);
 }

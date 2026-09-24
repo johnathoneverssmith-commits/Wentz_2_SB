@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { pressable, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { ROUND_LABEL, type PlayoffRound } from "@/domain";
+import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { isOnline } from "@/state/online";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
@@ -43,7 +43,7 @@ export function GameDay() {
 
   const isPlayoff = ["WC", "DIV", "CONF", "SB"].includes(pgd.phase);
   const label = isPlayoff
-    ? ROUND_LABEL[pgd.phase as PlayoffRound]
+    ? roundLabelFor(s.bracket, pgd.phase as PlayoffRound)
     : pgd.phase === "PRE"
       ? `Preseason Week ${pgd.week}`
       : `Week ${pgd.week}`;

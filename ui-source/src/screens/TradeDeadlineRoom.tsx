@@ -116,7 +116,7 @@ function ProposeTurn({
   onSubmit: (move: { kind: "propose"; toTeam: string; give: string[]; get: string[] } | { kind: "skip" }) => void;
 }) {
   const s = useStore();
-  const [partner, setPartner] = useState(() => TEAMS.find((t) => t.code !== code)!.code);
+  const [partner, setPartner] = useState(() => TEAMS.find((t) => t.code !== code && s.teams[t.code])!.code);
   const [give, setGive] = useState<string[]>([]);
   const [get, setGet] = useState<string[]>([]);
 
@@ -162,7 +162,7 @@ function ProposeTurn({
           }}
           style={{ width: "100%", maxWidth: 280 }}
         >
-          {TEAMS.filter((t) => t.code !== code).map((t) => (
+          {TEAMS.filter((t) => t.code !== code && s.teams[t.code]).map((t) => (
             <option key={t.code} value={t.code}>
               {t.label}
             </option>

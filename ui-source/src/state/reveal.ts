@@ -1,4 +1,4 @@
-import { ROUND_ORDER } from "@/domain";
+import { bracketRounds } from "@/domain";
 import type { BracketState, GameResult, LeagueState } from "@/domain";
 
 /**
@@ -172,7 +172,7 @@ export function visibleBracket(
   gmId: string,
 ): BracketState {
   const seen = revealedRounds(s, gmId);
-  const firstUnseen = ROUND_ORDER.find((r) => !seen.includes(r));
+  const firstUnseen = bracketRounds(bracket).find((r) => !seen.includes(r));
   return {
     ...bracket,
     currentRound: firstUnseen ?? bracket.currentRound,

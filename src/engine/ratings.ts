@@ -51,6 +51,18 @@ const REF: Record<string, RefStat> = readArtifact<{
   attribute_reference_stats: Record<string, RefStat>;
 }>("attribute_reference_stats.json").attribute_reference_stats;
 
+/**
+ * One attribute as a clipped z-score against the reference pool, or null when
+ * the attribute has no reference. The same standardisation `familyModifier`
+ * applies to a unit mean, exposed per player for `synergy.ts`, which needs
+ * each man's own score rather than his unit's average.
+ */
+export function attributeZ(attr: string, value: number): number | null {
+  const r = REF[attr];
+  if (!r || !r.sd) return null;
+  return Math.max(-CLIP, Math.min(CLIP, (value - r.mean) / r.sd));
+}
+
 /** Mean of `attr` over players that have it, or null. */
 function unitMean(players: Unit, attr: string): number | null {
   let sum = 0;

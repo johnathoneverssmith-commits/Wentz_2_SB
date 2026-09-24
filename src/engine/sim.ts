@@ -41,6 +41,7 @@ import {
 import { Rng } from "./rng.js";
 import { homePenaltyScale, homeShift, type HomeEdge } from "./home-field.js";
 import { strengthIndex, strengthShift } from "./team-strength.js";
+import { synergyShift } from "./synergy.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
@@ -228,12 +229,24 @@ export class Game {
     rosters: [Roster, Roster] | null = null,
     staff: [Staff, Staff] | null = null,
     neutralSite = false,
+    talent = 1,
   ) {
     this.rng = rng;
     this.rosters = rosters;
     this.staff = staff;
     this.neutralSite = neutralSite;
+    this.talent = talent;
   }
+
+  /**
+   * Multiplies every shift that comes from the players — the rating families,
+   * the team-strength index and synergy — and nothing else: home field and
+   * the coaching layer keep their fitted size. One is the validated engine.
+   * Above one, better players and better-built rosters win more often and by
+   * more, which is what a franchise game's "talent impact" setting trades
+   * realism for: every roster decision, human or CPU, matters more.
+   */
+  private readonly talent: number;
 
   // ---- helpers ---------------------------------------------------------
   private other(): number {
@@ -473,21 +486,27 @@ export class Game {
     if (kind === "M09") {
       return {
         COMPLETE:
-          completionLogitShift(catchers, dbs, o.QB1 ?? null) +
+          this.talent *
+            (completionLogitShift(catchers, dbs, o.QB1 ?? null) +
+              this.strengthEdge("complete") +
+              synergyShift(o, d, "complete")) +
           staff.complete +
-          homeShift(edge, "complete") +
-          this.strengthEdge("complete"),
-        INTERCEPTION: interceptionLogitShift(o.QB1 ?? null) + homeShift(edge, "interception"),
+          homeShift(edge, "complete"),
+        INTERCEPTION:
+          this.talent * (interceptionLogitShift(o.QB1 ?? null) + synergyShift(o, d, "interception")) +
+          homeShift(edge, "interception"),
       };
     }
     if (kind === "M04") {
       return {
         SACK:
-          sackLogitShift(ol, rush) + staff.sack + homeShift(edge, "sack") + this.strengthEdge("sack"),
+          this.talent * (sackLogitShift(ol, rush) + this.strengthEdge("sack") + synergyShift(o, d, "sack")) +
+          staff.sack +
+          homeShift(edge, "sack"),
       };
     }
     if (kind === "M20") {
-      return { MADE: fgLogitShift(this.off().kicker()) + homeShift(edge, "fgMade") };
+      return { MADE: this.talent * fgLogitShift(this.off().kicker()) + homeShift(edge, "fgMade") };
     }
     return null;
   }
@@ -498,10 +517,12 @@ export class Game {
     const d = this.defLineup();
     const front7 = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2];
     return (
-      rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) +
+      this.talent *
+        (rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) +
+          this.strengthEdge("rushYards") +
+          synergyShift(o, d, "rushYards")) +
       this.staffOffShift().rush +
-      homeShift(this.homeEdge, "rushYards") +
-      this.strengthEdge("rushYards")
+      homeShift(this.homeEdge, "rushYards")
     );
   }
 
@@ -510,7 +531,7 @@ export class Game {
     const o = this.offLineup();
     const d = this.defLineup();
     const tacklers = [d.CB1, d.CB2, d.S1, d.S2, d.ILB1, d.ILB2];
-    return yacYardsShift(o.WR1 ?? null, tacklers);
+    return this.talent * yacYardsShift(o.WR1 ?? null, tacklers);
   }
 
   private st(k: string, v = 1, team?: number): void {
@@ -1355,6 +1376,12 @@ export interface GameStaff {
    * (`home-field.ts`).
    */
   neutralSite?: boolean | undefined;
+  /**
+   * How hard the players' ratings swing the game (`Game.talent`). Omitted or
+   * 1 is the validated engine, byte-identical; the franchise game's "talent
+   * impact" setting passes more.
+   */
+  talentScale?: number | undefined;
 }
 
 /**
@@ -1385,7 +1412,7 @@ export function simulateGame(
     rosters && opts?.homeStaff && opts?.awayStaff
       ? [opts.homeStaff, opts.awayStaff]
       : null;
-  const g = new Game(new Rng(seed), rosters, staffPair, opts?.neutralSite ?? false);
+  const g = new Game(new Rng(seed), rosters, staffPair, opts?.neutralSite ?? false, opts?.talentScale ?? 1);
   if (opts?.trace) g.playTrace = [];
   if (opts?.injuries && rosters) g.injuryLog = [];
   return g.run();

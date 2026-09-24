@@ -14,6 +14,7 @@ import { currentBlock } from "@/state/revealBlocks";
 import { rankBy, staffCards } from "@/state/staffRatings";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { onlineSession } from "@/state/online";
+import { isHumansOnly, playoffFieldSize } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
 import {
   currentPhase,
@@ -98,11 +99,22 @@ export function WeeklyTeamHub() {
   const opp = oppCode ? s.teams[oppCode] : undefined;
   const iHost = g?.homeTeam === code;
 
-  const divCodes = divisionRivals(code).sort((a, b) => winPct(s.teams[b]!) - winPct(s.teams[a]!));
-  const confCodes = Object.values(TEAMS_BY_CODE)
-    .filter((t) => t.conference === meta.conference)
-    .map((t) => t.code)
-    .sort((a, b) => winPct(s.teams[b]!) - winPct(s.teams[a]!));
+  // A humans-only league is one table: no divisions, no conferences, and
+  // only the teams in the league. Reading the NFL's division or conference
+  // lists here would look up franchises that do not exist in it.
+  const single = isHumansOnly(s);
+  const leagueSize = Object.keys(s.teams).length;
+  const byTable = (a: string, b: string): number =>
+    winPct(s.teams[b]!) - winPct(s.teams[a]!) ||
+    s.teams[b]!.pointsFor - s.teams[b]!.pointsAgainst - (s.teams[a]!.pointsFor - s.teams[a]!.pointsAgainst);
+  const divCodes = single ? [] : divisionRivals(code).filter((c) => s.teams[c]).sort(byTable);
+  const confCodes = single
+    ? Object.keys(s.teams).sort(byTable)
+    : Object.values(TEAMS_BY_CODE)
+        .filter((t) => t.conference === meta.conference && s.teams[t.code])
+        .map((t) => t.code)
+        .sort(byTable);
+  const fieldSize = single ? playoffFieldSize(leagueSize) : 7;
 
   const h2h = humanHeadToHead(s);
   const gmRows = s.gms
@@ -121,7 +133,9 @@ export function WeeklyTeamHub() {
         subtitle={
           isPreseason
             ? `Preseason · starting lineup ${team.ratings.overall} OVR`
-            : `${record(team)} · ${ordinal(team.divisionRank)} in ${meta.conference} ${meta.division}`
+            : single
+              ? `${record(team)} · ${ordinal(team.leagueRank)} of ${leagueSize}`
+              : `${record(team)} · ${ordinal(team.divisionRank)} in ${meta.conference} ${meta.division}`
         }
         right={
           <>
@@ -172,7 +186,7 @@ export function WeeklyTeamHub() {
         tabs={[
           { id: "overview", label: "Overview" },
           { id: "matchup", label: "Matchup" },
-          { id: "division", label: "Division Standings" },
+          ...(single ? [] : [{ id: "division", label: "Division Standings" }]),
           { id: "league", label: "League Standings" },
           { id: "gms", label: "GM Standings" },
           { id: "injuries", label: "Injuries" },
@@ -280,11 +294,13 @@ export function WeeklyTeamHub() {
 
       <Panel id="league" open={active === "league"}>
         <p className="subhead" style={{ marginTop: 0 }}>
-          {meta.conference} — playoff seeding
+          {single ? "League — playoff seeding" : `${meta.conference} — playoff seeding`}
         </p>
-        <StandingsTable s={s} codes={confCodes} me={code} seedTop7 />
+        <StandingsTable s={s} codes={confCodes} me={code} seedTop={fieldSize} />
         <p style={{ margin: "10px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
-          The top 7 seeds make the playoffs; seed 1 gets a first-round bye.
+          {single
+            ? `The top ${fieldSize} make the playoffs, best seed against worst; the final is at a neutral site.`
+            : "The top 7 seeds make the playoffs; seed 1 gets a first-round bye."}
         </p>
       </Panel>
 
@@ -573,19 +589,20 @@ function StandingsTable({
   s,
   codes,
   me,
-  seedTop7 = false,
+  seedTop = 0,
 }: {
   s: ReturnType<typeof useStore.getState>;
   codes: string[];
   me: string;
-  seedTop7?: boolean;
+  /** how many make the playoffs from this table; 0 = no seed column */
+  seedTop?: number;
 }) {
   return (
     <div style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: "6px 14px" }}>
       <table className="stbl">
         <thead>
           <tr>
-            {seedTop7 && <th style={{ width: 26 }}>Sd</th>}
+            {seedTop > 0 && <th style={{ width: 26 }}>Sd</th>}
             <th>Team</th>
             <th className="c">W</th>
             <th className="c">L</th>
@@ -597,10 +614,10 @@ function StandingsTable({
           {codes.map((c, i) => {
             const t = s.teams[c]!;
             const pd = t.pointsFor - t.pointsAgainst;
-            const inField = seedTop7 && i < 7;
+            const inField = seedTop > 0 && i < seedTop;
             return (
               <tr key={c} className={c === me ? "highlight" : ""}>
-                {seedTop7 && (
+                {seedTop > 0 && (
                   <td className="c" style={{ color: inField ? "var(--good)" : "var(--ink-faint)", fontWeight: inField ? 700 : 400 }}>
                     {inField ? i + 1 : "–"}
                   </td>

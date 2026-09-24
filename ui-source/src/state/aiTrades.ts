@@ -211,13 +211,14 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     };
 
     if (shape === "picks") {
-      // lead with capital, cheapest (latest) picks first, only reaching for
-      // an earlier round once the later ones run out
-      for (const p of [...availablePicks].sort((a, b) => b.round - a.round)) {
-        if (offered >= targetValue) break;
-        usedPicks.add(pickKey(p.year, p.round, p.originalTeam));
-        give.push({ kind: "pick", pick: p });
-        offered += pickValue(p);
+      // Lead with capital, a few picks at most, each the cheapest that closes
+      // what is left of the gap. Walking up from the latest round used to be
+      // the rule, and on the real pick chart — where a seventh is worth 0.5
+      // and a first 82.7 — it met a real target by piling on every Day 3
+      // pick for three drafts: a dozen-pick package nobody sends. Too far
+      // short after four picks and the offer falls to the lowball gate below.
+      for (let n = 0; n < 4 && offered < targetValue; n++) {
+        if (!addBestPick()) break;
       }
     } else {
       if (shape === "mixed" && spares[0]) {

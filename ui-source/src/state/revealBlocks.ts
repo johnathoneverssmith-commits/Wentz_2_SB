@@ -1,6 +1,6 @@
 import type { LeagueState } from "@/domain";
 
-import { FIRST_BLOCK_LAST_WEEK, PRESEASON_WEEKS, REGULAR_SEASON_WEEKS } from "./stageMachine";
+import { seasonShape, type SeasonShape } from "./leagueFormat";
 
 /**
  * The precomputed blocks, and what sits at the end of each one.
@@ -36,35 +36,37 @@ export interface Block {
   resultsOpenOn: "first" | "last";
 }
 
-const PRESEASON: Block = {
+// Built from the league's own season shape: a humans-only round robin has a
+// different length and a different deadline week from the NFL's 3/18/9.
+const preseasonBlock = (shape: SeasonShape): Block => ({
   phase: "PRE",
   firstWeek: 1,
-  lastWeek: PRESEASON_WEEKS,
+  lastWeek: shape.preseasonWeeks,
   watchAllLabel: "Simulate the preseason",
   advanceLabel: "Advance to Regular Season",
   checkpoint: { from: "Preseason", to: "Regular Season" },
   resultsOpenOn: "last",
-};
+});
 
-const FIRST_HALF: Block = {
+const firstHalf = (shape: SeasonShape): Block => ({
   phase: "REG",
   firstWeek: 1,
-  lastWeek: FIRST_BLOCK_LAST_WEEK,
-  watchAllLabel: `Simulate to Week ${FIRST_BLOCK_LAST_WEEK + 1}`,
+  lastWeek: shape.deadlineWeek,
+  watchAllLabel: `Simulate to Week ${shape.deadlineWeek + 1}`,
   advanceLabel: "Advance to Trade Deadline",
-  checkpoint: { from: `Regular Season Weeks 1–${FIRST_BLOCK_LAST_WEEK}`, to: "Trade Deadline" },
+  checkpoint: { from: `Regular Season Weeks 1–${shape.deadlineWeek}`, to: "Trade Deadline" },
   resultsOpenOn: "last",
-};
+});
 
-const SECOND_HALF: Block = {
+const secondHalf = (shape: SeasonShape): Block => ({
   phase: "REG",
-  firstWeek: FIRST_BLOCK_LAST_WEEK + 1,
-  lastWeek: REGULAR_SEASON_WEEKS,
+  firstWeek: shape.deadlineWeek + 1,
+  lastWeek: shape.regularSeasonWeeks,
   watchAllLabel: "Simulate to the playoffs",
   advanceLabel: "Advance to Playoffs",
   checkpoint: { from: "Regular Season", to: "Playoffs" },
   resultsOpenOn: "first",
-};
+});
 
 /**
  * Which block this league is in.
@@ -75,10 +77,31 @@ const SECOND_HALF: Block = {
  * through, and it leaves the week behind it as the only durable marker.
  */
 export function currentBlock(s: LeagueState): Block | null {
-  if (s.stage === "preseason") return PRESEASON;
+  const shape = seasonShape(s);
+  if (s.stage === "preseason") return stable("pre", shape, preseasonBlock);
   if (s.stage !== "regularSeason") return null;
   const pastDeadline = s.games.some(
-    (g) => g.phase === "REG" && g.played && g.week > FIRST_BLOCK_LAST_WEEK,
+    (g) => g.phase === "REG" && g.played && g.week > shape.deadlineWeek,
   );
-  return pastDeadline ? SECOND_HALF : FIRST_HALF;
+  return pastDeadline ? stable("second", shape, secondHalf) : stable("first", shape, firstHalf);
+}
+
+/**
+ * The same object for the same block, every call.
+ *
+ * `App` subscribes with `useStore(currentBlock)`, and a selector that returns
+ * a fresh object each time re-renders forever ("maximum update depth
+ * exceeded"). The blocks used to be module constants, which hid that; now
+ * that they depend on the league's season shape they are cached per shape —
+ * a league only ever has one, so this holds a handful of objects at most.
+ */
+const _blocks = new Map<string, Block>();
+function stable(kind: string, shape: SeasonShape, build: (shape: SeasonShape) => Block): Block {
+  const key = `${kind}|${shape.preseasonWeeks}|${shape.regularSeasonWeeks}|${shape.deadlineWeek}`;
+  let b = _blocks.get(key);
+  if (!b) {
+    b = build(shape);
+    _blocks.set(key, b);
+  }
+  return b;
 }
