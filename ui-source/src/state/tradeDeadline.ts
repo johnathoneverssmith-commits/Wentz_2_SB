@@ -1,6 +1,6 @@
 import type { LeagueState, TradeAsset } from "@/domain";
 import { MockSimulationService } from "@/sim/MockSimulationService";
-import { generateAiTradeOffers } from "./aiTrades";
+import { cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades";
 
 import { applyTrade } from "./rules";
 
@@ -354,7 +354,9 @@ export function runCpuTurns(s: LeagueState): void {
 function cpuPropose(s: LeagueState, teamCode: string): void {
   const d = s.tradeDeadline!;
   const offers = generateAiTradeOffers(s, d.round * 1000 + d.index, 1);
-  const mine = offers.find((o) => o.fromTeam === teamCode);
+  // an offer to a human first, as before; otherwise a contender shops the
+  // CPU teams that are out of it
+  const mine = offers.find((o) => o.fromTeam === teamCode) ?? cpuToCpuOffer(s, teamCode, d.round * 1000 + d.index);
   if (!mine) {
     skipTurn(s, teamCode);
     return;

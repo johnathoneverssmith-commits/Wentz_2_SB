@@ -14,6 +14,7 @@ import { tradeAssetValue } from "@/sim/MockSimulationService";
 import { pickKey, picksOwnedBy } from "./draftPicks.ts";
 import { strategyAgeBonus, strategyEliteBonus, strategyFor, strategyPositionBonus } from "./aiStrategy.ts";
 import { deterministicNoiseUnit, difficultyProfile } from "./aiDifficulty.ts";
+import { unitGainer } from "./unitValue.ts";
 
 /** Deterministic per league + season + stage, so an offer isn't reroll-able. */
 function rng(seed: number): () => number {
@@ -270,4 +271,78 @@ export function assetsOf(s: LeagueState, t: TradeProposal): { players: Player[];
     if (a.kind === "pick" && a.pick) picks.push(pickKey(a.pick.year, a.pick.round, a.pick.originalTeam));
   }
   return { players, picks };
+}
+
+/**
+ * A CPU contender's deadline offer to a CPU seller.
+ *
+ * The deadline only ever produced offers aimed at humans, so in ten seasons
+ * no two CPU teams traded with each other once — the league never moved
+ * unless a human moved it. A real deadline is contenders buying from teams
+ * that are out of it: this finds the upgrade that adds most to the buyer's
+ * starting units (the Master AI's reading, `unitGainer`) on a losing CPU
+ * team, and offers the buyer's draft picks for him — the cheapest pick that
+ * covers his trade value with a seller's premium, or the best few that come
+ * closest. If the cap would not take him, the starter he replaces goes the
+ * other way. The seller decides with the same evaluator as any other offer.
+ */
+export function cpuToCpuOffer(
+  s: LeagueState,
+  buyer: string,
+  salt: number,
+): { toTeam: string; fromAssets: TradeAsset[]; toAssets: TradeAsset[] } | null {
+  const isCpu = (code: string) => s.teams[code]?.controlledBy.kind === "ai";
+  const me = s.teams[buyer];
+  if (!me || !isCpu(buyer) || me.wins <= me.losses) return null;
+  // not every contender works the phones every round
+  if (rng(s.season * 104729 + salt + hashCode(buyer))() > 0.4) return null;
+
+  const mine = ROSTER_OF(s, buyer);
+  const byPos = new Map<string, number[]>();
+  for (const p of mine) byPos.set(p.position, [...(byPos.get(p.position) ?? []), p.overall]);
+  const gain = unitGainer((pos) => byPos.get(pos) ?? []);
+
+  const sellers = Object.keys(s.teams).filter((c) => c !== buyer && isCpu(c) && s.teams[c]!.wins < s.teams[c]!.losses);
+  let best: { p: Player; team: string; g: number } | null = null;
+  for (const team of sellers) {
+    for (const p of ROSTER_OF(s, team)) {
+      if (p.age > 31 || p.overall < 75 || p.injury_status) continue;
+      const g = gain(p.position, p.overall);
+      if (g >= 0.6 && (!best || g > best.g)) best = { p, team, g };
+    }
+  }
+  if (!best) return null;
+
+  const need = tradeAssetValue(s, { kind: "player", playerId: best.p.id }) * 1.1;
+  const picks = picksOwnedBy(s, buyer).map((pick) => ({ pick, v: tradeAssetValue(s, { kind: "pick", pick }) }));
+  const covering = picks.filter((x) => x.v >= need).sort((a, b) => a.v - b.v)[0];
+  const give: TradeAsset[] = [];
+  if (covering) give.push({ kind: "pick", pick: covering.pick });
+  else {
+    let total = 0;
+    for (const x of picks.sort((a, b) => b.v - a.v).slice(0, 3)) {
+      give.push({ kind: "pick", pick: x.pick });
+      total += x.v;
+      if (total >= need) break;
+    }
+    if (total < need * 0.85) return null;
+  }
+
+  // the cap has to take him: send the man he replaces if it would not
+  const hit = (p: Player) => p.contract?.cap_hit_by_year[0] ?? 0;
+  if (me.cap.used + hit(best.p) > me.cap.total) {
+    const displaced = mine
+      .filter((p) => p.position === best!.p.position)
+      .sort((a, b) => a.overall - b.overall)
+      .find((p) => me.cap.used + hit(best!.p) - hit(p) <= me.cap.total);
+    if (!displaced) return null;
+    give.push({ kind: "player", playerId: displaced.id });
+  }
+  return { toTeam: best.team, fromAssets: give, toAssets: [{ kind: "player", playerId: best.p.id }] };
+}
+
+function hashCode(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return h >>> 0;
 }
