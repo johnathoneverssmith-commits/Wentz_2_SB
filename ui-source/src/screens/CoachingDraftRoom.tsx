@@ -64,8 +64,16 @@ export function CoachingDraftRoom() {
     const open = availableCoaches(s);
     return open
       .filter((c) => roleFilter === "ALL" || c.role === roleFilter)
+      // Only jobs this staff still has open. A coach whose role is already
+      // filled has his Draft button disabled anyway, so listing him puts dead
+      // rows at the top of a list sorted by rating — by the sixth round the
+      // best hire you can actually make is below a greyed-out head coach. The
+      // role chips above already refuse a filled role outright
+      // (`disabled={!openVacancies.has(r)}`); this is the same rule applied to
+      // the board they filter.
+      .filter((c) => openVacancies.has(c.role))
       .sort((a, b) => ratingOf(b) - ratingOf(a));
-  }, [s.coaches, roleFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [s.coaches, roleFilter, mine]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!draft || !code) {
     return (

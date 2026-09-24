@@ -39,6 +39,36 @@ describe("fantasy draft length follows the setting", () => {
     }
   }, 120_000);
 
+  it("actually drafts that many players per team, not just plans to", async () => {
+    // The board length is one thing; what the draft *does* is another. A
+    // five-round draft has to end after five rounds and leave every team
+    // holding five new men, or the setting is decorative.
+    await useStore.getState().newLeague(11, {
+      ...DEFAULT_CONFIG,
+      humanGmCount: 1,
+      fantasyDraftRounds: 5,
+    });
+    useStore.getState().pickTeam(s().viewerGmId, "GB");
+    useStore.setState((d) => {
+      d.draft = null;
+    });
+    useStore.getState().startDraft("fantasy");
+    useStore.getState().autopickRemaining();
+
+    const teams = Object.keys(s().teams).length;
+    expect(s().draft!.currentPickIndex, "a five-round draft never finished").toBe(teams * 5);
+    expect(s().draft!.results.length).toBe(teams * 5);
+
+    const rostered = new Map<string, number>();
+    for (const p of Object.values(s().players)) {
+      if (p.retired || p.free_agent || !p.nfl_team) continue;
+      rostered.set(p.nfl_team, (rostered.get(p.nfl_team) ?? 0) + 1);
+    }
+    expect(new Set(rostered.values()), "per-team roster after a 5-round draft").toEqual(
+      new Set([5]),
+    );
+  }, 120_000);
+
   it("leaves the rookie draft at its seven NFL rounds regardless", async () => {
     await useStore.getState().newLeague(6, {
       ...DEFAULT_CONFIG,

@@ -19,7 +19,7 @@ import {
   primaryValueOf,
 } from "@/state/freeAgencyValues";
 import { viewerTeamCode } from "@/state/selectors";
-import { useStore } from "@/state/store";
+import { draftValue, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { millions } from "@/util/format";
 
@@ -70,7 +70,14 @@ export function FreeAgencyBoardTurns() {
   );
 
   const pool = useMemo(
-    () => unsignedPool(s).sort((a, b) => b.overall - a.overall),
+    // Position-adjusted, the same way the draft board is: sorted on raw
+    // overall, an 84 punter and an 84 kicker outrank every starter in the
+    // market and the top of the list stops meaning anything. `draftValue` is
+    // the league's own view of what a position is worth.
+    () =>
+      unsignedPool(s).sort(
+        (a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position),
+      ),
     [s.players, s.freeAgencyEvent], // eslint-disable-line react-hooks/exhaustive-deps
   );
 

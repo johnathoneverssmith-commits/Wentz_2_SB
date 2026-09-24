@@ -915,17 +915,7 @@ export class MockSimulationService implements SimulationService {
     fromAssets: TradeAsset[],
     toAssets: TradeAsset[],
   ): TradeEvaluation {
-    const val = (a: TradeAsset) => {
-      if (a.kind === "player") {
-        const p = state.players[a.playerId ?? ""];
-        const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.72) / 12.5;
-        return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1);
-      }
-      const round = a.pick?.round ?? 4;
-      const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
-      // and a pick two drafts away is worth less than the same pick this year
-      return a.pick ? raw * futureDiscount(a.pick, state.season) : raw;
-    };
+    const val = (a: TradeAsset) => tradeAssetValue(state, a);
     // fromAssets: what the proposer (fromTeam, usually the viewer) gives up —
     // toTeam (the AI being asked to accept) receives these.
     // toAssets: what toTeam gives up in return.
@@ -1244,6 +1234,30 @@ const STRENGTH_BASE: Record<Position, number> = {
  */
 export const pickTradeValue = (round: number): number =>
   PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
+
+/**
+ * What one asset is worth in a trade — the single currency.
+ *
+ * `evaluateTrade` judges every deal with this, so anything that *builds* a
+ * deal has to price with it too. `state/aiTrades.ts` used to keep a parallel
+ * scale of its own (`overall - 42` for players, `(33 - round * 5)` for
+ * picks), and the two disagreed badly at both ends: it ignored position
+ * entirely, and it priced a seventh-round pick at 3 against this table's 0.5
+ * while pricing a first at ~28 against 82.7. A suitor could therefore meet
+ * its own target for a 95 quarterback with a guard and two sevenths and
+ * genuinely believe it had made a fair offer.
+ */
+export function tradeAssetValue(state: LeagueState, a: TradeAsset): number {
+  if (a.kind === "player") {
+    const p = state.players[a.playerId ?? ""];
+    const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.72) / 12.5;
+    return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1);
+  }
+  const round = a.pick?.round ?? 4;
+  const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
+  // and a pick two drafts away is worth less than the same pick this year
+  return a.pick ? raw * futureDiscount(a.pick, state.season) : raw;
+}
 
 const PICK_VALUE_BY_ROUND: Record<number, number> = {
   1: 82.7,

@@ -10,10 +10,63 @@ This document is the source of truth for redesign decisions covering the franchi
 
 # Implementation status
 
-All thirteen changes are implemented, on `main`, with 210 online tests
-passing. The fifteen failing UI tests predate this work — their fixtures
-assume the generated player pool that the authored `pool-2026.json`
-replaced — and are unrelated to anything below.
+All thirteen changes are implemented, on `main`. Both suites are green: the
+fifteen failing UI tests this section used to describe were fixed when their
+fixtures were moved off the generated player pool.
+
+**What has changed since, that reading the changes below would not tell you:**
+
+- **Change 5's Seasonal Event Investments are gone.** The two monetary
+  fields, the odds multiplier `M = 1 + 0.10 * sqrt(I)` and the cap deduction
+  were never wired to anything, and the Hooded Figure catch-up mechanic
+  replaced them outright — see `CLAUDE.md` and `state/hoodedFigure.ts`. The
+  spec for them below is history, not a to-do.
+- **Several tuned constants are deliberately not the numbers written here.**
+  The optimization passes retuned the coordinator-focus strength (double, in
+  `state/trainingCamp.ts`), the position-coach slope (1.5% rather than 1%),
+  the release penalty (22%/75% rather than 20%/80%) and the staff composite
+  weights. Each says so at its definition; the figures below are the original
+  design intent, and the code is the enforcement.
+- **The fantasy draft's length is now a league setting** rather than a fixed
+  twenty rounds (`LeagueConfig.fantasyDraftRounds`).
+- **Stage entry is one function.** Everything a stage does on the way in
+  lives in `applyStageEntry` in `state/store.ts`, and all six paths that
+  change stage call it. Adding a stage that owns state means adding it there,
+  not to whichever transition you happened to be looking at.
+- **The cap-cut tiers are a ladder, not two special cases**
+  (`trimToLegalRoster` in `state/seed.ts`). They used to fall straight through
+  to "largest cap hit on the roster" whenever the expendable pool came back
+  empty — which is the *normal* state leaving a fantasy draft, where a team
+  has roughly one player per position and so every one of them is a projected
+  starter. In a stock dynasty that released Josh Allen, Lamar Jackson, Joe
+  Burrow and Patrick Mahomes from the four teams that had just drafted them,
+  before any roster screen had been shown. `state/rosterTrim.test.ts` pins it.
+- **The free-agency perf guard counts work, not milliseconds.**
+  `freeAgencyEvent.ts` exports `roundIndexBuilds`, and the test asserts the
+  round index is rebuilt at most twice in a turn rather than timing the turn.
+  The wall-clock budget it replaces measured 525ms, 725ms and 795ms against a
+  400ms limit on a loaded machine while passing alone — it failed suites that
+  had nothing wrong with them. Reverting the hoist now reads 33 rebuilds
+  against a limit of 2, on any machine.
+- **One currency for trades.** `tradeAssetValue` in `sim/MockSimulationService.ts`
+  is the only place an asset is priced, and both `evaluateTrade` and the AI's
+  package builder in `state/aiTrades.ts` go through it. The builder used to
+  keep a parallel scale — `overall - 42` for a player, `(33 - round * 5)` for
+  a pick — which ignored position entirely and valued a seventh-rounder at 3
+  against the real chart's 0.5. A suitor could therefore set itself a target
+  of 53 for a 95 quarterback, meet it with a 77 guard and two sevenths, and
+  believe it had offered fairly; the evaluator scored that package at under a
+  fifth. An AI also no longer sends a package it rates below 90% of its own
+  target. `state/aiTradeFairness.test.ts` sweeps sixty offer seeds and holds
+  the market to half of asking value or better.
+- **Player lists are ordered by position-adjusted value, not raw overall.**
+  The draft board and the free-agency board both sort on `draftValue`, the
+  same premium the CPU drafts on. Sorting on `overall` alone opened a 640-pick
+  big board with a 95 kicker above Lamar Jackson, and a free-agent market with
+  two punters in the top three — while the app's own "best fit" suggestion,
+  sitting directly above the board, named the quarterback. This is the
+  complaint that removed the old "Projected" column finally applied to the
+  list the column sat on.
 
 What was built, in one paragraph per idea rather than per change:
 

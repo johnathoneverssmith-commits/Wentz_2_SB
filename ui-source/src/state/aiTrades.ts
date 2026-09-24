@@ -7,7 +7,9 @@
  * position feel real — someone wants your left tackle, and now you have to
  * decide what he's worth.
  */
-import type { LeagueState, Player, TradeAsset, TradeProposal } from "@/domain";
+import type { DraftPickAsset, LeagueState, Player, TradeAsset, TradeProposal } from "@/domain";
+
+import { tradeAssetValue } from "@/sim/MockSimulationService";
 
 import { pickKey, picksOwnedBy } from "./draftPicks.ts";
 import { strategyAgeBonus, strategyEliteBonus, strategyFor, strategyPositionBonus } from "./aiStrategy.ts";
@@ -141,7 +143,23 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // package), which reads as one AI GM copy-pasted thirty-two times — a
     // package shape is rolled first, the same way a real front office
     // sometimes leads with picks and sometimes doesn't.
-    const targetValue = Math.max(0, askFor.overall - 42);
+    /**
+     * What an asset is worth to this package, priced by `tradeAssetValue` —
+     * the same function `evaluateTrade` settles the deal with.
+     *
+     * This used to be a scale of its own: `overall - 42` for a player and
+     * `(33 - round * 5)` for a pick. Both disagreed with the evaluator, in
+     * the same direction. Position was ignored entirely, so a 95 quarterback
+     * and a 95 guard cost the same to acquire; and a seventh-round pick was
+     * priced at 3 against the real chart's 0.5, so two of them "closed" a gap
+     * they barely touched. A suitor chasing Lamar Jackson set a target of 53,
+     * met it with a 77 guard and two sevenths, and sent an offer the
+     * evaluator scored at under a fifth of what it asked for. Playing a stock
+     * dynasty, that is the offer that actually arrived.
+     */
+    const worthOf = (p: Player): number =>
+      tradeAssetValue(s, { kind: "player", playerId: p.id });
+    const targetValue = worthOf(askFor);
     const spares = theirRoster
       .filter((p) => {
         const better = theirRoster.filter(
@@ -155,7 +173,8 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // a pick's contribution scales with the team's own projected draft slot
     // (finding 14) — a bad team's pick closes more of the gap than the same
     // round from a good one, so it takes a later round to match it
-    const pickValue = (round: number): number => Math.max(3, (33 - round * 5) * strength);
+    const pickValue = (pick: DraftPickAsset): number =>
+      tradeAssetValue(s, { kind: "pick", pick }) * strength;
 
     const shapeRoll = random();
     const shape: "players" | "picks" | "mixed" =
@@ -165,15 +184,29 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     let offered = 0;
     const usedPicks = new Set<string>();
     const cheapestFirst = [...availablePicks].sort((a, b) => b.round - a.round);
-    // a top-up reaches for the least valuable pick still on the shelf first
-    // — the same instinct that keeps the best future assets out of a package
-    // that doesn't need them
+    /**
+     * Top up with the *cheapest pick that actually closes the gap*, falling
+     * back to the best one left when none does.
+     *
+     * The instinct is still "keep the good future assets out of a package
+     * that doesn't need them" — but it has to be measured against the real
+     * pick chart, where a seventh-rounder is worth 0.5 and a first is 82.7.
+     * Reaching for the cheapest pick unconditionally meant a mixed package
+     * was one spare player plus two sevenths: about a point of value on top,
+     * which stopped clearing the suitor's own target once players were priced
+     * by position. Mixed offers then vanished from the market entirely, and
+     * with them the varied package shapes finding 15 asked for.
+     */
     const addBestPick = (): boolean => {
-      const pick = cheapestFirst.find((p) => !usedPicks.has(pickKey(p.year, p.round, p.originalTeam)));
-      if (!pick) return false;
+      const left = cheapestFirst.filter(
+        (p) => !usedPicks.has(pickKey(p.year, p.round, p.originalTeam)),
+      );
+      if (left.length === 0) return false;
+      const gap = targetValue - offered;
+      const pick = left.find((p) => pickValue(p) >= gap) ?? left[left.length - 1]!;
       usedPicks.add(pickKey(pick.year, pick.round, pick.originalTeam));
       give.push({ kind: "pick", pick });
-      offered += pickValue(pick.round);
+      offered += pickValue(pick);
       return true;
     };
 
@@ -184,19 +217,19 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
         if (offered >= targetValue) break;
         usedPicks.add(pickKey(p.year, p.round, p.originalTeam));
         give.push({ kind: "pick", pick: p });
-        offered += pickValue(p.round);
+        offered += pickValue(p);
       }
     } else {
       if (shape === "mixed" && spares[0]) {
         // exactly one player, so the pick(s) alongside it are load-bearing
         // rather than an afterthought
         give.push({ kind: "player", playerId: spares[0].id });
-        offered += Math.max(0, spares[0].overall - 42);
+        offered += worthOf(spares[0]);
       } else {
         for (const p of spares) {
           if (offered >= targetValue) break;
           give.push({ kind: "player", playerId: p.id });
-          offered += Math.max(0, p.overall - 42);
+          offered += worthOf(p);
         }
       }
       // top up with draft capital either way, capped so a small gap can't
@@ -206,6 +239,12 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
       }
     }
     if (give.length === 0) continue;
+    // Don't send a package the suitor itself rates as a lowball. Offers used
+    // to go out on "we assembled something", however far short of the target
+    // it landed, which is the other half of why the deadline felt fake: a GM
+    // who knows he is 60% short doesn't make the call. A little under is
+    // haggling and still goes.
+    if (offered < targetValue * 0.9) continue;
 
     out.push({
       id: `trade_ai_${s.season}_${salt}_${target}_${rounds[i]!.n}`,

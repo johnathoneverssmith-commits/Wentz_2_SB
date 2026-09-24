@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { availableCoaches, vacantRoles } from "./coachingDraft.ts";
-import { FREE_AGENCY_ROUNDS, onTheClock } from "./freeAgencyEvent.ts";
+import {
+  FREE_AGENCY_ROUNDS,
+  onTheClock,
+  resetRoundIndexBuilds,
+  roundIndexBuilds,
+} from "./freeAgencyEvent.ts";
 import { reconciliationIssues } from "./reconciliation.ts";
 import { DEFAULT_CONFIG } from "./seed.ts";
 import { useStore } from "./store.ts";
@@ -80,13 +85,13 @@ describe("free agency (single-player store)", () => {
       const target = pool[0]!;
       const before = s().freeAgencyEvent!.turnIndex;
 
-      const t0 = Date.now();
+      resetRoundIndexBuilds();
       const res = useStore.getState().freeAgencyTurn({
         playerId: target.id,
         salary: Math.max(1, Math.round(target.overall / 3)),
         years: 3,
       });
-      const elapsed = Date.now() - t0;
+      const builds = roundIndexBuilds;
 
       expect(res.ok, res.reason).toBe(true);
       // the offer is on the board and the turn actually moved
@@ -129,10 +134,18 @@ describe("free agency (single-player store)", () => {
       expect(illegal, `CPU teams left illegal: ${illegal.join(", ")}`).toEqual([]);
 
       // A turn is one click, and it sweeps ~30 CPU teams inside one immer
-      // producer. It measured 1325ms before the round index was hoisted out
-      // of the per-team loop and 189ms after; this guards the gap rather
-      // than the exact number, since a regression here is a frozen tab.
-      expect(elapsed, `one free-agency turn took ${elapsed}ms`).toBeLessThan(400);
+      // producer. Rebuilding the round index per team rather than per round
+      // took it from 189ms to 1325ms — a frozen tab.
+      //
+      // This counts the rebuilds instead of timing the turn. The wall-clock
+      // budget it replaces was not a safe assertion in a parallel runner: the
+      // same turn came in at 525ms, 725ms and 795ms on a loaded machine and
+      // failed the suite each time, while passing alone. A rebuild count is
+      // the invariant itself, and is the same on any machine. One turn spans
+      // at most a round boundary, so it may legitimately build twice.
+      expect(builds, `the round index was rebuilt ${builds} times in one turn`).toBeLessThanOrEqual(
+        2,
+      );
     },
     TIMEOUT,
   );

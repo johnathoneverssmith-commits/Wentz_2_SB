@@ -81,16 +81,41 @@ export function planFor(s: LeagueState, teamCode: string): TrainingCampPlan {
 /**
  * How much a coordinator's attention is worth, as a fraction.
  *
- * Ten percent at a league-average coordinator, half a point for every point
- * of rating either side, floored at three and capped at twenty-four. The
+ * Twenty percent at a league-average coordinator, a point for every point of
+ * rating either side, floored at five and capped at forty-five — see the
+ * constants below for why those are double what Change 5 writes down. The
  * floor is the interesting part: even a poor coordinator helps the group he
  * concentrates on, because deliberately spending practice time on a unit is
  * not something that can go negative. A bad coach wastes the opportunity; he
  * does not actively make his players worse by paying attention to them.
  */
+/**
+ * Double Change 5's written figures on every term, and deliberately so.
+ *
+ * The spec says 10% at an average coordinator, half a point per rating
+ * point, floored at 3 and capped at 24. The Aging + Training Camp
+ * optimization pass doubled all four, for the reason it gives beside the
+ * position-coach slope in `coachEffects.ts`: development lands as an
+ * integer rating change, and at the specified size the coaching effect
+ * rounded away for most players before it could be seen. The change log
+ * leaves "reassess the coordinator-focus strength, caps, rounding and
+ * stacking" open as an optimization bookmark, and this is that reassessment
+ * having happened.
+ *
+ * Named because the docstring above described the specified numbers long
+ * after the code stopped using them, which reads as drift and invites
+ * someone to "fix" the balance back.
+ */
+const FOCUS_AT_AVERAGE = 0.2;
+const FOCUS_PER_RATING_POINT = 0.01;
+const FOCUS_MIN = 0.05;
+const FOCUS_MAX = 0.45;
+const AVERAGE_COORDINATOR = 72;
+
 export function focusStrength(coordinatorRating: number): number {
-  const raw = 0.2 + 0.01 * (coordinatorRating - 72);
-  return Math.max(0.05, Math.min(0.45, raw));
+  const raw =
+    FOCUS_AT_AVERAGE + FOCUS_PER_RATING_POINT * (coordinatorRating - AVERAGE_COORDINATOR);
+  return Math.max(FOCUS_MIN, Math.min(FOCUS_MAX, raw));
 }
 
 /** The coordinator whose focus covers this group. */

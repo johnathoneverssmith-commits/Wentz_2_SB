@@ -10,7 +10,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Player, Position } from "@/domain";
-import { bestAvailable, picksMadeBy, useStore } from "@/state/store";
+import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 
@@ -36,7 +36,25 @@ export function DraftRoom() {
   const autoReady = useStore((st) => st.autoReadyNonViewers);
 
   const isDraftStage = s.stage === "fantasyDraft" || s.stage === "offseasonDraft";
-  const mode: DraftMode = s.stage === "fantasyDraft" ? "fantasy" : "rookie";
+  /**
+   * Which draft this stage *wants*. Only the start effect below should use
+   * it: it is the thing a stale board is compared against.
+   */
+  const stageMode: DraftMode = s.stage === "fantasyDraft" ? "fantasy" : "rookie";
+  /**
+   * Which draft is actually on the screen, which is what every label and the
+   * board itself have to follow.
+   *
+   * These two part company for exactly as long as the "draft complete"
+   * overlay is up. Completing the board advances the stage from inside
+   * `makePick`, but the overlay deliberately keeps the player here until they
+   * press it — so the stage already reads `fantasyDraftSummary` while the
+   * fantasy draft is still the thing being looked at. Deriving the labels
+   * from the stage meant the last thing you saw after your own fantasy draft
+   * was a header reading "2026 Rookie Draft", an "Available Prospects" tab,
+   * and a board of college juniors.
+   */
+  const mode: DraftMode = s.draft?.mode ?? stageMode;
 
   useEffect(() => {
     // Online the draft belongs to the server: it is made when the stage opens,
@@ -44,8 +62,8 @@ export function DraftRoom() {
     // inventing its own board — a different order per GM, and picks the server
     // would refuse because they are against a draft only this browser can see.
     if (actions.online) return;
-    if (isDraftStage && (!s.draft || s.draft.mode !== mode)) startDraft(mode);
-  }, [isDraftStage, s.draft, mode, startDraft, actions.online]);
+    if (isDraftStage && (!s.draft || s.draft.mode !== stageMode)) startDraft(stageMode);
+  }, [isDraftStage, s.draft, stageMode, startDraft, actions.online]);
 
   // Reaching the manual-pick threshold completes the board and advances the
   // stage from inside `makePick` itself. That used to double as the exit —
@@ -83,17 +101,29 @@ export function DraftRoom() {
           sub: `${p.school} · ${p.classYear}`,
         }));
     }
-    return Object.values(s.players)
-      .filter((p) => !taken.has(p.id) && !p.retired)
-      .sort((a, b) => b.overall - a.overall)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        position: p.position,
-        age: p.age,
-        ovr: p.overall,
-        sub: TEAMS_BY_CODE[p.nfl_team]?.label ?? "Free agent",
-      }));
+    return (
+      Object.values(s.players)
+        .filter((p) => !taken.has(p.id) && !p.retired)
+        // Ordered the way the league values players, not by raw overall.
+        // Sorting on `overall` alone put a 95 kicker at the top of a 640-pick
+        // board, level with Lamar Jackson and Micah Parsons, while the app's
+        // own evaluator — the "best fit for your roster" suggestion right
+        // above this table — correctly had the quarterback first. That is the
+        // same complaint that got the old "Projected" column deleted: its
+        // ranking was "based on overall rating rather than position-adjusted
+        // value". The column went; the list behind it kept doing it.
+        // `draftValue` is the positional premium the CPU drafts on (QB +10,
+        // EDGE +8 … K and P -14), so the board now reads like a board.
+        .sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position))
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          position: p.position,
+          age: p.age,
+          ovr: p.overall,
+          sub: TEAMS_BY_CODE[p.nfl_team]?.label ?? "Free agent",
+        }))
+    );
   }, [draft, mode, s.players, s.draftClass, taken]);
 
   // One control set for the board: a name search as well as a position, and

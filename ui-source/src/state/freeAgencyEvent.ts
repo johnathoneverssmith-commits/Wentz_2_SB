@@ -309,7 +309,25 @@ interface RoundIndex {
   bestByTeam: Map<string, Map<string, number>>;
 }
 
+/**
+ * How many times the round index has been rebuilt this process.
+ *
+ * Rebuilding is the expensive thing here — it walks every player in the
+ * league — and the bug this guards against was rebuilding it once per *team*
+ * rather than once per *round*, which took a single free-agency turn from
+ * 189ms to 1325ms and froze the tab. That used to be pinned with a wall-clock
+ * budget, which is not a safe assertion inside a parallel test runner: the
+ * same turn measured 525ms, 725ms and 795ms across runs on a busy machine and
+ * failed a suite that had nothing wrong with it. Counting the rebuilds
+ * measures the actual invariant and does not care how loaded the box is.
+ */
+export let roundIndexBuilds = 0;
+export function resetRoundIndexBuilds(): void {
+  roundIndexBuilds = 0;
+}
+
 function indexRound(s: LeagueState): RoundIndex {
+  roundIndexBuilds++;
   const signed = new Set((s.freeAgencyEvent?.signed ?? []).map((x) => x.playerId));
   const pool: Player[] = [];
   const bestByTeam = new Map<string, Map<string, number>>();

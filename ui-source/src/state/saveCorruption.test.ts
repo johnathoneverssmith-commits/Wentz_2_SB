@@ -47,6 +47,12 @@ describe("save corruption detection", () => {
     globalThis.window = originalWindow;
   });
 
+  // These build and rehydrate a whole league, which takes ~5s on its own and
+  // longer when the rest of the suite is running beside them. Left on
+  // vitest's 5s default they sat ~80ms under the line and failed whenever the
+  // machine was busy — a flake, not a guard.
+  const BUDGET = 60_000;
+
   it("flags a corrupted save and backs up the raw bytes, without touching the flag on a clean one", async () => {
     const storage = fakeLocalStorage({
       [SAVE_KEY]: "{not valid json at all",
@@ -64,7 +70,7 @@ describe("save corruption detection", () => {
     expect(storage.getItem(BACKUP_KEY)).toBe("{not valid json at all");
     // the corrupted original is left alone — only a copy was made
     expect(storage.getItem(SAVE_KEY)).toBe("{not valid json at all");
-  });
+  }, BUDGET);
 
   it("does not flag a save that isn't there at all — that's a fresh dynasty, not a broken one", async () => {
     const storage = fakeLocalStorage();
@@ -77,7 +83,7 @@ describe("save corruption detection", () => {
     store.onSaveCorrupted((v) => (corrupted = v));
     expect(corrupted).toBe(false);
     expect(storage.getItem(BACKUP_KEY)).toBeNull();
-  });
+  }, BUDGET);
 
   it("does not flag a save that parses and migrates cleanly", async () => {
     const storage = fakeLocalStorage({
@@ -91,5 +97,5 @@ describe("save corruption detection", () => {
     let corrupted: boolean | undefined;
     store.onSaveCorrupted((v) => (corrupted = v));
     expect(corrupted).toBe(false);
-  });
+  }, BUDGET);
 });

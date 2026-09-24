@@ -520,7 +520,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                     Q{dr.quarter} {dr.startClock}
                   </span>
                   <span className="gc-dmeta">
-                    {dr.plays.length} plays · from the {spot(dr.startBallOn)}
+                    {dr.plays.length} {dr.plays.length === 1 ? "play" : "plays"} · from the {spot(dr.startBallOn)}
                     {tag && <span className={`gc-dtag ${tag.cls}`}>{tag.label}</span>}
                     {conceded && <span className="gc-dtag against">{conceded}</span>}
                   </span>

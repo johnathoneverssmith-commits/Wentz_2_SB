@@ -573,10 +573,12 @@ function trimToLegalRoster(
   const target = (): number => (mustCut ? limit() - CAP_WORKING_ROOM : limit());
   let guard = ROSTER_SIZE;
   while (used > target() && roster.length > 0 && guard-- > 0) {
-    const keep = protectedIds();
-    const expendable = roster.filter((p) => !keep.has(p.id));
     const dearest = (pool: Player[]): Player =>
       pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
+    /** Only a contract is worth cutting for cap; minimum deals free nothing. */
+    const onRealMoney = (pool: Player[]): Player[] =>
+      pool.filter((p) => capHitOf(p) > MIN_SALARY_M);
+
     // Three tiers, and the order is the whole point of this pass.
     //
     // A roster is mostly minimum-salary depth, and after a draft class almost
@@ -590,14 +592,33 @@ function trimToLegalRoster(
     // left the team its two worst. The expensive *second* man at a position
     // goes first, and the one player a team can't replace at each spot goes
     // only when there is nothing else left to shed.
-    let priciest = expendable.length > 0 ? dearest(expendable) : dearest(roster);
-    if (capHitOf(priciest) <= MIN_SALARY_M) {
-      const core = coreIds();
-      const replaceable = roster.filter((p) => !core.has(p.id) && capHitOf(p) > MIN_SALARY_M);
-      priciest = replaceable.length > 0 ? dearest(replaceable) : dearest(roster);
+    //
+    // The tiers have to be a ladder rather than two special cases. They used
+    // to fall straight to "dearest on the roster" whenever the expendable
+    // pool came back *empty*, which skipped the core protection entirely and
+    // did the exact thing the paragraph above says not to. Empty is the
+    // normal state here, not an edge case: a team leaving a 20-round fantasy
+    // draft has 20 men and roughly one per position, so every one of them is
+    // a projected starter. In a stock dynasty that cut Lamar Jackson — the
+    // best player in the league and the viewer's own first-round pick —
+    // before the roster screen had ever been shown, purely for being the
+    // largest number.
+    // Each rung is only built if the one above it came back empty.
+    // `protectedIds` and `coreIds` both sort every position group, and this
+    // loop runs once per cut on every team — evaluating all three eagerly
+    // took a free-agency turn from 189ms to 725ms.
+    const rungs: (() => Player[])[] = [
+      () => onRealMoney(roster.filter((p) => !protectedIds().has(p.id))), // 1. paid backups
+      () => onRealMoney(roster.filter((p) => !coreIds().has(p.id))), //     2. replaceable starters
+      () => roster.filter((p) => capHitOf(p) > 0), //                       3. the untouchables
+    ];
+    let pool: Player[] = [];
+    for (const rung of rungs) {
+      pool = rung();
+      if (pool.length > 0) break;
     }
-    if (capHitOf(priciest) <= 0) break; // nothing left to shed
-    used -= drop(priciest);
+    if (pool.length === 0) break; // nothing left to shed
+    used -= drop(dearest(pool));
   }
 
   return { used, released };
