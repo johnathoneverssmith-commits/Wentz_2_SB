@@ -527,6 +527,8 @@ export class Game {
   }
 
   private offShift(kind: "M09" | "M04" | "M20"): Shift | null {
+    // (the league-average offense calibration rides along with the ratings:
+    // `OFFENSE_CALIB` below)
     if (!this.ratingsOn) return null;
     const o = this.offLineup();
     const d = this.defLineup(this.down >= 3 && this.ydstogo >= 6);
@@ -547,7 +549,8 @@ export class Game {
               this.strengthEdge("complete") +
               synergyShift(o, d, "complete")) +
           staff.complete +
-          homeShift(edge, "complete"),
+          homeShift(edge, "complete") +
+          OFFENSE_CALIB.complete,
         INTERCEPTION:
           this.talent * (interceptionLogitShift(o.QB1 ?? null) + synergyShift(o, d, "interception")) +
           homeShift(edge, "interception"),
@@ -578,7 +581,8 @@ export class Game {
           this.strengthEdge("rushYards") +
           synergyShift(o, d, "rushYards")) +
       this.staffOffShift().rush +
-      homeShift(this.homeEdge, "rushYards")
+      homeShift(this.homeEdge, "rushYards") +
+      OFFENSE_CALIB.rushYards
     );
   }
 
@@ -690,7 +694,7 @@ export class Game {
     this.rollQuarter();
   }
 
-  private advanceClock(bucket: string, noHuddle = 0, driveEnds = false): void {
+  private advanceClock(bucket: string, noHuddle = 0, driveEnds = false, deferRoll = false): void {
     const cs = this.gsr <= 300 ? "final_5min" : this.gsr <= 600 ? "final_10min" : "normal";
     let e = sampleRunoff(bucket, noHuddle, cs, this.rng) * CLOCK_SCALE;
     if (this.staffOn) e = e * ocTempoScale(this.offStaff().oc);
@@ -701,7 +705,8 @@ export class Game {
     this.hsr = Math.max(0, this.hsr - e);
     this.qsr = Math.max(0, this.qsr - e);
     this.st("top", e);
-    this.rollQuarter();
+    // a scoring play books its points first (see the resolve step)
+    if (!deferRoll) this.rollQuarter();
   }
 
   // ---- scoring / possession ---------------------------------------
@@ -1319,7 +1324,12 @@ export class Game {
     });
     this.rollInjury(playCall, playDepth, gained, playOutcome, preQtr, preClock);
 
-    this.advanceClock(outcomeBucket, 0, isTd || isSafety || failed4th);
+    // A touchdown or safety on the last snap of the half: roll the quarter
+    // only after the points are booked. Rolling it inside the clock kicked
+    // off the second half first — possession passed to the receiving team,
+    // and the touchdown was then credited to whoever had the ball: the
+    // defense, about half the time.
+    this.advanceClock(outcomeBucket, 0, isTd || isSafety || failed4th, isTd || isSafety);
 
     this.yardline100 = newYl;
     if (newYl > 0 && newYl < 50.0) this.dCross = true;
@@ -1334,12 +1344,14 @@ export class Game {
       this.st("first_down");
       if (this.down === 3) this.st("third_conv");
       this.touchdown();
+      this.rollQuarter();
       return;
     }
     if (isSafety) {
       this.scorePts(2, this.other());
       this.st("safety", 1, this.other());
       this.freeKick();
+      this.rollQuarter();
       return;
     }
     // running-clock state for the NEXT snap: stopped on an incompletion or if
@@ -1453,6 +1465,26 @@ export class Game {
     }
     return this;
   }
+}
+
+/**
+ * League-average offense, restored.
+ *
+ * The rating, team-strength and synergy layers are each centered on the real
+ * rosters, but they act through logistic and saturating curves, and spreading
+ * teams apart that way costs offense on average: real rosters scored ~19
+ * points a team-game with the layers on against the engine's 21.6 without
+ * them and the NFL's 22.6. This constant nudge (completion log-odds, yards a
+ * carry) applies only when the rating layer is on — the validated rating-free
+ * engine is untouched — and was fitted by `analysis/37_scoring_calibration.ts`
+ * so real rosters score like the league does. Like home field, it moves the
+ * level, not who wins.
+ */
+const OFFENSE_CALIB = { complete: 0.236, rushYards: 0.354 };
+/** Override the calibration — for the fitting script only. */
+export function setOffenseCalibration(c: { complete: number; rushYards: number }): void {
+  OFFENSE_CALIB.complete = c.complete;
+  OFFENSE_CALIB.rushYards = c.rushYards;
 }
 
 export interface GameStaff {

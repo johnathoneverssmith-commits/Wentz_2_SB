@@ -105,7 +105,9 @@ describe("what it must not disturb", () => {
       }
     }
     // the hash of the first 60 pool-free games, recorded before this channel
-    // existed and unchanged by it
-    expect((h >>> 0).toString(16)).toBe("77c0c2b9");
+    // existed and unchanged by it. Re-recorded once, for an engine fix that
+    // is not this channel: a touchdown on the last snap of the first half was
+    // credited to the team receiving the second-half kickoff.
+    expect((h >>> 0).toString(16)).toBe("e2147581");
   }, 120_000);
 });
