@@ -54,7 +54,7 @@ export function reconciliationIssues(s: LeagueState, teamCode: string): Reconcil
   const team = s.teams[teamCode];
 
   if (team) {
-    const used = capUsed(s, teamCode);
+    const used = Math.round(roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0) * 10) / 10;
     if (used > team.cap.total) {
       issues.push({
         kind: "cap",
@@ -225,10 +225,15 @@ export function fillPositionalGaps(s: LeagueState, teamCode: string): number {
   for (const ph of rosterOf(s, teamCode).filter((p) => p.id.startsWith("emg_"))) {
     delete s.players[ph.id];
   }
+  // one read of the roster, not one per position: this runs for every CPU
+  // team on the way out of each market and the deadline, and sixteen scans of
+  // the whole league per team were ~0.5s of every one of those transitions
+  const counts = new Map<string, number>();
+  for (const p of rosterOf(s, teamCode)) counts.set(p.position, (counts.get(p.position) ?? 0) + 1);
   for (const pos of POSITIONS) {
     const need = mins[pos] ?? 0;
     if (need === 0) continue;
-    let have = rosterOf(s, teamCode).filter((p) => p.position === pos).length;
+    let have = counts.get(pos) ?? 0;
     while (have < need) {
       const room = team ? team.cap.total - capUsed(s, teamCode) : 0;
       const street =
