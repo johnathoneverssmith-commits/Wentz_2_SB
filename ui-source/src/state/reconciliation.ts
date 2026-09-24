@@ -198,23 +198,61 @@ export function makeEmergencyPlayer(
   } as Player;
 }
 
+/** A street free agent's deal: one year at the league minimum. */
+const MIN_SALARY_M = 1;
+
 /**
- * Fill every positional hole with the fewest emergency players possible.
+ * Fill every positional hole — from the real market first.
  *
- * Only the gaps, and only after the real market has been exhausted — this
- * runs at reconciliation, by which point anybody available has been available
- * to everybody for five rounds.
+ * This used to go straight to `makeEmergencyPlayer`, on the assumption that
+ * by reconciliation "anybody available has been available to everybody".
+ * But a CPU team that never bid on a kicker (the Master AI, correctly,
+ * values one at almost nothing) or that had just cut its only one was left
+ * with a 0-rated "Replacement K" while sixteen real kickers rated 72-78 sat
+ * unsigned — and a 0-rated kicker misses everything. So a hole is filled by
+ * the best free agent at the position on a one-year minimum deal, the way a
+ * real team signs a street free agent, and only a hole nobody real can fill
+ * (or that the cap cannot absorb even at the minimum) gets a placeholder.
  */
 export function fillPositionalGaps(s: LeagueState, teamCode: string): number {
   const mins = positionalMinimums();
+  const team = s.teams[teamCode];
   let made = 0;
+  // A placeholder from an earlier reconciliation — or from a save made before
+  // the market was tried first — gives way to a real player the moment one
+  // can be signed, so a league that was already kicking with a 0-rated
+  // "Replacement K" heals itself here rather than carrying him all year.
+  for (const ph of rosterOf(s, teamCode).filter((p) => p.id.startsWith("emg_"))) {
+    delete s.players[ph.id];
+  }
   for (const pos of POSITIONS) {
     const need = mins[pos] ?? 0;
     if (need === 0) continue;
     let have = rosterOf(s, teamCode).filter((p) => p.position === pos).length;
     while (have < need) {
-      const p = makeEmergencyPlayer(s, teamCode, pos, have);
-      s.players[p.id] = p;
+      const room = team ? team.cap.total - capUsed(s, teamCode) : 0;
+      const street =
+        room >= MIN_SALARY_M
+          ? Object.values(s.players)
+              .filter((p) => p.free_agent && !p.retired && p.position === pos && p.nfl_team === "FA")
+              .sort((a, b) => b.overall - a.overall)[0]
+          : undefined;
+      if (street) {
+        street.free_agent = false;
+        street.nfl_team = teamCode;
+        street.contract = {
+          team_id: teamCode,
+          years_remaining: 1,
+          total_value: MIN_SALARY_M,
+          guaranteed: 0,
+          cap_hit_by_year: [MIN_SALARY_M],
+          signing_bonus: 0,
+        };
+        if (s.standingFreeAgents) s.standingFreeAgents = s.standingFreeAgents.filter((id) => id !== street.id);
+      } else {
+        const p = makeEmergencyPlayer(s, teamCode, pos, have);
+        s.players[p.id] = p;
+      }
       have++;
       made++;
     }
@@ -241,8 +279,15 @@ export function reconcileCpuTeam(s: LeagueState, teamCode: string): void {
     const overSize = issues.some((i) => i.kind === "roster");
 
     if (overCap || overSize) {
-      const cuttable = rosterOf(s, teamCode)
+      // never the last man a positional minimum depends on: the cheapest
+      // player on a roster is usually the kicker or the punter, and cutting
+      // the only one just opened a hole this same loop then had to fill
+      const mins = positionalMinimums();
+      const roster = rosterOf(s, teamCode);
+      const countAt = (pos: string) => roster.filter((x) => x.position === pos).length;
+      const cuttable = roster
         .filter((p) => checkRelease(s, teamCode, p.id).ok && p.overall > 0)
+        .filter((p) => countAt(p.position) > (mins[p.position] ?? 0))
         .sort((a, b) => (a.contract?.cap_hit_by_year[0] ?? 0) - (b.contract?.cap_hit_by_year[0] ?? 0));
       // cut the cheapest when crowded, the dearest when broke
       const victim = overCap && !overSize ? cuttable[cuttable.length - 1] : cuttable[0];

@@ -174,6 +174,7 @@ describe("a humans-only league with three human GMs, online", () => {
     const seen: Stage[] = [];
     let kickoffs = 0;
     let crowned: string | null = null;
+    let deadlines = 0;
 
     for (let guard = 0; guard < 600; guard++) {
       const before = s.stage;
@@ -196,11 +197,16 @@ describe("a humans-only league with three human GMs, online", () => {
         expect(s.bracket.format).toBe("single");
         expect(s.games.filter((g) => g.phase === "REG" && g.played)).toHaveLength(36);
       }
-      if (before !== "preseason" && s.stage === "preseason" && ++kickoffs === 2) break;
+      if (before !== "preseason" && s.stage === "preseason") kickoffs++;
+      if (before === "tradeDeadline") deadlines++;
+      // into year two, far enough to reach its deadline: the rollover used to
+      // keep last season's deadline, so no later season ever had one
+      if (kickoffs === 2 && deadlines === 2) break;
     }
 
     expect(crowned, `never crowned a champion; saw ${seen.slice(-15).join(" -> ")}`).not.toBeNull();
     expect(kickoffs, "never reached a second season").toBe(2);
+    expect(deadlines, "the second season had no trade deadline").toBe(2);
     // year two: the same four teams, a fresh round robin
     expect(Object.keys(s.teams)).toHaveLength(4);
     expect(s.schedule.filter((g) => g.phase === "REG")).toHaveLength(36);

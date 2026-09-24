@@ -49,9 +49,9 @@ import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.
 import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconcileCpuTeam } from "@/state/reconciliation.ts";
-import { runCpuTrainingCamps } from "@/state/trainingCamp.ts";
+import { openTrainingCamp } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
-import { clearHoodedFigureTemporaryEffects, ensureHoodedFigureEncounters } from "@/state/hoodedFigure.ts";
+import { ensureHoodedFigureEncounters } from "@/state/hoodedFigure.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
 import { resetSeasonStats } from "@/state/standings.ts";
@@ -241,6 +241,9 @@ function rollOverSeason(state: LeagueState): void {
   finalizeSeason(state);
   state.season += 1;
   state.bracket = null;
+  // the deadline only opens when there isn't one — keep last year's and no
+  // season after the first ever has a deadline or a midseason market
+  state.tradeDeadline = null;
   state.games = [];
   state.draft = null;
   state.freeAgency = null;
@@ -255,7 +258,6 @@ function rollOverSeason(state: LeagueState): void {
   forgetOldRetirees(state); // and a save shouldn't carry them forever
   applySeasonAging(state, state.season);
   fillRosterGaps(state);
-  clearHoodedFigureTemporaryEffects(state); // §28: this season's bargains have run their course
   state.draftClass = sim.generateDraftClass(state.season, state.season);
   for (const code of Object.keys(state.teams)) {
     const team = state.teams[code]!;
@@ -381,7 +383,9 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // Change 5: the CPU teams run their camps as the stage opens, so a human
   // arriving at the depth chart is the only one with anything outstanding.
   if (state.stage === "trainingCamp") {
-    runCpuTrainingCamps(state, humanTeamsOf(state));
+    // a fresh camp each season — it used to open once ever, so from year two
+    // every team read as having already trained
+    openTrainingCamp(state, humanTeamsOf(state));
   }
 
   // The catch-up mechanic's offer: CPU teams never receive it (§3), so there

@@ -59,6 +59,8 @@ export interface TrainingCampResult {
 export interface TrainingCampState {
   plans: Record<string, TrainingCampPlan>;
   results: Record<string, TrainingCampResult[]>;
+  /** The season these plans and results belong to. */
+  season?: number;
 }
 
 export function emptyPlan(): TrainingCampPlan {
@@ -69,9 +71,33 @@ export function emptyPlan(): TrainingCampPlan {
   };
 }
 
+/**
+ * Open this season's camp — once per season.
+ *
+ * It used to open once *ever*: the state was created the first time and
+ * never cleared, so from the second season on every team read as having
+ * already run camp. The viewer's screen said "You already ran camp this
+ * season" over last year's results, `runCpuTrainingCamps` skipped every CPU
+ * team as already submitted, and nobody in the league developed through camp
+ * again. Keyed by season, a new year gets a fresh camp — including a save
+ * written before the key existed, whose camp can only be a past season's
+ * once a later one has begun.
+ */
 export function beginTrainingCamp(s: LeagueState): void {
-  if (s.trainingCamp) return;
-  s.trainingCamp = { plans: {}, results: {} };
+  if (s.trainingCamp && s.trainingCamp.season === s.season) return;
+  s.trainingCamp = { plans: {}, results: {}, season: s.season };
+}
+
+/**
+ * The stage opening: a fresh camp for this season, then every CPU team's.
+ * Called from both stage-entry paths (the local store's `applyStageEntry`
+ * and online's `onStageEntered`) — the local one used to skip the CPU camps
+ * entirely, so in a solo dynasty only the viewer's players ever developed.
+ */
+export function openTrainingCamp(s: LeagueState, humanTeams: Set<string>): void {
+  if (s.trainingCamp?.season !== s.season) s.trainingCamp = null;
+  beginTrainingCamp(s);
+  runCpuTrainingCamps(s, humanTeams);
 }
 
 export function planFor(s: LeagueState, teamCode: string): TrainingCampPlan {

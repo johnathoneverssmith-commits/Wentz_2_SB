@@ -67,6 +67,7 @@ import {
 } from "./freeAgencyEvent.ts";
 import {
   checkCampSubmission,
+  openTrainingCamp,
   runTrainingCamp,
   type TrainingCampPlan,
 } from "./trainingCamp.ts";
@@ -81,7 +82,6 @@ import {
 import { markRevealed, markRoundRevealed, markStep, revealedRounds } from "./reveal.ts";
 import {
   checkHoodedFigurePayment,
-  clearHoodedFigureTemporaryEffects,
   ensureHoodedFigureEncounters,
   hoodedFigureEncounterFor,
   resolveHoodedFigureEncounter,
@@ -279,6 +279,10 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // leaving setup in a humans-only league → the league becomes the GMs' teams
   // plus the fewest CPU teams that make it even; every other franchise goes
   if (from === "setup" && isHumansOnly(s)) formHumansOnlyLeague(s);
+
+  // training camp: this season's camp, and every CPU team runs theirs as it
+  // opens (online always did; locally the CPU teams never trained at all)
+  if (to === "trainingCamp") openTrainingCamp(s, humanTeamsOf(s));
 
   // leaving the fantasy draft → undrafted players seed the standing FA
   // market, then every team is brought up to a full 53 (20 rounds only
@@ -483,6 +487,11 @@ export const useStore = create<Store>()(
             finalizeSeason(s);
             s.season += 1;
             s.bracket = null;
+            // Last season's deadline has to go with it: the stage machine only
+            // opens a deadline when there isn't one, so leaving it here meant
+            // every season after the first skipped the trade deadline and the
+            // midseason market entirely.
+            s.tradeDeadline = null;
             s.games = [];
             s.draft = null;
             s.freeAgency = null;
@@ -497,7 +506,6 @@ export const useStore = create<Store>()(
             forgetOldRetirees(s); // and a save file shouldn't carry them forever
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
-            clearHoodedFigureTemporaryEffects(s); // §28: this season's bargains have run their course
             s.draftClass = sim.generateDraftClass(s.season, s.season);
             for (const code of Object.keys(s.teams)) {
               const team = s.teams[code]!;

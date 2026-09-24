@@ -136,6 +136,12 @@ describe("emergency players", () => {
       p.nfl_team = "FA";
       p.free_agent = true;
     }
+    // A hole is filled from the free agents first now, so a placeholder only
+    // exists when nobody real is left to sign — take every unsigned kicker off
+    // the market to get there.
+    for (const p of Object.values(s.players)) {
+      if (p.position === "K" && p.free_agent) p.retired = true;
+    }
     fillPositionalGaps(s, "KC");
     const emergency = rosterOf(s, "KC").filter((p) => p.id.startsWith("emg_"));
     expect(emergency.length).toBeGreaterThan(0);

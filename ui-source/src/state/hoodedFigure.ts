@@ -213,6 +213,10 @@ function tierFor(payment: number, th: HoodedFigureThresholds): HoodedFigureTier 
 /** Call on entering the `hoodedFigureEncounter` stage. Idempotent. */
 export function ensureHoodedFigureEncounters(s: LeagueState): void {
   const hf = ensureHoodedFigureState(s);
+  // A new offseason's encounter is where last season's bargains end — see
+  // `clearHoodedFigureTemporaryEffects`. Only once per offseason: the first
+  // time this season's encounters are created.
+  if (!hf.encountersBySeason[s.season]) clearHoodedFigureTemporaryEffects(s);
   const bySeason = (hf.encountersBySeason[s.season] ??= {});
   for (const g of s.gms) {
     if (!g.isHuman || !g.teamCode) continue;
@@ -762,7 +766,17 @@ export function resolveHoodedFigureEncounter(s: LeagueState, teamCode: string, p
 
 // ---- §28: season-rollover cleanup ----
 
-/** Restores everyone the season's bargains sidelined. Permanent effects (positive ratings, fired coaches) are untouched. */
+/**
+ * Restores everyone the season's bargains sidelined. Permanent effects
+ * (positive ratings, fired coaches) are untouched.
+ *
+ * Runs when the *next* offseason's encounter opens, not at the season
+ * rollover. The encounter always happens before the rollover (training camp →
+ * encounter → depth chart → preseason, where the year turns over), so
+ * clearing at the rollover wiped the bargain the moment it was struck: a
+ * player "done for the season" was back for week 1, and nothing a GM paid
+ * for ever reached the field.
+ */
 export function clearHoodedFigureTemporaryEffects(s: LeagueState): void {
   if (s.hoodedFigure) s.hoodedFigure.unavailable = [];
 }
@@ -780,6 +794,20 @@ export function filterHoodedFigureAvailable(s: LeagueState, players: Player[], w
 }
 
 // ---- §25: the public "League Developments" reveal ----
+
+/**
+ * Which offseason's encounters League Developments reports.
+ *
+ * The reveal is shown after the preseason, and the season number turns over
+ * on the way into the preseason — so by the time anyone reads it, the
+ * encounters it describes are filed under the year before. Reading the
+ * current year reported "a quiet offseason" over every bargain ever struck.
+ */
+export function developmentsSeason(s: Pick<LeagueState, "season" | "stage">): number {
+  return s.stage === "leagueDevelopments" || s.stage === "preseason" || s.stage === "regularSeason"
+    ? s.season - 1
+    : s.season;
+}
 
 export interface LeagueDevelopmentEntry {
   teamCode: string;
@@ -799,7 +827,7 @@ const SWINDLE_LINES = [
 
 /** Deterministic, identical for every viewer: tier descending, team code as tiebreak. Never reveals payment/tier for a non-swindle bargain. */
 export function leagueDevelopmentsFor(s: LeagueState): LeagueDevelopmentEntry[] {
-  const bySeason = s.hoodedFigure?.encountersBySeason[s.season] ?? {};
+  const bySeason = s.hoodedFigure?.encountersBySeason[developmentsSeason(s)] ?? {};
   const entries: LeagueDevelopmentEntry[] = [];
   for (const encounter of Object.values(bySeason)) {
     if (!encounter.resolved || encounter.payment < MIN_PAYMENT) continue;
