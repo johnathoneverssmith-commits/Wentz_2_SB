@@ -30,6 +30,7 @@ import {
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
+import { applyExtension, extensionAsk } from "./contracts";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
@@ -1637,6 +1638,8 @@ export function finalizeSeason(s: LeagueState): void {
   // toward every human team's Hooded Figure losing streak.
   if (!s.games.some((g) => g.phase === "REG" && g.played)) return;
   s.history.push(...sim.finalizeSeasonOutcomes(s));
+  // the CPU teams keep the players worth keeping before their deals run out
+  resignAiCore(s);
   // the year has been played, so every contract is a year shorter — and the
   // ones that just ran out hit the market in time for this offseason's window
   expireContracts(s);
@@ -1644,6 +1647,60 @@ export function finalizeSeason(s: LeagueState): void {
   // Hooded Figure eligibility (§4): reads the history rows just pushed above,
   // so this has to run after them, not before.
   updateHoodedFigureStreaks(s);
+}
+
+/**
+ * CPU teams re-sign the players they would be foolish to lose.
+ *
+ * Nothing did: every expiring contract on a CPU team went straight to the
+ * market, stars included. Over ten seasons, 29 of the 31 first-round picks of
+ * one class were gone from their teams the offseason their rookie deals ran
+ * out, and rosters bled their best players every year. A real front office
+ * extends its core before the market opens, and so do these — the starters
+ * and the good depth at a position, young enough to be worth it, at the price
+ * the player asks (`extensionAsk`, the same number a human is quoted), best
+ * first, while next year's payroll leaves room for the draft class and the
+ * depth fill. Human teams are never touched: that is the GM's call.
+ */
+const RESIGN_CAP_BUFFER = 18;
+const ELITE_RESIGN_CAP_BUFFER = 6;
+export function resignAiCore(s: LeagueState): number {
+  let signed = 0;
+  for (const code of Object.keys(s.teams)) {
+    if (!isAiTeam(s, code)) continue;
+    const team = s.teams[code]!;
+    const roster = Object.values(s.players).filter(
+      (p) => p.nfl_team === code && !p.retired && !p.free_agent && p.contract,
+    );
+    // what next season already costs: every deal that runs past this one
+    let committed = roster.reduce(
+      (n, p) => n + ((p.contract!.years_remaining ?? 0) >= 2 ? (p.contract!.cap_hit_by_year[1] ?? 0) : 0),
+      0,
+    );
+    const rankAt = (p: Player): number =>
+      roster.filter((x) => x.position === p.position && x.overall > p.overall).length;
+    const expiring = roster
+      .filter((p) => (p.contract!.years_remaining ?? 0) <= 1)
+      .filter((p) => {
+        const starters = ROSTER_TEMPLATE.find((r) => r.pos === p.position)?.starters ?? 0;
+        const keeper = p.overall >= 80 || (p.overall >= 70 && rankAt(p) < starters + 1);
+        const declining = p.age >= (p.decline_age_threshold ?? 32) + 1 && p.overall < 85;
+        return keeper && !declining && starters > 0;
+      })
+      .sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position));
+    for (const p of expiring) {
+      const ask = extensionAsk(p);
+      // a franchise player is kept even when it squeezes the draft budget
+      const buffer = p.overall >= 88 ? ELITE_RESIGN_CAP_BUFFER : RESIGN_CAP_BUFFER;
+      if (committed + ask.baseSalary > team.cap.total - buffer) continue;
+      // budgeted against next year's commitments above, not this year's
+      // payroll — at season's end a third of that payroll is about to expire
+      applyExtension(p, ask);
+      committed += ask.baseSalary;
+      signed++;
+    }
+  }
+  return signed;
 }
 
 export function isInSeason(stage: Stage): boolean {

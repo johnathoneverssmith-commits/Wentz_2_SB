@@ -175,6 +175,14 @@ export function extendContract(
     }
   }
 
+  applyExtension(p, offer);
+  return { ok: true };
+}
+
+/** Rewrite a deal as extended — the part of `extendContract` after the checks. */
+export function applyExtension(p: Player, offer: { baseSalary: number; years: number; guaranteed: number }): void {
+  const c = p.contract;
+  if (!c) return;
   const thisYear = c.cap_hit_by_year[0] ?? 0;
   const carried = c.prorated_per_year ?? 0; // old restructure money, still owed
   c.years_remaining = 1 + offer.years;
@@ -184,5 +192,4 @@ export function extendContract(
   ];
   c.total_value = round1(thisYear + (offer.baseSalary + carried) * offer.years);
   c.guaranteed = round1(offer.guaranteed);
-  return { ok: true };
 }

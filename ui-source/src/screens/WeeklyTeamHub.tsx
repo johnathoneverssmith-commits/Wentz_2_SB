@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
@@ -196,6 +197,7 @@ export function WeeklyTeamHub() {
       />
 
       <Panel id="overview" open={active === "overview"}>
+        {code && <ExpiringContracts teamCode={code} />}
         {/* inert in a single-player dynasty; the component decides */}
         <LeagueRoster />
         {/*
