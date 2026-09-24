@@ -31,6 +31,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { applyExtension, extensionAsk } from "./contracts";
+import { runCoachingCarousel } from "./coachingCarousel";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
@@ -1640,6 +1641,8 @@ export function finalizeSeason(s: LeagueState): void {
   s.history.push(...sim.finalizeSeasonOutcomes(s));
   // the CPU teams keep the players worth keeping before their deals run out
   resignAiCore(s);
+  // and turn over the staffs that failed
+  runCoachingCarousel(s);
   // the year has been played, so every contract is a year shorter — and the
   // ones that just ran out hit the market in time for this offseason's window
   expireContracts(s);

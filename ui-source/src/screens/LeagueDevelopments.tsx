@@ -4,6 +4,7 @@ import { Card, CardHeader } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { leagueDevelopmentsFor, swindleLineFor, type LeagueDevelopmentEntry } from "@/state/hoodedFigure";
+import type { CoachingChange } from "@/state/coachingCarousel";
 import { useStore } from "@/state/store";
 import { millions } from "@/util/format";
 
@@ -94,11 +95,39 @@ export function LeagueDevelopments() {
           entries.map((e, i) => <EntryCard key={`${e.teamCode}-${i}`} e={e} season={s.season} />)
         )}
       </div>
+      <CoachingCarousel changes={(s.coachingChanges ?? []).filter((c) => c.season === s.season - 1)} />
       <ReadinessGate
         title="League developments readiness"
         label="Continue to the Regular Season"
         onAdvance={(r) => nav(r)}
       />
     </Card>
+  );
+}
+
+const ROLE_LABEL: Record<string, string> = { HC: "head coach", OC: "offensive coordinator", DC: "defensive coordinator" };
+
+/** The offseason's CPU staff moves — who was let go, and who replaced him. */
+function CoachingCarousel({ changes }: { changes: CoachingChange[] }) {
+  if (changes.length === 0) return null;
+  return (
+    <div className="panel open" style={{ display: "grid", gap: 8, marginTop: 12 }}>
+      <p className="sectionlabel" style={{ margin: 0 }}>
+        Coaching carousel
+      </p>
+      {changes.map((c, i) => (
+        <div key={`${c.team}-${c.role}-${i}`} style={{ fontSize: 12.5 }}>
+          <strong>{teamName(c.team)}</strong>{" "}
+          {c.departed ? (
+            <>
+              {c.reason === "fired" ? "fired" : "parted ways with"} {ROLE_LABEL[c.role]} {c.departed}
+            </>
+          ) : (
+            <>filled an open {ROLE_LABEL[c.role]} job</>
+          )}
+          {c.hired ? <> · hired {c.hired}</> : <> · the job is open</>}
+        </div>
+      ))}
+    </div>
   );
 }

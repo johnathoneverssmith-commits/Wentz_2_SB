@@ -266,6 +266,8 @@ export interface LeagueState {
   returnTo: string | null;
 
   history: SeasonOutcome[];
+  /** CPU coaching changes, the last three offseasons (`coachingCarousel.ts`). */
+  coachingChanges?: import("@/state/coachingCarousel").CoachingChange[];
   /** Hooded Figure catch-up mechanic state. Null until first needed. */
   hoodedFigure: HoodedFigureLeagueState | null;
 }
