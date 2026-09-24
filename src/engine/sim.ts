@@ -358,11 +358,11 @@ export class Game {
     const offRoster = this.off();
     const out = this.injuredOut;
     const tackleOnRun = (): string | undefined =>
-      weighted([[d.ILB1, 15], [d.ILB2, 13], [d.S1, 10], [d.S2, 9], [d.EDGE1, 9], [d.EDGE2, 8], [d.DT1, 8], [d.DT2, 7], [d.CB1, 8], [d.CB2, 8]]);
+      weighted([[d.ILB1, 17], [d.ILB2, 14], [d.S1, 11], [d.S2, 9], [d.EDGE1, 9], [d.EDGE2, 8], [d.DT1, 8], [d.DT2, 7], [d.CB1, 5], [d.CB2, 5]]);
     const tackleOnCatch = (): string | undefined =>
       depth === "DEEP"
         ? weighted([[d.S1, 30], [d.S2, 25], [d.CB1, 25], [d.CB2, 20]])
-        : weighted([[d.CB1, 18], [d.CB2, 17], [d.ILB1, 13], [d.ILB2, 12], [d.S1, 13], [d.S2, 11], [d.CB3, 8], [d.EDGE1, 4], [d.EDGE2, 4]]);
+        : weighted([[d.CB1, 13], [d.CB2, 12], [d.ILB1, 16], [d.ILB2, 13], [d.S1, 15], [d.S2, 13], [d.CB3, 7], [d.EDGE1, 4], [d.EDGE2, 4]]);
 
     const forcer = (): string | undefined =>
       pick(call === "run" ? [d.ILB1, d.EDGE1, d.DT1, d.CB1] : [d.CB1, d.S1, d.ILB1, d.EDGE1]);
@@ -391,19 +391,25 @@ export class Game {
     if (call === "sack") {
       return {
         passer: o.QB1?.name,
-        defender: weighted([[d.EDGE1, 30], [d.EDGE2, 24], [d.DT1, 15], [d.DT2, 10], [d.ILB1, 9], [d.ILB2, 5], [d.S1, 4], [d.CB1, 3]]),
+        // spread like a real rush: the best edge leads, but a season's sacks
+        // run through the whole front (the leader was reaching 35-47)
+        defender: weighted([[d.EDGE1, 24], [d.EDGE2, 21], [d.DT1, 15], [d.DT2, 11], [d.ILB1, 9], [d.ILB2, 6], [d.S1, 5], [d.CB1, 4], [d.CB2, 3], [d.S2, 2]]),
       };
     }
 
     // pass (complete / incomplete / interception / fumble after the catch)
     const passer = o.QB1?.name;
-    const receiverPool: Record<string, (Lineup[keyof Lineup] | undefined)[]> = {
-      BEHIND_LOS: [o.RB1, o.TE1, o.WR3],
-      SHORT: [o.WR2, o.WR3, o.TE1, o.RB1],
-      INTERMEDIATE: [o.WR1, o.WR2, o.TE1],
-      DEEP: [o.WR1, o.WR2],
+    // Target shares by depth, weighted the way offenses actually spread the
+    // ball. The old uniform pools left WR1 out of the short game entirely and
+    // split deep balls two ways, so one receiver could catch 2,500 yards.
+    const rb2 = offRoster.depthAt("RB", 1, out);
+    const receiverPool: Record<string, [Player | null | undefined, number][]> = {
+      BEHIND_LOS: [[o.RB1, 40], [o.TE1, 20], [o.WR3, 15], [rb2, 15], [o.WR2, 10]],
+      SHORT: [[o.WR1, 24], [o.WR2, 22], [o.WR3, 18], [o.TE1, 22], [o.RB1, 14]],
+      INTERMEDIATE: [[o.WR1, 34], [o.WR2, 28], [o.TE1, 22], [o.WR3, 16]],
+      DEEP: [[o.WR1, 36], [o.WR2, 32], [o.WR3, 18], [o.TE1, 14]],
     };
-    const target = pick(receiverPool[depth] ?? [o.WR1, o.WR2, o.WR3, o.TE1]);
+    const target = weighted(receiverPool[depth] ?? [[o.WR1, 1], [o.WR2, 1], [o.WR3, 1], [o.TE1, 1]]);
     if (outcome === "interception") {
       const dPool = depth === "DEEP" ? [d.S1, d.S2, d.CB1, d.CB2] : [d.CB1, d.CB2, d.S1];
       return { passer, targetOrRusher: target, defender: pick(dPool) };
