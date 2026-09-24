@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { onlineSession } from "@/state/online";
+import { SaveBackup } from "./SaveBackup";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -181,6 +183,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Screen Gallery
           </NavLink>
         )}
+        {!onlineSession() && <SaveBackup />}
         <button
           className="reset"
           onClick={() => {
