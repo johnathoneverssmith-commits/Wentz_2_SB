@@ -34,6 +34,7 @@ import {
 } from "../src/engine/playoffs.js";
 import { nflSchedule } from "../src/engine/schedule.js";
 import { Roster, type DepthOrder } from "../src/engine/roster.js";
+import type { Staff } from "../src/engine/staff.js";
 import { simulateGame } from "../src/engine/sim.js";
 import { allStaffs } from "../src/engine/staff-data.js";
 import {
@@ -114,10 +115,15 @@ interface SimulateWeekBody {
   rosters?: Record<string, Player[]>;
   /** the league's talent-impact scale (`Game.talent`); omitted = 1, the validated engine */
   talentScale?: number;
+  /**
+   * team code -> the HC/OC/DC that franchise employs. Without them the
+   * engine's coaching layer never ran in a franchise game at all.
+   */
+  staffs?: Record<string, Staff>;
 }
 
 function handleSimulateWeek(body: SimulateWeekBody) {
-  const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale } = body;
+  const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale, staffs } = body;
   return games.map(({ homeTeam, awayTeam }) => {
     const gameSeed = hashStr(`${seed}|${week}|${phase}|${homeTeam}|${awayTeam}`);
     const homeRoster = rosterFrom(homeTeam, rosters?.[homeTeam], depthCharts?.[homeTeam]);
@@ -132,7 +138,12 @@ function handleSimulateWeek(body: SimulateWeekBody) {
     // game. Keeping it uniform is what lets the viewer's box score and their
     // gamecast describe the same afternoon. Tracing costs ~11% over a plain
     // sim (measured across a 16-game slate), which is noise next to the sim.
-    const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale } as const;
+    // the engine takes a staff pair or none — a game with only one side's
+    // coaches would hand that side the whole coaching layer
+    const homeStaff = staffs?.[homeTeam];
+    const awayStaff = staffs?.[awayTeam];
+    const staffPair = homeStaff && awayStaff ? { homeStaff, awayStaff } : {};
+    const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, ...staffPair } as const;
     const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
     const trace = g.playTrace ?? [];
     const box = extractBoxScore(g, homeTeam, awayTeam, week);
@@ -163,7 +174,7 @@ function handleSimulateWeek(body: SimulateWeekBody) {
     // the viewer's game also gets the play-by-play view; same seed and same
     // options, so it is the same simulated game as the box score above
     return isViewer
-      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster, talentScale }) }
+      ? { ...base, broadcast: broadcastGame(gameSeed, homeTeam, awayTeam, { homeRoster, awayRoster, talentScale, ...staffPair }) }
       : base;
   });
 }
@@ -193,6 +204,7 @@ interface PlayoffRoundBody {
   rosters?: Record<string, Player[]>;
   depthCharts?: Record<string, DepthOrder>;
   talentScale?: number;
+  staffs?: Record<string, Staff>;
   /** how many rounds have already been played, before this call plays the next one. */
   roundsPlayed: number;
 }
@@ -208,7 +220,12 @@ interface PlayoffRoundBody {
  * seed-then-play flow the UI's bracket screen already expects.
  */
 function handlePlayoffRound(body: PlayoffRoundBody) {
-  return withPlayoffRosters(rostersFrom(body.rosters, body.depthCharts), () => playoffRound(body), body.talentScale ?? 1);
+  return withPlayoffRosters(
+    rostersFrom(body.rosters, body.depthCharts),
+    () => playoffRound(body),
+    body.talentScale ?? 1,
+    body.staffs ?? null,
+  );
 }
 
 /** One humans-only playoff game: decided, never tied, on the teams GMs built. */
@@ -220,11 +237,13 @@ function handlePlayoffGame(body: {
   rosters?: Record<string, Player[]>;
   depthCharts?: Record<string, DepthOrder>;
   talentScale?: number;
+  staffs?: Record<string, Staff>;
 }) {
   return withPlayoffRosters(
     rostersFrom(body.rosters, body.depthCharts),
     () => decidePlayoffGame(body.seed, body.homeTeam, body.awayTeam, body.neutralSite ?? false),
     body.talentScale ?? 1,
+    body.staffs ?? null,
   );
 }
 

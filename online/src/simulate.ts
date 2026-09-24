@@ -12,6 +12,7 @@
  * only who calls it and where the answer goes.
  */
 import { talentScaleOf } from "@/state/talentImpact.ts";
+import { staffPairOf } from "./staffs.js";
 import { simulateGame } from "../../src/engine/sim.js";
 import { broadcastGame } from "../../src/engine/broadcast.js";
 import { Roster } from "../../src/engine/roster.js";
@@ -171,6 +172,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
       const watched = humanTeams.has(g.homeTeam) || humanTeams.has(g.awayTeam);
       results.push({
@@ -191,6 +193,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
                 homeRoster,
                 awayRoster,
                 talentScale: talentScaleOf(state.config),
+        ...staffPairOf(state, g.homeTeam, g.awayTeam),
               }) as NonNullable<GameResult["broadcast"]>,
             }
           : {}),

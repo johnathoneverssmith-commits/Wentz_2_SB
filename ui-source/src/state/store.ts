@@ -120,6 +120,7 @@ import {
   beginBidding,
   beginDraft,
   signAiDraftPicks,
+  signUndraftedAsFreeAgents,
   type Subject,
 } from "./rules.ts";
 
@@ -290,6 +291,16 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   if (from === "fantasyDraft" && to === "fantasyDraftSummary") {
     openStandingMarketFromUndrafted(s);
     fillRosterGaps(s);
+  }
+
+  // Leaving the draft summary for free agency — which is where the rookie
+  // signings step now lives (Change 13). The CPU teams sign their classes
+  // and every undrafted prospect goes to the market, before it opens. This
+  // used to hang only off the retired `offseasonSignings` stage below, which
+  // the league no longer enters: every CPU draft class vanished, every year.
+  if (from === "offseasonDraftSummary" && to === "freeAgency") {
+    signAiDraftPicks(s);
+    signUndraftedAsFreeAgents(s);
   }
 
   // leaving rookie signings → the AI teams put their own classes under

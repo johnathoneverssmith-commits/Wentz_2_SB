@@ -10,6 +10,7 @@
  * (matches the nflverse/real-world convention everywhere else). Every other
  * code matches. `toEngine`/`toUi` translate at this boundary only.
  */
+import type { EngineStaff } from "@/state/coachScale";
 import type { GameBroadcast } from "@/domain/broadcast.ts";
 import type { GameResult, Player, ScheduledGame } from "@/domain";
 
@@ -106,6 +107,13 @@ export class HttpSimulationService {
    * injection). `viewer`: the slate's viewer game, if any — gets the full
    * broadcast/gamecast trace back.
    */
+  /** Team staffs keyed in the engine's team-code vocabulary. */
+  private engineStaffsOf(staffs: Record<string, EngineStaff>): Record<string, EngineStaff> {
+    const out: Record<string, EngineStaff> = {};
+    for (const [team, staff] of Object.entries(staffs)) out[toEngine(team)] = staff;
+    return out;
+  }
+
   /** Franchise rosters and depth charts, in the engine's team-code vocabulary. */
   private engineRostersOf(
     rosters: Record<string, Player[]>,
@@ -135,6 +143,7 @@ export class HttpSimulationService {
     viewer: { homeTeam: string; awayTeam: string } | null,
     depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
     talentScale = 1,
+    staffs: Record<string, EngineStaff> = {},
   ): Promise<GameResult[]> {
     const engineRosters: Record<string, Player[]> = {};
     for (const [team, players] of Object.entries(rosters)) {
@@ -157,6 +166,7 @@ export class HttpSimulationService {
       rosters: engineRosters,
       depthCharts: engineDepth,
       talentScale,
+      staffs: this.engineStaffsOf(staffs),
     };
     const results = await post<
       (GameResult & { broadcast?: GameBroadcast & { home: string; away: string } })[]
@@ -231,6 +241,7 @@ export class HttpSimulationService {
     rosters: Record<string, Player[]> = {},
     depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
     talentScale = 1,
+    staffs: Record<string, EngineStaff> = {},
   ): Promise<RawPlayoffRoundResult> {
     const body = {
       seed,
@@ -243,6 +254,7 @@ export class HttpSimulationService {
       // postseason with the reference NFL rosters
       ...this.engineRostersOf(rosters, depthCharts),
       talentScale,
+      staffs: this.engineStaffsOf(staffs),
     };
     const res = await post<RawPlayoffRoundResult>("/playoffs/round", body);
     const translateGame = (g: RawPlayoffGame): RawPlayoffGame => ({
@@ -268,6 +280,7 @@ export class HttpSimulationService {
     rosters: Record<string, Player[]>,
     depthCharts: Record<string, Partial<Record<string, string[]>>> = {},
     talentScale = 1,
+    staffs: Record<string, EngineStaff> = {},
   ): Promise<{ homeScore: number; awayScore: number; winner: string }> {
     const res = await post<{ homeScore: number; awayScore: number; winner: string }>("/playoffs/game", {
       seed,
@@ -276,6 +289,7 @@ export class HttpSimulationService {
       neutralSite,
       ...this.engineRostersOf(rosters, depthCharts),
       talentScale,
+      staffs: this.engineStaffsOf(staffs),
     });
     return { homeScore: res.homeScore, awayScore: res.awayScore, winner: toUi(res.winner) };
   }

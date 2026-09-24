@@ -42,6 +42,7 @@ import {
   sbWonByHuman,
   finalizeSeason,
   signAiDraftPicks,
+  signUndraftedAsFreeAgents,
   applyPick,
 } from "@/state/rules.ts";
 import { fillRosterGaps, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
@@ -410,6 +411,13 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (from === "fantasyDraft" && state.stage === "fantasyDraftSummary") {
     openStandingMarketFromUndrafted(state);
     fillRosterGaps(state);
+  }
+  // the draft summary now leads straight into free agency (Change 13): the
+  // CPU classes are signed and the undrafted go to the market here, or they
+  // never are — the branch below hangs off a stage the league no longer enters
+  if (from === "offseasonDraftSummary" && state.stage === "freeAgency") {
+    signAiDraftPicks(state);
+    signUndraftedAsFreeAgents(state);
   }
   // see the same note in the store: the free-agency stage is gone, so the AI's
   // draft-class signings and the roster trim hang off the depth-chart gate

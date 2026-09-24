@@ -13,6 +13,7 @@
 import type { Conference } from "./nfl-structure.js";
 import type { ConferenceSeeding } from "./standings.js";
 import type { Roster } from "./roster.js";
+import type { Staff } from "./staff.js";
 import { simulateGame } from "./sim.js";
 
 export type PlayoffRound = "wildcard" | "divisional" | "conference" | "superbowl";
@@ -59,22 +60,27 @@ const SEED_STRIDE = 1_000_003; // spread re-sim seeds far apart
 let _playoffRosters: Readonly<Record<string, Roster>> | null = null;
 
 let _playoffTalent = 1;
+let _playoffStaffs: Readonly<Record<string, Staff>> | null = null;
 
 /** Run `fn` with playoff games played by these rosters, at this talent scale. */
 export function withPlayoffRosters<T>(
   rosters: Readonly<Record<string, Roster>> | null,
   fn: () => T,
   talentScale = 1,
+  staffs: Readonly<Record<string, Staff>> | null = null,
 ): T {
   const prev = _playoffRosters;
   const prevTalent = _playoffTalent;
+  const prevStaffs = _playoffStaffs;
   _playoffRosters = rosters;
   _playoffTalent = talentScale;
+  _playoffStaffs = staffs;
   try {
     return fn();
   } finally {
     _playoffRosters = prev;
     _playoffTalent = prevTalent;
+    _playoffStaffs = prevStaffs;
   }
 }
 
@@ -86,9 +92,17 @@ function decide(
 ): { homeScore: number; awayScore: number; winner: string; decidedBySeed: boolean } {
   const homeRoster = _playoffRosters?.[home.team];
   const awayRoster = _playoffRosters?.[away.team];
+  const homeStaff = _playoffStaffs?.[home.team];
+  const awayStaff = _playoffStaffs?.[away.team];
   const opts =
     homeRoster && awayRoster
-      ? { neutralSite, homeRoster, awayRoster, talentScale: _playoffTalent }
+      ? {
+          neutralSite,
+          homeRoster,
+          awayRoster,
+          talentScale: _playoffTalent,
+          ...(homeStaff && awayStaff ? { homeStaff, awayStaff } : {}),
+        }
       : { neutralSite };
   for (let k = 0; k < TIE_BREAK_TRIES; k += 1) {
     const g = simulateGame(seed + k * SEED_STRIDE, home.team, away.team, opts);

@@ -3,6 +3,7 @@
  * coach market + first draft class are generated up front so every screen has
  * data to render from the start; setup/draft stages then reassign as needed.
  */
+import { fittedAttributes } from "@/sim/attributeFit";
 import {
   type Coach,
   type Gm,
@@ -196,11 +197,9 @@ function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
     nfl_team: "FA",
     years_pro: clamp(age - 22, 0, 8),
     overall,
-    attributes: {
-      speed: clamp(overall + rng.int(-6, 6), 40, 80),
-      strength: clamp(overall + rng.int(-6, 6), 40, 80),
-      awareness: clamp(overall + rng.int(-8, 4), 40, 80),
-    },
+    // the position's skills, shaped like a real player's of this overall —
+    // three generic attributes left the engine unable to rate him at all
+    attributes: fittedAttributes(position, overall, () => rng.normal(0, 1)),
     scheme_tags: [],
     dev_age_threshold: age + 2,
     decline_age_threshold: age + 6,
@@ -914,10 +913,25 @@ export function recomputeTeamRatings(state: LeagueState): void {
  * career-final snapshot, not something that keeps drifting off-roster.
  */
 export function applySeasonAging(state: LeagueState, season: number): void {
+  // Training camp is where a rostered player's year of development happens
+  // (`trainingCamp.ts`) — it runs the same aging model, with his position
+  // coach and his coordinator's focus on top. Applying the model here as well
+  // aged every one of them twice a year. It went unnoticed while camp only
+  // ever ran for one team once; with every team training every season, a
+  // ten-season league fell from 55 players rated 90+ to 4. So anyone this
+  // offseason's camp already developed only gets a year older here, and only
+  // the players camp never saw — free agents — take the model at rollover.
+  const campedThisOffseason = new Set<string>();
+  if (state.trainingCamp && state.trainingCamp.season === season - 1) {
+    for (const list of Object.values(state.trainingCamp.results)) {
+      for (const r of list) campedThisOffseason.add(r.playerId);
+    }
+  }
   for (const p of Object.values(state.players)) {
     if (p.retired) continue;
     const rng = new Rng((season * 7349) ^ hashSeed(p.id));
     p.age += 1;
+    if (campedThisOffseason.has(p.id)) continue;
     const base = agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold);
     if (base === 0) continue;
 

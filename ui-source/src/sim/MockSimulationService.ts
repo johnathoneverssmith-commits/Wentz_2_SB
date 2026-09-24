@@ -6,6 +6,7 @@
  */
 import { isHumansOnly } from "@/state/leagueFormat";
 import { talentScaleOf } from "@/state/talentImpact";
+import { coachToUi } from "@/state/coachScale";
 import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket";
 import {
   ROUND_ORDER,
@@ -177,7 +178,7 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
  * calibrated values (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json ->
  * aging_training_camp), not hand-picked. They target the shipped pool's
  * empirical by-round career-starter rates without changing this function's
- * architecture — in particular, `runTrainingCamp` calls this a second time
+ * architecture. They were tuned when `runTrainingCamp` called this a second time
  * per established-player season on top of `applySeasonAging`'s call, so
  * these are deliberately the *per-call* numbers that make the two-call
  * shipped behavior approximate the one-call distribution the original
@@ -185,6 +186,14 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
  * its own if only called once.
  */
 export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: number): number {
+  // A player is now aged exactly once a season (camp for a rostered player,
+  // rollover for a free agent), so the one call takes both calibrated steps.
+  // Taking one step halved every young player's growth and every veteran's
+  // decline — a ten-season league slid from 56 players rated 90+ to 16.
+  return agingStep(rng, age, devAge, declineAge) + agingStep(rng, age, devAge, declineAge);
+}
+
+function agingStep(rng: Rng, age: number, devAge: number, declineAge: number): number {
   if (age < devAge) {
     const yearsToGo = Math.max(1, devAge - age);
     const growth = clamp(rng.normal(0.5, 1.4), 0, 7);
@@ -403,9 +412,6 @@ export class MockSimulationService implements SimulationService {
     const out: Coach[] = [];
     let cid = 0;
 
-    /** Engine band → UI band, order-preserving and clamped. */
-    const band = (v: number, lo: number, hi: number, outLo: number, outHi: number): number =>
-      clamp(Math.round(outLo + ((v - lo) / (hi - lo)) * (outHi - outLo)), outLo, outHi);
 
     const staffs = allStaffs();
     for (const t of TEAMS) {
@@ -421,9 +427,9 @@ export class MockSimulationService implements SimulationService {
         team: t.code,
         contract: deal(),
         // engine game-management/discipline sit ~44–66; aggression is 0–0.45
-        gameManagement: band(staff.headCoach.gameManagement, 44, 66, 55, 95),
-        discipline: band(staff.headCoach.discipline, 44, 66, 55, 95),
-        aggressiveness: band(staff.headCoach.aggression, 0, 0.45, 40, 95),
+        gameManagement: coachToUi("gameManagement", staff.headCoach.gameManagement),
+        discipline: coachToUi("discipline", staff.headCoach.discipline),
+        aggressiveness: coachToUi("aggression", staff.headCoach.aggression),
       });
       out.push({
         id: `c_${++cid}`,
@@ -432,8 +438,8 @@ export class MockSimulationService implements SimulationService {
         team: t.code,
         contract: deal(),
         scheme: staff.oc.scheme,
-        playCallIq: band(staff.oc.rating, 46, 66, 55, 95),
-        tendencyPassRate: band(staff.oc.passBias, -0.05, 0.2, 48, 68),
+        playCallIq: coachToUi("playCalling", staff.oc.rating),
+        tendencyPassRate: coachToUi("passBias", staff.oc.passBias),
       });
       out.push({
         id: `c_${++cid}`,
@@ -442,8 +448,8 @@ export class MockSimulationService implements SimulationService {
         team: t.code,
         contract: deal(),
         scheme: staff.dc.scheme,
-        playCallIq: band(staff.dc.rating, 46, 66, 55, 95),
-        tendencyBlitzRate: band(staff.dc.blitzBias, 0, 0.45, 18, 42),
+        playCallIq: coachToUi("playCalling", staff.dc.rating),
+        tendencyBlitzRate: coachToUi("blitzBias", staff.dc.blitzBias),
       });
     }
 
@@ -564,7 +570,10 @@ export class MockSimulationService implements SimulationService {
 
   generateDraftClass(seed: number, year: number): DraftProspect[] {
     const rng = new Rng(seed ^ (0x4444 + year));
-    const n = 224; // 7 rounds × 32
+    // Seven rounds of 32 is 224 picks; the rest of the board goes undrafted
+    // and reaches free agency (`signUndraftedAsFreeAgents`) — a real class is
+    // far deeper than the draft, and a league needs that depth to refill.
+    const n = 320;
     const notes = [
       "Explosive first step but the tape is streaky against top competition.",
       "Polished technician; questions about the athletic ceiling at the next level.",

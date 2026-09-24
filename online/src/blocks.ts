@@ -1,5 +1,6 @@
 import { broadcastGame } from "../../src/engine/broadcast.js";
 import { talentScaleOf } from "@/state/talentImpact.ts";
+import { staffPairOf } from "./staffs.js";
 import { simulateGame } from "../../src/engine/sim.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
@@ -125,6 +126,7 @@ export function simulateBlock(
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
       results.push({
         id,
@@ -195,6 +197,7 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
     awayRoster: rosterFor(game.awayTeam),
     // the same scale the game was played at, or the replay is another game
     talentScale: talentScaleOf(state.config),
+        ...staffPairOf(state, game.homeTeam, game.awayTeam),
   });
   // the engine spells the Rams differently; the UI should never see that
   const toUi = (c: string): string => (c === "LA" ? "LAR" : c);
@@ -274,6 +277,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         trace: true,
         injuries: true,
         talentScale: talentScaleOf(state.config),
+        ...staffPairOf(state, home, away),
       });
       let [hs, as] = [sim.score[0], sim.score[1]];
       // somebody has to go home; break a tie with the seed rather than

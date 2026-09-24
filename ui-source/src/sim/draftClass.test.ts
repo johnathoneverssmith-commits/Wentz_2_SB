@@ -19,9 +19,9 @@ function classesFor(seeds: number[], year = 2026) {
 }
 
 describe("generateDraftClass", () => {
-  it("produces exactly 224 prospects with valid positions", () => {
+  it("produces 320 prospects (224 picks plus the undrafted) with valid positions", () => {
     const cls = sim.generateDraftClass(1, 2026);
-    expect(cls).toHaveLength(224);
+    expect(cls).toHaveLength(320);
     for (const p of cls) {
       expect(POSITIONS).toContain(p.position);
     }

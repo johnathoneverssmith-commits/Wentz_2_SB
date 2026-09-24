@@ -50,6 +50,7 @@ import type {
 import { ROUND_ORDER } from "@/domain";
 import { isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
 import { talentScaleOf } from "@/state/talentImpact.ts";
+import { coachToUi, engineStaffsFor } from "@/state/coachScale.ts";
 import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket.ts";
 
 import {
@@ -226,33 +227,29 @@ export class HybridSimulationService implements SimulationService {
         const name = c.name ?? fullPersonName(rng);
         const base = { id, name, role: c.role as CoachRole, team: null, contract: null };
         if (c.role === "HC") {
+          // the same engine -> display bands the offline market uses
+          // (`coachScale.ts`); passing the raw engine values through made every
+          // head coach here look mediocre next to a 0-99 position coach
           return {
             ...base,
-            gameManagement: c.gameManagement,
-            discipline: c.discipline,
-            // engine aggression is ~[-1,1], centred on the authored mean (~0.17);
-            // UI aggressiveness is a 0-99 scale centred on 50.
-            aggressiveness: clamp(Math.round(50 + (c.aggression ?? 0) * 100), 1, 99),
+            gameManagement: coachToUi("gameManagement", c.gameManagement ?? 55),
+            discipline: coachToUi("discipline", c.discipline ?? 55),
+            aggressiveness: coachToUi("aggression", c.aggression ?? 0.17),
           };
         }
         if (c.role === "OC") {
           return {
             ...base,
             scheme: c.scheme as OffenseScheme,
-            playCallIq: c.rating,
-            // engine passBias ~[-1,1] -> UI's 0-100 pass-rate share, centred ~58
-            // (matches Mock's own 48-68 range at passBias's authored extremes).
-            tendencyPassRate: clamp(Math.round(58 + (c.passBias ?? 0) * 50), 0, 100),
+            playCallIq: coachToUi("playCalling", c.rating ?? 56),
+            tendencyPassRate: coachToUi("passBias", c.passBias ?? 0.075),
           };
         }
         return {
           ...base,
           scheme: c.scheme as DefenseScheme,
-          playCallIq: c.rating,
-          // engine blitzBias ~[-1,1] -> UI's 0-100 blitz-rate share, centred ~30
-          // — deliberately allowed to exceed Mock's old 18-42 band: a coach
-          // like Brian Flores should read as a real outlier, not clamped flat.
-          tendencyBlitzRate: clamp(Math.round(30 + (c.blitzBias ?? 0) * 50), 0, 100),
+          playCallIq: coachToUi("playCalling", c.rating ?? 56),
+          tendencyBlitzRate: coachToUi("blitzBias", c.blitzBias ?? 0.2),
         };
       };
       // the adapter knows head coaches and coordinators only; the nine
@@ -294,6 +291,8 @@ export class HybridSimulationService implements SimulationService {
         // the engine sorts by rating unless it's given one
         state.depthChart ?? {},
         talentScaleOf(state.config),
+        // the coaches each franchise actually employs
+        engineStaffsFor(state),
       );
     }, () => this.mock.simulateWeek(state, week, phase));
   }
@@ -340,6 +339,7 @@ export class HybridSimulationService implements SimulationService {
             rosters,
             depth,
             talentScaleOf(state.config),
+            engineStaffsFor(state),
           );
           m.homeScore = g.homeScore;
           m.awayScore = g.awayScore;
@@ -360,6 +360,7 @@ export class HybridSimulationService implements SimulationService {
         rosters,
         depth,
         talentScaleOf(state.config),
+        engineStaffsFor(state),
       );
 
       const matchups = bracket.matchups.map((m) => ({ ...m }));

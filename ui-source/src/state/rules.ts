@@ -12,6 +12,8 @@
  * same `LeagueState` it returns the same answer, on a server or in a tab,
  * which is what lets one set of rules govern both.
  */
+import { fittedAttributes } from "@/sim/attributeFit";
+import { Rng } from "@/sim/rng";
 import { replacementLevels, unitGainer } from "./unitValue.ts";
 import {
   type Coach,
@@ -1183,6 +1185,30 @@ export function signAiDraftPicks(s: LeagueState): void {
   }
 }
 
+/**
+ * Every prospect nobody drafted becomes a free agent.
+ *
+ * The class used to be exactly one prospect per pick, so there were no
+ * undrafted rookies at all — and in a small league most of the class was
+ * simply thrown away. With ~400 players leaving the league a year and 224
+ * arriving, the pool shrank until the preseason fill was inventing
+ * replacement-level depth players, and a ten-season league fell from 55
+ * players rated 90+ to 4. Undrafted rookies are how a real league refills
+ * its bottom of the roster; here they reach the market before free agency
+ * opens, carrying their true ratings (the college grade stays a scouting
+ * number) and a real skill profile.
+ */
+export function signUndraftedAsFreeAgents(s: LeagueState): number {
+  const taken = new Set((s.draft?.results ?? []).map((r) => r.selectedId));
+  let n = 0;
+  for (const pr of s.draftClass) {
+    if (taken.has(pr.id) || s.players[`p_rookie_${pr.id}`]) continue;
+    upsertRookiePlayer(s, pr.id, "FA", 0, true);
+    n++;
+  }
+  return n;
+}
+
 export function upsertRookiePlayer(
   s: LeagueState,
   prospectId: string,
@@ -1193,6 +1219,12 @@ export function upsertRookiePlayer(
   const pr = s.draftClass.find((d) => d.id === prospectId)!;
   const slot = Math.max(0.9, 8 - round);
   const id = `p_rookie_${prospectId}`;
+  // A rookie's skills, shaped like a real player's of his (true) overall —
+  // he used to arrive with speed/strength/awareness only, so the engine's
+  // rating families and synergy could not tell a great one from a bust.
+  // Seeded by the prospect, so every machine builds the same rookie.
+  const rng = new Rng(fnv(prospectId));
+  const attributes = fittedAttributes(pr.position, pr.trueOverall, () => rng.normal(0, 1));
   s.players[id] = {
     id,
     name: pr.name,
@@ -1201,7 +1233,7 @@ export function upsertRookiePlayer(
     nfl_team: released ? "FA" : teamCode,
     years_pro: 0,
     overall: pr.trueOverall,
-    attributes: { speed: 70, strength: 70, awareness: 60 },
+    attributes,
     scheme_tags: [],
     dev_age_threshold: pr.age + 3,
     decline_age_threshold: pr.age + 10,
@@ -1636,4 +1668,14 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     results: [],
     targetsByGm: Object.fromEntries(s.gms.filter((g) => g.isHuman).map((g) => [g.id, []])),
   };
+}
+
+/** FNV-1a, for seeding per-player generation from a stable id. */
+function fnv(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
