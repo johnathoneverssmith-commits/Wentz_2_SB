@@ -39,3 +39,6 @@ scratch/
 # diagnostic run's CSVs/JSONL, not source; regenerate with the command in
 # ui-source/scripts/FRANCHISE_STRESS_TEST.md
 /artifacts/franchise_validation/
+
+# local online-testing database (online/dev/local-db.ts)
+.pglite-data/

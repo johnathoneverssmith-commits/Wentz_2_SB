@@ -1,0 +1,59 @@
+name: Test and deploy Render
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: production-render
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ui-source/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix ui-source
+      - run: npm run typecheck
+      - run: npm run online:typecheck
+      - run: npm --prefix ui-source run build
+      - run: npm test
+      - run: npm --prefix ui-source run test
+      # the league server runs the client's rules; its suite is what catches
+      # a change that works in the dynasty and breaks the online league
+      - run: npm run online:test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      UI_DEPLOY_HOOK: ${{ secrets.RENDER_UI_DEPLOY_HOOK }}
+      API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+      DEPLOY_UI_URL: ${{ vars.DEPLOY_UI_URL }}
+      DEPLOY_API_URL: ${{ vars.DEPLOY_API_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require deployment configuration
+        run: |
+          test -n "$UI_DEPLOY_HOOK" || { echo "Missing RENDER_UI_DEPLOY_HOOK secret"; exit 1; }
+          test -n "$API_DEPLOY_HOOK" || { echo "Missing RENDER_API_DEPLOY_HOOK secret"; exit 1; }
+          test -n "$DEPLOY_UI_URL" || { echo "Missing DEPLOY_UI_URL repository variable"; exit 1; }
+          test -n "$DEPLOY_API_URL" || { echo "Missing DEPLOY_API_URL repository variable"; exit 1; }
+      - name: Deploy this exact commit to both Render services
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          node scripts/trigger-render-deploys.mjs
+      - name: Verify both services are serving this commit
+        env:
+          DEPLOY_EXPECTED_COMMIT: ${{ github.sha }}
+        run: node scripts/verify-deployment.mjs --wait-seconds 900
