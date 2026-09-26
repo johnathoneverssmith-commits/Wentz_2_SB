@@ -80,7 +80,8 @@ type Situation =
  * out by the substitutions below — each template draws from the context, so
  * the same line about two different teams reads differently.
  *
- * `{team}` `{gm}` `{star}` `{unit}` `{margin}` are filled from the context.
+ * `{team}` `{gm}` `{star}` `{unit}` `{margin}` are filled from the context,
+ * and `{games}` is the margin counted in games ("1 game", "3 games").
  */
 const LIBRARY: Record<Situation, string[]> = {
   blowoutWin: [
@@ -154,7 +155,7 @@ const LIBRARY: Record<Situation, string[]> = {
     "{team} raise a banner. Historically, the year after is where this gets funny.",
   ],
   lastSeasonGood: [
-    "{team} went {margin} games over .500 last year, and {gm} has taken that as a personality.",
+    "{team} went {games} over .500 last year, and {gm} has taken that as a personality.",
     "{gm}'s team was good last season. {star} was the reason, and he would like that noted.",
     "{team} were one of the better outfits in the league and still could not fix the {unit}.",
     "{gm} had a winning season, which in this league buys roughly nine weeks of patience.",
@@ -171,7 +172,7 @@ const LIBRARY: Record<Situation, string[]> = {
     "{team} got in and got out. {star} deserved better and has said so in several interviews.",
   ],
   raceLeading: [
-    "{team} are in the field at {margin} games over. {gm} has started using the phrase 'championship window' out loud.",
+    "{team} are in the field at {games} over .500. {gm} has started using the phrase 'championship window' out loud.",
     "{gm} holds a playoff spot. The {unit} are doing their best to give it back weekly.",
     "{team} look like a playoff team, which around here counts as an unsolved mystery.",
     "{star} is dragging {team} into the bracket more or less by himself. Somebody get the man a defense.",
@@ -253,7 +254,9 @@ export function roastFor(c: RoastContext, seedKey: string): string {
     .replace(/\{gm\}/g, c.gmName)
     .replace(/\{star\}/g, c.bestPlayer)
     .replace(/\{unit\}/g, c.weakestUnit)
-    .replace(/\{margin\}/g, String(Math.abs(c.biggestMargin)));
+    .replace(/\{margin\}/g, String(Math.abs(c.biggestMargin)))
+    // "at 1 games over" read like a typo in the league's own voice
+    .replace(/\{games\}/g, `${Math.abs(c.biggestMargin)} ${Math.abs(c.biggestMargin) === 1 ? "game" : "games"}`);
 }
 
 /** Build the context for one team from what actually happened. */

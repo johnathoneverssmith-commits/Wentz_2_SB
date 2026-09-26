@@ -72,7 +72,73 @@ const sim = new MockSimulationService();
 
 /** Every human GM has marked themselves ready for the current stage. */
 export function humanGate(state: LeagueState): boolean {
+  if (turnEventOpen(state)) return false;
   return state.gms.filter((g) => g.isHuman).every((g) => state.readiness[g.id]);
+}
+
+/**
+ * A turn-based event still running at the stage it belongs to.
+ *
+ * The coaching draft, both free-agency markets and the trade deadline end
+ * when their own state says so — every turn taken or passed — and the stage
+ * moves with them. Readiness must never end one early: online, a click that
+ * landed a moment after the league moved readied a GM on the *next* stage,
+ * and with everyone ready the midseason market was skipped outright — round
+ * one, turn one, nobody had bid. The player drafts are `draftBoardOpen`.
+ */
+export function turnEventOpen(state: LeagueState): boolean {
+  if (draftBoardOpen(state)) return true;
+  switch (state.stage) {
+    case "coachingDraft": {
+      const d = state.coachingDraft;
+      return !!d && d.currentPickIndex < d.pickOrder.length;
+    }
+    case "freeAgency":
+    case "midseasonFreeAgency":
+      return !!state.freeAgencyEvent && !state.freeAgencyEvent.complete;
+    case "tradeDeadline":
+      return !!state.tradeDeadline && !state.tradeDeadline.done;
+    default:
+      return false;
+  }
+}
+
+/**
+ * A player draft that is not finished and has not reached the point where it
+ * finishes itself.
+ *
+ * The draft ends when its board does (or when every human has made the picks
+ * the threshold asks for, which completes the board) — never because every
+ * GM is marked ready. The draft room hides its ready control, but that is a
+ * courtesy: an online league whose GMs had all pressed ready (a stale tab, a
+ * double click) left the fantasy draft at pick 20 of 640 with twenty players
+ * signed league-wide. Every "is everyone ready?" gate asks this too.
+ */
+export function draftBoardOpen(state: LeagueState): boolean {
+  const d = state.draft;
+  return (
+    (state.stage === "fantasyDraft" || state.stage === "offseasonDraft") &&
+    !!d &&
+    d.currentPickIndex < d.pickOrder.length &&
+    !draftThresholdMet(state)
+  );
+}
+
+/**
+ * Leaving a draft stage: whatever the threshold left undrafted is drafted
+ * now, so the stage-entry work that reads `draft.results` sees every pick.
+ * A no-op on a finished board and outside the drafts. Called by both the
+ * store's `applyStageEntry` and online's `advanceStage`.
+ */
+export function finishDraftBoard(state: LeagueState): void {
+  const d = state.draft;
+  if (
+    (state.stage === "fantasyDraft" || state.stage === "offseasonDraft") &&
+    d &&
+    d.currentPickIndex < d.pickOrder.length
+  ) {
+    completeDraft(state);
+  }
 }
 
 /**
@@ -1313,6 +1379,15 @@ export function upsertRookiePlayer(
   s.players[id] = {
     id,
     name,
+    // a hidden ceiling: younger and better prospects have more room to grow,
+    // and early picks carry the widest upside — with one spread for every
+    // round, the league's 90-plus players aged 25 and under fell from 18 to
+    // about 4 in a decade, because almost nobody drafted had the room
+    potential: Math.min(
+      99,
+      pr.trueOverall +
+        Math.max(2, Math.round(rng.normal(9 + Math.max(0, 3 - round) - Math.max(0, pr.age - 21) * 1.5, round <= 2 ? 6 : 4.5))),
+    ),
     position: pr.position,
     age: pr.age,
     nfl_team: released ? "FA" : teamCode,
@@ -1320,7 +1395,9 @@ export function upsertRookiePlayer(
     overall: pr.trueOverall,
     attributes,
     scheme_tags: [],
-    dev_age_threshold: pr.age + 3,
+    // four developing years, not three: a first-rounder drafted at 22 stopped
+    // growing at 25 and the league's young stars dried up
+    dev_age_threshold: pr.age + 4,
     decline_age_threshold: pr.age + 10,
     injury_history: [],
     contract: released

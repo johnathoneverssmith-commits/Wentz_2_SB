@@ -124,7 +124,7 @@ describe("starting an online league", () => {
     expect(a.draft!.pickOrder).toEqual(b.draft!.pickOrder);
   });
 
-  it("leaves the draft with full rosters, not twenty-man ones", () => {
+  it("leaves the draft with the undrafted on the market, and fills after it", () => {
     const state = onlineLeague(2);
     claim(state, 0, "KC");
     claim(state, 1, "BUF");
@@ -141,13 +141,16 @@ describe("starting an online league", () => {
     advanceStage(state); // -> fantasyDraftSummary
     expect(state.stage).toBe("fantasyDraftSummary");
 
-    // twenty rounds hands each team twenty players; the gap is filled on the
-    // way out, and online nothing was doing it
-    const kc = Object.values(state.players).filter(
-      (p) => p.nfl_team === "KC" && !p.retired && !p.free_agent,
-    );
-    expect(kc.length).toBeGreaterThan(40);
+    // everyone the draft passed over opens year-one free agency; the fill to
+    // a full roster waits until that market closes (freeAgencySummary), the
+    // same as the local store
+    const drafted = new Set(state.draft!.results.map((r) => r.selectedId));
+    const undrafted = Object.values(state.players).filter((p) => !p.retired && !drafted.has(p.id));
+    expect(undrafted.length).toBeGreaterThan(0);
+    expect(undrafted.every((p) => p.free_agent && p.nfl_team === "FA")).toBe(true);
+    expect(state.rosterFillPending).toBe(true);
   });
+
 
   it("hands the clock to a person, not to an AI team", () => {
     const state = onlineLeague(2);

@@ -104,7 +104,16 @@ export function WeeklyTeamHub() {
   const staffOvr = staffCardsAll.find((c) => c.teamCode === code)?.overall ?? 0;
   const staffRank = rankBy(staffCardsAll, "overall").get(code) ?? 0;
   const isPreseason = s.stage === "preseason";
-  const g = weekGame(s, code);
+  // Reveals do not move `state.week`, so the header follows this GM's own
+  // watching instead: the next game is the first one they haven't seen, and
+  // a block watched to the end has no game left to preview. It used to read
+  // "Preseason Wk 1 @ Philadelphia, 63%" after all three preseason games had
+  // been watched.
+  const hubBlock = currentBlock(s);
+  const watched = hubBlock ? revealedWeek(s, s.viewerGmId, hubBlock.phase) : 0;
+  const blockDone = !!hubBlock && watched >= hubBlock.lastWeek;
+  const headerWeek = hubBlock ? Math.min(Math.max(s.week, watched + 1), hubBlock.lastWeek) : s.week;
+  const g = blockDone ? undefined : weekGame(s, code, headerWeek);
   const oppCode = opponentOf(g, code);
   const opp = oppCode ? s.teams[oppCode] : undefined;
   const iHost = g?.homeTeam === code;
@@ -132,6 +141,23 @@ export function WeeklyTeamHub() {
     .map((gm) => ({ gm, t: s.teams[gm.teamCode]! }))
     .sort((a, b) => winPct(b.t) - winPct(a.t));
 
+  const preseasonRecord = (() => {
+    const mine = (online ? visibleGames(s, s.viewerGmId) : s.games).filter(
+      (x) => x.phase === "PRE" && x.played && (x.homeTeam === code || x.awayTeam === code),
+    );
+    let w = 0;
+    let l = 0;
+    let t = 0;
+    for (const x of mine) {
+      const us = x.homeTeam === code ? x.homeScore : x.awayScore;
+      const them = x.homeTeam === code ? x.awayScore : x.homeScore;
+      if (us > them) w++;
+      else if (us < them) l++;
+      else t++;
+    }
+    return t ? `${w}-${l}-${t}` : `${w}-${l}`;
+  })();
+
   const notes = watchNotes(s);
   const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
@@ -149,13 +175,28 @@ export function WeeklyTeamHub() {
         }
         right={
           <>
-            <p>{!phase ? "Offseason" : isPreseason ? `Preseason Wk ${s.week}` : `Week ${s.week}`}</p>
+            <p>
+              {!phase
+                ? // the deadline and the midseason market are not the offseason
+                  s.stage.startsWith("midseason") || s.stage.startsWith("tradeDeadline")
+                  ? "Mid-season"
+                  : "Offseason"
+                : blockDone
+                  ? isPreseason
+                    ? "Preseason complete"
+                    : `Through week ${watched}`
+                  : isPreseason
+                    ? `Preseason Wk ${headerWeek}`
+                    : `Week ${headerWeek}`}
+            </p>
             <p>
               {oppCode
-                ? `${iHost ? "vs" : "@"} ${TEAMS_BY_CODE[oppCode]!.label} (${record(s.teams[oppCode]!)})`
-                : phase
-                  ? "Bye week"
-                  : STAGE_LABEL[s.stage]}
+                ? `${iHost ? "vs" : "@"} ${TEAMS_BY_CODE[oppCode]!.label}${isPreseason ? "" : ` (${record(s.teams[oppCode]!)})`}`
+                : blockDone
+                  ? "Ready when you are"
+                  : phase
+                    ? "Bye week"
+                    : STAGE_LABEL[s.stage]}
             </p>
           </>
         }
@@ -188,7 +229,13 @@ export function WeeklyTeamHub() {
             ),
           },
           { label: "League rank", value: ordinal(team.ratings.overallRank) },
-          { label: isPreseason ? "Preseason" : "Record", value: record(team), className: "sm" },
+          {
+            label: isPreseason ? "Preseason" : "Record",
+            // preseason games never count in the standings, so the team's
+            // record read 0-0 all preseason; this is what the GM has watched
+            value: isPreseason ? preseasonRecord : record(team),
+            className: "sm",
+          },
         ]}
       />
 
@@ -499,10 +546,19 @@ function RevealControls() {
           disabled={busy}
           onClick={() => {
             setBusy(true);
-            void actions.readyUp(true).finally(() => setBusy(false));
+            const before = useStore.getState().stage;
+            void actions
+              .readyUp(true)
+              .then(() => {
+                // the last GM to commit moves the league: take them there
+                // rather than leaving them on a hub for a finished stage
+                const next = useStore.getState().stage;
+                if (next !== before) nav(STAGE_HOME[next]);
+              })
+              .finally(() => setBusy(false));
           }}
         >
-          {block.advanceLabel}
+          {busy ? "Simulating…" : block.advanceLabel}
         </button>
       </div>
     );

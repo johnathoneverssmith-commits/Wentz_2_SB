@@ -84,13 +84,30 @@ export class OnlineError extends Error {
  * from cold, so this has to be generous rather than snappy.
  */
 const REQUEST_TIMEOUT_MS = 45_000;
+/**
+ * Actions get longer. Readying up at a checkpoint simulates a block of
+ * football on the server, which on a free-tier CPU can itself take half a
+ * minute — abandoning it at 45s reported a failure for a transition that
+ * went on to succeed.
+ */
+const ACTION_TIMEOUT_MS = 100_000;
+
+/**
+ * A request whose outcome is unknown: it timed out or the connection dropped
+ * after it was sent, so the server may or may not have acted on it. Distinct
+ * from `OnlineError`, which is the server saying no.
+ */
+export class OnlineUnansweredError extends Error {}
 
 export class OnlineLeagueClient {
   constructor(private readonly baseUrl = import.meta.env.VITE_LEAGUE_API ?? "http://localhost:8788") {}
 
   private async call<T>(path: string, body?: unknown): Promise<T> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(
+      () => controller.abort(),
+      body === undefined ? REQUEST_TIMEOUT_MS : ACTION_TIMEOUT_MS,
+    );
     let res: Response;
     try {
       res = await fetch(`${this.baseUrl}${path}`, {
@@ -104,9 +121,10 @@ export class OnlineLeagueClient {
       });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        throw new Error("The league server didn't answer in time.");
+        throw new OnlineUnansweredError("The league server didn't answer in time.");
       }
-      throw err;
+      // a dropped connection: same uncertainty as a timeout
+      throw new OnlineUnansweredError("Lost the connection to the league server.");
     } finally {
       clearTimeout(timeout);
     }
@@ -316,10 +334,11 @@ export class OnlineLeagueClient {
       version,
     });
 
-  readyUp = (leagueId: string, ready = true) =>
+  /** `stage` is the one on screen: the server ignores a ready for a stage the league has left. */
+  readyUp = (leagueId: string, ready = true, stage?: string) =>
     this.call<{ moved: boolean; stage: string; autopiloted: string[] }>(
       `/leagues/${leagueId}/actions/ready`,
-      { ready },
+      { ready, stage },
     );
 
   simulateWeek = (leagueId: string) =>

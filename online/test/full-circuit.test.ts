@@ -60,11 +60,9 @@ describe("a season, driven by the buttons", () => {
       decideReveal(s, actorFor(s, i), PRESEASON_WEEKS);
     }
     expect(everyoneReady(s)).toBe(true);
-    // the hooded-figure mechanic's league-wide reveal sits between preseason
-    // and the regular season now — nobody in this fixture is eligible for an
-    // encounter, so it is a single plain "ready" click through
-    expect(s.stage).toBe("leagueDevelopments");
-    expect(everyoneReady(s)).toBe(true);
+    // the hooded-figure mechanic's League Developments reveal only appears
+    // when a bargain was struck; nobody in this fixture is eligible, so the
+    // preseason leads straight into the season
     expect(s.stage).toBe("regularSeason");
     expect(s.week).toBe(1);
 
@@ -84,8 +82,7 @@ describe("a season, driven by the buttons", () => {
   it("gets from the deadline to the playoffs", () => {
     const s = leagueInPreseason();
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), PRESEASON_WEEKS);
-    everyoneReady(s); // -> leagueDevelopments
-    everyoneReady(s); // -> regularSeason
+    everyoneReady(s); // -> regularSeason (no developments to reveal)
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), FIRST_BLOCK_LAST_WEEK);
     everyoneReady(s);
     expect(s.stage).toBe("tradeDeadline");
@@ -120,8 +117,7 @@ describe("a season, driven by the buttons", () => {
   it("gets from the playoffs into the offseason, a round at a time", () => {
     const s = leagueInPreseason();
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), PRESEASON_WEEKS);
-    everyoneReady(s); // -> leagueDevelopments
-    everyoneReady(s); // -> regularSeason
+    everyoneReady(s); // -> regularSeason (no developments to reveal)
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), FIRST_BLOCK_LAST_WEEK);
     everyoneReady(s);
     s.tradeDeadline!.done = true;
@@ -177,8 +173,7 @@ describe("the offseason, driven by the buttons", () => {
   function atEndOfSeason(): LeagueState {
     const s = leagueInPreseason();
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), PRESEASON_WEEKS);
-    everyoneReady(s); // -> leagueDevelopments
-    everyoneReady(s); // -> regularSeason
+    everyoneReady(s); // -> regularSeason (no developments to reveal)
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), FIRST_BLOCK_LAST_WEEK);
     everyoneReady(s);
     s.tradeDeadline!.done = true;

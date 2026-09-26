@@ -5,6 +5,8 @@ import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 
 import { DEFAULT_CONFIG } from "./seed.ts";
 import { useStore } from "./store.ts";
+import { bestCoachingPick, coachingOnTheClock } from "./coachingDraft.ts";
+import { pendingFor } from "./tradeDeadline.ts";
 
 /**
  * Drives the store through a whole franchise year the way a player does —
@@ -96,6 +98,33 @@ async function actOn(stage: Stage): Promise<void> {
     case "playoffs":
       await useStore.getState().simulateGameDay();
       break;
+    // The turn-based events end themselves once every turn is taken — the
+    // readiness gate no longer skips them (it once left the fantasy draft
+    // at pick 20 and skipped a whole midseason market online). So the
+    // viewer takes their turns, the plain way: best available coach, pass
+    // in the market, pass at the deadline.
+    case "coachingDraft":
+      for (let guard = 0; guard < 400 && state().stage === "coachingDraft"; guard++) {
+        const team = coachingOnTheClock(state());
+        const pick = team ? bestCoachingPick(state(), team) : null;
+        if (!pick) break;
+        useStore.getState().draftCoach(pick);
+      }
+      break;
+    case "freeAgency":
+    case "midseasonFreeAgency":
+      for (let guard = 0; guard < 400 && state().stage === stage; guard++) {
+        if (!state().freeAgencyEvent || state().freeAgencyEvent!.complete) break;
+        useStore.getState().freeAgencyTurn({ pass: true });
+      }
+      break;
+    case "tradeDeadline":
+      for (let guard = 0; guard < 400 && state().stage === "tradeDeadline"; guard++) {
+        const duty = pendingFor(state(), viewerTeam());
+        if (!duty) break;
+        useStore.getState().deadlineTurn(duty === "propose" ? { kind: "skip" } : { kind: "deny" });
+      }
+      break;
     default:
       break;
   }
@@ -116,6 +145,8 @@ function viewerTeam(): string {
 async function playStage(): Promise<Stage> {
   const stage = state().stage;
   await actOn(stage);
+  // an event that ended itself has already moved the league on
+  if (state().stage !== stage) return state().stage;
 
   const s = useStore.getState();
   s.autoReadyNonViewers();

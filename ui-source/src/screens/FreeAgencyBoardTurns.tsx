@@ -219,6 +219,7 @@ export function FreeAgencyBoardTurns() {
                       type="button"
                       className="btn-primary"
                       disabled={!yourTurn || busy}
+                      aria-label={isOffering ? `Cancel offer to ${p.name}` : `Offer ${p.name}`}
                       onClick={() => setOffering(isOffering ? null : p)}
                     >
                       {isOffering ? "Cancel" : "Offer"}

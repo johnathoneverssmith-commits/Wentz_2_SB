@@ -32,7 +32,7 @@ const SCREENS: Array<{ to: string; title: string; note: string }> = [
   { to: "/coaching-draft-summary", title: "Coaching Draft Summary", note: "Staff grades" },
   { to: "/free-agency-board", title: "Free Agency (turns)", note: "5 rounds, one offer each" },
   { to: "/free-agency-summary", title: "Free Agency Summary", note: "Signings + reconciliation" },
-  { to: "/training-camp", title: "Training Camp", note: "Focuses + investment" },
+  { to: "/training-camp", title: "Training Camp", note: "Position focuses" },
   { to: "/training-camp-results", title: "Training Camp Results", note: "Every delta" },
   { to: "/results/PRE/1/3", title: "Results (block)", note: "Weekly tabs" },
   { to: "/results/round/WC", title: "Results (playoff round)", note: "One round" },

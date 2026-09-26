@@ -17,7 +17,7 @@ const url = process.env.DATABASE_URL ?? "postgres://localhost:5432/nfl_franchise
 // never does. `rejectUnauthorized: false` still encrypts the connection —
 // what it skips is verifying the CA, which is a reasonable trade for a
 // single small hobby database and not one worth a bundled root-cert file for.
-const isLocal = /^postgres(ql)?:\/\/(localhost|127\.0\.0\.1)([:/]|$)/.test(url);
+const isLocal = /^postgres(ql)?:\/\/([^@/]*@)?(localhost|127\.0\.0\.1)([:/]|$)/.test(url);
 
 export const pool = new Pool({
   connectionString: url,

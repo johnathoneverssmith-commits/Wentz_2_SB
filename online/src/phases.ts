@@ -35,6 +35,7 @@ import {
   clearReadiness,
   commitRetirements,
   humanGate,
+  finishDraftBoard,
   isInSeason,
   openSlots,
   openStandingMarketFromUndrafted,
@@ -117,8 +118,21 @@ export async function readyUp(
   leagueId: string,
   gmId: string,
   ready: boolean,
+  /** The stage the GM was looking at when they pressed. */
+  seenStage?: string,
 ): Promise<AdvanceOutcome> {
   const { result } = await withLeague(leagueId, async ({ state, league }) => {
+    // A ready is for the stage on the GM's screen. When the league has
+    // already left it (their click raced the last GM's), applying it to the
+    // new stage committed them to something they had not seen — twice in a
+    // playthrough that skipped a whole free-agency market. Leave the new
+    // stage untouched and let the client catch up.
+    if (seenStage && seenStage !== state.stage) {
+      return {
+        result: { moved: false, stage: state.stage, autopiloted: [] as string[] },
+        state,
+      } satisfies { result: AdvanceOutcome } & Applied;
+    }
     state.readiness[gmId] = ready;
     // `rosterGate` is what stops one GM starting a league by themselves while
     // the other seats are still empty — see its note in `rules.ts`.
@@ -222,6 +236,9 @@ export function advanceStage(state: LeagueState): { moved: boolean; autopiloted:
   const from = state.stage;
   const t = inSeasonTransition(state);
   if (!t) return { moved: false, autopiloted: [] };
+  // a draft leaves with its board full — a threshold met on an autopick, or
+  // a commissioner pushing the league on, drafts the rest first
+  finishDraftBoard(state);
   if (t.seasonRollover) rollOverSeason(state);
   if (t.resetStats) resetSeasonStats(state);
   state.stage = t.stage;
@@ -409,10 +426,16 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     }
   }
 
-  if (state.stage === "hoodedFigureEncounter") {
+  // (idempotent; on the depth chart too, for the seasons the encounter stage
+  // is skipped — it is also where last season's bargains end)
+  if (state.stage === "hoodedFigureEncounter" || state.stage === "offseasonDepthChart") {
     ensureHoodedFigureEncounters(state);
   }
 
+  if (state.stage === "freeAgencySummary" && state.rosterFillPending) {
+    fillRosterGaps(state);
+    state.rosterFillPending = false;
+  }
   if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
     const humans = humanTeamsOf(state);
     for (const teamCode of Object.keys(state.teams)) {
@@ -425,10 +448,12 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // the same order. Online it was simply absent: the server set a stage field
   // and nothing else, so a league left the draft with twenty-man rosters and
   // reached the preseason unable to field a legal lineup.
+  // every undrafted player opens year-one free agency; the fill waits for
+  // that market to close (same as the store)
   if (from === "fantasyDraft" && state.stage === "fantasyDraftSummary") {
     openStandingMarketFromUndrafted(state);
     fitDraftedPayrolls(state);
-    fillRosterGaps(state);
+    state.rosterFillPending = true;
   }
   // the draft summary now leads straight into free agency (Change 13): the
   // CPU classes are signed and the undrafted go to the market here, or they

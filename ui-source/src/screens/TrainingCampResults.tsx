@@ -137,7 +137,13 @@ export function TrainingCampResults() {
           Advancing is final — you can&rsquo;t come back to camp.
         </span>
       </Footer>
-      <ReadinessGate title="Training camp readiness" onAdvance={(r) => nav(r)} />
+      {/* the stage is still trainingCamp here (results is a step inside it),
+          so its label would read "Advance to End of Training Camp" */}
+      <ReadinessGate
+        title="Training camp readiness"
+        label="Advance to Re-order Depth Chart"
+        onAdvance={(r) => nav(r)}
+      />
     </Card>
   );
 }

@@ -109,6 +109,9 @@ export function DraftRoom() {
           sub: `${p.school} · ${p.classYear} · grade ±${Math.round(rookieOverallSpread((p.projectedRound - 1) * 32 + 16))}`,
         }));
     }
+    // everyone on a fantasy board is unsigned, so "Free agent" under every
+    // name said nothing; where he ranks at his position on the board does
+    const atPosition = new Map<string, number>();
     return (
       Object.values(s.players)
         .filter((p) => !taken.has(p.id) && !p.retired)
@@ -129,7 +132,13 @@ export function DraftRoom() {
           position: p.position,
           age: p.age,
           ovr: p.overall,
-          sub: TEAMS_BY_CODE[p.nfl_team]?.label ?? "Free agent",
+          sub:
+            TEAMS_BY_CODE[p.nfl_team]?.label ??
+            (() => {
+              const n = (atPosition.get(p.position) ?? 0) + 1;
+              atPosition.set(p.position, n);
+              return `${p.position}${n} on the board`;
+            })(),
         }))
     );
   }, [draft, mode, s.players, s.draftClass, taken]);

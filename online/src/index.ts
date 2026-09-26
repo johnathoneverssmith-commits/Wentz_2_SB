@@ -57,8 +57,26 @@ import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js
 import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
 import { isInSeason } from "@/state/rules.ts";
-import { redactedGames, visibleBracket, visibleGames } from "@/state/reveal.ts";
+import { redactedGames, revealedWeek, visibleBracket, visibleGames } from "@/state/reveal.ts";
+import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
 import { openStream } from "./stream.js";
+
+const serverStartedAt = new Date().toISOString();
+
+/* ---- deployment identity --------------------------------------------- */
+
+/**
+ * Public and deliberately free of secrets. This is the authoritative answer
+ * to "which commit is Render actually running?" and lets the release verifier
+ * catch a stale API independently of the static UI.
+ */
+get("/version", async () => ({
+  service: "online-api",
+  commit: process.env.RENDER_GIT_COMMIT ?? process.env.GIT_COMMIT ?? "unknown",
+  branch: process.env.RENDER_GIT_BRANCH ?? process.env.GIT_BRANCH ?? "unknown",
+  serviceId: process.env.RENDER_SERVICE_ID ?? null,
+  startedAt: serverStartedAt,
+}));
 
 /** Body fields, checked at the door so a handler can trust what it reads. */
 function field<T>(ctx: Ctx, name: string, kind: "string" | "number" | "boolean" | "object"): T {
@@ -233,6 +251,15 @@ get("/leagues/:id", async (ctx) => {
   // anyone else who has not watched it.
   state.games = redactedGames(state, franchise?.gmId ?? "");
   if (state.bracket) state.bracket = visibleBracket(state.bracket, state, franchise?.gmId ?? "");
+  // Standings and stats as of what this GM has watched. Team records and
+  // season stats are written when a block is simulated, whole, before anyone
+  // watches it — so the standings, the leaderboards and the MVP race used to
+  // show results from weeks this GM had not reached.
+  if (isInSeason(state.stage) || state.stage === "tradeDeadline" || state.stage.startsWith("midseason")) {
+    recomputeStandings(state);
+    rewindSeasonStats(state, revealedWeek(state, franchise?.gmId ?? "", "REG"));
+  }
+  delete state.statLedger;
 
   return {
     league: { id: loaded.league.id, name: loaded.league.name },
@@ -440,7 +467,12 @@ post("/leagues/:id/actions/contract", async (ctx) =>
 
 post("/leagues/:id/actions/ready", async (ctx) => {
   const a = await actor(ctx);
-  const res = await readyUp(a.leagueId, a.gmId, optional<boolean>(ctx, "ready") ?? true);
+  const res = await readyUp(
+    a.leagueId,
+    a.gmId,
+    optional<boolean>(ctx, "ready") ?? true,
+    optional<string>(ctx, "stage"),
+  );
 
   // In season, "everybody is ready" means *play the week* — there is nothing
   // else for a stage gate to do, because a week advances by being simulated
@@ -492,18 +524,33 @@ if (process.env.NODE_ENV !== "test") {
   });
 
   // The schema still has to exist before anything works, so this is not
-  // optional — but it is recoverable, and a failure here is worth reporting
-  // rather than dying over. The usual cause is the database being unreachable
-  // or over quota, neither of which restarting fixes.
-  void migrate()
-    .then(() => {
-      // eslint-disable-next-line no-console
-      console.log("schema ready");
-    })
-    .catch((err: unknown) => {
-      // eslint-disable-next-line no-console
-      console.error("could not reach the database — serving, but league calls will fail", err);
-    });
+  // optional — but it is recoverable. It retries with backoff rather than
+  // trying once: a free-tier Postgres that is waking up refuses the first
+  // connection, and a single failed attempt left the server up but unable
+  // to serve a single league until someone restarted it.
+  const migrateWithRetry = (attempt: number): void => {
+    migrate()
+      .then(() => {
+        // eslint-disable-next-line no-console
+        console.log("schema ready");
+      })
+      .catch((err: unknown) => {
+        const wait = Math.min(60_000, 2_000 * 2 ** attempt);
+        // eslint-disable-next-line no-console
+        console.error(`could not reach the database — retrying in ${wait / 1000}s`, err);
+        setTimeout(() => migrateWithRetry(attempt + 1), wait).unref();
+      });
+  };
+  migrateWithRetry(0);
 
-setInterval(() => void sweep(), 60_000).unref();
+  // A failed sweep is logged and retried next minute. It used to be a
+  // fire-and-forget promise, so one dropped database connection (a managed
+  // Postgres restarting, a network blip) was an unhandled rejection that took
+  // the whole league server down.
+  setInterval(() => {
+    sweep().catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error("deadline sweep failed; retrying next minute", err);
+    });
+  }, 60_000).unref();
 }

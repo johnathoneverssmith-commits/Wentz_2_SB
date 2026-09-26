@@ -107,6 +107,8 @@ export function simulateBlock(
       state.depthChart[code] as Record<string, readonly string[]> | undefined,
     );
 
+  // a fresh ledger for this block's regular-season weeks (see statLedger)
+  if (phase === "REG") state.statLedger = {};
   let played = 0;
   for (let week = fromWeek; week <= toWeek; week++) {
     const slate = state.schedule.filter((g) => g.week === week && g.phase === phase);

@@ -113,9 +113,25 @@ export interface LeagueActions {
  * ever shows the player anything.
  */
 async function attempt(run: () => Promise<unknown>): Promise<ActionResult> {
-  const versionBefore = onlineSession()?.version;
+  let versionBefore = onlineSession()?.version;
   try {
-    await run();
+    try {
+      await run();
+    } catch (err) {
+      // A 409 is the version check: the league changed since this screen
+      // last loaded. Most of the time that change was somebody else's —
+      // another GM readying up, a CPU pick — and has nothing to do with this
+      // move, but it bounced a draft pick with "the league moved on" while
+      // the player was plainly on the clock. Nothing was applied, and the
+      // server re-checks the move itself (whose turn, still available, still
+      // affordable), so refresh once and send it again; a second conflict,
+      // or any real refusal, is reported as before.
+      if (!(err instanceof OnlineError) || err.status !== 409) throw err;
+      const fresh = await pull();
+      if (fresh) useStore.setState(fresh as never);
+      versionBefore = onlineSession()?.version;
+      await run();
+    }
     return { ok: true };
   } catch (err) {
     const online = onlineSession();
@@ -274,8 +290,12 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.draftCoach(s.leagueId, coachId, s.version))).then(after),
       hireCoach: (coachId) =>
         attempt(() => send((s) => s.client.hireCoach(s.leagueId, coachId, s.version))).then(after),
-      readyUp: (ready) =>
-        attempt(() => send((s) => s.client.readyUp(s.leagueId, ready))).then(after),
+      readyUp: (ready) => {
+        // the stage on screen when pressed, captured now: by the time a
+        // conflict retry resends it the store may already show the next one
+        const stage = useStore.getState().stage;
+        return attempt(() => send((s) => s.client.readyUp(s.leagueId, ready, stage))).then(after);
+      },
       forceAdvance: () =>
         attempt(() => send((s) => s.client.forceAdvance(s.leagueId))).then(after),
       refresh: async () => {

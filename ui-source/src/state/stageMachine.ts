@@ -10,6 +10,7 @@
 import type { LeagueState, Stage } from "@/domain";
 
 import { NFL_SEASON_SHAPE, seasonShape } from "./leagueFormat";
+import { isHoodedFigureEligible, leagueDevelopmentsFor } from "./hoodedFigure";
 
 /**
  * The NFL format's season. A league's own shape comes from `seasonShape` —
@@ -166,7 +167,15 @@ export function resolveTransition(
     case "trainingCamp":
       return { stage: "trainingCampResults", week: 0 };
     case "trainingCampResults":
-      return { stage: "hoodedFigureEncounter", week: 0 };
+      // Only when a human team is eligible. Otherwise every GM, every
+      // season, pressed ready on an empty "Nothing unusual this year" screen
+      // — one more gate for the whole league to wait on. Eligibility (the
+      // league's losing human franchise two seasons running) is already
+      // public in the standings, so skipping gives nothing away. The stage's
+      // entry housekeeping runs on the depth chart instead.
+      return state.gms.some((g) => g.isHuman && g.teamCode && isHoodedFigureEligible(state, g.teamCode))
+        ? { stage: "hoodedFigureEncounter", week: 0 }
+        : { stage: "offseasonDepthChart", week: 0 };
     // The catch-up mechanic's offer, resolved (or auto-skipped for a GM who
     // isn't eligible this season) before the depth chart re-order — always
     // before preseason simulation, per the mechanic's own timing rule.
@@ -180,7 +189,10 @@ export function resolveTransition(
     case "preseason":
       return week < seasonShape(state).preseasonWeeks
         ? { stage: "preseason", week: week + 1 }
-        : { stage: "leagueDevelopments", week };
+        : // the reveal only when there is something to reveal
+          leagueDevelopmentsFor(state).length > 0
+          ? { stage: "leagueDevelopments", week }
+          : { stage: "regularSeason", week: 1, resetStats: true };
     // The league-wide reveal of this season's hooded-figure consequences,
     // shown once preseason has actually been simulated — never before.
     case "leagueDevelopments":

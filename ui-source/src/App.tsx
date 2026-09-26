@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
@@ -180,11 +180,33 @@ function useCheckpoint(): { from: string; to: string } | null {
   return CHECKPOINTS[stage] ?? null;
 }
 
+/**
+ * Leaving the checkpoint for the stage the league moved into.
+ *
+ * The overlay lifts when the last GM commits, and underneath it is whatever
+ * screen this GM committed from — the hub, a summary — for a stage that is
+ * over. Finding 4 asked that every advance land on the next screen; this is
+ * the half of that the button cannot do, because the move happens on someone
+ * else's click. Only on release from the checkpoint, never otherwise: a GM
+ * browsing rosters while the league moves is not yanked anywhere.
+ */
+function useFollowReleasedCheckpoint(held: boolean): void {
+  const nav = useNavigate();
+  const stage = useStore((s) => s.stage);
+  const was = useRef<{ held: boolean; stage: string }>({ held, stage });
+  useEffect(() => {
+    const before = was.current;
+    was.current = { held, stage };
+    if (before.held && !held && before.stage !== stage) nav(STAGE_HOME[stage]);
+  }, [held, stage, nav]);
+}
+
 export function App() {
   // keyed on the route so navigating away from a crashed screen clears it
   const { pathname } = useLocation();
   const resuming = useResumeOnline();
   const checkpoint = useCheckpoint();
+  useFollowReleasedCheckpoint(checkpoint !== null);
   return (
     <AppShell>
       {resuming && (

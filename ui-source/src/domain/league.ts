@@ -4,7 +4,7 @@ import type { DraftProspect, DraftState, DraftPickAsset } from "./draft.ts";
 import type { GameResult, ScheduledGame } from "./game.ts";
 import type { HoodedFigureLeagueState } from "./hoodedFigure.ts";
 import type { Player } from "./player.ts";
-import type { Position } from "./player.ts";
+import type { PlayerStatLine, Position } from "./player.ts";
 import type { TeamState } from "./team.ts";
 
 /**
@@ -268,6 +268,18 @@ export interface LeagueState {
   history: SeasonOutcome[];
   /** Each position's starter quality when the league began (`draftSupply.ts`). */
   positionBaseline?: Partial<Record<Position, number>>;
+  /**
+   * Online only, never sent to a client: each week of the current block's
+   * stat lines, so a GM is shown the season as of the week they've watched
+   * (`rewindSeasonStats`).
+   */
+  statLedger?: Record<number, Record<string, PlayerStatLine>>;
+  /** Accumulated offset of each position from its baseline (`agingBalance`). */
+  agingIntegral?: Partial<Record<Position, number>>;
+  /** The season whose offsets were last banked into `agingIntegral`. */
+  agingIntegralSeason?: number;
+  /** Year one of a fantasy league: rosters fill to 53 after free agency closes. */
+  rosterFillPending?: boolean;
   /** This league's scoring correction for the engine (`scoringCommittee`). */
   offenseAdjust?: number;
   /** The last season whose accrued years were credited (`accrueCareers`). */

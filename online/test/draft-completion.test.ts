@@ -125,3 +125,27 @@ describe("the draft completion threshold", () => {
     expect(new Set(taken).size).toBe(taken.length);
   }, 180_000);
 });
+
+describe("readiness during a draft", () => {
+  // Every GM pressing ready used to end the fantasy draft wherever it stood —
+  // an HTTP playthrough left it at pick 20 of 640 with twenty players signed
+  // league-wide. The board ends the draft; readiness waits for it.
+  it("does not move a league off an unfinished board", async () => {
+    const { readyUpLocal } = await import("../src/phases.js");
+    const s = draftingLeague(2);
+    const at = s.draft!.currentPickIndex;
+    for (const g of s.gms) if (g.isHuman) s.readiness[g.id] = true;
+    expect(readyUpLocal(s)).toBe(false);
+    expect(s.stage).toBe("fantasyDraft");
+    expect(s.draft!.currentPickIndex).toBe(at);
+  });
+
+  it("moves once the board is done", async () => {
+    const { readyUpLocal } = await import("../src/phases.js");
+    const s = draftingLeague(2);
+    completeDraft(s);
+    for (const g of s.gms) if (g.isHuman) s.readiness[g.id] = true;
+    expect(readyUpLocal(s)).toBe(true);
+    expect(s.stage).toBe("fantasyDraftSummary");
+  });
+});

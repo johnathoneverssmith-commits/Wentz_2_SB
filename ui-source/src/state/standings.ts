@@ -1,5 +1,5 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
-import type { GameResult, LeagueState, TeamState } from "@/domain";
+import type { GameResult, LeagueState, PlayerStatLine, TeamState } from "@/domain";
 
 /** Recompute every team's W/L/T + points + ranks from played REG games. */
 export function recomputeStandings(state: LeagueState): void {
@@ -89,6 +89,18 @@ export function accrueSeasonStats(state: LeagueState, results: GameResult[]): vo
       for (const line of g.playerLines?.[side] ?? []) {
         const p = state.players[line.playerId];
         if (!p) continue;
+        // online: what this week added, so a GM who hasn't watched it yet
+        // can be shown the season as of the week they have (`statLedger`)
+        if (state.statLedger && g.phase === "REG") {
+          const week = (state.statLedger[g.week] ??= {});
+          const d = (week[line.playerId] ??= { gamesPlayed: 0 });
+          d.gamesPlayed += 1;
+          for (const [k, v] of Object.entries(line)) {
+            if (typeof v !== "number" || v === 0) continue;
+            const key = k as keyof PlayerStatLine;
+            (d as unknown as Record<string, number>)[key] = ((d as unknown as Record<string, number>)[key] ?? 0) + v;
+          }
+        }
         const s = (p.season_stats ??= { gamesPlayed: 0 });
         s.gamesPlayed += 1;
         s.passYds = (s.passYds ?? 0) + (line.passYds ?? 0);
@@ -118,4 +130,25 @@ export function accrueSeasonStats(state: LeagueState, results: GameResult[]): vo
 /** Wipe every player's accumulating season stats (regular-season week 1). */
 export function resetSeasonStats(state: LeagueState): void {
   for (const p of Object.values(state.players)) p.season_stats = { gamesPlayed: 0 };
+}
+
+/**
+ * The season's player stats as of `throughWeek`, for a GM who hasn't watched
+ * past it: this block's later weeks (`statLedger`) come back off. Online
+ * blocks are simulated whole before anyone watches them, and the stats pages
+ * and MVP race used to show every result of the block the moment it ran.
+ */
+export function rewindSeasonStats(state: LeagueState, throughWeek: number): void {
+  const ledger = state.statLedger;
+  if (!ledger) return;
+  for (const [weekKey, lines] of Object.entries(ledger)) {
+    if (Number(weekKey) <= throughWeek) continue;
+    for (const [playerId, d] of Object.entries(lines)) {
+      const st = state.players[playerId]?.season_stats as unknown as Record<string, number> | undefined;
+      if (!st) continue;
+      for (const [k, v] of Object.entries(d)) {
+        if (typeof v === "number") st[k] = Math.max(0, (st[k] ?? 0) - v);
+      }
+    }
+  }
 }

@@ -163,7 +163,7 @@ export function RetirementReview() {
       */}
       <Footer>
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
-          Nobody waits on you — the draft preview is yours alone.
+          Review the retirements, then continue to the draft preview.
         </span>
         <button
           type="button"

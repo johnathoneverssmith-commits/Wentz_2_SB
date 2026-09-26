@@ -114,6 +114,7 @@ import {
   draftThresholdMet,
   faField,
   finalizeSeason,
+  finishDraftBoard,
   humanGate,
   offerToContract,
   openStandingMarketFromUndrafted,
@@ -281,6 +282,8 @@ function humanTeamsOf(s: LeagueState): Set<string> {
  * which door the league came through.
  */
 function applyStageEntry(s: LeagueState, from: string, to: string): void {
+  // (runs before `s.stage` changes) a draft leaves with its board full
+  finishDraftBoard(s);
   // leaving setup in a humans-only league → the league becomes the GMs' teams
   // plus the fewest CPU teams that make it even; every other franchise goes
   if (from === "setup" && isHumansOnly(s)) formHumansOnlyLeague(s);
@@ -292,10 +295,13 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // leaving the fantasy draft → undrafted players seed the standing FA
   // market, then every team is brought up to a full 53 (20 rounds only
   // hands each team 20 players)
+  // Every player the fantasy draft passed over opens year-one free agency:
+  // the roster fill waits until that market has closed (freeAgencySummary),
+  // instead of spending the undrafted on depth before anyone could bid.
   if (from === "fantasyDraft" && to === "fantasyDraftSummary") {
     openStandingMarketFromUndrafted(s);
     fitDraftedPayrolls(s);
-    fillRosterGaps(s);
+    s.rosterFillPending = true;
   }
 
   // Leaving the draft summary for free agency — which is where the rookie
@@ -346,7 +352,9 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
 
   // the catch-up mechanic's offer, generated once per eligible human GM the
   // moment the stage opens — never regenerated on a later visit
-  if (to === "hoodedFigureEncounter") ensureHoodedFigureEncounters(s);
+  // (idempotent; on the depth chart too, for the seasons the encounter stage
+  // is skipped — it is also where last season's bargains end)
+  if (to === "hoodedFigureEncounter" || to === "offseasonDepthChart") ensureHoodedFigureEncounters(s);
 
   // The cap and the roster limit come back here, and the CPU teams sort
   // themselves out on the way in — the same block online's onStageEntered
@@ -356,6 +364,10 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // They stayed that way until the blanket trim much later in the offseason,
   // so in the meantime League Rosters showed illegal squads and those teams
   // could not take a trade, because `checkTrade` reads the same cap.
+  if (to === "freeAgencySummary" && s.rosterFillPending) {
+    fillRosterGaps(s);
+    s.rosterFillPending = false;
+  }
   if (to === "freeAgencySummary" || to === "midseasonFreeAgencySummary") {
     const humans = humanTeamsOf(s);
     for (const code of Object.keys(s.teams)) {

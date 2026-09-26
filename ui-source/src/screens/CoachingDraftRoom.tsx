@@ -149,6 +149,45 @@ export function CoachingDraftRoom() {
       />
 
       <Panel id="board" open={active === "board"}>
+        {yourPick &&
+          (() => {
+            // twelve rounds a season is a lot of clicking for a staff whose
+            // best available hire is usually obvious — the same suggestion
+            // the player draft offers. The top of the open-jobs board, not
+            // the CPU's pick: that one carries the difficulty setting's
+            // evaluation noise and suggested a 69 under a listed 71.
+            const c =
+              roleFilter === "ALL"
+                ? board[0]
+                : availableCoaches(s)
+                    .filter((x) => openVacancies.has(x.role))
+                    .sort((a, b) => ratingOf(b) - ratingOf(a))[0];
+            if (!c) return null;
+            return (
+              <div
+                className="team-callout"
+                style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+                role="status"
+              >
+                <span style={{ flex: 1, minWidth: 200 }}>
+                  You're on the clock — best available for your open jobs:{" "}
+                  <strong style={{ color: "var(--ink)" }}>{c.name}</strong>{" "}
+                  <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
+                    ({COACH_ROLE_LABEL[c.role]}, {ratingOf(c)})
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  style={{ fontSize: 11.5, padding: "7px 12px" }}
+                  disabled={busy}
+                  onClick={() => take(c.id)}
+                >
+                  Hire {c.name}
+                </button>
+              </div>
+            );
+          })()}
         <div className="rolefilter">
           <button
             type="button"

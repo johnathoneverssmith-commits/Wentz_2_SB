@@ -72,16 +72,42 @@ describe("resolveTransition", () => {
     expect(resolveTransition(base({ stage: "coachingDraft" })).stage).toBe("coachingDraftSummary");
   });
 
-  it("preseason advances week by week then hands off to League Developments before regular week 1", () => {
+  it("preseason advances week by week, then to League Developments only when there is something to reveal", () => {
     const mid = resolveTransition(base({ stage: "preseason", week: 1 }));
     expect(mid).toMatchObject({ stage: "preseason", week: 2 });
 
-    const afterLastWeek = resolveTransition(base({ stage: "preseason", week: PRESEASON_WEEKS }));
-    expect(afterLastWeek).toMatchObject({ stage: "leagueDevelopments" });
+    // a quiet offseason: straight into the regular season
+    const quiet = resolveTransition(base({ stage: "preseason", week: PRESEASON_WEEKS }));
+    expect(quiet).toMatchObject({ stage: "regularSeason", week: 1, resetStats: true });
+
+    // last offseason's bargain (filed under the year before) is revealed first
+    const struck = base({ stage: "preseason", week: PRESEASON_WEEKS, season: 2027 });
+    struck.hoodedFigure = {
+      losingStreaks: {},
+      firstNegativeConsumed: false,
+      unavailable: [],
+      encountersBySeason: {
+        2026: {
+          KC: {
+            teamCode: "KC",
+            season: 2026,
+            thresholds: [],
+            payment: 1_000_000,
+            resolved: true,
+            swindle: true,
+            branch: null,
+            tier: null,
+            outcome: null,
+          },
+        },
+      },
+    } as unknown as LeagueState["hoodedFigure"];
+    expect(resolveTransition(struck)).toMatchObject({ stage: "leagueDevelopments" });
 
     const last = resolveTransition(base({ stage: "leagueDevelopments" }));
     expect(last).toMatchObject({ stage: "regularSeason", week: 1, resetStats: true });
   });
+
 
   it("regular season rolls into playoffs after the final week", () => {
     const t = resolveTransition(base({ stage: "regularSeason", week: REGULAR_SEASON_WEEKS }));
@@ -145,8 +171,19 @@ describe("resolveTransition", () => {
     expect(t).toMatchObject({ stage: "preseason", week: 1, seasonRollover: true });
   });
 
-  it("training camp results hand off through the hooded-figure encounter before the depth chart", () => {
-    expect(resolveTransition(base({ stage: "trainingCampResults" })).stage).toBe("hoodedFigureEncounter");
+  it("training camp results hand off through the hooded-figure encounter only when a GM is eligible", () => {
+    // nobody eligible: no empty screen for the whole league to click past
+    expect(resolveTransition(base({ stage: "trainingCampResults" })).stage).toBe("offseasonDepthChart");
+
+    const eligible = base({ stage: "trainingCampResults" });
+    eligible.gms = [{ id: "gm_you", name: "You", teamCode: "KC", isHuman: true }] as LeagueState["gms"];
+    eligible.hoodedFigure = {
+      losingStreaks: { KC: 2 },
+      firstNegativeConsumed: false,
+      unavailable: [],
+      encountersBySeason: {},
+    } as unknown as LeagueState["hoodedFigure"];
+    expect(resolveTransition(eligible).stage).toBe("hoodedFigureEncounter");
     expect(resolveTransition(base({ stage: "hoodedFigureEncounter" })).stage).toBe("offseasonDepthChart");
   });
 });

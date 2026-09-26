@@ -186,10 +186,14 @@ function watch(): void {
         announce();
         return;
       }
-      void pull().then((state) => {
-        if (!state) return;
-        for (const fn of stateListeners) fn(state);
-      });
+      void pull()
+        .then((state) => {
+          if (!state) return;
+          for (const fn of stateListeners) fn(state);
+        })
+        // a server blip mid-pull: the next frame (or the checkpoint's poll)
+        // tries again, and an unhandled rejection helps nobody
+        .catch(() => undefined);
     },
     // EventSource reconnects by itself; there is nothing useful to do here
     // except stop claiming the countdown is live.

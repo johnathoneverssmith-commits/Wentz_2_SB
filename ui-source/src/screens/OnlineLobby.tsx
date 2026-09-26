@@ -113,7 +113,9 @@ export function OnlineLobby() {
     attempt(async () => {
       const { state } = await joinLeague(leagueId);
       useStore.setState(state as never);
-      nav("/hub");
+      // wherever the league is — the draft room mid-draft, a gate screen at
+      // a checkpoint — not the hub every time
+      nav("/");
     });
 
   if (checking) {
@@ -172,7 +174,9 @@ export function OnlineLobby() {
   }
 
   const session = onlineSession();
-  const waiting = inbox.reduce((n, l) => n + l.items.length, 0);
+  // leagues, not items: one league on the clock and waiting on a ready-up
+  // is one league waiting on you, not two
+  const waiting = inbox.filter((l) => l.items.length > 0).length;
 
   return (
     <Card maxWidth={760}>
