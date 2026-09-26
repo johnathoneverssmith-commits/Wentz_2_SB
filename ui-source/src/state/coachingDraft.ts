@@ -159,6 +159,49 @@ export function applyCoachingPick(s: LeagueState, teamCode: string, coachId: str
  * means an AI team behaves the way the draft intends — best available, and
  * live with the gaps.
  */
+/**
+ * A candidate's worth to this team right now: his rating, plus how far the
+ * job falls off if it waits.
+ *
+ * Taking the highest rating on the board every round filled the deep jobs
+ * first (a 89 receivers coach over an 86 head coach) and left the thin ones
+ * to the dregs — a playthrough staff ended with linebackers and defensive
+ * backs coaches at 55, developing their players 25% *slower*. What a job
+ * will cost later is the candidate the other teams still hiring for it
+ * leave behind: the (n+1)th best, where n is how many of them there are.
+ */
+export function coachingPickValue(s: LeagueState, teamCode: string): (c: Coach) => number {
+  const later = new Map<CoachRole, number>();
+  const rivalsHiring = new Map<CoachRole, number>();
+  for (const t of Object.keys(s.teams)) {
+    if (t === teamCode) continue;
+    for (const role of vacantRoles(s, t)) rivalsHiring.set(role, (rivalsHiring.get(role) ?? 0) + 1);
+  }
+  const pools = new Map<CoachRole, number[]>();
+  for (const c of availableCoaches(s)) {
+    const l = pools.get(c.role);
+    if (l) l.push(ratingOf(c));
+    else pools.set(c.role, [ratingOf(c)]);
+  }
+  for (const role of COACH_ROLES) {
+    const pool = (pools.get(role) ?? []).sort((a, b) => b - a);
+    later.set(role, pool[Math.min(rivalsHiring.get(role) ?? 0, pool.length - 1)] ?? 40);
+  }
+  return (c) => ratingOf(c) + (ratingOf(c) - (later.get(c.role) ?? ratingOf(c)));
+}
+
+/** The pick a GM should make: the best value among the jobs still open. */
+export function suggestedCoachingPick(s: LeagueState, teamCode: string): Coach | null {
+  const open = new Set(vacantRoles(s, teamCode));
+  const value = coachingPickValue(s, teamCode);
+  let best: Coach | null = null;
+  for (const c of availableCoaches(s)) {
+    if (!open.has(c.role)) continue;
+    if (!best || value(c) > value(best)) best = c;
+  }
+  return best;
+}
+
 export function bestCoachingPick(s: LeagueState, teamCode: string): string | null {
   const vacancies = new Set(vacantRoles(s, teamCode));
   // AI GM season strategy (§6): a bounded role preference on top of the same

@@ -98,9 +98,14 @@ export function CoachingDraftSummary() {
 
       <Tabs
         tabs={[
-          ...humanTeams.map((t) => ({
+          // your own team's tab first, then the other GMs'
+          ...[...humanTeams].sort((a, b) => Number(b === mine) - Number(a === mine)).map((t) => ({
             id: t,
-            label: t === mine ? "Your Staff" : TEAMS_BY_CODE[t]?.abbr ?? t,
+            // another GM's team reads as theirs, not as a bare team code
+            label:
+              t === mine
+                ? "Your Staff"
+                : `${s.gms.find((g) => g.teamCode === t)?.name ?? "GM"} · ${TEAMS_BY_CODE[t]?.abbr ?? t}`,
           })),
           { id: "league", label: "Every Team" },
         ]}

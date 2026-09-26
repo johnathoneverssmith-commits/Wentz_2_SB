@@ -84,9 +84,14 @@ export function FantasyDraftSummary({
 
       <Tabs
         tabs={[
-          ...humanTeams.map((t) => ({
+          // your own team's tab first, then the other GMs'
+          ...[...humanTeams].sort((a, b) => Number(b === code) - Number(a === code)).map((t) => ({
             id: t,
-            label: t === code ? "Your Team" : TEAMS_BY_CODE[t]?.abbr ?? t,
+            // another GM's team reads as theirs, not as a bare team code
+            label:
+              t === code
+                ? "Your Team"
+                : `${s.gms.find((g) => g.teamCode === t)?.name ?? "GM"} · ${TEAMS_BY_CODE[t]?.abbr ?? t}`,
           })),
           { id: "league", label: "Every Team" },
           { id: "nfl", label: "NFL" },

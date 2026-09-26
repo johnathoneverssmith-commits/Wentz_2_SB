@@ -6,7 +6,15 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { teamStatRows, type TeamStatRow } from "@/state/leagueStats";
 import { useStore } from "@/state/store";
-import { anyBoxScores, playedGames, viewerTeamCode } from "@/state/selectors";
+import {
+  anyBoxScores,
+  playedGames,
+  regularSeasonUnderway,
+  statsThroughWeek,
+  viewerTeamCode,
+} from "@/state/selectors";
+import { onlineSession } from "@/state/online";
+import { visibleGames } from "@/state/reveal";
 import { ordinal } from "@/util/format";
 
 type SortKey = keyof Pick<
@@ -58,7 +66,12 @@ export function LeagueStatsRankings() {
       <CardHeader
         badge="NFL"
         title="League Stats & Rankings"
-        subtitle={s.week > 0 ? `Through Week ${s.week} · ${s.season} season` : `${s.season} season · final`}
+        subtitle={
+          // what this GM has watched, not `s.week` (reveals don't move it)
+          regularSeasonUnderway(s.stage)
+            ? `Through Week ${statsThroughWeek(onlineSession() ? visibleGames(s, s.viewerGmId) : s.games)} · ${s.season} season`
+            : `${s.season} season · final`
+        }
       />
       <Ticker
         stats={[

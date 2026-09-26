@@ -10,6 +10,7 @@ import type { Coach, CoachRole } from "@/domain";
 import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } from "@/domain";
 import {
   availableCoaches,
+  suggestedCoachingPick,
   coachingOnTheClock,
   COACHING_ROUNDS,
   ratingOf,
@@ -151,17 +152,12 @@ export function CoachingDraftRoom() {
       <Panel id="board" open={active === "board"}>
         {yourPick &&
           (() => {
-            // twelve rounds a season is a lot of clicking for a staff whose
-            // best available hire is usually obvious — the same suggestion
-            // the player draft offers. The top of the open-jobs board, not
-            // the CPU's pick: that one carries the difficulty setting's
-            // evaluation noise and suggested a 69 under a listed 71.
-            const c =
-              roleFilter === "ALL"
-                ? board[0]
-                : availableCoaches(s)
-                    .filter((x) => openVacancies.has(x.role))
-                    .sort((a, b) => ratingOf(b) - ratingOf(a))[0];
+            // twelve rounds a season is a lot of clicking — the same
+            // suggestion the player draft offers. Not the CPU's own pick:
+            // that one carries the difficulty setting's evaluation noise.
+            // the best value among your open jobs — a thin job's best coach
+            // over a deep one's (`coachingPickValue`)
+            const c = suggestedCoachingPick(s, code);
             if (!c) return null;
             return (
               <div
@@ -170,7 +166,7 @@ export function CoachingDraftRoom() {
                 role="status"
               >
                 <span style={{ flex: 1, minWidth: 200 }}>
-                  You're on the clock — best available for your open jobs:{" "}
+                  You're on the clock — best value for your open jobs:{" "}
                   <strong style={{ color: "var(--ink)" }}>{c.name}</strong>{" "}
                   <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
                     ({COACH_ROLE_LABEL[c.role]}, {ratingOf(c)})

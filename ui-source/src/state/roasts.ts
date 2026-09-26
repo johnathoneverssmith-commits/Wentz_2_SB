@@ -37,6 +37,11 @@ export interface RoastContext {
   /** Season one has no prior games; the roast comes off the draft instead. */
   fromDraft: boolean;
   /**
+   * Season one of a real-roster league: there was no draft, the GM took
+   * over a real team, and "had a good draft" was a line about nothing.
+   */
+  inherited?: boolean;
+  /**
    * How last season went, when there was one. A preseason roast has no games
    * to work with — the joke has to come off the year that just ended.
    */
@@ -66,6 +71,8 @@ type Situation =
   | "bye"
   | "draftReach"
   | "draftStrong"
+  | "inheritStrong"
+  | "inheritWeak"
   | "champion"
   | "lastSeasonGood"
   | "lastSeasonBad"
@@ -148,6 +155,16 @@ const LIBRARY: Record<Situation, string[]> = {
     "{gm} had a good draft. Annoyingly, infuriatingly good.",
     "{team} came out of the draft with {star} and very few excuses left.",
   ],
+  inheritStrong: [
+    "{gm} inherited {star} and a roster built by somebody else. Anything short of January is on {gm} now.",
+    "{team} were handed a contender. {gm}'s job is simply not to break it, which is harder than it sounds.",
+    "{gm} walked into {team} with {star} already on the payroll. The honeymoon lasts until the first loss.",
+  ],
+  inheritWeak: [
+    "{gm} took over {team} and the {unit} came with it. Nobody reads the fine print.",
+    "{team} changed GMs, not rosters. {star} is lovely; the {unit} are a renovation project.",
+    "{gm} inherited {team} as-is. The previous regime left {star}, a {unit} problem and no forwarding address.",
+  ],
   champion: [
     "{team} won it all and {gm} has not shut up since. The ring is load-bearing.",
     "Defending champions {team}. Every opponent this year has that game circled and {gm} knows it.",
@@ -201,6 +218,7 @@ const LIBRARY: Record<Situation, string[]> = {
 function situationOf(c: RoastContext): Situation {
   if (c.onBye) return "bye";
   if (c.fromDraft) {
+    if (c.inherited) return c.bestOverall >= 88 ? "inheritStrong" : "inheritWeak";
     return c.bestOverall >= 88 ? "draftStrong" : "draftReach";
   }
   // Change 10: while a team can still get in, the joke is about the race —
@@ -357,6 +375,7 @@ export function preseasonRoasts(s: LeagueState): { teamCode: string; gmName: str
       const ctx = roastContext(s, g.teamCode, g.name, [], !outcome);
       // no games went into this, so "they were on bye" is not the reading
       ctx.onBye = false;
+      ctx.inherited = !outcome && !s.config.fantasyDraft;
       if (outcome) {
         ctx.lastSeason = {
           wins: outcome.regularSeasonRecord.wins,

@@ -162,3 +162,24 @@ export function watchNotes(
       };
     });
 }
+
+/**
+ * The last regular-season week in `games` that has been played — what a
+ * stats page is "through". Pass the games this viewer can see: online the
+ * season runs ahead of every GM and `s.week` does not move on a reveal, so
+ * the pages read "through Week 1" over three weeks of stats.
+ */
+export function statsThroughWeek(games: { phase: string; week: number; played?: boolean }[]): number {
+  let w = 0;
+  for (const g of games) if (g.phase === "REG" && g.played && g.week > w) w = g.week;
+  return w;
+}
+
+/** Still inside the regular season (including its deadline and midseason stops). */
+export function regularSeasonUnderway(stage: string): boolean {
+  return (
+    stage === "regularSeason" ||
+    stage.startsWith("tradeDeadline") ||
+    stage.startsWith("midseason")
+  );
+}

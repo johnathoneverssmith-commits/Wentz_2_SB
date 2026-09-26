@@ -228,8 +228,9 @@ async function main() {
     if (s.stage === "regularSeason" && !rewindChecked) {
       // one GM watches ahead, the other doesn't: the laggard must not see the
       // leader's weeks in the stats
-      const ahead = users[0]!;
-      const behind = users[1]!;
+      // in --browser mode the first GM is a person: act only as the bots
+      const ahead = BROWSER ? users[1]! : users[0]!;
+      const behind = BROWSER ? users[0]! : users[1]!;
       await call(ahead, "POST", `/leagues/${leagueId}/actions/reveal`, { through: 3 });
       const va = (await stateOf(ahead, leagueId)).state;
       const vb = (await stateOf(behind, leagueId)).state;
@@ -263,7 +264,7 @@ async function main() {
     }
     if (s.stage === "regularSeason" && !signedInSeason) {
       // an in-season signing at the player's asking price, and a lowball refused
-      const me = users[0]!;
+      const me = users[users.length - 1]!;
       const fa = Object.values(s.players)
         .filter((p) => p.free_agent && !p.retired && p.overall >= 60)
         .sort((x, y) => y.overall - x.overall)[0];

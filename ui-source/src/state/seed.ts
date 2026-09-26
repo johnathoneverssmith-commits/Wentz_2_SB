@@ -334,6 +334,12 @@ export function normalizePool(
   capTotal = 255,
 ): void {
   const rng = new Rng(seed ^ 0x5ee1);
+  // The league plays linebackers as ILB (off the ball) and EDGE (on it) and
+  // has no OLB slot on any depth chart. The pool's two OLBs — Frankie Luvu
+  // and Isaiah Simmons, both off-ball backers — were cut by the 53-man trim
+  // below for having no slot, and Luvu, an 84, opened every league as a
+  // free agent nobody could start.
+  for (const p of players) if (p.position === "OLB") p.position = "ILB";
   if (fantasyDraft) {
     for (const p of players) {
       p.free_agent = true;

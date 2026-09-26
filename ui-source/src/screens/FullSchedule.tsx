@@ -7,14 +7,20 @@ import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record } from "@/domain";
 import { seasonShape } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
-import { currentPhase, viewerTeamCode } from "@/state/selectors";
+import { currentPhase, statsThroughWeek, viewerTeamCode } from "@/state/selectors";
+import { onlineSession } from "@/state/online";
+import { visibleGames } from "@/state/reveal";
 
 export function FullSchedule() {
   const nav = useNavigate();
   const s = useStore();
   const code = viewerTeamCode(s);
   const phase = currentPhase(s) ?? "REG";
-  const currentWeek = s.week || 1;
+  // Online the season runs ahead of every GM: results come from the games
+  // this GM has watched (the rest are redacted, and used to show as
+  // "0 – 0 Final"), and the current week is the next one they haven't seen.
+  const seen = onlineSession() ? visibleGames(s, s.viewerGmId) : s.games;
+  const currentWeek = Math.max(s.week || 1, Math.min(statsThroughWeek(seen) + 1, 18));
   const [viewWeek, setViewWeek] = useState(currentWeek);
 
   const weekGames = useMemo(
@@ -27,7 +33,7 @@ export function FullSchedule() {
   }, [weekGames]);
 
   const resultFor = (home: string, away: string) =>
-    s.games.find((g) => g.phase === "REG" && g.week === viewWeek && g.homeTeam === home && g.awayTeam === away);
+    seen.find((g) => g.phase === "REG" && g.week === viewWeek && g.homeTeam === home && g.awayTeam === away);
 
   const yourGame = code ? weekGames.find((g) => g.homeTeam === code || g.awayTeam === code) : undefined;
   const yourOpp = yourGame ? (yourGame.homeTeam === code ? yourGame.awayTeam : yourGame.homeTeam) : null;

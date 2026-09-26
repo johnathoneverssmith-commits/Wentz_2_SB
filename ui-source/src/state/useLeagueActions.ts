@@ -160,11 +160,10 @@ export function useLeagueActions(): LeagueActions {
   const store = useStore();
   const online = isOnline();
 
-  const replaceState = useCallback(() => {
+  const replaceState = useCallback(async (): Promise<void> => {
     // the server's copy is the league; this is not a merge
-    void pull().then((state) => {
-      if (state) useStore.setState(state as never);
-    });
+    const state = await pull().catch(() => null);
+    if (state) useStore.setState(state as never);
   }, []);
 
   return useMemo<LeagueActions>(() => {
@@ -219,8 +218,13 @@ export function useLeagueActions(): LeagueActions {
       };
     }
 
+    // Awaited: callers read the store the moment this resolves — the
+    // readiness gate compares stages to decide whether to take the GM to
+    // the next screen. Fire-and-forget left it reading the old stage, so
+    // "Advance to Re-order Depth Chart" moved the league and left the GM
+    // on the camp results (finding 4, again).
     const after = async (result: ActionResult): Promise<ActionResult> => {
-      if (result.ok) replaceState();
+      if (result.ok) await replaceState();
       return result;
     };
 
@@ -298,8 +302,11 @@ export function useLeagueActions(): LeagueActions {
       },
       forceAdvance: () =>
         attempt(() => send((s) => s.client.forceAdvance(s.leagueId))).then(after),
+      // awaited, and allowed to fail: the checkpoint's backstop poll counts
+      // failures to say when the server has gone quiet
       refresh: async () => {
-        replaceState();
+        const state = await pull();
+        if (state) useStore.setState(state as never);
       },
     };
   }, [online, store, replaceState]);

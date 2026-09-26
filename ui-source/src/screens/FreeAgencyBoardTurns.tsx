@@ -178,7 +178,7 @@ export function FreeAgencyBoardTurns() {
             Sort
           </label>
           <select id="fa-sort" value={sortBy} onChange={(ev) => setSortBy(ev.target.value as "value" | "fit")}>
-            <option value="value">Best player</option>
+            <option value="value">Best value (rating + position)</option>
             <option value="fit">Best fit for your units</option>
           </select>
         </div>

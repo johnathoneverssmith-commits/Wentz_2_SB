@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { leaders, mvpTracker } from "@/state/leagueStats";
 import { useStore } from "@/state/store";
-import { anyBoxScores, playedGames } from "@/state/selectors";
+import { anyBoxScores, playedGames, regularSeasonUnderway, statsThroughWeek } from "@/state/selectors";
+import { onlineSession } from "@/state/online";
+import { visibleGames } from "@/state/reveal";
 
 const CATS = ["passing", "rushing", "receiving", "defense", "kicking", "returns"] as const;
 
@@ -50,7 +52,12 @@ export function PlayerStatistics() {
       <CardHeader
         badge="NFL"
         title="Player Statistics"
-        subtitle={`League leaders · ${asOf(s.week, s.season)}`}
+        subtitle={`League leaders · ${asOf(
+          regularSeasonUnderway(s.stage)
+            ? statsThroughWeek(onlineSession() ? visibleGames(s, s.viewerGmId) : s.games)
+            : 0,
+          s.season,
+        )}`}
       />
       <Ticker
         stats={[
