@@ -60,8 +60,21 @@ describe("normalizePool", () => {
   it("staggers terms so they don't all expire in the same offseason", () => {
     const pool = Array.from({ length: 60 }, (_, i) => poolPlayer({ id: `p_${i}` }));
     normalizePool(pool, false, 9);
-    const terms = new Set(pool.map((p) => p.contract!.years_remaining));
+    const terms = new Set(pool.filter((p) => p.contract).map((p) => p.contract!.years_remaining));
     expect(terms.size).toBeGreaterThan(1);
+  });
+
+  it("opens every team at 53 and sends its extras to free agency", () => {
+    const pool = Array.from({ length: 62 }, (_, i) => poolPlayer({ id: `p_${i}`, overall: 50 + (i % 40) }));
+    normalizePool(pool, false, 3);
+    const rostered = pool.filter((p) => !p.free_agent);
+    expect(rostered).toHaveLength(53);
+    const extras = pool.filter((p) => p.free_agent);
+    expect(extras).toHaveLength(9);
+    for (const p of extras) {
+      expect(p.nfl_team).toBe("FA");
+      expect(p.contract).toBeNull();
+    }
   });
 
   it("leaves a genuinely unowned player on the market", () => {

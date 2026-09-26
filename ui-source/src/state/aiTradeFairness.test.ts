@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MockSimulationService } from "@/sim/MockSimulationService";
+import { MockSimulationService, packageValue } from "@/sim/MockSimulationService";
 
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { DEFAULT_CONFIG } from "./seed.ts";
@@ -73,3 +73,23 @@ function assetValue(
   const e = sim.evaluateTrade(state, "AAA", "BBB", [], [a as never]);
   return Math.abs(e.valueDelta);
 }
+
+describe("packages, not piles", () => {
+  // A CPU offered Tennessee's five 75-79 depth players for Joe Burrow at an
+  // online trade deadline, and summed asset values called it fair. Players
+  // are valued as a package: the best in full, each one after at 70%.
+  it("rates a pile of depth players below one star, and a real two-for-one near him", async () => {
+    await useStore.getState().newLeague(21, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+    const players = Object.values(s().players).filter((p) => !p.retired);
+    const qb = players.filter((p) => p.position === "QB").sort((a, b) => b.overall - a.overall)[0]!;
+    const depth = players.filter((p) => p.position !== "QB" && p.overall >= 75 && p.overall <= 79).slice(0, 5);
+    expect(depth).toHaveLength(5);
+    const star = [{ kind: "player" as const, playerId: qb.id }];
+    const pile = depth.map((p) => ({ kind: "player" as const, playerId: p.id }));
+    expect(packageValue(s(), pile)).toBeLessThan(packageValue(s(), star));
+    // and the evaluator the CPU accepts on sees it the same way
+    const sim = new MockSimulationService();
+    const ev = sim.evaluateTrade(s(), "TEN", "GB", pile, star);
+    expect(ev.valueDelta).toBeGreaterThan(0); // the proposer would be getting the better of it
+  });
+});

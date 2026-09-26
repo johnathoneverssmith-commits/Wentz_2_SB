@@ -187,6 +187,12 @@ export interface Player {
   college?: string;
   /** Accumulating current-season stats; reset per season (preseason resets at Wk1). */
   season_stats?: PlayerStatLine;
+  /**
+   * Hidden ceiling, for players who entered through the draft or the camp
+   * fill: how high development can take him (`agingDelta`). Real players
+   * from the source pool have none and develop on the league curve.
+   */
+  potential?: number;
   /** Career totals, folded in at each season's end (`seasonAwards.ts`). */
   career?: PlayerStatLine & { seasons: number; lastSeason?: number; peak?: number };
   /** Scheme fit 0–99 vs the team's current OC/DC (spec §6.3). */

@@ -185,20 +185,25 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
  * single-mean/SD pair implied, not a distribution meant to look right on
  * its own if only called once.
  */
-export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: number): number {
+export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: number, room?: number): number {
   // A player is now aged exactly once a season (camp for a rostered player,
   // rollover for a free agent), so the one call takes both calibrated steps.
   // Taking one step halved every young player's growth and every veteran's
   // decline — a ten-season league slid from 56 players rated 90+ to 16.
-  return agingStep(rng, age, devAge, declineAge) + agingStep(rng, age, devAge, declineAge);
+  return agingStep(rng, age, devAge, declineAge, room) + agingStep(rng, age, devAge, declineAge, room);
 }
 
-function agingStep(rng: Rng, age: number, devAge: number, declineAge: number): number {
+function agingStep(rng: Rng, age: number, devAge: number, declineAge: number, room?: number): number {
   if (age < devAge) {
     const yearsToGo = Math.max(1, devAge - age);
-    // the youngest grow fastest: at the old flat rate a decade of leagues
-    // went from seventeen players rated 90+ at 25 or under to one or two
-    const growth = clamp(rng.normal(age <= 24 ? 0.85 : 0.5, 1.4), 0, 7);
+    // With a known ceiling (`room` = potential - overall), growth follows the
+    // room left to it: a high-ceiling prospect can be a star by 24 and a
+    // low-ceiling one plateaus. Without one, the league curve — the youngest
+    // grow fastest. At a flat rate for everyone, a decade of leagues went
+    // from seventeen players rated 90+ at 25 or under to about six.
+    const mean =
+      room === undefined ? (age <= 24 ? 0.85 : 0.5) : clamp(0.2 + room * 0.17, 0, 2.6);
+    const growth = clamp(rng.normal(mean, 1.4), 0, room === undefined ? 7 : Math.max(0, room));
     return Math.round(yearsToGo >= 3 ? growth : growth * 0.7);
   }
   if (age < declineAge) {
@@ -239,6 +244,50 @@ export type DraftClassTilt = Partial<Record<Position, { supply: number; quality:
 
 // +12 overshot: a decade lifted league kicking four points
 const SPECIALIST_ROOKIE_OFFSET = 9;
+
+/**
+ * The draft's position mix, rebalanced to this game's roster.
+ *
+ * `POSITION_BY_ROUND` is the real NFL's mix, and the real NFL's rosters are
+ * not this game's template: per roster slot a historical class supplied
+ * EDGE at 19% a year but inside linebacker at 10%, guard at 9%, quarterback
+ * and defensive tackle at 11%. Careers here run about the same length at
+ * every position, so the short positions ran dry — ten seasons in, teams
+ * were inventing 80-odd camp bodies a year, most of them linebackers, and
+ * scarce quarterbacks meant only good ones survived and the position's
+ * average crept up. Each position is scaled so a class supplies the same
+ * share of its roster slots everywhere (kickers and punters, whose careers
+ * run long, at half), while the *round* shape stays historical: still no
+ * first-round kickers, still quarterbacks at the top. The "OLB" rows are the
+ * off-ball and stand-up rushers the league plays as ILB and EDGE, folded in
+ * here (60/40) rather than at the draw.
+ */
+const BALANCED_POSITION_BY_ROUND: Record<number, Record<Position, number>> = (() => {
+  const folded: Record<number, Record<Position, number>> = {};
+  for (let r = 1; r <= 7; r++) {
+    const d = { ...POSITION_BY_ROUND[r]! };
+    d.ILB += d.OLB * 0.6;
+    d.EDGE += d.OLB * 0.4;
+    d.OLB = 0;
+    const sum = Object.values(d).reduce((n, w) => n + w, 0);
+    for (const p of POSITIONS) d[p] /= sum;
+    folded[r] = d;
+  }
+  const historical = Object.fromEntries(POSITIONS.map((p) => [p, 0])) as Record<Position, number>;
+  for (let r = 1; r <= 7; r++) for (const p of POSITIONS) historical[p] += folded[r]![p];
+  const want = Object.fromEntries(POSITIONS.map((p) => [p, 0])) as Record<Position, number>;
+  for (const { pos, count } of ROSTER_TEMPLATE) want[pos] = count * (pos === "K" || pos === "P" ? 0.5 : 1);
+  const wantTotal = Object.values(want).reduce((n, w) => n + w, 0);
+  const out: Record<number, Record<Position, number>> = {};
+  for (let r = 1; r <= 7; r++) {
+    const d = { ...folded[r]! };
+    for (const p of POSITIONS) {
+      d[p] = historical[p] > 0 ? d[p] * ((want[p] / wantTotal) * 7) / historical[p] : 0;
+    }
+    out[r] = d;
+  }
+  return out;
+})();
 
 export class MockSimulationService implements SimulationService {
   /**
@@ -614,13 +663,8 @@ export class MockSimulationService implements SimulationService {
       // position mix (2018-2026 PFR data) is round-dependent (see
       // draft-history.ts), e.g. almost no kickers/punters in rounds 1-2.
       const slotRound = clamp(Math.ceil((i + 1) / 32), 1, 7);
-      const roundDist = POSITION_BY_ROUND[slotRound]!;
-      const drawn = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p] * (tilt?.[p]?.supply ?? 1)));
-      // The history data's "OLB" is off-ball linebackers and stand-up edge
-      // rushers; the league plays those as ILB and EDGE and carries no OLB at
-      // all. Drafted as OLB they went unused while inside linebacker ran dry —
-      // by year four every team's backup ILBs were invented camp bodies.
-      const pos: Position = drawn === "OLB" ? (i % 5 < 3 ? "ILB" : "EDGE") : drawn;
+      const roundDist = BALANCED_POSITION_BY_ROUND[slotRound]!;
+      const pos: Position = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p] * (tilt?.[p]?.supply ?? 1)));
       // a prospect's *projected* slot wobbles around its board position
       const projPick = clamp(Math.round(i + 1 + rng.normal(0, 8)), 1, 260);
       const projectedRound = clamp(Math.ceil(projPick / 32), 1, 7);
@@ -989,12 +1033,12 @@ export class MockSimulationService implements SimulationService {
     fromAssets: TradeAsset[],
     toAssets: TradeAsset[],
   ): TradeEvaluation {
-    const val = (a: TradeAsset) => tradeAssetValue(state, a);
     // fromAssets: what the proposer (fromTeam, usually the viewer) gives up —
     // toTeam (the AI being asked to accept) receives these.
-    // toAssets: what toTeam gives up in return.
-    const out = fromAssets.reduce((s, a) => s + val(a), 0);
-    const inn = toAssets.reduce((s, a) => s + val(a), 0);
+    // toAssets: what toTeam gives up in return. Each side is valued as a
+    // package (`packageValue`), not a sum.
+    const out = packageValue(state, fromAssets);
+    const inn = packageValue(state, toAssets);
     // kept as pure value math, positive = good for the proposer — this is
     // the number the trade screen displays ("AI value delta ... for you"),
     // so it should read as a plain value comparison, not something the need
@@ -1103,7 +1147,11 @@ export class MockSimulationService implements SimulationService {
       // 33-and-over share climb from 6% of rosters to 17% in a decade.
       const pastDecline = Math.max(0, p.age - p.decline_age_threshold);
       const faded = p.age >= 30 && p.overall < 68 ? 0.25 : p.age >= 31 && p.overall < 73 ? 0.12 : 0;
-      const pRetire = clamp(0.025 + Math.max(0, over) * 0.22 + pastDecline * 0.11 + faded, 0, 0.92);
+      // the league's own cohort aged gracefully into its mid-thirties: the
+      // 33-and-over share doubled in a decade (NFL rosters run ~6%)
+      // (kickers and punters excepted: they really do kick into their forties)
+      const ageTerm = p.position === "K" || p.position === "P" ? 0 : Math.max(0, p.age - 32) * 0.09;
+      const pRetire = clamp(0.025 + Math.max(0, over) * 0.22 + pastDecline * 0.15 + ageTerm + faded, 0, 0.92);
       if (p.age >= norm - 2 || p.injury_history.length >= 2 || pastDecline > 0 || faded > 0) {
         const retiring = rng.bool(pRetire);
         out.push({
@@ -1342,6 +1390,29 @@ export function tradeAssetValue(state: LeagueState, a: TradeAsset): number {
   const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
   // and a pick two drafts away is worth less than the same pick this year
   return a.pick ? raw * futureDiscount(a.pick, state.season) : raw;
+}
+
+/**
+ * What a set of assets is worth together.
+ *
+ * Players do not add up: a roster has one starting quarterback, and five
+ * 76-rated backups are not a 93 — they are five roster spots, most of them
+ * sitting behind somebody. Summing them let a CPU offer five depth players
+ * for Joe Burrow and call it fair, and would have let a GM do the same to
+ * a CPU team. So the best player in a package counts in full and each one
+ * after it for 70% of the one before (1, 0.7, 0.49, …) — two good players
+ * for one star still trades, a pile of spares never does. Picks stay
+ * additive: two firsts for a star is a real trade.
+ */
+export function packageValue(state: LeagueState, assets: TradeAsset[]): number {
+  let picks = 0;
+  const players: number[] = [];
+  for (const a of assets) {
+    if (a.kind === "player") players.push(tradeAssetValue(state, a));
+    else picks += tradeAssetValue(state, a);
+  }
+  players.sort((x, y) => y - x);
+  return picks + players.reduce((sum, v, k) => sum + v * Math.pow(0.7, k), 0);
 }
 
 const PICK_VALUE_BY_ROUND: Record<number, number> = {

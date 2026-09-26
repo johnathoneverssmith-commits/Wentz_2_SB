@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { OFFSEASON_ROSTER_SIZE } from "@/sim/roster-template";
 import type { Stage } from "@/domain";
 
 import { availableCoaches, vacantRoles } from "./coachingDraft.ts";
@@ -155,10 +156,23 @@ describe("a humans-only league", () => {
         }
 
         if (before === "fantasyDraftSummary") {
-          // the same 53-man rosters as a normal league, from the whole pool
+          // the draft hands out twenty rounds; everyone else is year-one free
+          // agency, and nothing is filled until that market closes
           for (const code of Object.keys(s().teams)) {
             const roster = Object.values(s().players).filter((p) => p.nfl_team === code && !p.retired);
-            expect(roster.length, `${code} roster`).toBe(53);
+            expect(roster.length, `${code} roster after the draft`).toBe(20);
+          }
+        }
+
+        if (before === "freeAgencySummary") {
+          // filled to the same 53 as a normal league, from the whole pool; a
+          // CPU team then trims to fit its cap, so a few may sit just under,
+          // and a GM who signed in free agency may carry an offseason roster
+          // until camp cuts
+          for (const code of Object.keys(s().teams)) {
+            const roster = Object.values(s().players).filter((p) => p.nfl_team === code && !p.retired);
+            expect(roster.length, `${code} roster`).toBeGreaterThanOrEqual(46);
+            expect(roster.length, `${code} roster`).toBeLessThanOrEqual(OFFSEASON_ROSTER_SIZE);
           }
         }
 

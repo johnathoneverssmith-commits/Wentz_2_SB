@@ -9,7 +9,7 @@
  */
 import type { DraftPickAsset, LeagueState, Player, TradeAsset, TradeProposal } from "@/domain";
 
-import { tradeAssetValue } from "@/sim/MockSimulationService";
+import { packageValue, tradeAssetValue } from "@/sim/MockSimulationService";
 
 import { pickKey, picksOwnedBy } from "./draftPicks.ts";
 import { strategyAgeBonus, strategyEliteBonus, strategyFor, strategyPositionBonus } from "./aiStrategy.ts";
@@ -228,10 +228,12 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
         give.push({ kind: "player", playerId: spares[0].id });
         offered += worthOf(spares[0]);
       } else {
+        // at most three: past that it is a pile of spares, not an offer,
+        // and the package discount makes each extra one worth little anyway
         for (const p of spares) {
-          if (offered >= targetValue) break;
+          if (offered >= targetValue || give.length >= 3) break;
           give.push({ kind: "player", playerId: p.id });
-          offered += worthOf(p);
+          offered = packageValue(s, give);
         }
       }
       // top up with draft capital either way, capped so a small gap can't

@@ -191,7 +191,8 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
     // 1. what the aging model says, nudged toward the league's positional
     //    balance (`agingBalance`)
     const rng = new Rng((s.season * 9151) ^ hash(p.id));
-    const base = balance(p.position, agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold));
+    const room = p.potential === undefined ? undefined : p.potential - p.overall;
+    const base = balance(p.position, agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold, room));
 
     // 2. the position coach
     const withCoach = applyCoachToDelta(base, coachModifiersFor(s, teamCode, p.position));

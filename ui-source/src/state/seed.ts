@@ -356,6 +356,34 @@ export function normalizePool(
     else squads.set(p.nfl_team, [p]);
   }
 
+  // Every team opens at 53, shaped like a real roster, and its extras open
+  // the league as free agents. The source rosters carry ~62 a team, so the
+  // excess used to sit on rosters until the preseason cut while year-one free
+  // agency opened with three players in it. Nobody is added or removed: the
+  // same league, with its spare players on the market where GMs can bid.
+  for (const [team, squad] of squads) {
+    if (squad.length <= ROSTER_SIZE) continue;
+    const keep = new Set<string>();
+    const best = [...squad].sort((a, b) => b.overall - a.overall);
+    for (const { pos, count } of ROSTER_TEMPLATE) {
+      best.filter((x) => x.position === pos).slice(0, count).forEach((x) => keep.add(x.id));
+    }
+    for (const x of best) {
+      if (keep.size >= ROSTER_SIZE) break;
+      keep.add(x.id);
+    }
+    const kept: Player[] = [];
+    for (const x of squad) {
+      if (keep.has(x.id)) kept.push(x);
+      else {
+        x.free_agent = true;
+        x.nfl_team = "FA";
+        x.contract = null;
+      }
+    }
+    squads.set(team, kept);
+  }
+
   // Price each squad to fit its cap rather than at raw market value.
   //
   // A real NFL roster priced by `contractValueFor` costs about $350M against
@@ -1069,7 +1097,13 @@ export function applySeasonAging(state: LeagueState, season: number): void {
     const rng = new Rng((season * 7349) ^ hashSeed(p.id));
     p.age += 1;
     if (campedThisOffseason.has(p.id)) continue;
-    const base = agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold);
+    const base = agingDelta(
+      rng,
+      p.age,
+      p.dev_age_threshold,
+      p.decline_age_threshold,
+      p.potential === undefined ? undefined : p.potential - p.overall,
+    );
     if (base === 0) continue;
 
     // Change 3: the position coach scales the move the aging model already
