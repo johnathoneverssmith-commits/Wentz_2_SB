@@ -189,7 +189,16 @@ export function RosterCapManagement() {
               ))}
             </select>
           </div>
-          <button onClick={() => positionsInGroup.forEach((pos) => s.setDepthOrder(code, pos, []))}>
+          {/* through the league actions, not the local store: online the
+              store-only reset never reached the server and the next refresh
+              put the old order back */}
+          <button
+            onClick={() => {
+              void (async () => {
+                for (const pos of positionsInGroup) await actions.setDepthOrder(pos, []);
+              })();
+            }}
+          >
             Auto-reorder by overall
           </button>
         </div>
@@ -334,7 +343,7 @@ export function RosterCapManagement() {
                       ? moveNote.text
                       : confirming === p.id
                         ? `Releasing ${p.name} frees ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} and sends him to the free agent market. This can't be undone.`
-                        : "A restructure moves money into later years; it doesn't make it go away. Releasing a player frees his full cap hit — there's no dead money in this build."}
+                        : "A restructure moves money into later years; it doesn't make it go away. Releasing a player frees his full cap hit — there's no dead money."}
                   </p>
                 </>
               }

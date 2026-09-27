@@ -34,6 +34,16 @@ export function FreeAgencyBoard() {
   const advanceDay = useStore((st) => st.advanceBiddingDay);
   const dismiss = useStore((st) => st.dismissInterstitial);
 
+  // while the turn-based market runs, it is the free-agency screen: this
+  // standing board would only offer signings the market has closed
+  const marketRunning =
+    (s.stage === "freeAgency" || s.stage === "midseasonFreeAgency") &&
+    !!s.freeAgencyEvent &&
+    !s.freeAgencyEvent.complete;
+  useEffect(() => {
+    if (marketRunning) nav("/free-agency-board", { replace: true });
+  }, [marketRunning, nav]);
+
   const isWindowStage = s.stage === "offseasonFreeAgency";
   const [negotiating, setNegotiating] = useState<Player | null>(null);
   const [signError, setSignError] = useState<string | null>(null);

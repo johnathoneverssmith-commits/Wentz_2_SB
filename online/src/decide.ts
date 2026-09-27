@@ -79,6 +79,9 @@ import { clearReadinessOnline, onStageEntered } from "./phases.js";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
+import { MockSimulationService } from "@/sim/MockSimulationService";
+
+const tradeJudge = new MockSimulationService();
 
 /** Who is asking. Resolved from the database, never from the request body. */
 export interface Actor {
@@ -269,6 +272,33 @@ export function decideRespondToTrade(
     if (legal.reason) t.blockedReason = legal.reason;
     throw new ActionError(legal.reason ?? "That trade is no longer legal.", 409);
   }
+  // The league vote, online. Single-player simulates the other GMs' ballots;
+  // online there were none, so a blockbuster between two GMs went through
+  // however lopsided it was. The same guard the simulated vote applies: a
+  // deal involving a 90-plus player that the league's own chart reads as a
+  // fleecing either way is blocked.
+  const involves90 = [...t.fromAssets, ...t.toAssets].some(
+    (a) => a.kind === "player" && (state.players[a.playerId ?? ""]?.overall ?? 0) >= 90,
+  );
+  const bothHuman = [t.fromTeam, t.toTeam].every((c) => state.gms.some((g) => g.isHuman && g.teamCode === c));
+  if (involves90 && bothHuman) {
+    const read = tradeJudge.evaluateTrade(state, t.fromTeam, t.toTeam, t.fromAssets, t.toAssets);
+    if (read.acceptLikelihood >= 0.82 || read.acceptLikelihood <= 0.18) {
+      t.status = "blocked";
+      t.blockedReason = "The league blocked it: a trade this one-sided, with a 90-plus player in it, reads as collusion.";
+      return {
+        events: [
+          {
+            teamCode: actor.teamCode,
+            kind: "trade.blocked",
+            summary: `The league blocked a trade between ${city(t.fromTeam)} and ${city(t.toTeam)}.`,
+            detail: { tradeId },
+          },
+        ],
+      };
+    }
+  }
+
   t.status = "accepted";
   applyTrade(state, t);
   return {

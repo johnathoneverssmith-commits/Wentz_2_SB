@@ -288,7 +288,19 @@ export function TradeProposal() {
           </span>
         </div>
 
-        {needsVote && !trade && (
+        {/* online: the other GM decides, then the league blocks it only if it's
+            lopsided (the server's collusion guard) — there is no ballot */}
+        {actions.online && involves90 && partnerIsHuman && (
+          <div style={{ display: "flex", gap: 10, marginTop: 16, padding: "12px 14px", background: "rgba(232,179,76,0.08)", border: "1px solid rgba(232,179,76,0.35)", borderRadius: "var(--r-md)" }}>
+            <span style={{ color: "var(--notice)", fontWeight: 700 }}>⚠</span>
+            <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.5 }}>
+              <strong style={{ color: "var(--notice)" }}>League review.</strong> This trade includes a 90+ overall
+              player. If it&rsquo;s accepted, the league blocks it when it&rsquo;s this one-sided either way
+              (under 18% or over 82% by the value chart above).
+            </p>
+          </div>
+        )}
+        {!actions.online && needsVote && !trade && (
           <div style={{ display: "flex", gap: 10, marginTop: 16, padding: "12px 14px", background: "rgba(232,179,76,0.08)", border: "1px solid rgba(232,179,76,0.35)", borderRadius: "var(--r-md)" }}>
             <span style={{ color: "var(--notice)", fontWeight: 700 }}>⚠</span>
             <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.5 }}>

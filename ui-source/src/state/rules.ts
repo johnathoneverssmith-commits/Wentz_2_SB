@@ -1575,6 +1575,16 @@ export function checkStandingSign(
   if (!p || !p.free_agent) return { ok: false, reason: "This player is no longer a free agent." };
   const team = s.teams[offer.teamCode];
   if (!team) return { ok: false, reason: "Unknown team." };
+  // While the turn-based market runs, it is the only way to sign anyone:
+  // the standing market used to sign any free agent on the spot at his ask,
+  // jumping the turn order and every bidding war in the room.
+  if (
+    (s.stage === "freeAgency" || s.stage === "midseasonFreeAgency") &&
+    s.freeAgencyEvent &&
+    !s.freeAgencyEvent.complete
+  ) {
+    return { ok: false, reason: "Free agency is running turn by turn — make your offer on the Free Agency board." };
+  }
   const limit = rosterLimitFor(s.stage);
   if (rosterCountOf(s, offer.teamCode) >= limit) {
     return {
