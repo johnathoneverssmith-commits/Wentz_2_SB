@@ -32,6 +32,7 @@ describe("AI trade offers", () => {
 
     const sim = new MockSimulationService();
     const insulting: string[] = [];
+    const generous: string[] = [];
     let seen = 0;
 
     // sweep a range of salts: one offer is an anecdote, the shape of the
@@ -43,6 +44,12 @@ describe("AI trade offers", () => {
         // `fromAssets` is what the suitor gives; `toAssets` what it asks for.
         const gives = o.fromAssets.reduce((n, a) => n + assetValue(s(), sim, a), 0);
         const asks = o.toAssets.reduce((n, a) => n + assetValue(s(), sim, a), 0);
+        // and the mirror image: an offer 40 points over by the league's own
+        // chart is free value, not a trade (a Parsons offer did exactly that)
+        const packaged = packageValue(s(), o.fromAssets);
+        if (asks > 0 && packaged / asks > 1.45) {
+          generous.push(`${o.fromTeam} offered ${(100 * packaged) / asks | 0}%`);
+        }
         if (asks > 0 && gives / asks < 0.5) {
           const want = o.toAssets
             .map((a) => s().players[a.playerId ?? ""]?.name ?? "pick")
@@ -59,6 +66,7 @@ describe("AI trade offers", () => {
 
     expect(seen, "no offers were generated at all — the market went silent").toBeGreaterThan(0);
     expect(insulting, `lowball offers: ${insulting.slice(0, 6).join(" | ")}`).toEqual([]);
+    expect(generous, `giveaway offers: ${generous.slice(0, 6).join(" | ")}`).toEqual([]);
   }, 180_000);
 });
 

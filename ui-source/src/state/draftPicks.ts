@@ -101,3 +101,26 @@ export function pickOrderFor(
   }
   return out;
 }
+
+/**
+ * How much this pick is worth relative to a .500 team's pick in the same
+ * round, from the record of the team whose pick it is (playtest finding
+ * 14): a winless team's first is a top-five selection, an unbeaten team's
+ * is the last of the night. 0.6 (best) .. 1.5 (worst), 1.0 until three games
+ * are in. A later draft's pick is only half as sure of the projection.
+ *
+ * Lives here, used by `tradeAssetValue`, so the CPU values a pick the same
+ * way when it builds an offer as when it judges one. The builder used to
+ * scale its own picks and the judge didn't: a good team's first was cheap
+ * to offer and full price to receive, and a New Orleans package came out
+ * 41 points in the human's favour by the league's own chart.
+ */
+export function pickSlotFactor(s: LeagueState, pick: DraftPickAsset): number {
+  const team = s.teams[pick.originalTeam];
+  if (!team) return 1;
+  const games = team.wins + team.losses + team.ties;
+  if (games < 3) return 1;
+  const winPct = (team.wins + team.ties * 0.5) / games;
+  const full = 1.5 - winPct * 0.9;
+  return pick.year <= s.season ? full : 1 + (full - 1) / 2;
+}

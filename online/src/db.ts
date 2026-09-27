@@ -8,6 +8,13 @@ import { readFileSync } from "node:fs";
 import pg from "pg";
 
 import type { LeagueState } from "@/domain";
+import { upgradeLeagueState } from "@/state/saveMigration.ts";
+
+/** Every league read passes through the shared upgrade step (idempotent). */
+function upgraded(state: LeagueState): LeagueState {
+  upgradeLeagueState(state);
+  return state;
+}
 
 const { Pool } = pg;
 
@@ -149,7 +156,7 @@ export async function withLeague<T>(
         phaseTimeoutHours: row.phase_timeout_hours,
         pickTimeoutHours: row.pick_timeout_hours,
       },
-      state: row.state,
+      state: upgraded(row.state),
       version: row.version,
       phaseEndsAt: row.phase_ends_at,
     };
@@ -222,7 +229,7 @@ export async function readLeague(leagueId: string): Promise<LoadedLeague | null>
       phaseTimeoutHours: row.phase_timeout_hours,
       pickTimeoutHours: row.pick_timeout_hours,
     },
-    state: row.state,
+    state: upgraded(row.state),
     version: row.version,
     phaseEndsAt: row.phase_ends_at,
   };

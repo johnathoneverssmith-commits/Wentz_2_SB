@@ -11,7 +11,7 @@ import { ensureDraftPicks } from "./draftPicks.ts";
  * only calls the migration at all when a save's own stamped version is
  * behind this one.
  */
-export const CURRENT_SAVE_VERSION = 3;
+export const CURRENT_SAVE_VERSION = 4;
 
 /**
  * Bring a save written by an older build up to the shape the current store
@@ -46,6 +46,21 @@ export function migrateLeagueSave(persisted: unknown, version: number): LeagueSt
     st.depthChart ??= {};
     ensureDraftPicks(st, st.season);
   }
+  if (st && st.players) upgradeLeagueState(st);
 
   return st;
+}
+
+/**
+ * Idempotent fixes an existing league needs to pick up a rules change —
+ * run on every load, locally (above) and by the league server on every
+ * read, so a league already under way when a fix ships gets it too. Online
+ * there was no such step: a league kept whatever shape it was created with.
+ * Each fix here must be safe to apply to a league that already has it.
+ */
+export function upgradeLeagueState(st: LeagueState): void {
+  // No OLB slot exists on any depth chart; the pool's two OLBs (Frankie
+  // Luvu, Isaiah Simmons — off-ball backers) sat unplayable, and "best fit"
+  // still recommended signing them.
+  for (const p of Object.values(st.players)) if (p.position === "OLB") p.position = "ILB";
 }

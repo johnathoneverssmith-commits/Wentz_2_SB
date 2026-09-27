@@ -172,15 +172,31 @@ export function visibleBracket(
   gmId: string,
 ): BracketState {
   const seen = revealedRounds(s, gmId);
-  const firstUnseen = bracketRounds(bracket).find((r) => !seen.includes(r));
+  const rounds = bracketRounds(bracket);
+  const firstUnseen = rounds.find((r) => !seen.includes(r));
+  const unseenAt = firstUnseen ? rounds.indexOf(firstUnseen) : rounds.length;
+  // Who is in a round past the first unwatched one *is* a result: listing
+  // the divisional matchups before the wild card is watched told a GM who
+  // won every wild-card game. Only a bye is known without a result, so the
+  // round after the first unwatched one keeps its bye teams and everything
+  // later is TBD.
+  const byeTeams = new Set(
+    bracket.matchups
+      .filter((m) => m.round === firstUnseen && !m.lowSeed && m.highSeed)
+      .map((m) => m.highSeed!.code),
+  );
+  const known = (side: BracketState["matchups"][number]["highSeed"], at: number) =>
+    side && at === unseenAt + 1 && byeTeams.has(side.code) ? side : null;
   return {
     ...bracket,
     currentRound: firstUnseen ?? bracket.currentRound,
     champion: seen.includes("SB") ? bracket.champion : null,
-    matchups: bracket.matchups.map((m) =>
-      seen.includes(m.round)
-        ? m
-        : { ...m, winner: null, homeScore: null, awayScore: null },
-    ),
+    matchups: bracket.matchups.map((m) => {
+      if (seen.includes(m.round)) return m;
+      const at = rounds.indexOf(m.round);
+      const hidden = { ...m, winner: null, homeScore: null, awayScore: null };
+      if (at <= unseenAt) return hidden;
+      return { ...hidden, highSeed: known(m.highSeed, at), lowSeed: known(m.lowSeed, at) };
+    }),
   };
 }

@@ -170,12 +170,12 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
       })
       .sort((a, b) => Math.abs(a.overall - askFor.overall) - Math.abs(b.overall - askFor.overall));
     const availablePicks = picksOwnedBy(s, suitor).sort((a, b) => a.round - b.round);
-    const strength = pickStrengthFor(s, suitor);
+    // the draft-slot projection is inside `tradeAssetValue` now
     // a pick's contribution scales with the team's own projected draft slot
     // (finding 14) — a bad team's pick closes more of the gap than the same
     // round from a good one, so it takes a later round to match it
     const pickValue = (pick: DraftPickAsset): number =>
-      tradeAssetValue(s, { kind: "pick", pick }) * strength;
+      tradeAssetValue(s, { kind: "pick", pick });
 
     const shapeRoll = random();
     const shape: "players" | "picks" | "mixed" =
@@ -204,7 +204,16 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
       );
       if (left.length === 0) return false;
       const gap = targetValue - offered;
-      const pick = left.find((p) => pickValue(p) >= gap) ?? left[left.length - 1]!;
+      const closing = left.find((p) => pickValue(p) >= gap);
+      // A pick that closes the gap by overshooting it wildly (a first where a
+      // second nearly did) handed the human 40 points of free value by the
+      // league's own chart. Take the biggest pick under the gap instead and
+      // let the next pass top it up.
+      const under = [...left].reverse().find((p) => pickValue(p) < gap);
+      const pick =
+        closing && under && pickValue(closing) - gap > targetValue * 0.5
+          ? under
+          : (closing ?? left[left.length - 1]!);
       usedPicks.add(pickKey(pick.year, pick.round, pick.originalTeam));
       give.push({ kind: "pick", pick });
       offered += pickValue(pick);
@@ -249,6 +258,8 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // who knows he is 60% short doesn't make the call. A little under is
     // haggling and still goes.
     if (offered < targetValue * 0.9) continue;
+    // nor one that overpays: a CPU front office doesn't give away 40% extra
+    if (offered > targetValue * 1.4) continue;
 
     out.push({
       id: `trade_ai_${s.season}_${salt}_${target}_${rounds[i]!.n}`,

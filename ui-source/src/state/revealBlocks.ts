@@ -80,9 +80,14 @@ export function currentBlock(s: LeagueState): Block | null {
   const shape = seasonShape(s);
   if (s.stage === "preseason") return stable("pre", shape, preseasonBlock);
   if (s.stage !== "regularSeason") return null;
-  const pastDeadline = s.games.some(
-    (g) => g.phase === "REG" && g.played && g.week > shape.deadlineWeek,
-  );
+  // Past the deadline once this season's deadline has opened (it is set
+  // there and cleared at the rollover). Inferring it from played games broke
+  // online: a GM's copy has every unwatched game redacted to unplayed, so
+  // the second half read as the first and the hub offered "Advance to Trade
+  // Deadline" again after the deadline was over.
+  const pastDeadline =
+    !!s.tradeDeadline ||
+    s.games.some((g) => g.phase === "REG" && g.played && g.week > shape.deadlineWeek);
   return pastDeadline ? stable("second", shape, secondHalf) : stable("first", shape, firstHalf);
 }
 

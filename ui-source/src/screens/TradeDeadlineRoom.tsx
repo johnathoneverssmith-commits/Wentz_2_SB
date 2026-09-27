@@ -17,6 +17,9 @@ import {
 import { useLeagueActions } from "@/state/useLeagueActions";
 
 import { TradeColumn } from "./TradeProposal";
+import { MockSimulationService } from "@/sim/MockSimulationService";
+
+const sim = new MockSimulationService();
 
 /**
  * The deadline room: one turn at a time, and usually somebody else's.
@@ -187,6 +190,34 @@ function ProposeTurn({
         />
       </div>
 
+      {/* The Trade Proposal screen shows how a CPU team will read an offer;
+          the deadline, where the turn is spent either way, didn't — every
+          offer went out blind. A human partner decides for themselves. */}
+      {(give.length > 0 || get.length > 0) && !s.gms.some((g) => g.isHuman && g.teamCode === partner) && (
+        (() => {
+          const assets = (ids: string[]) =>
+            ids.map((id) =>
+              id.startsWith("pick:")
+                ? { kind: "pick" as const, pick: s.draftPicks[id.slice(5)] }
+                : { kind: "player" as const, playerId: id },
+            );
+          const ev = sim.evaluateTrade(s, code, partner, assets(give), assets(get));
+          const pct = Math.round(ev.acceptLikelihood * 100);
+          return (
+            <div className="panel open" style={{ borderTop: "1px solid var(--line)" }}>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-dim)" }}>
+                {TEAMS_BY_CODE[partner]!.label}&rsquo;s read:{" "}
+                <strong style={{ color: pct >= 65 ? "var(--good)" : pct >= 35 ? "var(--notice)" : "var(--bad)" }}>
+                  {pct}% likely to accept
+                </strong>{" "}
+                · value {ev.valueDelta >= 0 ? "+" : ""}
+                {ev.valueDelta} for you
+              </p>
+            </div>
+          );
+        })()
+      )}
+
       <Footer>
         <button
           type="button"
@@ -262,6 +293,21 @@ function RespondTurn({
             ? "Take it or leave it — a counter can only be countered once."
             : "Accept it, turn it down, or send one counter back."}
         </div>
+        {(() => {
+          // the same value chart the CPU trades on, read from this GM's side:
+          // positive means the offer favours you
+          const ev = sim.evaluateTrade(s, offer.fromTeam, offer.toTeam, offer.fromAssets, offer.toAssets);
+          const forYou = Math.round((offer.fromTeam === code ? ev.valueDelta : -ev.valueDelta) * 10) / 10;
+          return (
+            <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--ink-dim)" }}>
+              By the league&rsquo;s value chart:{" "}
+              <strong style={{ color: forYou >= 0 ? "var(--good)" : "var(--bad)" }}>
+                {forYou >= 0 ? "+" : ""}
+                {forYou} for you
+              </strong>
+            </p>
+          );
+        })()}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
           <Package title={`${TEAMS_BY_CODE[offer.fromTeam]!.label} sends`} assets={offer.fromAssets} />

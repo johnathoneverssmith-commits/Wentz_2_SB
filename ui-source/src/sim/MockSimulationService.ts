@@ -75,7 +75,7 @@ import {
 import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
 import { expectedRookieOverall, rookieOverallSpread } from "./draft-outcomes.ts";
 import { winChance, winProbability, type Venue } from "./win-probability.ts";
-import { futureDiscount } from "@/state/draftPicks.ts";
+import { futureDiscount, pickSlotFactor } from "@/state/draftPicks.ts";
 import { strategyFor, strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
 import { clampTradeAcceptance, deterministicNoiseUnit, difficultyProfile } from "@/state/aiDifficulty.ts";
 import {
@@ -1389,7 +1389,8 @@ export function tradeAssetValue(state: LeagueState, a: TradeAsset): number {
   const round = a.pick?.round ?? 4;
   const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
   // and a pick two drafts away is worth less than the same pick this year
-  return a.pick ? raw * futureDiscount(a.pick, state.season) : raw;
+  // discounted by distance, and scaled by where the pick projects to land
+  return a.pick ? raw * futureDiscount(a.pick, state.season) * pickSlotFactor(state, a.pick) : raw;
 }
 
 /**

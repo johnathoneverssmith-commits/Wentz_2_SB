@@ -7,7 +7,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { unsignedPool } from "@/state/freeAgencyEvent";
-import { expectedSalary } from "@/state/freeAgencyValues";
+import { expectedSalary, PRIMARY_VALUE_LABEL, primaryValueOf } from "@/state/freeAgencyValues";
 import {
   capUsed,
   checkRelease,
@@ -148,9 +148,9 @@ export function FreeAgencySummary() {
           })
         )}
 
-        <p className="subhead">Outbid ({myLostBids.length})</p>
+        <p className="subhead">Went elsewhere ({myLostBids.length})</p>
         {myLostBids.length === 0 ? (
-          <div className="emptystate">You weren&rsquo;t outbid on anybody.</div>
+          <div className="emptystate">Nobody you bid on went elsewhere.</div>
         ) : (
           myLostBids.map((playerId) => {
             const p = s.players[playerId];
@@ -165,6 +165,14 @@ export function FreeAgencySummary() {
                   <p className="lobby-sub">
                     Went to {TEAMS_BY_CODE[won.teamCode]?.label ?? won.teamCode} ·{" "}
                     {millions(won.salary)}/yr × {won.years}y
+                    {(() => {
+                      // A player picks the best fit for what he wants, not
+                      // just the most money — a $3.5M offer "outbid" by
+                      // $3.2M read as a bug. Say which it was.
+                      const mine = (e.offers[playerId] ?? []).find((o) => o.teamCode === code);
+                      if (!mine || !p || mine.salary <= won.salary) return null;
+                      return ` — he took less to get ${PRIMARY_VALUE_LABEL[primaryValueOf(p)].toLowerCase()}`;
+                    })()}
                   </p>
                 </div>
                 <div className="lobby-actions">

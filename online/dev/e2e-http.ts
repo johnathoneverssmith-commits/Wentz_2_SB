@@ -22,6 +22,7 @@ import { extensionAsk } from "@/state/contracts.ts";
 import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent.ts";
 import { seasonShape } from "@/state/leagueFormat.ts";
 import { revealedRounds, revealedWeek } from "@/state/reveal.ts";
+import { currentBlock } from "@/state/revealBlocks.ts";
 import { bestAvailable, standingAsk } from "@/state/rules.ts";
 import { pendingFor } from "@/state/tradeDeadline.ts";
 
@@ -36,7 +37,10 @@ const FORMAT = arg("format", "nfl");
 const FANTASY = process.argv.includes("--fantasy") || FORMAT === "humansOnly";
 // --browser: the first GM is left to a person in the browser (the harness
 // prints its sign-in name) and the harness plays the others, waiting on them
-const BROWSER = process.argv.includes("--browser");
+let BROWSER = process.argv.includes("--browser");
+// --handoff <stage>: play every GM until the league reaches <stage>, then
+// leave the first GM to a person (implies --browser from then on)
+const HANDOFF = arg("handoff", "");
 const TEAMS = ["GB", "KC", "PIT", "SF", "BUF", "DAL"];
 
 interface User {
@@ -126,12 +130,8 @@ async function act(u: User, leagueId: string, s: LeagueState): Promise<void> {
     case "regularSeason": {
       const shape = seasonShape(s);
       const phase = s.stage === "preseason" ? "PRE" : "REG";
-      const last =
-        s.stage === "preseason"
-          ? shape.preseasonWeeks
-          : s.games.some((x) => x.phase === "REG" && x.week > shape.deadlineWeek)
-            ? shape.regularSeasonWeeks
-            : shape.deadlineWeek;
+      // the block the client itself would show — the same question the hub asks
+      const last = currentBlock(s)?.lastWeek ?? (s.stage === "preseason" ? shape.preseasonWeeks : shape.deadlineWeek);
       if (revealedWeek(s, u.gmId, phase) < last) await a("reveal", { through: last });
       return;
     }
@@ -210,7 +210,7 @@ async function main() {
   let rewindChecked = false;
   const path: string[] = [];
 
-  for (let step = 0; step < 4000 && seasonsDone < SEASONS; step++) {
+  for (let step = 0; step < (BROWSER ? 1e6 : 4000) && seasonsDone < SEASONS; step++) {
     const views = await Promise.all(users.map((u) => stateOf(u, leagueId)));
     const s = views[0]!.state;
     if (s.stage !== lastStage) {
@@ -221,6 +221,11 @@ async function main() {
     } else if (++sameStage > (BROWSER ? 1e6 : 60)) {
       failures.push(`stuck at ${s.stage} (season ${s.season})`);
       break;
+    }
+
+    if (HANDOFF && !BROWSER && s.stage === HANDOFF) {
+      BROWSER = true;
+      console.log(`handing off at ${s.stage}: sign in as ${users[0]!.name} (harness test password); league ${leagueId}`);
     }
 
     // ---- online-only checks, taken where they mean something -------------
@@ -255,6 +260,15 @@ async function main() {
       const signed = Object.values(s.players).filter((p) => !p.free_agent && !p.retired).length;
       check(Math.max(...sizes) <= 53 && Math.min(...sizes) >= 15, `every roster drafted and at or under 53 entering free agency (${Math.min(...sizes)}-${Math.max(...sizes)}, ${signed} signed, teams ${Object.keys(s.teams).slice(0, 3).join(",")})`);
       yearOneFaChecked = true;
+    }
+    if (s.stage === "regularSeason" && s.tradeDeadline) {
+      // each GM's own copy (unwatched games redacted) must still know it is
+      // in the second half — it once offered "Advance to Trade Deadline" again
+      const shape = seasonShape(s);
+      check(
+        views.every((v) => (currentBlock(v.state)?.firstWeek ?? 0) > shape.deadlineWeek),
+        `season ${s.season}: every GM's client knows the second half has begun`,
+      );
     }
     if (s.stage === "preseason" && !preseasonChecked.has(s.season)) {
       // whatever the offseason did, every team takes the field with a squad
