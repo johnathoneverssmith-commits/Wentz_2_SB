@@ -422,7 +422,7 @@ function RoundReveal() {
       <div className="readiness-top">
         <p>{roundLabelFor(s.bracket, next)}</p>
         <span aria-live="polite">
-          {seen.length} of {rounds.length} rounds watched
+          {seen.length} of {rounds.length} {rounds.length === 1 ? "round" : "rounds"} watched
         </span>
       </div>
       <p className="readiness-held">
