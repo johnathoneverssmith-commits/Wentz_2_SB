@@ -29,6 +29,7 @@ import {
   decideReveal,
   decideRevealRound,
   decideStep,
+  decideDraftTarget,
   decideDeadlineTurn,
   decideRookieOutcome,
   decideDraftPick,
@@ -187,5 +188,9 @@ export const revealRound = (actor: Actor, expectedVersion?: string) =>
   run(actor, expectedVersion, (s) => decideRevealRound(s, actor));
 
 /** Move this GM to the next screen inside the current stage. */
+// no version: a star is private and can't conflict with anyone's move
+export const toggleDraftTarget = (actor: Actor, prospectId: string) =>
+  run(actor, undefined, (s) => decideDraftTarget(s, actor, prospectId));
+
 export const stepForward = (actor: Actor, step: string, expectedVersion?: string) =>
   run(actor, expectedVersion, (s) => decideStep(s, actor, step));

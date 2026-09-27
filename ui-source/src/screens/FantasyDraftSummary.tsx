@@ -36,8 +36,11 @@ export function FantasyDraftSummary({
   title = "Fantasy Draft Summary",
   advanceLabel = "Advance to Coaching",
   onAdvance,
+  rookie = false,
 }: {
   title?: string;
+  /** The rookie draft: grade the classes themselves and list your picks. */
+  rookie?: boolean;
   advanceLabel?: string;
   /**
    * Overrides the default checkpoint commit, for a summary that steps this
@@ -63,6 +66,27 @@ export function FantasyDraftSummary({
   );
   const total = rows.length;
   const mine = rows.find((r) => r.code === code)?.r;
+
+  // Rookie draft: what each team took, and a grade for the class itself —
+  // the roster rank the fantasy grade uses barely moves for a rookie class,
+  // and a whole draft's worth of picks appeared nowhere on this screen.
+  const classes = useMemo(() => {
+    if (!rookie || !s.draft) return new Map<string, { round: number; pick: number; p: (typeof s.draftClass)[number] }[]>();
+    const byId = new Map(s.draftClass.map((p) => [p.id, p]));
+    const out = new Map<string, { round: number; pick: number; p: (typeof s.draftClass)[number] }[]>();
+    s.draft.results.forEach((r, i) => {
+      const p = r.selectedId ? byId.get(r.selectedId) : undefined;
+      if (!p) return;
+      const l = out.get(r.teamCode) ?? [];
+      l.push({ round: r.round, pick: i + 1, p });
+      out.set(r.teamCode, l);
+    });
+    return out;
+  }, [rookie, s.draft, s.draftClass]);
+  const classRank = useMemo(() => {
+    const score = (t: string) => (classes.get(t) ?? []).reduce((n, x) => n + x.p.collegeOverall, 0);
+    return [...Object.keys(s.teams)].sort((a, b) => score(b) - score(a));
+  }, [classes, s.teams]);
   const maxStart = Math.max(...rows.map((r) => r.r.overall));
   const minStart = Math.min(...rows.map((r) => r.r.overall));
 
@@ -78,7 +102,16 @@ export function FantasyDraftSummary({
           { label: "Starting lineup overall", value: mine?.overall ?? "—" },
           { label: "Starting lineup rank", value: mine ? ordinal(mine.overallRank) : "—", className: "accent" },
           { label: "Full roster overall", value: mine ? `${mine.rosterOverall} (${ordinal(mine.rosterOverallRank)})` : "—", className: "sm" },
-          { label: "Draft grade", value: mine ? grade(mine.overallRank, total) : "—" },
+          {
+            label: rookie ? "Class grade" : "Draft grade",
+            value: rookie
+              ? code && classes.size
+                ? grade(classRank.indexOf(code) + 1, total)
+                : "—"
+              : mine
+                ? grade(mine.overallRank, total)
+                : "—",
+          },
         ]}
       />
 
@@ -103,6 +136,38 @@ export function FantasyDraftSummary({
 
       {humanTeams.map((t) => (
         <Panel key={t} id={t} open={active === t}>
+          {rookie && (classes.get(t)?.length ?? 0) > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <p className="subhead" style={{ marginTop: 0 }}>
+                Draft class ({classes.get(t)!.length})
+              </p>
+              <table className="stbl">
+                <thead>
+                  <tr>
+                    <th>Pick</th>
+                    <th>Player</th>
+                    <th className="c">Pos</th>
+                    <th className="c">Grade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {classes.get(t)!.map((x) => (
+                    <tr key={x.p.id}>
+                      <td>
+                        R{x.round} · #{x.pick}
+                      </td>
+                      <td>
+                        {x.p.name}
+                        <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{x.p.school}</span>
+                      </td>
+                      <td className="c">{x.p.position}</td>
+                      <td className="c">{x.p.collegeOverall}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <RosterByPosition teamCode={t} detailed />
         </Panel>
       ))}
@@ -210,7 +275,9 @@ export function FantasyDraftSummary({
 
       <Footer bordered={false}>
         <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
-          Advancing takes every team into the coaching hiring window.
+          {rookie
+            ? "Next: sign your draft class, then free agency."
+            : "Advancing takes every team into the coaching hiring window."}
         </span>
       </Footer>
 

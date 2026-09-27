@@ -280,6 +280,13 @@ export interface LeagueState {
   agingIntegralSeason?: number;
   /** Year one of a fantasy league: rosters fill to 53 after free agency closes. */
   rosterFillPending?: boolean;
+  /**
+   * Each GM's starred prospects for the coming draft, private to that GM.
+   * League-level, not on `draft`: the preview happens before the draft
+   * exists, and stars put on last year's draft object vanished when the new
+   * one began.
+   */
+  draftTargets?: Record<string, string[]>;
   /** This league's scoring correction for the engine (`scoringCommittee`). */
   offenseAdjust?: number;
   /** The last season whose accrued years were credited (`accrueCareers`). */

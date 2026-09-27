@@ -135,7 +135,7 @@ describe("resolveTransition", () => {
     ).toBe("endOfSeasonConsolation");
   });
 
-  it("offseason order: retirement → draft prep → draft → summary → free agency", () => {
+  it("offseason order: retirement (with its draft preview step) → draft → summary → free agency", () => {
     const chain = [
       "offseasonRetirement",
       "offseasonDraftPrep",
@@ -145,7 +145,9 @@ describe("resolveTransition", () => {
     ] as const;
     const nexts = chain.map((stage) => resolveTransition(base({ stage })).stage);
     expect(nexts).toEqual([
-      "offseasonDraftPrep",
+      // retirement skips the old prep stage (the preview is its second step);
+      // a league already parked in prep still moves on to the draft
+      "offseasonDraft",
       "offseasonDraft",
       // Change 13: the rookie draft ends at a summary, and rookie signings
       // are the second per-GM step of that same stage

@@ -20,6 +20,7 @@ export function RookieDraftSummary() {
   return (
     <FantasyDraftSummary
       title="Rookie Draft Summary"
+      rookie
       advanceLabel="Continue to Rookie Signings"
       onAdvance={async () => {
         const res = await actions.stepForward("rookieSignings");

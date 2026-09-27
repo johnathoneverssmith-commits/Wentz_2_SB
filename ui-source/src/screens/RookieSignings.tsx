@@ -8,14 +8,11 @@ import { RowHeader } from "@/components/ListFilter";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { useStore } from "@/state/store";
+import { rookieCapHits, rookieSlotFor } from "@/state/rules";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
-/** Slotted rookie contract value by round, $M total over 4 years. */
-function slotValue(round: number): number {
-  return Math.round((36 - round * 4.5) * 10) / 10;
-}
 
 const ROOKIE_GRID = "0.5fr 1.5fr 1fr 0.9fr auto 16px";
 
@@ -39,6 +36,24 @@ export function RookieSignings() {
         if (!res.ok) setError(res.reason ?? "That didn't go through.");
       })
       .finally(() => setBusy(false));
+  };
+
+  // One click for the usual case: sign everyone not yet decided, in draft
+  // order, stopping at the first refusal (the cap) so it can be read.
+  const signAllRemaining = async (ids: string[]): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    try {
+      for (const id of ids) {
+        const res = await actions.settleRookie(id, false);
+        if (!res.ok) {
+          setError(res.reason ?? "That didn't go through.");
+          break;
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const myPicks = useMemo(
@@ -104,7 +119,9 @@ export function RookieSignings() {
           {myPicks.map(({ pick, prospect }) => {
             const p = prospect!;
             const outcome = outcomes[p.id];
-            const total = slotValue(pick.round);
+            // what he will actually sign for (the slot by pick number)
+            const hits = rookieCapHits(rookieSlotFor(s, p.id, pick.round));
+            const total = hits.reduce((a, b) => a + b, 0);
             return (
               <ExpandableRow
                 key={p.id}
@@ -119,7 +136,7 @@ export function RookieSignings() {
                       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{p.school}</p>
                     </div>
                     <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>4yr / {millions(total)}</span>
-                    <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Y1 {millions(total / 4)}</span>
+                    <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Y1 {millions(hits[0]!)}</span>
                     {outcome ? (
                       <span
                         className="oswald"
@@ -259,6 +276,18 @@ export function RookieSignings() {
               ? "Every pick is settled."
               : `${resolvedCount} / ${myPicks.length} picks resolved — sign or release the rest.`}
         </span>
+        {!allResolved && myPicks.length > 0 && (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy}
+            onClick={() =>
+              void signAllRemaining(myPicks.filter(({ prospect }) => !outcomes[prospect!.id]).map(({ prospect }) => prospect!.id))
+            }
+          >
+            Sign all remaining
+          </button>
+        )}
       </Footer>
 
       <ReadinessGate

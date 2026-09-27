@@ -568,9 +568,13 @@ export function planAutopicks(s: LeagueState): string[] {
       waste(c.position, c.overall);
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
 
-    let bestId: string | null = null;
-    let bestScore = -Infinity;
-    for (const c of shortlist) {
+    // a GM whose clock ran out gets their own stars first, in order
+    const gmId = !isAi ? s.gms.find((g) => g.teamCode === teamCode)?.id : undefined;
+    const starred = gmId ? draftTargetsFor(s, gmId).find((id) => byId.has(id) && !taken.has(id)) : undefined;
+
+    let bestId: string | null = starred ?? null;
+    let bestScore = starred ? Infinity : -Infinity;
+    for (const c of starred ? [] : shortlist) {
       const noise = noiseScale === 0 ? 0 : deterministicNoiseUnit(teamCode ?? "", s.season, "draft", c.id, i) * noiseScale;
       let score =
         baseScore(c) +
@@ -1347,6 +1351,22 @@ export function rookieSlotSalary(pick: number): number {
   return Math.round(Math.max(0.9, 11.2 * Math.exp(-(pick - 1) / 40)) * 10) / 10;
 }
 
+/**
+ * A drafted rookie's year-one salary: the pick's slot, or the old per-round
+ * figure when the pick number isn't known. The one place both the signing
+ * and the Rookie Signings screen read it — the screen used to estimate its
+ * own ($4.5M a year for a fourth-rounder who then signed for $0.9M).
+ */
+export function rookieSlotFor(s: LeagueState, prospectId: string, round: number): number {
+  const pickNo = (s.draft?.results ?? []).find((r) => r.selectedId === prospectId)?.pickNumber;
+  return pickNo ? rookieSlotSalary(pickNo) : Math.max(0.9, 8 - round);
+}
+
+/** Cap hits for a rookie deal: the slot, rising 5% a year for four years. */
+export function rookieCapHits(slot: number): number[] {
+  return [slot, slot * 1.05, slot * 1.1, slot * 1.15].map((x) => Math.round(x * 100) / 100);
+}
+
 export function upsertRookiePlayer(
   s: LeagueState,
   prospectId: string,
@@ -1359,7 +1379,7 @@ export function upsertRookiePlayer(
   // earns about three times the thirty-second. `8 - round` paid every
   // first-rounder the same $7M and every seventh-rounder $1M.
   const pickNo = (s.draft?.results ?? []).find((r) => r.selectedId === prospectId)?.pickNumber;
-  const slot = pickNo ? rookieSlotSalary(pickNo) : Math.max(0.9, 8 - round);
+  const slot = rookieSlotFor(s, prospectId, round);
   const id = `p_rookie_${prospectId}`;
   // A rookie's skills, shaped like a real player's of his (true) overall —
   // he used to arrive with speed/strength/awareness only, so the engine's
@@ -1405,16 +1425,17 @@ export function upsertRookiePlayer(
       : {
           team_id: teamCode,
           years_remaining: 4,
-          total_value: slot * 4,
-          guaranteed: slot * 4,
-          cap_hit_by_year: [slot, slot * 1.05, slot * 1.1, slot * 1.15],
+          // the total is what the four cap hits actually add up to
+          total_value: rookieCapHits(slot).reduce((a, b) => a + b, 0),
+          guaranteed: rookieCapHits(slot).reduce((a, b) => a + b, 0),
+          cap_hit_by_year: rookieCapHits(slot),
           signing_bonus: slot,
         },
     free_agent: released,
     injury_status: null,
     retired: false,
     retirement_status: "active",
-    draft_info: { round, pick: 0, class_year: s.season },
+    draft_info: { round, pick: pickNo ?? 0, class_year: s.season },
     college: pr.school,
     season_stats: { gamesPlayed: 0 },
   };
@@ -1935,4 +1956,18 @@ function fnv(s: string): number {
     h = Math.imul(h, 0x01000193);
   }
   return h >>> 0;
+}
+
+/** This GM's starred prospects, best-first in the order they were starred. */
+export function draftTargetsFor(s: LeagueState, gmId: string): string[] {
+  return s.draftTargets?.[gmId] ?? [];
+}
+
+/** Star or unstar a prospect for this GM. */
+export function toggleDraftTargetFor(s: LeagueState, gmId: string, prospectId: string): void {
+  s.draftTargets ??= {};
+  const list = (s.draftTargets[gmId] ??= []);
+  const i = list.indexOf(prospectId);
+  if (i >= 0) list.splice(i, 1);
+  else list.push(prospectId);
 }

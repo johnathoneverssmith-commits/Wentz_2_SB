@@ -170,7 +170,11 @@ export function WeekResults({
         </div>
       ) : (
         <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--ink-faint)", textAlign: "center" }}>
-          Bye week — your team wasn&rsquo;t on this slate.
+          {/* a playoff round without you is a bye, an elimination or a
+              missed postseason — never a "bye week" */}
+          {detailOnEvery
+            ? "Your team isn’t playing in this round."
+            : "Bye week — your team wasn’t on this slate."}
         </p>
       )}
 

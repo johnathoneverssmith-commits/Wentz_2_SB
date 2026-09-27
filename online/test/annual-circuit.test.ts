@@ -43,7 +43,6 @@ describe("a season, end to end", () => {
       s = league(t.stage, t.week);
     }
     expect(steps).toEqual([
-      "offseasonDraftPrep",
       "offseasonDraft",
       "offseasonDraftSummary",
       // Change 13: signings and free agency, then the circuit Changes 4 and 5

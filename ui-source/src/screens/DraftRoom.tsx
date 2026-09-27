@@ -13,6 +13,7 @@ import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Player, Position } from "@/domain";
+import { draftTargetsFor } from "@/state/rules";
 import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store";
 import { STAGE_HOME } from "@/state/stageMachine";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
@@ -70,6 +71,13 @@ export function DraftRoom() {
     if (actions.online) return;
     if (isDraftStage && (!s.draft || s.draft.mode !== stageMode)) startDraft(stageMode);
   }, [isDraftStage, s.draft, stageMode, startDraft, actions.online]);
+
+  // No draft and no draft stage: this is a stale link or a reload ahead of
+  // the league (online the board only exists once the server opens the
+  // stage). "Setting up…" would sit there forever — go where the league is.
+  useEffect(() => {
+    if (!s.draft && !isDraftStage) nav(STAGE_HOME[s.stage], { replace: true });
+  }, [s.draft, isDraftStage, s.stage, nav]);
 
   // Reaching the manual-pick threshold completes the board and advances the
   // stage from inside `makePick` itself. That used to double as the exit —
@@ -203,7 +211,11 @@ export function DraftRoom() {
       : teamRoster(s, code);
   // the same need-weighted pick the AI would make for this roster, offered
   // as a one-click suggestion whenever it's the viewer's turn
-  const suggestedId = yourPick && !complete ? bestAvailable(s) : null;
+  // your stars first: the highest target still on the board (the draft
+  // preview is where they're set — they used to go nowhere)
+  const myTargets = draftTargetsFor(s, s.viewerGmId);
+  const topTarget = mode === "rookie" ? myTargets.find((id) => available.some((a) => a.id === id)) : undefined;
+  const suggestedId = yourPick && !complete ? (topTarget ?? bestAvailable(s)) : null;
   const suggested = suggestedId ? available.find((a) => a.id === suggestedId) : undefined;
 
   return (
@@ -280,10 +292,10 @@ export function DraftRoom() {
               {suggested ? (
                 <>
                   {" "}
-                  — best fit for your roster:{" "}
+                  — {suggested.id === topTarget ? "your top target" : "best fit for your roster"}:{" "}
                   <strong style={{ color: "var(--ink)" }}>{suggested.name}</strong>{" "}
                   <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
-                    ({suggested.position}, {suggested.ovr} OVR)
+                    ({suggested.position}, {suggested.ovr} {mode === "rookie" ? "grade" : "OVR"})
                   </span>
                 </>
               ) : (
@@ -312,7 +324,8 @@ export function DraftRoom() {
               <tr>
                 <th>Player</th>
                 <th className="c">Pos</th>
-                <th className="c">OVR</th>
+                {/* a rookie board shows college grades, which run high */}
+                <th className="c">{mode === "rookie" ? "Grade" : "OVR"}</th>
                 <th className="c">Age</th>
                 <th className="r"></th>
               </tr>
@@ -337,6 +350,9 @@ export function DraftRoom() {
                       p.name
                     )}
                     {fit && <FitTag fit={fit(p.position, p.ovr)} />}
+                    {myTargets.includes(p.id) && (
+                      <span title="One of your draft targets" style={{ marginLeft: 6, color: "var(--notice)" }}>★</span>
+                    )}
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
                   </td>
                   <td className="c">{p.position}</td>

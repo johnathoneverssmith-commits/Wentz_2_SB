@@ -116,6 +116,7 @@ import {
   finalizeSeason,
   finishDraftBoard,
   humanGate,
+  toggleDraftTargetFor,
   offerToContract,
   openStandingMarketFromUndrafted,
   planAutopicks,
@@ -346,7 +347,7 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   }
 
   // leaving retirement review → actually retire the players it showed
-  if (from === "offseasonRetirement" && to === "offseasonDraftPrep") {
+  if (from === "offseasonRetirement" && (to === "offseasonDraftPrep" || to === "offseasonDraft")) {
     commitRetirements(s);
   }
 
@@ -525,6 +526,7 @@ export const useStore = create<Store>()(
             s.tradeDeadline = null;
             s.games = [];
             s.draft = null;
+            s.draftTargets = {};
             s.freeAgency = null;
             s.coachingHire = null;
             s.trades = [];
@@ -694,14 +696,7 @@ export const useStore = create<Store>()(
         });
       },
 
-      toggleDraftTarget: (gmId, id) =>
-        set((s) => {
-          if (!s.draft) return;
-          const list = (s.draft.targetsByGm[gmId] ??= []);
-          const i = list.indexOf(id);
-          if (i >= 0) list.splice(i, 1);
-          else list.push(id);
-        }),
+      toggleDraftTarget: (gmId, id) => set((s) => toggleDraftTargetFor(s, gmId, id)),
 
       startBidding: (subject) => set((s) => beginBidding(s, subject)),
 

@@ -15,6 +15,7 @@
  * at a time, and the ones that haven't go on calling the store directly.
  */
 import { useCallback, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import type { ContractOffer, Position } from "@/domain";
 
@@ -79,6 +80,8 @@ export interface LeagueActions {
   deadlineTurn: (move: DeadlineMove) => Promise<ActionResult>;
   revealRound: () => Promise<ActionResult>;
   stepForward: (step: string) => Promise<ActionResult>;
+  /** Star or unstar a draft prospect (private to this GM). */
+  toggleDraftTarget: (prospectId: string) => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -112,11 +115,24 @@ export interface LeagueActions {
  * what turns "I don't know" into an answer the screen can act on before it
  * ever shows the player anything.
  */
-async function attempt(run: () => Promise<unknown>): Promise<ActionResult> {
+/**
+ * Apply the league `send` already fetched after the action. It used to be
+ * thrown away and fetched again by `after` — two full league reads per
+ * click, which on a slow server made "Sign all remaining" take a minute.
+ */
+function applyFetched(out: unknown): boolean {
+  const state = (out as { state?: unknown } | null)?.state;
+  if (!state) return false;
+  useStore.setState(state as never);
+  return true;
+}
+
+async function attempt(run: () => Promise<unknown>): Promise<ActionResult & { fresh?: boolean }> {
   let versionBefore = onlineSession()?.version;
   try {
+    let out: unknown;
     try {
-      await run();
+      out = await run();
     } catch (err) {
       // A 409 is the version check: the league changed since this screen
       // last loaded. Most of the time that change was somebody else's —
@@ -130,9 +146,9 @@ async function attempt(run: () => Promise<unknown>): Promise<ActionResult> {
       const fresh = await pull();
       if (fresh) useStore.setState(fresh as never);
       versionBefore = onlineSession()?.version;
-      await run();
+      out = await run();
     }
-    return { ok: true };
+    return { ok: true, fresh: applyFetched(out) };
   } catch (err) {
     const online = onlineSession();
     const state = await pull().catch(() => null);
@@ -157,6 +173,7 @@ async function attempt(run: () => Promise<unknown>): Promise<ActionResult> {
 }
 
 export function useLeagueActions(): LeagueActions {
+  const navigate = useNavigate();
   const store = useStore();
   const online = isOnline();
 
@@ -206,6 +223,10 @@ export function useLeagueActions(): LeagueActions {
         deadlineTurn: async (move) => store.deadlineTurn(move),
         revealRound: async () => store.revealRound(),
         stepForward: async (step) => store.stepForward(step),
+        toggleDraftTarget: async (prospectId) => {
+          store.toggleDraftTarget(store.viewerGmId, prospectId);
+          return { ok: true };
+        },
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         draftCoach: async (coachId) => store.draftCoach(coachId),
         hireCoach: async (coachId) => store.hireCoach(coachId),
@@ -223,9 +244,10 @@ export function useLeagueActions(): LeagueActions {
     // the next screen. Fire-and-forget left it reading the old stage, so
     // "Advance to Re-order Depth Chart" moved the league and left the GM
     // on the camp results (finding 4, again).
-    const after = async (result: ActionResult): Promise<ActionResult> => {
-      if (result.ok) await replaceState();
-      return result;
+    const after = async (result: ActionResult & { fresh?: boolean }): Promise<ActionResult> => {
+      if (result.ok && !result.fresh) await replaceState();
+      const { fresh: _fresh, ...rest } = result;
+      return rest;
     };
 
     return {
@@ -286,6 +308,8 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.deadlineTurn(s.leagueId, move, s.version))).then(after),
       revealRound: () =>
         attempt(() => send((s) => s.client.revealRound(s.leagueId, s.version))).then(after),
+      toggleDraftTarget: (prospectId) =>
+        attempt(() => send((s) => s.client.toggleDraftTarget(s.leagueId, prospectId))).then(after),
       stepForward: (step) =>
         attempt(() => send((s) => s.client.stepForward(s.leagueId, step, s.version))).then(after),
       freeAgencyTurn: (move) =>
@@ -298,7 +322,21 @@ export function useLeagueActions(): LeagueActions {
         // the stage on screen when pressed, captured now: by the time a
         // conflict retry resends it the store may already show the next one
         const stage = useStore.getState().stage;
-        return attempt(() => send((s) => s.client.readyUp(s.leagueId, ready, stage))).then(after);
+        return attempt(() => send((s) => s.client.readyUp(s.leagueId, ready, stage)))
+          .then(after)
+          .then((res) => {
+            // Finding 4, everywhere at once: when this press moved the league
+            // (or found it already moved), go where it went. Several screens
+            // wired their own advance button without it — the bracket's
+            // "Advance to the Offseason" left the GM on the bracket.
+            const next = useStore.getState().stage;
+            if (next !== stage) {
+              // leaving the playoffs: the awards splash first, which then
+              // continues to the season screen
+              navigate(stage === "playoffs" && next.startsWith("endOfSeason") ? "/end-of-season" : "/");
+            }
+            return res;
+          });
       },
       forceAdvance: () =>
         attempt(() => send((s) => s.client.forceAdvance(s.leagueId))).then(after),
@@ -309,7 +347,7 @@ export function useLeagueActions(): LeagueActions {
         if (state) useStore.setState(state as never);
       },
     };
-  }, [online, store, replaceState]);
+  }, [online, store, replaceState, navigate]);
 }
 
 /**

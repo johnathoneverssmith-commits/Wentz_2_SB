@@ -48,6 +48,17 @@ if (queue) {
 }
 
 await server.start();
+
+// A league server killed mid-query can also leave its connection counted
+// against `maxConnections` with a dead socket, and its transaction open —
+// new connections were then refused ("Too many connections"/ECONNRESET)
+// until this process restarted. Sweep both every couple of seconds.
+type Handler = { socket?: { destroyed?: boolean } | null };
+const handlers = (server as unknown as { handlers?: Set<Handler> }).handlers;
+setInterval(() => {
+  if (handlers) for (const h of handlers) if (!h.socket || h.socket.destroyed) handlers.delete(h);
+  if ((!handlers || handlers.size === 0) && db.isInTransaction()) void db.exec("ROLLBACK").catch(() => undefined);
+}, 2000);
 // eslint-disable-next-line no-console
 console.log(`local Postgres (PGlite) on postgres://postgres@localhost:${port}/postgres, ${dataDir ? `data in ${dataDir}` : "in memory"}`);
 

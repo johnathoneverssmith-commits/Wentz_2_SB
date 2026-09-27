@@ -426,8 +426,7 @@ function RoundReveal() {
         </span>
       </div>
       <p className="readiness-held">
-        Already played — you&rsquo;re watching at your own pace, one round at a time, and nobody
-        else&rsquo;s bracket moves when you do.
+        Watch one round at a time, at your own pace.
       </p>
       <button
         className="btn-primary"

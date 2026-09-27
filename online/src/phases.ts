@@ -268,6 +268,7 @@ function rollOverSeason(state: LeagueState): void {
   state.tradeDeadline = null;
   state.games = [];
   state.draft = null;
+  state.draftTargets = {};
   state.freeAgency = null;
   state.coachingHire = null;
   state.trades = [];
@@ -546,7 +547,16 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // Bowl reached the end-of-season screens with no season on the books.
   // `finalizeSeason` already refuses to write the same year twice, so being
   // called from the shared path is free.
-  if (state.stage === "endOfSeasonAnnounce") finalizeSeason(state);
+  if (state.stage === "endOfSeasonAnnounce") {
+    finalizeSeason(state);
+    // Online the announcement is the awards splash each GM sees on the way
+    // to the season screen, not a gate of its own: as a stage it made every
+    // GM ready up twice on the same /season-complete page ("Continue", then
+    // "Ready to advance to the offseason"). Pass straight through.
+    const t = resolveTransition(state, { humanGmWonSuperBowl: sbWonByHuman(state) });
+    state.stage = t.stage;
+    state.week = t.week;
+  }
 
   // Change 11: the whole postseason is decided here, in one pass, for the
   // same reason the regular season is — except that a bracket has no partial

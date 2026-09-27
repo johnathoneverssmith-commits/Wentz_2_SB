@@ -255,8 +255,12 @@ export function resolveTransition(
     case "endOfSeasonConsolation":
       return { stage: "offseasonRetirement", week: 0 };
 
+    // Straight to the draft: the draft preview is the second step of the
+    // retirement stage now (Change 12), and routing through
+    // `offseasonDraftPrep` showed every GM the same preview twice, with a
+    // ready-up on each. The prep stage remains only for leagues already in it.
     case "offseasonRetirement":
-      return { stage: "offseasonDraftPrep", week: 0 };
+      return { stage: "offseasonDraft", week: 0 };
     case "offseasonDraftPrep":
       return { stage: "offseasonDraft", week: 0 };
     case "offseasonDraft":

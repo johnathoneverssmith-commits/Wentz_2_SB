@@ -175,7 +175,6 @@ describe("a season, played rather than skipped", () => {
         "midseasonDepthChart",
         "playoffs",
         "offseasonRetirement",
-        "offseasonDraftPrep",
         "offseasonDraft",
         "offseasonDraftSummary",
       ] as Stage[]) {

@@ -190,6 +190,9 @@ export class OnlineLeagueClient {
       version,
     });
 
+  toggleDraftTarget = (leagueId: string, prospectId: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/draft-target`, { prospectId });
+
   stepForward = (leagueId: string, step: string, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/step`, {
       step,

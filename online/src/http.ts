@@ -8,6 +8,7 @@
  * errors that come back as JSON a client can show a person.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { gzipSync } from "node:zlib";
 
 import { readSession, userById, type User } from "./auth.js";
 import { ActionError } from "./db.js";
@@ -155,8 +156,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     };
     const out = await found.route.handler(ctx);
     if (res.headersSent) return;
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(out ?? { ok: true }));
+    sendJson(req, res, JSON.stringify(out ?? { ok: true }));
   } catch (err) {
     const status = err instanceof ActionError ? err.status : 500;
     if (status === 500) {
@@ -174,4 +174,30 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       }),
     );
   }
+}
+
+/**
+ * A JSON body, gzipped when the client takes it and it's worth it.
+ *
+ * A league read is ~2.6 MB of JSON (every player, every game) and every
+ * action fetches one: uncompressed, on a free-tier host and a phone
+ * connection, that was most of why a click took seconds. League JSON
+ * compresses about ten to one.
+ */
+function sendJson(req: IncomingMessage, res: ServerResponse, body: string): void {
+  const accepts = /gzip/.test(String(req.headers["accept-encoding"] ?? ""));
+  if (accepts && body.length > 2048) {
+    // level 1: most of the size win for a fraction of the CPU, which the
+    // free tier (0.1 CPU) has much less of than it has bandwidth
+    const zipped = gzipSync(body, { level: 1 });
+    res.writeHead(200, {
+      "content-type": "application/json",
+      "content-encoding": "gzip",
+      vary: "accept-encoding",
+    });
+    res.end(zipped);
+    return;
+  }
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(body);
 }

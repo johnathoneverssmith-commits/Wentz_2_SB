@@ -11,6 +11,8 @@ import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { picksOwnedBy } from "@/state/draftPicks";
 import { useStore } from "@/state/store";
+import { draftTargetsFor } from "@/state/rules";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 
 const PROSPECT_GRID = "24px 1.7fr 0.5fr 0.8fr 16px";
@@ -21,14 +23,11 @@ export function DraftPreview() {
   const { active, setActive } = useTabs("prospects");
   const code = viewerTeamCode(s);
   const myPicks = code ? picksOwnedBy(s, code, s.season) : [];
-  const toggleTarget = useStore((st) => st.toggleDraftTarget);
-  const startDraft = useStore((st) => st.startDraft);
-
-  // targets are stored on the draft object; make sure one exists for marking
-  const targets = s.draft?.targetsByGm[s.viewerGmId] ?? [];
-  const ensureDraft = () => {
-    if (!s.draft || s.draft.mode !== "rookie") startDraft("rookie");
-  };
+  const actions = useLeagueActions();
+  // league-level and saved on the server, so they survive the preview, a
+  // reload and the start of the draft (they used to live on last season's
+  // draft object, and vanished online on the next refresh)
+  const targets = draftTargetsFor(s, s.viewerGmId);
 
   const prospects = useMemo(
     () =>
@@ -51,7 +50,8 @@ export function DraftPreview() {
         stats={[
           { label: "Prospects", value: prospects.length },
           { label: "Your targets", value: targets.length, className: "accent" },
-          { label: "Top prospect", value: prospects[0]?.projectedRange ?? "—", className: "sm" },
+          // his name, not his projected range ("Top prospect: Top 10")
+          { label: "Top prospect", value: prospects[0] ? `${prospects[0].name} (${prospects[0].position})` : "—", className: "sm" },
           // "R1" was a constant — it said the same thing whether you held
           // three firsts or had traded them all away
           {
@@ -86,7 +86,9 @@ export function DraftPreview() {
           {market.matched > 0 && (
             <RowHeader
               gridTemplate={PROSPECT_GRID}
-              labels={["", { label: "Prospect", align: "left" }, "Ovr", "Projected", ""]}
+              // a college grade, which runs high — not the NFL overall he
+              // arrives with, so it isn't labelled as one
+              labels={["", { label: "Prospect", align: "left" }, "Grade", "Projected", ""]}
             />
           )}
           {market.shown.map((p) => {
@@ -100,8 +102,7 @@ export function DraftPreview() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        ensureDraft();
-                        toggleTarget(s.viewerGmId, p.id);
+                        void actions.toggleDraftTarget(p.id);
                       }}
                       style={{ border: "none", background: "none", padding: 0, color: starred ? "var(--notice)" : "var(--ink-faint)", fontSize: 14, cursor: "pointer" }}
                     >

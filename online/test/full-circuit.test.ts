@@ -144,7 +144,9 @@ describe("a season, driven by the buttons", () => {
     expect(() => decideRevealRound(s, a)).toThrow();
 
     expect(everyoneReady(s)).toBe(true);
-    expect(s.stage).toBe("endOfSeasonAnnounce");
+    // the announcement is a splash online, not a second gate: the league
+    // lands on the season screen itself (nobody here won it)
+    expect(s.stage).toBe("endOfSeasonConsolation");
     // the season is on the books, which is what the roasts read next year
     expect(s.history.some((h) => h.season === s.season)).toBe(true);
   }, 1_800_000);
@@ -195,7 +197,7 @@ describe("the offseason, driven by the buttons", () => {
   it("walks from the end of the season back to a preseason", () => {
     const s = atEndOfSeason();
     const seasonPlayed = s.season;
-    expect(s.stage).toBe("endOfSeasonAnnounce");
+    expect(s.stage).toBe("endOfSeasonConsolation");
 
     const route: Stage[] = [];
     for (let i = 0; i < 20 && s.stage !== "preseason"; i++) {

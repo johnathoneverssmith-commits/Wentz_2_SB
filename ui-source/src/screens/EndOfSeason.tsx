@@ -9,6 +9,7 @@ import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { useStore } from "@/state/store";
+import { isOnline } from "@/state/online";
 
 /** Big "END OF {year} SEASON" card. Any GM clicks past on their own. */
 export function EndOfSeasonAnnounce() {
@@ -23,6 +24,12 @@ export function EndOfSeasonAnnounce() {
   // at all in a multi-GM league: `tryAdvance` refuses until every human is
   // ready, and it routes back to this same screen when it refuses.
   const goOn = async () => {
+    // online the league has already moved past the announcement (it is a
+    // splash there, not a stage) — the local store's gate would do nothing
+    if (isOnline()) {
+      nav("/season-complete");
+      return;
+    }
     setReady(s.viewerGmId, true);
     autoReady();
     const { moved, route } = await tryAdvance();
@@ -150,7 +157,7 @@ export function SeasonComplete() {
           <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--ink-dim)" }}>
             {roundText.replace(roundBoldPart, "").trim()}{" "}
             <strong style={{ color: "var(--ink)" }}>{roundBoldPart}</strong>
-            {humanChampGm ? "." : furthest?.round !== "none" ? " — the best of the league this year." : "."}
+            {humanChampGm ? "." : furthest?.round !== "none" ? " — as far as any GM in the league got this year." : "."}
           </p>
           {champ && !humanChampGm && (
             <p style={{ margin: "14px 0 0", fontSize: 12, color: "var(--ink-faint)" }}>

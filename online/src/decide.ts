@@ -27,6 +27,7 @@ import {
   checkCoachHire,
   checkRookieOutcome,
   completeDraft,
+  toggleDraftTargetFor,
   draftThresholdMet,
   applyRookieOutcome,
   applyCoachHire,
@@ -521,6 +522,16 @@ export function decideHoodedFigurePayment(state: LeagueState, actor: Actor, paym
  * forward, so a back button lands on the screen they committed to rather
  * than on the one they left.
  */
+/** Star or unstar a prospect — private to this GM, stripped from everyone else's view. */
+export function decideDraftTarget(state: LeagueState, actor: Actor, prospectId: string): Decision {
+  if (!state.draftClass?.some((p) => p.id === prospectId)) {
+    throw new ActionError("That prospect isn't in this draft class.");
+  }
+  toggleDraftTargetFor(state, actor.gmId, prospectId);
+  // private: no event, nothing for the other GMs' tickers to read
+  return { events: [] };
+}
+
 export function decideStep(state: LeagueState, actor: Actor, step: string): Decision {
   markStep(state, actor.gmId, step);
   return {
