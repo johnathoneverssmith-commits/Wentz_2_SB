@@ -496,7 +496,16 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                         ? { cls: "special", label: "PUNT" }
                         : dr.ended === "turnover"
                           ? { cls: "to", label: "TO" }
-                          : null;
+                          : // "stalled": a failed fourth down, or the clock
+                            // (half or game) running out — both used to show
+                            // no result at all
+                            dr.plays.at(-1)?.down === 4
+                            ? { cls: "to", label: "DOWNS" }
+                            : k === drives.length - 1
+                              ? { cls: "special", label: "END" }
+                              : dr.quarter <= 2 && (drives[k + 1]?.quarter ?? 0) >= 3
+                                ? { cls: "special", label: "HALF" }
+                                : null;
               // and what it cost — a punt taken back or a pick-six used to
               // show as a plain PUNT or TO with the seven points nowhere
               const conceded =
