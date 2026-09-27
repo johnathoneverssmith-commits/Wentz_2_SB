@@ -291,41 +291,46 @@ export function nextReconcileCut(
   overCap: boolean,
   overSize: boolean,
 ): Player | null {
-  // never the last man a positional minimum depends on: the cheapest
-  // player on a roster is usually the kicker or the punter, and cutting
-  // the only one just opened a hole this same loop then had to fill
-  const mins = positionalMinimums();
-  const roster = rosterOf(s, teamCode);
-  const countAt = (pos: string) => roster.filter((x) => x.position === pos).length;
-  const cuttable = roster
-    .filter((p) => checkRelease(s, teamCode, p.id).ok && p.overall > 0)
-    .filter((p) => countAt(p.position) > (mins[p.position] ?? 0));
-  // Where each player stands at his position, best first: a starter is
-  // inside the template's starter count, a surplus body is past its
-  // full count (a second kicker, a seventh corner).
-  const rankAt = new Map<string, number>();
-  for (const pos of new Set(roster.map((p) => p.position))) {
-    roster
-      .filter((p) => p.position === pos)
-      .sort((a, b) => b.overall - a.overall)
-      .forEach((p, i) => rankAt.set(p.id, i));
-  }
-  const slot = (pos: string) => ROSTER_TEMPLATE.find((r) => r.pos === pos);
-  const surplus = (p: Player) => (rankAt.get(p.id) ?? 0) >= (slot(p.position)?.count ?? 0);
-  const starter = (p: Player) => (rankAt.get(p.id) ?? 0) < (slot(p.position)?.starters ?? 0);
-  const capHit = (p: Player) => p.contract?.cap_hit_by_year[0] ?? 0;
-  // Crowded: the least useful body — surplus positions first (a team
-  // that upgraded its kicker used to keep both and cut its cheapest
-  // linebacker), then the lowest rating. Broke: the dearest player who
-  // isn't starting — it used to be the dearest player, full stop, which
-  // is how a CPU team over the cap cut its quarterback.
-  const victim = overCap && !overSize
-    ? ([...cuttable].filter((p) => !starter(p)).sort((a, b) => capHit(b) - capHit(a))[0] ??
-      [...cuttable].sort((a, b) => capHit(b) - capHit(a))[0])
-    : [...cuttable].sort(
-        (a, b) =>
-          Number(surplus(b)) - Number(surplus(a)) || a.overall - b.overall || capHit(a) - capHit(b),
-      )[0];
+  // never the last man a positional minimum depends on: the cheapest
+  // player on a roster is usually the kicker or the punter, and cutting
+  // the only one just opened a hole this same loop then had to fill
+  const mins = positionalMinimums();
+  const roster = rosterOf(s, teamCode);
+  const countAt = (pos: string) => roster.filter((x) => x.position === pos).length;
+  const cuttable = roster
+    .filter((p) => checkRelease(s, teamCode, p.id).ok && p.overall > 0)
+    .filter((p) => countAt(p.position) > (mins[p.position] ?? 0));
+  // Where each player stands at his position, best first: a starter is
+  // inside the template's starter count, a surplus body is past its
+  // full count (a second kicker, a seventh corner).
+  const rankAt = new Map<string, number>();
+  for (const pos of new Set(roster.map((p) => p.position))) {
+    roster
+      .filter((p) => p.position === pos)
+      .sort((a, b) => b.overall - a.overall)
+      .forEach((p, i) => rankAt.set(p.id, i));
+  }
+  const slot = (pos: string) => ROSTER_TEMPLATE.find((r) => r.pos === pos);
+  const surplus = (p: Player) => (rankAt.get(p.id) ?? 0) >= (slot(p.position)?.count ?? 0);
+  const starter = (p: Player) => (rankAt.get(p.id) ?? 0) < (slot(p.position)?.starters ?? 0);
+  const capHit = (p: Player) => p.contract?.cap_hit_by_year[0] ?? 0;
+  // what he's worth keeping: his rating, plus half of any room a young
+  // player still has to grow — the trim used to cut rookies signed that
+  // same week for a 29-year-old one point better
+  const keepValue = (p: Player) =>
+    p.overall + (p.age <= 25 ? Math.max(0, (p.potential ?? p.overall) - p.overall) * 0.5 : 0);
+  // Crowded: the least useful body — surplus positions first (a team
+  // that upgraded its kicker used to keep both and cut its cheapest
+  // linebacker), then the lowest rating. Broke: the dearest player who
+  // isn't starting — it used to be the dearest player, full stop, which
+  // is how a CPU team over the cap cut its quarterback.
+  const victim = overCap && !overSize
+    ? ([...cuttable].filter((p) => !starter(p)).sort((a, b) => capHit(b) - capHit(a))[0] ??
+      [...cuttable].sort((a, b) => capHit(b) - capHit(a))[0])
+    : [...cuttable].sort(
+        (a, b) =>
+          Number(surplus(b)) - Number(surplus(a)) || keepValue(a) - keepValue(b) || capHit(a) - capHit(b),
+      )[0];
   return victim ?? null;
 }
 
