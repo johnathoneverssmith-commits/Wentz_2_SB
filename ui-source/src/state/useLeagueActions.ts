@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { ContractOffer, Position } from "@/domain";
+import type { ContractOffer, LeagueConfig, Position } from "@/domain";
 
 import { isOnline, onLeagueChange, OnlineError, onlineSession, pull, send } from "./online.ts";
 import { useStore } from "./store.ts";
@@ -80,6 +80,8 @@ export interface LeagueActions {
   deadlineTurn: (move: DeadlineMove) => Promise<ActionResult>;
   revealRound: () => Promise<ActionResult>;
   stepForward: (step: string) => Promise<ActionResult>;
+  /** League settings before kickoff (online: commissioner only). */
+  setConfig: (patch: Partial<LeagueConfig>) => Promise<ActionResult>;
   /** Star or unstar a draft prospect (private to this GM). */
   toggleDraftTarget: (prospectId: string) => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
@@ -223,6 +225,10 @@ export function useLeagueActions(): LeagueActions {
         deadlineTurn: async (move) => store.deadlineTurn(move),
         revealRound: async () => store.revealRound(),
         stepForward: async (step) => store.stepForward(step),
+        setConfig: async (patch) => {
+          store.setConfig(patch);
+          return { ok: true };
+        },
         toggleDraftTarget: async (prospectId) => {
           store.toggleDraftTarget(store.viewerGmId, prospectId);
           return { ok: true };
@@ -308,6 +314,7 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.deadlineTurn(s.leagueId, move, s.version))).then(after),
       revealRound: () =>
         attempt(() => send((s) => s.client.revealRound(s.leagueId, s.version))).then(after),
+      setConfig: (patch) => attempt(() => send((s) => s.client.updateConfig(s.leagueId, patch))).then(after),
       toggleDraftTarget: (prospectId) =>
         attempt(() => send((s) => s.client.toggleDraftTarget(s.leagueId, prospectId))).then(after),
       stepForward: (step) =>

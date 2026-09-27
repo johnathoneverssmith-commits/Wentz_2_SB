@@ -582,7 +582,7 @@ function CreateLeague({
   const [faRounds, setFaRounds] = useState(20);
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
   const [talentImpact, setTalentImpact] = useState<TalentImpact>("amplified");
-  const [gameDayHours, setGameDayHours] = useState<DeadlineChoice>(24);
+  const gameDayHours: DeadlineChoice = 24;
 
   return (
     <>
@@ -791,21 +791,6 @@ function CreateLeague({
               </select>
             </OnlineSetting>
 
-            <OnlineSetting
-              label="Hours per game week"
-              hint="How long a game week waits on a GM before their staff plays it for them."
-            >
-              <select
-                value={gameDayHours}
-                onChange={(e) => setGameDayHours(Number(e.target.value) as DeadlineChoice)}
-              >
-                {[2, 6, 12, 24, 48].map((n) => (
-                  <option key={n} value={n}>
-                    {n}h
-                  </option>
-                ))}
-              </select>
-            </OnlineSetting>
           </div>
         )}
 

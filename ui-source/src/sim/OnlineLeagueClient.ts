@@ -192,6 +192,10 @@ export class OnlineLeagueClient {
       version,
     });
 
+  /** Commissioner only, before the league starts. */
+  updateConfig = (leagueId: string, patch: Partial<LeagueConfig>) =>
+    this.call<{ ok: true }>(`/leagues/${leagueId}/admin/config`, { patch });
+
   toggleDraftTarget = (leagueId: string, prospectId: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/draft-target`, { prospectId });
 

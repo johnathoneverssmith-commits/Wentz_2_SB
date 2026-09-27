@@ -273,6 +273,13 @@ async function main() {
       );
     }
     if (s.stage === "preseason" && !preseasonChecked.has(s.season)) {
+      // nobody has watched a preseason game yet, so nobody can have seen
+      // anyone get hurt in one (the whole block is already simulated)
+      const unwatched = views.filter((v) => revealedWeek(v.state, v.you?.gmId ?? "", "PRE") === 0);
+      if (unwatched.length) {
+        const hurt = Object.values(unwatched[0]!.state.players).filter((p) => p.injury_status).length;
+        check(hurt === 0, `season ${s.season}: no injuries shown from unwatched preseason games (${hurt})`);
+      }
       // whatever the offseason did, every team takes the field with a squad
       const sizes = Object.keys(s.teams).map((c) => Object.values(s.players).filter((p) => p.nfl_team === c && !p.retired && !p.free_agent).length);
       check(Math.min(...sizes) >= 45 && Math.max(...sizes) <= 53, `season ${s.season}: every roster legal at the preseason (${Math.min(...sizes)}-${Math.max(...sizes)})`);

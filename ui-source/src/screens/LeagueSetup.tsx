@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
-import { isOnline } from "@/state/online";
+import { isOnline, onlineSession } from "@/state/online";
+import { useLeagueActions } from "@/state/useLeagueActions";
 import { DIVISIONS, TEAMS_BY_CODE, teamFullName } from "@/data/teams";
-import type { DeadlineChoice, Difficulty, TeamMeta } from "@/domain";
+import type { Difficulty, LeagueConfig, TeamMeta } from "@/domain";
 import {
   formatOf,
   humansOnlyLeagueSize,
@@ -16,7 +18,6 @@ import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { useStore } from "@/state/store";
 
-const DEADLINES: DeadlineChoice[] = [2, 6, 12, 24, 48];
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function LeagueSetup() {
@@ -30,7 +31,16 @@ export function LeagueSetup() {
   const seasonGames = seasonShapeFor("humansOnly", leagueSize).regularSeasonWeeks;
   const gms = useStore((s) => s.gms);
   const viewerGmId = useStore((s) => s.viewerGmId);
-  const setConfig = useStore((s) => s.setConfig);
+  const actions = useLeagueActions();
+  // online these are the league's settings, saved by the commissioner on the
+  // server; the local store alone changed only this viewer's copy
+  const [configError, setConfigError] = useState<string | null>(null);
+  const setConfig = (patch: Partial<LeagueConfig>): void => {
+    setConfigError(null);
+    void actions.setConfig(patch).then((res) => {
+      if (!res.ok) setConfigError(res.reason ?? "That setting didn't save.");
+    });
+  };
   const pickTeam = useStore((s) => s.pickTeam);
 
   // Once the league has started, this screen is a read-only summary: switching
@@ -39,6 +49,9 @@ export function LeagueSetup() {
   // the same screen serves both modes, and almost every sentence on it means
   // something different depending on which one you are in
   const online = isOnline();
+  const commissioner = onlineSession()?.isCommissioner ?? false;
+  // everyone sees the settings; only the commissioner changes them online
+  const settingsLocked = locked || (online && !commissioner);
 
   const viewer = gms.find((g) => g.id === viewerGmId)!;
   /**
@@ -222,6 +235,16 @@ export function LeagueSetup() {
       </Panel>
 
       <Panel id="settings" open={active === "settings"}>
+        {online && !locked && !commissioner && (
+          <div className="notice" role="status" style={{ marginBottom: 14 }}>
+            Only the commissioner can change these. They&rsquo;re shown so everyone knows the rules.
+          </div>
+        )}
+        {configError && (
+          <div className="notice bad" role="status" style={{ marginBottom: 14 }}>
+            {configError}
+          </div>
+        )}
         {locked && (
           <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
             Rules are shown for reference — they can't change once the league is underway. Start a new league from the sidebar
@@ -238,7 +261,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.leagueFormat ?? "nfl"}
-            disabled={locked}
+            disabled={settingsLocked}
             onChange={(e) => {
               const leagueFormat = e.target.value as "nfl" | "humansOnly";
               // the NFL format's GM range is narrower; pull the count back into it
@@ -264,7 +287,8 @@ export function LeagueSetup() {
         >
           <select
             value={config.humanGmCount}
-            disabled={locked}
+            // online the seats were fixed when the league was created
+            disabled={settingsLocked || online}
             onChange={(e) => setConfig({ humanGmCount: Number(e.target.value) })}
           >
             {(humansOnly ? [1, 2, 3, 4, 5, 6, 7, 8] : [2, 3, 4, 5, 6]).map((n) => (
@@ -284,7 +308,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.fantasyDraft ? "on" : "off"}
-            disabled={locked || humansOnly}
+            disabled={settingsLocked || humansOnly}
             onChange={(e) => setConfig({ fantasyDraft: e.target.value === "on" })}
           >
             <option value="on">On</option>
@@ -297,7 +321,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.draftOrder}
-            disabled={locked || !config.fantasyDraft}
+            disabled={settingsLocked || !config.fantasyDraft}
             onChange={(e) => setConfig({ draftOrder: e.target.value as "randomized" | "inOrder" })}
           >
             <option value="randomized">Randomized</option>
@@ -310,7 +334,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.draftType}
-            disabled={locked || !config.fantasyDraft}
+            disabled={settingsLocked || !config.fantasyDraft}
             onChange={(e) => setConfig({ draftType: e.target.value as "snake" | "linear" })}
           >
             <option value="linear">Linear</option>
@@ -323,7 +347,7 @@ export function LeagueSetup() {
         >
           <select
             value={String(config.fantasyDraftRounds)}
-            disabled={locked || !config.fantasyDraft}
+            disabled={settingsLocked || !config.fantasyDraft}
             onChange={(e) => setConfig({ fantasyDraftRounds: Number(e.target.value) })}
           >
             {[5, 8, 10, 12, 15, 20, 25, 30].map((n) => (
@@ -339,7 +363,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.draftSimulateAfterPicks == null ? "" : String(config.draftSimulateAfterPicks)}
-            disabled={locked || !config.fantasyDraft}
+            disabled={settingsLocked || !config.fantasyDraft}
             onChange={(e) =>
               setConfig({ draftSimulateAfterPicks: e.target.value === "" ? null : Number(e.target.value) })
             }
@@ -358,7 +382,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.talentImpact ?? "realistic"}
-            disabled={locked}
+            disabled={settingsLocked}
             onChange={(e) => setConfig({ talentImpact: e.target.value as TalentImpact })}
           >
             {(["realistic", "amplified", "extreme"] as const).map((v) => (
@@ -374,7 +398,7 @@ export function LeagueSetup() {
         >
           <select
             value={config.difficulty}
-            disabled={locked}
+            disabled={settingsLocked}
             onChange={(e) => setConfig({ difficulty: e.target.value as Difficulty })}
           >
             {(["casual", "standard", "competitive", "expert", "master"] as const).map((d) => (
@@ -384,40 +408,7 @@ export function LeagueSetup() {
             ))}
           </select>
         </SettingRow>
-        <SettingRow
-          label="Game-day readiness deadline"
-          hint="How long the league waits for every GM to click Ready for Game Day before auto-simulating the week."
-        >
-          <select
-            value={config.gameDayDeadlineHours}
-            disabled={locked}
-            onChange={(e) => setConfig({ gameDayDeadlineHours: Number(e.target.value) as DeadlineChoice })}
-          >
-            {DEADLINES.map((h) => (
-              <option key={h} value={h}>
-                {h} hours
-              </option>
-            ))}
-          </select>
-        </SettingRow>
-        <SettingRow
-          label="Offseason stage deadline"
-          hint="Same pattern applied to retirements, roster management, and draft-signing stages."
-        >
-          <select
-            value={config.offseasonStageDeadlineHours}
-            disabled={locked}
-            onChange={(e) =>
-              setConfig({ offseasonStageDeadlineHours: Number(e.target.value) as DeadlineChoice })
-            }
-          >
-            {DEADLINES.map((h) => (
-              <option key={h} value={h}>
-                {h} hours
-              </option>
-            ))}
-          </select>
-        </SettingRow>
+
         <SettingRow label="Free agency pace" hint="Live event: each in-game day advances on consensus or when the timer runs out.">
           <span className="pill">5 days · 12 min/day</span>
         </SettingRow>

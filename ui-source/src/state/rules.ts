@@ -23,6 +23,7 @@ import {
   type CoachRole,
   type ContractOffer,
   type FreeAgencyState,
+  type LeagueConfig,
   type LeagueState,
   type Player,
   type Position,
@@ -1980,4 +1981,34 @@ export function toggleDraftTargetFor(s: LeagueState, gmId: string, prospectId: s
   const i = list.indexOf(prospectId);
   if (i >= 0) list.splice(i, 1);
   else list.push(prospectId);
+}
+
+/**
+ * A commissioner's settings change, validated: only rule settings a league
+ * may still change before it starts, each to a value the game supports.
+ * Returns the cleaned patch, or a reason it was refused. Seats are fixed
+ * when an online league is created, so the GM count is not among them.
+ */
+export function cleanConfigPatch(
+  s: LeagueState,
+  patch: Record<string, unknown>,
+): { ok: true; patch: Partial<LeagueConfig> } | { ok: false; reason: string } {
+  if (s.stage !== "setup") return { ok: false, reason: "Settings lock once the league starts." };
+  const out: Partial<LeagueConfig> = {};
+  const oneOf = <T,>(v: unknown, allowed: readonly T[]): v is T => allowed.includes(v as T);
+  for (const [k, v] of Object.entries(patch)) {
+    if (k === "fantasyDraft" && typeof v === "boolean") out.fantasyDraft = v;
+    else if (k === "draftOrder" && oneOf(v, ["randomized", "inOrder"] as const)) out.draftOrder = v;
+    else if (k === "draftType" && oneOf(v, ["snake", "linear"] as const)) out.draftType = v;
+    else if (k === "fantasyDraftRounds" && oneOf(v, [5, 8, 10, 12, 15, 20, 25, 30] as const)) out.fantasyDraftRounds = v;
+    else if (k === "draftSimulateAfterPicks" && (v === null || (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 30)))
+      out.draftSimulateAfterPicks = v;
+    else if (k === "talentImpact" && oneOf(v, ["realistic", "amplified", "extreme"] as const)) out.talentImpact = v;
+    else if (k === "difficulty" && oneOf(v, ["casual", "standard", "competitive", "expert", "master"] as const)) out.difficulty = v;
+    else if (k === "leagueFormat" && oneOf(v, ["nfl", "humansOnly"] as const)) out.leagueFormat = v;
+    else return { ok: false, reason: `"${k}" can't be set to that.` };
+  }
+  // a humans-only league always drafts: it has no NFL rosters to inherit
+  if ((out.leagueFormat ?? s.config.leagueFormat) === "humansOnly") out.fantasyDraft = true;
+  return { ok: true, patch: out };
 }

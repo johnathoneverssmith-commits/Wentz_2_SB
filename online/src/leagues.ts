@@ -268,5 +268,9 @@ export async function openTeams(leagueId: string): Promise<string[]> {
     [leagueId],
   );
   const taken = new Set(claimed.rows.map((r) => r.team_code));
-  return Object.keys(state.teams).filter((c) => !taken.has(c));
+  // alphabetical: the league's own key order put seven teams (whichever the
+  // setup touched first) ahead of an otherwise alphabetical list
+  return Object.keys(state.teams)
+    .filter((c) => !taken.has(c))
+    .sort();
 }

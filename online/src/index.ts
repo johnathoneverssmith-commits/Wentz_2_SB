@@ -35,7 +35,7 @@ import {
 } from "./actions.js";
 import { franchiseOf, isCommissioner, login, register, signSession } from "./auth.js";
 import { regenerateBroadcast } from "./blocks.js";
-import { ActionError, migrate, readLeague } from "./db.js";
+import { ActionError, migrate, readLeague, withLeague } from "./db.js";
 import {
   clearSessionCookie,
   get,
@@ -57,7 +57,7 @@ import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
 import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
 import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
-import { isInSeason } from "@/state/rules.ts";
+import { cleanConfigPatch, isInSeason } from "@/state/rules.ts";
 import { redactedGames, revealedWeek, visibleBracket, visibleGames } from "@/state/reveal.ts";
 import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
 import { rewindInjuries } from "@/state/injuries.ts";
@@ -516,6 +516,28 @@ post("/leagues/:id/actions/simulate-week", async (ctx) => {
 });
 
 /* ---- commissioner ---------------------------------------------------- */
+
+// League settings before kickoff: the commissioner's call, saved on the
+// league. The settings screen used to change only the viewer's local copy —
+// any GM could "change" them, and nobody's change reached the league.
+post("/leagues/:id/admin/config", async (ctx) => {
+  const user = requireUser(ctx);
+  if (!(await isCommissioner(ctx.params.id!, user.id))) {
+    throw new ActionError("Only the commissioner can change league settings.", 403);
+  }
+  const patch = (ctx.body as { patch?: Record<string, unknown> } | undefined)?.patch ?? {};
+  const { result } = await withLeague(ctx.params.id!, async ({ state }) => {
+    const clean = cleanConfigPatch(state, patch);
+    if (!clean.ok) throw new ActionError(clean.reason);
+    state.config = { ...state.config, ...clean.patch };
+    return {
+      result: { ok: true as const },
+      state,
+      events: [{ kind: "config.changed", summary: "The commissioner changed the league settings." }],
+    };
+  });
+  return result;
+});
 
 post("/leagues/:id/admin/advance", async (ctx) => {
   const user = requireUser(ctx);
