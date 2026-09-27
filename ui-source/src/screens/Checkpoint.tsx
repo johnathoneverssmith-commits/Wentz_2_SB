@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardHeader } from "@/components/primitives";
-import { isOnline } from "@/state/online";
+import { isOnline, onlineSession } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -43,6 +43,12 @@ export function Checkpoint({
 }) {
   const actions = useLeagueActions();
   const stage = useStore((s) => s.stage);
+  const gms = useStore((s) => s.gms);
+  const readiness = useStore((s) => s.readiness);
+  const [forcing, setForcing] = useState(false);
+  const isCommissioner = onlineSession()?.isCommissioner ?? false;
+  // who the league is waiting for, by name — the wait used to be anonymous
+  const waitingNames = gms.filter((g) => g.isHuman && g.teamCode && !readiness[g.id]).map((g) => g.name);
   const [failed, setFailed] = useState(false);
   const [checking, setChecking] = useState(false);
 
@@ -113,6 +119,44 @@ export function Checkpoint({
             You&rsquo;re in. The league starts the next stage once every GM has committed, and
             you&rsquo;ll be taken there automatically — you can close this and come back.
           </p>
+
+          {waitingNames.length > 0 && (
+            <p className="checkpoint-note" style={{ marginTop: 8 }}>
+              Waiting on {waitingNames.join(", ")}.
+            </p>
+          )}
+
+          {/* The lobby promises the commissioner can move a stuck league on;
+              until now the only such control was at league setup. */}
+          {isCommissioner && waitingNames.length > 0 && (
+            <button
+              type="button"
+              className="btnlink"
+              style={{ marginTop: 12 }}
+              disabled={forcing}
+              onClick={() => {
+                if (
+                  !confirm(
+                    `Move the league on without ${waitingNames.join(", ")}?
+
+` +
+                      "They skip this stage's check-in and the league moves to the next stage for everyone.",
+                  )
+                ) {
+                  return;
+                }
+                setForcing(true);
+                void actions
+                  .forceAdvance()
+                  .then((res) => {
+                    if (!res.ok) alert(res.reason ?? "The league wouldn't move.");
+                  })
+                  .finally(() => setForcing(false));
+              }}
+            >
+              {forcing ? "Moving the league on…" : "Commissioner: move the league on without them"}
+            </button>
+          )}
 
           {failed && (
             <div className="notice bad" role="status" style={{ marginTop: 18 }}>
