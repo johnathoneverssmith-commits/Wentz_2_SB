@@ -9,7 +9,7 @@ import type { Player as EnginePlayer } from "../../src/schema/player.js";
 import { ROUND_ORDER } from "@/domain";
 import type { GameResult, LeagueState, Player as UiPlayer } from "@/domain";
 import { buildNextRound, MockSimulationService } from "@/sim/MockSimulationService";
-import { availableRoster, applyInjuries, healOneWeek } from "@/state/injuries.ts";
+import { availableRoster, applyInjuries, healOneWeek, snapshotInjuries } from "@/state/injuries.ts";
 import { makeEmergencyPlayer, positionalMinimums } from "@/state/reconciliation.ts";
 import { accrueSeasonStats, recomputeStandings } from "@/state/standings.ts";
 
@@ -109,6 +109,8 @@ export function simulateBlock(
 
   // a fresh ledger for this block's regular-season weeks (see statLedger)
   if (phase === "REG") state.statLedger = {};
+  // and the injury report as it stood, so a read can show only watched weeks
+  if (phase === "PRE" || phase === "REG") snapshotInjuries(state, phase, fromWeek);
   let played = 0;
   for (let week = fromWeek; week <= toWeek; week++) {
     const slate = state.schedule.filter((g) => g.week === week && g.phase === phase);

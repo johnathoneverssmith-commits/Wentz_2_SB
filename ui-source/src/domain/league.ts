@@ -274,6 +274,8 @@ export interface LeagueState {
    * (`rewindSeasonStats`).
    */
   statLedger?: Record<number, Record<string, PlayerStatLine>>;
+  /** Server-only: the injury report at the start of the current block (`rewindInjuries`). */
+  injuryLedger?: import("@/state/injuries").InjuryLedger;
   /** Accumulated offset of each position from its baseline (`agingBalance`). */
   agingIntegral?: Partial<Record<Position, number>>;
   /** The season whose offsets were last banked into `agingIntegral`. */

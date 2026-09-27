@@ -280,6 +280,55 @@ export function fillPositionalGaps(s: LeagueState, teamCode: string): number {
  * than optimising, because a CPU team that gutted itself to be maximally
  * under the cap would be worse, not better.
  */
+/**
+ * Who a team over the limit should let go next: surplus bodies first, then
+ * the lowest rating when crowded; the dearest non-starter when broke. The
+ * CPU teams trim with it, and so does a GM's "Let my staff trim" button.
+ */
+export function nextReconcileCut(
+  s: LeagueState,
+  teamCode: string,
+  overCap: boolean,
+  overSize: boolean,
+): Player | null {
+  // never the last man a positional minimum depends on: the cheapest
+  // player on a roster is usually the kicker or the punter, and cutting
+  // the only one just opened a hole this same loop then had to fill
+  const mins = positionalMinimums();
+  const roster = rosterOf(s, teamCode);
+  const countAt = (pos: string) => roster.filter((x) => x.position === pos).length;
+  const cuttable = roster
+    .filter((p) => checkRelease(s, teamCode, p.id).ok && p.overall > 0)
+    .filter((p) => countAt(p.position) > (mins[p.position] ?? 0));
+  // Where each player stands at his position, best first: a starter is
+  // inside the template's starter count, a surplus body is past its
+  // full count (a second kicker, a seventh corner).
+  const rankAt = new Map<string, number>();
+  for (const pos of new Set(roster.map((p) => p.position))) {
+    roster
+      .filter((p) => p.position === pos)
+      .sort((a, b) => b.overall - a.overall)
+      .forEach((p, i) => rankAt.set(p.id, i));
+  }
+  const slot = (pos: string) => ROSTER_TEMPLATE.find((r) => r.pos === pos);
+  const surplus = (p: Player) => (rankAt.get(p.id) ?? 0) >= (slot(p.position)?.count ?? 0);
+  const starter = (p: Player) => (rankAt.get(p.id) ?? 0) < (slot(p.position)?.starters ?? 0);
+  const capHit = (p: Player) => p.contract?.cap_hit_by_year[0] ?? 0;
+  // Crowded: the least useful body — surplus positions first (a team
+  // that upgraded its kicker used to keep both and cut its cheapest
+  // linebacker), then the lowest rating. Broke: the dearest player who
+  // isn't starting — it used to be the dearest player, full stop, which
+  // is how a CPU team over the cap cut its quarterback.
+  const victim = overCap && !overSize
+    ? ([...cuttable].filter((p) => !starter(p)).sort((a, b) => capHit(b) - capHit(a))[0] ??
+      [...cuttable].sort((a, b) => capHit(b) - capHit(a))[0])
+    : [...cuttable].sort(
+        (a, b) =>
+          Number(surplus(b)) - Number(surplus(a)) || a.overall - b.overall || capHit(a) - capHit(b),
+      )[0];
+  return victim ?? null;
+}
+
 export function reconcileCpuTeam(s: LeagueState, teamCode: string): void {
   let guard = 0;
   while (guard++ < 120) {
@@ -290,41 +339,7 @@ export function reconcileCpuTeam(s: LeagueState, teamCode: string): void {
     const overSize = issues.some((i) => i.kind === "roster");
 
     if (overCap || overSize) {
-      // never the last man a positional minimum depends on: the cheapest
-      // player on a roster is usually the kicker or the punter, and cutting
-      // the only one just opened a hole this same loop then had to fill
-      const mins = positionalMinimums();
-      const roster = rosterOf(s, teamCode);
-      const countAt = (pos: string) => roster.filter((x) => x.position === pos).length;
-      const cuttable = roster
-        .filter((p) => checkRelease(s, teamCode, p.id).ok && p.overall > 0)
-        .filter((p) => countAt(p.position) > (mins[p.position] ?? 0));
-      // Where each player stands at his position, best first: a starter is
-      // inside the template's starter count, a surplus body is past its
-      // full count (a second kicker, a seventh corner).
-      const rankAt = new Map<string, number>();
-      for (const pos of new Set(roster.map((p) => p.position))) {
-        roster
-          .filter((p) => p.position === pos)
-          .sort((a, b) => b.overall - a.overall)
-          .forEach((p, i) => rankAt.set(p.id, i));
-      }
-      const slot = (pos: string) => ROSTER_TEMPLATE.find((r) => r.pos === pos);
-      const surplus = (p: Player) => (rankAt.get(p.id) ?? 0) >= (slot(p.position)?.count ?? 0);
-      const starter = (p: Player) => (rankAt.get(p.id) ?? 0) < (slot(p.position)?.starters ?? 0);
-      const capHit = (p: Player) => p.contract?.cap_hit_by_year[0] ?? 0;
-      // Crowded: the least useful body — surplus positions first (a team
-      // that upgraded its kicker used to keep both and cut its cheapest
-      // linebacker), then the lowest rating. Broke: the dearest player who
-      // isn't starting — it used to be the dearest player, full stop, which
-      // is how a CPU team over the cap cut its quarterback.
-      const victim = overCap && !overSize
-        ? ([...cuttable].filter((p) => !starter(p)).sort((a, b) => capHit(b) - capHit(a))[0] ??
-          [...cuttable].sort((a, b) => capHit(b) - capHit(a))[0])
-        : [...cuttable].sort(
-            (a, b) =>
-              Number(surplus(b)) - Number(surplus(a)) || a.overall - b.overall || capHit(a) - capHit(b),
-          )[0];
+      const victim = nextReconcileCut(s, teamCode, overCap, overSize);
       if (!victim) break;
       applyRelease(s, teamCode, victim.id);
       continue;

@@ -13,6 +13,7 @@ import {
   checkRelease,
   isReconciled,
   reconciliationIssues,
+  nextReconcileCut,
   releasePenalty,
   rosterOf,
 } from "@/state/reconciliation";
@@ -42,6 +43,7 @@ export function FreeAgencySummary() {
   const { active, setActive } = useTabs("yours");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trimming, setTrimming] = useState(false);
 
   const e = s.freeAgencyEvent;
   const issues = useMemo(
@@ -305,6 +307,40 @@ export function FreeAgencySummary() {
             ? "Advancing is final — you can't come back to free agency."
             : "Fix everything on Roster & Budget before you can advance."}
         </span>
+        {!legal && code && (
+          // A signed draft class puts every team at ~60 each offseason, and
+          // getting back to 53 meant seven separate releases by hand. The
+          // staff cuts the way the CPU teams do: spare bodies at crowded
+          // positions first, then the lowest-rated, never a starter to save
+          // money if a backup will do.
+          <button
+            type="button"
+            className="btnlink"
+            disabled={trimming}
+            onClick={() => {
+              setTrimming(true);
+              void (async () => {
+                try {
+                  for (let i = 0; i < 25; i++) {
+                    const st = useStore.getState();
+                    const issues = reconciliationIssues(st, code);
+                    const overCap = issues.some((x) => x.kind === "cap");
+                    const overSize = issues.some((x) => x.kind === "roster");
+                    if (!overCap && !overSize) break;
+                    const cut = nextReconcileCut(st, code, overCap, overSize);
+                    if (!cut) break;
+                    const res = await actions.releasePlayer(cut.id);
+                    if (!res.ok) break;
+                  }
+                } finally {
+                  setTrimming(false);
+                }
+              })();
+            }}
+          >
+            {trimming ? "Trimming…" : "Let my staff trim the roster"}
+          </button>
+        )}
       </Footer>
       <ReadinessGate
         title="Free agency readiness"

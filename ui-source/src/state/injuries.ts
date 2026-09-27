@@ -9,7 +9,7 @@
  * exists to shorten a battered career — had nothing to work with.
  */
 import { INJURY_HISTORY_KEPT } from "./saveCompaction.ts";
-import type { GameResult, InjuryEvent, LeagueState, Player } from "@/domain";
+import type { GameResult, InjuryEvent, InjuryHistoryEntry, InjuryStatus, LeagueState, Player } from "@/domain";
 
 import { recoveryScaleFor } from "./coachEffects.ts";
 
@@ -158,4 +158,51 @@ const SEASON_STAGES = new Set([
 
 export function onInjuredReserve(p: Player, stage: string): boolean {
   return SEASON_STAGES.has(stage) && (p.injury_status?.weeks_out_est?.[0] ?? 0) >= IR_WEEKS;
+}
+
+/**
+ * The league's injury report as it stood when a block was simulated —
+ * server-only, like `statLedger`. A block applies every week's injuries and
+ * healing up front, so a GM who hadn't watched a single preseason game saw
+ * "Out 3–8 wks" for a player hurt in one of them.
+ */
+export interface InjuryLedger {
+  phase: "PRE" | "REG";
+  fromWeek: number;
+  start: Record<string, { status: InjuryStatus | null; history: InjuryHistoryEntry[] }>;
+}
+
+/** Record the injury report at the start of a block. */
+export function snapshotInjuries(state: LeagueState, phase: "PRE" | "REG", fromWeek: number): void {
+  const start: InjuryLedger["start"] = {};
+  for (const p of Object.values(state.players)) {
+    if (p.injury_status || p.injury_history?.length) {
+      start[p.id] = { status: p.injury_status, history: [...(p.injury_history ?? [])] };
+    }
+  }
+  state.injuryLedger = { phase, fromWeek, start };
+}
+
+/**
+ * The injury report as of `throughWeek`: back to the block's start, then the
+ * watched weeks replayed in the block's own order (injuries, then a week of
+ * healing). Nothing to do once every week of the block has been watched.
+ */
+export function rewindInjuries(state: LeagueState, throughWeek: number): void {
+  const l = state.injuryLedger;
+  if (!l) return;
+  const blockWeeks = state.games.filter((g) => g.phase === l.phase && g.week >= l.fromWeek).map((g) => g.week);
+  const lastWeek = blockWeeks.length ? Math.max(...blockWeeks) : l.fromWeek - 1;
+  if (throughWeek >= lastWeek) return;
+  for (const p of Object.values(state.players)) {
+    const st = l.start[p.id];
+    p.injury_status = st?.status ?? null;
+    p.injury_history = st ? [...st.history] : [];
+  }
+  for (let w = l.fromWeek; w <= throughWeek; w++) {
+    const results = state.games.filter((g) => g.phase === l.phase && g.week === w && g.played);
+    if (results.length === 0) continue;
+    applyInjuries(state, results, state.season);
+    healOneWeek(state);
+  }
 }

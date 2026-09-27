@@ -60,6 +60,7 @@ import type { LeagueState } from "@/domain";
 import { isInSeason } from "@/state/rules.ts";
 import { redactedGames, revealedWeek, visibleBracket, visibleGames } from "@/state/reveal.ts";
 import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
+import { rewindInjuries } from "@/state/injuries.ts";
 import { openStream } from "./stream.js";
 
 const serverStartedAt = new Date().toISOString();
@@ -256,6 +257,12 @@ get("/leagues/:id", async (ctx) => {
   // commissioner who has not claimed a team yet has no `gmId` of their own
   // to reveal against, so they see nothing revealed either — the same as
   // anyone else who has not watched it.
+  // the injury report as of this GM's watched week — replayed from the full
+  // games, so before they're redacted
+  if (state.injuryLedger) {
+    rewindInjuries(state, revealedWeek(state, franchise?.gmId ?? "", state.injuryLedger.phase));
+  }
+  delete state.injuryLedger;
   state.games = redactedGames(state, franchise?.gmId ?? "");
   if (state.bracket) state.bracket = visibleBracket(state.bracket, state, franchise?.gmId ?? "");
   // Standings and stats as of what this GM has watched. Team records and
