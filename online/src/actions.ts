@@ -56,6 +56,17 @@ export async function actorFor(leagueId: string, userId: string): Promise<Actor>
   return { userId, leagueId, teamCode: f.teamCode, gmId: f.gmId };
 }
 
+/**
+ * Which actions check the league version.
+ *
+ * Every GM's every move bumps the version, so an exact-version check on an
+ * action that only touches the actor's own team or view — signing their own
+ * rookies, stepping to the next screen, their depth chart — bounced
+ * constantly ("the league moved on") whenever anyone else was active. Those,
+ * and the turn-based moves (already guarded by whose turn it is and whether
+ * the player or coach is still there), pass no version. Trades, standing
+ * signings and bids keep it: they act on a view of other teams' rosters.
+ */
 /** The shape every action here shares: lock, decide, persist, log. */
 async function run(
   actor: Actor,
@@ -119,29 +130,29 @@ export const respondToTrade = (
 ) => run(actor, expectedVersion, (s) => decideRespondToTrade(s, actor, tradeId, accept));
 
 export const makeDraftPick = (actor: Actor, selectedId: string, expectedVersion?: string) =>
-  run(actor, expectedVersion, (s) => decideDraftPick(s, actor, selectedId));
+  run(actor, undefined, (s) => decideDraftPick(s, actor, selectedId));
 
 export const settleRookie = (
   actor: Actor,
   prospectId: string,
   released: boolean,
   expectedVersion?: string,
-) => run(actor, expectedVersion, (s) => decideRookieOutcome(s, actor, prospectId, released));
+) => run(actor, undefined, (s) => decideRookieOutcome(s, actor, prospectId, released));
 
 export const revealThrough = (actor: Actor, through: number, expectedVersion?: string) =>
-  run(actor, expectedVersion, (s) => decideReveal(s, actor, through));
+  run(actor, undefined, (s) => decideReveal(s, actor, through));
 
 export const submitTrainingCamp = (
   actor: Actor,
   plan: TrainingCampPlan,
   expectedVersion?: string,
-) => run(actor, expectedVersion, (s) => decideTrainingCamp(s, actor, plan));
+) => run(actor, undefined, (s) => decideTrainingCamp(s, actor, plan));
 
 export const submitHoodedFigurePayment = (
   actor: Actor,
   payment: number,
   expectedVersion?: string,
-) => run(actor, expectedVersion, (s) => decideHoodedFigurePayment(s, actor, payment));
+) => run(actor, undefined, (s) => decideHoodedFigurePayment(s, actor, payment));
 
 export const freeAgencyTurn = (
   actor: Actor,
@@ -152,26 +163,26 @@ export const freeAgencyTurn = (
     pass?: boolean | undefined;
   },
   expectedVersion?: string,
-) => run(actor, expectedVersion, (s) => decideFreeAgencyTurn(s, actor, move));
+) => run(actor, undefined, (s) => decideFreeAgencyTurn(s, actor, move));
 
 export const draftCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
-  run(actor, expectedVersion, (s) => decideCoachingPick(s, actor, coachId));
+  run(actor, undefined, (s) => decideCoachingPick(s, actor, coachId));
 
 export const hireCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
-  run(actor, expectedVersion, (s) => decideCoachHire(s, actor, coachId));
+  run(actor, undefined, (s) => decideCoachHire(s, actor, coachId));
 
 export const setDepthOrder = (actor: Actor, position: Position, playerIds: string[]) =>
   run(actor, undefined, (s) => decideSetDepth(s, actor, position, playerIds));
 
 export const releasePlayer = (actor: Actor, playerId: string, expectedVersion?: string) =>
-  run(actor, expectedVersion, (s) => decideRelease(s, actor, playerId));
+  run(actor, undefined, (s) => decideRelease(s, actor, playerId));
 
 export const contractMove = (
   actor: Actor,
   playerId: string,
   move: ContractMove,
   expectedVersion?: string,
-) => run(actor, expectedVersion, (s) => decideContractMove(s, actor, playerId, move));
+) => run(actor, undefined, (s) => decideContractMove(s, actor, playerId, move));
 
 /** The pick the AI would make — what the deadline sweeper uses, nothing else. */
 export function autopickFor(state: LeagueState, teamCode: string): string | null {
@@ -187,11 +198,11 @@ export const deadlineTurn = (
   actor: Actor,
   move: Parameters<typeof decideDeadlineTurn>[2],
   expectedVersion?: string,
-) => run(actor, expectedVersion, (s) => decideDeadlineTurn(s, actor, move));
+) => run(actor, undefined, (s) => decideDeadlineTurn(s, actor, move));
 
 /** Reveal the next playoff round to this GM alone. */
 export const revealRound = (actor: Actor, expectedVersion?: string) =>
-  run(actor, expectedVersion, (s) => decideRevealRound(s, actor));
+  run(actor, undefined, (s) => decideRevealRound(s, actor));
 
 /** Move this GM to the next screen inside the current stage. */
 // no version: a star is private and can't conflict with anyone's move
@@ -199,4 +210,4 @@ export const toggleDraftTarget = (actor: Actor, prospectId: string) =>
   run(actor, undefined, (s) => decideDraftTarget(s, actor, prospectId));
 
 export const stepForward = (actor: Actor, step: string, expectedVersion?: string) =>
-  run(actor, expectedVersion, (s) => decideStep(s, actor, step));
+  run(actor, undefined, (s) => decideStep(s, actor, step));

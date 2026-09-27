@@ -21,7 +21,7 @@ import { availableCoaches, coachingOnTheClock, vacantRoles } from "@/state/coach
 import { extensionAsk } from "@/state/contracts.ts";
 import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent.ts";
 import { seasonShape } from "@/state/leagueFormat.ts";
-import { revealedRounds, revealedWeek } from "@/state/reveal.ts";
+import { revealedRounds, revealedWeek, stepOf } from "@/state/reveal.ts";
 import { currentBlock } from "@/state/revealBlocks.ts";
 import { bestAvailable, standingAsk } from "@/state/rules.ts";
 import { pendingFor } from "@/state/tradeDeadline.ts";
@@ -143,7 +143,8 @@ async function act(u: User, leagueId: string, s: LeagueState): Promise<void> {
       return;
     }
     case "offseasonDraftSummary":
-      await a("step", { step: "rookieSignings" });
+      // once: re-sending it every poll bumped the league version constantly
+      if (stepOf(s, u.gmId) !== "rookieSignings") await a("step", { step: "rookieSignings" });
       for (const r of s.draft?.results ?? []) {
         if (r.teamCode === u.team && r.selectedId && !s.rookieOutcomes[r.selectedId]) {
           await a("rookie", { prospectId: r.selectedId, released: false });
