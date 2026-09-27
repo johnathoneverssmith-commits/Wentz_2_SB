@@ -15,7 +15,7 @@
 import { createHmac, randomBytes, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
-import { pool } from "./db.js";
+import { ActionError, pool } from "./db.js";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -51,9 +51,9 @@ function sameSecret(a: string, b: string): boolean {
 export async function register(name: string, password: string): Promise<User> {
   const trimmed = name.trim();
   if (trimmed.length < 2 || trimmed.length > 40) {
-    throw new Error("Pick a name between 2 and 40 characters.");
+    throw new ActionError("Pick a name between 2 and 40 characters.");
   }
-  if (password.length < 8) throw new Error("Use a password of at least 8 characters.");
+  if (password.length < 8) throw new ActionError("Use a password of at least 8 characters.");
   const salt = randomBytes(16).toString("hex");
   const id = randomUUID();
   try {
@@ -64,7 +64,7 @@ export async function register(name: string, password: string): Promise<User> {
     );
   } catch (err) {
     if ((err as { code?: string }).code === "23505") {
-      throw new Error("That name is taken.");
+      throw new ActionError("That name is taken.");
     }
     throw err;
   }

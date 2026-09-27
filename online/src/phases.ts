@@ -50,7 +50,10 @@ import {
 } from "@/state/rules.ts";
 import { campCuts, fillRosterGaps, fitDraftedPayrolls, recomputeTeamRatings, trimRosters } from "@/state/seed.ts";
 
-import { beginCoachingDraft, runAiCoachingPicks } from "@/state/coachingDraft.ts";
+import { beginCoachingDraft, coachingOnTheClock, runAiCoachingPicks, suggestedCoachingPick } from "@/state/coachingDraft.ts";
+import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent.ts";
+import { pendingFor } from "@/state/tradeDeadline.ts";
+import { decideCoachingPick, decideDeadlineTurn, decideFreeAgencyTurn } from "./decide.js";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconcileCpuTeam } from "@/state/reconciliation.ts";
 import { openTrainingCamp } from "@/state/trainingCamp.ts";
@@ -76,11 +79,38 @@ const sim = new MockSimulationService();
 export function deadlineFor(state: LeagueState, league: { phaseTimeoutHours: number; pickTimeoutHours: number }): Date {
   // The draft is the one stage where order matters, so it runs on a shorter,
   // per-pick clock rather than a single deadline for the whole round.
-  const hours =
-    state.stage === "fantasyDraft" || state.stage === "offseasonDraft"
-      ? league.pickTimeoutHours
-      : league.phaseTimeoutHours;
+  const hours = isTurnStage(state.stage) ? league.pickTimeoutHours : league.phaseTimeoutHours;
   return new Date(Date.now() + hours * 3_600_000);
+}
+
+/** Stages played one turn at a time, where the clock is a per-turn clock. */
+export function isTurnStage(stage: string): boolean {
+  return (
+    stage === "fantasyDraft" ||
+    stage === "offseasonDraft" ||
+    stage === "coachingDraft" ||
+    stage === "freeAgency" ||
+    stage === "midseasonFreeAgency" ||
+    stage === "tradeDeadline"
+  );
+}
+
+/**
+ * Whose turn it is, as a key that changes every time the turn does — so the
+ * per-turn clock can restart for the next GM rather than running on from
+ * the last one's.
+ */
+export function turnKey(state: LeagueState): string {
+  const d = state.draft;
+  const fa = state.freeAgencyEvent;
+  const td = state.tradeDeadline;
+  return [
+    state.stage,
+    d ? d.currentPickIndex : "",
+    state.coachingDraft ? state.coachingDraft.currentPickIndex : "",
+    fa ? `${fa.round}.${fa.turnIndex}` : "",
+    td ? `${td.round}.${td.index}.${td.active?.id ?? ""}.${td.active?.awaiting ?? ""}` : "",
+  ].join("|");
 }
 
 /** Which GMs still have to act before this stage can close. */
@@ -459,6 +489,9 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // the draft summary now leads straight into free agency (Change 13): the
   // CPU classes are signed and the undrafted go to the market here, or they
   // never are — the branch below hangs off a stage the league no longer enters
+  // this season's draft is over: its picks are spent (see the store)
+  if (from === "offseasonDraft") forgetSpentPicks(state, state.season + 1);
+
   if (from === "offseasonDraftSummary" && state.stage === "freeAgency") {
     signAiDraftPicks(state);
     signUndraftedAsFreeAgents(state);
@@ -617,6 +650,52 @@ export function autopilotAbsent(state: LeagueState): string[] {
     }
     // and then the league's own teams, so the clock lands on a person again
     played.push(...runAiPicks(state));
+    return played;
+  }
+
+  // The other turn-based events queue the same way the draft does: one GM
+  // who went quiet on the clock held every other GM in the coaching draft,
+  // the market or the deadline until the commissioner forced the whole stage
+  // past — skipping everyone's turns. So an expired clock takes *that* GM's
+  // turn the plain way (best-value coach, pass, decline), through the same
+  // decisions their own click would run. Stage check-ins still wait.
+  // a refused move is logged and skipped rather than failing the sweep's
+  // transaction, which would retry — and fail — every minute
+  const tryTurn = (take: () => unknown): boolean => {
+    try {
+      take();
+      return true;
+    } catch (err) {
+      console.error("autopilot turn refused", err);
+      return false;
+    }
+  };
+  const actorFor = (teamCode: string) => {
+    const gm = state.gms.find((g) => g.isHuman && g.teamCode === teamCode);
+    return gm ? { userId: "", leagueId: "", teamCode, gmId: gm.id } : null;
+  };
+  if (state.stage === "coachingDraft") {
+    const on = coachingOnTheClock(state);
+    const actor = on ? actorFor(on) : null;
+    const pick = actor ? suggestedCoachingPick(state, actor.teamCode) : null;
+    if (actor && pick && tryTurn(() => decideCoachingPick(state, actor, pick.id))) played.push(actor.teamCode);
+    return played;
+  }
+  if ((state.stage === "freeAgency" || state.stage === "midseasonFreeAgency") && state.freeAgencyEvent && !state.freeAgencyEvent.complete) {
+    const on = faOnTheClock(state);
+    const actor = on ? actorFor(on) : null;
+    if (actor && tryTurn(() => decideFreeAgencyTurn(state, actor, { pass: true }))) played.push(actor.teamCode);
+    return played;
+  }
+  if (state.stage === "tradeDeadline" && state.tradeDeadline && !state.tradeDeadline.done) {
+    for (const gm of state.gms) {
+      if (!gm.isHuman || !gm.teamCode) continue;
+      const duty = pendingFor(state, gm.teamCode);
+      if (!duty) continue;
+      const move = duty === "propose" ? ({ kind: "skip" } as const) : ({ kind: "deny" } as const);
+      if (tryTurn(() => decideDeadlineTurn(state, actorFor(gm.teamCode)!, move))) played.push(gm.teamCode);
+      break;
+    }
     return played;
   }
 

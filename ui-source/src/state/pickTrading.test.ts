@@ -27,6 +27,8 @@ import { useStore } from "./store.ts";
 function fixture(): LeagueState {
   const s = createLeague(29, DEFAULT_CONFIG);
   fillRosterGaps(s);
+  // a league in season: the ledger holds this season's draft and the next two
+  s.draftPicks = {};
   ensureDraftPicks(s, s.season);
   return s;
 }
@@ -43,9 +45,10 @@ describe("the pick ledger", () => {
     const s = fixture();
     const [a, b] = Object.keys(s.teams);
     const pick = s.draftPicks[pickKey(s.season, 1, b!)]!;
-    expect(pickLabel(pick)).toBe(`${s.season} Round 1`);
+    // named for the draft it's used in: the spring after the season
+    expect(pickLabel(pick)).toBe(`${s.season + 1} Round 1`);
     pick.ownedBy = a!;
-    expect(pickLabel(pick)).toBe(`${s.season} Round 1 (via ${b})`);
+    expect(pickLabel(pick)).toBe(`${s.season + 1} Round 1 (via ${b})`);
   });
 
   it("discounts a pick for being years away", () => {

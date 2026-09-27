@@ -52,7 +52,7 @@ import {
 } from "./contracts.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly } from "./leagueFormat.ts";
-import { CURRENT_SAVE_VERSION, migrateLeagueSave } from "./saveMigration.ts";
+import { CURRENT_SAVE_VERSION, migrateLeagueSave, upgradeLeagueState } from "./saveMigration.ts";
 import {
   applyCoachingPick,
   beginCoachingDraft,
@@ -310,6 +310,13 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // and every undrafted prospect goes to the market, before it opens. This
   // used to hang only off the retired `offseasonSignings` stage below, which
   // the league no longer enters: every CPU draft class vanished, every year.
+  // this season's draft is over: its picks are spent and leave the ledger
+  // now, not at the rollover — they sat on every trade screen until then,
+  // "projected #19" for a pick already used
+  if (from === "offseasonDraft") forgetSpentPicks(s, s.season + 1);
+  // the same idempotent fixes the league server applies on every read
+  upgradeLeagueState(s);
+
   if (from === "offseasonDraftSummary" && to === "freeAgency") {
     signAiDraftPicks(s);
     signUndraftedAsFreeAgents(s);

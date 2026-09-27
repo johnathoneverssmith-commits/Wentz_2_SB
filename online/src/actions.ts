@@ -19,6 +19,7 @@ import type { LeagueState } from "@/domain";
 
 import { franchiseOf, isCommissioner } from "./auth.js";
 import { ActionError, withLeague, type Applied } from "./db.js";
+import { deadlineFor, turnKey } from "./phases.js";
 import {
   decideContractMove,
   decideCoachHire,
@@ -63,12 +64,17 @@ async function run(
 ): Promise<{ ok: true; version: string }> {
   const { version } = await withLeague(
     actor.leagueId,
-    async ({ state }) => {
+    async ({ state, league }) => {
+      const before = turnKey(state);
       const decision = decide(state);
+      // a new turn (or a new stage the move finished into) starts its own
+      // clock — it used to inherit whatever the last GM's turn left of it
+      const moved = turnKey(state) !== before;
       return {
         result: { ok: true } as const,
         state,
         events: decision.events,
+        ...(moved ? { phaseEndsAt: deadlineFor(state, league) } : {}),
       } satisfies { result: { ok: true } } & Applied;
     },
     { expectedVersion, actorUserId: actor.userId },

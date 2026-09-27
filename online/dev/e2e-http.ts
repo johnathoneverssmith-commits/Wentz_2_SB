@@ -41,6 +41,8 @@ let BROWSER = process.argv.includes("--browser");
 // --handoff <stage>: play every GM until the league reaches <stage>, then
 // leave the first GM to a person (implies --browser from then on)
 const HANDOFF = arg("handoff", "");
+// --handoff-season <year>: only hand off at <stage> in this season or later
+const HANDOFF_SEASON = Number(arg("handoff-season", "0"));
 const TEAMS = ["GB", "KC", "PIT", "SF", "BUF", "DAL"];
 
 interface User {
@@ -223,7 +225,7 @@ async function main() {
       break;
     }
 
-    if (HANDOFF && !BROWSER && s.stage === HANDOFF) {
+    if (HANDOFF && !BROWSER && s.stage === HANDOFF && s.season >= HANDOFF_SEASON) {
       BROWSER = true;
       console.log(`handing off at ${s.stage}: sign in as ${users[0]!.name} (harness test password); league ${leagueId}`);
     }

@@ -74,10 +74,17 @@ export function futureDiscount(pick: DraftPickAsset, season: number): number {
   return Math.max(0.55, 1 - yearsOut * 0.18);
 }
 
-/** "2027 Round 1 (via CLE)" — the label every screen shows a pick by. */
+/**
+ * "2028 Round 1 (via CLE)" — the label every screen shows a pick by.
+ *
+ * Named for the draft it's used in, which is held the spring after season
+ * `pick.year` — the same year the draft room and preview put on that draft.
+ * Showing `pick.year` itself called one draft "2028 Rookie Draft" in the
+ * room and "2027 Round 1" on the picks that were used in it.
+ */
 export function pickLabel(pick: DraftPickAsset): string {
   const via = pick.originalTeam !== pick.ownedBy ? ` (via ${pick.originalTeam})` : "";
-  return `${pick.year} Round ${pick.round}${via}`;
+  return `${pick.year + 1} Round ${pick.round}${via}`;
 }
 
 /**

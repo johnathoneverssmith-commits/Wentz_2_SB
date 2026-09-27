@@ -1,5 +1,5 @@
 import type { LeagueState } from "@/domain";
-import { ensureDraftPicks } from "./draftPicks.ts";
+import { ensureDraftPicks, forgetSpentPicks, pickKey } from "./draftPicks.ts";
 
 /**
  * The local single-player save's schema version.
@@ -63,4 +63,39 @@ export function upgradeLeagueState(st: LeagueState): void {
   // Luvu, Isaiah Simmons — off-ball backers) sat unplayable, and "best fit"
   // still recommended signing them.
   for (const p of Object.values(st.players)) if (p.position === "OLB") p.position = "ILB";
+
+  // Between a season's rookie draft and the next preseason — and all of a
+  // league's first offseason, which has no draft at all — this season's
+  // picks are spent (or never usable), yet they sat on every trade screen,
+  // tradeable, until the rollover.
+  if (st.draftPicks && PICKS_SPENT_STAGES.has(st.stage)) forgetSpentPicks(st, st.season + 1);
+
+  // an open offer can't include a pick that no longer exists (spent, or a
+  // draft already held): it would trade nothing for something
+  if (st.trades && st.draftPicks) {
+    const exists = (a: { kind: string; pick?: { year: number; round: number; originalTeam: string } }) =>
+      a.kind !== "pick" || !a.pick || !!st.draftPicks[pickKey(a.pick.year, a.pick.round, a.pick.originalTeam)];
+    for (const t of st.trades) {
+      if ((t.status === "offered" || t.status === "pending") && !(t.fromAssets.every(exists) && t.toAssets.every(exists))) {
+        t.status = "rejected";
+      }
+    }
+  }
 }
+
+const PICKS_SPENT_STAGES = new Set<string>([
+  "setup",
+  "fantasyDraft",
+  "fantasyDraftSummary",
+  "coachingDraft",
+  "coachingDraftSummary",
+  "offseasonDraftSummary",
+  "offseasonSignings",
+  "freeAgency",
+  "freeAgencySummary",
+  "offseasonFreeAgency",
+  "trainingCamp",
+  "trainingCampResults",
+  "hoodedFigureEncounter",
+  "offseasonDepthChart",
+]);

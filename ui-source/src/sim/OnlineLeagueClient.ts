@@ -165,6 +165,8 @@ export class OnlineLeagueClient {
     name: string;
     humanSlots?: number;
     phaseTimeoutHours?: number;
+    /** The per-turn clock: a pick, a hire, a bid, a trade. */
+    pickTimeoutHours?: number;
     /** League rules. The server merges these over its defaults. */
     config?: Partial<LeagueConfig>;
   }) => this.call<{ leagueId: string; inviteCode: string }>("/leagues", input);

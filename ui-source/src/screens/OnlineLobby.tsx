@@ -435,7 +435,7 @@ function SignIn({
         </form>
         <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
           {mode === "register"
-            ? "Your name is how other GMs in the league will see you."
+            ? "Your name is how other GMs in the league will see you. Passwords need at least 8 characters."
             : "No account yet? You'll need one before you can be invited to a league."}
         </p>
       </div>
@@ -562,6 +562,7 @@ function CreateLeague({
   const [name, setName] = useState("");
   const [slots, setSlots] = useState(4);
   const [hours, setHours] = useState(48);
+  const [turnHours, setTurnHours] = useState(12);
   const [invite, setInvite] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -594,6 +595,7 @@ function CreateLeague({
               name: name.trim(),
               humanSlots: slots,
               phaseTimeoutHours: hours,
+              pickTimeoutHours: turnHours,
               config: {
                 leagueFormat,
                 // a humans-only league has no NFL rosters to inherit
@@ -654,6 +656,18 @@ function CreateLeague({
             {[12, 24, 48, 72, 168].map((n) => (
               <option key={n} value={n}>
                 {n === 168 ? "A week" : `${n}h`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {/* picks, hires, bids and deadline offers: when this runs out on a
+              GM's turn, their staff takes it for them */}
+          <span>Hours per turn</span>
+          <select value={turnHours} onChange={(e) => setTurnHours(Number(e.target.value))}>
+            {[1, 4, 12, 24, 48].map((n) => (
+              <option key={n} value={n}>
+                {`${n}h`}
               </option>
             ))}
           </select>
@@ -801,9 +815,9 @@ function CreateLeague({
       </form>
 
       <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
-        You'll be the commissioner: you can force a phase on when the league is stuck waiting, and
-        reassign a team somebody has abandoned. The phase clock is what keeps a league moving when
-        a GM goes quiet — when it runs out, their staff acts for them and play continues.
+        You'll be the commissioner, and can force the league on when it's stuck waiting. When a GM
+        runs out the clock on their turn — a draft pick, a coaching hire, a free-agency bid, a
+        trade — their staff takes it for them. Check-ins between stages wait for everyone.
       </p>
 
       {invite && (

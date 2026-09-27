@@ -1208,7 +1208,10 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
     hoodedFigure: null,
   };
   recomputeTeamRatings(state);
-  // draft capital exists from day one — it's tradeable before it's spent
-  ensureDraftPicks(state, state.season);
+  // draft capital exists from day one — it's tradeable before it's spent.
+  // From next season's draft: the first season is played after this
+  // offseason, so there is no draft for this one and its picks would be
+  // tradeable capital for a draft that never happens.
+  ensureDraftPicks(state, state.season + 1);
   return state;
 }
