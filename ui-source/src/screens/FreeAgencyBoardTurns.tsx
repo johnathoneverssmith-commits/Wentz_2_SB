@@ -121,9 +121,12 @@ export function FreeAgencyBoardTurns() {
       .finally(() => setBusy(false));
   };
 
-  const myOffers = Object.entries(e.offers).flatMap(([playerId, list]) =>
-    list.filter((o) => o.teamCode === code).map((o) => ({ playerId, ...o })),
-  );
+  // still live: an offer stays on file after its player signs (with you or
+  // anyone), and counting those said "1 offer out" beside a man you'd won
+  const settled = new Set(e.signed.map((x) => x.playerId));
+  const myOffers = Object.entries(e.offers)
+    .filter(([playerId]) => !settled.has(playerId))
+    .flatMap(([playerId, list]) => list.filter((o) => o.teamCode === code).map((o) => ({ playerId, ...o })));
 
   return (
     <Card maxWidth={920}>
