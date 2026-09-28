@@ -1,5 +1,6 @@
 import { bracketRounds } from "@/domain";
 import type { BracketState, GameResult, LeagueState } from "@/domain";
+import { currentBlock } from "./revealBlocks";
 
 /**
  * Who has seen what.
@@ -199,4 +200,20 @@ export function visibleBracket(
       return { ...hidden, highSeed: known(m.highSeed, at), lowSeed: known(m.lowSeed, at) };
     }),
   };
+}
+
+/**
+ * The week this GM is on: the first game of the current block they haven't
+ * watched, or the block's last week once it's all watched. Null outside the
+ * preseason and regular season, which have no week to speak of.
+ *
+ * Reveals do not move `state.week`, so reading it directly showed every GM
+ * the league's week rather than their own — and "Wk 3" on League
+ * Developments, left over from the preseason.
+ */
+export function viewerWeek(s: LeagueState): number | null {
+  const block = currentBlock(s);
+  if (!block) return null;
+  const watched = revealedWeek(s, s.viewerGmId, block.phase);
+  return Math.min(Math.max(s.week, watched + 1), block.lastWeek);
 }

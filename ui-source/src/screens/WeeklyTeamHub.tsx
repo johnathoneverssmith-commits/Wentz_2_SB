@@ -10,7 +10,7 @@ import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
 import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
-import { hasMoreToReveal, revealedWeek, visibleGames } from "@/state/reveal";
+import { hasMoreToReveal, revealedWeek, viewerWeek, visibleGames } from "@/state/reveal";
 import { preseasonRoasts, weeklyRoasts } from "@/state/roasts";
 import { currentBlock } from "@/state/revealBlocks";
 import { rankBy, staffCards } from "@/state/staffRatings";
@@ -112,7 +112,7 @@ export function WeeklyTeamHub() {
   const hubBlock = currentBlock(s);
   const watched = hubBlock ? revealedWeek(s, s.viewerGmId, hubBlock.phase) : 0;
   const blockDone = !!hubBlock && watched >= hubBlock.lastWeek;
-  const headerWeek = hubBlock ? Math.min(Math.max(s.week, watched + 1), hubBlock.lastWeek) : s.week;
+  const headerWeek = viewerWeek(s) ?? s.week;
   const g = blockDone ? undefined : weekGame(s, code, headerWeek);
   const oppCode = opponentOf(g, code);
   const opp = oppCode ? s.teams[oppCode] : undefined;

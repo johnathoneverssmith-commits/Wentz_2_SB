@@ -12,6 +12,7 @@ import { SoundControl } from "./SoundControl.tsx";
 import { isOnline } from "@/state/online";
 import { isInSeason, onSaveCorrupted, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
+import { viewerWeek } from "@/state/reveal";
 
 import "./app-shell.css";
 import { useTeamTheme } from "./useTeamTheme.ts";
@@ -121,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navBadges = { "/trade": offers };
   const stage = useStore((s) => s.stage);
   const season = useStore((s) => s.season);
-  const week = useStore((s) => s.week);
+  const week = useStore(viewerWeek);
   const gms = useStore((s) => s.gms);
   const viewerGmId = useStore((s) => s.viewerGmId);
   const newLeague = useStore((s) => s.newLeague);
