@@ -354,11 +354,14 @@ export function cpuToCpuOffer(
     if (total < need * 0.85) return null;
   }
 
-  // the cap has to take him: send the man he replaces if it would not
+  // the cap has to take him: send the man he replaces if it would not —
+  // someone he actually replaces. The cheapest player that made the money
+  // work was often the team's own star: Cleveland sent Myles Garrett (99)
+  // and three seconds for an 85.
   const hit = (p: Player) => p.contract?.cap_hit_by_year[0] ?? 0;
   if (me.cap.used + hit(best.p) > me.cap.total) {
     const displaced = mine
-      .filter((p) => p.position === best!.p.position)
+      .filter((p) => p.position === best!.p.position && p.overall <= best!.p.overall - 4)
       .sort((a, b) => a.overall - b.overall)
       .find((p) => me.cap.used + hit(best!.p) - hit(p) <= me.cap.total);
     if (!displaced) return null;

@@ -28,6 +28,11 @@ describe("a CPU seller at the deadline", () => {
           if (!o) continue;
           const p = s.players[o.toAssets[0]!.playerId!]!;
           deals.push({ buyer, seller: o.toTeam, pos: p.position, ovr: p.overall, age: p.age });
+          // a player sent back to make the cap work is one he replaces
+          for (const a of o.fromAssets) {
+            const back = a.playerId ? s.players[a.playerId] : undefined;
+            if (back) expect(back.overall, `sent back ${back.name} for ${p.name}`).toBeLessThan(p.overall);
+          }
         }
       }
     }
