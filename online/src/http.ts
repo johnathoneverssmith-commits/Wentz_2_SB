@@ -185,7 +185,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
  * compresses about ten to one.
  */
 function sendJson(req: IncomingMessage, res: ServerResponse, body: string): void {
-  const accepts = /gzip/.test(String(req.headers["accept-encoding"] ?? ""));
+  const accepts = /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""));
   if (accepts && body.length > 2048) {
     // level 1: most of the size win for a fraction of the CPU, which the
     // free tier (0.1 CPU) has much less of than it has bandwidth
