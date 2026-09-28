@@ -149,7 +149,17 @@ export function PostseasonBracket() {
                 ? `${mySeed} of ${(b.field ?? []).length}`
                 : `${mySeed} (${TEAMS_BY_CODE[code!]!.conference})`,
           },
-          { label: "Next game", value: myNextOpp ? `vs ${TEAMS_BY_CODE[myNextOpp]!.label}` : b.champion ? "—" : "TBD", className: "sm" },
+          {
+            label: "Next game",
+            // the higher seed hosts; the Super Bowl is neutral. A 5 seed used
+            // to read "vs Tampa Bay" for a game in Tampa
+            value: myNextOpp
+              ? `${myNext!.round !== "SB" && myNext!.highSeed?.code !== code ? "@" : "vs"} ${TEAMS_BY_CODE[myNextOpp]!.label}`
+              : b.champion
+                ? "—"
+                : "TBD",
+            className: "sm",
+          },
           { label: "Champion", value: b.champion ? TEAMS_BY_CODE[b.champion]!.label : "—", className: "sm" },
         ]}
       />
