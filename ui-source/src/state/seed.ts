@@ -340,6 +340,11 @@ export function normalizePool(
   // below for having no slot, and Luvu, an 84, opened every league as a
   // free agent nobody could start.
   for (const p of players) if (p.position === "OLB") p.position = "ILB";
+  // Everyone in the pool arrives with an NFL career: the youngest are the
+  // real 2025 class, two seasons in by the league's first kickoff. Left at 0
+  // they were "rookies", and Cam Ward and Quinshon Judkins won Rookie of the
+  // Year in 2027. Rookies are the players who enter the league in it.
+  for (const p of players) p.years_pro = Math.max(1, p.years_pro ?? 0);
   if (fantasyDraft) {
     for (const p of players) {
       p.free_agent = true;
