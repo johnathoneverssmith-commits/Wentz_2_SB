@@ -12,6 +12,7 @@ import type { DraftPickAsset, LeagueState, Player, TradeAsset, TradeProposal } f
 import { packageValue, tradeAssetValue } from "@/sim/MockSimulationService";
 
 import { pickKey, picksOwnedBy } from "./draftPicks.ts";
+import { TEAMS_BY_CODE } from "@/data/teams";
 import { strategyAgeBonus, strategyEliteBonus, strategyFor, strategyPositionBonus } from "./aiStrategy.ts";
 import { deterministicNoiseUnit, difficultyProfile } from "./aiDifficulty.ts";
 import { unitGainer } from "./unitValue.ts";
@@ -315,11 +316,23 @@ export function cpuToCpuOffer(
   for (const p of mine) byPos.set(p.position, [...(byPos.get(p.position) ?? []), p.overall]);
   const gain = unitGainer((pos) => byPos.get(pos) ?? []);
 
-  const sellers = Object.keys(s.teams).filter((c) => c !== buyer && isCpu(c) && s.teams[c]!.wins < s.teams[c]!.losses);
+  // A seller is out of it, not merely a game under .500 — and it sells what
+  // a real seller sells. Any 4-5 team used to hand over its franchise
+  // quarterback, often to a division rival: Burrow to Cleveland, Herbert and
+  // Daniels gone at 26 and 29 for a stack of first-rounders.
+  const division = (c: string) => `${TEAMS_BY_CODE[c]?.conference}-${TEAMS_BY_CODE[c]?.division}`;
+  const sellers = Object.keys(s.teams).filter(
+    (c) =>
+      c !== buyer &&
+      isCpu(c) &&
+      s.teams[c]!.wins + 2 <= s.teams[c]!.losses &&
+      division(c) !== division(buyer),
+  );
   let best: { p: Player; team: string; g: number } | null = null;
   for (const team of sellers) {
     for (const p of ROSTER_OF(s, team)) {
       if (p.age > 31 || p.overall < 75 || p.injury_status) continue;
+      if (isCornerstone(p)) continue;
       const g = gain(p.position, p.overall);
       if (g >= 0.6 && (!best || g > best.g)) best = { p, team, g };
     }
@@ -352,6 +365,17 @@ export function cpuToCpuOffer(
     give.push({ kind: "player", playerId: displaced.id });
   }
   return { toTeam: best.team, fromAssets: give, toAssets: [{ kind: "player", playerId: best.p.id }] };
+}
+
+/**
+ * A player a rebuilding team builds around rather than sells: its starting-
+ * calibre quarterback, a young star, or a prime-age player it has just
+ * committed years to.
+ */
+function isCornerstone(p: Player): boolean {
+  if (p.position === "QB" && p.overall >= 78) return true;
+  if (p.age <= 26 && p.overall >= 84) return true;
+  return p.age <= 28 && p.overall >= 82 && (p.contract?.years_remaining ?? 0) >= 3;
 }
 
 function hashCode(s: string): number {

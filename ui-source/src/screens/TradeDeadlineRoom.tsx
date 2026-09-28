@@ -13,6 +13,7 @@ import {
   pendingFor,
   TRADE_DEADLINE_ROUNDS,
   type DeadlineOffer,
+  type TradeDeadlineState,
 } from "@/state/tradeDeadline";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
@@ -429,16 +430,30 @@ function Package({ title, assets }: { title: string; assets: DeadlineOffer["from
   );
 }
 
-function RecentActivity({ resolved }: { resolved: { outcome: string; fromTeam: string; toTeam: string; round: number }[] }) {
+function RecentActivity({ resolved }: { resolved: TradeDeadlineState["resolved"] }) {
+  const players = useStore((st) => st.players);
   if (resolved.length === 0) return null;
   const recent = [...resolved].slice(-8).reverse();
+  // a trade that happened is league news: say what moved, not just that
+  // something did
+  const moved = (assets: DeadlineOffer["fromAssets"]): string =>
+    assets
+      .map((a) =>
+        a.kind === "pick" && a.pick
+          ? pickLabel(a.pick)
+          : (() => {
+              const p = players[a.playerId ?? ""];
+              return p ? `${p.name} (${p.position})` : "a player";
+            })(),
+      )
+      .join(", ") || "nothing";
   return (
     <div className="panel open">
       <p className="subhead" style={{ marginTop: 0 }}>
         Around the league
       </p>
       {recent.map((o, i) => (
-        <div key={i} className="neg-row">
+        <div key={i} className="neg-row" style={{ flexWrap: "wrap" }}>
           <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
             <TeamBadge code={o.fromTeam} size={18} />
             <span>→</span>
@@ -453,6 +468,12 @@ function RecentActivity({ resolved }: { resolved: { outcome: string; fromTeam: s
           >
             {o.outcome === "accepted" ? "Trade made" : "No deal"} · R{o.round}
           </span>
+          {o.outcome === "accepted" && (
+            <p style={{ flexBasis: "100%", margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
+              {TEAMS_BY_CODE[o.fromTeam]?.abbr ?? o.fromTeam} get {moved(o.toAssets)} ·{" "}
+              {TEAMS_BY_CODE[o.toTeam]?.abbr ?? o.toTeam} get {moved(o.fromAssets)}
+            </p>
+          )}
         </div>
       ))}
     </div>
