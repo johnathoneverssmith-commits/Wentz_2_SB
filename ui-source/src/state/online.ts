@@ -177,6 +177,8 @@ export async function resumeLeague(): Promise<LeagueState | null> {
 function watch(): void {
   if (!session) return;
   const s = session;
+  let pulling = false;
+  let pullAgain = false;
   s.stopWatching = s.client.watch(s.leagueId, {
     change: (change) => {
       if (session !== s) return;
@@ -186,14 +188,30 @@ function watch(): void {
         announce();
         return;
       }
-      void pull()
-        .then((state) => {
-          if (!state) return;
-          for (const fn of stateListeners) fn(state);
-        })
-        // a server blip mid-pull: the next frame (or the checkpoint's poll)
-        // tries again, and an unhandled rejection helps nobody
-        .catch(() => undefined);
+      // One pull at a time. A burst of changes (a CPU sweep, several GMs at
+      // once) used to start a full download per frame, and on a slow link
+      // they overlapped — each one the whole league.
+      if (pulling) {
+        pullAgain = true;
+        return;
+      }
+      pulling = true;
+      const run = (): void => {
+        pullAgain = false;
+        void pull()
+          .then((state) => {
+            if (!state) return;
+            for (const fn of stateListeners) fn(state);
+          })
+          // a server blip mid-pull: the next frame (or the checkpoint's poll)
+          // tries again, and an unhandled rejection helps nobody
+          .catch(() => undefined)
+          .finally(() => {
+            if (session === s && pullAgain) run();
+            else pulling = false;
+          });
+      };
+      run();
     },
     // EventSource reconnects by itself; there is nothing useful to do here
     // except stop claiming the countdown is live.
@@ -244,6 +262,9 @@ export async function pull(): Promise<LeagueState | null> {
   // joins a different league — and writing this answer into whatever session
   // is current now would quietly cross the two leagues.
   if (session !== s) return null;
+  // An older answer arriving after a newer one (two pulls in flight on a
+  // slow link) would put the screen back a step; the newer one already won.
+  if (Number(view.version) < Number(s.version)) return null;
   s.version = view.version;
   s.msLeft = view.msLeft;
   s.waitingOn = view.waitingOn;
