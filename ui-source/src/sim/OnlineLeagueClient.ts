@@ -401,6 +401,10 @@ export class OnlineLeagueClient {
     return () => source.close();
   }
 
+  /** Commissioner only: the CPU takes this GM's team and the seat reopens. */
+  vacateSeat = (leagueId: string, teamCode: string) =>
+    this.call<{ ok: true }>(`/leagues/${leagueId}/admin/vacate`, { teamCode });
+
   /** Commissioner only: move the league on now. */
   forceAdvance = (leagueId: string) =>
     this.call<{ moved: boolean; stage: string; autopiloted: string[] }>(

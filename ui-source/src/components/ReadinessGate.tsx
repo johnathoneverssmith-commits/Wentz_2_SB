@@ -125,6 +125,38 @@ export function ReadinessGate({
           <div key={g.id} className={`gmchip ${readiness[g.id] ? "ready" : "pending"}`}>
             <span className="dot" />
             {g.id === viewerGmId ? "You" : g.name} &mdash; {readiness[g.id] ? "ready" : "pending"}
+            {/* a GM who quit: without this the league waited a full phase
+                clock on them at every stage, and nobody could replace them */}
+            {online && isCommissioner && g.id !== viewerGmId && !heldForSeats && (
+              <button
+                type="button"
+                className="btnlink"
+                style={{ marginLeft: 6, fontSize: 11 }}
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    !confirm(
+                      `Take ${g.name} out of the league?
+
+` +
+                        `The AI runs ${g.teamCode} from now on, and the team is listed as open under ` +
+                        `your invite code for someone new to take over.`,
+                    )
+                  ) {
+                    return;
+                  }
+                  setBusy(true);
+                  void actions
+                    .vacateSeat(g.teamCode)
+                    .then((res) => {
+                      if (!res.ok) alert(res.reason ?? "Couldn't open that seat.");
+                    })
+                    .finally(() => setBusy(false));
+                }}
+              >
+                open seat
+              </button>
+            )}
           </div>
         ))}
         {Array.from({ length: seatsOpen }, (_, i) => (

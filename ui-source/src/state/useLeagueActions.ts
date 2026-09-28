@@ -100,6 +100,8 @@ export interface LeagueActions {
    * Offline there is nobody to overrule, so it refuses rather than pretending.
    */
   forceAdvance: () => Promise<ActionResult>;
+  /** Commissioner: hand a GM's team to the CPU and reopen the seat. */
+  vacateSeat: (teamCode: string) => Promise<ActionResult>;
   /** Pull the server's copy and replace the local one. No-op offline. */
   refresh: () => Promise<void>;
 }
@@ -241,6 +243,7 @@ export function useLeagueActions(): LeagueActions {
           return { ok: true };
         },
         forceAdvance: async () => ({ ok: false, reason: "Only an online league has a commissioner." }),
+        vacateSeat: async () => ({ ok: false, reason: "Only an online league has a commissioner." }),
         refresh: async () => {},
       };
     }
@@ -347,6 +350,8 @@ export function useLeagueActions(): LeagueActions {
       },
       forceAdvance: () =>
         attempt(() => send((s) => s.client.forceAdvance(s.leagueId))).then(after),
+      vacateSeat: (teamCode) =>
+        attempt(() => send((s) => s.client.vacateSeat(s.leagueId, teamCode))).then(after),
       // awaited, and allowed to fail: the checkpoint's backstop poll counts
       // failures to say when the server has gone quiet
       refresh: async () => {

@@ -77,7 +77,13 @@ afterAll(async () => {
 });
 
 describe("inbox facts", () => {
-  const maybe = () => (reachable ? it : it.skip);
+  // decided when each test runs, not when the file is collected: `reachable`
+  // is only known after beforeAll, so this used to skip every test always
+  const maybe = () => (name: string, fn: () => Promise<void>) =>
+    it(url ? name : `${name} — SKIPPED, no DATABASE_URL`, async () => {
+      if (!reachable) return;
+      await fn();
+    });
 
   maybe()("match the reference implementation exactly", async () => {
     const gmId = state.gms[0]!.id;

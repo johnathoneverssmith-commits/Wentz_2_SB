@@ -12,7 +12,7 @@ import { randomUUID } from "node:crypto";
 import type { LeagueConfig, LeagueState } from "@/domain";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 
-import { ActionError, pool } from "./db.js";
+import { ActionError, pool, withLeague } from "./db.js";
 
 /** Short, unambiguous, sayable down a phone. No O/0 or I/1. */
 function inviteCode(): string {
@@ -141,12 +141,21 @@ export async function claimTeam(
     );
     if (taken.rows[0]) throw new ActionError("Someone just took that team.", 409);
 
-    const slot = await client.query<{ gm_id: string; team_code: string }>(
+    // a seat the commissioner reopened (`vacateSeat`) is taken as that team;
+    // otherwise the next never-claimed slot
+    const vacated = await client.query<{ gm_id: string; team_code: string }>(
       `SELECT gm_id, team_code FROM franchises
-        WHERE league_id = $1 AND user_id IS NULL AND team_code LIKE 'unclaimed:%'
-        ORDER BY gm_id LIMIT 1 FOR UPDATE`,
-      [leagueId],
+        WHERE league_id = $1 AND user_id IS NULL AND team_code = $2 FOR UPDATE`,
+      [leagueId, teamCode],
     );
+    const slot = vacated.rows[0]
+      ? vacated
+      : await client.query<{ gm_id: string; team_code: string }>(
+          `SELECT gm_id, team_code FROM franchises
+            WHERE league_id = $1 AND user_id IS NULL AND team_code LIKE 'unclaimed:%'
+            ORDER BY gm_id LIMIT 1 FOR UPDATE`,
+          [leagueId],
+        );
     const open = slot.rows[0];
     if (!open) throw new ActionError("This league is full.", 409);
 
@@ -168,6 +177,7 @@ export async function claimTeam(
     if (gm) {
       gm.teamCode = teamCode;
       gm.isHuman = true;
+      delete state.readiness[gm.id];
       // The slot still carries the name the single-player seed invented for
       // whichever AI GM used to hold it, so a real person showed up around the
       // league as "Priya" or "Marcus" — in the standings, in trade offers, in
@@ -263,14 +273,70 @@ export async function openTeams(leagueId: string): Promise<string[]> {
   );
   const state = rows.rows[0]?.state;
   if (!state) throw new ActionError("No such league.", 404);
-  const claimed = await pool.query<{ team_code: string }>(
-    `SELECT team_code FROM franchises WHERE league_id = $1 AND user_id IS NOT NULL`,
+  const seats = await pool.query<{ team_code: string; user_id: string | null }>(
+    `SELECT team_code, user_id FROM franchises WHERE league_id = $1`,
     [leagueId],
   );
-  const taken = new Set(claimed.rows.map((r) => r.team_code));
+  // once every seat has been claimed, only a reopened seat's team is open —
+  // any other team would have no seat to go with it
+  const vacated = seats.rows
+    .filter((r) => r.user_id === null && !r.team_code.startsWith("unclaimed:"))
+    .map((r) => r.team_code);
+  if (!seats.rows.some((r) => r.user_id === null && r.team_code.startsWith("unclaimed:"))) {
+    return vacated.sort();
+  }
+  const taken = new Set(seats.rows.filter((r) => r.user_id !== null).map((r) => r.team_code));
   // alphabetical: the league's own key order put seven teams (whichever the
   // setup touched first) ahead of an otherwise alphabetical list
   return Object.keys(state.teams)
     .filter((c) => !taken.has(c))
     .sort();
+}
+
+/**
+ * The commissioner reopens a GM's seat: someone quit, or went quiet for good.
+ *
+ * The team is the CPU's from this moment — its GM stops counting toward
+ * readiness, so the league no longer waits a full phase clock on them at
+ * every stage — and it is listed as open under the league's invite code.
+ * Whoever claims it takes over this team, as it stands.
+ */
+export async function vacateSeat(
+  leagueId: string,
+  commissionerId: string,
+  teamCode: string,
+): Promise<{ ok: true }> {
+  await withLeague(leagueId, async ({ state }, client) => {
+    const seat = await client.query<{ gm_id: string; user_id: string | null }>(
+      `SELECT gm_id, user_id FROM franchises WHERE league_id = $1 AND team_code = $2 FOR UPDATE`,
+      [leagueId, teamCode],
+    );
+    const row = seat.rows[0];
+    if (!row || !row.user_id) throw new ActionError("Nobody holds that team.");
+    if (row.user_id === commissionerId) throw new ActionError("That's your own team.");
+    await client.query(`UPDATE franchises SET user_id = NULL WHERE league_id = $1 AND team_code = $2`, [
+      leagueId,
+      teamCode,
+    ]);
+    const gm = state.gms.find((g) => g.id === row.gm_id);
+    const was = gm?.name ?? teamCode;
+    if (gm) {
+      gm.isHuman = false;
+      gm.name = "Open seat";
+      delete state.readiness[gm.id];
+    }
+    if (state.teams[teamCode]) state.teams[teamCode]!.controlledBy = { kind: "ai" };
+    return {
+      result: null,
+      state,
+      events: [
+        {
+          teamCode,
+          kind: "league.vacated",
+          summary: `The commissioner opened ${teamCode}'s seat; ${was} is out and the CPU runs the team until someone claims it.`,
+        },
+      ],
+    };
+  });
+  return { ok: true };
 }

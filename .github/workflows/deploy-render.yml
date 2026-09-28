@@ -12,6 +12,19 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # the online suite's database tests (concurrency, the lobby, seats, the
+    # inbox) skip without one — which here meant they never ran at all
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,6 +44,8 @@ jobs:
       # the league server runs the client's rules; its suite is what catches
       # a change that works in the dynasty and breaks the online league
       - run: npm run online:test
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 
   deploy:
     needs: test

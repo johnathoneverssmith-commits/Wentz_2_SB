@@ -52,6 +52,7 @@ import {
   leagueByInvite,
   leaguesFor,
   openTeams,
+  vacateSeat,
 } from "./leagues.js";
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
 import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
@@ -540,6 +541,15 @@ post("/leagues/:id/admin/config", async (ctx) => {
     };
   });
   return result;
+});
+
+// A GM who quit: the CPU takes the team and the seat opens for a newcomer.
+post("/leagues/:id/admin/vacate", async (ctx) => {
+  const user = requireUser(ctx);
+  if (!(await isCommissioner(ctx.params.id!, user.id))) {
+    throw new ActionError("Only the commissioner can do that.", 403);
+  }
+  return vacateSeat(ctx.params.id!, user.id, field(ctx, "teamCode", "string"));
 });
 
 post("/leagues/:id/admin/advance", async (ctx) => {

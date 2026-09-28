@@ -19,7 +19,7 @@ describe("a large response", () => {
     await new Promise<void>((r) => srv.listen(0, r));
     const { port } = srv.address() as AddressInfo;
     try {
-      const raw = await new Promise<{ enc?: string; body: Buffer }>((resolve, reject) => {
+      const raw = await new Promise<{ enc: string | undefined; body: Buffer }>((resolve, reject) => {
         import("node:http").then(({ request }) => {
           request({ port, path: "/__gzip_probe", headers: { "accept-encoding": "gzip, deflate, br" } }, (res) => {
             const chunks: Buffer[] = [];

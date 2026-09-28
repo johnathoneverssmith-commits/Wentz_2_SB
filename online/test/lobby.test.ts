@@ -52,7 +52,13 @@ afterAll(async () => {
 });
 
 describe("a league you just created", () => {
-  const maybe = () => (reachable ? it : it.skip);
+  // decided when each test runs, not when the file is collected: `reachable`
+  // is only known after beforeAll, so this used to skip every test always
+  const maybe = () => (name: string, fn: () => Promise<void>) =>
+    it(url ? name : `${name} — SKIPPED, no DATABASE_URL`, async () => {
+      if (!reachable) return;
+      await fn();
+    });
 
   maybe()("comes back in your own league list, before you have a team", async () => {
     const { leagueId, inviteCode } = await createOnlineLeague(userId, {
