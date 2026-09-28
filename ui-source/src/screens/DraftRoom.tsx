@@ -34,6 +34,21 @@ export function DraftRoom() {
   const { active, setActive } = useTabs("available");
   const [overlayDismissed, setOverlayDismissed] = useState(false);
   const [inspect, setInspect] = useState<Player | null>(null);
+  // one pick in flight at a time: on a slow connection a second click used
+  // to send a second pick, and a refused one said nothing at all
+  const [picking, setPicking] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
+  const pick = (id: string): void => {
+    if (picking) return;
+    setPicking(true);
+    setPickError(null);
+    void actions
+      .makeDraftPick(id)
+      .then((r) => {
+        if (!r.ok) setPickError(r.reason ?? "That pick didn't go through.");
+      })
+      .finally(() => setPicking(false));
+  };
 
   const code = viewerTeamCode(s);
   // what each prospect would add to your starting units (public grades only)
@@ -306,11 +321,17 @@ export function DraftRoom() {
               <button
                 className="btn-primary"
                 style={{ fontSize: 11.5, padding: "7px 12px" }}
-                onClick={() => void actions.makeDraftPick(suggested.id)}
+                disabled={picking}
+                onClick={() => pick(suggested.id)}
               >
-                Draft {suggested.name}
+                {picking ? "Drafting…" : `Draft ${suggested.name}`}
               </button>
             )}
+          </div>
+        )}
+        {pickError && (
+          <div className="notice bad" role="status">
+            {pickError}
           </div>
         )}
         {filtered.length === 0 && (
@@ -364,8 +385,8 @@ export function DraftRoom() {
                     <button
                       className="btn-primary"
                       style={{ fontSize: 11, padding: "6px 10px" }}
-                      disabled={!yourPick || complete}
-                      onClick={() => void actions.makeDraftPick(p.id)}
+                      disabled={!yourPick || complete || picking}
+                      onClick={() => pick(p.id)}
                     >
                       Draft
                     </button>

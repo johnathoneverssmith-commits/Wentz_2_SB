@@ -49,6 +49,7 @@ export function RosterCapManagement() {
   const [extending, setExtending] = useState<Player | null>(null);
   const [extendError, setExtendError] = useState<string | null>(null);
   const [moveNote, setMoveNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
+  const [nudging, setNudging] = useState(false);
   const code = viewerTeamCode(s);
   // Change 9 reuses this screen at midseason, so the flag is about what the
   // stage is for rather than about one stage's name
@@ -94,14 +95,26 @@ export function RosterCapManagement() {
   );
   const ordered = positionsInGroup.flatMap((pos) => depthAt(s, code, pos));
 
-  /** Move a player one place up or down the chart at his own position. */
+  /**
+   * Move a player one place up or down the chart at his own position.
+   *
+   * One move at a time: online, two quick clicks both read the chart as it
+   * was before either landed, so the second undid the first.
+   */
   const nudge = (p: Player, by: -1 | 1): void => {
+    if (nudging) return;
     const line = depthAt(s, code, p.position).map((x) => x.id);
     const i = line.indexOf(p.id);
     const j = i + by;
     if (i < 0 || j < 0 || j >= line.length) return;
     [line[i], line[j]] = [line[j]!, line[i]!];
-    void actions.setDepthOrder(p.position, line);
+    setNudging(true);
+    void actions
+      .setDepthOrder(p.position, line)
+      .then((r) => {
+        if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't change the depth chart." });
+      })
+      .finally(() => setNudging(false));
   };
   const lineAt = (pos: Position) => ordered.filter((x) => x.position === pos);
 
