@@ -47,6 +47,7 @@ export function FreeAgencyBoard() {
   const isWindowStage = s.stage === "offseasonFreeAgency";
   const [negotiating, setNegotiating] = useState<Player | null>(null);
   const [signError, setSignError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // The five-day sealed-bid window is gone. `offseasonFreeAgency` is no longer
   // a stage the league passes through, so `isWindowStage` is false and this
@@ -240,11 +241,15 @@ export function FreeAgencyBoard() {
                         setNegotiating(null);
                       }}
                       onSubmit={(offer) => {
+                        // one in flight: a double click signed him and then
+                        // reported that he'd "just signed" with your own team
+                        if (submitting) return;
+                        setSubmitting(true);
                         const full: ContractOffer = { ...offer, teamCode: code };
                         const run = isWindowStage
                           ? actions.placeBid("players", p.id, full)
                           : actions.signFreeAgent(p.id, full);
-                        void run.then((result) => {
+                        void run.finally(() => setSubmitting(false)).then((result) => {
                           if (result.ok) {
                             setSignError(null);
                             setNegotiating(null);

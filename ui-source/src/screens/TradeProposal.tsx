@@ -37,6 +37,23 @@ export function TradeProposal() {
   // a refusal from the server, which arrives after the click rather than
   // before it — locally `checkTrade` has already greyed the button out
   const [onlineError, setOnlineError] = useState<string | null>(null);
+  // one answer in flight: a second click on Accept used to report the trade
+  // "could not be accepted" after the first had already accepted it
+  const [responding, setResponding] = useState<string | null>(null);
+  const [proposing, setProposing] = useState(false);
+  const respond = (id: string, accept: boolean): void => {
+    if (responding) return;
+    setResponding(id);
+    setOnlineError(null);
+    void actions
+      .respondToTrade(id, accept)
+      .then((res) => {
+        if (!res.ok) {
+          setOnlineError(res.reason ?? `That trade could not be ${accept ? "accepted" : "declined"}.`);
+        }
+      })
+      .finally(() => setResponding(null));
+  };
 
   // live cap/roster preview of the deal as it's being built
   const legality = useMemo(
@@ -212,20 +229,12 @@ export function TradeProposal() {
                   {o.blockedReason && <p className="form-error">{o.blockedReason}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button
-                    className="btn-primary"
-                    onClick={() => {
-                      setOnlineError(null);
-                      void actions.respondToTrade(o.id, true).then((res) => {
-                        if (!res.ok) {
-                          setOnlineError(res.reason ?? "That trade could not be accepted.");
-                        }
-                      });
-                    }}
-                  >
-                    Accept
+                  <button className="btn-primary" disabled={responding !== null} onClick={() => respond(o.id, true)}>
+                    {responding === o.id ? "Working…" : "Accept"}
                   </button>
-                  <button onClick={() => void actions.respondToTrade(o.id, false)}>Decline</button>
+                  <button disabled={responding !== null} onClick={() => respond(o.id, false)}>
+                    Decline
+                  </button>
                 </div>
               </div>
             );
@@ -389,22 +398,28 @@ export function TradeProposal() {
         {!trade ? (
           <button
             className="btn-primary"
-            disabled={(give.length === 0 && get.length === 0) || !legality?.ok}
+            disabled={(give.length === 0 && get.length === 0) || !legality?.ok || proposing}
             title={legality?.ok === false ? legality.reason : undefined}
             onClick={() => {
               setOnlineError(null);
               if (actions.online) {
                 // the server re-checks both rosters and both caps at commit
                 // time, then leaves the offer for a person to answer — there
-                // is no AI partner to decide on the spot
-                void actions.proposeTrade(partner, give, get).then((res) => {
-                  if (res.ok) {
-                    setGive([]);
-                    setGet([]);
-                  } else {
-                    setOnlineError(res.reason ?? "That trade was refused.");
-                  }
-                });
+                // is no AI partner to decide on the spot. One in flight: a
+                // double click on a slow link sent the offer twice.
+                if (proposing) return;
+                setProposing(true);
+                void actions
+                  .proposeTrade(partner, give, get)
+                  .then((res) => {
+                    if (res.ok) {
+                      setGive([]);
+                      setGet([]);
+                    } else {
+                      setOnlineError(res.reason ?? "That trade was refused.");
+                    }
+                  })
+                  .finally(() => setProposing(false));
                 return;
               }
               const id = proposeTrade(partner, give, get);
