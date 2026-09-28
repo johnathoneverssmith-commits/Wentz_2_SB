@@ -75,7 +75,11 @@ export function FreeAgencySummary() {
     .map(([playerId]) => playerId);
 
   const roster = rosterOf(s, code);
+  // legality is the contracts (`capUsed`); the books also carry dead money,
+  // which the Roster & Cap screen counts — show the same numbers here
   const used = capUsed(s, code);
+  const dead = s.teams[code]?.cap.dead ?? 0;
+  const booked = Math.round((used + dead) * 10) / 10;
   const total = s.teams[code]?.cap.total ?? 0;
 
   const release = (playerId: string) => {
@@ -100,8 +104,9 @@ export function FreeAgencySummary() {
         stats={[
           { label: "Signed", value: mySignings.length },
           { label: "Roster", value: `${roster.length} / ${ROSTER_SIZE}`, className: roster.length > ROSTER_SIZE ? "bad" : undefined },
-          { label: "Cap used", value: millions(used), className: used > total ? "bad" : "good" },
-          { label: "Cap space", value: millions(Math.round((total - used) * 10) / 10), className: used > total ? "bad" : undefined },
+          { label: "Cap used", value: millions(booked), className: used > total ? "bad" : "good" },
+          { label: "Cap space", value: millions(Math.round((total - booked) * 10) / 10), className: used > total ? "bad" : undefined },
+          ...(dead > 0 ? [{ label: "Dead money", value: millions(dead), className: "sm" }] : []),
         ]}
       />
 

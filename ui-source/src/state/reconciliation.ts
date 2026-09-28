@@ -30,6 +30,14 @@ export function rosterOf(s: LeagueState, teamCode: string): Player[] {
   );
 }
 
+/**
+ * The roster's contracts this year — what reconciliation holds to the cap.
+ *
+ * Dead money (`cap.dead`) is left out on purpose. It is on the books and it
+ * shrinks the room to add anyone (`cap.used` carries it), but it can't make a
+ * roster illegal: counting it here meant each cut freed only part of its hit,
+ * and a CPU team $46M over after a fantasy draft cut itself to 42 players.
+ */
 export function capUsed(s: LeagueState, teamCode: string): number {
   return (
     Math.round(
