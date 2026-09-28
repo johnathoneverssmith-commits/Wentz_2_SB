@@ -52,7 +52,9 @@ const firstHalf = (shape: SeasonShape): Block => ({
   phase: "REG",
   firstWeek: 1,
   lastWeek: shape.deadlineWeek,
-  watchAllLabel: `Simulate to Week ${shape.deadlineWeek + 1}`,
+  // through the deadline week, which is the last one this block plays —
+  // "to Week 10" read as though week 10 would be played too
+  watchAllLabel: "Simulate to the trade deadline",
   advanceLabel: "Advance to Trade Deadline",
   checkpoint: { from: `Regular Season Weeks 1–${shape.deadlineWeek}`, to: "Trade Deadline" },
   resultsOpenOn: "last",
