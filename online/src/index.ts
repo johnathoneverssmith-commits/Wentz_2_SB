@@ -59,6 +59,7 @@ import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
 import { cleanConfigPatch, isInSeason } from "@/state/rules.ts";
 import { redactedGames, revealedWeek, visibleBracket, visibleGames } from "@/state/reveal.ts";
+import { redactHoodedFigureFor } from "@/state/hoodedFigure.ts";
 import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
 import { rewindInjuries } from "@/state/injuries.ts";
 import { openStream } from "./stream.js";
@@ -241,6 +242,8 @@ get("/leagues/:id", async (ctx) => {
         ? { [franchise.gmId]: state.draftTargets[franchise.gmId]! }
         : {};
   }
+  // the figure's hidden price points, and other GMs' bargains before the reveal
+  redactHoodedFigureFor(state, franchise?.teamCode ?? null);
   if (state.draft?.targetsByGm && franchise) {
     state.draft.targetsByGm = Object.fromEntries(
       Object.entries(state.draft.targetsByGm).filter(([gmId]) => gmId === franchise.gmId),

@@ -76,6 +76,7 @@ import {
 } from "@/state/tradeDeadline.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
+import { applyRelease, checkRelease } from "@/state/reconciliation.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
@@ -758,7 +759,12 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
   const p = state.players[playerId];
   if (!p) throw new ActionError("No such player.", 404);
   if (p.nfl_team !== actor.teamCode) throw new ActionError("He isn't yours to release.", 403);
-  releaseToMarket(state, p);
+  // the same rule and the same dead money as a reconciliation cut — this
+  // path used to skip both, so a player signed an hour ago could be cut for
+  // nothing
+  const check = checkRelease(state, actor.teamCode, playerId);
+  if (!check.ok) throw new ActionError(check.reason ?? "You can't release him.");
+  applyRelease(state, actor.teamCode, playerId);
   recomputeTeamRatings(state);
   return {
     events: [

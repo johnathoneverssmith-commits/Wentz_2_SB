@@ -511,11 +511,9 @@ export function forgetOldRetirees(state: LeagueState): void {
 /**
  * Sends a rostered player back to the open market.
  *
- * Dead money isn't modeled anywhere in this build (there are no per-player
- * signing-bonus proration records to accelerate), so a release frees the
- * player's whole cap hit. That's the optimistic end of the real rule — a
- * post-June-1 cut of a mostly-earned deal — and it's deliberate: inventing a
- * dead-cap number would be a precision this data doesn't have.
+ * Frees his whole cap hit and charges nothing — which is right for a
+ * contract running out. A *release* goes through `applyRelease`
+ * (reconciliation.ts), which charges `releasePenalty` as dead money first.
  */
 export function releaseToMarket(state: LeagueState, p: Player): void {
   p.free_agent = true;
@@ -539,6 +537,8 @@ export function releaseToMarket(state: LeagueState, p: Player): void {
  * window with real players instead of camp bodies.
  */
 export function expireContracts(state: LeagueState): void {
+  // a new league year: last year's dead money is off the books
+  for (const t of Object.values(state.teams)) t.cap.dead = 0;
   for (const p of Object.values(state.players)) {
     const c = p.contract;
     if (!c || p.retired || p.free_agent) continue;
@@ -1042,11 +1042,13 @@ export function recomputeTeamRatings(state: LeagueState): void {
     // own. Staff cost is still shown on the Roster & Cap screen, as its own
     // line rather than a charge against the player cap.
     //
-    // Dead money from cuts/trades isn't modeled (no per-player dead-cap
-    // tracking exists yet) — a simplification, not silently ignored:
-    // `cap.dead` stays 0 rather than pretending to a precision this lacks.
-    state.teams[code]!.cap.used =
-      Math.round(fullRoster.reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0) * 10) / 10;
+    // Plus this year's dead money (`cap.dead`: release penalties, a Hooded
+    // Figure payment). It used to be added straight onto `used`, which this
+    // line then rebuilt from contracts alone — so every charge vanished the
+    // next time anything recomputed, usually in the same action.
+    const team = state.teams[code]!;
+    team.cap.used =
+      Math.round((fullRoster.reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0) + (team.cap.dead ?? 0)) * 10) / 10;
   }
 
   const rank = (key: keyof (typeof raw)[string]) => {

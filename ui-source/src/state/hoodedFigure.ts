@@ -730,7 +730,11 @@ export function resolveHoodedFigureEncounter(s: LeagueState, teamCode: string, p
   if (!encounter) throw new Error("No hooded-figure encounter to resolve for this team/season.");
 
   const team = s.teams[teamCode];
-  if (team && payment > 0) team.cap.used = round1(team.cap.used + payment);
+  if (team && payment > 0) {
+    // dead money, so it survives the next cap recompute
+    team.cap.dead = round1((team.cap.dead ?? 0) + payment);
+    team.cap.used = round1(team.cap.used + payment);
+  }
 
   encounter.payment = payment;
   encounter.resolved = true;
@@ -858,4 +862,29 @@ export function leagueDevelopmentsFor(s: LeagueState): LeagueDevelopmentEntry[] 
 export function swindleLineFor(teamCode: string, season: number): string {
   const h = hashString(`${teamCode}|${season}|swindleLine`);
   return SWINDLE_LINES[h % SWINDLE_LINES.length]!;
+}
+
+/**
+ * What one GM may know about the figure, online. The league document goes to
+ * every GM, so the hidden price points (which would let anyone pay exactly
+ * the top tier) and the other GMs' bargains are stripped on the way out —
+ * the bargains until the League Developments reveal, when they're public.
+ */
+export function redactHoodedFigureFor(s: LeagueState, teamCode: string | null): void {
+  const hf = s.hoodedFigure;
+  if (!hf) return;
+  const hidden = { t1: 0, t2: 0, t3: 0 };
+  // which branch someone's bargain took, before anyone's been told
+  hf.firstNegativeConsumed = false;
+  for (const [season, bySeason] of Object.entries(hf.encountersBySeason ?? {})) {
+    const year = Number(season);
+    const revealed = year < s.season - 1 || (year < s.season && s.stage !== "preseason");
+    for (const [code, e] of Object.entries(bySeason)) {
+      if (code === teamCode || (revealed && e.resolved)) {
+        bySeason[code] = { ...e, thresholds: hidden };
+      } else {
+        delete bySeason[code];
+      }
+    }
+  }
 }

@@ -39,16 +39,29 @@ export function HoodedFigureEncounter() {
   const eligible = code ? isHoodedFigureEligible(s, code) : false;
   const encounter = code ? hoodedFigureEncounterFor(s, code) : null;
   const done = !eligible || (encounter?.resolved ?? false);
+  const paid = !!encounter?.resolved && encounter.payment >= MIN_PAYMENT;
 
   if (!code || done) {
     return (
       <Card>
-        <CardHeader badge="—" title="Training Camp Complete" subtitle="Nothing unusual this year" />
+        <CardHeader
+          badge="—"
+          title="Training Camp Complete"
+          subtitle={
+            paid
+              ? `The figure took ${millions(encounter!.payment)} and was gone`
+              : encounter?.resolved
+                ? "You sent the figure away"
+                : "Nothing unusual this year"
+          }
+        />
         <div className="panel open">
           <div className="emptystate">
-            {encounter?.resolved
-              ? "Whatever happened here is done. Advance when you're ready."
-              : "Nothing to see here. Advance when you're ready."}
+            {paid
+              ? "Nobody saw where it went. Whatever it bought, the league finds out after the preseason."
+              : encounter?.resolved
+                ? "It's gone, and your cap space is where you left it. Advance when you're ready."
+                : "Nothing to see here. Advance when you're ready."}
           </div>
         </div>
         <ReadinessGate

@@ -25,6 +25,7 @@ import { playerPriorities } from "@/sim/priorities";
 import { extensionAsk, previewRestructure } from "@/state/contracts";
 import { depthAt } from "@/state/seed";
 import { onInjuredReserve } from "@/state/injuries";
+import { checkRelease, releasePenalty } from "@/state/reconciliation";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
@@ -137,6 +138,7 @@ export function RosterCapManagement() {
           { label: "Roster strength", value: `${team.ratings.overallRank} of 32`, className: team.ratings.overallRank <= 12 ? "good" : undefined },
           { label: "Cap space", value: millions(capSpace), className: capSpace >= 0 ? "good" : "bad" },
           { label: "Cap used", value: millions(capUsed), className: "sm" },
+          ...(team.cap.dead > 0 ? [{ label: "Dead money", value: millions(team.cap.dead), className: "sm bad" }] : []),
           {
             // the 53-man target makes the gap legible — teams are topped up
             // to their starters only, the rest is yours to sign
@@ -317,7 +319,9 @@ export function RosterCapManagement() {
                         <button
                           className="btn-danger"
                           onClick={() => {
-                            void actions.releasePlayer(p.id);
+                            void actions.releasePlayer(p.id).then((r) => {
+                              if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't release him." });
+                            });
                             setConfirming(null);
                           }}
                         >
@@ -326,7 +330,12 @@ export function RosterCapManagement() {
                         <button onClick={() => setConfirming(null)}>Keep him</button>
                       </>
                     ) : (
-                      <button className="btn-danger" onClick={() => setConfirming(p.id)}>
+                      <button
+                        className="btn-danger"
+                        onClick={() => setConfirming(p.id)}
+                        disabled={!checkRelease(s, code, p.id).ok}
+                        title={checkRelease(s, code, p.id).reason}
+                      >
                         Release
                       </button>
                     )}
@@ -342,8 +351,8 @@ export function RosterCapManagement() {
                     {moveNote?.id === p.id
                       ? moveNote.text
                       : confirming === p.id
-                        ? `Releasing ${p.name} frees ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} and sends him to the free agent market. This can't be undone.`
-                        : "A restructure moves money into later years; it doesn't make it go away. Releasing a player frees his full cap hit — there's no dead money."}
+                        ? `Releasing ${p.name} takes his ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} off the books and leaves ${millions(releasePenalty(p))} of dead money this year. He goes to the free agent market. This can't be undone.`
+                        : "A restructure moves money into later years; it doesn't make it go away. Releasing a player costs dead money this year: part of what's left on his deal."}
                   </p>
                 </>
               }

@@ -89,7 +89,7 @@ import {
   resolveHoodedFigureEncounter,
 } from "./hoodedFigure.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
-import { reconcileCpuTeam } from "./reconciliation.ts";
+import { applyRelease, checkRelease, reconcileCpuTeam } from "./reconciliation.ts";
 import { draftClassTilt } from "./draftSupply.ts";
 import { compactRetired, trimStoredBoxScores } from "./saveCompaction.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
@@ -211,8 +211,8 @@ export interface StoreActions {
   ) => ContractMoveResult;
 
   /** Cut a player from the roster. He goes straight onto the standing free
-   *  agent market and his whole cap hit comes off the books — see
-   *  `releaseToMarket` for why no dead money is charged. */
+   *  agent market; his cap hit comes off the books and `releasePenalty`
+   *  goes on as dead money (`applyRelease`). */
   releasePlayer: (playerId: string) => void;
 
   proposeTrade: (toTeam: string, fromPlayerIds: string[], toPlayerIds: string[]) => string;
@@ -963,7 +963,8 @@ export const useStore = create<Store>()(
         set((s) => {
           const p = s.players[playerId];
           if (!p || p.free_agent || p.retired) return;
-          releaseToMarket(s, p);
+          if (!checkRelease(s, p.nfl_team, playerId).ok) return;
+          applyRelease(s, p.nfl_team, playerId);
           recomputeTeamRatings(s);
         }),
 

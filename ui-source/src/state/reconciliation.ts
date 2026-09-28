@@ -1,5 +1,6 @@
 import type { LeagueState, Player } from "@/domain";
 import { onInjuredReserve } from "./injuries";
+import { releaseToMarket } from "./seed";
 import { POSITIONS } from "@/domain";
 import { ROSTER_TEMPLATE, ROSTER_SIZE } from "@/sim/roster-template";
 
@@ -152,10 +153,10 @@ export function applyRelease(s: LeagueState, teamCode: string, playerId: string)
   const team = s.teams[teamCode];
   if (!p || !team) return;
   const penalty = releasePenalty(p);
-  p.free_agent = true;
-  p.nfl_team = "FA";
-  p.contract = null;
+  // onto the open market (a cut used to vanish from it)
+  releaseToMarket(s, p);
   // dead money: the cost of the release stays on this year's books
+  team.cap.dead = Math.round(((team.cap.dead ?? 0) + penalty) * 10) / 10;
   team.cap.used = Math.round((team.cap.used + penalty) * 10) / 10;
 }
 
