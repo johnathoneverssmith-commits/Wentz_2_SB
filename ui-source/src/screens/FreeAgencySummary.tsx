@@ -44,6 +44,8 @@ export function FreeAgencySummary() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trimming, setTrimming] = useState(false);
+  // who the staff let go, and what it cost — it used to happen silently
+  const [trimNote, setTrimNote] = useState<string | null>(null);
 
   const e = s.freeAgencyEvent;
   const issues = useMemo(
@@ -319,7 +321,11 @@ export function FreeAgencySummary() {
             disabled={trimming}
             onClick={() => {
               setTrimming(true);
+              setTrimNote(null);
               void (async () => {
+                const cutNames: string[] = [];
+                let dead = 0;
+                let refused: string | null = null;
                 try {
                   for (let i = 0; i < 25; i++) {
                     const st = useStore.getState();
@@ -329,11 +335,25 @@ export function FreeAgencySummary() {
                     if (!overCap && !overSize) break;
                     const cut = nextReconcileCut(st, code, overCap, overSize);
                     if (!cut) break;
+                    const penalty = releasePenalty(cut);
                     const res = await actions.releasePlayer(cut.id);
-                    if (!res.ok) break;
+                    if (!res.ok) {
+                      refused = res.reason ?? "A release didn't go through.";
+                      break;
+                    }
+                    cutNames.push(`${cut.name} (${cut.position} ${cut.overall})`);
+                    dead += penalty;
                   }
                 } finally {
                   setTrimming(false);
+                  const parts: string[] = [];
+                  if (cutNames.length > 0) {
+                    parts.push(
+                      `Your staff released ${cutNames.join(", ")} — ${millions(Math.round(dead * 10) / 10)} of dead money this year.`,
+                    );
+                  }
+                  if (refused) parts.push(refused);
+                  setTrimNote(parts.join(" ") || null);
                 }
               })();
             }}
@@ -342,6 +362,11 @@ export function FreeAgencySummary() {
           </button>
         )}
       </Footer>
+      {trimNote && (
+        <p className="notice" role="status" style={{ marginTop: 10 }}>
+          {trimNote}
+        </p>
+      )}
       <ReadinessGate
         title="Free agency readiness"
         onAdvance={(r) => nav(r)}
