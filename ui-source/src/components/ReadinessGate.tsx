@@ -223,8 +223,8 @@ export function ReadinessGate({
                 `Start without the missing ${seatsOpen === 1 ? "GM" : "GMs"}?
 
 ` +
-                  `The AI will run ${seatsOpen} ${teams} for the life of the league, and nobody ` +
-                  `else can join it. This can't be undone.`,
+                  `The AI runs the empty ${teams} until someone joins with your invite code; ` +
+                  `they'll take a team as it stands then.`,
               )
             ) {
               return;
