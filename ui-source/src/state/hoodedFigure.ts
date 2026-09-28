@@ -598,7 +598,9 @@ function fireAndReplaceHeadCoach(s: LeagueState, teamCode: string): void {
     hc.team = null;
     hc.contract = null;
   }
-  const candidates = Object.values(s.coaches).filter((c) => c.team === null && c.role === "HC");
+  // not the man just fired — he was the best unemployed coach the moment he
+  // was let go, and used to be rehired on the spot
+  const candidates = Object.values(s.coaches).filter((c) => c.team === null && c.role === "HC" && c !== hc);
   if (candidates.length === 0) return;
   const best = candidates.reduce((a, b) => (ratingOf(b) > ratingOf(a) ? b : a));
   best.team = teamCode;

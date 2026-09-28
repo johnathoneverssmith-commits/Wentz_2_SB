@@ -21,6 +21,7 @@ function teamName(code: string): string {
  * swindle case. Everything else here reads like ordinary league news.
  */
 function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number }) {
+  const coaches = useStore((st) => st.coaches);
   if (e.kind === "swindle") {
     return (
       <div className="panel open" style={{ borderColor: "var(--bad)" }}>
@@ -69,7 +70,12 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
       )}
 
       {o.coachFired && (
-        <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--ink-faint)" }}>The head coach has been let go.</p>
+        <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--ink-faint)" }}>
+          {(() => {
+            const next = Object.values(coaches).find((c) => c.team === e.teamCode && c.role === "HC");
+            return next ? `${next.name} takes over as head coach.` : "The team is looking for a new head coach.";
+          })()}
+        </p>
       )}
       {o.wholeRosterOut && (
         <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--ink-faint)" }}>
