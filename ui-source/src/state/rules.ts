@@ -1573,7 +1573,16 @@ export function checkStandingSign(
   offer: ContractOffer,
 ): { ok: boolean; reason?: string } {
   const p = s.players[playerId];
-  if (!p || !p.free_agent) return { ok: false, reason: "This player is no longer a free agent." };
+  if (!p || !p.free_agent) {
+    // usually another GM got there first — say who
+    const club = p && !p.retired ? TEAMS_BY_CODE[p.nfl_team]?.name : undefined;
+    return {
+      ok: false,
+      reason: club
+        ? `${p!.name} just signed with ${club} — he's no longer a free agent.`
+        : "This player is no longer a free agent.",
+    };
+  }
   const team = s.teams[offer.teamCode];
   if (!team) return { ok: false, reason: "Unknown team." };
   // While the turn-based market runs, it is the only way to sign anyone:

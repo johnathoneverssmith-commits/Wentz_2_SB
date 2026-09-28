@@ -62,6 +62,13 @@ export interface Applied {
   events?:
     | { teamCode?: string | undefined; kind: string; summary: string; detail?: unknown }[]
     | undefined;
+  /**
+   * Nothing changed: roll back instead of writing. A write bumps the version
+   * (refusing every other GM's in-flight signing, trade or bid built on the
+   * old one) and tells every open tab to re-download the league — for a
+   * repeated "ready", once a second while a client kept sending it.
+   */
+  unchanged?: boolean | undefined;
 }
 
 /**
@@ -162,6 +169,10 @@ export async function withLeague<T>(
     };
 
     const out = await apply(loaded, client);
+    if (out.unchanged) {
+      await client.query("ROLLBACK");
+      return { result: out.result, version: row.version };
+    }
 
     const next = out.state;
     const updated = await client.query<{ version: string }>(

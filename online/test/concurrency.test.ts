@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
 import { ActionError, migrate, pool, withLeague } from "../src/db.js";
+import { readyUp } from "../src/phases.js";
 
 /**
  * The part only a real database can answer.
@@ -126,5 +127,17 @@ describe("two GMs at once", () => {
     ).rejects.toThrow();
     const rows = await pool.query(`SELECT kind FROM events WHERE league_id = $1`, [leagueId]);
     expect(rows.rows.filter((r) => r.kind === "test.ok")).toHaveLength(1);
+  });
+
+  maybe("leaves the version alone when a ready changes nothing", async () => {
+    // every write bumps the version, and a bumped version refuses the other
+    // GMs' in-flight signings, trades and bids — a client re-sending "ready"
+    // once a second used to do exactly that
+    const before = await pool.query(`SELECT version, state FROM league_state WHERE league_id = $1`, [leagueId]);
+    const gmId = (before.rows[0].state as { gms: { id: string }[] }).gms[0]!.id;
+    await readyUp(leagueId, gmId, false);
+    await readyUp(leagueId, gmId, false);
+    const after = await pool.query(`SELECT version FROM league_state WHERE league_id = $1`, [leagueId]);
+    expect(after.rows[0].version).toBe(before.rows[0].version);
   });
 });

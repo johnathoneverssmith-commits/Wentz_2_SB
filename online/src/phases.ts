@@ -161,18 +161,20 @@ export async function readyUp(
       return {
         result: { moved: false, stage: state.stage, autopiloted: [] as string[] },
         state,
+        unchanged: true,
       } satisfies { result: AdvanceOutcome } & Applied;
     }
+    const already = (state.readiness[gmId] ?? false) === ready;
     state.readiness[gmId] = ready;
     // `rosterGate` is what stops one GM starting a league by themselves while
     // the other seats are still empty — see its note in `rules.ts`.
-    const outcome =
-      ready && humanGate(state) && rosterGate(state)
-        ? advanceOrTurnDay(state)
-        : { moved: false, autopiloted: [] as string[] };
+    const gateOpen = ready && humanGate(state) && rosterGate(state);
+    const outcome = gateOpen ? advanceOrTurnDay(state) : { moved: false, autopiloted: [] as string[] };
     return {
       result: { moved: outcome.moved, stage: state.stage, autopiloted: outcome.autopiloted },
       state,
+      // a repeated press that opened nothing
+      unchanged: already && !gateOpen,
       phaseEndsAt: outcome.moved ? deadlineFor(state, league) : undefined,
       events: outcome.moved
         ? [{ kind: "phase.advanced", summary: `The league moved on to ${state.stage}.` }]
