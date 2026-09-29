@@ -9,6 +9,7 @@ import { POSITION_GROUPS, POSITION_TO_GROUP, type Player } from "@/domain";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
+import { sideRatings } from "@/state/unitReport";
 
 export function LeagueRosters() {
   const nav = useNavigate();
@@ -19,6 +20,11 @@ export function LeagueRosters() {
 
   const roster = useMemo(() => teamRoster(s, teamCode), [s, teamCode]);
   const team = s.teams[teamCode]!;
+  // engine-weighted, as the hub and Roster & Cap rank units
+  const sides = useMemo(
+    () => sideRatings({ players: s.players, teams: s.teams, depthChart: s.depthChart }),
+    [s.players, s.teams, s.depthChart],
+  );
   // whose team it is, when it's a person's
   const gm = s.gms.find((g) => g.isHuman && g.teamCode === teamCode);
 
@@ -45,8 +51,8 @@ export function LeagueRosters() {
       <Ticker
         stats={[
           { label: "Team overall", value: `${team.ratings.overall} (${ordinal(team.ratings.overallRank)})` },
-          { label: "Offense", value: ordinal(team.ratings.offenseRank), className: "sm" },
-          { label: "Defense", value: ordinal(team.ratings.defenseRank), className: "sm" },
+          { label: "Offense", value: ordinal(sides[teamCode]?.offenseRank ?? team.ratings.offenseRank), className: "sm" },
+          { label: "Defense", value: ordinal(sides[teamCode]?.defenseRank ?? team.ratings.defenseRank), className: "sm" },
           { label: "Players", value: roster.length },
         ]}
       />

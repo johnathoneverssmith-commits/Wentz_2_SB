@@ -331,8 +331,10 @@ export function WeeklyTeamHub() {
               </thead>
               <tbody>
                 <MatchRow label="Team overall" a={team.ratings.overall} b={opp.ratings.overall} higherBetter />
-                <MatchRow label="Offense rank" a={team.ratings.offenseRank} b={opp.ratings.offenseRank} higherBetter={false} rank />
-                <MatchRow label="Defense rank" a={team.ratings.defenseRank} b={opp.ratings.defenseRank} higherBetter={false} rank />
+                {/* the same engine-weighted ranks as Unit ranks on the overview —
+                    the stored ones disagreed with it by a place or two */}
+                <MatchRow label="Offense rank" a={sides[code]?.offenseRank ?? team.ratings.offenseRank} b={sides[oppCode]?.offenseRank ?? opp.ratings.offenseRank} higherBetter={false} rank />
+                <MatchRow label="Defense rank" a={sides[code]?.defenseRank ?? team.ratings.defenseRank} b={sides[oppCode]?.defenseRank ?? opp.ratings.defenseRank} higherBetter={false} rank />
                 <MatchRow label="Special teams rank" a={team.ratings.specialTeamsRank} b={opp.ratings.specialTeamsRank} higherBetter={false} rank />
                 <MatchRow label="Win probability" a={winProb} b={100 - winProb} higherBetter suffix="%" />
               </tbody>
