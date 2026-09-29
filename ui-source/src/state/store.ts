@@ -1160,6 +1160,17 @@ export const useStore = create<Store>()(
           }
           return;
         }
+        // An online league's local copy that won't load is nothing to warn
+        // about — the server has the league and the resume replaces it. The
+        // "your dynasty couldn't be read" banner is for the solo save.
+        if (slotFor(SAVE_KEY) === ONLINE_SAVE_KEY) {
+          try {
+            window.localStorage.removeItem(ONLINE_SAVE_KEY);
+          } catch {
+            // nothing to clear
+          }
+          return;
+        }
         try {
           // the slot that failed — an online copy isn't the solo save
           const raw = window.localStorage.getItem(slotFor(SAVE_KEY));
