@@ -219,12 +219,36 @@ function useFollowReleasedCheckpoint(held: boolean): void {
   }, [held, stage, nav]);
 }
 
+/**
+ * Online, the league moves when the last GM checks in — usually someone
+ * else, over the stream. The GM who checked in first was left on the old
+ * stage's screen, reading "waiting on the league" for a wait that was over.
+ * Take them along, but only from that screen: someone browsing rosters while
+ * they wait stays where they are.
+ */
+function useFollowLeague(held: boolean): void {
+  const nav = useNavigate();
+  const { pathname } = useLocation();
+  const stage = useStore((s) => s.stage);
+  const ready = useStore((s) => !!s.readiness[s.viewerGmId]);
+  const was = useRef({ stage, ready, pathname });
+  useEffect(() => {
+    const before = was.current;
+    was.current = { stage, ready, pathname };
+    if (!isOnline() || held || before.stage === stage || !before.ready) return;
+    if (before.pathname === STAGE_HOME[before.stage as keyof typeof STAGE_HOME] && pathname === before.pathname) {
+      nav(STAGE_HOME[stage]);
+    }
+  }, [stage, ready, pathname, held, nav]);
+}
+
 export function App() {
   // keyed on the route so navigating away from a crashed screen clears it
   const { pathname } = useLocation();
   const { resuming, failed: resumeFailed } = useResumeOnline();
   const checkpoint = useCheckpoint();
   useFollowReleasedCheckpoint(checkpoint !== null);
+  useFollowLeague(checkpoint !== null);
   return (
     <AppShell>
       {resuming && (

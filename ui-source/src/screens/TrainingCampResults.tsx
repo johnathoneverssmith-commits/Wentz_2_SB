@@ -151,7 +151,7 @@ export function TrainingCampResults() {
       {/* the stage is still trainingCamp here (results is a step inside it),
           so its label would read "Advance to End of Training Camp" */}
       <ReadinessGate
-        title="Training camp readiness"
+        title="Camp results readiness"
         label="Advance to Re-order Depth Chart"
         onAdvance={(r) => nav(r)}
       />

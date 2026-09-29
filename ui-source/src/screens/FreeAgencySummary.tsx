@@ -376,7 +376,7 @@ export function FreeAgencySummary() {
         </p>
       )}
       <ReadinessGate
-        title="Free agency readiness"
+        title="Free agency summary readiness"
         onAdvance={(r) => nav(r)}
         disabled={!legal}
         disabledHint="Roster not legal"

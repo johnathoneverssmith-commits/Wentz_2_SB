@@ -65,7 +65,7 @@ export function HoodedFigureEncounter() {
           </div>
         </div>
         <ReadinessGate
-          title="Training camp readiness"
+          title="Readiness"
           label="Advance to Re-order Depth Chart"
           onAdvance={(r) => nav(r)}
         />
