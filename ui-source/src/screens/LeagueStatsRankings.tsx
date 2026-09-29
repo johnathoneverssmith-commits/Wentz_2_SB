@@ -44,7 +44,7 @@ export function LeagueStatsRankings() {
         <div className="panel open">
           <div className="emptystate">
             {played === 0
-              ? "Rankings populate once the first regular-season week is simulated."
+              ? "Rankings populate once you’ve seen the first regular-season week."
               : "These rankings are built from per-game team stats, and none of this season's games recorded any. Weeks played from here on will fill them in."}
           </div>
         </div>

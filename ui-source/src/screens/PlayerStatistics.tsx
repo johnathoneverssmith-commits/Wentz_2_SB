@@ -35,7 +35,7 @@ export function PlayerStatistics() {
         <div className="panel open">
           <div className="emptystate">
             {played === 0
-              ? "Leaderboards populate once the first regular-season week is simulated."
+              ? "Leaderboards populate once you’ve seen the first regular-season week."
               : "Leaderboards are built from per-game player lines, and none of this season's games recorded any. Weeks played from here on will fill them in."}
           </div>
         </div>
