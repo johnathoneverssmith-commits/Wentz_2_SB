@@ -92,6 +92,7 @@ export function ReadinessGate({
   // cancelled on re-render so a transition can't be triggered twice.
   const [busy, setBusy] = useState(false);
   const [readyError, setReadyError] = useState<string | null>(null);
+  const [resetCode, setResetCode] = useState<{ name: string; code: string } | null>(null);
   const onAdvanceRef = useRef(onAdvance);
   onAdvanceRef.current = onAdvance;
   const advancingRef = useRef(false);
@@ -161,7 +162,7 @@ export function ReadinessGate({
                   void actions
                     .vacateSeat(g.teamCode)
                     .then((res) => {
-                      if (!res.ok) alert(res.reason ?? "Couldn't open that seat.");
+                      if (!res.ok) setReadyError(res.reason ?? "Couldn't open that seat.");
                     })
                     .finally(() => setBusy(false));
                 }}
@@ -183,14 +184,10 @@ export function ReadinessGate({
                   setBusy(true);
                   void session.client
                     .issueResetCode(session.leagueId, g.teamCode)
-                    .then(({ name, code }) =>
-                      alert(
-                        `Reset code for ${name}: ${code}\n\n` +
-                          `Send it to them. On the sign-in screen they choose "Forgot your password?" ` +
-                          `and enter it with a new password. It works once, for 24 hours.`,
-                      ),
-                    )
-                    .catch((err: unknown) => alert(err instanceof Error ? err.message : "Couldn't make a code."))
+                    // shown on the page rather than in an alert, which many
+                    // browsers won't let you copy from
+                    .then(({ name, code }) => setResetCode({ name, code }))
+                    .catch((err: unknown) => setReadyError(err instanceof Error ? err.message : "Couldn't make a code."))
                     .finally(() => setBusy(false));
                 }}
               >
@@ -266,6 +263,27 @@ export function ReadinessGate({
           {readyError}
         </p>
       )}
+      {resetCode && (
+        <div className="notice" role="status" style={{ marginTop: 10 }}>
+          Reset code for <strong>{resetCode.name}</strong>:{" "}
+          <span className="oswald" style={{ fontSize: 15, letterSpacing: "0.08em", userSelect: "all" }}>
+            {resetCode.code}
+          </span>{" "}
+          <button
+            type="button"
+            className="btnlink sm"
+            onClick={() => void navigator.clipboard?.writeText(resetCode.code).catch(() => undefined)}
+          >
+            Copy
+          </button>
+          <br />
+          Send it to them. On the sign-in screen they choose &ldquo;Forgot your password?&rdquo; and
+          enter it with a new password. It works once, for 24 hours.{" "}
+          <button type="button" className="btnlink sm" onClick={() => setResetCode(null)}>
+            Done
+          </button>
+        </div>
+      )}
 
       {heldForSeats && isCommissioner && (
         <button
@@ -290,7 +308,7 @@ export function ReadinessGate({
               .forceAdvance()
               .then((res) => {
                 if (!res.ok) {
-                  alert(res.reason ?? "The league wouldn't start.");
+                  setReadyError(res.reason ?? "The league wouldn't start.");
                   return;
                 }
                 const next = useStore.getState().stage;

@@ -42,6 +42,7 @@ export function Checkpoint({
   const gms = useStore((s) => s.gms);
   const readiness = useStore((s) => s.readiness);
   const [forcing, setForcing] = useState(false);
+  const [forceError, setForceError] = useState<string | null>(null);
   const isCommissioner = onlineSession()?.isCommissioner ?? false;
   // who the league is waiting for, by name — the wait used to be anonymous
   const waitingNames = gms.filter((g) => g.isHuman && g.teamCode && !readiness[g.id]).map((g) => g.name);
@@ -151,13 +152,18 @@ export function Checkpoint({
                 void actions
                   .forceAdvance()
                   .then((res) => {
-                    if (!res.ok) alert(res.reason ?? "The league wouldn't move.");
+                    setForceError(res.ok ? null : (res.reason ?? "The league wouldn't move."));
                   })
                   .finally(() => setForcing(false));
               }}
             >
               {forcing ? "Moving the league on…" : "Commissioner: move the league on without them"}
             </button>
+          )}
+          {forceError && (
+            <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+              {forceError}
+            </p>
           )}
 
           {failed && (

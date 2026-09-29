@@ -48,10 +48,12 @@ export function FantasyDraftSummary({
    * GM alone into the next screen rather than holding the league at a
    * shared gate (the rookie draft summary into Rookie Signings).
    */
-  onAdvance?: () => Promise<void>;
+  /** Resolves to a reason when it couldn't advance, shown under the button. */
+  onAdvance?: () => Promise<string | void>;
 } = {}) {
   const nav = useNavigate();
   const [committing, setCommitting] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
   const s = useStore();
   const code = viewerTeamCode(s);
   const humanTeams = s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
@@ -301,13 +303,21 @@ export function FantasyDraftSummary({
             onClick={() => {
               if (!confirm(`${advanceLabel}? You can't return to this summary.`)) return;
               setCommitting(true);
-              void onAdvance().finally(() => setCommitting(false));
+              setAdvanceError(null);
+              void onAdvance()
+                .then((reason) => setAdvanceError(reason ?? null))
+                .finally(() => setCommitting(false));
             }}
           >
             {committing ? "Advancing…" : advanceLabel}
           </button>
         )}
       </Footer>
+      {advanceError && (
+        <p className="form-error" role="status" style={{ margin: "0 26px 12px", textAlign: "right" }}>
+          {advanceError}
+        </p>
+      )}
 
       {!onAdvance && (
         <ReadinessGate title="Draft summary readiness" label={advanceLabel} onAdvance={(r) => nav(r)} />

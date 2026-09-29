@@ -25,7 +25,7 @@ export function RookieDraftSummary() {
       onAdvance={async () => {
         const res = await actions.stepForward("rookieSignings");
         if (res.ok) nav("/rookie-signings");
-        else alert(res.reason ?? "Couldn't advance.");
+        else return res.reason ?? "Couldn't advance.";
       }}
     />
   );
