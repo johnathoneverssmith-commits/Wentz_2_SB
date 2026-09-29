@@ -60,6 +60,8 @@ import {
   createOnlineLeague,
   leagueByInvite,
   leaguesFor,
+  archiveLeague,
+  leaveLeague,
   openTeams,
   vacateSeat,
 } from "./leagues.js";
@@ -581,6 +583,18 @@ post("/leagues/:id/admin/config", async (ctx) => {
     };
   });
   return result;
+});
+
+// Leaving: your seat opens for someone else, and the CPU runs the team.
+post("/leagues/:id/leave", async (ctx) => {
+  const user = requireUser(ctx);
+  return leaveLeague(ctx.params.id!, user.id);
+});
+
+// The commissioner retires a league from everyone's lobby.
+post("/leagues/:id/admin/archive", async (ctx) => {
+  const user = requireUser(ctx);
+  return archiveLeague(ctx.params.id!, user.id);
 });
 
 // A GM who forgot their password: accounts have no email, so the commissioner

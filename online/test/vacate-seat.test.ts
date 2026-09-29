@@ -4,7 +4,7 @@ import type { LeagueState } from "@/domain";
 
 import { franchiseOf } from "../src/auth.js";
 import { migrate, pool } from "../src/db.js";
-import { claimTeam, createOnlineLeague, openTeams, vacateSeat } from "../src/leagues.js";
+import { archiveLeague, claimTeam, createOnlineLeague, leagueByInvite, leaguesFor, leaveLeague, openTeams, vacateSeat } from "../src/leagues.js";
 
 /**
  * A GM quits. There was no way to replace them: the league waited a full
@@ -85,5 +85,25 @@ describe("reopening a seat", () => {
     expect(gm.name).toBe(users[2]);
     expect(s.teams.KC!.controlledBy).toEqual({ kind: "human", gmId: claimed.gmId });
     expect(await openTeams(leagueId)).toEqual([]);
+  });
+});
+
+describe("leaving, and archiving", () => {
+  maybe("a GM can leave: their seat opens and the CPU takes the team", async () => {
+    await leaveLeague(leagueId, users[2]);
+    expect(await franchiseOf(leagueId, users[2])).toBeNull();
+    expect(await openTeams(leagueId)).toEqual(["KC"]);
+  });
+
+  maybe("the commissioner can't leave the league without anyone to run it", async () => {
+    await expect(leaveLeague(leagueId, users[0])).rejects.toThrow(/commissioner/);
+  });
+
+  maybe("only the commissioner archives, and it leaves every lobby", async () => {
+    await expect(archiveLeague(leagueId, users[1])).rejects.toThrow(/commissioner/);
+    await archiveLeague(leagueId, users[0]);
+    expect((await leaguesFor(users[0])).some((l) => l.id === leagueId)).toBe(false);
+    const code = (await pool.query<{ invite_code: string }>(`SELECT invite_code FROM leagues WHERE id = $1`, [leagueId])).rows[0]!.invite_code;
+    expect(await leagueByInvite(code)).toBeNull();
   });
 });

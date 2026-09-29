@@ -305,6 +305,8 @@ export async function vacateSeat(
   leagueId: string,
   commissionerId: string,
   teamCode: string,
+  /** A GM giving up their own seat, rather than the commissioner opening one. */
+  leaving = false,
 ): Promise<{ ok: true }> {
   await withLeague(leagueId, async ({ state }, client) => {
     const seat = await client.query<{ gm_id: string; user_id: string | null }>(
@@ -313,7 +315,7 @@ export async function vacateSeat(
     );
     const row = seat.rows[0];
     if (!row || !row.user_id) throw new ActionError("Nobody holds that team.");
-    if (row.user_id === commissionerId) throw new ActionError("That's your own team.");
+    if (!leaving && row.user_id === commissionerId) throw new ActionError("That's your own team.");
     await client.query(`UPDATE franchises SET user_id = NULL WHERE league_id = $1 AND team_code = $2`, [
       leagueId,
       teamCode,
@@ -333,10 +335,42 @@ export async function vacateSeat(
         {
           teamCode,
           kind: "league.vacated",
-          summary: `The commissioner opened ${teamCode}'s seat; ${was} is out and the CPU runs the team until someone claims it.`,
+          summary: leaving
+            ? `${was} left the league; the CPU runs ${teamCode} until someone claims it.`
+            : `The commissioner opened ${teamCode}'s seat; ${was} is out and the CPU runs the team until someone claims it.`,
         },
       ],
     };
   });
+  return { ok: true };
+}
+
+/**
+ * A GM leaving: their seat opens exactly as if the commissioner had opened
+ * it. There was no way out of a league short of never opening it again, and
+ * the league then waited a full phase clock on them at every stage.
+ */
+export async function leaveLeague(leagueId: string, userId: string): Promise<{ ok: true }> {
+  const rows = await pool.query<{ team_code: string; commissioner: string }>(
+    `SELECT f.team_code, l.commissioner FROM franchises f JOIN leagues l ON l.id = f.league_id
+      WHERE f.league_id = $1 AND f.user_id = $2`,
+    [leagueId, userId],
+  );
+  const row = rows.rows[0];
+  if (!row || row.team_code.startsWith("unclaimed:")) throw new ActionError("You don't have a team in this league.");
+  // the league would be left with nobody able to run it
+  if (row.commissioner === userId) {
+    throw new ActionError("You're the commissioner — archive the league instead, or stay on.");
+  }
+  return vacateSeat(leagueId, userId, row.team_code, true);
+}
+
+/** The commissioner retires a league: it leaves every lobby and can't be joined. */
+export async function archiveLeague(leagueId: string, userId: string): Promise<{ ok: true }> {
+  const done = await pool.query(
+    `UPDATE leagues SET archived_at = now() WHERE id = $1 AND commissioner = $2 AND archived_at IS NULL`,
+    [leagueId, userId],
+  );
+  if (done.rowCount === 0) throw new ActionError("Only the commissioner can archive this league.", 403);
   return { ok: true };
 }

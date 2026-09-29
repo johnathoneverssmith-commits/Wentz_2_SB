@@ -410,6 +410,11 @@ export class OnlineLeagueClient {
     return () => source.close();
   }
 
+  /** Give up your seat: the CPU runs the team until someone claims it. */
+  leaveLeague = (leagueId: string) => this.call<{ ok: true }>(`/leagues/${leagueId}/leave`, {});
+  /** Commissioner only: the league leaves every lobby. */
+  archiveLeague = (leagueId: string) => this.call<{ ok: true }>(`/leagues/${leagueId}/admin/archive`, {});
+
   /** Commissioner only: the CPU takes this GM's team and the seat reopens. */
   vacateSeat = (leagueId: string, teamCode: string) =>
     this.call<{ ok: true }>(`/leagues/${leagueId}/admin/vacate`, { teamCode });

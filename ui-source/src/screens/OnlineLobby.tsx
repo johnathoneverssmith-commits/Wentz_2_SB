@@ -317,6 +317,42 @@ export function OnlineLobby() {
                   >
                     {l.teamCode ? "Open" : "Claim a team"}
                   </button>
+                  {/* the way out: there was none short of never opening it again */}
+                  {l.isCommissioner ? (
+                    <button
+                      type="button"
+                      className="btnlink sm"
+                      disabled={busy}
+                      onClick={() => {
+                        if (!confirm(`Archive ${l.name}? It leaves every GM's list and can't be joined or played again.`)) return;
+                        void attempt(async () => {
+                          await client.archiveLeague(l.id);
+                          if (onlineSession()?.leagueId === l.id) goLocal();
+                          await refresh();
+                        });
+                      }}
+                    >
+                      Archive
+                    </button>
+                  ) : (
+                    l.teamCode && (
+                      <button
+                        type="button"
+                        className="btnlink sm"
+                        disabled={busy}
+                        onClick={() => {
+                          if (!confirm(`Leave ${l.name}? The CPU runs your team until someone claims the open seat with the invite code.`)) return;
+                          void attempt(async () => {
+                            await client.leaveLeague(l.id);
+                            if (onlineSession()?.leagueId === l.id) goLocal();
+                            await refresh();
+                          });
+                        }}
+                      >
+                        Leave
+                      </button>
+                    )
+                  )}
                 </div>
                 {claiming?.leagueId === l.id && (
                   <TeamPicker
