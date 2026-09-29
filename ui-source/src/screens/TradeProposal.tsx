@@ -268,7 +268,11 @@ export function TradeProposal() {
                     className="btn-primary"
                     disabled={responding !== null || tradingClosed || pastDeadline}
                     title={tradingClosed ? "Trades complete at the next break in the season" : pastDeadline ? PAST_DEADLINE_MESSAGE : undefined}
-                    onClick={() => respond(o.id, true)}
+                    onClick={() => {
+                      // a trade can't be undone; releasing a rookie asked first, accepting this didn't
+                      if (!confirm(`Accept? You send ${describe(o.toAssets)} and get ${describe(o.fromAssets)}. It can't be undone.`)) return;
+                      respond(o.id, true);
+                    }}
                   >
                     {responding === o.id ? "Working…" : "Accept"}
                   </button>

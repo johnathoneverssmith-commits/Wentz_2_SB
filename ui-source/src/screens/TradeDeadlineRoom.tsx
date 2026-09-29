@@ -413,7 +413,15 @@ function RespondTurn({
                 Counter
               </button>
             )}
-            <button type="button" className="btn-primary" disabled={busy} onClick={() => onSubmit({ kind: "accept" })}>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => {
+                if (!confirm("Accept this trade? It can't be undone.")) return;
+                onSubmit({ kind: "accept" });
+              }}
+            >
               Accept
             </button>
           </>
