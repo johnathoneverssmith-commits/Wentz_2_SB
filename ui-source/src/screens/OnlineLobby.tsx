@@ -143,6 +143,23 @@ export function OnlineLobby() {
     void check();
   }, [check]);
 
+  // The lobby is where a GM in several leagues sees whose turn it is — and it
+  // only ever knew as of the moment it opened. Keep it current while it's
+  // being looked at; a hidden tab waits until it's looked at again.
+  useEffect(() => {
+    if (!user) return;
+    const tick = (): void => {
+      if (document.hidden) return;
+      void refresh().catch(() => undefined);
+    };
+    const timer = setInterval(tick, 60_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [user, refresh]);
+
   const open = (leagueId: string) =>
     attempt(async () => {
       const { state } = await joinLeague(leagueId);
