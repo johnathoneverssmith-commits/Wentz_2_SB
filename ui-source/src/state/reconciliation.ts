@@ -290,6 +290,37 @@ export function fillPositionalGaps(s: LeagueState, teamCode: string): number {
  * under the cap would be worse, not better.
  */
 /**
+ * Every cut the staff would make to get this team legal, worked out on a
+ * copy — the league itself is untouched. Online the button used to cut one,
+ * download the whole league, and look again, a minute of waiting on a slow
+ * host; this plans the lot so they can go out in one go.
+ */
+export function planStaffTrim(s: LeagueState, teamCode: string): Player[] {
+  const team = s.teams[teamCode];
+  if (!team) return [];
+  // copy-on-write: only what a release touches is cloned
+  const sim: LeagueState = {
+    ...s,
+    players: { ...s.players },
+    teams: { ...s.teams, [teamCode]: { ...team, cap: { ...team.cap } } },
+    standingFreeAgents: [...(s.standingFreeAgents ?? [])],
+  };
+  const cuts: Player[] = [];
+  for (let i = 0; i < 25; i++) {
+    const issues = reconciliationIssues(sim, teamCode);
+    const overCap = issues.some((x) => x.kind === "cap");
+    const overSize = issues.some((x) => x.kind === "roster");
+    if (!overCap && !overSize) break;
+    const cut = nextReconcileCut(sim, teamCode, overCap, overSize);
+    if (!cut) break;
+    cuts.push(s.players[cut.id]!);
+    sim.players[cut.id] = { ...cut };
+    applyRelease(sim, teamCode, cut.id);
+  }
+  return cuts;
+}
+
+/**
  * Who a team over the limit should let go next: surplus bodies first, then
  * the lowest rating when crowded; the dearest non-starter when broke. The
  * CPU teams trim with it, and so does a GM's "Let my staff trim" button.

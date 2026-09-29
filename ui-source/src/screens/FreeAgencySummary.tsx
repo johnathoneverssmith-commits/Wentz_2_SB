@@ -13,7 +13,7 @@ import {
   checkRelease,
   isReconciled,
   reconciliationIssues,
-  nextReconcileCut,
+  planStaffTrim,
   releasePenalty,
   rosterOf,
 } from "@/state/reconciliation";
@@ -332,22 +332,19 @@ export function FreeAgencySummary() {
                 let dead = 0;
                 let refused: string | null = null;
                 try {
-                  for (let i = 0; i < 25; i++) {
-                    const st = useStore.getState();
-                    const issues = reconciliationIssues(st, code);
-                    const overCap = issues.some((x) => x.kind === "cap");
-                    const overSize = issues.some((x) => x.kind === "roster");
-                    if (!overCap && !overSize) break;
-                    const cut = nextReconcileCut(st, code, overCap, overSize);
-                    if (!cut) break;
-                    const penalty = releasePenalty(cut);
-                    const res = await actions.releasePlayer(cut.id);
-                    if (!res.ok) {
-                      refused = res.reason ?? "A release didn't go through.";
-                      break;
+                  // planned on a copy, sent in one go, the league fetched once
+                  const cuts = planStaffTrim(useStore.getState(), code);
+                  if (cuts.length > 0) {
+                    const res = await actions.releasePlayers(cuts.map((p) => p.id));
+                    if (!res.ok) refused = res.reason ?? "A release didn't go through.";
+                    // report what actually happened, which a refusal part
+                    // way through makes a subset of the plan
+                    const now = useStore.getState().players;
+                    for (const cut of cuts) {
+                      if (now[cut.id]?.nfl_team === code) continue;
+                      cutNames.push(`${cut.name} (${cut.position} ${cut.overall})`);
+                      dead += releasePenalty(cut);
                     }
-                    cutNames.push(`${cut.name} (${cut.position} ${cut.overall})`);
-                    dead += penalty;
                   }
                 } finally {
                   setTrimming(false);

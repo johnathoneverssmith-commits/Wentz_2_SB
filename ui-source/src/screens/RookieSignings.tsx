@@ -44,13 +44,8 @@ export function RookieSignings() {
     setBusy(true);
     setError(null);
     try {
-      for (const id of ids) {
-        const res = await actions.settleRookie(id, false);
-        if (!res.ok) {
-          setError(res.reason ?? "That didn't go through.");
-          break;
-        }
-      }
+      const res = await actions.signRookies(ids);
+      if (!res.ok) setError(res.reason ?? "That didn't go through.");
     } finally {
       setBusy(false);
     }

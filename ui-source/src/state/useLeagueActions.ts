@@ -71,6 +71,14 @@ export interface LeagueActions {
   ) => Promise<ActionResult>;
   /** Sign or release a rookie you drafted. */
   settleRookie: (prospectId: string, released: boolean) => Promise<ActionResult>;
+  /**
+   * Sign several rookies. Online they go out back to back and the league is
+   * fetched once at the end — one download per rookie made "Sign all
+   * remaining" take most of a minute on a slow host.
+   */
+  signRookies: (prospectIds: string[]) => Promise<ActionResult>;
+  /** Release several players, fetching the league once at the end (online). */
+  releasePlayers: (playerIds: string[]) => Promise<ActionResult>;
   /** Reveal saved results through a week. Never simulates. */
   revealThrough: (through: number) => Promise<ActionResult>;
   /** Run this team's training camp. */
@@ -221,6 +229,16 @@ export function useLeagueActions(): LeagueActions {
           else store.signRookie(prospectId, code);
           return { ok: true };
         },
+        signRookies: async (prospectIds) => {
+          const code = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
+          if (!code) return { ok: false, reason: "You don't have a team." };
+          for (const id of prospectIds) store.signRookie(id, code);
+          return { ok: true };
+        },
+        releasePlayers: async (playerIds) => {
+          for (const id of playerIds) store.releasePlayer(id);
+          return { ok: true };
+        },
         revealThrough: async (through) => store.revealThrough(through),
         submitTrainingCamp: async (plan) => store.submitTrainingCamp(plan),
         submitHoodedFigurePayment: async (payment) => store.submitHoodedFigurePayment(payment),
@@ -289,6 +307,14 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.releasePlayer(s.leagueId, playerId, s.version))).then(
           after,
         ),
+      releasePlayers: (playerIds) =>
+        attempt(() =>
+          send(async (s) => {
+            // a release carries no version check, so each can follow the last
+            for (const id of playerIds) await s.client.releasePlayer(s.leagueId, id, s.version);
+            return null;
+          }),
+        ).then(after),
       restructure: (playerId) =>
         attempt(() =>
           send((s) => s.client.contractMove(s.leagueId, playerId, { kind: "restructure" }, s.version)),
@@ -302,6 +328,14 @@ export function useLeagueActions(): LeagueActions {
       settleRookie: (prospectId, released) =>
         attempt(() =>
           send((s) => s.client.settleRookie(s.leagueId, prospectId, released, s.version)),
+        ).then(after),
+      signRookies: (prospectIds) =>
+        attempt(() =>
+          send(async (s) => {
+            // no version check on a rookie signing, so each can follow the last
+            for (const id of prospectIds) await s.client.settleRookie(s.leagueId, id, false, s.version);
+            return null;
+          }),
         ).then(after),
       revealThrough: (through) =>
         attempt(() => send((s) => s.client.revealThrough(s.leagueId, through, s.version))).then(after),
