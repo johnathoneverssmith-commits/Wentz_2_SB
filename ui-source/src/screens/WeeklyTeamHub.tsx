@@ -541,12 +541,17 @@ function RevealControls() {
       .finally(() => setBusy(false));
   };
 
+  // every other GM already committed: say so, since this press is the one
+  // the whole league is waiting for
+  const others = s.gms.filter((g) => g.isHuman && g.id !== s.viewerGmId);
+  const othersWaiting = others.length > 0 && others.every((g) => s.readiness[g.id]);
+
   if (!more) {
     return (
       <div className="readiness">
         <div className="readiness-top">
           <p>{phase === "PRE" ? "Preseason complete" : `Watched through Week ${lastWeek}`}</p>
-          <span>Ready whenever you are</span>
+          <span>{othersWaiting ? "Everyone else has checked in — the league is waiting on you" : "Ready whenever you are"}</span>
         </div>
         <button
           className="btn-primary"
