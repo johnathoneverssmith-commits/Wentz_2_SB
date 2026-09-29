@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Card, CardHeader, Footer } from "@/components/primitives";
-import type { GameBroadcast } from "@/domain";
+import { roundLabelFor, type GameBroadcast, type PlayoffRound } from "@/domain";
 import { fetchBroadcast, onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
 
@@ -30,6 +30,7 @@ export function WatchGame() {
   // on the default one.
   const back = params.get("back");
   const game = useStore((s) => s.games.find((g) => g.id === gameId));
+  const bracket = useStore((s) => s.bracket);
 
   const [fetched, setFetched] = useState<GameBroadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +88,12 @@ export function WatchGame() {
         <CardHeader badge="TV" title="Play-by-Play" subtitle="Nothing to watch" />
         <div className="panel open">
           <div className="emptystate">
-            {game ? "That game hasn't been played yet." : "That game isn't in this league."}
+            {!game
+              ? "That game isn't in this league."
+              : online
+                ? // online a game can be played and still hidden until you watch that far
+                  "You haven't watched that far yet — reveal it from the team hub first."
+                : "That game hasn't been played yet."}
           </div>
         </div>
         {footer}
@@ -100,7 +106,13 @@ export function WatchGame() {
       <CardHeader
         badge="TV"
         title="Play-by-Play"
-        subtitle={`${game.awayTeam} at ${game.homeTeam} · ${game.phase === "PRE" ? "Preseason " : ""}Week ${game.week}`}
+        subtitle={`${game.awayTeam} at ${game.homeTeam} · ${
+          game.phase === "PRE"
+            ? `Preseason Week ${game.week}`
+            : game.phase === "REG"
+              ? `Week ${game.week}`
+              : roundLabelFor(bracket, game.phase as PlayoffRound)
+        }`}
       />
       <div className="panel open">
         {loading && <div className="emptystate">Rebuilding the broadcast…</div>}

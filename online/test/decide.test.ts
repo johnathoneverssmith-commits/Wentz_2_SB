@@ -250,7 +250,7 @@ describe("the draft", () => {
   it("refuses a prospect who has already gone", () => {
     const prospect = state.draftClass[0]!;
     decideDraftPick(state, alice, prospect.id);
-    expect(() => decideDraftPick(state, bob, prospect.id)).toThrow(/already gone/i);
+    expect(() => decideDraftPick(state, bob, prospect.id)).toThrow(/already drafted/i);
   });
 });
 

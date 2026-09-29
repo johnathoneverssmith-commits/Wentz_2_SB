@@ -157,7 +157,7 @@ export function extendContract(
   if (offered < wanted * 0.96) {
     return {
       ok: false,
-      reason: `He turned it down. ${p.name} is looking for about $${ask.baseSalary.toFixed(1)}M a year over ${ask.years} years.`,
+      reason: `He turned it down. ${p.name} is looking for about $${ask.baseSalary.toFixed(1)}M a year over ${ask.years} year${ask.years === 1 ? "" : "s"}.`,
     };
   }
 

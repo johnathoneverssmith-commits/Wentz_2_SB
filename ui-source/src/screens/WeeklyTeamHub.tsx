@@ -289,12 +289,12 @@ export function WeeklyTeamHub() {
         <p className="subhead">Unit ranks</p>
         <div className="split-4" style={{ gap: 10 }}>
           {/* engine-weighted, the same reading as Roster & Cap's Unit grades */}
-          <UnitCard label="Offense" rank={sides[code]?.offenseRank ?? team.ratings.offenseRank} rating={sides[code]?.offense ?? team.ratings.offense} />
-          <UnitCard label="Defense" rank={sides[code]?.defenseRank ?? team.ratings.defenseRank} rating={sides[code]?.defense ?? team.ratings.defense} />
-          <UnitCard label="Special teams" rank={team.ratings.specialTeamsRank} rating={team.ratings.specialTeams} />
+          <UnitCard of={leagueSize} label="Offense" rank={sides[code]?.offenseRank ?? team.ratings.offenseRank} rating={sides[code]?.offense ?? team.ratings.offense} />
+          <UnitCard of={leagueSize} label="Defense" rank={sides[code]?.defenseRank ?? team.ratings.defenseRank} rating={sides[code]?.defense ?? team.ratings.defense} />
+          <UnitCard of={leagueSize} label="Special teams" rank={team.ratings.specialTeamsRank} rating={team.ratings.specialTeams} />
           {/* Change 6: a staff is a unit like any other, and after drafting
               twelve of them a GM should be able to see where that landed. */}
-          <UnitCard label="Coaching" rank={staffRank} rating={staffOvr} />
+          <UnitCard of={leagueSize} label="Coaching" rank={staffRank} rating={staffOvr} />
         </div>
       </Panel>
 
@@ -606,13 +606,19 @@ function RevealControls() {
  */
 function lastRevealedResult(s: ReturnType<typeof useStore.getState>, code: string) {
   const seen = onlineSession() ? visibleGames(s, s.viewerGmId) : s.games;
+  // latest by phase, then week: sorting on the week alone put preseason week
+  // 3 ahead of regular-season week 2
+  const order = (g: { phase: string; week: number }) =>
+    g.phase === "PRE" ? g.week : g.phase === "REG" ? 100 + g.week : 200 + ["WC", "DIV", "CONF", "SB"].indexOf(g.phase);
   return [...seen]
     .filter((x) => x.played && (x.homeTeam === code || x.awayTeam === code))
-    .sort((a, b) => b.week - a.week)[0];
+    .sort((a, b) => order(b) - order(a))[0];
 }
 
-function UnitCard({ label, rank, rating }: { label: string; rank: number; rating: number }) {
-  const pct = Math.max(6, Math.round(((33 - rank) / 32) * 100));
+function UnitCard({ label, rank, rating, of }: { label: string; rank: number; rating: number; of: number }) {
+  // scaled to this league: a humans-only league has a handful of teams, and
+  // last of four read as a nearly full bar out of 32
+  const pct = Math.max(6, Math.round(((of + 1 - rank) / Math.max(1, of)) * 100));
   return (
     <div style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: "13px 14px" }}>
       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{label}</p>

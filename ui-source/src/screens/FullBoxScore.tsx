@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import type { PlayerGameLine, TeamGameTotals } from "@/domain";
+import { roundLabelFor, type PlayerGameLine, type PlayoffRound, type TeamGameTotals } from "@/domain";
 import { useStore } from "@/state/store";
 import { seconds } from "@/util/format";
 
@@ -14,6 +14,7 @@ export function FullBoxScore() {
   // screen is the week the GM left — see SeasonResults.
   const back = useSearchParams()[0].get("back");
   const game = useStore((s) => s.games.find((g) => g.id === gameId));
+  const bracket = useStore((s) => s.bracket);
   const { active, setActive } = useTabs("team");
 
   if (!game || !game.totals) {
@@ -41,6 +42,7 @@ export function FullBoxScore() {
 
   const { home, away } = game.totals;
   const homeWin = game.homeScore > game.awayScore;
+  const tie = game.homeScore === game.awayScore;
   // worst first, because that's the one the reader came for
   const injuries = [...(game.injuries ?? [])].sort(
     (a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0),
@@ -54,18 +56,28 @@ export function FullBoxScore() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <TeamSide meta={homeMeta} score={game.homeScore} won={homeWin} />
           <span style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>–</span>
-          <TeamSide meta={awayMeta} score={game.awayScore} won={!homeWin} right />
+          <TeamSide meta={awayMeta} score={game.awayScore} won={!homeWin && !tie} right />
         </div>
         <div className="right">
           <p>
             Final ·{" "}
-            {game.phase === "PRE" ? `Preseason Wk ${game.week}` : game.phase === "REG" ? `Week ${game.week}` : game.phase}
+            {game.phase === "PRE"
+              ? `Preseason Wk ${game.week}`
+              : game.phase === "REG"
+                ? `Week ${game.week}`
+                : roundLabelFor(bracket, game.phase as PlayoffRound)}
           </p>
           <p style={{ fontSize: 16, fontWeight: 700 }}>
-            <span style={{ color: "var(--good)" }}>{(homeWin ? homeMeta : awayMeta).abbr} W</span>{" "}
-            <span style={{ color: "var(--ink-faint)", marginLeft: 6 }}>
-              {(homeWin ? awayMeta : homeMeta).abbr} L
-            </span>
+            {tie ? (
+              <span style={{ color: "var(--ink-dim)" }}>Tie</span>
+            ) : (
+              <>
+                <span style={{ color: "var(--good)" }}>{(homeWin ? homeMeta : awayMeta).abbr} W</span>{" "}
+                <span style={{ color: "var(--ink-faint)", marginLeft: 6 }}>
+                  {(homeWin ? awayMeta : homeMeta).abbr} L
+                </span>
+              </>
+            )}
           </p>
         </div>
       </div>

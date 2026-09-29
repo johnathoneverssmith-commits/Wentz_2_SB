@@ -117,7 +117,7 @@ export function ReadinessGate({
             ? `Waiting on ${seatsOpen} more ${seatsOpen === 1 ? "GM" : "GMs"} to join`
             : waiting === 0
               ? "All GMs ready"
-              : `Waiting on ${waiting} of ${humans.length} GMs`}
+              : `Waiting on ${waiting} of ${humans.length} GM${humans.length === 1 ? "" : "s"}`}
         </span>
       </div>
       <div className="gmchiprow">

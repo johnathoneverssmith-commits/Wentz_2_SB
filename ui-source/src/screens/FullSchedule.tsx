@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
-import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
+import { TEAMS_BY_CODE } from "@/data/teams";
 import { record } from "@/domain";
-import { seasonShape } from "@/state/leagueFormat";
+import { isHumansOnly, seasonShape } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
 import { currentPhase, statsThroughWeek, viewerTeamCode } from "@/state/selectors";
 import { onlineSession } from "@/state/online";
@@ -20,7 +20,9 @@ export function FullSchedule() {
   // this GM has watched (the rest are redacted, and used to show as
   // "0 – 0 Final"), and the current week is the next one they haven't seen.
   const seen = onlineSession() ? visibleGames(s, s.viewerGmId) : s.games;
-  const currentWeek = Math.max(s.week || 1, Math.min(statsThroughWeek(seen) + 1, 18));
+  const weeks = seasonShape(s).regularSeasonWeeks;
+  const currentWeek = Math.max(s.week || 1, Math.min(statsThroughWeek(seen) + 1, weeks));
+  const single = isHumansOnly(s);
   const [viewWeek, setViewWeek] = useState(currentWeek);
 
   const weekGames = useMemo(
@@ -29,8 +31,12 @@ export function FullSchedule() {
   );
   const byeTeams = useMemo(() => {
     const playing = new Set(weekGames.flatMap((g) => [g.homeTeam, g.awayTeam]));
-    return Object.keys(TEAMS_BY_CODE).filter((c) => !playing.has(c));
-  }, [weekGames]);
+    // this league's teams: every NFL franchise, listed as on a bye, used to
+    // take a humans-only league's schedule down (their records don't exist)
+    return Object.keys(s.teams)
+      .filter((c) => !playing.has(c))
+      .sort();
+  }, [weekGames, s.teams]);
 
   const resultFor = (home: string, away: string) =>
     seen.find((g) => g.phase === "REG" && g.week === viewWeek && g.homeTeam === home && g.awayTeam === away);
@@ -42,18 +48,23 @@ export function FullSchedule() {
   return (
     <Card maxWidth={800}>
       <CardHeader
-        badge="NFL"
+        badge={single ? "LG" : "NFL"}
         title="Full Schedule"
-        subtitle={`${s.season} season · ${code ? teamFullName(code) : "the"} league`}
+        subtitle={`${s.season} season · ${Object.keys(s.teams).length} teams`}
       />
       <Ticker
         stats={[
           { label: "Viewing", value: `Week ${viewWeek}` },
-          { label: "Current week", value: phase === "PRE" ? `Preseason ${currentWeek}` : `Week ${currentWeek}` },
+          { label: "Current week", value: phase === "PRE" ? "Preseason" : `Week ${currentWeek}` },
           {
             label: "Your matchup",
+            // your score first, and @ when you're the visitor
             value: yourOpp
-              ? `${code} vs ${yourOpp}${yourResult ? ` (${yourResult.homeScore}-${yourResult.awayScore})` : ""}`
+              ? `${yourGame!.homeTeam === code ? "vs" : "@"} ${yourOpp}${
+                  yourResult
+                    ? ` (${yourGame!.homeTeam === code ? `${yourResult.homeScore}-${yourResult.awayScore}` : `${yourResult.awayScore}-${yourResult.homeScore}`})`
+                    : ""
+                }`
               : "Bye",
             className: "accent sm",
           },
@@ -149,7 +160,8 @@ export function FullSchedule() {
       </div>
 
       <p style={{ margin: 0, padding: "12px 26px", fontSize: 11, color: "var(--ink-faint)", textAlign: "center", borderTop: "1px solid var(--line)" }}>
-        Completed weeks show final scores; upcoming weeks show each team's current record. Every team gets one bye.
+        Completed weeks show final scores; upcoming weeks show each team's current record.
+        {single ? "" : " Every team gets one bye."}
       </p>
 
       <Footer>

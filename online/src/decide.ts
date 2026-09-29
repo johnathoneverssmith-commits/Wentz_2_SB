@@ -148,7 +148,7 @@ export function decidePlaceBid(
   if (!check.ok) throw new ActionError(check.reason ?? "That bid isn't allowed.");
 
   const fa = subject === "players" ? state.freeAgency : state.coachingHire;
-  if (!fa) throw new ActionError("The window isn't open.");
+  if (!fa) throw new ActionError(subject === "players" ? "The free-agent bidding window has closed." : "The coaching hiring window has closed.");
   const list = (fa.bids[targetId] ??= []);
   const mine = list.findIndex((o) => o.teamCode === actor.teamCode);
   if (mine >= 0) list[mine] = full;
@@ -504,7 +504,7 @@ export function decideTrainingCamp(
  * refuses outright if this GM's encounter is already resolved.
  */
 export function decideHoodedFigurePayment(state: LeagueState, actor: Actor, payment: number): Decision {
-  if (state.stage !== "hoodedFigureEncounter") throw new ActionError("It isn't that time yet.");
+  if (state.stage !== "hoodedFigureEncounter") throw new ActionError("The figure is gone — the league has moved past training camp.");
   const existing = hoodedFigureEncounterFor(state, actor.teamCode);
   if (existing?.resolved) throw new ActionError("You've already answered the figure this year.");
   const check = checkHoodedFigurePayment(state, actor.teamCode, payment);
@@ -652,8 +652,8 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
   if (onTheClock !== actor.teamCode) {
     throw new ActionError(`${city(onTheClock)} is on the clock, not you.`, 409);
   }
-  const taken = new Set(draft.results.map((r) => r.selectedId));
-  if (taken.has(selectedId)) throw new ActionError("He's already gone.", 409);
+  const takenBy = draft.results.find((r) => r.selectedId === selectedId);
+  if (takenBy) throw new ActionError(`${city(takenBy.teamCode)} already drafted him — pick again.`, 409);
 
   const name =
     state.draftClass.find((p) => p.id === selectedId)?.name ??

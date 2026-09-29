@@ -151,7 +151,12 @@ export function RosterCapManagement() {
       />
       <Ticker
         stats={[
-          { label: "Roster strength", value: `${team.ratings.overallRank} of 32`, className: team.ratings.overallRank <= 12 ? "good" : undefined },
+          {
+            // this league's size, not the NFL's: a humans-only league has a handful
+            label: "Roster strength",
+            value: `${team.ratings.overallRank} of ${Object.keys(s.teams).length}`,
+            className: team.ratings.overallRank <= Object.keys(s.teams).length * 0.375 ? "good" : undefined,
+          },
           { label: "Cap space", value: millions(capSpace), className: capSpace >= 0 ? "good" : "bad" },
           { label: "Cap used", value: millions(capUsed), className: "sm" },
           ...(team.cap.dead > 0 ? [{ label: "Dead money", value: millions(team.cap.dead), className: "sm bad" }] : []),

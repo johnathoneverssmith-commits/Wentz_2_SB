@@ -202,5 +202,5 @@ function careerSummary(s: LeagueState, p: Player): string | null {
     if ((c.defInt ?? 0) > 3) totals.push(`${c.defInt} INT`);
   }
   if (!totals.length && !honours.length) return null;
-  return [c ? `${c.seasons} seasons in this league` : null, ...totals, ...honours].filter(Boolean).join(" · ");
+  return [c ? `${c.seasons} season${c.seasons === 1 ? "" : "s"} in this league` : null, ...totals, ...honours].filter(Boolean).join(" · ");
 }

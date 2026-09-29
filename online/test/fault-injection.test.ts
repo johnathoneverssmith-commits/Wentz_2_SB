@@ -164,7 +164,7 @@ describe("fault A/B/F — double click, two tabs, retry after a dropped response
     decideDraftPick(state, alice, first.id);
     // alice's client, having not heard back, tries the same pick again —
     // it isn't her turn any more, and the player is already gone either way
-    expect(() => decideDraftPick(state, alice, first.id)).toThrow(/on the clock|already gone/i);
+    expect(() => decideDraftPick(state, alice, first.id)).toThrow(/on the clock|already drafted/i);
   });
 });
 
