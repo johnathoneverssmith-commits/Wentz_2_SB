@@ -101,6 +101,10 @@ export function DraftPreview() {
                 columns={
                   <>
                     <button
+                      type="button"
+                      aria-pressed={starred}
+                      aria-label={starred ? `Remove ${p.name} from your targets` : `Add ${p.name} to your targets`}
+                      title={starred ? "Remove from your targets" : "Add to your targets"}
                       onClick={(e) => {
                         e.stopPropagation();
                         void actions.toggleDraftTarget(p.id);
