@@ -201,7 +201,7 @@ describe("the change stream", () => {
       await expect(pull()).rejects.toThrow(/not in that league/);
       expect(isOnline()).toBe(false);
       expect(lastLeagueId()).toBeNull();
-      expect(takeRemoval()).toBe("Test");
+      expect(takeRemoval()).toEqual({ league: "Test", why: "removed" });
       expect(takeRemoval()).toBeNull();
     } finally {
       goLocal();

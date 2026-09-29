@@ -100,9 +100,13 @@ export function onlineSession(): OnlineSession | null {
   return session;
 }
 
-/** The league this browser was just put out of, for the notice. Cleared once read. */
-let removedFrom: string | null = null;
-export function takeRemoval(): string | null {
+/** The league this browser was just put out of, and why — for the notice. Cleared once read. */
+export interface Removal {
+  league: string;
+  why: "removed" | "signedOut";
+}
+let removedFrom: Removal | null = null;
+export function takeRemoval(): Removal | null {
   const out = removedFrom;
   removedFrom = null;
   return out;
@@ -335,8 +339,15 @@ export async function pull(opts: { ifChanged?: boolean } = {}): Promise<LeagueSt
     // league". End the session and say so, rather than leave a live-looking
     // league on screen.
     if (err instanceof OnlineError && (err.status === 403 || err.status === 404) && session === s) {
-      removedFrom = s.leagueName;
+      removedFrom = { league: s.leagueName, why: "removed" };
       goLocal();
+    } else if (err instanceof OnlineError && err.status === 401 && session === s) {
+      // signed out (the session expired, or the password changed elsewhere):
+      // keep the league remembered so signing back in picks it up again
+      removedFrom = { league: s.leagueName, why: "signedOut" };
+      const id = s.leagueId;
+      goLocal();
+      rememberLeague(id);
     }
     throw err;
   }
