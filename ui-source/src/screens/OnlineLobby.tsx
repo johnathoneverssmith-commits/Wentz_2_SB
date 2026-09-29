@@ -239,7 +239,9 @@ export function OnlineLobby() {
   const session = onlineSession();
   // leagues, not items: one league on the clock and waiting on a ready-up
   // is one league waiting on you, not two
-  const waiting = inbox.filter((l) => l.items.length > 0).length;
+  // something actually waiting on you — not a "whenever" note like an empty
+  // seat or a roster to trim before the season
+  const waiting = inbox.filter((l) => l.items.some((i) => i.urgency !== "whenever")).length;
 
   return (
     <Card maxWidth={760}>
@@ -280,7 +282,8 @@ export function OnlineLobby() {
             className: waiting > 0 ? "bad" : undefined,
           },
           {
-            label: "Playing",
+            // the league open on this device, when there is one
+            label: "Open now",
             value: isOnline() ? (session?.teamCode ?? "—") : "Single player",
             className: "sm",
           },

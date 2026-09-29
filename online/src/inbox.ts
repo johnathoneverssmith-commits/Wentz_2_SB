@@ -54,6 +54,8 @@ export interface InboxFacts {
   ready: boolean;
   /** Other human GMs who haven't checked in — "everyone is waiting on you" only when it's none. */
   othersPending: number;
+  /** Human seats nobody has claimed yet. */
+  openSeats: number;
   capUsed: number;
   capTotal: number;
   /** Dead money: on the books, but it can't make a roster illegal. */
@@ -103,6 +105,7 @@ export function factsFromState(
       .map((t) => t.fromTeam),
     ready: !!state.readiness[gmId],
     othersPending: state.gms.filter((g) => g.isHuman && g.teamCode && g.id !== gmId && !state.readiness[g.id]).length,
+    openSeats: Math.max(0, (state.config.humanGmCount ?? 0) - state.gms.filter((g) => g.isHuman && g.teamCode).length),
     capUsed: cap?.used ?? 0,
     capTotal: cap?.total ?? 0,
     capDead: cap?.dead ?? 0,
@@ -132,6 +135,7 @@ export async function inboxFacts(
     offered_by: string[] | null;
     ready: boolean;
     others_pending: string;
+    open_seats: string;
     cap_used: string | null;
     cap_total: string | null;
     cap_dead: string | null;
@@ -154,6 +158,10 @@ export async function inboxFacts(
            AND COALESCE(g->>'teamCode', '') <> ''
            AND g->>'id' <> $3
            AND NOT COALESCE((s.state->'readiness'->>(g->>'id'))::boolean, false)) AS others_pending,
+       GREATEST(0, COALESCE((s.state->'config'->>'humanGmCount')::int, 0)
+         - (SELECT count(*) FROM jsonb_array_elements(s.state->'gms') AS g
+             WHERE COALESCE((g->>'isHuman')::boolean, false)
+               AND COALESCE(g->>'teamCode', '') <> ''))                  AS open_seats,
        s.state->'teams'->$2->'cap'->>'used'                             AS cap_used,
        s.state->'teams'->$2->'cap'->>'total'                            AS cap_total,
        s.state->'teams'->$2->'cap'->>'dead'                             AS cap_dead,
@@ -200,6 +208,7 @@ export async function inboxFacts(
     offeredBy: r.offered_by ?? [],
     ready: r.ready,
     othersPending: Number(r.others_pending),
+    openSeats: Number(r.open_seats),
     capUsed: Number(r.cap_used ?? 0),
     capTotal: Number(r.cap_total ?? 0),
     capDead: Number(r.cap_dead ?? 0),
@@ -244,8 +253,17 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
     });
   }
 
-  // a turn-based event isn't moved on by readiness — its turns end it
-  if (!facts.ready && !TURN_STAGES.has(facts.stage)) {
+  // before kickoff with seats still empty, nobody's check-in is what it waits for
+  if (facts.stage === "setup" && facts.openSeats > 0) {
+    items.push({
+      kind: "ready",
+      title: `Waiting for ${facts.openSeats} more GM${facts.openSeats === 1 ? "" : "s"} to join.`,
+      detail: "The league starts once every seat is taken — share the invite code.",
+      href: "/",
+      urgency: "whenever",
+    });
+  } else if (!facts.ready && !TURN_STAGES.has(facts.stage)) {
+    // a turn-based event isn't moved on by readiness — its turns end it
     items.push({
       kind: "ready",
       // a check-in has no clock: the league waits (the commissioner can force it)
