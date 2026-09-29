@@ -93,6 +93,17 @@ export function ReadinessGate({
   // a screen whose stage has already moved on. The timer itself is still
   // cancelled on re-render so a transition can't be triggered twice.
   const [busy, setBusy] = useState(false);
+  // a block of games takes a while on the league server; after a few
+  // seconds of "Simulating…" say so, rather than look stuck
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!busy) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), 8_000);
+    return () => clearTimeout(t);
+  }, [busy]);
   const [readyError, setReadyError] = useState<string | null>(null);
   const [resetCode, setResetCode] = useState<{ name: string; code: string } | null>(null);
   const [managing, setManaging] = useState<string | null>(null);
@@ -298,6 +309,12 @@ export function ReadinessGate({
                 : "You're ready — waiting on the league"
               : (label ?? STAGE_READY_LABEL[stage])}
       </button>
+      {slow && (
+        <p role="status" style={{ margin: "8px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+          Still working — simulating a block of games can take a minute or two on the league server. You can
+          leave this page; the league moves on either way.
+        </p>
+      )}
       {readyError && (
         <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
           {readyError}

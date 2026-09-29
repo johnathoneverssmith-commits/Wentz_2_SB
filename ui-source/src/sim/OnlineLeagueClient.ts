@@ -90,7 +90,10 @@ const REQUEST_TIMEOUT_MS = 45_000;
  * minute — abandoning it at 45s reported a failure for a transition that
  * went on to succeed.
  */
-const ACTION_TIMEOUT_MS = 100_000;
+// The check-in that starts a block simulates it inside the request: nine
+// weeks took ~15s on a laptop, and a free-tier host has a tenth of a CPU. At
+// 100s the client could give up on a move that went on to succeed.
+const ACTION_TIMEOUT_MS = 300_000;
 
 /**
  * A request whose outcome is unknown: it timed out or the connection dropped

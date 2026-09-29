@@ -1,5 +1,5 @@
 import { LeagueWire } from "@/components/LeagueWire";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -525,6 +525,16 @@ function RevealControls() {
   const actions = useLeagueActions();
   const nav = useNavigate();
   const [busy, setBusy] = useState(false);
+  // the advance that starts the next block simulates it — a while, on the server
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!busy) {
+      setSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setSlow(true), 8_000);
+    return () => clearTimeout(t);
+  }, [busy]);
   // a refused or dropped reveal used to leave the button looking like it did nothing
   const [error, setError] = useState<string | null>(null);
 
@@ -586,6 +596,11 @@ function RevealControls() {
         >
           {busy ? "Simulating…" : block.advanceLabel}
         </button>
+        {slow && (
+          <p role="status" style={{ margin: "8px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+            Still working — simulating a block of games can take a minute or two on the league server.
+          </p>
+        )}
         {error && (
           <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
             {error}
