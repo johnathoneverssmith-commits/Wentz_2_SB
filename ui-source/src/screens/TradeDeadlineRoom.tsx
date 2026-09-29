@@ -114,6 +114,19 @@ export function TradeDeadlineRoom() {
         <Waiting
           clock={clock}
           clockGm={s.gms.find((g) => g.isHuman && g.teamCode === clock)?.name ?? null}
+          negotiation={
+            d.active
+              ? (() => {
+                  const actor = d.active.awaiting === "recipient" ? d.active.toTeam : d.active.fromTeam;
+                  const gm = s.gms.find((g) => g.isHuman && g.teamCode === actor)?.name;
+                  const who = `${gm ? `${gm} (${TEAMS_BY_CODE[actor]?.label ?? actor})` : (TEAMS_BY_CODE[actor]?.label ?? actor)}`;
+                  const mine = d.active.fromTeam === code;
+                  return d.active.awaiting === "recipient"
+                    ? `Waiting on ${who} to answer ${mine ? "your" : `${TEAMS_BY_CODE[d.active.fromTeam]?.label ?? d.active.fromTeam}'s`} offer.`
+                    : `Waiting on ${who} to answer ${d.active.toTeam === code ? "your" : "the"} counter-offer.`;
+                })()
+              : null
+          }
           turnsAway={(() => {
             // how long until you're up, this round or the next
             const at = d.order.indexOf(code);
@@ -177,6 +190,7 @@ function ProposeTurn({
           Trade with
         </label>
         <select
+          aria-label="Trade with"
           value={partner}
           onChange={(e) => {
             setPartner(e.target.value);
@@ -400,10 +414,13 @@ function Waiting({
   clock,
   clockGm,
   turnsAway,
+  negotiation,
 }: {
   clock: string | null;
   clockGm: string | null;
   turnsAway: number | null;
+  /** An offer mid-answer: the proposer is still "on the clock", but the move is someone else's. */
+  negotiation: string | null;
 }) {
   return (
     <div className="panel open">
@@ -411,8 +428,12 @@ function Waiting({
         {clock ? (
           <>
             <p style={{ margin: 0, fontWeight: 600 }}>
-              {clockGm ? `${clockGm} (${TEAMS_BY_CODE[clock]?.label ?? clock})` : (TEAMS_BY_CODE[clock]?.label ?? clock)}{" "}
-              {clockGm ? "is" : "are"} on the clock.
+              {negotiation ?? (
+                <>
+                  {clockGm ? `${clockGm} (${TEAMS_BY_CODE[clock]?.label ?? clock})` : (TEAMS_BY_CODE[clock]?.label ?? clock)}{" "}
+                  {clockGm ? "is" : "are"} on the clock.
+                </>
+              )}
             </p>
             {turnsAway != null && (
               <p style={{ margin: "6px 0 0", fontSize: 12.5 }}>

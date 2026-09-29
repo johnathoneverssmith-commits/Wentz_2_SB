@@ -202,6 +202,7 @@ export function TradeProposal() {
           </div>
         </div>
         <select
+          aria-label="Trade partner"
           value={partner}
           onChange={(e) => {
             setPartner(e.target.value);
