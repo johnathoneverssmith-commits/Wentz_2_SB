@@ -191,6 +191,32 @@ function watch(): void {
   const s = session;
   let pulling = false;
   let pullAgain = false;
+  // One pull at a time. A burst of changes (a CPU sweep, several GMs at
+  // once) used to start a full download per frame, and on a slow link they
+  // overlapped — each one the whole league.
+  const refresh = (): void => {
+    if (pulling) {
+      pullAgain = true;
+      return;
+    }
+    pulling = true;
+    const run = (): void => {
+      pullAgain = false;
+      void pull()
+        .then((state) => {
+          if (!state) return;
+          for (const fn of stateListeners) fn(state);
+        })
+        // a server blip mid-pull: the next frame (or the checkpoint's poll)
+        // tries again, and an unhandled rejection helps nobody
+        .catch(() => undefined)
+        .finally(() => {
+          if (session === s && pullAgain) run();
+          else pulling = false;
+        });
+    };
+    run();
+  };
   s.stopWatching = s.client.watch(s.leagueId, {
     change: (change) => {
       if (session !== s) return;
@@ -213,30 +239,13 @@ function watch(): void {
         announce();
         return;
       }
-      // One pull at a time. A burst of changes (a CPU sweep, several GMs at
-      // once) used to start a full download per frame, and on a slow link
-      // they overlapped — each one the whole league.
-      if (pulling) {
-        pullAgain = true;
-        return;
-      }
-      pulling = true;
-      const run = (): void => {
-        pullAgain = false;
-        void pull()
-          .then((state) => {
-            if (!state) return;
-            for (const fn of stateListeners) fn(state);
-          })
-          // a server blip mid-pull: the next frame (or the checkpoint's poll)
-          // tries again, and an unhandled rejection helps nobody
-          .catch(() => undefined)
-          .finally(() => {
-            if (session === s && pullAgain) run();
-            else pulling = false;
-          });
-      };
-      run();
+      refresh();
+    },
+    // Every (re)connect says which version the server is on. After a laptop
+    // sleeps or the server restarts, the changes made meanwhile were never
+    // sent — this is the only way to hear about them.
+    open: (version) => {
+      if (session === s && version !== s.version) refresh();
     },
     // EventSource reconnects by itself; there is nothing useful to do here
     // except stop claiming the countdown is live.
@@ -276,7 +285,25 @@ export async function joinLeague(
   watch();
   rememberLeague(leagueId);
   announce();
+  void seedNews(client, leagueId);
   return { state: asViewer(view.state, view.you.gmId), teamCode: view.you.teamCode };
+}
+
+/**
+ * The wire starts with what happened before you arrived. Only the stream
+ * filled it, so a GM opening the league saw nothing of the night's moves.
+ */
+async function seedNews(client: OnlineLeagueClient, leagueId: string): Promise<void> {
+  const got = await client.feed(leagueId).catch(() => null);
+  if (!got || !Array.isArray(got.events) || session?.leagueId !== leagueId) return;
+  const have = new Set(news.map((e) => e.id));
+  const older = got.events
+    .filter((e) => !have.has(e.id))
+    .reverse()
+    .map((e) => ({ ...e, at: String(e.at) }));
+  news.unshift(...older);
+  if (news.length > NEWS_KEPT) news.splice(0, news.length - NEWS_KEPT);
+  announce();
 }
 
 /** Fetch the league again. The server's copy always wins. */

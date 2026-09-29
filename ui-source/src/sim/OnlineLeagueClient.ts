@@ -388,9 +388,10 @@ export class OnlineLeagueClient {
     },
   ): () => void {
     if (typeof EventSource === "undefined") return () => {};
-    const source = new EventSource(`${this.baseUrl}/leagues/${leagueId}/stream`, {
-      withCredentials: true,
-    });
+    let source: EventSource | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let closed = false;
+    let wait = 2_000;
     const parse =
       (fn: ((news: never) => void) | undefined) =>
       (ev: MessageEvent<string>): void => {
@@ -401,13 +402,35 @@ export class OnlineLeagueClient {
           // a malformed frame is not worth tearing the stream down for
         }
       };
-    source.addEventListener("change", parse(on.change) as EventListener);
-    source.addEventListener(
-      "hello",
-      parse(((h: { version: string }) => on.open?.(h.version)) as never) as EventListener,
-    );
-    if (on.error) source.addEventListener("error", () => on.error?.());
-    return () => source.close();
+    const connect = (): void => {
+      if (closed) return;
+      const s = new EventSource(`${this.baseUrl}/leagues/${leagueId}/stream`, { withCredentials: true });
+      source = s;
+      s.addEventListener("change", parse(on.change) as EventListener);
+      s.addEventListener(
+        "hello",
+        parse(((h: { version: string }) => {
+          wait = 2_000;
+          on.open?.(h.version);
+        }) as never) as EventListener,
+      );
+      s.addEventListener("error", () => {
+        on.error?.();
+        // A dropped connection retries by itself. An error *response* — a
+        // proxy's 502 while the server restarts for a deploy — closes the
+        // stream for good, and the league would go quiet until a reload.
+        if (s.readyState === EventSource.CLOSED && !closed) {
+          retry = setTimeout(connect, wait);
+          wait = Math.min(wait * 2, 60_000);
+        }
+      });
+    };
+    connect();
+    return () => {
+      closed = true;
+      if (retry) clearTimeout(retry);
+      source?.close();
+    };
   }
 
   /** Give up your seat: the CPU runs the team until someone claims it. */

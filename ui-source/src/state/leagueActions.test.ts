@@ -67,7 +67,10 @@ describe("online mode", () => {
  * a change this client already has doesn't send it back for the league.
  */
 class FakeEventSource {
+  static readonly CLOSED = 2;
   static last: FakeEventSource | null = null;
+  static opened = 0;
+  readyState = 0;
   readonly listeners = new Map<string, (ev: MessageEvent<string>) => void>();
   closed = false;
   constructor(
@@ -75,6 +78,7 @@ class FakeEventSource {
     readonly init?: { withCredentials?: boolean },
   ) {
     FakeEventSource.last = this;
+    FakeEventSource.opened += 1;
   }
   addEventListener(type: string, fn: (ev: MessageEvent<string>) => void): void {
     this.listeners.set(type, fn);
@@ -133,6 +137,47 @@ describe("the change stream", () => {
       expect(fetchMock.mock.calls.length).toBeGreaterThan(loads);
     } finally {
       goLocal();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("catches up on a reconnect, and reopens a stream an error response closed", async () => {
+    goLocal();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    let version = "1";
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify(leagueView(version)), { status: 200 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+    try {
+      const { joinLeague, onLeagueChange } = await import("./online.ts");
+      await joinLeague("l1");
+      const seen: unknown[] = [];
+      onLeagueChange((s) => seen.push(s));
+      const first = FakeEventSource.last!;
+      const loads = fetchMock.mock.calls.length;
+
+      // the version we hold: nothing to fetch
+      first.emit("hello", { version: "1" });
+      await Promise.resolve();
+      expect(fetchMock.mock.calls.length).toBe(loads);
+
+      // back from a sleep, the server moved on without telling us
+      version = "3";
+      first.emit("hello", { version: "3" });
+      await vi.waitFor(() => expect(seen.length).toBe(1));
+
+      // a proxy's 502 closes the stream; it has to be reopened by hand
+      const opened = FakeEventSource.opened;
+      first.readyState = FakeEventSource.CLOSED;
+      first.listeners.get("error")?.({} as MessageEvent<string>);
+      vi.advanceTimersByTime(2_500);
+      expect(FakeEventSource.opened).toBe(opened + 1);
+      expect(FakeEventSource.last).not.toBe(first);
+    } finally {
+      goLocal();
+      vi.useRealTimers();
       vi.unstubAllGlobals();
     }
   });

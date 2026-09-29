@@ -24,7 +24,7 @@ import { availableRoster } from "@/state/injuries.ts";
 import { humanGate, isInSeason } from "@/state/rules.ts";
 
 import { ActionError, withLeague, type Applied } from "./db.js";
-import { deadlineFor, finishPlayedWeek } from "./phases.js";
+import { deadlineFor, finishPlayedWeek, stageName } from "./phases.js";
 
 /** The engine spells the Rams "LA"; this UI spells them "LAR". */
 const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
@@ -144,7 +144,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         events: [
           {
             kind: "season.advanced",
-            summary: `That week was already played — the league moved on to ${moved.stage}${
+            summary: `That week was already played — the league moved on to ${stageName(moved.stage)}${
               moved.stage === "preseason" || moved.stage === "regularSeason"
                 ? ` week ${moved.week}`
                 : ""
@@ -244,14 +244,14 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       events: [
         {
           kind: "season.week",
-          summary: `Week ${playedWeek} was played — ${results.length} games.`,
+          summary: `Week ${playedWeek} was played — ${results.length} game${results.length === 1 ? "" : "s"}.`,
         },
         {
           kind: "season.advanced",
           summary:
             moved.stage === "playoffs"
               ? "The regular season is over — the bracket is set."
-              : `The league moved on to ${moved.stage} week ${moved.week}.`,
+              : `The league moved on to ${stageName(moved.stage)}${moved.week ? ` Week ${moved.week}` : ""}.`,
         },
       ],
     } satisfies { result: WeekOutcome } & Applied;

@@ -121,6 +121,22 @@
 .rail .spacer {
   flex: 1;
 }
+.rail .leaguewire ul {
+  list-style: none;
+  margin: 0 8px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--ink-dim, var(--ink-faint));
+}
+.rail .leaguewire li + li {
+  margin-top: 6px;
+}
+.rail .leaguewire .when {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-faint);
+}
 .rail button.reset {
   margin: 4px 6px 0;
   font-size: 11px;
@@ -217,6 +233,7 @@
   }
   .rail .railgroup,
   .rail .railnote,
+  .rail .leaguewire,
   .rail .spacer {
     display: none;
   }

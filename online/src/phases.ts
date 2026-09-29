@@ -21,8 +21,9 @@
 import { checkTrade } from "@/state/rules.ts";
 import { generateAiTradeOffers } from "@/state/aiTrades.ts";
 import type { LeagueState } from "@/domain";
+import { TEAMS_BY_CODE } from "@/data/teams";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
-import { resolveTransition } from "@/state/stageMachine.ts";
+import { resolveTransition, STAGE_LABEL } from "@/state/stageMachine.ts";
 import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tradeDeadline.ts";
 import { currentBlock } from "@/state/revealBlocks.ts";
 import { emptyReveal } from "@/state/reveal.ts";
@@ -177,7 +178,7 @@ export async function readyUp(
       unchanged: already && !gateOpen,
       phaseEndsAt: outcome.moved ? deadlineFor(state, league) : undefined,
       events: outcome.moved
-        ? [{ kind: "phase.advanced", summary: `The league moved on to ${state.stage}.` }]
+        ? [{ kind: "phase.advanced", summary: `The league moved on to ${stageName(state.stage)}.` }]
         : [],
     } satisfies { result: AdvanceOutcome } & Applied;
   });
@@ -739,7 +740,7 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
           events: autopiloted.map((teamCode) => ({
             teamCode,
             kind: "phase.autopiloted",
-            summary: `${teamCode} ran out of time; their staff acted for them.`,
+            summary: `${TEAMS_BY_CODE[teamCode]?.label ?? teamCode} ran out of time; their staff acted for them.`,
           })),
         } satisfies {
           result: { autopiloted: string[]; moved: boolean; inSeason: boolean };
@@ -785,7 +786,7 @@ export async function forceAdvance(leagueId: string): Promise<AdvanceOutcome> {
       events: [
         {
           kind: "phase.forced",
-          summary: `The commissioner moved the league on to ${state.stage}.`,
+          summary: `The commissioner moved the league on to ${stageName(state.stage)}.`,
         },
       ],
     } satisfies { result: AdvanceOutcome } & Applied;
@@ -797,4 +798,9 @@ export async function forceAdvance(leagueId: string): Promise<AdvanceOutcome> {
 export function timeLeft(loaded: LoadedLeague): number | null {
   if (!loaded.phaseEndsAt) return null;
   return Math.max(0, loaded.phaseEndsAt.getTime() - Date.now());
+}
+
+/** A stage as the screens name it, for feed text. */
+export function stageName(stage: string): string {
+  return (STAGE_LABEL as Record<string, string>)[stage] ?? stage;
 }

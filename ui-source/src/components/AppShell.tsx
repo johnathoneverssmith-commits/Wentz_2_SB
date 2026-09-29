@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { onlineSession } from "@/state/online";
 import { SaveBackup } from "./SaveBackup";
+import { LeagueWire } from "./LeagueWire";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -197,6 +198,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
 
+        {session && !inSetup && <LeagueWire />}
         <div className="spacer" />
         <SoundControl />
         {!inSetup && (

@@ -16,7 +16,7 @@
  * `actions.ts` wraps each of these in `withLeague`, which supplies the row
  * lock, the version check and the event log.
  */
-import { bracketRounds, ROUND_ORDER } from "@/domain";
+import { bracketRounds, COACH_ROLE_LABEL, ROUND_ORDER, roundLabelFor } from "@/domain";
 import type { ContractOffer, LeagueState, Position, TradeAsset } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import {
@@ -408,7 +408,7 @@ export function decideCoachingPick(
       {
         teamCode: actor.teamCode,
         kind: "coach.drafted",
-        summary: `${city(actor.teamCode)} hired ${coach.name} as ${coach.role}.`,
+        summary: `${city(actor.teamCode)} hired ${coach.name} as ${COACH_ROLE_LABEL[coach.role] ?? coach.role}.`,
         detail: { coachId },
       },
       ...(aiPicks > 0 && !finished
@@ -626,7 +626,7 @@ export function decideRevealRound(state: LeagueState, actor: Actor): Decision {
       {
         teamCode: actor.teamCode,
         kind: "reveal",
-        summary: `${city(actor.teamCode)} watched the ${next}.`,
+        summary: `${city(actor.teamCode)} watched the ${roundLabelFor(state.bracket, next)}.`,
       },
     ],
   };
@@ -669,7 +669,7 @@ export function decideCoachHire(state: LeagueState, actor: Actor, coachId: strin
       {
         teamCode: actor.teamCode,
         kind: "coach.hired",
-        summary: `${city(actor.teamCode)} hired ${coach.name} as ${coach.role}.`,
+        summary: `${city(actor.teamCode)} hired ${coach.name} as ${COACH_ROLE_LABEL[coach.role] ?? coach.role}.`,
         detail: { coachId },
       },
     ],
@@ -744,7 +744,9 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
         ? [
             {
               kind: "draft.completed",
-              summary: `Every GM has made their picks — the remaining ${autoCompleted} selections were completed automatically.`,
+              summary: autoCompleted
+                ? `Every GM has made their picks — the remaining ${autoCompleted} selection${autoCompleted === 1 ? " was" : "s were"} made automatically.`
+                : "The draft is complete.",
             },
           ]
         : []),
