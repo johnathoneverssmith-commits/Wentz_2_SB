@@ -60,19 +60,18 @@ export function LeagueRosters() {
                 <TeamBadge code={teamCode} size={16} /> {g}
               </p>
               <div
-                style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px 92px", gap: 10, padding: "0 6px 4px", fontSize: 10, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.04em" }}
+                style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", gap: 10, padding: "0 6px 4px", fontSize: 10, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.04em" }}
               >
                 <span>#</span>
                 <span>Player</span>
                 <span style={{ textAlign: "center" }}>OVR</span>
                 <span style={{ textAlign: "center" }}>Age</span>
-                <span style={{ textAlign: "right" }}>Contract</span>
               </div>
               {players.map((p, i) => (
                 <div
                   key={p.id}
                   {...pressable(() => setInspect(p))}
-                  style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px 92px", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
+                  style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
                 >
                   <span className="rank-num">{i + 1}</span>
                   <span className="pname" style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)" }}>
@@ -83,14 +82,16 @@ export function LeagueRosters() {
                         {p.injury_status.status.toUpperCase()}
                       </span>
                     )}
+                    {/* under the name, not a column: a fifth column left names
+                        sixty pixels wide on a phone */}
+                    <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)", textDecoration: "none" }}>
+                      {p.contract
+                        ? `${p.contract.years_remaining}y · $${(p.contract.cap_hit_by_year[0] ?? 0).toFixed(1)}M`
+                        : "No contract"}
+                    </span>
                   </span>
                   <OvrPill value={p.overall} />
                   <span className="pcell">{p.age}</span>
-                  <span className="pcell" style={{ textAlign: "right", fontSize: 11 }}>
-                    {p.contract
-                      ? `${p.contract.years_remaining}y · $${(p.contract.cap_hit_by_year[0] ?? 0).toFixed(1)}M`
-                      : "—"}
-                  </span>
                 </div>
               ))}
             </div>

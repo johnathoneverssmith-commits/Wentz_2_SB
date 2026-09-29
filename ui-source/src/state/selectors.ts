@@ -112,6 +112,13 @@ export function humanHeadToHead(
 export function playoffOdds(s: LeagueState, code: string): number {
   const t = s.teams[code];
   if (!t) return 0;
+  // once the field is set it's a fact, not a projection: a team in the
+  // bracket read "76%" and one knocked out "8%"
+  if (s.bracket) {
+    const field =
+      s.bracket.format === "single" ? (s.bracket.field ?? []) : [...s.bracket.seeds.AFC, ...s.bracket.seeds.NFC];
+    return field.includes(code) ? 100 : 0;
+  }
   const games = t.wins + t.losses + t.ties;
   const pct = games ? (t.wins + 0.5 * t.ties) / games : 0.5;
   const strength = (t.ratings.overall - 75) / 25; // roughly -1..+1
