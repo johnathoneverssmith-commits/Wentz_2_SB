@@ -157,6 +157,17 @@ export function TradeProposal() {
   // yours, still waiting on the other GM: the form clears when you send one,
   // and nothing on the screen said it was out there
   const outgoing = s.trades.filter((t) => t.status === "offered" && t.fromTeam === myCode);
+  // what came of your offers to other GMs — the answer arrives whenever they
+  // get to it, and it used to show up only as a line on the wire
+  const answered = s.trades
+    .filter(
+      (t) =>
+        t.fromTeam === myCode &&
+        (t.status === "accepted" || t.status === "rejected" || t.status === "blocked") &&
+        s.gms.some((g) => g.isHuman && g.teamCode === t.toTeam),
+    )
+    .slice(-3)
+    .reverse();
   const describe = (assets: (typeof s.trades)[number]["fromAssets"]): string =>
     assets
       .map((a) =>
@@ -293,6 +304,31 @@ export function TradeProposal() {
                 {describe(o.toAssets)}
               </span>
               <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>Waiting</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {answered.length > 0 && (
+        <div style={{ padding: "14px 26px 4px", borderBottom: "1px solid var(--line)" }}>
+          <p className="sectionlabel" style={{ marginTop: 0 }}>
+            Answered
+          </p>
+          {answered.map((o) => (
+            <div key={o.id} className="neg-row">
+              <span style={{ fontSize: 12.5 }}>
+                To {gmName(o.toTeam) ?? TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam}: {describe(o.fromAssets)} for{" "}
+                {describe(o.toAssets)}
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: o.status === "accepted" ? "var(--good)" : "var(--bad)",
+                }}
+              >
+                {o.status === "accepted" ? "Accepted" : o.status === "blocked" ? "Blocked by the league" : "Turned down"}
+              </span>
             </div>
           ))}
         </div>
