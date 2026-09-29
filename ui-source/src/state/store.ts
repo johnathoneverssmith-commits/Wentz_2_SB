@@ -1161,7 +1161,8 @@ export const useStore = create<Store>()(
           return;
         }
         try {
-          const raw = window.localStorage.getItem(SAVE_KEY);
+          // the slot that failed — an online copy isn't the solo save
+          const raw = window.localStorage.getItem(slotFor(SAVE_KEY));
           if (raw != null) window.localStorage.setItem(CORRUPT_BACKUP_KEY, raw);
         } catch {
           // the backup is a courtesy on top of the flag, not the fix itself —
