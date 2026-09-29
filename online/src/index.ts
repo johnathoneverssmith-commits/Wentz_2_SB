@@ -21,12 +21,15 @@ import {
   revealThrough,
   hireCoach,
   settleRookie,
+  settleRookies,
   makeDraftPick,
   placeBid,
   proposeTrade,
   releasePlayer,
+  releasePlayers,
   respondToTrade,
   setDepthOrder,
+  setDepthOrders,
   signFreeAgent,
   deadlineTurn,
   revealRound,
@@ -540,6 +543,18 @@ post("/leagues/:id/actions/depth", async (ctx) =>
 
 post("/leagues/:id/actions/release", async (ctx) =>
   releasePlayer(await actor(ctx), field(ctx, "playerId", "string"), version(ctx)),
+);
+
+post("/leagues/:id/actions/rookies", async (ctx) =>
+  settleRookies(await actor(ctx), field(ctx, "prospectIds", "object"), optional<boolean>(ctx, "released") ?? false),
+);
+
+post("/leagues/:id/actions/releases", async (ctx) =>
+  releasePlayers(await actor(ctx), field(ctx, "playerIds", "object")),
+);
+
+post("/leagues/:id/actions/depths", async (ctx) =>
+  setDepthOrders(await actor(ctx), field(ctx, "orders", "object")),
 );
 
 post("/leagues/:id/actions/contract", async (ctx) =>

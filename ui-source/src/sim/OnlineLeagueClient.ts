@@ -358,6 +358,34 @@ export class OnlineLeagueClient {
       version,
     });
 
+  /**
+   * The batch forms, one commit each. A server older than this client has
+   * no batch route (a 404): fall back to one request per item.
+   */
+  private async batch(path: string, body: unknown, each: () => Promise<unknown>): Promise<void> {
+    try {
+      await this.call<{ ok: true; version: string }>(path, body);
+    } catch (err) {
+      if (err instanceof OnlineError && err.status === 404 && /route|not found/i.test(err.message)) await each();
+      else throw err;
+    }
+  }
+
+  settleRookies = (leagueId: string, prospectIds: string[], released: boolean) =>
+    this.batch(`/leagues/${leagueId}/actions/rookies`, { prospectIds, released }, async () => {
+      for (const id of prospectIds) await this.settleRookie(leagueId, id, released, "");
+    });
+
+  releasePlayers = (leagueId: string, playerIds: string[]) =>
+    this.batch(`/leagues/${leagueId}/actions/releases`, { playerIds }, async () => {
+      for (const id of playerIds) await this.releasePlayer(leagueId, id, "");
+    });
+
+  setDepthOrders = (leagueId: string, orders: { position: Position; playerIds: string[] }[]) =>
+    this.batch(`/leagues/${leagueId}/actions/depths`, { orders }, async () => {
+      for (const o of orders) await this.setDepthOrder(leagueId, o.position, o.playerIds);
+    });
+
   contractMove = (
     leagueId: string,
     playerId: string,

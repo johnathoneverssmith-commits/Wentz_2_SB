@@ -17,6 +17,7 @@ import { planAutopicks, type Subject } from "@/state/rules.ts";
 import type { TrainingCampPlan } from "@/state/trainingCamp.ts";
 import type { LeagueState } from "@/domain";
 
+import { TEAMS_BY_CODE } from "@/data/teams";
 import { franchiseOf, isCommissioner } from "./auth.js";
 import { ActionError, withLeague, type Applied } from "./db.js";
 import { deadlineFor, turnKey } from "./phases.js";
@@ -176,6 +177,47 @@ export const setDepthOrder = (actor: Actor, position: Position, playerIds: strin
 
 export const releasePlayer = (actor: Actor, playerId: string, expectedVersion?: string) =>
   run(actor, undefined, (s) => decideRelease(s, actor, playerId));
+
+/**
+ * The batch forms: "Sign all remaining", a staff trim, a whole depth chart.
+ * They used to go out as one request per item — each its own commit, each
+ * sending every GM in the league to re-download it — so signing seven
+ * rookies was seven league reloads for everybody and a screen that counted
+ * up one at a time. One transaction, one commit, all or nothing.
+ */
+const BATCH_MAX = 80;
+function batchOf<T>(items: T[]): T[] {
+  if (!Array.isArray(items) || items.length === 0) throw new ActionError("Nothing to do.");
+  if (items.length > BATCH_MAX) throw new ActionError(`At most ${BATCH_MAX} at a time.`);
+  return items;
+}
+
+export const settleRookies = (actor: Actor, prospectIds: string[], released: boolean) =>
+  run(actor, undefined, (s) => {
+    const ids = batchOf(prospectIds);
+    for (const id of ids) decideRookieOutcome(s, actor, id, released);
+    const team = TEAMS_BY_CODE[actor.teamCode]?.label ?? actor.teamCode;
+    return {
+      events: [
+        {
+          teamCode: actor.teamCode,
+          kind: released ? "rookie.released" : "rookie.signed",
+          summary: `${team} ${released ? "released" : "signed"} ${ids.length} rookie${ids.length === 1 ? "" : "s"}.`,
+        },
+      ],
+    };
+  });
+
+export const releasePlayers = (actor: Actor, playerIds: string[]) =>
+  run(actor, undefined, (s) => ({
+    events: batchOf(playerIds).flatMap((id) => decideRelease(s, actor, id).events),
+  }));
+
+export const setDepthOrders = (actor: Actor, orders: { position: Position; playerIds: string[] }[]) =>
+  run(actor, undefined, (s) => {
+    for (const o of batchOf(orders)) decideSetDepth(s, actor, o.position, Array.isArray(o.playerIds) ? o.playerIds : []);
+    return { events: [] };
+  });
 
 export const contractMove = (
   actor: Actor,

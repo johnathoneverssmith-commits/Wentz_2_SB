@@ -313,7 +313,7 @@ export function useLeagueActions(): LeagueActions {
       setDepthOrders: (orders) =>
         attempt(() =>
           send(async (s) => {
-            for (const o of orders) await s.client.setDepthOrder(s.leagueId, o.position, o.playerIds);
+            await s.client.setDepthOrders(s.leagueId, orders);
             return null;
           }),
         ).then(after),
@@ -324,8 +324,8 @@ export function useLeagueActions(): LeagueActions {
       releasePlayers: (playerIds) =>
         attempt(() =>
           send(async (s) => {
-            // a release carries no version check, so each can follow the last
-            for (const id of playerIds) await s.client.releasePlayer(s.leagueId, id, s.version);
+            // one commit for the lot: the league reloads once, not per player
+            await s.client.releasePlayers(s.leagueId, playerIds);
             return null;
           }),
         ).then(after),
@@ -346,8 +346,8 @@ export function useLeagueActions(): LeagueActions {
       signRookies: (prospectIds) =>
         attempt(() =>
           send(async (s) => {
-            // no version check on a rookie signing, so each can follow the last
-            for (const id of prospectIds) await s.client.settleRookie(s.leagueId, id, false, s.version);
+            // one commit for the class: seven signings were seven league reloads
+            await s.client.settleRookies(s.leagueId, prospectIds, false);
             return null;
           }),
         ).then(after),
