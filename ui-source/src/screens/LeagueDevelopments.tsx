@@ -90,19 +90,24 @@ export function LeagueDevelopments() {
   const s = useStore();
   const nav = useNavigate();
   const entries = leagueDevelopmentsFor(s);
+  const carousel = (s.coachingChanges ?? []).filter((c) => c.season === s.season - 1);
+  const hallOfFame = (s.hallOfFame ?? []).some((h) => h.inducted === s.season - 1);
 
   return (
     <Card maxWidth={760}>
       <CardHeader badge="NEWS" title="League Developments" subtitle={`${s.season} preseason wrap-up`} />
       <div className="panel open" style={{ display: "grid", gap: 12 }}>
         {entries.length === 0 ? (
-          <div className="emptystate">A quiet offseason around the league.</div>
+          // quiet only if nothing below says otherwise
+          carousel.length === 0 && !hallOfFame ? (
+            <div className="emptystate">A quiet offseason around the league.</div>
+          ) : null
         ) : (
           entries.map((e, i) => <EntryCard key={`${e.teamCode}-${i}`} e={e} season={s.season} />)
         )}
       </div>
-      <CoachingCarousel changes={(s.coachingChanges ?? []).filter((c) => c.season === s.season - 1)} />
-      {(s.hallOfFame ?? []).some((h) => h.inducted === s.season - 1) && (
+      <CoachingCarousel changes={carousel} />
+      {hallOfFame && (
         <div className="panel open" style={{ display: "grid", gap: 6, marginTop: 12 }}>
           <p className="sectionlabel" style={{ margin: 0 }}>
             Hall of Fame class of {s.season - 1}

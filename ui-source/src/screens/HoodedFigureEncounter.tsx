@@ -87,6 +87,8 @@ export function HoodedFigureEncounter() {
   };
 
   const submit = (): void => {
+    // final, and a stray tap on the stepper's neighbour paid it
+    if (payment > 0 && !confirm(`Pay the figure ${millions(payment)} of cap space? There's no undo.`)) return;
     setBusy(true);
     setError(null);
     void actions

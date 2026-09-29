@@ -20,12 +20,15 @@ import { useStore } from "@/state/store";
 export function LeagueRoster() {
   const gms = useStore((s) => s.gms);
   const viewerGmId = useStore((s) => s.viewerGmId);
+  const stage = useStore((s) => s.stage);
   const session = onlineSession();
   if (!session) return null;
 
   const taken = gms.filter((g) => g.isHuman && g.teamCode);
   const open = gms.length - taken.length;
   const everyone = open === 0;
+  // a seat the commissioner reopened keeps its team: say which
+  const reopened = gms.filter((g) => !g.isHuman && g.teamCode).map((g) => g.teamCode);
 
   return (
     <div className="leagueroster">
@@ -58,8 +61,9 @@ export function LeagueRoster() {
         {open > 0 && (
           <li className="leagueroster-open">
             <span className="leagueroster-name">
-              {open} {open === 1 ? "slot is" : "slots are"} still open — the AI runs those teams
-              until somebody takes them.
+              {open} {open === 1 ? "slot is" : "slots are"} still open
+              {reopened.length > 0 ? ` (${reopened.map((c) => TEAMS_BY_CODE[c]?.abbr ?? c).join(", ")})` : ""} — the AI
+              runs {open === 1 ? "that team" : "those teams"} until somebody takes {open === 1 ? "it" : "them"}.
             </span>
           </li>
         )}
@@ -71,8 +75,17 @@ export function LeagueRoster() {
           <span className="oswald" style={{ fontSize: 14, letterSpacing: "0.08em" }}>
             {session.inviteCode}
           </span>{" "}
-          — they register, then enter it under Join a League. You don't have to wait for them to
-          start playing.
+          <button
+            type="button"
+            className="btnlink sm"
+            onClick={() => void navigator.clipboard?.writeText(session.inviteCode!)}
+          >
+            Copy
+          </button>{" "}
+          — they register, then enter it under Join a League.{" "}
+          {stage === "setup"
+            ? "The league starts once every seat is taken, or when the commissioner starts without them."
+            : "They can join at any point in the season."}
         </p>
       )}
     </div>

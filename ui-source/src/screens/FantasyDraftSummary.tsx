@@ -10,6 +10,7 @@ import { useStore } from "@/state/store";
 import { RosterByPosition } from "@/components/RosterByPosition";
 import { viewerTeamCode } from "@/state/selectors";
 import { ordinal } from "@/util/format";
+import { isHumansOnly } from "@/state/leagueFormat";
 
 /** Starting-lineup overall rank (1 = best) → letter grade. */
 function grade(rank: number, total: number): string {
@@ -84,7 +85,14 @@ export function FantasyDraftSummary({
     return out;
   }, [rookie, s.draft, s.draftClass]);
   const classRank = useMemo(() => {
-    const score = (t: string) => (classes.get(t) ?? []).reduce((n, x) => n + x.p.collegeOverall, 0);
+    // value over each slot, averaged: a pick is judged against what that
+    // slot usually yields (the class generator's own curve), so a team that
+    // simply held more picks no longer grades better than one that drafted well
+    const score = (t: string) => {
+      const picks = classes.get(t) ?? [];
+      if (picks.length === 0) return -Infinity;
+      return picks.reduce((n, x) => n + (x.p.collegeOverall - (92 - x.pick * 0.14)), 0) / picks.length;
+    };
     return [...Object.keys(s.teams)].sort((a, b) => score(b) - score(a));
   }, [classes, s.teams]);
   const maxStart = Math.max(...rows.map((r) => r.r.overall));
@@ -127,7 +135,7 @@ export function FantasyDraftSummary({
                 : `${s.gms.find((g) => g.teamCode === t)?.name ?? "GM"} · ${TEAMS_BY_CODE[t]?.abbr ?? t}`,
           })),
           { id: "league", label: "Every Team" },
-          { id: "nfl", label: "NFL" },
+          { id: "nfl", label: isHumansOnly(s) ? "Any Team" : "NFL" },
         ]}
         active={active}
         onChange={setActive}

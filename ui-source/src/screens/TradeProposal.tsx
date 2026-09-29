@@ -207,6 +207,8 @@ export function TradeProposal() {
             setPartner(e.target.value);
             setGet([]);
             setTradeId(null);
+            // the last answer was about another team
+            setOnlineResult(null);
           }}
         >
           {TEAMS.filter((t) => t.code !== myCode && s.teams[t.code]).map((t) => (

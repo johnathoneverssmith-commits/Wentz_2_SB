@@ -62,6 +62,14 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
                 style={{ fontSize: 11, padding: "3px 8px", marginLeft: "auto" }}
                 onClick={() => {
                   const ask = extensionAsk(p);
+                  // years of money in one click: say how much first
+                  if (
+                    !confirm(
+                      `Extend ${p.name} for ${ask.years} more year${ask.years === 1 ? "" : "s"} at ${millions(ask.baseSalary)}/yr (${millions(Math.round(ask.baseSalary * ask.years * 10) / 10)} in all)?`,
+                    )
+                  ) {
+                    return;
+                  }
                   void actions.extend(p.id, ask).then((r) =>
                     setNote((n) => ({ ...n, [p.id]: r.ok ? "Extended" : (r.reason ?? "He turned it down.") })),
                   );
