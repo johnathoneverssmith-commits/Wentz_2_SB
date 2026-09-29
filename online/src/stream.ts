@@ -203,6 +203,31 @@ export async function openStream(
   );
 }
 
+/**
+ * Close the streams of anyone no longer in the league — a seat reopened, a
+ * GM who left, a league archived. The stream checks membership when it
+ * opens and never again, so they went on receiving the league's news.
+ */
+export async function pruneWatchers(leagueId: string): Promise<number> {
+  const w = watched.get(leagueId);
+  if (!w || w.watchers.size === 0) return 0;
+  const rows = await pool.query<{ user_id: string }>(
+    `SELECT f.user_id FROM franchises f JOIN leagues l ON l.id = f.league_id
+      WHERE f.league_id = $1 AND f.user_id IS NOT NULL AND l.archived_at IS NULL
+     UNION
+     SELECT commissioner FROM leagues WHERE id = $1 AND archived_at IS NULL`,
+    [leagueId],
+  );
+  const members = new Set(rows.rows.map((r) => r.user_id));
+  let closed = 0;
+  for (const watcher of [...w.watchers]) {
+    if (members.has(watcher.userId)) continue;
+    watcher.res.end();
+    closed += 1;
+  }
+  return closed;
+}
+
 /** How many clients this process is holding open, for tests and diagnostics. */
 export function watcherCount(leagueId?: string): number {
   if (leagueId) return watched.get(leagueId)?.watchers.size ?? 0;

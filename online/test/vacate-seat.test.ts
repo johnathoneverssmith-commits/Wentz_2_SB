@@ -4,6 +4,10 @@ import type { LeagueState } from "@/domain";
 
 import { franchiseOf } from "../src/auth.js";
 import { migrate, pool } from "../src/db.js";
+import { EventEmitter } from "node:events";
+import type { ServerResponse } from "node:http";
+
+import { attachWatcher, pruneWatchers } from "../src/stream.js";
 import { archiveLeague, claimTeam, createOnlineLeague, leagueByInvite, leaguesFor, leaveLeague, openTeams, vacateSeat } from "../src/leagues.js";
 
 /**
@@ -99,6 +103,32 @@ describe("leaving, and archiving", () => {
     const code = (await pool.query<{ invite_code: string }>(`SELECT invite_code FROM leagues WHERE id = $1`, [leagueId])).rows[0]!.invite_code;
     const messy = ` "${code.slice(0, 4).toLowerCase()}-${code.slice(4)}" `;
     expect((await leagueByInvite(messy))?.id).toBe(leagueId);
+  });
+
+  maybe("closes the stream of a GM who is no longer in the league", async () => {
+    class Res extends EventEmitter {
+      ended = false;
+      write(): boolean {
+        return true;
+      }
+      end(): void {
+        this.ended = true;
+        this.emit("close");
+      }
+    }
+    const gone = new Res();
+    const stays = new Res();
+    const closeGone = attachWatcher(gone as unknown as ServerResponse, leagueId, users[1], { version: "1", lastEventId: 0 });
+    const closeStays = attachWatcher(stays as unknown as ServerResponse, leagueId, users[0], { version: "1", lastEventId: 0 });
+    try {
+      // users[1]'s seat was reopened above
+      expect(await pruneWatchers(leagueId)).toBe(1);
+      expect(gone.ended).toBe(true);
+      expect(stays.ended).toBe(false);
+    } finally {
+      closeGone();
+      closeStays();
+    }
   });
 
   maybe("the commissioner can't leave the league without anyone to run it", async () => {

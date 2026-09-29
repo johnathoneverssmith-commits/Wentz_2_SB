@@ -77,7 +77,7 @@ import { redactedGames, revealedWeek, visibleBracket, visibleGames } from "@/sta
 import { redactHoodedFigureFor } from "@/state/hoodedFigure.ts";
 import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
 import { rewindInjuries } from "@/state/injuries.ts";
-import { openStream } from "./stream.js";
+import { openStream, pruneWatchers } from "./stream.js";
 
 const serverStartedAt = new Date().toISOString();
 
@@ -624,13 +624,17 @@ post("/leagues/:id/admin/config", async (ctx) => {
 // Leaving: your seat opens for someone else, and the CPU runs the team.
 post("/leagues/:id/leave", async (ctx) => {
   const user = requireUser(ctx);
-  return leaveLeague(ctx.params.id!, user.id);
+  const out = await leaveLeague(ctx.params.id!, user.id);
+  await pruneWatchers(ctx.params.id!).catch(() => 0);
+  return out;
 });
 
 // The commissioner retires a league from everyone's lobby.
 post("/leagues/:id/admin/archive", async (ctx) => {
   const user = requireUser(ctx);
-  return archiveLeague(ctx.params.id!, user.id);
+  const out = await archiveLeague(ctx.params.id!, user.id);
+  await pruneWatchers(ctx.params.id!).catch(() => 0);
+  return out;
 });
 
 // A GM who forgot their password: accounts have no email, so the commissioner
@@ -657,7 +661,9 @@ post("/leagues/:id/admin/vacate", async (ctx) => {
   if (!(await isCommissioner(ctx.params.id!, user.id))) {
     throw new ActionError("Only the commissioner can do that.", 403);
   }
-  return vacateSeat(ctx.params.id!, user.id, field(ctx, "teamCode", "string"));
+  const out = await vacateSeat(ctx.params.id!, user.id, field(ctx, "teamCode", "string"));
+  await pruneWatchers(ctx.params.id!).catch(() => 0);
+  return out;
 });
 
 post("/leagues/:id/admin/advance", async (ctx) => {
