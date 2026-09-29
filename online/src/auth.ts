@@ -4,9 +4,9 @@
  * A league of friends needs an identity, not an identity provider. Passwords
  * are hashed with scrypt (in the standard library, memory-hard, no native
  * build step) and sessions are signed cookies rather than a table — there is
- * no server-side session state to keep, expire, or replicate, and revoking
- * someone everywhere means changing their password, which is what most small
- * sites do anyway.
+ * no server-side session state to keep, expire, or replicate. Revoking
+ * someone everywhere means changing their password: `password_changes`
+ * records when, and a cookie issued before that is refused.
  *
  * The one thing worth being careful about here is that `SESSION_SECRET` has
  * to be set and stable in production: rotating it logs everyone out, and
@@ -99,7 +99,7 @@ export function signSession(userId: string): string {
   return `${body}.${mac}`;
 }
 
-export function readSession(token: string | undefined): string | null {
+export function readSession(token: string | undefined): { userId: string; issuedAt: number } | null {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;
@@ -107,15 +107,92 @@ export function readSession(token: string | undefined): string | null {
   const expected = createHmac("sha256", SECRET).update(`${userId}.${expires}`).digest("hex");
   if (!sameSecret(mac, expected)) return null;
   if (Number(expires) < Date.now()) return null;
-  return userId;
+  return { userId, issuedAt: Number(expires) - SESSION_DAYS * 86_400_000 };
 }
 
-export async function userById(id: string): Promise<User | null> {
-  const rows = await pool.query<{ id: string; name: string }>(
-    `SELECT id, name FROM users WHERE id = $1`,
+/**
+ * The account, or null. Given a session's `issuedAt`, also null when the
+ * password changed after that session was issued.
+ */
+export async function userById(id: string, issuedAt?: number): Promise<User | null> {
+  const rows = await pool.query<{ id: string; name: string; changed_at: Date | null }>(
+    `SELECT u.id, u.name, c.changed_at
+       FROM users u LEFT JOIN password_changes c ON c.user_id = u.id
+      WHERE u.id = $1`,
     [id],
   );
-  return rows.rows[0] ?? null;
+  const row = rows.rows[0];
+  if (!row) return null;
+  if (issuedAt != null && row.changed_at && issuedAt < row.changed_at.getTime()) return null;
+  return { id: row.id, name: row.name };
+}
+
+/** A new password, and every session issued before now signed out. */
+async function setPassword(userId: string, password: string): Promise<void> {
+  if (password.length < 8) throw new ActionError("Use a password of at least 8 characters.");
+  const salt = randomBytes(16).toString("hex");
+  await pool.query(`UPDATE users SET password_hash = $2, password_salt = $3 WHERE id = $1`, [
+    userId,
+    await hash(password, salt),
+    salt,
+  ]);
+  // a second back, so the fresh cookie the caller gets next isn't itself
+  // older than the change
+  await pool.query(
+    `INSERT INTO password_changes (user_id, changed_at) VALUES ($1, now() - interval '1 second')
+     ON CONFLICT (user_id) DO UPDATE SET changed_at = EXCLUDED.changed_at`,
+    [userId],
+  );
+  await pool.query(`DELETE FROM password_resets WHERE user_id = $1`, [userId]);
+}
+
+/** A signed-in GM changing their own password. */
+export async function changePassword(user: User, current: string, next: string): Promise<void> {
+  if (!(await login(user.name, current))) {
+    throw new ActionError("Your current password isn't right.", 401);
+  }
+  await setPassword(user.id, next);
+}
+
+const RESET_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const RESET_HOURS = 24;
+
+/**
+ * A one-time code for a GM who can't sign in, issued by their commissioner.
+ * Replaces any earlier code for that account. Only its hash is stored.
+ */
+export async function issueResetCode(userId: string, issuedBy: string): Promise<string> {
+  const code = Array.from(randomBytes(10), (b) => RESET_ALPHABET[b % RESET_ALPHABET.length]).join("");
+  const salt = randomBytes(16).toString("hex");
+  await pool.query(
+    `INSERT INTO password_resets (user_id, code_hash, code_salt, issued_by, expires_at)
+     VALUES ($1, $2, $3, $4, now() + make_interval(hours => $5))
+     ON CONFLICT (user_id) DO UPDATE
+       SET code_hash = EXCLUDED.code_hash, code_salt = EXCLUDED.code_salt,
+           issued_by = EXCLUDED.issued_by, expires_at = EXCLUDED.expires_at`,
+    [userId, await hash(code, salt), salt, issuedBy, RESET_HOURS],
+  );
+  return code;
+}
+
+/** Spend a reset code on a new password. Null when the name or code is wrong. */
+export async function redeemResetCode(name: string, code: string, password: string): Promise<User | null> {
+  const rows = await pool.query<{ id: string; name: string; code_hash: string; code_salt: string }>(
+    `SELECT u.id, u.name, r.code_hash, r.code_salt
+       FROM users u JOIN password_resets r ON r.user_id = u.id
+      WHERE u.name_folded = $1 AND r.expires_at > now()`,
+    [name.trim().toLowerCase()],
+  );
+  const row = rows.rows[0];
+  const typed = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!row) {
+    // the same time as a real check, so a name without a code isn't detectable
+    await hash(typed, "decoy-salt-decoy-salt");
+    return null;
+  }
+  if (!sameSecret(await hash(typed, row.code_salt), row.code_hash)) return null;
+  await setPassword(row.id, password);
+  return { id: row.id, name: row.name };
 }
 
 /**

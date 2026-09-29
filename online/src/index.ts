@@ -33,9 +33,18 @@ import {
   stepForward,
   toggleDraftTarget,
 } from "./actions.js";
-import { franchiseOf, isCommissioner, login, register, signSession } from "./auth.js";
+import {
+  changePassword,
+  franchiseOf,
+  isCommissioner,
+  issueResetCode,
+  login,
+  redeemResetCode,
+  register,
+  signSession,
+} from "./auth.js";
 import { regenerateBroadcast } from "./blocks.js";
-import { ActionError, migrate, readLeague, withLeague } from "./db.js";
+import { ActionError, migrate, pool, readLeague, withLeague } from "./db.js";
 import {
   clearSessionCookie,
   get,
@@ -137,6 +146,37 @@ post("/auth/login", async (ctx) => {
   const user = await login(name, field(ctx, "password", "string"));
   if (!user) throw new ActionError("That name and password don't match.", 401);
   // a correct password means this was never an attack
+  clearAttempts(key);
+  setSessionCookie(ctx.res, signSession(user.id));
+  return { user };
+});
+
+// Every session issued before the change is signed out; this one gets a
+// fresh cookie so the GM changing it stays signed in here.
+post("/auth/password", async (ctx) => {
+  const user = requireUser(ctx);
+  const key = attemptKey(ctx, user.name);
+  if (tooManyAttempts(key)) {
+    ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
+    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+  }
+  await changePassword(user, field(ctx, "current", "string"), field(ctx, "password", "string"));
+  clearAttempts(key);
+  setSessionCookie(ctx.res, signSession(user.id));
+  return { ok: true };
+});
+
+// A code from the commissioner, for a GM who can't sign in. Throttled like a
+// login: the code is the password until it's spent.
+post("/auth/reset", async (ctx) => {
+  const name = field<string>(ctx, "name", "string");
+  const key = attemptKey(ctx, name);
+  if (tooManyAttempts(key)) {
+    ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
+    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+  }
+  const user = await redeemResetCode(name, field(ctx, "code", "string"), field(ctx, "password", "string"));
+  if (!user) throw new ActionError("That name and reset code don't match, or the code has expired.", 401);
   clearAttempts(key);
   setSessionCookie(ctx.res, signSession(user.id));
   return { user };
@@ -541,6 +581,24 @@ post("/leagues/:id/admin/config", async (ctx) => {
     };
   });
   return result;
+});
+
+// A GM who forgot their password: accounts have no email, so the commissioner
+// issues a one-time code (24 hours) and passes it on however the league talks.
+post("/leagues/:id/admin/reset-code", async (ctx) => {
+  const user = requireUser(ctx);
+  if (!(await isCommissioner(ctx.params.id!, user.id))) {
+    throw new ActionError("Only the commissioner can do that.", 403);
+  }
+  const teamCode = field<string>(ctx, "teamCode", "string");
+  const rows = await pool.query<{ user_id: string; name: string }>(
+    `SELECT f.user_id, u.name FROM franchises f JOIN users u ON u.id = f.user_id
+      WHERE f.league_id = $1 AND f.team_code = $2`,
+    [ctx.params.id!, teamCode],
+  );
+  const gm = rows.rows[0];
+  if (!gm) throw new ActionError("Nobody holds that team.");
+  return { name: gm.name, code: await issueResetCode(gm.user_id, user.id) };
 });
 
 // A GM who quit: the CPU takes the team and the seat opens for a newcomer.

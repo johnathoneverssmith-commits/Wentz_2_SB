@@ -101,3 +101,21 @@ CREATE TABLE IF NOT EXISTS schema_meta (
   key        TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- When each account's password last changed. Session cookies are signed,
+-- not stored, so this is what signs out the devices a GM was logged in on
+-- before the change: a cookie issued earlier is refused (auth.ts, userById).
+CREATE TABLE IF NOT EXISTS password_changes (
+  user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  changed_at TIMESTAMPTZ NOT NULL
+);
+
+-- One-time password reset codes. Accounts have no email, so a GM who forgets
+-- their password asks their commissioner, who issues one of these.
+CREATE TABLE IF NOT EXISTS password_resets (
+  user_id    TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  code_hash  TEXT NOT NULL,
+  code_salt  TEXT NOT NULL,
+  issued_by  TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL
+);

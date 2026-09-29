@@ -98,9 +98,9 @@ export function previewRestructure(p: Player, season: number): ContractMoveResul
  * Converts base salary into a prorated signing bonus: this year gets cheaper,
  * every later year of the deal gets dearer by the same total.
  *
- * There is no dead money in this build, so the only cost of a restructure is
- * the one the real rule has too — the money doesn't go away, it just arrives
- * later, and it becomes guaranteed on the way.
+ * The cost is the one the real rule has: the money doesn't go away, it just
+ * arrives later, and it becomes guaranteed on the way — releasing him after
+ * accelerates it onto this year's cap as dead money (`releasePenalty`).
  */
 export function restructureContract(p: Player, season: number): ContractMoveResult {
   const check = previewRestructure(p, season);

@@ -157,6 +157,34 @@ export function ReadinessGate({
                 open seat
               </button>
             )}
+            {/* a GM locked out: accounts have no email, so the commissioner
+                issues a one-time code and passes it on */}
+            {online && isCommissioner && g.id !== viewerGmId && (
+              <button
+                type="button"
+                className="btnlink"
+                style={{ marginLeft: 6, fontSize: 11 }}
+                disabled={busy}
+                onClick={() => {
+                  const session = onlineSession();
+                  if (!session) return;
+                  setBusy(true);
+                  void session.client
+                    .issueResetCode(session.leagueId, g.teamCode)
+                    .then(({ name, code }) =>
+                      alert(
+                        `Reset code for ${name}: ${code}\n\n` +
+                          `Send it to them. On the sign-in screen they choose "Forgot your password?" ` +
+                          `and enter it with a new password. It works once, for 24 hours.`,
+                      ),
+                    )
+                    .catch((err: unknown) => alert(err instanceof Error ? err.message : "Couldn't make a code."))
+                    .finally(() => setBusy(false));
+                }}
+              >
+                reset code
+              </button>
+            )}
           </div>
         ))}
         {Array.from({ length: seatsOpen }, (_, i) => (

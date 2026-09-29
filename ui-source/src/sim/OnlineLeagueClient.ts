@@ -143,6 +143,15 @@ export class OnlineLeagueClient {
   login = (name: string, password: string) =>
     this.call<{ user: OnlineUser }>("/auth/login", { name, password });
   logout = () => this.call<{ ok: true }>("/auth/logout", {});
+  /** Signs out every other device this account is signed in on. */
+  changePassword = (current: string, password: string) =>
+    this.call<{ ok: true }>("/auth/password", { current, password });
+  /** A one-time code from the commissioner, for a GM who can't sign in. */
+  resetPassword = (name: string, code: string, password: string) =>
+    this.call<{ user: OnlineUser }>("/auth/reset", { name, code, password });
+  /** Commissioner only: a reset code for the GM holding this team. */
+  issueResetCode = (leagueId: string, teamCode: string) =>
+    this.call<{ name: string; code: string }>(`/leagues/${leagueId}/admin/reset-code`, { teamCode });
   me = () => this.call<{ user: OnlineUser | null }>("/auth/me");
 
   /* ---- leagues ------------------------------------------------------- */

@@ -33,7 +33,7 @@ import type { DeadlineChoice, Difficulty, Stage } from "@/domain";
  * call fails the same way and the screen says so plainly rather than
  * spinning.
  */
-type Mode = "signin" | "register";
+type Mode = "signin" | "register" | "reset";
 
 const client = new OnlineLeagueClient();
 
@@ -63,6 +63,7 @@ export function OnlineLobby() {
 
   const [leagues, setLeagues] = useState<LeagueRow[]>([]);
   const [inbox, setInbox] = useState<InboxLeague[]>([]);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   /** One place to run a call, so every failure reads the same way. */
   const attempt = useCallback(async (run: () => Promise<void>) => {
@@ -185,23 +186,29 @@ export function OnlineLobby() {
         title="Online Leagues"
         subtitle={`Signed in as ${user.name}`}
         right={
-          <button
-            type="button"
-            className="btnlink"
-            onClick={() =>
-              void attempt(async () => {
-                await client.logout();
-                goLocal();
-                setUser(null);
-                setLeagues([]);
-                setInbox([]);
-              })
-            }
-          >
-            Sign out
-          </button>
+          <span style={{ display: "flex", gap: 12 }}>
+            <button type="button" className="btnlink" onClick={() => setChangingPassword((v) => !v)}>
+              Change password
+            </button>
+            <button
+              type="button"
+              className="btnlink"
+              onClick={() =>
+                void attempt(async () => {
+                  await client.logout();
+                  goLocal();
+                  setUser(null);
+                  setLeagues([]);
+                  setInbox([]);
+                })
+              }
+            >
+              Sign out
+            </button>
+          </span>
         }
       />
+      {changingPassword && <ChangePassword onDone={() => setChangingPassword(false)} />}
       <Ticker
         stats={[
           { label: "Your leagues", value: leagues.length },
@@ -379,11 +386,16 @@ function SignIn({
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
 
   const submit = (): void =>
     void attempt(async () => {
       const res =
-        mode === "register" ? await client.register(name, password) : await client.login(name, password);
+        mode === "register"
+          ? await client.register(name, password)
+          : mode === "reset"
+            ? await client.resetPassword(name, code, password)
+            : await client.login(name, password);
       await onDone(res.user);
     });
 
@@ -391,7 +403,7 @@ function SignIn({
     <Card maxWidth={520}>
       <CardHeader
         badge="ON"
-        title={mode === "register" ? "Create an Account" : "Sign In"}
+        title={mode === "register" ? "Create an Account" : mode === "reset" ? "Reset Your Password" : "Sign In"}
         subtitle="One league, one team, played over months"
       />
       <div className="panel open">
@@ -416,42 +428,123 @@ function SignIn({
               onChange={(e) => setName(e.target.value)}
             />
           </label>
+          {mode === "reset" && (
+            <label>
+              <span>Reset code</span>
+              <input
+                type="text"
+                value={code}
+                autoComplete="one-time-code"
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </label>
+          )}
           <label>
-            <span>Password</span>
+            <span>{mode === "reset" ? "New password" : "Password"}</span>
             <input
               type="password"
               value={password}
-              autoComplete={mode === "register" ? "new-password" : "current-password"}
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
           <button
             type="submit"
             className="btn-primary"
-            disabled={busy || name.trim() === "" || password === ""}
+            disabled={busy || name.trim() === "" || password === "" || (mode === "reset" && code.trim() === "")}
           >
-            {mode === "register" ? "Create account" : "Sign in"}
+            {mode === "register" ? "Create account" : mode === "reset" ? "Set new password" : "Sign in"}
           </button>
         </form>
         <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
           {mode === "register"
             ? "Your name is how other GMs in the league will see you. Passwords need at least 8 characters."
-            : "No account yet? You'll need one before you can be invited to a league."}
+            : mode === "reset"
+              ? "Accounts have no email, so resets go through your league's commissioner: ask them for a code. It works once, for 24 hours, and signs you out everywhere else."
+              : "No account yet? You'll need one before you can be invited to a league."}
         </p>
       </div>
       <Footer>
         <button
           type="button"
           className="btnlink"
-          onClick={() => setMode(mode === "register" ? "signin" : "register")}
+          onClick={() => setMode(mode === "signin" ? "register" : "signin")}
         >
-          {mode === "register" ? "I already have an account" : "Create an account"}
+          {mode === "signin" ? "Create an account" : mode === "register" ? "I already have an account" : "Back to sign in"}
         </button>
+        {mode === "signin" && (
+          <button type="button" className="btnlink" onClick={() => setMode("reset")}>
+            Forgot your password?
+          </button>
+        )}
         <button type="button" className="btnlink" onClick={onBack}>
           Back to your dynasty
         </button>
       </Footer>
     </Card>
+  );
+}
+
+/** A new password; every other device signed in to this account is signed out. */
+function ChangePassword({ onDone }: { onDone: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const submit = (): void => {
+    setBusy(true);
+    setNote(null);
+    void client
+      .changePassword(current, next)
+      .then(() => {
+        setCurrent("");
+        setNext("");
+        setNote({ ok: true, text: "Password changed. Any other device signed in to this account is signed out." });
+      })
+      .catch((err: unknown) =>
+        setNote({ ok: false, text: err instanceof OnlineError ? err.message : "The server didn't answer." }),
+      )
+      .finally(() => setBusy(false));
+  };
+
+  return (
+    <div className="panel open">
+      {note && (
+        <div className={`notice${note.ok ? "" : " bad"}`} role="status">
+          {note.text}
+        </div>
+      )}
+      <form
+        className="lobby-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <label>
+          <span>Current password</span>
+          <input
+            type="password"
+            value={current}
+            autoComplete="current-password"
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+        </label>
+        <label>
+          <span>New password</span>
+          <input type="password" value={next} autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
+        </label>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button type="submit" className="btn-primary" disabled={busy || current === "" || next.length < 8}>
+            {busy ? "Saving…" : "Change password"}
+          </button>
+          <button type="button" className="btnlink" onClick={onDone}>
+            Close
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

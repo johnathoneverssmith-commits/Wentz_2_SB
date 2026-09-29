@@ -145,14 +145,14 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   try {
-    const userId = readSession(cookies(req).sid);
+    const session = readSession(cookies(req).sid);
     const ctx: Ctx = {
       req,
       res,
       url,
       params: found.params,
       body: await readBody(req),
-      user: userId ? await userById(userId) : null,
+      user: session ? await userById(session.userId, session.issuedAt) : null,
     };
     const out = await found.route.handler(ctx);
     if (res.headersSent) return;
