@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 
 import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
+import { OnlineIntro } from "@/components/OnlineIntro";
 import { Checkpoint } from "./screens/Checkpoint.tsx";
 import { isOnline, onOnlineChange, resumeLeague, lastLeagueId, takeRemoval, type Removal, type ResumeFailure } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
@@ -272,6 +273,7 @@ export function App() {
           below is your last saved copy until it does.
         </div>
       )}
+      {isOnline() && pathname !== "/online" && <OnlineIntro />}
       {removedFrom && (
         <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
           {removedFrom.why === "signedOut" ? (
