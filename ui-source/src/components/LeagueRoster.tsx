@@ -53,8 +53,9 @@ export function LeagueRoster() {
               {name}
               {id === viewerGmId && <em> — you</em>}
             </span>
+            {/* the badge already shows the code; the city says more */}
             <span className="leagueroster-team">
-              {TEAMS_BY_CODE[teamCode]?.abbr ?? teamCode}
+              {TEAMS_BY_CODE[teamCode]?.label ?? teamCode}
             </span>
           </li>
         ))}
