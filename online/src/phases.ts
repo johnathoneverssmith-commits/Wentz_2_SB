@@ -171,6 +171,13 @@ export async function readyUp(
     // the other seats are still empty — see its note in `rules.ts`.
     const gateOpen = ready && humanGate(state) && rosterGate(state);
     const outcome = gateOpen ? advanceOrTurnDay(state) : { moved: false, autopiloted: [] as string[] };
+    // Online, each GM already sees their camp results as a step inside
+    // training camp, and the only check-in there is on that results screen —
+    // so the league-wide results stage that follows asked every GM to press
+    // the same button on the same screen a second time. When everyone checked
+    // in to get here, they have all seen it: carry on. (A commissioner's
+    // force-advance doesn't come through here and still stops for it.)
+    if (outcome.moved && state.stage === "trainingCampResults") advanceStage(state);
     return {
       result: { moved: outcome.moved, stage: state.stage, autopiloted: outcome.autopiloted },
       state,
