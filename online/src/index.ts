@@ -28,6 +28,7 @@ import {
   releasePlayer,
   releasePlayers,
   respondToTrade,
+  withdrawTrade,
   setDepthOrder,
   setDepthOrders,
   signFreeAgent,
@@ -475,6 +476,10 @@ post("/leagues/:id/actions/trade/propose", async (ctx) =>
     (optional<string[]>(ctx, "get") ?? []),
     version(ctx),
   ),
+);
+
+post("/leagues/:id/actions/trade/withdraw", async (ctx) =>
+  withdrawTrade(await actor(ctx), field(ctx, "tradeId", "string")),
 );
 
 post("/leagues/:id/actions/trade/respond", async (ctx) =>

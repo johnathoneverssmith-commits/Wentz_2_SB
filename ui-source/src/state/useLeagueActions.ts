@@ -61,6 +61,8 @@ export interface LeagueActions {
   ) => Promise<ActionResult>;
   proposeTrade: (toTeam: string, give: string[], get: string[]) => Promise<ActionResult>;
   respondToTrade: (tradeId: string, accept: boolean) => Promise<ActionResult>;
+  /** Take back an offer of yours that nobody has answered. */
+  withdrawTrade: (tradeId: string) => Promise<ActionResult>;
   makeDraftPick: (selectedId: string) => Promise<ActionResult>;
   setDepthOrder: (position: Position, playerIds: string[]) => Promise<ActionResult>;
   /** Several positions' depth orders, fetching the league once at the end (online). */
@@ -221,6 +223,13 @@ export function useLeagueActions(): LeagueActions {
           return { ok: true };
         },
         respondToTrade: async (tradeId, accept) => store.respondToOffer(tradeId, accept),
+        withdrawTrade: async (tradeId) => {
+          useStore.setState((st) => {
+            const t = st.trades.find((x) => x.id === tradeId);
+            if (t && t.status === "offered") t.status = "withdrawn";
+          });
+          return { ok: true };
+        },
         makeDraftPick: async (selectedId) => {
           store.makePick(selectedId);
           return { ok: true };
@@ -310,6 +319,8 @@ export function useLeagueActions(): LeagueActions {
         attempt(() =>
           send((s) => s.client.proposeTrade(s.leagueId, toTeam, give, get, s.version)),
         ).then(after),
+      withdrawTrade: (tradeId) =>
+        attempt(() => send((s) => s.client.withdrawTrade(s.leagueId, tradeId))).then(after),
       respondToTrade: (tradeId, accept) =>
         attempt(() =>
           send((s) => s.client.respondToTrade(s.leagueId, tradeId, accept, s.version)),

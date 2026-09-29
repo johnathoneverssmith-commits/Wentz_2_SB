@@ -979,3 +979,25 @@ export function runPendingCpuTurns(state: LeagueState): boolean {
   }
   return false;
 }
+
+/**
+ * Take back an offer nobody has answered yet. It used to stay binding until
+ * the other GM got round to it — days, sometimes, after your plans changed.
+ */
+export function decideWithdrawTrade(state: LeagueState, actor: Actor, tradeId: string): Decision {
+  const t = state.trades.find((x) => x.id === tradeId);
+  if (!t) throw new ActionError("No such offer.", 404);
+  if (t.fromTeam !== actor.teamCode) throw new ActionError("That offer isn't yours to withdraw.", 403);
+  if (t.status !== "offered") throw new ActionError("That offer has already been answered.");
+  t.status = "withdrawn";
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "trade.withdrawn",
+        summary: `${city(actor.teamCode)} withdrew an offer to ${city(t.toTeam)}.`,
+        detail: { tradeId },
+      },
+    ],
+  };
+}

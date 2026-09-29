@@ -39,6 +39,7 @@ import {
   decideProposeTrade,
   decideRelease,
   decideRespondToTrade,
+  decideWithdrawTrade,
   decideSetDepth,
   decideSignFreeAgent,
   type Actor,
@@ -122,6 +123,9 @@ export async function proposeTrade(
   );
   return { ...out, tradeId };
 }
+
+export const withdrawTrade = (actor: Actor, tradeId: string) =>
+  run(actor, undefined, (s) => decideWithdrawTrade(s, actor, tradeId));
 
 export const respondToTrade = (
   actor: Actor,

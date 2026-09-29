@@ -171,7 +171,7 @@ export interface TradeProposal {
     outcome: "pending" | "passed" | "blocked";
   };
   /** `offered` is one the AI made *to* a human GM, waiting on their answer. */
-  status: "draft" | "offered" | "pending" | "accepted" | "rejected" | "blocked";
+  status: "draft" | "offered" | "pending" | "accepted" | "rejected" | "blocked" | "withdrawn";
   /** Why a trade was refused on cap or roster grounds, rather than on value. */
   blockedReason?: string;
 }

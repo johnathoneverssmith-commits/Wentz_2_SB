@@ -336,6 +336,9 @@ export class OnlineLeagueClient {
       { toTeam, give, get, version },
     );
 
+  withdrawTrade = (leagueId: string, tradeId: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/trade/withdraw`, { tradeId });
+
   respondToTrade = (leagueId: string, tradeId: string, accept: boolean, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/trade/respond`, {
       tradeId,

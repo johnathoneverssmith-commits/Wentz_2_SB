@@ -310,7 +310,22 @@ export function TradeProposal() {
                 To {gmName(o.toTeam) ?? TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam}: {describe(o.fromAssets)} for{" "}
                 {describe(o.toAssets)}
               </span>
-              <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>Waiting</span>
+              <span style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>Waiting</span>
+                <button
+                  type="button"
+                  className="btnlink sm"
+                  disabled={responding !== null}
+                  onClick={() => {
+                    if (!confirm("Withdraw this offer?")) return;
+                    void actions.withdrawTrade(o.id).then((res) => {
+                      if (!res.ok) setOnlineError(res.reason ?? "Couldn't withdraw it.");
+                    });
+                  }}
+                >
+                  Withdraw
+                </button>
+              </span>
             </div>
           ))}
         </div>
