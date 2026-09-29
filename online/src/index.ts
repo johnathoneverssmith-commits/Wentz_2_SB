@@ -622,6 +622,36 @@ post("/leagues/:id/actions/simulate-week", async (ctx) => {
 
 /* ---- commissioner ---------------------------------------------------- */
 
+/** "The commissioner set talent impact to Extreme and the draft to snake." */
+function describeConfigChange(patch: Record<string, unknown>): string {
+  const cap = (v: unknown) => String(v).replace(/^./, (c) => c.toUpperCase());
+  const parts = Object.entries(patch).map(([k, v]) => {
+    switch (k) {
+      case "fantasyDraft":
+        return `the fantasy draft ${v ? "on" : "off"}`;
+      case "draftOrder":
+        return `draft order to ${v === "inOrder" ? "in order" : "randomized"}`;
+      case "draftType":
+        return `the draft to ${String(v)}`;
+      case "fantasyDraftRounds":
+        return `the fantasy draft to ${String(v)} rounds`;
+      case "draftSimulateAfterPicks":
+        return v == null ? "every pick by hand" : `${String(v)} manual pick${v === 1 ? "" : "s"} each`;
+      case "talentImpact":
+        return `talent impact to ${cap(v)}`;
+      case "difficulty":
+        return `AI difficulty to ${cap(v)}`;
+      case "leagueFormat":
+        return `the format to ${v === "humansOnly" ? "human GMs only" : "the full NFL"}`;
+      default:
+        return k;
+    }
+  });
+  if (parts.length === 0) return "The commissioner changed the league settings.";
+  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
+  return `The commissioner set ${list}.`;
+}
+
 // League settings before kickoff: the commissioner's call, saved on the
 // league. The settings screen used to change only the viewer's local copy —
 // any GM could "change" them, and nobody's change reached the league.
@@ -638,7 +668,8 @@ post("/leagues/:id/admin/config", async (ctx) => {
     return {
       result: { ok: true as const },
       state,
-      events: [{ kind: "config.changed", summary: "The commissioner changed the league settings." }],
+      // say what changed — the other GMs are agreeing to play under it
+      events: [{ kind: "config.changed", summary: describeConfigChange(clean.patch) }],
     };
   });
   return result;
