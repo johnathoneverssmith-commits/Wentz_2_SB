@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { openSlots as countOpenSlots, rosterGate } from "@/state/rules";
 import { onlineSession } from "@/state/online";
 import { STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
-import { useStore } from "@/state/store";
+import { isInSeason, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
 export function ReadinessGate({
@@ -82,6 +82,7 @@ export function ReadinessGate({
   // a screen whose stage has already moved on. The timer itself is still
   // cancelled on re-render so a transition can't be triggered twice.
   const [busy, setBusy] = useState(false);
+  const [readyError, setReadyError] = useState<string | null>(null);
   const onAdvanceRef = useRef(onAdvance);
   onAdvanceRef.current = onAdvance;
   const advancingRef = useRef(false);
@@ -218,9 +219,15 @@ export function ReadinessGate({
             return;
           }
           setBusy(true);
+          setReadyError(null);
           void actions
             .readyUp(!viewerReady)
-            .then(() => {
+            .then((res) => {
+              // a refused or dropped press looked like a button that did nothing
+              if (!res.ok) {
+                setReadyError(res.reason ?? "Couldn't reach the league. Try again.");
+                return;
+              }
               // the server may have moved the league on the strength of this
               const next = useStore.getState().stage;
               if (next !== stage) onAdvanceRef.current(STAGE_HOME[next]);
@@ -229,7 +236,10 @@ export function ReadinessGate({
         }}
       >
         {busy
-          ? "Simulating…"
+          ? // only an in-season press plays anything
+            isInSeason(stage)
+            ? "Simulating…"
+            : "Saving…"
           : disabled
             ? (disabledHint ?? "Not ready yet")
             : viewerReady
@@ -238,6 +248,11 @@ export function ReadinessGate({
                 : "You're ready — waiting on the league"
               : (label ?? STAGE_READY_LABEL[stage])}
       </button>
+      {readyError && (
+        <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+          {readyError}
+        </p>
+      )}
 
       {heldForSeats && isCommissioner && (
         <button

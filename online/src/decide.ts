@@ -111,6 +111,8 @@ export function decideSignFreeAgent(
   playerId: string,
   offer: Omit<ContractOffer, "teamCode">,
 ): Decision {
+  // a signing mid-block reads as help for next week — which is already played
+  refuseDuringBlock(state, "Signing free agents");
   const full: ContractOffer = { ...offer, teamCode: actor.teamCode };
   const check = checkStandingSign(state, playerId, full);
   if (!check.ok) throw new ActionError(check.reason ?? "That signing isn't allowed.");
@@ -344,7 +346,6 @@ export function decideRespondToTrade(
   };
 }
 
-/** Make the pick on the clock, if it's yours. */
 /** Settling a drafted rookie, online: sign him or let him go. */
 export function decideRookieOutcome(
   state: LeagueState,
@@ -411,7 +412,7 @@ export function decideCoachingPick(
         detail: { coachId },
       },
       ...(aiPicks > 0 && !finished
-        ? [{ kind: "coach.ai", summary: `${aiPicks} staff picks were made around the league.` }]
+        ? [{ kind: "coach.ai", summary: `${aiPicks} staff pick${aiPicks === 1 ? " was" : "s were"} made around the league.` }]
         : []),
       ...(finished
         ? [{ kind: "coach.draft.done", summary: "Every staff is complete." }]
@@ -456,7 +457,7 @@ export function decideFreeAgencyTurn(
     if (!check.ok) throw new ActionError(check.reason ?? "That offer isn't valid.");
     const name = state.players[move.playerId]?.name ?? "a free agent";
     applyOffer(state, actor.teamCode, move.playerId, salary, years);
-    summary = `${city(actor.teamCode)} offered ${name} $${salary}M over ${years} years.`;
+    summary = `${city(actor.teamCode)} offered ${name} $${salary}M over ${years} year${years === 1 ? "" : "s"}.`;
   }
 
   const humans = new Set(
@@ -489,7 +490,7 @@ export function decideFreeAgencyTurn(
         ? [
             {
               kind: "fa.round",
-              summary: `Round ${roundBefore} closed — ${signedThisRound.length} players signed.`,
+              summary: `Round ${roundBefore} closed — ${signedThisRound.length} player${signedThisRound.length === 1 ? "" : "s"} signed.`,
             },
           ]
         : []),
@@ -657,6 +658,8 @@ export function decideReveal(
 
 /** Hiring a coach, online: same ruling, applied by the server. */
 export function decideCoachHire(state: LeagueState, actor: Actor, coachId: string): Decision {
+  // the staff shapes games that are already played this block
+  refuseDuringBlock(state, "Hiring coaches");
   const check = checkCoachHire(state, coachId, actor.teamCode);
   if (!check.ok) throw new ActionError(check.reason ?? "You can't hire him.");
   const coach = state.coaches[coachId]!;

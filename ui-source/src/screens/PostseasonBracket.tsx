@@ -411,6 +411,13 @@ function RoundReveal() {
   const nav = useNavigate();
   const actions = useLeagueActions();
   const [busy, setBusy] = useState(false);
+  // a refused or dropped press used to look like a button that did nothing
+  const [error, setError] = useState<string | null>(null);
+  const errorLine = error && (
+    <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+      {error}
+    </p>
+  );
 
   const seen = revealedRounds(s, s.viewerGmId);
   const rounds = s.bracket ? bracketRounds(s.bracket) : [];
@@ -429,11 +436,18 @@ function RoundReveal() {
           disabled={busy}
           onClick={() => {
             setBusy(true);
-            void actions.readyUp(true).finally(() => setBusy(false));
+            setError(null);
+            void actions
+              .readyUp(true)
+              .then((res) => {
+                if (!res.ok) setError(res.reason ?? "Couldn't reach the league. Try again.");
+              })
+              .finally(() => setBusy(false));
           }}
         >
           Advance to the Offseason
         </button>
+        {errorLine}
       </div>
     );
   }
@@ -455,16 +469,19 @@ function RoundReveal() {
         disabled={busy}
         onClick={() => {
           setBusy(true);
+          setError(null);
           void actions
             .revealRound()
             .then((res) => {
               if (res.ok) nav(`/results/round/${next}`);
+              else setError(res.reason ?? "Couldn't reveal that round. Try again.");
             })
             .finally(() => setBusy(false));
         }}
       >
         {busy ? "…" : `Simulate the ${roundLabelFor(s.bracket, next)}`}
       </button>
+      {errorLine}
     </div>
   );
 }

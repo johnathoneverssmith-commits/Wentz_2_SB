@@ -170,6 +170,12 @@ function NormalHub({ code }: { code: string | undefined }) {
         </table>
       </Panel>
       <Panel id="market" open={active === "market"}>
+        {actions.online && (s.stage === "preseason" || s.stage === "regularSeason") && (
+          <div className="notice" role="status" style={{ marginBottom: 12 }}>
+            Hiring is closed while this stretch of the season plays out — its games are already
+            decided with today&rsquo;s staff. It opens again at the next break.
+          </div>
+        )}
         <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
           Coaches without a job. Hiring one replaces whoever holds that role on your staff, and
           sends him back to this list. There is no window and no deadline — do it whenever.

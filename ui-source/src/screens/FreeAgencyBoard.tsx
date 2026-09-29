@@ -133,6 +133,14 @@ export function FreeAgencyBoard() {
               : "Standing market · open through the season"
         }
       />
+      {/* online the block's weeks are already played: the server refuses a
+          signing that would read as help for them */}
+      {actions.online && (s.stage === "preseason" || s.stage === "regularSeason") && (
+        <div className="notice" role="status">
+          Signings are closed while this stretch of the season plays out — its games are already
+          decided. The market opens again at the next break.
+        </div>
+      )}
       <Ticker
         stats={[
           inWindow
