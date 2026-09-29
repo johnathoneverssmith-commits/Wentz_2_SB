@@ -257,9 +257,14 @@ function watch(): void {
     open: (version) => {
       if (session === s && version !== s.version) refresh();
     },
-    // EventSource reconnects by itself; there is nothing useful to do here
-    // except stop claiming the countdown is live.
-    error: () => announce(),
+    // A dropped connection reconnects by itself; nothing to do but stop
+    // claiming the countdown is live. An error *response* is different: the
+    // server may be saying you're no longer in the league, and one pull finds
+    // out (and ends the session if so) where the stream never could.
+    error: (closed) => {
+      announce();
+      if (closed && session === s) refresh();
+    },
   });
 }
 

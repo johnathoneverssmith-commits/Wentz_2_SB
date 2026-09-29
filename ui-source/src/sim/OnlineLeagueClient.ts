@@ -430,7 +430,8 @@ export class OnlineLeagueClient {
     on: {
       change?: (news: StreamChange) => void;
       open?: (version: string) => void;
-      error?: () => void;
+      /** `closed`: an error response ended the stream, rather than a dropped connection. */
+      error?: (closed: boolean) => void;
     },
   ): () => void {
     if (typeof EventSource === "undefined") return () => {};
@@ -461,7 +462,7 @@ export class OnlineLeagueClient {
         }) as never) as EventListener,
       );
       s.addEventListener("error", () => {
-        on.error?.();
+        on.error?.(s.readyState === EventSource.CLOSED);
         // A dropped connection retries by itself. An error *response* — a
         // proxy's 502 while the server restarts for a deploy — closes the
         // stream for good, and the league would go quiet until a reload.
