@@ -233,7 +233,7 @@ export function App() {
           below is your last saved copy until it does.
         </div>
       )}
-      {!resuming && resumeFailed && !isOnline() && (
+      {!resuming && resumeFailed && !isOnline() && pathname !== "/online" && (
         // it used to vanish and leave a local copy looking like the league
         <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
           {resumeFailed === "signedOut" ? (

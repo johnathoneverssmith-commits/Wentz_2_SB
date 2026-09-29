@@ -97,12 +97,14 @@ export function OnlineLobby() {
 
   const [wakeTries, setWakeTries] = useState(0);
   const unmounted = useRef(false);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // set here too: StrictMode mounts, unmounts and mounts again, and a flag
+    // left true by the first cleanup stopped every later check dead
+    unmounted.current = false;
+    return () => {
       unmounted.current = true;
-    },
-    [],
-  );
+    };
+  }, []);
 
   /**
    * Ask the server who we are; this is also what "try again" re-runs.

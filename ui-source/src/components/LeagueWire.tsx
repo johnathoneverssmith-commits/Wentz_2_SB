@@ -4,7 +4,7 @@ import { onOnlineChange, recentNews } from "@/state/online";
 
 /** A GM moving between their own screens: true, and noise to everyone else. */
 const HIDDEN_KINDS = new Set(["step"]);
-const SHOWN = 6;
+const SHOWN = 4;
 
 function ago(at: string): string {
   const ms = Date.now() - Date.parse(at);
