@@ -264,22 +264,30 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
   // fixing it yourself — so say so while there's still time
   // legality is the contracts; dead money shrinks room but can't make a roster illegal
   const contracts = facts.capUsed - facts.capDead;
+  // the two free-agency summaries are where the roster has to be legal before
+  // you can check in — "before the preseason" / "once the season starts" was
+  // wrong there, and the item sat at the bottom as a whenever
+  const reconciling = facts.stage === "freeAgencySummary" || facts.stage === "midseasonFreeAgencySummary";
   if (facts.capTotal > 0 && contracts > facts.capTotal) {
     items.push({
       kind: "roster",
       title: `You're $${(contracts - facts.capTotal).toFixed(1)}M over the cap.`,
-      detail: "Release, restructure or trade before the preseason, or your staff will.",
-      href: "/roster",
-      urgency: "whenever",
+      detail: reconciling
+        ? "Get under it — or let your staff do it — before you can check in."
+        : "Release, restructure or trade before the preseason, or your staff will.",
+      href: reconciling ? "/" : "/roster",
+      urgency: reconciling ? "soon" : "whenever",
     });
   }
   if (facts.rosterCount > 53) {
     items.push({
       kind: "roster",
       title: `You're carrying ${facts.rosterCount} players.`,
-      detail: "The limit is 53 once the season starts.",
-      href: "/roster",
-      urgency: "whenever",
+      detail: reconciling
+        ? "Cut to 53 — or let your staff do it — before you can check in."
+        : "The limit is 53 once the season starts.",
+      href: reconciling ? "/" : "/roster",
+      urgency: reconciling ? "soon" : "whenever",
     });
   }
 
