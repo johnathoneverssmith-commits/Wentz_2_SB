@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { onOnlineChange, recentNews } from "@/state/online";
+import { onlineSession, onOnlineChange, recentNews } from "@/state/online";
 
 /** A GM moving between their own screens: true, and noise to everyone else. */
 const HIDDEN_KINDS = new Set(["step"]);
@@ -34,8 +34,11 @@ export function LeagueWire() {
     };
   }, []);
 
+  const mine = onlineSession()?.teamCode;
   const items = recentNews()
     .filter((e) => !HIDDEN_KINDS.has(e.kind))
+    // another GM's progress through the results is worth knowing; your own isn't news
+    .filter((e) => !(e.kind === "reveal" && e.teamCode === mine))
     .slice(-SHOWN)
     .reverse();
   if (items.length === 0) return null;
