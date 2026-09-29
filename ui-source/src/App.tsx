@@ -255,8 +255,15 @@ export function App() {
   const { resuming, failed: resumeFailed } = useResumeOnline();
   const [removedFrom, dismissRemoval] = useRemoval();
   const checkpoint = useCheckpoint();
-  useFollowReleasedCheckpoint(checkpoint !== null);
-  useFollowLeague(checkpoint !== null);
+  // The waiting room covers only the screen a GM checked in from. It used to
+  // replace every route, so a GM waiting hours on the rest of the league
+  // couldn't look at a roster, a stat or the history in the meantime.
+  const stage = useStore((s) => s.stage);
+  const step = useStore((s) => stepOf(s, s.viewerGmId));
+  const waitingRoom = currentScreen(stage, step).route;
+  const holding = checkpoint !== null && (pathname === waitingRoom || pathname === "/");
+  useFollowReleasedCheckpoint(holding);
+  useFollowLeague(holding);
   return (
     <AppShell>
       {resuming && (
@@ -306,9 +313,17 @@ export function App() {
           )}
         </div>
       )}
-      {checkpoint ? (
+      {holding && checkpoint ? (
         <Checkpoint previousStage={checkpoint.from} nextStage={checkpoint.to} />
       ) : (
+      <>
+      {checkpoint && (
+        <div className="notice" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+          <strong>You&rsquo;re checked in</strong> — the league moves on to {checkpoint.to} once
+          everyone has. Browse freely in the meantime.{" "}
+          <a href={`#${waitingRoom}`}>Back to the waiting room</a>
+        </div>
+      )}
       <ScreenBoundary resetKey={pathname}>
         <Routes>
           <Route path="/" element={<StageHome />} />
@@ -356,6 +371,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ScreenBoundary>
+      </>
       )}
     </AppShell>
   );

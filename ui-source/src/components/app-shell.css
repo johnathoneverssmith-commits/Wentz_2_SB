@@ -174,8 +174,15 @@
   /* without this the card is a stretched flex item and every short screen
      renders as a full-height panel with a large dead area under its footer */
   align-items: flex-start;
+  /* a notice above the screen (reconnecting, checked in, save failed) takes a
+     line of its own — as a flex item it sat beside the card */
+  flex-wrap: wrap;
+  align-content: flex-start;
   position: relative;
   isolation: isolate;
+}
+.app-main > .notice {
+  flex: 0 0 100%;
 }
 
 /*
