@@ -259,7 +259,10 @@ function watch(): void {
     // sleeps or the server restarts, the changes made meanwhile were never
     // sent — this is the only way to hear about them.
     open: (version) => {
-      if (session === s && version !== s.version) refresh();
+      if (session !== s || version === s.version) return;
+      refresh();
+      // and the wire: what happened in the gap never came down the stream
+      void seedNews(s.client, s.leagueId);
     },
     // A dropped connection reconnects by itself; nothing to do but stop
     // claiming the countdown is live. An error *response* is different: the
@@ -317,11 +320,10 @@ async function seedNews(client: OnlineLeagueClient, leagueId: string): Promise<v
   const got = await client.feed(leagueId).catch(() => null);
   if (!got || !Array.isArray(got.events) || session?.leagueId !== leagueId) return;
   const have = new Set(news.map((e) => e.id));
-  const older = got.events
-    .filter((e) => !have.has(e.id))
-    .reverse()
-    .map((e) => ({ ...e, at: String(e.at) }));
-  news.unshift(...older);
+  const missing = got.events.filter((e) => !have.has(e.id)).map((e) => ({ ...e, at: String(e.at) }));
+  // oldest first by event id, whether they came before we joined or during a gap
+  news.push(...missing);
+  news.sort((a, b) => Number(a.id) - Number(b.id));
   if (news.length > NEWS_KEPT) news.splice(0, news.length - NEWS_KEPT);
   announce();
 }
