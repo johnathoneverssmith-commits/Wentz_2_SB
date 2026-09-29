@@ -169,10 +169,15 @@ export function TradeProposal() {
     )
     .slice(-3)
     .reverse();
-  const describe = (assets: (typeof s.trades)[number]["fromAssets"]): string =>
+  // a team's own pick is just "2029 Round 1"; someone else's says whose
+  const describe = (assets: (typeof s.trades)[number]["fromAssets"], sender?: string): string =>
     assets
       .map((a) =>
-        a.kind === "pick" && a.pick ? tradedPickLabel(a.pick) : (s.players[a.playerId ?? ""]?.name ?? "a player"),
+        a.kind === "pick" && a.pick
+          ? a.pick.originalTeam === sender
+            ? `${a.pick.year + 1} Round ${a.pick.round}`
+            : tradedPickLabel(a.pick)
+          : (s.players[a.playerId ?? ""]?.name ?? "a player"),
       )
       .join(" + ") || "nothing";
   const gmName = (team: string) => s.gms.find((g) => g.isHuman && g.teamCode === team)?.name;
@@ -248,8 +253,8 @@ export function TradeProposal() {
           </p>
           {offers.map((o) => {
             // picks too: an ask for a pick read "want" and then nothing
-            const asked = describe(o.toAssets);
-            const back = describe(o.fromAssets);
+            const asked = describe(o.toAssets, o.toTeam);
+            const back = describe(o.fromAssets, o.fromTeam);
             const from = gmName(o.fromTeam);
             return (
               <div key={o.id} className="neg-row" style={{ alignItems: "flex-start", gap: 14 }}>
@@ -284,7 +289,7 @@ export function TradeProposal() {
                     title={tradingClosed ? "Trades complete at the next break in the season" : pastDeadline ? PAST_DEADLINE_MESSAGE : undefined}
                     onClick={() => {
                       // a trade can't be undone; releasing a rookie asked first, accepting this didn't
-                      if (!confirm(`Accept? You send ${describe(o.toAssets)} and get ${describe(o.fromAssets)}. It can't be undone.`)) return;
+                      if (!confirm(`Accept? You send ${describe(o.toAssets, o.toTeam)} and get ${describe(o.fromAssets, o.fromTeam)}. It can't be undone.`)) return;
                       respond(o.id, true);
                     }}
                   >
@@ -321,8 +326,8 @@ export function TradeProposal() {
           {outgoing.map((o) => (
             <div key={o.id} className="neg-row">
               <span style={{ fontSize: 12.5 }}>
-                To {gmName(o.toTeam) ?? TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam}: {describe(o.fromAssets)} for{" "}
-                {describe(o.toAssets)}
+                To {gmName(o.toTeam) ?? TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam}: {describe(o.fromAssets, o.fromTeam)} for{" "}
+                {describe(o.toAssets, o.toTeam)}
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                 <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>Waiting</span>
@@ -353,8 +358,8 @@ export function TradeProposal() {
           {answered.map((o) => (
             <div key={o.id} className="neg-row">
               <span style={{ fontSize: 12.5 }}>
-                To {gmName(o.toTeam) ?? TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam}: {describe(o.fromAssets)} for{" "}
-                {describe(o.toAssets)}
+                To {gmName(o.toTeam) ?? TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam}: {describe(o.fromAssets, o.fromTeam)} for{" "}
+                {describe(o.toAssets, o.toTeam)}
               </span>
               <span
                 style={{
