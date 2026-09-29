@@ -170,9 +170,12 @@ export function WeeklyTeamHub() {
         subtitle={
           isPreseason
             ? `Preseason · starting lineup ${team.ratings.overall} OVR`
-            : single
-              ? `${record(team)} · ${ordinal(team.leagueRank)} of ${leagueSize}`
-              : `${record(team)} · ${ordinal(team.divisionRank)} in ${meta.conference} ${meta.division}`
+            : // before a game is played the place is only the tiebreak order
+              team.wins + team.losses + team.ties === 0
+              ? `${record(team)} · ${meta.conference} ${meta.division}`
+              : single
+                ? `${record(team)} · ${ordinal(team.leagueRank)} of ${leagueSize}`
+                : `${record(team)} · ${ordinal(team.divisionRank)} in ${meta.conference} ${meta.division}`
         }
         right={
           <>
