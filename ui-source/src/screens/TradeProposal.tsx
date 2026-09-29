@@ -231,6 +231,8 @@ export function TradeProposal() {
           {TEAMS.filter((t) => t.code !== myCode && s.teams[t.code]).map((t) => (
             <option key={t.code} value={t.code}>
               {t.city} {t.name}
+              {/* a person answers this one, whenever they next look */}
+              {gmName(t.code) ? ` — ${gmName(t.code)}` : ""}
             </option>
           ))}
         </select>
