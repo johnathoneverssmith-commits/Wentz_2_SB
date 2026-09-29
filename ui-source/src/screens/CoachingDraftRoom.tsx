@@ -5,7 +5,6 @@ import { pressable, TeamBadge } from "@/components/bits";
 import { CoachDetailsModal } from "@/components/CoachDetailsModal";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { STAGE_HOME } from "@/state/stageMachine";
 import type { Coach, CoachRole } from "@/domain";
 import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } from "@/domain";
 import {
@@ -51,7 +50,7 @@ export function CoachingDraftRoom() {
   // (store.ts's draftCoach) and moves the stage on with it — nothing here
   // asks the player to confirm that, so the screen has to leave on its own.
   useEffect(() => {
-    if (s.stage !== "coachingDraft") nav(STAGE_HOME[s.stage], { replace: true });
+    if (s.stage !== "coachingDraft") nav("/", { replace: true });
   }, [s.stage, nav]);
 
   const draft = s.coachingDraft;

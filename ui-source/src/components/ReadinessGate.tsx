@@ -17,8 +17,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { openSlots as countOpenSlots, rosterGate } from "@/state/rules";
-import { onlineSession } from "@/state/online";
-import { STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
+import { lastLeagueId, onlineSession } from "@/state/online";
+import { STAGE_READY_LABEL } from "@/state/stageMachine";
 import { isInSeason, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
@@ -30,8 +30,8 @@ export function ReadinessGate({
   onAdvance,
   label,
   action,
-  disabled = false,
-  disabledHint,
+  disabled: disabledProp = false,
+  disabledHint: hintProp,
 }: {
   title?: string;
   onAdvance: (route: string) => void;
@@ -47,6 +47,12 @@ export function ReadinessGate({
 }) {
   const actions = useLeagueActions();
   const online = actions.online;
+  // An online league is remembered but not connected (the resume failed, or
+  // is still trying): pressing this would move a private copy of the league
+  // on, and nothing would reach the other GMs. Hold it until it reconnects.
+  const detached = !online && lastLeagueId() !== null;
+  const disabled = disabledProp || detached;
+  const disabledHint = detached ? "Reconnect to your league to continue" : hintProp;
   const gms = useStore((s) => s.gms);
   const readiness = useStore((s) => s.readiness);
   const viewerGmId = useStore((s) => s.viewerGmId);
@@ -235,7 +241,7 @@ export function ReadinessGate({
               }
               // the server may have moved the league on the strength of this
               const next = useStore.getState().stage;
-              if (next !== stage) onAdvanceRef.current(STAGE_HOME[next]);
+              if (next !== stage) onAdvanceRef.current("/");
             })
             .finally(() => setBusy(false));
         }}
@@ -288,7 +294,7 @@ export function ReadinessGate({
                   return;
                 }
                 const next = useStore.getState().stage;
-                if (next !== stage) onAdvanceRef.current(STAGE_HOME[next]);
+                if (next !== stage) onAdvanceRef.current("/");
               })
               .finally(() => setBusy(false));
           }}

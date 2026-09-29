@@ -6,7 +6,6 @@ import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { pickKey, pickLabel, picksOwnedBy } from "@/state/draftPicks";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
-import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import {
   onTheClock,
@@ -50,7 +49,7 @@ export function TradeDeadlineRoom() {
   // — nobody presses a button for that, so this screen has to notice and
   // leave on its own rather than sit on a deadline that's already over.
   useEffect(() => {
-    if (s.stage !== "tradeDeadline") nav(STAGE_HOME[s.stage], { replace: true });
+    if (s.stage !== "tradeDeadline") nav("/", { replace: true });
   }, [s.stage, nav]);
 
   const d = s.tradeDeadline;

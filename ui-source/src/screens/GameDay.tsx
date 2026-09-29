@@ -5,7 +5,6 @@ import { Card, CardHeader, Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { isOnline } from "@/state/online";
-import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 
@@ -186,7 +185,7 @@ export function GameDay() {
             // it. There is nothing to decide on a results screen either, so
             // nobody waits: read it and leave whenever you like.
             if (online) {
-              nav(STAGE_HOME[useStore.getState().stage]);
+              nav("/");
               return;
             }
             const { route } = await finishGameDay();

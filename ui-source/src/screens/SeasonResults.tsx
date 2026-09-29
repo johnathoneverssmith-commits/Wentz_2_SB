@@ -10,7 +10,6 @@ import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
 import { currentBlock } from "@/state/revealBlocks";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
-import { STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
 /**
@@ -66,7 +65,7 @@ export function SeasonResults() {
   const label = (w: number) => (phaseKey === "PRE" ? `Preseason Week ${w}` : `Week ${w}`);
   const single = weeks.length === 1;
 
-  const goHub = () => nav(STAGE_HOME[useStore.getState().stage]);
+  const goHub = () => nav("/");
 
   return (
     <Card maxWidth={860}>

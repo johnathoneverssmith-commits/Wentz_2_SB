@@ -8,7 +8,6 @@ import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { POSITIONS, type Player } from "@/domain";
-import { STAGE_HOME } from "@/state/stageMachine";
 import {
   FREE_AGENCY_ROUNDS,
   leadingOffer,
@@ -63,7 +62,7 @@ export function FreeAgencyBoardTurns() {
   // "On the clock" and a Pass button that no longer did anything.
   const inMarket = s.stage === "freeAgency" || s.stage === "midseasonFreeAgency";
   useEffect(() => {
-    if (!inMarket) nav(STAGE_HOME[s.stage], { replace: true });
+    if (!inMarket) nav("/", { replace: true });
   }, [inMarket, s.stage, nav]);
 
   const e = s.freeAgencyEvent;

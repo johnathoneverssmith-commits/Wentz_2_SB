@@ -10,7 +10,7 @@ import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
-import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { STAGE_LABEL } from "@/state/stageMachine";
 import { hasMoreToReveal, revealedWeek, viewerWeek, visibleGames } from "@/state/reveal";
 import { preseasonRoasts, weeklyRoasts } from "@/state/roasts";
 import { currentBlock } from "@/state/revealBlocks";
@@ -469,7 +469,7 @@ export function WeeklyTeamHub() {
           ) : null;
         })()}
         {!phase && (
-          <button type="button" className="btnlink btn-primary" onClick={() => nav(STAGE_HOME[s.stage])}>
+          <button type="button" className="btnlink btn-primary" onClick={() => nav("/")}>
             Go to {STAGE_LABEL[s.stage]}
           </button>
         )}
@@ -576,7 +576,7 @@ function RevealControls() {
                 // the last GM to commit moves the league: take them there
                 // rather than leaving them on a hub for a finished stage
                 const next = useStore.getState().stage;
-                if (next !== before) nav(STAGE_HOME[next]);
+                if (next !== before) nav("/");
               })
               .finally(() => setBusy(false));
           }}

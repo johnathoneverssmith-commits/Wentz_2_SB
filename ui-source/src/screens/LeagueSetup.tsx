@@ -14,7 +14,7 @@ import {
   playoffFieldSize,
   seasonShapeFor,
 } from "@/state/leagueFormat";
-import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { STAGE_LABEL } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { useStore } from "@/state/store";
 
@@ -439,7 +439,7 @@ export function LeagueSetup() {
 
       {locked ? (
         <Footer>
-          <button type="button" className="btnlink btn-primary" onClick={() => nav(STAGE_HOME[stage])}>
+          <button type="button" className="btnlink btn-primary" onClick={() => nav("/")}>
             Back to {STAGE_LABEL[stage]}
           </button>
         </Footer>

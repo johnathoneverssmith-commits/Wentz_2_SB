@@ -15,7 +15,6 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Player, Position } from "@/domain";
 import { draftTargetsFor } from "@/state/rules";
 import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store";
-import { STAGE_HOME } from "@/state/stageMachine";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
 
@@ -97,7 +96,7 @@ export function DraftRoom() {
   // the league (online the board only exists once the server opens the
   // stage). "Setting up…" would sit there forever — go where the league is.
   useEffect(() => {
-    if (!s.draft && !isDraftStage) nav(STAGE_HOME[s.stage], { replace: true });
+    if (!s.draft && !isDraftStage) nav("/", { replace: true });
   }, [s.draft, isDraftStage, s.stage, nav]);
 
   // Reaching the manual-pick threshold completes the board and advances the
@@ -257,7 +256,7 @@ export function DraftRoom() {
           kicker="Draft complete"
           big="Every pick is in."
           note={`Click anywhere to continue to the ${draft.mode === "fantasy" ? "Fantasy Draft Summary" : "Rookie Draft Summary"}.`}
-          onDismiss={() => nav(STAGE_HOME[s.stage])}
+          onDismiss={() => nav("/")}
         />
       )}
 
