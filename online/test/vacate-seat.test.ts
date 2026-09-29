@@ -105,6 +105,11 @@ describe("leaving, and archiving", () => {
     expect((await leagueByInvite(messy))?.id).toBe(leagueId);
   });
 
+  maybe("counts the reopened seat, so the lobby knows the invite code matters again", async () => {
+    const row = (await leaguesFor(users[0])).find((l) => l.id === leagueId);
+    expect(row?.openSeats).toBe(1);
+  });
+
   maybe("closes the stream of a GM who is no longer in the league", async () => {
     class Res extends EventEmitter {
       ended = false;

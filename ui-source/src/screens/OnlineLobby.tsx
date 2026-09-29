@@ -47,6 +47,8 @@ interface LeagueRow {
   season: number;
   isCommissioner: boolean;
   inviteCode: string | null;
+  /** Absent from an older server; treated as "maybe" and the code is shown. */
+  openSeats?: number;
 }
 
 /** The server hands back the raw stage key; the app has a name for it. */
@@ -330,7 +332,8 @@ export function OnlineLobby() {
                       nobody claims is run by the AI.
                     </p>
                   )}
-                  {l.inviteCode && (
+                  {/* a full league has nobody left to invite */}
+                  {l.inviteCode && (l.openSeats ?? 1) > 0 && (
                     <p className="lobby-sub">
                       Invite code:{" "}
                       <span className="oswald" style={{ fontSize: 14, letterSpacing: "0.08em" }}>

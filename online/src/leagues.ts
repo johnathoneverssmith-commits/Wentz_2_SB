@@ -262,11 +262,14 @@ export async function leaguesFor(userId: string): Promise<
     season: number;
     isCommissioner: boolean;
     inviteCode: string | null;
+    /** Seats nobody holds — the invite code only matters while there are some. */
+    openSeats: number;
   }[]
 > {
   const rows = await pool.query(
     `SELECT l.id, l.name, f.team_code, s.stage, s.season,
-            (l.commissioner = $1) AS is_commissioner, l.invite_code
+            (l.commissioner = $1) AS is_commissioner, l.invite_code,
+            (SELECT count(*) FROM franchises o WHERE o.league_id = l.id AND o.user_id IS NULL) AS open_seats
        FROM leagues l
        LEFT JOIN franchises f ON f.league_id = l.id AND f.user_id = $1
        JOIN league_state s ON s.league_id = l.id
@@ -283,6 +286,7 @@ export async function leaguesFor(userId: string): Promise<
     stage: r.stage,
     season: r.season,
     isCommissioner: Boolean(r.is_commissioner),
+    openSeats: Number(r.open_seats ?? 0),
     // the code is the league's only door; it belongs to whoever runs it
     inviteCode: r.is_commissioner ? r.invite_code : null,
   }));
