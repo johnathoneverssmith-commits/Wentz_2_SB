@@ -130,7 +130,8 @@ export async function createOnlineLeague(
 export async function leagueByInvite(code: string): Promise<{ id: string; name: string } | null> {
   const rows = await pool.query<{ id: string; name: string }>(
     `SELECT id, name FROM leagues WHERE invite_code = $1 AND archived_at IS NULL`,
-    [code.trim().toUpperCase()],
+    // pasted from a message it arrives with spaces, dashes or quotes around it
+    [code.toUpperCase().replace(/[^A-Z0-9]/g, "")],
   );
   return rows.rows[0] ?? null;
 }

@@ -95,6 +95,12 @@ describe("leaving, and archiving", () => {
     expect(await openTeams(leagueId)).toEqual(["KC"]);
   });
 
+  maybe("finds the league from a code pasted with spaces, dashes or quotes", async () => {
+    const code = (await pool.query<{ invite_code: string }>(`SELECT invite_code FROM leagues WHERE id = $1`, [leagueId])).rows[0]!.invite_code;
+    const messy = ` "${code.slice(0, 4).toLowerCase()}-${code.slice(4)}" `;
+    expect((await leagueByInvite(messy))?.id).toBe(leagueId);
+  });
+
   maybe("the commissioner can't leave the league without anyone to run it", async () => {
     await expect(leaveLeague(leagueId, users[0])).rejects.toThrow(/commissioner/);
   });
