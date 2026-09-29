@@ -274,7 +274,18 @@ export function DraftRoom() {
             className: yourPick ? "accent" : undefined,
           },
           { label: "Pick", value: `${Math.min(draft.currentPickIndex + 1, draft.pickOrder.length)} / ${draft.pickOrder.length}`, className: "sm" },
-          { label: "Your picks", value: myResults.length },
+          // when you're up next, which waiting on thirty other teams is about
+          (() => {
+            if (complete || yourPick || !code) return { label: "Your picks", value: myResults.length };
+            const next = draft.pickOrder.indexOf(code, draft.currentPickIndex);
+            return next < 0
+              ? { label: "Your next pick", value: "None left", className: "sm" }
+              : {
+                  label: "Your next pick",
+                  value: `#${next + 1} · ${next - draft.currentPickIndex} away`,
+                  className: "sm",
+                };
+          })(),
           { label: "Roster", value: myRoster.length },
         ]}
       />

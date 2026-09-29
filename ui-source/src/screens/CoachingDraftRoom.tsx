@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { pressable, TeamBadge } from "@/components/bits";
@@ -44,6 +44,8 @@ export function CoachingDraftRoom() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inspect, setInspect] = useState<Coach | null>(null);
+  // the guard itself: busy state lags a render, so two clicks both went out
+  const taking = useRef(false);
 
   // the board completes itself once the last job in the league is filled
   // (store.ts's draftCoach) and moves the stage on with it — nothing here
@@ -96,6 +98,8 @@ export function CoachingDraftRoom() {
   const staff = Object.values(s.coaches).filter((c) => c.team === code);
 
   const take = (coachId: string): void => {
+    if (taking.current) return;
+    taking.current = true;
     setBusy(true);
     setError(null);
     void actions
@@ -103,8 +107,14 @@ export function CoachingDraftRoom() {
       .then((res) => {
         if (!res.ok) setError(res.reason ?? "That pick didn't go through.");
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        taking.current = false;
+        setBusy(false);
+      });
   };
+  const clockGm = s.gms.find((g) => g.isHuman && g.teamCode === onClock)?.name;
+  const nextMine = draft.pickOrder.indexOf(code, draft.currentPickIndex);
+  const picksAway = nextMine < 0 ? null : nextMine - draft.currentPickIndex;
 
   return (
     <Card maxWidth={900}>
@@ -208,8 +218,15 @@ export function CoachingDraftRoom() {
 
         {!yourPick && (
           <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink-faint)" }}>
-            Waiting for {onClock ? TEAMS_BY_CODE[onClock]?.label ?? onClock : "the league"} to pick.
-            You can look around in the meantime.
+            Waiting for{" "}
+            {onClock
+              ? clockGm
+                ? `${clockGm} (${TEAMS_BY_CODE[onClock]?.label ?? onClock})`
+                : (TEAMS_BY_CODE[onClock]?.label ?? onClock)
+              : "the league"}{" "}
+            to pick.
+            {picksAway != null && ` Your pick is ${picksAway} ${picksAway === 1 ? "pick" : "picks"} away.`} You can look
+            around in the meantime.
           </p>
         )}
 

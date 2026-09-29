@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -42,6 +42,8 @@ export function TradeDeadlineRoom() {
   const code = viewerTeamCode(s);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // the guard itself: busy state lags a render, so two clicks both went out
+  const sending = useRef(false);
 
   // round three's last turn completes the deadline and moves the stage on
   // from inside deadlineTurn itself (store.ts / online's decideDeadlineTurn)
@@ -56,6 +58,8 @@ export function TradeDeadlineRoom() {
   const clock = onTheClock(s);
 
   const submit = (move: Parameters<typeof actions.deadlineTurn>[0]): void => {
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(null);
     void actions
@@ -63,7 +67,10 @@ export function TradeDeadlineRoom() {
       .then((res) => {
         if (!res.ok) setError(res.reason ?? "That move isn't available.");
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        sending.current = false;
+        setBusy(false);
+      });
   };
 
   if (!d || !code) {
@@ -103,7 +110,18 @@ export function TradeDeadlineRoom() {
       {(duty === "respond" || duty === "final") && (
         <RespondTurn offer={d.active!} code={code} duty={duty} busy={busy} onSubmit={submit} />
       )}
-      {duty === null && <Waiting clock={clock} />}
+      {duty === null && (
+        <Waiting
+          clock={clock}
+          clockGm={s.gms.find((g) => g.isHuman && g.teamCode === clock)?.name ?? null}
+          turnsAway={(() => {
+            // how long until you're up, this round or the next
+            const at = d.order.indexOf(code);
+            if (at < 0 || d.done) return null;
+            return at > d.index ? at - d.index : d.round < TRADE_DEADLINE_ROUNDS ? d.order.length - d.index + at : null;
+          })()}
+        />
+      )}
 
       <RecentActivity resolved={d.resolved} />
     </Card>
@@ -166,11 +184,16 @@ function ProposeTurn({
           }}
           style={{ width: "100%", maxWidth: 280 }}
         >
-          {TEAMS.filter((t) => t.code !== code && s.teams[t.code]).map((t) => (
-            <option key={t.code} value={t.code}>
-              {t.label}
-            </option>
-          ))}
+          {TEAMS.filter((t) => t.code !== code && s.teams[t.code]).map((t) => {
+            // which teams a person runs — they decide for themselves
+            const gm = s.gms.find((g) => g.isHuman && g.teamCode === t.code);
+            return (
+              <option key={t.code} value={t.code}>
+                {t.label}
+                {gm ? ` — ${gm.name}` : ""}
+              </option>
+            );
+          })}
         </select>
       </div>
 
@@ -373,15 +396,29 @@ function RespondTurn({
   );
 }
 
-function Waiting({ clock }: { clock: string | null }) {
+function Waiting({
+  clock,
+  clockGm,
+  turnsAway,
+}: {
+  clock: string | null;
+  clockGm: string | null;
+  turnsAway: number | null;
+}) {
   return (
     <div className="panel open">
       <div className="emptystate" style={{ padding: "34px 20px" }}>
         {clock ? (
           <>
             <p style={{ margin: 0, fontWeight: 600 }}>
-              {TEAMS_BY_CODE[clock]?.label ?? clock} are on the clock.
+              {clockGm ? `${clockGm} (${TEAMS_BY_CODE[clock]?.label ?? clock})` : (TEAMS_BY_CODE[clock]?.label ?? clock)}{" "}
+              {clockGm ? "is" : "are"} on the clock.
             </p>
+            {turnsAway != null && (
+              <p style={{ margin: "6px 0 0", fontSize: 12.5 }}>
+                Your turn is {turnsAway} {turnsAway === 1 ? "turn" : "turns"} away.
+              </p>
+            )}
             <p style={{ margin: "8px 0 0", fontSize: 12 }}>
               One negotiation happens at a time, so nothing you see here can change while you read
               it. You&rsquo;ll be brought in when it&rsquo;s your turn or somebody makes you an

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { projectedRookieRange } from "@/sim/draft-outcomes";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
@@ -27,7 +28,11 @@ export function RookieSignings() {
   const actions = useLeagueActions();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // the guard itself: busy state lags a render, so two clicks both went out
+  const settling = useRef(false);
   const settle = (prospectId: string, released: boolean): void => {
+    if (settling.current) return;
+    settling.current = true;
     setBusy(true);
     setError(null);
     void actions
@@ -35,7 +40,10 @@ export function RookieSignings() {
       .then((res) => {
         if (!res.ok) setError(res.reason ?? "That didn't go through.");
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        settling.current = false;
+        setBusy(false);
+      });
   };
 
   // One click for the usual case: sign everyone not yet decided, in draft
@@ -166,6 +174,8 @@ export function RookieSignings() {
                           disabled={busy}
                           onClick={(e) => {
                             e.stopPropagation();
+                            // one click gave a draft pick away for good
+                            if (!confirm(`Release ${p.name}? He goes to the free-agent market and you can't take it back.`)) return;
                             settle(p.id, true);
                           }}
                         >
@@ -191,8 +201,13 @@ export function RookieSignings() {
                         <p>{millions(total * 0.4)}</p>
                       </div>
                       <div>
-                        <p>College OVR</p>
-                        <p>{p.collegeOverall}</p>
+                        <p>College grade</p>
+                        <p>
+                          {p.collegeOverall}
+                          <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>
+                            projects {projectedRookieRange(p).join("–")}
+                          </span>
+                        </p>
                       </div>
                       <div>
                         <p>True overall</p>

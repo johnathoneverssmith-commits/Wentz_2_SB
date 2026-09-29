@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
 import { useNavigate } from "react-router-dom";
 
@@ -7,7 +7,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import type { Player } from "@/domain";
+import { POSITIONS, type Player } from "@/domain";
 import { STAGE_HOME } from "@/state/stageMachine";
 import {
   FREE_AGENCY_ROUNDS,
@@ -49,6 +49,12 @@ export function FreeAgencyBoardTurns() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offering, setOffering] = useState<Player | null>(null);
+  // the guard itself: busy state lags a render, and a second click on a spent
+  // turn came back as "It isn't your turn"
+  const acting = useRef(false);
+  // ~400 players and only the first 80 on screen: a GM hunting a kicker
+  // couldn't reach one
+  const [posFilter, setPosFilter] = useState<string>("all");
 
   // The fifth round resolving ends the market and moves the stage on from
   // inside `freeAgencyTurn` itself — there is no gate to press, so nothing
@@ -110,6 +116,8 @@ export function FreeAgencyBoardTurns() {
   }
 
   const act = (move: { playerId?: string; salary?: number; years?: number; pass?: boolean }) => {
+    if (acting.current) return;
+    acting.current = true;
     setBusy(true);
     setError(null);
     void actions
@@ -118,8 +126,14 @@ export function FreeAgencyBoardTurns() {
         if (!res.ok) setError(res.reason ?? "That didn't go through.");
         else setOffering(null);
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        acting.current = false;
+        setBusy(false);
+      });
   };
+  const team = s.teams[code];
+  const capRoom = team ? Math.round((team.cap.total - team.cap.used) * 10) / 10 : 0;
+  const shown = posFilter === "all" ? pool : pool.filter((p) => p.position === posFilter);
 
   // still live: an offer stays on file after its player signs (with you or
   // anyone), and counting those said "1 offer out" beside a man you'd won
@@ -156,6 +170,30 @@ export function FreeAgencyBoardTurns() {
         </div>
       )}
 
+      {myOffers.length > 0 && (
+        <div className="panel open" style={{ paddingBottom: 4 }}>
+          <p className="subhead" style={{ marginTop: 0 }}>
+            Your offers
+          </p>
+          {myOffers.map((o) => {
+            const p = s.players[o.playerId];
+            const lead = leadingOffer(s, o.playerId);
+            const leading = lead?.teamCode === code;
+            return (
+              <div key={`${o.playerId}-${o.sequence}`} className="neg-row">
+                <span style={{ fontSize: 12.5 }}>
+                  {p?.name ?? o.playerId} <span className="ppos">{p?.position}</span> · {millions(o.salary)}/yr ×{" "}
+                  {o.years}y
+                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: leading ? "var(--good)" : "var(--notice)" }}>
+                  {leading ? "Leading" : `Outbid by ${TEAMS_BY_CODE[lead?.teamCode ?? ""]?.abbr ?? "another team"}`}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {yourTurn && (
         <div className="notice" role="status">
           <strong>You&rsquo;re up.</strong> Make one offer or pass. Offers are binding and stay
@@ -184,11 +222,22 @@ export function FreeAgencyBoardTurns() {
             <option value="value">Best value (rating + position)</option>
             <option value="fit">Best fit for your units</option>
           </select>
+          <select aria-label="Position" value={posFilter} onChange={(ev) => setPosFilter(ev.target.value)}>
+            <option value="all">All positions</option>
+            {POSITIONS.filter((pos) => pool.some((p) => p.position === pos)).map((pos) => (
+              <option key={pos} value={pos}>
+                {pos}
+              </option>
+            ))}
+          </select>
+          <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>
+            {shown.length > 80 ? `Top 80 of ${shown.length}` : `${shown.length} shown`}
+          </span>
         </div>
-        {pool.length === 0 ? (
-          <div className="emptystate">Everybody has signed.</div>
+        {shown.length === 0 ? (
+          <div className="emptystate">{pool.length === 0 ? "Everybody has signed." : "Nobody left at that position."}</div>
         ) : (
-          pool.slice(0, 80).map((p) => {
+          shown.slice(0, 80).map((p) => {
             const lead = leadingOffer(s, p.id);
             const ask = expectedSalary(p);
             const isOffering = offering?.id === p.id;
@@ -210,8 +259,8 @@ export function FreeAgencyBoardTurns() {
                       {PRIMARY_VALUE_LABEL[primaryValueOf(p)]}
                     </p>
                     {lead && (
-                      <p className="lobby-sub" style={{ color: "var(--accent)" }}>
-                        Leading: {TEAMS_BY_CODE[lead.teamCode]?.abbr ?? lead.teamCode} ·{" "}
+                      <p className="lobby-sub" style={{ color: lead.teamCode === code ? "var(--good)" : "var(--accent)" }}>
+                        Leading: {lead.teamCode === code ? "you" : (TEAMS_BY_CODE[lead.teamCode]?.abbr ?? lead.teamCode)} ·{" "}
                         {millions(lead.salary)}/yr × {lead.years}y
                       </p>
                     )}
@@ -232,6 +281,7 @@ export function FreeAgencyBoardTurns() {
                 {isOffering && (
                   <OfferDialog
                     player={p}
+                    capRoom={capRoom}
                     busy={busy}
                     onCancel={() => setOffering(null)}
                     onSubmit={(salary, years) => act({ playerId: p.id, salary, years })}
@@ -299,11 +349,14 @@ export function FreeAgencyBoardTurns() {
  */
 function OfferDialog({
   player,
+  capRoom,
   busy,
   onCancel,
   onSubmit,
 }: {
   player: Player;
+  /** This team's cap room now, before this offer. */
+  capRoom: number;
   busy: boolean;
   onCancel: () => void;
   onSubmit: (salary: number, years: number) => void;
@@ -351,11 +404,20 @@ function OfferDialog({
           Below his asking price — he can&rsquo;t accept this.
         </p>
       )}
+      {/* the cap is suspended while bidding, but it comes back */}
+      <p style={{ margin: "8px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
+        Cap room now {millions(capRoom)}
+        {Number.isFinite(value) && value > 0
+          ? ` · ${millions(Math.round((capRoom - value) * 10) / 10)} if he signs`
+          : ""}
+        {Number.isFinite(value) && capRoom - value < 0 ? " — you'd have to clear room at reconciliation." : "."}
+      </p>
       <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
         <button
           type="button"
           className="btn-primary"
-          disabled={busy || !Number.isFinite(value) || value <= 0}
+          // below the ask he can't accept, and submitting would spend the turn
+          disabled={busy || !Number.isFinite(value) || value <= 0 || short}
           onClick={() => onSubmit(Math.round(value * 10) / 10, Number(years))}
         >
           {busy ? "Submitting…" : "Submit offer"}

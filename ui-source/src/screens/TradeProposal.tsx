@@ -42,6 +42,9 @@ export function TradeProposal() {
   const [responding, setResponding] = useState<string | null>(null);
   const [proposing, setProposing] = useState(false);
   const [onlineResult, setOnlineResult] = useState<{ ok: boolean; text: string } | null>(null);
+  // online the season's weeks are played ahead of time, so rosters are
+  // frozen through them — the server refuses a trade; say so before one is built
+  const tradingClosed = actions.online && (s.stage === "preseason" || s.stage === "regularSeason");
   // the guard itself: state lags a render, so two quick clicks both passed it
   const inFlight = useRef(false);
   const respond = (id: string, accept: boolean): void => {
@@ -240,7 +243,12 @@ export function TradeProposal() {
                   {o.blockedReason && <p className="form-error">{o.blockedReason}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  <button className="btn-primary" disabled={responding !== null} onClick={() => respond(o.id, true)}>
+                  <button
+                    className="btn-primary"
+                    disabled={responding !== null || tradingClosed}
+                    title={tradingClosed ? "Trades complete at the next break in the season" : undefined}
+                    onClick={() => respond(o.id, true)}
+                  >
                     {responding === o.id ? "Working…" : "Accept"}
                   </button>
                   <button disabled={responding !== null} onClick={() => respond(o.id, false)}>
@@ -250,6 +258,14 @@ export function TradeProposal() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {tradingClosed && (
+        <div className="notice" role="status" style={{ margin: "14px 26px 0" }}>
+          Trading is closed while this stretch of the season plays out — the games are already
+          decided with today&rsquo;s rosters. It opens again at the trade deadline and in the
+          offseason.
         </div>
       )}
 
@@ -434,7 +450,7 @@ export function TradeProposal() {
         {!trade ? (
           <button
             className="btn-primary"
-            disabled={(give.length === 0 && get.length === 0) || !legality?.ok || proposing}
+            disabled={(give.length === 0 && get.length === 0) || !legality?.ok || proposing || tradingClosed}
             title={legality?.ok === false ? legality.reason : undefined}
             onClick={() => {
               setOnlineError(null);
