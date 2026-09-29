@@ -5,7 +5,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleGames } from "@/state/reveal";
-import { isHumansOnly, leagueBadge } from "@/state/leagueFormat";
+import { leagueBadge } from "@/state/leagueFormat";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 

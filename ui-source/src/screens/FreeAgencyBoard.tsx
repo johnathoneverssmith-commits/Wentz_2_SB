@@ -47,7 +47,6 @@ export function FreeAgencyBoard() {
   const isWindowStage = s.stage === "offseasonFreeAgency";
   const [negotiating, setNegotiating] = useState<Player | null>(null);
   const [signError, setSignError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   // the guard itself: state lags a render, so two quick clicks both passed it
   const submittingRef = useRef(false);
 
@@ -247,7 +246,6 @@ export function FreeAgencyBoard() {
                         // reported that he'd "just signed" with your own team
                         if (submittingRef.current) return;
                         submittingRef.current = true;
-                        setSubmitting(true);
                         const full: ContractOffer = { ...offer, teamCode: code };
                         const run = isWindowStage
                           ? actions.placeBid("players", p.id, full)
@@ -255,7 +253,6 @@ export function FreeAgencyBoard() {
                         void run
                           .finally(() => {
                             submittingRef.current = false;
-                            setSubmitting(false);
                           })
                           .then((result) => {
                           if (result.ok) {

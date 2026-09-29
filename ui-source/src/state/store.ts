@@ -36,7 +36,6 @@ import {
   normalizePool,
   pruneFreeAgentMarket,
   recomputeTeamRatings,
-  releaseToMarket,
   trimRosters,
 } from "./seed.ts";
 import {
