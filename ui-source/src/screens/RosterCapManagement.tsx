@@ -25,7 +25,7 @@ import { playerPriorities } from "@/sim/priorities";
 import { extensionAsk, previewRestructure } from "@/state/contracts";
 import { depthAt } from "@/state/seed";
 import { onInjuredReserve } from "@/state/injuries";
-import { checkRelease, releasePenalty } from "@/state/reconciliation";
+import { capUsed as contractsUsed, checkRelease, releasePenalty } from "@/state/reconciliation";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
@@ -51,6 +51,7 @@ export function RosterCapManagement() {
   const [moveNote, setMoveNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
   // the guard itself: state lags a render, so two quick clicks both passed it
   const nudgingRef = useRef(false);
+  const [reordering, setReordering] = useState(false);
   const code = viewerTeamCode(s);
   // Change 9 reuses this screen at midseason, so the flag is about what the
   // stage is for rather than about one stage's name
@@ -85,6 +86,7 @@ export function RosterCapManagement() {
   const capUsed = team.cap.used;
   const capTotalM = team.cap.total;
   const capSpace = Math.round((capTotalM - capUsed) * 10) / 10;
+  const overContracts = Math.round((contractsUsed(s, code) - capTotalM) * 10) / 10;
   const staffCap = Object.values(s.coaches)
     .filter((c) => c.team === code)
     .reduce((n, c) => n + (c.contract?.annualValue ?? 0), 0);
@@ -176,11 +178,13 @@ export function RosterCapManagement() {
           },
         ]}
       />
-      {(capSpace < 0 || activeCount > 53) && (
+      {/* legality is the contracts — dead money shrinks the room to add
+          anyone, but it can't make this roster illegal (reconciliation.ts) */}
+      {(overContracts > 0 || activeCount > 53) && (
         <div className="notice bad" role="status">
           <strong>Not season-legal yet.</strong>{" "}
           {[
-            capSpace < 0 ? `${millions(-capSpace)} over the cap` : null,
+            overContracts > 0 ? `${millions(overContracts)} over the cap` : null,
             activeCount > 53 ? `${activeCount - 53} over the 53-man limit` : null,
           ]
             .filter(Boolean)
@@ -216,15 +220,27 @@ export function RosterCapManagement() {
               store-only reset never reached the server and the next refresh
               put the old order back */}
           <button
+            disabled={reordering}
             onClick={() => {
-              void (async () => {
-                for (const pos of positionsInGroup) await actions.setDepthOrder(pos, []);
-              })();
+              // one batch and one download, and a refusal (the chart locks
+              // while a block of weeks plays out) is shown, not swallowed
+              setReordering(true);
+              void actions
+                .setDepthOrders(positionsInGroup.map((position) => ({ position, playerIds: [] })))
+                .then((r) => {
+                  if (!r.ok) setMoveNote({ id: "", ok: false, text: r.reason ?? "Couldn't reorder." });
+                })
+                .finally(() => setReordering(false));
             }}
           >
-            Auto-reorder by overall
+            {reordering ? "Reordering…" : "Auto-reorder by overall"}
           </button>
         </div>
+        {moveNote?.id === "" && !moveNote.ok && (
+          <p className="form-error" role="status" style={{ margin: "-6px 0 12px" }}>
+            {moveNote.text}
+          </p>
+        )}
 
         {ordered.length === 0 && (
           <div className="emptystate">No players in this group.</div>

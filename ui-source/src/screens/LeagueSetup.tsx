@@ -127,6 +127,23 @@ export function LeagueSetup() {
             <strong>This is an online league.</strong> The GMs below are real
             people, and the league starts when every seat is taken — the
             readiness panel at the bottom says who is still missing.
+            {/* the screen a commissioner waits on while people join: the code
+                they need to send was only on the lobby */}
+            {commissioner && onlineSession()?.inviteCode && (
+              <>
+                {" "}Invite code:{" "}
+                <span className="oswald" style={{ letterSpacing: "0.08em" }}>
+                  {onlineSession()!.inviteCode}
+                </span>{" "}
+                <button
+                  type="button"
+                  className="btnlink sm"
+                  onClick={() => void navigator.clipboard?.writeText(onlineSession()!.inviteCode!)}
+                >
+                  Copy
+                </button>
+              </>
+            )}
           </div>
         )}
         <FranchiseBanner meta={myMeta} locked={locked} />

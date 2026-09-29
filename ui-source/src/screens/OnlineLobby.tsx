@@ -65,6 +65,7 @@ export function OnlineLobby() {
   const [leagues, setLeagues] = useState<LeagueRow[]>([]);
   const [inbox, setInbox] = useState<InboxLeague[]>([]);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   /** One place to run a call, so every failure reads the same way. */
   const attempt = useCallback(async (run: () => Promise<void>) => {
@@ -276,6 +277,19 @@ export function OnlineLobby() {
                       <span className="oswald" style={{ fontSize: 14, letterSpacing: "0.08em" }}>
                         {l.inviteCode}
                       </span>{" "}
+                      <button
+                        type="button"
+                        className="btnlink sm"
+                        onClick={() => {
+                          // sending the code is the whole job here
+                          void navigator.clipboard?.writeText(l.inviteCode!).then(
+                            () => setCopied(l.id),
+                            () => setCopied(null),
+                          );
+                        }}
+                      >
+                        {copied === l.id ? "Copied" : "Copy"}
+                      </button>{" "}
                       — send it to the other GMs; they register, then enter it under Join a League.
                     </p>
                   )}
@@ -350,6 +364,10 @@ export function OnlineLobby() {
       </Panel>
 
       <Footer>
+        {/* the lobby loads once; "waiting on you" went stale while it sat open */}
+        <button type="button" className="btnlink" disabled={busy} onClick={() => void attempt(refresh)}>
+          Refresh
+        </button>
         <button type="button" className="btnlink" onClick={() => nav("/")}>
           Back to your dynasty
         </button>
@@ -358,7 +376,6 @@ export function OnlineLobby() {
   );
 }
 
-/** "2d 4h", "6h", "41m" — a deadline days away needs no minutes. */
 type Attempt = (run: () => Promise<void>) => Promise<void>;
 
 function SignIn({
@@ -768,8 +785,8 @@ function CreateLeague({
         {showSettings && (
           <div style={{ marginTop: 2 }}>
             <p style={{ margin: "0 0 4px", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
-              These are fixed once the league is created — other GMs join on the strength of them,
-              so there is no changing them afterwards.
+              You can still change these in League settings until the league starts; once it
+              kicks off they&rsquo;re fixed for everyone.
             </p>
 
             <OnlineSetting
@@ -792,7 +809,7 @@ function CreateLeague({
             >
               <select
                 value={draftType}
-                disabled={!fantasyDraft}
+                disabled={!(humansOnly || fantasyDraft)}
                 onChange={(e) => setDraftType(e.target.value as "snake" | "linear")}
               >
                 <option value="snake">Snake</option>
@@ -806,7 +823,7 @@ function CreateLeague({
             >
               <select
                 value={draftOrder}
-                disabled={!fantasyDraft}
+                disabled={!(humansOnly || fantasyDraft)}
                 onChange={(e) => setDraftOrder(e.target.value as "randomized" | "inOrder")}
               >
                 <option value="randomized">Randomized</option>
@@ -820,7 +837,7 @@ function CreateLeague({
             >
               <select
                 value={String(faRounds)}
-                disabled={!fantasyDraft}
+                disabled={!(humansOnly || fantasyDraft)}
                 onChange={(e) => setFaRounds(Number(e.target.value))}
               >
                 {[5, 8, 10, 12, 15, 20, 25, 30].map((n) => (
@@ -837,7 +854,7 @@ function CreateLeague({
             >
               <select
                 value={simAfter}
-                disabled={!fantasyDraft}
+                disabled={!(humansOnly || fantasyDraft)}
                 onChange={(e) => setSimAfter(e.target.value)}
               >
                 {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n <= faRounds).map((n) => (
@@ -894,7 +911,10 @@ function CreateLeague({
           <strong>League created.</strong> Send the other GMs this invite code:{" "}
           <span className="oswald" style={{ fontSize: 16, letterSpacing: "0.08em" }}>
             {invite}
-          </span>
+          </span>{" "}
+          <button type="button" className="btnlink sm" onClick={() => void navigator.clipboard?.writeText(invite)}>
+            Copy
+          </button>
           . It stays on the league under <em>Your Leagues</em>, so you can come back for it —
           and that is where you pick your own team.
         </div>

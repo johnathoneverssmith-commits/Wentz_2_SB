@@ -63,6 +63,8 @@ export interface LeagueActions {
   respondToTrade: (tradeId: string, accept: boolean) => Promise<ActionResult>;
   makeDraftPick: (selectedId: string) => Promise<ActionResult>;
   setDepthOrder: (position: Position, playerIds: string[]) => Promise<ActionResult>;
+  /** Several positions' depth orders, fetching the league once at the end (online). */
+  setDepthOrders: (orders: { position: Position; playerIds: string[] }[]) => Promise<ActionResult>;
   releasePlayer: (playerId: string) => Promise<ActionResult>;
   restructure: (playerId: string) => Promise<ActionResult>;
   extend: (
@@ -216,6 +218,11 @@ export function useLeagueActions(): LeagueActions {
           if (code) store.setDepthOrder(code, position, playerIds);
           return { ok: true };
         },
+        setDepthOrders: async (orders) => {
+          const code = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
+          if (code) for (const o of orders) store.setDepthOrder(code, o.position, o.playerIds);
+          return { ok: true };
+        },
         releasePlayer: async (playerId) => {
           store.releasePlayer(playerId);
           return { ok: true };
@@ -303,6 +310,13 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.setDepthOrder(s.leagueId, position, playerIds))).then(
           after,
         ),
+      setDepthOrders: (orders) =>
+        attempt(() =>
+          send(async (s) => {
+            for (const o of orders) await s.client.setDepthOrder(s.leagueId, o.position, o.playerIds);
+            return null;
+          }),
+        ).then(after),
       releasePlayer: (playerId) =>
         attempt(() => send((s) => s.client.releasePlayer(s.leagueId, playerId, s.version))).then(
           after,

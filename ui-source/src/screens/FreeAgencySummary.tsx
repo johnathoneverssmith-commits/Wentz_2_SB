@@ -289,7 +289,10 @@ export function FreeAgencySummary() {
                   <p className="lobby-sub">
                     {millions(p.contract?.cap_hit_by_year[0] ?? 0)}/yr ·{" "}
                     {p.contract?.years_remaining ?? 0}y left
-                    {can.ok ? ` · release costs ${millions(releasePenalty(p))}` : ` · ${can.reason}`}
+                    {/* both halves: what it frees, and the dead money it leaves */}
+                    {can.ok
+                      ? ` · releasing frees ${millions(Math.round(((p.contract?.cap_hit_by_year[0] ?? 0) - releasePenalty(p)) * 10) / 10)} (${millions(releasePenalty(p))} dead)`
+                      : ` · ${can.reason}`}
                   </p>
                 </div>
                 <div className="lobby-actions">
@@ -298,7 +301,10 @@ export function FreeAgencySummary() {
                     type="button"
                     className="btn-danger"
                     disabled={!can.ok || busy}
-                    onClick={() => release(p.id)}
+                    onClick={() => {
+                      if (!confirm(`Release ${p.name}? It leaves ${millions(releasePenalty(p))} of dead money and can't be undone.`)) return;
+                      release(p.id);
+                    }}
                   >
                     Release
                   </button>
