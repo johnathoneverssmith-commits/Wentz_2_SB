@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { onlineSession, onOnlineChange, recentNews } from "@/state/online";
+import { STAGE_LABEL } from "@/state/stageMachine";
 
 /** A GM moving between their own screens: true, and noise to everyone else. */
 const HIDDEN_KINDS = new Set(["step"]);
@@ -13,6 +14,17 @@ function ago(at: string): string {
   if (min < 60) return `${min}m ago`;
   const h = Math.floor(min / 60);
   return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+}
+
+/**
+ * Events written before the server named its stages still say "moved on to
+ * trainingCamp" — they're stored, so tidy them on the way out.
+ */
+function readable(summary: string): string {
+  return summary.replace(/moved on to ([a-z][A-Za-z]+)(?= week| Week|\.|$)/, (whole, key: string) => {
+    const label = (STAGE_LABEL as Record<string, string>)[key];
+    return label ? `moved on to ${label}` : whole;
+  });
 }
 
 /**
@@ -48,7 +60,7 @@ export function LeagueWire() {
       <ul>
         {items.map((e) => (
           <li key={e.id}>
-            {e.summary}
+            {readable(e.summary)}
             <span className="when">{ago(e.at)}</span>
           </li>
         ))}
