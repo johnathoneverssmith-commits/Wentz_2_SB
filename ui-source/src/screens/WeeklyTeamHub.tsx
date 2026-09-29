@@ -585,7 +585,7 @@ function RevealControls() {
       <div className="readiness-top">
         <p>{phase === "PRE" ? "Preseason" : "Regular season"}</p>
         <span aria-live="polite">
-          Watched through Week {seen} of {lastWeek}
+          {seen > 0 ? `Watched through Week ${seen} of ${lastWeek}` : `Nothing watched yet · ${lastWeek} weeks in this block`}
         </span>
       </div>
       <p className="readiness-held">
