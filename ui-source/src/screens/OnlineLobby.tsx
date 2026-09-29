@@ -195,10 +195,16 @@ export function OnlineLobby() {
             and trying again will fix it.
           </div>
           <p style={{ fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.6 }}>
-            If it keeps failing, the server is genuinely down. Running your own instead: create a
-            Postgres database, point <code>DATABASE_URL</code> at it, then{" "}
-            <code>npm run online:migrate</code> once and <code>npm run online</code>. Your
-            single-player dynasty is untouched either way.
+            If it keeps failing, the server is down — try again later. Your single-player dynasty
+            is untouched either way.
+            {/* setup instructions are for whoever runs the server, not for players */}
+            {import.meta.env.DEV && (
+              <>
+                {" "}
+                Running your own: create a Postgres database, point <code>DATABASE_URL</code> at it,
+                then <code>npm run online:migrate</code> once and <code>npm run online</code>.
+              </>
+            )}
           </p>
         </div>
         <Footer>

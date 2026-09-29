@@ -151,7 +151,7 @@ export function GameDay() {
               ? online
                 ? // online the broadcast isn't stored; it is rebuilt when asked for
                   "The play-by-play is a click away — Watch play-by-play below."
-                : "The full play-by-play gamecast needs the engine adapter running (npm run server) — showing the final score only."
+                : "There's no play-by-play for this game — just the final score."
               : isPlayoff
                 ? hadBye
                   ? "Your team had the bye this round and advances automatically."

@@ -773,10 +773,6 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
         </section>
       </div>
 
-      <p className="gc-foot">
-        Ball position, drive arrows, attribution and injuries all come from the engine's opt-in per-play trace —
-        nothing here perturbs the sim.
-      </p>
     </div>
   );
 }
