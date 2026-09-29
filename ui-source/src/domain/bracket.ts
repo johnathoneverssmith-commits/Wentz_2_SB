@@ -45,5 +45,7 @@ export function bracketRounds(b: Pick<BracketState, "rounds">): PlayoffRound[] {
 /** What a round is called in this bracket. A single bracket's `CONF` is its semifinal. */
 export function roundLabelFor(b: Pick<BracketState, "format"> | null | undefined, round: PlayoffRound): string {
   if (b?.format === "single" && round === "CONF") return "Semifinal";
+  // a humans-only league's championship isn't the Super Bowl
+  if (b?.format === "single" && round === "SB") return "Final";
   return ROUND_LABEL[round];
 }
