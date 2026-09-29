@@ -485,6 +485,10 @@ export class OnlineLeagueClient {
   /** Commissioner only: the league leaves every lobby. */
   archiveLeague = (leagueId: string) => this.call<{ ok: true }>(`/leagues/${leagueId}/admin/archive`, {});
 
+  /** Commissioner only: hand the role to the GM holding `teamCode`. */
+  transferCommissioner = (leagueId: string, teamCode: string) =>
+    this.call<{ ok: true }>(`/leagues/${leagueId}/admin/commissioner`, { teamCode });
+
   /** Commissioner only: the CPU takes this GM's team and the seat reopens. */
   vacateSeat = (leagueId: string, teamCode: string) =>
     this.call<{ ok: true }>(`/leagues/${leagueId}/admin/vacate`, { teamCode });

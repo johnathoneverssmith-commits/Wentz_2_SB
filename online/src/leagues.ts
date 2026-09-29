@@ -373,6 +373,44 @@ export async function vacateSeat(
 }
 
 /**
+ * The commissioner hands the role to another GM in the league.
+ *
+ * There was no way to: a commissioner who stopped playing left a league that
+ * nobody could force past a stuck check-in or reopen a seat in, and — since
+ * the commissioner can't leave — nobody could ever replace them either.
+ */
+export async function transferCommissioner(
+  leagueId: string,
+  commissionerId: string,
+  teamCode: string,
+): Promise<{ ok: true }> {
+  await withLeague(leagueId, async ({ state }, client) => {
+    const current = await client.query<{ commissioner: string }>(
+      `SELECT commissioner FROM leagues WHERE id = $1 FOR UPDATE`,
+      [leagueId],
+    );
+    if (current.rows[0]?.commissioner !== commissionerId) {
+      throw new ActionError("Only the commissioner can do that.", 403);
+    }
+    const seat = await client.query<{ user_id: string | null }>(
+      `SELECT user_id FROM franchises WHERE league_id = $1 AND team_code = $2`,
+      [leagueId, teamCode],
+    );
+    const next = seat.rows[0]?.user_id;
+    if (!next) throw new ActionError("Nobody holds that team.");
+    if (next === commissionerId) throw new ActionError("You're already the commissioner.");
+    await client.query(`UPDATE leagues SET commissioner = $2 WHERE id = $1`, [leagueId, next]);
+    const name = state.gms.find((g) => g.isHuman && g.teamCode === teamCode)?.name ?? teamCode;
+    return {
+      result: null,
+      state,
+      events: [{ teamCode, kind: "league.commissioner", summary: `${name} is now the commissioner.` }],
+    };
+  });
+  return { ok: true };
+}
+
+/**
  * A GM leaving: their seat opens exactly as if the commissioner had opened
  * it. There was no way out of a league short of never opening it again, and
  * the league then waited a full phase clock on them at every stage.
@@ -387,7 +425,9 @@ export async function leaveLeague(leagueId: string, userId: string): Promise<{ o
   if (!row || row.team_code.startsWith("unclaimed:")) throw new ActionError("You don't have a team in this league.");
   // the league would be left with nobody able to run it
   if (row.commissioner === userId) {
-    throw new ActionError("You're the commissioner — archive the league instead, or stay on.");
+    throw new ActionError(
+      "You're the commissioner — hand the role to another GM first (manage → make commissioner, beside their name at any check-in), or archive the league.",
+    );
   }
   return vacateSeat(leagueId, userId, row.team_code, true);
 }

@@ -66,6 +66,7 @@ import {
   archiveLeague,
   leaveLeague,
   openTeams,
+  transferCommissioner,
   vacateSeat,
 } from "./leagues.js";
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
@@ -675,6 +676,12 @@ post("/leagues/:id/admin/reset-code", async (ctx) => {
   const gm = rows.rows[0];
   if (!gm) throw new ActionError("Nobody holds that team.");
   return { name: gm.name, code: await issueResetCode(gm.user_id, user.id) };
+});
+
+// The commissioner hands the role on (they can't leave while they hold it).
+post("/leagues/:id/admin/commissioner", async (ctx) => {
+  const user = requireUser(ctx);
+  return transferCommissioner(ctx.params.id!, user.id, field(ctx, "teamCode", "string"));
 });
 
 // A GM who quit: the CPU takes the team and the seat opens for a newcomer.

@@ -210,6 +210,30 @@ export function ReadinessGate({
                 reset code
               </button>
             )}
+            {online && isCommissioner && g.id !== viewerGmId && managing === g.id && (
+              <button
+                type="button"
+                className="btnlink"
+                style={{ marginLeft: 6, fontSize: 11 }}
+                disabled={busy}
+                onClick={() => {
+                  const session = onlineSession();
+                  if (!session) return;
+                  if (!confirm(`Make ${g.name} the commissioner? You'll lose the commissioner's controls.`)) return;
+                  setBusy(true);
+                  void session.client
+                    .transferCommissioner(session.leagueId, g.teamCode)
+                    .then(() => actions.refresh())
+                    .then(() => setManaging(null))
+                    .catch((err: unknown) =>
+                      setReadyError(err instanceof Error ? err.message : "Couldn't hand over the role."),
+                    )
+                    .finally(() => setBusy(false));
+                }}
+              >
+                make commissioner
+              </button>
+            )}
           </div>
         ))}
         {Array.from({ length: seatsOpen }, (_, i) => (
