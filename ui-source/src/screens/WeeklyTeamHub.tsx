@@ -184,7 +184,7 @@ export function WeeklyTeamHub() {
                 : blockDone
                   ? isPreseason
                     ? "Preseason complete"
-                    : `Through week ${watched}`
+                    : `Through Week ${watched}`
                   : isPreseason
                     ? `Preseason Wk ${headerWeek}`
                     : `Week ${headerWeek}`}
@@ -228,7 +228,9 @@ export function WeeklyTeamHub() {
               </>
             ),
           },
-          { label: "League rank", value: ordinal(team.ratings.overallRank) },
+          // roster strength, not the standings — "League rank" beside the
+          // record read like a place in the table
+          { label: "Roster rank", value: ordinal(team.ratings.overallRank) },
           {
             label: isPreseason ? "Preseason" : "Record",
             // preseason games never count in the standings, so the team's
@@ -308,7 +310,7 @@ export function WeeklyTeamHub() {
                 <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{record(team)}{iHost ? " · home" : " · away"}</p>
               </div>
               <div style={{ textAlign: "center", fontSize: 12, color: "var(--ink-faint)" }}>
-                <div>Sun 1:00</div>
+                <div>{isPreseason ? `Preseason Wk ${headerWeek}` : `Week ${headerWeek}`}</div>
                 <div className="oswald" style={{ fontSize: 15, marginTop: 4 }}>
                   {winProb}% – {100 - winProb}%
                 </div>
@@ -513,6 +515,8 @@ function RevealControls() {
   const actions = useLeagueActions();
   const nav = useNavigate();
   const [busy, setBusy] = useState(false);
+  // a refused or dropped reveal used to leave the button looking like it did nothing
+  const [error, setError] = useState<string | null>(null);
 
   const block = currentBlock(s);
   if (!block) return null;
@@ -522,6 +526,7 @@ function RevealControls() {
 
   const reveal = (through: number): void => {
     setBusy(true);
+    setError(null);
     // the weeks this press uncovers, which is what the results screen shows:
     // one tab for a single week, one per week for "simulate the rest"
     const from = seen + 1;
@@ -529,6 +534,7 @@ function RevealControls() {
       .revealThrough(through)
       .then((res) => {
         if (res.ok) nav(`/results/${phase}/${from}/${through}`);
+        else setError(res.reason ?? "Couldn't reveal that. Try again.");
       })
       .finally(() => setBusy(false));
   };
@@ -546,10 +552,15 @@ function RevealControls() {
           disabled={busy}
           onClick={() => {
             setBusy(true);
+            setError(null);
             const before = useStore.getState().stage;
             void actions
               .readyUp(true)
-              .then(() => {
+              .then((res) => {
+                if (!res.ok) {
+                  setError(res.reason ?? "Couldn't reach the league. Try again.");
+                  return;
+                }
                 // the last GM to commit moves the league: take them there
                 // rather than leaving them on a hub for a finished stage
                 const next = useStore.getState().stage;
@@ -560,6 +571,11 @@ function RevealControls() {
         >
           {busy ? "Simulating…" : block.advanceLabel}
         </button>
+        {error && (
+          <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+            {error}
+          </p>
+        )}
       </div>
     );
   }
@@ -569,7 +585,7 @@ function RevealControls() {
       <div className="readiness-top">
         <p>{phase === "PRE" ? "Preseason" : "Regular season"}</p>
         <span aria-live="polite">
-          Watched through week {seen} of {lastWeek}
+          Watched through Week {seen} of {lastWeek}
         </span>
       </div>
       <p className="readiness-held">
@@ -593,6 +609,11 @@ function RevealControls() {
           {block.watchAllLabel}
         </button>
       </div>
+      {error && (
+        <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+          {error}
+        </p>
+      )}
     </div>
   );
 }

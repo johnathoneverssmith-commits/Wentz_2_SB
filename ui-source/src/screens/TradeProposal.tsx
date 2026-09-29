@@ -41,6 +41,7 @@ export function TradeProposal() {
   // "could not be accepted" after the first had already accepted it
   const [responding, setResponding] = useState<string | null>(null);
   const [proposing, setProposing] = useState(false);
+  const [onlineResult, setOnlineResult] = useState<{ ok: boolean; text: string } | null>(null);
   // the guard itself: state lags a render, so two quick clicks both passed it
   const inFlight = useRef(false);
   const respond = (id: string, accept: boolean): void => {
@@ -146,6 +147,16 @@ export function TradeProposal() {
 
   const trade = tradeId ? s.trades.find((t) => t.id === tradeId) : undefined;
   const offers = s.trades.filter((t) => t.status === "offered" && t.toTeam === myCode);
+  // yours, still waiting on the other GM: the form clears when you send one,
+  // and nothing on the screen said it was out there
+  const outgoing = s.trades.filter((t) => t.status === "offered" && t.fromTeam === myCode);
+  const describe = (assets: (typeof s.trades)[number]["fromAssets"]): string =>
+    assets
+      .map((a) =>
+        a.kind === "pick" && a.pick ? pickLabel(a.pick) : (s.players[a.playerId ?? ""]?.name ?? "a player"),
+      )
+      .join(" + ") || "nothing";
+  const gmName = (team: string) => s.gms.find((g) => g.isHuman && g.teamCode === team)?.name;
 
   // the bars have to price a pick too, or a first-rounder reads as worth nothing
   const assetVal = (id: string): number => {
@@ -212,22 +223,16 @@ export function TradeProposal() {
             Offers on the table ({offers.length})
           </p>
           {offers.map((o) => {
-            const asked = o.toAssets
-              .map((a) => s.players[a.playerId ?? ""]?.name)
-              .filter(Boolean)
-              .join(", ");
-            const back = o.fromAssets
-              .map((a) =>
-                a.kind === "pick" && a.pick
-                  ? pickLabel(a.pick)
-                  : (s.players[a.playerId ?? ""]?.name ?? "a player"),
-              )
-              .join(" + ");
+            // picks too: an ask for a pick read "want" and then nothing
+            const asked = describe(o.toAssets);
+            const back = describe(o.fromAssets);
+            const from = gmName(o.fromTeam);
             return (
               <div key={o.id} className="neg-row" style={{ alignItems: "flex-start", gap: 14 }}>
                 <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
-                    {TEAMS_BY_CODE[o.fromTeam]?.label ?? o.fromTeam} want {asked}
+                    {from ? `${from} (${TEAMS_BY_CODE[o.fromTeam]?.label ?? o.fromTeam})` : (TEAMS_BY_CODE[o.fromTeam]?.label ?? o.fromTeam)}{" "}
+                    {from ? "wants" : "want"} {asked}
                   </p>
                   <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
                     They're offering {back}.
@@ -245,6 +250,23 @@ export function TradeProposal() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {outgoing.length > 0 && (
+        <div style={{ padding: "14px 26px 4px", borderBottom: "1px solid var(--line)" }}>
+          <p className="sectionlabel" style={{ marginTop: 0 }}>
+            Your offers awaiting a reply ({outgoing.length})
+          </p>
+          {outgoing.map((o) => (
+            <div key={o.id} className="neg-row">
+              <span style={{ fontSize: 12.5 }}>
+                To {gmName(o.toTeam) ?? TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam}: {describe(o.fromAssets)} for{" "}
+                {describe(o.toAssets)}
+              </span>
+              <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>Waiting</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -388,10 +410,18 @@ export function TradeProposal() {
           </div>
         )}
 
+        {actions.online && onlineResult && (
+          <p
+            style={{ marginTop: 12, fontSize: 12.5, fontWeight: 600, color: onlineResult.ok ? "var(--good)" : "var(--bad)" }}
+          >
+            {onlineResult.text}
+          </p>
+        )}
         {actions.online && !trade && (
           <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
-            Proposing sends the offer to the other GM. They'll see it next time they open the
-            league — there's no answer to wait for here.
+            {partnerIsHuman
+              ? "Proposing sends the offer to the other GM. They'll see it next time they open the league — there's no answer to wait for here."
+              : "A CPU team answers on the spot."}
           </p>
         )}
       </div>
@@ -422,6 +452,18 @@ export function TradeProposal() {
                     if (res.ok) {
                       setGive([]);
                       setGet([]);
+                      // a CPU team answers on the spot — say what it said
+                      const sent = [...useStore.getState().trades]
+                        .reverse()
+                        .find((t) => t.fromTeam === myCode && t.toTeam === partner);
+                      const who = TEAMS_BY_CODE[partner]!.label;
+                      setOnlineResult(
+                        sent?.status === "accepted"
+                          ? { ok: true, text: `${who} accepted. The players have moved.` }
+                          : sent?.status === "rejected"
+                            ? { ok: false, text: `${who} turned it down.` }
+                            : { ok: true, text: `Sent to ${gmName(partner) ?? who}. They'll answer from their own screen.` },
+                      );
                     } else {
                       setOnlineError(res.reason ?? "That trade was refused.");
                     }

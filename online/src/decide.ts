@@ -194,6 +194,8 @@ export function decideProposeTrade(
 ): Decision {
   if (toTeam === actor.teamCode) throw new ActionError("You can't trade with yourself.");
   if (!state.teams[toTeam]) throw new ActionError("No such team.", 404);
+  // like the depth chart: the block's games were played with these rosters
+  refuseDuringBlock(state, "Trading");
 
   const proposal = {
     id: tradeId,
@@ -226,6 +228,32 @@ export function decideProposeTrade(
 
   const legal = checkTrade(state, proposal);
   if (!legal.ok) throw new ActionError(legal.reason ?? "That trade isn't allowed.");
+
+  // A CPU team answers on the spot, the way it does in the single-player
+  // game. Online nothing answered for it: an offer to a CPU team sat as
+  // "offered" for ever, and the screen had told the GM to wait for "the
+  // other GM", who didn't exist.
+  const partnerIsHuman = state.gms.some((g) => g.isHuman && g.teamCode === toTeam);
+  if (!partnerIsHuman) {
+    const read = tradeJudge.evaluateTrade(state, actor.teamCode, toTeam, proposal.fromAssets, proposal.toAssets);
+    const answered = { ...proposal, aiValueDelta: read.valueDelta, aiAcceptLikelihood: read.acceptLikelihood };
+    const accepted = read.acceptLikelihood >= 0.5;
+    state.trades.push({ ...answered, status: accepted ? "accepted" : "rejected" });
+    if (accepted) applyTrade(state, state.trades[state.trades.length - 1]!);
+    recomputeTeamRatings(state);
+    return {
+      events: [
+        {
+          teamCode: actor.teamCode,
+          kind: accepted ? "trade.accepted" : "trade.rejected",
+          summary: accepted
+            ? `${city(actor.teamCode)} and ${city(toTeam)} made a trade.`
+            : `${city(toTeam)} turned down a trade from ${city(actor.teamCode)}.`,
+          detail: { tradeId },
+        },
+      ],
+    };
+  }
 
   state.trades.push(proposal);
   return {
@@ -265,6 +293,8 @@ export function decideRespondToTrade(
       ],
     };
   }
+  // declining is always allowed; accepting moves players mid-block
+  refuseDuringBlock(state, "Completing a trade");
 
   // Between the offer and this moment either side may have signed someone,
   // gone over the cap, or traded the very player being discussed.
