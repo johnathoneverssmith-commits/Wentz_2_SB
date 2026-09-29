@@ -280,6 +280,7 @@ export function FreeAgencyBoardTurns() {
                 {isOffering && (
                   <OfferDialog
                     player={p}
+                    lead={lead && lead.teamCode !== code ? lead : null}
                     capRoom={capRoom}
                     busy={busy}
                     onCancel={() => setOffering(null)}
@@ -348,12 +349,15 @@ export function FreeAgencyBoardTurns() {
  */
 function OfferDialog({
   player,
+  lead,
   capRoom,
   busy,
   onCancel,
   onSubmit,
 }: {
   player: Player;
+  /** Another team's offer currently in front, if any — the number to beat. */
+  lead: { teamCode: string; salary: number; years: number } | null;
   /** This team's cap room now, before this offer. */
   capRoom: number;
   busy: boolean;
@@ -383,6 +387,13 @@ function OfferDialog({
         {PRIMARY_VALUE_LABEL[primaryValueOf(player)]}. An offer below the asking price
         can&rsquo;t be accepted, however good the fit.
       </p>
+      {lead && (
+        <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink)" }}>
+          <strong>{TEAMS_BY_CODE[lead.teamCode]?.label ?? lead.teamCode}</strong> lead at{" "}
+          {millions(lead.salary)}/yr &times; {lead.years}. Offers are compared on more than salary, but that is
+          the one to beat.
+        </p>
+      )}
       <div className="lobby-form inline">
         <label>
           <span>Salary ($M/yr)</span>
