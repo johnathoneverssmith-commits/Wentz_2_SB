@@ -149,4 +149,22 @@ describe("a league you just created", () => {
 
     await pool.query(`DELETE FROM users WHERE id = $1`, [other]).catch(() => {});
   });
+
+  // the rules pass the same check a commissioner's later change does; they
+  // used to be spread into the league as sent
+  maybe()("refuses rules the form can't produce, and an endless name", async () => {
+    await expect(
+      createOnlineLeague(userId, { name: "Bad Rules", humanSlots: 4, config: { fantasyDraftRounds: 7 } as never }),
+    ).rejects.toThrow(/can't be set/);
+    await expect(createOnlineLeague(userId, { name: "x".repeat(61), humanSlots: 4 })).rejects.toThrow(/60/);
+    const { leagueId } = await createOnlineLeague(userId, {
+      name: "Good Rules",
+      humanSlots: 4,
+      config: { draftType: "linear", gameDayDeadlineHours: 24 } as never,
+      phaseTimeoutHours: 0,
+    });
+    madeLeagues.push(leagueId);
+    const row = (await pool.query(`SELECT phase_timeout_hours FROM leagues WHERE id = $1`, [leagueId])).rows[0];
+    expect(row.phase_timeout_hours, "a zero-hour clock is clamped").toBe(1);
+  });
 });

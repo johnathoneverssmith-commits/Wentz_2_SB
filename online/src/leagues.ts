@@ -9,7 +9,8 @@
  */
 import { randomUUID } from "node:crypto";
 
-import type { LeagueConfig, LeagueState } from "@/domain";
+import type { DeadlineChoice, LeagueConfig, LeagueState } from "@/domain";
+import { cleanConfigPatch } from "@/state/rules.ts";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 
 import { ActionError, pool, withLeague } from "./db.js";
@@ -37,11 +38,32 @@ export async function createOnlineLeague(
 ): Promise<{ leagueId: string; inviteCode: string }> {
   const name = input.name.trim();
   if (name.length < 2) throw new ActionError("Give the league a name.");
+  if (name.length > 60) throw new ActionError("Keep the league's name to 60 characters.");
   const humanSlots = Math.min(32, Math.max(1, input.humanSlots ?? 8));
+  // the clocks as the form offers them, not whatever number arrives: a zero
+  // hour phase autopiloted every GM on the first sweep
+  const phaseHours = Math.min(168, Math.max(1, Math.round(input.phaseTimeoutHours ?? 48)));
+  const pickHours = Math.min(48, Math.max(1, Math.round(input.pickTimeoutHours ?? 12)));
+
+  // The rules pass the same check the commissioner's later changes do; they
+  // used to be spread in as sent, any key and any value.
+  const { gameDayDeadlineHours, offseasonStageDeadlineHours, ...rules } = (input.config ?? {}) as Partial<LeagueConfig>;
+  const clean = cleanConfigPatch({ stage: "setup", config: DEFAULT_CONFIG } as LeagueState, rules as Record<string, unknown>);
+  if (!clean.ok) throw new ActionError(clean.reason);
+  const deadline = (v: unknown): DeadlineChoice | undefined =>
+    ([2, 6, 12, 24, 48] as const).find((c) => c === v);
 
   // The same generator the single-player game uses, so an online league and a
   // local one are the same object — that's what lets the rules be shared.
-  const config: LeagueConfig = { ...DEFAULT_CONFIG, ...input.config, humanGmCount: humanSlots };
+  const config: LeagueConfig = {
+    ...DEFAULT_CONFIG,
+    ...clean.patch,
+    ...(deadline(gameDayDeadlineHours) ? { gameDayDeadlineHours: deadline(gameDayDeadlineHours)! } : {}),
+    ...(deadline(offseasonStageDeadlineHours)
+      ? { offseasonStageDeadlineHours: deadline(offseasonStageDeadlineHours)! }
+      : {}),
+    humanGmCount: humanSlots,
+  };
   const state: LeagueState = createLeague(Date.now() % 100_000, config);
 
   // Nobody has claimed anything yet, so every GM slot starts unowned. The
@@ -73,8 +95,8 @@ export async function createOnlineLeague(
         name,
         commissionerId,
         code,
-        input.phaseTimeoutHours ?? 48,
-        input.pickTimeoutHours ?? 12,
+        phaseHours,
+        pickHours,
       ],
     );
     await client.query(
