@@ -469,9 +469,28 @@ export function OnlineLobby() {
         <button type="button" className="btnlink" disabled={busy} onClick={() => void attempt(refresh)}>
           Refresh
         </button>
-        <button type="button" className="btnlink" onClick={() => nav("/")}>
-          Back to your dynasty
-        </button>
+        {isOnline() ? (
+          <>
+            {/* the only way back to a solo dynasty used to be signing out */}
+            <button
+              type="button"
+              className="btnlink"
+              onClick={() => {
+                goLocal();
+                nav("/");
+              }}
+            >
+              Play single-player
+            </button>
+            <button type="button" className="btnlink" onClick={() => nav("/")}>
+              Back to {onlineSession()?.leagueName ?? "your league"}
+            </button>
+          </>
+        ) : (
+          <button type="button" className="btnlink" onClick={() => nav("/")}>
+            Back to your dynasty
+          </button>
+        )}
       </Footer>
     </Card>
   );

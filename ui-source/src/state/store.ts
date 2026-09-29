@@ -9,6 +9,7 @@
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
 import { create } from "zustand";
+import { lastLeagueId, onOnlineChange } from "./online.ts";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
@@ -242,6 +243,13 @@ export function onSaveStateChange(fn: (broken: boolean) => void): () => void {
 }
 
 const SAVE_KEY = "nfl-sim-ui.league";
+/**
+ * An online league's local copy lives apart from the solo dynasty. They
+ * shared one key, so opening an online league overwrote the single-player
+ * save on this device — gone, with no way back to it.
+ */
+const ONLINE_SAVE_KEY = "nfl-sim-ui.online-league";
+const slotFor = (k: string): string => (k === SAVE_KEY && lastLeagueId() !== null ? ONLINE_SAVE_KEY : k);
 /** Where a save that failed to parse is copied before anything can overwrite it. */
 const CORRUPT_BACKUP_KEY = `${SAVE_KEY}.corrupted-backup`;
 
@@ -1149,11 +1157,11 @@ export const useStore = create<Store>()(
       // outgrows its storage just quietly stops saving and the player finds
       // out when they reopen the tab. This surfaces it instead.
       storage: createJSONStorage(() => ({
-        getItem: (k) => window.localStorage.getItem(k),
-        removeItem: (k) => window.localStorage.removeItem(k),
+        getItem: (k) => window.localStorage.getItem(slotFor(k)),
+        removeItem: (k) => window.localStorage.removeItem(slotFor(k)),
         setItem: (k, v) => {
           try {
-            window.localStorage.setItem(k, v);
+            window.localStorage.setItem(slotFor(k), v);
             if (saveBroken) {
               saveBroken = false;
               notifySaveState();
@@ -1180,3 +1188,16 @@ export const useStore = create<Store>()(
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   (window as unknown as { __store: typeof useStore }).__store = useStore;
 }
+
+// Leaving online play (signing out, leaving, "switch to single player"):
+// put the solo dynasty back. Without this the online league stayed in the
+// store and was saved over the solo slot on the next change.
+let remembered = lastLeagueId() !== null;
+onOnlineChange(() => {
+  const now = lastLeagueId() !== null;
+  if (remembered && !now) {
+    if (window.localStorage.getItem(SAVE_KEY) != null) void useStore.persist.rehydrate();
+    else void useStore.getState().newLeague();
+  }
+  remembered = now;
+});

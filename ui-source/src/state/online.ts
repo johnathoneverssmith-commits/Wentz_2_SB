@@ -112,11 +112,11 @@ export function takeRemoval(): Removal | null {
   return out;
 }
 
-export function goLocal(): void {
+export function goLocal(opts: { keepLeague?: boolean } = {}): void {
   session?.stopWatching?.();
   session = null;
   news.length = 0;
-  forgetLeague();
+  if (!opts.keepLeague) forgetLeague();
   announce();
 }
 
@@ -355,9 +355,7 @@ export async function pull(opts: { ifChanged?: boolean } = {}): Promise<LeagueSt
       // signed out (the session expired, or the password changed elsewhere):
       // keep the league remembered so signing back in picks it up again
       removedFrom = { league: s.leagueName, why: "signedOut" };
-      const id = s.leagueId;
-      goLocal();
-      rememberLeague(id);
+      goLocal({ keepLeague: true });
     }
     throw err;
   }
