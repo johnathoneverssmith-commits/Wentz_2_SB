@@ -261,6 +261,20 @@ export function TradeProposal() {
                   <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
                     They're offering {back}.
                   </p>
+                  {(() => {
+                    // the same read the deadline room gives: positive favours you
+                    const ev = sim.evaluateTrade(s, o.fromTeam, o.toTeam, o.fromAssets, o.toAssets);
+                    const forYou = Math.round(-ev.valueDelta * 10) / 10;
+                    return (
+                      <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+                        By the league&rsquo;s value chart:{" "}
+                        <strong style={{ color: forYou >= 0 ? "var(--good)" : "var(--bad)" }}>
+                          {forYou >= 0 ? "+" : ""}
+                          {forYou} for you
+                        </strong>
+                      </p>
+                    );
+                  })()}
                   {o.blockedReason && <p className="form-error">{o.blockedReason}</p>}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
