@@ -239,7 +239,8 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
     items.push({
       kind: "ready",
       title: "The league is waiting on you to move on.",
-      detail: "Everyone else has to wait, or the clock runs out and your staff decides.",
+      // a check-in has no clock: the league waits (the commissioner can force it)
+      detail: "Everyone else is waiting on you to check in.",
       href: "/",
       urgency: "soon",
     });

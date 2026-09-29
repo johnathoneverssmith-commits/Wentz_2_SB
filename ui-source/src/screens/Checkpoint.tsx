@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardHeader } from "@/components/primitives";
-import { isOnline, onlineSession, phaseMsLeft } from "@/state/online";
-import { timeLeft } from "@/util/format";
+import { isOnline, onlineSession } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -20,8 +19,9 @@ import { useLeagueActions } from "@/state/useLeagueActions";
  * thing a person staring at a spinner actually wants: the stage just
  * finished, and the stage about to start.
  *
- * A league doesn't wait forever: each phase has a clock, and when it runs
- * out the absent GMs' staffs act for them (phases.ts, `autopilotAbsent`).
+ * A check-in waits for every GM — only the turn-based events (drafts, the
+ * market, the deadline) have a clock that plays an absent GM's turn
+ * (phases.ts, `autopilotAbsent`). The commissioner's force is the backstop.
  *
  * Arriving here is a fact about saved state, not about navigation: you are at
  * the checkpoint because the server has you down as ready for a stage that
@@ -121,8 +121,10 @@ export function Checkpoint({
           {waitingNames.length > 0 && (
             <p className="checkpoint-note" style={{ marginTop: 8 }}>
               Waiting on {waitingNames.join(", ")}.
-              {phaseMsLeft() != null &&
-                ` If they don't check in, their staffs act for them in ${timeLeft(phaseMsLeft()!)}.`}
+              {/* check-ins have no clock — the league waits (a note here once
+                  promised a staff would step in; none does) */}
+              {" The league waits for everyone to check in"}
+              {isCommissioner ? " — you can move it on below." : "; your commissioner can move it on."}
             </p>
           )}
 

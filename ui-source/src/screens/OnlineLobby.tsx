@@ -50,6 +50,8 @@ interface LeagueRow {
 
 /** The server hands back the raw stage key; the app has a name for it. */
 const stageName = (stage: string): string => STAGE_LABEL[stage as Stage] ?? stage;
+/** Stages played a turn at a time — the only ones with a running clock. */
+const TURN_STAGES = new Set(["fantasyDraft", "offseasonDraft", "coachingDraft", "freeAgency", "midseasonFreeAgency", "tradeDeadline"]);
 
 export function OnlineLobby() {
   const nav = useNavigate();
@@ -263,7 +265,8 @@ export function OnlineLobby() {
                   </p>
                   <p className="lobby-sub">
                     {displaySeasonFor(l.season, l.stage as Stage)} · {stageName(l.stage)}
-                    {box?.msLeft != null && ` · ${timeLeft(box.msLeft)} left in this phase`}
+                    {/* only a turn has a clock; a check-in waits for everyone */}
+                    {box?.msLeft != null && TURN_STAGES.has(l.stage) && ` · ${timeLeft(box.msLeft)} left on this turn`}
                   </p>
                   {!l.teamCode && (
                     <p className="lobby-todo now">
@@ -698,7 +701,9 @@ function CreateLeague({
 }) {
   const [name, setName] = useState("");
   const [slots, setSlots] = useState(4);
-  const [hours, setHours] = useState(48);
+  // check-ins wait for everyone, so a per-phase clock did nothing: the
+  // control is gone and the server keeps its default
+  const hours = 48;
   const [turnHours, setTurnHours] = useState(12);
   const [invite, setInvite] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -783,16 +788,6 @@ function CreateLeague({
             {(humansOnly ? [2, 3, 4, 5, 6, 7, 8] : [2, 3, 4, 6, 8, 12, 16]).map((n) => (
               <option key={n} value={n}>
                 {n}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Hours per phase</span>
-          <select value={hours} onChange={(e) => setHours(Number(e.target.value))}>
-            {[12, 24, 48, 72, 168].map((n) => (
-              <option key={n} value={n}>
-                {n === 168 ? "A week" : `${n}h`}
               </option>
             ))}
           </select>
