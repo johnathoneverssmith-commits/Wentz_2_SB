@@ -77,6 +77,7 @@ import {
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
 import { applyRelease, checkRelease } from "@/state/reconciliation.ts";
+import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
@@ -198,6 +199,7 @@ export function decideProposeTrade(
   if (!state.teams[toTeam]) throw new ActionError("No such team.", 404);
   // like the depth chart: the block's games were played with these rosters
   refuseDuringBlock(state, "Trading");
+  if (pastTradeDeadline(state)) throw new ActionError(PAST_DEADLINE_MESSAGE);
 
   const proposal = {
     id: tradeId,
@@ -297,6 +299,7 @@ export function decideRespondToTrade(
   }
   // declining is always allowed; accepting moves players mid-block
   refuseDuringBlock(state, "Completing a trade");
+  if (pastTradeDeadline(state)) throw new ActionError(PAST_DEADLINE_MESSAGE);
 
   // Between the offer and this moment either side may have signed someone,
   // gone over the cap, or traded the very player being discussed.

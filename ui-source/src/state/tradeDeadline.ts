@@ -3,6 +3,7 @@ import { MockSimulationService } from "@/sim/MockSimulationService";
 import { cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades";
 
 import { applyTrade } from "./rules";
+import { seasonShape } from "./leagueFormat";
 
 /**
  * The trade deadline, as three rounds of turns rather than an open market.
@@ -408,3 +409,24 @@ export function tradesFor(s: LeagueState, teamCode: string) {
     rejected: d.resolved.filter((o) => o.outcome === "denied" && involvesMe(o)),
   };
 }
+
+/** The stages after this season's deadline and before the offseason. */
+const POST_DEADLINE_STAGES = new Set<string>([
+  "tradeDeadlineSummary",
+  "midseasonFreeAgency",
+  "midseasonFreeAgencySummary",
+  "midseasonDepthChart",
+  "playoffs",
+]);
+
+/**
+ * Whether this season's trade deadline has passed. Trading stayed open
+ * straight through the midseason stages and the playoffs, which made the
+ * deadline a suggestion; it reopens with the offseason.
+ */
+export function pastTradeDeadline(s: Pick<LeagueState, "stage" | "week" | "config" | "teams">): boolean {
+  if (POST_DEADLINE_STAGES.has(s.stage)) return true;
+  return s.stage === "regularSeason" && s.week > seasonShape(s).deadlineWeek;
+}
+
+export const PAST_DEADLINE_MESSAGE = "The trade deadline has passed — trading reopens in the offseason.";

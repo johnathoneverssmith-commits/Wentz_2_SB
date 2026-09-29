@@ -74,6 +74,8 @@ import {
 } from "./trainingCamp.ts";
 import {
   beginTradeDeadline,
+  PAST_DEADLINE_MESSAGE,
+  pastTradeDeadline,
   proposeAtDeadline,
   respondAtDeadline,
   runCpuTurns as runDeadlineTurns,
@@ -1031,6 +1033,10 @@ export const useStore = create<Store>()(
           if (!accept) {
             t.status = "rejected";
             result = { ok: true };
+            return;
+          }
+          if (pastTradeDeadline(s)) {
+            result = { ok: false, reason: PAST_DEADLINE_MESSAGE };
             return;
           }
           const legal = checkTrade(s, t);

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
 import { tradeUnitImpact } from "@/state/unitReport";
 import { useNavigate } from "react-router-dom";
 
@@ -45,6 +46,7 @@ export function TradeProposal() {
   // online the season's weeks are played ahead of time, so rosters are
   // frozen through them — the server refuses a trade; say so before one is built
   const tradingClosed = actions.online && (s.stage === "preseason" || s.stage === "regularSeason");
+  const pastDeadline = pastTradeDeadline(s);
   // the guard itself: state lags a render, so two quick clicks both passed it
   const inFlight = useRef(false);
   const respond = (id: string, accept: boolean): void => {
@@ -248,8 +250,8 @@ export function TradeProposal() {
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                   <button
                     className="btn-primary"
-                    disabled={responding !== null || tradingClosed}
-                    title={tradingClosed ? "Trades complete at the next break in the season" : undefined}
+                    disabled={responding !== null || tradingClosed || pastDeadline}
+                    title={tradingClosed ? "Trades complete at the next break in the season" : pastDeadline ? PAST_DEADLINE_MESSAGE : undefined}
                     onClick={() => respond(o.id, true)}
                   >
                     {responding === o.id ? "Working…" : "Accept"}
@@ -264,6 +266,11 @@ export function TradeProposal() {
         </div>
       )}
 
+      {pastDeadline && !tradingClosed && (
+        <div className="notice" role="status" style={{ margin: "14px 26px 0" }}>
+          {PAST_DEADLINE_MESSAGE} Offers already on the table can still be turned down.
+        </div>
+      )}
       {tradingClosed && (
         <div className="notice" role="status" style={{ margin: "14px 26px 0" }}>
           Trading is closed while this stretch of the season plays out — the games are already
@@ -453,7 +460,7 @@ export function TradeProposal() {
         {!trade ? (
           <button
             className="btn-primary"
-            disabled={(give.length === 0 && get.length === 0) || !legality?.ok || proposing || tradingClosed}
+            disabled={(give.length === 0 && get.length === 0) || !legality?.ok || proposing || tradingClosed || pastDeadline}
             title={legality?.ok === false ? legality.reason : undefined}
             onClick={() => {
               setOnlineError(null);
