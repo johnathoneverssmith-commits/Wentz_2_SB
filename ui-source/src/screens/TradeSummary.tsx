@@ -121,8 +121,11 @@ function TradeList({ offers, empty }: { offers: ResolvedOffer[]; empty: string }
   const s = useStore();
   if (offers.length === 0) return <div className="emptystate">{empty}</div>;
 
-  const name = (a: ResolvedOffer["fromAssets"][number]): string => {
-    if (a.kind === "pick" && a.pick) return tradedPickLabel(a.pick);
+  // under "BAL sends", BAL's own pick is just the pick; someone else's says whose
+  const name = (sender: string) => (a: ResolvedOffer["fromAssets"][number]): string => {
+    if (a.kind === "pick" && a.pick) {
+      return a.pick.originalTeam === sender ? `${a.pick.year + 1} Round ${a.pick.round}` : tradedPickLabel(a.pick);
+    }
     const p = s.players[a.playerId ?? ""];
     return p ? `${p.name} (${p.position} ${p.overall})` : "—";
   };
@@ -156,8 +159,8 @@ function TradeList({ offers, empty }: { offers: ResolvedOffer[]; empty: string }
             </span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Side title={`${TEAMS_BY_CODE[o.fromTeam]!.abbr} sends`} items={o.fromAssets.map(name)} />
-            <Side title={`${TEAMS_BY_CODE[o.toTeam]!.abbr} sends`} items={o.toAssets.map(name)} />
+            <Side title={`${TEAMS_BY_CODE[o.fromTeam]!.abbr} sends`} items={o.fromAssets.map(name(o.fromTeam))} />
+            <Side title={`${TEAMS_BY_CODE[o.toTeam]!.abbr} sends`} items={o.toAssets.map(name(o.toTeam))} />
           </div>
         </div>
       ))}
