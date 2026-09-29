@@ -647,8 +647,10 @@ export function decideDraftPick(state: LeagueState, actor: Actor, selectedId: st
   const draft = state.draft;
   if (!draft) throw new ActionError("There's no draft running.");
   const onTheClock = draft.pickOrder[draft.currentPickIndex];
+  // past the last pick nobody is on the clock — it read " is on the clock"
+  if (!onTheClock) throw new ActionError("The draft is over.", 409);
   if (onTheClock !== actor.teamCode) {
-    throw new ActionError(`${city(onTheClock ?? "")} is on the clock, not you.`, 409);
+    throw new ActionError(`${city(onTheClock)} is on the clock, not you.`, 409);
   }
   const taken = new Set(draft.results.map((r) => r.selectedId));
   if (taken.has(selectedId)) throw new ActionError("He's already gone.", 409);

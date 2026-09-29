@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { tradeUnitImpact } from "@/state/unitReport";
 import { useNavigate } from "react-router-dom";
 
@@ -41,8 +41,11 @@ export function TradeProposal() {
   // "could not be accepted" after the first had already accepted it
   const [responding, setResponding] = useState<string | null>(null);
   const [proposing, setProposing] = useState(false);
+  // the guard itself: state lags a render, so two quick clicks both passed it
+  const inFlight = useRef(false);
   const respond = (id: string, accept: boolean): void => {
-    if (responding) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setResponding(id);
     setOnlineError(null);
     void actions
@@ -52,7 +55,10 @@ export function TradeProposal() {
           setOnlineError(res.reason ?? `That trade could not be ${accept ? "accepted" : "declined"}.`);
         }
       })
-      .finally(() => setResponding(null));
+      .finally(() => {
+        inFlight.current = false;
+        setResponding(null);
+      });
   };
 
   // live cap/roster preview of the deal as it's being built
@@ -407,7 +413,8 @@ export function TradeProposal() {
                 // time, then leaves the offer for a person to answer — there
                 // is no AI partner to decide on the spot. One in flight: a
                 // double click on a slow link sent the offer twice.
-                if (proposing) return;
+                if (inFlight.current) return;
+                inFlight.current = true;
                 setProposing(true);
                 void actions
                   .proposeTrade(partner, give, get)
@@ -419,7 +426,10 @@ export function TradeProposal() {
                       setOnlineError(res.reason ?? "That trade was refused.");
                     }
                   })
-                  .finally(() => setProposing(false));
+                  .finally(() => {
+                    inFlight.current = false;
+                    setProposing(false);
+                  });
                 return;
               }
               const id = proposeTrade(partner, give, get);

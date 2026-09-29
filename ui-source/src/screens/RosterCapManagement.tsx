@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
@@ -49,7 +49,8 @@ export function RosterCapManagement() {
   const [extending, setExtending] = useState<Player | null>(null);
   const [extendError, setExtendError] = useState<string | null>(null);
   const [moveNote, setMoveNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
-  const [nudging, setNudging] = useState(false);
+  // the guard itself: state lags a render, so two quick clicks both passed it
+  const nudgingRef = useRef(false);
   const code = viewerTeamCode(s);
   // Change 9 reuses this screen at midseason, so the flag is about what the
   // stage is for rather than about one stage's name
@@ -102,19 +103,21 @@ export function RosterCapManagement() {
    * was before either landed, so the second undid the first.
    */
   const nudge = (p: Player, by: -1 | 1): void => {
-    if (nudging) return;
+    if (nudgingRef.current) return;
     const line = depthAt(s, code, p.position).map((x) => x.id);
     const i = line.indexOf(p.id);
     const j = i + by;
     if (i < 0 || j < 0 || j >= line.length) return;
     [line[i], line[j]] = [line[j]!, line[i]!];
-    setNudging(true);
+    nudgingRef.current = true;
     void actions
       .setDepthOrder(p.position, line)
       .then((r) => {
         if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't change the depth chart." });
       })
-      .finally(() => setNudging(false));
+      .finally(() => {
+        nudgingRef.current = false;
+      });
   };
   const lineAt = (pos: Position) => ordered.filter((x) => x.position === pos);
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
 import { useNavigate } from "react-router-dom";
 
@@ -48,6 +48,8 @@ export function FreeAgencyBoard() {
   const [negotiating, setNegotiating] = useState<Player | null>(null);
   const [signError, setSignError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // the guard itself: state lags a render, so two quick clicks both passed it
+  const submittingRef = useRef(false);
 
   // The five-day sealed-bid window is gone. `offseasonFreeAgency` is no longer
   // a stage the league passes through, so `isWindowStage` is false and this
@@ -243,13 +245,19 @@ export function FreeAgencyBoard() {
                       onSubmit={(offer) => {
                         // one in flight: a double click signed him and then
                         // reported that he'd "just signed" with your own team
-                        if (submitting) return;
+                        if (submittingRef.current) return;
+                        submittingRef.current = true;
                         setSubmitting(true);
                         const full: ContractOffer = { ...offer, teamCode: code };
                         const run = isWindowStage
                           ? actions.placeBid("players", p.id, full)
                           : actions.signFreeAgent(p.id, full);
-                        void run.finally(() => setSubmitting(false)).then((result) => {
+                        void run
+                          .finally(() => {
+                            submittingRef.current = false;
+                            setSubmitting(false);
+                          })
+                          .then((result) => {
                           if (result.ok) {
                             setSignError(null);
                             setNegotiating(null);

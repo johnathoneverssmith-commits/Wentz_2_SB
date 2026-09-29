@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { rookieOverallSpread } from "@/sim/draft-outcomes";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
@@ -36,10 +36,13 @@ export function DraftRoom() {
   const [inspect, setInspect] = useState<Player | null>(null);
   // one pick in flight at a time: on a slow connection a second click used
   // to send a second pick, and a refused one said nothing at all
+  // (the ref, because state lags: two clicks before a re-render both passed)
   const [picking, setPicking] = useState(false);
+  const pickingRef = useRef(false);
   const [pickError, setPickError] = useState<string | null>(null);
   const pick = (id: string): void => {
-    if (picking) return;
+    if (pickingRef.current) return;
+    pickingRef.current = true;
     setPicking(true);
     setPickError(null);
     void actions
@@ -47,7 +50,10 @@ export function DraftRoom() {
       .then((r) => {
         if (!r.ok) setPickError(r.reason ?? "That pick didn't go through.");
       })
-      .finally(() => setPicking(false));
+      .finally(() => {
+        pickingRef.current = false;
+        setPicking(false);
+      });
   };
 
   const code = viewerTeamCode(s);
