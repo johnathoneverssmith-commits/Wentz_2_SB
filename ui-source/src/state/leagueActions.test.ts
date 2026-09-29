@@ -209,6 +209,25 @@ describe("the change stream", () => {
     }
   });
 
+  it("switching leagues closes the old stream and clears its news", async () => {
+    goLocal();
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify(leagueView("1")), { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+    try {
+      const { joinLeague, recentNews } = await import("./online.ts");
+      await joinLeague("l1");
+      const first = FakeEventSource.last!;
+      first.emit("change", { version: "1", events: [{ id: "7", kind: "x", summary: "DAL was claimed.", teamCode: null, at: "now" }] });
+      await joinLeague("l2");
+      expect(first.closed).toBe(true);
+      expect(recentNews().some((e) => e.summary === "DAL was claimed.")).toBe(false);
+    } finally {
+      goLocal();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("closes the stream and drops the news when you go back to a local game", async () => {
     goLocal();
     vi.stubGlobal(

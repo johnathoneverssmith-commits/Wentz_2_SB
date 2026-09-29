@@ -291,6 +291,14 @@ export async function joinLeague(
   if (!view.you) {
     throw new OnlineError("You don't have a team in this league yet.", 403);
   }
+  // Opening one league from the lobby while another was open left the old
+  // league's stream running and its news on the wire — "DAL was claimed" in
+  // a league without that team.
+  if (session) {
+    // one stream per tab, even re-opening the same league
+    session.stopWatching?.();
+    if (session.leagueId !== leagueId) news.length = 0;
+  }
   session = {
     client,
     leagueId,
