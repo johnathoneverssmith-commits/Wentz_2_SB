@@ -289,6 +289,9 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
 
   const step = steps[gi - 1];
   const drive = step ? drives[step.k] : undefined;
+  const shownDrives = step ? step.k + 1 : 0;
+  const currentDriveDone =
+    !!step && step.type === "play" && step.j === (drives[step.k]?.plays.length ?? 0) - 1;
 
   /**
    * Advance one beat, queueing the quarter/injury interstitials it reveals
@@ -480,13 +483,21 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
         <section className="gc-panel">
           <div className="gc-phead">
             <span>Drive Chart</span>
-            <span className="n">{drives.length} drives</span>
+            <span className="n">
+              {shownDrives} {shownDrives === 1 ? "drive" : "drives"}
+              {shownDrives < drives.length ? " so far" : ""}
+            </span>
           </div>
           <div className="gc-drives">
-            {drives.map((dr, k) => {
+            {/* Only the drives the replay has reached. The whole chart —
+                every TD, turnover and punt — used to sit beside the pre-game
+                screen, so the game was over before it was watched. */}
+            {drives.slice(0, shownDrives).map((dr, k) => {
+              const live = k === step?.k && !currentDriveDone;
               // what the possession itself did
-              const tag =
-                dr.ended === "touchdown"
+              const tag = live
+                ? { cls: "special", label: "LIVE" }
+                : dr.ended === "touchdown"
                   ? { cls: "td", label: "TD" }
                   : dr.ended === "field_goal"
                     ? { cls: "td", label: "FG" }
@@ -508,8 +519,9 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                                 : null;
               // and what it cost — a punt taken back or a pick-six used to
               // show as a plain PUNT or TO with the seven points nowhere
-              const conceded =
-                dr.pointsAgainst >= 6
+              const conceded = live
+                ? null
+                : dr.pointsAgainst >= 6
                   ? dr.ended === "punt_return_td"
                     ? "RET TD"
                     : "DEF TD"
@@ -529,7 +541,12 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                     Q{dr.quarter} {dr.startClock}
                   </span>
                   <span className="gc-dmeta">
-                    {dr.plays.length} {dr.plays.length === 1 ? "play" : "plays"} · from the {spot(dr.startBallOn)}
+                    {(() => {
+                      // a drive in progress has run as many plays as you've seen
+                      const n = live ? (step?.type === "play" ? step.j + 1 : 0) : dr.plays.length;
+                      return `${n} ${n === 1 ? "play" : "plays"}`;
+                    })()}{" "}
+                    · from the {spot(dr.startBallOn)}
                     {tag && <span className={`gc-dtag ${tag.cls}`}>{tag.label}</span>}
                     {conceded && <span className="gc-dtag against">{conceded}</span>}
                   </span>
