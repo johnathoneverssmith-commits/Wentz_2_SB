@@ -3,6 +3,7 @@ import { onlineSession } from "@/state/online";
 import { SaveBackup } from "./SaveBackup";
 import { LeagueWire } from "./LeagueWire";
 import { TurnClock } from "./TurnClock";
+import { TurnAlerts } from "./TurnAlerts";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -205,6 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {session && !inSetup && <LeagueWire />}
         <div className="spacer" />
+        {session && <TurnAlerts yourTurn={yourTurn} stageLabel={screen.label} />}
         <SoundControl />
         {!inSetup && (
           <NavLink to="/setup" className={active}>

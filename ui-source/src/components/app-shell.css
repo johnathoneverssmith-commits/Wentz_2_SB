@@ -341,3 +341,25 @@
     color: var(--ink-faint);
   }
 }
+
+.rail button.turnalerts {
+  margin: 4px 6px 0;
+  font-size: 11px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  border-radius: 6px;
+  text-align: left;
+}
+.rail button.turnalerts[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--team);
+}
+@media (max-width: 900px) {
+  .rail button.turnalerts {
+    margin: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
