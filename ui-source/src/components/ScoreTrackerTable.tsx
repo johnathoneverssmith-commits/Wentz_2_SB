@@ -50,10 +50,11 @@ export function ScoreTrackerTable() {
             <thead>
               <tr>
                 <th>GM</th>
-                <th className="c">A</th>
-                <th className="c">B</th>
-                <th className="c">C</th>
-                <th className="c">D</th>
+                {/* named, not lettered — the key used to sit under the last table */}
+                <th className="c" title="Regular-season placement">Placement</th>
+                <th className="c" title="Playoff progression">Playoffs</th>
+                <th className="c" title="Rival elimination">Rivals</th>
+                <th className="c" title="Season quality">Quality</th>
                 <th className="r">Total</th>
               </tr>
             </thead>
@@ -76,7 +77,8 @@ export function ScoreTrackerTable() {
         </div>
       ))}
       <p style={{ margin: "6px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
-        A: regular-season placement · B: playoff progression · C: rival elimination · D: season quality
+        Placement: regular-season finish · Playoffs: how far you went · Rivals: other GMs you knocked out ·
+        Quality: the season's overall shape
       </p>
     </>
   );

@@ -13,6 +13,9 @@ import { isOnline } from "@/state/online";
 import { isInSeason, onSaveCorrupted, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
 import { viewerWeek } from "@/state/reveal";
+import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent";
+import { coachingOnTheClock } from "@/state/coachingDraft";
+import { pendingFor } from "@/state/tradeDeadline";
 
 import "./app-shell.css";
 import { useTeamTheme } from "./useTeamTheme.ts";
@@ -129,6 +132,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navTo = useNavigate();
 
   const teamCode = gms.find((g) => g.id === viewerGmId)?.teamCode;
+  // your turn in a turn-based event, flagged on the rail: a turn left too
+  // long is one your staff takes for you
+  const yourTurn = useStore((s) => {
+    const me = teamCodeOf(s);
+    if (!me) return false;
+    if ((s.stage === "fantasyDraft" || s.stage === "offseasonDraft") && s.draft) {
+      return s.draft.pickOrder[s.draft.currentPickIndex] === me;
+    }
+    if (s.stage === "freeAgency" || s.stage === "midseasonFreeAgency") return faOnTheClock(s) === me;
+    if (s.stage === "coachingDraft") return coachingOnTheClock(s) === me;
+    if (s.stage === "tradeDeadline") return pendingFor(s, me) != null;
+    return false;
+  });
+  const session = onlineSession();
   const seasonScreens = isInSeason(stage);
   const inSetup = stage === "setup";
 
@@ -140,6 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div>
             <b>FRANCHISE SIM</b>
             <span>{teamCode ? teamFullName(teamCode) : "No team yet"}</span>
+            {session && <span style={{ display: "block", opacity: 0.7 }}>{session.leagueName}</span>}
           </div>
         </div>
         <div className="stagechip">
@@ -163,6 +181,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="railgroup">Current stage</div>
             <NavLink to={STAGE_HOME[stage]} className={active}>
               {STAGE_LABEL[stage]}
+              {yourTurn && (
+                <span className="railbadge" aria-label="your turn">
+                  Your turn
+                </span>
+              )}
             </NavLink>
             <div className="railgroup">Reference</div>
             {renderGroupedNav(OFFSEASON_REFERENCE_NAV, navBadges)}
@@ -185,6 +208,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </NavLink>
         )}
         {!onlineSession() && <SaveBackup />}
+        {/* a solo-save control: inside an online league it read as though it
+            could wipe the league */}
+        {!session && (
         <button
           className="reset"
           onClick={() => {
@@ -199,6 +225,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         >
           New solo dynasty
         </button>
+        )}
       </nav>
       <main className="app-main">
         {saveCorrupted && (

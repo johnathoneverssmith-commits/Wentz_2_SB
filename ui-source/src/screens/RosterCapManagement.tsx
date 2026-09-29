@@ -465,6 +465,7 @@ export function RosterCapManagement() {
             expectation: { ...extensionAsk(extending), signingBonus: 0 },
           }}
           error={extendError}
+          noBonus
           onClose={() => {
             setExtendError(null);
             setExtending(null);
@@ -483,7 +484,7 @@ export function RosterCapManagement() {
                   setMoveNote({
                     id: who,
                     ok: true,
-                    text: `Extended — ${offer.years} more years at ${millions(offer.baseSalary)} a year.`,
+                    text: `Extended — ${offer.years} more year${offer.years === 1 ? "" : "s"} at ${millions(offer.baseSalary)} a year.`,
                   });
                   setExtending(null);
                 } else {

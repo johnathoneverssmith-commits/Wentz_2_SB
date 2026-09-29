@@ -31,7 +31,8 @@ function useNegotiation(priorities: FreePriorities, prior?: ContractOffer) {
     baseSalary: round1(base),
     signingBonus: round1(bonus),
     years,
-    guaranteed: round1(gtd),
+    // no deal guarantees more than it pays
+    guaranteed: round1(Math.min(gtd, total)),
   });
 
   return { base, setBase, bonus, setBonus, years, setYears, gtd, setGtd, total, verdict, exp, offer };
@@ -40,7 +41,16 @@ function useNegotiation(priorities: FreePriorities, prior?: ContractOffer) {
 type Negotiation = ReturnType<typeof useNegotiation>;
 
 /** The priority chips, the four controls, and the value/verdict summary — no chrome, no actions. */
-function NegotiationFields({ priorities, n }: { priorities: FreePriorities; n: Negotiation }) {
+function NegotiationFields({
+  priorities,
+  n,
+  noBonus = false,
+}: {
+  priorities: FreePriorities;
+  n: Negotiation;
+  /** An extension has no signing bonus: the control was there and the number went nowhere. */
+  noBonus?: boolean;
+}) {
   return (
     <>
       <p className="subhead" style={{ marginTop: 0 }}>
@@ -55,9 +65,10 @@ function NegotiationFields({ priorities, n }: { priorities: FreePriorities; n: N
       </div>
 
       <NegRow label="Base salary / yr" value={n.base} setValue={n.setBase} step={0.5} suffix="M" />
-      <NegRow label="Signing bonus" value={n.bonus} setValue={n.setBonus} step={0.5} suffix="M" />
-      <NegRow label="Contract length" value={n.years} setValue={n.setYears} step={1} min={1} max={7} suffix=" yrs" integer />
-      <NegRow label="Guaranteed money" value={n.gtd} setValue={n.setGtd} step={0.5} suffix="M" />
+      {!noBonus && <NegRow label="Signing bonus" value={n.bonus} setValue={n.setBonus} step={0.5} suffix="M" />}
+      {/* the league's limit is five years; six and seven were refused */}
+      <NegRow label="Contract length" value={n.years} setValue={n.setYears} step={1} min={1} max={5} suffix=" yrs" integer />
+      <NegRow label="Guaranteed money" value={n.gtd} setValue={n.setGtd} step={0.5} max={n.total} suffix="M" />
 
       <div className="neg-summary">
         <span>Total value</span>
@@ -85,6 +96,7 @@ interface NegotiationProps {
   error?: string | null;
   onSubmit: (offer: Omit<ContractOffer, "teamCode">) => void;
   onClose: () => void;
+  noBonus?: boolean;
 }
 
 /** The negotiation popup used for contract extensions on your own roster. */
@@ -96,8 +108,9 @@ export function ContractNegotiation({
   error,
   onSubmit,
   onClose,
+  noBonus,
 }: NegotiationProps & { title: string; subtitle?: string }) {
-  const n = useNegotiation(priorities, prior);
+  const n = useNegotiation(priorities, noBonus ? undefined : prior);
   const dialogRef = useDialog(onClose);
   return (
     <div className="modal-scrim" onClick={onClose}>
@@ -121,7 +134,7 @@ export function ContractNegotiation({
           </button>
         </div>
         <div className="modal-body">
-          <NegotiationFields priorities={priorities} n={n} />
+          <NegotiationFields priorities={priorities} n={n} noBonus={noBonus} />
         </div>
 
         {/* outside the scrolling body: a rejection the player can't see is a

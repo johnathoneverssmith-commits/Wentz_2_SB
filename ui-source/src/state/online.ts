@@ -28,6 +28,8 @@ interface OnlineSession {
   gmId: string;
   isCommissioner: boolean;
   inviteCode: string | null;
+  /** The league's name, for the rail: a GM in two leagues couldn't tell which was open. */
+  leagueName: string;
   msLeft: number | null;
   waitingOn: string[];
   /** Closes the change stream. Null when nothing is listening. */
@@ -243,6 +245,7 @@ export async function joinLeague(
     gmId: view.you.gmId,
     isCommissioner: view.isCommissioner,
     inviteCode: view.inviteCode,
+    leagueName: view.league.name,
     msLeft: view.msLeft,
     waitingOn: view.waitingOn,
     stopWatching: null,
@@ -270,6 +273,7 @@ export async function pull(): Promise<LeagueState | null> {
   s.waitingOn = view.waitingOn;
   s.isCommissioner = view.isCommissioner;
   s.inviteCode = view.inviteCode;
+  s.leagueName = view.league.name;
   announce();
   return asViewer(view.state, s.gmId);
 }

@@ -52,7 +52,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
           </p>
           <p style={{ margin: "0 0 14px", fontSize: 12.5, color: "var(--ink-dim)" }}>
             {player.contract
-              ? `${player.contract.years_remaining} yrs · ${millions(player.contract.total_value)} total · ${millions(player.contract.guaranteed)} gtd`
+              ? `${millions(player.contract.cap_hit_by_year[0] ?? 0)} this year · ${player.contract.years_remaining} yr${player.contract.years_remaining === 1 ? "" : "s"} left · ${millions(player.contract.total_value)} total · ${millions(player.contract.guaranteed)} gtd`
               : player.free_agent
                 ? "Free agent"
                 : "—"}
