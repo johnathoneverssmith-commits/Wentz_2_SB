@@ -179,6 +179,45 @@ export function SeasonComplete() {
             The cross-season score tracker has been updated — see the tab above.
           </p>
         </div>
+        {/* the headline is one GM; in a league of several, how the others
+            finished is the first thing anyone asks */}
+        {s.gms.filter((g) => g.isHuman && g.teamCode).length > 1 && (
+          <table className="stbl" style={{ marginTop: 18 }}>
+            <thead>
+              <tr>
+                <th>GM</th>
+                <th>Team</th>
+                <th className="c">Record</th>
+                <th>Postseason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {s.gms
+                .filter((g) => g.isHuman && g.teamCode)
+                .map((g) => {
+                  const t = s.teams[g.teamCode]!;
+                  const games = s.bracket?.matchups.filter(
+                    (m) => m.highSeed?.code === g.teamCode || m.lowSeed?.code === g.teamCode,
+                  ) ?? [];
+                  const last = games.at(-1);
+                  const result =
+                    champ === g.teamCode
+                      ? `Won the ${title}`
+                      : !last
+                        ? "Missed the playoffs"
+                        : `Lost in the ${roundLabelFor(s.bracket, last.round as PlayoffRound)}`;
+                  return (
+                    <tr key={g.id}>
+                      <td>{g.id === s.viewerGmId ? "You" : g.name}</td>
+                      <td>{TEAMS_BY_CODE[g.teamCode]?.label ?? g.teamCode}</td>
+                      <td className="c">{`${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`}</td>
+                      <td>{result}</td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        )}
       </Panel>
 
       <Panel id="tracker" open={active === "tracker"}>
