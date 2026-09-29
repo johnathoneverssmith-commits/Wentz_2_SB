@@ -21,6 +21,7 @@ import type { ContractOffer, LeagueConfig, Position } from "@/domain";
 
 import { isOnline, lastLeagueId, onLeagueChange, OnlineError, onlineSession, pull, send } from "./online.ts";
 import { useStore } from "./store.ts";
+import { OnlineUnansweredError } from "../sim/OnlineLeagueClient.ts";
 import type { TrainingCampPlan } from "./trainingCamp.ts";
 import type { DeadlineMove } from "./tradeDeadline.ts";
 
@@ -183,7 +184,11 @@ async function attempt(run: () => Promise<unknown>): Promise<ActionResult & { fr
       pending: true,
       reason: landed
         ? "Lost the connection, but the league has moved since — this most likely went through. Refreshed to the current state."
-        : "Lost the connection before hearing back. Nothing changed — refreshed to the current state; try again.",
+        : // the client's own reason, when it has one ("the league server is
+          // restarting") says more than a generic dropped connection
+          err instanceof OnlineUnansweredError && /restarting/.test(err.message)
+          ? `${err.message} Nothing changed.`
+          : "Lost the connection before hearing back. Nothing changed — refreshed to the current state; try again.",
     };
   }
 }
