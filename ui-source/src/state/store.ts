@@ -250,6 +250,24 @@ const SAVE_KEY = "nfl-sim-ui.league";
  */
 const ONLINE_SAVE_KEY = "nfl-sim-ui.online-league";
 const slotFor = (k: string): string => (k === SAVE_KEY && lastLeagueId() !== null ? ONLINE_SAVE_KEY : k);
+
+// One-time move for devices that played online before the slots split: a
+// remembered league means the last session was online, so what's under the
+// solo key is that league's copy. Moved rather than copied — leaving it
+// would put an online league in the solo slot the day they switch back.
+try {
+  if (
+    typeof window !== "undefined" &&
+    lastLeagueId() !== null &&
+    window.localStorage.getItem(ONLINE_SAVE_KEY) == null &&
+    window.localStorage.getItem(SAVE_KEY) != null
+  ) {
+    window.localStorage.setItem(ONLINE_SAVE_KEY, window.localStorage.getItem(SAVE_KEY)!);
+    window.localStorage.removeItem(SAVE_KEY);
+  }
+} catch {
+  // storage unavailable: nothing to migrate
+}
 /** Where a save that failed to parse is copied before anything can overwrite it. */
 const CORRUPT_BACKUP_KEY = `${SAVE_KEY}.corrupted-backup`;
 
