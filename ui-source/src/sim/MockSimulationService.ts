@@ -73,7 +73,7 @@ import {
   ROSTER_TEMPLATE,
 } from "./roster-template.ts";
 import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
-import { expectedRookieOverall, rookieOverallSpread } from "./draft-outcomes.ts";
+import { expectedRookieOverall, rookieOverallSpread, SPECIALIST_ROOKIE_OFFSET } from "./draft-outcomes.ts";
 import { winChance, winProbability, type Venue } from "./win-probability.ts";
 import { futureDiscount, pickSlotFactor } from "@/state/draftPicks.ts";
 import { strategyFor, strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
@@ -242,8 +242,8 @@ function highestRealPid(): number {
 /** Per-position nudges to a draft class (`state/draftSupply.ts`). */
 export type DraftClassTilt = Partial<Record<Position, { supply: number; quality: number }>>;
 
-// +12 overshot: a decade lifted league kicking four points
-const SPECIALIST_ROOKIE_OFFSET = 9;
+// (SPECIALIST_ROOKIE_OFFSET, draft-outcomes.ts: +12 overshot, and a decade
+// lifted league kicking four points)
 
 /**
  * The draft's position mix, rebalanced to this game's roster.

@@ -97,3 +97,27 @@ export function expectedRookieOverall(pick: number): number {
 export function rookieOverallSpread(pick: number): number {
   return interpolate(pick, 2);
 }
+
+/**
+ * Kickers and punters are rated on their own scale (the league's sit around
+ * 80), so a specialist comes in this far above the general rookie curve.
+ */
+export const SPECIALIST_ROOKIE_OFFSET = 9;
+
+/**
+ * What a prospect projects to as a rookie, from public information only — his
+ * projected round and position, never his hidden rating: the middle of that
+ * round's outcomes, give or take one spread.
+ *
+ * The draft room used to print "grade ±7" beside the college grade, which
+ * runs about fifteen points above the rookie rating by design (a top pick
+ * arrives near 80), so a GM drafting an "89, ±7" found a 72 on signing day.
+ */
+export function projectedRookieRange(p: { projectedRound: number; position: string }): [number, number] {
+  const slot = (p.projectedRound - 1) * 32 + 16;
+  const specialist = p.position === "K" || p.position === "P";
+  const mid = expectedRookieOverall(slot) + (specialist ? SPECIALIST_ROOKIE_OFFSET : 0);
+  const spread = rookieOverallSpread(slot);
+  const cap = specialist ? 90 : 88;
+  return [Math.max(40, Math.round(mid - spread)), Math.min(cap, Math.round(mid + spread))];
+}

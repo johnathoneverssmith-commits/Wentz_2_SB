@@ -10,6 +10,7 @@ import { RosterNeeds } from "@/components/RosterNeeds";
 import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { picksOwnedBy } from "@/state/draftPicks";
+import { projectedRookieRange } from "@/sim/draft-outcomes";
 import { useStore } from "@/state/store";
 import { draftTargetsFor } from "@/state/rules";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -113,7 +114,12 @@ export function DraftPreview() {
                         {p.name} <span className="ppos">{p.position}</span>
                       </p>
                       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
-                        {p.school} · {p.classYear}
+                        {p.school} · {p.classYear} · projects{" "}
+                        {(() => {
+                          const [lo, hi] = projectedRookieRange(p);
+                          return `${lo}–${hi}`;
+                        })()}{" "}
+                        as a rookie
                       </p>
                     </div>
                     <OvrPill value={p.collegeOverall} />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { rookieOverallSpread } from "@/sim/draft-outcomes";
+import { projectedRookieRange } from "@/sim/draft-outcomes";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
@@ -133,9 +133,12 @@ export function DraftRoom() {
           position: p.position,
           age: p.age,
           ovr: p.collegeOverall,
-          // how far the true rating may sit from the college grade: a top
-          // pick is a known quantity, a late-rounder a lottery ticket
-          sub: `${p.school} · ${p.classYear} · grade ±${Math.round(rookieOverallSpread((p.projectedRound - 1) * 32 + 16))}`,
+          // what he projects to as a rookie — the college grade runs well
+          // above it, and a late-rounder's range is far wider than a top pick's
+          sub: (() => {
+            const [lo, hi] = projectedRookieRange(p);
+            return `${p.school} · ${p.classYear} · projects ${lo}–${hi} as a rookie`;
+          })(),
         }));
     }
     // everyone on a fantasy board is unsigned, so "Free agent" under every
