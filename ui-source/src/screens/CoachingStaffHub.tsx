@@ -6,7 +6,7 @@ import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Coach, CoachRole, DefenseScheme, OffenseScheme } from "@/domain";
-import { COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } from "@/domain";
+import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, DEVELOPMENT_ROLES, SCHEME_LABEL } from "@/domain";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
@@ -96,7 +96,7 @@ function NormalHub({ code }: { code: string | undefined }) {
           { label: "Offensive scheme", value: schemeLabel(oc?.scheme), className: "sm" },
           { label: "Defensive scheme", value: schemeLabel(dc?.scheme), className: "sm" },
           { label: "Avg scheme fit", value: `${avgFit}%`, className: avgFit >= 70 ? "good" : undefined },
-          { label: "Staff", value: `${[staff.HC, staff.OC, staff.DC].filter(Boolean).length} / 3` },
+          { label: "Staff", value: `${COACH_ROLES.filter((r) => staff[r]).length} / ${COACH_ROLES.length}` },
         ]}
       />
       <Tabs
@@ -143,6 +143,41 @@ function NormalHub({ code }: { code: string | undefined }) {
             </div>
           );
         })}
+        {/* The nine development coaches a GM drafts alongside the big three
+            used to appear nowhere after the coaching draft — the staff read
+            "3 / 3" with nine hires missing from it. */}
+        <p className="subhead" style={{ margin: "4px 0 10px" }}>
+          Development staff
+        </p>
+        <table className="stbl">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Coach</th>
+              <th>Works with</th>
+              <th className="c">OVR</th>
+              <th className="r">Contract</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DEVELOPMENT_ROLES.map((role) => {
+              const c = staff[role];
+              return (
+                <tr key={role}>
+                  <td>{COACH_ROLE_LABEL[role]}</td>
+                  <td>{c?.name ?? "Vacant"}</td>
+                  <td style={{ color: "var(--ink-dim)" }}>
+                    {role === "MED" ? "Injury recovery" : (COACH_POSITION_GROUPS[role] ?? []).join(", ")}
+                  </td>
+                  <td className="c">{c?.overall ?? "—"}</td>
+                  <td className="r" style={{ color: "var(--ink-dim)" }}>
+                    {c?.contract ? `${c.contract.yearsRemaining}y · ${millions(c.contract.annualValue)}` : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </Panel>
       <Panel id="fit" open={active === "fit"}>
         <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
