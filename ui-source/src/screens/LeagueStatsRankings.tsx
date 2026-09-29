@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { leagueBadge } from "@/state/leagueFormat";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -29,6 +30,8 @@ export function LeagueStatsRankings() {
   const code = viewerTeamCode(s);
   const rows = useMemo(() => teamStatRows(s), [s]);
   const played = playedGames(s, "REG").length;
+  // the league's people, so a GM can find their rivals in the tables
+  const gmOf = (c: string) => s.gms.find((g) => g.isHuman && g.teamCode === c)?.name;
 
   const [offBy, setOffBy] = useState<SortKey>("offTotal");
   const [defBy, setDefBy] = useState<SortKey>("defTotal");
@@ -37,7 +40,7 @@ export function LeagueStatsRankings() {
   if (played === 0 || !anyBoxScores(s)) {
     return (
       <Card maxWidth={800}>
-        <CardHeader badge="NFL" title="League Stats & Rankings" subtitle={`${s.season} season`} />
+        <CardHeader badge={leagueBadge(s)} title="League Stats & Rankings" subtitle={`${s.season} season`} />
         <div className="panel open">
           <div className="emptystate">
             {played === 0
@@ -64,7 +67,7 @@ export function LeagueStatsRankings() {
   return (
     <Card maxWidth={800}>
       <CardHeader
-        badge="NFL"
+        badge={leagueBadge(s)}
         title="League Stats & Rankings"
         subtitle={
           // what this GM has watched, not `s.week` (reveals don't move it)
@@ -105,6 +108,7 @@ export function LeagueStatsRankings() {
         <RankTable
           rows={sorted(offBy, true)}
           me={code}
+          gmOf={gmOf}
           cols={[
             ["Total", (r) => r.offTotal.toFixed(0)],
             ["Pass", (r) => r.offPass.toFixed(0)],
@@ -127,6 +131,7 @@ export function LeagueStatsRankings() {
         <RankTable
           rows={sorted(defBy, false)}
           me={code}
+          gmOf={gmOf}
           cols={[
             ["Total", (r) => r.defTotal.toFixed(0)],
             ["Pass", (r) => r.defPass.toFixed(0)],
@@ -140,6 +145,7 @@ export function LeagueStatsRankings() {
         <RankTable
           rows={sorted("ppg", true)}
           me={code}
+          gmOf={gmOf}
           cols={[
             ["PPG", (r) => r.ppg.toFixed(1)],
             ["PA/gm", (r) => r.paPg.toFixed(1)],
@@ -162,6 +168,7 @@ export function LeagueStatsRankings() {
         <RankTable
           rows={sorted(stBy, true)}
           me={code}
+          gmOf={gmOf}
           cols={[
             ["FG%", (r) => r.fgPct.toFixed(1) + "%"],
             ["Punt ret", (r) => r.puntRet.toFixed(1)],
@@ -206,10 +213,12 @@ function RankedBy({
 function RankTable({
   rows,
   me,
+  gmOf,
   cols,
 }: {
   rows: TeamStatRow[];
   me: string | undefined;
+  gmOf: (code: string) => string | undefined;
   cols: Array<[string, (r: TeamStatRow) => string]>;
 }) {
   return (
@@ -232,6 +241,9 @@ function RankTable({
               <td style={{ color: "var(--ink-faint)" }}>{i + 1}</td>
               <td className="name">
                 {TEAMS_BY_CODE[r.code]!.label}
+                {r.code !== me && gmOf(r.code) && (
+                  <span style={{ marginLeft: 6, fontSize: 10.5, color: "var(--ink-faint)" }}>{gmOf(r.code)}</span>
+                )}
               </td>
               {cols.map(([h, fn]) => (
                 <td className="c" key={h}>

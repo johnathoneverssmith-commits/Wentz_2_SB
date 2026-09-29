@@ -19,13 +19,19 @@ export function LeagueRosters() {
 
   const roster = useMemo(() => teamRoster(s, teamCode), [s, teamCode]);
   const team = s.teams[teamCode]!;
+  // whose team it is, when it's a person's
+  const gm = s.gms.find((g) => g.isHuman && g.teamCode === teamCode);
 
   return (
     <Card maxWidth={820}>
       <CardHeader
         badge={TEAMS_BY_CODE[teamCode]!.abbr}
         title="League Rosters"
-        subtitle="Read-only depth chart for any team — click a name for full stats"
+        subtitle={
+          gm
+            ? `${gm.id === s.viewerGmId ? "Your team" : `Run by ${gm.name}`} · click a name for full stats`
+            : "Read-only depth chart for any team — click a name for full stats"
+        }
         action={
           <select value={teamCode} onChange={(e) => setTeamCode(e.target.value)}>
             {TEAMS.filter((t) => s.teams[t.code]).map((t) => (
@@ -54,25 +60,37 @@ export function LeagueRosters() {
                 <TeamBadge code={teamCode} size={16} /> {g}
               </p>
               <div
-                style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", gap: 10, padding: "0 6px 4px", fontSize: 10, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.04em" }}
+                style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px 92px", gap: 10, padding: "0 6px 4px", fontSize: 10, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.04em" }}
               >
                 <span>#</span>
                 <span>Player</span>
                 <span style={{ textAlign: "center" }}>OVR</span>
                 <span style={{ textAlign: "center" }}>Age</span>
+                <span style={{ textAlign: "right" }}>Contract</span>
               </div>
               {players.map((p, i) => (
                 <div
                   key={p.id}
                   {...pressable(() => setInspect(p))}
-                  style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
+                  style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px 92px", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
                 >
                   <span className="rank-num">{i + 1}</span>
                   <span className="pname" style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)" }}>
                     {p.name} <span className="ppos">{p.position}</span>
+                    {/* scouting a trade partner: who's hurt, and what they cost */}
+                    {p.injury_status && (
+                      <span style={{ marginLeft: 6, fontSize: 10, color: "var(--bad)", textDecoration: "none" }}>
+                        {p.injury_status.status.toUpperCase()}
+                      </span>
+                    )}
                   </span>
                   <OvrPill value={p.overall} />
                   <span className="pcell">{p.age}</span>
+                  <span className="pcell" style={{ textAlign: "right", fontSize: 11 }}>
+                    {p.contract
+                      ? `${p.contract.years_remaining}y · $${(p.contract.cap_hit_by_year[0] ?? 0).toFixed(1)}M`
+                      : "—"}
+                  </span>
                 </div>
               ))}
             </div>

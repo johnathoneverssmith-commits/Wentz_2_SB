@@ -119,6 +119,7 @@ export function GameDay() {
             <div className="scroll-list short">
               {slate.map((g) => {
                 const homeWon = g.homeScore > g.awayScore;
+                const awayWon = g.awayScore > g.homeScore;
                 const openable = hasBoxScore(g);
                 return (
                   <div
@@ -136,7 +137,7 @@ export function GameDay() {
                     </span>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
                       <TeamBadge code={g.awayTeam} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: !homeWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.awayTeam]!.label}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.awayTeam]!.label}</span>
                     </span>
                   </div>
                 );
@@ -148,7 +149,10 @@ export function GameDay() {
         {!viewerGame?.broadcast && (
           <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
             {viewerGame
-              ? "The full play-by-play gamecast needs the engine adapter running (npm run server) — showing the final score only."
+              ? online
+                ? // online the broadcast isn't stored; it is rebuilt when asked for
+                  "The play-by-play is a click away — Watch play-by-play below."
+                : "The full play-by-play gamecast needs the engine adapter running (npm run server) — showing the final score only."
               : isPlayoff
                 ? hadBye
                   ? "Your team had the bye this round and advances automatically."
@@ -162,6 +166,11 @@ export function GameDay() {
         {hasBoxScore(viewerGame) && (
           <button type="button" className="btnlink" onClick={() => nav(`/box/${viewerGame!.id}`)}>
             Full box score
+          </button>
+        )}
+        {online && viewerGame && !viewerGame.broadcast && (
+          <button type="button" className="btnlink" onClick={() => nav(`/watch/${viewerGame.id}`)}>
+            Watch play-by-play
           </button>
         )}
         <button type="button" className="btnlink" onClick={() => nav("/hub")}>

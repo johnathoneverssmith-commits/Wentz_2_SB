@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardHeader } from "@/components/primitives";
-import { isOnline, onlineSession } from "@/state/online";
+import { isOnline, onlineSession, phaseMsLeft } from "@/state/online";
+import { timeLeft } from "@/util/format";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -12,20 +13,15 @@ import { useLeagueActions } from "@/state/useLeagueActions";
  * Change 2 pulls readiness out of the sections themselves. A GM plays their
  * own stage alone, decides they are done, and commits — and only then arrives
  * here, where the league is assembled. The screen deliberately tells you
- * almost nothing: no GM names, no counts, no "waiting on 2 of 3". Knowing
- * *who* the league is waiting for invites chasing people, and the count
- * moving is the only thing it would add.
+ * who the league is still waiting on, when its clock runs out, and — for the
+ * commissioner — a way to move it on.
  *
  * What it does say is where you are in the calendar, because that is the one
  * thing a person staring at a spinner actually wants: the stage just
  * finished, and the stage about to start.
  *
- * There is no timer here and no override. A league waits indefinitely for
- * every registered human GM, which is a deliberate choice recorded in the
- * change log: one GM who never returns ends that league. The alternative —
- * a deadline that plays for an absent GM — was rejected because it means the
- * league can move without you, which is exactly what committing was supposed
- * to rule out.
+ * A league doesn't wait forever: each phase has a clock, and when it runs
+ * out the absent GMs' staffs act for them (phases.ts, `autopilotAbsent`).
  *
  * Arriving here is a fact about saved state, not about navigation: you are at
  * the checkpoint because the server has you down as ready for a stage that
@@ -79,7 +75,9 @@ export function Checkpoint({
         .finally(() => {
           if (live) setChecking(false);
         });
-    }, 8_000);
+      // a backstop, not the mechanism: every poll is the whole league, and at
+      // 8 seconds a phone waiting here pulled megabytes a minute
+    }, 30_000);
     return () => {
       live = false;
       clearInterval(timer);
@@ -123,6 +121,8 @@ export function Checkpoint({
           {waitingNames.length > 0 && (
             <p className="checkpoint-note" style={{ marginTop: 8 }}>
               Waiting on {waitingNames.join(", ")}.
+              {phaseMsLeft() != null &&
+                ` If they don't check in, their staffs act for them in ${timeLeft(phaseMsLeft()!)}.`}
             </p>
           )}
 

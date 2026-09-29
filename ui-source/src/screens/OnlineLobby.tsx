@@ -11,6 +11,7 @@ import type { InboxLeague, OnlineUser } from "@/sim/OnlineLeagueClient";
 import { OnlineError, OnlineLeagueClient } from "@/sim/OnlineLeagueClient";
 import { goLocal, isOnline, joinLeague, onlineSession } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
+import { timeLeft } from "@/util/format";
 import { useStore } from "@/state/store";
 import type { DeadlineChoice, Difficulty, Stage } from "@/domain";
 
@@ -358,16 +359,6 @@ export function OnlineLobby() {
 }
 
 /** "2d 4h", "6h", "41m" — a deadline days away needs no minutes. */
-function timeLeft(ms: number): string {
-  if (ms <= 0) return "no time";
-  const mins = Math.floor(ms / 60_000);
-  const hours = Math.floor(mins / 60);
-  const days = Math.floor(hours / 24);
-  if (days > 0) return `${days}d ${hours % 24}h`;
-  if (hours > 0) return `${hours}h ${mins % 60}m`;
-  return `${mins}m`;
-}
-
 type Attempt = (run: () => Promise<void>) => Promise<void>;
 
 function SignIn({

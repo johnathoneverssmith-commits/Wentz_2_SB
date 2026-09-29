@@ -213,6 +213,7 @@ export function WeekResults({
       <div className="scroll-list short">
         {slate.map((g) => {
           const homeWon = g.homeScore > g.awayScore;
+          const awayWon = g.awayScore > g.homeScore;
           const openable = hasBoxScore(g);
           return (
             <div
@@ -236,11 +237,14 @@ export function WeekResults({
                   {TEAMS_BY_CODE[g.homeTeam]!.label}
                 </span>
               </span>
-              <span className="oswald" style={{ fontSize: 13 }}>
-                {g.homeScore}–{g.awayScore}
-              </span>
-              {detailOnEvery && (
-                <span style={{ display: "flex", gap: 6 }}>
+              {/* the playoff link lives in the score's cell: as a fourth item
+                  in a three-column row it pushed the away team onto a line
+                  of its own */}
+              <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <span className="oswald" style={{ fontSize: 13 }}>
+                  {g.homeScore}–{g.awayScore}
+                </span>
+                {detailOnEvery && (
                   <button
                     type="button"
                     className="btnlink sm"
@@ -251,11 +255,11 @@ export function WeekResults({
                   >
                     Play-by-Play
                   </button>
-                </span>
-              )}
+                )}
+              </span>
               <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
                 <TeamBadge code={g.awayTeam} size={20} />
-                <span style={{ fontSize: 12.5, fontWeight: !homeWon ? 600 : 400 }}>
+                <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400 }}>
                   {TEAMS_BY_CODE[g.awayTeam]!.label}
                 </span>
               </span>

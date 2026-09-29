@@ -42,6 +42,9 @@ export function formatOf(config: Pick<LeagueConfig, "leagueFormat">): LeagueForm
 
 export const isHumansOnly = (s: Pick<LeagueState, "config">): boolean => formatOf(s.config) === "humansOnly";
 
+/** The header badge for league-wide screens: a humans-only league isn't the NFL. */
+export const leagueBadge = (s: Pick<LeagueState, "config">): string => (isHumansOnly(s) ? "LG" : "NFL");
+
 /** How many teams a humans-only league with this many GMs has. */
 export function humansOnlyLeagueSize(gmCount: number): number {
   const even = gmCount % 2 === 0 ? gmCount : gmCount + 1;

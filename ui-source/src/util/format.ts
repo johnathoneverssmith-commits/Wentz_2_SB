@@ -53,3 +53,14 @@ export function points(n: number): string {
   const rounded = Math.round(n * 100) / 100;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0$/, "");
 }
+
+/** A countdown, coarse: "2d 4h", "3h 10m", "25m". */
+export function timeLeft(ms: number): string {
+  if (ms <= 0) return "no time";
+  const mins = Math.floor(ms / 60_000);
+  const hours = Math.floor(mins / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${mins % 60}m`;
+  return `${mins}m`;
+}

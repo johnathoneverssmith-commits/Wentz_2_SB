@@ -44,6 +44,17 @@ export function TrainingCampResults() {
         <div className="panel open">
           <div className="emptystate">Camp hasn&rsquo;t run yet.</div>
         </div>
+        {/* a dead end otherwise: this screen is reachable by URL or a stale tab */}
+        <Footer>
+          <button type="button" className="btnlink" onClick={() => nav("/hub")}>
+            Team hub
+          </button>
+          {s.stage === "trainingCamp" && (
+            <button type="button" className="btn-primary" onClick={() => nav("/training-camp")}>
+              Set up camp
+            </button>
+          )}
+        </Footer>
       </Card>
     );
   }

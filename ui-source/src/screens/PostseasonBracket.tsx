@@ -7,7 +7,7 @@ import { ReadinessGate } from "@/components/ReadinessGate";
 import { onColorFor, TEAMS_BY_CODE } from "@/data/teams";
 import type { BracketMatchup, PlayoffRound } from "@/domain";
 import { bracketRounds, record, roundLabelFor, winPct } from "@/domain";
-import { isHumansOnly, playoffFieldSize } from "@/state/leagueFormat";
+import { isHumansOnly, playoffFieldSize, leagueBadge } from "@/state/leagueFormat";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleBracket } from "@/state/reveal";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -19,8 +19,11 @@ export function PostseasonBracket() {
   const nav = useNavigate();
   const s = useStore();
   const single = isHumansOnly(s);
-  const { active, setActive } = useTabs(single ? "bracket" : "afc");
   const code = viewerTeamCode(s);
+  // open on your own conference, not always the AFC
+  const { active, setActive } = useTabs(
+    single ? "bracket" : TEAMS_BY_CODE[code ?? ""]?.conference === "NFC" ? "nfc" : "afc",
+  );
   const simulateGameDay = useStore((st) => st.simulateGameDay);
   // Online the saved bracket already holds the whole postseason, so what
   // this screen renders is the GM's own view of it — see `visibleBracket`.
@@ -31,15 +34,23 @@ export function PostseasonBracket() {
     : null;
 
   if (!b) {
-    const inHunt = (conf: "AFC" | "NFC") =>
-      Object.values(s.teams)
-        .filter((t) => TEAMS_BY_CODE[t.code]?.conference === conf)
-        .sort((x, y) => winPct(y) - winPct(x) || y.pointsFor - y.pointsAgainst - (x.pointsFor - x.pointsAgainst))
-        .slice(0, 7);
+    // Seeded the way the bracket will be (tiebreakers aside): the four
+    // division leaders take 1-4, then the three best records left. Sorting on
+    // record alone listed a 10-7 wild card above a 9-8 division winner.
+    const byRecord = (x: (typeof s.teams)[string], y: (typeof s.teams)[string]) =>
+      winPct(y) - winPct(x) || y.pointsFor - y.pointsAgainst - (x.pointsFor - x.pointsAgainst);
+    const inHunt = (conf: "AFC" | "NFC") => {
+      const teams = Object.values(s.teams).filter((t) => TEAMS_BY_CODE[t.code]?.conference === conf);
+      const leaders = [...new Set(teams.map((t) => TEAMS_BY_CODE[t.code]!.division))]
+        .map((d) => teams.filter((t) => TEAMS_BY_CODE[t.code]!.division === d).sort(byRecord)[0]!)
+        .sort(byRecord);
+      const rest = teams.filter((t) => !leaders.includes(t)).sort(byRecord);
+      return [...leaders, ...rest].slice(0, 7);
+    };
     const started = s.games.some((g) => g.phase === "REG" && g.played);
     return (
       <Card maxWidth={940}>
-        <CardHeader badge="NFL" title="Postseason" subtitle={`${s.season} playoffs · not seeded yet`} />
+        <CardHeader badge={leagueBadge(s)} title="Postseason" subtitle={`${s.season} playoffs · not seeded yet`} />
         <div className="panel open">
           <div className="emptystate" style={{ marginBottom: started ? 20 : 0 }}>
             The bracket is seeded when the regular season ends
@@ -74,7 +85,7 @@ export function PostseasonBracket() {
               {(["AFC", "NFC"] as const).map((conf) => (
                 <div key={conf}>
                   <p className="subhead" style={{ marginTop: 0 }}>
-                    {conf} — current top 7
+                    {conf} — seeds if it ended today
                   </p>
                   <table className="stbl">
                     <tbody>
@@ -133,7 +144,7 @@ export function PostseasonBracket() {
 
   return (
     <Card maxWidth={960}>
-      <CardHeader badge="NFL" title="Postseason" subtitle={`${roundLabelFor(b, b.currentRound)} · ${s.season} playoffs`} />
+      <CardHeader badge={leagueBadge(s)} title="Postseason" subtitle={`${roundLabelFor(b, b.currentRound)} · ${s.season} playoffs`} />
       <Ticker
         stats={[
           {
@@ -155,7 +166,7 @@ export function PostseasonBracket() {
             // to read "vs Tampa Bay" for a game in Tampa
             value: myNextOpp
               ? `${myNext!.round !== "SB" && myNext!.highSeed?.code !== code ? "@" : "vs"} ${TEAMS_BY_CODE[myNextOpp]!.label}`
-              : b.champion
+              : b.champion || eliminated || !inField
                 ? "—"
                 : "TBD",
             className: "sm",
@@ -220,7 +231,7 @@ export function PostseasonBracket() {
         // the way forward instead of the gate, which would sim again
         <div className="readiness">
           <div className="readiness-top">
-            <p>{b.champion ? "The Super Bowl has been played" : `${roundLabelFor(b, s.pendingGameDay.phase as PlayoffRound)} results are in`}</p>
+            <p>{b.champion ? `The ${roundLabelFor(b, "SB")} has been played` : `${roundLabelFor(b, s.pendingGameDay.phase as PlayoffRound)} results are in`}</p>
             <span>Continue from Game Day to move on</span>
           </div>
           <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => nav("/game-day")}>

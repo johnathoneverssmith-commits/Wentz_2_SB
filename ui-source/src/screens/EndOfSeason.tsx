@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { leagueBadge } from "@/state/leagueFormat";
 import { SeasonAwardsList } from "@/components/LeagueMemory";
 import { useNavigate } from "react-router-dom";
 
@@ -38,7 +39,7 @@ export function EndOfSeasonAnnounce() {
 
   return (
     <Card maxWidth={720}>
-      <CardHeader badge="NFL" title={`End of ${s.season} Season`} />
+      <CardHeader badge={leagueBadge(s)} title={`End of ${s.season} Season`} />
       <div
         className="panel open"
         style={{ textAlign: "center", padding: "56px 26px", cursor: "pointer" }}
@@ -110,27 +111,37 @@ export function SeasonComplete() {
     return best;
   }, [s.gms, s.bracket, s.teams]);
 
-  const winnerGm = humanChampGm ?? (furthest ? s.gms.find((g) => g.id === furthest.gmId) : undefined);
-  const winnerCode = humanChampGm?.teamCode ?? furthest?.teamCode;
+  // nobody made it: this is about your season, not whoever is listed first
+  const viewerGm = s.gms.find((g) => g.id === s.viewerGmId && g.teamCode);
+  const noneAdvanced = !humanChampGm && furthest?.round === "none";
+  const winnerGm =
+    humanChampGm ??
+    (noneAdvanced && viewerGm ? viewerGm : furthest ? s.gms.find((g) => g.id === furthest.gmId) : undefined);
+  const winnerCode = humanChampGm?.teamCode ?? (noneAdvanced && viewerGm ? viewerGm.teamCode : furthest?.teamCode);
+  const winnerTeam = winnerCode ? s.teams[winnerCode] : undefined;
+  // "Super Bowl" in the NFL, "Final" in a humans-only league's bracket
+  const title = roundLabelFor(s.bracket, "SB");
   const gmPossessive = (g?: { id: string; name: string }) =>
     g ? (g.id === s.viewerGmId ? "Your" : `${g.name}'s`) : "";
 
   const roundText = humanChampGm
-    ? "Won the Super Bowl"
+    ? `Won the ${title}`
     : furthest
-      ? furthest.round === "none"
+      ? noneAdvanced
         ? "Finished"
         : `Advanced to the ${roundLabelFor(s.bracket, furthest.round as PlayoffRound)}`
       : "";
   const roundBoldPart = humanChampGm
-    ? "Super Bowl"
-    : furthest && furthest.round !== "none"
+    ? title
+    : furthest && !noneAdvanced
       ? roundLabelFor(s.bracket, furthest.round as PlayoffRound)
-      : furthest?.rec ?? "";
+      : winnerTeam
+        ? `${winnerTeam.wins}-${winnerTeam.losses}${winnerTeam.ties ? `-${winnerTeam.ties}` : ""}`
+        : "";
 
   return (
     <Card maxWidth={760}>
-      <CardHeader badge={winnerCode ? TEAMS_BY_CODE[winnerCode]!.abbr : "NFL"} title={`End of ${s.season} Season`} />
+      <CardHeader badge={winnerCode ? TEAMS_BY_CODE[winnerCode]!.abbr : leagueBadge(s)} title={`End of ${s.season} Season`} />
       <Tabs
         tabs={[
           { id: "season", label: "This Season" },
@@ -144,7 +155,7 @@ export function SeasonComplete() {
         <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
           <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             {humanChampGm
-              ? "Super Bowl Champions"
+              ? `${title} Champions`
               : furthest?.round === "none"
                 ? // nobody advanced, so "furthest advanced" would be a boast
                   // about missing the playoffs

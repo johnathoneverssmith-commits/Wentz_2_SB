@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { leagueBadge } from "@/state/leagueFormat";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -30,7 +31,7 @@ export function PlayerStatistics() {
   if (played === 0 || !anyBoxScores(s)) {
     return (
       <Card maxWidth={800}>
-        <CardHeader badge="NFL" title="Player Statistics" subtitle={`${s.season} season`} />
+        <CardHeader badge={leagueBadge(s)} title="Player Statistics" subtitle={`${s.season} season`} />
         <div className="panel open">
           <div className="emptystate">
             {played === 0
@@ -50,7 +51,7 @@ export function PlayerStatistics() {
   return (
     <Card maxWidth={800}>
       <CardHeader
-        badge="NFL"
+        badge={leagueBadge(s)}
         title="Player Statistics"
         subtitle={`League leaders · ${asOf(
           regularSeasonUnderway(s.stage)

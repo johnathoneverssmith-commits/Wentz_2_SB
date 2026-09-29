@@ -5,7 +5,7 @@ import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { record } from "@/domain";
-import { isHumansOnly, seasonShape } from "@/state/leagueFormat";
+import { isHumansOnly, seasonShape, leagueBadge } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
 import { currentPhase, statsThroughWeek, viewerTeamCode } from "@/state/selectors";
 import { onlineSession } from "@/state/online";
@@ -48,7 +48,7 @@ export function FullSchedule() {
   return (
     <Card maxWidth={800}>
       <CardHeader
-        badge={single ? "LG" : "NFL"}
+        badge={leagueBadge(s)}
         title="Full Schedule"
         subtitle={`${s.season} season · ${Object.keys(s.teams).length} teams`}
       />

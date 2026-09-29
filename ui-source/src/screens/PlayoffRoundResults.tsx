@@ -5,6 +5,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleGames } from "@/state/reveal";
+import { isHumansOnly, leagueBadge } from "@/state/leagueFormat";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 
@@ -45,9 +46,9 @@ export function PlayoffRoundResults() {
   return (
     <Card maxWidth={860}>
       <CardHeader
-        badge="NFL"
+        badge={leagueBadge(s)}
         title={roundLabelFor(s.bracket, r)}
-        subtitle={`${s.season} postseason · results are in`}
+        subtitle={`${s.season} postseason · ${revealed ? "results are in" : "not watched yet"}`}
       />
       <div className="panel open">
         {!revealed ? (

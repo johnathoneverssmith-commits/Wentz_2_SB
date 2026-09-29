@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { RatingBar } from "@/components/ExpandableRow";
@@ -17,6 +17,8 @@ const sim = new HybridSimulationService();
 const ROLE_LABEL = COACH_ROLE_LABEL;
 const schemeLabel = (s: OffenseScheme | DefenseScheme | undefined): string =>
   s ? SCHEME_LABEL[s] : "—";
+/** The number a role is judged on: game management for a head coach, play-calling for a coordinator. */
+const headline = (c: Coach): number => (c.role === "HC" ? (c.gameManagement ?? 0) : (c.playCallIq ?? 0));
 
 /**
  * Your staff, and the coaches you could hire instead.
@@ -55,12 +57,18 @@ function NormalHub({ code }: { code: string | undefined }) {
   const fitRows = roster.slice(0, 12).map((p) => ({ p, fit: sim.computeSchemeFit(p, oc, dc) }));
   const actions = useLeagueActions();
   const [hiring, setHiring] = useState(false);
+  const hiringRef = useRef(false);
   const [hireError, setHireError] = useState<string | null>(null);
   const openCoaches = useMemo(
     () =>
       Object.values(s.coaches)
         .filter((c) => c.team === null)
-        .sort((a, b) => (b.playCallIq ?? b.gameManagement ?? 0) - (a.playCallIq ?? a.gameManagement ?? 0)),
+        // by role, then each role's own headline rating: head coaches used to
+        // be ranked by the coordinators' play-calling number
+        .sort(
+          (a, b) =>
+            COACH_ROLES.indexOf(a.role) - COACH_ROLES.indexOf(b.role) || headline(b) - headline(a),
+        ),
     [s.coaches],
   );
   const avgFit = fitRows.length ? Math.round(fitRows.reduce((n, r) => n + r.fit, 0) / fitRows.length) : 0;
@@ -188,6 +196,18 @@ function NormalHub({ code }: { code: string | undefined }) {
                     ? ` · game mgmt ${c.gameManagement ?? "—"}, discipline ${c.discipline ?? "—"}`
                     : ` · play-calling ${c.playCallIq ?? "—"}`}
                 </p>
+                {/* against the man he'd replace */}
+                {(() => {
+                  const now = staff[c.role];
+                  if (!now) return <p className="lobby-sub">Fills your vacant {ROLE_LABEL[c.role].toLowerCase()} job.</p>;
+                  const d = headline(c) - headline(now);
+                  return (
+                    <p className="lobby-sub" style={{ color: d > 0 ? "var(--good)" : d < 0 ? "var(--bad)" : undefined }}>
+                      Replaces {now.name} ({d > 0 ? "+" : ""}
+                      {d} on {c.role === "HC" ? "game management" : "play-calling"})
+                    </p>
+                  );
+                })()}
               </div>
               <div className="lobby-actions">
                 <button
@@ -195,6 +215,11 @@ function NormalHub({ code }: { code: string | undefined }) {
                   className="btn-primary"
                   disabled={hiring}
                   onClick={() => {
+                    if (hiringRef.current) return;
+                    // it fires whoever holds the job, on the spot
+                    const now = staff[c.role];
+                    if (now && !confirm(`Hire ${c.name} as ${ROLE_LABEL[c.role].toLowerCase()}? ${now.name} is let go.`)) return;
+                    hiringRef.current = true;
                     setHiring(true);
                     setHireError(null);
                     void actions
@@ -202,7 +227,10 @@ function NormalHub({ code }: { code: string | undefined }) {
                       .then((res) => {
                         if (!res.ok) setHireError(res.reason ?? "That hire didn't go through.");
                       })
-                      .finally(() => setHiring(false));
+                      .finally(() => {
+                        hiringRef.current = false;
+                        setHiring(false);
+                      });
                   }}
                 >
                   Hire as {c.role}

@@ -1,4 +1,5 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { leagueBadge } from "@/state/leagueFormat";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -15,12 +16,13 @@ export function FullBoxScore() {
   const back = useSearchParams()[0].get("back");
   const game = useStore((s) => s.games.find((g) => g.id === gameId));
   const bracket = useStore((s) => s.bracket);
+  const badge = useStore(leagueBadge);
   const { active, setActive } = useTabs("team");
 
   if (!game || !game.totals) {
     return (
       <Card maxWidth={860}>
-        <CardHeader badge="NFL" title="Box Score" subtitle={game ? "Not available for this game" : "Unknown game"} />
+        <CardHeader badge={badge} title="Box Score" subtitle={game ? "Not available for this game" : "Unknown game"} />
         <div className="panel open">
           <div className="emptystate">
             {game
