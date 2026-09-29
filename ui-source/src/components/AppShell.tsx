@@ -168,8 +168,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // the tab title too: a league left open in a background tab is how most
   // async turns get noticed
   useEffect(() => {
-    document.title = yourTurn ? "● Your turn — Franchise Sim" : "Franchise Sim";
-  }, [yourTurn]);
+    // and a count of offers waiting on you, so a background tab shows it too
+    document.title = yourTurn
+      ? "● Your turn — Franchise Sim"
+      : offers > 0
+        ? `(${offers}) Franchise Sim`
+        : "Franchise Sim";
+  }, [yourTurn, offers]);
   const seasonScreens = isInSeason(stage);
   const inSetup = stage === "setup";
 
