@@ -405,6 +405,20 @@ a:focus-visible,
 .tabs::-webkit-scrollbar {
   display: none;
 }
+/* On a phone the strip scrolled sideways with its scrollbar hidden, so the
+   last tab — often the one with the badge the screen was pointing you at —
+   was simply not there. Wrap instead. */
+@media (max-width: 600px) {
+  .tabs {
+    flex-wrap: wrap;
+    column-gap: 16px;
+    row-gap: 0;
+    padding: 0 16px;
+  }
+  .tab {
+    padding: 10px 0 8px;
+  }
+}
 .tab {
   background: none;
   border: none;
@@ -1023,6 +1037,17 @@ table.mtable td.val {
 .footer button,
 .footer a {
   flex: 1;
+}
+/* four buttons on one line ran the last one off a phone's screen */
+@media (max-width: 600px) {
+  .footer {
+    flex-wrap: wrap;
+    padding: 14px 16px;
+  }
+  .footer button,
+  .footer a {
+    flex: 1 1 140px;
+  }
 }
 
 /* ---- small helpers ----------------------------------- */
@@ -1801,4 +1826,30 @@ input[type="range"]::-moz-range-thumb {
 }
 @media (max-width: 720px) {
   .split-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* The free-agency market on a phone: six columns didn't fit, and the one
+   that fell off the edge was the Negotiate button. Keep name, rating and the
+   action; age and status are in the expanded row. */
+@media (max-width: 600px) {
+  /* this list drops two columns instead of scrolling sideways (the general
+     rule above), so the button stays on screen without a hidden scroll */
+  .fa-list .prow,
+  .fa-list .rowhead {
+    grid-template-columns: minmax(0, 1fr) auto auto 16px !important;
+    min-width: 0;
+  }
+  .fa-list .prow > :first-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .fa-list .prow > :first-child p {
+    white-space: normal;
+  }
+  .fa-list .prow > :nth-child(3),
+  .fa-list .prow > :nth-child(4),
+  .fa-list .rowhead > :nth-child(3),
+  .fa-list .rowhead > :nth-child(4) {
+    display: none;
+  }
 }

@@ -172,7 +172,7 @@ export function FreeAgencyBoard() {
             Nobody on the market matches that. Clear the search or pick another position.
           </div>
         )}
-        <div className="scroll-list">
+        <div className="scroll-list fa-list">
           {market.matched > 0 && (
             <RowHeader
               gridTemplate={FA_GRID}
