@@ -14,7 +14,8 @@ import {
   playoffFieldSize,
   seasonShapeFor,
 } from "@/state/leagueFormat";
-import { STAGE_LABEL } from "@/state/stageMachine";
+import { currentScreen, STAGE_LABEL } from "@/state/stageMachine";
+import { stepOf } from "@/state/reveal";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { useStore } from "@/state/store";
 
@@ -25,6 +26,7 @@ export function LeagueSetup() {
   const { active, setActive } = useTabs("lobby");
 
   const stage = useStore((s) => s.stage);
+  const step = useStore((s) => stepOf(s, s.viewerGmId));
   const config = useStore((s) => s.config);
   const humansOnly = formatOf(config) === "humansOnly";
   const leagueSize = humansOnlyLeagueSize(config.humanGmCount);
@@ -264,8 +266,10 @@ export function LeagueSetup() {
         )}
         {locked && (
           <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
-            Rules are shown for reference — they can't change once the league is underway. Start a new league from the sidebar
-            to play with different settings.
+            Rules are shown for reference — they can&rsquo;t change once the league is underway.{" "}
+            {online
+              ? "For different rules, start another league from Online Leagues."
+              : "Start a new league from the sidebar to play with different settings."}
           </p>
         )}
         <SettingRow
@@ -294,12 +298,18 @@ export function LeagueSetup() {
         <SettingRow
           label="Human GM slots"
           hint={
-            <>
-              Simulated opponents on this device, not real people — this
-              count doesn't create seats anyone else can join. For that,
-              start a league from <Link to="/online">Online Leagues</Link>{" "}
-              instead.
-            </>
+            online ? (
+              // the solo explanation ("simulated opponents on this device")
+              // was shown in online leagues, whose GMs are real people
+              "The seats real people hold in this league — fixed when it was created."
+            ) : (
+              <>
+                Simulated opponents on this device, not real people — this
+                count doesn't create seats anyone else can join. For that,
+                start a league from <Link to="/online">Online Leagues</Link>{" "}
+                instead.
+              </>
+            )
           }
         >
           <select
@@ -426,12 +436,20 @@ export function LeagueSetup() {
           </select>
         </SettingRow>
 
-        <SettingRow label="Free agency pace" hint="Live event: each in-game day advances on consensus or when the timer runs out.">
-          <span className="pill">5 days · 12 min/day</span>
+        {/* it described the old timed "live event"; the market runs in rounds now */}
+        <SettingRow
+          label="Free agency"
+          hint="Five rounds, one offer or pass per team each round — the weakest roster acts last and sees every bid first. Offers are binding; nothing signs until a round closes."
+        >
+          <span className="pill">5 rounds</span>
         </SettingRow>
         <SettingRow
           label="League trade vote"
-          hint="Trades involving a 90+ overall player and a human GM require a majority vote. Ties are blocked."
+          hint={
+            online
+              ? "A trade between two GMs that involves a 90+ overall player is blocked if the league's value chart reads it as a fleecing either way."
+              : "Trades involving a 90+ overall player and a human GM require a majority vote. Ties are blocked."
+          }
         >
           <span className="pill">Always on</span>
         </SettingRow>
@@ -440,7 +458,7 @@ export function LeagueSetup() {
       {locked ? (
         <Footer>
           <button type="button" className="btnlink btn-primary" onClick={() => nav("/")}>
-            Back to {STAGE_LABEL[stage]}
+            Back to {currentScreen(stage, step).label}
           </button>
         </Footer>
       ) : (
