@@ -150,7 +150,25 @@ export function watchNotes(
     "keeps showing up in crunch time; the clutch reputation is earned",
     "is nursing a nagging issue that hasn't hit the report yet",
   ];
-  const pool = s.stage === "preseason" ? preseasonNotes : seasonNotes;
+  // the season's notes are about recent games; between seasons there are none,
+  // and "cooled off badly over the last month" read strangely in March
+  const offseasonNotes = [
+    "spent the offseason with a private coach and says he's in the best shape of his life",
+    "is the name rival front offices keep asking about",
+    "has been asking pointed questions about his role next season",
+    "skipped the voluntary workouts; nobody is saying why",
+    "is quietly one of the better values on any roster in the league",
+  ];
+  const inSeason = [
+    "regularSeason",
+    "tradeDeadline",
+    "tradeDeadlineSummary",
+    "midseasonFreeAgency",
+    "midseasonFreeAgencySummary",
+    "midseasonDepthChart",
+    "playoffs",
+  ].includes(s.stage);
+  const pool = s.stage === "preseason" ? preseasonNotes : inSeason ? seasonNotes : offseasonNotes;
   return s.gms
     .filter((g) => g.isHuman && g.teamCode)
     .map((g, gi) => {
