@@ -186,8 +186,10 @@ export function proposeAtDeadline(
 ): { ok: boolean; reason?: string } {
   const d = s.tradeDeadline;
   if (!d || d.done) return { ok: false, reason: "The deadline has passed." };
-  if (d.active) return { ok: false, reason: "Another negotiation is still open." };
+  // whose turn first: a team that isn't on the clock was told to finish a
+  // negotiation that wasn't theirs
   if (onTheClock(s) !== fromTeam) return { ok: false, reason: "It isn't your turn." };
+  if (d.active) return { ok: false, reason: "Finish the open negotiation first." };
   if (toTeam === fromTeam) return { ok: false, reason: "You can't trade with yourself." };
   if (fromAssets.length === 0 && toAssets.length === 0) {
     return { ok: false, reason: "An offer has to contain something." };
@@ -213,8 +215,8 @@ export function proposeAtDeadline(
 export function skipTurn(s: LeagueState, teamCode: string): { ok: boolean; reason?: string } {
   const d = s.tradeDeadline;
   if (!d || d.done) return { ok: false, reason: "The deadline has passed." };
-  if (d.active) return { ok: false, reason: "Finish the open negotiation first." };
   if (onTheClock(s) !== teamCode) return { ok: false, reason: "It isn't your turn." };
+  if (d.active) return { ok: false, reason: "Finish the open negotiation first." };
   delete d.drafts[teamCode];
   nextTurn(s);
   return { ok: true };
