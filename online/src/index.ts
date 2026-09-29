@@ -623,6 +623,12 @@ post("/leagues/:id/admin/advance", async (ctx) => {
 const PORT = Number(process.env.PORT ?? 8788);
 
 export const server = createServer((req, res) => void handle(req, res));
+// Hold idle connections open longer than the load balancer in front of us
+// does. Node's default closes them after 5 seconds, so a proxy (or a client)
+// reusing one at that moment gets a reset: a 502 for a GM, ECONNRESET in the
+// e2e harness. The headers timeout has to sit above it.
+server.keepAliveTimeout = 65_000;
+server.headersTimeout = 66_000;
 
 if (process.env.NODE_ENV !== "test") {
   // Listen first, unconditionally. This used to await `migrate()`, so a
