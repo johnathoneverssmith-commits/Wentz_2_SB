@@ -21,7 +21,10 @@ function ago(at: string): string {
  * trainingCamp" — they're stored, so tidy them on the way out.
  */
 function readable(summary: string): string {
-  return summary.replace(/moved on to ([a-z][A-Za-z]+)(?= week| Week|\.|$)/, (whole, key: string) => {
+  return summary
+    // "extended Joey Porter Jr.." — a name that ends in a full stop, then the sentence's
+    .replace(/\.\.$/, ".")
+    .replace(/moved on to ([a-z][A-Za-z]+)(?= week| Week|\.|$)/, (whole, key: string) => {
     const label = (STAGE_LABEL as Record<string, string>)[key];
     return label ? `moved on to ${label}` : whole;
   });
