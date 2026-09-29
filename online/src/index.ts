@@ -346,6 +346,13 @@ get("/leagues/:id", async (ctx) => {
     rewindSeasonStats(state, revealedWeek(state, franchise?.gmId ?? "", "REG"));
   }
   delete state.statLedger;
+  // An offer still waiting on an answer is between the two teams in it; once
+  // it's answered it's league news. Every GM's pending offers used to ride
+  // along in every download.
+  {
+    const mine = franchise?.teamCode;
+    state.trades = state.trades.filter((t) => t.status !== "offered" || t.fromTeam === mine || t.toTeam === mine);
+  }
   // Camp: each GM reads their own plan and results. Everyone's went out to
   // everyone — ~120KB a pull, and another GM's camp focus with it.
   if (state.trainingCamp) {
