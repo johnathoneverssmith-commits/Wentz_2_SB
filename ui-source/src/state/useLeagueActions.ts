@@ -403,7 +403,8 @@ export function useLeagueActions(): LeagueActions {
       // awaited, and allowed to fail: the checkpoint's backstop poll counts
       // failures to say when the server has gone quiet
       refresh: async () => {
-        const state = await pull();
+        // a poll: most of the time nothing moved, and the answer is one row
+        const state = await pull({ ifChanged: true });
         if (state) useStore.setState(state as never);
       },
     };

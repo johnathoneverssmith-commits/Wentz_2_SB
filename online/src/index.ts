@@ -250,6 +250,27 @@ post("/leagues/:id/claim", async (ctx) => {
  */
 get("/leagues/:id", async (ctx) => {
   const user = requireUser(ctx);
+  // A poll that already holds the current version: say so from one row,
+  // rather than loading, redacting and sending the whole league again.
+  const have = ctx.url.searchParams.get("have");
+  if (have) {
+    const row = await pool.query<{ version: string; phase_ends_at: Date | null }>(
+      `SELECT version, phase_ends_at FROM league_state WHERE league_id = $1`,
+      [ctx.params.id!],
+    );
+    const current = row.rows[0];
+    if (
+      current &&
+      current.version === have &&
+      ((await franchiseOf(ctx.params.id!, user.id)) || (await isCommissioner(ctx.params.id!, user.id)))
+    ) {
+      return {
+        unchanged: true,
+        version: current.version,
+        msLeft: current.phase_ends_at ? Math.max(0, current.phase_ends_at.getTime() - Date.now()) : null,
+      };
+    }
+  }
   const loaded = await readLeague(ctx.params.id!);
   if (!loaded) throw new ActionError("No such league.", 404);
   const franchise = await franchiseOf(ctx.params.id!, user.id);

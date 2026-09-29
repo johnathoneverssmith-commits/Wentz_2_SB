@@ -276,6 +276,12 @@ export class OnlineLeagueClient {
   /** The whole league, as the server has it. This is the source of truth. */
   load = (leagueId: string) => this.call<LeagueView>(`/leagues/${leagueId}`);
 
+  /** The league, or just "unchanged" when `have` is still the current version. */
+  loadIfChanged = (leagueId: string, have: string) =>
+    this.call<LeagueView | { unchanged: true; version: string; msLeft: number | null }>(
+      `/leagues/${leagueId}?have=${encodeURIComponent(have)}`,
+    );
+
   /**
    * The play-by-play for one revealed game, rebuilt server-side.
    *

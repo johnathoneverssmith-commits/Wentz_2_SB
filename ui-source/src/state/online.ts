@@ -310,10 +310,19 @@ async function seedNews(client: OnlineLeagueClient, leagueId: string): Promise<v
 }
 
 /** Fetch the league again. The server's copy always wins. */
-export async function pull(): Promise<LeagueState | null> {
+export async function pull(opts: { ifChanged?: boolean } = {}): Promise<LeagueState | null> {
   const s = session;
   if (!s) return null;
-  const view = await s.client.load(s.leagueId);
+  const got = opts.ifChanged ? await s.client.loadIfChanged(s.leagueId, s.version) : await s.client.load(s.leagueId);
+  if ("unchanged" in got) {
+    if (session === s) {
+      s.msLeft = got.msLeft;
+      s.phaseEndsAt = got.msLeft == null ? null : Date.now() + got.msLeft;
+      announce();
+    }
+    return null;
+  }
+  const view = got;
   // A session can end mid-flight — someone goes back to a local game, or
   // joins a different league — and writing this answer into whatever session
   // is current now would quietly cross the two leagues.
