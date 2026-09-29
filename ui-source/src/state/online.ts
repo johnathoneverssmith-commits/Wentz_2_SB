@@ -183,6 +183,9 @@ export async function resumeLeague(): Promise<LeagueState | ResumeFailure | null
  * because of your own signing is a wasted megabyte. So a frame whose version
  * we already have updates the news ticker and stops there.
  */
+/** Events that change only the acting GM's own view of the league. */
+const PRIVATE_KINDS = new Set(["reveal", "step"]);
+
 function watch(): void {
   if (!session) return;
   const s = session;
@@ -194,6 +197,19 @@ function watch(): void {
       news.push(...change.events);
       if (news.length > NEWS_KEPT) news.splice(0, news.length - NEWS_KEPT);
       if (change.version === s.version) {
+        announce();
+        return;
+      }
+      // Another GM watching a week or moving between screens changes only
+      // their own marker — nothing this screen shows — but every one of those
+      // used to send every other GM to re-download the whole league. Only
+      // when the change is nothing but that (a commit with no events at all
+      // still pulls: some change the league without logging).
+      if (
+        change.events.length > 0 &&
+        change.events.every((e) => PRIVATE_KINDS.has(e.kind) && e.teamCode !== s.teamCode)
+      ) {
+        s.version = change.version;
         announce();
         return;
       }

@@ -650,7 +650,7 @@ export function decideReveal(
       {
         teamCode: actor.teamCode,
         kind: "reveal",
-        summary: `${city(actor.teamCode)} watched through week ${through}.`,
+        summary: `${city(actor.teamCode)} watched through Week ${through}.`,
       },
     ],
   };
