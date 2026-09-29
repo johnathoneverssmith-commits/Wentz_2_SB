@@ -127,11 +127,12 @@ export function CoachingDraftSummary() {
               <tr>
                 <th>Team</th>
                 <th className="c">Staff OVR</th>
-                <th className="c">HC</th>
-                <th className="c">Off</th>
-                <th className="c">Def</th>
-                <th className="c">ST</th>
-                <th className="c">Med</th>
+                {/* ranks, beside a rating: say so */}
+                <th className="c">HC rank</th>
+                <th className="c">Off rank</th>
+                <th className="c">Def rank</th>
+                <th className="c">ST rank</th>
+                <th className="c">Med rank</th>
                 <th className="c">Grade</th>
               </tr>
             </thead>
@@ -146,7 +147,13 @@ export function CoachingDraftSummary() {
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                           <TeamBadge code={c.teamCode} size={18} />
                           {TEAMS_BY_CODE[c.teamCode]?.label ?? c.teamCode}
-                          {isMine && <span className="ppos">you</span>}
+                          {isMine ? (
+                            <span className="ppos">you</span>
+                          ) : (
+                            humanTeams.includes(c.teamCode) && (
+                              <span className="ppos">{s.gms.find((g) => g.teamCode === c.teamCode)?.name}</span>
+                            )
+                          )}
                         </span>
                       </td>
                       <td className="c" style={{ fontWeight: 700 }}>{c.overall}</td>

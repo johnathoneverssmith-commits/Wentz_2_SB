@@ -43,6 +43,10 @@ export function CoachDetailsModal({ coach, onClose }: { coach: Coach; onClose: (
             <p className="modal-sub">
               {COACH_ROLE_LABEL[coach.role]}
               {coach.team ? ` · ${TEAMS_BY_CODE[coach.team]?.label ?? coach.team}` : " · Available"}
+              {/* what he costs, when he's under contract */}
+              {coach.contract
+                ? ` · ${coach.contract.yearsRemaining} yr${coach.contract.yearsRemaining === 1 ? "" : "s"}, $${coach.contract.annualValue.toFixed(1)}M/yr`
+                : ""}
             </p>
           </div>
           <button className="modal-x" onClick={onClose} aria-label="Close">

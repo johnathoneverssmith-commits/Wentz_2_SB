@@ -97,7 +97,15 @@ export function RosterByPosition({
                         <td style={{ color: i === 0 ? "var(--ink)" : "var(--ink-faint)", fontWeight: i === 0 ? 600 : 400 }}>
                           {pos}
                         </td>
-                        <td className="name">{p.name}</td>
+                        <td className="name">
+                          {p.name}
+                          {/* who's out, when you're sizing up a roster */}
+                          {p.injury_status && (
+                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}>
+                              {p.injury_status.status.toUpperCase()}
+                            </span>
+                          )}
+                        </td>
                         <td className="c">{p.age}</td>
                         <td className="c" style={{ fontWeight: 600 }}>
                           {p.overall}
