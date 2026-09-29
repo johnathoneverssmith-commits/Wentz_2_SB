@@ -19,7 +19,7 @@ import { teamFullName } from "@/data/teams";
 import { viewerWeek } from "@/state/reveal";
 import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent";
 import { coachingOnTheClock } from "@/state/coachingDraft";
-import { pendingFor } from "@/state/tradeDeadline";
+import { onTheClock as deadlineOnTheClock, pendingFor } from "@/state/tradeDeadline";
 
 import "./app-shell.css";
 import { useTeamTheme } from "./useTeamTheme.ts";
@@ -149,6 +149,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (s.stage === "tradeDeadline") return pendingFor(s, me) != null;
     return false;
   });
+  // who the clock is running for, when it isn't you
+  const clockTeam = useStore((s) => {
+    if ((s.stage === "fantasyDraft" || s.stage === "offseasonDraft") && s.draft) {
+      return s.draft.pickOrder[s.draft.currentPickIndex] ?? null;
+    }
+    if (s.stage === "freeAgency" || s.stage === "midseasonFreeAgency") return faOnTheClock(s);
+    if (s.stage === "coachingDraft") return coachingOnTheClock(s);
+    if (s.stage === "tradeDeadline" && s.tradeDeadline) {
+      const a = s.tradeDeadline.active;
+      return a ? (a.awaiting === "recipient" ? a.toTeam : a.fromTeam) : deadlineOnTheClock(s);
+    }
+    return null;
+  });
   const session = onlineSession();
   const step = useStore((st) => stepOf(st, st.viewerGmId));
   const screen = currentScreen(stage, step);
@@ -175,7 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {screen.label} · {displaySeasonFor(season, stage)}
           {week ? ` · Wk ${week}` : ""}
         </div>
-        {session && <TurnClock stage={stage} yourTurn={yourTurn} />}
+        {session && <TurnClock stage={stage} yourTurn={yourTurn} team={clockTeam} />}
 
         {inSetup && (
           <>
