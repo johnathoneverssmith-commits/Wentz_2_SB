@@ -153,18 +153,25 @@ export function lastLeagueId(): string | null {
  * answer is the same: stay local and say nothing. The caller learns whether
  * it worked from `isOnline()`.
  */
-export async function resumeLeague(): Promise<LeagueState | null> {
+/** Why rejoining the last league didn't work, when it didn't. */
+export type ResumeFailure = "signedOut" | "unreachable";
+
+export async function resumeLeague(): Promise<LeagueState | ResumeFailure | null> {
   if (session) return null;
   const leagueId = lastLeagueId();
   if (!leagueId) return null;
   try {
     const { state } = await joinLeague(leagueId);
     return state;
-  } catch {
+  } catch (err) {
     // Don't forget the id on a transient failure — a sleeping free-tier
     // server would permanently demote the league to a local copy. The next
     // load tries again; `goLocal` is what actually clears it.
-    return null;
+    //
+    // But say which failure it was: an expired or revoked session read the
+    // same as a sleeping server, and the GM went on playing a local copy
+    // that nothing they did would ever reach.
+    return err instanceof OnlineError && (err.status === 401 || err.status === 403) ? "signedOut" : "unreachable";
   }
 }
 

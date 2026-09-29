@@ -146,6 +146,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return false;
   });
   const session = onlineSession();
+  // the tab title too: a league left open in a background tab is how most
+  // async turns get noticed
+  useEffect(() => {
+    document.title = yourTurn ? "● Your turn — Franchise Sim" : "Franchise Sim";
+  }, [yourTurn]);
   const seasonScreens = isInSeason(stage);
   const inSetup = stage === "setup";
 

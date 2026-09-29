@@ -4,7 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
 import { Checkpoint } from "./screens/Checkpoint.tsx";
-import { isOnline, resumeLeague, lastLeagueId } from "@/state/online";
+import { isOnline, resumeLeague, lastLeagueId, type ResumeFailure } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
 import { STAGE_HOME } from "@/state/stageMachine";
@@ -96,18 +96,27 @@ function StageHome() {
  */
 const RESUME_TIMEOUT_MS = 12_000;
 
-function useResumeOnline(): boolean {
+function useResumeOnline(): { resuming: boolean; failed: ResumeFailure | null } {
   const [resuming, setResuming] = useState(() => !isOnline() && lastLeagueId() !== null);
+  const [failed, setFailed] = useState<ResumeFailure | null>(null);
   useEffect(() => {
     if (!resuming) return;
     let live = true;
     const done = () => {
       if (live) setResuming(false);
     };
-    const timer = setTimeout(done, RESUME_TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      done();
+      if (live) setFailed((f) => f ?? "unreachable");
+    }, RESUME_TIMEOUT_MS);
     void resumeLeague()
-      .then((state) => {
-        if (live && state) useStore.setState(state as never);
+      .then((result) => {
+        if (!live) return;
+        if (result === "signedOut" || result === "unreachable") setFailed(result);
+        else if (result) {
+          setFailed(null);
+          useStore.setState(result as never);
+        }
       })
       .finally(() => {
         clearTimeout(timer);
@@ -120,7 +129,7 @@ function useResumeOnline(): boolean {
     // deliberately once, on mount: retrying is the user's call, not a loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return resuming;
+  return { resuming, failed };
 }
 
 /**
@@ -204,7 +213,7 @@ function useFollowReleasedCheckpoint(held: boolean): void {
 export function App() {
   // keyed on the route so navigating away from a crashed screen clears it
   const { pathname } = useLocation();
-  const resuming = useResumeOnline();
+  const { resuming, failed: resumeFailed } = useResumeOnline();
   const checkpoint = useCheckpoint();
   useFollowReleasedCheckpoint(checkpoint !== null);
   return (
@@ -213,6 +222,26 @@ export function App() {
         <div className="notice" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
           Reconnecting to your online league… the server may need a moment to wake. Everything
           below is your last saved copy until it does.
+        </div>
+      )}
+      {!resuming && resumeFailed && !isOnline() && (
+        // it used to vanish and leave a local copy looking like the league
+        <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+          {resumeFailed === "signedOut" ? (
+            <>
+              <strong>You&rsquo;re signed out of your online league.</strong> What you see is a saved
+              copy — nothing you do here reaches the league.{" "}
+              <a href="#/online">Sign in again</a>
+            </>
+          ) : (
+            <>
+              <strong>Couldn&rsquo;t reach your online league.</strong> What you see is a saved copy —
+              nothing you do here reaches the league.{" "}
+              <a href="" onClick={() => window.location.reload()}>
+                Try again
+              </a>
+            </>
+          )}
         </div>
       )}
       {checkpoint ? (
