@@ -219,7 +219,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {session && !inSetup && <LeagueWire />}
         <div className="spacer" />
-        {session && <TurnAlerts yourTurn={yourTurn} stageLabel={screen.label} />}
+        {session && <TurnAlerts yourTurn={yourTurn} stageLabel={screen.label} offers={offers} />}
         <SoundControl />
         {!inSetup && (
           <NavLink to="/setup" className={active}>

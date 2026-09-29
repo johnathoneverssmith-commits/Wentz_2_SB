@@ -19,9 +19,19 @@ function readOn(): boolean {
  *
  * Opt-in, per device: the browser asks once, and the rail keeps a switch.
  */
-export function TurnAlerts({ yourTurn, stageLabel }: { yourTurn: boolean; stageLabel: string }) {
+export function TurnAlerts({
+  yourTurn,
+  stageLabel,
+  offers = 0,
+}: {
+  yourTurn: boolean;
+  stageLabel: string;
+  /** Trade offers waiting on you — a new one is worth a nudge too. */
+  offers?: number;
+}) {
   const [on, setOn] = useState(readOn);
   const was = useRef(yourTurn);
+  const offersWere = useRef(offers);
 
   useEffect(() => {
     const before = was.current;
@@ -38,6 +48,22 @@ export function TurnAlerts({ yourTurn, stageLabel }: { yourTurn: boolean; stageL
       // some browsers only allow notifications from a service worker
     }
   }, [yourTurn, on, stageLabel]);
+
+  // a new trade offer arrived while the tab was in the background
+  useEffect(() => {
+    const before = offersWere.current;
+    offersWere.current = offers;
+    if (!on || offers <= before || !supported() || Notification.permission !== "granted" || !document.hidden) return;
+    try {
+      const n = new Notification("New trade offer — Franchise Sim", { body: "Another team made you an offer.", tag: "fs-offer" });
+      n.onclick = () => {
+        window.focus();
+        n.close();
+      };
+    } catch {
+      // some browsers only allow notifications from a service worker
+    }
+  }, [offers, on]);
 
   if (!supported()) return null;
 
