@@ -68,6 +68,10 @@ export function TradeProposal() {
   };
 
   // live cap/roster preview of the deal as it's being built
+  const assetOf = (id: string) =>
+    id.startsWith("pick:")
+      ? { kind: "pick" as const, pick: s.draftPicks[id.slice(5)] }
+      : { kind: "player" as const, playerId: id };
   const legality = useMemo(
     () =>
       !myCode || (give.length === 0 && get.length === 0)
@@ -75,8 +79,11 @@ export function TradeProposal() {
         : checkTrade(s, {
             fromTeam: myCode,
             toTeam: partner,
-            fromAssets: give.map((playerId) => ({ kind: "player" as const, playerId })),
-            toAssets: get.map((playerId) => ({ kind: "player" as const, playerId })),
+            // picks ride in the same lists under a `pick:` id; read as players
+            // they were never on either roster, so any deal with a pick in it
+            // was refused as "stale"
+            fromAssets: give.map(assetOf),
+            toAssets: get.map(assetOf),
           }),
     [s, myCode, partner, give, get],
   );
@@ -118,12 +125,7 @@ export function TradeProposal() {
     [s, partner],
   );
 
-  const toAssets = (ids: string[]) =>
-    ids.map((id) =>
-      id.startsWith("pick:")
-        ? { kind: "pick" as const, pick: s.draftPicks[id.slice(5)] }
-        : { kind: "player" as const, playerId: id },
-    );
+  const toAssets = (ids: string[]) => ids.map(assetOf);
 
   const evalResult = useMemo(() => {
     if (!myCode) return { valueDelta: 0, acceptLikelihood: 0.5 };
