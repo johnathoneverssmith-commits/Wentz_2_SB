@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { goLocal, onlineSession } from "@/state/online";
+import { goLocal, lastLeagueId, onlineSession } from "@/state/online";
 import { SaveBackup } from "./SaveBackup";
 import { LeagueWire } from "./LeagueWire";
 import { TurnClock } from "./TurnClock";
@@ -234,10 +234,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             Screen Gallery
           </NavLink>
         )}
-        {!onlineSession() && <SaveBackup />}
+        {/* solo-save controls; a detached online copy isn't the solo save */}
+        {!onlineSession() && lastLeagueId() === null && <SaveBackup />}
         {/* a solo-save control: inside an online league it read as though it
             could wipe the league */}
-        {!session && (
+        {/* an online league remembered but not connected: the way out is back
+            to the solo save, not a brand-new one over the top of it */}
+        {!session && lastLeagueId() !== null && (
+          <button
+            className="reset"
+            onClick={() => {
+              goLocal();
+              navTo("/");
+            }}
+            title="Your online league stays in the lobby; this switches this device back to your solo dynasty."
+          >
+            Play single-player
+          </button>
+        )}
+        {!session && lastLeagueId() === null && (
         <button
           className="reset"
           onClick={() => {
