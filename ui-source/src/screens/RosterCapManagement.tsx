@@ -59,7 +59,7 @@ export function RosterCapManagement() {
     s.stage === "offseasonDepthChart" || s.stage === "midseasonDepthChart";
   const back = s.returnTo
     ? { to: s.returnTo, label: "Return to retirements" }
-    : { to: isDepthChartStage ? "/" : "/hub", label: isDepthChartStage ? "Back to stage" : "Return to team hub" };
+    : { to: "/hub", label: "Return to team hub" };
 
   const roster = useMemo(() => (code ? teamRoster(s, code) : []), [s, code]);
   // players on injured reserve don't hold one of the 53 spots
@@ -445,9 +445,13 @@ export function RosterCapManagement() {
       <Footer>
         <button onClick={() => nav("/league-rosters")}>League Rosters</button>
         <button onClick={() => nav("/free-agency")}>Free agency board</button>
-        <button className="btn-primary" onClick={() => nav(back.to)}>
-          {back.label}
-        </button>
+        {/* on the depth-chart stage this screen *is* the stage: "back to
+            stage" went round to itself */}
+        {!(isDepthChartStage && !s.returnTo) && (
+          <button className="btn-primary" onClick={() => nav(back.to)}>
+            {back.label}
+          </button>
+        )}
       </Footer>
 
       {isDepthChartStage && (
