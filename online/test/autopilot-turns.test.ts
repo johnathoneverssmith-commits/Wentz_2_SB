@@ -5,6 +5,7 @@ import { beginCoachingDraft, coachingOnTheClock, runAiCoachingPicks } from "@/st
 import { beginFreeAgencyEvent, onTheClock, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
+import { runPendingCpuTurns } from "../src/decide.js";
 import { autopilotAbsent, isTurnStage, turnKey } from "../src/phases.js";
 
 /**
@@ -47,6 +48,30 @@ describe("an expired clock in a turn-based event", () => {
     expect(humans.has(on)).toBe(true);
     const key = turnKey(s);
     expect(autopilotAbsent(s)).toContain(on);
+    expect(turnKey(s)).not.toBe(key);
+  });
+
+  it("moves on when the team on the clock became a CPU team (a seat reopened)", () => {
+    const s = league("coachingDraft");
+    beginCoachingDraft(s);
+    runAiCoachingPicks(s, humans);
+    const on = coachingOnTheClock(s)!;
+    // the commissioner reopens that seat: the GM is gone, the CPU has the team
+    s.gms.find((g) => g.teamCode === on)!.isHuman = false;
+    const before = s.coachingDraft!.currentPickIndex;
+    autopilotAbsent(s);
+    expect(s.coachingDraft!.currentPickIndex).toBeGreaterThan(before);
+    expect(coachingOnTheClock(s)).not.toBe(on);
+  });
+
+  it("does the same in free agency, straight from the reopened seat", () => {
+    const s = league("freeAgency");
+    beginFreeAgencyEvent(s);
+    runCpuTurns(s, humans);
+    const on = onTheClock(s)!;
+    s.gms.find((g) => g.teamCode === on)!.isHuman = false;
+    const key = turnKey(s);
+    runPendingCpuTurns(s);
     expect(turnKey(s)).not.toBe(key);
   });
 

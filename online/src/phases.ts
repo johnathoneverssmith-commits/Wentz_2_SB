@@ -54,7 +54,7 @@ import { campCuts, fillRosterGaps, fitDraftedPayrolls, recomputeTeamRatings, tri
 import { beginCoachingDraft, coachingOnTheClock, runAiCoachingPicks, suggestedCoachingPick } from "@/state/coachingDraft.ts";
 import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent.ts";
 import { pendingFor } from "@/state/tradeDeadline.ts";
-import { decideCoachingPick, decideDeadlineTurn, decideFreeAgencyTurn } from "./decide.js";
+import { decideCoachingPick, decideDeadlineTurn, decideFreeAgencyTurn, runPendingCpuTurns } from "./decide.js";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconcileCpuTeam } from "@/state/reconciliation.ts";
 import { openTrainingCamp } from "@/state/trainingCamp.ts";
@@ -684,6 +684,17 @@ export function autopilotAbsent(state: LeagueState): string[] {
     const gm = state.gms.find((g) => g.isHuman && g.teamCode === teamCode);
     return gm ? { userId: "", leagueId: "", teamCode, gmId: gm.id } : null;
   };
+  // a CPU team on the clock (a seat reopened mid-event) — nothing else prompts it
+  const onClock =
+    state.stage === "coachingDraft"
+      ? coachingOnTheClock(state)
+      : state.stage === "freeAgency" || state.stage === "midseasonFreeAgency"
+        ? faOnTheClock(state)
+        : null;
+  if (onClock && !actorFor(onClock)) {
+    runPendingCpuTurns(state);
+    return played;
+  }
   if (state.stage === "coachingDraft") {
     const on = coachingOnTheClock(state);
     const actor = on ? actorFor(on) : null;

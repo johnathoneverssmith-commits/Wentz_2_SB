@@ -925,3 +925,57 @@ export function decideDeadlineTurn(
 
   return { events: [{ teamCode: actor.teamCode, kind: "trade.deadline", summary }] };
 }
+
+/**
+ * Play whatever CPU turns are due in the current turn-based event, and end
+ * the event if that finishes it — the same steps a human's move triggers.
+ *
+ * CPU turns only ever ran as a follow-on to a person's move, so a seat
+ * reopened while that team was on the clock left the coaching draft, the
+ * market or the deadline waiting on a CPU that nothing would prompt.
+ */
+export function runPendingCpuTurns(state: LeagueState): boolean {
+  const humans = new Set(state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+  const finish = (from: string): void => {
+    const t = resolveTransition(state, {});
+    state.stage = t.stage;
+    state.week = t.week;
+    onStageEntered(state, from);
+    clearReadinessOnline(state);
+  };
+  const stage = state.stage;
+  if ((stage === "fantasyDraft" || stage === "offseasonDraft") && state.draft) {
+    runAiPicks(state);
+    const boardDone = state.draft.currentPickIndex >= state.draft.pickOrder.length;
+    if (draftThresholdMet(state) || boardDone) {
+      if (!boardDone) completeDraft(state);
+      finish(stage);
+      return true;
+    }
+    return false;
+  }
+  if (stage === "coachingDraft" && state.coachingDraft) {
+    runAiCoachingPicks(state, humans);
+    if (coachingDraftComplete(state)) {
+      finish(stage);
+      return true;
+    }
+    return false;
+  }
+  if ((stage === "freeAgency" || stage === "midseasonFreeAgency") && state.freeAgencyEvent && !state.freeAgencyEvent.complete) {
+    runCpuTurns(state, humans);
+    if (state.freeAgencyEvent.complete) {
+      finish(stage);
+      return true;
+    }
+    return false;
+  }
+  if (stage === "tradeDeadline" && state.tradeDeadline && !state.tradeDeadline.done) {
+    runDeadlineTurns(state);
+    if (state.tradeDeadline.done) {
+      finish(stage);
+      return true;
+    }
+  }
+  return false;
+}

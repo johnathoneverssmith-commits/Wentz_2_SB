@@ -14,6 +14,7 @@ import { cleanConfigPatch } from "@/state/rules.ts";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 
 import { ActionError, pool, withLeague } from "./db.js";
+import { runPendingCpuTurns } from "./decide.js";
 
 /** Short, unambiguous, sayable down a phone. No O/0 or I/1. */
 function inviteCode(): string {
@@ -355,6 +356,8 @@ export async function vacateSeat(
       delete state.readiness[gm.id];
     }
     if (state.teams[teamCode]) state.teams[teamCode]!.controlledBy = { kind: "ai" };
+    // if that team was on the clock, its turn is the CPU's now — take it
+    runPendingCpuTurns(state);
     return {
       result: null,
       state,
