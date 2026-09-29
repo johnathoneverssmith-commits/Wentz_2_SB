@@ -159,8 +159,24 @@ second and is more elegant, but it wants a dedicated connection with its own
 reconnect story; for a league whose interesting events are hours apart, a
 five-second floor on cross-process news buys nothing worth that.
 
-`EventSource` reconnects on its own, and a browser without it falls back to
-the polling the caller already does rather than failing to join.
+`EventSource` reconnects on its own after a dropped connection, and a browser
+without it falls back to the polling the caller already does rather than
+failing to join. Three things it doesn't do by itself, which the client adds:
+
+- **Catching up.** Every (re)connect opens with a `hello` frame carrying the
+  current version; a client that slept through changes pulls once.
+- **Surviving an error response.** A proxy's 502 while the server restarts
+  closes the stream for good; the client reopens it with backoff, and pulls
+  once in case the answer was "you're not in this league any more".
+- **Being told to stop.** The stream checks membership when it opens, so
+  leaving, reopening a seat and archiving close the streams of anyone no
+  longer in (`pruneWatchers`).
+
+A poll that already holds the current version (`GET /leagues/:id?have=V`) gets
+`{ unchanged: true }` from one row instead of the whole league. Batch moves —
+signing a draft class, a staff trim, a whole depth chart (`actions/rookies`,
+`actions/releases`, `actions/depths`) — are one transaction and one push to
+the league, not one per item.
 
 ## The way in
 
