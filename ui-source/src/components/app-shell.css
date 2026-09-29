@@ -385,3 +385,14 @@
   max-height: 60vh;
   overflow-y: auto;
 }
+
+.leaguewire .wirenew {
+  color: var(--team);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.leaguewire li.new {
+  border-left: 2px solid var(--team);
+  padding-left: 6px;
+  margin-left: -8px;
+}
