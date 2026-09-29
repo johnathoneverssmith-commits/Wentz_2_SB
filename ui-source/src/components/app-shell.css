@@ -370,3 +370,18 @@
     white-space: nowrap;
   }
 }
+
+.leaguewire .wiremore {
+  margin: 6px 8px 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.rail .leaguewire ul {
+  max-height: 60vh;
+  overflow-y: auto;
+}

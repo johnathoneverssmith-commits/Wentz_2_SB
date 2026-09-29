@@ -6,6 +6,8 @@ import { STAGE_LABEL } from "@/state/stageMachine";
 /** A GM moving between their own screens: true, and noise to everyone else. */
 const HIDDEN_KINDS = new Set(["step"]);
 const SHOWN = 4;
+/** Coming back after a day away, four lines isn't the story. */
+const SHOWN_MORE = 20;
 
 function ago(at: string): string {
   const ms = Date.now() - Date.parse(at);
@@ -39,6 +41,7 @@ function readable(summary: string): string {
  */
 export function LeagueWire() {
   const [, bump] = useState(0);
+  const [more, setMore] = useState(false);
   useEffect(() => {
     const off = onOnlineChange(() => bump((n) => n + 1));
     // the "5m ago" labels age even when nothing new arrives
@@ -53,21 +56,25 @@ export function LeagueWire() {
   const items = recentNews()
     .filter((e) => !HIDDEN_KINDS.has(e.kind))
     // another GM's progress through the results is worth knowing; your own isn't news
-    .filter((e) => !(e.kind === "reveal" && e.teamCode === mine))
-    .slice(-SHOWN)
-    .reverse();
+    .filter((e) => !(e.kind === "reveal" && e.teamCode === mine));
+  const shown = items.slice(-(more ? SHOWN_MORE : SHOWN)).reverse();
   if (items.length === 0) return null;
   return (
     <div className="leaguewire">
       <div className="railgroup">League wire</div>
       <ul>
-        {items.map((e) => (
+        {shown.map((e) => (
           <li key={e.id}>
             {readable(e.summary)}
             <span className="when">{ago(e.at)}</span>
           </li>
         ))}
       </ul>
+      {items.length > SHOWN && (
+        <button type="button" className="wiremore" onClick={() => setMore((m) => !m)} aria-expanded={more}>
+          {more ? "less" : `more (${Math.min(items.length, SHOWN_MORE) - SHOWN})`}
+        </button>
+      )}
     </div>
   );
 }
