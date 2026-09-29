@@ -9,6 +9,7 @@
  * years of capital on one player — and none of it was expressible.
  */
 import type { DraftPickAsset, LeagueState } from "@/domain";
+import { TEAMS_BY_CODE } from "@/data/teams";
 
 /** Rounds in the rookie draft. */
 export const DRAFT_ROUNDS = 7;
@@ -82,6 +83,15 @@ export function futureDiscount(pick: DraftPickAsset, season: number): number {
  * Showing `pick.year` itself called one draft "2028 Rookie Draft" in the
  * room and "2027 Round 1" on the picks that were used in it.
  */
+/**
+ * A pick as it appears in a trade: whose it originally was. A trade record
+ * keeps the pick as it stood when offered, so `pickLabel`'s "(via …)" never
+ * appeared — and two "2029 Round 6"s swapped for each other said nothing.
+ */
+export function tradedPickLabel(pick: DraftPickAsset): string {
+  return `${TEAMS_BY_CODE[pick.originalTeam]?.abbr ?? pick.originalTeam}'s ${pick.year + 1} Round ${pick.round}`;
+}
+
 export function pickLabel(pick: DraftPickAsset): string {
   const via = pick.originalTeam !== pick.ownedBy ? ` (via ${pick.originalTeam})` : "";
   return `${pick.year + 1} Round ${pick.round}${via}`;

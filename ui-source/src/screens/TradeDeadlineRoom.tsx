@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
-import { pickKey, pickLabel, picksOwnedBy } from "@/state/draftPicks";
+import { pickKey, pickLabel, picksOwnedBy, tradedPickLabel } from "@/state/draftPicks";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import {
@@ -324,7 +324,13 @@ function RespondTurn({
       <div className="panel open">
         <div className="notice" role="status">
           <strong>
-            {duty === "final" ? "They countered." : `${TEAMS_BY_CODE[other]!.label} made you an offer.`}
+            {duty === "final"
+              ? "They countered."
+              : `${(() => {
+                  // a person made this offer: say who, not just which team
+                  const gm = s.gms.find((g) => g.isHuman && g.teamCode === other)?.name;
+                  return gm ? `${gm} (${TEAMS_BY_CODE[other]!.label})` : TEAMS_BY_CODE[other]!.label;
+                })()} made you an offer.`}
           </strong>{" "}
           {duty === "final"
             ? "Take it or leave it — a counter can only be countered once."
@@ -372,38 +378,46 @@ function RespondTurn({
       )}
 
       <Footer>
-        <button
-          type="button"
-          className="btnlink"
-          disabled={busy}
-          onClick={() => onSubmit({ kind: "deny" })}
-        >
-          Turn It Down
-        </button>
-        {duty === "respond" && !offer.modified && (
-          <button
-            type="button"
-            className="btnlink"
-            disabled={busy}
-            onClick={() => {
-              if (!countering) {
-                setCountering(true);
-                return;
-              }
-              onSubmit({ kind: "modify", proposerGives, proposerGets });
-            }}
-          >
-            {countering ? "Send Counter" : "Counter"}
-          </button>
+        {countering ? (
+          // editing a counter: "Accept" here accepted their *original* offer,
+          // and there was no way back to it except by sending something
+          <>
+            <button
+              type="button"
+              className="btnlink"
+              disabled={busy}
+              onClick={() => {
+                setCountering(false);
+                setProposerGives(idsOf(offer.fromAssets));
+                setProposerGets(idsOf(offer.toAssets));
+              }}
+            >
+              Back to their offer
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => onSubmit({ kind: "modify", proposerGives, proposerGets })}
+            >
+              Send Counter
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" className="btnlink" disabled={busy} onClick={() => onSubmit({ kind: "deny" })}>
+              Turn It Down
+            </button>
+            {duty === "respond" && !offer.modified && (
+              <button type="button" className="btnlink" disabled={busy} onClick={() => setCountering(true)}>
+                Counter
+              </button>
+            )}
+            <button type="button" className="btn-primary" disabled={busy} onClick={() => onSubmit({ kind: "accept" })}>
+              Accept
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy}
-          onClick={() => onSubmit({ kind: "accept" })}
-        >
-          Accept
-        </button>
       </Footer>
     </>
   );
@@ -500,7 +514,7 @@ function RecentActivity({ resolved }: { resolved: TradeDeadlineState["resolved"]
     assets
       .map((a) =>
         a.kind === "pick" && a.pick
-          ? pickLabel(a.pick)
+          ? tradedPickLabel(a.pick)
           : (() => {
               const p = players[a.playerId ?? ""];
               return p ? `${p.name} (${p.position})` : "a player";

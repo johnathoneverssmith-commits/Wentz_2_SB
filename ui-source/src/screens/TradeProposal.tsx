@@ -13,6 +13,7 @@ import {
   pickKey,
   pickLabel,
   picksOwnedBy,
+  tradedPickLabel,
 } from "@/state/draftPicks";
 import { pickTradeValue } from "@/sim/MockSimulationService";
 import { checkTrade, useStore } from "@/state/store";
@@ -171,7 +172,7 @@ export function TradeProposal() {
   const describe = (assets: (typeof s.trades)[number]["fromAssets"]): string =>
     assets
       .map((a) =>
-        a.kind === "pick" && a.pick ? pickLabel(a.pick) : (s.players[a.playerId ?? ""]?.name ?? "a player"),
+        a.kind === "pick" && a.pick ? tradedPickLabel(a.pick) : (s.players[a.playerId ?? ""]?.name ?? "a player"),
       )
       .join(" + ") || "nothing";
   const gmName = (team: string) => s.gms.find((g) => g.isHuman && g.teamCode === team)?.name;

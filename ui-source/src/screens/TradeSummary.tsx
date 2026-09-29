@@ -5,7 +5,7 @@ import { RosterByPosition } from "@/components/RosterByPosition";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { pickLabel } from "@/state/draftPicks";
+import { tradedPickLabel } from "@/state/draftPicks";
 import { reconciliationIssues, rosterOf } from "@/state/reconciliation";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
@@ -122,7 +122,7 @@ function TradeList({ offers, empty }: { offers: ResolvedOffer[]; empty: string }
   if (offers.length === 0) return <div className="emptystate">{empty}</div>;
 
   const name = (a: ResolvedOffer["fromAssets"][number]): string => {
-    if (a.kind === "pick" && a.pick) return pickLabel(a.pick);
+    if (a.kind === "pick" && a.pick) return tradedPickLabel(a.pick);
     const p = s.players[a.playerId ?? ""];
     return p ? `${p.name} (${p.position} ${p.overall})` : "—";
   };
