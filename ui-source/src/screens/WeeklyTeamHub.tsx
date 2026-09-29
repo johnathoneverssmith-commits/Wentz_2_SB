@@ -600,14 +600,17 @@ function RevealControls() {
         >
           {busy ? "…" : `Simulate week ${seen + 1}`}
         </button>
-        <button
-          className="btnlink"
-          style={{ flex: 1 }}
-          disabled={busy}
-          onClick={() => reveal(lastWeek)}
-        >
-          {block.watchAllLabel}
-        </button>
+        {/* with one week left the two buttons did the same thing */}
+        {seen + 1 < lastWeek && (
+          <button
+            className="btnlink"
+            style={{ flex: 1 }}
+            disabled={busy}
+            onClick={() => reveal(lastWeek)}
+          >
+            {block.phase === "PRE" && seen >= firstWeek ? "Simulate the rest of the preseason" : block.watchAllLabel}
+          </button>
+        )}
       </div>
       {error && (
         <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
