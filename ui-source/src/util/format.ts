@@ -56,7 +56,7 @@ export function points(n: number): string {
 
 /** A countdown, coarse: "2d 4h", "3h 10m", "25m". */
 export function timeLeft(ms: number): string {
-  if (ms <= 0) return "no time";
+  if (ms < 60_000) return "under a minute";
   const mins = Math.floor(ms / 60_000);
   const hours = Math.floor(mins / 60);
   const days = Math.floor(hours / 24);

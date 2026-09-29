@@ -31,6 +31,8 @@ interface OnlineSession {
   /** The league's name, for the rail: a GM in two leagues couldn't tell which was open. */
   leagueName: string;
   msLeft: number | null;
+  /** When `msLeft` runs out, by this device's clock — so a countdown can tick between loads. */
+  phaseEndsAt: number | null;
   waitingOn: string[];
   /** Closes the change stream. Null when nothing is listening. */
   stopWatching: (() => void) | null;
@@ -279,6 +281,7 @@ export async function joinLeague(
     inviteCode: view.inviteCode,
     leagueName: view.league.name,
     msLeft: view.msLeft,
+    phaseEndsAt: view.msLeft == null ? null : Date.now() + view.msLeft,
     waitingOn: view.waitingOn,
     stopWatching: null,
   };
@@ -320,6 +323,7 @@ export async function pull(): Promise<LeagueState | null> {
   if (Number(view.version) < Number(s.version)) return null;
   s.version = view.version;
   s.msLeft = view.msLeft;
+  s.phaseEndsAt = view.msLeft == null ? null : Date.now() + view.msLeft;
   s.waitingOn = view.waitingOn;
   s.isCommissioner = view.isCommissioner;
   s.inviteCode = view.inviteCode;
@@ -360,7 +364,8 @@ export async function fetchBroadcast(gameId: string): Promise<GameBroadcast | nu
 
 /** Milliseconds until this phase closes without you, for the countdown. */
 export function phaseMsLeft(): number | null {
-  return session?.msLeft ?? null;
+  const ends = session?.phaseEndsAt;
+  return ends == null ? null : Math.max(0, ends - Date.now());
 }
 
 export { OnlineError };

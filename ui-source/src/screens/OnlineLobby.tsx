@@ -9,6 +9,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { InboxLeague, OnlineUser } from "@/sim/OnlineLeagueClient";
 import { OnlineError, OnlineLeagueClient } from "@/sim/OnlineLeagueClient";
+import { TURN_STAGES } from "@/components/TurnClock";
 import { goLocal, isOnline, joinLeague, onlineSession } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { timeLeft } from "@/util/format";
@@ -51,7 +52,6 @@ interface LeagueRow {
 /** The server hands back the raw stage key; the app has a name for it. */
 const stageName = (stage: string): string => STAGE_LABEL[stage as Stage] ?? stage;
 /** Stages played a turn at a time — the only ones with a running clock. */
-const TURN_STAGES = new Set(["fantasyDraft", "offseasonDraft", "coachingDraft", "freeAgency", "midseasonFreeAgency", "tradeDeadline"]);
 
 export function OnlineLobby() {
   const nav = useNavigate();

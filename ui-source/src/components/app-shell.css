@@ -121,6 +121,28 @@
 .rail .spacer {
   flex: 1;
 }
+.rail .turnclock {
+  margin: 6px 8px 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.05);
+}
+.rail .turnclock .hint {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ink-faint);
+}
+.rail .turnclock.urgent {
+  background: var(--team);
+  color: var(--team-on);
+}
+.rail .turnclock.urgent .hint {
+  color: inherit;
+  opacity: 0.8;
+}
 .rail .leaguewire ul {
   list-style: none;
   margin: 0 8px;
@@ -224,6 +246,14 @@
     flex-shrink: 0;
   }
   .rail .brand span {
+    display: none;
+  }
+  .rail .turnclock {
+    margin: 0 6px 0 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .rail .turnclock .hint {
     display: none;
   }
   .rail .stagechip {

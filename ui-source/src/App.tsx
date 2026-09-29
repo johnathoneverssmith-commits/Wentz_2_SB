@@ -109,24 +109,33 @@ function useResumeOnline(): { resuming: boolean; failed: ResumeFailure | null } 
       done();
       if (live) setFailed((f) => f ?? "unreachable");
     }, RESUME_TIMEOUT_MS);
-    void resumeLeague()
-      .then((result) => {
-        if (!live) return;
-        if (result === "signedOut" || result === "unreachable") setFailed(result);
-        else if (result) {
-          setFailed(null);
-          useStore.setState(result as never);
-        }
-      })
-      .finally(() => {
-        clearTimeout(timer);
-        done();
-      });
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const tryResume = (left: number): void => {
+      void resumeLeague()
+        .then((result) => {
+          if (!live) return;
+          if (result === "signedOut" || result === "unreachable") setFailed(result);
+          else if (result) {
+            setFailed(null);
+            useStore.setState(result as never);
+          }
+          // A server waking from sleep fails the first try more often than
+          // not. Keep trying quietly for a couple of minutes, so the league
+          // comes back on its own instead of waiting for a reload.
+          if (result === "unreachable" && left > 0) retry = setTimeout(() => tryResume(left - 1), 20_000);
+        })
+        .finally(() => {
+          clearTimeout(timer);
+          done();
+        });
+    };
+    tryResume(6);
     return () => {
       live = false;
       clearTimeout(timer);
+      if (retry) clearTimeout(retry);
     };
-    // deliberately once, on mount: retrying is the user's call, not a loop
+    // deliberately once, on mount: a bounded retry, not a loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return { resuming, failed };

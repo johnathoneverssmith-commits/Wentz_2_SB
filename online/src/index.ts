@@ -665,6 +665,12 @@ if (process.env.NODE_ENV !== "test") {
       .then(() => {
         // eslint-disable-next-line no-console
         console.log("schema ready");
+        // A server woken from sleep has deadlines that passed while it was
+        // down; resolve them now rather than a minute after the GM arrived.
+        sweep().catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error("start-up sweep failed; the minute sweep will retry", err);
+        });
       })
       .catch((err: unknown) => {
         const wait = Math.min(60_000, 2_000 * 2 ** attempt);

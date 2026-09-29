@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { onlineSession } from "@/state/online";
 import { SaveBackup } from "./SaveBackup";
 import { LeagueWire } from "./LeagueWire";
+import { TurnClock } from "./TurnClock";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -170,6 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {STAGE_LABEL[stage]} · {displaySeasonFor(season, stage)}
           {week ? ` · Wk ${week}` : ""}
         </div>
+        {session && <TurnClock stage={stage} yourTurn={yourTurn} />}
 
         {inSetup && (
           <>
