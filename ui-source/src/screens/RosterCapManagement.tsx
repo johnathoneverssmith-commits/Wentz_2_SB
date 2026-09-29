@@ -1,3 +1,5 @@
+import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
+import { onlineSession } from "@/state/online";
 import { useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
 import { displaySeason } from "@/state/stageMachine";
@@ -55,6 +57,8 @@ export function RosterCapManagement() {
   const code = viewerTeamCode(s);
   // Change 9 reuses this screen at midseason, so the flag is about what the
   // stage is for rather than about one stage's name
+  const tradesShut =
+    pastTradeDeadline(s) || (onlineSession() !== null && (s.stage === "preseason" || s.stage === "regularSeason"));
   const isDepthChartStage =
     s.stage === "offseasonDepthChart" || s.stage === "midseasonDepthChart";
   const back = s.returnTo
@@ -146,7 +150,13 @@ export function RosterCapManagement() {
         title="Roster & Cap"
         subtitle={`${TEAMS_BY_CODE[code]!.label} · ${isDepthChartStage ? "Re-order the depth chart" : "Roster management"}`}
         action={
-          <button className="btn-ghost" onClick={() => nav("/trade")}>
+          <button
+            className="btn-ghost"
+            onClick={() => nav("/trade")}
+            // it led to a "trading is closed" notice mid-block and after the deadline
+            disabled={tradesShut}
+            title={tradesShut ? (pastTradeDeadline(s) ? PAST_DEADLINE_MESSAGE : "Trading reopens at the next break in the season.") : undefined}
+          >
             Propose trade
           </button>
         }
