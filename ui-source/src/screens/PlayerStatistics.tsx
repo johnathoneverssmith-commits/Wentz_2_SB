@@ -48,6 +48,9 @@ export function PlayerStatistics() {
     );
   }
 
+  const awarded = (award: string): string | undefined =>
+    (s.awards ?? []).find((a) => a.season === s.season && a.award === award)?.name;
+
   return (
     <Card maxWidth={800}>
       <CardHeader
@@ -61,12 +64,22 @@ export function PlayerStatistics() {
         )}`}
       />
       <Ticker
-        stats={[
-          { label: "MVP front-runner", value: mvp[0]?.name ?? "—", className: "sm accent" },
-          { label: "2nd", value: mvp[1]?.name ?? "—", className: "sm" },
-          { label: "3rd", value: mvp[2]?.name ?? "—", className: "sm" },
-          { label: "Games played", value: played },
-        ]}
+        stats={
+          // once the awards are out there's no race to report
+          awarded("MVP")
+            ? [
+                { label: `${s.season} MVP`, value: awarded("MVP")!, className: "sm accent" },
+                { label: "Offensive POY", value: awarded("OPOY") ?? "—", className: "sm" },
+                { label: "Defensive POY", value: awarded("DPOY") ?? "—", className: "sm" },
+                { label: "Games played", value: played },
+              ]
+            : [
+                { label: "MVP front-runner", value: mvp[0]?.name ?? "—", className: "sm accent" },
+                { label: "2nd", value: mvp[1]?.name ?? "—", className: "sm" },
+                { label: "3rd", value: mvp[2]?.name ?? "—", className: "sm" },
+                { label: "Games played", value: played },
+              ]
+        }
       />
       <Tabs
         tabs={CATS.map((c) => ({ id: c, label: c[0]!.toUpperCase() + c.slice(1) }))}
