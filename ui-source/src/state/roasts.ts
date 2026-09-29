@@ -31,6 +31,13 @@ export interface RoastContext {
   /** Best player on the roster, for the "carrying them" lines. */
   bestPlayer: string;
   bestOverall: number;
+  /**
+   * Where the roster ranks, and out of how many. A star alone said nothing —
+   * every fantasy-drafted team has one — so a 25th-ranked roster was told it
+   * was "loaded".
+   */
+  rosterRank?: number;
+  leagueSize?: number;
   /** Weakest starting unit, named. */
   weakestUnit: string;
   onBye: boolean;
@@ -218,8 +225,10 @@ const LIBRARY: Record<Situation, string[]> = {
 function situationOf(c: RoastContext): Situation {
   if (c.onBye) return "bye";
   if (c.fromDraft) {
-    if (c.inherited) return c.bestOverall >= 88 ? "inheritStrong" : "inheritWeak";
-    return c.bestOverall >= 88 ? "draftStrong" : "draftReach";
+    const topHalf = c.rosterRank == null || c.leagueSize == null || c.rosterRank <= Math.ceil(c.leagueSize / 2);
+    const strong = c.bestOverall >= 88 && topHalf;
+    if (c.inherited) return strong ? "inheritStrong" : "inheritWeak";
+    return strong ? "draftStrong" : "draftReach";
   }
   // Change 10: while a team can still get in, the joke is about the race —
   // that is the thing a GM in November actually wants read back to them.
@@ -330,6 +339,8 @@ export function roastContext(
     biggestMargin,
     bestPlayer: best.name,
     bestOverall: best.overall,
+    rosterRank: team?.ratings.overallRank,
+    leagueSize: Object.keys(s.teams).length,
     weakestUnit: weakest.label,
     onBye: mine.length === 0 && !fromDraft,
     fromDraft,
