@@ -1178,13 +1178,38 @@ export const useStore = create<Store>()(
         getItem: (k) => window.localStorage.getItem(slotFor(k)),
         removeItem: (k) => window.localStorage.removeItem(slotFor(k)),
         setItem: (k, v) => {
-          try {
-            window.localStorage.setItem(slotFor(k), v);
+          const slot = slotFor(k);
+          const write = (): void => {
+            window.localStorage.setItem(slot, v);
             if (saveBroken) {
               saveBroken = false;
               notifySaveState();
             }
+          };
+          try {
+            write();
           } catch {
+            // A league is ~2.5MB and a browser gives a site about 5MB; with a
+            // solo save, an online copy and an old corrupted-save backup the
+            // quota runs out. The backup goes first.
+            try {
+              window.localStorage.removeItem(CORRUPT_BACKUP_KEY);
+              write();
+              return;
+            } catch {
+              // still no room
+            }
+            // The online copy is a convenience — the server has the league —
+            // so failing to keep it is not "your dynasty isn't being saved".
+            if (slot === ONLINE_SAVE_KEY) return;
+            // and the solo save outranks it: drop the online copy for room
+            try {
+              window.localStorage.removeItem(ONLINE_SAVE_KEY);
+              write();
+              return;
+            } catch {
+              // genuinely full
+            }
             if (!saveBroken) {
               saveBroken = true;
               notifySaveState();
