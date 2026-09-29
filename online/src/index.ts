@@ -344,6 +344,18 @@ get("/leagues/:id", async (ctx) => {
     rewindSeasonStats(state, revealedWeek(state, franchise?.gmId ?? "", "REG"));
   }
   delete state.statLedger;
+  // Players who retired in an earlier season are only history now — a name,
+  // a career, a place in the records. Their ratings, contract and injury
+  // log went out with every pull anyway, a few hundred more each year: ~10%
+  // of the download two seasons in, and growing. This season's retirees keep
+  // everything (the retirement review still shows them).
+  for (const p of Object.values(state.players)) {
+    if (!p.retired || (p.retired_season ?? state.season) >= state.season) continue;
+    p.attributes = {} as typeof p.attributes;
+    p.scheme_tags = [];
+    p.injury_history = [];
+    p.contract = null;
+  }
 
   return {
     league: { id: loaded.league.id, name: loaded.league.name },
