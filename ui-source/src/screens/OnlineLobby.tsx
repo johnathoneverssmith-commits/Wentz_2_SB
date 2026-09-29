@@ -163,13 +163,14 @@ export function OnlineLobby() {
     };
   }, [user, refresh]);
 
-  const open = (leagueId: string) =>
+  const open = (leagueId: string, path = "/") =>
     attempt(async () => {
       const { state } = await joinLeague(leagueId);
       useStore.setState(state as never);
       // wherever the league is — the draft room mid-draft, a gate screen at
-      // a checkpoint — not the hub every time
-      nav("/");
+      // a checkpoint — not the hub every time; or straight to the thing a
+      // to-do line was about
+      nav(path);
     });
 
   if (checking) {
@@ -360,8 +361,17 @@ export function OnlineLobby() {
                     </p>
                   )}
                   {box?.items.map((item, i) => (
+                    // each line says where it's about — it used to be just text
                     <p key={i} className={`lobby-todo${item.urgency === "now" ? " now" : ""}`}>
-                      {item.title}
+                      <button
+                        type="button"
+                        className="btnlink"
+                        style={{ padding: 0, font: "inherit", textAlign: "left", color: "inherit" }}
+                        disabled={busy || !l.teamCode}
+                        onClick={() => void open(l.id, item.href || "/")}
+                      >
+                        {item.title}
+                      </button>
                       {item.detail ? ` ${item.detail}` : ""}
                     </p>
                   ))}
