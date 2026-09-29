@@ -344,6 +344,16 @@ get("/leagues/:id", async (ctx) => {
     rewindSeasonStats(state, revealedWeek(state, franchise?.gmId ?? "", "REG"));
   }
   delete state.statLedger;
+  // Camp: each GM reads their own plan and results. Everyone's went out to
+  // everyone — ~120KB a pull, and another GM's camp focus with it.
+  if (state.trainingCamp) {
+    const mine = franchise?.teamCode;
+    state.trainingCamp = {
+      ...state.trainingCamp,
+      plans: mine && state.trainingCamp.plans[mine] ? { [mine]: state.trainingCamp.plans[mine]! } : {},
+      results: mine && state.trainingCamp.results[mine] ? { [mine]: state.trainingCamp.results[mine]! } : {},
+    };
+  }
   // Players who retired in an earlier season are only history now — a name,
   // a career, a place in the records. Their ratings, contract and injury
   // log went out with every pull anyway, a few hundred more each year: ~10%
