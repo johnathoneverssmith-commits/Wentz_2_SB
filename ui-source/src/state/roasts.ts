@@ -36,8 +36,8 @@ export interface RoastContext {
    * every fantasy-drafted team has one — so a 25th-ranked roster was told it
    * was "loaded".
    */
-  rosterRank?: number;
-  leagueSize?: number;
+  rosterRank?: number | undefined;
+  leagueSize?: number | undefined;
   /** Weakest starting unit, named. */
   weakestUnit: string;
   onBye: boolean;

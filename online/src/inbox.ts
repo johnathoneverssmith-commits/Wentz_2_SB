@@ -52,6 +52,8 @@ export interface InboxFacts {
   draftMode: string | null;
   offeredBy: string[];
   ready: boolean;
+  /** Other human GMs who haven't checked in — "everyone is waiting on you" only when it's none. */
+  othersPending: number;
   capUsed: number;
   capTotal: number;
   /** Dead money: on the books, but it can't make a roster illegal. */
@@ -100,6 +102,7 @@ export function factsFromState(
       .filter((t) => t.status === "offered" && t.toTeam === teamCode)
       .map((t) => t.fromTeam),
     ready: !!state.readiness[gmId],
+    othersPending: state.gms.filter((g) => g.isHuman && g.teamCode && g.id !== gmId && !state.readiness[g.id]).length,
     capUsed: cap?.used ?? 0,
     capTotal: cap?.total ?? 0,
     capDead: cap?.dead ?? 0,
@@ -128,6 +131,7 @@ export async function inboxFacts(
     draft_mode: string | null;
     offered_by: string[] | null;
     ready: boolean;
+    others_pending: string;
     cap_used: string | null;
     cap_total: string | null;
     cap_dead: string | null;
@@ -145,6 +149,11 @@ export async function inboxFacts(
           WHERE t->>'status' = 'offered' AND t->>'toTeam' = $2
        )                                                                AS offered_by,
        COALESCE((s.state->'readiness'->>$3)::boolean, false)            AS ready,
+       (SELECT count(*) FROM jsonb_array_elements(s.state->'gms') AS g
+         WHERE COALESCE((g->>'isHuman')::boolean, false)
+           AND COALESCE(g->>'teamCode', '') <> ''
+           AND g->>'id' <> $3
+           AND NOT COALESCE((s.state->'readiness'->>(g->>'id'))::boolean, false)) AS others_pending,
        s.state->'teams'->$2->'cap'->>'used'                             AS cap_used,
        s.state->'teams'->$2->'cap'->>'total'                            AS cap_total,
        s.state->'teams'->$2->'cap'->>'dead'                             AS cap_dead,
@@ -190,6 +199,7 @@ export async function inboxFacts(
     draftMode: r.draft_mode,
     offeredBy: r.offered_by ?? [],
     ready: r.ready,
+    othersPending: Number(r.others_pending),
     capUsed: Number(r.cap_used ?? 0),
     capTotal: Number(r.cap_total ?? 0),
     capDead: Number(r.cap_dead ?? 0),
@@ -238,9 +248,13 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
   if (!facts.ready && !TURN_STAGES.has(facts.stage)) {
     items.push({
       kind: "ready",
-      title: "The league is waiting on you to move on.",
       // a check-in has no clock: the league waits (the commissioner can force it)
-      detail: "Everyone else is waiting on you to check in.",
+      ...(facts.othersPending === 0
+        ? { title: "The league is waiting on you to move on.", detail: "Everyone else is waiting on you to check in." }
+        : {
+            title: "Check in when you're ready to move on.",
+            detail: `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
+          }),
       href: "/",
       urgency: "soon",
     });
