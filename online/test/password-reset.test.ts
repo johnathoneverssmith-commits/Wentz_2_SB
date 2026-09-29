@@ -95,3 +95,14 @@ describe("a commissioner's reset code", () => {
     expect(await redeemResetCode(name, code, "fifth-password")).not.toBeNull();
   });
 });
+
+describe("registering a name", () => {
+  maybe("collapses spacing, refuses the app's own labels and control characters", async () => {
+    const tidy = await register(`  tidy   ${Date.now()}  `, "long-enough-password");
+    expect(tidy.name).toMatch(/^tidy \d+$/);
+    await pool.query(`DELETE FROM users WHERE id = $1`, [tidy.id]);
+    await expect(register("Open Seat", "long-enough-password")).rejects.toThrow(/taken/);
+    await expect(register("bad\u0007name", "long-enough-password")).rejects.toThrow(/ordinary/);
+    await expect(register(`long_${Date.now()}`, "x".repeat(201))).rejects.toThrow(/200/);
+  });
+});

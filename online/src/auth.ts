@@ -49,11 +49,18 @@ function sameSecret(a: string, b: string): boolean {
 }
 
 export async function register(name: string, password: string): Promise<User> {
-  const trimmed = name.trim();
+  // one line, single-spaced: a name is shown on every standings table
+  const trimmed = name.replace(/\s+/g, " ").trim();
   if (trimmed.length < 2 || trimmed.length > 40) {
     throw new ActionError("Pick a name between 2 and 40 characters.");
   }
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) throw new ActionError("Use letters, numbers and ordinary punctuation.");
+  // the app's own labels for an empty seat and for yourself
+  if (["open seat", "you"].includes(trimmed.toLowerCase())) throw new ActionError("That name is taken.");
   if (password.length < 8) throw new ActionError("Use a password of at least 8 characters.");
+  // hashed on every sign-in; unbounded, one request could tie the server up
+  if (password.length > 200) throw new ActionError("Keep the password under 200 characters.");
   const salt = randomBytes(16).toString("hex");
   const id = randomUUID();
   try {
@@ -72,6 +79,8 @@ export async function register(name: string, password: string): Promise<User> {
 }
 
 export async function login(name: string, password: string): Promise<User | null> {
+  // longer than any password we'd accept: refuse before hashing it
+  if (password.length > 200) return null;
   const rows = await pool.query<{
     id: string;
     name: string;
@@ -130,6 +139,7 @@ export async function userById(id: string, issuedAt?: number): Promise<User | nu
 /** A new password, and every session issued before now signed out. */
 async function setPassword(userId: string, password: string): Promise<void> {
   if (password.length < 8) throw new ActionError("Use a password of at least 8 characters.");
+  if (password.length > 200) throw new ActionError("Keep the password under 200 characters.");
   const salt = randomBytes(16).toString("hex");
   await pool.query(`UPDATE users SET password_hash = $2, password_salt = $3 WHERE id = $1`, [
     userId,
