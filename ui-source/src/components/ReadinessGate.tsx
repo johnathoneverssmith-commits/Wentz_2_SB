@@ -22,6 +22,9 @@ import { STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
 import { isInSeason, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
+/** Stages whose last check-in simulates the next block of games. */
+const BLOCK_GATES = new Set(["offseasonDepthChart", "midseasonDepthChart", "leagueDevelopments"]);
+
 export function ReadinessGate({
   title,
   onAdvance,
@@ -106,6 +109,8 @@ export function ReadinessGate({
   }, [allReady, action, tryAdvance, online]);
 
   const waiting = humans.length - readyCount;
+  // everyone else is in: this press is the one that moves the league
+  const lastIn = humans.every((g) => g.id === viewerGmId || readiness[g.id]);
 
   return (
     <div className="readiness">
@@ -236,8 +241,10 @@ export function ReadinessGate({
         }}
       >
         {busy
-          ? // only an in-season press plays anything
-            isInSeason(stage)
+          ? // an in-season press plays games, and so does the last check-in
+            // before a block — that one takes a while, and "Saving…" for
+            // fifteen seconds read as stuck
+            isInSeason(stage) || (lastIn && BLOCK_GATES.has(stage))
             ? "Simulating…"
             : "Saving…"
           : disabled
