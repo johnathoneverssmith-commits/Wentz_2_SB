@@ -182,6 +182,33 @@ describe("the change stream", () => {
     }
   });
 
+  it("ends the session and says so when your seat is taken away", async () => {
+    goLocal();
+    let removed = false;
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        removed
+          ? new Response(JSON.stringify({ error: "You're not in that league." }), { status: 403 })
+          : new Response(JSON.stringify(leagueView("1")), { status: 200 }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+    try {
+      const { joinLeague, pull, isOnline, takeRemoval, lastLeagueId } = await import("./online.ts");
+      await joinLeague("l1");
+      removed = true;
+      await expect(pull()).rejects.toThrow(/not in that league/);
+      expect(isOnline()).toBe(false);
+      expect(lastLeagueId()).toBeNull();
+      expect(takeRemoval()).toBe("Test");
+      expect(takeRemoval()).toBeNull();
+    } finally {
+      goLocal();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("closes the stream and drops the news when you go back to a local game", async () => {
     goLocal();
     vi.stubGlobal(

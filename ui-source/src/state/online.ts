@@ -100,6 +100,14 @@ export function onlineSession(): OnlineSession | null {
   return session;
 }
 
+/** The league this browser was just put out of, for the notice. Cleared once read. */
+let removedFrom: string | null = null;
+export function takeRemoval(): string | null {
+  const out = removedFrom;
+  removedFrom = null;
+  return out;
+}
+
 export function goLocal(): void {
   session?.stopWatching?.();
   session = null;
@@ -313,7 +321,20 @@ async function seedNews(client: OnlineLeagueClient, leagueId: string): Promise<v
 export async function pull(opts: { ifChanged?: boolean } = {}): Promise<LeagueState | null> {
   const s = session;
   if (!s) return null;
-  const got = opts.ifChanged ? await s.client.loadIfChanged(s.leagueId, s.version) : await s.client.load(s.leagueId);
+  let got: Awaited<ReturnType<typeof s.client.loadIfChanged>>;
+  try {
+    got = opts.ifChanged ? await s.client.loadIfChanged(s.leagueId, s.version) : await s.client.load(s.leagueId);
+  } catch (err) {
+    // The seat was reopened, you left from another device, or the league was
+    // archived: every move from here would fail with "you're not in that
+    // league". End the session and say so, rather than leave a live-looking
+    // league on screen.
+    if (err instanceof OnlineError && (err.status === 403 || err.status === 404) && session === s) {
+      removedFrom = s.leagueName;
+      goLocal();
+    }
+    throw err;
+  }
   if ("unchanged" in got) {
     if (session === s) {
       s.msLeft = got.msLeft;

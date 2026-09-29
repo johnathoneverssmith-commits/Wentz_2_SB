@@ -4,7 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
 import { Checkpoint } from "./screens/Checkpoint.tsx";
-import { isOnline, resumeLeague, lastLeagueId, type ResumeFailure } from "@/state/online";
+import { isOnline, onOnlineChange, resumeLeague, lastLeagueId, takeRemoval, type ResumeFailure } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
 import { currentScreen, STAGE_HOME } from "@/state/stageMachine";
@@ -235,10 +235,25 @@ function useFollowLeague(held: boolean): void {
   }, [stage, ready, pathname, route, held, nav]);
 }
 
+/** The league a seat was taken from while it was open here, if any. */
+function useRemoval(): [string | null, () => void] {
+  const [name, setName] = useState<string | null>(null);
+  useEffect(
+    () =>
+      onOnlineChange(() => {
+        const gone = takeRemoval();
+        if (gone) setName(gone);
+      }),
+    [],
+  );
+  return [name, () => setName(null)];
+}
+
 export function App() {
   // keyed on the route so navigating away from a crashed screen clears it
   const { pathname } = useLocation();
   const { resuming, failed: resumeFailed } = useResumeOnline();
+  const [removedFrom, dismissRemoval] = useRemoval();
   const checkpoint = useCheckpoint();
   useFollowReleasedCheckpoint(checkpoint !== null);
   useFollowLeague(checkpoint !== null);
@@ -248,6 +263,15 @@ export function App() {
         <div className="notice" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
           Reconnecting to your online league… the server may need a moment to wake. Everything
           below is your last saved copy until it does.
+        </div>
+      )}
+      {removedFrom && (
+        <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+          <strong>You&rsquo;re no longer in {removedFrom}.</strong> Your seat was reopened or the
+          league was closed. What you see is its last copy on this device.{" "}
+          <a href="#/online" onClick={dismissRemoval}>
+            Online leagues
+          </a>
         </div>
       )}
       {!resuming && resumeFailed && !isOnline() && pathname !== "/online" && (
