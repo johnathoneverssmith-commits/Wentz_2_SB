@@ -436,7 +436,7 @@ function Waiting({
             </p>
             {turnsAway != null && (
               <p style={{ margin: "6px 0 0", fontSize: 12.5 }}>
-                Your turn is {turnsAway} {turnsAway === 1 ? "turn" : "turns"} away.
+                Your next turn is {turnsAway} {turnsAway === 1 ? "turn" : "turns"} away.
               </p>
             )}
             <p style={{ margin: "8px 0 0", fontSize: 12 }}>
