@@ -129,7 +129,19 @@ export class OnlineLeagueClient {
       clearTimeout(timeout);
     }
     const text = await res.text();
-    const payload = text ? (JSON.parse(text) as { error?: string }) : {};
+    let payload: { error?: string };
+    try {
+      payload = text ? (JSON.parse(text) as { error?: string }) : {};
+    } catch {
+      // Not our JSON: the host's own error page — a 502 while the server
+      // restarts for a deploy, or wakes from sleep. Whether an action got
+      // through is unknown, which is exactly what "unanswered" means.
+      throw new OnlineUnansweredError(
+        res.status >= 500
+          ? "The league server is restarting. Give it a moment and try again."
+          : "The league server sent back something unexpected.",
+      );
+    }
     if (!res.ok) {
       throw new OnlineError(payload.error ?? `Request failed (${res.status}).`, res.status);
     }

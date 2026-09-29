@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { humansOnlyLeagueSize, playoffFieldSize, seasonShapeFor } from "@/state/leagueFormat";
@@ -95,19 +95,46 @@ export function OnlineLobby() {
     setInbox(box.leagues);
   }, []);
 
-  /** Ask the server who we are; this is also what "try again" re-runs. */
+  const [wakeTries, setWakeTries] = useState(0);
+  const unmounted = useRef(false);
+  useEffect(
+    () => () => {
+      unmounted.current = true;
+    },
+    [],
+  );
+
+  /**
+   * Ask the server who we are; this is also what "try again" re-runs.
+   *
+   * A sleeping free-tier server takes up to a minute to wake, and the first
+   * request of the day often fails while it does. Keep asking for about a
+   * minute before calling it down, rather than making every GM's first visit
+   * start with an error and a button.
+   */
   const check = useCallback(async () => {
     setChecking(true);
-    try {
-      const me = await client.me();
-      setUser(me.user);
-      setOffline(false);
-      if (me.user) await refresh();
-    } catch {
-      setOffline(true);
-    } finally {
-      setChecking(false);
+    for (let tries = 0; ; tries++) {
+      setWakeTries(tries);
+      try {
+        const me = await client.me();
+        if (unmounted.current) return;
+        setUser(me.user);
+        setOffline(false);
+        if (me.user) await refresh();
+        break;
+      } catch (err) {
+        if (unmounted.current) return;
+        // the server said something definite: waiting won't change it
+        if (err instanceof OnlineError || tries >= 5) {
+          setOffline(true);
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 10_000));
+        if (unmounted.current) return;
+      }
     }
+    setChecking(false);
   }, [refresh]);
 
   useEffect(() => {
@@ -128,7 +155,11 @@ export function OnlineLobby() {
       <Card maxWidth={720}>
         <CardHeader badge="ON" title="Online Leagues" subtitle="Looking for the league server…" />
         <div className="panel open">
-          <div className="emptystate">One moment.</div>
+          <div className="emptystate">
+            {wakeTries === 0
+              ? "One moment."
+              : "Waking the league server — it sleeps when nobody has played for a while. This can take up to a minute."}
+          </div>
         </div>
       </Card>
     );
