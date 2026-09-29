@@ -18,7 +18,13 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
   const awards = (useStore((s) => s.awards) ?? NONE).filter((a) => a.playerId === player.id);
   const allPros = (useStore((s) => s.allPro) ?? NONE).filter((a) => a.playerId === player.id).length;
   const hof = (useStore((s) => s.hallOfFame) ?? NONE).some((h) => h.playerId === player.id);
-  const attrs = Object.entries(player.attributes).filter(([, v]) => typeof v === "number");
+  // strongest first, so the card says what the player is good at
+  const attrs = Object.entries(player.attributes)
+    .filter(([, v]) => typeof v === "number")
+    .sort((a, b) => (b[1] as number) - (a[1] as number));
+  // the stats are the season just played until the next one starts, and
+  // "This season" in the offseason meant last season
+  const season = useStore((s) => s.season);
   const dialogRef = useDialog(onClose);
 
   return (
@@ -70,7 +76,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
             </p>
           )}
 
-          <p className="subhead">This season</p>
+          <p className="subhead">{season} season</p>
           {st && st.gamesPlayed > 0 ? (
             <table className="stbl" style={{ marginBottom: 14 }}>
               <tbody>
@@ -106,7 +112,9 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
           <div className="split-3" style={{ gap: "6px 12px" }}>
             {attrs.map(([k, v]) => (
               <div key={k} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
-                <span style={{ color: "var(--ink-dim)" }}>{k.replace(/_/g, " ")}</span>
+                <span style={{ color: "var(--ink-dim)" }}>
+                  {k.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase())}
+                </span>
                 <span className="oswald" style={{ fontWeight: 600 }}>
                   {v as number}
                 </span>
