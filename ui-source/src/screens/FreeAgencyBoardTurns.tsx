@@ -366,9 +366,16 @@ function OfferDialog({
   const [years, setYears] = useState("3");
   const value = Number(salary);
   const short = Number.isFinite(value) && value < ask;
+  // it opens above the list, often off-screen from the row that was
+  // clicked — "Offer" looked like it did nothing
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    box.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    box.current?.querySelector("input")?.focus({ preventScroll: true });
+  }, [player.id]);
 
   return (
-    <div className="lobby-claim" style={{ marginTop: 16 }}>
+    <div ref={box} className="lobby-claim" style={{ marginTop: 16 }} role="group" aria-label={`Offer to ${player.name}`}>
       <p className="subhead" style={{ marginTop: 0 }}>
         Offer to {player.name} ({player.position})
       </p>
