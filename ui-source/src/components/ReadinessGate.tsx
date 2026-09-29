@@ -93,6 +93,7 @@ export function ReadinessGate({
   const [busy, setBusy] = useState(false);
   const [readyError, setReadyError] = useState<string | null>(null);
   const [resetCode, setResetCode] = useState<{ name: string; code: string } | null>(null);
+  const [managing, setManaging] = useState<string | null>(null);
   const onAdvanceRef = useRef(onAdvance);
   onAdvanceRef.current = onAdvance;
   const advancingRef = useRef(false);
@@ -138,9 +139,22 @@ export function ReadinessGate({
           <div key={g.id} className={`gmchip ${readiness[g.id] ? "ready" : "pending"}`}>
             <span className="dot" />
             {g.id === viewerGmId ? "You" : g.name} &mdash; {readiness[g.id] ? "ready" : "pending"}
+            {/* the seat and password controls are rare and drastic; they sat
+                beside every GM's name at every check-in */}
+            {online && isCommissioner && g.id !== viewerGmId && (
+              <button
+                type="button"
+                className="btnlink"
+                style={{ marginLeft: 6, fontSize: 11 }}
+                aria-expanded={managing === g.id}
+                onClick={() => setManaging((m) => (m === g.id ? null : g.id))}
+              >
+                {managing === g.id ? "close" : "manage"}
+              </button>
+            )}
             {/* a GM who quit: without this the league waited a full phase
                 clock on them at every stage, and nobody could replace them */}
-            {online && isCommissioner && g.id !== viewerGmId && !heldForSeats && (
+            {online && isCommissioner && g.id !== viewerGmId && !heldForSeats && managing === g.id && (
               <button
                 type="button"
                 className="btnlink"
@@ -172,7 +186,7 @@ export function ReadinessGate({
             )}
             {/* a GM locked out: accounts have no email, so the commissioner
                 issues a one-time code and passes it on */}
-            {online && isCommissioner && g.id !== viewerGmId && (
+            {online && isCommissioner && g.id !== viewerGmId && managing === g.id && (
               <button
                 type="button"
                 className="btnlink"
