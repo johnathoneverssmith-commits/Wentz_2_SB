@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { LeagueState } from "@/domain";
+import { beginFreeAgencyEvent } from "@/state/freeAgencyEvent.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
 import { migrate, pool } from "../src/db.js";
@@ -101,5 +102,22 @@ describe("inbox facts", () => {
   maybe()("counts a real roster, not zero", async () => {
     const facts = await inboxFacts(leagueId, "KC", state.gms[0]!.id);
     expect(facts!.rosterCount).toBeGreaterThan(40);
+  });
+
+  // the inbox only ever knew the player draft; a free-agency turn missed is
+  // a turn your staff takes for you
+  maybe()("agree on whose turn it is in free agency", async () => {
+    const fa = structuredClone(state);
+    fa.stage = "freeAgency";
+    beginFreeAgencyEvent(fa);
+    const up = fa.freeAgencyEvent!.order[fa.freeAgencyEvent!.turnIndex]!;
+    await pool.query(`UPDATE league_state SET state = $2 WHERE league_id = $1`, [leagueId, fa]);
+    const gmId = state.gms[0]!.id;
+    const fromDb = await inboxFacts(leagueId, up, gmId);
+    expect(fromDb).toEqual(factsFromState(fa, up, gmId));
+    expect(fromDb!.turn).toBe("freeAgency");
+    const other = Object.keys(fa.teams).find((c) => c !== up)!;
+    expect((await inboxFacts(leagueId, other, gmId))!.turn).toBeNull();
+    await pool.query(`UPDATE league_state SET state = $2 WHERE league_id = $1`, [leagueId, state]);
   });
 });

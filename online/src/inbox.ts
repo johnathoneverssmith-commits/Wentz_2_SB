@@ -54,8 +54,15 @@ export interface InboxFacts {
   ready: boolean;
   capUsed: number;
   capTotal: number;
+  /** Dead money: on the books, but it can't make a roster illegal. */
+  capDead: number;
   rosterCount: number;
+  stage: string;
+  /** Your turn in a turn-based event, if it is one — the inbox only knew the player draft. */
+  turn: "freeAgency" | "coachingDraft" | "tradeDeadline" | null;
 }
+
+const TURN_STAGES = new Set(["freeAgency", "midseasonFreeAgency", "coachingDraft", "tradeDeadline", "fantasyDraft", "offseasonDraft"]);
 
 /** The same facts, taken from a state already in hand. Keeps the rules honest. */
 export function factsFromState(
@@ -66,6 +73,25 @@ export function factsFromState(
   const draft = state.draft;
   const onTheClock = !!draft && draft.pickOrder[draft.currentPickIndex] === teamCode;
   const cap = state.teams[teamCode]?.cap;
+  const fa = state.freeAgencyEvent;
+  const cd = state.coachingDraft;
+  const td = state.tradeDeadline;
+  const turn =
+    (state.stage === "freeAgency" || state.stage === "midseasonFreeAgency") &&
+    fa &&
+    !fa.complete &&
+    fa.order[fa.turnIndex] === teamCode
+      ? ("freeAgency" as const)
+      : state.stage === "coachingDraft" && cd && cd.pickOrder[cd.currentPickIndex] === teamCode
+        ? ("coachingDraft" as const)
+        : state.stage === "tradeDeadline" &&
+            td &&
+            !td.done &&
+            (td.active
+              ? (td.active.awaiting === "recipient" ? td.active.toTeam : td.active.fromTeam) === teamCode
+              : td.order[td.index] === teamCode)
+          ? ("tradeDeadline" as const)
+          : null;
   return {
     onTheClock,
     pickNumber: draft ? draft.currentPickIndex + 1 : 0,
@@ -76,9 +102,12 @@ export function factsFromState(
     ready: !!state.readiness[gmId],
     capUsed: cap?.used ?? 0,
     capTotal: cap?.total ?? 0,
+    capDead: cap?.dead ?? 0,
     rosterCount: Object.values(state.players).filter(
       (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent,
     ).length,
+    stage: state.stage,
+    turn,
   };
 }
 
@@ -101,7 +130,10 @@ export async function inboxFacts(
     ready: boolean;
     cap_used: string | null;
     cap_total: string | null;
+    cap_dead: string | null;
     roster_count: string;
+    stage: string;
+    turn: string | null;
   }>(
     `SELECT
        COALESCE(s.state->'draft'->'pickOrder'->>((s.state->'draft'->>'currentPickIndex')::int), '')
@@ -115,6 +147,34 @@ export async function inboxFacts(
        COALESCE((s.state->'readiness'->>$3)::boolean, false)            AS ready,
        s.state->'teams'->$2->'cap'->>'used'                             AS cap_used,
        s.state->'teams'->$2->'cap'->>'total'                            AS cap_total,
+       s.state->'teams'->$2->'cap'->>'dead'                             AS cap_dead,
+       s.state->>'stage'                                                AS stage,
+       CASE
+         WHEN s.state->>'stage' IN ('freeAgency', 'midseasonFreeAgency')
+              AND s.state->'freeAgencyEvent' IS NOT NULL
+              AND s.state->'freeAgencyEvent' <> 'null'::jsonb
+              AND NOT COALESCE((s.state->'freeAgencyEvent'->>'complete')::boolean, false)
+              AND s.state->'freeAgencyEvent'->'order'->>((s.state->'freeAgencyEvent'->>'turnIndex')::int) = $2
+           THEN 'freeAgency'
+         WHEN s.state->>'stage' = 'coachingDraft'
+              AND s.state->'coachingDraft' IS NOT NULL
+              AND s.state->'coachingDraft' <> 'null'::jsonb
+              AND s.state->'coachingDraft'->'pickOrder'->>((s.state->'coachingDraft'->>'currentPickIndex')::int) = $2
+           THEN 'coachingDraft'
+         WHEN s.state->>'stage' = 'tradeDeadline'
+              AND s.state->'tradeDeadline' IS NOT NULL
+              AND s.state->'tradeDeadline' <> 'null'::jsonb
+              AND NOT COALESCE((s.state->'tradeDeadline'->>'done')::boolean, false)
+              AND CASE
+                    WHEN s.state->'tradeDeadline'->'active' IS NULL OR s.state->'tradeDeadline'->'active' = 'null'::jsonb
+                      THEN s.state->'tradeDeadline'->'order'->>((s.state->'tradeDeadline'->>'index')::int) = $2
+                    WHEN s.state->'tradeDeadline'->'active'->>'awaiting' = 'recipient'
+                      THEN s.state->'tradeDeadline'->'active'->>'toTeam' = $2
+                    ELSE s.state->'tradeDeadline'->'active'->>'fromTeam' = $2
+                  END
+           THEN 'tradeDeadline'
+         ELSE NULL
+       END                                                              AS turn,
        (SELECT count(*) FROM jsonb_each(s.state->'players') AS p(k, v)
          WHERE v->>'nfl_team' = $2
            AND NOT COALESCE((v->>'retired')::boolean, false)
@@ -132,7 +192,10 @@ export async function inboxFacts(
     ready: r.ready,
     capUsed: Number(r.cap_used ?? 0),
     capTotal: Number(r.cap_total ?? 0),
+    capDead: Number(r.cap_dead ?? 0),
     rosterCount: Number(r.roster_count),
+    stage: r.stage,
+    turn: (r.turn as InboxFacts["turn"]) ?? null,
   };
 }
 
@@ -150,6 +213,18 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
     });
   }
 
+  // the other turn-based events: miss your turn and your staff takes it
+  if (facts.turn) {
+    const where = { freeAgency: "free agency", coachingDraft: "the coaching draft", tradeDeadline: "the trade deadline" }[facts.turn];
+    items.push({
+      kind: "draft",
+      title: `It's your turn in ${where}.`,
+      detail: "If the clock runs out, your staff takes it for you.",
+      href: "/",
+      urgency: "now",
+    });
+  }
+
   for (const fromTeam of facts.offeredBy) {
     items.push({
       kind: "trade",
@@ -159,7 +234,8 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
     });
   }
 
-  if (!facts.ready) {
+  // a turn-based event isn't moved on by readiness — its turns end it
+  if (!facts.ready && !TURN_STAGES.has(facts.stage)) {
     items.push({
       kind: "ready",
       title: "The league is waiting on you to move on.",
@@ -171,10 +247,12 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
 
   // an illegal roster gets fixed for you at the gate, which is worse than
   // fixing it yourself — so say so while there's still time
-  if (facts.capTotal > 0 && facts.capUsed > facts.capTotal) {
+  // legality is the contracts; dead money shrinks room but can't make a roster illegal
+  const contracts = facts.capUsed - facts.capDead;
+  if (facts.capTotal > 0 && contracts > facts.capTotal) {
     items.push({
       kind: "roster",
-      title: `You're $${(facts.capUsed - facts.capTotal).toFixed(1)}M over the cap.`,
+      title: `You're $${(contracts - facts.capTotal).toFixed(1)}M over the cap.`,
       detail: "Release, restructure or trade before the preseason, or your staff will.",
       href: "/roster",
       urgency: "whenever",

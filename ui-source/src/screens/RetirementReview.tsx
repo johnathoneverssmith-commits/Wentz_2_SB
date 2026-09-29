@@ -24,6 +24,7 @@ export function RetirementReview() {
   const code = viewerTeamCode(s);
   const actions = useLeagueActions();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const outcomes = useMemo(
     () => sim.retirementOutcomes(s.season, Object.values(s.players).filter((p) => !p.retired)),
@@ -73,7 +74,7 @@ export function RetirementReview() {
         ) : null}
         <div className="rowlist">
           {yours.length > 0 && (
-            <RowHeader gridTemplate={RETIREE_GRID} labels={["Player", "Ovr", "Chance", ""]} />
+            <RowHeader gridTemplate={RETIREE_GRID} labels={["Player", "Ovr", "Status", ""]} />
           )}
           {yours.map((p) => (
             <ExpandableRow
@@ -89,7 +90,8 @@ export function RetirementReview() {
                       Age {p.age} · typical {p.position} retirement {RETIREMENT_AGE[p.position]}
                     </p>
                   </div>
-                  <span className="pcell">{p.age}</span>
+                  {/* the column says Ovr; it showed his age */}
+                  <span className="pcell">{p.overall}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 600, padding: "4px 10px", borderRadius: 20, textAlign: "center", background: "rgba(226,105,74,0.14)", color: "var(--bad)" }}>
                     Retiring
                   </span>
@@ -162,8 +164,8 @@ export function RetirementReview() {
         is about — and free agency does not open for two more stages.
       */}
       <Footer>
-        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
-          Review the retirements, then continue to the draft preview.
+        <span style={{ flex: 1, fontSize: 11.5, color: error ? "var(--bad)" : "var(--ink-faint)", alignSelf: "center" }}>
+          {error ?? "Review the retirements, then continue to the draft preview."}
         </span>
         <button
           type="button"
@@ -171,10 +173,12 @@ export function RetirementReview() {
           disabled={busy}
           onClick={() => {
             setBusy(true);
+            setError(null);
             void actions
               .stepForward("draftPreview")
               .then((res) => {
                 if (res.ok) nav("/draft-preview");
+                else setError(res.reason ?? "Couldn't move on. Try again.");
               })
               .finally(() => setBusy(false));
           }}

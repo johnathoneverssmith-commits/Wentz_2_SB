@@ -15,7 +15,7 @@ import {
   type DefensiveFocus,
   type OffensiveFocus,
 } from "@/state/trainingCamp";
-import { viewerTeamCode } from "@/state/selectors";
+import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
@@ -85,6 +85,15 @@ export function TrainingCamp() {
   };
   const offStrength = focusStrength(coordinator("OC"));
   const defStrength = focusStrength(coordinator("DC"));
+  // something to choose on: who in each group is still growing and who is
+  // on the way down — the focus does most for those two
+  const roster = teamRoster(s, code);
+  const groupNote = (f: OffensiveFocus | DefensiveFocus): string => {
+    const inGroup = roster.filter((p) => (COACH_POSITION_GROUPS[f] as readonly string[]).includes(p.position));
+    const young = inGroup.filter((p) => p.age <= 25).length;
+    const vets = inGroup.filter((p) => p.age >= 30).length;
+    return `${young} young · ${vets} vet${vets === 1 ? "" : "s"}`;
+  };
 
   const submit = (): void => {
     setBusy(true);
@@ -146,6 +155,7 @@ export function TrainingCamp() {
               onClick={() => setOffensive(f)}
             >
               {FOCUS_LABEL[f]}
+              <span style={{ display: "block", fontSize: 10, opacity: 0.7 }}>{groupNote(f)}</span>
             </button>
           ))}
         </div>
@@ -156,6 +166,10 @@ export function TrainingCamp() {
         </p>
 
         <p className="subhead">Defensive focus</p>
+        <p style={{ margin: "0 0 10px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+          Your defensive coordinator does the same for one group: {Math.round(defStrength * 100)}% harder
+          development and {Math.round(defStrength * 100)}% less decline.
+        </p>
         <div className="rolefilter">
           {DEFENSIVE_FOCUSES.map((f) => (
             <button
@@ -165,6 +179,7 @@ export function TrainingCamp() {
               onClick={() => setDefensive(f)}
             >
               {FOCUS_LABEL[f]}
+              <span style={{ display: "block", fontSize: 10, opacity: 0.7 }}>{groupNote(f)}</span>
             </button>
           ))}
         </div>
