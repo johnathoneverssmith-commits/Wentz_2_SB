@@ -8,7 +8,10 @@
  * errors that come back as JSON a client can show a person.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { gzipSync } from "node:zlib";
+import { promisify } from "node:util";
+import { gzip } from "node:zlib";
+
+const gzipAsync = promisify(gzip);
 
 import { readSession, userById, type User } from "./auth.js";
 import { ActionError } from "./db.js";
@@ -156,7 +159,7 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
     };
     const out = await found.route.handler(ctx);
     if (res.headersSent) return;
-    sendJson(req, res, JSON.stringify(out ?? { ok: true }));
+    await sendJson(req, res, JSON.stringify(out ?? { ok: true }));
   } catch (err) {
     const status = err instanceof ActionError ? err.status : 500;
     if (status === 500) {
@@ -184,12 +187,14 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
  * connection, that was most of why a click took seconds. League JSON
  * compresses about ten to one.
  */
-function sendJson(req: IncomingMessage, res: ServerResponse, body: string): void {
+async function sendJson(req: IncomingMessage, res: ServerResponse, body: string): Promise<void> {
   const accepts = /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""));
   if (accepts && body.length > 2048) {
     // level 1: most of the size win for a fraction of the CPU, which the
     // free tier (0.1 CPU) has much less of than it has bandwidth
-    const zipped = gzipSync(body, { level: 1 });
+    // off the event loop: several GMs pulling a league after the same change
+    // compressed megabytes back to back, and every other request waited
+    const zipped = await gzipAsync(body, { level: 1 });
     res.writeHead(200, {
       "content-type": "application/json",
       "content-encoding": "gzip",
