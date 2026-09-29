@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 
 import type { ContractOffer, LeagueConfig, Position } from "@/domain";
 
-import { isOnline, onLeagueChange, OnlineError, onlineSession, pull, send } from "./online.ts";
+import { isOnline, lastLeagueId, onLeagueChange, OnlineError, onlineSession, pull, send } from "./online.ts";
 import { useStore } from "./store.ts";
 import type { TrainingCampPlan } from "./trainingCamp.ts";
 import type { DeadlineMove } from "./tradeDeadline.ts";
@@ -198,6 +198,18 @@ export function useLeagueActions(): LeagueActions {
   }, []);
 
   return useMemo<LeagueActions>(() => {
+    // An online league remembered but not connected: every move here would
+    // land on a private copy the other GMs never see, and be thrown away on
+    // the next load. Refuse them all, with the reason, until it reconnects.
+    if (!online && lastLeagueId() !== null) {
+      const refuse = async (): Promise<ActionResult> => ({
+        ok: false,
+        reason: "You're not connected to your online league — nothing here would reach it. Reconnect first.",
+      });
+      return new Proxy({ online: false } as LeagueActions, {
+        get: (_target, key) => (key === "online" ? false : key === "refresh" ? async () => {} : refuse),
+      }) as LeagueActions;
+    }
     if (!online) {
       return {
         online: false,

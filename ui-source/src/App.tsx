@@ -256,13 +256,13 @@ export function App() {
           {resumeFailed === "signedOut" ? (
             <>
               <strong>You&rsquo;re signed out of your online league.</strong> What you see is a saved
-              copy — nothing you do here reaches the league.{" "}
+              copy, and moves are paused until you&rsquo;re back in.{" "}
               <a href="#/online">Sign in again</a>
             </>
           ) : (
             <>
-              <strong>Couldn&rsquo;t reach your online league.</strong> What you see is a saved copy —
-              nothing you do here reaches the league.{" "}
+              <strong>Couldn&rsquo;t reach your online league.</strong> What you see is a saved copy,
+              and moves are paused until it reconnects.{" "}
               <a href="" onClick={() => window.location.reload()}>
                 Try again
               </a>

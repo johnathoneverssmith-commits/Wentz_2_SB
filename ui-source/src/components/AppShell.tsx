@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { onlineSession } from "@/state/online";
+import { goLocal, onlineSession } from "@/state/online";
 import { SaveBackup } from "./SaveBackup";
 import { LeagueWire } from "./LeagueWire";
 import { TurnClock } from "./TurnClock";
@@ -231,6 +231,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             // a new league starts at setup — staying on the current screen left
             // you looking at (say) rookie signings for a league with no team
             if (confirm("Start a brand-new solo dynasty? This clears the current save.")) {
+              // and forgets an online league this browser couldn't reconnect
+              // to — otherwise the new solo game is treated as a disconnected
+              // copy of it, and every move is refused
+              goLocal();
               void newLeague();
               navTo("/setup");
             }
