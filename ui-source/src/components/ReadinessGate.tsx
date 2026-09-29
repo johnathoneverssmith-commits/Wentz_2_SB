@@ -79,10 +79,12 @@ export function ReadinessGate({
 
   useEffect(() => {
     // online the other GMs are people, and a person is ready when they say so
-    if (online) return;
+    // — including while the league is remembered but not connected, when this
+    // used to mark them ready on the local copy and show them as ready
+    if (online || detached) return;
     const t = setTimeout(() => autoReadyNonViewers(), 1400);
     return () => clearTimeout(t);
-  }, [stage, autoReadyNonViewers, online]);
+  }, [stage, autoReadyNonViewers, online, detached]);
 
   // Always call the latest onAdvance, and never drop it once the transition
   // has run: several screens unmount this gate the moment the stage changes
