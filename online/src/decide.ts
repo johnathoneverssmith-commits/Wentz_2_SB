@@ -460,7 +460,7 @@ export function decideFreeAgencyTurn(
     if (!check.ok) throw new ActionError(check.reason ?? "That offer isn't valid.");
     const name = state.players[move.playerId]?.name ?? "a free agent";
     applyOffer(state, actor.teamCode, move.playerId, salary, years);
-    summary = `${city(actor.teamCode)} offered ${name} $${salary}M over ${years} year${years === 1 ? "" : "s"}.`;
+    summary = `${city(actor.teamCode)} offered ${name} $${salary.toFixed(1)}M a year for ${years} year${years === 1 ? "" : "s"}.`;
   }
 
   const humans = new Set(
