@@ -467,7 +467,10 @@ function Package({ title, assets }: { title: string; assets: DeadlineOffer["from
           return (
             <div key={`p${i}`} className="neg-row">
               <span className="pname">{pickLabel(a.pick)}</span>
-              <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Round {a.pick.round}</span>
+              {/* whose slot it is decides where it lands; the round is already in the label */}
+              <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                {TEAMS_BY_CODE[a.pick.originalTeam]?.label ?? a.pick.originalTeam}&rsquo;s pick
+              </span>
             </div>
           );
         }
