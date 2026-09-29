@@ -678,6 +678,22 @@ post("/leagues/:id/admin/reset-code", async (ctx) => {
   return { name: gm.name, code: await issueResetCode(gm.user_id, user.id) };
 });
 
+// Who holds which seat, for the commissioner's controls in the lobby — they
+// lived only in the check-in panel, which a draft or a free-agency market
+// doesn't have.
+get("/leagues/:id/gms", async (ctx) => {
+  const user = requireUser(ctx);
+  if (!(await isCommissioner(ctx.params.id!, user.id))) {
+    throw new ActionError("Only the commissioner can do that.", 403);
+  }
+  const rows = await pool.query<{ team_code: string; name: string; user_id: string }>(
+    `SELECT f.team_code, u.name, f.user_id FROM franchises f JOIN users u ON u.id = f.user_id
+      WHERE f.league_id = $1 AND f.user_id IS NOT NULL ORDER BY f.team_code`,
+    [ctx.params.id!],
+  );
+  return { gms: rows.rows.map((r) => ({ teamCode: r.team_code, name: r.name, you: r.user_id === user.id })) };
+});
+
 // The commissioner hands the role on (they can't leave while they hold it).
 post("/leagues/:id/admin/commissioner", async (ctx) => {
   const user = requireUser(ctx);

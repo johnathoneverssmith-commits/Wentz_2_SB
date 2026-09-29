@@ -70,6 +70,7 @@ export function OnlineLobby() {
   const [inbox, setInbox] = useState<InboxLeague[]>([]);
   const [changingPassword, setChangingPassword] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [managingLeague, setManagingLeague] = useState<string | null>(null);
 
   /** One place to run a call, so every failure reads the same way. */
   const attempt = useCallback(async (run: () => Promise<void>) => {
@@ -384,6 +385,15 @@ export function OnlineLobby() {
                   </button>
                   {/* the way out: there was none short of never opening it again */}
                   {l.isCommissioner ? (
+                    <>
+                    <button
+                      type="button"
+                      className="btnlink sm"
+                      aria-expanded={managingLeague === l.id}
+                      onClick={() => setManagingLeague((m) => (m === l.id ? null : l.id))}
+                    >
+                      Manage GMs
+                    </button>
                     <button
                       type="button"
                       className="btnlink sm"
@@ -399,6 +409,7 @@ export function OnlineLobby() {
                     >
                       Archive
                     </button>
+                    </>
                   ) : (
                     l.teamCode && (
                       <button
@@ -419,6 +430,7 @@ export function OnlineLobby() {
                     )
                   )}
                 </div>
+                {managingLeague === l.id && <ManageGms leagueId={l.id} client={client} />}
                 {claiming?.leagueId === l.id && (
                   <TeamPicker
                     teams={claiming.teams}
@@ -1075,6 +1087,99 @@ function TeamPicker({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The commissioner's seat controls, from the lobby. They lived only in the
+ * check-in panel, which a draft or a free-agency market doesn't have — so a
+ * GM who quit mid-draft couldn't be replaced until it ended.
+ */
+function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagueClient }) {
+  const [gms, setGms] = useState<{ teamCode: string; name: string; you: boolean }[] | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    void client
+      .leagueGms(leagueId)
+      .then((r) => setGms(r.gms))
+      .catch((err: unknown) => setNote(err instanceof Error ? err.message : "Couldn't load the GMs."));
+  }, [client, leagueId]);
+  useEffect(load, [load]);
+
+  const run = (what: () => Promise<string | null>): void => {
+    setBusy(true);
+    setNote(null);
+    void what()
+      .then((msg) => {
+        if (msg) setNote(msg);
+        load();
+      })
+      .catch((err: unknown) => setNote(err instanceof Error ? err.message : "That didn't work."))
+      .finally(() => setBusy(false));
+  };
+
+  if (!gms) return <p className="lobby-sub">{note ?? "Loading…"}</p>;
+  return (
+    <div className="lobby-claim" style={{ marginTop: 10 }}>
+      {gms.map((g) => (
+        <div key={g.teamCode} className="neg-row">
+          <span style={{ fontSize: 12.5 }}>
+            {g.you ? "You" : g.name} · {TEAMS_BY_CODE[g.teamCode]?.label ?? g.teamCode}
+          </span>
+          {!g.you && (
+            <span style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                className="btnlink sm"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    const r = await client.issueResetCode(leagueId, g.teamCode);
+                    return `Reset code for ${r.name}: ${r.code} — they use it under "Forgot your password?". Works once, for 24 hours.`;
+                  })
+                }
+              >
+                reset code
+              </button>
+              <button
+                type="button"
+                className="btnlink sm"
+                disabled={busy}
+                onClick={() => {
+                  if (!confirm(`Make ${g.name} the commissioner? You'll lose these controls.`)) return;
+                  run(async () => {
+                    await client.transferCommissioner(leagueId, g.teamCode);
+                    return `${g.name} is now the commissioner.`;
+                  });
+                }}
+              >
+                make commissioner
+              </button>
+              <button
+                type="button"
+                className="btnlink sm"
+                disabled={busy}
+                onClick={() => {
+                  if (!confirm(`Take ${g.name} out of the league? The CPU runs ${g.teamCode} until someone joins with your invite code.`)) return;
+                  run(async () => {
+                    await client.vacateSeat(leagueId, g.teamCode);
+                    return `${g.teamCode}'s seat is open.`;
+                  });
+                }}
+              >
+                open seat
+              </button>
+            </span>
+          )}
+        </div>
+      ))}
+      {note && (
+        <p className="lobby-sub" role="status" style={{ userSelect: "all" }}>
+          {note}
+        </p>
+      )}
     </div>
   );
 }
