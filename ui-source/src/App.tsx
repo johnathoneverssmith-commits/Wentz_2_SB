@@ -7,7 +7,7 @@ import { Checkpoint } from "./screens/Checkpoint.tsx";
 import { isOnline, resumeLeague, lastLeagueId, type ResumeFailure } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
-import { STAGE_HOME } from "@/state/stageMachine";
+import { currentScreen, STAGE_HOME } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
 import { CoachingDraftRoom } from "./screens/CoachingDraftRoom.tsx";
@@ -60,16 +60,7 @@ import { WeeklyTeamHub } from "./screens/WeeklyTeamHub.tsx";
 function StageHome() {
   const stage = useStore((s) => s.stage);
   const step = useStore((s) => stepOf(s, s.viewerGmId));
-  if (stage === "offseasonRetirement" && step === "draftPreview") {
-    return <Navigate to="/draft-preview" replace />;
-  }
-  if (stage === "offseasonDraftSummary" && step === "rookieSignings") {
-    return <Navigate to="/rookie-signings" replace />;
-  }
-  if (stage === "trainingCamp" && step === "trainingCampResults") {
-    return <Navigate to="/training-camp-results" replace />;
-  }
-  return <Navigate to={STAGE_HOME[stage]} replace />;
+  return <Navigate to={currentScreen(stage, step).route} replace />;
 }
 
 /**
@@ -231,15 +222,17 @@ function useFollowLeague(held: boolean): void {
   const { pathname } = useLocation();
   const stage = useStore((s) => s.stage);
   const ready = useStore((s) => !!s.readiness[s.viewerGmId]);
-  const was = useRef({ stage, ready, pathname });
+  const step = useStore((s) => stepOf(s, s.viewerGmId));
+  // the screen they were on counts as the stage's whether it's the stage's
+  // home or a step inside it (the draft preview, rookie signings)
+  const route = currentScreen(stage, step).route;
+  const was = useRef({ stage, ready, pathname, route });
   useEffect(() => {
     const before = was.current;
-    was.current = { stage, ready, pathname };
+    was.current = { stage, ready, pathname, route };
     if (!isOnline() || held || before.stage === stage || !before.ready) return;
-    if (before.pathname === STAGE_HOME[before.stage as keyof typeof STAGE_HOME] && pathname === before.pathname) {
-      nav(STAGE_HOME[stage]);
-    }
-  }, [stage, ready, pathname, held, nav]);
+    if (before.pathname === before.route && pathname === before.pathname) nav(route);
+  }, [stage, ready, pathname, route, held, nav]);
 }
 
 export function App() {

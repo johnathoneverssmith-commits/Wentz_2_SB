@@ -130,6 +130,23 @@ export const STAGE_LABEL: Record<Stage, string> = {
   offseasonDepthChart: "Depth Chart",
 };
 
+/**
+ * The screens a GM steps through inside one stage (see `stepOf`). Their
+ * current screen is the step's, not the stage's: the rail used to send a
+ * GM who had moved on to the draft preview back to the retirement list.
+ */
+const STEPS: Partial<Record<Stage, Record<string, { route: string; label: string }>>> = {
+  offseasonRetirement: { draftPreview: { route: "/draft-preview", label: "Draft Preview" } },
+  offseasonDraftSummary: { rookieSignings: { route: "/rookie-signings", label: "Rookie Signings" } },
+  trainingCamp: { trainingCampResults: { route: "/training-camp-results", label: "Training Camp Results" } },
+};
+
+/** Where this GM's current screen is, and what to call it. */
+export function currentScreen(stage: Stage, step: string | null): { route: string; label: string } {
+  const at = step ? STEPS[stage]?.[step] : undefined;
+  return at ?? { route: STAGE_HOME[stage], label: STAGE_LABEL[stage] };
+}
+
 export interface Transition {
   stage: Stage;
   week: number;

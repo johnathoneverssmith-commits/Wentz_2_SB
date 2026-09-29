@@ -6,7 +6,8 @@ import { TurnClock } from "./TurnClock";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
-import { STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { currentScreen } from "@/state/stageMachine";
+import { stepOf } from "@/state/reveal";
 import { useOnlineSync } from "@/state/useLeagueActions";
 import { useGameAudio } from "@/audio/useGameAudio";
 
@@ -148,6 +149,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return false;
   });
   const session = onlineSession();
+  const step = useStore((st) => stepOf(st, st.viewerGmId));
+  const screen = currentScreen(stage, step);
   // the tab title too: a league left open in a background tab is how most
   // async turns get noticed
   useEffect(() => {
@@ -168,7 +171,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="stagechip">
-          {STAGE_LABEL[stage]} · {displaySeasonFor(season, stage)}
+          {screen.label} · {displaySeasonFor(season, stage)}
           {week ? ` · Wk ${week}` : ""}
         </div>
         {session && <TurnClock stage={stage} yourTurn={yourTurn} />}
@@ -187,8 +190,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {!inSetup && !seasonScreens && (
           <>
             <div className="railgroup">Current stage</div>
-            <NavLink to={STAGE_HOME[stage]} className={active}>
-              {STAGE_LABEL[stage]}
+            <NavLink to={screen.route} className={active}>
+              {screen.label}
               {yourTurn && (
                 <span className="railbadge" aria-label="your turn">
                   Your turn
