@@ -1,3 +1,4 @@
+import { LeagueWire } from "@/components/LeagueWire";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -258,6 +259,10 @@ export function WeeklyTeamHub() {
         {code && <ExpiringContracts teamCode={code} />}
         {/* inert in a single-player dynasty; the component decides */}
         <LeagueRoster />
+        {/* the rail's wire is hidden on a phone; this is where it goes instead */}
+        <div className="wire-inline">
+          <LeagueWire />
+        </div>
         {/*
           Change 6: in the preseason this is one roast per human GM instead of
           scouting notes. The notes were true and nobody read them; a league
