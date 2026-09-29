@@ -204,12 +204,16 @@ function NegRow({
     <div className="neg-row">
       <span className="neg-label">{label}</span>
       <div className="neg-ctrl">
-        <button onClick={() => setValue(clamp(value - step))}>−</button>
-        <span className="oswald neg-val">
+        <button type="button" aria-label={`Less ${label.toLowerCase()}`} disabled={value <= min} onClick={() => setValue(clamp(value - step))}>
+          −
+        </button>
+        <span className="oswald neg-val" aria-live="polite">
           {integer ? value : value.toFixed(1)}
           {suffix}
         </span>
-        <button onClick={() => setValue(clamp(value + step))}>+</button>
+        <button type="button" aria-label={`More ${label.toLowerCase()}`} disabled={value >= max} onClick={() => setValue(clamp(value + step))}>
+          +
+        </button>
       </div>
     </div>
   );

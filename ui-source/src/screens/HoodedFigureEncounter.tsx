@@ -148,13 +148,13 @@ export function HoodedFigureEncounter() {
               Your offer
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "center", margin: "16px 0" }}>
-              <button type="button" onClick={() => nudge(-1)} disabled={payment === 0} style={stepperBtn}>
+              <button type="button" aria-label="Offer less" onClick={() => nudge(-1)} disabled={payment === 0} style={stepperBtn}>
                 −
               </button>
               <div style={{ minWidth: 120, textAlign: "center", fontSize: 28, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
                 {millions(payment)}
               </div>
-              <button type="button" onClick={() => nudge(1)} disabled={payment >= max} style={stepperBtn}>
+              <button type="button" aria-label="Offer more" onClick={() => nudge(1)} disabled={payment >= max} style={stepperBtn}>
                 +
               </button>
             </div>
