@@ -331,6 +331,14 @@ export function FreeAgencySummary() {
             className="btnlink"
             disabled={trimming}
             onClick={() => {
+              // planned on a copy, shown before anything goes — releases
+              // can't be undone and cost dead money
+              const cuts = planStaffTrim(useStore.getState(), code);
+              if (cuts.length > 0) {
+                const cost = Math.round(cuts.reduce((n, p) => n + releasePenalty(p), 0) * 10) / 10;
+                const list = cuts.map((p) => `${p.name} (${p.position} ${p.overall})`).join(", ");
+                if (!confirm(`Your staff would release ${list} — ${millions(cost)} of dead money. Go ahead?`)) return;
+              }
               setTrimming(true);
               setTrimNote(null);
               void (async () => {
@@ -338,8 +346,7 @@ export function FreeAgencySummary() {
                 let dead = 0;
                 let refused: string | null = null;
                 try {
-                  // planned on a copy, sent in one go, the league fetched once
-                  const cuts = planStaffTrim(useStore.getState(), code);
+                  // sent in one go, the league fetched once
                   if (cuts.length > 0) {
                     const res = await actions.releasePlayers(cuts.map((p) => p.id));
                     if (!res.ok) refused = res.reason ?? "A release didn't go through.";
