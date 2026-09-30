@@ -306,7 +306,11 @@ export function OnlineLobby() {
           { id: "create", label: "Start a League" },
         ]}
         active={active}
-        onChange={setActive}
+        onChange={(id) => {
+          // a bad invite code's error followed the GM onto "Start a League"
+          setError(null);
+          setActive(id);
+        }}
         label="Online league actions"
       />
 
