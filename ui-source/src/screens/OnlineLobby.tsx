@@ -387,6 +387,8 @@ export function OnlineLobby() {
                     type="button"
                     className="btn-primary"
                     disabled={busy}
+                    // one "Open" per league read as a list of identical buttons
+                    aria-label={`${l.teamCode ? "Open" : "Claim a team in"} ${l.name}`}
                     onClick={() =>
                       l.teamCode
                         ? void open(l.id)
@@ -405,6 +407,7 @@ export function OnlineLobby() {
                       type="button"
                       className="btnlink sm"
                       aria-expanded={managingLeague === l.id}
+                      aria-label={`Manage GMs in ${l.name}`}
                       onClick={() => setManagingLeague((m) => (m === l.id ? null : l.id))}
                     >
                       Manage GMs
@@ -413,6 +416,7 @@ export function OnlineLobby() {
                       type="button"
                       className="btnlink sm"
                       disabled={busy}
+                      aria-label={`Archive ${l.name}`}
                       onClick={() => {
                         if (!confirm(`Archive ${l.name}? It leaves every GM's list and can't be joined or played again.`)) return;
                         void attempt(async () => {
@@ -431,6 +435,7 @@ export function OnlineLobby() {
                         type="button"
                         className="btnlink sm"
                         disabled={busy}
+                        aria-label={`Leave ${l.name}`}
                         onClick={() => {
                           if (!confirm(`Leave ${l.name}? The CPU runs your team until someone claims the open seat with the invite code.`)) return;
                           void attempt(async () => {
