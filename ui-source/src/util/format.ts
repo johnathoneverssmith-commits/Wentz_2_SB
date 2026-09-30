@@ -19,14 +19,18 @@ export function ordinal(n: number): string {
 export function money(n: number): string {
   if (!Number.isFinite(n)) return NO_VALUE;
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `$${Math.round(n / 1_000)}K`;
-  return `$${Math.round(n)}`;
+  const sign = n < 0 ? "-" : ""; // "-$1.2M", like `millions`
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}$${Math.round(abs / 1_000)}K`;
+  return `${sign}$${Math.round(abs)}`;
 }
 
 /** value already in $M → "$12.4M". */
 export function millions(n: number): string {
-  return Number.isFinite(n) ? `$${n.toFixed(1)}M` : NO_VALUE;
+  if (!Number.isFinite(n)) return NO_VALUE;
+  // "-$23.8M", not "$-23.8M" (and no "-$0.0M" for a rounding hair under zero)
+  const r = Math.round(n * 10) / 10;
+  return r < 0 ? `-$${(-r).toFixed(1)}M` : `$${Math.abs(r).toFixed(1)}M`;
 }
 
 export function seconds(total: number): string {

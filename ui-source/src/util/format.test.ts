@@ -27,6 +27,10 @@ describe("formatters", () => {
   it("still formats real numbers the way it always did", () => {
     expect(millions(12.36)).toBe("$12.4M");
     expect(millions(0)).toBe("$0.0M");
+    // over the cap read "$-23.8M"
+    expect(millions(-23.84)).toBe("-$23.8M");
+    expect(millions(-0.01)).toBe("$0.0M");
+    expect(money(-1_200_000)).toBe("-$1.2M");
     expect(money(12_400_000)).toBe("$12.4M");
     expect(money(780_000)).toBe("$780K");
     expect(pct(0.625, 1)).toBe("62.5%");
