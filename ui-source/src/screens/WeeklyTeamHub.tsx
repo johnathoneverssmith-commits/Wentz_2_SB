@@ -411,8 +411,9 @@ export function WeeklyTeamHub() {
                     if (o.gm.id === r.gm.id) return <td className="c" key={o.gm.id}>—</td>;
                     const hh = h2h[r.gm.teamCode]?.[o.gm.teamCode];
                     return (
-                      <td className="c" key={o.gm.id}>
-                        {hh && hh.w + hh.l > 0 ? `${hh.w}-${hh.l}` : "–"}
+                      // "–" beside the "—" on the diagonal read as the same blank
+                      <td className="c" key={o.gm.id} title={hh && hh.w + hh.l > 0 ? undefined : "Haven't played each other yet"}>
+                        {hh && hh.w + hh.l > 0 ? `${hh.w}-${hh.l}` : "0-0"}
                       </td>
                     );
                   })}
@@ -685,7 +686,8 @@ function UnitCard({ label, rank, rating, of }: { label: string; rank: number; ra
     <div style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: "13px 14px" }}>
       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{label}</p>
       <p className="oswald" style={{ margin: "4px 0 8px", fontSize: 18, fontWeight: 600 }}>
-        {ordinal(rank)}{" "}
+        {ordinal(rank)}
+        {of < 32 ? ` of ${of}` : ""}{" "}
         <span style={{ fontSize: 12, color: "var(--ink-dim)", fontWeight: 400 }}>· {rating} OVR</span>
       </p>
       <div style={{ height: 6, background: "var(--panel-raised)", borderRadius: 3, overflow: "hidden" }}>

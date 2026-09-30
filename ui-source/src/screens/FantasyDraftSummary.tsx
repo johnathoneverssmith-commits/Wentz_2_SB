@@ -114,8 +114,9 @@ export function FantasyDraftSummary({
       <Ticker
         stats={[
           { label: "Starting lineup overall", value: mine?.overall ?? "—" },
-          { label: "Starting lineup rank", value: mine ? ordinal(mine.overallRank) : "—", className: "accent" },
-          { label: "Full roster overall", value: mine ? `${mine.rosterOverall} (${ordinal(mine.rosterOverallRank)})` : "—", className: "sm" },
+          // "of 4" in a small league: "3rd" alone reads like the top tenth
+          { label: "Starting lineup rank", value: mine ? `${ordinal(mine.overallRank)}${total < 32 ? ` of ${total}` : ""}` : "—", className: "accent" },
+          { label: "Full roster overall", value: mine ? `${mine.rosterOverall} (${ordinal(mine.rosterOverallRank)}${total < 32 ? ` of ${total}` : ""})` : "—", className: "sm" },
           {
             label: rookie ? "Class grade" : "Draft grade",
             value: rookie

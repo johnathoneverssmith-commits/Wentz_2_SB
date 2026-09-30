@@ -28,6 +28,7 @@ import {
   proposeTrade,
   releasePlayer,
   releasePlayers,
+  staffFix,
   respondToTrade,
   withdrawTrade,
   setDepthOrder,
@@ -69,6 +70,7 @@ import {
   leaveLeague,
   openTeams,
   transferCommissioner,
+  setTurnHours,
   vacateSeat,
 } from "./leagues.js";
 import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
@@ -599,6 +601,8 @@ post("/leagues/:id/actions/rookies", async (ctx) =>
   settleRookies(await actor(ctx), field(ctx, "prospectIds", "object"), optional<boolean>(ctx, "released") ?? false),
 );
 
+post("/leagues/:id/actions/staff-fix", async (ctx) => staffFix(await actor(ctx)));
+
 post("/leagues/:id/actions/releases", async (ctx) =>
   releasePlayers(await actor(ctx), field(ctx, "playerIds", "object")),
 );
@@ -749,7 +753,19 @@ get("/leagues/:id/gms", async (ctx) => {
       WHERE f.league_id = $1 AND f.user_id IS NOT NULL ORDER BY f.team_code`,
     [ctx.params.id!],
   );
-  return { gms: rows.rows.map((r) => ({ teamCode: r.team_code, name: r.name, you: r.user_id === user.id })) };
+  const clock = await pool.query<{ pick_timeout_hours: number }>(
+    `SELECT pick_timeout_hours FROM leagues WHERE id = $1`,
+    [ctx.params.id!],
+  );
+  return {
+    gms: rows.rows.map((r) => ({ teamCode: r.team_code, name: r.name, you: r.user_id === user.id })),
+    turnHours: clock.rows[0]?.pick_timeout_hours ?? 12,
+  };
+});
+
+post("/leagues/:id/admin/turn-hours", async (ctx) => {
+  const user = requireUser(ctx);
+  return setTurnHours(ctx.params.id!, user.id, field(ctx, "hours", "number"));
 });
 
 // The commissioner hands the role on (they can't leave while they hold it).

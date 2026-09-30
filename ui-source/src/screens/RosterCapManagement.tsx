@@ -27,7 +27,7 @@ import { playerPriorities } from "@/sim/priorities";
 import { extensionAsk, previewRestructure } from "@/state/contracts";
 import { depthAt } from "@/state/seed";
 import { onInjuredReserve } from "@/state/injuries";
-import { capUsed as contractsUsed, checkRelease, releasePenalty } from "@/state/reconciliation";
+import { capUsed as contractsUsed, checkRelease, positionalMinimums, releasePenalty } from "@/state/reconciliation";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions } from "@/util/format";
 
@@ -136,6 +136,17 @@ export function RosterCapManagement() {
     const top = players[0]?.overall ?? 0;
     const depth = players.length;
     if (depth === 0) return { g, reason: "No players on the roster" };
+    // a group can look full and still leave a starting spot empty: five
+    // linemen with one guard started a "Vacant" at guard, and this tab
+    // listed nothing
+    const mins = positionalMinimums();
+    const shortAt = (Object.keys(POSITION_TO_GROUP) as Position[])
+      .filter((pos) => POSITION_TO_GROUP[pos] === g)
+      .find((pos) => players.filter((p) => p.position === pos).length < (mins[pos] ?? 0));
+    if (shortAt) {
+      const have = players.filter((p) => p.position === shortAt).length;
+      return { g, reason: `${shortAt}: ${have} of ${mins[shortAt]} starters — a starting spot is empty` };
+    }
     if (top < 72) return { g, reason: `Weak starter (${top} OVR), no upgrade in house` };
     if (depth < 2 && g !== "K" && g !== "P") return { g, reason: "Starter only, no depth" };
     return null;

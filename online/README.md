@@ -22,6 +22,16 @@ Two environment variables matter in production and neither has a safe default:
 |---|---|
 | `SESSION_SECRET` | Signs session cookies. The server refuses to start in production without it. Changing it logs everyone out. |
 | `CLIENT_ORIGIN` | The exact origin the UI is served from. Sessions are cookies, so CORS can't use `*`. |
+| `SERVE_UI` | Optional: a path to the built UI's `index.html`. The server then serves it at `/`, from its own origin. |
+
+**Safari and the session cookie.** With the UI and the API on two
+`onrender.com` subdomains, the session cookie is a third-party cookie
+(`onrender.com` is on the public suffix list, so each subdomain is its own
+site). Safari blocks third-party cookies outright, and Firefox's strict mode
+does too — a GM there can sign in and is signed straight back out. Serving
+the UI from the API's own origin makes the cookie first-party everywhere:
+build it with `VITE_LEAGUE_API="" npm --prefix ui-source run build`, point
+`SERVE_UI` at `ui-source/dist/index.html`, and open the API's URL.
 
 ## What is different from `server/`
 

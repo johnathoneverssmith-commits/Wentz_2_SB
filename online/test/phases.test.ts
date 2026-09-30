@@ -103,7 +103,8 @@ describe("when the clock runs out", () => {
       results: [],
       targetsByGm: {},
     };
-    expect(autopilotAbsent(state)).toEqual([aiTeam]);
+    // the pick is made; a CPU team isn't listed as having run out of time
+    expect(autopilotAbsent(state)).toEqual([]);
     expect(state.draft.currentPickIndex).toBe(1);
   });
 });

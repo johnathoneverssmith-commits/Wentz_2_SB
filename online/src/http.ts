@@ -8,6 +8,7 @@
  * errors that come back as JSON a client can show a person.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 
@@ -125,6 +126,32 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   }
 }
 
+/**
+ * The built UI, from this server's own origin — when `SERVE_UI` names the
+ * built `index.html` (the build is a single file, and the app routes by hash,
+ * so one page is all it needs).
+ *
+ * Served from a second host, the UI makes cross-site requests and the session
+ * cookie is a third-party cookie. Safari blocks those outright, so a GM on an
+ * iPhone or a Mac could not stay signed in at all. From the same origin the
+ * cookie is first-party everywhere. Build the UI with `VITE_LEAGUE_API=""`
+ * so it calls this origin.
+ */
+let uiPage: { path: string; html: Buffer; zipped: Buffer } | null = null;
+async function sendUi(req: IncomingMessage, res: ServerResponse, path: string): Promise<void> {
+  if (!uiPage || uiPage.path !== path) {
+    const html = await readFile(path);
+    uiPage = { path, html, zipped: await gzipAsync(html, { level: 9 }) };
+  }
+  const gz = /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""));
+  res.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-cache",
+    ...(gz ? { "content-encoding": "gzip" } : {}),
+  });
+  res.end(req.method === "HEAD" ? undefined : gz ? uiPage.zipped : uiPage.html);
+}
+
 export async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const origin = process.env.CLIENT_ORIGIN;
   if (origin) {
@@ -140,6 +167,10 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  if (process.env.SERVE_UI && (req.method === "GET" || req.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
+    await sendUi(req, res, process.env.SERVE_UI);
+    return;
+  }
   const found = match(req.method ?? "GET", url.pathname);
   if (!found) {
     res.writeHead(404, { "content-type": "application/json" });

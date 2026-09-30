@@ -24,6 +24,8 @@ import { useStore } from "./store.ts";
 import { OnlineUnansweredError } from "../sim/OnlineLeagueClient.ts";
 import type { TrainingCampPlan } from "./trainingCamp.ts";
 import type { DeadlineMove } from "./tradeDeadline.ts";
+import { reconcileCpuTeam } from "./reconciliation.ts";
+import { viewerTeamCode } from "./selectors.ts";
 
 export interface ActionResult {
   ok: boolean;
@@ -84,6 +86,8 @@ export interface LeagueActions {
   signRookies: (prospectIds: string[]) => Promise<ActionResult>;
   /** Release several players, fetching the league once at the end (online). */
   releasePlayers: (playerIds: string[]) => Promise<ActionResult>;
+  /** At a free-agency summary: the staff cuts to legal and fills empty positions. */
+  staffFix: () => Promise<ActionResult>;
   /** Reveal saved results through a week. Never simulates. */
   revealThrough: (through: number) => Promise<ActionResult>;
   /** Run this team's training camp. */
@@ -286,6 +290,14 @@ export function useLeagueActions(): LeagueActions {
           for (const id of playerIds) store.releasePlayer(id);
           return { ok: true };
         },
+        staffFix: async () => {
+          const code = viewerTeamCode(store);
+          if (!code) return { ok: false, reason: "No team selected." };
+          useStore.setState((d) => {
+            reconcileCpuTeam(d as never, code);
+          });
+          return { ok: true };
+        },
         revealThrough: async (through) => store.revealThrough(through),
         submitTrainingCamp: async (plan) => store.submitTrainingCamp(plan),
         submitHoodedFigurePayment: async (payment) => store.submitHoodedFigurePayment(payment),
@@ -363,6 +375,7 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.releasePlayer(s.leagueId, playerId, s.version))).then(
           after,
         ),
+      staffFix: () => attempt(() => send((s) => s.client.staffFix(s.leagueId))).then(after),
       releasePlayers: (playerIds) =>
         attempt(() =>
           send(async (s) => {

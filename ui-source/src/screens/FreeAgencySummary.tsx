@@ -343,46 +343,35 @@ export function FreeAgencySummary() {
               // planned on a copy, shown before anything goes — releases
               // can't be undone and cost dead money
               const cuts = planStaffTrim(useStore.getState(), code);
-              if (cuts.length > 0) {
-                const cost = Math.round(cuts.reduce((n, p) => n + releasePenalty(p), 0) * 10) / 10;
-                const list = cuts.map((p) => `${p.name} (${p.position} ${p.overall})`).join(", ");
-                if (!confirm(`Your staff would release ${list} — ${millions(cost)} of dead money. Go ahead?`)) return;
-              }
+              const short = issues.some((i) => i.kind === "position");
+              const cost = Math.round(cuts.reduce((n, p) => n + releasePenalty(p), 0) * 10) / 10;
+              const list = cuts.map((p) => `${p.name} (${p.position} ${p.overall})`).join(", ");
+              const plan = [
+                cuts.length > 0 ? `release ${list} — ${millions(cost)} of dead money` : "",
+                // a hole at a position can't be cut away: the staff signs a
+                // street free agent into it, as it does for the CPU teams
+                short ? "sign a one-year minimum free agent into each empty position" : "",
+              ].filter(Boolean);
+              if (plan.length > 0 && !confirm(`Your staff would ${plan.join(", and ")}. Go ahead?`)) return;
               setTrimming(true);
               setTrimNote(null);
-              void (async () => {
-                const cutNames: string[] = [];
-                let dead = 0;
-                let refused: string | null = null;
-                try {
-                  // sent in one go, the league fetched once
-                  if (cuts.length > 0) {
-                    const res = await actions.releasePlayers(cuts.map((p) => p.id));
-                    if (!res.ok) refused = res.reason ?? "A release didn't go through.";
-                    // report what actually happened, which a refusal part
-                    // way through makes a subset of the plan
-                    const now = useStore.getState().players;
-                    for (const cut of cuts) {
-                      if (now[cut.id]?.nfl_team === code) continue;
-                      cutNames.push(`${cut.name} (${cut.position} ${cut.overall})`);
-                      dead += releasePenalty(cut);
-                    }
-                  }
-                } finally {
-                  setTrimming(false);
+              const had = new Set(rosterOf(useStore.getState(), code).map((p) => p.id));
+              void actions
+                .staffFix()
+                .then((res) => {
+                  const now = rosterOf(useStore.getState(), code);
+                  const gone = [...had].filter((id) => !now.some((p) => p.id === id)).map((id) => useStore.getState().players[id]);
+                  const added = now.filter((p) => !had.has(p.id));
                   const parts: string[] = [];
-                  if (cutNames.length > 0) {
-                    parts.push(
-                      `Your staff released ${cutNames.join(", ")} — ${millions(Math.round(dead * 10) / 10)} of dead money this year.`,
-                    );
-                  }
-                  if (refused) parts.push(refused);
+                  if (gone.length > 0) parts.push(`Your staff released ${gone.map((p) => (p ? `${p.name} (${p.position} ${p.overall})` : "a player")).join(", ")}.`);
+                  if (added.length > 0) parts.push(`It signed ${added.map((p) => `${p.name} (${p.position} ${p.overall})`).join(", ")}.`);
+                  if (!res.ok) parts.push(res.reason ?? "The staff couldn't finish.");
                   setTrimNote(parts.join(" ") || null);
-                }
-              })();
+                })
+                .finally(() => setTrimming(false));
             }}
           >
-            {trimming ? "Trimming…" : "Let my staff trim the roster"}
+            {trimming ? "Fixing…" : "Let my staff fix the roster"}
           </button>
         )}
       </Footer>

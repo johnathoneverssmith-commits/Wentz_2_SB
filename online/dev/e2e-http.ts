@@ -338,6 +338,11 @@ async function main() {
     for (const u of bots) await act(u, leagueId, views[users.indexOf(u)]!.state);
     const after = (await stateOf(users[0]!, leagueId)).state;
     if (after.stage === s.stage) {
+      // a summary only takes the check-in of a legal roster: let the staff
+      // square it up first, as a GM presses the button to
+      if (after.stage === "freeAgencySummary" || after.stage === "midseasonFreeAgencySummary") {
+        for (const u of bots) await call(u, "POST", `/leagues/${leagueId}/actions/staff-fix`, {});
+      }
       for (const u of bots) await call(u, "POST", `/leagues/${leagueId}/actions/ready`, { ready: true });
     }
     if (BROWSER) await new Promise((r) => setTimeout(r, 1500));

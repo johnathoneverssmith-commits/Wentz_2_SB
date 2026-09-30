@@ -6,6 +6,7 @@ import { beginFreeAgencyEvent, onTheClock, runCpuTurns } from "@/state/freeAgenc
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
 import { runPendingCpuTurns } from "../src/decide.js";
+import { takeNotes } from "../src/notes.js";
 import { autopilotAbsent, isTurnStage, turnKey } from "../src/phases.js";
 
 /**
@@ -38,6 +39,8 @@ describe("an expired clock in a turn-based event", () => {
     const before = s.coachingDraft!.currentPickIndex;
     expect(autopilotAbsent(s)).toContain(on);
     expect(s.coachingDraft!.currentPickIndex).toBeGreaterThan(before);
+    // and the wire says which coach, not just that "their staff acted"
+    expect(takeNotes(s).some((n) => n.teamCode === on && /their staff hired /.test(n.summary))).toBe(true);
   });
 
   it("passes for the absent GM in free agency", () => {
@@ -49,6 +52,7 @@ describe("an expired clock in a turn-based event", () => {
     const key = turnKey(s);
     expect(autopilotAbsent(s)).toContain(on);
     expect(turnKey(s)).not.toBe(key);
+    expect(takeNotes(s).some((n) => n.teamCode === on && /passed on their free-agency turn/.test(n.summary))).toBe(true);
   });
 
   it("moves on when the team on the clock became a CPU team (a seat reopened)", () => {

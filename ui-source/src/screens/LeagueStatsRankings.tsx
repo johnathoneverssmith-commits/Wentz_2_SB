@@ -68,6 +68,8 @@ export function LeagueStatsRankings() {
   const myPpg = rows.find((r) => r.code === code)?.ppg ?? 0;
   const scoringLeader = sorted("ppg", true)[0];
 
+  const teamCount = Object.keys(s.teams).length;
+  const rankOf = (r: number) => (teamCount < 32 ? `${ordinal(r)} of ${teamCount}` : ordinal(r));
   return (
     <Card maxWidth={800}>
       <CardHeader
@@ -82,8 +84,9 @@ export function LeagueStatsRankings() {
       />
       <Ticker
         stats={[
-          { label: "Your offense rank", value: ordinal(myOffRank), className: "accent" },
-          { label: "Your defense rank", value: ordinal(myDefRank), className: "accent" },
+          // "4th" in a four-team league is last; say so there
+          { label: "Your offense rank", value: rankOf(myOffRank), className: "accent" },
+          { label: "Your defense rank", value: rankOf(myDefRank), className: "accent" },
           { label: "Points per game", value: myPpg.toFixed(1) },
           { label: "Scoring leader", value: scoringLeader ? TEAMS_BY_CODE[scoringLeader.code]!.label : "—", className: "sm" },
         ]}

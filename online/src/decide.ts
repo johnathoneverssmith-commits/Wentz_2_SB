@@ -76,7 +76,7 @@ import {
 } from "@/state/tradeDeadline.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
-import { applyRelease, checkRelease } from "@/state/reconciliation.ts";
+import { applyRelease, checkRelease, reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
 import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
@@ -794,6 +794,39 @@ export function decideSetDepth(
 }
 
 /** Release a player. */
+/**
+ * The staff squares a GM's roster up at a free-agency summary: cuts to the
+ * cap and the limit, and signs a street free agent into any empty position.
+ *
+ * The summary's own button only cut. A GM short a guard had no way to fill
+ * the hole from that screen and no way past it — the check-in stays locked
+ * until the roster is legal — so they were stuck. This is the same
+ * reconciliation the CPU teams get, on the GM's say-so.
+ */
+export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
+  if (state.stage !== "freeAgencySummary" && state.stage !== "midseasonFreeAgencySummary") {
+    throw new ActionError("Your staff only does this at a free-agency summary.");
+  }
+  const before = new Set(
+    Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent).map((p) => p.id),
+  );
+  reconcileCpuTeam(state, actor.teamCode);
+  recomputeTeamRatings(state);
+  const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
+  const signed = after.filter((p) => !before.has(p.id)).length;
+  const cut = [...before].filter((id) => !after.some((p) => p.id === id)).length;
+  const left = reconciliationIssues(state, actor.teamCode).length;
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "roster.staff",
+        summary: `${city(actor.teamCode)}'s staff released ${cut} and signed ${signed} to make the roster legal${left ? " (some of it couldn't be fixed)" : ""}.`,
+      },
+    ],
+  };
+}
+
 export function decideRelease(state: LeagueState, actor: Actor, playerId: string): Decision {
   refuseDuringBlock(state, "Releasing players");
   const p = state.players[playerId];

@@ -1123,12 +1123,16 @@ function TeamPicker({
  */
 function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagueClient }) {
   const [gms, setGms] = useState<{ teamCode: string; name: string; you: boolean }[] | null>(null);
+  const [turnHours, setTurnHoursState] = useState<number | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => {
     void client
       .leagueGms(leagueId)
-      .then((r) => setGms(r.gms))
+      .then((r) => {
+        setGms(r.gms);
+        setTurnHoursState(r.turnHours ?? null);
+      })
       .catch((err: unknown) => setNote(err instanceof Error ? err.message : "Couldn't load the GMs."));
   }, [client, leagueId]);
   useEffect(load, [load]);
@@ -1148,6 +1152,29 @@ function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagu
   if (!gms) return <p className="lobby-sub">{note ?? "Loading…"}</p>;
   return (
     <div className="lobby-claim" style={{ marginTop: 10 }}>
+      {/* the clock was set at creation and never again */}
+      {turnHours != null && (
+        <label className="neg-row" style={{ fontSize: 12.5 }}>
+          <span>Hours per turn (drafts, markets, the deadline)</span>
+          <select
+            value={turnHours}
+            disabled={busy}
+            onChange={(e) => {
+              const h = Number(e.target.value);
+              run(async () => {
+                await client.setTurnHours(leagueId, h);
+                return `Turns now run on a ${h}-hour clock, from the next one.`;
+              });
+            }}
+          >
+            {[1, 4, 12, 24, 48].map((h) => (
+              <option key={h} value={h}>
+                {h}h
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {gms.map((g) => (
         <div key={g.teamCode} className="neg-row">
           <span style={{ fontSize: 12.5 }}>

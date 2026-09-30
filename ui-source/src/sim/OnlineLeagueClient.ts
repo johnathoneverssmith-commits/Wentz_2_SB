@@ -382,6 +382,9 @@ export class OnlineLeagueClient {
       for (const id of prospectIds) await this.settleRookie(leagueId, id, released, "");
     });
 
+  /** The staff makes the roster legal: cuts, and fills empty positions. */
+  staffFix = (leagueId: string) => this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/staff-fix`, {});
+
   releasePlayers = (leagueId: string, playerIds: string[]) =>
     this.batch(`/leagues/${leagueId}/actions/releases`, { playerIds }, async () => {
       for (const id of playerIds) await this.releasePlayer(leagueId, id, "");
@@ -493,7 +496,11 @@ export class OnlineLeagueClient {
 
   /** Commissioner only: who holds which seat. */
   leagueGms = (leagueId: string) =>
-    this.call<{ gms: { teamCode: string; name: string; you: boolean }[] }>(`/leagues/${leagueId}/gms`);
+    this.call<{ gms: { teamCode: string; name: string; you: boolean }[]; turnHours?: number }>(`/leagues/${leagueId}/gms`);
+
+  /** Commissioner only: the per-turn clock, from the next turn. */
+  setTurnHours = (leagueId: string, hours: number) =>
+    this.call<{ ok: true }>(`/leagues/${leagueId}/admin/turn-hours`, { hours });
 
   /** Commissioner only: hand the role to the GM holding `teamCode`. */
   transferCommissioner = (leagueId: string, teamCode: string) =>

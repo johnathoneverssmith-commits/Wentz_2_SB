@@ -56,7 +56,7 @@ import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent.ts";
 import { pendingFor } from "@/state/tradeDeadline.ts";
 import { decideCoachingPick, decideDeadlineTurn, decideFreeAgencyTurn, runPendingCpuTurns } from "./decide.js";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
-import { reconcileCpuTeam } from "@/state/reconciliation.ts";
+import { reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
 import { openTrainingCamp } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
 import { ensureHoodedFigureEncounters, hoodedFigureEncounterFor } from "@/state/hoodedFigure.ts";
@@ -165,6 +165,17 @@ export async function readyUp(
         state,
         unchanged: true,
       } satisfies { result: AdvanceOutcome } & Applied;
+    }
+    // The free-agency summaries are where a GM's roster has to be legal to
+    // check in. Only the button enforced it: the server took the check-in
+    // regardless, so a stale tab or a scripted request left a team a guard
+    // short into the depth chart ("Vacant" in the starting line).
+    if (ready && (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary")) {
+      const team = state.gms.find((g) => g.id === gmId)?.teamCode;
+      const issues = team ? reconciliationIssues(state, team) : [];
+      if (issues.length > 0) {
+        throw new ActionError(`Your roster isn't legal yet: ${issues.map((i) => i.message).join(" ")}`);
+      }
     }
     const already = (state.readiness[gmId] ?? false) === ready;
     state.readiness[gmId] = ready;
@@ -478,6 +489,15 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     reportStaffMoves(state, "after free agency", () => fillRosterGaps(state));
     state.rosterFillPending = false;
   }
+  // leaving a summary the check-in didn't cover — a commissioner's force, an
+  // absent GM's autopilot — the staff squares the roster up, as it does for
+  // the CPU, rather than send a team into the season a guard short
+  if (from === "freeAgencySummary" || from === "midseasonFreeAgencySummary") {
+    for (const team of humanTeamsOf(state)) {
+      if (reconciliationIssues(state, team).length === 0) continue;
+      reportStaffMoves(state, "to make the roster legal", () => reconcileCpuTeam(state, team));
+    }
+  }
   if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
     const humans = humanTeamsOf(state);
     for (const teamCode of Object.keys(state.teams)) {
@@ -711,10 +731,17 @@ export function autopilotAbsent(state: LeagueState): string[] {
       if (pick) {
         applyPick(state, pick);
         played.push(onTheClock);
+        const who =
+          state.players[pick]?.name ??
+          state.draftClass.find((x) => x.id === pick)?.name ??
+          "the best player on their board";
+        tookTurn(onTheClock, `drafted ${who}`);
       }
     }
-    // and then the league's own teams, so the clock lands on a person again
-    played.push(...runAiPicks(state));
+    // and then the league's own teams, so the clock lands on a person again —
+    // not reported as anyone running out of time (every CPU pick after an
+    // expired clock put "Dallas ran out of time" on the wire)
+    runAiPicks(state);
     return played;
   }
 
@@ -726,6 +753,15 @@ export function autopilotAbsent(state: LeagueState): string[] {
   // decisions their own click would run. Stage check-ins still wait.
   // a refused move is logged and skipped rather than failing the sweep's
   // transaction, which would retry — and fail — every minute
+  // what the staff did, named: "their staff acted for them" left a GM coming
+  // back to find out for themselves which coach or pick they'd been given
+  function tookTurn(teamCode: string, did: string): void {
+    noteEvent(state, {
+      teamCode,
+      kind: "phase.autopiloted",
+      summary: `${TEAMS_BY_CODE[teamCode]?.label ?? teamCode} ran out of time; their staff ${did}.`,
+    });
+  }
   const tryTurn = (take: () => unknown): boolean => {
     try {
       take();
@@ -754,13 +790,19 @@ export function autopilotAbsent(state: LeagueState): string[] {
     const on = coachingOnTheClock(state);
     const actor = on ? actorFor(on) : null;
     const pick = actor ? suggestedCoachingPick(state, actor.teamCode) : null;
-    if (actor && pick && tryTurn(() => decideCoachingPick(state, actor, pick.id))) played.push(actor.teamCode);
+    if (actor && pick && tryTurn(() => decideCoachingPick(state, actor, pick.id))) {
+      played.push(actor.teamCode);
+      tookTurn(actor.teamCode, `hired ${pick.name}`);
+    }
     return played;
   }
   if ((state.stage === "freeAgency" || state.stage === "midseasonFreeAgency") && state.freeAgencyEvent && !state.freeAgencyEvent.complete) {
     const on = faOnTheClock(state);
     const actor = on ? actorFor(on) : null;
-    if (actor && tryTurn(() => decideFreeAgencyTurn(state, actor, { pass: true }))) played.push(actor.teamCode);
+    if (actor && tryTurn(() => decideFreeAgencyTurn(state, actor, { pass: true }))) {
+      played.push(actor.teamCode);
+      tookTurn(actor.teamCode, "passed on their free-agency turn");
+    }
     return played;
   }
   if (state.stage === "tradeDeadline" && state.tradeDeadline && !state.tradeDeadline.done) {
@@ -769,7 +811,10 @@ export function autopilotAbsent(state: LeagueState): string[] {
       const duty = pendingFor(state, gm.teamCode);
       if (!duty) continue;
       const move = duty === "propose" ? ({ kind: "skip" } as const) : ({ kind: "deny" } as const);
-      if (tryTurn(() => decideDeadlineTurn(state, actorFor(gm.teamCode)!, move))) played.push(gm.teamCode);
+      if (tryTurn(() => decideDeadlineTurn(state, actorFor(gm.teamCode)!, move))) {
+        played.push(gm.teamCode);
+        tookTurn(gm.teamCode, duty === "propose" ? "passed on their deadline turn" : "turned down the offer waiting on them");
+      }
       break;
     }
     return played;
@@ -810,11 +855,8 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
           // whether or not the stage moved, the clock restarts: a draft that
           // autopicked has a new team on the clock and its own fresh window
           phaseEndsAt: deadlineFor(state, league),
-          events: autopiloted.map((teamCode) => ({
-            teamCode,
-            kind: "phase.autopiloted",
-            summary: `${TEAMS_BY_CODE[teamCode]?.label ?? teamCode} ran out of time; their staff acted for them.`,
-          })),
+          // (each turn the staff took is on the wire already, saying what it was)
+          events: [],
         } satisfies {
           result: { autopiloted: string[]; moved: boolean; inSeason: boolean };
         } & Applied;

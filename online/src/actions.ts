@@ -38,6 +38,7 @@ import {
   decidePlaceBid,
   decideProposeTrade,
   decideRelease,
+  decideStaffFix,
   decideRespondToTrade,
   decideWithdrawTrade,
   decideSetDepth,
@@ -211,6 +212,8 @@ export const settleRookies = (actor: Actor, prospectIds: string[], released: boo
       ],
     };
   });
+
+export const staffFix = (actor: Actor) => run(actor, undefined, (s) => decideStaffFix(s, actor));
 
 export const releasePlayers = (actor: Actor, playerIds: string[]) =>
   run(actor, undefined, (s) => ({

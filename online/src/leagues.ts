@@ -382,6 +382,33 @@ export async function vacateSeat(
  * nobody could force past a stuck check-in or reopen a seat in, and — since
  * the commissioner can't leave — nobody could ever replace them either.
  */
+/**
+ * The commissioner changes the per-turn clock.
+ *
+ * It was fixed at creation, so a league whose GMs kept timing out on a 12-hour
+ * clock — or one that wanted to move faster — had no way to adjust but to
+ * start over. It applies from the next turn; the one running keeps its clock.
+ */
+export async function setTurnHours(leagueId: string, commissionerId: string, hours: number): Promise<{ ok: true }> {
+  if (![1, 4, 12, 24, 48].includes(hours)) throw new ActionError("Pick 1, 4, 12, 24 or 48 hours.");
+  await withLeague(leagueId, async ({ state }, client) => {
+    const current = await client.query<{ commissioner: string }>(
+      `SELECT commissioner FROM leagues WHERE id = $1 FOR UPDATE`,
+      [leagueId],
+    );
+    if (current.rows[0]?.commissioner !== commissionerId) {
+      throw new ActionError("Only the commissioner can do that.", 403);
+    }
+    await client.query(`UPDATE leagues SET pick_timeout_hours = $2 WHERE id = $1`, [leagueId, hours]);
+    return {
+      result: null,
+      state,
+      events: [{ kind: "league.settings", summary: `Turns now run on a ${hours}-hour clock, from the next one.` }],
+    };
+  });
+  return { ok: true };
+}
+
 export async function transferCommissioner(
   leagueId: string,
   commissionerId: string,
