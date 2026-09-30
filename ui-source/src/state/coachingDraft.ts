@@ -2,6 +2,7 @@ import type { Coach, CoachRole, LeagueState } from "@/domain";
 import { COACH_ROLES } from "@/domain";
 import { strategyCoachBonus, strategyFor } from "./aiStrategy.ts";
 import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { coachPriorities } from "@/sim/priorities";
 
 /**
  * The coaching fantasy draft.
@@ -141,7 +142,12 @@ export function applyCoachingPick(s: LeagueState, teamCode: string, coachId: str
   const coach = s.coaches[coachId];
   if (!d || !coach) return;
   coach.team = teamCode;
-  coach.contract ??= { yearsRemaining: 3, annualValue: 4 };
+  // his own asking price, as the hiring market uses: a flat $4.0M put every
+  // coach on every staff, head coach to special teams, on the same deal
+  if (!coach.contract) {
+    const ask = coachPriorities(coach).expectation;
+    coach.contract = { yearsRemaining: ask.years, annualValue: ask.baseSalary };
+  }
   d.results.push({
     teamCode,
     coachId,
