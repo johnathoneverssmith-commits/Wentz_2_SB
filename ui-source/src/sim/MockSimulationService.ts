@@ -1150,7 +1150,10 @@ export class MockSimulationService implements SimulationService {
       // a roster. Age against a position's outer limit alone let a league's
       // 33-and-over share climb from 6% of rosters to 17% in a decade.
       const pastDecline = Math.max(0, p.age - p.decline_age_threshold);
-      const faded = p.age >= 30 && p.overall < 68 ? 0.25 : p.age >= 31 && p.overall < 73 ? 0.12 : 0;
+      // (not kickers and punters: their ratings run lower, and a 72 punter at
+      // 32 — a good one, with ten years left — was retiring as "faded")
+      const specialist = p.position === "K" || p.position === "P";
+      const faded = specialist ? 0 : p.age >= 30 && p.overall < 68 ? 0.25 : p.age >= 31 && p.overall < 73 ? 0.12 : 0;
       // the league's own cohort aged gracefully into its mid-thirties: the
       // 33-and-over share doubled in a decade (NFL rosters run ~6%)
       // (kickers and punters excepted: they really do kick into their forties)

@@ -476,6 +476,7 @@ export function OnlineLobby() {
 
       <Panel id="join" open={active === "join"}>
         <JoinByInvite
+          mine={leagues.map((l) => l.id)}
           busy={busy}
           attempt={attempt}
           onJoined={async (leagueId) => {
@@ -717,10 +718,13 @@ function JoinByInvite({
   busy,
   attempt,
   onJoined,
+  mine = [],
 }: {
   busy: boolean;
   attempt: Attempt;
   onJoined: (leagueId: string) => Promise<void>;
+  /** Leagues this account is already in. */
+  mine?: string[];
 }) {
   const [code, setCode] = useState("");
   const [found, setFound] = useState<{ league: { id: string; name: string }; openTeams: string[] } | null>(
@@ -753,6 +757,15 @@ function JoinByInvite({
       {found && (
         <>
           <p className="subhead">{found.league.name}</p>
+          {/* your own league's code read "Every team in that league is taken" */}
+          {mine.includes(found.league.id) ? (
+            <div className="emptystate">
+              You&rsquo;re already in this league.{" "}
+              <button type="button" className="btnlink" onClick={() => void onJoined(found.league.id)}>
+                Open it
+              </button>
+            </div>
+          ) : (
           <TeamPicker
             teams={found.openTeams}
             busy={busy}
@@ -763,6 +776,7 @@ function JoinByInvite({
               })
             }
           />
+          )}
         </>
       )}
     </>

@@ -152,6 +152,7 @@ export function TrainingCamp() {
               key={f}
               type="button"
               className={offensiveFocus === f ? "active" : ""}
+              aria-pressed={offensiveFocus === f}
               onClick={() => setOffensive(f)}
             >
               {FOCUS_LABEL[f]}
@@ -176,6 +177,7 @@ export function TrainingCamp() {
               key={f}
               type="button"
               className={defensiveFocus === f ? "active" : ""}
+              aria-pressed={defensiveFocus === f}
               onClick={() => setDefensive(f)}
             >
               {FOCUS_LABEL[f]}

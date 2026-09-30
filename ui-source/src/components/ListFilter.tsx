@@ -22,6 +22,8 @@ export interface Filterable {
 export function useListFilter<T extends Filterable>(
   all: readonly T[],
   limit = 120,
+  /** Names the list for screen readers when a screen shows two (a trade's sides). */
+  context?: string,
 ): {
   /** What to render. */
   shown: T[];
@@ -57,12 +59,12 @@ export function useListFilter<T extends Filterable>(
         type="search"
         value={query}
         placeholder="Search by name"
-        aria-label="Search by name"
+        aria-label={context ? `${context}: search by name` : "Search by name"}
         onChange={(e) => setQuery(e.target.value)}
       />
       <select
         value={position}
-        aria-label="Filter by position"
+        aria-label={context ? `${context}: filter by position` : "Filter by position"}
         onChange={(e) => setPosition(e.target.value)}
       >
         <option value="ALL">All positions</option>

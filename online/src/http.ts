@@ -14,7 +14,7 @@ import { gzip } from "node:zlib";
 
 const gzipAsync = promisify(gzip);
 
-import { readSession, userById, type User } from "./auth.js";
+import { readSession, signSession, userById, type User } from "./auth.js";
 import { ActionError } from "./db.js";
 
 export interface Ctx {
@@ -188,6 +188,13 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       body: await readBody(req),
       user: session ? await userById(session.userId, session.issuedAt) : null,
     };
+    // A session lasted thirty days from sign-in however much it was used, so
+    // a GM who played every day was signed out mid-league once a month. Any
+    // request on a session more than a day old renews it: thirty days from
+    // the last visit, not the first.
+    if (session && ctx.user && Date.now() - session.issuedAt > 86_400_000) {
+      setSessionCookie(res, signSession(ctx.user.id));
+    }
     const out = await found.route.handler(ctx);
     if (res.headersSent) return;
     await sendJson(req, res, JSON.stringify(out ?? { ok: true }));

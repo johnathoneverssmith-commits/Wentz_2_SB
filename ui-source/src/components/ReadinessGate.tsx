@@ -272,6 +272,7 @@ export function ReadinessGate({
         // clicks again.
         disabled={disabled || busy}
         aria-busy={busy || undefined}
+        aria-pressed={viewerReady}
         onClick={() => {
           if (!online) {
             setReady(viewerGmId, !viewerReady);
@@ -309,6 +310,13 @@ export function ReadinessGate({
                 : "You're ready — waiting on the league"
               : (label ?? STAGE_READY_LABEL[stage])}
       </button>
+      {/* the button is a toggle, but once pressed it read as a status line —
+          nobody guessed a second press takes the check-in back */}
+      {online && viewerReady && !busy && !disabled && (
+        <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+          Changed your mind? Press it again to take your check-in back while the others finish.
+        </p>
+      )}
       {slow && (
         <p role="status" style={{ margin: "8px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
           Still working — simulating a block of games can take a minute or two on the league server. You can

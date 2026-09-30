@@ -813,15 +813,19 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   reconcileCpuTeam(state, actor.teamCode);
   recomputeTeamRatings(state);
   const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
-  const signed = after.filter((p) => !before.has(p.id)).length;
-  const cut = [...before].filter((id) => !after.some((p) => p.id === id)).length;
+  const named = (ps: { name: string; position: string }[]) => ps.map((p) => `${p.name} (${p.position})`).join(", ");
+  const signed = after.filter((p) => !before.has(p.id));
+  const cut = [...before].filter((id) => !after.some((p) => p.id === id)).map((id) => state.players[id]).filter((p) => !!p);
   const left = reconciliationIssues(state, actor.teamCode).length;
+  // "released 0 and signed 0" when the roster was already legal said nothing
+  if (signed.length === 0 && cut.length === 0) return { events: [] };
+  const did = [cut.length ? `released ${named(cut)}` : "", signed.length ? `signed ${named(signed)}` : ""].filter(Boolean);
   return {
     events: [
       {
         teamCode: actor.teamCode,
         kind: "roster.staff",
-        summary: `${city(actor.teamCode)}'s staff released ${cut} and signed ${signed} to make the roster legal${left ? " (some of it couldn't be fixed)" : ""}.`,
+        summary: `${city(actor.teamCode)}'s staff ${did.join(" and ")} to make the roster legal${left ? " (some of it couldn't be fixed)" : ""}.`,
       },
     ],
   };

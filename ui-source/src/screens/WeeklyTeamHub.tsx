@@ -437,6 +437,29 @@ export function WeeklyTeamHub() {
         )}
         <p className="subhead">League watch — top injuries</p>
         <InjuryTable players={leagueInjuries(s)} showTeam />
+        {/* the Hooded Figure's bargains sideline players without an injury
+            status, so a 97 out for the season appeared on no report at all */}
+        {(() => {
+          const week = viewerWeek(s) ?? s.week;
+          const out = (s.hoodedFigure?.unavailable ?? [])
+            .filter((u) => u.untilWeek === null || week <= u.untilWeek)
+            .map((u) => ({ u, p: s.players[u.playerId] }))
+            .filter((x) => x.p && !x.p.retired);
+          if (out.length === 0) return null;
+          return (
+            <>
+              <p className="subhead">Unavailable — league developments</p>
+              <ul style={{ margin: "0 0 12px", paddingLeft: 18, fontSize: 12.5 }}>
+                {out.map(({ u, p }) => (
+                  <li key={u.playerId}>
+                    {p!.name} <span className="pos">{p!.position}</span> · {p!.nfl_team ?? "FA"} ·{" "}
+                    {u.untilWeek === null ? "rest of season" : `through week ${u.untilWeek}`}
+                  </li>
+                ))}
+              </ul>
+            </>
+          );
+        })()}
       </Panel>
 
       <Footer>

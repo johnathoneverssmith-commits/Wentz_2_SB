@@ -638,7 +638,7 @@ export function TradeColumn({
   // "PICK" sorts to the front of the filter so draft capital is one click
   // away; in the list itself players come first — 21 picks used to stand
   // between a GM and the first player they could offer
-  const market = useListFilter(roster, 150);
+  const market = useListFilter(roster, 150, title);
   return (
     <div style={{ padding: "22px 24px", borderRight: role === "you" ? "1px solid var(--line)" : undefined }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
@@ -656,6 +656,8 @@ export function TradeColumn({
               key={p.id}
               {...pressable(() => onToggle(p.id))}
               aria-pressed={on}
+              // the row's text ran together as "96Xander JenningsWR+"
+              aria-label={`${on ? "Remove" : "Add"} ${p.name}${p.position !== "PICK" ? `, ${p.position} ${p.overall}` : ""}`}
               style={{
                 display: "flex",
                 alignItems: "center",

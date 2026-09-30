@@ -218,6 +218,19 @@ export function RosterCapManagement() {
           the cuts for you when the league advances to the preseason.
         </div>
       )}
+      {/* the staff fills every roster to 53 at the preseason: a GM who left
+          the depth chart at 43 met ten minimum-salary strangers there, and
+          nothing on this screen had said it would happen */}
+      {s.stage === "offseasonDepthChart" && activeCount < 53 && overContracts <= 0 && (
+        <div className="notice" role="status">
+          You&rsquo;re {53 - activeCount} short of 53. When the preseason starts your staff fills the
+          rest with minimum-salary depth from free agency — sign your own on the{" "}
+          <button type="button" className="btnlink" onClick={() => nav("/free-agency")}>
+            free-agency board
+          </button>{" "}
+          first if you&rsquo;d rather choose.
+        </div>
+      )}
       <Tabs
         tabs={[
           { id: "roster", label: "Roster" },
