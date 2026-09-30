@@ -8,7 +8,7 @@ import { Checkpoint } from "./screens/Checkpoint.tsx";
 import { isOnline, onOnlineChange, resumeLeague, lastLeagueId, takeRemoval, type Removal, type ResumeFailure } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
-import { currentScreen, STAGE_HOME } from "@/state/stageMachine";
+import { currentScreen, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 
 import { CoachingDraftRoom } from "./screens/CoachingDraftRoom.tsx";
@@ -218,7 +218,7 @@ function useFollowReleasedCheckpoint(held: boolean): void {
  * Take them along, but only from that screen: someone browsing rosters while
  * they wait stays where they are.
  */
-function useFollowLeague(held: boolean): void {
+function useFollowLeague(held: boolean): [string | null, () => void] {
   const nav = useNavigate();
   const { pathname } = useLocation();
   const stage = useStore((s) => s.stage);
@@ -228,12 +228,22 @@ function useFollowLeague(held: boolean): void {
   // home or a step inside it (the draft preview, rookie signings)
   const route = currentScreen(stage, step).route;
   const was = useRef({ stage, ready, pathname, route });
+  // Moved without this device seeing the GM check in — they checked in from
+  // another device, the commissioner moved the league on, or the clock ran
+  // out. The old screen used to stay up with the *next* stage's check-in
+  // button on it ("Ready to advance to the draft" under last season's
+  // results), which checked them into a stage they had never seen.
+  const [movedOn, setMovedOn] = useState<string | null>(null);
   useEffect(() => {
     const before = was.current;
     was.current = { stage, ready, pathname, route };
-    if (!isOnline() || held || before.stage === stage || !before.ready) return;
-    if (before.pathname === before.route && pathname === before.pathname) nav(route);
+    if (!isOnline() || held || before.stage === stage) return;
+    if (before.pathname === before.route && pathname === before.pathname) {
+      if (!before.ready) setMovedOn(STAGE_LABEL[stage] ?? "the next stage");
+      nav(route);
+    }
   }, [stage, ready, pathname, route, held, nav]);
+  return [movedOn, () => setMovedOn(null)];
 }
 
 /** The league a seat was taken from while it was open here, if any. */
@@ -264,7 +274,7 @@ export function App() {
   const waitingRoom = currentScreen(stage, step).route;
   const holding = checkpoint !== null && (pathname === waitingRoom || pathname === "/");
   useFollowReleasedCheckpoint(holding);
-  useFollowLeague(holding);
+  const [movedOn, dismissMovedOn] = useFollowLeague(holding);
   return (
     <AppShell>
       {resuming && (
@@ -274,6 +284,14 @@ export function App() {
         </div>
       )}
       {isOnline() && pathname !== "/online" && <OnlineIntro />}
+      {movedOn && (
+        <div className="notice" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+          <strong>The league moved on to {movedOn}.</strong> You&rsquo;ve been brought along.{" "}
+          <button type="button" className="btnlink sm" onClick={dismissMovedOn}>
+            OK
+          </button>
+        </div>
+      )}
       {removedFrom && (
         <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
           {removedFrom.why === "signedOut" ? (
