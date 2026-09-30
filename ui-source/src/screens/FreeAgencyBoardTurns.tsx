@@ -153,7 +153,7 @@ export function FreeAgencyBoardTurns() {
     <Card maxWidth={920}>
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
-        title="Free Agency"
+        title={s.stage === "midseasonFreeAgency" ? "Mid-Season Free Agency" : "Free Agency"}
         subtitle={`Round ${e.round} of ${FREE_AGENCY_ROUNDS} · one offer or pass per round`}
         right={
           <>

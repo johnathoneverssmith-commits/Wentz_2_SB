@@ -97,7 +97,7 @@ export function FreeAgencySummary() {
     <Card maxWidth={920}>
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
-        title="Free Agency Summary"
+        title={s.stage === "midseasonFreeAgencySummary" ? "Mid-Season Free Agency Summary" : "Free Agency Summary"}
         subtitle={`${displaySeason(s)} · ${mySignings.length} signed`}
       />
       <Ticker
