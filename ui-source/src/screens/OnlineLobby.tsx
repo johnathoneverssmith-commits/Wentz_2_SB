@@ -1001,7 +1001,7 @@ function CreateLeague({
                 disabled={!(humansOnly || fantasyDraft)}
                 onChange={(e) => setSimAfter(e.target.value)}
               >
-                {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n <= faRounds).map((n) => (
+                {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n < faRounds || String(n) === String(simAfter)).map((n) => (
                   <option key={n} value={String(n)}>
                     {n} {n === 1 ? "pick" : "picks"}
                   </option>

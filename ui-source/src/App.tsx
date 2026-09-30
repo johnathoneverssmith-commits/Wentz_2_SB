@@ -228,7 +228,7 @@ const SELF_ENDING = new Set<string>([
  * Take them along, but only from that screen: someone browsing rosters while
  * they wait stays where they are.
  */
-function useFollowLeague(held: boolean): [string | null, () => void] {
+function useFollowLeague(held: boolean, resuming: boolean): [string | null, () => void] {
   const nav = useNavigate();
   const { pathname } = useLocation();
   const stage = useStore((s) => s.stage);
@@ -237,7 +237,7 @@ function useFollowLeague(held: boolean): [string | null, () => void] {
   // the screen they were on counts as the stage's whether it's the stage's
   // home or a step inside it (the draft preview, rookie signings)
   const route = currentScreen(stage, step).route;
-  const was = useRef({ stage, ready, pathname, route });
+  const was = useRef({ stage, ready, pathname, route, online: isOnline() && !resuming });
   // Moved without this device seeing the GM check in — they checked in from
   // another device, the commissioner moved the league on, or the clock ran
   // out. The old screen used to stay up with the *next* stage's check-in
@@ -246,8 +246,13 @@ function useFollowLeague(held: boolean): [string | null, () => void] {
   const [movedOn, setMovedOn] = useState<string | null>(null);
   useEffect(() => {
     const before = was.current;
-    was.current = { stage, ready, pathname, route };
-    if (!isOnline() || held || before.stage === stage) return;
+    was.current = { stage, ready, pathname, route, online: isOnline() && !resuming };
+    // (the saved copy catching up to the server on a reload is not the league
+    // moving on while you watched — it named a stage you'd long since left)
+    if (before.stage === stage) return;
+    // a note about one move is stale by the next
+    setMovedOn(null);
+    if (!isOnline() || !before.online || held) return;
     // a draft, a market or the deadline finishing is expected, and those
     // screens have their own "it's over" moment to leave from
     if (!before.ready && SELF_ENDING.has(before.stage)) return;
@@ -255,7 +260,7 @@ function useFollowLeague(held: boolean): [string | null, () => void] {
       if (!before.ready) setMovedOn(STAGE_LABEL[stage] ?? "the next stage");
       nav(route);
     }
-  }, [stage, ready, pathname, route, held, nav]);
+  }, [stage, ready, pathname, route, held, nav, resuming]);
   return [movedOn, () => setMovedOn(null)];
 }
 
@@ -287,7 +292,7 @@ export function App() {
   const waitingRoom = currentScreen(stage, step).route;
   const holding = checkpoint !== null && (pathname === waitingRoom || pathname === "/");
   useFollowReleasedCheckpoint(holding);
-  const [movedOn, dismissMovedOn] = useFollowLeague(holding);
+  const [movedOn, dismissMovedOn] = useFollowLeague(holding, resuming);
   return (
     <AppShell>
       {resuming && (

@@ -259,6 +259,15 @@ export function FreeAgencySummary() {
           <div className="notice" role="status">
             <strong>You&rsquo;re legal.</strong> Under the cap, within the roster limit, and
             covered at every position.
+            {/* the ticker's cap space counts dead money and can be red here */}
+            {booked > total && (
+              <>
+                {" "}
+                Your cap space reads {millions(Math.round((total - booked) * 10) / 10)} because it includes{" "}
+                {millions(dead)} of dead money, which doesn&rsquo;t count toward the limit — but you
+                can&rsquo;t sign anyone until you&rsquo;re back under.
+              </>
+            )}
           </div>
         ) : (
           <div className="notice bad" role="status">

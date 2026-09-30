@@ -127,11 +127,14 @@ export function LeagueSetup() {
         {!locked && online && (
           <div className="notice">
             <strong>This is an online league.</strong> The GMs below are real
-            people, and the league starts when every seat is taken — the
-            readiness panel at the bottom says who is still missing.
+            people.{" "}
+            {lobby.filter((g) => g.teamCode).length < config.humanGmCount
+              ? "The league starts when every seat is taken and everyone has checked in — the readiness panel at the bottom says who is still missing."
+              : "Every seat is taken; the league starts once everyone checks in at the bottom."}
             {/* the screen a commissioner waits on while people join: the code
                 they need to send was only on the lobby */}
-            {commissioner && onlineSession()?.inviteCode && (
+            {/* only while someone can still use it, as on the lobby */}
+            {commissioner && onlineSession()?.inviteCode && lobby.filter((g) => g.teamCode).length < config.humanGmCount && (
               <>
                 {" "}Invite code:{" "}
                 <span className="oswald" style={{ letterSpacing: "0.08em" }}>
@@ -395,7 +398,8 @@ export function LeagueSetup() {
               setConfig({ draftSimulateAfterPicks: e.target.value === "" ? null : Number(e.target.value) })
             }
           >
-            {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n <= config.fantasyDraftRounds).map((n) => (
+            {/* "20 picks" of a 20-round draft is "Never", offered twice */}
+            {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n < config.fantasyDraftRounds || n === config.draftSimulateAfterPicks).map((n) => (
               <option key={n} value={String(n)}>
                 {n} {n === 1 ? "pick" : "picks"}
               </option>
@@ -466,7 +470,7 @@ export function LeagueSetup() {
           <Footer>
             <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
               {config.fantasyDraft
-                ? "Fantasy draft begins once every GM is ready, or after the offseason stage deadline."
+                ? "The fantasy draft begins once every GM is ready."
                 : "Teams keep their real roster. The season begins once every GM is ready."}
             </span>
           </Footer>

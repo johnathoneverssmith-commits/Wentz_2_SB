@@ -172,7 +172,9 @@ export function WeeklyTeamHub() {
             ? `Preseason · starting lineup ${team.ratings.overall} OVR`
             : // before a game is played the place is only the tiebreak order
               team.wins + team.losses + team.ties === 0
-              ? `${record(team)} · ${meta.conference} ${meta.division}`
+              ? single
+                ? `${record(team)} · ${leagueSize}-team league` // no divisions to name
+                : `${record(team)} · ${meta.conference} ${meta.division}`
               : single
                 ? `${record(team)} · ${ordinal(team.leagueRank)} of ${leagueSize}`
                 : `${record(team)} · ${ordinal(team.divisionRank)} in ${meta.conference} ${meta.division}`
@@ -234,7 +236,8 @@ export function WeeklyTeamHub() {
           },
           // roster strength, not the standings — "League rank" beside the
           // record read like a place in the table
-          { label: "Roster rank", value: ordinal(team.ratings.overallRank) },
+          // "4th" in a four-team league is last; say so
+          { label: "Roster rank", value: single ? `${ordinal(team.ratings.overallRank)} of ${leagueSize}` : ordinal(team.ratings.overallRank) },
           {
             label: isPreseason ? "Preseason" : "Record",
             // preseason games never count in the standings, so the team's

@@ -209,7 +209,7 @@ const LIBRARY: Record<Situation, string[]> = {
   ],
   raceFading: [
     "{team} are technically not eliminated, which is the nicest thing available to say.",
-    "{gm} is working the scenarios. There are eleven of them and they all require a miracle in Cleveland.",
+    "{gm} is working the scenarios. There are eleven of them and they all require a miracle somewhere else.",
     "{team} need to win out and get help from people who dislike them. Good luck.",
   ],
   mediocre: [

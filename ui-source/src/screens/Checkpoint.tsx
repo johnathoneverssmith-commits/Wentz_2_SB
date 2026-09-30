@@ -160,6 +160,26 @@ export function Checkpoint({
               {forcing ? "Moving the league on…" : "Commissioner: move the league on without them"}
             </button>
           )}
+          {/* checking in was one-way: a GM who remembered an extension or a
+              depth-chart move after pressing it had no way back short of the
+              rest of the league waiting on nothing */}
+          {waitingNames.length > 0 && (
+            <button
+              type="button"
+              className="btnlink"
+              style={{ marginTop: 12, marginLeft: isCommissioner ? 16 : 0 }}
+              disabled={forcing}
+              onClick={() => {
+                setForcing(true);
+                void actions
+                  .readyUp(false)
+                  .then((res) => setForceError(res.ok ? null : (res.reason ?? "Couldn't take it back.")))
+                  .finally(() => setForcing(false));
+              }}
+            >
+              Take back my check-in
+            </button>
+          )}
           {forceError && (
             <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
               {forceError}
