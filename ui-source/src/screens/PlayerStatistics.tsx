@@ -40,6 +40,13 @@ export function PlayerStatistics() {
           </div>
         </div>
         <Footer>
+          {/* between seasons this page is empty; last year's records,
+              leaders and awards live in the history */}
+          {played === 0 && (
+            <button type="button" className="btnlink" onClick={() => nav("/history")}>
+              Past seasons in League History
+            </button>
+          )}
           <button type="button" className="btnlink" onClick={() => nav("/hub")}>
             Return to team hub
           </button>
