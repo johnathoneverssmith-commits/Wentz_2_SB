@@ -150,7 +150,9 @@ export function checkRelease(s: LeagueState, teamCode: string, playerId: string)
   if (p.nfl_team !== teamCode) return { ok: false, reason: "He isn't on your roster." };
   const justSigned = (s.freeAgencyEvent?.signed ?? []).some((x) => x.playerId === playerId);
   if (justSigned) {
-    return { ok: false, reason: "You signed him this off-season — he's locked for the year." };
+    // mid-season free agency runs through here too, where "this off-season" was wrong
+    const when = s.stage.startsWith("midseason") ? "in this free agency" : "this off-season";
+    return { ok: false, reason: `You signed him ${when} — he's locked for the year.` };
   }
   return { ok: true };
 }
