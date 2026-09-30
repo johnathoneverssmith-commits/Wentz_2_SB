@@ -211,6 +211,16 @@ function useFollowReleasedCheckpoint(held: boolean): void {
   }, [held, stage, nav]);
 }
 
+/** Turn-based events: they end themselves, and show their own "it's over" screen. */
+const SELF_ENDING = new Set<string>([
+  "fantasyDraft",
+  "offseasonDraft",
+  "coachingDraft",
+  "freeAgency",
+  "midseasonFreeAgency",
+  "tradeDeadline",
+]);
+
 /**
  * Online, the league moves when the last GM checks in — usually someone
  * else, over the stream. The GM who checked in first was left on the old
@@ -238,6 +248,9 @@ function useFollowLeague(held: boolean): [string | null, () => void] {
     const before = was.current;
     was.current = { stage, ready, pathname, route };
     if (!isOnline() || held || before.stage === stage) return;
+    // a draft, a market or the deadline finishing is expected, and those
+    // screens have their own "it's over" moment to leave from
+    if (!before.ready && SELF_ENDING.has(before.stage)) return;
     if (before.pathname === before.route && pathname === before.pathname) {
       if (!before.ready) setMovedOn(STAGE_LABEL[stage] ?? "the next stage");
       nav(route);
