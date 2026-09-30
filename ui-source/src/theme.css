@@ -1857,3 +1857,24 @@ input[type="range"]::-moz-range-thumb {
     display: none;
   }
 }
+
+/* Rookie signings on a phone: six columns pushed Sign / Release off the
+   edge. Drop the money columns (both are in the expanded row) and let the
+   name wrap. */
+@media (max-width: 600px) {
+  .rookie-list .prow,
+  .rookie-list .rowhead {
+    grid-template-columns: 26px minmax(0, 1fr) auto 16px !important;
+    min-width: 0;
+  }
+  .rookie-list .prow > :nth-child(2) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .rookie-list .prow > :nth-child(3),
+  .rookie-list .prow > :nth-child(4),
+  .rookie-list .rowhead > :nth-child(3),
+  .rookie-list .rowhead > :nth-child(4) {
+    display: none;
+  }
+}

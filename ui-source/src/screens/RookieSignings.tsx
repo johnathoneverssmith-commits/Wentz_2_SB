@@ -112,7 +112,7 @@ export function RookieSignings() {
         {myPicks.length === 0 ? (
           <div className="emptystate">Your team didn't draft anyone this year — nothing to sign. You can advance whenever you're ready.</div>
         ) : null}
-        <div className="rowlist">
+        <div className="rowlist rookie-list">
           {myPicks.length > 0 && (
             <RowHeader
               gridTemplate={ROOKIE_GRID}
@@ -190,7 +190,8 @@ export function RookieSignings() {
                     <div className="grid4" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
                       <div>
                         <p>Contract</p>
-                        <p>4 years</p>
+                        {/* year one is its own column on desktop, hidden on phones */}
+                        <p>4 years · Y1 {millions(hits[0]!)}</p>
                       </div>
                       <div>
                         <p>Total value</p>
