@@ -292,9 +292,21 @@ export function RookieSignings() {
             type="button"
             className="btn-primary"
             disabled={busy}
-            onClick={() =>
-              void signAllRemaining(myPicks.filter(({ prospect }) => !outcomes[prospect!.id]).map(({ prospect }) => prospect!.id))
-            }
+            onClick={() => {
+              const left = myPicks.filter(({ prospect }) => !outcomes[prospect!.id]);
+              // it used to sign the lot and leave the GM $24M over the cap
+              // without a word — say what it costs when it doesn't fit
+              const cost = left.reduce((n, { pick, prospect }) => n + rookieCapHits(rookieSlotFor(s, prospect!.id, pick.round))[0]!, 0);
+              if (
+                cost > capAfter &&
+                !confirm(
+                  `Signing all ${left.length} costs ${millions(cost)} this year and puts you ${millions(cost - capAfter)} over the cap. You'll have to clear it before the free-agency summary. Sign them all anyway?`,
+                )
+              ) {
+                return;
+              }
+              void signAllRemaining(left.map(({ prospect }) => prospect!.id));
+            }}
           >
             Sign all remaining
           </button>
