@@ -8,6 +8,7 @@ import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { useListFilter } from "@/components/ListFilter";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { useLeagueActions } from "@/state/useLeagueActions";
+import { lastLeagueId } from "@/state/online";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
@@ -200,11 +201,14 @@ export function DraftRoom() {
   // overall regardless of position or need.
 
   useEffect(() => {
-    if (complete) {
+    // single-player only: it marks the other GMs ready on this device, and
+    // online they are people — the gate showed "gm_kc — ready" for a GM who
+    // hadn't checked in
+    if (complete && !actions.online && lastLeagueId() === null) {
       const t = setTimeout(() => autoReady(), 700);
       return () => clearTimeout(t);
     }
-  }, [complete, autoReady]);
+  }, [complete, autoReady, actions.online]);
 
   // reset the on-the-clock overlay each time it becomes your pick
   useEffect(() => {
@@ -408,6 +412,8 @@ export function DraftRoom() {
                       className="btn-primary"
                       style={{ fontSize: 11, padding: "6px 10px" }}
                       disabled={!yourPick || complete || picking}
+                      // a hundred identical "Draft" buttons, to a screen reader
+                      aria-label={`Draft ${p.name}`}
                       onClick={() => pick(p.id)}
                     >
                       Draft

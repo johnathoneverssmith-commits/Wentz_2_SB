@@ -71,7 +71,7 @@ export function CoachingDraftSummary() {
   return (
     <Card maxWidth={960}>
       <CardHeader
-        badge="CD"
+        badge={mine ? TEAMS_BY_CODE[mine]?.abbr ?? "CD" : "CD"}
         title="Coaching Draft Summary"
         subtitle={`${displaySeason(s)} staffs · every job filled`}
       />

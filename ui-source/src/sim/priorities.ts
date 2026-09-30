@@ -40,7 +40,11 @@ export function coachPriorities(c: Coach): FreePriorities {
   const iq = c.playCallIq ?? c.gameManagement ?? 70;
   // `(negative) ** 1.6` is NaN, and the engine's real coaches include plenty
   // below 55 — a DC rated 52 was asking for $NaNM a year on the staff screen.
-  const base = Math.max(1.5, Math.max(0, (iq - 55) / 10) ** 1.6 + seededFloat(c.id, 9) * 2);
+  // and the job itself: a head coach out-earns his coordinators, who
+  // out-earn the position coaches — the special-teams coach used to be paid
+  // more than the head coach he worked for
+  const roleScale = c.role === "HC" ? 2.2 : c.role === "OC" || c.role === "DC" ? 1.2 : 0.55;
+  const base = Math.max(1.5, Math.max(0, (iq - 55) / 10) ** 1.6 + seededFloat(c.id, 9) * 2) * roleScale;
   return {
     ranked,
     expectation: {

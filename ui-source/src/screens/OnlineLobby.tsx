@@ -338,8 +338,10 @@ export function OnlineLobby() {
                   </p>
                   {!l.teamCode && (
                     <p className="lobby-todo now">
-                      Pick your franchise to start playing — the league is ready now, and any team
-                      nobody claims is run by the AI.
+                      {/* "the league is ready now" — it starts only when every GM seat is
+                          claimed and everyone checks in */}
+                      Pick your franchise. The league starts once every GM seat is claimed and
+                      everyone has checked in; the teams no GM runs are the AI&rsquo;s.
                     </p>
                   )}
                   {/* a full league has nobody left to invite */}
@@ -459,7 +461,9 @@ export function OnlineLobby() {
                       void attempt(async () => {
                         await client.claimTeam(l.id, teamCode);
                         setClaiming(null);
-                        await refresh();
+                        // straight in, as joining by invite does — it used to
+                        // leave the GM on the lobby to press Open as well
+                        await open(l.id);
                       })
                     }
                   />
@@ -1092,7 +1096,7 @@ function TeamPicker({
     // rather than squeezing in beside the button that opened it
     <div className="lobby-claim">
       <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--ink-dim)" }}>
-        Pick the franchise you want to run. You keep it for the life of the league.
+        Pick the franchise you want to run. You can switch on the setup screen until the league starts; after that it&rsquo;s yours for good.
       </p>
       <div className="needgrid">
         {teams.map((codeStr) => (

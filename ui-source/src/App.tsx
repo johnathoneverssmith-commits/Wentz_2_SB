@@ -9,6 +9,7 @@ import { isOnline, onOnlineChange, resumeLeague, lastLeagueId, takeRemoval, type
 import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
 import { currentScreen, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
+import { checkedInJustNow } from "@/state/useLeagueActions";
 import { useStore } from "@/state/store";
 
 import { CoachingDraftRoom } from "./screens/CoachingDraftRoom.tsx";
@@ -244,6 +245,15 @@ function useFollowLeague(held: boolean, resuming: boolean): [string | null, () =
   // button on it ("Ready to advance to the draft" under last season's
   // results), which checked them into a stage they had never seen.
   const [movedOn, setMovedOn] = useState<string | null>(null);
+  // where they were taken: the note belongs to that screen, and it used to
+  // follow them around the whole app until dismissed
+  const broughtTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (broughtTo.current && pathname !== broughtTo.current) {
+      broughtTo.current = null;
+      setMovedOn(null);
+    }
+  }, [pathname]);
   useEffect(() => {
     const before = was.current;
     was.current = { stage, ready, pathname, route, online: isOnline() && !resuming };
@@ -257,7 +267,10 @@ function useFollowLeague(held: boolean, resuming: boolean): [string | null, () =
     // screens have their own "it's over" moment to leave from
     if (!before.ready && SELF_ENDING.has(before.stage)) return;
     if (before.pathname === before.route && pathname === before.pathname) {
-      if (!before.ready) setMovedOn(STAGE_LABEL[stage] ?? "the next stage");
+      if (!before.ready && !checkedInJustNow()) {
+        setMovedOn(STAGE_LABEL[stage] ?? "the next stage");
+        broughtTo.current = route;
+      }
       nav(route);
     }
   }, [stage, ready, pathname, route, held, nav, resuming]);

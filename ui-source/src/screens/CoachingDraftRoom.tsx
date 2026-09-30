@@ -300,6 +300,11 @@ export function CoachingDraftRoom() {
                     </p>
                     <p className="lobby-sub">
                       Round {r.round} · {TEAMS_BY_CODE[r.teamCode]?.label ?? r.teamCode}
+                      {/* a GM's pick, not the CPU's — as on the player draft board */}
+                      {(() => {
+                        const gm = s.gms.find((g) => g.isHuman && g.teamCode === r.teamCode)?.name;
+                        return gm ? ` · ${gm}` : "";
+                      })()}
                     </p>
                   </div>
                   <div className="lobby-actions">
@@ -357,7 +362,7 @@ function CoachRow({
       </div>
       <div className="lobby-actions">
         <span className="ovrpill">{ratingOf(coach)}</span>
-        <button type="button" className="btn-primary" disabled={!canTake} onClick={onTake}>
+        <button type="button" className="btn-primary" disabled={!canTake} onClick={onTake} aria-label={`Draft ${coach.name}`}>
           Draft
         </button>
       </div>

@@ -133,6 +133,15 @@ export interface LeagueActions {
  * ever shows the player anything.
  */
 /**
+ * When this device last checked the GM in. The last check-in moves the
+ * league in the same response, so the device never sees itself "ready" —
+ * and the app's "the league moved on without you" note fired on the GM's
+ * own button press. Anything within a few seconds of this was them.
+ */
+let lastOwnCheckIn = 0;
+export const checkedInJustNow = (): boolean => Date.now() - lastOwnCheckIn < 15_000;
+
+/**
  * Apply the league `send` already fetched after the action. It used to be
  * thrown away and fetched again by `after` — two full league reads per
  * click, which on a slow server made "Sign all remaining" take a minute.
@@ -405,6 +414,7 @@ export function useLeagueActions(): LeagueActions {
       hireCoach: (coachId) =>
         attempt(() => send((s) => s.client.hireCoach(s.leagueId, coachId, s.version))).then(after),
       readyUp: (ready) => {
+        if (ready) lastOwnCheckIn = Date.now();
         // the stage on screen when pressed, captured now: by the time a
         // conflict retry resends it the store may already show the next one
         const stage = useStore.getState().stage;
