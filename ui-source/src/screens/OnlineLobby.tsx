@@ -286,7 +286,8 @@ export function OnlineLobby() {
           {
             // the league open on this device, when there is one
             label: "Open now",
-            value: isOnline() ? (session?.teamCode ?? "—") : "Single player",
+            // the league, not the team: a GM in two leagues as GB saw "GB" either way
+            value: isOnline() ? (session ? `${session.leagueName} · ${session.teamCode}` : "—") : "Single player",
             className: "sm",
           },
         ]}

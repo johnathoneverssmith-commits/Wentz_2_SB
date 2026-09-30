@@ -363,6 +363,10 @@ a:focus-visible,
   .stat:nth-child(n + 3) {
     border-top: 1px solid var(--line);
   }
+  /* an odd one out spans the row rather than sitting in half of it */
+  .stat:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
   .stat-value {
     font-size: 17px;
   }
