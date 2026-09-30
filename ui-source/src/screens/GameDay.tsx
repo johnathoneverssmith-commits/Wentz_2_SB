@@ -60,7 +60,7 @@ export function GameDay() {
 
   return (
     <Card maxWidth={760}>
-      <CardHeader badge="FS" title="Game Day" subtitle={`${label} · results are in`} />
+      <CardHeader badge={code ? TEAMS_BY_CODE[code]?.abbr ?? "FS" : "FS"} title="Game Day" subtitle={`${label} · results are in`} />
 
       <div className="panel open">
         {viewerGame?.broadcast && (

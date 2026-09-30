@@ -70,7 +70,7 @@ export function SeasonResults() {
   return (
     <Card maxWidth={860}>
       <CardHeader
-        badge="FS"
+        badge={code ? TEAMS_BY_CODE[code]?.abbr ?? "FS" : "FS"}
         title="Game Results"
         subtitle={single ? `${label(first)} · results are in` : `${label(first)} through ${label(last)}`}
       />
