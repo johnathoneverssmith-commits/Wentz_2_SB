@@ -59,6 +59,10 @@ export function RosterCapManagement() {
   // stage is for rather than about one stage's name
   const tradesShut =
     pastTradeDeadline(s) || (onlineSession() !== null && (s.stage === "preseason" || s.stage === "regularSeason"));
+  // the server locks the chart while a block of weeks is being revealed
+  // (`refuseDuringBlock`); every move button used to find that out by being
+  // refused one click at a time
+  const depthLocked = onlineSession() !== null && (s.stage === "preseason" || s.stage === "regularSeason");
   const isDepthChartStage =
     s.stage === "offseasonDepthChart" || s.stage === "midseasonDepthChart";
   const back = s.returnTo
@@ -215,6 +219,12 @@ export function RosterCapManagement() {
       />
 
       <Panel id="roster" open={active === "roster"}>
+        {depthLocked && (
+          <div className="notice" role="status" style={{ marginBottom: 12 }}>
+            The depth chart is locked while this stretch of games plays out — they were played with
+            today&rsquo;s chart. It opens again at the next break.
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
@@ -230,7 +240,7 @@ export function RosterCapManagement() {
               store-only reset never reached the server and the next refresh
               put the old order back */}
           <button
-            disabled={reordering}
+            disabled={reordering || depthLocked}
             onClick={() => {
               // one batch and one download, and a refusal (the chart locks
               // while a block of weeks plays out) is shown, not swallowed
@@ -327,14 +337,14 @@ export function RosterCapManagement() {
                   <div className="actions">
                     <button
                       onClick={() => nudge(p, -1)}
-                      disabled={lineAt(p.position)[0]?.id === p.id}
+                      disabled={depthLocked || lineAt(p.position)[0]?.id === p.id}
                       title={`Move up the ${p.position} depth chart`}
                     >
                       Move up
                     </button>
                     <button
                       onClick={() => nudge(p, 1)}
-                      disabled={lineAt(p.position).at(-1)?.id === p.id}
+                      disabled={depthLocked || lineAt(p.position).at(-1)?.id === p.id}
                       title={`Move down the ${p.position} depth chart`}
                     >
                       Move down
