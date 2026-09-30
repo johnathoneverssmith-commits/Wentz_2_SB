@@ -5,7 +5,7 @@ import { RosterByPosition } from "@/components/RosterByPosition";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { tradedPickLabel } from "@/state/draftPicks";
+import { byTradeAssetOrder, tradedPickLabel } from "@/state/draftPicks";
 import { reconciliationIssues, rosterOf } from "@/state/reconciliation";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
@@ -159,8 +159,8 @@ function TradeList({ offers, empty }: { offers: ResolvedOffer[]; empty: string }
             </span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <Side title={`${TEAMS_BY_CODE[o.fromTeam]!.abbr} sends`} items={o.fromAssets.map(name(o.fromTeam))} />
-            <Side title={`${TEAMS_BY_CODE[o.toTeam]!.abbr} sends`} items={o.toAssets.map(name(o.toTeam))} />
+            <Side title={`${TEAMS_BY_CODE[o.fromTeam]!.abbr} sends`} items={[...o.fromAssets].sort(byTradeAssetOrder).map(name(o.fromTeam))} />
+            <Side title={`${TEAMS_BY_CODE[o.toTeam]!.abbr} sends`} items={[...o.toAssets].sort(byTradeAssetOrder).map(name(o.toTeam))} />
           </div>
         </div>
       ))}

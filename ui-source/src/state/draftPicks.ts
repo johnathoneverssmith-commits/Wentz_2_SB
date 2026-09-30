@@ -141,3 +141,19 @@ export function pickSlotFactor(s: LeagueState, pick: DraftPickAsset): number {
   const full = 1.5 - winPct * 0.9;
   return pick.year <= s.season ? full : 1 + (full - 1) / 2;
 }
+
+/**
+ * Display order for one side of a trade: players first, then picks soonest
+ * first. Offers keep their assets in whatever order they were built, which
+ * put a 2032 pick above a 2030 one.
+ */
+export function byTradeAssetOrder(
+  a: { kind: string; pick?: { year: number; round: number } | undefined },
+  b: { kind: string; pick?: { year: number; round: number } | undefined },
+): number {
+  return (
+    Number(a.kind === "pick") - Number(b.kind === "pick") ||
+    (a.pick?.year ?? 0) - (b.pick?.year ?? 0) ||
+    (a.pick?.round ?? 0) - (b.pick?.round ?? 0)
+  );
+}
