@@ -8,26 +8,13 @@ import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { useListFilter } from "@/components/ListFilter";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import {
-  Card,
-  CardHeader,
-  Footer,
-  Panel,
-  Tabs,
-  Ticker,
-  useTabs,
-} from "@/components/primitives";
+import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Player, Position } from "@/domain";
 import { draftTargetsFor } from "@/state/rules";
-import {
-  bestAvailable,
-  draftValue,
-  picksMadeBy,
-  useStore,
-} from "@/state/store";
+import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
 
@@ -70,26 +57,20 @@ export function DraftRoom() {
 
   const code = viewerTeamCode(s);
   // what each prospect would add to your starting units (public grades only)
-  const fit = useMemo(
-    () => (code ? fitFor({ players: s.players }, code) : null),
-    [s.players, code],
-  );
+  const fit = useMemo(() => (code ? fitFor({ players: s.players }, code) : null), [s.players, code]);
   const startDraft = useStore((st) => st.startDraft);
   const actions = useLeagueActions();
   // online, a human GM's pick is someone's decision, not the CPU's — the
   // board used to read the same for both
-  const gmOf = (team: string): string | undefined =>
-    s.gms.find((g) => g.isHuman && g.teamCode === team)?.name;
+  const gmOf = (team: string): string | undefined => s.gms.find((g) => g.isHuman && g.teamCode === team)?.name;
   const autoReady = useStore((st) => st.autoReadyNonViewers);
 
-  const isDraftStage =
-    s.stage === "fantasyDraft" || s.stage === "offseasonDraft";
+  const isDraftStage = s.stage === "fantasyDraft" || s.stage === "offseasonDraft";
   /**
    * Which draft this stage *wants*. Only the start effect below should use
    * it: it is the thing a stale board is compared against.
    */
-  const stageMode: DraftMode =
-    s.stage === "fantasyDraft" ? "fantasy" : "rookie";
+  const stageMode: DraftMode = s.stage === "fantasyDraft" ? "fantasy" : "rookie";
   /**
    * Which draft is actually on the screen, which is what every label and the
    * board itself have to follow.
@@ -111,8 +92,7 @@ export function DraftRoom() {
     // inventing its own board — a different order per GM, and picks the server
     // would refuse because they are against a draft only this browser can see.
     if (actions.online) return;
-    if (isDraftStage && (!s.draft || s.draft.mode !== stageMode))
-      startDraft(stageMode);
+    if (isDraftStage && (!s.draft || s.draft.mode !== stageMode)) startDraft(stageMode);
   }, [isDraftStage, s.draft, stageMode, startDraft, actions.online]);
 
   // No draft and no draft stage: this is a stale link or a reload ahead of
@@ -131,23 +111,14 @@ export function DraftRoom() {
   // reveals a "draft complete" overlay (below) rather than triggering nav().
 
   const draft = s.draft;
-  const taken = useMemo(
-    () => new Set(draft?.results.map((r) => r.selectedId) ?? []),
-    [draft],
-  );
-  const onClockTeam = draft
-    ? draft.pickOrder[draft.currentPickIndex]
-    : undefined;
+  const taken = useMemo(() => new Set(draft?.results.map((r) => r.selectedId) ?? []), [draft]);
+  const onClockTeam = draft ? draft.pickOrder[draft.currentPickIndex] : undefined;
   const yourPick = onClockTeam === code;
-  const complete = draft
-    ? draft.currentPickIndex >= draft.pickOrder.length
-    : false;
+  const complete = draft ? draft.currentPickIndex >= draft.pickOrder.length : false;
   // how much hand-drafting this GM still owes before the board finishes itself
   const threshold = s.config.draftSimulateAfterPicks;
   const picksLeftForYou =
-    threshold == null || !code
-      ? 0
-      : Math.max(0, threshold - picksMadeBy(s, code));
+    threshold == null || !code ? 0 : Math.max(0, threshold - picksMadeBy(s, code));
 
   // the whole board, best first — filtered *before* the display slice so a
   // position filter can always reach every player at that position (a K/P
@@ -188,11 +159,7 @@ export function DraftRoom() {
         // value". The column went; the list behind it kept doing it.
         // `draftValue` is the positional premium the CPU drafts on (QB +10,
         // EDGE +8 … K and P -14), so the board now reads like a board.
-        .sort(
-          (a, b) =>
-            draftValue(b.overall, b.position) -
-            draftValue(a.overall, a.position),
-        )
+        .sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position))
         .map((p) => ({
           id: p.id,
           name: p.name,
@@ -217,9 +184,7 @@ export function DraftRoom() {
   const [sortBy, setSortBy] = useState<"board" | "fit">("board");
   const sorted = useMemo<Available[]>(() => {
     if (sortBy !== "fit" || !fit) return available;
-    const gain = new Map(
-      available.map((p) => [p.id, fit(p.position, p.ovr).gain]),
-    );
+    const gain = new Map(available.map((p) => [p.id, fit(p.position, p.ovr).gain]));
     return [...available].sort((a, b) => gain.get(b.id)! - gain.get(a.id)!);
   }, [available, sortBy, fit]);
   const market = useListFilter<Available>(sorted, 100);
@@ -259,13 +224,8 @@ export function DraftRoom() {
 
   // read the board rather than a constant: the fantasy draft's length is a
   // league setting, and this used to say "Round 3 of 20" in a ten-round draft
-  const maxRounds = Math.max(
-    1,
-    Math.round(draft.pickOrder.length / Object.keys(s.teams).length),
-  );
-  const round =
-    Math.floor((draft.currentPickIndex / draft.pickOrder.length) * maxRounds) +
-    1;
+  const maxRounds = Math.max(1, Math.round(draft.pickOrder.length / Object.keys(s.teams).length));
+  const round = Math.floor((draft.currentPickIndex / draft.pickOrder.length) * maxRounds) + 1;
   const myResults = draft.results.filter((r) => r.teamCode === code);
   // in a fantasy draft every roster is being rebuilt from the pool, so the
   // only players that count are the ones drafted so far — not whoever still
@@ -273,24 +233,16 @@ export function DraftRoom() {
   const myRoster = !code
     ? []
     : mode === "fantasy"
-      ? myResults
-          .map((r) => s.players[r.selectedId ?? ""])
-          .filter((p): p is NonNullable<typeof p> => !!p)
+      ? myResults.map((r) => s.players[r.selectedId ?? ""]).filter((p): p is NonNullable<typeof p> => !!p)
       : teamRoster(s, code);
   // the same need-weighted pick the AI would make for this roster, offered
   // as a one-click suggestion whenever it's the viewer's turn
   // your stars first: the highest target still on the board (the draft
   // preview is where they're set — they used to go nowhere)
   const myTargets = draftTargetsFor(s, s.viewerGmId);
-  const topTarget =
-    mode === "rookie"
-      ? myTargets.find((id) => available.some((a) => a.id === id))
-      : undefined;
-  const suggestedId =
-    yourPick && !complete ? (topTarget ?? bestAvailable(s)) : null;
-  const suggested = suggestedId
-    ? available.find((a) => a.id === suggestedId)
-    : undefined;
+  const topTarget = mode === "rookie" ? myTargets.find((id) => available.some((a) => a.id === id)) : undefined;
+  const suggestedId = yourPick && !complete ? (topTarget ?? bestAvailable(s)) : null;
+  const suggested = suggestedId ? available.find((a) => a.id === suggestedId) : undefined;
 
   return (
     <Card maxWidth={860}>
@@ -320,22 +272,13 @@ export function DraftRoom() {
         stats={[
           {
             label: "On the clock",
-            value: complete
-              ? "Complete"
-              : onClockTeam
-                ? TEAMS_BY_CODE[onClockTeam]!.label
-                : "—",
+            value: complete ? "Complete" : onClockTeam ? TEAMS_BY_CODE[onClockTeam]!.label : "—",
             className: yourPick ? "accent" : undefined,
           },
-          {
-            label: "Pick",
-            value: `${Math.min(draft.currentPickIndex + 1, draft.pickOrder.length)} / ${draft.pickOrder.length}`,
-            className: "sm",
-          },
+          { label: "Pick", value: `${Math.min(draft.currentPickIndex + 1, draft.pickOrder.length)} / ${draft.pickOrder.length}`, className: "sm" },
           // when you're up next, which waiting on thirty other teams is about
           (() => {
-            if (complete || yourPick || !code)
-              return { label: "Your picks", value: myResults.length };
+            if (complete || yourPick || !code) return { label: "Your picks", value: myResults.length };
             const next = draft.pickOrder.indexOf(code, draft.currentPickIndex);
             return next < 0
               ? { label: "Your next pick", value: "None left", className: "sm" }
@@ -350,11 +293,7 @@ export function DraftRoom() {
       />
       <Tabs
         tabs={[
-          {
-            id: "available",
-            label:
-              mode === "fantasy" ? "Available Players" : "Available Prospects",
-          },
+          { id: "available", label: mode === "fantasy" ? "Available Players" : "Available Prospects" },
           { id: "mine", label: "Your Players" },
           { id: "needs", label: "Team Needs" },
           { id: "board", label: "League Draft Board" },
@@ -364,31 +303,12 @@ export function DraftRoom() {
       />
 
       {active !== "needs" && (
-        <div
-          style={{
-            padding: "12px 26px 0",
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
+        <div style={{ padding: "12px 26px 0", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           {market.controls}
           {active === "available" && (
-            <label
-              style={{
-                fontSize: 11.5,
-                color: "var(--ink-faint)",
-                display: "flex",
-                gap: 6,
-                alignItems: "center",
-              }}
-            >
+            <label style={{ fontSize: 11.5, color: "var(--ink-faint)", display: "flex", gap: 6, alignItems: "center" }}>
               Sort
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as "board" | "fit")}
-              >
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "board" | "fit")}>
                 <option value="board">Draft board</option>
                 <option value="fit">Best fit for your units</option>
               </select>
@@ -401,13 +321,7 @@ export function DraftRoom() {
         {yourPick && !complete && (
           <div
             className="team-callout"
-            style={{
-              marginBottom: 12,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
+            style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
             role="status"
           >
             <span style={{ flex: 1, minWidth: 200 }}>
@@ -415,17 +329,10 @@ export function DraftRoom() {
               {suggested ? (
                 <>
                   {" "}
-                  —{" "}
-                  {suggested.id === topTarget
-                    ? "your top target"
-                    : "best fit for your roster"}
-                  :{" "}
-                  <strong style={{ color: "var(--ink)" }}>
-                    {suggested.name}
-                  </strong>{" "}
+                  — {suggested.id === topTarget ? "your top target" : "best fit for your roster"}:{" "}
+                  <strong style={{ color: "var(--ink)" }}>{suggested.name}</strong>{" "}
                   <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
-                    ({suggested.position}, {suggested.ovr}{" "}
-                    {mode === "rookie" ? "grade" : "OVR"})
+                    ({suggested.position}, {suggested.ovr} {mode === "rookie" ? "grade" : "OVR"})
                   </span>
                 </>
               ) : (
@@ -476,14 +383,9 @@ export function DraftRoom() {
                         tabIndex={0}
                         onClick={() => setInspect(s.players[p.id] ?? null)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ")
-                            setInspect(s.players[p.id] ?? null);
+                          if (e.key === "Enter" || e.key === " ") setInspect(s.players[p.id] ?? null);
                         }}
-                        style={{
-                          textDecoration: "underline",
-                          textDecorationColor: "var(--line-strong)",
-                          cursor: "pointer",
-                        }}
+                        style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
                       >
                         {p.name}
                       </span>
@@ -492,22 +394,9 @@ export function DraftRoom() {
                     )}
                     {fit && <FitTag fit={fit(p.position, p.ovr)} />}
                     {myTargets.includes(p.id) && (
-                      <span
-                        title="One of your draft targets"
-                        style={{ marginLeft: 6, color: "var(--notice)" }}
-                      >
-                        ★
-                      </span>
+                      <span title="One of your draft targets" style={{ marginLeft: 6, color: "var(--notice)" }}>★</span>
                     )}
-                    <span
-                      style={{
-                        display: "block",
-                        fontSize: 10.5,
-                        color: "var(--ink-faint)",
-                      }}
-                    >
-                      {p.sub}
-                    </span>
+                    <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
                   </td>
                   <td className="c">{p.position}</td>
                   <td className="c">
@@ -547,14 +436,8 @@ export function DraftRoom() {
             </thead>
             <tbody>
               {myResults.map((r) => {
-                const p =
-                  mode === "fantasy"
-                    ? s.players[r.selectedId ?? ""]
-                    : undefined;
-                const pr =
-                  mode === "rookie"
-                    ? s.draftClass.find((d) => d.id === r.selectedId)
-                    : undefined;
+                const p = mode === "fantasy" ? s.players[r.selectedId ?? ""] : undefined;
+                const pr = mode === "rookie" ? s.draftClass.find((d) => d.id === r.selectedId) : undefined;
                 const ovr = p?.overall ?? pr?.collegeOverall ?? "—";
                 const age = p?.age ?? pr?.age ?? "—";
                 return (
@@ -577,15 +460,8 @@ export function DraftRoom() {
       <Panel id="needs" open={active === "needs"}>
         {code ? (
           <>
-            <p
-              style={{
-                margin: "0 0 12px",
-                fontSize: 11.5,
-                color: "var(--ink-faint)",
-              }}
-            >
-              Numerator = players you've secured at the group · denominator =
-              roster minimum. Red = still short.
+            <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+              Numerator = players you've secured at the group · denominator = roster minimum. Red = still short.
             </p>
             <RosterNeeds roster={myRoster} />
           </>
@@ -598,62 +474,22 @@ export function DraftRoom() {
         <div className="scroll-list">
           {[...draft.results]
             .reverse()
-            .filter(
-              (r) => posFilter === "ALL" || r.selectedPosition === posFilter,
-            )
+            .filter((r) => posFilter === "ALL" || r.selectedPosition === posFilter)
             .slice(0, 60)
             .map((r) => (
-              <div
-                key={r.pickNumber}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "44px 1fr 1fr",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "10px 6px",
-                  borderBottom: "1px solid var(--line)",
-                }}
-              >
-                <span style={{ fontSize: 13, color: "var(--ink-dim)" }}>
-                  #{r.pickNumber}
-                </span>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                    fontSize: 13,
-                    fontWeight: 500,
-                  }}
-                >
+              <div key={r.pickNumber} style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr", alignItems: "center", gap: 12, padding: "10px 6px", borderBottom: "1px solid var(--line)" }}>
+                <span style={{ fontSize: 13, color: "var(--ink-dim)" }}>#{r.pickNumber}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 500 }}>
                   <TeamBadge code={r.teamCode} size={18} />
                   {TEAMS_BY_CODE[r.teamCode]?.label ?? r.teamCode}
-                  {gmOf(r.teamCode) && (
-                    <span
-                      style={{
-                        fontSize: 11.5,
-                        color: "var(--ink-faint)",
-                        fontWeight: 400,
-                      }}
-                    >
-                      {gmOf(r.teamCode)}
-                    </span>
-                  )}
+                  {gmOf(r.teamCode) && <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 400 }}>{gmOf(r.teamCode)}</span>}
                 </span>
-                <span
-                  style={{
-                    fontSize: 12.5,
-                    textAlign: "right",
-                    color: "var(--ink)",
-                  }}
-                >
+                <span style={{ fontSize: 12.5, textAlign: "right", color: "var(--ink)" }}>
                   {r.selectedName} · {r.selectedPosition}
                 </span>
               </div>
             ))}
-          {draft.results.length === 0 && (
-            <div className="emptystate">No picks yet.</div>
-          )}
+          {draft.results.length === 0 && <div className="emptystate">No picks yet.</div>}
         </div>
       </Panel>
 
@@ -669,16 +505,14 @@ export function DraftRoom() {
           {complete
             ? "The draft is complete."
             : threshold == null
-              ? "Every pick in this draft is made by hand."
-              : picksLeftForYou > 0
-                ? `${picksLeftForYou} more ${picksLeftForYou === 1 ? "pick" : "picks"} to make. The rest of the draft completes itself once every GM reaches ${threshold}.`
-                : "You're done. The draft completes once every other GM reaches their picks."}
+            ? "Every pick in this draft is made by hand."
+            : picksLeftForYou > 0
+              ? `${picksLeftForYou} more ${picksLeftForYou === 1 ? "pick" : "picks"} to make. The rest of the draft completes itself once every GM reaches ${threshold}.`
+              : "You're done. The draft completes once every other GM reaches their picks."}
         </span>
       </Footer>
 
-      {inspect && (
-        <PlayerStatsModal player={inspect} onClose={() => setInspect(null)} />
-      )}
+      {inspect && <PlayerStatsModal player={inspect} onClose={() => setInspect(null)} />}
     </Card>
   );
 }
