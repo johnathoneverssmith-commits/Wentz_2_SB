@@ -542,6 +542,11 @@ function RevealControls() {
   if (!block) return null;
   const { phase, firstWeek, lastWeek } = block;
   const seen = Math.max(revealedWeek(s, s.viewerGmId, phase), firstWeek - 1);
+  // a bye is on the published schedule, so saying so gives nothing away —
+  // and "Simulate week 10" for a week you don't play read like a mistake
+  const me = viewerTeamCode(s);
+  const byeNext =
+    !!me && !s.games.some((g) => g.phase === phase && g.week === seen + 1 && (g.homeTeam === me || g.awayTeam === me));
   const more = hasMoreToReveal(s, s.viewerGmId, phase, lastWeek);
 
   const reveal = (through: number): void => {
@@ -628,7 +633,7 @@ function RevealControls() {
           disabled={busy}
           onClick={() => reveal(seen + 1)}
         >
-          {busy ? "…" : `Simulate week ${seen + 1}`}
+          {busy ? "…" : `Simulate week ${seen + 1}${byeNext ? " (your bye)" : ""}`}
         </button>
         {/* with one week left the two buttons did the same thing */}
         {seen + 1 < lastWeek && (
