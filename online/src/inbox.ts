@@ -66,6 +66,7 @@ export interface InboxFacts {
   turn: "freeAgency" | "coachingDraft" | "tradeDeadline" | null;
 }
 
+const WATCH_STAGES = new Set(["preseason", "regularSeason", "playoffs"]);
 const TURN_STAGES = new Set(["freeAgency", "midseasonFreeAgency", "coachingDraft", "tradeDeadline", "fantasyDraft", "offseasonDraft"]);
 
 /** The same facts, taken from a state already in hand. Keeps the rules honest. */
@@ -270,7 +271,11 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
       ...(facts.othersPending === 0
         ? { title: "The league is waiting on you to move on.", detail: "Everyone else is waiting on you to check in." }
         : {
-            title: "Check in when you're ready to move on.",
+            // a block of games is watched before anyone checks in; "check in
+            // when you're ready" read as if there were nothing to do first
+            title: WATCH_STAGES.has(facts.stage)
+              ? "Watch the games, then check in."
+              : "Check in when you're ready to move on.",
             detail: `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
           }),
       href: "/",

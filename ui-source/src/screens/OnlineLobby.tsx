@@ -692,7 +692,8 @@ function ChangePassword({ onDone }: { onDone: () => void }) {
           />
         </label>
         <label>
-          <span>New password</span>
+          {/* the button stayed grey below 8 characters with nothing saying why */}
+          <span>New password · at least 8 characters</span>
           <input type="password" value={next} autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
         </label>
         <div style={{ display: "flex", gap: 12 }}>

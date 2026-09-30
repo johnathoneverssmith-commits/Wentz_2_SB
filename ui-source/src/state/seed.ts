@@ -917,8 +917,10 @@ export function fillRosterGaps(state: LeagueState, opts: { lateMarket?: boolean 
         let p: Player | undefined;
         let salary = MIN_SALARY_M;
         const room = spendable();
+        // a GM's depth is cheap: "the best the team can afford" signed Green
+        // Bay a $20.3M backup quarterback for two years without asking
         const idx =
-          room > MIN_SALARY_M
+          room > MIN_SALARY_M && !human
             ? pool.findIndex(
                 (x) => !signed.has(x.id) && contractValueFor(x.overall, x.position) <= room,
               )

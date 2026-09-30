@@ -24,7 +24,12 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
     .sort((a, b) => (b[1] as number) - (a[1] as number));
   // the stats are the season just played until the next one starts, and
   // "This season" in the offseason meant last season
-  const season = useStore((s) => s.season);
+  // Season stats reset when the regular season starts, so through the
+  // preseason (after the new year has begun) they're still last year's —
+  // a backup read "2030 season: 164/249" off one preseason game
+  const season = useStore((s) =>
+    s.stage === "preseason" || s.stage === "leagueDevelopments" ? s.season - 1 : s.season,
+  );
   const dialogRef = useDialog(onClose);
 
   return (

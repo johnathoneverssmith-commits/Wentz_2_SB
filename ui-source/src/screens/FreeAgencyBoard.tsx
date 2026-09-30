@@ -30,6 +30,8 @@ export function FreeAgencyBoard() {
   // shapes, and the only difference a screen sees is that online a refusal
   // arrives after a round trip against the league as it is *now*
   const actions = useLeagueActions();
+  // online, a block of weeks is already played (the server's `refuseDuringBlock`)
+  const signingsClosed = actions.online && (s.stage === "preseason" || s.stage === "regularSeason");
 
   const advanceDay = useStore((st) => st.advanceBiddingDay);
   const dismiss = useStore((st) => st.dismissInterstitial);
@@ -135,7 +137,7 @@ export function FreeAgencyBoard() {
       />
       {/* online the block's weeks are already played: the server refuses a
           signing that would read as help for them */}
-      {actions.online && (s.stage === "preseason" || s.stage === "regularSeason") && (
+      {signingsClosed && (
         <div className="notice" role="status">
           Signings are closed while this stretch of the season plays out — its games are already
           decided. The market opens again at the next break.
@@ -221,6 +223,9 @@ export function FreeAgencyBoard() {
                     <button
                       className="btn-primary"
                       style={{ fontSize: 11.5, padding: "7px 8px" }}
+                      // every row offered a negotiation the server would refuse
+                      disabled={signingsClosed}
+                      title={signingsClosed ? "Signings open again at the next break." : undefined}
                       onClick={(e) => {
                         e.stopPropagation();
                         setSignError(null);

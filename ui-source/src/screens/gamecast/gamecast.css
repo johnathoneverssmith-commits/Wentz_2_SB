@@ -526,3 +526,25 @@
   color: var(--ink-faint);
   text-align: center;
 }
+
+/* A phone: the middle block kept its 120px and the home side's score slid
+   under it ("GB (" beside PRE-GAME). Tighten everything instead. */
+@media (max-width: 480px) {
+  .gc-side {
+    gap: 7px;
+    padding: 10px 10px;
+  }
+  .gc-code {
+    font-size: 18px;
+  }
+  .gc-score {
+    font-size: 26px;
+  }
+  .gc-mid {
+    min-width: 0;
+    padding: 6px 8px;
+  }
+  .gc-situ {
+    font-size: 10.5px;
+  }
+}

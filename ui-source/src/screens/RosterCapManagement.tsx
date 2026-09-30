@@ -221,8 +221,8 @@ export function RosterCapManagement() {
       <Panel id="roster" open={active === "roster"}>
         {depthLocked && (
           <div className="notice" role="status" style={{ marginBottom: 12 }}>
-            The depth chart is locked while this stretch of games plays out — they were played with
-            today&rsquo;s chart. It opens again at the next break.
+            The depth chart and releases are locked while this stretch of games plays out — they
+            were played with today&rsquo;s roster. Both open again at the next break.
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
@@ -390,8 +390,9 @@ export function RosterCapManagement() {
                       <button
                         className="btn-danger"
                         onClick={() => setConfirming(p.id)}
-                        disabled={!checkRelease(s, code, p.id).ok}
-                        title={checkRelease(s, code, p.id).reason}
+                        // the server won't release anyone mid-block either (`refuseDuringBlock`)
+                        disabled={depthLocked || !checkRelease(s, code, p.id).ok}
+                        title={depthLocked ? "Releases open again at the next break." : checkRelease(s, code, p.id).reason}
                       >
                         Release
                       </button>

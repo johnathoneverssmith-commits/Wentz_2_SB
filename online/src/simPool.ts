@@ -11,15 +11,18 @@ import { type BlockJob, runBlockJob } from "./blockJobs.js";
  * so two blocks for the same league never overlap, and two leagues finishing
  * a stage in the same second is rare enough to queue. If the worker can't be
  * started, or dies, the job runs in-process — slower for everyone else, but
- * never a league that can't advance.
+ * never a league that can't advance — and a minute later it tries again.
  */
 let worker: Worker | null = null;
-let broken = false;
+// after a failure, blocks run in-process for a minute and then the worker
+// is tried again — one crash used to pin every later block to the event loop
+let brokenUntil = 0;
+const COOL_OFF_MS = 60_000;
 let nextId = 1;
 const waiting = new Map<number, { resolve: (s: LeagueState) => void; reject: (e: Error) => void }>();
 
 function getWorker(): Worker | null {
-  if (broken) return null;
+  if (Date.now() < brokenUntil) return null;
   if (worker) return worker;
   try {
     const w = new Worker(new URL("./simWorker.ts", import.meta.url));
@@ -32,8 +35,8 @@ function getWorker(): Worker | null {
       else p.resolve(msg.state);
     });
     const fail = (err: unknown) => {
-      console.error("simulation worker failed; running blocks in-process", err);
-      broken = true;
+      console.error("simulation worker failed; running blocks in-process for a minute", err);
+      brokenUntil = Date.now() + COOL_OFF_MS;
       worker = null;
       for (const [, p] of waiting) p.reject(new Error("simulation worker exited"));
       waiting.clear();
@@ -46,8 +49,8 @@ function getWorker(): Worker | null {
     worker = w;
     return w;
   } catch (err) {
-    console.error("couldn't start the simulation worker; running blocks in-process", err);
-    broken = true;
+    console.error("couldn't start the simulation worker; running blocks in-process for a minute", err);
+    brokenUntil = Date.now() + COOL_OFF_MS;
     return null;
   }
 }

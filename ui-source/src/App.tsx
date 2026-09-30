@@ -145,7 +145,7 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // finding 4: this one was never added when Draft Preview's own "Change 12"
   // comment already promised it — the league waited at nothing, and the
   // button just sat there once the viewer was ready.
-  offseasonDraftPrep: { from: "Draft Preview", to: "NFL Draft" },
+  offseasonDraftPrep: { from: "Draft Preview", to: "Rookie Draft" },
   leagueDevelopments: { from: "League Developments", to: "Regular Season" },
   hoodedFigureEncounter: { from: "Training Camp", to: "Re-order Depth Chart" },
   fantasyDraftSummary: { from: "Draft Summary", to: "Coaching Fantasy Draft" },
@@ -405,7 +405,8 @@ export function App() {
           <Route path="/season-complete" element={<SeasonComplete />} />
           <Route path="/history" element={<LeagueHistory />} />
           <Route path="/online" element={<OnlineLobby />} />
-          <Route path="/gallery" element={<ScreenGallery />} />
+          {/* dev-only, like its link: a typed-in URL reached it in production */}
+          {import.meta.env.DEV && <Route path="/gallery" element={<ScreenGallery />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ScreenBoundary>

@@ -89,7 +89,7 @@ export const STAGE_READY_LABEL: Record<Stage, string> = {
   endOfSeasonWin: "Ready to advance to the offseason",
   endOfSeasonConsolation: "Ready to advance to the offseason",
   offseasonRetirement: "Ready to advance to the draft",
-  offseasonDraftPrep: "Ready to advance to the NFL Draft",
+  offseasonDraftPrep: "Ready to advance to the Rookie Draft",
   offseasonDraft: "Ready to advance to signings",
   offseasonDraftSummary: "Continue to Rookie Signings",
   offseasonSignings: "Ready to advance to free agency",
@@ -123,7 +123,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
   endOfSeasonConsolation: "Season Complete",
   offseasonRetirement: "Retirement Review",
   offseasonDraftPrep: "Draft Preview",
-  offseasonDraft: "NFL Draft",
+  offseasonDraft: "Rookie Draft", // not "NFL": humans-only leagues have one too
   offseasonDraftSummary: "Rookie Draft Summary",
   offseasonSignings: "Rookie Signings",
   offseasonFreeAgency: "Free Agency",
