@@ -233,6 +233,13 @@ async function main() {
 
     // ---- online-only checks, taken where they mean something -------------
     check(views.every((v) => !("statLedger" in v.state)), "server-only statLedger never reaches a client");
+    // the draft's one secret: a prospect's true rating, until his pick resolves
+    check(
+      views.every((v) =>
+        (v.state.draftClass ?? []).every((pr) => v.state.rookieOutcomes?.[pr.id] || pr.trueOverall === 0),
+      ),
+      "no unresolved prospect's true rating reaches a client",
+    );
     if (s.stage === "regularSeason" && !rewindChecked) {
       // one GM watches ahead, the other doesn't: the laggard must not see the
       // leader's weeks in the stats

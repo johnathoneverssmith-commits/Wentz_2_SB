@@ -73,6 +73,8 @@ export interface DeadlineOffer {
 
 export interface ResolvedOffer extends DeadlineOffer {
   outcome: "accepted" | "denied";
+  /** Set when both sides said yes and the league vote stopped it. */
+  blocked?: string;
 }
 
 export interface TradeDeadlineState {
@@ -244,6 +246,34 @@ function assetsStillOwned(s: LeagueState, teamCode: string, assets: TradeAsset[]
 }
 
 /** Accept, deny, or counter once. */
+/**
+ * The league vote on a deal between two GMs: one involving a 90-plus player
+ * that the league's value chart reads as a fleecing either way is blocked.
+ *
+ * It guarded ordinary trades only. At the deadline two GMs could move a
+ * 97-rated tackle for a seventh-round pick and it went straight through —
+ * the exact collusion the vote exists to stop, in the one window where the
+ * pressure to make a deal is highest.
+ */
+export function leagueVoteBlock(
+  s: LeagueState,
+  fromTeam: string,
+  toTeam: string,
+  fromAssets: TradeAsset[],
+  toAssets: TradeAsset[],
+): string | null {
+  const bothHuman = [fromTeam, toTeam].every((c) => isHuman(s, c));
+  if (!bothHuman) return null;
+  const involves90 = [...fromAssets, ...toAssets].some(
+    (a) => a.kind === "player" && (s.players[a.playerId ?? ""]?.overall ?? 0) >= 90,
+  );
+  if (!involves90) return null;
+  const read = new MockSimulationService().evaluateTrade(s, fromTeam, toTeam, fromAssets, toAssets);
+  return read.acceptLikelihood >= 0.82 || read.acceptLikelihood <= 0.18
+    ? "The league blocked it: a trade this one-sided, with a 90-plus player in it, reads as collusion."
+    : null;
+}
+
 export function respondAtDeadline(
   s: LeagueState,
   teamCode: string,
@@ -251,7 +281,7 @@ export function respondAtDeadline(
     | { kind: "accept" }
     | { kind: "deny" }
     | { kind: "modify"; fromAssets: TradeAsset[]; toAssets: TradeAsset[] },
-): { ok: boolean; reason?: string } {
+): { ok: boolean; reason?: string; blocked?: string } {
   const d = s.tradeDeadline;
   const offer = d?.active;
   if (!d || !offer) return { ok: false, reason: "There's nothing to respond to." };
@@ -284,6 +314,12 @@ export function respondAtDeadline(
       finish(s, "denied");
       return { ok: false, reason: "Something in that offer had already moved." };
     }
+    const blocked = leagueVoteBlock(s, offer.fromTeam, offer.toTeam, offer.fromAssets, offer.toAssets);
+    if (blocked) {
+      // the negotiation is over either way; it just ends without a deal
+      finish(s, "denied", blocked);
+      return { ok: true, blocked };
+    }
     // deliberately no cap, roster-size or positional check: the deadline is
     // allowed to break all three, and reconciliation cleans up afterwards
     applyTrade(s, {
@@ -304,9 +340,9 @@ export function respondAtDeadline(
   return { ok: true };
 }
 
-function finish(s: LeagueState, outcome: "accepted" | "denied"): void {
+function finish(s: LeagueState, outcome: "accepted" | "denied", blocked?: string): void {
   const d = s.tradeDeadline!;
-  if (d.active) d.resolved.push({ ...d.active, outcome });
+  if (d.active) d.resolved.push({ ...d.active, outcome, ...(blocked ? { blocked } : {}) });
   nextTurn(s);
 }
 

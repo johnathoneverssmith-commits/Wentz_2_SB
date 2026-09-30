@@ -369,13 +369,27 @@ get("/leagues/:id", async (ctx) => {
   // log went out with every pull anyway, a few hundred more each year: ~10%
   // of the download two seasons in, and growing. This season's retirees keep
   // everything (the retirement review still shows them).
+  // (Nothing reads a retired player's ratings at all — the review uses his
+  // overall, age, contract and injury count — so those go for this season's
+  // retirees too: a few hundred players' attributes, ~8% of a pull.)
   for (const p of Object.values(state.players)) {
-    if (!p.retired || (p.retired_season ?? state.season) >= state.season) continue;
+    if (!p.retired) continue;
     p.attributes = {} as typeof p.attributes;
     p.scheme_tags = [];
+    if ((p.retired_season ?? state.season) >= state.season) continue;
     p.injury_history = [];
     p.contract = null;
   }
+  // A prospect's true rating is the draft's one hidden fact: it shows only
+  // once the pick is signed or released. It went out with every pull for
+  // all 320 prospects, so any GM with the developer tools open could read
+  // the busts off the board before drafting.
+  // The coaching draft's board and results are only read by its own room;
+  // afterwards they rode along with every pull for the life of the league.
+  if (state.stage !== "coachingDraft" && state.stage !== "coachingDraftSummary") state.coachingDraft = null;
+  state.draftClass = (state.draftClass ?? []).map((pr) =>
+    state.rookieOutcomes?.[pr.id] ? pr : { ...pr, trueOverall: 0 },
+  );
 
   return {
     league: { id: loaded.league.id, name: loaded.league.name },

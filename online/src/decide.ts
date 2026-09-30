@@ -904,9 +904,11 @@ export function decideDeadlineTurn(
     default:
       result = respondAtDeadline(state, actor.teamCode, { kind: move.kind });
       summary =
-        move.kind === "accept"
-          ? `${city(actor.teamCode)} accepted a trade.`
-          : `${city(actor.teamCode)} turned an offer down.`;
+        move.kind !== "accept"
+          ? `${city(actor.teamCode)} turned an offer down.`
+          : "blocked" in result && result.blocked
+            ? `The league blocked a deadline trade involving ${city(actor.teamCode)}.`
+            : `${city(actor.teamCode)} accepted a trade.`;
   }
   if (!result.ok) throw new ActionError(result.reason ?? "That move isn't available.");
 

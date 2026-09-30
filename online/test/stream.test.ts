@@ -49,6 +49,15 @@ afterEach(() => {
 });
 
 describe("the change stream", () => {
+  it("announces a burst of commits in order, and never an older version after a newer one", async () => {
+    const res = new FakeRes();
+    attach(res, "LB", "u1", "7");
+    // two commits a moment apart, and a slow poll still holding the first
+    await Promise.all([announce("LB", "8"), announce("LB", "9"), announce("LB", "8")]);
+    const versions = res.frames().filter((f) => f.event === "change").map((f) => (f.data as { version: string }).version);
+    expect(versions).toEqual(["8", "9"]);
+  });
+
   it("greets a new watcher with the version it is joining at", () => {
     const res = new FakeRes();
     attach(res, "L1", "u1", "12");

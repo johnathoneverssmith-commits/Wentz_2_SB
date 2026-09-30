@@ -8,6 +8,7 @@ import { byTradeAssetOrder, pickKey, pickLabel, picksOwnedBy, tradedPickLabel } 
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import {
+  leagueVoteBlock,
   onTheClock,
   pendingFor,
   TRADE_DEADLINE_ROUNDS,
@@ -256,6 +257,25 @@ function ProposeTurn({
         })()
       )}
 
+      {/* to another GM: the league vote. The turn is spent either way, so say
+          before sending that this one would be blocked, not after */}
+      {(give.length > 0 || get.length > 0) && s.gms.some((g) => g.isHuman && g.teamCode === partner) && (() => {
+        const assets = (ids: string[]) =>
+          ids.map((id) =>
+            id.startsWith("pick:")
+              ? { kind: "pick" as const, pick: s.draftPicks[id.slice(5)] }
+              : { kind: "player" as const, playerId: id },
+          );
+        const blocked = leagueVoteBlock(s, code, partner, assets(give), assets(get));
+        return blocked ? (
+          <div className="notice bad" role="status" style={{ margin: "0 26px 12px" }}>
+            The league vote would block this: a trade this one-sided, with a 90-plus player in it,
+            reads as collusion. Even if they accept, it won&rsquo;t go through — and sending it
+            spends your turn.
+          </div>
+        ) : null;
+      })()}
+
       <Footer>
         <button
           type="button"
@@ -349,6 +369,12 @@ function RespondTurn({
                 {forYou >= 0 ? "+" : ""}
                 {forYou} for you
               </strong>
+              {/* accepting one of these used to look like any other yes */}
+              {leagueVoteBlock(s, offer.fromTeam, offer.toTeam, offer.fromAssets, offer.toAssets) && (
+                <span style={{ display: "block", marginTop: 6, color: "var(--bad)" }}>
+                  The league vote would block this: accepting ends the negotiation with no deal.
+                </span>
+              )}
             </p>
           );
         })()}

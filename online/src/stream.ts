@@ -60,11 +60,31 @@ function frame(res: ServerResponse, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+/**
+ * One league's broadcasts run one after another. Two commits a moment apart
+ * (a CPU sweep right behind a GM's move) both read the feed from the same
+ * `lastEventId` and sent the same events twice — and the slower one could
+ * land second with the *older* version, which every tab took as news and
+ * re-downloaded the league for.
+ */
+const chains = new Map<string, Promise<void>>();
+
+function broadcast(leagueId: string, version: string): Promise<void> {
+  const next = (chains.get(leagueId) ?? Promise.resolve()).then(() => broadcastNow(leagueId, version));
+  const settled = next.catch(() => {});
+  chains.set(leagueId, settled);
+  void settled.then(() => {
+    if (chains.get(leagueId) === settled) chains.delete(leagueId);
+  });
+  return next;
+}
+
 /** Send one league's news to everyone watching it. */
-async function broadcast(leagueId: string, version: string): Promise<void> {
+async function broadcastNow(leagueId: string, version: string): Promise<void> {
   const w = watched.get(leagueId);
   if (!w || w.watchers.size === 0) return;
-  if (w.lastVersion === version) return;
+  // (versions only grow; an older one here is a slow poll behind a commit)
+  if (w.lastVersion === version || Number(version) < Number(w.lastVersion)) return;
   w.lastVersion = version;
 
   // the summaries are the nicety; the version is the news. If the feed read

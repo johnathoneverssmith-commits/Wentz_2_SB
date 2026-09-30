@@ -267,11 +267,14 @@ function useFollowLeague(held: boolean, resuming: boolean): [string | null, () =
     // screens have their own "it's over" moment to leave from
     if (!before.ready && SELF_ENDING.has(before.stage)) return;
     if (before.pathname === before.route && pathname === before.pathname) {
+      // out of the playoffs, through the awards the way a GM who checked in
+      // at the bracket goes — following the league skipped them entirely
+      const target = before.stage === "playoffs" && stage.startsWith("endOfSeason") ? "/end-of-season" : route;
       if (!before.ready && !checkedInJustNow()) {
         setMovedOn(STAGE_LABEL[stage] ?? "the next stage");
-        broughtTo.current = route;
+        broughtTo.current = target;
       }
-      nav(route);
+      nav(target);
     }
   }, [stage, ready, pathname, route, held, nav, resuming]);
   return [movedOn, () => setMovedOn(null)];

@@ -154,7 +154,7 @@ function TradeList({ offers, empty }: { offers: ResolvedOffer[]; empty: string }
                 color: o.outcome === "accepted" ? "var(--good)" : "var(--ink-faint)",
               }}
             >
-              Round {o.round} · {o.outcome === "accepted" ? "Completed" : "No deal"}
+              Round {o.round} · {o.outcome === "accepted" ? "Completed" : o.blocked ? "Blocked by the league vote" : "No deal"}
               {o.modified ? " · countered" : ""}
             </span>
           </div>
