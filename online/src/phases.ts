@@ -28,7 +28,7 @@ import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tra
 import { currentBlock } from "@/state/revealBlocks.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
-import { simulateBlock, simulatePlayoffBlock } from "./blocks.js";
+import { runOrDefer } from "./blockJobs.js";
 import { wipePreseason } from "@/state/preseasonWipe.ts";
 import {
   advanceBiddingDayOn,
@@ -536,7 +536,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "preseason" && from !== "preseason") {
     const alreadyPlayed = state.games.some((g) => g.phase === "PRE" && g.played);
     if (!alreadyPlayed) {
-      simulateBlock(state, "PRE", 1, seasonShape(state).preseasonWeeks);
+      runOrDefer(state, { kind: "block", phase: "PRE", from: 1, to: seasonShape(state).preseasonWeeks });
       state.reveal = emptyReveal();
     }
   }
@@ -555,7 +555,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "regularSeason" && (from === "preseason" || from === "leagueDevelopments")) {
     wipePreseason(state);
     const alreadyPlayed = state.games.some((g) => g.phase === "REG" && g.played);
-    if (!alreadyPlayed) simulateBlock(state, "REG", 1, seasonShape(state).deadlineWeek);
+    if (!alreadyPlayed) runOrDefer(state, { kind: "block", phase: "REG", from: 1, to: seasonShape(state).deadlineWeek });
   }
 
   // Change 8: the deadline builds its order from the week 1-9 standings and
@@ -574,12 +574,12 @@ export function onStageEntered(state: LeagueState, from?: string): void {
       (g) => g.phase === "REG" && g.played && g.week > seasonShape(state).deadlineWeek,
     );
     if (!alreadyPlayed) {
-      simulateBlock(
-        state,
-        "REG",
-        seasonShape(state).deadlineWeek + 1,
-        seasonShape(state).regularSeasonWeeks,
-      );
+      runOrDefer(state, {
+        kind: "block",
+        phase: "REG",
+        from: seasonShape(state).deadlineWeek + 1,
+        to: seasonShape(state).regularSeasonWeeks,
+      });
     }
   }
 
@@ -612,7 +612,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     // seeding is a pure reading of the completed standings, so the server
     // does it here rather than waiting for a screen to ask
     state.bracket ??= sim.seedBracket(state);
-    simulatePlayoffBlock(state);
+    runOrDefer(state, { kind: "playoffs" });
   }
 
   recomputeTeamRatings(state);

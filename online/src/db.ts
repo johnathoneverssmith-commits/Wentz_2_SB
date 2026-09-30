@@ -10,7 +10,9 @@ import pg from "pg";
 import type { LeagueState } from "@/domain";
 import { upgradeLeagueState } from "@/state/saveMigration.ts";
 
+import { takeBlockJobs } from "./blockJobs.js";
 import { takeNotes } from "./notes.js";
+import { runBlockJobs } from "./simPool.js";
 
 /** Every league read passes through the shared upgrade step (idempotent). */
 function upgraded(state: LeagueState): LeagueState {
@@ -171,6 +173,11 @@ export async function withLeague<T>(
     };
 
     const out = await apply(loaded, client);
+    // a stage that opened a block of games queued it rather than playing it
+    // on the event loop; play it now, off-thread, before anything is written
+    const jobs = takeBlockJobs(out.state);
+    const notes = takeNotes(out.state);
+    if (jobs.length > 0) out.state = await runBlockJobs(out.state, jobs);
     if (out.unchanged) {
       await client.query("ROLLBACK");
       return { result: out.result, version: row.version };
@@ -196,7 +203,7 @@ export async function withLeague<T>(
     const newVersion = updated.rows[0]?.version;
     if (!newVersion) throw new ActionError("Another change landed first — try again.", 409);
 
-    for (const e of [...(out.events ?? []), ...takeNotes(next)]) {
+    for (const e of [...(out.events ?? []), ...notes]) {
       await client.query(
         `INSERT INTO events (league_id, actor_user, team_code, kind, summary, detail)
          VALUES ($1, $2, $3, $4, $5, $6)`,

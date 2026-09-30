@@ -9,6 +9,7 @@
  *
  * Run it with `npm run online` (and `npm run online:migrate` once).
  */
+import { deferBlockJobs } from "./blockJobs.js";
 import { createServer } from "node:http";
 
 import {
@@ -775,6 +776,8 @@ server.keepAliveTimeout = 65_000;
 server.headersTimeout = 66_000;
 
 if (process.env.NODE_ENV !== "test") {
+  // blocks of games play on a worker thread, not the event loop (blockJobs.ts)
+  deferBlockJobs(true);
   // Listen first, unconditionally. This used to await `migrate()`, so a
   // database that refused the connection took the process down with it —
   // Render marked the deploy failed and served nothing at all, which looks
