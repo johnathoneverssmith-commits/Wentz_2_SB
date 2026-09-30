@@ -91,7 +91,11 @@ export function FantasyDraftSummary({
     // slot usually yields (the class generator's own curve), so a team that
     // simply held more picks no longer grades better than one that drafted well
     const score = (t: string) => {
-      const picks = classes.get(t) ?? [];
+      // kickers and punters come out of college graded far below the slot
+      // curve, so one late specialist sank an otherwise good class to an F
+      const all = classes.get(t) ?? [];
+      const nonSpecialists = all.filter((x) => x.p.position !== "K" && x.p.position !== "P");
+      const picks = nonSpecialists.length > 0 ? nonSpecialists : all;
       if (picks.length === 0) return -Infinity;
       return picks.reduce((n, x) => n + (x.p.collegeOverall - (92 - x.pick * 0.14)), 0) / picks.length;
     };
@@ -149,7 +153,7 @@ export function FantasyDraftSummary({
           {rookie && (classes.get(t)?.length ?? 0) > 0 && (
             <div style={{ marginBottom: 18 }}>
               <p className="subhead" style={{ marginTop: 0 }}>
-                Draft class ({classes.get(t)!.length})
+                Draft class ({classes.get(t)!.length}) · grade {grade(classRank.indexOf(t) + 1, total)}
               </p>
               <table className="stbl">
                 <thead>
