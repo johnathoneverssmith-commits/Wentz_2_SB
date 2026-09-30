@@ -38,8 +38,18 @@ export function SeasonResults() {
   const weeks: number[] = [];
   for (let w = first; w <= last; w++) weeks.push(w);
 
+  // Only what this GM has actually revealed. `s.games` holds the whole
+  // precomputed block, so reading it directly here would put a week they
+  // have not watched on screen under a tab they can click.
+  const seen = onlineSession() ? visibleGames(s, s.viewerGmId) : s.games;
+  const slateOf = (w: number) => seen.filter((g) => g.phase === phaseKey && g.week === w);
+
   // Which week this opens on is a property of the block — see `resultsOpenOn`.
-  const openOn = currentBlock(s)?.resultsOpenOn === "first" ? first : last;
+  // Opening on the first week used to land a GM on their own bye: an empty
+  // "your team wasn't on this slate" before the result they came for.
+  const playedIn = (w: number) => !!code && slateOf(w).some((g) => g.homeTeam === code || g.awayTeam === code);
+  const openOn =
+    currentBlock(s)?.resultsOpenOn === "first" ? (weeks.find(playedIn) ?? first) : last;
   const active = weeks.includes(Number(week)) ? Number(week) : openOn;
 
   // Restoring the scroll position the GM left from, so a trip into a box
@@ -56,11 +66,6 @@ export function SeasonResults() {
     return () => el.removeEventListener("scroll", onScroll);
   }, [key]);
 
-  // Only what this GM has actually revealed. `s.games` holds the whole
-  // precomputed block, so reading it directly here would put a week they
-  // have not watched on screen under a tab they can click.
-  const seen = onlineSession() ? visibleGames(s, s.viewerGmId) : s.games;
-  const slateOf = (w: number) => seen.filter((g) => g.phase === phaseKey && g.week === w);
 
   const label = (w: number) => (phaseKey === "PRE" ? `Preseason Week ${w}` : `Week ${w}`);
   const single = weeks.length === 1;
