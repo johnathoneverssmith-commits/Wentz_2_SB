@@ -359,7 +359,18 @@ function cpuPropose(s: LeagueState, teamCode: string): void {
   const offers = generateAiTradeOffers(s, d.round * 1000 + d.index, 1);
   // an offer to a human first, as before; otherwise a contender shops the
   // CPU teams that are out of it
-  const mine = offers.find((o) => o.fromTeam === teamCode) ?? cpuToCpuOffer(s, teamCode, d.round * 1000 + d.index);
+  // …but not the same ask twice: a GM who turned a team down for a player
+  // was asked for him again next round (Tennessee, Bowers, rounds 1 and 3),
+  // and that reads as the CPU not listening
+  const refused = new Set(
+    d.resolved
+      .filter((r) => r.outcome === "denied" && r.fromTeam === teamCode)
+      .flatMap((r) => r.toAssets.map((a) => `${r.toTeam}|${assetKey(a)}`)),
+  );
+  const fresh = offers.filter(
+    (o) => o.fromTeam === teamCode && !o.toAssets.some((a) => refused.has(`${o.toTeam}|${assetKey(a)}`)),
+  );
+  const mine = fresh[0] ?? cpuToCpuOffer(s, teamCode, d.round * 1000 + d.index);
   if (!mine) {
     skipTurn(s, teamCode);
     return;
@@ -387,6 +398,10 @@ function cpuRespond(s: LeagueState, sim: MockSimulationService, teamCode: string
   // machine that runs it — including a retry after a failed save
   const roll = hash(`${offer.id}|${teamCode}|${offer.modified ? 1 : 0}`) / 0xffffffff;
   respondAtDeadline(s, teamCode, { kind: roll < forMe ? "accept" : "deny" });
+}
+
+function assetKey(a: TradeAsset): string {
+  return a.kind === "pick" && a.pick ? `pick:${a.pick.year}:${a.pick.round}:${a.pick.originalTeam}` : `player:${a.playerId ?? ""}`;
 }
 
 function hash(key: string): number {
