@@ -45,7 +45,7 @@ export function HoodedFigureEncounter() {
     return (
       <Card>
         <CardHeader
-          badge="—"
+          badge={code ? TEAMS_BY_CODE[code]?.abbr ?? "—" : "—"}
           title="Training Camp Complete"
           subtitle={
             paid

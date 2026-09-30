@@ -59,7 +59,7 @@ import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconcileCpuTeam } from "@/state/reconciliation.ts";
 import { openTrainingCamp } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
-import { ensureHoodedFigureEncounters } from "@/state/hoodedFigure.ts";
+import { ensureHoodedFigureEncounters, hoodedFigureEncounterFor } from "@/state/hoodedFigure.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
 import { resetSeasonStats } from "@/state/standings.ts";
@@ -626,6 +626,15 @@ export function clearReadinessOnline(state: LeagueState): void {
   for (const g of state.gms) state.readiness[g.id] = false;
   // an AI-run team is always ready; there's nobody to wait for
   for (const g of state.gms) if (!g.isHuman || !g.teamCode) state.readiness[g.id] = true;
+  // The Hooded Figure visits one losing franchise; every other GM was shown
+  // "Nothing unusual this year" and still had to check in before the league
+  // could reach the depth chart. They have nothing to decide, so they start
+  // checked in and the league waits only on the GM with the visitor.
+  if (state.stage === "hoodedFigureEncounter") {
+    for (const g of state.gms) {
+      if (g.isHuman && g.teamCode && !hoodedFigureEncounterFor(state, g.teamCode)) state.readiness[g.id] = true;
+    }
+  }
 }
 
 /**
