@@ -140,6 +140,14 @@ export function FreeAgencyBoardTurns() {
   const myOffers = Object.entries(e.offers)
     .filter(([playerId]) => !settled.has(playerId))
     .flatMap(([playerId, list]) => list.filter((o) => o.teamCode === code).map((o) => ({ playerId, ...o })));
+  // how your bids came out in the round that just closed — the round used to
+  // end silently, and a GM who'd just landed (or lost) his top target only
+  // found out by going looking in the Signed tab
+  const lastRound = e.round - 1;
+  const lastResults =
+    lastRound >= 1
+      ? e.signed.filter((x) => x.round === lastRound && (e.offers[x.playerId] ?? []).some((o) => o.teamCode === code))
+      : [];
 
   return (
     <Card maxWidth={920}>
@@ -166,6 +174,28 @@ export function FreeAgencyBoardTurns() {
       {error && (
         <div className="notice bad" role="status">
           {error}
+        </div>
+      )}
+
+      {lastResults.length > 0 && (
+        <div className="panel open" style={{ paddingBottom: 4 }}>
+          <p className="subhead" style={{ marginTop: 0 }}>
+            Round {lastRound} results
+          </p>
+          {lastResults.map((x) => {
+            const p = s.players[x.playerId];
+            const won = x.teamCode === code;
+            return (
+              <div key={x.playerId} className="neg-row">
+                <span style={{ fontSize: 12.5 }}>
+                  {p?.name ?? x.playerId} <span className="ppos">{p?.position}</span> · {millions(x.salary)}/yr × {x.years}y
+                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: won ? "var(--good)" : "var(--notice)" }}>
+                  {won ? "Signed with you" : `Signed with ${TEAMS_BY_CODE[x.teamCode]?.abbr ?? x.teamCode}`}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
