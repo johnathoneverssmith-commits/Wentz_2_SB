@@ -8,6 +8,7 @@ import { RowHeader } from "@/components/ListFilter";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { RETIREMENT_AGE } from "@/sim/roster-template";
+import { onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
@@ -26,12 +27,26 @@ export function RetirementReview() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const outcomes = useMemo(
-    () => sim.retirementOutcomes(s.season, Object.values(s.players).filter((p) => !p.retired)),
-    [s.season, s.players],
-  );
-  const retiring = outcomes.filter((o) => o.decision === "retiring");
-  const retiringIds = new Set(retiring.map((o) => o.playerId));
+  // Online the league retires everyone the moment this stage opens, so the
+  // players are already marked. Rolling the odds again here rolled them for
+  // the *survivors*: the screen named a whole different set of retirees
+  // (a 26-year-old 97 among them) while the real ones quietly left. Show what
+  // was committed; only a single-player league, which commits on the way
+  // out, still needs the preview.
+  const retiringIds = useMemo(() => {
+    // (not "anyone marked this season" alone: the free-agent market's prune
+    // at the start of the season marks its cuts the same way, and a
+    // single-player review would have shown those instead of its preview)
+    if (onlineSession()) {
+      const committed = Object.values(s.players).filter(
+        (p) => p.retired && p.retired_season === s.season && p.retirement_status === "retiring",
+      );
+      return new Set(committed.map((p) => p.id));
+    }
+    const preview = sim.retirementOutcomes(s.season, Object.values(s.players).filter((p) => !p.retired));
+    return new Set(preview.filter((o) => o.decision === "retiring").map((o) => o.playerId));
+  }, [s.season, s.players]);
+  const retiring = [...retiringIds];
 
   const yours = Object.values(s.players).filter((p) => p.nfl_team === code && retiringIds.has(p.id));
   const league = Object.values(s.players)
