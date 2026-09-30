@@ -121,11 +121,19 @@ export function playoffOdds(s: LeagueState, code: string): number {
   }
   const games = t.wins + t.losses + t.ties;
   const pct = games ? (t.wins + 0.5 * t.ties) / games : 0.5;
-  const strength = (t.ratings.overall - 75) / 25; // roughly -1..+1
+  // Strength against this league, not a fixed 75: ratings run high enough
+  // that the 29th-best roster in the league read 55% before a snap, and every
+  // team in the league was a playoff favourite on paper.
+  const overalls = Object.values(s.teams).map((x) => x.ratings.overall);
+  const mean = overalls.reduce((a, b) => a + b, 0) / overalls.length;
+  const sd = Math.sqrt(overalls.reduce((a, b) => a + (b - mean) ** 2, 0) / overalls.length) || 1;
+  const strength = Math.max(-1, Math.min(1, (t.ratings.overall - mean) / (2 * sd)));
   // a humans-only round robin is not 17 games long
   const season = isHumansOnly(s) ? seasonShape(s).regularSeasonWeeks : 17;
+  // and the base is the share of the league that gets in: 14 of 32, or half
+  const share = isHumansOnly(s) ? 0.5 : 14 / 32;
   const played = pct * (games / season);
-  const projected = (0.5 + strength * 0.35) * (1 - games / season);
+  const projected = (share + strength * 0.35) * (1 - games / season);
   return Math.round(Math.min(0.98, Math.max(0.02, played + projected + strength * 0.1)) * 100);
 }
 
