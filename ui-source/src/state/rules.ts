@@ -1360,7 +1360,15 @@ export function rookieSlotSalary(pick: number): number {
  */
 export function rookieSlotFor(s: LeagueState, prospectId: string, round: number): number {
   const pickNo = (s.draft?.results ?? []).find((r) => r.selectedId === prospectId)?.pickNumber;
-  return pickNo ? rookieSlotSalary(pickNo) : Math.max(0.9, 8 - round);
+  if (!pickNo) return Math.max(0.9, 8 - round);
+  // The scale is the NFL's, by overall pick. A humans-only league has as few
+  // as four teams, so its seventh-rounder is pick 25 — and every pick in the
+  // draft was paid like a first-rounder (a class costing $60M against $35M of
+  // space). Price the pick where it would fall in a 32-team draft: same
+  // round, same place in it.
+  const teams = Math.max(1, Object.keys(s.teams).length);
+  const equivalent = Math.floor((pickNo - 1) / teams) * 32 + Math.round((((pickNo - 1) % teams) * 32) / teams) + 1;
+  return rookieSlotSalary(equivalent);
 }
 
 /** Cap hits for a rookie deal: the slot, rising 5% a year for four years. */
