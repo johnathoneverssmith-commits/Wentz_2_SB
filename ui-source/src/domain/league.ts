@@ -207,6 +207,13 @@ import type { RevealState } from "@/state/reveal";
 
 export interface LeagueState {
   schemaVersion: number;
+  /**
+   * The seed the league was created with, kept so that what's generated
+   * later (each year's draft class) is this league's own. Without it every
+   * league drew the same prospects in the same year. Older saves have none
+   * and keep the shared classes.
+   */
+  seed?: number;
   season: number;
   stage: Stage;
   week: number;

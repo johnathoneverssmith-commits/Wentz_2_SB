@@ -34,6 +34,7 @@ import {
   fillRosterGaps,
   fitDraftedPayrolls,
   forgetOldRetirees,
+  leagueSalt,
   normalizePool,
   pruneFreeAgentMarket,
   recomputeTeamRatings,
@@ -574,7 +575,7 @@ export const useStore = create<Store>()(
             forgetOldRetirees(s); // and a save file shouldn't carry them forever
             applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
             fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
-            s.draftClass = sim.generateDraftClass(s.season, s.season, draftClassTilt(s));
+            s.draftClass = sim.generateDraftClass(s.season + leagueSalt(s), s.season, draftClassTilt(s));
             for (const code of Object.keys(s.teams)) {
               const team = s.teams[code]!;
               team.wins = team.losses = team.ties = 0;

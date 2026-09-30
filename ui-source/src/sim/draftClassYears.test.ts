@@ -19,3 +19,16 @@ describe("draft classes year to year", () => {
     }
   });
 });
+
+describe("draft classes league to league", () => {
+  it("are each league's own, not the same prospects in every league that year", async () => {
+    const { createLeague, leagueSalt } = await import("@/state/seed.ts");
+    const sim = new MockSimulationService();
+    const a = createLeague(11);
+    const b = createLeague(12);
+    const names = (s: typeof a) => new Set(sim.generateDraftClass(2028 + leagueSalt(s), 2028).map((p) => `${p.name}|${p.school}`));
+    const na = names(a);
+    const shared = [...names(b)].filter((n) => na.has(n)).length;
+    expect(shared).toBeLessThan(na.size * 0.05);
+  });
+});

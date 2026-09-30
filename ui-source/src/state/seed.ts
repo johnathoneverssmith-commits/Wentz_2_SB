@@ -1144,6 +1144,9 @@ export function applySeasonAging(state: LeagueState, season: number): void {
   }
 }
 
+/** What a league mixes into its generated content so it isn't every league's. */
+export const leagueSalt = (s: Pick<LeagueState, "seed">): number => (s.seed ?? 0) * 7919;
+
 export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG): LeagueState {
   // A humans-only league has no NFL rosters to inherit, so it always drafts.
   // Settled here, at creation, because two things read it before the league
@@ -1189,6 +1192,7 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
   const draftClass = sim.generateDraftClass(seed, 2026);
 
   const state: LeagueState = {
+    seed,
     schemaVersion: 2,
     season: 2026,
     stage: "setup",
