@@ -116,12 +116,12 @@ export function TradeProposal() {
     }));
 
   const myRoster = useMemo(
-    () => (myCode ? [...pickRows(myCode), ...teamRoster(s, myCode)] : []),
+    () => (myCode ? [...teamRoster(s, myCode), ...pickRows(myCode)] : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [s, myCode],
   );
   const theirRoster = useMemo(
-    () => [...pickRows(partner), ...teamRoster(s, partner)],
+    () => [...teamRoster(s, partner), ...pickRows(partner)],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [s, partner],
   );
@@ -632,7 +632,9 @@ export function TradeColumn({
   selected: string[];
   onToggle: (id: string) => void;
 }) {
-  // "PICK" sorts to the front of the filter so draft capital is one click away
+  // "PICK" sorts to the front of the filter so draft capital is one click
+  // away; in the list itself players come first — 21 picks used to stand
+  // between a GM and the first player they could offer
   const market = useListFilter(roster, 150);
   return (
     <div style={{ padding: "22px 24px", borderRight: role === "you" ? "1px solid var(--line)" : undefined }}>

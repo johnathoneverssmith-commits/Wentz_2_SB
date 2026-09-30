@@ -165,12 +165,12 @@ function ProposeTurn({
     }));
 
   const mine = useMemo(
-    () => [...pickRows(code), ...teamRoster(s, code)],
+    () => [...teamRoster(s, code), ...pickRows(code)],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [s, code],
   );
   const theirs = useMemo(
-    () => [...pickRows(partner), ...teamRoster(s, partner)],
+    () => [...teamRoster(s, partner), ...pickRows(partner)],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [s, partner],
   );
@@ -364,14 +364,14 @@ function RespondTurn({
           <TradeColumn
             title={`${TEAMS_BY_CODE[offer.fromTeam]!.label} sends`}
             role="you"
-            roster={[...pickRows(offer.fromTeam), ...teamRoster(s, offer.fromTeam)]}
+            roster={[...teamRoster(s, offer.fromTeam), ...pickRows(offer.fromTeam)]}
             selected={proposerGives}
             onToggle={toggle(setProposerGives)}
           />
           <TradeColumn
             title={`${TEAMS_BY_CODE[offer.toTeam]!.label} sends`}
             role="them"
-            roster={[...pickRows(offer.toTeam), ...teamRoster(s, offer.toTeam)]}
+            roster={[...teamRoster(s, offer.toTeam), ...pickRows(offer.toTeam)]}
             selected={proposerGets}
             onToggle={toggle(setProposerGets)}
           />
