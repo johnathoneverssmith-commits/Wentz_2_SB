@@ -62,7 +62,13 @@ export function FullSchedule() {
             value: yourOpp
               ? `${yourGame!.homeTeam === code ? "vs" : "@"} ${yourOpp}${
                   yourResult
-                    ? ` (${yourGame!.homeTeam === code ? `${yourResult.homeScore}-${yourResult.awayScore}` : `${yourResult.awayScore}-${yourResult.homeScore}`})`
+                    ? (() => {
+                        // "(30-38)" beside a record read as another record; say how it went
+                        const home = yourGame!.homeTeam === code;
+                        const us = home ? yourResult.homeScore : yourResult.awayScore;
+                        const them = home ? yourResult.awayScore : yourResult.homeScore;
+                        return ` · ${us > them ? "W" : us < them ? "L" : "T"} ${us}-${them}`;
+                      })()
                     : ""
                 }`
               : "Bye",
