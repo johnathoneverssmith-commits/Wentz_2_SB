@@ -56,6 +56,8 @@ function NormalHub({ code }: { code: string | undefined }) {
   const dc = staff.DC ?? null;
   const fitRows = roster.slice(0, 12).map((p) => ({ p, fit: sim.computeSchemeFit(p, oc, dc) }));
   const actions = useLeagueActions();
+  // the server's own rule (`refuseDuringBlock`): a block's games are played
+  const hiringClosed = actions.online && (s.stage === "preseason" || s.stage === "regularSeason");
   const [hiring, setHiring] = useState(false);
   const hiringRef = useRef(false);
   const [hireError, setHireError] = useState<string | null>(null);
@@ -205,7 +207,7 @@ function NormalHub({ code }: { code: string | undefined }) {
         </table>
       </Panel>
       <Panel id="market" open={active === "market"}>
-        {actions.online && (s.stage === "preseason" || s.stage === "regularSeason") && (
+        {hiringClosed && (
           <div className="notice" role="status" style={{ marginBottom: 12 }}>
             Hiring is closed while this stretch of the season plays out — its games are already
             decided with today&rsquo;s staff. It opens again at the next break.
@@ -213,7 +215,11 @@ function NormalHub({ code }: { code: string | undefined }) {
         )}
         <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
           Coaches without a job. Hiring one replaces whoever holds that role on your staff, and
-          sends him back to this list. There is no window and no deadline — do it whenever.
+          sends him back to this list.{" "}
+          {/* it said "do it whenever" directly under "hiring is closed" */}
+          {actions.online
+            ? "Any break between stretches of games will do — there's no deadline."
+            : "There is no window and no deadline — do it whenever."}
         </p>
         {hireError && (
           <div className="notice bad" role="status">
@@ -254,7 +260,9 @@ function NormalHub({ code }: { code: string | undefined }) {
                 <button
                   type="button"
                   className="btn-primary"
-                  disabled={hiring}
+                  // closed buttons used to ask "let him go?" and then be refused
+                  disabled={hiring || hiringClosed}
+                  title={hiringClosed ? "Hiring opens again at the next break." : undefined}
                   onClick={() => {
                     if (hiringRef.current) return;
                     // it fires whoever holds the job, on the spot
