@@ -10,6 +10,8 @@ import pg from "pg";
 import type { LeagueState } from "@/domain";
 import { upgradeLeagueState } from "@/state/saveMigration.ts";
 
+import { takeNotes } from "./notes.js";
+
 /** Every league read passes through the shared upgrade step (idempotent). */
 function upgraded(state: LeagueState): LeagueState {
   upgradeLeagueState(state);
@@ -194,7 +196,7 @@ export async function withLeague<T>(
     const newVersion = updated.rows[0]?.version;
     if (!newVersion) throw new ActionError("Another change landed first — try again.", 409);
 
-    for (const e of out.events ?? []) {
+    for (const e of [...(out.events ?? []), ...takeNotes(next)]) {
       await client.query(
         `INSERT INTO events (league_id, actor_user, team_code, kind, summary, detail)
          VALUES ($1, $2, $3, $4, $5, $6)`,

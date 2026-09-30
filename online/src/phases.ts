@@ -68,6 +68,7 @@ import { compactRetired } from "@/state/saveCompaction.ts";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
+import { noteEvent } from "./notes.js";
 
 /**
  * Only ever asked for things it computes rather than invents: seeding a
@@ -321,7 +322,7 @@ function rollOverSeason(state: LeagueState): void {
   compactRetired(state);
   forgetOldRetirees(state); // and a save shouldn't carry them forever
   applySeasonAging(state, state.season);
-  fillRosterGaps(state);
+  reportStaffMoves(state, "for the new season", () => fillRosterGaps(state));
   state.draftClass = sim.generateDraftClass(state.season, state.season, draftClassTilt(state));
   for (const code of Object.keys(state.teams)) {
     const team = state.teams[code]!;
@@ -474,7 +475,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   }
 
   if (state.stage === "freeAgencySummary" && state.rosterFillPending) {
-    fillRosterGaps(state);
+    reportStaffMoves(state, "after free agency", () => fillRosterGaps(state));
     state.rosterFillPending = false;
   }
   if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
@@ -510,7 +511,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // draft-class signings and the roster trim hang off the depth-chart gate
   if (from === "offseasonSignings" && state.stage === "offseasonDepthChart") {
     signAiDraftPicks(state);
-    trimRosters(state);
+    reportStaffMoves(state, "for the depth chart", () => trimRosters(state));
   }
   // Change 12: retirements are applied and the draft class is built on the
   // way *into* the offseason rather than on the way out of the retirement
@@ -524,7 +525,9 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // nobody takes the field short — free agency is optional, so a team can
   // arrive here still missing a position entirely
   if (state.stage === "preseason" && from !== "preseason") campCuts(state);
-  if (state.stage === "preseason") fillRosterGaps(state, { lateMarket: true });
+  if (state.stage === "preseason") {
+    reportStaffMoves(state, "before the preseason", () => fillRosterGaps(state, { lateMarket: true }));
+  }
 
   // Change 6: the whole preseason is played here, once, before anybody sees
   // it. Everything afterwards is a reveal of what this produced — which is
@@ -613,6 +616,49 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   }
 
   recomputeTeamRatings(state);
+}
+
+/**
+ * The roster fill and trim run on every team, a GM's included — they are what
+ * stops anyone taking the field short or over 53. They used to do it
+ * silently: a GM left free agency at 45 players and found 53 at the
+ * preseason, eight of them strangers, with nothing anywhere saying who or
+ * why. Now each human team gets a line on the wire naming them.
+ */
+function reportStaffMoves(state: LeagueState, when: string, run: () => void): void {
+  const humans = state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode!);
+  const before = new Map(humans.map((t) => [t, rosterIds(state, t)]));
+  run();
+  for (const team of humans) {
+    const was = before.get(team)!;
+    const now = rosterIds(state, team);
+    const added = [...now].filter((id) => !was.has(id)).map((id) => state.players[id]!);
+    const cut = [...was].filter((id) => !now.has(id)).map((id) => state.players[id]);
+    if (added.length === 0 && cut.length === 0) continue;
+    const name = TEAMS_BY_CODE[team]?.label ?? team;
+    const list = (ps: ({ name: string; position: string } | undefined)[]) => {
+      const named = ps.filter((p): p is { name: string; position: string } => !!p);
+      const shown = named.slice(0, 5).map((p) => `${p.name} (${p.position})`);
+      return named.length > 5 ? `${shown.join(", ")} and ${named.length - 5} more` : shown.join(", ");
+    };
+    const parts = [
+      added.length ? `signed ${list(added)}` : "",
+      cut.length ? `released ${cut.length <= 3 && cut.every(Boolean) ? list(cut) : `${cut.length} players`}` : "",
+    ].filter(Boolean);
+    noteEvent(state, {
+      teamCode: team,
+      kind: "roster.staff",
+      summary: `${name}'s staff ${parts.join(" and ")} ${when}.`,
+    });
+  }
+}
+
+function rosterIds(state: LeagueState, team: string): Set<string> {
+  return new Set(
+    Object.values(state.players)
+      .filter((p) => p.nfl_team === team && !p.retired && !p.free_agent)
+      .map((p) => p.id),
+  );
 }
 
 /**
