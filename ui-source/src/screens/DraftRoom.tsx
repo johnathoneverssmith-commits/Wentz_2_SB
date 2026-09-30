@@ -270,7 +270,7 @@ export function DraftRoom() {
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title="Draft Room"
-        subtitle={`${displaySeason(s)} ${mode === "fantasy" ? "Fantasy Draft" : "Rookie Draft"} · Round ${Math.min(round, maxRounds)} · ${cap(draft.order)}`}
+        subtitle={`${displaySeason(s)} ${mode === "fantasy" ? "Fantasy Draft" : "Rookie Draft"} · Round ${Math.min(round, maxRounds)} · ${mode === "rookie" ? "Linear" : cap(draft.order)}`}
       />
       <Ticker
         stats={[
@@ -366,7 +366,7 @@ export function DraftRoom() {
           </div>
         )}
         <div className="scroll-list" style={{ overflowX: "auto" }}>
-          <table className="stbl">
+          <table className="stbl draft-avail">
             <thead>
               <tr>
                 <th>Player</th>
@@ -510,6 +510,10 @@ export function DraftRoom() {
         <span style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
           {complete
             ? "The draft is complete."
+            : mode === "rookie"
+            ? // the fantasy draft's manual-pick setting doesn't apply here (it
+              // read "5 more picks to make" before a one-round draft ended)
+              "Round one is picked by hand. Rounds two through seven complete themselves once it ends."
             : threshold == null
             ? "Every pick in this draft is made by hand."
             : picksLeftForYou > 0

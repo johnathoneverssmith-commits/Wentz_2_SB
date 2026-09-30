@@ -191,7 +191,12 @@ async function attempt(run: () => Promise<unknown>): Promise<ActionResult & { fr
     return {
       ok: false,
       pending: true,
-      reason: landed
+      // the refresh failed too: the server is unreachable, and this client
+      // can't know whether the move landed — it used to claim "Nothing
+      // changed — refreshed" when it had managed neither
+      reason: !state
+        ? "Couldn't reach the league server. If your move went through you'll see it when the connection is back; otherwise try again then."
+        : landed
         ? "Lost the connection, but the league has moved since — this most likely went through. Refreshed to the current state."
         : // the client's own reason, when it has one ("the league server is
           // restarting") says more than a generic dropped connection

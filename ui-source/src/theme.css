@@ -1878,3 +1878,41 @@ input[type="range"]::-moz-range-thumb {
     display: none;
   }
 }
+
+/* The draft board on a phone: the Draft button sat half past the edge of a
+   sideways-scrolling table. Age goes (it's on the player card), the cells
+   tighten, and the name wraps. */
+@media (max-width: 600px) {
+  .draft-avail th:nth-child(4),
+  .draft-avail td:nth-child(4) {
+    display: none;
+  }
+  .draft-avail th,
+  .draft-avail td {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .draft-avail td:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Roster & Cap on a phone: seven columns ran the cap hit and the expand
+   arrow off the edge. Years left goes (it's in the expanded row). */
+@media (max-width: 600px) {
+  .roster-list .prow,
+  .roster-list .rowhead {
+    grid-template-columns: 22px minmax(0, 1fr) auto auto auto 16px !important;
+    min-width: 0;
+    column-gap: 8px !important;
+  }
+  .roster-list .prow > :nth-child(2) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .roster-list .prow > :nth-child(5),
+  .roster-list .rowhead > :nth-child(5) {
+    display: none;
+  }
+}

@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
 import { OnlineIntro } from "@/components/OnlineIntro";
 import { Checkpoint } from "./screens/Checkpoint.tsx";
-import { isOnline, onOnlineChange, resumeLeague, lastLeagueId, takeRemoval, type Removal, type ResumeFailure } from "@/state/online";
+import { isOnline, leagueConnected, onOnlineChange, resumeLeague, lastLeagueId, takeRemoval, type Removal, type ResumeFailure } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
 import { currentScreen, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
@@ -299,6 +299,8 @@ export function App() {
   const { pathname } = useLocation();
   const { resuming, failed: resumeFailed } = useResumeOnline();
   const [removedFrom, dismissRemoval] = useRemoval();
+  const [connected, setConnected] = useState(leagueConnected);
+  useEffect(() => onOnlineChange(() => setConnected(leagueConnected())), []);
   const checkpoint = useCheckpoint();
   // The waiting room covers only the screen a GM checked in from. It used to
   // replace every route, so a GM waiting hours on the rest of the league
@@ -318,6 +320,13 @@ export function App() {
         </div>
       )}
       {isOnline() && pathname !== "/online" && <OnlineIntro />}
+      {isOnline() && !connected && (
+        // the league's stream dropped: say so while it reconnects (in the
+        // page, not the rail — on a phone the rail scrolls sideways)
+        <div className="notice" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+          <strong>Reconnecting to the league…</strong> What you see may be a moment behind until it&rsquo;s back.
+        </div>
+      )}
       {movedOn && (
         <div className="notice" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
           <strong>The league moved on to {movedOn}.</strong> You&rsquo;ve been brought along.{" "}

@@ -1968,7 +1968,9 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
   s.draft = {
     mode,
     year: s.season,
-    order: s.config.draftType,
+    // the rookie draft always runs in draft order, every round (above); the
+    // snake setting is the fantasy draft's, and the room read "Snake" for it
+    order: mode === "rookie" ? "linear" : s.config.draftType,
     pickOrder: order,
     currentPickIndex: 0,
     results: [],

@@ -37,6 +37,15 @@ export const pool = new Pool({
   max: Number(process.env.DB_POOL_MAX ?? 8),
 });
 
+// An idle client's error (the database restarting, a dropped connection) is
+// emitted on the pool, and with no listener Node treats it as fatal: one
+// blip took the whole server down, every league with it. The pool discards
+// the broken client by itself; all that's needed is not to die.
+pool.on("error", (err) => {
+  // eslint-disable-next-line no-console
+  console.error("database client error (the pool will replace it)", err.message);
+});
+
 export async function migrate(): Promise<void> {
   const sql = readFileSync(new URL("../schema.sql", import.meta.url), "utf8");
   await pool.query(sql);

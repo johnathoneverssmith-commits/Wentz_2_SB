@@ -67,6 +67,13 @@ export interface InboxFacts {
 }
 
 const WATCH_STAGES = new Set(["preseason", "regularSeason", "playoffs"]);
+/** What a stage asks of a GM before their check-in, where that's more than a button. */
+const STAGE_TODO: Record<string, string> = {
+  offseasonDraftSummary: "Sign or release your draft class, then check in.",
+  trainingCamp: "Set your camp focuses, then check in.",
+  offseasonDepthChart: "Set your depth chart, then check in.",
+  midseasonDepthChart: "Set your depth chart, then check in.",
+};
 const TURN_STAGES = new Set(["freeAgency", "midseasonFreeAgency", "coachingDraft", "tradeDeadline", "fantasyDraft", "offseasonDraft"]);
 
 /** The same facts, taken from a state already in hand. Keeps the rules honest. */
@@ -275,7 +282,7 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
             // when you're ready" read as if there were nothing to do first
             title: WATCH_STAGES.has(facts.stage)
               ? "Watch the games, then check in."
-              : "Check in when you're ready to move on.",
+              : STAGE_TODO[facts.stage] ?? "Check in when you're ready to move on.",
             detail: `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
           }),
       href: "/",

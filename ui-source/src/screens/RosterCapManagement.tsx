@@ -265,7 +265,7 @@ export function RosterCapManagement() {
         {ordered.length === 0 && (
           <div className="emptystate">No players in this group.</div>
         )}
-        <div className="rowlist">
+        <div className="rowlist roster-list">
           {ordered.length > 0 && (
             <RowHeader
               gridTemplate={ROSTER_GRID}

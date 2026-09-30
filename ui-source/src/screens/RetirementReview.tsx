@@ -66,7 +66,15 @@ export function RetirementReview() {
       <Ticker
         stats={[
           { label: "Your retirements", value: yours.length },
-          { label: "League-wide", value: retiring.length },
+          // players leaving teams; the unsigned free agents who drift out of
+          // the market too made "League-wide: 426" read like an exodus
+          {
+            label: "From rosters",
+            value: retiring.filter((id) => {
+              const p = s.players[id];
+              return !!p && p.nfl_team !== "FA" && !p.free_agent;
+            }).length,
+          },
           { label: "Best retiree", value: best ? `${best.name}, ${best.overall}` : "—", className: "sm" },
           { label: "Cap freed up", value: millions(capFreed), className: "good" },
         ]}

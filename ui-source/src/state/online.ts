@@ -41,6 +41,16 @@ interface OnlineSession {
 let session: OnlineSession | null = null;
 
 /**
+ * Whether the league's change stream is connected right now. Nothing on
+ * screen said when it wasn't: a GM whose server had gone away saw a normal
+ * league until a button failed.
+ */
+let streamUp = true;
+export function leagueConnected(): boolean {
+  return streamUp;
+}
+
+/**
  * Say which GM the person at this keyboard is.
  *
  * The server's league is written from nobody's point of view — it has to be,
@@ -201,6 +211,7 @@ export async function resumeLeague(): Promise<LeagueState | ResumeFailure | null
 const PRIVATE_KINDS = new Set(["reveal", "step"]);
 
 function watch(): void {
+  streamUp = true; // a new stream starts out trusted; its first error says otherwise
   if (!session) return;
   const s = session;
   let pulling = false;
@@ -259,6 +270,10 @@ function watch(): void {
     // sleeps or the server restarts, the changes made meanwhile were never
     // sent — this is the only way to hear about them.
     open: (version) => {
+      if (session === s && !streamUp) {
+        streamUp = true;
+        announce();
+      }
       if (session !== s || version === s.version) return;
       refresh();
       // and the wire: what happened in the gap never came down the stream
@@ -269,6 +284,7 @@ function watch(): void {
     // server may be saying you're no longer in the league, and one pull finds
     // out (and ends the session if so) where the stream never could.
     error: (closed) => {
+      if (session === s) streamUp = false;
       announce();
       if (closed && session === s) refresh();
     },
