@@ -11,8 +11,8 @@ import { onStageEntered } from "../src/phases.js";
  */
 describe("staff roster moves on the wire", () => {
   it("names who the staff signed for a GM's team", async () => {
-    const { createLeague, DEFAULT_CONFIG } = await import("@/state/seed.ts");
-    const s = createLeague({ ...DEFAULT_CONFIG }) as LeagueState;
+    const { createLeague } = await import("@/state/seed.ts");
+    const s = createLeague(1);
     const gm = s.gms.find((g) => g.teamCode === "GB") ?? s.gms[0]!;
     gm.isHuman = true;
     gm.teamCode = "GB";

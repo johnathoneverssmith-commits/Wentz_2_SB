@@ -18,6 +18,7 @@ import { useLeagueActions } from "@/state/useLeagueActions";
 
 import { TradeColumn } from "./TradeProposal";
 import { MockSimulationService } from "@/sim/MockSimulationService";
+import { millions } from "@/util/format";
 
 const sim = new MockSimulationService();
 
@@ -501,6 +502,14 @@ function Package({ title, assets }: { title: string; assets: DeadlineOffer["from
           <div key={p.id} className="neg-row">
             <span className="pname">
               {p.name} <span className="ppos">{p.position}</span>
+              {/* a deadline deal is a contract as much as a player — the
+                  offer used to show neither his age nor what he's owed */}
+              <span style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>
+                Age {p.age}
+                {p.contract
+                  ? ` · ${millions(p.contract.cap_hit_by_year[0] ?? 0)}/yr · ${p.contract.years_remaining}y left`
+                  : ""}
+              </span>
             </span>
             <span className="oswald" style={{ fontSize: 13, fontWeight: 600 }}>
               {p.overall}

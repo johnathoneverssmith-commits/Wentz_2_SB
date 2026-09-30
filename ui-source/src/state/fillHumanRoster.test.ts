@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "./seed.ts";
+import { createLeague, fillRosterGaps } from "./seed.ts";
 import { ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
 
 /**
@@ -10,7 +10,7 @@ import { ROSTER_SIZE, ROSTER_TEMPLATE } from "@/sim/roster-template.ts";
  */
 describe("the roster fill on a GM's team", () => {
   it("keeps the GM's surplus at a position and never goes past 53", () => {
-    const s = createLeague({ ...DEFAULT_CONFIG });
+    const s = createLeague(1);
     const code = Object.keys(s.teams).find((c) => s.teams[c]!.controlledBy.kind !== "ai")!;
     const wrCap = ROSTER_TEMPLATE.find((r) => r.pos === "WR")!.count;
     const market = Object.values(s.players).filter((p) => p.free_agent && !p.retired && p.position === "WR");
