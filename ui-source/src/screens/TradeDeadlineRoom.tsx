@@ -484,7 +484,16 @@ function Package({ title, assets }: { title: string; assets: DeadlineOffer["from
         {title}
       </p>
       {assets.length === 0 && <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>Nothing.</p>}
-      {assets.map((a, i) => {
+      {/* players first, then picks soonest-first — they arrived in whatever
+          order the offer was built, so a 2032 pick could head a 2030 one */}
+      {[...assets]
+        .sort(
+          (a, b) =>
+            Number(a.kind === "pick") - Number(b.kind === "pick") ||
+            (a.pick?.year ?? 0) - (b.pick?.year ?? 0) ||
+            (a.pick?.round ?? 0) - (b.pick?.round ?? 0),
+        )
+        .map((a, i) => {
         if (a.kind === "pick" && a.pick) {
           return (
             <div key={`p${i}`} className="neg-row">
