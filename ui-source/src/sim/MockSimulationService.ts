@@ -626,7 +626,11 @@ export class MockSimulationService implements SimulationService {
   }
 
   generateDraftClass(seed: number, year: number, tilt?: DraftClassTilt): DraftProspect[] {
-    const rng = new Rng(seed ^ (0x4444 + year));
+    // `seed ^ (0x4444 + year)` with both set to the season (as every caller
+    // passes) collapsed to two values across a decade: 2028 through 2031 got
+    // the identical class, so last year's first-rounders — names, schools,
+    // grades — walked back onto the board as this year's prospects
+    const rng = new Rng(Math.imul(seed, 0x9e3779b1) ^ (0x4444 + year));
     // Seven rounds of 32 is 224 picks; the rest of the board goes undrafted
     // and reaches free agency (`signUndraftedAsFreeAgents`) — a real class is
     // far deeper than the draft, and a league needs that depth to refill.

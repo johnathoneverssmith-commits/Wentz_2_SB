@@ -107,9 +107,12 @@ describe("draft classes against the real thing", () => {
   });
 
   it("falls off round by round, the way the board does", () => {
-    const rates = starterRateByRound(11);
-    expect(rates[1]).toBeGreaterThan(rates[4]!);
-    expect(rates[4]).toBeGreaterThan(rates[7]!);
+    // averaged, like the test above: one class is 32 picks a round, and a
+    // single seed put rounds 4 and 7 level at 7 starters each
+    const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
+    const avg = (round: number) => seeds.reduce((n, s) => n + starterRateByRound(s)[round]!, 0) / seeds.length;
+    expect(avg(1)).toBeGreaterThan(avg(4));
+    expect(avg(4)).toBeGreaterThan(avg(7));
   });
 
   it("is less predictable the further down the board it goes", () => {

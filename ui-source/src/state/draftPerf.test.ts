@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyPick, bestAvailable, positionalNeed, surplusPenalty } from "./rules.ts";
+import { applyPick, bestAvailable } from "./rules.ts";
 import { useStore } from "./store.ts";
 
 /**
@@ -82,22 +82,22 @@ describe("draft autopick", () => {
   });
 
   it("bestAvailable is a first-max scan: ties resolve to the earliest candidate", () => {
+    // Every prospect still on the board twice, the copy after the original:
+    // each copy ties its original exactly, so a first-max scan can only ever
+    // return an original. (This used to re-derive the score by hand, which
+    // had drifted from the real one and passed only by luck of the class.)
     const st = useStore.getState();
-    st.startDraft("rookie");
+    st.pickTeam(st.viewerGmId, "GB"); // a human on the clock: no id-keyed noise
+    useStore.getState().startDraft("rookie");
+    useStore.setState((d) => {
+      const taken = new Set(d.draft!.results.map((r) => r.selectedId));
+      const left = d.draftClass.filter((p) => !taken.has(p.id));
+      d.draftClass = [...d.draftClass, ...left.map((p) => ({ ...p, id: `${p.id}_copy` }))];
+    });
     const s = useStore.getState();
+    expect(s.draft!.pickOrder[s.draft!.currentPickIndex]).toBe("GB");
     const id = bestAvailable(s)!;
-    const taken = new Set(s.draft!.results.map((r) => r.selectedId));
-    const team = s.draft!.pickOrder[s.draft!.currentPickIndex]!;
-    const carriedAt = (pos: string) =>
-      Object.values(s.players)
-        .filter((x) => x.nfl_team === team && x.position === pos && !x.retired)
-        .map((x) => x.overall);
-    const scoreOf = (p: (typeof s.draftClass)[number]) =>
-      p.collegeOverall +
-      positionalNeed(s, team, p.position) * 0.6 -
-      surplusPenalty(p.position, carriedAt(p.position), p.collegeOverall);
-    const candidates = s.draftClass.filter((p) => !taken.has(p.id));
-    const max = Math.max(...candidates.map(scoreOf));
-    expect(id).toBe(candidates.find((p) => scoreOf(p) === max)!.id);
+    expect(id).toBeTruthy();
+    expect(id.endsWith("_copy")).toBe(false);
   });
 });
