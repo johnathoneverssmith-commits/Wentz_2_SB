@@ -853,7 +853,16 @@ export function fillRosterGaps(state: LeagueState, opts: { lateMarket?: boolean 
     // that just signed a draft class is usually over 53 and over the cap;
     // `used` comes back reflecting the cuts (players only, since coaching
     // salaries aren't a player-cap charge).
-    const trimmed = trimToLegalRoster(state, roster, capTotal);
+    // A GM's roster is theirs to shape. The fill still keeps them legal —
+    // no more than 53, under the cap, a starter at every position — but it
+    // used to cut a GM's "surplus" down to the CPU template (the seventh WR,
+    // a rookie punter drafted days earlier) and then top every position back
+    // up, landing a GM at 53 with players they never chose in place of ones
+    // they did. For a GM's team: no shaping and never past 53. (Depth stays
+    // on multi-year deals — one-year ones all expired at once and left the
+    // team at 33 the next spring.)
+    const human = state.teams[code]?.controlledBy.kind !== "ai";
+    const trimmed = trimToLegalRoster(state, roster, capTotal, ROSTER_SIZE, !human);
     let used = trimmed.used;
     marketSize += trimmed.released; // the cuts are on the market now
 
@@ -904,7 +913,7 @@ export function fillRosterGaps(state: LeagueState, opts: { lateMarket?: boolean 
     // 61. A team with money in hand signs someone worth having.
     for (const { pos, count } of ROSTER_TEMPLATE) {
       const pool = byPos.get(pos) ?? [];
-      while (countAt(pos) < count) {
+      while (countAt(pos) < count && !(human && roster.length >= ROSTER_SIZE)) {
         let p: Player | undefined;
         let salary = MIN_SALARY_M;
         const room = spendable();
