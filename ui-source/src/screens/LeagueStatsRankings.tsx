@@ -49,6 +49,10 @@ export function LeagueStatsRankings() {
           </div>
         </div>
         <Footer>
+          {/* same as player stats: last season is in the history */}
+          <button type="button" className="btnlink" onClick={() => nav("/history")}>
+            Past seasons in League History
+          </button>
           <button type="button" className="btnlink" onClick={() => nav("/hub")}>
             Return to team hub
           </button>
