@@ -52,7 +52,9 @@ export function EndOfSeasonAnnounce() {
           {s.season}
         </p>
         {(s.awards ?? []).some((a) => a.season === s.season) && (
-          <div style={{ marginTop: 22 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ marginTop: 22 }}>
+            {/* no stopPropagation: the awards fill most of the card, and "click
+                anywhere" did nothing on them — there is nothing in them to click */}
             <p className="oswald" style={{ margin: "0 0 10px", fontSize: 12, letterSpacing: "0.2em", color: "var(--ink-faint)" }}>
               SEASON AWARDS
             </p>
