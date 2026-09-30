@@ -662,7 +662,8 @@ export function TradeColumn({
                 background: on ? "var(--panel-sunken)" : "transparent",
                 border: `1px ${on ? "solid" : "dashed"} var(--line-strong)`,
                 borderRadius: "var(--r-sm)",
-                opacity: on ? 1 : 0.5,
+                // at half opacity every row read as disabled until picked
+                opacity: on ? 1 : 0.8,
                 cursor: "pointer",
               }}
             >
