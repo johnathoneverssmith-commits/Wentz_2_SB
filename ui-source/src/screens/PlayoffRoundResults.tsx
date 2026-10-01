@@ -23,6 +23,8 @@ import { WeekResults } from "./SeasonResults";
  * January everybody watches everything, and a GM whose season ended in week
  * twelve is still in the league and still reading.
  */
+const NEXT_ROUND: Partial<Record<PlayoffRound, PlayoffRound>> = { WC: "DIV", DIV: "CONF", CONF: "SB" };
+
 export function PlayoffRoundResults() {
   const { round } = useParams();
   const nav = useNavigate();
@@ -67,6 +69,23 @@ export function PlayoffRoundResults() {
                     <div key={g.id} className="notice" role="status">
                       <strong>{TEAMS_BY_CODE[winner]?.label ?? winner} are the {s.season} champions</strong>
                       {winner === code ? " — that's you." : "."}
+                    </div>
+                  );
+                })}
+            {/* a GM still in it read the score and had to work out what it
+                meant for them */}
+            {r !== "SB" &&
+              code &&
+              slate
+                .filter((g) => g.played && (g.homeTeam === code || g.awayTeam === code) && g.homeScore !== g.awayScore)
+                .slice(0, 1)
+                .map((g) => {
+                  const won = (g.homeTeam === code) === g.homeScore > g.awayScore;
+                  return (
+                    <div key={`you-${g.id}`} className="notice" role="status">
+                      {won
+                        ? `${TEAMS_BY_CODE[code]?.label ?? code} move on — next stop, the ${roundLabelFor(s.bracket, NEXT_ROUND[r] ?? "SB")}.`
+                        : `${TEAMS_BY_CODE[code]?.label ?? code}'s season ends here.`}
                     </div>
                   );
                 })}

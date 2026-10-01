@@ -352,8 +352,27 @@ async function seedNews(client: OnlineLeagueClient, leagueId: string): Promise<v
   announce();
 }
 
-/** Fetch the league again. The server's copy always wins. */
-export async function pull(opts: { ifChanged?: boolean } = {}): Promise<LeagueState | null> {
+/**
+ * Fetch the league again. The server's copy always wins.
+ *
+ * A full fetch already in flight is shared rather than repeated: every action
+ * fetched the league as it returned, and the stream's frame for that same
+ * change — arriving in the same instant — fetched it again, so each click
+ * downloaded the whole league twice.
+ */
+let fullPull: { session: OnlineSession; promise: Promise<LeagueState | null> } | null = null;
+export function pull(opts: { ifChanged?: boolean } = {}): Promise<LeagueState | null> {
+  if (opts.ifChanged) return pullOnce(opts);
+  if (fullPull && fullPull.session === session) return fullPull.promise;
+  const mine = { session: session!, promise: pullOnce(opts) };
+  fullPull = mine;
+  void mine.promise.catch(() => undefined).finally(() => {
+    if (fullPull === mine) fullPull = null;
+  });
+  return mine.promise;
+}
+
+async function pullOnce(opts: { ifChanged?: boolean }): Promise<LeagueState | null> {
   const s = session;
   if (!s) return null;
   let got: Awaited<ReturnType<typeof s.client.loadIfChanged>>;
@@ -415,8 +434,14 @@ export async function send<T>(
   act: (s: OnlineSession) => Promise<T>,
 ): Promise<{ result: T; state: LeagueState | null }> {
   if (!session) throw new OnlineError("Not in an online league.", 400);
-  const result = await act(session);
-  return { result, state: await pull() };
+  const s = session;
+  const result = await act(s);
+  let state = await pull();
+  // a shared fetch that began before this action landed answers with the
+  // league from before it: take the one after
+  const landed = (result as { version?: string } | null)?.version;
+  if (landed && session === s && Number(s.version) < Number(landed)) state = (await pull()) ?? state;
+  return { result, state };
 }
 
 /**

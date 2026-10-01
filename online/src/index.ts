@@ -294,7 +294,12 @@ get("/leagues/:id", async (ctx) => {
     throw new ActionError("You're not in that league.", 403);
   }
 
-  const state = structuredClone(loaded.state);
+  // Redacted in place: `readLeague` parsed this copy for this request alone.
+  // A deep clone of it was the single slowest step of every pull — longer
+  // than reading the league, ~150-300ms here and far more on a free-tier
+  // CPU — and the only thing it protected is read here, first.
+  const waiting = waitingOn(loaded.state);
+  const state = loaded.state;
   // A live window's bids are sealed until the day resolves; showing another
   // team's offer would turn an auction into a staring contest.
   for (const fa of [state.freeAgency, state.coachingHire]) {
@@ -325,7 +330,7 @@ get("/leagues/:id", async (ctx) => {
   // A block is simulated once, for every game at once, the moment the
   // checkpoint runs — every result already sits in `state.games` (and, in
   // the postseason, `state.bracket`) whether or not anyone has watched that
-  // far. `structuredClone` above copies the whole thing as-is, so without
+  // far. The league as read holds all of it, so without
   // this every GM's own client request was the spoiler: next week's scores
   // and the eventual champion were sitting in the JSON the moment the page
   // loaded, regardless of what the UI chose to render from it. A
@@ -403,7 +408,7 @@ get("/leagues/:id", async (ctx) => {
     // inside it, rather than going back out to the lobby for the code
     inviteCode: commissioner ? loaded.league.inviteCode : null,
     msLeft: timeLeft(loaded),
-    waitingOn: waitingOn(loaded.state),
+    waitingOn: waiting,
   };
 });
 

@@ -241,11 +241,13 @@ function CoachDetailRow({ coach, role }: { coach: Coach; role: CoachRole }) {
         {role === "DC" && coach.tendencyBlitzRate != null ? ` · blitz ${coach.tendencyBlitzRate}%` : ""}
       </>
     ) : role === "MED" ? (
-      <>Injury recovery {pct(recoveryMultiplier(rating))} for every player</>
+      <>Injury recovery {pct(recoveryMultiplier(rating))} for every player, vs an average trainer</>
     ) : (
+      // against an average coach: "development -3%" on its own read as a
+      // hire that made the players worse
       <>
         {group?.join(", ")} · development {pct(developmentMultiplier(rating))} · regression{" "}
-        {pct(regressionMultiplier(rating))}
+        {pct(regressionMultiplier(rating))} vs an average coach
       </>
     );
 

@@ -144,6 +144,7 @@ export function WeekResults({
   onWatch: (gameId: string) => void;
 }) {
   const mine = slate.find((g) => g.homeTeam === code || g.awayTeam === code);
+  const others = slate.filter((g) => g !== mine);
   const myInjuries = (mine?.injuries ?? [])
     .filter((e) => e.team === code)
     .sort((a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0));
@@ -213,9 +214,10 @@ export function WeekResults({
         </>
       )}
 
-      <p className="subhead">Around the league</p>
+      {/* your own game is the card above; it was listed here a second time */}
+      {others.length > 0 && <p className="subhead">Around the league</p>}
       <div className="scroll-list short">
-        {slate.map((g) => {
+        {others.map((g) => {
           const homeWon = g.homeScore > g.awayScore;
           const awayWon = g.awayScore > g.homeScore;
           const openable = hasBoxScore(g);

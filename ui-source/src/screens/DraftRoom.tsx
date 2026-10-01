@@ -118,8 +118,12 @@ export function DraftRoom() {
   // how many picks a GM makes before the board completes itself
   // (`draftThresholdMet`): one round of the rookie draft, or the
   // commissioner's number in a fantasy draft — none when it's all by hand
+  // (a rookie first round is every first-round pick a team holds — a GM who
+  // traded for a second one makes both by hand)
   const handPicks: number | null =
-    mode === "rookie" ? 1 : s.config.draftSimulateAfterPicks ?? null;
+    mode === "rookie"
+      ? (draft?.pickOrder ?? []).slice(0, Object.keys(s.teams).length).filter((c) => c === code).length
+      : (s.config.draftSimulateAfterPicks ?? null);
   const complete = draft ? draft.currentPickIndex >= draft.pickOrder.length : false;
   // how much hand-drafting this GM still owes before the board finishes itself
   const threshold = s.config.draftSimulateAfterPicks;
@@ -289,6 +293,10 @@ export function DraftRoom() {
           (() => {
             if (complete || yourPick || !code)
               return { label: "Your picks", value: handPicks != null && !complete ? `${myResults.length} of ${handPicks}` : myResults.length };
+            // every hand pick made: the rest are the automatic draft's, and
+            // "your next pick #37 · 14 away" promised a turn that never comes
+            if (handPicks != null && myResults.length >= handPicks)
+              return { label: "Your picks", value: `${myResults.length} — the rest are automatic`, className: "sm" };
             const next = draft.pickOrder.indexOf(code, draft.currentPickIndex);
             return next < 0
               ? { label: "Your next pick", value: "None left", className: "sm" }
@@ -305,9 +313,9 @@ export function DraftRoom() {
           the draft over and fifteen players they never chose */}
       {handPicks != null && !complete && (
         <p style={{ margin: "0 26px 10px", fontSize: 12, color: "var(--ink-faint)" }}>
-          Each GM makes {handPicks === 1 ? "one pick" : `${handPicks} picks`} by hand
-          {mode === "rookie" ? " — the first round" : ""}. Once everyone has, the rest of the draft is made
-          automatically{mode === "rookie" ? "" : ", for every team"}.
+          {mode === "rookie"
+            ? `The first round is picked by hand${handPicks === 1 ? " — you have one pick in it" : handPicks ? ` — you have ${handPicks} picks in it` : " — you have no pick in it"}. After it, the rest of the draft is made automatically.`
+            : `Each GM makes ${handPicks === 1 ? "one pick" : `${handPicks} picks`} by hand. Once everyone has, the rest of the draft is made automatically, for every team.`}
         </p>
       )}
       <Tabs

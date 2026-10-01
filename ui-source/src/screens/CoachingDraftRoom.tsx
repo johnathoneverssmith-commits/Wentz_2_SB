@@ -198,6 +198,7 @@ export function CoachingDraftRoom() {
           <button
             type="button"
             className={roleFilter === "ALL" ? "active" : ""}
+            aria-pressed={roleFilter === "ALL"}
             onClick={() => setRoleFilter("ALL")}
           >
             All
@@ -207,6 +208,10 @@ export function CoachingDraftRoom() {
               key={r}
               type="button"
               className={roleFilter === r ? "active" : ""}
+              aria-pressed={roleFilter === r}
+              // "MED", "DC", "ST" read aloud as letters
+              aria-label={COACH_ROLE_LABEL[r]}
+              title={COACH_ROLE_LABEL[r]}
               // a job you have filled is not a job you can draft for
               disabled={!openVacancies.has(r)}
               onClick={() => setRoleFilter(r)}

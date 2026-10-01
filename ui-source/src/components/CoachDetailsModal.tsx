@@ -91,7 +91,7 @@ export function CoachDetailsModal({ coach, onClose }: { coach: Coach; onClose: (
               actually does to a player between seasons. */}
           {group && group.length > 0 && (
             <>
-              <p className="subhead">What he does</p>
+              <p className="subhead">What he does, vs an average coach</p>
               <div className="split-3" style={{ gap: "6px 12px", marginBottom: 10 }}>
                 <Stat label="Development" text={pct(developmentMultiplier(ratingOf(coach)))} />
                 <Stat label="Regression" text={pct(regressionMultiplier(ratingOf(coach)))} />
@@ -102,7 +102,7 @@ export function CoachDetailsModal({ coach, onClose }: { coach: Coach; onClose: (
           )}
           {coach.role === "MED" && (
             <>
-              <p className="subhead">What he does</p>
+              <p className="subhead">What he does, vs an average trainer</p>
               <div className="split-3" style={{ gap: "6px 12px", marginBottom: 10 }}>
                 <Stat label="Injury recovery" text={pct(recoveryMultiplier(ratingOf(coach)))} />
               </div>

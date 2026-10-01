@@ -30,6 +30,9 @@ export function TurnAlerts({
   offers?: number;
 }) {
   const [on, setOn] = useState(readOn);
+  // a browser that has the API but won't let a page use it (Android Chrome
+  // wants a service worker) — the switch said "on" and nothing ever came
+  const [unusable, setUnusable] = useState(false);
   const was = useRef(yourTurn);
   const offersWere = useRef(offers);
 
@@ -72,6 +75,18 @@ export function TurnAlerts({
     if (next && Notification.permission !== "granted") {
       next = (await Notification.requestPermission()) === "granted";
     }
+    if (next) {
+      // one now, so switching it on is seen to work
+      try {
+        new Notification("Turn alerts are on — Franchise Sim", {
+          body: "You'll get one when it's your turn and this tab is in the background.",
+          tag: "fs-test",
+        });
+      } catch {
+        next = false;
+        setUnusable(true);
+      }
+    }
     setOn(next);
     try {
       localStorage.setItem(KEY, next ? "on" : "off");
@@ -80,6 +95,13 @@ export function TurnAlerts({
     }
   };
 
+  if (unusable) {
+    return (
+      <span className="turnalerts" role="status">
+        This browser can&rsquo;t show turn alerts
+      </span>
+    );
+  }
   const blocked = Notification.permission === "denied";
   return (
     <button

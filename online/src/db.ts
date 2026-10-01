@@ -205,6 +205,9 @@ export async function withLeague<T>(
     }
 
     const next = out.state;
+    // serialised once, here: it is both what gets written and what the
+    // league's next readers are handed (see `leagueText`)
+    const nextText = JSON.stringify(next);
     const updated = await client.query<{ version: string }>(
       `UPDATE league_state
           SET state = $2, version = version + 1, season = $3, stage = $4, week = $5,
@@ -213,7 +216,7 @@ export async function withLeague<T>(
         RETURNING version`,
       [
         leagueId,
-        next,
+        nextText,
         next.season,
         next.stage,
         next.week,
@@ -233,6 +236,9 @@ export async function withLeague<T>(
     }
 
     await client.query("COMMIT");
+    leagueText.delete(leagueId);
+    leagueText.set(leagueId, { version: newVersion, text: nextText });
+    if (leagueText.size > LEAGUE_TEXT_KEPT) leagueText.delete(leagueText.keys().next().value!);
     for (const fn of commitListeners) {
       try {
         fn(leagueId, newVersion);
@@ -250,17 +256,53 @@ export async function withLeague<T>(
 }
 
 /** Read-only view of a league, for screens that aren't changing anything. */
+/**
+ * The league document as text, by version — the last few leagues read.
+ *
+ * Every change sends every GM in the league to fetch the same new version,
+ * and each fetch pulled ~2MB of JSON out of the database (over the network,
+ * from a hosted Postgres) and parsed it. The version is one small column, so
+ * a read asks for that first and reuses the text it already has. A version
+ * that moved on simply misses.
+ */
+const leagueText = new Map<string, { version: string; text: string }>();
+const LEAGUE_TEXT_KEPT = 16;
+
 export async function readLeague(leagueId: string): Promise<LoadedLeague | null> {
-  const rows = await pool.query(
-    `SELECT s.state, s.version, s.phase_ends_at,
+  const meta = await pool.query<{
+    version: string;
+    phase_ends_at: Date | null;
+    name: string;
+    commissioner: string;
+    invite_code: string;
+    phase_timeout_hours: number;
+    pick_timeout_hours: number;
+  }>(
+    `SELECT s.version, s.phase_ends_at,
             l.name, l.commissioner, l.invite_code,
             l.phase_timeout_hours, l.pick_timeout_hours
        FROM league_state s JOIN leagues l ON l.id = s.league_id
       WHERE s.league_id = $1`,
     [leagueId],
   );
-  const row = rows.rows[0];
+  const row = meta.rows[0];
   if (!row) return null;
+  let text = leagueText.get(leagueId)?.version === row.version ? leagueText.get(leagueId)!.text : null;
+  if (text === null) {
+    const doc = await pool.query<{ state: string; version: string }>(
+      `SELECT state::text AS state, version FROM league_state WHERE league_id = $1`,
+      [leagueId],
+    );
+    const got = doc.rows[0];
+    if (!got) return null;
+    text = got.state;
+    // the league may have moved between the two reads: keep what was read
+    // with the version it was read at
+    row.version = got.version;
+    leagueText.delete(leagueId);
+    leagueText.set(leagueId, { version: got.version, text });
+    if (leagueText.size > LEAGUE_TEXT_KEPT) leagueText.delete(leagueText.keys().next().value!);
+  }
   return {
     league: {
       id: leagueId,
@@ -270,7 +312,7 @@ export async function readLeague(leagueId: string): Promise<LoadedLeague | null>
       phaseTimeoutHours: row.phase_timeout_hours,
       pickTimeoutHours: row.pick_timeout_hours,
     },
-    state: upgraded(row.state),
+    state: upgraded(JSON.parse(text) as LeagueState),
     version: row.version,
     phaseEndsAt: row.phase_ends_at,
   };
