@@ -380,7 +380,9 @@ export function OnlineLobby() {
                       <button
                         type="button"
                         className="btnlink"
-                        style={{ padding: 0, font: "inherit", textAlign: "left", color: "inherit" }}
+                        // a 16px-tall line under a thumb: the padding is the tap
+                        // area, the margin takes it back so the text sits as before
+                        style={{ padding: "8px 0", margin: "-8px 0", font: "inherit", textAlign: "left", color: "inherit" }}
                         disabled={busy || !l.teamCode}
                         onClick={() => void open(l.id, item.href || "/")}
                       >

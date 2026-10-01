@@ -14,7 +14,13 @@ export function LeagueHistory() {
   const s = useStore();
   const humans = s.gms.filter((g) => g.isHuman);
   const tracker = buildScoreTracker(s);
-  const leaderName = tracker.leader ? s.gms.find((g) => g.id === tracker.leader!.gmId)?.name ?? "—" : "—";
+  // level on points: naming whoever sorted first made a tie read as a lead
+  const leaders = tracker.leader
+    ? [...tracker.cumulative.entries()].filter(([, total]) => total === tracker.leader!.total).map(([id]) => id)
+    : [];
+  const nameOf = (id: string) => (id === s.viewerGmId ? "You" : (s.gms.find((g) => g.id === id)?.name ?? "—"));
+  const leaderName =
+    leaders.length === 0 ? "—" : leaders.length === 1 ? nameOf(leaders[0]!) : `Tied: ${leaders.map(nameOf).join(", ")}`;
 
   return (
     <Card maxWidth={860}>
@@ -25,7 +31,7 @@ export function LeagueHistory() {
           { label: "Human GMs", value: humans.length },
           {
             label: "Current leader",
-            value: tracker.leader?.gmId === s.viewerGmId ? "You" : leaderName,
+            value: leaderName,
             className: "accent sm",
           },
           { label: "Leader points", value: points(tracker.leader?.total ?? 0) },

@@ -13,6 +13,7 @@ import {
   capUsed,
   checkRelease,
   isReconciled,
+  positionalMinimums,
   reconciliationIssues,
   planStaffTrim,
   releasePenalty,
@@ -77,6 +78,14 @@ export function FreeAgencySummary() {
     .map(([playerId]) => playerId);
 
   const roster = rosterOf(s, code);
+  // weakest first put four cornerbacks in a row at the top: release them all
+  // and the roster read "legal" with no backup left at the position. Say so
+  // on the release that leaves only the starters.
+  const positionCount = new Map<string, number>();
+  for (const p of roster) positionCount.set(p.position, (positionCount.get(p.position) ?? 0) + 1);
+  const minimums = positionalMinimums();
+  const lastBackup = (pos: string): boolean =>
+    (minimums[pos] ?? 0) > 0 && (positionCount.get(pos) ?? 0) - 1 === minimums[pos];
   // the fill is written as the market's last round closes — so a line older
   // than that round is last year's, still in the kept news
   const news = recentNews();
@@ -338,6 +347,9 @@ export function FreeAgencySummary() {
                     {can.ok
                       ? ` · releasing frees ${millions(Math.round(((p.contract?.cap_hit_by_year[0] ?? 0) - releasePenalty(p)) * 10) / 10)} (${millions(releasePenalty(p))} dead)`
                       : ` · ${can.reason}`}
+                    {can.ok && lastBackup(p.position) && (
+                      <strong style={{ color: "var(--bad)" }}> · leaves no backup {p.position}</strong>
+                    )}
                   </p>
                 </div>
                 <div className="lobby-actions">

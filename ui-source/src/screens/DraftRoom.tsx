@@ -163,7 +163,7 @@ export function DraftRoom() {
         // Ordered the way the league values players, not by raw overall.
         // Sorting on `overall` alone put a 95 kicker at the top of a 640-pick
         // board, level with Lamar Jackson and Micah Parsons, while the app's
-        // own evaluator — the "best fit for your roster" suggestion right
+        // own evaluator — the suggested pick ("the AI would take") right
         // above this table — correctly had the quarterback first. That is the
         // same complaint that got the old "Projected" column deleted: its
         // ranking was "based on overall rating rather than position-adjusted
@@ -357,7 +357,11 @@ export function DraftRoom() {
               {suggested ? (
                 <>
                   {" "}
-                  — {suggested.id === topTarget ? "your top target" : "best fit for your roster"}:{" "}
+                  {/* not "best fit": that's the sort below, by what a player adds to
+                      your starting units, and it tagged this pick a "Minor upgrade"
+                      beside three Major ones. This is value at the position,
+                      weighed against your needs — the pick the AI would make. */}
+                  — {suggested.id === topTarget ? "your top target" : "the AI would take"}:{" "}
                   <strong style={{ color: "var(--ink)" }}>{suggested.name}</strong>{" "}
                   <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
                     ({suggested.position}, {suggested.ovr} {mode === "rookie" ? "grade" : "OVR"})

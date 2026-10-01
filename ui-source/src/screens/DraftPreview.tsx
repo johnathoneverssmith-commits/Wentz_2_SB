@@ -9,7 +9,7 @@ import { ReadinessGate } from "@/components/ReadinessGate";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { picksOwnedBy } from "@/state/draftPicks";
+import { DRAFT_ROUNDS, picksOwnedBy } from "@/state/draftPicks";
 import { projectedRookieRange } from "@/sim/draft-outcomes";
 import { useStore } from "@/state/store";
 import { draftTargetsFor } from "@/state/rules";
@@ -35,6 +35,21 @@ export function DraftPreview() {
       [...s.draftClass].sort((a, b) => a.projectedRound - b.projectedRound || b.collegeOverall - a.collegeOverall),
     [s.draftClass],
   );
+
+  // The class is projected against a 32-team draft. In a humans-only league
+  // of four, "Top 10" and "Mid Round 1" were both a pick nobody would get
+  // to make; there the board rank and the round it falls in *this* league's
+  // draft are what mean something.
+  const teamCount = Object.keys(s.teams).length;
+  const projected = useMemo(() => {
+    const rank = new Map(prospects.map((p, i) => [p.id, i + 1]));
+    return (p: (typeof prospects)[number]): string => {
+      if (teamCount === 32) return p.projectedRange;
+      const r = rank.get(p.id) ?? 0;
+      const round = Math.ceil(r / Math.max(1, teamCount));
+      return round <= DRAFT_ROUNDS ? `Round ${round} · #${r}` : `Undrafted · #${r}`;
+    };
+  }, [prospects, teamCount]);
 
   const myRoster = useMemo(() => (code ? teamRoster(s, code) : []), [s, code]);
   const market = useListFilter(prospects, 120);
@@ -127,7 +142,7 @@ export function DraftPreview() {
                       </p>
                     </div>
                     <OvrPill value={p.collegeOverall} />
-                    <span className="pcell" style={{ fontSize: 11 }}>{p.projectedRange}</span>
+                    <span className="pcell" style={{ fontSize: 11 }}>{projected(p)}</span>
                   </>
                 }
                 detail={
@@ -147,7 +162,7 @@ export function DraftPreview() {
                       </div>
                       <div>
                         <p>Projected</p>
-                        <p style={{ fontSize: 12 }}>{p.projectedRange}</p>
+                        <p style={{ fontSize: 12 }}>{projected(p)}</p>
                       </div>
                     </div>
                     <p className="blurb">{p.scoutingNote}</p>
@@ -173,7 +188,7 @@ export function DraftPreview() {
                 {p.name} <span className="ppos">{p.position}</span>
               </span>
               <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>
-                {p.school} · {p.projectedRange}
+                {p.school} · {projected(p)}
               </span>
             </div>
           ))

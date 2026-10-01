@@ -15,11 +15,13 @@
  * arrives the same way any other change does: pushed.
  */
 import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { openSlots as countOpenSlots, rosterGate } from "@/state/rules";
 import { lastLeagueId, onlineSession } from "@/state/online";
 import { CopyButton } from "@/components/CopyButton";
-import { STAGE_READY_LABEL } from "@/state/stageMachine";
+import { currentScreen, STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
+import { stepOf } from "@/state/reveal";
 import { isInSeason, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
@@ -129,6 +131,33 @@ export function ReadinessGate({
     }, 300);
     return () => clearTimeout(t);
   }, [allReady, action, tryAdvance, online]);
+
+  // An old stage's screen, opened again (the back button, a link from the
+  // history) after the league moved on: its gate showed the *current*
+  // stage's button — "Ready to advance to the draft" under last season's
+  // results — and checked the GM into a stage they had never looked at.
+  const { pathname } = useLocation();
+  const goTo = useNavigate();
+  const step = useStore((s) => stepOf(s, s.viewerGmId));
+  const here = currentScreen(stage, step);
+  const elsewhere =
+    online &&
+    pathname !== here.route &&
+    pathname !== STAGE_HOME[stage] &&
+    Object.values(STAGE_HOME).includes(pathname);
+  if (elsewhere) {
+    return (
+      <div className="readiness">
+        <div className="readiness-top">
+          <p>The league has moved on</p>
+          <span>It&rsquo;s at {here.label} now</span>
+        </div>
+        <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => goTo(here.route)}>
+          Go to {here.label}
+        </button>
+      </div>
+    );
+  }
 
   const waiting = humans.length - readyCount;
   // everyone else is in: this press is the one that moves the league

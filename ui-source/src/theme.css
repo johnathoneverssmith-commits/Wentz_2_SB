@@ -1532,6 +1532,12 @@ table.mtable td.val {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+/* "Manage GMs" broke over two lines beside Open and Archive on a phone; the
+ * row wraps whole buttons instead */
+.lobby-actions button {
+  white-space: nowrap;
 }
 
 /* the team picker, dropped under the league row that asked for it */
@@ -2004,4 +2010,18 @@ input[type="range"]::-moz-range-thumb {
 .neg-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* ---- touch screens: no zoom on focus -------------------------------- */
+/* iOS Safari zooms the page in on any field under 16px when it's tapped,
+ * and leaves it zoomed — a GM typing a salary offer or a name search was
+ * then panning sideways around the board. 16px only where the pointer is a
+ * finger; the desktop sizes stay. (Important because several fields set
+ * their size by class.) */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }

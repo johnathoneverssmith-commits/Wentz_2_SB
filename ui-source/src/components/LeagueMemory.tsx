@@ -71,7 +71,8 @@ export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: strin
           {records.map((r) => (
             <div key={r.stat} style={row}>
               <span style={{ color: "var(--ink-faint)", minWidth: 170 }}>{RECORD_LABEL[r.stat]}</span>
-              <strong>{r.value}</strong>
+              {/* "5231" here and "10,204" in the career list below */}
+              <strong>{r.value.toLocaleString("en-US")}</strong>
               <span>
                 {r.name} · {abbr(r.team)} · {r.season}
               </span>

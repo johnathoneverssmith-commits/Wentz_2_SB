@@ -50,12 +50,15 @@ function defenseScore(st: PlayerStatLine): number {
   return n(st.sacks) * 5 + n(st.defInt) * 7 + n(st.tackles) * 0.45 + n(st.passDef) * 1.5 + n(st.ffum) * 4 + n(st.defTd) * 6;
 }
 
+// "5,231 pass yds", the way every other yardage in the game reads
+const yds = (v: number) => v.toLocaleString("en-US");
+
 function lineFor(p: Player, st: PlayerStatLine): string {
-  if (p.position === "QB") return `${n(st.passYds)} pass yds, ${n(st.passTd)} TD, ${n(st.passInt)} INT`;
+  if (p.position === "QB") return `${yds(n(st.passYds))} pass yds, ${n(st.passTd)} TD, ${n(st.passInt)} INT`;
   if (OFFENSE.has(p.position)) {
     const rush = n(st.rushYds);
     const rec = n(st.recYds);
-    return rush >= rec ? `${rush} rush yds, ${n(st.rushTd)} TD` : `${n(st.rec)} rec, ${rec} yds, ${n(st.recTd)} TD`;
+    return rush >= rec ? `${yds(rush)} rush yds, ${n(st.rushTd)} TD` : `${n(st.rec)} rec, ${yds(rec)} yds, ${n(st.recTd)} TD`;
   }
   return `${n(st.tackles)} tkl, ${n(st.sacks)} sacks, ${n(st.defInt)} INT`;
 }
