@@ -1,4 +1,4 @@
-import { CopyButton } from "@/components/CopyButton";
+import { CopyButton, inviteLink } from "@/components/CopyButton";
 import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -142,7 +142,8 @@ export function LeagueSetup() {
                 <span className="oswald" style={{ letterSpacing: "0.08em" }}>
                   {onlineSession()!.inviteCode}
                 </span>{" "}
-                <CopyButton text={onlineSession()!.inviteCode!} />
+                <CopyButton text={onlineSession()!.inviteCode!} /> ·{" "}
+                <CopyButton text={inviteLink(onlineSession()!.inviteCode!)} label="Copy invite link" />
               </>
             )}
           </div>

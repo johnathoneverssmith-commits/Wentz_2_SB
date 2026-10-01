@@ -183,9 +183,6 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   offseasonRetirement: { from: "Draft Preview", to: "Rookie Draft" },
   trainingCamp: { from: "Training Camp", to: "Re-order Depth Chart" },
   trainingCampResults: { from: "Training Camp", to: "Re-order Depth Chart" },
-  // every seat taken and one GM never checking in: the setup screen's force
-  // only appears while seats are empty, so the league could not start at all
-  setup: { from: "League Setup", to: "the first draft" },
 };
 
 /**
@@ -203,6 +200,7 @@ function useCheckpoint(): { from: string; to: string } | null {
   const viewerGmId = useStore((s) => s.viewerGmId);
   const block = useStore(currentBlock);
   const gms = useStore((s) => s.gms);
+  const fantasy = useStore((s) => s.config.fantasyDraft);
   if (!isOnline()) return null;
   if (!readiness[viewerGmId]) return null;
   // with seats still empty the setup screen's own "start without them" is the
@@ -212,6 +210,10 @@ function useCheckpoint(): { from: string; to: string } | null {
   // a checkpoint too, and which one depends on the block rather than on the
   // stage — `regularSeason` is the stage on both sides of the trade deadline.
   if (block) return block.checkpoint;
+  // Setup, once every seat is taken: one GM never checking in otherwise held
+  // the league with no lever (the setup screen's force appears only while
+  // seats are empty). Its next stage depends on the settings.
+  if (stage === "setup") return { from: "League Setup", to: fantasy ? "Fantasy Draft" : "Coaching Draft" };
   return CHECKPOINTS[stage] ?? null;
 }
 

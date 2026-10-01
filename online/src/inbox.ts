@@ -54,6 +54,8 @@ export interface InboxFacts {
   ready: boolean;
   /** Other human GMs who haven't checked in — "everyone is waiting on you" only when it's none. */
   othersPending: number;
+  /** Their names, so the line can say who rather than how many. */
+  othersPendingNames: string[];
   /** Human seats nobody has claimed yet. */
   openSeats: number;
   capUsed: number;
@@ -113,6 +115,9 @@ export function factsFromState(
       .map((t) => t.fromTeam),
     ready: !!state.readiness[gmId],
     othersPending: state.gms.filter((g) => g.isHuman && g.teamCode && g.id !== gmId && !state.readiness[g.id]).length,
+    othersPendingNames: state.gms
+      .filter((g) => g.isHuman && g.teamCode && g.id !== gmId && !state.readiness[g.id])
+      .map((g) => g.name),
     openSeats: Math.max(0, (state.config.humanGmCount ?? 0) - state.gms.filter((g) => g.isHuman && g.teamCode).length),
     capUsed: cap?.used ?? 0,
     capTotal: cap?.total ?? 0,
@@ -143,6 +148,7 @@ export async function inboxFacts(
     offered_by: string[] | null;
     ready: boolean;
     others_pending: string;
+    others_pending_names: string[] | null;
     open_seats: string;
     cap_used: string | null;
     cap_total: string | null;
@@ -166,6 +172,11 @@ export async function inboxFacts(
            AND COALESCE(g->>'teamCode', '') <> ''
            AND g->>'id' <> $3
            AND NOT COALESCE((s.state->'readiness'->>(g->>'id'))::boolean, false)) AS others_pending,
+       ARRAY(SELECT g->>'name' FROM jsonb_array_elements(s.state->'gms') AS g
+         WHERE COALESCE((g->>'isHuman')::boolean, false)
+           AND COALESCE(g->>'teamCode', '') <> ''
+           AND g->>'id' <> $3
+           AND NOT COALESCE((s.state->'readiness'->>(g->>'id'))::boolean, false)) AS others_pending_names,
        GREATEST(0, COALESCE((s.state->'config'->>'humanGmCount')::int, 0)
          - (SELECT count(*) FROM jsonb_array_elements(s.state->'gms') AS g
              WHERE COALESCE((g->>'isHuman')::boolean, false)
@@ -216,6 +227,7 @@ export async function inboxFacts(
     offeredBy: r.offered_by ?? [],
     ready: r.ready,
     othersPending: Number(r.others_pending),
+    othersPendingNames: r.others_pending_names ?? [],
     openSeats: Number(r.open_seats),
     capUsed: Number(r.cap_used ?? 0),
     capTotal: Number(r.cap_total ?? 0),
@@ -285,9 +297,28 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
       detail:
         facts.othersPending === 0
           ? "Everyone else has checked in — the league is waiting on you."
-          : `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
+          : // who, when there are only a few — a GM can chase a name
+            facts.othersPendingNames.length > 0 && facts.othersPendingNames.length <= 3
+            ? `${facts.othersPendingNames.join(", ")} ${facts.othersPendingNames.length === 1 ? "hasn't" : "haven't"} checked in yet either.`
+            : `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
       href: "/",
       urgency: "soon",
+    });
+  }
+
+  // checked in and waiting: the row said nothing at all, which a GM looking
+  // in to see where things stood couldn't tell from "nothing to do here"
+  else if (facts.ready && facts.othersPending > 0 && !TURN_STAGES.has(facts.stage)) {
+    const names = facts.othersPendingNames;
+    items.push({
+      kind: "ready",
+      title: "You're checked in.",
+      detail:
+        names.length > 0 && names.length <= 3
+          ? `Waiting on ${names.join(", ")}.`
+          : `Waiting on ${facts.othersPending} other GMs.`,
+      href: "/",
+      urgency: "whenever",
     });
   }
 

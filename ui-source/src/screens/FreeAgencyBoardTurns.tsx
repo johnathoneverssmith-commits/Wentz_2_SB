@@ -441,6 +441,8 @@ function OfferDialog({
           <span>Salary ($M/yr)</span>
           <input
             type="number"
+            // a phone's decimal keypad, not the full keyboard's number row
+            inputMode="decimal"
             min={0.1}
             step={0.1}
             value={salary}

@@ -1,9 +1,9 @@
-import { CopyButton } from "@/components/CopyButton";
+import { CopyButton, inviteLink } from "@/components/CopyButton";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { humansOnlyLeagueSize, playoffFieldSize, seasonShapeFor } from "@/state/leagueFormat";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -59,7 +59,9 @@ const stageName = (stage: string): string => STAGE_LABEL[stage as Stage] ?? stag
 
 export function OnlineLobby() {
   const nav = useNavigate();
-  const { active, setActive } = useTabs("leagues");
+  // an invite link: open on the Join tab with its code ready
+  const invited = (useSearchParams()[0].get("invite") ?? "").trim().toUpperCase();
+  const { active, setActive } = useTabs(invited ? "join" : "leagues");
   const [claiming, setClaiming] = useState<{ leagueId: string; teams: string[] } | null>(null);
 
   const [user, setUser] = useState<OnlineUser | null>(null);
@@ -227,6 +229,7 @@ export function OnlineLobby() {
   if (!user) {
     return (
       <SignIn
+        invited={!!invited}
         busy={busy}
         error={error}
         onDone={async (u) => {
@@ -279,7 +282,7 @@ export function OnlineLobby() {
           </span>
         }
       />
-      {changingPassword && <ChangePassword onDone={() => setChangingPassword(false)} />}
+      {changingPassword && <ChangePassword userName={user.name} onDone={() => setChangingPassword(false)} />}
       <Ticker
         stats={[
           { label: "Your leagues", value: leagues.length },
@@ -358,7 +361,8 @@ export function OnlineLobby() {
                       <span className="oswald" style={{ fontSize: 14, letterSpacing: "0.08em" }}>
                         {l.inviteCode}
                       </span>{" "}
-                      <CopyButton text={l.inviteCode} />{" "}
+                      <CopyButton text={l.inviteCode} /> ·{" "}
+                      <CopyButton text={inviteLink(l.inviteCode)} label="Copy invite link" />{" "}
                       — send it to the other GMs; they register, then enter it under Join a League.
                     </p>
                   )}
@@ -471,6 +475,7 @@ export function OnlineLobby() {
 
       <Panel id="join" open={active === "join"}>
         <JoinByInvite
+          initialCode={invited}
           mine={leagues.map((l) => l.id)}
           busy={busy}
           attempt={attempt}
@@ -531,12 +536,15 @@ export function OnlineLobby() {
 type Attempt = (run: () => Promise<void>) => Promise<void>;
 
 function SignIn({
+  invited = false,
   busy,
   error,
   onDone,
   attempt,
   onBack,
 }: {
+  /** Arrived on an invite link: say so, and that an account comes first. */
+  invited?: boolean;
   busy: boolean;
   error: string | null;
   onDone: (u: OnlineUser) => Promise<void>;
@@ -567,6 +575,12 @@ function SignIn({
         subtitle="One league, one team, played over months"
       />
       <div className="panel open">
+        {invited && (
+          <div className="notice" role="status">
+            You&rsquo;ve been invited to a league. Sign in — or create an account if you&rsquo;re new — and
+            you&rsquo;ll be taken straight to it to pick your team.
+          </div>
+        )}
         {error && (
           <div className="notice bad" role="status">
             {error}
@@ -628,7 +642,9 @@ function SignIn({
             ? "Your name is how other GMs in the league will see you. Passwords need at least 8 characters."
             : mode === "reset"
               ? "Accounts have no email, so resets go through your league's commissioner: ask them for a code. It works once, for 24 hours, and signs you out everywhere else."
-              : "No account yet? You'll need one before you can be invited to a league."}
+              : invited
+                ? "No account yet? Create one below — it takes a name and a password."
+                : "No account yet? You'll need one before you can be invited to a league."}
         </p>
       </div>
       <Footer>
@@ -653,7 +669,7 @@ function SignIn({
 }
 
 /** A new password; every other device signed in to this account is signed out. */
-function ChangePassword({ onDone }: { onDone: () => void }) {
+function ChangePassword({ onDone, userName }: { onDone: () => void; userName: string }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [busy, setBusy] = useState(false);
@@ -689,6 +705,18 @@ function ChangePassword({ onDone }: { onDone: () => void }) {
           submit();
         }}
       >
+        {/* a password manager files a changed password under a username, and
+            this form had none for it to find — so the new one was saved as a
+            nameless entry, or not at all */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          value={userName}
+          readOnly
+          hidden
+          aria-hidden="true"
+        />
         <label>
           <span>Current password</span>
           <input
@@ -717,21 +745,30 @@ function ChangePassword({ onDone }: { onDone: () => void }) {
 }
 
 function JoinByInvite({
+  initialCode = "",
   busy,
   attempt,
   onJoined,
   mine = [],
 }: {
+  /** From an invite link: filled in and looked up straight away. */
+  initialCode?: string;
   busy: boolean;
   attempt: Attempt;
   onJoined: (leagueId: string) => Promise<void>;
   /** Leagues this account is already in. */
   mine?: string[];
 }) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(initialCode);
   const [found, setFound] = useState<{ league: { id: string; name: string }; openTeams: string[] } | null>(
     null,
   );
+  const lookedUp = useRef(false);
+  useEffect(() => {
+    if (!initialCode || lookedUp.current) return;
+    lookedUp.current = true;
+    void attempt(async () => setFound(await client.lookUpInvite(initialCode)));
+  }, [initialCode, attempt]);
 
   return (
     <>
@@ -1086,7 +1123,7 @@ function CreateLeague({
           <span className="oswald" style={{ fontSize: 16, letterSpacing: "0.08em" }}>
             {invite}
           </span>{" "}
-          <CopyButton text={invite} />
+          <CopyButton text={invite} /> · <CopyButton text={inviteLink(invite)} label="Copy invite link" />
           . It stays on the league under <em>Your Leagues</em>, so you can come back for it —
           and that is where you pick your own team.
         </div>

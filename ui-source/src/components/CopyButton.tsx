@@ -8,7 +8,15 @@ import { useEffect, useState } from "react";
  * with no clipboard API at all) a GM pressed it, pasted nothing, and had no
  * idea why. Now it says "Copied", or that they'll need to select the code.
  */
-export function CopyButton({ text, className = "btnlink sm" }: { text: string; className?: string }) {
+export function CopyButton({
+  text,
+  className = "btnlink sm",
+  label = "Copy",
+}: {
+  text: string;
+  className?: string;
+  label?: string;
+}) {
   const [state, setState] = useState<"ok" | "failed" | null>(null);
   // a new code is a new copy
   useEffect(() => setState(null), [text]);
@@ -27,7 +35,18 @@ export function CopyButton({ text, className = "btnlink sm" }: { text: string; c
         );
       }}
     >
-      {state === "ok" ? "Copied" : state === "failed" ? "Couldn't copy — select the code" : "Copy"}
+      {state === "ok" ? "Copied" : state === "failed" ? "Couldn't copy — select the code" : label}
     </button>
   );
+}
+
+/**
+ * A link that opens the lobby's Join tab with the code filled in.
+ *
+ * Inviting someone meant sending eight characters and directions to the
+ * right tab; a link is one tap. (From the static site's address it forwards
+ * to the league server's with the invite intact — `leagueOrigin.ts`.)
+ */
+export function inviteLink(code: string): string {
+  return `${window.location.origin}/#/online?invite=${encodeURIComponent(code)}`;
 }

@@ -117,6 +117,12 @@ function optional<T>(ctx: Ctx, name: string): T | undefined {
   return body[name] as T | undefined;
 }
 
+/** "a little while" left a locked-out GM guessing; the server knows how long. */
+function tooManyMessage(seconds: number): string {
+  const mins = Math.max(1, Math.ceil(seconds / 60));
+  return `Too many attempts. Try again in ${mins} minute${mins === 1 ? "" : "s"}.`;
+}
+
 /* ---- accounts -------------------------------------------------------- */
 
 /**
@@ -140,7 +146,7 @@ post("/auth/register", async (ctx) => {
   const key = attemptKey(ctx, name);
   if (tooManyAttempts(key)) {
     ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
-    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+    throw new ActionError(tooManyMessage(retryAfterSeconds(key)), 429);
   }
   const user = await register(name, field(ctx, "password", "string"));
   clearAttempts(key);
@@ -153,7 +159,7 @@ post("/auth/login", async (ctx) => {
   const key = attemptKey(ctx, name);
   if (tooManyAttempts(key)) {
     ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
-    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+    throw new ActionError(tooManyMessage(retryAfterSeconds(key)), 429);
   }
   const user = await login(name, field(ctx, "password", "string"));
   if (!user) throw new ActionError("That name and password don't match.", 401);
@@ -170,7 +176,7 @@ post("/auth/password", async (ctx) => {
   const key = attemptKey(ctx, user.name);
   if (tooManyAttempts(key)) {
     ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
-    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+    throw new ActionError(tooManyMessage(retryAfterSeconds(key)), 429);
   }
   await changePassword(user, field(ctx, "current", "string"), field(ctx, "password", "string"));
   clearAttempts(key);
@@ -185,7 +191,7 @@ post("/auth/reset", async (ctx) => {
   const key = attemptKey(ctx, name);
   if (tooManyAttempts(key)) {
     ctx.res.setHeader("Retry-After", String(retryAfterSeconds(key)));
-    throw new ActionError("Too many attempts. Try again in a little while.", 429);
+    throw new ActionError(tooManyMessage(retryAfterSeconds(key)), 429);
   }
   const user = await redeemResetCode(name, field(ctx, "code", "string"), field(ctx, "password", "string"));
   if (!user) throw new ActionError("That name and reset code don't match, or the code has expired.", 401);

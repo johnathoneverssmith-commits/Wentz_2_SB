@@ -256,7 +256,7 @@ export function WeeklyTeamHub() {
           className="btnlink jump-next"
           onClick={() => document.getElementById("hub-next")?.scrollIntoView({ behavior: "smooth", block: "center" })}
         >
-          Jump to this week&rsquo;s games ↓
+          Jump to what&rsquo;s next ↓
         </button>
       )}
       <Tabs

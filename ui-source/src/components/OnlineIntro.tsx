@@ -31,10 +31,11 @@ export function OnlineIntro() {
   return (
     <div className="notice" role="note" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
       <strong>How an online league moves.</strong> The league goes stage by stage, and a stage ends when
-      every GM has checked in — there&rsquo;s no clock on that, so it waits for everyone. Drafts, free
-      agency and the trade deadline go one team at a time with a clock; if yours runs out, your staff
-      makes a sensible move for you. Games are played when everyone checks in, and you watch them at your
-      own pace without holding anyone up. The League wire on the left shows what everyone else is doing.{" "}
+      every GM has checked in — there&rsquo;s no clock on that, so it waits for everyone (the
+      commissioner can move it on). Drafts, free agency and the trade deadline go one team at a time with
+      a clock; if yours runs out, your staff makes a sensible move for you. Games are played when everyone
+      checks in, and you watch them at your own pace without holding anyone up. The League wire — beside
+      the page, or in your team hub on a phone — shows what everyone else is doing.{" "}
       <button type="button" className="btnlink sm" onClick={dismiss}>
         Got it
       </button>
