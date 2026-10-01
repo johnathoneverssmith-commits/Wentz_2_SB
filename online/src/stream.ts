@@ -34,8 +34,16 @@ import type { ServerResponse } from "node:http";
 import { onLeagueCommit, pool } from "./db.js";
 import { feed } from "./inbox.js";
 
-/** How often to check for changes this process didn't make itself. */
-const POLL_MS = Number(process.env.STREAM_POLL_MS ?? 5_000);
+/**
+ * How often to check for changes this process didn't make itself.
+ *
+ * One process serves the league, and its own commits — actions and the
+ * deadline sweep alike — reach watchers at once (`onLeagueCommit`). Every
+ * five seconds a query went to the database for as long as any GM had a tab
+ * open, which on a hosted free tier keeps the database from ever sleeping and
+ * spends its compute allowance on a safety net.
+ */
+const POLL_MS = Number(process.env.STREAM_POLL_MS ?? 30_000);
 /** Comment frames, so proxies and load balancers don't reap an idle stream. */
 const HEARTBEAT_MS = 25_000;
 

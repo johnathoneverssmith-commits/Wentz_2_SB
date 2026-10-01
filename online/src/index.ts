@@ -106,7 +106,9 @@ function field<T>(ctx: Ctx, name: string, kind: "string" | "number" | "boolean" 
   const body = (ctx.body ?? {}) as Record<string, unknown>;
   const v = body[name];
   if (typeof v !== kind || v === null) {
-    throw new ActionError(`\`${name}\` is required and must be a ${kind}.`);
+    // a GM sees this when a page left open across a deploy sends an older
+    // shape of request: say what to do, and still name the field
+    throw new ActionError(`That request was missing something (${name}, a ${kind}) — reload the page and try again.`);
   }
   return v as T;
 }

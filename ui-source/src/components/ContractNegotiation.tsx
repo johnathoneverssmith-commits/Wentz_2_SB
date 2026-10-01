@@ -59,7 +59,7 @@ function NegotiationFields({
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {priorities.ranked.map((p, i) => (
           <span key={p} className="prio-chip">
-            {i + 1}. {p}
+            {i + 1}. {p.charAt(0).toUpperCase() + p.slice(1)}
           </span>
         ))}
       </div>
@@ -200,6 +200,8 @@ function NegRow({
   integer?: boolean;
 }) {
   const clamp = (n: number) => Math.min(max, Math.max(min, integer ? Math.round(n) : round1(n)));
+  // what's being typed, until it's done; the steppers always show the value
+  const [draft, setDraft] = useState<string | null>(null);
   return (
     <div className="neg-row">
       <span className="neg-label">{label}</span>
@@ -207,8 +209,27 @@ function NegRow({
         <button type="button" aria-label={`Less ${label.toLowerCase()}`} disabled={value <= min} onClick={() => setValue(clamp(value - step))}>
           −
         </button>
-        <span className="oswald neg-val" aria-live="polite">
-          {integer ? value : value.toFixed(1)}
+        {/* typed as well as stepped: $3.9M to $20M was thirty-two taps */}
+        <span className="oswald neg-val">
+          <input
+            type="number"
+            inputMode={integer ? "numeric" : "decimal"}
+            aria-label={label}
+            className="neg-input"
+            min={min}
+            max={max}
+            step={step}
+            value={draft ?? (integer ? String(value) : value.toFixed(1))}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => {
+              const n = Number(draft);
+              if (draft !== null && draft.trim() !== "" && Number.isFinite(n)) setValue(clamp(n));
+              setDraft(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+          />
           {suffix}
         </span>
         <button type="button" aria-label={`More ${label.toLowerCase()}`} disabled={value >= max} onClick={() => setValue(clamp(value + step))}>

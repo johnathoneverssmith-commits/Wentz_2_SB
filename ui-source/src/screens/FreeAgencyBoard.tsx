@@ -242,11 +242,25 @@ export function FreeAgencyBoard() {
                       priorities={
                         isWindowStage
                           ? playerPriorities(p)
-                          : // in season his price falls week by week (`standingAsk`)
-                            {
-                              ...playerPriorities(p),
-                              expectation: { ...playerPriorities(p).expectation, baseSalary: standingAsk(s, p) },
-                            }
+                          : // in season his price falls week by week (`standingAsk`) —
+                            // and the bonus and guarantee fall with it: kept at
+                            // his opening price, a $3.9M-a-year ask "expected"
+                            // $19.1M guaranteed, more than the whole deal paid
+                            (() => {
+                              const opening = playerPriorities(p);
+                              const ask = standingAsk(s, p);
+                              const scale = opening.expectation.baseSalary > 0 ? ask / opening.expectation.baseSalary : 1;
+                              const r1 = (n: number) => Math.round(n * 10) / 10;
+                              return {
+                                ...opening,
+                                expectation: {
+                                  ...opening.expectation,
+                                  baseSalary: ask,
+                                  signingBonus: r1(opening.expectation.signingBonus * scale),
+                                  guaranteed: r1(opening.expectation.guaranteed * scale),
+                                },
+                              };
+                            })()
                       }
                       prior={myOffer(p.id)}
                       error={signError}

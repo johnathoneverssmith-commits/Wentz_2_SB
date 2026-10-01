@@ -279,6 +279,14 @@ export function FreeAgencySummary() {
           <div className="notice" role="status">
             <strong>You&rsquo;re legal.</strong> Under the cap, within the roster limit, and
             covered at every position.
+            {/* "29 / 53" in the ticker read as a problem to solve here */}
+            {s.stage === "freeAgencySummary" && roster.length < ROSTER_SIZE && (
+              <>
+                {" "}
+                Short of {ROSTER_SIZE} is fine: your staff fills the rest with minimum-salary depth
+                when the preseason starts.
+              </>
+            )}
             {/* the ticker's cap space counts dead money and can be red here */}
             {booked > total && (
               <>

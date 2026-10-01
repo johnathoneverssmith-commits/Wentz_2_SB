@@ -259,6 +259,12 @@
     margin: 0 6px 0 0;
     flex-shrink: 0;
     white-space: nowrap;
+    /* right after the logo: behind the stage chip it sat past the edge of
+       a phone's bar, and a GM on the clock never saw the countdown */
+    order: -1;
+  }
+  .rail .brand {
+    order: -2;
   }
   .rail .turnclock .hint {
     display: none;
@@ -372,8 +378,10 @@
 }
 
 .leaguewire .wiremore {
-  margin: 6px 8px 0;
-  padding: 0;
+  /* a 12px-tall target under a thumb: the padding is the tap area, and
+     the margin takes it back so the link sits where it did */
+  margin: -4px 0 -8px;
+  padding: 10px 8px;
   background: none;
   border: none;
   font-size: 10.5px;
@@ -395,4 +403,12 @@
   border-left: 2px solid var(--team);
   padding-left: 6px;
   margin-left: -8px;
+}
+
+/* the wordmark beside the logo, on a phone's narrow bar, was the space the
+   stage and the turn clock needed */
+@media (max-width: 480px) {
+  .rail .brand b {
+    display: none;
+  }
 }

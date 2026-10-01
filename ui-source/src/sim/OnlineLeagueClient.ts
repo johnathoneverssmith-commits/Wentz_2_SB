@@ -139,10 +139,14 @@ export class OnlineLeagueClient {
       // Not our JSON: the host's own error page — a 502 while the server
       // restarts for a deploy, or wakes from sleep. Whether an action got
       // through is unknown, which is exactly what "unanswered" means.
+      // A free-tier host asleep answers 200 with its own "waking up" page —
+      // which read as "something unexpected" to a GM back from a break.
       throw new OnlineUnansweredError(
         res.status >= 500
           ? "The league server is restarting. Give it a moment and try again."
-          : "The league server sent back something unexpected.",
+          : text.trimStart().startsWith("<")
+            ? "The league server is waking up — that can take up to a minute. Try again shortly."
+            : "The league server sent back something unexpected.",
       );
     }
     if (!res.ok) {

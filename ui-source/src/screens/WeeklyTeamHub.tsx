@@ -248,6 +248,17 @@ export function WeeklyTeamHub() {
         ]}
       />
 
+      {/* on a phone the week's controls sit under every tab, the wire and the
+          unit ranks — a long scroll to the one button the hub is for */}
+      {phase && (
+        <button
+          type="button"
+          className="btnlink jump-next"
+          onClick={() => document.getElementById("hub-next")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+        >
+          Jump to this week&rsquo;s games ↓
+        </button>
+      )}
       <Tabs
         tabs={[
           { id: "overview", label: "Overview" },
@@ -505,6 +516,7 @@ export function WeeklyTeamHub() {
         )}
       </Footer>
 
+      <span id="hub-next" />
       {phase && s.pendingGameDay && (
         // results for this week already exist — never offer to sim it again
         <div className="readiness">
