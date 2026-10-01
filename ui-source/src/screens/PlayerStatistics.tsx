@@ -8,6 +8,7 @@ import { useStore } from "@/state/store";
 import { anyBoxScores, playedGames, regularSeasonUnderway, statsThroughWeek } from "@/state/selectors";
 import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
+import { commas } from "@/util/format";
 
 const CATS = ["passing", "rushing", "receiving", "defense", "kicking", "returns"] as const;
 
@@ -113,7 +114,11 @@ export function PlayerStatistics() {
                     {r.name} <span className="pos">{r.position}</span>
                   </td>
                   <td className="c">{r.team}</td>
-                  <td className="r">{r.value}</td>
+                  <td className="r">
+                    {c === "passing" || c === "rushing" || c === "receiving" || c === "returns"
+                      ? commas(r.value)
+                      : r.value}
+                  </td>
                   <td style={{ fontSize: 11.5 }}>{r.line}</td>
                 </tr>
               ))}

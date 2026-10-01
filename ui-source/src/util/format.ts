@@ -82,3 +82,8 @@ export function andList(items: string[]): string {
 export function count(n: number, singular: string, plural = `${singular}s`): string {
   return `${n} ${n === 1 ? singular : plural}`;
 }
+
+/** "4,931" — the way every other season of yardage in the game reads. */
+export function commas(n: number): string {
+  return Number.isFinite(n) ? Math.round(n).toLocaleString("en-US") : NO_VALUE;
+}

@@ -315,7 +315,7 @@ export function DraftRoom() {
       {handPicks != null && !complete && (
         <p style={{ margin: "0 26px 10px", fontSize: 12, color: "var(--ink-faint)" }}>
           {mode === "rookie"
-            ? `The first round is picked by hand${handPicks === 1 ? " — you have one pick in it" : handPicks ? ` — you have ${handPicks} picks in it` : " — you have no pick in it"}. After it, the rest of the draft is made automatically.`
+            ? `The first round is picked by hand${handPicks === 1 ? " — you have one pick in it" : handPicks ? ` — you have ${handPicks} picks in it` : " — you have no picks in it"}. After it, the rest of the draft is made automatically.`
             : `Each GM makes ${handPicks === 1 ? "one pick" : `${handPicks} picks`} by hand. Once everyone has, the rest of the draft is made automatically, for every team.`}
         </p>
       )}
