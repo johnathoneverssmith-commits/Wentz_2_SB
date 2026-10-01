@@ -72,6 +72,9 @@ import {
   transferCommissioner,
   setTurnHours,
   vacateSeat,
+  claimCommissioner,
+  commissionerAway,
+  touchSeen,
 } from "./leagues.js";
 import { forceAdvance, readyUp, sweep, takeTurnForAbsent, timeLeft, waitingOn } from "./phases.js";
 import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
@@ -280,6 +283,8 @@ get("/leagues/:id", async (ctx) => {
       current.version === have &&
       ((await franchiseOf(ctx.params.id!, user.id)) || (await isCommissioner(ctx.params.id!, user.id)))
     ) {
+      // an open tab is a GM who is around, even when nothing has changed
+      void touchSeen(ctx.params.id!, user.id).catch(() => undefined);
       return {
         unchanged: true,
         version: current.version,
@@ -301,6 +306,12 @@ get("/leagues/:id", async (ctx) => {
   if (!franchise && !commissioner) {
     throw new ActionError("You're not in that league.", 403);
   }
+  void touchSeen(ctx.params.id!, user.id).catch(() => undefined);
+  // whether this GM may take over from a commissioner who has gone quiet
+  const canClaimCommissioner =
+    !commissioner && !!franchise && !franchise.teamCode.startsWith("unclaimed:")
+      ? await commissionerAway(ctx.params.id!)
+      : false;
 
   // Redacted in place: `readLeague` parsed this copy for this request alone.
   // A deep clone of it was the single slowest step of every pull — longer
@@ -417,7 +428,14 @@ get("/leagues/:id", async (ctx) => {
     inviteCode: commissioner ? loaded.league.inviteCode : null,
     msLeft: timeLeft(loaded),
     waitingOn: waiting,
+    canClaimCommissioner,
   };
+});
+
+// Any GM, once the commissioner has been gone a week (`commissionerAway`).
+post("/leagues/:id/claim-commissioner", async (ctx) => {
+  const user = requireUser(ctx);
+  return claimCommissioner(ctx.params.id!, user.id);
 });
 
 /**

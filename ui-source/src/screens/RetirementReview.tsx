@@ -251,9 +251,9 @@ function careerSummary(s: LeagueState, p: Player): string | null {
   ];
   const totals: string[] = [];
   if (c) {
-    if ((c.passYds ?? 0) > 0) totals.push(`${c.passYds!.toLocaleString()} pass yds, ${c.passTd ?? 0} TD`);
-    if ((c.rushYds ?? 0) > 300) totals.push(`${c.rushYds!.toLocaleString()} rush yds`);
-    if ((c.recYds ?? 0) > 300) totals.push(`${c.recYds!.toLocaleString()} rec yds`);
+    if ((c.passYds ?? 0) > 0) totals.push(`${c.passYds!.toLocaleString("en-US")} pass yds, ${c.passTd ?? 0} TD`);
+    if ((c.rushYds ?? 0) > 300) totals.push(`${c.rushYds!.toLocaleString("en-US")} rush yds`);
+    if ((c.recYds ?? 0) > 300) totals.push(`${c.recYds!.toLocaleString("en-US")} rec yds`);
     if ((c.sacks ?? 0) > 5) totals.push(`${c.sacks} sacks`);
     if ((c.defInt ?? 0) > 3) totals.push(`${c.defInt} INT`);
   }

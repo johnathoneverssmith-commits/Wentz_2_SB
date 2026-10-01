@@ -34,6 +34,8 @@ interface OnlineSession {
   /** When `msLeft` runs out, by this device's clock — so a countdown can tick between loads. */
   phaseEndsAt: number | null;
   waitingOn: string[];
+  /** The commissioner has been gone a week and this GM may take the role. */
+  canClaimCommissioner: boolean;
   /** Closes the change stream. Null when nothing is listening. */
   stopWatching: (() => void) | null;
 }
@@ -327,6 +329,7 @@ export async function joinLeague(
     msLeft: view.msLeft,
     phaseEndsAt: view.msLeft == null ? null : Date.now() + view.msLeft,
     waitingOn: view.waitingOn,
+    canClaimCommissioner: !!view.canClaimCommissioner,
     stopWatching: null,
   };
   watch();
@@ -414,6 +417,7 @@ async function pullOnce(opts: { ifChanged?: boolean }): Promise<LeagueState | nu
   s.msLeft = view.msLeft;
   s.phaseEndsAt = view.msLeft == null ? null : Date.now() + view.msLeft;
   s.waitingOn = view.waitingOn;
+  s.canClaimCommissioner = !!view.canClaimCommissioner;
   s.isCommissioner = view.isCommissioner;
   s.inviteCode = view.inviteCode;
   s.leagueName = view.league.name;

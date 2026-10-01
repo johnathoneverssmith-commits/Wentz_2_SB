@@ -39,6 +39,8 @@ export interface LeagueView {
   msLeft: number | null;
   /** Team codes the league is still waiting on. */
   waitingOn: string[];
+  /** The commissioner has been gone a week and you may take the role over. */
+  canClaimCommissioner?: boolean;
 }
 
 export interface InboxItem {
@@ -532,6 +534,8 @@ export class OnlineLeagueClient {
   /** Commissioner only: hand the role to the GM holding `teamCode`. */
   transferCommissioner = (leagueId: string, teamCode: string) =>
     this.call<{ ok: true }>(`/leagues/${leagueId}/admin/commissioner`, { teamCode });
+  /** Take the commissioner's role from one who has been gone a week. */
+  claimCommissioner = (leagueId: string) => this.call<{ ok: true }>(`/leagues/${leagueId}/claim-commissioner`, {});
 
   /** Commissioner only: the CPU takes this GM's team and the seat reopens. */
   vacateSeat = (leagueId: string, teamCode: string) =>

@@ -461,7 +461,9 @@ export function OnlineLobby() {
                     )
                   )}
                 </div>
-                {managingLeague === l.id && <ManageGms leagueId={l.id} client={client} />}
+                {managingLeague === l.id && (
+                  <ManageGms leagueId={l.id} client={client} onChanged={() => void refresh().catch(() => undefined)} />
+                )}
                 {claiming?.leagueId === l.id && (
                   <TeamPicker
                     teams={claiming.teams}
@@ -1198,7 +1200,16 @@ function TeamPicker({
  * check-in panel, which a draft or a free-agency market doesn't have — so a
  * GM who quit mid-draft couldn't be replaced until it ended.
  */
-function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagueClient }) {
+function ManageGms({
+  leagueId,
+  client,
+  onChanged,
+}: {
+  leagueId: string;
+  client: OnlineLeagueClient;
+  /** The league row above went stale: an opened seat still read as "waiting on" its old GM. */
+  onChanged: () => void;
+}) {
   const [gms, setGms] = useState<{ teamCode: string; name: string; you: boolean }[] | null>(null);
   const [turnHours, setTurnHoursState] = useState<number | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -1221,6 +1232,7 @@ function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagu
       .then((msg) => {
         if (msg) setNote(msg);
         load();
+        onChanged();
       })
       .catch((err: unknown) => setNote(err instanceof Error ? err.message : "That didn't work."))
       .finally(() => setBusy(false));
@@ -1269,6 +1281,10 @@ function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagu
                     return `Reset code for ${r.name}: ${r.code} — they use it under "Forgot your password?". Works once, for 24 hours.`;
                   })
                 }
+                // three of each, one per GM: say whose it is, and keep the
+                // label on one line
+                aria-label={`Reset code for ${g.name}`}
+                style={{ whiteSpace: "nowrap" }}
               >
                 reset code
               </button>
@@ -1283,6 +1299,10 @@ function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagu
                     return `${g.name} is now the commissioner.`;
                   });
                 }}
+                // three of each, one per GM: say whose it is, and keep the
+                // label on one line
+                aria-label={`Make commissioner: ${g.name}`}
+                style={{ whiteSpace: "nowrap" }}
               >
                 make commissioner
               </button>
@@ -1297,6 +1317,10 @@ function ManageGms({ leagueId, client }: { leagueId: string; client: OnlineLeagu
                     return `${g.teamCode}'s seat is open.`;
                   });
                 }}
+                // three of each, one per GM: say whose it is, and keep the
+                // label on one line
+                aria-label={`Open the seat of ${g.name}`}
+                style={{ whiteSpace: "nowrap" }}
               >
                 open seat
               </button>

@@ -1,8 +1,18 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { LeagueState } from "@/domain";
+import { roundLabelFor } from "@/domain";
 import { AWARD_LABEL, RECORD_LABEL, type SeasonAward } from "@/state/seasonAwards";
 
 const abbr = (code: string | null | undefined) => (code ? (TEAMS_BY_CODE[code]?.abbr ?? code) : "—");
+
+/** "Lost in the Divisional Round", from a human team's own season record when there is one. */
+function playoffExit(s: LeagueState, teamCode: string, season: number): string {
+  const out = s.history.find((h) => h.season === season && h.teamCode === teamCode);
+  const round = out?.furthestRound;
+  if (!round || round === "none") return "Playoffs";
+  const format = s.config.leagueFormat === "humansOnly" ? ({ format: "single" } as const) : null;
+  return `Lost in the ${roundLabelFor(format, round)}`;
+}
 
 /**
  * What the league remembers: its champions, single-season records, the most
@@ -37,7 +47,14 @@ export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: strin
                 {r.ties ? `-${r.ties}` : ""}
               </span>
               <span style={{ color: r.finish === "champion" ? "var(--good)" : "var(--ink-dim)", minWidth: 90 }}>
-                {r.finish === "champion" ? "Champions" : r.finish === "runner-up" ? "Runner-up" : r.finish === "playoffs" ? "Playoffs" : "—"}
+                {r.finish === "champion"
+                  ? "Champions"
+                  : r.finish === "runner-up"
+                    ? "Runner-up"
+                    : r.finish === "playoffs"
+                      ? // "Playoffs" alone, every year — which round is the history
+                        playoffExit(s, teamCode!, r.season)
+                      : "—"}
               </span>
               <span style={{ color: "var(--ink-faint)" }}>
                 {r.pointsFor}-{r.pointsAgainst}
@@ -113,7 +130,7 @@ export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: strin
                       {r.name}
                       {r.retired ? <span style={{ color: "var(--ink-faint)" }}> (ret.)</span> : null}
                     </span>
-                    <strong>{r.value.toLocaleString()}</strong>
+                    <strong>{r.value.toLocaleString("en-US")}</strong>
                   </div>
                 ))}
               </div>

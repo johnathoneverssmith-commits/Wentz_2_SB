@@ -24,6 +24,7 @@ import { checkTrade,
 import { generateAiTradeOffers } from "@/state/aiTrades.ts";
 import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { andList } from "@/util/format";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
 import { resolveTransition, STAGE_LABEL } from "@/state/stageMachine.ts";
 import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tradeDeadline.ts";
@@ -319,8 +320,38 @@ export function advanceStage(state: LeagueState): { moved: boolean; autopiloted:
  * is kept in the same order as the single-player version so the two leagues
  * age identically.
  */
-function rollOverSeason(state: LeagueState): void {
+/**
+ * `finalizeSeason`, plus a wire line for each GM whose players' deals just
+ * ran out. They used to leave without a word: a GM found a starter missing
+ * from the depth chart months later, or never noticed at all.
+ */
+function finalizeSeasonNoting(state: LeagueState): void {
+  const humans = new Set(state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+  const before = new Map<string, string>();
+  for (const p of Object.values(state.players)) {
+    if (!p.retired && !p.free_agent && p.contract && humans.has(p.nfl_team)) before.set(p.id, p.nfl_team);
+  }
   finalizeSeason(state);
+  const gone = new Map<string, { name: string; overall: number }[]>();
+  for (const [id, team] of before) {
+    const p = state.players[id];
+    if (!p || !p.free_agent) continue;
+    gone.set(team, [...(gone.get(team) ?? []), { name: `${p.name} (${p.position} ${p.overall})`, overall: p.overall }]);
+  }
+  for (const [team, list] of gone) {
+    // the best of them by name; a deep roster can lose fifteen at once
+    const sorted = list.sort((a, b) => b.overall - a.overall).map((x) => x.name);
+    const names = sorted.length > 6 ? [...sorted.slice(0, 6), `${sorted.length - 6} more`] : sorted;
+    noteEvent(state, {
+      teamCode: team,
+      kind: "contracts.expired",
+      summary: `${TEAMS_BY_CODE[team]?.label ?? team}'s ${sorted.length === 1 ? "contract" : "contracts"} ran out: ${andList(names)} ${sorted.length === 1 ? "is a free agent" : "are free agents"} now.`,
+    });
+  }
+}
+
+function rollOverSeason(state: LeagueState): void {
+  finalizeSeasonNoting(state);
   state.season += 1;
   state.bracket = null;
   // the deadline only opens when there isn't one — keep last year's and no
@@ -642,7 +673,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // `finalizeSeason` already refuses to write the same year twice, so being
   // called from the shared path is free.
   if (state.stage === "endOfSeasonAnnounce") {
-    finalizeSeason(state);
+    finalizeSeasonNoting(state);
     // Online the announcement is the awards splash each GM sees on the way
     // to the season screen, not a gate of its own: as a stage it made every
     // GM ready up twice on the same /season-complete page ("Continue", then

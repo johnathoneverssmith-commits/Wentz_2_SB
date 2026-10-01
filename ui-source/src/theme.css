@@ -1314,6 +1314,10 @@ table.mtable td.val {
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 48px);
+  /* on a phone 100vh counts the space under the browser's own toolbar, so
+     the submit row of a tall dialog could sit behind it; dvh is what's
+     actually visible (ignored where unsupported, leaving the line above) */
+  max-height: calc(100dvh - 48px);
 }
 .modal-head {
   display: flex;

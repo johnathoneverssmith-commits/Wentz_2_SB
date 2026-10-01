@@ -10,11 +10,13 @@
 import { randomUUID } from "node:crypto";
 
 import type { DeadlineChoice, LeagueConfig, LeagueState } from "@/domain";
+import { TEAMS_BY_CODE } from "@/data/teams";
 import { cleanConfigPatch } from "@/state/rules.ts";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 
 import { ActionError, pool, withLeague } from "./db.js";
 import { runPendingCpuTurns } from "./decide.js";
+import { deadlineFor, readyUpLocal } from "./phases.js";
 
 /** Short, unambiguous, sayable down a phone. No O/0 or I/1. */
 function inviteCode(): string {
@@ -150,93 +152,84 @@ export async function claimTeam(
   userId: string,
   teamCode: string,
 ): Promise<{ teamCode: string; gmId: string }> {
-  const client = await pool.connect();
+  // Through `withLeague`, like every other change to a league: it used to
+  // write the document on its own, so the other GMs' open pages weren't told
+  // (they found out on their next poll) and the server's cached copy of the
+  // league was bypassed.
   try {
-    await client.query("BEGIN");
-    const already = await client.query(
-      `SELECT team_code FROM franchises WHERE league_id = $1 AND user_id = $2`,
-      [leagueId, userId],
-    );
-    if (already.rows[0]) throw new ActionError("You already have a team in this league.");
-
-    const taken = await client.query(
-      `SELECT 1 FROM franchises WHERE league_id = $1 AND team_code = $2 AND user_id IS NOT NULL`,
-      [leagueId, teamCode],
-    );
-    if (taken.rows[0]) throw new ActionError("Someone just took that team.", 409);
-
-    // a seat the commissioner reopened (`vacateSeat`) is taken as that team;
-    // otherwise the next never-claimed slot
-    const vacated = await client.query<{ gm_id: string; team_code: string }>(
-      `SELECT gm_id, team_code FROM franchises
-        WHERE league_id = $1 AND user_id IS NULL AND team_code = $2 FOR UPDATE`,
-      [leagueId, teamCode],
-    );
-    const slot = vacated.rows[0]
-      ? vacated
-      : await client.query<{ gm_id: string; team_code: string }>(
-          `SELECT gm_id, team_code FROM franchises
-            WHERE league_id = $1 AND user_id IS NULL AND team_code LIKE 'unclaimed:%'
-            ORDER BY gm_id LIMIT 1 FOR UPDATE`,
-          [leagueId],
+    const { result } = await withLeague(
+      leagueId,
+      async ({ state }, client) => {
+        const already = await client.query(
+          `SELECT team_code FROM franchises WHERE league_id = $1 AND user_id = $2`,
+          [leagueId, userId],
         );
-    const open = slot.rows[0];
-    if (!open) throw new ActionError("This league is full.", 409);
+        if (already.rows[0]) throw new ActionError("You already have a team in this league.");
 
-    await client.query(
-      `UPDATE franchises SET team_code = $3, user_id = $4
-        WHERE league_id = $1 AND team_code = $2`,
-      [leagueId, open.team_code, teamCode, userId],
-    );
+        const taken = await client.query(
+          `SELECT 1 FROM franchises WHERE league_id = $1 AND team_code = $2 AND user_id IS NOT NULL`,
+          [leagueId, teamCode],
+        );
+        if (taken.rows[0]) throw new ActionError("Someone just took that team.", 409);
 
-    // and the same thing inside the league document the rules read
-    const stateRows = await client.query<{ state: LeagueState; version: string }>(
-      `SELECT state, version FROM league_state WHERE league_id = $1 FOR UPDATE`,
-      [leagueId],
+        // a seat the commissioner reopened (`vacateSeat`) is taken as that team;
+        // otherwise the next never-claimed slot
+        const vacated = await client.query<{ gm_id: string; team_code: string }>(
+          `SELECT gm_id, team_code FROM franchises
+            WHERE league_id = $1 AND user_id IS NULL AND team_code = $2 FOR UPDATE`,
+          [leagueId, teamCode],
+        );
+        const slot = vacated.rows[0]
+          ? vacated
+          : await client.query<{ gm_id: string; team_code: string }>(
+              `SELECT gm_id, team_code FROM franchises
+                WHERE league_id = $1 AND user_id IS NULL AND team_code LIKE 'unclaimed:%'
+                ORDER BY gm_id LIMIT 1 FOR UPDATE`,
+              [leagueId],
+            );
+        const open = slot.rows[0];
+        if (!open) throw new ActionError("This league is full.", 409);
+
+        await client.query(
+          `UPDATE franchises SET team_code = $3, user_id = $4
+            WHERE league_id = $1 AND team_code = $2`,
+          [leagueId, open.team_code, teamCode, userId],
+        );
+
+        // and the same thing inside the league document the rules read
+        const gm = state.gms.find((g) => g.id === open.gm_id);
+        const named = await client.query<{ name: string }>(`SELECT name FROM users WHERE id = $1`, [userId]);
+        const name = named.rows[0]?.name;
+        if (gm) {
+          gm.teamCode = teamCode;
+          gm.isHuman = true;
+          delete state.readiness[gm.id];
+          // The slot still carries the name the single-player seed invented for
+          // whichever AI GM used to hold it, so a real person showed up around the
+          // league as "Priya" or "Marcus" — in the standings, in trade offers, in
+          // the weekly notes. Take the account's name instead; it is what they
+          // chose and what the other GMs know them by.
+          if (name) gm.name = name;
+        }
+        if (state.teams[teamCode]) {
+          state.teams[teamCode]!.controlledBy = { kind: "human", gmId: open.gm_id };
+        }
+        const label = TEAMS_BY_CODE[teamCode]?.label ?? teamCode;
+        return {
+          result: { teamCode, gmId: open.gm_id },
+          state,
+          // "KC was claimed." said nothing about who had arrived
+          events: [{ teamCode, kind: "league.claimed", summary: name ? `${name} took over ${label}.` : `${label} was claimed.` }],
+        };
+      },
+      { actorUserId: userId },
     );
-    const row = stateRows.rows[0];
-    if (!row) throw new ActionError("No such league.", 404);
-    const state = row.state;
-    const gm = state.gms.find((g) => g.id === open.gm_id);
-    if (gm) {
-      gm.teamCode = teamCode;
-      gm.isHuman = true;
-      delete state.readiness[gm.id];
-      // The slot still carries the name the single-player seed invented for
-      // whichever AI GM used to hold it, so a real person showed up around the
-      // league as "Priya" or "Marcus" — in the standings, in trade offers, in
-      // the weekly notes. Take the account's name instead; it is what they
-      // chose and what the other GMs know them by.
-      const named = await client.query<{ name: string }>(
-        `SELECT name FROM users WHERE id = $1`,
-        [userId],
-      );
-      const name = named.rows[0]?.name;
-      if (name) gm.name = name;
-    }
-    if (state.teams[teamCode]) {
-      state.teams[teamCode]!.controlledBy = { kind: "human", gmId: open.gm_id };
-    }
-    await client.query(
-      `UPDATE league_state SET state = $2, version = version + 1, updated_at = now()
-        WHERE league_id = $1`,
-      [leagueId, state],
-    );
-    await client.query(
-      `INSERT INTO events (league_id, actor_user, team_code, kind, summary)
-       VALUES ($1, $2, $3, 'league.claimed', $4)`,
-      [leagueId, userId, teamCode, `${teamCode} was claimed.`],
-    );
-    await client.query("COMMIT");
-    return { teamCode, gmId: open.gm_id };
+    return result;
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
     if ((err as { code?: string }).code === "23505") {
       throw new ActionError("Someone just took that team.", 409);
     }
     throw err;
-  } finally {
-    client.release();
   }
 }
 
@@ -336,7 +329,7 @@ export async function vacateSeat(
   /** A GM giving up their own seat, rather than the commissioner opening one. */
   leaving = false,
 ): Promise<{ ok: true }> {
-  await withLeague(leagueId, async ({ state }, client) => {
+  await withLeague(leagueId, async ({ state, league }, client) => {
     const seat = await client.query<{ gm_id: string; user_id: string | null }>(
       `SELECT gm_id, user_id FROM franchises WHERE league_id = $1 AND team_code = $2 FOR UPDATE`,
       [leagueId, teamCode],
@@ -358,9 +351,13 @@ export async function vacateSeat(
     if (state.teams[teamCode]) state.teams[teamCode]!.controlledBy = { kind: "ai" };
     // if that team was on the clock, its turn is the CPU's now — take it
     runPendingCpuTurns(state);
+    // everyone else may have checked in already, waiting only on this GM:
+    // nothing would ever press "ready" again to move the league on
+    const moved = readyUpLocal(state);
     return {
       result: null,
       state,
+      ...(moved ? { phaseEndsAt: deadlineFor(state, league) } : {}),
       events: [
         {
           teamCode,
@@ -469,5 +466,84 @@ export async function archiveLeague(leagueId: string, userId: string): Promise<{
     [leagueId, userId],
   );
   if (done.rowCount === 0) throw new ActionError("Only the commissioner can archive this league.", 403);
+  return { ok: true };
+}
+
+/** How long a commissioner can be gone before another GM may take over. */
+export const COMMISSIONER_AWAY_DAYS = 7;
+
+/**
+ * A GM looked at their league. Kept to once an hour per GM, because this
+ * runs on every read and poll.
+ */
+export async function touchSeen(leagueId: string, userId: string): Promise<void> {
+  await pool.query(
+    `UPDATE franchises SET last_seen_at = now()
+      WHERE league_id = $1 AND user_id = $2
+        AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 hour')`,
+    [leagueId, userId],
+  );
+}
+
+const AWAY_SQL = `
+  SELECT (l.created_at < now() - make_interval(days => $2))
+     AND NOT EXISTS (SELECT 1 FROM franchises f
+                      WHERE f.league_id = l.id AND f.user_id = l.commissioner
+                        AND f.last_seen_at > now() - make_interval(days => $2))
+     AND NOT EXISTS (SELECT 1 FROM events e
+                      WHERE e.league_id = l.id AND e.actor_user = l.commissioner
+                        AND e.at > now() - make_interval(days => $2)) AS away,
+         l.commissioner
+    FROM leagues l WHERE l.id = $1`;
+
+/**
+ * Whether the commissioner has been gone long enough for someone else to
+ * take the role: no visit and no action for a week. Visits are only
+ * recorded from this release on, so their actions count too, and a new
+ * league is never "abandoned".
+ */
+export async function commissionerAway(leagueId: string): Promise<boolean> {
+  const r = await pool.query<{ away: boolean }>(AWAY_SQL, [leagueId, COMMISSIONER_AWAY_DAYS]);
+  return Boolean(r.rows[0]?.away);
+}
+
+/**
+ * A GM takes the commissioner's role from one who has gone quiet.
+ *
+ * The one thing nobody could fix: a commissioner who stopped playing left a
+ * league that no one could move past a stuck check-in, reopen a seat in, or
+ * hand the role on from — only the commissioner could do any of those.
+ */
+export async function claimCommissioner(leagueId: string, userId: string): Promise<{ ok: true }> {
+  await withLeague(leagueId, async ({ state }, client) => {
+    const lock = await client.query(`SELECT commissioner FROM leagues WHERE id = $1 FOR UPDATE`, [leagueId]);
+    if (!lock.rows[0]) throw new ActionError("No such league.", 404);
+    const seat = await client.query<{ team_code: string }>(
+      `SELECT team_code FROM franchises WHERE league_id = $1 AND user_id = $2`,
+      [leagueId, userId],
+    );
+    const team = seat.rows[0]?.team_code;
+    if (!team || team.startsWith("unclaimed:")) throw new ActionError("You don't have a team in this league.", 403);
+    const r = await client.query<{ away: boolean; commissioner: string }>(AWAY_SQL, [leagueId, COMMISSIONER_AWAY_DAYS]);
+    if (r.rows[0]?.commissioner === userId) throw new ActionError("You're already the commissioner.");
+    if (!r.rows[0]?.away) {
+      throw new ActionError(
+        `The commissioner has been around in the last ${COMMISSIONER_AWAY_DAYS} days — ask them to hand the role over.`,
+      );
+    }
+    await client.query(`UPDATE leagues SET commissioner = $2 WHERE id = $1`, [leagueId, userId]);
+    const name = state.gms.find((g) => g.isHuman && g.teamCode === team)?.name ?? team;
+    return {
+      result: null,
+      state,
+      events: [
+        {
+          teamCode: team,
+          kind: "league.commissioner",
+          summary: `${name} took over as commissioner — the last one hadn't been around for ${COMMISSIONER_AWAY_DAYS} days.`,
+        },
+      ],
+    };
+  }, { actorUserId: userId });
   return { ok: true };
 }

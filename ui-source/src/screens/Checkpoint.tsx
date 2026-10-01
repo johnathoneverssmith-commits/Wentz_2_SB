@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardHeader } from "@/components/primitives";
-import { isOnline, onlineSession } from "@/state/online";
+import { isOnline, onlineSession, pull } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -193,6 +193,32 @@ export function Checkpoint({
             >
               Take back my check-in
             </button>
+          )}
+          {/* a commissioner gone for a week left nobody able to move the
+              league on; any GM can now take the role (the server checks) */}
+          {!isCommissioner && onlineSession()?.canClaimCommissioner && waitingNames.length > 0 && (
+            <div className="checkpoint-note" style={{ marginTop: 12 }}>
+              Your commissioner hasn&rsquo;t been around for a week.{" "}
+              <button
+                type="button"
+                className="btnlink"
+                disabled={forcing}
+                onClick={() => {
+                  if (!confirm("Take over as commissioner? You'll be able to move the league on, open seats and change the turn clock. The league is told.")) return;
+                  const s = onlineSession();
+                  if (!s) return;
+                  setForcing(true);
+                  void s.client
+                    .claimCommissioner(s.leagueId)
+                    .then(() => pull())
+                    .then(() => setForceError(null))
+                    .catch((err: unknown) => setForceError(err instanceof Error ? err.message : "Couldn't take over."))
+                    .finally(() => setForcing(false));
+                }}
+              >
+                Take over as commissioner
+              </button>
+            </div>
           )}
           {/* moving on past a block gate plays the next stretch of games, and
               "Moving the league on…" sat there for a minute with no reason */}
