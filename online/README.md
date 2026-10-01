@@ -4,8 +4,8 @@ One league, one team per human GM, played asynchronously over months. Sessions
 are short, the gaps between them are days, and no two GMs are ever online
 together. The league lives here, not in anybody's browser.
 
-**This is not deployed and not reachable from the internet.** It runs locally
-against a local Postgres. Deployment is the last step and hasn't been taken.
+It is deployed on Render (see `DEPLOY.md`), and runs locally against a local
+Postgres or PGlite for development.
 
 ## Running it
 
@@ -28,10 +28,14 @@ Two environment variables matter in production and neither has a safe default:
 `onrender.com` subdomains, the session cookie is a third-party cookie
 (`onrender.com` is on the public suffix list, so each subdomain is its own
 site). Safari blocks third-party cookies outright, and Firefox's strict mode
-does too — a GM there can sign in and is signed straight back out. Serving
-the UI from the API's own origin makes the cookie first-party everywhere:
-build it with `VITE_LEAGUE_API="" npm --prefix ui-source run build`, point
-`SERVE_UI` at `ui-source/dist/index.html`, and open the API's URL.
+does too — a GM there can sign in and is signed straight back out. So the
+league server serves the UI from its own origin, where the cookie is
+first-party everywhere. On Render this is automatic: the root `postinstall`
+(`scripts/render-build-ui.mjs`) builds the UI with `VITE_LEAGUE_API=""` and
+the server serves `ui-source/dist/index.html` at `/`. Elsewhere, build it
+the same way and point `SERVE_UI` at the file. The static site stays up for
+single-player dynasties (their saves live in the browser, per address) and
+sends online players to the league server's address.
 
 ## What is different from `server/`
 

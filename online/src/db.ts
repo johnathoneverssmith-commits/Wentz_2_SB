@@ -17,6 +17,18 @@ import { runBlockJobs } from "./simPool.js";
 /** Every league read passes through the shared upgrade step (idempotent). */
 function upgraded(state: LeagueState): LeagueState {
   upgradeLeagueState(state);
+  // A preseason simulated before the injury ledger existed has none, so every
+  // GM saw injuries from preseason games they hadn't watched. The preseason
+  // is the one block whose start is known without a ledger: the rollover (or
+  // a new league) leaves nobody hurt.
+  if (
+    !state.injuryLedger &&
+    (state.stage === "preseason" || state.stage === "leagueDevelopments") &&
+    state.games.some((g) => g.phase === "PRE") &&
+    !state.games.some((g) => g.phase === "REG")
+  ) {
+    state.injuryLedger = { phase: "PRE", fromWeek: 1, start: {} };
+  }
   return state;
 }
 

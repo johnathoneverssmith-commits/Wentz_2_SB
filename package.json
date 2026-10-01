@@ -15,6 +15,7 @@
     "franchise:stress": "npm --prefix ui-source run franchise:stress --",
     "franchise:stress:typecheck": "npm --prefix ui-source run franchise:stress:typecheck",
     "deploy:verify": "node scripts/verify-deployment.mjs",
+    "postinstall": "node scripts/render-build-ui.mjs",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",

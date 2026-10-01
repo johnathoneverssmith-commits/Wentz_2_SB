@@ -8,6 +8,7 @@
  * errors that come back as JSON a client can show a person.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
@@ -138,6 +139,15 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
  * so it calls this origin.
  */
 let uiPage: { path: string; html: Buffer; zipped: Buffer } | null = null;
+
+/**
+ * Which built UI to serve, if any. `SERVE_UI` names it; on Render the web
+ * service builds one at install time (`scripts/render-build-ui.mjs`) and it
+ * is served without anyone having to set the variable.
+ */
+const uiPath: string | undefined =
+  process.env.SERVE_UI ||
+  (process.env.RENDER && existsSync("ui-source/dist/index.html") ? "ui-source/dist/index.html" : undefined);
 async function sendUi(req: IncomingMessage, res: ServerResponse, path: string): Promise<void> {
   if (!uiPage || uiPage.path !== path) {
     const html = await readFile(path);
@@ -167,8 +177,8 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-  if (process.env.SERVE_UI && (req.method === "GET" || req.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
-    await sendUi(req, res, process.env.SERVE_UI);
+  if (uiPath && (req.method === "GET" || req.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
+    await sendUi(req, res, uiPath);
     return;
   }
   const found = match(req.method ?? "GET", url.pathname);

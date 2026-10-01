@@ -63,6 +63,19 @@ redeploys it.
 That's it — cookies won't flow and CORS will refuse the UI until this step
 is done, so if sign-in fails with a CORS error, this is almost always why.
 
+## Where GMs play
+
+The web service also serves the UI itself, at its own URL — that is the
+address to give GMs. The root `postinstall` builds the UI there during
+`npm install` (it only runs when Render's `RENDER` variable is set), and the
+server serves it at `/`. Served from the same origin as the API, the session
+cookie is first-party, which Safari requires: from the static site it is a
+third-party cookie and every iPhone signs the GM straight back out.
+
+The static site keeps working for single-player dynasties, whose saves live
+in the browser under that address. Online players who open it are sent on to
+the web service's URL, once that URL is serving the UI.
+
 ## Sanity check
 
 Open the static site URL, register an account, create a league, get the

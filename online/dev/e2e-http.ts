@@ -85,7 +85,7 @@ async function register(name: string): Promise<User> {
   const res = await fetch(`${API}/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name, password: "password123" }),
+    body: JSON.stringify({ name, password: PASSWORD }),
   });
   u.cookie = res.headers.get("set-cookie")!.split(";")[0]!;
   return u;
@@ -156,11 +156,14 @@ async function act(u: User, leagueId: string, s: LeagueState): Promise<void> {
   }
 }
 
+// --resume signs in to accounts made elsewhere (an older server, a browser)
+const PASSWORD = process.env.E2E_PASSWORD ?? "password123";
+
 async function login(name: string): Promise<User> {
   const res = await fetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name, password: "password123" }),
+    body: JSON.stringify({ name, password: PASSWORD }),
   });
   return { name, cookie: res.headers.get("set-cookie")!.split(";")[0]!, team: "", gmId: "" };
 }
