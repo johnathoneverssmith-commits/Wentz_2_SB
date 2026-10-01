@@ -115,6 +115,11 @@ export function DraftRoom() {
   const taken = useMemo(() => new Set(draft?.results.map((r) => r.selectedId) ?? []), [draft]);
   const onClockTeam = draft ? draft.pickOrder[draft.currentPickIndex] : undefined;
   const yourPick = onClockTeam === code;
+  // how many picks a GM makes before the board completes itself
+  // (`draftThresholdMet`): one round of the rookie draft, or the
+  // commissioner's number in a fantasy draft — none when it's all by hand
+  const handPicks: number | null =
+    mode === "rookie" ? 1 : s.config.draftSimulateAfterPicks ?? null;
   const complete = draft ? draft.currentPickIndex >= draft.pickOrder.length : false;
   // how much hand-drafting this GM still owes before the board finishes itself
   const threshold = s.config.draftSimulateAfterPicks;
@@ -282,7 +287,8 @@ export function DraftRoom() {
           { label: "Pick", value: `${Math.min(draft.currentPickIndex + 1, draft.pickOrder.length)} / ${draft.pickOrder.length}`, className: "sm" },
           // when you're up next, which waiting on thirty other teams is about
           (() => {
-            if (complete || yourPick || !code) return { label: "Your picks", value: myResults.length };
+            if (complete || yourPick || !code)
+              return { label: "Your picks", value: handPicks != null && !complete ? `${myResults.length} of ${handPicks}` : myResults.length };
             const next = draft.pickOrder.indexOf(code, draft.currentPickIndex);
             return next < 0
               ? { label: "Your next pick", value: "None left", className: "sm" }
@@ -295,6 +301,15 @@ export function DraftRoom() {
           { label: "Roster", value: myRoster.length },
         ]}
       />
+      {/* nothing said the board finishes itself: a GM drafting along found
+          the draft over and fifteen players they never chose */}
+      {handPicks != null && !complete && (
+        <p style={{ margin: "0 26px 10px", fontSize: 12, color: "var(--ink-faint)" }}>
+          Each GM makes {handPicks === 1 ? "one pick" : `${handPicks} picks`} by hand
+          {mode === "rookie" ? " — the first round" : ""}. Once everyone has, the rest of the draft is made
+          automatically{mode === "rookie" ? "" : ", for every team"}.
+        </p>
+      )}
       <Tabs
         tabs={[
           { id: "available", label: mode === "fantasy" ? "Available Players" : "Available Prospects" },

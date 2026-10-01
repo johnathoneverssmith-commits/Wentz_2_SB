@@ -25,4 +25,10 @@ const run = (cmd, env = {}, cwd = undefined) =>
 // devDependencies too: Vite is one, and Render installs with NODE_ENV=production
 run("npm --prefix ui-source ci --include=dev");
 // an empty API base: the client calls the origin it was loaded from
-run("npx vite build --configLoader runner", { VITE_LEAGUE_API: "" }, "ui-source");
+// and where single-player lives: the static site, whose address this service
+// already knows as the origin it accepts calls from
+run(
+  "npx vite build --configLoader runner",
+  { VITE_LEAGUE_API: "", VITE_DYNASTY_ORIGIN: process.env.CLIENT_ORIGIN ?? "" },
+  "ui-source",
+);

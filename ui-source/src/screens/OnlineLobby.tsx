@@ -12,6 +12,7 @@ import type { InboxLeague, OnlineUser } from "@/sim/OnlineLeagueClient";
 import { OnlineError, OnlineLeagueClient } from "@/sim/OnlineLeagueClient";
 import { TURN_STAGES } from "@/components/TurnClock";
 import { goLocal, isOnline, joinLeague, onlineSession } from "@/state/online";
+import { leaveForDynasty } from "@/state/leagueOrigin";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { timeLeft } from "@/util/format";
 import { useStore } from "@/state/store";
@@ -215,7 +216,7 @@ export function OnlineLobby() {
           <button type="button" className="btnlink" onClick={() => void check()}>
             Try again
           </button>
-          <button type="button" className="btnlink btn-primary" onClick={() => nav("/")}>
+          <button type="button" className="btnlink btn-primary" onClick={() => leaveForDynasty() || nav("/")}>
             Back to your dynasty
           </button>
         </Footer>
@@ -233,7 +234,7 @@ export function OnlineLobby() {
           await attempt(refresh);
         }}
         attempt={attempt}
-        onBack={() => nav("/")}
+        onBack={() => leaveForDynasty() || nav("/")}
       />
     );
   }
@@ -504,7 +505,7 @@ export function OnlineLobby() {
               className="btnlink"
               onClick={() => {
                 goLocal();
-                nav("/");
+                if (!leaveForDynasty()) nav("/");
               }}
             >
               Play single-player
@@ -514,7 +515,7 @@ export function OnlineLobby() {
             </button>
           </>
         ) : (
-          <button type="button" className="btnlink" onClick={() => nav("/")}>
+          <button type="button" className="btnlink" onClick={() => leaveForDynasty() || nav("/")}>
             Back to your dynasty
           </button>
         )}

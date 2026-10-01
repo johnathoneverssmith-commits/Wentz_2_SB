@@ -110,17 +110,23 @@ export function TradeDeadlineRoom() {
       {/* an answered offer just vanished into "Recent activity" below, among
           everyone else's; the GM who made it is owed a sentence */}
       {(() => {
-        const last = d.resolved.at(-1);
-        if (!last || (last.fromTeam !== code && last.toTeam !== code)) return null;
+        // this GM's own latest, however many turns ago: a proposer whose offer
+        // was answered and then sat through fifteen other turns never heard
+        const last = [...d.resolved].reverse().find((o) => o.fromTeam === code || o.toTeam === code);
+        if (!last) return null;
+        // a new negotiation of this GM's is under way: the old outcome beside
+        // "waiting on Kansas City to answer your offer" read as its answer
+        if (d.active && (d.active.fromTeam === code || d.active.toTeam === code)) return null;
         const other = last.fromTeam === code ? last.toTeam : last.fromTeam;
         const name = TEAMS_BY_CODE[other]?.label ?? other;
         return (
           <div className="notice" role="status">
+            Your last negotiation (round {last.round}):{" "}
             {last.outcome === "accepted"
-              ? `Trade made with ${name}.`
+              ? `trade made with ${name}.`
               : last.blocked
-                ? `No deal with ${name} — the league vote blocked it.`
-                : `No deal with ${name}.`}
+                ? `no deal with ${name} — the league vote blocked it.`
+                : `no deal with ${name}.`}
           </div>
         );
       })()}

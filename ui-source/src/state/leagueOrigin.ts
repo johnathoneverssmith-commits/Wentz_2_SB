@@ -1,4 +1,4 @@
-import { lastLeagueId } from "./online";
+import { goLocal, lastLeagueId } from "./online";
 
 /**
  * Online play moves to the league server's own address.
@@ -25,6 +25,13 @@ export function moveOnlinePlayToLeagueOrigin(): void {
   }
   if (target.origin === window.location.origin) return;
 
+  // sent here from the league server's "back to your dynasty": this browser
+  // is choosing single-player, so forget the league rather than bounce back
+  if (new URLSearchParams(window.location.search).get("from") === "league") {
+    goLocal();
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.hash}`);
+  }
+
   let checking = false;
   const consider = (): void => {
     const hash = window.location.hash;
@@ -47,4 +54,31 @@ export function moveOnlinePlayToLeagueOrigin(): void {
   };
   consider();
   window.addEventListener("hashchange", consider);
+}
+
+/**
+ * Where a GM's single-player dynasty lives, when it isn't here.
+ *
+ * Built for the league server's own origin, the UI knows the static site's
+ * address (`VITE_DYNASTY_ORIGIN`). A dynasty is saved in the browser under the
+ * address it was played at, so "back to your dynasty" from here opened an
+ * empty one — which looks exactly like the save being gone.
+ */
+function dynastyOrigin(): string | null {
+  const o = import.meta.env.VITE_DYNASTY_ORIGIN;
+  if (!o) return null;
+  try {
+    const url = new URL(o);
+    return url.origin === window.location.origin ? null : url.origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Go to the single-player dynasty: its own address if it has one. True when it navigated away. */
+export function leaveForDynasty(): boolean {
+  const origin = dynastyOrigin();
+  if (!origin) return false;
+  window.location.assign(`${origin}/?from=league#/`);
+  return true;
 }

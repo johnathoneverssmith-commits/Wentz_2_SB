@@ -1,3 +1,4 @@
+import { StageLoading } from "@/components/StageLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -82,7 +83,7 @@ export function CoachingDraftRoom() {
       <Card>
         <CardHeader badge="CD" title="Coaching Draft" subtitle="Setting the board" />
         <div className="panel open">
-          <div className="emptystate">One moment.</div>
+          <StageLoading />
         </div>
       </Card>
     );

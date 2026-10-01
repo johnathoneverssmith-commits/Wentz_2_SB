@@ -1,3 +1,4 @@
+import { leaveForDynasty } from "@/state/leagueOrigin";
 import { useEffect, useRef, useState } from "react";
 import { goLocal, lastLeagueId, onlineSession } from "@/state/online";
 import { SaveBackup } from "./SaveBackup";
@@ -250,7 +251,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="reset"
             onClick={() => {
               goLocal();
-              navTo("/");
+              if (!leaveForDynasty()) navTo("/");
             }}
             title="Your online league stays in the lobby; this switches this device back to your solo dynasty."
           >

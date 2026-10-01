@@ -275,16 +275,17 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
     items.push({
       kind: "ready",
       // a check-in has no clock: the league waits (the commissioner can force it)
-      ...(facts.othersPending === 0
-        ? { title: "The league is waiting on you to move on.", detail: "Everyone else is waiting on you to check in." }
-        : {
-            // a block of games is watched before anyone checks in; "check in
-            // when you're ready" read as if there were nothing to do first
-            title: WATCH_STAGES.has(facts.stage)
-              ? "Watch the games, then check in."
-              : STAGE_TODO[facts.stage] ?? "Check in when you're ready to move on.",
-            detail: `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
-          }),
+      // a block of games is watched before anyone checks in; "check in when
+      // you're ready" read as if there were nothing to do first
+      title: WATCH_STAGES.has(facts.stage)
+        ? "Watch the games, then check in."
+        : STAGE_TODO[facts.stage] ?? "Check in when you're ready to move on.",
+      // the last one in used to get the same sentence twice ("the league is
+      // waiting on you" / "everyone else is waiting on you"), and no task
+      detail:
+        facts.othersPending === 0
+          ? "Everyone else has checked in — the league is waiting on you."
+          : `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
       href: "/",
       urgency: "soon",
     });

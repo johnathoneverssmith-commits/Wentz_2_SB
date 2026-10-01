@@ -84,7 +84,8 @@ export function LeagueSetup() {
         subtitle={
           locked
             ? `${STAGE_LABEL[stage]} · team and rules are locked while the league is running`
-            : `New Dynasty · ${config.humanGmCount} ${online ? "Human GMs" : "GMs"}`
+            : // an online league has a name; "New Dynasty" is the solo game's
+              `${online ? (onlineSession()?.leagueName ?? "Online league") : "New Dynasty"} · ${config.humanGmCount} ${online ? "Human GMs" : "GMs"}`
         }
       />
 

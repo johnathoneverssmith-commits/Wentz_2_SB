@@ -229,6 +229,20 @@ export function RosterCapManagement() {
             free-agency board
           </button>{" "}
           first if you&rsquo;d rather choose.
+          {/* the fill makes room by releasing contracts when the depth won't
+              fit, and this note promised only signings */}
+          {/* depth signs at the $1M minimum */}
+          {53 - activeCount > capTotalM - contractsUsed(s, code) && (
+            <>
+              {" "}
+              <strong>
+                That depth costs about {millions(53 - activeCount)} and you have{" "}
+                {millions(Math.max(0, Math.round((capTotalM - contractsUsed(s, code)) * 10) / 10))} of room, so
+                they&rsquo;ll release someone to afford it
+              </strong>{" "}
+              — make the cut yourself first if you&rsquo;d rather pick who.
+            </>
+          )}
         </div>
       )}
       <Tabs

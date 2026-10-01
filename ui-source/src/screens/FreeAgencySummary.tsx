@@ -1,3 +1,4 @@
+import { StageLoading } from "@/components/StageLoading";
 import { useMemo, useState } from "react";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
@@ -20,6 +21,7 @@ import {
 import { ROSTER_SIZE } from "@/sim/roster-template";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
+import { recentNews } from "@/state/online";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { millions } from "@/util/format";
 
@@ -59,7 +61,7 @@ export function FreeAgencySummary() {
       <Card>
         <CardHeader badge="FA" title="Free Agency Summary" subtitle="Loading" />
         <div className="panel open">
-          <div className="emptystate">One moment.</div>
+          <StageLoading />
         </div>
       </Card>
     );
@@ -75,6 +77,16 @@ export function FreeAgencySummary() {
     .map(([playerId]) => playerId);
 
   const roster = rosterOf(s, code);
+  // the fill is written as the market's last round closes — so a line older
+  // than that round is last year's, still in the kept news
+  const news = recentNews();
+  const lastRound = news.filter((e) => e.kind === "fa.round").reduce((m, e) => (e.at > m ? e.at : m), "");
+  const staffFill =
+    s.stage === "freeAgencySummary"
+      ? news.find(
+          (e) => e.kind === "roster.staff" && e.teamCode === code && /after free agency/.test(e.summary) && e.at >= lastRound,
+        )
+      : undefined;
   // legality is the contracts (`capUsed`); the books also carry dead money,
   // which the Roster & Cap screen counts — show the same numbers here
   const used = capUsed(s, code);
@@ -114,6 +126,13 @@ export function FreeAgencySummary() {
       {error && (
         <div className="notice bad" role="status">
           {error}
+        </div>
+      )}
+      {/* "5 signed" over a roster that went from 25 to 53: the staff's fill
+          was on the wire and nowhere on the screen about this market */}
+      {staffFill && (
+        <div className="notice" role="status">
+          {staffFill.summary}
         </div>
       )}
 

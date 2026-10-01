@@ -821,9 +821,14 @@ export function campCuts(state: LeagueState): number {
 const lateMarketDeal = (p: Player): number =>
   Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, p.position) * 0.35 * 10) / 10);
 
-export function fillRosterGaps(state: LeagueState, opts: { lateMarket?: boolean } = {}): void {
+export function fillRosterGaps(
+  state: LeagueState,
+  opts: { lateMarket?: boolean; spareGmRosters?: boolean } = {},
+): void {
   // the preseason gate: unsigned veterans take camp deals (see pass 2)
   const lateMarket = opts.lateMarket ?? false;
+  // at a free-agency summary, where squaring the roster is the GM's own job
+  const spareGm = opts.spareGmRosters ?? false;
   const rng = new Rng(state.season * 7717 + 13);
   const byPos = new Map<Position, Player[]>();
   let marketSize = 0;
@@ -862,7 +867,18 @@ export function fillRosterGaps(state: LeagueState, opts: { lateMarket?: boolean 
     // on multi-year deals — one-year ones all expired at once and left the
     // team at 33 the next spring.)
     const human = state.teams[code]?.controlledBy.kind !== "ai";
-    const trimmed = trimToLegalRoster(state, roster, capTotal, ROSTER_SIZE, !human);
+    // At a free-agency summary a GM's roster isn't cut to make room for
+    // depth. Trimming "to a budget" for the 33 empty spots after a fantasy
+    // draft released four of the five free agents a GM had just signed — and
+    // two of their drafted edge rushers — to sign thirty-four minimum-salary
+    // strangers, before the GM saw the summary where fixing the roster is
+    // theirs to do. There, depth stops where the cap does (a short roster is
+    // legal) and anything else is the GM's call, or "let my staff fix it".
+    // The preseason fill still brings every roster to 53.
+    const trimmed =
+      human && spareGm
+        ? { used: roster.reduce((n, p) => n + capHitOf(p), 0), released: 0 }
+        : trimToLegalRoster(state, roster, capTotal, ROSTER_SIZE, !human);
     let used = trimmed.used;
     marketSize += trimmed.released; // the cuts are on the market now
 
@@ -913,7 +929,10 @@ export function fillRosterGaps(state: LeagueState, opts: { lateMarket?: boolean 
     // 61. A team with money in hand signs someone worth having.
     for (const { pos, count } of ROSTER_TEMPLATE) {
       const pool = byPos.get(pos) ?? [];
-      while (countAt(pos) < count && !(human && roster.length >= ROSTER_SIZE)) {
+      while (
+        countAt(pos) < count &&
+        !(human && (roster.length >= ROSTER_SIZE || (spareGm && used + MIN_SALARY_M > capTotal)))
+      ) {
         let p: Player | undefined;
         let salary = MIN_SALARY_M;
         const room = spendable();

@@ -401,7 +401,7 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // so in the meantime League Rosters showed illegal squads and those teams
   // could not take a trade, because `checkTrade` reads the same cap.
   if (to === "freeAgencySummary" && s.rosterFillPending) {
-    fillRosterGaps(s);
+    fillRosterGaps(s, { spareGmRosters: true });
     s.rosterFillPending = false;
   }
   if (to === "freeAgencySummary" || to === "midseasonFreeAgencySummary") {

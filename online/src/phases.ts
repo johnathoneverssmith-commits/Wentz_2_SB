@@ -486,7 +486,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   }
 
   if (state.stage === "freeAgencySummary" && state.rosterFillPending) {
-    reportStaffMoves(state, "after free agency", () => fillRosterGaps(state));
+    reportStaffMoves(state, "after free agency", () => fillRosterGaps(state, { spareGmRosters: true }));
     state.rosterFillPending = false;
   }
   // leaving a summary the check-in didn't cover — a commissioner's force, an

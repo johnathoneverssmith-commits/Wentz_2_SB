@@ -32,8 +32,11 @@ const ROSTER_OF = (s: LeagueState, code: string): Player[] =>
   Object.values(s.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent);
 
 /** How badly `code` needs help at `pos` — 0 when they're already strong there. */
-function needAt(s: LeagueState, code: string, pos: string): number {
-  const best = ROSTER_OF(s, code)
+function needAt(roster: readonly Player[], pos: string): number {
+  // the roster in hand, not re-read from the league: this ran once per
+  // position per suitor, each a pass over every player in the league, and
+  // it was most of a CPU deadline turn's cost
+  const best = roster
     .filter((p) => p.position === pos)
     .reduce((m, p) => Math.max(m, p.overall), 0);
   // Trade Valuation optimization pass (trade.ai_generated_offers.need_bar).
@@ -119,7 +122,7 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
         return {
           pos,
           gain: (mine?.overall ?? 0) - (theirs?.overall ?? 40),
-          need: needAt(s, suitor, pos) * difficulty.needAwareness,
+          need: needAt(theirRoster, pos) * difficulty.needAwareness,
           wantedScore,
         };
       })

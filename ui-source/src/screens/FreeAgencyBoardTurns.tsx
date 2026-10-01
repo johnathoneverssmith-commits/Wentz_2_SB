@@ -1,3 +1,4 @@
+import { StageLoading } from "@/components/StageLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
 import { useNavigate } from "react-router-dom";
@@ -108,7 +109,7 @@ export function FreeAgencyBoardTurns() {
       <Card>
         <CardHeader badge="FA" title="Free Agency" subtitle="Opening the market" />
         <div className="panel open">
-          <div className="emptystate">One moment.</div>
+          <StageLoading />
         </div>
       </Card>
     );
