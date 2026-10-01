@@ -26,6 +26,22 @@ export default defineConfig({
         }));
       },
     },
+    {
+      // The game builds to one ~2MB file, and the inlined script sat in the
+      // head — so a phone on a slow connection got a blank page until the
+      // last byte, and the "Loading…" placeholder in the body only appeared
+      // once everything had. At the end of the body the placeholder paints
+      // first. (A module script waits for the document either way.)
+      name: "script-after-body",
+      transformIndexHtml: {
+        order: "post",
+        handler(html) {
+          const tag = html.match(/<script type="module"[^>]*><\/script>/);
+          if (!tag) return html;
+          return html.replace(tag[0], "").replace("</body>", `${tag[0]}</body>`);
+        },
+      },
+    },
     viteSingleFile(),
   ],
   resolve: {

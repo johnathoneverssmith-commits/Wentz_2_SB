@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- a phone's browser bar in the app's own colour (the top bar's), not white -->
+    <meta name="theme-color" content="#101214" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="An NFL franchise sim: run a team for a solo dynasty, or with friends in an online league played over months." />
+    <!-- the name a phone's home screen gives it -->
+    <meta name="apple-mobile-web-app-title" content="Franchise Sim" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -10,9 +16,26 @@
       rel="stylesheet"
     />
     <title>Franchise Sim</title>
+    <style>
+      html, body { background: #0a0b0d; margin: 0; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- the whole game is one ~2MB file: on a slow phone connection the page
+         was blank white until the last byte arrived. React replaces this. -->
+    <div id="root">
+      <div id="boot" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:0 16px;box-sizing:border-box;text-align:center;background:#0a0b0d;color:#858c94;font:500 14px system-ui,sans-serif">
+        Loading Franchise Sim…
+      </div>
+    </div>
+    <!-- if the game never starts (a download cut off, a browser too old to
+         run it) "Loading…" stayed up forever with nothing to try -->
+    <script>
+      setTimeout(function () {
+        var el = document.getElementById("boot");
+        if (el) el.textContent = "Still loading — on a slow connection this can take a minute. If nothing changes, reload the page, or try an up-to-date browser.";
+      }, 25000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

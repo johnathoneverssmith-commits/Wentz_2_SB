@@ -1,3 +1,4 @@
+import { UpdateAvailable } from "@/components/UpdateAvailable";
 import { openSlots as countOpenSlots } from "@/state/rules";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -346,6 +347,7 @@ export function App() {
         </div>
       )}
       {isOnline() && pathname !== "/online" && <OnlineIntro />}
+      <UpdateAvailable />
       {isOnline() && !connected && (
         // the league's stream dropped: say so while it reconnects (in the
         // page, not the rail — on a phone the rail scrolls sideways)

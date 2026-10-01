@@ -11,7 +11,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import type { InboxLeague, OnlineUser } from "@/sim/OnlineLeagueClient";
 import { OnlineError, OnlineLeagueClient } from "@/sim/OnlineLeagueClient";
 import { TURN_STAGES } from "@/components/TurnClock";
-import { goLocal, isOnline, joinLeague, onlineSession } from "@/state/online";
+import { goLocal, isOnline, joinLeague, lastLeagueId, onlineSession } from "@/state/online";
 import { leaveForDynasty } from "@/state/leagueOrigin";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { timeLeft } from "@/util/format";
@@ -235,6 +235,14 @@ export function OnlineLobby() {
         onDone={async (u) => {
           setUser(u);
           await attempt(refresh);
+          // signed out mid-league (an expired session, a password changed on
+          // another device): back into the league they were in, not the
+          // lobby with it to find again — unless they came on an invite
+          const back = lastLeagueId();
+          if (back && !invited && !isOnline()) {
+            const mine = await client.myLeagues().catch(() => null);
+            if (mine?.leagues.some((l) => l.id === back && l.teamCode)) await open(back);
+          }
         }}
         attempt={attempt}
         onBack={() => leaveForDynasty() || nav("/")}

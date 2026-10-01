@@ -172,7 +172,8 @@ export function RosterCapManagement() {
             disabled={tradesShut}
             title={tradesShut ? (pastTradeDeadline(s) ? PAST_DEADLINE_MESSAGE : "Trading reopens at the next break in the season.") : undefined}
           >
-            Propose trade
+            {/* the reason was a hover title, which a phone never shows */}
+            {tradesShut ? (pastTradeDeadline(s) ? "Past the deadline" : "Trading closed") : "Propose trade"}
           </button>
         }
       />
@@ -451,7 +452,15 @@ export function RosterCapManagement() {
                       ? moveNote.text
                       : confirming === p.id
                         ? `Releasing ${p.name} takes his ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} off the books and leaves ${millions(releasePenalty(p))} of dead money this year. He goes to the free agent market. This can't be undone.`
-                        : "A restructure moves money into later years; it doesn't make it go away. Releasing a player costs dead money this year: part of what's left on his deal."}
+                        : // why a button is grey, where a phone can read it — the
+                          // reasons lived only in hover titles
+                          ([
+                            previewRestructure(p, s.season).ok ? null : `Restructure: ${previewRestructure(p, s.season).reason}`,
+                            depthLocked || checkRelease(s, code, p.id).ok ? null : `Release: ${checkRelease(s, code, p.id).reason}`,
+                          ]
+                            .filter(Boolean)
+                            .join(" ") ||
+                          "A restructure moves money into later years; it doesn't make it go away. Releasing a player costs dead money this year: part of what's left on his deal.")}
                   </p>
                 </>
               }

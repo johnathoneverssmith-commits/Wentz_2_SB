@@ -10,7 +10,7 @@
  */
 import { create } from "zustand";
 import { lastLeagueId, onOnlineChange } from "./online.ts";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { createJSONStorage, persist, type PersistStorage } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
 import {
@@ -269,6 +269,54 @@ try {
 } catch {
   // storage unavailable: nothing to migrate
 }
+/**
+ * The online league's local copy, written at most every half minute and
+ * whenever the tab is hidden or closed.
+ *
+ * Every store change wrote the whole league to storage — ~2MB serialised and
+ * stored, ~70ms on a desktop and several times that on a phone — and online
+ * every pull is a store change, so a GM watching a draft felt it on each
+ * pick. The copy is a convenience (the server holds the league), so it can
+ * lag. A solo save is the only copy of a dynasty and is still written at
+ * once. A held write is dropped if this device has since left online play,
+ * so it can never land in the solo slot.
+ */
+function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
+  let pending: { name: string; value: Parameters<PersistStorage<S>["setItem"]>[1] } | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const flush = (): void => {
+    if (timer) clearTimeout(timer);
+    timer = null;
+    const p = pending;
+    pending = null;
+    if (p && slotFor(p.name) === ONLINE_SAVE_KEY) void inner.setItem(p.name, p.value);
+  };
+  // (guarded: tests run this against a bare stand-in for `window`)
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("pagehide", flush);
+  }
+  if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) flush();
+    });
+  }
+  return {
+    getItem: (name) => inner.getItem(name),
+    removeItem: (name) => {
+      pending = null;
+      return inner.removeItem(name);
+    },
+    setItem: (name, value) => {
+      if (slotFor(name) !== ONLINE_SAVE_KEY) {
+        pending = null;
+        return inner.setItem(name, value);
+      }
+      pending = { name, value };
+      if (!timer) timer = setTimeout(flush, 30_000);
+    },
+  };
+}
+
 /** Where a save that failed to parse is copied before anything can overwrite it. */
 const CORRUPT_BACKUP_KEY = `${SAVE_KEY}.corrupted-backup`;
 
@@ -1187,7 +1235,7 @@ export const useStore = create<Store>()(
       // persist middleware — it logs and carries on, so a dynasty that
       // outgrows its storage just quietly stops saving and the player finds
       // out when they reopen the tab. This surfaces it instead.
-      storage: createJSONStorage(() => ({
+      storage: deferOnlineCopy(createJSONStorage(() => ({
         getItem: (k) => window.localStorage.getItem(slotFor(k)),
         removeItem: (k) => window.localStorage.removeItem(slotFor(k)),
         setItem: (k, v) => {
@@ -1229,7 +1277,7 @@ export const useStore = create<Store>()(
             }
           }
         },
-      })),
+      }))!),
       partialize: (s) => {
         const rest: Partial<Store> = { ...s };
         for (const k of Object.keys(rest) as (keyof Store)[]) {
