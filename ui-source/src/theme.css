@@ -1871,12 +1871,25 @@ input[type="range"]::-moz-range-thumb {
     min-width: 0;
     overflow-wrap: anywhere;
   }
+  /* the slot value goes; year one stays — with both hidden a GM chose sign
+     or release without seeing what either cost */
   .rookie-list .prow > :nth-child(3),
-  .rookie-list .prow > :nth-child(4),
-  .rookie-list .rowhead > :nth-child(3),
+  .rookie-list .rowhead > :nth-child(3) {
+    display: none;
+  }
   .rookie-list .rowhead > :nth-child(4) {
     display: none;
   }
+  .rookie-list .prow > :nth-child(1) { grid-area: 1 / 1; }
+  .rookie-list .prow > :nth-child(2) { grid-area: 1 / 2; }
+  .rookie-list .prow > :nth-child(4) {
+    grid-area: 2 / 2;
+    justify-self: start;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  .rookie-list .prow > :nth-child(5) { grid-area: 1 / 3 / 3 / 4; }
+  .rookie-list .prow > :nth-child(6) { grid-area: 1 / 4 / 3 / 5; }
 }
 
 /* The draft board on a phone: the Draft button sat half past the edge of a

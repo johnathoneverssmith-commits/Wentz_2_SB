@@ -35,8 +35,8 @@ export function LeagueRosters() {
         title="League Rosters"
         subtitle={
           gm
-            ? `${gm.id === s.viewerGmId ? "Your team" : `Run by ${gm.name}`} · click a name for full stats`
-            : "Read-only depth chart for any team — click a name for full stats"
+            ? `${gm.id === s.viewerGmId ? "Your team" : `Run by ${gm.name}`} · tap a name for full stats`
+            : "Read-only depth chart for any team — tap a name for full stats"
         }
         action={
           <select value={teamCode} onChange={(e) => setTeamCode(e.target.value)}>

@@ -482,10 +482,33 @@ export class OnlineLeagueClient {
       });
     };
     connect();
+    // A phone that locks with the league open freezes the connection, and on
+    // waking it can still read as open while nothing arrives — the server's
+    // keep-alives are comments, which never reach a listener. So a tab that
+    // was away for a while starts a fresh stream; its `hello` carries the
+    // version, and anything missed gets pulled.
+    let hiddenAt: number | null = null;
+    const onVisibility = (): void => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      const away = hiddenAt == null ? 0 : Date.now() - hiddenAt;
+      hiddenAt = null;
+      if (closed || away < 20_000) return;
+      if (retry) clearTimeout(retry);
+      retry = null;
+      source?.close();
+      wait = 2_000;
+      connect();
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisibility);
     return () => {
       closed = true;
       if (retry) clearTimeout(retry);
       source?.close();
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisibility);
     };
   }
 

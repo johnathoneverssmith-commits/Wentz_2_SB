@@ -116,7 +116,7 @@ export function FreeAgencyBoard() {
         <FullScreenOverlay
           kicker="Free agency"
           big={`Day ${fa.day}`}
-          note="Click anywhere to see the board with today's signings."
+          note="Tap or click anywhere to see the board with today's signings."
           onDismiss={() => dismiss("players")}
         />
       )}

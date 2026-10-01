@@ -75,7 +75,9 @@ export function RetirementReview() {
               return !!p && p.nfl_team !== "FA" && !p.free_agent;
             }).length,
           },
-          { label: "Best retiree", value: best ? `${best.name}, ${best.overall}` : "—", className: "sm" },
+          // league-wide, beside two figures that are yours: name the team, or it
+          // read as your own loss
+          { label: "League's best retiree", value: best ? `${best.name} (${best.nfl_team}), ${best.overall}` : "—", className: "sm" },
           { label: "Cap freed up", value: millions(capFreed), className: "good" },
         ]}
       />

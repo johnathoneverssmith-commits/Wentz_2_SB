@@ -230,6 +230,13 @@ export function FreeAgencyBoardTurns() {
           reconciliation, so you can bid for someone you can&rsquo;t yet fit.
         </div>
       )}
+      {/* eighty greyed-out Offer buttons and nothing saying why */}
+      {!yourTurn && clock && code && (
+        <div className="notice" role="status">
+          {TEAMS_BY_CODE[clock]?.label ?? clock} is on the clock. Browse the board and line up your
+          offer — it opens when your turn comes round.
+        </div>
+      )}
 
       <Tabs
         tabs={[

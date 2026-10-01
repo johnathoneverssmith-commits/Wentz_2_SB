@@ -273,10 +273,16 @@ function QuarterRow({ name, q, total }: { name: string; q: number[]; total: numb
 }
 
 function TeamLines({ lines }: { lines: PlayerGameLine[] }) {
-  const pass = lines.filter((l) => (l.passAtt ?? 0) > 0);
-  const rush = lines.filter((l) => (l.rushAtt ?? 0) > 0);
-  const rec = lines.filter((l) => (l.rec ?? 0) > 0);
-  const def = lines.filter((l) => (l.tackles ?? 0) > 0 || (l.sacks ?? 0) > 0 || (l.defInt ?? 0) > 0);
+  // leaders first, as a box score reads: they came in roster order, which put
+  // a 71-yard receiver under a 12-yard one
+  const by = (key: (l: PlayerGameLine) => number | undefined) => (a: PlayerGameLine, b: PlayerGameLine) =>
+    (key(b) ?? 0) - (key(a) ?? 0);
+  const pass = lines.filter((l) => (l.passAtt ?? 0) > 0).sort(by((l) => l.passAtt));
+  const rush = lines.filter((l) => (l.rushAtt ?? 0) > 0).sort(by((l) => l.rushYds));
+  const rec = lines.filter((l) => (l.rec ?? 0) > 0).sort(by((l) => l.recYds));
+  const def = lines
+    .filter((l) => (l.tackles ?? 0) > 0 || (l.sacks ?? 0) > 0 || (l.defInt ?? 0) > 0)
+    .sort(by((l) => (l.tackles ?? 0) + 2 * (l.sacks ?? 0) + 3 * (l.defInt ?? 0)));
   const kick = lines.filter((l) => (l.fga ?? 0) > 0 || (l.xpa ?? 0) > 0);
   return (
     <>

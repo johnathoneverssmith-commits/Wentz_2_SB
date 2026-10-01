@@ -55,6 +55,21 @@ export function PlayoffRoundResults() {
           <div className="emptystate">You haven&rsquo;t watched this round yet.</div>
         ) : (
           <>
+            {/* the season's last result, and the page gave it the same line as
+                any other game */}
+            {r === "SB" &&
+              slate
+                .filter((g) => g.played && g.homeScore !== g.awayScore)
+                .slice(0, 1)
+                .map((g) => {
+                  const winner = g.homeScore > g.awayScore ? g.homeTeam : g.awayTeam;
+                  return (
+                    <div key={g.id} className="notice" role="status">
+                      <strong>{TEAMS_BY_CODE[winner]?.label ?? winner} are the {s.season} champions</strong>
+                      {winner === code ? " — that's you." : "."}
+                    </div>
+                  );
+                })}
             {byes.length > 0 && (
               <div className="notice" role="status">
                 {byes.map((c) => TEAMS_BY_CODE[c]?.label ?? c).join(" and ")} —{" "}

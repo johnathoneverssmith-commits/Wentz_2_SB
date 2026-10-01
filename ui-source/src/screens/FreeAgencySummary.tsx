@@ -81,8 +81,9 @@ export function FreeAgencySummary() {
   const dead = s.teams[code]?.cap.dead ?? 0;
   const booked = Math.round((used + dead) * 10) / 10;
   const total = s.teams[code]?.cap.total ?? 0;
+  const overLimitOnly = issues.some((i) => i.kind === "roster") && !issues.some((i) => i.kind === "cap");
 
-  const release = (playerId: string) => {
+  const release =(playerId: string) => {
     setBusy(true);
     setError(null);
     void actions
@@ -282,10 +283,18 @@ export function FreeAgencySummary() {
           </div>
         )}
 
-        <p className="subhead">Your roster ({roster.length})</p>
+        <p className="subhead">
+          Your roster ({roster.length}){overLimitOnly ? " · weakest first" : ""}
+        </p>
         {roster
           .slice()
-          .sort((a, b) => (b.contract?.cap_hit_by_year[0] ?? 0) - (a.contract?.cap_hit_by_year[0] ?? 0))
+          // biggest contracts first answers the cap; a GM one over 53 and under
+          // the cap wants the fringe players, which sat 54 rows down on a phone
+          .sort((a, b) =>
+            overLimitOnly
+              ? a.overall - b.overall
+              : (b.contract?.cap_hit_by_year[0] ?? 0) - (a.contract?.cap_hit_by_year[0] ?? 0),
+          )
           .map((p) => {
             const can = checkRelease(s, code, p.id);
             return (

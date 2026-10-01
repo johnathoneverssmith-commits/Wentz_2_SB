@@ -62,7 +62,7 @@ export function EndOfSeasonAnnounce() {
           </div>
         )}
         <p style={{ margin: "16px 0 0", fontSize: 12.5, color: "var(--ink-dim)" }}>
-          Click anywhere to see how the season graded out.
+          Tap or click anywhere to see how the season graded out.
         </p>
       </div>
       <Footer>

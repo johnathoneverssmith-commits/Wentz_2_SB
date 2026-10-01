@@ -254,7 +254,7 @@ export function DraftRoom() {
         <FullScreenOverlay
           kicker="On the clock"
           big={`The ${TEAMS_BY_CODE[code!]!.city} ${TEAMS_BY_CODE[code!]!.name} are on the clock`}
-          note="Click anywhere to make your selection."
+          note="Tap or click anywhere to make your selection."
           onDismiss={() => setOverlayDismissed(true)}
         />
       )}
@@ -262,7 +262,7 @@ export function DraftRoom() {
         <FullScreenOverlay
           kicker="Draft complete"
           big="Every pick is in."
-          note={`Click anywhere to continue to the ${draft.mode === "fantasy" ? "Fantasy Draft Summary" : "Rookie Draft Summary"}.`}
+          note={`Tap or click anywhere to continue to the ${draft.mode === "fantasy" ? "Fantasy Draft Summary" : "Rookie Draft Summary"}.`}
           onDismiss={() => nav("/")}
         />
       )}
@@ -355,6 +355,17 @@ export function DraftRoom() {
             )}
           </div>
         )}
+        {/* between picks the board is all greyed-out Draft buttons; say what
+            the wait is good for — the stars are what the staff takes if this
+            GM's clock runs out */}
+        {!yourPick && !complete && onClockTeam && code && actions.online && (
+          <div className="notice" role="status" style={{ marginBottom: 12 }}>
+            {TEAMS_BY_CODE[onClockTeam]?.label ?? onClockTeam} is on the clock.{" "}
+            {mode === "rookie"
+              ? "Star the prospects you want, in order — if your own clock runs out, your staff drafts your top star still on the board."
+              : "If your own clock runs out, your staff drafts the best fit left on your board."}
+          </div>
+        )}
         {pickError && (
           <div className="notice bad" role="status">
             {pickError}
@@ -397,8 +408,25 @@ export function DraftRoom() {
                       p.name
                     )}
                     {fit && <FitTag fit={fit(p.position, p.ovr)} />}
-                    {myTargets.includes(p.id) && (
-                      <span title="One of your draft targets" style={{ marginLeft: 6, color: "var(--notice)" }}>★</span>
+                    {/* starring used to live only on the preview screen, so a GM
+                        waiting between picks could see their stars and not
+                        change them */}
+                    {mode === "rookie" && !complete ? (
+                      <button
+                        type="button"
+                        className="btnlink"
+                        aria-pressed={myTargets.includes(p.id)}
+                        aria-label={`${myTargets.includes(p.id) ? "Unstar" : "Star"} ${p.name}`}
+                        title={myTargets.includes(p.id) ? "One of your draft targets" : "Make him a draft target"}
+                        style={{ marginLeft: 6, color: "var(--notice)", textDecoration: "none" }}
+                        onClick={() => void actions.toggleDraftTarget(p.id)}
+                      >
+                        {myTargets.includes(p.id) ? "★" : "☆"}
+                      </button>
+                    ) : (
+                      myTargets.includes(p.id) && (
+                        <span title="One of your draft targets" style={{ marginLeft: 6, color: "var(--notice)" }}>★</span>
+                      )
                     )}
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
                   </td>
