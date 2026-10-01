@@ -101,7 +101,10 @@ export function RosterByPosition({
                           {p.name}
                           {/* who's out, when you're sizing up a roster */}
                           {p.injury_status && (
-                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}>
+                            // a real space, not just a margin: read aloud (or copied)
+                            // it was "Leonard Taylor IIIOUT"
+                            <span style={{ marginLeft: 3, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}>
+                              {" "}
                               {p.injury_status.status.toUpperCase()}
                             </span>
                           )}

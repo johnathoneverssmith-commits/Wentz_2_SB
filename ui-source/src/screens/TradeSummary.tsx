@@ -50,7 +50,7 @@ export function TradeSummary() {
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Trade Summary"
-        subtitle={`${s.season} deadline · ${mine.length === 0 ? "no trades" : `${mine.length} trade${mine.length === 1 ? "" : "s"}`} for you, ${league.length} around the league`}
+        subtitle={`${s.season} deadline · ${mine.length === 0 ? "no trades" : `${mine.length} trade${mine.length === 1 ? "" : "s"}`} for you, ${league.length === 0 ? "none" : league.length} around the league`}
       />
       <Ticker
         stats={[

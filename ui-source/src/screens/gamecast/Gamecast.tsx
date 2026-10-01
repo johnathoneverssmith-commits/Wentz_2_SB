@@ -45,10 +45,12 @@ const driveAttacksRight = (side: string, q: number): boolean =>
 const teamColor = (code: string): string => TEAMS_BY_CODE[code]?.color ?? "var(--ink-faint)";
 const teamNick = (code: string): string => (TEAMS_BY_CODE[code]?.name ?? code).toUpperCase();
 
+// the whole phrase, article and all: callers wrote "the ${spot}", which read
+// "takes over at the own 30"
 const spot = (ballOn: number): string => {
   if (Math.abs(ballOn - 50) < 0.5) return "midfield";
   const y = Math.round(ballOn > 50 ? 100 - ballOn : ballOn);
-  return `${ballOn > 50 ? "own" : "opp"} ${y}`;
+  return ballOn > 50 ? `their own ${y}` : `the opp ${y}`;
 };
 const ord = (n: number): string => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
 
@@ -77,7 +79,7 @@ function PlayDesc({ p }: { p: BroadcastPlay }): JSX.Element {
   const N = ({ n }: { n: string | undefined }) =>
     n ? <span className="gc-name">{n}</span> : <></>;
   const g = Math.round(p.gained);
-  const to = p.touchdown ? "the end zone" : `the ${spot(Math.max(1, p.ballOn - p.gained))}`;
+  const to = p.touchdown ? "the end zone" : spot(Math.max(1, p.ballOn - p.gained));
 
   if (p.call === "field_goal") {
     return (
@@ -546,7 +548,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                       const n = live ? (step?.type === "play" ? step.j + 1 : 0) : dr.plays.length;
                       return `${n} ${n === 1 ? "play" : "plays"}`;
                     })()}{" "}
-                    · from the {spot(dr.startBallOn)}
+                    · from {spot(dr.startBallOn)}
                     {tag && <span className={`gc-dtag ${tag.cls}`}>{tag.label}</span>}
                     {conceded && <span className="gc-dtag against">{conceded}</span>}
                   </span>
@@ -664,10 +666,15 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                     ? cur.outcome === "made" ? "Field Goal" : "No Good"
                     : cur.call === "punt"
                       ? "Punt"
-                      : `${ord(cur.down)} & ${Math.round(cur.ydstogo) || "Goal"} at the ${spot(cur.ballOn)}`}
+                      : `${ord(cur.down)} & ${
+                          // "3rd & 4 at the opp 4": a first down there is the end zone
+                          Math.round(cur.ydstogo) === 0 || Math.round(cur.ydstogo) >= Math.round(cur.ballOn)
+                            ? "Goal"
+                            : Math.round(cur.ydstogo)
+                        } at ${spot(cur.ballOn)}`}
             </span>
             <span className="gc-desc">
-              {cur ? <PlayDesc p={cur} /> : `${dTeam} takes over at the ${spot(next?.ballOn ?? drive.startBallOn)}`}
+              {cur ? <PlayDesc p={cur} /> : `${dTeam} takes over at ${spot(next?.ballOn ?? drive.startBallOn)}`}
             </span>
           </div>
 

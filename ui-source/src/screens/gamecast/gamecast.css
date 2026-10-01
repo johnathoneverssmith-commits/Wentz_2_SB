@@ -548,3 +548,16 @@
     font-size: 10.5px;
   }
 }
+
+/* step back / step forward are pressed over and over on a phone, and 32px
+ * sat under the fingertip rather than around it */
+@media (pointer: coarse) {
+  .gc-transport button {
+    width: 42px;
+    height: 42px;
+  }
+  .gc-transport button.gc-play {
+    width: 46px;
+    height: 46px;
+  }
+}

@@ -140,7 +140,14 @@ export function WeeklyTeamHub() {
   const gmRows = s.gms
     .filter((gm) => gm.isHuman && gm.teamCode)
     .map((gm) => ({ gm, t: s.teams[gm.teamCode]! }))
-    .sort((a, b) => winPct(b.t) - winPct(a.t));
+    // at 0-0 every GM tied and the table fell back to the order they joined
+    // in, weakest roster first as often as not; odds break the tie
+    .sort(
+      (a, b) =>
+        winPct(b.t) - winPct(a.t) ||
+        playoffOdds(s, b.gm.teamCode) - playoffOdds(s, a.gm.teamCode) ||
+        b.t.ratings.overall - a.t.ratings.overall,
+    );
 
   const preseasonRecord = (() => {
     const mine = (online ? visibleGames(s, s.viewerGmId) : s.games).filter(

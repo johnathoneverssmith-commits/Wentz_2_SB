@@ -231,7 +231,7 @@ export function CoachingDraftRoom() {
                 : (TEAMS_BY_CODE[onClock]?.label ?? onClock)
               : "the league"}{" "}
             to pick.
-            {picksAway != null && ` Your pick is ${picksAway} ${picksAway === 1 ? "pick" : "picks"} away.`} You can look
+            {picksAway != null && (picksAway === 1 ? " You pick next." : ` Your pick is ${picksAway} picks away.`)} You can look
             around in the meantime.
             <CommissionerTakeTurn team={onClock} />
           </p>

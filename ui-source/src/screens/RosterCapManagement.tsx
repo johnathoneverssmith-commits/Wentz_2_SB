@@ -334,9 +334,15 @@ export function RosterCapManagement() {
                     {p.injury_status && (
                       <span
                         title={`${p.injury_status.description}${p.injury_status.weeks_out_est ? `, ${p.injury_status.weeks_out_est[0]}-${p.injury_status.weeks_out_est[1]} weeks` : ""}`}
-                        style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}
+                        style={{ marginLeft: 3, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}
                       >
-                        {onInjuredReserve(p, s.stage) ? "IR" : p.injury_status.status === "questionable" ? "Q" : p.injury_status.status === "doubtful" ? "D" : "OUT"}
+                        {/* spoken it was "OTQ": the space, and the whole word for "Q" */}{" "}
+                        <span aria-hidden="true">
+                          {onInjuredReserve(p, s.stage) ? "IR" : p.injury_status.status === "questionable" ? "Q" : p.injury_status.status === "doubtful" ? "D" : "OUT"}
+                        </span>
+                        <span className="sr-only">
+                          {onInjuredReserve(p, s.stage) ? "injured reserve" : p.injury_status.status}
+                        </span>
                       </span>
                     )}
                   </span>

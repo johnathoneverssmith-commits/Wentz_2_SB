@@ -313,7 +313,8 @@ function ProposeTurn({
             onSubmit({ kind: "skip" });
           }}
         >
-          Skip Turn
+          {/* the instructions above say "pass", like free agency's button */}
+          Pass this turn
         </button>
         <button
           type="button"
@@ -515,7 +516,8 @@ function Waiting({
             </p>
             {turnsAway != null && (
               <p style={{ margin: "6px 0 0", fontSize: 12.5 }}>
-                Your next turn is {turnsAway} {turnsAway === 1 ? "turn" : "turns"} away.
+                {/* "1 turn away" while someone else holds it is just "next" */}
+                {turnsAway === 1 ? "You're up next." : `Your next turn is ${turnsAway} turns away.`}
               </p>
             )}
             <CommissionerTakeTurn team={holder} />

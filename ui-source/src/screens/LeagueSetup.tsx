@@ -148,7 +148,7 @@ export function LeagueSetup() {
             )}
           </div>
         )}
-        <FranchiseBanner meta={myMeta} locked={locked} />
+        <FranchiseBanner meta={myMeta} locked={locked} humansOnly={formatOf(config) === "humansOnly"} />
 
         <p className="sectionlabel">GM lobby</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8, marginBottom: 6 }}>
@@ -322,7 +322,7 @@ export function LeagueSetup() {
           >
             {(humansOnly ? [1, 2, 3, 4, 5, 6, 7, 8] : [2, 3, 4, 5, 6]).map((n) => (
               <option key={n} value={n}>
-                {n} GMs
+                {n} {n === 1 ? "GM" : "GMs"}
               </option>
             ))}
           </select>
@@ -486,7 +486,15 @@ export function LeagueSetup() {
 }
 
 /** The "your franchise" moment at the top of the lobby. */
-function FranchiseBanner({ meta, locked }: { meta: TeamMeta | undefined; locked: boolean }) {
+function FranchiseBanner({
+  meta,
+  locked,
+  humansOnly,
+}: {
+  meta: TeamMeta | undefined;
+  locked: boolean;
+  humansOnly: boolean;
+}) {
   if (!meta) {
     return (
       <div
@@ -555,7 +563,8 @@ function FranchiseBanner({ meta, locked }: { meta: TeamMeta | undefined; locked:
           {meta.city} {meta.name}
         </p>
         <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
-          {meta.conference} {meta.division}
+          {/* a humans-only league has no conferences or divisions */}
+          {humansOnly ? "Humans-only league" : `${meta.conference} ${meta.division}`}
           {locked ? "" : " · you can still switch teams until the league starts"}
         </p>
       </div>
