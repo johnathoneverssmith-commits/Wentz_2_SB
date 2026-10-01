@@ -730,6 +730,13 @@ export const useStore = create<Store>()(
       // AI-drafts-by-pure-overall bug — removed along with it.
       startDraft: (mode) =>
         set((s) => {
+          // Idempotent. The draft room asks for this from an effect, and a
+          // second call (React runs effects twice in development; a re-render
+          // from a stale snapshot does it anywhere) rebuilt the board with
+          // empty results while the first call's AI picks stayed on their
+          // rosters: eight quarterbacks on teams that never drafted them,
+          // still listed as available on the board.
+          if (s.draft && s.draft.mode === mode) return;
           beginDraft(s, mode);
           runAiPicks(s);
         }),

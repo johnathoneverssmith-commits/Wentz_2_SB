@@ -11,7 +11,10 @@ export interface ScoreTracker {
 export function buildScoreTracker(s: LeagueState): ScoreTracker {
   const seasonNums = [...new Set(s.history.map((h) => h.season))].sort((a, b) => a - b);
   const seasons = seasonNums.map((season) => {
-    const outcomes = s.history.filter((h) => h.season === season);
+    // a GM who took over a reopened seat isn't scored on the seasons before
+    // they arrived — those belonged to whoever held it then
+    const joined = new Map(s.gms.map((g) => [g.id, g.joinedSeason ?? 0]));
+    const outcomes = s.history.filter((h) => h.season === season && season >= (joined.get(h.gmId) ?? 0));
     return {
       season,
       breakdowns: scoreSeason({ season, outcomes, headToHead: () => 0 }),

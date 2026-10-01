@@ -106,7 +106,9 @@ function depthLines(s: LeagueState): Lines {
 
 const vacancy = (position: string): UnitStarter => ({
   id: null,
-  name: "Vacant",
+  // the engine starts a replacement-level body here; "Vacant 68" read as a
+  // player called Vacant
+  name: "Vacant — replacement",
   position,
   overall: REPLACEMENT_RATING,
 });

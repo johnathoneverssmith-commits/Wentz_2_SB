@@ -178,7 +178,10 @@ export function DraftRoom() {
           age: p.age,
           ovr: p.overall,
           sub:
-            TEAMS_BY_CODE[p.nfl_team]?.label ??
+            // a single-player fantasy pool keeps each player's last team on
+            // him until he's drafted: "Indianapolis" under Lamar Jackson read
+            // as if he were already spoken for
+            (p.free_agent ? undefined : TEAMS_BY_CODE[p.nfl_team]?.label) ??
             (() => {
               const n = (atPosition.get(p.position) ?? 0) + 1;
               atPosition.set(p.position, n);
@@ -550,7 +553,7 @@ export function DraftRoom() {
                 <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 500 }}>
                   <TeamBadge code={r.teamCode} size={18} />
                   {TEAMS_BY_CODE[r.teamCode]?.label ?? r.teamCode}
-                  {gmOf(r.teamCode) && <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 400 }}>{gmOf(r.teamCode)}</span>}
+                  {gmOf(r.teamCode) && <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 400 }}> {gmOf(r.teamCode)}</span>}
                 </span>
                 <span style={{ fontSize: 12.5, textAlign: "right", color: "var(--ink)" }}>
                   {r.selectedName} · {r.selectedPosition}

@@ -777,7 +777,10 @@ function JoinByInvite({
   mine?: string[];
 }) {
   const [code, setCode] = useState(initialCode);
-  const [found, setFound] = useState<{ league: { id: string; name: string }; openTeams: string[] } | null>(
+  const [found, setFound] = useState<{
+    league: { id: string; name: string; season?: number; stage?: string };
+    openTeams: string[];
+  } | null>(
     null,
   );
   const lookedUp = useRef(false);
@@ -827,6 +830,7 @@ function JoinByInvite({
           ) : (
           <TeamPicker
             teams={found.openTeams}
+            underway={found.league.stage && found.league.stage !== "setup" ? { season: found.league.season ?? 0, stage: found.league.stage } : null}
             busy={busy}
             onPick={(codeStr) =>
               void attempt(async () => {
@@ -1160,10 +1164,13 @@ function TeamPicker({
   teams,
   busy,
   onPick,
+  underway = null,
 }: {
   teams: string[];
   busy: boolean;
   onPick: (teamCode: string) => void;
+  /** A league already playing: the seat is a team as it stands, not a fresh pick. */
+  underway?: { season: number; stage: string } | null;
 }) {
   if (teams.length === 0) {
     return <div className="emptystate">Every team in that league is taken.</div>;
@@ -1173,7 +1180,11 @@ function TeamPicker({
     // rather than squeezing in beside the button that opened it
     <div className="lobby-claim">
       <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--ink-dim)" }}>
-        Pick the franchise you want to run. You can switch on the setup screen until the league starts; after that it&rsquo;s yours for good.
+        {underway
+          ? // years into a league, "switch until the league starts" was wrong:
+            // the seat is someone's roster, contracts and record, as it stands
+            `This league is already under way — ${displaySeasonFor(underway.season, underway.stage as Stage)}, ${stageName(underway.stage)}. You take over the team as it stands: its roster, contracts and record. It's yours for good.`
+          : "Pick the franchise you want to run. You can switch on the setup screen until the league starts; after that it’s yours for good."}
       </p>
       <div className="needgrid">
         {teams.map((codeStr) => (

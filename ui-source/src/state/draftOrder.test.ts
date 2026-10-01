@@ -13,6 +13,10 @@ function orderFor(mode: "fantasy" | "rookie"): string[] {
   // draft that way, so give them one before asking for the order
   const s = useStore.getState();
   if (!s.gms.find((g) => g.id === s.viewerGmId)?.teamCode) s.pickTeam(s.viewerGmId, "DAL");
+  // `startDraft` leaves a running draft alone, so each case starts clean
+  useStore.setState((st) => {
+    st.draft = null;
+  });
   useStore.getState().startDraft(mode);
   return useStore.getState().draft!.pickOrder;
 }

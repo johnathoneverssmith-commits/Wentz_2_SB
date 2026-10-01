@@ -71,7 +71,22 @@ export interface InboxFacts {
 
 const WATCH_STAGES = new Set(["preseason", "regularSeason", "playoffs"]);
 /** What a stage asks of a GM before their check-in, where that's more than a button. */
+// what each check-in actually asks for — most stages fell back to the
+// same "check in when you're ready", which said nothing about what was due
 const STAGE_TODO: Record<string, string> = {
+  setup: "Pick your team, then check in to start the league.",
+  fantasyDraftSummary: "Look over the draft, then check in.",
+  coachingDraftSummary: "Look over your new staff, then check in.",
+  freeAgencySummary: "Get your roster legal — 53 or fewer, under the cap — then check in.",
+  midseasonFreeAgencySummary: "Get your roster legal — 53 or fewer, under the cap — then check in.",
+  tradeDeadlineSummary: "Look over the deadline's trades, then check in.",
+  trainingCampResults: "See how camp went, then check in.",
+  preseason: "Watch the preseason, then check in.",
+  regularSeason: "Watch this stretch of games, then check in.",
+  playoffs: "Watch the playoff rounds, then check in.",
+  endOfSeasonWin: "Look back on the season, then check in for the offseason.",
+  endOfSeasonConsolation: "Look back on the season, then check in for the offseason.",
+  offseasonRetirement: "Review the retirements and the draft class, then check in.",
   offseasonDraftSummary: "Sign or release your draft class, then check in.",
   trainingCamp: "Set your camp focuses, then check in.",
   offseasonDepthChart: "Set your depth chart, then check in.",

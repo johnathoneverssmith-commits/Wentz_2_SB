@@ -202,7 +202,7 @@ export class OnlineLeagueClient {
   }) => this.call<{ leagueId: string; inviteCode: string }>("/leagues", input);
 
   lookUpInvite = (code: string) =>
-    this.call<{ league: { id: string; name: string }; openTeams: string[] }>(
+    this.call<{ league: { id: string; name: string; season?: number; stage?: string }; openTeams: string[] }>(
       `/invites/${encodeURIComponent(code)}`,
     );
 

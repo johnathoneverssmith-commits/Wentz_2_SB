@@ -82,6 +82,9 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
                       ) {
                         return;
                       }
+                      // the button goes the moment it's pressed: on a slow
+                      // server it sat live for seconds, asking to be pressed again
+                      setNote((n) => ({ ...n, [p.id]: "Extending…" }));
                       void actions.extend(p.id, ask).then((r) => {
                         setNote((n) => ({ ...n, [p.id]: r.ok ? "Extended" : (r.reason ?? "He turned it down.") }));
                         if (r.ok) {

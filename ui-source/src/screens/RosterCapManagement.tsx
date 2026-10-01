@@ -48,6 +48,7 @@ export function RosterCapManagement() {
   const { active, setActive } = useTabs("roster");
   const [group, setGroup] = useState<PositionGroup>("QB");
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [restructuring, setRestructuring] = useState<string | null>(null);
   const [extending, setExtending] = useState<Player | null>(null);
   const [extendError, setExtendError] = useState<string | null>(null);
   const [moveNote, setMoveNote] = useState<{ id: string; ok: boolean; text: string } | null>(null);
@@ -403,7 +404,11 @@ export function RosterCapManagement() {
                         // the server answers with the new league instead, so
                         // online the preview's arithmetic stands in
                         const estimate = previewRestructure(p, s.season).freed;
-                        void actions.restructure(p.id).then((r) => {
+                        // a second tap before the answer came back was refused
+                        // ("already restructured"), and that note replaced
+                        // the success one — the deal looked like it had failed
+                        setRestructuring(p.id);
+                        void actions.restructure(p.id).finally(() => setRestructuring(null)).then((r) => {
                           setMoveNote({
                             id: p.id,
                             ok: r.ok,
@@ -413,7 +418,7 @@ export function RosterCapManagement() {
                           });
                         });
                       }}
-                      disabled={!previewRestructure(p, s.season).ok}
+                      disabled={restructuring === p.id || !previewRestructure(p, s.season).ok}
                       title={previewRestructure(p, s.season).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
                     >
                       Restructure

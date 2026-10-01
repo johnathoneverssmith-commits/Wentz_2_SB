@@ -102,6 +102,12 @@ export interface Gm {
   isHuman: boolean;
   /** The one team this GM controls. Empty until picked in setup. */
   teamCode: string;
+  /**
+   * The first season this person played, when they took over a seat someone
+   * else had held (a reopened one). The seat's earlier seasons were the last
+   * GM's, and counted toward the newcomer in the score tracker.
+   */
+  joinedSeason?: number;
 }
 
 /** A single negotiated contract offer (players and coaches share the shape). */

@@ -249,7 +249,8 @@ function RankTable({
               <td className="name">
                 {TEAMS_BY_CODE[r.code]!.label}
                 {r.code !== me && gmOf(r.code) && (
-                  <span style={{ marginLeft: 6, fontSize: 10.5, color: "var(--ink-faint)" }}>{gmOf(r.code)}</span>
+                  // a real space as well as the margin: read aloud it was "Pittsburghnewgm"
+                  <span style={{ marginLeft: 3, fontSize: 10.5, color: "var(--ink-faint)" }}> {gmOf(r.code)}</span>
                 )}
               </td>
               {cols.map(([h, fn]) => (

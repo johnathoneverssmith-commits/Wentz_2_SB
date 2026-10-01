@@ -130,9 +130,15 @@ export async function createOnlineLeague(
   return { leagueId: id, inviteCode: code };
 }
 
-export async function leagueByInvite(code: string): Promise<{ id: string; name: string } | null> {
-  const rows = await pool.query<{ id: string; name: string }>(
-    `SELECT id, name FROM leagues WHERE invite_code = $1 AND archived_at IS NULL`,
+export async function leagueByInvite(
+  code: string,
+): Promise<{ id: string; name: string; season: number; stage: string } | null> {
+  // season and stage too: someone joining a league years in takes a team as
+  // it stands, and the join screen told them they could switch until kickoff
+  const rows = await pool.query<{ id: string; name: string; season: number; stage: string }>(
+    `SELECT l.id, l.name, s.season, s.stage
+       FROM leagues l JOIN league_state s ON s.league_id = l.id
+      WHERE l.invite_code = $1 AND l.archived_at IS NULL`,
     // pasted from a message it arrives with spaces, dashes or quotes around it
     [code.toUpperCase().replace(/[^A-Z0-9]/g, "")],
   );
@@ -210,6 +216,11 @@ export async function claimTeam(
           // the weekly notes. Take the account's name instead; it is what they
           // chose and what the other GMs know them by.
           if (name) gm.name = name;
+          // a seat with seasons already played under someone else: the score
+          // tracker counts this GM from the next unplayed one
+          const played = state.history.filter((h) => h.gmId === gm.id).map((h) => h.season);
+          if (played.length > 0) gm.joinedSeason = Math.max(...played) + 1;
+          else delete gm.joinedSeason;
         }
         if (state.teams[teamCode]) {
           state.teams[teamCode]!.controlledBy = { kind: "human", gmId: open.gm_id };

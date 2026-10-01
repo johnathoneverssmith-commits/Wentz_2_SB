@@ -134,7 +134,7 @@ function NormalHub({ code }: { code: string | undefined }) {
               {c && role !== "HC" && (
                 <>
                   <span className="prio-chip" style={{ display: "inline-block", marginBottom: 12 }}>{schemeLabel(c.scheme)}</span>
-                  <RatingBar label={role === "OC" ? "Play-calling IQ" : "Coverage IQ"} value={c.playCallIq ?? 0} />
+                  <RatingBar label="Play-calling IQ" /* the same number the rest of the game calls play-calling; "Coverage IQ" read as a second rating */ value={c.playCallIq ?? 0} />
                   <RatingBar
                     label={role === "OC" ? "Pass tendency" : "Blitz rate"}
                     value={(role === "OC" ? c.tendencyPassRate : c.tendencyBlitzRate) ?? 0}
