@@ -1,5 +1,5 @@
 import { CopyButton } from "@/components/CopyButton";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { humansOnlyLeagueSize, playoffFieldSize, seasonShapeFor } from "@/state/leagueFormat";
@@ -244,7 +244,11 @@ export function OnlineLobby() {
   // is one league waiting on you, not two
   // something actually waiting on you — not a "whenever" note like an empty
   // seat or a roster to trim before the season
-  const waiting = inbox.filter((l) => l.items.some((i) => i.urgency !== "whenever")).length;
+  const waiting =
+    inbox.filter((l) => l.items.some((i) => i.urgency !== "whenever")).length +
+    // a league you made and haven't picked a team in yet can't start without
+    // you — it has no inbox (no team to ask about), and counted as nothing
+    leagues.filter((l) => !l.teamCode && l.stage === "setup" && !inbox.some((x) => x.leagueId === l.id)).length;
 
   return (
     <Card maxWidth={760}>
@@ -801,8 +805,14 @@ function OnlineSetting({
   hint: string;
   children: React.ReactNode;
 }) {
+  // the title sat beside its select as plain text: a screen reader reached
+  // eleven unnamed dropdowns
+  const id = useId();
   return (
     <div
+      role="group"
+      aria-labelledby={`${id}-l`}
+      aria-describedby={`${id}-h`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -813,8 +823,8 @@ function OnlineSetting({
       }}
     >
       <div style={{ minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
-        <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
+        <p id={`${id}-l`} style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
+        <p id={`${id}-h`} style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
           {hint}
         </p>
       </div>
@@ -1118,6 +1128,8 @@ function TeamPicker({
             type="button"
             className="lobby-team"
             disabled={busy}
+            // badge and name ran together: "NONew Orleans"
+            aria-label={`Claim ${TEAMS_BY_CODE[codeStr]?.label ?? codeStr}`}
             onClick={() => onPick(codeStr)}
           >
             <TeamBadge code={codeStr} size={22} />

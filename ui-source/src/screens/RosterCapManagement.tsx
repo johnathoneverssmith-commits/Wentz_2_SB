@@ -223,24 +223,27 @@ export function RosterCapManagement() {
           nothing on this screen had said it would happen */}
       {s.stage === "offseasonDepthChart" && activeCount < 53 && overContracts <= 0 && (
         <div className="notice" role="status">
-          You&rsquo;re {53 - activeCount} short of 53. When the preseason starts your staff fills the
-          rest with minimum-salary depth from free agency — sign your own on the{" "}
-          <button type="button" className="btnlink" onClick={() => nav("/free-agency")}>
-            free-agency board
-          </button>{" "}
-          first if you&rsquo;d rather choose.
-          {/* the fill makes room by releasing contracts when the depth won't
-              fit, and this note promised only signings */}
-          {/* depth signs at the $1M minimum */}
-          {53 - activeCount > capTotalM - contractsUsed(s, code) && (
+          {/* depth signs at the $1M minimum; when it won't fit the fill makes
+              room by releasing contracts — and "sign your own first" beside
+              $0.2M of room was advice nobody could take */}
+          {53 - activeCount > capTotalM - contractsUsed(s, code) ? (
             <>
-              {" "}
+              You&rsquo;re {53 - activeCount} short of 53 with{" "}
+              {millions(Math.max(0, Math.round((capTotalM - contractsUsed(s, code)) * 10) / 10))} of cap room.{" "}
               <strong>
-                That depth costs about {millions(53 - activeCount)} and you have{" "}
-                {millions(Math.max(0, Math.round((capTotalM - contractsUsed(s, code)) * 10) / 10))} of room, so
-                they&rsquo;ll release someone to afford it
+                When the preseason starts your staff signs about {millions(53 - activeCount)} of
+                minimum-salary depth and releases someone to afford it
               </strong>{" "}
               — make the cut yourself first if you&rsquo;d rather pick who.
+            </>
+          ) : (
+            <>
+              You&rsquo;re {53 - activeCount} short of 53. When the preseason starts your staff fills the
+              rest with minimum-salary depth from free agency — sign your own on the{" "}
+              <button type="button" className="btnlink" onClick={() => nav("/free-agency")}>
+                free-agency board
+              </button>{" "}
+              first if you&rsquo;d rather choose.
             </>
           )}
         </div>

@@ -273,9 +273,9 @@ export function TradeProposal() {
                     return (
                       <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
                         By the league&rsquo;s value chart:{" "}
-                        <strong style={{ color: forYou >= 0 ? "var(--good)" : "var(--bad)" }}>
-                          {forYou >= 0 ? "+" : ""}
-                          {forYou} for you
+                        {/* "+0 for you" read like a number that meant something */}
+                        <strong style={{ color: Math.abs(forYou) < 1 ? "var(--ink)" : forYou > 0 ? "var(--good)" : "var(--bad)" }}>
+                          {Math.abs(forYou) < 1 ? "about even" : `${forYou > 0 ? "+" : ""}${forYou} for you`}
                         </strong>
                       </p>
                     );

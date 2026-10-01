@@ -168,7 +168,17 @@ export function PostseasonBracket() {
               ? `${myNext!.round !== "SB" && myNext!.highSeed?.code !== code ? "@" : "vs"} ${TEAMS_BY_CODE[myNextOpp]!.label}`
               : b.champion || eliminated || !inField
                 ? "—"
-                : "TBD",
+                : // the round, at least: a top seed on a bye read "TBD" as if
+                  // nothing was scheduled
+                  myNext
+                  ? (() => {
+                      const rounds = bracketRounds(b);
+                      const bye = !myNext.highSeed || !myNext.lowSeed;
+                      const at = rounds.indexOf(myNext.round);
+                      const round = bye && at >= 0 && at + 1 < rounds.length ? rounds[at + 1]! : myNext.round;
+                      return `${roundLabelFor(b, round)} · opponent TBD`;
+                    })()
+                  : "TBD",
             className: "sm",
           },
           { label: "Champion", value: b.champion ? TEAMS_BY_CODE[b.champion]!.label : "—", className: "sm" },

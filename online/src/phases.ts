@@ -663,7 +663,9 @@ function reportStaffMoves(state: LeagueState, when: string, run: () => void): vo
     };
     const parts = [
       added.length ? `signed ${list(added)}` : "",
-      cut.length ? `released ${cut.length <= 3 && cut.every(Boolean) ? list(cut) : `${cut.length} players`}` : "",
+      // named like the signings: "released 6 players" left a GM to find out
+      // from the roster which of theirs had gone
+      cut.length ? `released ${cut.every(Boolean) ? list(cut) : `${cut.length} players`}` : "",
     ].filter(Boolean);
     noteEvent(state, {
       teamCode: team,

@@ -133,7 +133,10 @@ export function WeekResults({
   detailOnEvery = false,
   onBox,
   onWatch,
+  noGame,
 }: {
+  /** What to say when the viewer has no game here, if there's more to say. */
+  noGame?: string;
   slate: GameResult[];
   code: string | null;
   label: string;
@@ -177,9 +180,9 @@ export function WeekResults({
         <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--ink-faint)", textAlign: "center" }}>
           {/* a playoff round without you is a bye, an elimination or a
               missed postseason — never a "bye week" */}
-          {detailOnEvery
+          {noGame ?? (detailOnEvery
             ? "Your team isn’t playing in this round."
-            : "Bye week — your team wasn’t on this slate."}
+            : "Bye week — your team wasn’t on this slate.")}
         </p>
       )}
 

@@ -114,9 +114,11 @@ export function TradeDeadlineRoom() {
         // was answered and then sat through fifteen other turns never heard
         const last = [...d.resolved].reverse().find((o) => o.fromTeam === code || o.toTeam === code);
         if (!last) return null;
-        // a new negotiation of this GM's is under way: the old outcome beside
-        // "waiting on Kansas City to answer your offer" read as its answer
-        if (d.active && (d.active.fromTeam === code || d.active.toTeam === code)) return null;
+        // this GM's own offer is out: the old outcome beside "waiting on
+        // Kansas City to answer your offer" read as its answer. (An offer
+        // *to* them is different — a counter that was turned down and a new
+        // offer arriving in the same instant left no word on the counter.)
+        if (d.active && d.active.fromTeam === code && d.active.awaiting === "recipient") return null;
         const other = last.fromTeam === code ? last.toTeam : last.fromTeam;
         const name = TEAMS_BY_CODE[other]?.label ?? other;
         return (
@@ -388,9 +390,9 @@ function RespondTurn({
           return (
             <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--ink-dim)" }}>
               By the league&rsquo;s value chart:{" "}
-              <strong style={{ color: forYou >= 0 ? "var(--good)" : "var(--bad)" }}>
-                {forYou >= 0 ? "+" : ""}
-                {forYou} for you
+              {/* "+0 for you" read like a number that meant something */}
+              <strong style={{ color: Math.abs(forYou) < 1 ? "var(--ink)" : forYou > 0 ? "var(--good)" : "var(--bad)" }}>
+                {Math.abs(forYou) < 1 ? "about even" : `${forYou > 0 ? "+" : ""}${forYou} for you`}
               </strong>
               {/* accepting one of these used to look like any other yes */}
               {leagueVoteBlock(s, offer.fromTeam, offer.toTeam, offer.fromAssets, offer.toAssets) && (

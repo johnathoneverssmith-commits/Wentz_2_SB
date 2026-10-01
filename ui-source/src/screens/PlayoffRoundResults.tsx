@@ -43,6 +43,18 @@ export function PlayoffRoundResults() {
     .filter((x): x is string => !!x);
 
   const revealed = online ? revealedRounds(s, s.viewerGmId).includes(r) : true;
+  // a GM already knocked out: which round it was, rather than "isn't playing"
+  const lost = code
+    ? seen.find(
+        (g) =>
+          g.played &&
+          g.phase !== "REG" &&
+          g.phase !== "PRE" &&
+          g.phase !== r &&
+          (g.homeTeam === code ? g.homeScore < g.awayScore : g.awayTeam === code && g.awayScore < g.homeScore),
+      )
+    : undefined;
+  const outIn = lost ? (lost.phase as PlayoffRound) : null;
   const back = `/results/round/${r}`;
 
   return (
@@ -101,6 +113,15 @@ export function PlayoffRoundResults() {
               label={roundLabelFor(s.bracket, r)}
               showDetail
               detailOnEvery
+              // the top seed sat the round out: "isn't playing in this round"
+              // read like an elimination
+              noGame={
+                code && byes.includes(code)
+                  ? `${TEAMS_BY_CODE[code]?.label ?? code} had the bye — next stop, the ${roundLabelFor(s.bracket, NEXT_ROUND[r] ?? "SB")}.`
+                  : outIn
+                    ? `${TEAMS_BY_CODE[code!]?.label ?? code}'s season ended in the ${roundLabelFor(s.bracket, outIn)}.`
+                    : undefined
+              }
               onBox={(id) => nav(`/box/${id}?back=${encodeURIComponent(back)}`)}
               onWatch={(id) => nav(`/watch/${id}?back=${encodeURIComponent(back)}`)}
             />

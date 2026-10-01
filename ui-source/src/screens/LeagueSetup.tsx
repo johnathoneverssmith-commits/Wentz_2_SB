@@ -1,5 +1,5 @@
 import { CopyButton } from "@/components/CopyButton";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
@@ -575,8 +575,12 @@ function SettingRow({
   hint: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // the title beside each select was plain text: an unnamed dropdown
+  const id = useId();
   return (
     <div
+      role="group"
+      aria-labelledby={`${id}-l`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -587,7 +591,7 @@ function SettingRow({
       }}
     >
       <div>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
+        <p id={`${id}-l`} style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
         <p
           style={{
             margin: "3px 0 0",
