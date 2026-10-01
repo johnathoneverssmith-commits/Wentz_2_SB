@@ -131,7 +131,8 @@ export function SeasonComplete() {
     : furthest
       ? noneAdvanced
         ? "Finished"
-        : `Advanced to the ${roundLabelFor(s.bracket, furthest.round as PlayoffRound)}`
+        : // "advanced to the Wild Card" for a team that lost its first game
+          `Reached the ${roundLabelFor(s.bracket, furthest.round as PlayoffRound)}`
       : "";
   const roundBoldPart = humanChampGm
     ? title
