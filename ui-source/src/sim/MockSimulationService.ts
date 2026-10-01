@@ -815,7 +815,11 @@ export class MockSimulationService implements SimulationService {
         projectedWeeks: weeks[severity]!,
         mechanism: "contact",
         onPlay: "",
-        narrative: `${p.name} left the game with a ${bodyPart} injury.`,
+        // "a ankle injury", and "a concussion injury"
+        narrative:
+          bodyPart === "concussion"
+            ? `${p.name} left the game with a concussion.`
+            : `${p.name} left the game with ${/^[aeiou]/.test(bodyPart) ? "an" : "a"} ${bodyPart} injury.`,
       },
     ];
   }

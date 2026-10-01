@@ -147,7 +147,15 @@ export function WeekResults({
   onWatch: (gameId: string) => void;
 }) {
   const mine = slate.find((g) => g.homeTeam === code || g.awayTeam === code);
-  const others = slate.filter((g) => g !== mine);
+  // the other GMs' games are the ones a league of friends asks about first;
+  // in a 32-team slate they sat wherever the schedule put them, unmarked
+  const gms = useStore((st) => st.gms);
+  const gmName = (team: string) => gms.find((g) => g.isHuman && g.teamCode === team && team !== code)?.name;
+  const others = slate
+    .filter((g) => g !== mine)
+    .map((g, i) => ({ g, i, gm: !!(gmName(g.homeTeam) || gmName(g.awayTeam)) }))
+    .sort((a, b) => Number(b.gm) - Number(a.gm) || a.i - b.i)
+    .map((x) => x.g);
   const myInjuries = (mine?.injuries ?? [])
     .filter((e) => e.team === code)
     .sort((a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0));
@@ -244,6 +252,7 @@ export function WeekResults({
                 <TeamBadge code={g.homeTeam} size={20} />
                 <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>
                   {TEAMS_BY_CODE[g.homeTeam]!.label}
+                  {gmName(g.homeTeam) && <> <span className="ppos">{gmName(g.homeTeam)}</span></>}
                 </span>
               </span>
               {/* the playoff link lives in the score's cell: as a fourth item
@@ -270,6 +279,7 @@ export function WeekResults({
                 <TeamBadge code={g.awayTeam} size={20} />
                 <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400 }}>
                   {TEAMS_BY_CODE[g.awayTeam]!.label}
+                  {gmName(g.awayTeam) && <> <span className="ppos">{gmName(g.awayTeam)}</span></>}
                 </span>
               </span>
             </div>

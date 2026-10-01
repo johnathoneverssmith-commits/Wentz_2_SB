@@ -60,7 +60,7 @@ function lineFor(p: Player, st: PlayerStatLine): string {
     const rec = n(st.recYds);
     return rush >= rec ? `${yds(rush)} rush yds, ${n(st.rushTd)} TD` : `${n(st.rec)} rec, ${yds(rec)} yds, ${n(st.recTd)} TD`;
   }
-  return `${n(st.tackles)} tkl, ${n(st.sacks)} sacks, ${n(st.defInt)} INT`;
+  return `${n(st.tackles)} tkl, ${n(st.sacks)} ${n(st.sacks) === 1 ? "sack" : "sacks"}, ${n(st.defInt)} INT`;
 }
 
 export function awardSeason(s: LeagueState): SeasonAward[] {

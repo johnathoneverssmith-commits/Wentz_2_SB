@@ -271,10 +271,15 @@ function hash(seed: string): number {
  * the joke — a comment that changed when you refreshed would read as broken
  * rather than as variety.
  */
-export function roastFor(c: RoastContext, seedKey: string): string {
+export function roastFor(c: RoastContext, seedKey: string, used?: Set<string>): string {
   const situation = situationOf(c);
   const lines = LIBRARY[situation];
-  const line = lines[hash(`${seedKey}|${c.teamCode}`) % lines.length]!;
+  // two GMs in the same spot drew the same joke, word for word, side by side;
+  // the next unused line instead (still the same for every reader)
+  let at = hash(`${seedKey}|${c.teamCode}`) % lines.length;
+  for (let tries = 0; used?.has(lines[at]!) && tries < lines.length; tries++) at = (at + 1) % lines.length;
+  const line = lines[at]!;
+  used?.add(line);
   const team = TEAMS_BY_CODE[c.teamCode]?.label ?? c.teamCode;
   return line
     .replace(/\{team\}/g, team)
@@ -359,11 +364,12 @@ export function roastsForWeek(
   seedKey: string,
   fromDraft = false,
 ): { teamCode: string; gmName: string; line: string }[] {
+  const used = new Set<string>();
   return s.gms
     .filter((g) => g.isHuman && g.teamCode)
     .map((g) => {
       const ctx = roastContext(s, g.teamCode, g.name, games, fromDraft);
-      return { teamCode: g.teamCode, gmName: g.name, line: roastFor(ctx, seedKey) };
+      return { teamCode: g.teamCode, gmName: g.name, line: roastFor(ctx, seedKey, used) };
     });
 }
 
@@ -379,6 +385,7 @@ export function roastsForWeek(
  */
 export function preseasonRoasts(s: LeagueState): { teamCode: string; gmName: string; line: string }[] {
   const priorSeason = s.season - 1;
+  const used = new Set<string>();
   return s.gms
     .filter((g) => g.isHuman && g.teamCode)
     .map((g) => {
@@ -401,7 +408,7 @@ export function preseasonRoasts(s: LeagueState): { teamCode: string; gmName: str
       return {
         teamCode: g.teamCode,
         gmName: g.name,
-        line: roastFor(ctx, `preseason|${s.season}`),
+        line: roastFor(ctx, `preseason|${s.season}`, used),
       };
     });
 }
@@ -426,6 +433,7 @@ export function weeklyRoasts(
 ): { teamCode: string; gmName: string; line: string }[] {
   if (throughWeek < 1) return preseasonRoasts(s);
   const games = s.games.filter((g) => g.phase === "REG" && g.played && g.week === throughWeek);
+  const used = new Set<string>();
   return s.gms
     .filter((g) => g.isHuman && g.teamCode)
     .map((g) => {
@@ -440,7 +448,7 @@ export function weeklyRoasts(
       return {
         teamCode: g.teamCode,
         gmName: g.name,
-        line: roastFor(ctx, `week|${s.season}|${throughWeek}`),
+        line: roastFor(ctx, `week|${s.season}|${throughWeek}`, used),
       };
     });
 }

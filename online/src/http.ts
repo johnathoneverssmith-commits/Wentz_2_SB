@@ -220,7 +220,9 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
       JSON.stringify({
         error:
           status === 500
-            ? "Something went wrong on our side."
+            ? // a bare "something went wrong" left the GM guessing whether
+              // their move counted; the league's own page is the answer
+              "Something went wrong on our side. Reload to see where things stand, then try again."
             : (err as Error).message,
       }),
     );

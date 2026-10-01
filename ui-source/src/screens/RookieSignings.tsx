@@ -12,7 +12,7 @@ import { useStore } from "@/state/store";
 import { rookieCapHits, rookieSlotFor } from "@/state/rules";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
-import { millions } from "@/util/format";
+import { millions, count } from "@/util/format";
 
 
 const ROOKIE_GRID = "0.5fr 1.5fr 1fr 0.9fr auto 16px";
@@ -285,7 +285,7 @@ export function RookieSignings() {
             ? "No picks this year."
             : allResolved
               ? "Every pick is settled."
-              : `${resolvedCount} / ${myPicks.length} picks resolved — sign or release the rest.`}
+              : `${resolvedCount} / ${count(myPicks.length, "pick")} resolved — sign or release the rest.`}
         </span>
         {!allResolved && myPicks.length > 0 && (
           <button

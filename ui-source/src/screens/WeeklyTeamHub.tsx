@@ -36,7 +36,7 @@ import {
   weekGame,
 } from "@/state/selectors";
 import { winProbability } from "@/sim/win-probability";
-import { millions, ordinal } from "@/util/format";
+import { millions, ordinal, count } from "@/util/format";
 
 // Was `0.5 + 0.02 * gap + a 4% home edge`, which was a guess in both terms.
 // `win-probability.ts` is the same question answered by 47,616 engine games,
@@ -666,7 +666,7 @@ function RevealControls() {
       <div className="readiness-top">
         <p>{phase === "PRE" ? "Preseason" : "Regular season"}</p>
         <span aria-live="polite">
-          {seen > 0 ? `Watched through Week ${seen} of ${lastWeek}` : `Nothing watched yet · ${lastWeek} weeks in this block`}
+          {seen > 0 ? `Watched through Week ${seen} of ${lastWeek}` : `Nothing watched yet · ${count(lastWeek, "week")} in this block`}
         </span>
       </div>
       <p className="readiness-held">

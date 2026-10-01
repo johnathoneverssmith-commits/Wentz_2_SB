@@ -183,7 +183,7 @@ export function unitReport(s: LeagueState, teamCode: string): UnitReport {
 export interface Fit {
   /** weighted unit points — comparable across positions */
   gain: number;
-  label: "Major upgrade" | "Upgrade" | "Minor upgrade" | "Depth";
+  label: "Major upgrade" | "Upgrade" | "Minor upgrade" | "Depth" | "Fills an empty spot";
   tone: "good" | "neutral" | "faint";
 }
 
@@ -212,7 +212,13 @@ export function fitFor(
     byPos.set(p.position, list);
   }
   const gain = unitGainer((pos) => byPos.get(pos) ?? []);
-  return (position, overall) => fitLabel(gain(position, overall));
+  return (position, overall) => {
+    const f = fitLabel(gain(position, overall));
+    // at the top of a fantasy draft every name read "Major upgrade" — over
+    // nobody. Say so; "upgrade" then means improving on someone you have.
+    if (f.gain > 0.05 && !(byPos.get(position)?.length)) return { ...f, label: "Fills an empty spot" };
+    return f;
+  };
 }
 
 // ---- offense and defense, the way the engine weighs them ---------------------

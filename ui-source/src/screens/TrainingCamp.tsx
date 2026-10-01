@@ -18,6 +18,7 @@ import {
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
+import { count } from "@/util/format";
 
 /**
  * Two choices and two numbers, all four irreversible.
@@ -93,7 +94,7 @@ export function TrainingCamp() {
     const young = inGroup.filter((p) => p.age <= 25).length;
     const vets = inGroup.filter((p) => p.age >= 30).length;
     // the size first: "1 young · 0 vets" on its own read as a one-man line
-    return `${inGroup.length} players · ${young} young · ${vets} vet${vets === 1 ? "" : "s"}`;
+    return `${count(inGroup.length, "player")} · ${young} young · ${vets} vet${vets === 1 ? "" : "s"}`;
   };
 
   const submit = (): void => {

@@ -609,6 +609,9 @@ function SignIn({
               type="text"
               value={name}
               autoComplete="username"
+              // the server's limits, so a long name stops at the field rather
+              // than coming back as an error after the press
+              maxLength={40}
               // a phone capitalised and "corrected" names as they were typed
               autoCapitalize="none"
               autoCorrect="off"
@@ -636,6 +639,7 @@ function SignIn({
               type="password"
               value={password}
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              maxLength={200}
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
@@ -733,13 +737,14 @@ function ChangePassword({ onDone, userName }: { onDone: () => void; userName: st
             type="password"
             value={current}
             autoComplete="current-password"
+            maxLength={200}
             onChange={(e) => setCurrent(e.target.value)}
           />
         </label>
         <label>
           {/* the button stayed grey below 8 characters with nothing saying why */}
           <span>New password · at least 8 characters</span>
-          <input type="password" value={next} autoComplete="new-password" onChange={(e) => setNext(e.target.value)} />
+          <input type="password" value={next} autoComplete="new-password" maxLength={200} onChange={(e) => setNext(e.target.value)} />
         </label>
         <div style={{ display: "flex", gap: 12 }}>
           <button type="submit" className="btn-primary" disabled={busy || current === "" || next.length < 8}>
@@ -949,7 +954,7 @@ function CreateLeague({
       >
         <label>
           <span>League name</span>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          <input type="text" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
         </label>
         <label>
           <span>League format</span>

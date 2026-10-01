@@ -237,8 +237,12 @@ export function FreeAgencyBoardTurns() {
       {/* eighty greyed-out Offer buttons and nothing saying why */}
       {!yourTurn && clock && code && (
         <div className="notice" role="status">
-          {TEAMS_BY_CODE[clock]?.label ?? clock} is on the clock. Browse the board and line up your
-          offer — it opens when your turn comes round.
+          {TEAMS_BY_CODE[clock]?.label ?? clock} is on the clock.{" "}
+          {/* after a team's turn in the last round, "it opens when your turn
+              comes round" promised a turn that was never coming */}
+          {e.order.indexOf(code) < e.turnIndex && e.round >= FREE_AGENCY_ROUNDS
+            ? "That was your last turn in this market — it closes once the rest of the league has gone. Offers you have out still count."
+            : "Browse the board and line up your offer — it opens when your turn comes round."}
           <CommissionerTakeTurn team={clock} />
         </div>
       )}

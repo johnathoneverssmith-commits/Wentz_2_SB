@@ -3,6 +3,7 @@ import { COACH_ROLES } from "@/domain";
 import { strategyCoachBonus, strategyFor } from "./aiStrategy.ts";
 import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 import { coachPriorities } from "@/sim/priorities";
+import { STAFF_WEIGHTS } from "./staffRatings.ts";
 
 /**
  * The coaching fantasy draft.
@@ -193,7 +194,11 @@ export function coachingPickValue(s: LeagueState, teamCode: string): (c: Coach) 
     const pool = (pools.get(role) ?? []).sort((a, b) => b - a);
     later.set(role, pool[Math.min(rivalsHiring.get(role) ?? 0, pool.length - 1)] ?? 40);
   }
-  return (c) => ratingOf(c) + (ratingOf(c) - (later.get(c.role) ?? ratingOf(c)));
+  // weighted the way the staff rating weighs jobs: a head coach or a
+  // coordinator counts for over twice a position coach. Unweighted, a GM who
+  // took every suggestion filled the deep-tailed position jobs first and was
+  // left a 67 coordinator pair and the 25th-best staff of 32.
+  return (c) => (STAFF_WEIGHTS[c.role] ?? 1) * (ratingOf(c) + (ratingOf(c) - (later.get(c.role) ?? ratingOf(c))));
 }
 
 /** The pick a GM should make: the best value among the jobs still open. */
