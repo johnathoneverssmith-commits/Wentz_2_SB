@@ -7,7 +7,7 @@ import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
-import { RETIREMENT_AGE } from "@/sim/roster-template";
+import { RETIREMENT_AGE, ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -53,6 +53,25 @@ export function RetirementReview() {
     .filter((p) => retiringIds.has(p.id) && p.nfl_team !== code)
     .sort((a, b) => b.overall - a.overall)
     .slice(0, 14);
+  // a 39-year-old backup leaving and the starting quarterback leaving looked
+  // the same; which of these were starting is what tells a GM to shop
+  const starting = new Set(
+    yours
+      .filter((p) => {
+        const slots = ROSTER_TEMPLATE.find((t) => t.pos === p.position)?.starters ?? 0;
+        const order = s.depthChart[code ?? ""]?.[p.position];
+        const room = Object.values(s.players)
+          .filter((q) => q.nfl_team === code && q.position === p.position && (!q.retired || retiringIds.has(q.id)))
+          .sort((a, b) => {
+            const ia = order?.indexOf(a.id) ?? -1;
+            const ib = order?.indexOf(b.id) ?? -1;
+            if (ia >= 0 || ib >= 0) return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
+            return b.overall - a.overall;
+          });
+        return room.findIndex((q) => q.id === p.id) < slots;
+      })
+      .map((p) => p.id),
+  );
   const best = [...yours, ...league].sort((a, b) => b.overall - a.overall)[0];
   const capFreed = yours.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
 
@@ -97,6 +116,13 @@ export function RetirementReview() {
         {yours.length === 0 ? (
           <div className="emptystate">No players on your team are retiring this offseason.</div>
         ) : null}
+        {starting.size > 0 && (
+          <div className="notice" role="status">
+            You&rsquo;re losing {starting.size === 1 ? "a starter" : `${starting.size} starters`} (
+            {[...new Set(yours.filter((p) => starting.has(p.id)).map((p) => p.position))].join(", ")}) — the draft and
+            free agency are where to replace {starting.size === 1 ? "him" : "them"}.
+          </div>
+        )}
         <div className="rowlist">
           {yours.length > 0 && (
             <RowHeader gridTemplate={RETIREE_GRID} labels={["Player", "Ovr", "Status", ""]} />
@@ -112,6 +138,7 @@ export function RetirementReview() {
                       {p.name} <span className="ppos">{p.position}</span>
                     </p>
                     <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
+                      {starting.has(p.id) && <strong style={{ color: "var(--bad)" }}>Starter · </strong>}
                       Age {p.age} · typical {p.position} retirement {RETIREMENT_AGE[p.position]}
                     </p>
                   </div>

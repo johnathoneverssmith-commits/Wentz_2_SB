@@ -55,6 +55,13 @@ export function PlayoffRoundResults() {
       )
     : undefined;
   const outIn = lost ? (lost.phase as PlayoffRound) : null;
+  const missedPlayoffs =
+    !!code &&
+    !!s.bracket &&
+    !s.bracket.matchups.some((m) => m.highSeed?.code === code || m.lowSeed?.code === code) &&
+    !(s.bracket.field ?? []).includes(code) &&
+    !s.bracket.seeds.AFC.includes(code) &&
+    !s.bracket.seeds.NFC.includes(code);
   const back = `/results/round/${r}`;
 
   return (
@@ -120,7 +127,10 @@ export function PlayoffRoundResults() {
                   ? `${TEAMS_BY_CODE[code]?.label ?? code} had the bye — next stop, the ${roundLabelFor(s.bracket, NEXT_ROUND[r] ?? "SB")}.`
                   : outIn
                     ? `${TEAMS_BY_CODE[code!]?.label ?? code}'s season ended in the ${roundLabelFor(s.bracket, outIn)}.`
-                    : undefined
+                    : // "isn't playing in this round" read as if they might be next
+                      code && missedPlayoffs
+                      ? `${TEAMS_BY_CODE[code]?.label ?? code} missed the playoffs this year.`
+                      : undefined
               }
               onBox={(id) => nav(`/box/${id}?back=${encodeURIComponent(back)}`)}
               onWatch={(id) => nav(`/watch/${id}?back=${encodeURIComponent(back)}`)}

@@ -68,3 +68,12 @@ export function timeLeft(ms: number): string {
   if (hours > 0) return `${hours}h ${mins % 60}m`;
   return `${mins}m`;
 }
+
+/**
+ * "Ann", "Ann and Bo", "Ann, Bo and Cy". In a league of three or more GMs
+ * "Waiting on Ann, Bo, Cy" read like a list someone forgot to finish.
+ */
+export function andList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}

@@ -5,6 +5,7 @@ import { isOnline, onlineSession } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
+import { andList } from "@/util/format";
 
 /**
  * The only place a league waits for anybody.
@@ -130,7 +131,7 @@ export function Checkpoint({
 
           {waitingNames.length > 0 && (
             <p className="checkpoint-note" style={{ marginTop: 8 }}>
-              Waiting on {waitingNames.join(", ")}.
+              Waiting on {andList(waitingNames)}.
               {/* check-ins have no clock — the league waits (a note here once
                   promised a staff would step in; none does) */}
               {" The league waits for everyone to check in"}
@@ -153,7 +154,7 @@ export function Checkpoint({
               onClick={() => {
                 if (
                   !confirm(
-                    `Move the league on without ${waitingNames.join(", ")}?
+                    `Move the league on without ${andList(waitingNames)}?
 
 ` +
                       "They skip this stage's check-in and the league moves to the next stage for everyone.",

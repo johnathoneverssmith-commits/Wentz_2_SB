@@ -7,7 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { ScreenBoundary } from "@/components/ScreenBoundary";
 import { OnlineIntro } from "@/components/OnlineIntro";
 import { Checkpoint } from "./screens/Checkpoint.tsx";
-import { isOnline, leagueConnected, onOnlineChange, resumeLeague, lastLeagueId, takeRemoval, type Removal, type ResumeFailure } from "@/state/online";
+import { isOnline, leagueConnected, onOnlineChange, resumeLeague, lastLeagueId, onlineSession, takeRemoval, type Removal, type ResumeFailure } from "@/state/online";
 import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
 import { currentScreen, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
@@ -315,6 +315,9 @@ function useRemoval(): [Removal | null, () => void] {
       onOnlineChange(() => {
         const gone = takeRemoval();
         if (gone) setName(gone);
+        // opening another league: the notice about the old one stayed on
+        // top of every screen of the new one
+        else if (onlineSession()) setName(null);
       }),
     [],
   );

@@ -59,7 +59,8 @@ export function ScoreTrackerTable() {
               </tr>
             </thead>
             <tbody>
-              {breakdowns.map((b) => {
+              {/* highest total first, like the standings above it */}
+              {[...breakdowns].sort((x, y) => y.seasonTotal - x.seasonTotal).map((b) => {
                 const g = s.gms.find((x) => x.id === b.gmId)!;
                 return (
                   <tr key={b.gmId} className={b.gmId === s.viewerGmId ? "highlight" : ""}>

@@ -9,6 +9,7 @@
  */
 import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { andList } from "@/util/format";
 
 import { pool } from "./db.js";
 
@@ -299,7 +300,7 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
           ? "Everyone else has checked in — the league is waiting on you."
           : // who, when there are only a few — a GM can chase a name
             facts.othersPendingNames.length > 0 && facts.othersPendingNames.length <= 3
-            ? `${facts.othersPendingNames.join(", ")} ${facts.othersPendingNames.length === 1 ? "hasn't" : "haven't"} checked in yet either.`
+            ? `${andList(facts.othersPendingNames)} ${facts.othersPendingNames.length === 1 ? "hasn't" : "haven't"} checked in yet either.`
             : `${facts.othersPending} other GM${facts.othersPending === 1 ? " hasn't" : "s haven't"} checked in yet either.`,
       href: "/",
       urgency: "soon",
@@ -315,7 +316,7 @@ function itemsFor(facts: InboxFacts): InboxItem[] {
       title: "You're checked in.",
       detail:
         names.length > 0 && names.length <= 3
-          ? `Waiting on ${names.join(", ")}.`
+          ? `Waiting on ${andList(names)}.`
           : `Waiting on ${facts.othersPending} other GMs.`,
       href: "/",
       urgency: "whenever",

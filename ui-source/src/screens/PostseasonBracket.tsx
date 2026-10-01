@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import type React from "react";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { useNavigate } from "react-router-dom";
 
@@ -297,7 +298,9 @@ function ConferenceBracket({
         const d = mid(dst);
         if (!d) return;
         const s = srcs.map(mid).filter(Boolean) as { l: number; r: number; y: number }[];
-        if (s.length === 0) return;
+        // on a phone the rounds stack into one column, and an elbow from a
+        // box's right edge to the "next column" cut back across the boxes
+        if (s.length === 0 || d.l <= s[0]!.r) return;
         const midX = (s[0]!.r + d.l) / 2;
         for (const p of s) next.push(`M ${p.r} ${p.y} H ${midX} V ${d.y}`);
         next.push(`M ${midX} ${d.y} H ${d.l}`);
@@ -337,7 +340,7 @@ function ConferenceBracket({
             </p>
             <div
               ref={ci === 0 ? wc : ci === 1 ? div : cc}
-              style={{ display: "flex", flexDirection: "column", justifyContent: "space-around", minHeight: 300, gap: 14 }}
+              className="bracket-col"
             >
               {rows(round).length > 0 ? (
                 rows(round).map((m, i) => <MatchBox key={i} m={m} me={me} />)
@@ -506,7 +509,7 @@ function SingleBracket({ b, me }: { b: import("@/domain").BracketState; me: stri
   const rounds = bracketRounds(b);
   return (
     <div className="panel open">
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${rounds.length}, minmax(0, 1fr))`, gap: 20, alignItems: "center" }}>
+      <div className="single-bracket" style={{ "--rounds": rounds.length } as React.CSSProperties}>
         {rounds.map((round) => {
           const games = b.matchups.filter((m) => m.round === round);
           return (

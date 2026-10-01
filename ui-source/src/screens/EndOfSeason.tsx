@@ -8,7 +8,7 @@ import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
 import { Card, CardHeader, Footer, Panel, Tabs, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
-import { roundLabelFor, type PlayoffRound } from "@/domain";
+import { roundLabelFor, winPct, type PlayoffRound } from "@/domain";
 import { useStore } from "@/state/store";
 import { isOnline } from "@/state/online";
 
@@ -157,7 +157,10 @@ export function SeasonComplete() {
         <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
           <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
             {humanChampGm
-              ? `${title} Champions`
+              ? // "Final Champions" in a humans-only league
+                s.bracket?.format === "single"
+                ? "League Champions"
+                : `${title} Champions`
               : furthest?.round === "none"
                 ? // nobody advanced, so "furthest advanced" would be a boast
                   // about missing the playoffs
@@ -196,7 +199,17 @@ export function SeasonComplete() {
             <tbody>
               {s.gms
                 .filter((g) => g.isHuman && g.teamCode)
+                // the order GMs joined in put the champion anywhere; this is
+                // the season's table, so it reads as one — furthest first
                 .map((g) => {
+                  const games = s.bracket?.matchups.filter(
+                    (m) => m.highSeed?.code === g.teamCode || m.lowSeed?.code === g.teamCode,
+                  ) ?? [];
+                  const depth = champ === g.teamCode ? 99 : games.length;
+                  return { g, depth, pct: winPct(s.teams[g.teamCode]!) };
+                })
+                .sort((a, b) => b.depth - a.depth || b.pct - a.pct)
+                .map(({ g }) => {
                   const t = s.teams[g.teamCode]!;
                   const games = s.bracket?.matchups.filter(
                     (m) => m.highSeed?.code === g.teamCode || m.lowSeed?.code === g.teamCode,

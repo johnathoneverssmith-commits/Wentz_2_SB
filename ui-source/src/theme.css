@@ -992,8 +992,13 @@ table.mtable td.val {
   gap: 8px;
   margin-bottom: 11px;
 }
+/* a league of three or more GMs squeezed "Name — pending · manage" into a
+ * third of a phone each; they wrap onto more rows instead */
+.gmchiprow {
+  flex-wrap: wrap;
+}
 .gmchip {
-  flex: 1;
+  flex: 1 1 150px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1194,6 +1199,33 @@ table.mtable td.val {
 }
 @media (max-width: 560px) {
   .split-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- postseason brackets -------------------------------------------- */
+/* a round's games spread to line up with the next round's — side by side.
+ * Stacked on a phone that spacing was just 300px of gaps around one game. */
+.bracket-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  min-height: 300px;
+  gap: 14px;
+}
+/* a humans-only bracket's rounds as columns — four of them squeezed each
+ * team's name into ~80px on a phone, so there they stack, first round on top */
+.single-bracket {
+  display: grid;
+  grid-template-columns: repeat(var(--rounds, 3), minmax(0, 1fr));
+  gap: 20px;
+  align-items: center;
+}
+@media (max-width: 560px) {
+  .bracket-col {
+    min-height: 0;
+  }
+  .single-bracket {
     grid-template-columns: 1fr;
   }
 }
