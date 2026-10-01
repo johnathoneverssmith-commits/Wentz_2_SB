@@ -537,6 +537,10 @@ export class OnlineLeagueClient {
   vacateSeat = (leagueId: string, teamCode: string) =>
     this.call<{ ok: true }>(`/leagues/${leagueId}/admin/vacate`, { teamCode });
 
+  /** Commissioner only: the absent GM on the clock has their staff take the turn. */
+  takeTurnForAbsent = (leagueId: string) =>
+    this.call<{ played: string[] }>(`/leagues/${leagueId}/admin/take-turn`, {});
+
   /** Commissioner only: move the league on now. */
   forceAdvance = (leagueId: string) =>
     this.call<{ moved: boolean; stage: string; autopiloted: string[] }>(

@@ -1,3 +1,4 @@
+import { openSlots as countOpenSlots } from "@/state/rules";
 import { useEffect, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
@@ -166,6 +167,25 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // this one actually has to hold everyone — the block is built from the
   // rosters and depth charts on the far side of it.
   midseasonDepthChart: { from: "Midseason Roster Finalization", to: "Week 10" },
+  // the bracket's "Advance to the Offseason" checked a GM in and changed
+  // nothing on screen — no waiting page, no taking it back, no way for the
+  // commissioner to move an absent GM on from there
+  playoffs: { from: "Playoffs", to: "End of Season" },
+  // The rest of the stages that end in a check-in. Without an entry a GM who
+  // had checked in stayed on the screen, and the commissioner's "move the
+  // league on without them" lives only on the checkpoint — so one absent GM
+  // at the end of the season, the draft preview or camp held the league with
+  // nothing anyone could press. (The draft preview's check-in has been part
+  // of `offseasonRetirement` since Change 12; the `offseasonDraftPrep` entry
+  // above only serves leagues saved in that older stage.)
+  endOfSeasonWin: { from: "Season Complete", to: "Retirements" },
+  endOfSeasonConsolation: { from: "Season Complete", to: "Retirements" },
+  offseasonRetirement: { from: "Draft Preview", to: "Rookie Draft" },
+  trainingCamp: { from: "Training Camp", to: "Re-order Depth Chart" },
+  trainingCampResults: { from: "Training Camp", to: "Re-order Depth Chart" },
+  // every seat taken and one GM never checking in: the setup screen's force
+  // only appears while seats are empty, so the league could not start at all
+  setup: { from: "League Setup", to: "the first draft" },
 };
 
 /**
@@ -182,8 +202,12 @@ function useCheckpoint(): { from: string; to: string } | null {
   const readiness = useStore((s) => s.readiness);
   const viewerGmId = useStore((s) => s.viewerGmId);
   const block = useStore(currentBlock);
+  const gms = useStore((s) => s.gms);
   if (!isOnline()) return null;
   if (!readiness[viewerGmId]) return null;
+  // with seats still empty the setup screen's own "start without them" is the
+  // lever, and the checkpoint would hide it
+  if (stage === "setup" && countOpenSlots({ gms, stage } as Parameters<typeof countOpenSlots>[0]) > 0) return null;
   // Changes 6 and 7: the preseason and each half of the regular season end at
   // a checkpoint too, and which one depends on the block rather than on the
   // stage — `regularSeason` is the stage on both sides of the trade deadline.

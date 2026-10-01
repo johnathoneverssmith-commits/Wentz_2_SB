@@ -42,6 +42,15 @@ export function Checkpoint({
   const gms = useStore((s) => s.gms);
   const readiness = useStore((s) => s.readiness);
   const [forcing, setForcing] = useState(false);
+  const [forcingSlow, setForcingSlow] = useState(false);
+  useEffect(() => {
+    if (!forcing) {
+      setForcingSlow(false);
+      return;
+    }
+    const t = setTimeout(() => setForcingSlow(true), 3_000);
+    return () => clearTimeout(t);
+  }, [forcing]);
   const [forceError, setForceError] = useState<string | null>(null);
   const isCommissioner = onlineSession()?.isCommissioner ?? false;
   // who the league is waiting for, by name — the wait used to be anonymous
@@ -126,6 +135,10 @@ export function Checkpoint({
                   promised a staff would step in; none does) */}
               {" The league waits for everyone to check in"}
               {isCommissioner ? " — you can move it on below." : "; your commissioner can move it on."}
+              {/* moving on is for once; a GM who has gone for good holds every
+                  stage after this too */}
+              {isCommissioner &&
+                " If someone isn't coming back, reopen their seat from Manage GMs in the lobby — the AI runs the team until a new GM claims it."}
             </p>
           )}
 
@@ -179,6 +192,14 @@ export function Checkpoint({
             >
               Take back my check-in
             </button>
+          )}
+          {/* moving on past a block gate plays the next stretch of games, and
+              "Moving the league on…" sat there for a minute with no reason */}
+          {forcingSlow && (
+            <p className="checkpoint-note" role="status" style={{ marginTop: 8 }}>
+              Still working — when the league moves into a stretch of games, those games are played
+              now, which can take a minute or two.
+            </p>
           )}
           {forceError && (
             <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>

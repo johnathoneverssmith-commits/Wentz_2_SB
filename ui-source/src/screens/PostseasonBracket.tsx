@@ -451,6 +451,8 @@ function RoundReveal() {
               .readyUp(true)
               .then((res) => {
                 if (!res.ok) setError(res.reason ?? "Couldn't reach the league. Try again.");
+                // to the waiting page — or the next stage, if this was the last check-in
+                else nav("/");
               })
               .finally(() => setBusy(false));
           }}

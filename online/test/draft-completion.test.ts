@@ -149,3 +149,51 @@ describe("readiness during a draft", () => {
     expect(s.stage).toBe("fantasyDraftSummary");
   });
 });
+
+describe("an absent GM's last hand pick", () => {
+  it("completes the board, as the GM's own pick would", async () => {
+    const { autopilotAbsent } = await import("../src/phases.js");
+    const s = draftingLeague(1);
+    // one human makes their pick by hand; the other goes quiet on the clock
+    let guard = 0;
+    while (draftThresholdMet(s) === false && guard++ < 400) {
+      const onClock = s.draft!.pickOrder[s.draft!.currentPickIndex];
+      if (onClock === "KC" && picksMadeBy(s, "KC") === 0) pickForClock(s);
+      else if (onClock === "BUF") break;
+      else runAiPicks(s);
+    }
+    expect(s.draft!.pickOrder[s.draft!.currentPickIndex]).toBe("BUF");
+    expect(autopilotAbsent(s)).toContain("BUF");
+    // the board finished and the league moved on, rather than waiting on a
+    // pick nobody owed any more
+    expect(s.stage).toBe("fantasyDraftSummary");
+  });
+});
+
+describe("a GM's picks still unsigned when rookie signings close", () => {
+  it("are signed by their staff, not lost", async () => {
+    const { advanceStage, autopilotAbsent } = await import("../src/phases.js");
+    const s = createLeague(1357, { ...DEFAULT_CONFIG, humanGmCount: 2, fantasyDraft: false });
+    fillRosterGaps(s);
+    s.gms[0]!.teamCode = "KC";
+    s.gms[0]!.isHuman = true;
+    s.gms[1]!.teamCode = "BUF";
+    s.gms[1]!.isHuman = true;
+    s.stage = "offseasonRetirement";
+    advanceStage(s); // into the rookie draft
+    expect(s.stage as string).toBe("offseasonDraft");
+    // nobody shows up: every human pick is the staff's, until the board is done
+    for (let i = 0; i < 80 && (s.stage as string) === "offseasonDraft"; i++) {
+      if (autopilotAbsent(s).length === 0) runAiPicks(s);
+    }
+    expect(s.stage).toBe("offseasonDraftSummary");
+    const kcPicks = s.draft!.results.filter((r) => r.teamCode === "KC").map((r) => r.selectedId!);
+    expect(kcPicks.length).toBeGreaterThan(0);
+    expect(kcPicks.every((id) => !s.rookieOutcomes[id])).toBe(true);
+    // and the commissioner moves the league on without them
+    advanceStage(s);
+    expect(s.stage).toBe("freeAgency");
+    expect(kcPicks.every((id) => s.rookieOutcomes[id] === "signed")).toBe(true);
+    expect(kcPicks.every((id) => s.players[`p_rookie_${id}`]?.nfl_team === "KC")).toBe(true);
+  });
+});

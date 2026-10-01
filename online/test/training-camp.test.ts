@@ -155,3 +155,25 @@ describe("the CPU", () => {
     expect(s.trainingCamp!.plans["KC"]).toBeUndefined();
   }, 180_000);
 });
+
+describe("a GM who never ran camp before the league moved on", () => {
+  it("has their staff run it, and the wire says so", async () => {
+    const { advanceStage } = await import("../src/phases.js");
+    const { takeNotes } = await import("../src/notes.js");
+    const s = createLeague(9753, { ...DEFAULT_CONFIG, humanGmCount: 2, fantasyDraft: false });
+    fillRosterGaps(s);
+    s.gms[0]!.teamCode = "KC";
+    s.gms[0]!.isHuman = true;
+    s.gms[1]!.teamCode = "BUF";
+    s.gms[1]!.isHuman = true;
+    s.stage = "freeAgencySummary";
+    advanceStage(s); // camp opens; the CPU teams run theirs
+    expect(s.stage as string).toBe("trainingCamp");
+    expect(s.trainingCamp!.plans.KC?.submitted ?? false).toBe(false);
+    takeNotes(s);
+    advanceStage(s); // forced on, nobody having run camp
+    expect(s.trainingCamp!.plans.KC?.submitted).toBe(true);
+    expect(s.trainingCamp!.plans.BUF?.submitted).toBe(true);
+    expect(takeNotes(s).some((n) => n.teamCode === "KC" && /staff ran their training camp/.test(n.summary))).toBe(true);
+  });
+});

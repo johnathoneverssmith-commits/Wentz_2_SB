@@ -292,6 +292,10 @@ export function ReadinessGate({
               // the server may have moved the league on the strength of this
               const next = useStore.getState().stage;
               if (next !== stage) onAdvanceRef.current("/");
+              // checked in and still waiting: to the checkpoint, where the
+              // wait is explained and the commissioner can move it on (a
+              // check-in on camp results otherwise left them on the results)
+              else if (!viewerReady) onAdvanceRef.current("/");
             })
             .finally(() => setBusy(false));
         }}

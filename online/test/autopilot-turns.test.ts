@@ -43,6 +43,16 @@ describe("an expired clock in a turn-based event", () => {
     expect(takeNotes(s).some((n) => n.teamCode === on && /their staff hired /.test(n.summary))).toBe(true);
   });
 
+  it("says the commissioner did it, when the commissioner did", () => {
+    const s = league("freeAgency");
+    beginFreeAgencyEvent(s);
+    runCpuTurns(s, humans);
+    const on = onTheClock(s)!;
+    expect(autopilotAbsent(s, "commissioner")).toContain(on);
+    const note = takeNotes(s).find((n) => n.teamCode === on);
+    expect(note?.summary).toMatch(/^The commissioner had .+'s staff take their turn: they passed/);
+  });
+
   it("passes for the absent GM in free agency", () => {
     const s = league("freeAgency");
     beginFreeAgencyEvent(s);

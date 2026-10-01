@@ -18,7 +18,9 @@
  * idempotent and takes the same row lock the action endpoints do, so running
  * it twice, or while somebody is mid-action, is safe.
  */
-import { checkTrade } from "@/state/rules.ts";
+import { checkTrade,
+  signUnresolvedHumanPicks,
+} from "@/state/rules.ts";
 import { generateAiTradeOffers } from "@/state/aiTrades.ts";
 import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -54,10 +56,16 @@ import { campCuts, fillRosterGaps, fitDraftedPayrolls, leagueSalt, recomputeTeam
 import { beginCoachingDraft, coachingOnTheClock, runAiCoachingPicks, suggestedCoachingPick } from "@/state/coachingDraft.ts";
 import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent.ts";
 import { pendingFor } from "@/state/tradeDeadline.ts";
-import { decideCoachingPick, decideDeadlineTurn, decideFreeAgencyTurn, runPendingCpuTurns } from "./decide.js";
+import {
+  decideCoachingPick,
+  decideDeadlineTurn,
+  decideDraftPick,
+  decideFreeAgencyTurn,
+  runPendingCpuTurns,
+} from "./decide.js";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
-import { openTrainingCamp } from "@/state/trainingCamp.ts";
+import { openTrainingCamp, runCpuTrainingCamps } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
 import { ensureHoodedFigureEncounters, hoodedFigureEncounterFor } from "@/state/hoodedFigure.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
@@ -463,6 +471,25 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     // every team read as having already trained
     openTrainingCamp(state, humanTeamsOf(state));
   }
+  // Leaving camp with a GM who never ran theirs — the commissioner moved the
+  // league on, or the GM was away — their players simply got no camp that
+  // year. The staff runs it the way a CPU team's does.
+  if (from === "trainingCamp" && state.trainingCamp) {
+    const ran = new Set(
+      [...humanTeamsOf(state)].filter((t) => state.trainingCamp!.plans[t]?.submitted),
+    );
+    const skipped = [...humanTeamsOf(state)].filter((t) => !ran.has(t));
+    if (skipped.length > 0) {
+      runCpuTrainingCamps(state, ran);
+      for (const team of skipped) {
+        noteEvent(state, {
+          teamCode: team,
+          kind: "camp.run",
+          summary: `${TEAMS_BY_CODE[team]?.label ?? team}'s staff ran their training camp.`,
+        });
+      }
+    }
+  }
 
   // The catch-up mechanic's offer: CPU teams never receive it (§3), so there
   // is nothing to sweep here — just generate the encounter for whichever
@@ -524,6 +551,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (from === "offseasonDraft") forgetSpentPicks(state, state.season + 1);
 
   if (from === "offseasonDraftSummary" && state.stage === "freeAgency") {
+    reportStaffMoves(state, "— the draft picks left unsigned", () => signUnresolvedHumanPicks(state));
     signAiDraftPicks(state);
     signUndraftedAsFreeAgents(state);
   }
@@ -714,7 +742,7 @@ export function clearReadinessOnline(state: LeagueState): void {
  * already covers a team that did nothing, because that's exactly what an
  * AI-controlled team does all season.
  */
-export function autopilotAbsent(state: LeagueState): string[] {
+export function autopilotAbsent(state: LeagueState, by: "clock" | "commissioner" = "clock"): string[] {
   // Change 2: a checkpoint has no clock. Marking an absent GM ready is exactly
   // the thing committing was supposed to rule out — the league moving without
   // you — so the deadline no longer stands in for anybody at a stage gate.
@@ -731,19 +759,27 @@ export function autopilotAbsent(state: LeagueState): string[] {
     if (onTheClock && gm?.isHuman) {
       const pick = planAutopicks(state)[0];
       if (pick) {
-        applyPick(state, pick);
-        played.push(onTheClock);
         const who =
           state.players[pick]?.name ??
           state.draftClass.find((x) => x.id === pick)?.name ??
           "the best player on their board";
-        tookTurn(onTheClock, `drafted ${who}`);
+        // the same path a GM's own pick takes: it runs the CPU teams after it
+        // and, when this was the last pick anyone owed by hand, completes the
+        // board and moves the league on. Placed directly, an absent GM's
+        // last hand pick left the draft waiting for a pick nobody owed.
+        try {
+          decideDraftPick(state, { userId: "", leagueId: "", teamCode: onTheClock, gmId: gm.id }, pick);
+          played.push(onTheClock);
+          tookTurn(onTheClock, `drafted ${who}`);
+        } catch (err) {
+          console.error("autopilot pick refused", err);
+        }
       }
     }
     // and then the league's own teams, so the clock lands on a person again —
     // not reported as anyone running out of time (every CPU pick after an
     // expired clock put "Dallas ran out of time" on the wire)
-    runAiPicks(state);
+    if (state.draft && (state.stage === "fantasyDraft" || state.stage === "offseasonDraft")) runAiPicks(state);
     return played;
   }
 
@@ -761,7 +797,10 @@ export function autopilotAbsent(state: LeagueState): string[] {
     noteEvent(state, {
       teamCode,
       kind: "phase.autopiloted",
-      summary: `${TEAMS_BY_CODE[teamCode]?.label ?? teamCode} ran out of time; their staff ${did}.`,
+      summary:
+        by === "commissioner"
+          ? `The commissioner had ${TEAMS_BY_CODE[teamCode]?.label ?? teamCode}'s staff take their turn: they ${did}.`
+          : `${TEAMS_BY_CODE[teamCode]?.label ?? teamCode} ran out of time; their staff ${did}.`,
     });
   }
   const tryTurn = (take: () => unknown): boolean => {
@@ -907,6 +946,30 @@ export async function forceAdvance(leagueId: string): Promise<AdvanceOutcome> {
         },
       ],
     } satisfies { result: AdvanceOutcome } & Applied;
+  });
+  return result;
+}
+
+/**
+ * The commissioner takes the turn of the GM on the clock — exactly what their
+ * expired clock would do (the pick or hire on their board, a pass, a no).
+ *
+ * In a draft, a market or the deadline, one GM gone quiet held everyone for
+ * the length of a turn's clock, every turn; the only lever was forcing the
+ * whole stage past, which skipped every other GM's turns as well.
+ */
+export async function takeTurnForAbsent(leagueId: string): Promise<{ played: string[] }> {
+  const { result } = await withLeague(leagueId, async ({ state, league }) => {
+    if (!isTurnStage(state.stage)) throw new ActionError("Nobody is on a turn clock right now.");
+    const played = autopilotAbsent(state, "commissioner");
+    if (played.length === 0) throw new ActionError("No GM's turn is holding the league up right now.");
+    return {
+      result: { played },
+      state,
+      // the next team's turn starts its own clock
+      phaseEndsAt: deadlineFor(state, league),
+      events: [],
+    } satisfies { result: { played: string[] } } & Applied;
   });
   return result;
 }

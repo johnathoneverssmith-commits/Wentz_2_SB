@@ -1,3 +1,4 @@
+import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { StageLoading } from "@/components/StageLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -232,6 +233,7 @@ export function CoachingDraftRoom() {
             to pick.
             {picksAway != null && ` Your pick is ${picksAway} ${picksAway === 1 ? "pick" : "picks"} away.`} You can look
             around in the meantime.
+            <CommissionerTakeTurn team={onClock} />
           </p>
         )}
 

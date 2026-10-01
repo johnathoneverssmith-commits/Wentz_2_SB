@@ -1324,6 +1324,22 @@ export function signAiDraftPicks(s: LeagueState): void {
 }
 
 /**
+ * A GM's draft picks still unsigned when the stage closes without them — the
+ * commissioner moved the league on, or the GM never came back — are signed
+ * by their staff, as every CPU team's are. They used to vanish: nobody signed
+ * them, and they never reached the market either.
+ */
+export function signUnresolvedHumanPicks(s: LeagueState): void {
+  const humanTeams = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+  for (const r of s.draft?.results ?? []) {
+    if (!r.selectedId || !humanTeams.has(r.teamCode)) continue;
+    if (s.rookieOutcomes[r.selectedId]) continue;
+    upsertRookiePlayer(s, r.selectedId, r.teamCode, r.round, false);
+    s.rookieOutcomes[r.selectedId] = "signed";
+  }
+}
+
+/**
  * Every prospect nobody drafted becomes a free agent.
  *
  * The class used to be exactly one prospect per pick, so there were no

@@ -73,7 +73,7 @@ import {
   setTurnHours,
   vacateSeat,
 } from "./leagues.js";
-import { forceAdvance, readyUp, sweep, timeLeft, waitingOn } from "./phases.js";
+import { forceAdvance, readyUp, sweep, takeTurnForAbsent, timeLeft, waitingOn } from "./phases.js";
 import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
 import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
@@ -798,6 +798,15 @@ post("/leagues/:id/admin/advance", async (ctx) => {
     throw new ActionError("Only the commissioner can do that.", 403);
   }
   return forceAdvance(ctx.params.id!);
+});
+
+// The commissioner has an absent GM's staff take the turn they're holding up.
+post("/leagues/:id/admin/take-turn", async (ctx) => {
+  const user = requireUser(ctx);
+  if (!(await isCommissioner(ctx.params.id!, user.id))) {
+    throw new ActionError("Only the commissioner can do that.", 403);
+  }
+  return takeTurnForAbsent(ctx.params.id!);
 });
 
 /* ---- lifecycle ------------------------------------------------------- */

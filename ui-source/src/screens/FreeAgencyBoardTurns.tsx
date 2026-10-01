@@ -1,3 +1,4 @@
+import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { StageLoading } from "@/components/StageLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
@@ -238,6 +239,7 @@ export function FreeAgencyBoardTurns() {
         <div className="notice" role="status">
           {TEAMS_BY_CODE[clock]?.label ?? clock} is on the clock. Browse the board and line up your
           offer — it opens when your turn comes round.
+          <CommissionerTakeTurn team={clock} />
         </div>
       )}
 

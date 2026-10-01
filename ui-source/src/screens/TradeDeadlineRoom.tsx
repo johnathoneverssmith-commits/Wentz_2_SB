@@ -1,3 +1,4 @@
+import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -138,6 +139,7 @@ export function TradeDeadlineRoom() {
       )}
       {duty === null && (
         <Waiting
+          holder={d.active ? (d.active.awaiting === "recipient" ? d.active.toTeam : d.active.fromTeam) : clock}
           clock={clock}
           clockGm={s.gms.find((g) => g.isHuman && g.teamCode === clock)?.name ?? null}
           negotiation={
@@ -488,7 +490,10 @@ function Waiting({
   clockGm,
   turnsAway,
   negotiation,
+  holder,
 }: {
+  /** Whose move it actually is: the clock, or whoever an offer is waiting on. */
+  holder: string | null;
   clock: string | null;
   clockGm: string | null;
   turnsAway: number | null;
@@ -513,6 +518,7 @@ function Waiting({
                 Your next turn is {turnsAway} {turnsAway === 1 ? "turn" : "turns"} away.
               </p>
             )}
+            <CommissionerTakeTurn team={holder} />
             <p style={{ margin: "8px 0 0", fontSize: 12 }}>
               One negotiation happens at a time, so nothing you see here can change while you read
               it. You&rsquo;ll be brought in when it&rsquo;s your turn or somebody makes you an
