@@ -180,7 +180,9 @@ export function FreeAgencyBoardTurns() {
       {lastResults.length > 0 && (
         <div className="panel open" style={{ paddingBottom: 4 }}>
           <p className="subhead" style={{ marginTop: 0 }}>
-            Round {lastRound} results
+            {/* only the players you bid on; "results" beside a ticker that
+                counted every signing read as the whole round */}
+            Round {lastRound} · your bids
           </p>
           {lastResults.map((x) => {
             const p = s.players[x.playerId];

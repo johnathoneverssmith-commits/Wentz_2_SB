@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { openSlots as countOpenSlots, rosterGate } from "@/state/rules";
 import { lastLeagueId, onlineSession } from "@/state/online";
+import { CopyButton } from "@/components/CopyButton";
 import { STAGE_READY_LABEL } from "@/state/stageMachine";
 import { isInSeason, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -334,17 +335,15 @@ export function ReadinessGate({
           <span className="oswald" style={{ fontSize: 15, letterSpacing: "0.08em", userSelect: "all" }}>
             {resetCode.code}
           </span>{" "}
-          <button
-            type="button"
-            className="btnlink sm"
-            onClick={() => void navigator.clipboard?.writeText(resetCode.code).catch(() => undefined)}
-          >
-            Copy
-          </button>
+          <CopyButton text={resetCode.code} />
           <br />
           Send it to them. On the sign-in screen they choose &ldquo;Forgot your password?&rdquo; and
           enter it with a new password. It works once, for 24 hours.{" "}
-          <button type="button" className="btnlink sm" onClick={() => setResetCode(null)}>
+          <button
+            type="button"
+            className="btnlink sm"
+            onClick={() => setResetCode(null)}
+          >
             Done
           </button>
         </div>

@@ -107,6 +107,23 @@ export function TradeDeadlineRoom() {
         </div>
       )}
 
+      {/* an answered offer just vanished into "Recent activity" below, among
+          everyone else's; the GM who made it is owed a sentence */}
+      {(() => {
+        const last = d.resolved.at(-1);
+        if (!last || (last.fromTeam !== code && last.toTeam !== code)) return null;
+        const other = last.fromTeam === code ? last.toTeam : last.fromTeam;
+        const name = TEAMS_BY_CODE[other]?.label ?? other;
+        return (
+          <div className="notice" role="status">
+            {last.outcome === "accepted"
+              ? `Trade made with ${name}.`
+              : last.blocked
+                ? `No deal with ${name} — the league vote blocked it.`
+                : `No deal with ${name}.`}
+          </div>
+        );
+      })()}
       {duty === "propose" && <ProposeTurn code={code} busy={busy} onSubmit={submit} />}
       {(duty === "respond" || duty === "final") && (
         <RespondTurn offer={d.active!} code={code} duty={duty} busy={busy} onSubmit={submit} />

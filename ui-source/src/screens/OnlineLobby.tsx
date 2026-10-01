@@ -1,3 +1,4 @@
+import { CopyButton } from "@/components/CopyButton";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
@@ -69,7 +70,6 @@ export function OnlineLobby() {
   const [leagues, setLeagues] = useState<LeagueRow[]>([]);
   const [inbox, setInbox] = useState<InboxLeague[]>([]);
   const [changingPassword, setChangingPassword] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
   const [managingLeague, setManagingLeague] = useState<string | null>(null);
 
   /** One place to run a call, so every failure reads the same way. */
@@ -327,6 +327,8 @@ export function OnlineLobby() {
                 <div>
                   <p className="pname">
                     {l.name}
+                    {/* read aloud, "Cycle 7 leagueGB" */}
+                    {l.teamCode && <span className="sr-only">, your team: </span>}
                     {l.teamCode && (
                       <span className="ppos">{TEAMS_BY_CODE[l.teamCode]?.abbr ?? l.teamCode}</span>
                     )}
@@ -351,19 +353,7 @@ export function OnlineLobby() {
                       <span className="oswald" style={{ fontSize: 14, letterSpacing: "0.08em" }}>
                         {l.inviteCode}
                       </span>{" "}
-                      <button
-                        type="button"
-                        className="btnlink sm"
-                        onClick={() => {
-                          // sending the code is the whole job here
-                          void navigator.clipboard?.writeText(l.inviteCode!).then(
-                            () => setCopied(l.id),
-                            () => setCopied(null),
-                          );
-                        }}
-                      >
-                        {copied === l.id ? "Copied" : "Copy"}
-                      </button>{" "}
+                      <CopyButton text={l.inviteCode} />{" "}
                       — send it to the other GMs; they register, then enter it under Join a League.
                     </p>
                   )}
@@ -590,6 +580,10 @@ function SignIn({
               type="text"
               value={name}
               autoComplete="username"
+              // a phone capitalised and "corrected" names as they were typed
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               onChange={(e) => setName(e.target.value)}
             />
           </label>
@@ -600,6 +594,9 @@ function SignIn({
                 type="text"
                 value={code}
                 autoComplete="one-time-code"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
                 onChange={(e) => setCode(e.target.value)}
               />
             </label>
@@ -746,6 +743,9 @@ function JoinByInvite({
             type="text"
             value={code}
             placeholder="ABC12345"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
             onChange={(e) => setCode(e.target.value)}
           />
         </label>
@@ -1075,9 +1075,7 @@ function CreateLeague({
           <span className="oswald" style={{ fontSize: 16, letterSpacing: "0.08em" }}>
             {invite}
           </span>{" "}
-          <button type="button" className="btnlink sm" onClick={() => void navigator.clipboard?.writeText(invite)}>
-            Copy
-          </button>
+          <CopyButton text={invite} />
           . It stays on the league under <em>Your Leagues</em>, so you can come back for it —
           and that is where you pick your own team.
         </div>

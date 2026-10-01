@@ -92,7 +92,8 @@ export function TrainingCamp() {
     const inGroup = roster.filter((p) => (COACH_POSITION_GROUPS[f] as readonly string[]).includes(p.position));
     const young = inGroup.filter((p) => p.age <= 25).length;
     const vets = inGroup.filter((p) => p.age >= 30).length;
-    return `${young} young · ${vets} vet${vets === 1 ? "" : "s"}`;
+    // the size first: "1 young · 0 vets" on its own read as a one-man line
+    return `${inGroup.length} players · ${young} young · ${vets} vet${vets === 1 ? "" : "s"}`;
   };
 
   const submit = (): void => {

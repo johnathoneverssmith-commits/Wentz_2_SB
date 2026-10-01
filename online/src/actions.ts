@@ -88,6 +88,7 @@ async function run(
         result: { ok: true } as const,
         state,
         events: decision.events,
+        ...(decision.unchanged && !moved ? { unchanged: true } : {}),
         ...(moved ? { phaseEndsAt: deadlineFor(state, league) } : {}),
       } satisfies { result: { ok: true } } & Applied;
     },

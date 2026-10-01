@@ -436,16 +436,21 @@ export function DraftRoom() {
                   </td>
                   <td className="c">{p.age}</td>
                   <td className="r">
+                    {/* a finished draft left a hundred greyed-out Draft buttons */}
+                    {complete ? (
+                      <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>Undrafted</span>
+                    ) : (
                     <button
                       className="btn-primary"
                       style={{ fontSize: 11, padding: "6px 10px" }}
-                      disabled={!yourPick || complete || picking}
+                      disabled={!yourPick || picking}
                       // a hundred identical "Draft" buttons, to a screen reader
                       aria-label={`Draft ${p.name}`}
                       onClick={() => pick(p.id)}
                     >
                       Draft
                     </button>
+                    )}
                   </td>
                 </tr>
               ))}

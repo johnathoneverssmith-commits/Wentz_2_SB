@@ -28,6 +28,18 @@ describe("the staff fixing a GM's roster at the summary", () => {
     expect(reconciliationIssues(s, "GB")).toEqual([]);
   });
 
+  it("on a legal roster changes nothing, and says so", () => {
+    const s = createLeague(3, { ...DEFAULT_CONFIG, fantasyDraft: false });
+    fillRosterGaps(s);
+    const gm = s.gms[0]!;
+    gm.isHuman = true;
+    gm.teamCode = "GB";
+    s.stage = "freeAgencySummary";
+    expect(reconciliationIssues(s, "GB")).toEqual([]);
+    const out = decideStaffFix(s, { userId: "u", leagueId: "l", teamCode: "GB", gmId: gm.id });
+    expect(out).toEqual({ events: [], unchanged: true });
+  });
+
   it("only at a free-agency summary", () => {
     const s = createLeague(3, { ...DEFAULT_CONFIG, fantasyDraft: false });
     s.stage = "regularSeason";

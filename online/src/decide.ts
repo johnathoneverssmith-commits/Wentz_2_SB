@@ -95,6 +95,8 @@ export interface Actor {
 
 export interface Decision {
   events: { teamCode?: string | undefined; kind: string; summary: string; detail?: unknown }[];
+  /** Nothing changed: roll back rather than bump the version and send every GM to re-download. */
+  unchanged?: boolean | undefined;
 }
 
 const city = (code: string): string => TEAMS_BY_CODE[code]?.label ?? code;
@@ -818,7 +820,7 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   const cut = [...before].filter((id) => !after.some((p) => p.id === id)).map((id) => state.players[id]).filter((p) => !!p);
   const left = reconciliationIssues(state, actor.teamCode).length;
   // "released 0 and signed 0" when the roster was already legal said nothing
-  if (signed.length === 0 && cut.length === 0) return { events: [] };
+  if (signed.length === 0 && cut.length === 0) return { events: [], unchanged: true };
   const did = [cut.length ? `released ${named(cut)}` : "", signed.length ? `signed ${named(signed)}` : ""].filter(Boolean);
   return {
     events: [

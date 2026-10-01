@@ -1,3 +1,4 @@
+import { CopyButton } from "@/components/CopyButton";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -140,13 +141,7 @@ export function LeagueSetup() {
                 <span className="oswald" style={{ letterSpacing: "0.08em" }}>
                   {onlineSession()!.inviteCode}
                 </span>{" "}
-                <button
-                  type="button"
-                  className="btnlink sm"
-                  onClick={() => void navigator.clipboard?.writeText(onlineSession()!.inviteCode!)}
-                >
-                  Copy
-                </button>
+                <CopyButton text={onlineSession()!.inviteCode!} />
               </>
             )}
           </div>
@@ -232,6 +227,8 @@ export function LeagueSetup() {
                               className={`team-tile${mine ? " mine" : ""}`}
                               disabled={otherTaken}
                               aria-pressed={mine}
+                              // the badge, name and status ran together as "BALBaltimore RavensAvailable"
+                              aria-label={`${t.city} ${t.name} — ${mine ? "your team" : otherTaken ? `taken by ${gmName(gms, owner)}` : "available"}`}
                               onClick={() => pickTeam(viewerGmId, t.code)}
                             >
                               <TeamBadge code={t.code} size={30} />
