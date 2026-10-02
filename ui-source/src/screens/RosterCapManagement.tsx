@@ -182,7 +182,7 @@ export function RosterCapManagement() {
         stats={[
           {
             // this league's size, not the NFL's: a humans-only league has a handful
-            label: "Roster strength",
+            label: "Roster rank",
             value: `${team.ratings.overallRank} of ${Object.keys(s.teams).length}`,
             className: team.ratings.overallRank <= Object.keys(s.teams).length * 0.375 ? "good" : undefined,
           },

@@ -130,8 +130,11 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     const wanted = positions.find((p) => {
       if (p.gain < 4) return false;
       const mine = myRoster.filter((x) => x.position === p.pos).sort((a, b) => b.overall - a.overall);
-      // they ask for the best one *only* if there's someone behind him
-      return mine.length >= 2 && mine[0]!.overall >= 72;
+      // they ask for the best one *only* if there's someone behind him who
+      // could actually play: every roster carries a backup quarterback, so
+      // "someone behind him" had GMs asked for their 93 starter, with a 58
+      // behind him, at every deadline
+      return mine.length >= 2 && mine[0]!.overall >= 72 && mine[1]!.overall >= mine[0]!.overall - 15;
     });
     if (!wanted) continue;
 

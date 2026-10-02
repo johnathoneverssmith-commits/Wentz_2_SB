@@ -13,7 +13,14 @@ import { useLeagueActions } from "@/state/useLeagueActions";
  * control was forcing the whole stage past, which took everybody's remaining
  * turns too. This takes just the one turn, the way the clock would.
  */
-export function CommissionerTakeTurn({ team }: { team: string | null | undefined }) {
+export function CommissionerTakeTurn({
+  team,
+  answering = false,
+}: {
+  team: string | null | undefined;
+  /** The GM holding things up is answering an offer, not taking a turn. */
+  answering?: boolean;
+}) {
   const actions = useLeagueActions();
   const gms = useStore((s) => s.gms);
   const viewer = useStore((s) => s.viewerGmId);
@@ -22,6 +29,7 @@ export function CommissionerTakeTurn({ team }: { team: string | null | undefined
   const holder = team ? gms.find((g) => g.isHuman && g.teamCode === team) : undefined;
   if (!actions.online || !onlineSession()?.isCommissioner || !holder || holder.id === viewer) return null;
   const name = TEAMS_BY_CODE[team!]?.label ?? team;
+  const what = answering ? "answer the offer" : "take this turn";
   return (
     // a span, so it can sit inside the screens' own paragraphs
     <span style={{ display: "block", margin: "6px 0 0", fontSize: 12 }}>
@@ -30,7 +38,7 @@ export function CommissionerTakeTurn({ team }: { team: string | null | undefined
         className="btnlink"
         disabled={busy}
         onClick={() => {
-          if (!confirm(`Have ${name}'s staff take this turn for ${holder.name}? It's what their clock running out would do.`)) return;
+          if (!confirm(`Have ${name}'s staff ${what} for ${holder.name}? It's what their clock running out would do.`)) return;
           setBusy(true);
           setError(null);
           void actions
@@ -41,7 +49,7 @@ export function CommissionerTakeTurn({ team }: { team: string | null | undefined
             .finally(() => setBusy(false));
         }}
       >
-        {busy ? "Taking the turn…" : `Commissioner: have ${name}'s staff take this turn`}
+        {busy ? "Taking the turn…" : `Commissioner: have ${name}'s staff ${what}`}
       </button>
       {error && <span className="form-error" style={{ display: "block" }}>{error}</span>}
     </span>

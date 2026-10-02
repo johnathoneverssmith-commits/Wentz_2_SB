@@ -141,7 +141,9 @@ export function FreeAgencySummary() {
           was on the wire and nowhere on the screen about this market */}
       {staffFill && (
         <div className="notice" role="status">
-          {staffFill.summary}
+          {/* the wire's line names the team for everyone else; on your own
+              summary it is your staff */}
+          {staffFill.summary.replace(/^.*?'s staff /, "Your staff ")}
         </div>
       )}
       {!staffFill && s.stage === "freeAgencySummary" && s.staffFill?.season === s.season && (s.staffFill.byTeam[code]?.length ?? 0) > 0 && (

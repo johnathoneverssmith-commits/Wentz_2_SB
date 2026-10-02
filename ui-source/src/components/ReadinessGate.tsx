@@ -64,7 +64,11 @@ export function ReadinessGate({
   const autoReadyNonViewers = useStore((s) => s.autoReadyNonViewers);
   const tryAdvance = useStore((s) => s.tryAdvance);
 
-  const humans = gms.filter((g) => g.isHuman);
+  // you first: "qa_2 — pending · You — pending · qa_1 — pending" hid the one
+  // check-in that is yours to give among the others
+  const humans = gms
+    .filter((g) => g.isHuman)
+    .sort((a, b) => Number(b.id === viewerGmId) - Number(a.id === viewerGmId));
   const readyCount = humans.filter((g) => readiness[g.id]).length;
   const viewerReady = !!readiness[viewerGmId];
 

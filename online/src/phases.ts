@@ -715,9 +715,13 @@ function reportStaffMoves(state: LeagueState, when: string, run: () => void): vo
     const cut = [...was].filter((id) => !now.has(id)).map((id) => state.players[id]);
     if (added.length === 0 && cut.length === 0) continue;
     const name = TEAMS_BY_CODE[team]?.label ?? team;
-    const list = (ps: ({ name: string; position: string } | undefined)[]) => {
-      const named = ps.filter((p): p is { name: string; position: string } => !!p);
-      const shown = named.slice(0, 5).map((p) => `${p.name} (${p.position})`);
+    const list = (ps: ({ name: string; position: string; overall: number } | undefined)[]) => {
+      // best first, with the rating: five names in id order said nothing
+      // about which of them would play
+      const named = ps
+        .filter((p): p is { name: string; position: string; overall: number } => !!p)
+        .sort((a, b) => b.overall - a.overall);
+      const shown = named.slice(0, 5).map((p) => `${p.name} (${p.position} ${p.overall})`);
       return named.length > 5 ? `${shown.join(", ")} and ${named.length - 5} more` : shown.join(", ");
     };
     const parts = [

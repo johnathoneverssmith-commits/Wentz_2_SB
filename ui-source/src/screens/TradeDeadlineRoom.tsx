@@ -520,7 +520,7 @@ function Waiting({
                 {turnsAway === 1 ? "You're up next." : `Your next turn is ${turnsAway} turns away.`}
               </p>
             )}
-            <CommissionerTakeTurn team={holder} />
+            <CommissionerTakeTurn team={holder} answering={!!negotiation} />
             <p style={{ margin: "8px 0 0", fontSize: 12 }}>
               One negotiation happens at a time, so nothing you see here can change while you read
               it. You&rsquo;ll be brought in when it&rsquo;s your turn or somebody makes you an

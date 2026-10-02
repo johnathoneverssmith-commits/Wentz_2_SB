@@ -342,25 +342,30 @@ export function nextReconcileCut(
   const cuttable = roster
     .filter((p) => checkRelease(s, teamCode, p.id).ok && p.overall > 0)
     .filter((p) => countAt(p.position) > (mins[p.position] ?? 0));
-  // Where each player stands at his position, best first: a starter is
-  // inside the template's starter count, a surplus body is past its
-  // full count (a second kicker, a seventh corner).
-  const rankAt = new Map<string, number>();
-  for (const pos of new Set(roster.map((p) => p.position))) {
-    roster
-      .filter((p) => p.position === pos)
-      .sort((a, b) => b.overall - a.overall)
-      .forEach((p, i) => rankAt.set(p.id, i));
-  }
-  const slot = (pos: string) => ROSTER_TEMPLATE.find((r) => r.pos === pos);
-  const surplus = (p: Player) => (rankAt.get(p.id) ?? 0) >= (slot(p.position)?.count ?? 0);
-  const starter = (p: Player) => (rankAt.get(p.id) ?? 0) < (slot(p.position)?.starters ?? 0);
   const capHit = (p: Player) => p.contract?.cap_hit_by_year[0] ?? 0;
   // what he's worth keeping: his rating, plus half of any room a young
   // player still has to grow — the trim used to cut rookies signed that
-  // same week for a 29-year-old one point better
+  // same week for a 29-year-old one point better — plus a point for each
+  // $1M of dead money letting him go would leave behind
   const keepValue = (p: Player) =>
-    p.overall + (p.age <= 25 ? Math.max(0, (p.potential ?? p.overall) - p.overall) * 0.5 : 0);
+    p.overall +
+    (p.age <= 25 ? Math.max(0, (p.potential ?? p.overall) - p.overall) * 0.5 : 0) +
+    releasePenalty(p);
+  // Where each player stands at his position: a starter is inside the
+  // template's starter count by rating; the surplus body past its full count
+  // (a second kicker, a seventh corner) is the one least worth keeping — by
+  // rating alone it was always the newest rookie, cut the week he signed with
+  // his bonus left on the cap, ahead of a 30-year-old on a minimum deal.
+  const rankAt = new Map<string, number>();
+  const keepRankAt = new Map<string, number>();
+  for (const pos of new Set(roster.map((p) => p.position))) {
+    const at = roster.filter((p) => p.position === pos);
+    [...at].sort((a, b) => b.overall - a.overall).forEach((p, i) => rankAt.set(p.id, i));
+    [...at].sort((a, b) => keepValue(b) - keepValue(a)).forEach((p, i) => keepRankAt.set(p.id, i));
+  }
+  const slot = (pos: string) => ROSTER_TEMPLATE.find((r) => r.pos === pos);
+  const surplus = (p: Player) => (keepRankAt.get(p.id) ?? 0) >= (slot(p.position)?.count ?? 0);
+  const starter = (p: Player) => (rankAt.get(p.id) ?? 0) < (slot(p.position)?.starters ?? 0);
   // Crowded: the least useful body — surplus positions first (a team
   // that upgraded its kicker used to keep both and cut its cheapest
   // linebacker), then the lowest rating. Broke: the dearest player who

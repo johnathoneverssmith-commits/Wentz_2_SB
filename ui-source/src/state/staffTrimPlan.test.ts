@@ -31,3 +31,41 @@ describe("the staff's trim plan", () => {
     expect(reconciliationIssues(s, "GB").filter((i) => i.kind === "roster" || i.kind === "cap")).toEqual([]);
   });
 });
+
+/**
+ * Over the limit by one, the staff cut the third-round corner signed that
+ * same week — the lowest-rated of seven, so "surplus" — and left $2.1M of his
+ * bonus on the cap, keeping a 30-year-old on a one-year minimum deal.
+ */
+describe("the surplus body", () => {
+  it("is the veteran on a minimum deal, not the rookie just signed", () => {
+    const s = createLeague(45, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false });
+    fillRosterGaps(s);
+    const cbs = rosterOf(s, "GB").filter((p) => p.position === "CB");
+    const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired && p.position === "CB");
+    // seven corners plus enough spares to be one over
+    const add = (over: Partial<(typeof pool)[number]>) => {
+      const p = pool.shift()!;
+      Object.assign(p, { free_agent: false, nfl_team: "GB", ...over });
+      return p;
+    };
+    const vet = add({
+      age: 30,
+      overall: 61,
+      potential: 61,
+      contract: { years_remaining: 1, cap_hit_by_year: [1], guaranteed: 0 } as never,
+    });
+    const rookie = add({
+      age: 22,
+      overall: 58,
+      potential: 74,
+      contract: { years_remaining: 4, cap_hit_by_year: [1.9, 1.9, 1.9, 1.9], guaranteed: 1.9 } as never,
+    });
+    while (rosterOf(s, "GB").length <= 53) add({ contract: { years_remaining: 1, cap_hit_by_year: [1], guaranteed: 0 } as never });
+    expect(cbs.length).toBeGreaterThan(0);
+
+    const cut = planStaffTrim(s, "GB").map((p) => p.id);
+    expect(cut).not.toContain(rookie.id);
+    expect(cut).toContain(vet.id);
+  });
+});

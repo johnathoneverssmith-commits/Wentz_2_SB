@@ -435,10 +435,18 @@ export function preseasonRoasts(s: LeagueState): { teamCode: string; gmName: str
 export function weeklyRoasts(
   s: LeagueState,
   throughWeek: number,
+  used: Set<string> = new Set(),
+  lookBack = true,
 ): { teamCode: string; gmName: string; line: string }[] {
   if (throughWeek < 1) return preseasonRoasts(s);
+  // last week's jokes are off the table this week: the hub read the same
+  // line on a GM's team in weeks three and seven, and in four and eight
+  if (lookBack && throughWeek > 1) {
+    const last = new Set<string>();
+    weeklyRoasts(s, throughWeek - 1, last, false);
+    for (const l of last) used.add(l);
+  }
   const games = s.games.filter((g) => g.phase === "REG" && g.played && g.week === throughWeek);
-  const used = new Set<string>();
   return s.gms
     .filter((g) => g.isHuman && g.teamCode)
     .map((g) => {

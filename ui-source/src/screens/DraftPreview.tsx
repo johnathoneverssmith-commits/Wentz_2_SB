@@ -203,7 +203,10 @@ export function DraftPreview() {
       */}
       <Footer>
         <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
-          Draft Targets are private — no other GM sees your stars.
+          {/* in a solo dynasty there is nobody to hide them from */}
+          {actions.online
+            ? "Draft Targets are private — no other GM sees your stars."
+            : "Star the prospects you want — on the clock, the draft room suggests the best one still on the board."}
         </span>
       </Footer>
 

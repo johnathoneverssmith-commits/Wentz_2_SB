@@ -75,7 +75,10 @@ export function LeagueWire() {
   const items = recentNews()
     .filter((e) => !HIDDEN_KINDS.has(e.kind))
     // another GM's progress through the results is worth knowing; your own isn't news
-    .filter((e) => !(e.kind === "reveal" && e.teamCode === mine));
+    .filter((e) => !(e.kind === "reveal" && e.teamCode === mine))
+    // only where each GM has got to: "watched through Week 3" under "watched
+    // through Week 9" took a line of the wire to say nothing
+    .filter((e, i, all) => e.kind !== "reveal" || !all.slice(i + 1).some((x) => x.kind === "reveal" && x.teamCode === e.teamCode));
   const shown = items.slice(-(more ? SHOWN_MORE : SHOWN)).reverse();
   const newest = items.reduce((m, e) => Math.max(m, Number(e.id) || 0), 0);
   // remember the newest one for next time, once it has been on screen
