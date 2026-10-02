@@ -99,7 +99,9 @@ export function WeeklyTeamHub() {
     s.stage === "preseason"
       ? preseasonRoasts(s)
       : s.stage === "regularSeason"
-        ? weeklyRoasts(s, revealedWeek(s, s.viewerGmId, "REG"))
+        ? // single-player plays week by week and keeps no reveal markers, so
+          // the marker sat at 0 and the preseason line stayed up all season
+          weeklyRoasts(s, online ? revealedWeek(s, s.viewerGmId, "REG") : Math.max(0, s.week - 1))
         : [];
   const staffCardsAll = staffCards(s);
   const staffOvr = staffCardsAll.find((c) => c.teamCode === code)?.overall ?? 0;
@@ -272,7 +274,8 @@ export function WeeklyTeamHub() {
           { id: "matchup", label: "Matchup" },
           ...(single ? [] : [{ id: "division", label: "Division Standings" }]),
           { id: "league", label: "League Standings" },
-          { id: "gms", label: "GM Standings" },
+          // a solo dynasty has one human GM: a standings table of one
+          ...(gmRows.length > 1 ? [{ id: "gms", label: "GM Standings" }] : []),
           { id: "injuries", label: "Injuries" },
         ]}
         active={active}

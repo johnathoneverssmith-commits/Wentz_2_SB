@@ -296,6 +296,12 @@ export interface LeagueState {
   /** Year one of a fantasy league: rosters fill to 53 after free agency closes. */
   rosterFillPending?: boolean;
   /**
+   * Single-player: who each human team's staff signed when that fill ran, for
+   * the free-agency summary. Online says so on the league wire; solo had no
+   * wire, so 33 signings landed on the roster without a word.
+   */
+  staffFill?: { season: number; byTeam: Record<string, string[]> } | null;
+  /**
    * Each GM's starred prospects for the coming draft, private to that GM.
    * League-level, not on `draft`: the preview happens before the draft
    * exists, and stars put on last year's draft object vanished when the new

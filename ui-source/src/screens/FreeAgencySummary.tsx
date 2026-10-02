@@ -24,7 +24,7 @@ import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { recentNews } from "@/state/online";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import { millions } from "@/util/format";
+import { andList, millions } from "@/util/format";
 
 /**
  * How free agency went, and the bill.
@@ -142,6 +142,15 @@ export function FreeAgencySummary() {
       {staffFill && (
         <div className="notice" role="status">
           {staffFill.summary}
+        </div>
+      )}
+      {!staffFill && s.stage === "freeAgencySummary" && s.staffFill?.season === s.season && (s.staffFill.byTeam[code]?.length ?? 0) > 0 && (
+        <div className="notice" role="status">
+          {(() => {
+            const names = s.staffFill!.byTeam[code]!;
+            const shown = names.length > 5 ? [...names.slice(0, 5), `${names.length - 5} more`] : names;
+            return `Your staff signed ${andList(shown)} after free agency, to fill out the roster.`;
+          })()}
         </div>
       )}
 

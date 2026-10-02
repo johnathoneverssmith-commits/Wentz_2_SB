@@ -174,7 +174,10 @@ export function ReadinessGate({
             ? `Waiting on ${seatsOpen} more ${seatsOpen === 1 ? "GM" : "GMs"} to join`
             : waiting === 0
               ? "All GMs ready"
-              : `Waiting on ${waiting} of ${humans.length} GM${humans.length === 1 ? "" : "s"}`}
+              : // a solo dynasty: "Waiting on 1 of 1 GM", meaning you
+                humans.length === 1 && humans[0]!.id === viewerGmId
+                ? "Ready when you are"
+                : `Waiting on ${waiting} of ${humans.length} GM${humans.length === 1 ? "" : "s"}`}
         </span>
       </div>
       <div className="gmchiprow">
@@ -341,7 +344,11 @@ export function ReadinessGate({
             : viewerReady
               ? heldForSeats
                 ? "You're ready — waiting on the empty seats"
-                : "You're ready — waiting on the league"
+                : // everyone's in and the next stage is being built; "waiting
+                  // on the league" read as stuck in a solo dynasty
+                  waiting === 0
+                  ? "Everyone's in — moving on…"
+                  : "You're ready — waiting on the league"
               : (label ?? STAGE_READY_LABEL[stage])}
       </button>
       {/* the button is a toggle, but once pressed it read as a status line —

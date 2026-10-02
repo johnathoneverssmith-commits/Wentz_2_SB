@@ -104,7 +104,10 @@ export function TradeSummary() {
 
       <Footer>
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
-          Advancing is final, and the league waits for everyone.
+          {/* a solo dynasty has nobody else to wait for */}
+          {s.gms.filter((g) => g.isHuman).length > 1
+            ? "Advancing is final, and the league waits for everyone."
+            : "Advancing is final."}
         </span>
       </Footer>
 

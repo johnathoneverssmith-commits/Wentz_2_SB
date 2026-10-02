@@ -6,7 +6,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayerGameLine, type PlayoffRound, type TeamGameTotals } from "@/domain";
 import { useStore } from "@/state/store";
-import { seconds } from "@/util/format";
+import { seconds, weeksOut } from "@/util/format";
 
 export function FullBoxScore() {
   const { gameId } = useParams();
@@ -192,7 +192,7 @@ export function FullBoxScore() {
                 {e.severity}
               </span>
               <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
-                {e.projectedWeeks[0]}–{e.projectedWeeks[1]} wks
+                {weeksOut(e.projectedWeeks)}
               </p>
             </div>
           </div>

@@ -9,6 +9,7 @@ import { useStore } from "@/state/store";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 
 import { Gamecast } from "./gamecast/Gamecast";
+import { weeksOut } from "@/util/format";
 
 /**
  * Post-simulation Game Day screen. Deliberately a light canvas for now — the
@@ -103,7 +104,7 @@ export function GameDay() {
                   {e.player} <span className="ppos">{e.position}</span>
                 </span>
                 <span style={{ fontSize: 12.5, color: "var(--bad)", fontWeight: 600 }}>
-                  {e.bodyPart} · {e.projectedWeeks[0]}–{e.projectedWeeks[1]} wks
+                  {e.bodyPart} · {weeksOut(e.projectedWeeks)}
                 </span>
               </div>
             ))}
@@ -116,7 +117,8 @@ export function GameDay() {
               Around the league
             </p>
             <div className="scroll-list short">
-              {slate.map((g) => {
+              {/* your own game is the card above; it was listed here again */}
+              {slate.filter((g) => g !== viewerGame).map((g) => {
                 const homeWon = g.homeScore > g.awayScore;
                 const awayWon = g.awayScore > g.homeScore;
                 const openable = hasBoxScore(g);

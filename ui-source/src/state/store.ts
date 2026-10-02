@@ -449,8 +449,16 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // so in the meantime League Rosters showed illegal squads and those teams
   // could not take a trade, because `checkTrade` reads the same cap.
   if (to === "freeAgencySummary" && s.rosterFillPending) {
+    const humans = humanTeamsOf(s);
+    const had = new Set(Object.values(s.players).filter((p) => humans.has(p.nfl_team) && !p.free_agent).map((p) => p.id));
     fillRosterGaps(s, { spareGmRosters: true });
     s.rosterFillPending = false;
+    const byTeam: Record<string, string[]> = {};
+    for (const p of Object.values(s.players).sort((a, b) => b.overall - a.overall)) {
+      if (!humans.has(p.nfl_team) || p.free_agent || had.has(p.id)) continue;
+      (byTeam[p.nfl_team] ??= []).push(`${p.name} (${p.position} ${p.overall})`);
+    }
+    s.staffFill = { season: s.season, byTeam };
   }
   if (to === "freeAgencySummary" || to === "midseasonFreeAgencySummary") {
     const humans = humanTeamsOf(s);
@@ -642,6 +650,18 @@ export const useStore = create<Store>()(
           s.stageDeadlineAt = null;
           recomputeTeamRatings(s);
         });
+
+        // Camp results are already on screen as a step inside training camp,
+        // and the results stage after it showed the same button on the same
+        // page again — the first press looked like it did nothing. Online
+        // carries straight on (`readyUp`); so does this.
+        if (before.stage === "trainingCamp" && get().stage === "trainingCampResults") {
+          get().setReady(get().viewerGmId, true);
+          get().autoReadyNonViewers();
+          const next = await get().tryAdvance();
+          // the first move happened either way
+          if (next.moved) return next;
+        }
 
         return { moved: true, route: STAGE_HOME[get().stage] };
       },

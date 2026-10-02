@@ -24,6 +24,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import type { BroadcastDrive, BroadcastPlay, GameResult, InjuryEvent } from "@/domain";
 
 import "./gamecast.css";
+import { weeksOut } from "@/util/format";
 
 /* ---- geometry (unchanged from the original) ---- */
 const OWN = 100;
@@ -731,7 +732,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                         ? "out for the season"
                         : it.event.projectedWeeks[0] === it.event.projectedWeeks[1]
                           ? `${it.event.projectedWeeks[0]} week${it.event.projectedWeeks[0] === 1 ? "" : "s"}`
-                          : `${it.event.projectedWeeks[0]}–${it.event.projectedWeeks[1]} weeks`}
+                          : weeksOut(it.event.projectedWeeks, true)}
                     </span>
                   </>
                 )}

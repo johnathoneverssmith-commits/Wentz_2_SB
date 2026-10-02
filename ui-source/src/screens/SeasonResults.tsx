@@ -11,6 +11,7 @@ import { visibleGames } from "@/state/reveal";
 import { currentBlock } from "@/state/revealBlocks";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
+import { weeksOut } from "@/util/format";
 
 /**
  * What a reveal opens: every week it just uncovered, on one screen.
@@ -218,7 +219,7 @@ export function WeekResults({
                 {e.player} <span className="ppos">{e.position}</span>
               </span>
               <span style={{ fontSize: 12.5, color: "var(--bad)", fontWeight: 600 }}>
-                {e.bodyPart} · {e.projectedWeeks[0]}–{e.projectedWeeks[1]} wks
+                {e.bodyPart} · {weeksOut(e.projectedWeeks)}
               </span>
             </div>
           ))}

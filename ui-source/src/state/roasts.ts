@@ -283,7 +283,9 @@ export function roastFor(c: RoastContext, seedKey: string, used?: Set<string>): 
   const team = TEAMS_BY_CODE[c.teamCode]?.label ?? c.teamCode;
   return line
     .replace(/\{team\}/g, team)
-    .replace(/\{gm\}/g, c.gmName)
+    // a solo dynasty's GM is called "You": "You needs help" — the lines are
+    // written about somebody, so name the job instead
+    .replace(/\{gm\}/g, c.gmName === "You" ? `${team}'s GM` : c.gmName)
     .replace(/\{star\}/g, c.bestPlayer)
     .replace(/\{unit\}/g, c.weakestUnit)
     .replace(/\{margin\}/g, String(Math.abs(c.biggestMargin)))

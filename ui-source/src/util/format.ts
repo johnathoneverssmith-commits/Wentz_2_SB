@@ -87,3 +87,10 @@ export function count(n: number, singular: string, plural = `${singular}s`): str
 export function commas(n: number): string {
   return Number.isFinite(n) ? Math.round(n).toLocaleString("en-US") : NO_VALUE;
 }
+
+/** "3–6 wks", or "1 wk" when the range is one number ("1–1 wks" read as a glitch). */
+export function weeksOut(range: readonly [number, number] | readonly number[], long = false): string {
+  const [a = 0, b = a] = range;
+  const unit = (n: number) => (long ? (n === 1 ? "week" : "weeks") : n === 1 ? "wk" : "wks");
+  return a === b ? `${a} ${unit(a)}` : `${a}–${b} ${unit(b)}`;
+}
