@@ -11,7 +11,8 @@ import { useDialog } from "./useDialog.ts";
 /** A multiplier as the swing it actually is: 1.12 reads "+12%". */
 const pct = (multiplier: number): string => {
   const v = Math.round((multiplier - 1) * 100);
-  return v === 0 ? "—" : `${v > 0 ? "+" : ""}${v}%`;
+  // exactly average: a bare dash read as missing data
+  return v === 0 ? "±0%" : `${v > 0 ? "+" : ""}${v}%`;
 };
 
 /**

@@ -45,6 +45,27 @@ export function fullPersonName(rng: Rng): string {
   return `${rng.pick(FIRST)} ${rng.pick(LAST)}`;
 }
 
+/**
+ * Redraw any repeated name, keeping the first holder's. Around four hundred
+ * coaches drawn from these lists share names often enough that a coaching
+ * draft offered two "Tyler Lockett"s — a quarterbacks coach and a line coach.
+ */
+export function distinctNames<T extends { name: string }>(
+  people: T[],
+  rng: Rng,
+  /** Real people, never renamed — one may hold two jobs (a head coach calling his own defence). */
+  real: (p: T, i: number) => boolean = () => false,
+): T[] {
+  const seen = new Set(people.filter(real).map((p) => p.name));
+  people.forEach((p, i) => {
+    if (real(p, i)) return;
+    let guard = 0;
+    while (seen.has(p.name) && guard++ < 50) p.name = fullPersonName(rng);
+    seen.add(p.name);
+  });
+  return people;
+}
+
 export function school(rng: Rng): string {
   return rng.pick(SCHOOLS);
 }

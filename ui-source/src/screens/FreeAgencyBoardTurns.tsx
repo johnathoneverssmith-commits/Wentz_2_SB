@@ -430,7 +430,7 @@ function OfferDialog({
       </p>
       <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink-dim)" }}>
         He&rsquo;s asking {millions(ask)}/yr and cares most about{" "}
-        {PRIMARY_VALUE_LABEL[primaryValueOf(player)]}. An offer below the asking price
+        {PRIMARY_VALUE_LABEL[primaryValueOf(player)].toLowerCase()}. An offer below the asking price
         can&rsquo;t be accepted, however good the fit.
       </p>
       {lead && (

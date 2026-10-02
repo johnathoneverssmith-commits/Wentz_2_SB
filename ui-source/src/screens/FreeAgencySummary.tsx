@@ -195,9 +195,13 @@ export function FreeAgencySummary() {
           })
         )}
 
-        <p className="subhead">Went elsewhere ({myLostBids.length})</p>
+        {/* a GM who passed every round got "Went elsewhere (0) — nobody you
+            bid on went elsewhere" under "you didn't sign anybody" */}
+        {(mySignings.length > 0 || myLostBids.length > 0) && (
+          <p className="subhead">Went elsewhere ({myLostBids.length})</p>
+        )}
         {myLostBids.length === 0 ? (
-          <div className="emptystate">Nobody you bid on went elsewhere.</div>
+          mySignings.length > 0 && <div className="emptystate">Nobody you bid on went elsewhere.</div>
         ) : (
           myLostBids.map((playerId) => {
             const p = s.players[playerId];

@@ -113,11 +113,29 @@ export const SPECIALIST_ROOKIE_OFFSET = 9;
  * runs about fifteen points above the rookie rating by design (a top pick
  * arrives near 80), so a GM drafting an "89, ±7" found a 72 on signing day.
  */
-export function projectedRookieRange(p: { projectedRound: number; position: string }): [number, number] {
-  const slot = (p.projectedRound - 1) * 32 + 16;
+export function projectedRookieRange(p: {
+  projectedRound: number;
+  position: string;
+  projectedRange?: string;
+}): [number, number] {
+  const slot = projectedSlot(p);
   const specialist = p.position === "K" || p.position === "P";
   const mid = expectedRookieOverall(slot) + (specialist ? SPECIALIST_ROOKIE_OFFSET : 0);
   const spread = rookieOverallSpread(slot);
   const cap = specialist ? 90 : 88;
   return [Math.max(40, Math.round(mid - spread)), Math.min(cap, Math.round(mid + spread))];
+}
+
+/**
+ * Where in its round a prospect projects, from the same public label the
+ * board prints. The middle of the round stood in for every first-rounder, so
+ * a "Top 10" and a "Late Round 1" prospect both read "projects 70–81".
+ */
+function projectedSlot(p: { projectedRound: number; projectedRange?: string }): number {
+  const start = (p.projectedRound - 1) * 32;
+  const label = p.projectedRange ?? "";
+  if (label === "Top 10") return 5;
+  if (label.startsWith("Early")) return start + 8;
+  if (label.startsWith("Late")) return start + 26;
+  return start + 16;
 }

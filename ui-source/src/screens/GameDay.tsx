@@ -54,6 +54,18 @@ export function GameDay() {
     .filter((e) => e.team === code)
     .sort((a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0));
 
+  // A playoff round leaves no games on file — the scores live on the bracket
+  // — so a GM whose team had just played was told it "wasn't in action".
+  const roundResults = isPlayoff
+    ? (s.bracket?.matchups ?? [])
+        .filter((m) => m.round === pgd.phase && m.highSeed && m.lowSeed && m.homeScore != null && m.awayScore != null)
+        .sort((a, b) => Number(isMine(b)) - Number(isMine(a)))
+    : [];
+  function isMine(m: { highSeed: { code: string } | null; lowSeed: { code: string } | null }): boolean {
+    return !!code && (m.highSeed?.code === code || m.lowSeed?.code === code);
+  }
+  const playedThisRound = roundResults.some(isMine);
+
   const hadBye =
     isPlayoff &&
     !!code &&
@@ -111,6 +123,43 @@ export function GameDay() {
           </>
         )}
 
+        {roundResults.length > 0 && (
+          <>
+            <p className="subhead" style={{ marginTop: 0 }}>
+              This round
+            </p>
+            <div className="scroll-list short">
+              {roundResults.map((m) => {
+                const home = m.highSeed!;
+                const away = m.lowSeed!;
+                const mine = isMine(m);
+                return (
+                  <div
+                    key={`${m.conference}-${home.code}-${away.code}`}
+                    style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, padding: "9px 6px", borderBottom: "1px solid var(--line)", borderRadius: "var(--r-sm)", background: mine ? "var(--panel-raised)" : undefined }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <TeamBadge code={home.code} size={20} />
+                      <span style={{ fontSize: 12.5, fontWeight: m.winner === home.code ? 600 : 400 }}>
+                        {TEAMS_BY_CODE[home.code]?.label ?? home.code}
+                      </span>
+                    </span>
+                    <span className="oswald" style={{ fontSize: 13 }}>
+                      {m.homeScore}–{m.awayScore}
+                    </span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
+                      <TeamBadge code={away.code} size={20} />
+                      <span style={{ fontSize: 12.5, fontWeight: m.winner === away.code ? 600 : 400 }}>
+                        {TEAMS_BY_CODE[away.code]?.label ?? away.code}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
         {!isPlayoff && (
           <>
             <p className="subhead" style={{ marginTop: viewerGame ? 18 : 0 }}>
@@ -147,7 +196,7 @@ export function GameDay() {
           </>
         )}
 
-        {!viewerGame?.broadcast && (
+        {!viewerGame?.broadcast && !playedThisRound && (
           <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
             {viewerGame
               ? online
@@ -157,7 +206,10 @@ export function GameDay() {
               : isPlayoff
                 ? hadBye
                   ? "Your team had the bye this round and advances automatically."
-                  : "Your team wasn't in action this round."
+                  : // a team that never made the field read as one resting
+                    (s.bracket?.matchups ?? []).some(isMine)
+                    ? "Your team is out of the playoffs."
+                    : "Your team missed the playoffs."
                 : "Bye week — your team wasn't on this week's slate."}
           </p>
         )}

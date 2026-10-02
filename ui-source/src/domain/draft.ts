@@ -33,6 +33,8 @@ export function projectionLabel(overallPick: number): string {
   const withinRound = ((overallPick - 1) % 32) + 1;
   const half = withinRound <= 16 ? "Early" : "Late";
   if (round <= 3) return `${half} Round ${round}`;
+  // the draft is seven rounds; "Round 9" promised a pick that doesn't exist
+  if (round > 7) return "Undrafted";
   return `Round ${round}`;
 }
 

@@ -273,7 +273,10 @@ function hash(seed: string): number {
  */
 export function roastFor(c: RoastContext, seedKey: string, used?: Set<string>): string {
   const situation = situationOf(c);
-  const lines = LIBRARY[situation];
+  // "{games} over .500" — a team in the field at 3-4 read as one game over
+  const all = LIBRARY[situation];
+  const fits = c.biggestMargin > 0 ? all : all.filter((l) => !l.includes("{games}"));
+  const lines = fits.length > 0 ? fits : all;
   // two GMs in the same spot drew the same joke, word for word, side by side;
   // the next unused line instead (still the same for every reader)
   let at = hash(`${seedKey}|${c.teamCode}`) % lines.length;

@@ -63,7 +63,7 @@ import { availableRoster } from "@/state/injuries.ts";
 import { filterHoodedFigureAvailable } from "@/state/hoodedFigure.ts";
 
 import { type DraftClassTilt, generateDevelopmentCoaches, MockSimulationService } from "./MockSimulationService.ts";
-import { fullPersonName } from "./names.ts";
+import { distinctNames, fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
 import { winProbability, type Venue } from "./win-probability.ts";
 import type { RetirementOutcome, SimulationService, TradeEvaluation } from "./SimulationService.ts";
@@ -254,7 +254,11 @@ export class HybridSimulationService implements SimulationService {
       };
       // the adapter knows head coaches and coordinators only; the nine
       // development roles the coaching draft also fills come from here
-      return [...[...real, ...generated].map(toCoach), ...generateDevelopmentCoaches(seed)];
+      return distinctNames(
+        [...[...real, ...generated].map(toCoach), ...generateDevelopmentCoaches(seed)],
+        rng,
+        (_, i) => i < real.length,
+      );
     }, () => this.mock.generateCoachMarket(seed));
   }
 

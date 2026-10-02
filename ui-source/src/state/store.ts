@@ -503,6 +503,9 @@ export function onSaveCorrupted(fn: (corrupted: boolean) => void): () => void {
   return () => corruptWatchers.delete(fn);
 }
 
+/** The stage move under way, if any — see `tryAdvance`. */
+let advanceInFlight: Promise<{ moved: boolean; route: string }> | null = null;
+
 export const useStore = create<Store>()(
   persist(
     immer((set, get) => ({
@@ -586,84 +589,96 @@ export const useStore = create<Store>()(
 
       setReturnTo: (path) => set((s) => { s.returnTo = path; }),
 
-      tryAdvance: async () => {
-        const before = get();
-        if (!humanGate(before)) return { moved: false, route: STAGE_HOME[before.stage] };
+      tryAdvance: () => {
+        // One at a time. Each call reads the league before awaiting the
+        // engine and applies the move after, so two that overlapped — a
+        // readiness gate's auto-advance and a second press, or two gates on
+        // the page — both applied it: the season rolled over twice and every
+        // player aged two years in one offseason.
+        if (advanceInFlight) return advanceInFlight;
+        const step = async (): Promise<{ moved: boolean; route: string }> => {
+          const before = get();
+          if (!humanGate(before)) return { moved: false, route: STAGE_HOME[before.stage] };
 
-        // resolved once, ahead of the producer, so the async pieces (a
-        // season-rollover's new schedule, seeding the playoff bracket) can be
-        // awaited outside it — immer producers must stay synchronous.
-        const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
-        const newSchedule = t.seasonRollover
-          ? isHumansOnly(before)
-            ? humansOnlySchedule({ teams: before.teams, season: before.season + 1 })
-            : await sim.generateSchedule(before.season + 1, Object.keys(before.teams))
-          : null;
-        const newBracket =
-          t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
+          // resolved once, ahead of the producer, so the async pieces (a
+          // season-rollover's new schedule, seeding the playoff bracket) can be
+          // awaited outside it — immer producers must stay synchronous.
+          const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
+          const newSchedule = t.seasonRollover
+            ? isHumansOnly(before)
+              ? humansOnlySchedule({ teams: before.teams, season: before.season + 1 })
+              : await sim.generateSchedule(before.season + 1, Object.keys(before.teams))
+            : null;
+          const newBracket =
+            t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
 
-        set((s) => {
-          if (newBracket && !s.bracket) s.bracket = newBracket;
-          if (t.resetStats) resetSeasonStats(s);
+          set((s) => {
+            if (newBracket && !s.bracket) s.bracket = newBracket;
+            if (t.resetStats) resetSeasonStats(s);
 
-          if (t.seasonRollover) {
-            finalizeSeason(s);
-            s.season += 1;
-            s.bracket = null;
-            // Last season's deadline has to go with it: the stage machine only
-            // opens a deadline when there isn't one, so leaving it here meant
-            // every season after the first skipped the trade deadline and the
-            // midseason market entirely.
-            s.tradeDeadline = null;
-            s.games = [];
-            s.draft = null;
-            s.draftTargets = {};
-            s.freeAgency = null;
-            s.coachingHire = null;
-            s.trades = [];
-            s.rookieOutcomes = {};
-            s.pendingGameDay = null;
-            forgetSpentPicks(s, s.season); // this draft has happened
-            ensureDraftPicks(s, s.season); // and two more are now tradeable
-            clearInjuries(s); // an offseason outlasts any injury
-            pruneFreeAgentMarket(s); // careers that stopped going anywhere end
-            compactRetired(s);
-            forgetOldRetirees(s); // and a save file shouldn't carry them forever
-            applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
-            fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
-            s.draftClass = sim.generateDraftClass(s.season + leagueSalt(s), s.season, draftClassTilt(s));
-            for (const code of Object.keys(s.teams)) {
-              const team = s.teams[code]!;
-              team.wins = team.losses = team.ties = 0;
-              team.pointsFor = team.pointsAgainst = 0;
-              team.playoffSeed = 0;
+            if (t.seasonRollover) {
+              finalizeSeason(s);
+              s.season += 1;
+              s.bracket = null;
+              // Last season's deadline has to go with it: the stage machine only
+              // opens a deadline when there isn't one, so leaving it here meant
+              // every season after the first skipped the trade deadline and the
+              // midseason market entirely.
+              s.tradeDeadline = null;
+              s.games = [];
+              s.draft = null;
+              s.draftTargets = {};
+              s.freeAgency = null;
+              s.coachingHire = null;
+              s.trades = [];
+              s.rookieOutcomes = {};
+              s.pendingGameDay = null;
+              forgetSpentPicks(s, s.season); // this draft has happened
+              ensureDraftPicks(s, s.season); // and two more are now tradeable
+              clearInjuries(s); // an offseason outlasts any injury
+              pruneFreeAgentMarket(s); // careers that stopped going anywhere end
+              compactRetired(s);
+              forgetOldRetirees(s); // and a save file shouldn't carry them forever
+              applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
+              fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
+              s.draftClass = sim.generateDraftClass(s.season + leagueSalt(s), s.season, draftClassTilt(s));
+              for (const code of Object.keys(s.teams)) {
+                const team = s.teams[code]!;
+                team.wins = team.losses = team.ties = 0;
+                team.pointsFor = team.pointsAgainst = 0;
+                team.playoffSeed = 0;
+              }
+              s.schedule = newSchedule!;
             }
-            s.schedule = newSchedule!;
+
+            applyStageEntry(s, s.stage, t.stage);
+
+            s.stage = t.stage;
+            s.week = t.week;
+            s.returnTo = null;
+            clearReadiness(s);
+            s.stageDeadlineAt = null;
+            recomputeTeamRatings(s);
+          });
+
+          // Camp results are already on screen as a step inside training camp,
+          // and the results stage after it showed the same button on the same
+          // page again — the first press looked like it did nothing. Online
+          // carries straight on (`readyUp`); so does this.
+          if (before.stage === "trainingCamp" && get().stage === "trainingCampResults") {
+            get().setReady(get().viewerGmId, true);
+            get().autoReadyNonViewers();
+            const next = await step();
+            // the first move happened either way
+            if (next.moved) return next;
           }
 
-          applyStageEntry(s, s.stage, t.stage);
-
-          s.stage = t.stage;
-          s.week = t.week;
-          s.returnTo = null;
-          clearReadiness(s);
-          s.stageDeadlineAt = null;
-          recomputeTeamRatings(s);
+          return { moved: true, route: STAGE_HOME[get().stage] };
+        };
+        advanceInFlight = step().finally(() => {
+          advanceInFlight = null;
         });
-
-        // Camp results are already on screen as a step inside training camp,
-        // and the results stage after it showed the same button on the same
-        // page again — the first press looked like it did nothing. Online
-        // carries straight on (`readyUp`); so does this.
-        if (before.stage === "trainingCamp" && get().stage === "trainingCampResults") {
-          get().setReady(get().viewerGmId, true);
-          get().autoReadyNonViewers();
-          const next = await get().tryAdvance();
-          // the first move happened either way
-          if (next.moved) return next;
-        }
-
-        return { moved: true, route: STAGE_HOME[get().stage] };
+        return advanceInFlight;
       },
 
       simulateGameDay: async () => {

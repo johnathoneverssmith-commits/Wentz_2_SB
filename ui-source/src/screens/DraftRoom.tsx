@@ -252,6 +252,9 @@ export function DraftRoom() {
     : mode === "fantasy"
       ? myResults.map((r) => s.players[r.selectedId ?? ""]).filter((p): p is NonNullable<typeof p> => !!p)
       : teamRoster(s, code);
+  // early in a fantasy draft nearly every position is empty, and a tag on
+  // all hundred rows saying so told the GM nothing
+  const sparseRoster = new Set(myRoster.map((p) => p.position)).size < 7;
   // the same need-weighted pick the AI would make for this roster, offered
   // as a one-click suggestion whenever it's the viewer's turn
   // your stars first: the highest target still on the board (the draft
@@ -439,7 +442,9 @@ export function DraftRoom() {
                     ) : (
                       p.name
                     )}
-                    {fit && <FitTag fit={fit(p.position, p.ovr)} />}
+                    {fit && !(sparseRoster && fit(p.position, p.ovr).label === "Fills an empty spot") && (
+                      <FitTag fit={fit(p.position, p.ovr)} />
+                    )}
                     {/* starring used to live only on the preview screen, so a GM
                         waiting between picks could see their stars and not
                         change them */}

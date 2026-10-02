@@ -47,7 +47,8 @@ const gradeFor = (rank: number, of: number): string => {
 
 const pct = (multiplier: number): string => {
   const v = Math.round((multiplier - 1) * 100);
-  return v === 0 ? "—" : `${v > 0 ? "+" : ""}${v}%`;
+  // exactly average: a bare dash read as missing data
+  return v === 0 ? "±0%" : `${v > 0 ? "+" : ""}${v}%`;
 };
 
 export function CoachingDraftSummary() {

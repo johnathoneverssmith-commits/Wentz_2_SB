@@ -64,7 +64,7 @@ function realPool(): Player[] {
 }
 
 
-import { fullPersonName, personName, school } from "./names.ts";
+import { distinctNames, fullPersonName, personName, school } from "./names.ts";
 import { DEVELOPMENT_ROLES } from "@/domain";
 import { Rng } from "./rng.ts";
 import {
@@ -558,7 +558,7 @@ export class MockSimulationService implements SimulationService {
     for (let i = 0; i < 8; i++) out.push(make("HC"));
     for (let i = 0; i < 10; i++) out.push(make("OC"));
     for (let i = 0; i < 10; i++) out.push(make("DC"));
-    return out;
+    return distinctNames(out, rng, (c) => c.team != null);
   }
 
   /**
