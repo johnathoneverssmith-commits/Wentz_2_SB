@@ -57,7 +57,8 @@ const firstHalf = (shape: SeasonShape): Block => ({
   watchAllLabel: "Simulate to the trade deadline",
   advanceLabel: "Advance to Trade Deadline",
   checkpoint: { from: `Regular Season Weeks 1–${shape.deadlineWeek}`, to: "Trade Deadline" },
-  resultsOpenOn: "last",
+  // a half-season is read from the start, week by week, like the second half
+  resultsOpenOn: "first",
 });
 
 const secondHalf = (shape: SeasonShape): Block => ({

@@ -7,7 +7,7 @@ import { UnitMatchups } from "./UnitMatchups";
 interface Side {
   code: string;
   record: string;
-  site: "home" | "away";
+  site: "home" | "away" | "neutral";
 }
 
 interface Metric {
@@ -30,7 +30,13 @@ export function MatchupBoard({
   them,
   winProb,
   metrics,
+  note,
+  names,
 }: {
+  /** Replaces "Hosting" / "On the road" under the round or week. */
+  note?: string | undefined;
+  /** Both teams' names, for a game that isn't the viewer's: "ATL pass rush", not "your". */
+  names?: [string, string];
   when: string;
   me: Side;
   them: Side;
@@ -48,7 +54,7 @@ export function MatchupBoard({
       <div className="mhead mgrid">
         <div className="mwhen">
           <b>{when}</b>
-          {me.site === "home" ? "Hosting" : "On the road"}
+          {note ?? (me.site === "home" ? "Hosting" : me.site === "away" ? "On the road" : "Neutral site")}
         </div>
         {sides.map(({ side, team }) => (
           <div key={side.code} className="mteam">
@@ -93,7 +99,7 @@ export function MatchupBoard({
         })}
       </div>
 
-      <UnitMatchups teamCode={me.code} oppCode={them.code} />
+      <UnitMatchups teamCode={me.code} oppCode={them.code} {...(names ? { names } : {})} />
     </div>
   );
 }

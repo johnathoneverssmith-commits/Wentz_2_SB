@@ -339,6 +339,23 @@ export function WeeklyTeamHub() {
       </Panel>
 
       <Panel id="matchup" open={tab === "matchup"}>
+        {/* the league's weekly verdict on each GM leads the screen, so
+            everybody reads it before the numbers */}
+        {roasts.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <p className="subhead" style={{ marginTop: 0 }}>
+              Around the league
+            </p>
+            {roasts.map((r) => (
+              <div className="watchnote" key={r.teamCode}>
+                <div className="who">
+                  {r.gmName} · {TEAMS_BY_CODE[r.teamCode]!.label}
+                </div>
+                <p className="txt">{r.line}</p>
+              </div>
+            ))}
+          </div>
+        )}
         {oppCode && opp ? (
           <MatchupBoard
             when={isPreseason ? `Preseason Wk ${headerWeek}` : `Week ${headerWeek}`}
@@ -790,6 +807,7 @@ function InjuryTable({
             <th>Player</th>
             {showTeam && <th className="c">Team</th>}
             <th className="c">OVR</th>
+            <th>Injury</th>
             <th className="c">Status</th>
             <th className="r">Recovery</th>
           </tr>
@@ -804,6 +822,7 @@ function InjuryTable({
               <td className="c" style={{ color: "var(--ink)", fontWeight: 600 }}>
                 {p.overall}
               </td>
+              <td style={{ textTransform: "capitalize" }}>{p.injury_status!.description || "Undisclosed"}</td>
               <td className="c" style={{ color: color(p.injury_status!.status), fontWeight: 600, textTransform: "capitalize" }}>
                 {p.injury_status!.status}
               </td>

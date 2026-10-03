@@ -53,6 +53,33 @@ export function SeasonResults() {
     currentBlock(s)?.resultsOpenOn === "first" ? (weeks.find(playedIn) ?? first) : last;
   const active = weeks.includes(Number(week)) ? Number(week) : openOn;
 
+  // Each team's rating and, in the regular season, its record as of that
+  // week — from the games this GM has revealed, never one they haven't.
+  const infoFor = (w: number) => {
+    const rec = new Map<string, { w: number; l: number; t: number }>();
+    if (phaseKey === "REG") {
+      for (const g of seen) {
+        if (g.phase !== "REG" || !g.played || g.week > w) continue;
+        for (const [team, us, them] of [
+          [g.homeTeam, g.homeScore, g.awayScore],
+          [g.awayTeam, g.awayScore, g.homeScore],
+        ] as const) {
+          const r = rec.get(team) ?? { w: 0, l: 0, t: 0 };
+          if (us > them) r.w++;
+          else if (us < them) r.l++;
+          else r.t++;
+          rec.set(team, r);
+        }
+      }
+    }
+    return (team: string): string => {
+      const ovr = s.teams[team]?.ratings.overall;
+      const r = rec.get(team);
+      const parts = [ovr != null ? `${ovr} OVR` : "", phaseKey === "REG" ? (r ? `${r.w}-${r.l}${r.t ? `-${r.t}` : ""}` : "0-0") : ""];
+      return parts.filter(Boolean).join(" · ");
+    };
+  };
+
   // Restoring the scroll position the GM left from, so a trip into a box
   // score and back does not dump them at the top of a long screen.
   const scroller = useRef<HTMLDivElement>(null);
@@ -95,6 +122,7 @@ export function SeasonResults() {
           <Panel key={w} id={String(w)} open={w === active}>
             <WeekResults
               slate={slateOf(w)}
+              info={infoFor(w)}
               code={code}
               label={label(w)}
               /* The spec keeps these off the one-week screen: it has a single
@@ -135,9 +163,12 @@ export function WeekResults({
   onBox,
   onWatch,
   noGame,
+  info,
 }: {
   /** What to say when the viewer has no game here, if there's more to say. */
   noGame?: string;
+  /** A team's rating and record as of this slate, shown under its name. */
+  info?: (team: string) => string;
   slate: GameResult[];
   code: string | null;
   label: string;
@@ -152,6 +183,8 @@ export function WeekResults({
   // in a 32-team slate they sat wherever the schedule put them, unmarked
   const gms = useStore((st) => st.gms);
   const gmName = (team: string) => gms.find((g) => g.isHuman && g.teamCode === team && team !== code)?.name;
+  // a game with a GM's team in it is the one worth finding in a long slate
+  const humanIn = (g: GameResult) => gms.some((x) => x.isHuman && (x.teamCode === g.homeTeam || x.teamCode === g.awayTeam));
   const others = slate
     .filter((g) => g !== mine)
     .map((g, i) => ({ g, i, gm: !!(gmName(g.homeTeam) || gmName(g.awayTeam)) }))
@@ -181,9 +214,9 @@ export function WeekResults({
             marginBottom: 16,
           }}
         >
-          <Side code={mine.homeTeam} score={mine.homeScore} won={mine.homeScore > mine.awayScore} />
+          <Side code={mine.homeTeam} score={mine.homeScore} won={mine.homeScore > mine.awayScore} info={info?.(mine.homeTeam)} />
           <div style={{ textAlign: "center", color: "var(--ink-faint)", fontSize: 11 }}>FINAL</div>
-          <Side code={mine.awayTeam} score={mine.awayScore} won={mine.awayScore > mine.homeScore} right />
+          <Side code={mine.awayTeam} score={mine.awayScore} won={mine.awayScore > mine.homeScore} right info={info?.(mine.awayTeam)} />
         </div>
       ) : (
         <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--ink-faint)", textAlign: "center" }}>
@@ -247,6 +280,9 @@ export function WeekResults({
                 borderBottom: "1px solid var(--line)",
                 cursor: openable ? "pointer" : "default",
                 borderRadius: "var(--r-sm)",
+                ...(humanIn(g)
+                  ? { background: "color-mix(in srgb, var(--team) 10%, transparent)", boxShadow: "inset 3px 0 0 var(--team)" }
+                  : {}),
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -254,6 +290,7 @@ export function WeekResults({
                 <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>
                   {TEAMS_BY_CODE[g.homeTeam]!.label}
                   {gmName(g.homeTeam) && <> <span className="ppos">{gmName(g.homeTeam)}</span></>}
+                  {info && <small style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>{info(g.homeTeam)}</small>}
                 </span>
               </span>
               {/* the playoff link lives in the score's cell: as a fourth item
@@ -281,6 +318,7 @@ export function WeekResults({
                 <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400 }}>
                   {TEAMS_BY_CODE[g.awayTeam]!.label}
                   {gmName(g.awayTeam) && <> <span className="ppos">{gmName(g.awayTeam)}</span></>}
+                  {info && <small style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400, textAlign: "right" }}>{info(g.awayTeam)}</small>}
                 </span>
               </span>
             </div>
@@ -296,11 +334,13 @@ function Side({
   score,
   won,
   right = false,
+  info,
 }: {
   code: string;
   score: number;
   won: boolean;
   right?: boolean;
+  info?: string | undefined;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 10 }}>
@@ -313,6 +353,7 @@ function Side({
           {score}
         </span>
         <span style={{ fontSize: 11.5, color: "var(--ink-dim)" }}>{TEAMS_BY_CODE[code]!.label}</span>
+        {info && <span style={{ display: "block", fontSize: 11, color: "var(--ink-faint)" }}>{info}</span>}
       </div>
     </div>
   );

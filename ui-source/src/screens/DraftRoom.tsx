@@ -1,3 +1,4 @@
+import { WaitingStakes } from "@/components/WaitingStakes";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { projectedRookieRange } from "@/sim/draft-outcomes";
@@ -399,6 +400,7 @@ export function DraftRoom() {
               ? "Star the prospects you want, in order — if your own clock runs out, your staff drafts your top star still on the board."
               : "If your own clock runs out, your staff drafts the best fit left on your board."}
             <CommissionerTakeTurn team={onClockTeam} />
+            <WaitingStakes />
           </div>
         )}
         {pickError && (

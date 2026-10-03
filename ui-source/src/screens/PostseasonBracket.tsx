@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type React from "react";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
+import { PostseasonMatchups } from "@/components/PostseasonMatchups";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -186,7 +187,23 @@ export function PostseasonBracket() {
         ]}
       />
       {b.format === "single" ? (
-        <SingleBracket b={b} me={code} />
+        <>
+          <Tabs
+            tabs={[
+              { id: "bracket", label: "Bracket" },
+              { id: "matchup", label: "Matchup" },
+            ]}
+            active={active}
+            onChange={setActive}
+          />
+          {active === "matchup" ? (
+            <div className="panel open">
+              <PostseasonMatchups b={b} />
+            </div>
+          ) : (
+            <SingleBracket b={b} me={code} />
+          )}
+        </>
       ) : (
       <>
       <Tabs
@@ -194,6 +211,7 @@ export function PostseasonBracket() {
           { id: "afc", label: "AFC" },
           { id: "nfc", label: "NFC" },
           { id: "sb", label: "Super Bowl" },
+          { id: "matchup", label: "Matchup" },
         ]}
         active={active}
         onChange={setActive}
@@ -204,6 +222,10 @@ export function PostseasonBracket() {
           <ConferenceBracket conf={conf.toUpperCase() as "AFC" | "NFC"} matchups={b.matchups} me={code} />
         </Panel>
       ))}
+
+      <Panel id="matchup" open={active === "matchup"}>
+        <PostseasonMatchups b={b} />
+      </Panel>
 
       <Panel id="sb" open={active === "sb"}>
         <div style={{ maxWidth: 340, margin: "0 auto" }}>
@@ -358,6 +380,9 @@ function ConferenceBracket({
 }
 
 function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
+  const teams = useStore((st) => st.teams);
+  const gms = useStore((st) => st.gms);
+  const gmOf = (code: string) => gms.find((g) => g.isHuman && g.teamCode === code);
   const yours = m.highSeed?.code === me || m.lowSeed?.code === me;
   const played = m.homeScore != null && m.awayScore != null;
   const bye = m.round === "WC" && !m.lowSeed;
@@ -365,13 +390,41 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
   const row = (side: BracketMatchup["highSeed"], score: number | null, isWinner: boolean) => {
     if (!side) return <div style={{ padding: "9px 12px", color: "var(--ink-faint)", fontStyle: "italic", fontSize: 13 }}>TBD</div>;
     const t = TEAMS_BY_CODE[side.code]!;
+    const st = teams[side.code];
+    const gm = gmOf(side.code);
+    const mineSide = side.code === me;
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 12px", gap: 8, background: isWinner ? "rgba(111,200,150,0.07)" : undefined }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "9px 12px",
+          gap: 8,
+          background: isWinner ? "rgba(111,200,150,0.07)" : undefined,
+          // a GM's team stands out from thirty others; yours most of all
+          ...(gm ? { boxShadow: `inset 3px 0 0 ${mineSide ? "var(--team)" : "var(--notice)"}` } : {}),
+          ...(mineSide ? { background: "color-mix(in srgb, var(--team) 14%, transparent)" } : {}),
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
           <span className="oswald" style={{ width: 20, height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, background: t.color, color: onColorFor(t.color) }}>
             {side.seed || "•"}
           </span>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{t.label}</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: gm ? 700 : 500 }}>{t.label}</span>
+            {gm && (
+              <span className="ppos" style={{ marginLeft: 6 }}>
+                {mineSide ? "you" : gm.name}
+              </span>
+            )}
+            {st && (
+              <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>
+                {st.ratings.overall} OVR · {st.wins}-{st.losses}
+                {st.ties ? `-${st.ties}` : ""}
+              </span>
+            )}
+          </span>
         </div>
         {score != null && (
           <span className="oswald" style={{ fontSize: 14, fontWeight: 600, color: isWinner ? "var(--good)" : "var(--ink-dim)" }}>

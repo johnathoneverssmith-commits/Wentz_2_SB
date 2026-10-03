@@ -117,6 +117,10 @@ export function PlayoffRoundResults() {
             <WeekResults
               slate={slate}
               code={code}
+              info={(team) => {
+                const t = s.teams[team];
+                return t ? `${t.ratings.overall} OVR · ${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}` : "";
+              }}
               label={roundLabelFor(s.bracket, r)}
               showDetail
               detailOnEvery

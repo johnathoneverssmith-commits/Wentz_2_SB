@@ -144,7 +144,12 @@ export function SeasonComplete() {
 
   return (
     <Card maxWidth={760}>
-      <CardHeader badge={winnerCode ? TEAMS_BY_CODE[winnerCode]!.abbr : leagueBadge(s)} title={`End of ${s.season} Season`} />
+      {/* the badge is the viewer's own team: the headline below can be somebody
+          else's, and a header showing their team over your season confused */}
+      <CardHeader
+        badge={viewerGm?.teamCode ? TEAMS_BY_CODE[viewerGm.teamCode]!.abbr : winnerCode ? TEAMS_BY_CODE[winnerCode]!.abbr : leagueBadge(s)}
+        title={`End of ${s.season} Season`}
+      />
       <Tabs
         tabs={[
           { id: "season", label: "This Season" },
@@ -156,7 +161,7 @@ export function SeasonComplete() {
 
       <Panel id="season" open={active === "season"}>
         <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
-          <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             {humanChampGm
               ? // "Final Champions" in a humans-only league
                 s.bracket?.format === "single"
