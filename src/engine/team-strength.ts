@@ -105,7 +105,54 @@ export interface StrengthIndex {
   offense: number;
   /** Snap-weighted mean of the defense, 0–99. */
   defense: number;
+  /**
+   * The same, per channel, from the units that actually play in it — see
+   * `CHANNEL_UNITS`. Absent on a hand-built index (the tests), which falls
+   * back to the side means.
+   */
+  channels?: Record<Channel, { offense: number; defense: number }>;
 }
+
+/**
+ * Which units a channel is decided by, and how much each counts.
+ *
+ * One index per side treated every player as interchangeable: an elite
+ * running back made his team's quarterback complete more passes and get
+ * sacked less, and an elite cornerback did as much against the run as an
+ * elite defensive tackle. Football links units more specifically than that,
+ * and this says how:
+ *
+ *  - the passing game is the quarterback, the receivers and the protection
+ *    that buys them time, against the secondary, the linebackers in coverage
+ *    and the rush that hurries the throw
+ *  - a sack is the line and the quarterback's feel for the pocket against
+ *    the rush, plus the coverage that makes him hold the ball
+ *  - an interception is the quarterback's decisions against ball-hawking
+ *    defensive backs and a rush that forces throws early
+ *  - the run game is the back and the line in front of him against the front
+ *    seven, with safeties coming down to fill
+ *
+ * Weights are shares within a side and sum to one, so each index is still a
+ * 0–99 rating and `PER_POINT` keeps its meaning.
+ */
+const CHANNEL_UNITS: Record<Channel, { offense: Record<string, number>; defense: Record<string, number> }> = {
+  complete: {
+    offense: { QB: 0.4, WR: 0.25, TE: 0.1, OT: 0.08, OG: 0.06, C: 0.04, RB: 0.07 },
+    defense: { CB: 0.32, S: 0.22, ILB: 0.14, EDGE: 0.22, DT: 0.1 },
+  },
+  sack: {
+    offense: { OT: 0.32, OG: 0.22, C: 0.14, QB: 0.2, TE: 0.05, RB: 0.07 },
+    defense: { EDGE: 0.38, DT: 0.2, ILB: 0.1, CB: 0.18, S: 0.14 },
+  },
+  interception: {
+    offense: { QB: 0.72, WR: 0.16, TE: 0.06, OT: 0.03, OG: 0.03 },
+    defense: { CB: 0.34, S: 0.34, ILB: 0.1, EDGE: 0.16, DT: 0.06 },
+  },
+  rushYards: {
+    offense: { RB: 0.22, OT: 0.22, OG: 0.24, C: 0.14, TE: 0.12, QB: 0.06 },
+    defense: { DT: 0.3, EDGE: 0.2, ILB: 0.3, S: 0.15, CB: 0.05 },
+  },
+};
 
 /** How good is the team that actually takes the field, by side. */
 export function strengthIndex(r: Roster): StrengthIndex {
@@ -131,10 +178,36 @@ export function strengthIndex(r: Roster): StrengthIndex {
       }
     });
   }
-  const out: StrengthIndex = {
-    offense: offDen > 0 ? offNum / offDen : 0,
-    defense: defDen > 0 ? defNum / defDen : 0,
+  // each position's own snap-weighted mean, for the per-channel blends
+  const byPos = new Map<string, number>();
+  for (const [pos, list] of r.depth) {
+    let num = 0;
+    let den = 0;
+    list.forEach((p: Player, i: number) => {
+      const w = DEPTH_WEIGHTS[i] ?? 0;
+      num += w * (p.overall ?? 0);
+      den += w;
+    });
+    if (den > 0) byPos.set(pos, num / den);
+  }
+  const offense = offDen > 0 ? offNum / offDen : 0;
+  const defense = defDen > 0 ? defNum / defDen : 0;
+  const blend = (shares: Record<string, number>, fallback: number): number => {
+    let num = 0;
+    let den = 0;
+    for (const [pos, w] of Object.entries(shares)) {
+      const v = byPos.get(pos);
+      if (v === undefined) continue;
+      num += w * v;
+      den += w;
+    }
+    return den > 0 ? num / den : fallback;
   };
+  const channels = {} as Record<Channel, { offense: number; defense: number }>;
+  for (const [ch, u] of Object.entries(CHANNEL_UNITS) as [Channel, (typeof CHANNEL_UNITS)[Channel]][]) {
+    channels[ch] = { offense: blend(u.offense, offense), defense: blend(u.defense, defense) };
+  }
+  const out: StrengthIndex = { offense, defense, channels };
   _cache.set(r, out);
   return out;
 }
@@ -183,13 +256,31 @@ export const TEAM_STRENGTH_SCALE = 1.0;
  * across the channels, in the same proportions the modelled families move
  * them.
  */
+// Scaled down from 0.055 / -0.045 / 0.055 when each channel began reading
+// its own units: a blend of three or four positions spreads the league's
+// teams wider than a whole side's average did (team-to-team sd of the
+// offence-minus-defence gap 3.73 / 3.56 / 3.22 against 3.04), so the same
+// per-point weight made every channel more decisive than it was fitted to be.
+// Divided by those ratios, each channel moves games as much as it did before;
+// what changed is which players move it. Then the sack channel moved weight
+// from the rush to the coverage (four elite linemen were sacking a median
+// quarterback on one dropback in five) and the run game from the back to his
+// line (an elite back was worth nearly an elite quarterback), and the two
+// were rescaled again by their spread (3.56 -> 3.43, 3.25 -> 3.18).
 const PER_POINT = {
   /** logit, M09 COMPLETE */
-  complete: 0.055,
+  complete: 0.045,
   /** logit, M04 SACK */
-  sack: -0.045,
+  sack: -0.0395,
   /** yards, M15 rush */
-  rushYards: 0.055,
+  rushYards: 0.053,
+  /**
+   * logit, M09 INTERCEPTION. The channel had no team-quality term at all, so
+   * a secondary of ball hawks picked off no more passes than a bad one except
+   * through the completions it took away. Negative: a better offense throws
+   * fewer, a better defense takes more.
+   */
+  interception: -0.03,
 } as const;
 
 type Channel = keyof typeof PER_POINT;
@@ -214,5 +305,7 @@ export function strengthShift(
 ): number {
   // this offense against that defense — not team against team, which would be
   // a mirror and would double-count the same gap on both scoreboards
-  return (offense.offense - defense.defense) * PER_POINT[channel] * TEAM_STRENGTH_SCALE;
+  const off = offense.channels?.[channel]?.offense ?? offense.offense;
+  const def = defense.channels?.[channel]?.defense ?? defense.defense;
+  return (off - def) * PER_POINT[channel] * TEAM_STRENGTH_SCALE;
 }

@@ -19,7 +19,7 @@ const grid: [number, number][] = process.argv.includes("--grid")
 
 const teams = teamList();
 for (const [complete, rushYards] of grid) {
-  setOffenseCalibration({ complete, rushYards });
+  setOffenseCalibration({ complete, rushYards, sack: 0, interception: 0 });
   let pts = 0;
   let games = 0;
   let k = 0;

@@ -1065,3 +1065,53 @@ summed (linear: +0.3).
 and `setSynergyScale` for A/B runs. `test/engine-synergy.test.ts` pins the
 *shape* — superadditive, weak-link, >2× edge pair, bad QB tanks a great WR,
 matchup compounds, centring — not the sizes, which may be retuned.
+
+## Unit links — each channel read from the units that play in it
+
+The team-strength index used to be one number per side, so an elite running
+back made his quarterback complete more passes and get sacked less, and an
+elite corner stopped the run as well as an elite tackle. `CHANNEL_UNITS`
+(`src/engine/team-strength.ts`) now builds a separate index per channel from
+the positions that decide it: the passing game (QB, receivers, protection vs
+the secondary, the linebackers and the rush), sacks (line and QB vs the rush
+*and* the coverage that makes him hold it), interceptions (QB decisions vs
+ball-hawking DBs and a rush that forces throws — a channel with no
+team-quality term before), and the run game (line and back vs the front seven
+and the safeties). `PER_POINT` was rescaled by each channel's real-team spread
+so games swing as much as before; what changed is who swings them.
+
+Each channel's league offset is fitted per talent setting
+(`analysis/40_channel_calibration.ts`): sacks and INTs to their rates, and
+completions and the run game together to scoring, because the engine's red
+zone converts short and all-four-rates-exact scores ~20 a game.
+
+Measured on the median team with each unit swapped for elite starters
+(`analysis/38_unit_links.ts`, talent 1.5, 248 common-seed games):
+
+| elite | margin | opp cmp | opp INT | opp sack | own |
+|---|---:|---:|---:|---:|---|
+| QB | +8.2 | | | | cmp +12.1, INT −2.0 |
+| OL | +9.0 | | | | sack −3.8, ypc +1.4, INT −0.9 |
+| RB | +5.4 | | | | ypc +1.3 (was +6.2 margin, nearly a QB) |
+| DL | +14.0 | −6.8 | +0.67 | +12.7 | ypc against −1.0 |
+| DB | +10.5 | −14.4 | +1.97 | +2.7 | |
+
+A great rush makes the secondary intercept more; a great secondary produces
+coverage sacks. Defense / offense sum of unit margins: 0.95.
+
+League (`analysis/39_league_metrics.ts`, talent 1, 1,984 games): points 22.9
+(+1.4%), points sd −2.0%, margin sd +4.1%, favourite 68.8%, INT −1.3%, sack
+−2.2%, completion +6.8% and YPC +8.9% (the price of the scoring fit).
+
+**Credit follows skill** (`creditWeight` in `synergy.ts`): sacks, picks,
+breakups, tackles and forced fumbles tilt each slot's share by the player's
+skill *against his own position's starters*, so it never changes a result,
+only whose line it lands on. Incompletions are now a breakup about a third of
+the time (passes defended read zero league-wide before), batted balls
+included. Season leaders at talent 1.5 (`analysis/41_defensive_leaders.ts`):
+sacks 23, INT 11, PD 33, tackles 174.
+
+The Master AI's unit weights and the price table were re-measured from the
+same harness; Master vs Expert margin went +1.0 → +1.7 (talent 1) and
++0.5 → +1.8 (talent 1.5). DPOY scoring now favours splash plays over tackle
+volume.

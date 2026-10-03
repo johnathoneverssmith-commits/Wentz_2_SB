@@ -41,7 +41,7 @@ import {
 import { Rng } from "./rng.js";
 import { homePenaltyScale, homeShift, type HomeEdge } from "./home-field.js";
 import { strengthIndex, strengthShift } from "./team-strength.js";
-import { synergyShift } from "./synergy.js";
+import { type CreditKind, creditWeight, synergyShift } from "./synergy.js";
 import { type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import type { Player } from "../schema/player.js";
@@ -233,6 +233,11 @@ export class Game {
   mustDecide = false;
   /** a league's own scoring correction (`GameStaff.offenseAdjust`) */
   offenseAdjust = 0;
+  private _calib: OffenseCalibration | null = null;
+  /** the league offsets for this game's talent setting (`offenseCalibrationFor`) */
+  private get calib(): OffenseCalibration {
+    return (this._calib ??= offenseCalibrationFor(this.talent));
+  }
 
   constructor(
     rng: Rng,
@@ -287,7 +292,7 @@ export class Game {
    * pool-free `simulateGame(seed)` has no teams to be better or worse than
    * each other, and must stay byte-identical to what it was.
    */
-  private strengthEdge(channel: "complete" | "sack" | "rushYards"): number {
+  private strengthEdge(channel: "complete" | "sack" | "rushYards" | "interception"): number {
     if (!this.ratingsOn) return 0;
     return strengthShift(
       strengthIndex(this.rosters![this.pos as 0 | 1]),
@@ -344,14 +349,15 @@ export class Game {
       h = Math.imul(h ^ (h >>> 12), 0x297a2d39) >>> 0;
       return ((h ^ (h >>> 15)) >>> 0) / 0x100000000;
     };
-    const seed = Math.floor(next() * 1e9);
-    const pick = (pool: (Lineup[keyof Lineup] | undefined)[]): string | undefined => {
-      const names = pool.filter((x): x is NonNullable<typeof x> => !!x).map((x) => x!.name);
-      return names.length ? names[seed % names.length] : undefined;
-    };
-    /** a weighted pick over [player, weight] pairs, skipping empty slots */
-    const weighted = (pool: [Player | null | undefined, number][]): string | undefined => {
-      const live = pool.filter((x): x is [Player, number] => !!x[0]);
+    /**
+     * a weighted pick over [player, weight] pairs, skipping empty slots; with
+     * a credit kind, each slot's share is tilted toward whoever is better at
+     * that job (`creditWeight`)
+     */
+    const weighted = (pool: [Player | null | undefined, number][], kind?: CreditKind): string | undefined => {
+      const live = pool
+        .filter((x): x is [Player, number] => !!x[0])
+        .map(([p, w]): [Player, number] => [p, kind ? w * creditWeight(p, kind) : w]);
       const total = live.reduce((n, [, w]) => n + w, 0);
       let r = next() * total;
       for (const [p, w] of live) if ((r -= w) <= 0) return p.name;
@@ -360,14 +366,21 @@ export class Game {
     const offRoster = this.off();
     const out = this.injuredOut;
     const tackleOnRun = (): string | undefined =>
-      weighted([[d.ILB1, 17], [d.ILB2, 14], [d.S1, 11], [d.S2, 9], [d.EDGE1, 9], [d.EDGE2, 8], [d.DT1, 8], [d.DT2, 7], [d.CB1, 5], [d.CB2, 5]]);
+      weighted([[d.ILB1, 17], [d.ILB2, 14], [d.S1, 11], [d.S2, 9], [d.EDGE1, 9], [d.EDGE2, 8], [d.DT1, 8], [d.DT2, 7], [d.CB1, 5], [d.CB2, 5]], "tackle");
     const tackleOnCatch = (): string | undefined =>
       depth === "DEEP"
-        ? weighted([[d.S1, 30], [d.S2, 25], [d.CB1, 25], [d.CB2, 20]])
-        : weighted([[d.CB1, 13], [d.CB2, 12], [d.ILB1, 16], [d.ILB2, 13], [d.S1, 15], [d.S2, 13], [d.CB3, 7], [d.EDGE1, 4], [d.EDGE2, 4]]);
+        ? weighted([[d.S1, 30], [d.S2, 25], [d.CB1, 25], [d.CB2, 20]], "tackle")
+        : weighted([[d.CB1, 13], [d.CB2, 12], [d.ILB1, 16], [d.ILB2, 13], [d.S1, 15], [d.S2, 13], [d.CB3, 7], [d.EDGE1, 4], [d.EDGE2, 4]], "tackle");
 
+    // the hitter who knocks it loose — weighted by who hits hardest, not a
+    // fixed slot (the old pick ignored skill entirely)
     const forcer = (): string | undefined =>
-      pick(call === "run" ? [d.ILB1, d.EDGE1, d.DT1, d.CB1] : [d.CB1, d.S1, d.ILB1, d.EDGE1]);
+      weighted(
+        call === "run"
+          ? [[d.ILB1, 30], [d.ILB2, 15], [d.EDGE1, 20], [d.EDGE2, 10], [d.DT1, 10], [d.S1, 10], [d.CB1, 5]]
+          : [[d.CB1, 22], [d.CB2, 16], [d.S1, 22], [d.S2, 14], [d.ILB1, 16], [d.EDGE1, 10]],
+        "strip",
+      );
 
     if (call === "run") {
       // designed runs: the lead back most, his backup a real share, and the
@@ -395,7 +408,7 @@ export class Game {
         passer: o.QB1?.name,
         // spread like a real rush: the best edge leads, but a season's sacks
         // run through the whole front (the leader was reaching 35-47)
-        defender: weighted([[d.EDGE1, 24], [d.EDGE2, 21], [d.DT1, 15], [d.DT2, 11], [d.ILB1, 9], [d.ILB2, 6], [d.S1, 5], [d.CB1, 4], [d.CB2, 3], [d.S2, 2]]),
+        defender: weighted([[d.EDGE1, 24], [d.EDGE2, 21], [d.DT1, 15], [d.DT2, 11], [d.ILB1, 9], [d.ILB2, 6], [d.S1, 5], [d.CB1, 4], [d.CB2, 3], [d.S2, 2]], "sack"),
       };
     }
 
@@ -412,12 +425,30 @@ export class Game {
       DEEP: [[o.WR1, 36], [o.WR2, 32], [o.WR3, 18], [o.TE1, 14]],
     };
     const target = weighted(receiverPool[depth] ?? [[o.WR1, 1], [o.WR2, 1], [o.WR3, 1], [o.TE1, 1]]);
+    // who is covering this throw: deep balls are the safeties' and the
+    // corners', short ones the corners', linebackers' and nickel's
+    const coverPool: [Player | null | undefined, number][] =
+      depth === "DEEP"
+        ? [[d.S1, 30], [d.S2, 24], [d.CB1, 26], [d.CB2, 20]]
+        : depth === "BEHIND_LOS"
+          ? [[d.ILB1, 30], [d.ILB2, 22], [d.S1, 14], [d.EDGE1, 12], [d.CB1, 11], [d.CB2, 11]]
+          : [[d.CB1, 26], [d.CB2, 22], [d.CB3, 12], [d.S1, 14], [d.S2, 10], [d.ILB1, 10], [d.ILB2, 6]];
     if (outcome === "interception") {
-      const dPool = depth === "DEEP" ? [d.S1, d.S2, d.CB1, d.CB2] : [d.CB1, d.CB2, d.S1];
-      return { passer, targetOrRusher: target, defender: pick(dPool) };
+      return { passer, targetOrRusher: target, defender: weighted(coverPool, "interception") };
     }
     if (outcome === "fumble") return { passer, targetOrRusher: target, defender: forcer() };
     if (outcome === "complete") return { passer, targetOrRusher: target, tackler: tackleOnCatch() };
+    // An incompletion the coverage broke up. No defender was ever credited on
+    // one, so "passes defended" read zero for every defensive back in the
+    // league. About a third of incompletions are a breakup in the NFL (~3.6 a game); the
+    // rest are drops, throwaways and misses.
+    if (outcome === "incomplete" && next() < 0.32) {
+      // the coverage pool plus the linemen who bat balls at the line — the
+      // corners alone were averaging 19 passes defended (the NFL's ~13)
+      const breakPool: [Player | null | undefined, number][] =
+        depth === "DEEP" ? coverPool : [...coverPool, [d.EDGE1, 5], [d.EDGE2, 4], [d.DT1, 4], [d.DT2, 2]];
+      return { passer, targetOrRusher: target, defender: weighted(breakPool, "breakup") };
+    }
     return { passer, targetOrRusher: target };
   }
 
@@ -552,11 +583,13 @@ export class Game {
               synergyShift(o, d, "complete")) +
           staff.complete +
           homeShift(edge, "complete") +
-          OFFENSE_CALIB.complete +
+          this.calib.complete +
           this.offenseAdjust,
         INTERCEPTION:
-          this.talent * (interceptionLogitShift(o.QB1 ?? null) + synergyShift(o, d, "interception")) +
-          homeShift(edge, "interception"),
+          this.talent *
+            (interceptionLogitShift(o.QB1 ?? null) + this.strengthEdge("interception") + synergyShift(o, d, "interception")) +
+          homeShift(edge, "interception") +
+          this.calib.interception,
       };
     }
     if (kind === "M04") {
@@ -564,7 +597,8 @@ export class Game {
         SACK:
           this.talent * (sackLogitShift(ol, rush) + this.strengthEdge("sack") + synergyShift(o, d, "sack")) +
           staff.sack +
-          homeShift(edge, "sack"),
+          homeShift(edge, "sack") +
+          this.calib.sack,
       };
     }
     if (kind === "M20") {
@@ -585,7 +619,7 @@ export class Game {
           synergyShift(o, d, "rushYards")) +
       this.staffOffShift().rush +
       homeShift(this.homeEdge, "rushYards") +
-      OFFENSE_CALIB.rushYards +
+      this.calib.rushYards +
       this.offenseAdjust * 1.5
     );
   }
@@ -1484,11 +1518,57 @@ export class Game {
  * so real rosters score like the league does. Like home field, it moves the
  * level, not who wins.
  */
-const OFFENSE_CALIB = { complete: 0.236, rushYards: 0.354 };
-/** Override the calibration — for the fitting script only. */
-export function setOffenseCalibration(c: { complete: number; rushYards: number }): void {
-  OFFENSE_CALIB.complete = c.complete;
-  OFFENSE_CALIB.rushYards = c.rushYards;
+export interface OffenseCalibration {
+  /** completion log-odds */
+  complete: number;
+  /** yards a carry */
+  rushYards: number;
+  /** sack log-odds */
+  sack: number;
+  /** interception log-odds */
+  interception: number;
+}
+
+/**
+ * Per channel, per talent setting.
+ *
+ * The first version nudged only completions and the run game, and fitted them
+ * to points. But spreading teams apart moves *every* rate channel, sacks
+ * included — so the sack rate drifted 14% high. Sacks and interceptions now
+ * have their own offsets, fitted to their NFL rates; completions and the run
+ * game share one nudge fitted to the league's scoring (22.56 a team-game),
+ * because the engine's red zone converts short of the NFL's and with all four
+ * rates exact a game scores ~20 (`analysis/40_channel_calibration.ts`, the
+ * default `--fit points`). The spread being larger at a higher talent setting
+ * is why the offsets depend on it. Linear between the fitted settings.
+ */
+const CALIB_BY_TALENT: [number, OffenseCalibration][] = [
+  [1, { complete: 0.208, rushYards: 0.313, sack: -0.178, interception: -0.148 }],
+  [1.5, { complete: 0.175, rushYards: 0.263, sack: -0.224, interception: -0.367 }],
+  [2, { complete: 0.162, rushYards: 0.243, sack: -0.35, interception: -0.556 }],
+];
+let calibOverride: OffenseCalibration | null = null;
+
+/** The league offsets for a talent setting. */
+export function offenseCalibrationFor(talent: number): OffenseCalibration {
+  if (calibOverride) return calibOverride;
+  const t = CALIB_BY_TALENT;
+  if (talent <= t[0]![0]) return t[0]![1];
+  for (let i = 1; i < t.length; i++) {
+    const [t1, c1] = t[i]!;
+    const [t0, c0] = t[i - 1]!;
+    if (talent <= t1) {
+      const f = (talent - t0) / (t1 - t0);
+      const mix = (k: keyof OffenseCalibration) => c0[k] + f * (c1[k] - c0[k]);
+      return { complete: mix("complete"), rushYards: mix("rushYards"), sack: mix("sack"), interception: mix("interception") };
+    }
+  }
+  return t[t.length - 1]![1];
+}
+
+/** Override the calibration — for the fitting scripts only. `null` restores the table. */
+export function setOffenseCalibration(c: Partial<OffenseCalibration> | null): void {
+  calibOverride = c === null ? null : { ...offenseCalibrationFor(1), ...(calibOverride ?? {}), ...c };
 }
 
 export interface GameStaff {

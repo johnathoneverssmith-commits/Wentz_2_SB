@@ -46,8 +46,11 @@ function offenseScore(st: PlayerStatLine): number {
     n(st.recYds) / 10 + n(st.recTd) * 6
   );
 }
+// Splash plays over volume, the way the award goes: tackles at 0.45 a piece
+// made a linebacker's 140 worth more than an edge rusher's 15 sacks, and the
+// real award goes to rushers, interior linemen and the odd lockdown corner.
 function defenseScore(st: PlayerStatLine): number {
-  return n(st.sacks) * 5 + n(st.defInt) * 7 + n(st.tackles) * 0.45 + n(st.passDef) * 1.5 + n(st.ffum) * 4 + n(st.defTd) * 6;
+  return n(st.sacks) * 6 + n(st.defInt) * 8 + n(st.tackles) * 0.3 + n(st.passDef) * 2 + n(st.ffum) * 4 + n(st.defTd) * 6;
 }
 
 // "5,231 pass yds", the way every other yardage in the game reads

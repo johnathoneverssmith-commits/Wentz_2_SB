@@ -119,6 +119,70 @@ const LB_COVERAGE: Skill = { zone_coverage: 0.5, man_coverage: 0.3, play_recogni
 /** What a linebacker brings to the run fit. */
 const LB_RUN: Skill = { tackle: 0.3, block_shedding: 0.25, pursuit: 0.25, play_recognition: 0.2 };
 const DL_RUN: Skill = { run_defense: 0.4, block_shedding: 0.3, tackle: 0.15, pursuit: 0.15 };
+/** Playing the ball in the air: what turns a defended pass into a pick. */
+const BALL_HAWK: Skill = {
+  play_recognition: 0.35,
+  zone_coverage: 0.2,
+  man_coverage: 0.15,
+  jumping: 0.15,
+  awareness: 0.15,
+};
+/** Bringing a ball carrier down. */
+const TACKLING: Skill = { tackle: 0.5, pursuit: 0.3, play_recognition: 0.2 };
+/** Taking the ball away in a tackle. */
+const STRIP: Skill = { hit_power: 0.5, tackle: 0.3, strength: 0.2 };
+
+/**
+ * How much a defender's skill at a job should tilt who gets credit for it —
+ * the sack, the pick, the breakup, the tackle, the forced fumble.
+ *
+ * Credit used to be a fixed share by depth-chart slot: an elite corner and a
+ * poor one beside him split the secondary's interceptions evenly, and a
+ * pass rush that forced bad throws handed the picks out at random. This is a
+ * multiplier on that slot share, from the player's skill z-score; it never
+ * changes what happens on a play, only whose line it goes on.
+ */
+export type CreditKind = "sack" | "interception" | "breakup" | "tackle" | "strip";
+const CREDIT: Record<CreditKind, [Skill, number]> = {
+  sack: [PASS_RUSH, 0.3],
+  interception: [BALL_HAWK, 0.3],
+  breakup: [COVERAGE, 0.25],
+  tackle: [TACKLING, 0.15],
+  strip: [STRIP, 0.3],
+};
+export function creditWeight(p: Player | null | undefined, kind: CreditKind): number {
+  const [skill, k] = CREDIT[kind];
+  const z = skillZ(p, skill);
+  if (z === null || !p) return 1;
+  // against his own position's starters, not the league: the slot shares
+  // already say a linebacker makes more tackles than a corner, and a
+  // league-wide z said it again — the leaders ran to 238 tackles and 49
+  // passes defended
+  const rel = z - (positionMeanZ(kind).get(p.position) ?? 0);
+  return Math.exp(k * Math.max(-2, Math.min(2, rel)));
+}
+
+const _posMean = new Map<CreditKind, Map<string, number>>();
+/** Mean skill z of the reference depth charts' starters (top two), by position. */
+function positionMeanZ(kind: CreditKind): Map<string, number> {
+  let m = _posMean.get(kind);
+  if (m) return m;
+  const sums = new Map<string, [number, number]>();
+  for (const t of teamList()) {
+    for (const [pos, list] of roster(t).depth) {
+      for (const p of list.slice(0, 2)) {
+        const z = skillZ(p, CREDIT[kind][0]);
+        if (z === null) continue;
+        const s = sums.get(pos) ?? [0, 0];
+        sums.set(pos, [s[0] + z, s[1] + 1]);
+      }
+    }
+  }
+  m = new Map([...sums].map(([pos, [s, n]]) => [pos, s / n]));
+  _posMean.set(kind, m);
+  return m;
+}
+
 const RUNNER: Skill = {
   ball_carrier_vision: 0.35,
   break_tackle: 0.25,

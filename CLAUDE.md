@@ -152,12 +152,13 @@ deliberately orthogonal to each other:**
   difficulty's search/noise limits → strategy preference → hard constraints).
   A fifth level, **Master**, is Expert's search with a better evaluator and
   still no advantages: `state/unitValue.ts` values players in measured points
-  of margin (`analysis/35_position_value.ts` — per-position value on this
-  engine, e.g. RB ≈ QB, K/P ≈ 0, OLB not a lineup slot), by unit with
+  of margin (`analysis/38_unit_links.ts` — per-unit value on this
+  engine, e.g. QB, OL, CB, EDGE lead, K/P ≈ 0, OLB not a lineup slot), by unit with
   weak-link weighting and value over replacement, in the draft and free
   agency; it also never accepts a trade that loses value. Measured against
   Expert-built rosters from the same draft slot (`online/test/ai-master.test.ts`):
-  56% at Realistic talent, 60% Amplified, 61% Extreme. The honest ceiling for
+  53% / +1.7 margin at Realistic talent, 54% / +1.8 Amplified (re-measured
+  after the per-channel unit links, `docs/decisions.md` → Unit links). The honest ceiling for
   a rules-abiding CPU — the user chose that over giving it an edge.
 - **The Hooded Figure catch-up mechanic**
   (`ui-source/src/state/hoodedFigure.ts`) is unrelated to either: a rare,

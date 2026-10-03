@@ -1444,26 +1444,30 @@ const PICK_VALUE_BY_ROUND: Record<number, number> = {
 //
 // Two-thirds of the way from the real-market hierarchy this table started
 // from to what the engine *measures* a point to be worth in scoring margin
-// (`analysis/35_position_value.ts`, per starter, with the QB-WR1 pairing
-// credited to receivers), then rescaled so a roster's total payroll is
-// unchanged. The market used to price the NFL's hierarchy while games paid
+// (`analysis/38_unit_links.ts`: each unit's elite starters swapped into a
+// median team, margin per rating point, per starter), then rescaled so a
+// roster's total payroll is unchanged. Re-measured when the team-strength
+// index began reading each channel from its own units — the pass rush and
+// the coverage now decide sacks and picks together, and a back no longer
+// moves his quarterback's numbers — which lifted corners, edge rushers and
+// interior linemen and took running backs and safeties down. The market used to price the NFL's hierarchy while games paid
 // out the engine's: a running back or a safety was worth nearly twice what
 // he cost, a tackle or a tight end far less, and the only GM who could
 // exploit it was the one who had measured it — the Master AI. Now the price
 // follows the game, and the unit grades and fit tags say why.
 export const POSITION_VALUE: Record<Position, number> = {
-  QB: 2.41,
-  RB: 1.79,
-  S: 1.31,
-  EDGE: 1.24,
-  WR: 1.19,
-  CB: 1.18,
-  ILB: 0.94,
-  OT: 0.92,
-  OG: 0.82,
-  C: 0.82,
-  DT: 0.78,
-  TE: 0.58,
+  QB: 2.79,
+  RB: 1.48,
+  CB: 1.41,
+  EDGE: 1.37,
+  S: 1.15,
+  DT: 0.99,
+  WR: 0.98,
+  ILB: 0.95,
+  OT: 0.87,
+  OG: 0.77,
+  C: 0.77,
+  TE: 0.57,
   OLB: 0.27,
   K: 0.5,
   P: 0.25,

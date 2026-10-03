@@ -85,7 +85,7 @@ describe("the shift", () => {
 
   it("scales with the fitted constant", () => {
     const edge = strengthShift(ix(80, 0), ix(0, 70), "complete");
-    expect(edge / TEAM_STRENGTH_SCALE).toBeCloseTo(10 * 0.055, 10);
+    expect(edge / TEAM_STRENGTH_SCALE).toBeCloseTo(10 * 0.045, 10);
   });
 });
 
