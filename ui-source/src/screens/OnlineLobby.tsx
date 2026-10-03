@@ -922,7 +922,6 @@ function CreateLeague({
   // Change 1: how many picks each GM makes before the board finishes itself.
   // "" is the Never option — the whole draft by hand.
   const [simAfter, setSimAfter] = useState<string>("5");
-  const [faRounds, setFaRounds] = useState(20);
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
   const [talentImpact, setTalentImpact] = useState<TalentImpact>("amplified");
   const gameDayHours: DeadlineChoice = 24;
@@ -945,8 +944,7 @@ function CreateLeague({
                 fantasyDraft: humansOnly || fantasyDraft,
                 draftType,
                 draftOrder,
-                draftSimulateAfterPicks: simAfter === "" ? null : Number(simAfter),
-                fantasyDraftRounds: faRounds,
+                draftSimulateAfterPicks: Number(simAfter),
                 difficulty,
                 talentImpact,
                 gameDayDeadlineHours: gameDayHours,
@@ -1064,37 +1062,19 @@ function CreateLeague({
             </OnlineSetting>
 
             <OnlineSetting
-              label="Fantasy draft rounds"
-              hint="How many players each team drafts. The rest of the 53-man roster is filled in afterwards."
-            >
-              <select
-                value={String(faRounds)}
-                disabled={!(humansOnly || fantasyDraft)}
-                onChange={(e) => setFaRounds(Number(e.target.value))}
-              >
-                {[5, 8, 10, 12, 15, 20, 25, 30].map((n) => (
-                  <option key={n} value={String(n)}>
-                    {n} rounds
-                  </option>
-                ))}
-              </select>
-            </OnlineSetting>
-
-            <OnlineSetting
               label="Manual picks each"
-              hint={`How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. All ${faRounds} rounds by hand is a long evening.`}
+              hint="How many picks every GM makes by hand. Once the last GM reaches it, the draft carries on by itself until every team has a full 53-man roster."
             >
               <select
                 value={simAfter}
                 disabled={!(humansOnly || fantasyDraft)}
                 onChange={(e) => setSimAfter(e.target.value)}
               >
-                {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n < faRounds || String(n) === String(simAfter)).map((n) => (
+                {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
                   <option key={n} value={String(n)}>
                     {n} {n === 1 ? "pick" : "picks"}
                   </option>
                 ))}
-                <option value="">Never — draft all {faRounds} rounds by hand</option>
               </select>
             </OnlineSetting>
 

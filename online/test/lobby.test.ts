@@ -154,7 +154,7 @@ describe("a league you just created", () => {
   // used to be spread into the league as sent
   maybe()("refuses rules the form can't produce, and an endless name", async () => {
     await expect(
-      createOnlineLeague(userId, { name: "Bad Rules", humanSlots: 4, config: { fantasyDraftRounds: 7 } as never }),
+      createOnlineLeague(userId, { name: "Bad Rules", humanSlots: 4, config: { fantasyDraftRounds: 20 } as never }),
     ).rejects.toThrow(/can't be set/);
     await expect(createOnlineLeague(userId, { name: "x".repeat(61), humanSlots: 4 })).rejects.toThrow(/60/);
     const { leagueId } = await createOnlineLeague(userId, {

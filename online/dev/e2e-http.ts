@@ -189,7 +189,7 @@ async function main() {
     const created = await call<{ leagueId: string; inviteCode: string }>(users[0]!, "POST", "/leagues", {
       name: "QA league",
       humanSlots: HUMANS,
-      config: { leagueFormat: FORMAT, fantasyDraft: FANTASY, fantasyDraftRounds: 20 },
+      config: { leagueFormat: FORMAT, fantasyDraft: FANTASY },
     });
     if (!created) throw new Error("could not create a league");
     leagueId = created.leagueId;
@@ -271,7 +271,7 @@ async function main() {
       check(free.length > 0 && free.every((p) => !p.nfl_team || p.nfl_team === "FA"), `year-one free agency holds the undrafted (${free.length} players)`);
       const sizes = Object.keys(s.teams).map((c) => Object.values(s.players).filter((p) => p.nfl_team === c && !p.retired).length);
       const signed = Object.values(s.players).filter((p) => !p.free_agent && !p.retired).length;
-      check(Math.max(...sizes) <= 53 && Math.min(...sizes) >= 15, `every roster drafted and at or under 53 entering free agency (${Math.min(...sizes)}-${Math.max(...sizes)}, ${signed} signed, teams ${Object.keys(s.teams).slice(0, 3).join(",")})`);
+      check(Math.max(...sizes) === 53 && Math.min(...sizes) === 53, `the draft filled every roster to 53 entering free agency (${Math.min(...sizes)}-${Math.max(...sizes)}, ${signed} signed, teams ${Object.keys(s.teams).slice(0, 3).join(",")})`);
       yearOneFaChecked = true;
     }
     if (s.stage === "regularSeason" && s.tradeDeadline) {

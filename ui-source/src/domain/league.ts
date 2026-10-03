@@ -62,21 +62,14 @@ export interface LeagueConfig {
   draftType: "snake" | "linear";
   /**
    * How many picks each human GM makes by hand before the rest of the fantasy
-   * draft completes itself. `null` means never — the whole draft is manual.
+   * draft completes itself, filling every roster to 53. `null` (only in a save
+   * from before it was required) means the whole draft is manual.
    *
    * Chosen by the commissioner at league creation and locked once the draft
    * begins, because changing it mid-draft would change how many picks some
    * GMs had already been asked for.
    */
   draftSimulateAfterPicks: number | null;
-  /**
-   * How many rounds the fantasy draft runs — i.e. how many players each team
-   * ends up drafting before `fillRosterGaps` tops the roster up to 53.
-   *
-   * The rookie draft is not configurable: it is seven rounds because that is
-   * what the NFL's is, and its picks are tradeable assets keyed to rounds.
-   */
-  fantasyDraftRounds: number;
   gameDayDeadlineHours: DeadlineChoice;
   offseasonStageDeadlineHours: DeadlineChoice;
   /** how well the AI GMs optimise their roster / game decisions. */

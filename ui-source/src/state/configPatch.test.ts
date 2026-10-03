@@ -16,7 +16,7 @@ describe("a commissioner's settings change", () => {
   });
 
   it("refuses unknown settings, bad values and the seat count", () => {
-    expect(cleanConfigPatch(league(), { fantasyDraftRounds: 7 }).ok).toBe(false);
+    expect(cleanConfigPatch(league(), { fantasyDraftRounds: 20 }).ok).toBe(false);
     expect(cleanConfigPatch(league(), { humanGmCount: 8 }).ok).toBe(false);
     expect(cleanConfigPatch(league(), { cap: 999 }).ok).toBe(false);
   });

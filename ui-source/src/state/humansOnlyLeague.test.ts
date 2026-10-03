@@ -160,7 +160,7 @@ describe("a humans-only league", () => {
           // agency, and nothing is filled until that market closes
           for (const code of Object.keys(s().teams)) {
             const roster = Object.values(s().players).filter((p) => p.nfl_team === code && !p.retired);
-            expect(roster.length, `${code} roster after the draft`).toBe(20);
+            expect(roster.length, `${code} roster after the draft`).toBe(53);
           }
         }
 

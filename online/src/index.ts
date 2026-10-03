@@ -695,8 +695,6 @@ function describeConfigChange(patch: Record<string, unknown>): string {
         return `draft order to ${v === "inOrder" ? "in order" : "randomized"}`;
       case "draftType":
         return `the draft to ${String(v)}`;
-      case "fantasyDraftRounds":
-        return `the fantasy draft to ${String(v)} rounds`;
       case "draftSimulateAfterPicks":
         return v == null ? "every pick by hand" : `${String(v)} manual pick${v === 1 ? "" : "s"} each`;
       case "talentImpact":

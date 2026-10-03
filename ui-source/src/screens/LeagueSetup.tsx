@@ -371,39 +371,19 @@ export function LeagueSetup() {
           </select>
         </SettingRow>
         <SettingRow
-          label="Fantasy draft rounds"
-          hint="How many players each team drafts. Whatever is left of the 53-man roster is filled in afterwards, so a shorter draft means more of the roster is handed to you."
-        >
-          <select
-            value={String(config.fantasyDraftRounds)}
-            disabled={settingsLocked || !config.fantasyDraft}
-            onChange={(e) => setConfig({ fantasyDraftRounds: Number(e.target.value) })}
-          >
-            {[5, 8, 10, 12, 15, 20, 25, 30].map((n) => (
-              <option key={n} value={String(n)}>
-                {n} rounds
-              </option>
-            ))}
-          </select>
-        </SettingRow>
-        <SettingRow
           label="Manual picks each"
-          hint={`How many picks every GM makes by hand. Once the last GM reaches it, the rest of the draft completes itself and everyone goes to the summary. All ${config.fantasyDraftRounds} rounds by hand is a long evening.`}
+          hint="How many picks every GM makes by hand. Once the last GM reaches it, the draft carries on by itself until every team has a full 53-man roster."
         >
           <select
-            value={config.draftSimulateAfterPicks == null ? "" : String(config.draftSimulateAfterPicks)}
+            value={String(config.draftSimulateAfterPicks ?? 5)}
             disabled={settingsLocked || !config.fantasyDraft}
-            onChange={(e) =>
-              setConfig({ draftSimulateAfterPicks: e.target.value === "" ? null : Number(e.target.value) })
-            }
+            onChange={(e) => setConfig({ draftSimulateAfterPicks: Number(e.target.value) })}
           >
-            {/* "20 picks" of a 20-round draft is "Never", offered twice */}
-            {[1, 2, 3, 5, 8, 10, 15, 20].filter((n) => n < config.fantasyDraftRounds || n === config.draftSimulateAfterPicks).map((n) => (
+            {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
               <option key={n} value={String(n)}>
                 {n} {n === 1 ? "pick" : "picks"}
               </option>
             ))}
-            <option value="">Never — draft all {config.fantasyDraftRounds} rounds by hand</option>
           </select>
         </SettingRow>
         <SettingRow

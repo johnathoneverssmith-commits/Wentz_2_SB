@@ -254,6 +254,9 @@ export function applyPick(s: LeagueState, selectedId: string): void {
  */
 const NEED_WEIGHT = 0.72;
 
+/** How many of each position a full roster holds. */
+const TEMPLATE_COUNT = new Map<string, number>(ROSTER_TEMPLATE.map((r) => [r.pos, r.count]));
+
 /**
  * What a position is worth, in overall points, when comparing across
  * positions.
@@ -560,7 +563,15 @@ export function planAutopicks(s: LeagueState): string[] {
     // strategy preference and evaluation noise only within that shortlist —
     // a lower difficulty can miss the true best candidate because it never
     // seriously considered it, not just because it mis-ranked something.
-    const untaken = candidates.filter((c) => !taken.has(c.id));
+    const available = candidates.filter((c) => !taken.has(c.id));
+    // A fantasy draft runs until every roster is full, so each team builds to
+    // the roster template: nobody takes a fourth quarterback while a spot
+    // at kicker is still open. Only when nothing fits does the rest of the
+    // board come back in.
+    const roomFor = (c: (typeof available)[number]): boolean =>
+      (TEMPLATE_COUNT.get(c.position) ?? 0) > (teamCode ? (rosters.get(teamCode)?.get(c.position)?.length ?? 0) : 0);
+    const fitting = rookie || !teamCode ? available : available.filter(roomFor);
+    const untaken = fitting.length > 0 ? fitting : available;
     const waste = surplusPenalties((pos) => (teamCode ? rosters.get(teamCode)?.get(pos) : undefined) ?? []);
     const baseScore = (c: (typeof untaken)[number]): number =>
       (rookie
@@ -1961,11 +1972,9 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     fullFirstRound = [...humanCodes, ...shuffle(aiCodes, s.season + 11)];
   }
 
-  // `?? FANTASY_DRAFT_ROUNDS` rather than a bare read: a save written before
-  // the round count was configurable has no such field, and a draft of
-  // `undefined` rounds is an empty board.
-  const rounds =
-    mode === "fantasy" ? (s.config.fantasyDraftRounds ?? FANTASY_DRAFT_ROUNDS) : DRAFT_ROUNDS;
+  // the fantasy draft runs until every roster is full; its length is not a
+  // setting (the GMs' manual picks are the only thing that is)
+  const rounds = mode === "fantasy" ? FANTASY_DRAFT_ROUNDS : DRAFT_ROUNDS;
   let order: string[] = [];
   if (mode === "rookie") {
     // the slots are earned by record; who *uses* each one is whoever
@@ -2035,8 +2044,7 @@ export function cleanConfigPatch(
     if (k === "fantasyDraft" && typeof v === "boolean") out.fantasyDraft = v;
     else if (k === "draftOrder" && oneOf(v, ["randomized", "inOrder"] as const)) out.draftOrder = v;
     else if (k === "draftType" && oneOf(v, ["snake", "linear"] as const)) out.draftType = v;
-    else if (k === "fantasyDraftRounds" && oneOf(v, [5, 8, 10, 12, 15, 20, 25, 30] as const)) out.fantasyDraftRounds = v;
-    else if (k === "draftSimulateAfterPicks" && (v === null || (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 30)))
+    else if (k === "draftSimulateAfterPicks" && typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 30)
       out.draftSimulateAfterPicks = v;
     else if (k === "talentImpact" && oneOf(v, ["realistic", "amplified", "extreme"] as const)) out.talentImpact = v;
     else if (k === "difficulty" && oneOf(v, ["casual", "standard", "competitive", "expert", "master"] as const)) out.difficulty = v;

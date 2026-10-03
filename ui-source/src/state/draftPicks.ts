@@ -10,16 +10,17 @@
  */
 import type { DraftPickAsset, LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { ROSTER_SIZE } from "@/sim/roster-template";
 
 /** Rounds in the rookie draft. */
 export const DRAFT_ROUNDS = 7;
 
 /**
- * The fantasy draft's default length, and the fallback for a save written
- * before `LeagueConfig.fantasyDraftRounds` existed. Twenty rounds hands each
- * team twenty players; `fillRosterGaps` makes up the rest of the 53.
+ * The fantasy draft's length: a round per roster spot. The GMs make their
+ * manual picks and the draft then carries on by itself until every team holds
+ * a full 53-man roster, so there is nothing left for `fillRosterGaps` to do.
  */
-export const FANTASY_DRAFT_ROUNDS = 20;
+export const FANTASY_DRAFT_ROUNDS = ROSTER_SIZE;
 
 /**
  * How far ahead picks exist to be traded. The real rule is three drafts —
