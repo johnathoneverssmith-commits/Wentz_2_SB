@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS events (
 
 CREATE INDEX IF NOT EXISTS events_league_idx ON events (league_id, id DESC);
 
+-- a commissioner who runs the league without holding a team has no franchise
+-- row to record a visit on
+ALTER TABLE leagues ADD COLUMN IF NOT EXISTS commissioner_seen_at TIMESTAMPTZ;
+
 -- Sessions are signed cookies rather than rows, so there is no table here on
 -- purpose; see online/src/auth.ts. Revoking one user everywhere means bumping
 -- their password, which is the same thing most small sites do.

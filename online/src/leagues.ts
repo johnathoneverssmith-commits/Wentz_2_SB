@@ -494,10 +494,18 @@ export async function touchSeen(leagueId: string, userId: string): Promise<void>
         AND (last_seen_at IS NULL OR last_seen_at < now() - interval '1 hour')`,
     [leagueId, userId],
   );
+  // a commissioner with no team has no franchise row to record it on
+  await pool.query(
+    `UPDATE leagues SET commissioner_seen_at = now()
+      WHERE id = $1 AND commissioner = $2
+        AND (commissioner_seen_at IS NULL OR commissioner_seen_at < now() - interval '1 hour')`,
+    [leagueId, userId],
+  );
 }
 
 const AWAY_SQL = `
   SELECT (l.created_at < now() - make_interval(days => $2))
+     AND NOT (COALESCE(l.commissioner_seen_at > now() - make_interval(days => $2), FALSE))
      AND NOT EXISTS (SELECT 1 FROM franchises f
                       WHERE f.league_id = l.id AND f.user_id = l.commissioner
                         AND f.last_seen_at > now() - make_interval(days => $2))

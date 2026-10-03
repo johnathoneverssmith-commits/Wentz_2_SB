@@ -346,11 +346,12 @@ export function nextReconcileCut(
   // what he's worth keeping: his rating, plus half of any room a young
   // player still has to grow — the trim used to cut rookies signed that
   // same week for a 29-year-old one point better — plus a point for each
-  // $1M of dead money letting him go would leave behind
+  // $1M of dead money letting him go would leave behind, capped at three so
+  // a scrub on a big deal never outranks a clearly better player
   const keepValue = (p: Player) =>
     p.overall +
     (p.age <= 25 ? Math.max(0, (p.potential ?? p.overall) - p.overall) * 0.5 : 0) +
-    releasePenalty(p);
+    Math.min(3, releasePenalty(p));
   // Where each player stands at his position: a starter is inside the
   // template's starter count by rating; the surplus body past its full count
   // (a second kicker, a seventh corner) is the one least worth keeping — by

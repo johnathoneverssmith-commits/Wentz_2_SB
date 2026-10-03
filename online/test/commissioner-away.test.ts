@@ -57,6 +57,7 @@ const maybe = (name: string, fn: () => Promise<void>) =>
 async function age(days: number): Promise<void> {
   await pool.query(`UPDATE leagues SET created_at = now() - make_interval(days => $2) WHERE id = $1`, [leagueId, days]);
   await pool.query(`UPDATE events SET at = now() - make_interval(days => $2) WHERE league_id = $1`, [leagueId, days]);
+  await pool.query(`UPDATE leagues SET commissioner_seen_at = now() - make_interval(days => $2) WHERE id = $1`, [leagueId, days]);
   await pool.query(
     `UPDATE franchises SET last_seen_at = now() - make_interval(days => $2) WHERE league_id = $1 AND last_seen_at IS NOT NULL`,
     [leagueId, days],
@@ -73,6 +74,12 @@ describe("taking over from a commissioner who has gone", () => {
   maybe("a recent visit alone keeps the role, even with old actions", async () => {
     await age(10);
     await pool.query(`UPDATE franchises SET last_seen_at = now() WHERE league_id = $1 AND user_id = $2`, [leagueId, users[0]]);
+    expect(await commissionerAway(leagueId)).toBe(false);
+  });
+
+  maybe("a commissioner's own visit counts even with no team of their own", async () => {
+    await age(10);
+    await pool.query(`UPDATE leagues SET commissioner_seen_at = now() WHERE id = $1`, [leagueId]);
     expect(await commissionerAway(leagueId)).toBe(false);
   });
 

@@ -963,7 +963,7 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
 }
 
 /** Commissioner override: move on now, whoever is or isn't ready. */
-export async function forceAdvance(leagueId: string): Promise<AdvanceOutcome> {
+export async function forceAdvance(leagueId: string, actorUserId?: string): Promise<AdvanceOutcome> {
   const { result } = await withLeague(leagueId, async ({ state, league }) => {
     const autopiloted = autopilotAbsent(state);
     const outcome = advanceStage(state);
@@ -981,7 +981,7 @@ export async function forceAdvance(leagueId: string): Promise<AdvanceOutcome> {
         },
       ],
     } satisfies { result: AdvanceOutcome } & Applied;
-  });
+  }, actorUserId ? { actorUserId } : {});
   return result;
 }
 
@@ -993,7 +993,7 @@ export async function forceAdvance(leagueId: string): Promise<AdvanceOutcome> {
  * the length of a turn's clock, every turn; the only lever was forcing the
  * whole stage past, which skipped every other GM's turns as well.
  */
-export async function takeTurnForAbsent(leagueId: string): Promise<{ played: string[] }> {
+export async function takeTurnForAbsent(leagueId: string, actorUserId?: string): Promise<{ played: string[] }> {
   const { result } = await withLeague(leagueId, async ({ state, league }) => {
     if (!isTurnStage(state.stage)) throw new ActionError("Nobody is on a turn clock right now.");
     const played = autopilotAbsent(state, "commissioner");
@@ -1005,7 +1005,7 @@ export async function takeTurnForAbsent(leagueId: string): Promise<{ played: str
       phaseEndsAt: deadlineFor(state, league),
       events: [],
     } satisfies { result: { played: string[] } } & Applied;
-  });
+  }, actorUserId ? { actorUserId } : {});
   return result;
 }
 

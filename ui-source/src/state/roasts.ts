@@ -442,9 +442,8 @@ export function weeklyRoasts(
   // last week's jokes are off the table this week: the hub read the same
   // line on a GM's team in weeks three and seven, and in four and eight
   if (lookBack && throughWeek > 1) {
-    const last = new Set<string>();
-    weeklyRoasts(s, throughWeek - 1, last, false);
-    for (const l of last) used.add(l);
+    // last week's lines exactly as they were shown, which had their own look-back
+    for (const r of weeklyRoasts(s, throughWeek - 1)) used.add(r.line);
   }
   const games = s.games.filter((g) => g.phase === "REG" && g.played && g.week === throughWeek);
   return s.gms
