@@ -5,13 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { MatchupBoard } from "@/components/MatchupBoard";
+import { WaitingStakes } from "@/components/WaitingStakes";
+import { productionRanks } from "@/state/productionRanks";
 import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { hasMoreToReveal, revealedWeek, viewerWeek, visibleGames } from "@/state/reveal";
-import { preseasonRoasts, weeklyRoasts } from "@/state/roasts";
 import { currentBlock } from "@/state/revealBlocks";
 import { rankBy, staffCards } from "@/state/staffRatings";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -94,17 +95,9 @@ export function WeeklyTeamHub() {
   const phase = currentPhase(s);
   // online the block is precomputed and these weeks are revealed, not played
   const online = onlineSession() !== null;
-  // Change 7: the same card rail carries the in-season roasts, off the last
-  // week this GM actually watched — see weeklyRoasts for why that is keyed to
-  // the week rather than to the GM.
-  const roasts =
-    s.stage === "preseason"
-      ? preseasonRoasts(s)
-      : s.stage === "regularSeason"
-        ? // single-player plays week by week and keeps no reveal markers, so
-          // the marker sat at 0 and the preseason line stayed up all season
-          weeklyRoasts(s, online ? revealedWeek(s, s.viewerGmId, "REG") : Math.max(0, s.week - 1))
-        : [];
+  // a game week (preseason or regular season) carries the weekly "what's at
+  // stake" update, where the league used to roast the GMs
+  const weekly = s.stage === "preseason" || s.stage === "regularSeason";
   const staffCardsAll = staffCards(s);
   const staffOvr = staffCardsAll.find((c) => c.teamCode === code)?.overall ?? 0;
   const staffRank = rankBy(staffCardsAll, "overall").get(code) ?? 0;
@@ -173,6 +166,8 @@ export function WeeklyTeamHub() {
   const notes = watchNotes(s);
   // no game this week (a bye, the offseason): the matchup tab isn't offered
   const tab = active === "matchup" && !oppCode ? "overview" : active;
+  // ranks of what's been done on the field this season (null before the first game)
+  const produced = productionRanks(s, s.games);
   const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
   return (
@@ -296,26 +291,14 @@ export function WeeklyTeamHub() {
         <div className="wire-inline">
           <LeagueWire />
         </div>
-        {/*
-          Change 6: in the preseason this is one roast per human GM instead of
-          scouting notes. The notes were true and nobody read them; a league
-          of four friends wants to know what the league thinks of them, and it
-          is the only thing on this screen that is about the other GMs rather
-          than about football.
-        */}
-        <p className="subhead" style={{ marginTop: 0 }}>
-          {roasts.length > 0 ? "Around the league" : "Around the league — things to watch"}
-        </p>
-        {roasts.length > 0
-          ? roasts.map((r) => (
-              <div className="watchnote" key={r.teamCode}>
-                <div className="who">
-                  {r.gmName} · {TEAMS_BY_CODE[r.teamCode]!.label}
-                </div>
-                <p className="txt">{r.line}</p>
-              </div>
-            ))
-          : notes.map((n) => (
+        {weekly ? (
+          <WaitingStakes />
+        ) : (
+          <>
+            <p className="subhead" style={{ marginTop: 0 }}>
+              Around the league — things to watch
+            </p>
+            {notes.map((n) => (
               <div className="watchnote" key={n.gmId}>
                 <div className="who">
                   {n.gmName} · {TEAMS_BY_CODE[n.teamCode]!.label}
@@ -325,6 +308,8 @@ export function WeeklyTeamHub() {
                 </p>
               </div>
             ))}
+          </>
+        )}
 
         <p className="subhead">Unit ranks</p>
         <div className="split-4" style={{ gap: 10 }}>
@@ -339,23 +324,6 @@ export function WeeklyTeamHub() {
       </Panel>
 
       <Panel id="matchup" open={tab === "matchup"}>
-        {/* the league's weekly verdict on each GM leads the screen, so
-            everybody reads it before the numbers */}
-        {roasts.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <p className="subhead" style={{ marginTop: 0 }}>
-              Around the league
-            </p>
-            {roasts.map((r) => (
-              <div className="watchnote" key={r.teamCode}>
-                <div className="who">
-                  {r.gmName} · {TEAMS_BY_CODE[r.teamCode]!.label}
-                </div>
-                <p className="txt">{r.line}</p>
-              </div>
-            ))}
-          </div>
-        )}
         {oppCode && opp ? (
           <MatchupBoard
             when={isPreseason ? `Preseason Wk ${headerWeek}` : `Week ${headerWeek}`}
@@ -366,13 +334,36 @@ export function WeeklyTeamHub() {
               { label: "Team overall", a: team.ratings.overall, b: opp.ratings.overall },
               // the same engine-weighted ranks as Unit ranks on the overview —
               // the stored ones disagreed with it by a place or two
-              { label: "Offense rank", rank: true, a: sides[code]?.offenseRank ?? team.ratings.offenseRank, b: sides[oppCode]?.offenseRank ?? opp.ratings.offenseRank },
-              { label: "Defense rank", rank: true, a: sides[code]?.defenseRank ?? team.ratings.defenseRank, b: sides[oppCode]?.defenseRank ?? opp.ratings.defenseRank },
-              { label: "Special teams rank", rank: true, a: team.ratings.specialTeamsRank, b: opp.ratings.specialTeamsRank },
+              // what each team has actually produced this season, from the box
+              // scores — roster ratings only until a game has been played
+              {
+                label: produced ? "Offense rank (points scored)" : "Offense rank",
+                rank: true,
+                a: produced?.get(code)?.offense ?? sides[code]?.offenseRank ?? team.ratings.offenseRank,
+                b: produced?.get(oppCode)?.offense ?? sides[oppCode]?.offenseRank ?? opp.ratings.offenseRank,
+              },
+              {
+                label: produced ? "Defense rank (points allowed)" : "Defense rank",
+                rank: true,
+                a: produced?.get(code)?.defense ?? sides[code]?.defenseRank ?? team.ratings.defenseRank,
+                b: produced?.get(oppCode)?.defense ?? sides[oppCode]?.defenseRank ?? opp.ratings.defenseRank,
+              },
+              {
+                label: produced?.get(code)?.specialTeams != null ? "Special teams rank (kicking points)" : "Special teams rank",
+                rank: true,
+                a: produced?.get(code)?.specialTeams ?? team.ratings.specialTeamsRank,
+                b: produced?.get(oppCode)?.specialTeams ?? opp.ratings.specialTeamsRank,
+              },
             ]}
           />
         ) : (
           <div className="emptystate">{phase ? "Bye week — no matchup." : "No game this week — the league is in the offseason."}</div>
+        )}
+        {/* the week's stakes sit below the numbers and above the advance button */}
+        {weekly && (
+          <div style={{ marginTop: 24 }}>
+            <WaitingStakes />
+          </div>
         )}
       </Panel>
 
@@ -759,6 +750,8 @@ function StandingsTable({
             <th className="c">W</th>
             <th className="c">L</th>
             <th className="c">T</th>
+            <th className="r">PF</th>
+            <th className="r">PA</th>
             <th className="r">PD</th>
           </tr>
         </thead>
@@ -778,6 +771,8 @@ function StandingsTable({
                 <td className="c">{t.wins}</td>
                 <td className="c">{t.losses}</td>
                 <td className="c">{t.ties}</td>
+                <td className="r">{t.pointsFor}</td>
+                <td className="r">{t.pointsAgainst}</td>
                 <td className="r">{pd > 0 ? "+" : ""}{pd}</td>
               </tr>
             );

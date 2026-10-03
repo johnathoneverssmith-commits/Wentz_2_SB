@@ -1,4 +1,3 @@
-import { WaitingStakes } from "@/components/WaitingStakes";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { projectedRookieRange } from "@/sim/draft-outcomes";
@@ -195,15 +194,8 @@ export function DraftRoom() {
 
   // One control set for the board: a name search as well as a position, and
   // the same `position` drives the league draft board tab below.
-  // "Best fit" orders the board by what each player adds to your starting
-  // units — the same sort the free-agency board offers
-  const [sortBy, setSortBy] = useState<"board" | "fit">("board");
-  const sorted = useMemo<Available[]>(() => {
-    if (sortBy !== "fit" || !fit) return available;
-    const gain = new Map(available.map((p) => [p.id, fit(p.position, p.ovr).gain]));
-    return [...available].sort((a, b) => gain.get(b.id)! - gain.get(a.id)!);
-  }, [available, sortBy, fit]);
-  const market = useListFilter<Available>(sorted, 100);
+  // the board is in draft-board order; search and position are the controls
+  const market = useListFilter<Available>(available, 100);
   const filtered = market.shown;
   const posFilter = market.position;
 
@@ -341,15 +333,6 @@ export function DraftRoom() {
       {active !== "needs" && (
         <div style={{ padding: "12px 26px 0", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           {market.controls}
-          {active === "available" && (
-            <label style={{ fontSize: 11.5, color: "var(--ink-faint)", display: "flex", gap: 6, alignItems: "center" }}>
-              Sort
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "board" | "fit")}>
-                <option value="board">Draft board</option>
-                <option value="fit">Best fit for your units</option>
-              </select>
-            </label>
-          )}
         </div>
       )}
 
@@ -401,7 +384,6 @@ export function DraftRoom() {
               ? "Star the prospects you want, in order — if your own clock runs out, your staff drafts your top star still on the board."
               : "If your own clock runs out, your staff drafts the best fit left on your board."}
             <CommissionerTakeTurn team={onClockTeam} />
-            <WaitingStakes />
           </div>
         )}
         {pickError && (

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardHeader } from "@/components/primitives";
-import { WaitingStakes } from "@/components/WaitingStakes";
 import { isOnline, onlineSession, pull } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
@@ -129,8 +128,6 @@ export function Checkpoint({
             You&rsquo;re in. The league starts the next stage once every GM has committed, and
             you&rsquo;ll be taken there automatically — you can close this and come back.
           </p>
-
-          <WaitingStakes />
 
           {waitingNames.length > 0 && (
             <p className="checkpoint-note" style={{ marginTop: 8 }}>

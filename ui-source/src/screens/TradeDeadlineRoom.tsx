@@ -1,5 +1,4 @@
 import { SkipToggle } from "@/components/SkipToggle";
-import { WaitingStakes } from "@/components/WaitingStakes";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -526,7 +525,6 @@ function Waiting({
               </p>
             )}
             <CommissionerTakeTurn team={holder} answering={!!negotiation} />
-            <WaitingStakes />
             <p style={{ margin: "8px 0 0", fontSize: 12 }}>
               One negotiation happens at a time, so nothing you see here can change while you read
               it. You&rsquo;ll be brought in when it&rsquo;s your turn or somebody makes you an

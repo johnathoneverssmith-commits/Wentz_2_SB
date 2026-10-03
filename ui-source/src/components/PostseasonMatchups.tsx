@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { bracketRounds, roundLabelFor, type BracketMatchup, type BracketState } from "@/domain";
+import { productionRanks } from "@/state/productionRanks";
 import { sideRatings } from "@/state/unitReport";
 import { useStore } from "@/state/store";
 
@@ -29,6 +30,9 @@ export function PostseasonMatchups({ b }: { b: BracketState }) {
     | BracketMatchup["round"]
     | undefined;
 
+  const allGames = useStore((s) => s.games);
+  // the regular season each team brought to January
+  const produced = useMemo(() => productionRanks({ teams }, allGames), [teams, allGames]);
   const sides = useMemo(
     () => sideRatings({ players, teams, depthChart } as Parameters<typeof sideRatings>[0]),
     [players, teams, depthChart],
@@ -84,9 +88,9 @@ export function PostseasonMatchups({ b }: { b: BracketState }) {
               names={names}
               metrics={[
                 { label: "Team overall", a: ta.ratings.overall, b: tz.ratings.overall },
-                { label: "Offense rank", rank: true, a: sides[a]?.offenseRank ?? ta.ratings.offenseRank, b: sides[z]?.offenseRank ?? tz.ratings.offenseRank },
-                { label: "Defense rank", rank: true, a: sides[a]?.defenseRank ?? ta.ratings.defenseRank, b: sides[z]?.defenseRank ?? tz.ratings.defenseRank },
-                { label: "Special teams rank", rank: true, a: ta.ratings.specialTeamsRank, b: tz.ratings.specialTeamsRank },
+                { label: produced ? "Offense rank (points scored)" : "Offense rank", rank: true, a: produced?.get(a)?.offense ?? sides[a]?.offenseRank ?? ta.ratings.offenseRank, b: produced?.get(z)?.offense ?? sides[z]?.offenseRank ?? tz.ratings.offenseRank },
+                { label: produced ? "Defense rank (points allowed)" : "Defense rank", rank: true, a: produced?.get(a)?.defense ?? sides[a]?.defenseRank ?? ta.ratings.defenseRank, b: produced?.get(z)?.defense ?? sides[z]?.defenseRank ?? tz.ratings.defenseRank },
+                { label: produced?.get(a)?.specialTeams != null ? "Special teams rank (kicking points)" : "Special teams rank", rank: true, a: produced?.get(a)?.specialTeams ?? ta.ratings.specialTeamsRank, b: produced?.get(z)?.specialTeams ?? tz.ratings.specialTeamsRank },
               ]}
             />
           </div>

@@ -1986,11 +1986,13 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     };
     fullFirstRound = played
       ? [...allCodes].sort((a, b) => pct(a) - pct(b) || diff(a) - diff(b))
-      : shuffle(allCodes, s.season + 11);
+      : shuffle(allCodes, (s.seed ?? 0) * 31 + s.season + 11);
   } else if (s.config.draftOrder === "randomized") {
     // every team in the hat — not the humans first and the AI after,
     // which handed the human GMs the top picks of all 20 rounds
-    fullFirstRound = shuffle(allCodes, s.season + 7);
+    // seeded on the league as well as the year: on the year alone, every league
+    // ever created drew the same order, and the same team picked first each time
+    fullFirstRound = shuffle(allCodes, (s.seed ?? 0) * 31 + s.season + 7);
   } else {
     // "in order": GM 1 first, GM 2 second, …, then the AI teams
     fullFirstRound = [...humanCodes, ...shuffle(aiCodes, s.season + 11)];

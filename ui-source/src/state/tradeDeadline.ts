@@ -410,8 +410,18 @@ function cpuPropose(s: LeagueState, teamCode: string): void {
       .filter((r) => r.outcome === "denied" && r.fromTeam === teamCode)
       .flatMap((r) => r.toAssets.map((a) => `${r.toTeam}|${assetKey(a)}`)),
   );
+  // …and one unsolicited offer per GM per round is plenty: the same few teams
+  // used to take turns asking the same human for the same star
+  const askedThisRound = new Set<string>(
+    [...d.resolved, ...(d.active ? [d.active] : [])]
+      .filter((r) => r.round === d.round && isHuman(s, r.toTeam) && !isHuman(s, r.fromTeam))
+      .map((r) => r.toTeam),
+  );
   const fresh = offers.filter(
-    (o) => o.fromTeam === teamCode && !o.toAssets.some((a) => refused.has(`${o.toTeam}|${assetKey(a)}`)),
+    (o) =>
+      o.fromTeam === teamCode &&
+      !askedThisRound.has(o.toTeam) &&
+      !o.toAssets.some((a) => refused.has(`${o.toTeam}|${assetKey(a)}`)),
   );
   const mine = fresh[0] ?? cpuToCpuOffer(s, teamCode, d.round * 1000 + d.index);
   if (!mine) {

@@ -168,12 +168,16 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     const worthOf = (p: Player): number =>
       tradeAssetValue(s, { kind: "player", playerId: p.id });
     const targetValue = worthOf(askFor);
+    // A star is not bought with a pile of backups. Anyone in the package has to
+    // be a real player — near the star's own level — or the AI offers capital
+    // instead; offers of three 63s for a 90 were the deadline's loudest tell.
+    const minPiece = Math.max(66, askFor.overall - 16);
     const spares = theirRoster
       .filter((p) => {
         const better = theirRoster.filter(
           (x) => x.position === p.position && x.overall > p.overall,
         ).length;
-        return better >= 1 && p.overall >= 62;
+        return better >= 1 && p.overall >= minPiece;
       })
       .sort((a, b) => Math.abs(a.overall - askFor.overall) - Math.abs(b.overall - askFor.overall));
     const availablePicks = picksOwnedBy(s, suitor).sort((a, b) => a.round - b.round);
@@ -244,10 +248,10 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
         give.push({ kind: "player", playerId: spares[0].id });
         offered += worthOf(spares[0]);
       } else {
-        // at most three: past that it is a pile of spares, not an offer,
-        // and the package discount makes each extra one worth little anyway
+        // at most two: past that it is a pile of spares, not an offer, and
+        // the package discount makes each extra one worth little anyway
         for (const p of spares) {
-          if (offered >= targetValue || give.length >= 3) break;
+          if (offered >= targetValue || give.length >= 2) break;
           give.push({ kind: "player", playerId: p.id });
           offered = packageValue(s, give);
         }
@@ -265,6 +269,14 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // who knows he is 60% short doesn't make the call. A little under is
     // haggling and still goes.
     if (offered < targetValue * 0.9) continue;
+    // quantity for quality: nobody sends a star's price in lesser players
+    // alone. A package with a player in it needs a centrepiece — one close to
+    // the star, or a first- or second-round pick.
+    const givenOveralls = give.flatMap((a) => (a.kind === "player" && a.playerId && s.players[a.playerId] ? [s.players[a.playerId]!.overall] : []));
+    const bestGiven = Math.max(0, ...givenOveralls);
+    const hasCapital = give.some((a) => a.kind === "pick" && !!a.pick && a.pick.round <= 2);
+    if (givenOveralls.length >= 2 && bestGiven < askFor.overall - 10 && !hasCapital) continue;
+    if (givenOveralls.length >= 1 && bestGiven < askFor.overall - 14 && !hasCapital) continue;
     // nor one that overpays: a CPU front office doesn't give away 40% extra
     if (offered > targetValue * 1.4) continue;
 

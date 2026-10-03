@@ -1,4 +1,3 @@
-import { WaitingStakes } from "@/components/WaitingStakes";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { StageLoading } from "@/components/StageLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -238,7 +237,6 @@ export function CoachingDraftRoom() {
             <CommissionerTakeTurn team={onClock} />
           </p>
         )}
-        {!yourPick && <WaitingStakes />}
 
         {board.length === 0 ? (
           <div className="emptystate">Nobody left at that job.</div>

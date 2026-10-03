@@ -71,7 +71,6 @@ const MIXOLYDIAN = [0, 2, 4, 5, 7, 9, 10];
 const EVERY_BEAT: Steps = [0, 4, 8, 12];
 const BACKBEAT: Steps = [4, 12];
 const EIGHTHS: Steps = [0, 2, 4, 6, 8, 10, 12, 14];
-const STOMP: Steps = [0, 6, 8, 10];
 const DOUBLE_KICK: Steps = [0, 2, 3, 6, 8, 10, 11, 14];
 const GALLOP: Steps = [0, 1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 15];
 const CHUG_16: Steps = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
@@ -79,39 +78,40 @@ const CHUG_16: Steps = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 /**
  * The moods, and what each is for.
  *
- * Everything is intense; the desk jobs are just the less frantic end of it.
- * The offseason sits around a stomp, the draft and free agency pick up, game
- * day and January are the full gallop.
+ * Everything is fast — nothing here sits below 138 bpm. The desk jobs just
+ * carry less lead guitar; the draft and free agency pick up the double-kick,
+ * and game day and January are the full gallop.
  */
 const MOODS: Record<MoodName, Mood> = {
-  // League setup: the walk-out. Heavy and deliberate.
+  // League setup: the walk-out. Fast and heavy from the first bar.
   lobby: {
     root: 40,
     scale: PHRYGIAN,
-    bpm: 112,
+    bpm: 140,
     progression: [0, 0, 1, 0],
-    kick: STOMP,
+    kick: EIGHTHS,
     snare: BACKBEAT,
-    hat: 2,
-    chug: [0, 2, 3, 6, 8, 10, 11, 14],
+    hat: 1,
+    chug: CHUG_16,
     hits: [0, 8],
-    lead: 0.1,
-    weight: 0.8,
+    lead: 0.2,
+    weight: 0.9,
   },
 
-  // Roster, cap, trades. Still a workout — just one you can read a cap table to.
+  // Roster, cap, trades. Still the workout — the same speed as everywhere else,
+  // with less lead guitar so a cap table stays readable.
   frontOffice: {
     root: 38,
     scale: MINOR,
-    bpm: 118,
+    bpm: 142,
     progression: [0, 5, 3, 4],
-    kick: STOMP,
+    kick: EIGHTHS,
     snare: BACKBEAT,
-    hat: 2,
-    chug: [0, 2, 3, 6, 8, 10, 11, 14],
+    hat: 1,
+    chug: CHUG_16,
     hits: [0, 6, 8],
-    lead: 0.18,
-    weight: 0.78,
+    lead: 0.22,
+    weight: 0.9,
   },
 
   // The draft: on the clock, eighth-note kicks, and a riff that keeps climbing.

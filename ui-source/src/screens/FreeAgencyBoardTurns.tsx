@@ -1,5 +1,4 @@
 import { SkipToggle } from "@/components/SkipToggle";
-import { WaitingStakes } from "@/components/WaitingStakes";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { StageLoading } from "@/components/StageLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -253,7 +252,6 @@ export function FreeAgencyBoardTurns() {
             ? "That was your last turn in this market — it closes once the rest of the league has gone. Offers you have out still count."
             : "Browse the board and line up your offer — it opens when your turn comes round."}
           <CommissionerTakeTurn team={clock} />
-          <WaitingStakes />
         </div>
       )}
 
