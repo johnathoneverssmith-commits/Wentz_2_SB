@@ -29,7 +29,7 @@ export function CommissionerTakeTurn({
   const holder = team ? gms.find((g) => g.isHuman && g.teamCode === team) : undefined;
   if (!actions.online || !onlineSession()?.isCommissioner || !holder || holder.id === viewer) return null;
   const name = TEAMS_BY_CODE[team!]?.label ?? team;
-  const what = answering ? "answer the offer" : "take this turn";
+  const what = answering ? "turn down the offer" : "take this turn";
   return (
     // a span, so it can sit inside the screens' own paragraphs
     <span style={{ display: "block", margin: "6px 0 0", fontSize: 12 }}>

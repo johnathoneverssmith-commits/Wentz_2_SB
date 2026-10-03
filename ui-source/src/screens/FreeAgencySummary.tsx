@@ -423,7 +423,12 @@ export function FreeAgencySummary() {
                 .staffFix()
                 .then((res) => {
                   const now = rosterOf(useStore.getState(), code);
-                  const gone = [...had].filter((id) => !now.some((p) => p.id === id)).map((id) => useStore.getState().players[id]);
+                  // in the order the confirm listed them, not roster order
+                  const planned = cuts.map((p) => p.id);
+                  const gone = [...had]
+                    .filter((id) => !now.some((p) => p.id === id))
+                    .sort((a, b) => (planned.indexOf(a) + 1 || 999) - (planned.indexOf(b) + 1 || 999))
+                    .map((id) => useStore.getState().players[id]);
                   const added = now.filter((p) => !had.has(p.id));
                   const parts: string[] = [];
                   if (gone.length > 0) parts.push(`Your staff released ${gone.map((p) => (p ? `${p.name} (${p.position} ${p.overall})` : "a player")).join(", ")}.`);

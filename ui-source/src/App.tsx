@@ -286,7 +286,22 @@ function useFollowLeague(held: boolean, resuming: boolean): [string | null, () =
     was.current = { stage, ready, pathname, route, online: isOnline() && !resuming };
     // (the saved copy catching up to the server on a reload is not the league
     // moving on while you watched — it named a stage you'd long since left)
-    if (before.stage === stage) return;
+    if (before.stage === stage) {
+      // the GM's own step moved on from another device — signed the class on
+      // a phone — and this one sat on the draft summary, which then missed
+      // the league moving on too, offering "Continue" into a stage long over
+      if (
+        isOnline() &&
+        before.online &&
+        !held &&
+        route !== before.route &&
+        before.pathname === before.route &&
+        pathname === before.pathname
+      ) {
+        nav(route);
+      }
+      return;
+    }
     // a note about one move is stale by the next
     setMovedOn(null);
     if (!isOnline() || !before.online || held) return;
