@@ -1,3 +1,4 @@
+import { ManualPicksInput } from "@/components/ManualPicksInput";
 import { CopyButton, inviteLink } from "@/components/CopyButton";
 import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -372,19 +373,13 @@ export function LeagueSetup() {
         </SettingRow>
         <SettingRow
           label="Manual picks each"
-          hint="How many picks every GM makes by hand. Once the last GM reaches it, the draft carries on by itself until every team has a full 53-man roster."
+          hint="How many picks every GM makes by hand, from 1 to 53. Once the last GM reaches it, the draft carries on by itself until every team has a full 53-man roster."
         >
-          <select
-            value={String(config.draftSimulateAfterPicks ?? 5)}
+          <ManualPicksInput
+            value={config.draftSimulateAfterPicks ?? 5}
             disabled={settingsLocked || !config.fantasyDraft}
-            onChange={(e) => setConfig({ draftSimulateAfterPicks: Number(e.target.value) })}
-          >
-            {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
-              <option key={n} value={String(n)}>
-                {n} {n === 1 ? "pick" : "picks"}
-              </option>
-            ))}
-          </select>
+            onChange={(n) => setConfig({ draftSimulateAfterPicks: n })}
+          />
         </SettingRow>
         <SettingRow
           label="Talent impact"

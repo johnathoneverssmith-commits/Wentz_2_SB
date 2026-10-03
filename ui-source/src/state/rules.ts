@@ -2044,7 +2044,7 @@ export function cleanConfigPatch(
     if (k === "fantasyDraft" && typeof v === "boolean") out.fantasyDraft = v;
     else if (k === "draftOrder" && oneOf(v, ["randomized", "inOrder"] as const)) out.draftOrder = v;
     else if (k === "draftType" && oneOf(v, ["snake", "linear"] as const)) out.draftType = v;
-    else if (k === "draftSimulateAfterPicks" && typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 30)
+    else if (k === "draftSimulateAfterPicks" && typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= ROSTER_SIZE)
       out.draftSimulateAfterPicks = v;
     else if (k === "talentImpact" && oneOf(v, ["realistic", "amplified", "extreme"] as const)) out.talentImpact = v;
     else if (k === "difficulty" && oneOf(v, ["casual", "standard", "competitive", "expert", "master"] as const)) out.difficulty = v;

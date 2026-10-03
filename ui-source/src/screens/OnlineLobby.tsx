@@ -1,3 +1,4 @@
+import { ManualPicksInput } from "@/components/ManualPicksInput";
 import { CopyButton, inviteLink } from "@/components/CopyButton";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { displaySeasonFor } from "@/state/stageMachine";
@@ -1063,19 +1064,13 @@ function CreateLeague({
 
             <OnlineSetting
               label="Manual picks each"
-              hint="How many picks every GM makes by hand. Once the last GM reaches it, the draft carries on by itself until every team has a full 53-man roster."
+              hint="How many picks every GM makes by hand, from 1 to 53. Once the last GM reaches it, the draft carries on by itself until every team has a full 53-man roster."
             >
-              <select
-                value={simAfter}
+              <ManualPicksInput
+                value={Number(simAfter)}
                 disabled={!(humansOnly || fantasyDraft)}
-                onChange={(e) => setSimAfter(e.target.value)}
-              >
-                {[1, 2, 3, 5, 8, 10, 15, 20].map((n) => (
-                  <option key={n} value={String(n)}>
-                    {n} {n === 1 ? "pick" : "picks"}
-                  </option>
-                ))}
-              </select>
+                onChange={(n) => setSimAfter(String(n))}
+              />
             </OnlineSetting>
 
             <OnlineSetting label="Talent impact" hint={TALENT_IMPACT_HINT[talentImpact]}>
