@@ -267,6 +267,9 @@ export class OnlineLeagueClient {
     version,
   });
 
+  setSkip = (leagueId: string, kind: "freeAgency" | "tradeDeadline", on: boolean, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/skip`, { kind, on, version });
+
   draftCoach = (leagueId: string, coachId: string, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/coach-draft`, {
       coachId,

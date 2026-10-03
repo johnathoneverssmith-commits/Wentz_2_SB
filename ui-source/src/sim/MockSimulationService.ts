@@ -918,6 +918,7 @@ export class MockSimulationService implements SimulationService {
           sacks: pos === "EDGE" ? rng.pick([0, 0, 1, 1, 2]) : rng.pick([0, 0, 0, 1]),
           defInt: rng.pick([0, 0, 0, 1]),
           passDef: rng.int(0, 3),
+          ffum: rng.pick([0, 0, 0, 0, 0, 1]),
         });
       }
     }

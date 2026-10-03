@@ -67,6 +67,7 @@ export interface PlayerGameLine {
   sacks?: number;
   defInt?: number;
   passDef?: number;
+  ffum?: number;
   fgm?: number;
   fga?: number;
   xpm?: number;
@@ -378,6 +379,8 @@ export function playerLinesFrom(
         if (p.outcome === "interception") bump(l, "defInt");
         else if (p.outcome === "incomplete") bump(l, "passDef");
         else if (p.outcome === "complete") bump(l, "tackles");
+        // the engine credits the forcing defender on a fumble after the catch
+        else if (p.outcome === "fumble") bump(l, "ffum");
       }
       if (p.tackler && p.outcome === "complete" && !p.touchdown) {
         bump(lineFor(maps[def]!, p.tackler, rosterOf[def]!), "tackles");
@@ -389,8 +392,11 @@ export function playerLinesFrom(
         bump(l, "rushYds", yds);
         if (p.touchdown) bump(l, "rushTd");
       }
-      if (p.defender) bump(lineFor(maps[def]!, p.defender, rosterOf[def]!), "tackles");
-      else if (p.tackler && !p.touchdown) bump(lineFor(maps[def]!, p.tackler, rosterOf[def]!), "tackles");
+      if (p.defender) {
+        const l = lineFor(maps[def]!, p.defender, rosterOf[def]!);
+        bump(l, "tackles");
+        if (p.outcome === "fumble") bump(l, "ffum");
+      } else if (p.tackler && !p.touchdown) bump(lineFor(maps[def]!, p.tackler, rosterOf[def]!), "tackles");
     } else if (p.call === "sack") {
       if (p.defender) {
         const l = lineFor(maps[def]!, p.defender, rosterOf[def]!);

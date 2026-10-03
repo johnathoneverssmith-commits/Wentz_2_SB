@@ -45,7 +45,7 @@ const preseasonBlock = (shape: SeasonShape): Block => ({
   watchAllLabel: "Simulate the preseason",
   advanceLabel: "Advance to Regular Season",
   checkpoint: { from: "Preseason", to: "Regular Season" },
-  resultsOpenOn: "last",
+  resultsOpenOn: "first",
 });
 
 const firstHalf = (shape: SeasonShape): Block => ({

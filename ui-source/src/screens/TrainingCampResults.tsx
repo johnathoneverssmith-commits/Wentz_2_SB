@@ -79,8 +79,38 @@ export function TrainingCampResults() {
         <div className="notice" role="status">
           <strong>Camp is done.</strong> You concentrated on{" "}
           {plan?.offensiveFocus ? FOCUS_LABEL[plan.offensiveFocus] : "—"} and{" "}
-          {plan?.defensiveFocus ? FOCUS_LABEL[plan.defensiveFocus] : "—"}.
+          {plan?.defensiveFocus ? FOCUS_LABEL[plan.defensiveFocus] : "—"}.{" "}
+          <strong>The change shown is the whole offseason&rsquo;s</strong> — a year of progression or decline for
+          every player, with your camp focus and coaches shaping it — not just what happened in camp.
         </div>
+        <details style={{ margin: "10px 0 16px", fontSize: 12.5, color: "var(--ink-dim)" }}>
+          <summary style={{ cursor: "pointer", color: "var(--ink)" }}>How progression and regression work</summary>
+          <ol style={{ margin: "8px 0 0", paddingLeft: 20, lineHeight: 1.55 }}>
+            <li>
+              <strong>Age and potential set the baseline.</strong> Each player has an age where he stops developing and
+              one where he starts to decline. Before the first he tends to improve, faster the more room he has left
+              under his potential; after the second he tends to slip. It&rsquo;s a tendency, not a promise — a player
+              can land a point or two either side of it.
+            </li>
+            <li>
+              <strong>The league keeps its balance.</strong> The baseline is nudged by position so no group of players
+              steadily inflates or collapses across the league.
+            </li>
+            <li>
+              <strong>Your position coach moves it.</strong> A good coach for that group adds to development and
+              softens regression; a poor one does the opposite. His effect is shown on the Coaching Staff screen.
+            </li>
+            <li>
+              <strong>Your coordinators&rsquo; focus amplifies it.</strong> Players in the offensive and defensive
+              groups you chose develop harder and decline less, by an amount set by the coordinator&rsquo;s rating. A
+              focused player always moves at least a point if his baseline moved.
+            </li>
+            <li>
+              The result is capped between 0 and 99, and the same league always gives the same result for the same
+              choices — reloading doesn&rsquo;t reroll it.
+            </li>
+          </ol>
+        </details>
 
         {GROUPS.map((group) => {
           const rows = group.positions
@@ -108,8 +138,8 @@ export function TrainingCampResults() {
                     <tr>
                       <th style={{ width: 46 }}>Pos</th>
                       <th>Player</th>
-                      <th className="c" style={{ width: 52 }}>Was</th>
-                      <th className="c" style={{ width: 62 }}>Change</th>
+                      <th className="c" style={{ width: 62 }}>Last year</th>
+                      <th className="c" style={{ width: 82 }}>Offseason change</th>
                       <th className="c" style={{ width: 52 }}>Now</th>
                     </tr>
                   </thead>

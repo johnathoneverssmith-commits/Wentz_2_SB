@@ -8,6 +8,7 @@
  *   Game Day screen. `finishGameDay()` then steps the week / advances the stage.
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
+import { setSkip as setSkipFor, type SkipKind } from "./skips.ts";
 import { create } from "zustand";
 import { lastLeagueId, onOnlineChange } from "./online.ts";
 import { createJSONStorage, persist, type PersistStorage } from "zustand/middleware";
@@ -188,6 +189,8 @@ export interface StoreActions {
   revealRound: () => { ok: boolean; reason?: string };
   /** Move the viewing GM to the next screen inside this stage. */
   stepForward: (step: string) => { ok: boolean; reason?: string };
+  /** Skip (or stop skipping) your own turns in free agency or at the deadline. */
+  setSkip: (kind: SkipKind, on: boolean) => { ok: boolean; reason?: string };
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -337,6 +340,24 @@ const CORRUPT_BACKUP_KEY = `${SAVE_KEY}.corrupted-backup`;
  */
 let saveCorrupted = false;
 /** Team codes a person is actually playing, for the CPU sweeps to stop on. */
+/**
+ * A turn-based event can finish with nobody left to act: every human skipped
+ * it, or the last one passed. That is a stage change, not a prompt.
+ */
+function settleTurnEvents(s: LeagueState): void {
+  for (let i = 0; i < 3; i++) {
+    const from = s.stage;
+    const marketDone = (from === "freeAgency" || from === "midseasonFreeAgency") && !!s.freeAgencyEvent?.complete;
+    const deadlineDone = from === "tradeDeadline" && !!s.tradeDeadline?.done;
+    if (!marketDone && !deadlineDone) return;
+    const t = resolveTransition(s, {});
+    applyStageEntry(s, from, t.stage);
+    s.stage = t.stage;
+    s.week = t.week;
+    clearReadiness(s);
+  }
+}
+
 function humanTeamsOf(s: LeagueState): Set<string> {
   return new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
 }
@@ -369,6 +390,9 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // training camp: this season's camp, and every CPU team runs theirs as it
   // opens (online always did; locally the CPU teams never trained at all)
   if (to === "trainingCamp") openTrainingCamp(s, humanTeamsOf(s));
+  // the fantasy draft filled every roster, and there was no year-one market to
+  // wait on: the fill it queued has nothing to do
+  if (from === "coachingDraftSummary" && to === "trainingCamp") s.rosterFillPending = false;
 
   // leaving the fantasy draft → undrafted players seed the standing FA
   // market, then every team is brought up to a full 53 (20 rounds only
@@ -674,6 +698,8 @@ export const useStore = create<Store>()(
             if (next.moved) return next;
           }
 
+          // every human may have skipped the market or the deadline this arrival opened
+          set((s) => settleTurnEvents(s));
           return { moved: true, route: STAGE_HOME[get().stage] };
         };
         advanceInFlight = step().finally(() => {
@@ -754,6 +780,8 @@ export const useStore = create<Store>()(
           clearReadiness(s);
           recomputeTeamRatings(s);
         });
+        // arriving at the deadline with every human skipping it leaves nothing to wait for
+        set((s) => settleTurnEvents(s));
         return { route: STAGE_HOME[get().stage] };
       },
 
@@ -955,6 +983,20 @@ export const useStore = create<Store>()(
           const mine = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
           resolveHoodedFigureEncounter(s, mine, payment);
           recomputeTeamRatings(s);
+        });
+        return { ok: true };
+      },
+
+      setSkip: (kind, on) => {
+        const st = get();
+        const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
+        if (!code) return { ok: false, reason: "You don't have a team." };
+        set((s) => {
+          setSkipFor(s, code, kind, on);
+          // if it's their turn right now, it is passed now
+          if (kind === "freeAgency") runFreeAgencyCpuTurns(s, humanTeamsOf(s));
+          else runDeadlineTurns(s);
+          settleTurnEvents(s);
         });
         return { ok: true };
       },

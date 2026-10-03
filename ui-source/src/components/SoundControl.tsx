@@ -16,7 +16,7 @@ import { audio } from "@/audio/engine";
 export function SoundControl() {
   const [, force] = useState(0);
   useEffect(() => audio.onChange(() => force((n) => n + 1)), []);
-  const { enabled, musicVolume, sfxVolume } = audio.settings;
+  const { enabled, musicVolume, sfxVolume, chants } = audio.settings;
 
   return (
     <div className={`soundbox${enabled ? " on" : ""}`}>
@@ -27,7 +27,7 @@ export function SoundControl() {
         // the click *is* the gesture that unlocks the context, so this must
         // stay synchronous — see `AudioEngine.unlock`
         onClick={() => audio.setEnabled(!enabled)}
-        title={enabled ? "Turn the soundtrack off" : "Original music, generated as you play"}
+        title={enabled ? "Turn the soundtrack off" : "Original workout rock, generated as you play"}
       >
         <Speaker on={enabled} />
         <span>{enabled ? "Sound on" : "Sound off"}</span>
@@ -56,6 +56,15 @@ export function SoundControl() {
               aria-label="Effects volume"
               onChange={(e) => audio.setSfxVolume(Number(e.target.value) / 100)}
             />
+          </label>
+          <label style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={chants}
+              aria-label="Shouted chants over the music"
+              onChange={(e) => audio.setChants(e.target.checked)}
+            />
+            <span>Shouted chants</span>
           </label>
         </div>
       )}

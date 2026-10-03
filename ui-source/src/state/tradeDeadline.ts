@@ -1,3 +1,4 @@
+import { isSkipping } from "./skips.ts";
 import type { LeagueState, TradeAsset } from "@/domain";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades";
@@ -375,7 +376,13 @@ export function runCpuTurns(s: LeagueState): void {
 
     const up = onTheClock(s);
     if (!up) return;
-    if (isHuman(s, up)) return;
+    if (isHuman(s, up)) {
+      // a GM who chose to skip the deadline passes their own turns. Offers
+      // made to them are a different branch (above) and still wait for them.
+      if (!isSkipping(s, up, "tradeDeadline")) return;
+      skipTurn(s, up);
+      continue;
+    }
     cpuPropose(s, up);
   }
 }

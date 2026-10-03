@@ -264,14 +264,15 @@ async function main() {
       const signedNow = Object.values(s.players).filter((p) => !p.free_agent && !p.retired).length;
       console.log(`[debug] ${s.stage} pick ${s.draft?.currentPickIndex}/${s.draft?.pickOrder.length} results ${s.draft?.results.length} signed ${signedNow} players ${Object.keys(s.players).length}`);
     }
-    if (FANTASY && s.stage === "freeAgency" && !yearOneFaChecked) {
-      // the fantasy draft's leftovers are the year-one market: nobody added,
-      // nobody lost, and every team opens at a legal roster size or below
+    if (FANTASY && s.stage === "trainingCamp" && !yearOneFaChecked) {
+      // a fantasy draft fills every roster, so year one has no market: the
+      // coaching summary goes straight to camp, with 53 on every team and the
+      // undrafted left free for the season
       const free = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
-      check(free.length > 0 && free.every((p) => !p.nfl_team || p.nfl_team === "FA"), `year-one free agency holds the undrafted (${free.length} players)`);
+      check(free.length > 0 && free.every((p) => !p.nfl_team || p.nfl_team === "FA"), `the undrafted stay free agents through year one (${free.length} players)`);
       const sizes = Object.keys(s.teams).map((c) => Object.values(s.players).filter((p) => p.nfl_team === c && !p.retired).length);
       const signed = Object.values(s.players).filter((p) => !p.free_agent && !p.retired).length;
-      check(Math.max(...sizes) === 53 && Math.min(...sizes) === 53, `the draft filled every roster to 53 entering free agency (${Math.min(...sizes)}-${Math.max(...sizes)}, ${signed} signed, teams ${Object.keys(s.teams).slice(0, 3).join(",")})`);
+      check(Math.max(...sizes) === 53 && Math.min(...sizes) === 53, `the draft filled every roster to 53 entering training camp (${Math.min(...sizes)}-${Math.max(...sizes)}, ${signed} signed, teams ${Object.keys(s.teams).slice(0, 3).join(",")})`);
       yearOneFaChecked = true;
     }
     if (s.stage === "regularSeason" && s.tradeDeadline) {

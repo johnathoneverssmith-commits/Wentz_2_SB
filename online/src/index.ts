@@ -17,6 +17,7 @@ import {
   contractMove,
   draftCoach,
   freeAgencyTurn,
+  setSkipPreference,
   submitHoodedFigurePayment,
   submitTrainingCamp,
   revealThrough,
@@ -606,6 +607,13 @@ post("/leagues/:id/actions/fa-turn", async (ctx) => {
     },
     version(ctx),
   );
+});
+
+post("/leagues/:id/actions/skip", async (ctx) => {
+  const a = await actor(ctx);
+  const kind = field<string>(ctx, "kind", "string");
+  if (kind !== "freeAgency" && kind !== "tradeDeadline") throw new ActionError("You can skip free agency or the deadline.");
+  return setSkipPreference(a, kind, field<boolean>(ctx, "on", "boolean"), version(ctx));
 });
 
 post("/leagues/:id/actions/coach-draft", async (ctx) =>

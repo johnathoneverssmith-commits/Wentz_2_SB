@@ -254,8 +254,15 @@ export function applyPick(s: LeagueState, selectedId: string): void {
  */
 const NEED_WEIGHT = 0.72;
 
-/** How many of each position a full roster holds. */
-const TEMPLATE_COUNT = new Map<string, number>(ROSTER_TEMPLATE.map((r) => [r.pos, r.count]));
+/**
+ * The least a fantasy-drafted roster must hold at each position: its starters
+ * and one backup (a full template where that is smaller). Thirty-odd of the
+ * fifty-three picks are free to go wherever the GM's evaluator says; what is
+ * not free is leaving a team unable to field a lineup when the picks run out.
+ */
+const DRAFT_FLOOR = new Map<string, number>(
+  ROSTER_TEMPLATE.map((r) => [r.pos, r.starters > 0 ? Math.min(r.count, r.starters + 1) : 0]),
+);
 
 /**
  * What a position is worth, in overall points, when comparing across
@@ -520,6 +527,14 @@ export function planAutopicks(s: LeagueState): string[] {
     return Math.max(MIN_RAW_NEED, raw) * NEED_WEIGHT;
   };
 
+  // the picks each team has left, counting this one: a fantasy roster's floor
+  // is enforced against it (see `DRAFT_FLOOR`)
+  const picksLeft = new Map<string, number>();
+  for (let i = d.currentPickIndex; i < d.pickOrder.length; i++) {
+    const t = d.pickOrder[i]!;
+    picksLeft.set(t, (picksLeft.get(t) ?? 0) + 1);
+  }
+
   const out: string[] = [];
   for (let i = d.currentPickIndex; i < d.pickOrder.length; i++) {
     const teamCode = d.pickOrder[i];
@@ -564,14 +579,22 @@ export function planAutopicks(s: LeagueState): string[] {
     // a lower difficulty can miss the true best candidate because it never
     // seriously considered it, not just because it mis-ranked something.
     const available = candidates.filter((c) => !taken.has(c.id));
-    // A fantasy draft runs until every roster is full, so each team builds to
-    // the roster template: nobody takes a fourth quarterback while a spot
-    // at kicker is still open. Only when nothing fits does the rest of the
-    // board come back in.
-    const roomFor = (c: (typeof available)[number]): boolean =>
-      (TEMPLATE_COUNT.get(c.position) ?? 0) > (teamCode ? (rosters.get(teamCode)?.get(c.position)?.length ?? 0) : 0);
-    const fitting = rookie || !teamCode ? available : available.filter(roomFor);
-    const untaken = fitting.length > 0 ? fitting : available;
+    // A fantasy draft runs until every roster is full, and a team has to end
+    // with a lineup. Free to pick anyone — until the picks it has left are
+    // exactly the holes it still has to fill, and then only the positions it
+    // is short at. (Only when nothing fits does the rest of the board come in.)
+    let fitting = available;
+    if (!rookie && teamCode) {
+      let holes = 0;
+      for (const [pos, floor] of DRAFT_FLOOR) holes += Math.max(0, floor - (rosters.get(teamCode)?.get(pos as Position)?.length ?? 0));
+      if ((picksLeft.get(teamCode) ?? 0) <= holes) {
+        const short = available.filter(
+          (c) => (DRAFT_FLOOR.get(c.position) ?? 0) > (rosters.get(teamCode)?.get(c.position)?.length ?? 0),
+        );
+        if (short.length > 0) fitting = short;
+      }
+    }
+    const untaken = fitting;
     const waste = surplusPenalties((pos) => (teamCode ? rosters.get(teamCode)?.get(pos) : undefined) ?? []);
     const baseScore = (c: (typeof untaken)[number]): number =>
       (rookie
@@ -612,6 +635,7 @@ export function planAutopicks(s: LeagueState): string[] {
     if (!bestId) break;
     out.push(bestId);
     taken.add(bestId);
+    if (teamCode) picksLeft.set(teamCode, (picksLeft.get(teamCode) ?? 1) - 1);
 
     // a fantasy pick moves the player onto the picking team; a rookie pick
     // doesn't touch `players` until the signing stage, but it still fills

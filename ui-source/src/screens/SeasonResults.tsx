@@ -10,6 +10,7 @@ import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
 import { currentBlock } from "@/state/revealBlocks";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
+import { teamInfoFor } from "@/state/teamInfo";
 import { useStore } from "@/state/store";
 import { posLabel, weeksOut } from "@/util/format";
 
@@ -53,32 +54,9 @@ export function SeasonResults() {
     currentBlock(s)?.resultsOpenOn === "first" ? (weeks.find(playedIn) ?? first) : last;
   const active = weeks.includes(Number(week)) ? Number(week) : openOn;
 
-  // Each team's rating and, in the regular season, its record as of that
-  // week — from the games this GM has revealed, never one they haven't.
-  const infoFor = (w: number) => {
-    const rec = new Map<string, { w: number; l: number; t: number }>();
-    if (phaseKey === "REG") {
-      for (const g of seen) {
-        if (g.phase !== "REG" || !g.played || g.week > w) continue;
-        for (const [team, us, them] of [
-          [g.homeTeam, g.homeScore, g.awayScore],
-          [g.awayTeam, g.awayScore, g.homeScore],
-        ] as const) {
-          const r = rec.get(team) ?? { w: 0, l: 0, t: 0 };
-          if (us > them) r.w++;
-          else if (us < them) r.l++;
-          else r.t++;
-          rec.set(team, r);
-        }
-      }
-    }
-    return (team: string): string => {
-      const ovr = s.teams[team]?.ratings.overall;
-      const r = rec.get(team);
-      const parts = [ovr != null ? `${ovr} OVR` : "", phaseKey === "REG" ? (r ? `${r.w}-${r.l}${r.t ? `-${r.t}` : ""}` : "0-0") : ""];
-      return parts.filter(Boolean).join(" · ");
-    };
-  };
+  // Each team's rating and record as of that week — from the games this GM
+  // has revealed, never one they haven't.
+  const infoFor = (w: number) => teamInfoFor(s, seen, phaseKey, w);
 
   // Restoring the scroll position the GM left from, so a trip into a box
   // score and back does not dump them at the top of a long screen.

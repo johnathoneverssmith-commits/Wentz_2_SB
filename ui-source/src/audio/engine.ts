@@ -24,6 +24,8 @@
  * click that enables it — the one moment a context is allowed to start.
  */
 
+import { hush } from "./chants.ts";
+
 const STORAGE_KEY = "nfl-sim-ui.audio";
 
 export interface AudioPrefs {
@@ -32,9 +34,11 @@ export interface AudioPrefs {
   /** 0–1. The score sits well under the cues by default. */
   musicVolume: number;
   sfxVolume: number;
+  /** A voice shouting over the music (the browser's own speech synthesis). */
+  chants: boolean;
 }
 
-const DEFAULTS: AudioPrefs = { enabled: false, musicVolume: 0.34, sfxVolume: 0.6 };
+const DEFAULTS: AudioPrefs = { enabled: false, musicVolume: 0.34, sfxVolume: 0.6, chants: true };
 
 function loadPrefs(): AudioPrefs {
   try {
@@ -45,6 +49,7 @@ function loadPrefs(): AudioPrefs {
       enabled: saved.enabled ?? DEFAULTS.enabled,
       musicVolume: clamp01(saved.musicVolume ?? DEFAULTS.musicVolume),
       sfxVolume: clamp01(saved.sfxVolume ?? DEFAULTS.sfxVolume),
+      chants: saved.chants ?? DEFAULTS.chants,
     };
   } catch {
     // a private window, a full quota, a browser that blocks storage — none of
@@ -108,20 +113,22 @@ export class AudioEngine {
       this.master.gain.value = 1;
       this.master.connect(this.ctx.destination);
 
-      this.musicBus = this.ctx.createGain();
-      this.musicBus.gain.value = this.prefs.musicVolume;
-      this.musicBus.connect(this.master);
-
       // A gentle limiter on the whole mix. Several cues can land together —
       // a touchdown while the crowd is still up — and without this the sum
-      // clips, which sounds like a fault rather than like loudness.
+      // clips, which sounds like a fault rather than like loudness. The music
+      // goes through it too now: a distorted guitar over double-kick drums is
+      // a lot of signal.
       const squeeze = this.ctx.createDynamicsCompressor();
-      squeeze.threshold.value = -12;
-      squeeze.knee.value = 12;
-      squeeze.ratio.value = 6;
+      squeeze.threshold.value = -14;
+      squeeze.knee.value = 10;
+      squeeze.ratio.value = 8;
       squeeze.attack.value = 0.004;
       squeeze.release.value = 0.18;
       squeeze.connect(this.master);
+
+      this.musicBus = this.ctx.createGain();
+      this.musicBus.gain.value = this.prefs.musicVolume;
+      this.musicBus.connect(squeeze);
 
       this.sfxBus = this.ctx.createGain();
       this.sfxBus.gain.value = this.prefs.sfxVolume;
@@ -159,7 +166,17 @@ export class AudioEngine {
     this.prefs = { ...this.prefs, enabled: on };
     this.save();
     if (on) this.unlock();
-    else void this.ctx?.suspend();
+    else {
+      void this.ctx?.suspend();
+      hush();
+    }
+    this.announce();
+  }
+
+  setChants(on: boolean): void {
+    this.prefs = { ...this.prefs, chants: on };
+    this.save();
+    if (!on) hush();
     this.announce();
   }
 

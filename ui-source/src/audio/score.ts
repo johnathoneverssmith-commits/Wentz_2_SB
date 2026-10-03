@@ -1,31 +1,30 @@
 /**
- * The score: seven moods, generated a bar at a time.
+ * The score: seven moods of full-tilt workout rock, generated a bar at a time.
  *
- * There is no recording here and no loop being replayed. Each bar is composed
- * when it is needed, from a mood's key, tempo, chord progression and a couple
- * of pattern rules — so the music moves with the game instead of sitting
- * underneath it, and two drafts never sound quite the same.
+ * The brief is the old Madden soundtrack: loud, fast, a little ridiculous —
+ * double-kick drums, a palm-muted guitar chugging under power chords, a
+ * screaming lead, a riser into the next downbeat, and (in `chants.ts`) a
+ * voice shouting something absurd over the top. Nothing here is a recording or
+ * a copy of one: every note is composed when it is needed, from a mood's key,
+ * tempo, chord progression and a riff pattern, and played by oscillators and
+ * noise.
  *
  * ## How it stays in time
  *
  * `setInterval` is not accurate enough to place notes on. So this uses the
- * standard Web Audio arrangement: a timer that wakes four times a second and
- * schedules every note that falls in the next quarter of a second, against
- * the audio clock. The browser's audio thread then plays them at exactly the
- * right moment regardless of what the main thread is doing. A dropped frame
- * during a week simulation cannot make the music stutter.
+ * standard Web Audio arrangement: a timer that wakes about sixteen times a
+ * second and schedules every note that falls in the next quarter of a second,
+ * against the audio clock. The browser's audio thread then plays them at
+ * exactly the right moment regardless of what the main thread is doing.
  *
  * ## How it stays in key
  *
- * Every mood is a root note, a scale, and a progression in scale degrees.
- * Melodic choices are random but constrained to the chord underneath, which
- * is what keeps generated music from wandering — the notes are picked, the
- * harmony is not.
- *
- * Randomness is seeded per bar from the bar number, so a mood is
- * reproducible and a long session doesn't drift into noise.
+ * Every mood is a root note, a scale, and a progression in scale degrees. The
+ * riff plays the chord root; the lead picks from the chord and its neighbours.
+ * Randomness is seeded per bar from the bar number, so a mood is reproducible.
  */
-import { bass, horn, hz, noise, pad, pluck } from "./voices.ts";
+import { crash, growl, hz, kick, lead, noise, riff, riser, snare } from "./voices.ts";
+import { shout } from "./chants.ts";
 
 export type MoodName =
   | "lobby"
@@ -36,111 +35,158 @@ export type MoodName =
   | "playoffs"
   | "champion";
 
+/** One bar is sixteen steps. A pattern marks the steps something plays on. */
+type Steps = readonly number[];
+
 interface Mood {
-  /** MIDI note of the tonic. */
+  /** MIDI note of the tonic (the guitar lives an octave or two below the lead). */
   root: number;
   /** Semitone offsets, one octave. */
   scale: number[];
   bpm: number;
   /** Chord roots as scale degrees, one per bar. */
   progression: number[];
-  /** How much melody there is, 0–1. */
-  density: number;
-  /** Pad brightness in Hz. */
-  cutoff: number;
-  /** Brass on the downbeat. */
-  brass?: boolean;
-  /** A hat on the offbeat. */
-  pulse?: boolean;
-  /** A quiet tick every beat — the draft clock. */
-  tick?: boolean;
+  /** Kick steps. */
+  kick: Steps;
+  /** Snare steps. */
+  snare: Steps;
+  /** Hi-hat every this-many steps (2 = eighths, 1 = sixteenths). */
+  hat: number;
+  /** Steps the guitar chugs on (palm-muted); accents are the steps in `hits`. */
+  chug: Steps;
+  /** Steps the guitar rings a full power chord on. */
+  hits: Steps;
+  /** How much lead there is, 0–1. */
+  lead: number;
+  /** Overall weight: scales the drums and the guitar. */
+  weight: number;
 }
 
+const PHRYGIAN = [0, 1, 3, 5, 7, 8, 10];
 const MINOR = [0, 2, 3, 5, 7, 8, 10];
-const DORIAN = [0, 2, 3, 5, 7, 9, 10];
-const MAJOR = [0, 2, 4, 5, 7, 9, 11];
+const HARMONIC_MINOR = [0, 2, 3, 5, 7, 8, 11];
 const MIXOLYDIAN = [0, 2, 4, 5, 7, 9, 10];
+
+// the step grids the drum and guitar parts are built from
+const EVERY_BEAT: Steps = [0, 4, 8, 12];
+const BACKBEAT: Steps = [4, 12];
+const EIGHTHS: Steps = [0, 2, 4, 6, 8, 10, 12, 14];
+const STOMP: Steps = [0, 6, 8, 10];
+const DOUBLE_KICK: Steps = [0, 2, 3, 6, 8, 10, 11, 14];
+const GALLOP: Steps = [0, 1, 3, 4, 5, 7, 8, 9, 11, 12, 13, 15];
+const CHUG_16: Steps = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 /**
  * The moods, and what each is for.
  *
- * The through-line is that the offseason is quiet and reflective and the
- * season is not. A GM reading a cap table should be able to forget the music
- * is on; a GM on the clock should not.
+ * Everything is intense; the desk jobs are just the less frantic end of it.
+ * The offseason sits around a stomp, the draft and free agency pick up, game
+ * day and January are the full gallop.
  */
 const MOODS: Record<MoodName, Mood> = {
-  // League setup: nothing has happened yet. Wide, slow, unhurried.
-  lobby: { root: 45, scale: MINOR, bpm: 62, progression: [0, 5, 3, 4], density: 0.3, cutoff: 780 },
-
-  // Roster, cap, trades, coaching. Deliberately the least interesting music
-  // in the game — it is background to spreadsheets.
-  frontOffice: {
-    root: 43,
-    scale: DORIAN,
-    bpm: 74,
-    progression: [0, 3, 4, 3],
-    density: 0.34,
-    cutoff: 820,
-  },
-
-  // The draft. A clock you can hear, and a figure that keeps climbing without
-  // ever quite arriving.
-  draft: {
+  // League setup: the walk-out. Heavy and deliberate.
+  lobby: {
     root: 40,
-    scale: MINOR,
-    bpm: 94,
-    progression: [0, 0, 5, 4],
-    density: 0.5,
-    cutoff: 1100,
-    tick: true,
-    pulse: true,
+    scale: PHRYGIAN,
+    bpm: 112,
+    progression: [0, 0, 1, 0],
+    kick: STOMP,
+    snare: BACKBEAT,
+    hat: 2,
+    chug: [0, 2, 3, 6, 8, 10, 11, 14],
+    hits: [0, 8],
+    lead: 0.1,
+    weight: 0.8,
   },
 
-  // Free agency: a market. Busier, brighter, a little restless.
-  freeAgency: {
-    root: 45,
-    scale: MIXOLYDIAN,
-    bpm: 104,
-    progression: [0, 4, 5, 3],
-    density: 0.62,
-    cutoff: 1500,
-    pulse: true,
-  },
-
-  // Game day. Brass, drive, the only mood that sounds like a broadcast.
-  gameday: {
-    root: 43,
-    scale: MIXOLYDIAN,
-    bpm: 120,
-    progression: [0, 3, 4, 4],
-    density: 0.55,
-    cutoff: 1700,
-    brass: true,
-    pulse: true,
-  },
-
-  // January. Lower, heavier, slower than the regular season — more weight per
-  // note rather than more notes.
-  playoffs: {
+  // Roster, cap, trades. Still a workout — just one you can read a cap table to.
+  frontOffice: {
     root: 38,
     scale: MINOR,
-    bpm: 88,
-    progression: [0, 6, 5, 0],
-    density: 0.45,
-    cutoff: 1200,
-    brass: true,
+    bpm: 118,
+    progression: [0, 5, 3, 4],
+    kick: STOMP,
+    snare: BACKBEAT,
+    hat: 2,
+    chug: [0, 2, 3, 6, 8, 10, 11, 14],
+    hits: [0, 6, 8],
+    lead: 0.18,
+    weight: 0.78,
   },
 
-  // You won it. The only major key in the game.
+  // The draft: on the clock, eighth-note kicks, and a riff that keeps climbing.
+  draft: {
+    root: 40,
+    scale: PHRYGIAN,
+    bpm: 138,
+    progression: [0, 0, 5, 4],
+    kick: EIGHTHS,
+    snare: BACKBEAT,
+    hat: 1,
+    chug: CHUG_16,
+    hits: [0, 6, 10],
+    lead: 0.32,
+    weight: 0.95,
+  },
+
+  // Free agency: a bidding war. Bright, mean, and a little bit unhinged.
+  freeAgency: {
+    root: 43,
+    scale: HARMONIC_MINOR,
+    bpm: 146,
+    progression: [0, 4, 5, 3],
+    kick: DOUBLE_KICK,
+    snare: BACKBEAT,
+    hat: 2,
+    chug: GALLOP,
+    hits: [0, 6, 10],
+    lead: 0.4,
+    weight: 1,
+  },
+
+  // Game day. The full gallop, a screaming lead, no mercy.
+  gameday: {
+    root: 40,
+    scale: PHRYGIAN,
+    bpm: 158,
+    progression: [0, 1, 0, 5],
+    kick: DOUBLE_KICK,
+    snare: BACKBEAT,
+    hat: 1,
+    chug: GALLOP,
+    hits: [0, 4, 8, 12],
+    lead: 0.5,
+    weight: 1.05,
+  },
+
+  // January: slower and heavier, every hit with more weight behind it.
+  playoffs: {
+    root: 36,
+    scale: HARMONIC_MINOR,
+    bpm: 144,
+    progression: [0, 6, 5, 0],
+    kick: DOUBLE_KICK,
+    snare: BACKBEAT,
+    hat: 2,
+    chug: GALLOP,
+    hits: [0, 3, 6, 10],
+    lead: 0.45,
+    weight: 1.1,
+  },
+
+  // You won it. Major, loud, and ridiculous.
   champion: {
-    root: 45,
-    scale: MAJOR,
-    bpm: 100,
-    progression: [0, 4, 5, 4],
-    density: 0.7,
-    cutoff: 2200,
-    brass: true,
-    pulse: true,
+    root: 43,
+    scale: MIXOLYDIAN,
+    bpm: 150,
+    progression: [0, 3, 4, 0],
+    kick: EVERY_BEAT.concat([2, 6, 10, 14]),
+    snare: BACKBEAT,
+    hat: 2,
+    chug: EIGHTHS,
+    hits: [0, 4, 8, 12],
+    lead: 0.6,
+    weight: 1,
   },
 };
 
@@ -165,72 +211,77 @@ function noteAt(mood: Mood, degree: number, octave = 0): number {
   return mood.root + (mood.scale[wrapped] ?? 0) + 12 * lift;
 }
 
+/** How many bars a phrase runs before the riser and the crash. */
+const PHRASE = 4;
+
 /**
  * Compose and schedule one bar.
  *
- * Four beats. The chord holds underneath; the bass marks one and three; the
- * melody picks from the chord tones and the two notes either side of them.
+ * Sixteen steps. Drums from the mood's patterns, the guitar chugging the chord
+ * root with a full power chord on the accents, a growling sub underneath, a
+ * lead line over the top, a crash on the first bar of each phrase and a riser
+ * through the last bar into it.
  */
-function scheduleBar(mood: Mood, bar: number, at: number, dest: AudioNode): void {
+export function scheduleBar(mood: Mood, bar: number, at: number, dest: AudioNode): void {
   const beat = 60 / mood.bpm;
+  const step = beat / 4;
   const barLen = beat * 4;
   const degree = mood.progression[bar % mood.progression.length] ?? 0;
   const rand = rngFor(bar, mood.root);
+  const w = mood.weight;
+  const phraseBar = bar % PHRASE;
 
-  // the chord: root, third, fifth of the current degree
-  for (const [i, step] of [0, 2, 4].entries()) {
-    pad(dest, {
-      when: at,
-      freq: hz(noteAt(mood, degree + step, i === 0 ? 0 : 1)),
-      dur: barLen * 0.98,
-      gain: 0.16,
-      cutoff: mood.cutoff,
+  // drums
+  for (const s of mood.kick) {
+    kick(dest, { when: at + step * s, gain: (s % 4 === 0 ? 0.62 : 0.5) * w });
+  }
+  for (const s of mood.snare) snare(dest, { when: at + step * s, gain: 0.5 * w });
+  for (let s = 0; s < 16; s += mood.hat) {
+    noise(dest, {
+      when: at + step * s,
+      dur: 0.04,
+      gain: (s % 4 === 0 ? 0.05 : 0.032) * w,
+      center: 8200,
+      q: 1.8,
     });
   }
-
-  bass(dest, { when: at, freq: hz(noteAt(mood, degree, -1)), dur: beat * 0.9, gain: 0.32 });
-  bass(dest, {
-    when: at + beat * 2,
-    freq: hz(noteAt(mood, degree, -1)),
-    dur: beat * 0.7,
-    gain: 0.22,
-  });
-
-  if (mood.brass && bar % 2 === 0) {
-    horn(dest, { when: at, freq: hz(noteAt(mood, degree, 0)), dur: beat * 1.6, gain: 0.2 });
-    horn(dest, { when: at, freq: hz(noteAt(mood, degree + 4, 0)), dur: beat * 1.6, gain: 0.13 });
+  // a fill on the last two steps of a phrase
+  if (phraseBar === PHRASE - 1) {
+    for (const s of [12, 13, 14, 15]) snare(dest, { when: at + step * s, gain: (0.3 + 0.05 * (s - 12)) * w });
   }
+  if (phraseBar === 0) crash(dest, { when: at, gain: 0.2 * w });
 
-  if (mood.pulse) {
-    for (let b = 0; b < 4; b++) {
-      noise(dest, {
-        when: at + beat * b + beat / 2,
-        dur: 0.055,
-        gain: 0.035,
-        center: 7200,
-        q: 1.6,
+  // the guitar: palm-muted chugs on the root, full chords on the accents
+  const rootFreq = hz(noteAt(mood, degree, -1));
+  const chug = new Set(mood.chug);
+  const hits = new Set(mood.hits);
+  for (let s = 0; s < 16; s++) {
+    if (hits.has(s)) {
+      riff(dest, { when: at + step * s, freq: rootFreq, dur: step * 3.4, gain: 0.3 * w, power: true });
+    } else if (chug.has(s)) {
+      // the odd chug drops to the flat second, the way a riff leans on a note
+      const note = phraseBar === 3 && s >= 12 && rand() < 0.4 ? noteAt(mood, degree + 1, -1) : noteAt(mood, degree, -1);
+      riff(dest, { when: at + step * s, freq: hz(note), dur: step * 0.9, gain: 0.26 * w, mute: true });
+    }
+  }
+  growl(dest, { when: at, freq: rootFreq / 2, dur: beat * 1.9, gain: 0.34 * w });
+  growl(dest, { when: at + beat * 2, freq: rootFreq / 2, dur: beat * 1.9, gain: 0.3 * w });
+
+  // the lead: eighth notes, mostly rests, from the chord and its neighbours
+  if (phraseBar % 2 === 1) {
+    for (let s = 0; s < 8; s++) {
+      if (rand() > mood.lead) continue;
+      const pick = [0, 2, 4, 6, 1, 7][Math.floor(rand() * 6)] ?? 0;
+      lead(dest, {
+        when: at + (barLen / 8) * s,
+        freq: hz(noteAt(mood, degree + pick, 2)),
+        dur: (barLen / 8) * (rand() < 0.35 ? 1.8 : 0.9),
+        gain: 0.16 + rand() * 0.06,
       });
     }
   }
 
-  if (mood.tick) {
-    for (let b = 0; b < 4; b++) {
-      noise(dest, { when: at + beat * b, dur: 0.02, gain: 0.05, center: 2400, q: 5 });
-    }
-  }
-
-  // melody: eighth notes, mostly rests, always a chord tone or its neighbour
-  for (let step = 0; step < 8; step++) {
-    if (rand() > mood.density) continue;
-    const pick = [0, 2, 4, 6, 1][Math.floor(rand() * 5)] ?? 0;
-    const octave = rand() < 0.25 ? 2 : 1;
-    pluck(dest, {
-      when: at + (barLen / 8) * step,
-      freq: hz(noteAt(mood, degree + pick, octave)),
-      dur: (barLen / 8) * (rand() < 0.3 ? 1.7 : 0.9),
-      gain: 0.14 + rand() * 0.07,
-    });
-  }
+  if (phraseBar === PHRASE - 1) riser(dest, { when: at, dur: barLen, gain: 0.12 * w });
 }
 
 /**
@@ -326,8 +377,14 @@ export class MusicDirector {
 
     while (this.nextBarAt < ctx.currentTime + MusicDirector.HORIZON) {
       scheduleBar(mood, this.bar, this.nextBarAt, voice);
+      // a shouted line over the top, every other phrase, once the groove is up
+      if (this.bar > 0 && this.bar % (PHRASE * 2) === 2) {
+        shout(name, this.bar, Math.max(0, (this.nextBarAt - ctx.currentTime) * 1000));
+      }
       this.bar += 1;
       this.nextBarAt += barLen;
     }
   }
 }
+
+export { MOODS };

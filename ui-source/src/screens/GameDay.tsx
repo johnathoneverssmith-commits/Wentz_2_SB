@@ -7,6 +7,7 @@ import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { isOnline } from "@/state/online";
 import { useStore } from "@/state/store";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
+import { teamInfoFor } from "@/state/teamInfo";
 
 import { Gamecast } from "./gamecast/Gamecast";
 import { posLabel, weeksOut } from "@/util/format";
@@ -49,6 +50,11 @@ export function GameDay() {
       : `Week ${pgd.week}`;
 
   const slate = s.games.filter((g) => pgd.gameIds.includes(g.id));
+  // each team's rating and record as of this slate, under its name
+  const info = teamInfoFor(s, s.games, pgd.phase, pgd.week);
+  const infoLine = (team: string) => (
+    <small style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>{info(team)}</small>
+  );
   const viewerGame = slate.find((g) => g.homeTeam === code || g.awayTeam === code);
   const myInjuries = (viewerGame?.injuries ?? [])
     .filter((e) => e.team === code)
@@ -142,6 +148,7 @@ export function GameDay() {
                       <TeamBadge code={home.code} size={20} />
                       <span style={{ fontSize: 12.5, fontWeight: m.winner === home.code ? 600 : 400 }}>
                         {TEAMS_BY_CODE[home.code]?.label ?? home.code}
+                        {infoLine(home.code)}
                       </span>
                     </span>
                     <span className="oswald" style={{ fontSize: 13 }}>
@@ -151,6 +158,7 @@ export function GameDay() {
                       <TeamBadge code={away.code} size={20} />
                       <span style={{ fontSize: 12.5, fontWeight: m.winner === away.code ? 600 : 400 }}>
                         {TEAMS_BY_CODE[away.code]?.label ?? away.code}
+                        {infoLine(away.code)}
                       </span>
                     </span>
                   </div>
@@ -180,14 +188,20 @@ export function GameDay() {
                   >
                     <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <TeamBadge code={g.homeTeam} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.homeTeam]!.label}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>
+                        {TEAMS_BY_CODE[g.homeTeam]!.label}
+                        {infoLine(g.homeTeam)}
+                      </span>
                     </span>
                     <span className="oswald" style={{ fontSize: 13 }}>
                       {g.homeScore}–{g.awayScore}
                     </span>
                     <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
                       <TeamBadge code={g.awayTeam} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400 }}>{TEAMS_BY_CODE[g.awayTeam]!.label}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400, textAlign: "right" }}>
+                        {TEAMS_BY_CODE[g.awayTeam]!.label}
+                        {infoLine(g.awayTeam)}
+                      </span>
                     </span>
                   </div>
                 );

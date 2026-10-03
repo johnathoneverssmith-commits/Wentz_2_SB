@@ -215,6 +215,8 @@ function useCheckpoint(): { from: string; to: string } | null {
   // the league with no lever (the setup screen's force appears only while
   // seats are empty). Its next stage depends on the settings.
   if (stage === "setup") return { from: "League Setup", to: fantasy ? "Fantasy Draft" : "Coaching Draft" };
+  // a fantasy draft leaves no year-one market, so the staff summary leads to camp
+  if (stage === "coachingDraftSummary" && fantasy) return { from: "Coaching Draft Summary", to: "Training Camp" };
   return CHECKPOINTS[stage] ?? null;
 }
 

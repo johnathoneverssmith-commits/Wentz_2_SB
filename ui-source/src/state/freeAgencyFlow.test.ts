@@ -37,18 +37,17 @@ async function advance(): Promise<void> {
   expect(moved.moved, `stage ${st.stage} refused to advance`).toBe(true);
 }
 
-/** Setup -> fantasy draft -> coaching draft -> free agency, as a player would. */
+/**
+ * Setup -> coaching draft -> free agency, as a player would.
+ *
+ * Without a fantasy draft: a fantasy draft fills every roster to 53, so that
+ * league has no year-one market (see `resolveTransition`).
+ */
 async function reachFreeAgency(): Promise<void> {
-  await useStore.getState().newLeague(7, DEFAULT_CONFIG);
+  await useStore.getState().newLeague(7, { ...DEFAULT_CONFIG, fantasyDraft: false });
   const me = s().viewerGmId;
   useStore.getState().pickTeam(me, "GB");
-  await advance(); // setup -> fantasyDraft
-
-  expect(s().stage).toBe("fantasyDraft");
-  useStore.getState().startDraft("fantasy");
-  useStore.getState().autopickRemaining();
-  await advance(); // fantasyDraft -> fantasyDraftSummary
-  await advance(); // fantasyDraftSummary -> coachingDraft
+  await advance(); // setup -> coachingDraft
 
   expect(s().stage).toBe("coachingDraft");
   // twelve hand-made picks; the CPU sweeps between them
@@ -149,4 +148,29 @@ describe("free agency (single-player store)", () => {
     },
     TIMEOUT,
   );
+});
+
+describe("a fantasy draft skips the year-one market", () => {
+  it("goes from the coaching summary straight to training camp, with full rosters", async () => {
+    await useStore.getState().newLeague(7, DEFAULT_CONFIG);
+    useStore.getState().pickTeam(s().viewerGmId, "GB");
+    await advance(); // setup -> fantasyDraft
+    useStore.getState().startDraft("fantasy");
+    useStore.getState().autopickRemaining();
+    await advance(); // -> fantasyDraftSummary
+    await advance(); // -> coachingDraft
+    for (let i = 0; i < 40 && s().stage === "coachingDraft"; i++) {
+      const open = vacantRoles(s(), "GB");
+      const pick = availableCoaches(s()).find((c) => open.includes(c.role));
+      if (!pick) break;
+      useStore.getState().draftCoach(pick.id);
+    }
+    expect(s().stage).toBe("coachingDraftSummary");
+    await advance();
+    expect(s().stage).toBe("trainingCamp");
+    expect(s().rosterFillPending).toBeFalsy();
+    for (const team of Object.keys(s().teams)) {
+      expect(reconciliationIssues(s(), team), team).toEqual([]);
+    }
+  }, TIMEOUT);
 });

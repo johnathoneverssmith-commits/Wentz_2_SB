@@ -89,7 +89,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
                 {maybe("Passing", st.passYds != null && st.passYds > 0, `${st.passCmp ?? 0}/${st.passAtt ?? 0}, ${st.passYds} yds, ${st.passTd ?? 0} TD, ${st.passInt ?? 0} INT${passerRating(st) !== null ? `, ${passerRating(st)!.toFixed(1)} rating` : ""}`)}
                 {maybe("Rushing", (st.rushYds ?? 0) !== 0, `${st.rushAtt ?? 0} att, ${st.rushYds ?? 0} yds, ${st.rushTd ?? 0} TD`)}
                 {maybe("Receiving", (st.recYds ?? 0) > 0, `${st.rec ?? 0} rec, ${st.recYds} yds, ${st.recTd ?? 0} TD`)}
-                {maybe("Defense", (st.tackles ?? 0) > 0 || (st.sacks ?? 0) > 0, `${st.tackles ?? 0} tkl, ${st.sacks ?? 0} sk, ${st.defInt ?? 0} INT, ${st.passDef ?? 0} PD`)}
+                {maybe("Defense", (st.tackles ?? 0) > 0 || (st.sacks ?? 0) > 0, `${st.tackles ?? 0} tkl, ${st.sacks ?? 0} sk, ${st.defInt ?? 0} INT, ${st.ffum ?? 0} FF, ${st.passDef ?? 0} PD`)}
                 {maybe("Kicking", (st.fga ?? 0) > 0, `${st.fgm ?? 0}/${st.fga ?? 0} FG, ${st.xpm ?? 0}/${st.xpa ?? 0} XP`)}
               </tbody>
             </table>

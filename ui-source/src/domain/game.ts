@@ -20,6 +20,8 @@ export interface PlayerGameLine {
   sacks?: number;
   defInt?: number;
   passDef?: number;
+  /** fumbles this defender forced. */
+  ffum?: number;
   fgm?: number;
   fga?: number;
   xpm?: number;

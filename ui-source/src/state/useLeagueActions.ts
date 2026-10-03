@@ -108,6 +108,8 @@ export interface LeagueActions {
     years?: number;
     pass?: boolean;
   }) => Promise<ActionResult>;
+  /** Sit out free agency or the deadline: your own turns in it are passed for you. */
+  setSkip: (kind: "freeAgency" | "tradeDeadline", on: boolean) => Promise<ActionResult>;
   /** Take a coach in the coaching fantasy draft. */
   draftCoach: (coachId: string) => Promise<ActionResult>;
   hireCoach: (coachId: string) => Promise<ActionResult>;
@@ -315,6 +317,7 @@ export function useLeagueActions(): LeagueActions {
           return { ok: true };
         },
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
+        setSkip: async (kind, on) => store.setSkip(kind, on),
         draftCoach: async (coachId) => store.draftCoach(coachId),
         hireCoach: async (coachId) => store.hireCoach(coachId),
         readyUp: async (ready) => {
@@ -430,6 +433,8 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.stepForward(s.leagueId, step, s.version))).then(after),
       freeAgencyTurn: (move) =>
         attempt(() => send((s) => s.client.freeAgencyTurn(s.leagueId, move, s.version))).then(after),
+      setSkip: (kind, on) =>
+        attempt(() => send((s) => s.client.setSkip(s.leagueId, kind, on, s.version))).then(after),
       draftCoach: (coachId) =>
         attempt(() => send((s) => s.client.draftCoach(s.leagueId, coachId, s.version))).then(after),
       hireCoach: (coachId) =>

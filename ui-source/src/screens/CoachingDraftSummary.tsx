@@ -55,6 +55,8 @@ export function CoachingDraftSummary() {
   const s = useStore();
   const nav = useNavigate();
   const mine = viewerTeamCode(s);
+  // a fantasy draft leaves no year-one market to go through
+  const fantasyDraft = s.config.fantasyDraft;
   const humanTeams = s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
   const { active, setActive } = useTabs(mine ?? humanTeams[0] ?? "league");
 
@@ -185,7 +187,11 @@ export function CoachingDraftSummary() {
         </span>
       </Footer>
 
-      <ReadinessGate title="Coaching summary readiness" label="Advance to Free Agency" onAdvance={(r) => nav(r)} />
+      <ReadinessGate
+        title="Coaching summary readiness"
+        label={fantasyDraft ? "Advance to Training Camp" : "Advance to Free Agency"}
+        onAdvance={(r) => nav(r)}
+      />
     </Card>
   );
 }

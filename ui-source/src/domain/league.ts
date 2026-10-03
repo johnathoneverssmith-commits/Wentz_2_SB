@@ -101,6 +101,13 @@ export interface Gm {
    * GM's, and counted toward the newcomer in the score tracker.
    */
   joinedSeason?: number;
+  /**
+   * Stages this GM has chosen to sit out: their own turns in free agency, or
+   * their own turns at the trade deadline, are passed for them. Only theirs —
+   * everyone else plays on — and at the deadline offers made *to* them still
+   * arrive and wait for an answer.
+   */
+  skips?: { freeAgency?: boolean; tradeDeadline?: boolean };
 }
 
 /** A single negotiated contract offer (players and coaches share the shape). */

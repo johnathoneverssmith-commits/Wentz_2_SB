@@ -118,6 +118,7 @@ export function accrueSeasonStats(state: LeagueState, results: GameResult[]): vo
         s.sacks = (s.sacks ?? 0) + (line.sacks ?? 0);
         s.defInt = (s.defInt ?? 0) + (line.defInt ?? 0);
         s.passDef = (s.passDef ?? 0) + (line.passDef ?? 0);
+        s.ffum = (s.ffum ?? 0) + (line.ffum ?? 0);
         s.fgm = (s.fgm ?? 0) + (line.fgm ?? 0);
         s.fga = (s.fga ?? 0) + (line.fga ?? 0);
         s.xpm = (s.xpm ?? 0) + (line.xpm ?? 0);

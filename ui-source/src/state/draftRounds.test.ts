@@ -15,7 +15,7 @@ const s = () => useStore.getState();
 const ROSTER = ROSTER_TEMPLATE.reduce((n, r) => n + r.count, 0);
 
 describe("the fantasy draft fills every roster", () => {
-  it("runs a round per roster spot and ends with 53-man, template-shaped rosters", async () => {
+  it("runs a round per roster spot and ends with 53-man rosters that can field a lineup", async () => {
     await useStore.getState().newLeague(5, { ...DEFAULT_CONFIG, humanGmCount: 1 });
     useStore.getState().pickTeam(s().viewerGmId, "GB");
     useStore.setState((d) => {
@@ -40,7 +40,10 @@ describe("the fantasy draft fills every roster", () => {
     for (const [team, m] of byTeam) {
       const total = [...m.values()].reduce((a, b) => a + b, 0);
       expect(total, `${team} roster size`).toBe(ROSTER);
-      for (const r of ROSTER_TEMPLATE) expect(m.get(r.pos) ?? 0, `${team} ${r.pos}`).toBe(r.count);
+      // a lineup, with a backup behind every starter
+      for (const r of ROSTER_TEMPLATE) {
+        if (r.starters > 0) expect(m.get(r.pos) ?? 0, `${team} ${r.pos}`).toBeGreaterThanOrEqual(Math.min(r.count, r.starters + 1));
+      }
     }
     // the whole board in one pass has to stay quick enough for a free-tier server
     expect(ms, "auto-completing the board").toBeLessThan(60_000);

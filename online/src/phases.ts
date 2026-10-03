@@ -479,6 +479,8 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     state.freeAgencyEvent = null;
     beginFreeAgencyEvent(state);
     runCpuTurns(state, humanTeamsOf(state));
+    // every human may have skipped it: nothing left to wait for
+    runPendingCpuTurns(state);
   }
 
   // Change 9: the same market again, halfway through the season. The old
@@ -489,6 +491,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     state.freeAgencyEvent = null;
     beginFreeAgencyEvent(state);
     runCpuTurns(state, humanTeamsOf(state));
+    runPendingCpuTurns(state);
   }
 
   // Change 4: the cap and the roster limits come back here. The CPU teams
@@ -542,6 +545,10 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "hoodedFigureEncounter" || state.stage === "offseasonDepthChart") {
     ensureHoodedFigureEncounters(state);
   }
+
+  // the fantasy draft filled every roster and year one has no market (see
+  // `resolveTransition`): the fill it queued has nothing to do
+  if (from === "coachingDraftSummary" && state.stage === "trainingCamp") state.rosterFillPending = false;
 
   if (state.stage === "freeAgencySummary" && state.rosterFillPending) {
     reportStaffMoves(state, "after free agency", () => fillRosterGaps(state, { spareGmRosters: true }));
@@ -644,6 +651,8 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "tradeDeadline" && from !== "tradeDeadline") {
     beginTradeDeadline(state);
     runDeadlineTurns(state);
+    // every human may have skipped it, and the CPU teams finish three rounds
+    runPendingCpuTurns(state);
   }
 
   // Change 7's second block: weeks 10 through 18, precomputed with the

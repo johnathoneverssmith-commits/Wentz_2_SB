@@ -176,7 +176,9 @@ export function resolveTransition(
     case "coachingDraft":
       return { stage: "coachingDraftSummary", week: 0 };
     case "coachingDraftSummary":
-      return { stage: "freeAgency", week: 0 };
+      // A fantasy draft has already filled every roster to 53, so the
+      // year-one market has nobody to sign and nowhere to put him.
+      return config.fantasyDraft ? { stage: "trainingCamp", week: 0 } : { stage: "freeAgency", week: 0 };
     case "freeAgency":
       return { stage: "freeAgencySummary", week: 0 };
     case "freeAgencySummary":

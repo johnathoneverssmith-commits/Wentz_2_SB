@@ -84,3 +84,26 @@ describe("adapter box-score mapping", () => {
     expect(lines.away.length).toBeGreaterThan(0);
   });
 });
+
+describe("defensive box-score lines", () => {
+  it("credits a forced fumble to the defender the engine named, and sacks and interceptions add up", () => {
+    let forced = 0;
+    let credited = 0;
+    for (const seed of SEEDS) {
+      for (const [home, away] of PAIRS) {
+        const g = simulateGame(seed, home, away, { trace: true, injuries: true });
+        const trace = g.playTrace ?? [];
+        // a fumble the engine pins on a named defender, on a pass or a run
+        forced += trace.filter((p) => p.outcome === "fumble" && p.defender && (p.call === "pass" || p.call === "run" || p.call === "scramble")).length;
+        const lines = playerLinesFrom(trace, home, away, undefined);
+        for (const side of [lines.home, lines.away]) for (const l of side) credited += l.ffum ?? 0;
+        // every sack in the trace is on somebody's line
+        const sacks = trace.filter((p) => p.call === "sack" && p.defender).length;
+        const lined = [...lines.home, ...lines.away].reduce((n, l) => n + (l.sacks ?? 0), 0);
+        expect(lined, `sacks, ${away}@${home} seed ${seed}`).toBe(sacks);
+      }
+    }
+    expect(forced, "the sample should contain forced fumbles").toBeGreaterThan(0);
+    expect(credited).toBe(forced);
+  });
+});

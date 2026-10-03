@@ -1,3 +1,4 @@
+import { SkipToggle } from "@/components/SkipToggle";
 import { WaitingStakes } from "@/components/WaitingStakes";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -134,6 +135,7 @@ export function TradeDeadlineRoom() {
           </div>
         );
       })()}
+      <SkipToggle kind="tradeDeadline" />
       {duty === "propose" && <ProposeTurn code={code} busy={busy} onSubmit={submit} />}
       {(duty === "respond" || duty === "final") && (
         <RespondTurn offer={d.active!} code={code} duty={duty} busy={busy} onSubmit={submit} />
@@ -214,6 +216,20 @@ function ProposeTurn({
           <strong>You&rsquo;re on the clock.</strong> One offer, or pass — either way the turn is
           gone. Nothing here is checked against the cap or the roster limit; the deadline is
           allowed to break both, and you&rsquo;ll square it up afterwards.
+          {/* at the top, where the decision is made, not under the rosters */}
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              className="btnlink"
+              disabled={busy}
+              onClick={() => {
+                if (!confirm("Pass on this turn? You don't get it back.")) return;
+                onSubmit({ kind: "skip" });
+              }}
+            >
+              Pass this turn
+            </button>
+          </div>
         </div>
         <label style={{ display: "block", margin: "14px 0 6px", fontSize: 11.5, color: "var(--ink-dim)" }}>
           Trade with
@@ -305,18 +321,6 @@ function ProposeTurn({
       })()}
 
       <Footer>
-        <button
-          type="button"
-          className="btnlink"
-          disabled={busy}
-          onClick={() => {
-            if (!confirm("Pass on this turn? You don't get it back.")) return;
-            onSubmit({ kind: "skip" });
-          }}
-        >
-          {/* the instructions above say "pass", like free agency's button */}
-          Pass this turn
-        </button>
         <button
           type="button"
           className="btn-primary"

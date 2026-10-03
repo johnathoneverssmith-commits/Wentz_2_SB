@@ -1,3 +1,4 @@
+import { SkipToggle } from "@/components/SkipToggle";
 import { WaitingStakes } from "@/components/WaitingStakes";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { StageLoading } from "@/components/StageLoading";
@@ -233,8 +234,15 @@ export function FreeAgencyBoardTurns() {
           <strong>You&rsquo;re up.</strong> Make one offer or pass. Offers are binding and stay
           live until the player signs — the cap and roster limits are suspended until
           reconciliation, so you can bid for someone you can&rsquo;t yet fit.
+          {/* at the top, where the decision is made, not under eighty rows */}
+          <div style={{ marginTop: 8 }}>
+            <button type="button" className="btnlink" disabled={busy} onClick={() => act({ pass: true })}>
+              Pass this round
+            </button>
+          </div>
         </div>
       )}
+      <SkipToggle kind="freeAgency" />
       {/* eighty greyed-out Offer buttons and nothing saying why */}
       {!yourTurn && clock && code && (
         <div className="notice" role="status">
@@ -375,14 +383,6 @@ export function FreeAgencyBoardTurns() {
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
           Nothing signs until every team has acted this round.
         </span>
-        <button
-          type="button"
-          className="btnlink"
-          disabled={!yourTurn || busy}
-          onClick={() => act({ pass: true })}
-        >
-          Pass this round
-        </button>
       </Footer>
     </Card>
   );

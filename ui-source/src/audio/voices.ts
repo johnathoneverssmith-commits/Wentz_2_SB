@@ -219,3 +219,153 @@ export function crowd(
   src.start(o.when);
   src.stop(o.when + o.dur + 0.02);
 }
+
+// ---- the heavy kit ----------------------------------------------------------
+//
+// Drums and a distorted guitar, for the workout-style score: still nothing but
+// oscillators and noise, still no samples.
+
+let driveCurve: Float32Array<ArrayBuffer> | null = null;
+/** A hard-clipping curve: tanh with a lot of gain in front of it. */
+function distortion(): Float32Array<ArrayBuffer> {
+  if (driveCurve) return driveCurve;
+  const n = 1024;
+  const curve = new Float32Array(new ArrayBuffer(n * 4));
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(x * 7);
+  }
+  driveCurve = curve;
+  return curve;
+}
+
+/** A kick: a sine that drops fast from a click to a thump. */
+export function kick(dest: AudioNode, o: { when: number; gain?: number }): void {
+  const ctx = dest.context;
+  const g = envelope(ctx, o.when, 0.22, o.gain ?? 0.9, 0.002, 0.2);
+  g.connect(dest);
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(165, o.when);
+  osc.frequency.exponentialRampToValueAtTime(46, o.when + 0.09);
+  osc.connect(g);
+  osc.start(o.when);
+  osc.stop(o.when + 0.26);
+  // the beater
+  noise(dest, { when: o.when, dur: 0.012, gain: (o.gain ?? 0.9) * 0.18, center: 3200, q: 0.9 });
+}
+
+/** A snare: a tuned body and a bright rattle on top. */
+export function snare(dest: AudioNode, o: { when: number; gain?: number }): void {
+  const ctx = dest.context;
+  const g = envelope(ctx, o.when, 0.14, (o.gain ?? 0.6) * 0.55, 0.002, 0.13);
+  g.connect(dest);
+  const osc = ctx.createOscillator();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(230, o.when);
+  osc.frequency.exponentialRampToValueAtTime(150, o.when + 0.08);
+  osc.connect(g);
+  osc.start(o.when);
+  osc.stop(o.when + 0.17);
+  noise(dest, { when: o.when, dur: 0.17, gain: (o.gain ?? 0.6) * 0.75, center: 2600, q: 0.55 });
+}
+
+/** A cymbal: a long bright wash. */
+export function crash(dest: AudioNode, o: { when: number; dur?: number; gain?: number }): void {
+  noise(dest, { when: o.when, dur: o.dur ?? 1.1, gain: o.gain ?? 0.22, center: 6400, q: 0.35 });
+}
+
+/**
+ * A distorted guitar: two saws a hair apart into a clipper, then a low-pass.
+ * `mute` shortens it to a palm-muted chug.
+ */
+export function riff(dest: AudioNode, o: VoiceOpts & { power?: boolean; mute?: boolean }): void {
+  const ctx = dest.context;
+  const dur = o.mute ? Math.min(o.dur, 0.09) : o.dur;
+  const g = envelope(ctx, o.when, dur, (o.gain ?? 0.22) * 0.5, 0.004, dur - 0.004);
+  const clip = ctx.createWaveShaper();
+  clip.curve = distortion();
+  clip.oversample = "2x";
+  const tone = ctx.createBiquadFilter();
+  tone.type = "lowpass";
+  tone.frequency.setValueAtTime(o.mute ? 1500 : 3400, o.when);
+  tone.Q.value = 0.9;
+  clip.connect(tone).connect(g).connect(dest);
+  // a power chord is the root, the fifth and the octave
+  const stack = o.power ? [1, 1.4983, 2] : [1];
+  for (const mult of stack) {
+    for (const cents of [-6, 6]) {
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.value = o.freq * mult;
+      osc.detune.value = cents + (o.detune ?? 0);
+      osc.connect(clip);
+      osc.start(o.when);
+      osc.stop(o.when + dur + 0.05);
+    }
+  }
+}
+
+/** A heavy sub: a saw an octave down through a low-pass, under the riff. */
+export function growl(dest: AudioNode, o: VoiceOpts): void {
+  const ctx = dest.context;
+  const g = envelope(ctx, o.when, o.dur, (o.gain ?? 0.3) * 0.7, 0.01, o.dur - 0.01);
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 240;
+  g.connect(filter).connect(dest);
+  const osc = ctx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.value = o.freq;
+  osc.connect(g);
+  osc.start(o.when);
+  osc.stop(o.when + o.dur + 0.05);
+}
+
+/** A screaming lead: a clipped square with a little vibrato. */
+export function lead(dest: AudioNode, o: VoiceOpts): void {
+  const ctx = dest.context;
+  const g = envelope(ctx, o.when, o.dur, (o.gain ?? 0.2) * 0.45, 0.01, o.dur * 0.5);
+  const clip = ctx.createWaveShaper();
+  clip.curve = distortion();
+  const tone = ctx.createBiquadFilter();
+  tone.type = "lowpass";
+  tone.frequency.value = 4200;
+  clip.connect(tone).connect(g).connect(dest);
+  const osc = ctx.createOscillator();
+  osc.type = "square";
+  osc.frequency.value = o.freq;
+  const vib = ctx.createOscillator();
+  vib.frequency.value = 6;
+  const depth = ctx.createGain();
+  depth.gain.value = o.freq * 0.012;
+  vib.connect(depth).connect(osc.frequency);
+  osc.connect(clip);
+  osc.start(o.when);
+  vib.start(o.when);
+  osc.stop(o.when + o.dur + 0.05);
+  vib.stop(o.when + o.dur + 0.05);
+}
+
+/** A riser: noise whose filter climbs across `dur`, into the next downbeat. */
+export function riser(dest: AudioNode, o: { when: number; dur: number; gain?: number }): void {
+  const ctx = dest.context;
+  const frames = Math.max(1, Math.floor(ctx.sampleRate * o.dur));
+  const buf = ctx.createBuffer(1, frames, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.Q.value = 3;
+  filter.frequency.setValueAtTime(300, o.when);
+  filter.frequency.exponentialRampToValueAtTime(7000, o.when + o.dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, o.when);
+  g.gain.exponentialRampToValueAtTime(o.gain ?? 0.18, o.when + o.dur * 0.97);
+  g.gain.linearRampToValueAtTime(0, o.when + o.dur);
+  src.connect(filter).connect(g).connect(dest);
+  src.start(o.when);
+  src.stop(o.when + o.dur + 0.02);
+}

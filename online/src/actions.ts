@@ -33,6 +33,7 @@ import {
   decideStep,
   decideDraftTarget,
   decideDeadlineTurn,
+  decideSkipPreference,
   decideRookieOutcome,
   decideDraftPick,
   decidePlaceBid,
@@ -171,6 +172,13 @@ export const freeAgencyTurn = (
   },
   expectedVersion?: string,
 ) => run(actor, undefined, (s) => decideFreeAgencyTurn(s, actor, move));
+
+export const setSkipPreference = (
+  actor: Actor,
+  kind: "freeAgency" | "tradeDeadline",
+  on: boolean,
+  expectedVersion?: string,
+) => run(actor, undefined, (s) => decideSkipPreference(s, actor, kind, on));
 
 export const draftCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
   run(actor, undefined, (s) => decideCoachingPick(s, actor, coachId));

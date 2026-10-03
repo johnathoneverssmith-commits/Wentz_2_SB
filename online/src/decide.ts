@@ -16,6 +16,7 @@
  * `actions.ts` wraps each of these in `withLeague`, which supplies the row
  * lock, the version check and the event log.
  */
+import { setSkip } from "@/state/skips.ts";
 import { bracketRounds, COACH_ROLE_LABEL, ROUND_ORDER, roundLabelFor } from "@/domain";
 import type { ContractOffer, LeagueState, Position, TradeAsset } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -1020,6 +1021,35 @@ export function runPendingCpuTurns(state: LeagueState): boolean {
     }
   }
   return false;
+}
+
+/**
+ * A GM chooses to sit out free agency, or the trade deadline: from here their
+ * own turns are passed for them. Only theirs — and at the deadline, offers made
+ * to them still arrive and wait for their answer.
+ *
+ * If it is their turn right now, it is passed right now, and the event
+ * finishes if that was the last thing it was waiting on.
+ */
+export function decideSkipPreference(
+  state: LeagueState,
+  actor: Actor,
+  kind: "freeAgency" | "tradeDeadline",
+  on: boolean,
+): Decision {
+  if (kind !== "freeAgency" && kind !== "tradeDeadline") throw new ActionError("You can skip free agency or the deadline.");
+  if (!setSkip(state, actor.teamCode, kind, on)) throw new ActionError("You don't have a team.", 403);
+  runPendingCpuTurns(state);
+  const what = kind === "freeAgency" ? "free agency" : "the trade deadline";
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "skip.set",
+        summary: on ? `${city(actor.teamCode)} will sit out ${what}.` : `${city(actor.teamCode)} is back in for ${what}.`,
+      },
+    ],
+  };
 }
 
 /**

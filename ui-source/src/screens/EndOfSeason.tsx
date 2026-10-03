@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import { pressable } from "@/components/bits";
 import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
-import { Card, CardHeader, Footer, Panel, Tabs, useTabs } from "@/components/primitives";
+import { Card, CardHeader, Footer, Panel } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { roundLabelFor, winPct, type PlayoffRound } from "@/domain";
@@ -78,7 +78,6 @@ export function EndOfSeasonAnnounce() {
 export function SeasonComplete() {
   const nav = useNavigate();
   const s = useStore();
-  const { active, setActive } = useTabs("season");
 
   const champ = s.bracket?.champion ?? s.bracket?.matchups.find((m) => m.round === "SB")?.winner ?? null;
   const humanChampGm = s.gms.find((g) => g.isHuman && g.teamCode === champ);
@@ -150,16 +149,9 @@ export function SeasonComplete() {
         badge={viewerGm?.teamCode ? TEAMS_BY_CODE[viewerGm.teamCode]!.abbr : winnerCode ? TEAMS_BY_CODE[winnerCode]!.abbr : leagueBadge(s)}
         title={`End of ${s.season} Season`}
       />
-      <Tabs
-        tabs={[
-          { id: "season", label: "This Season" },
-          { id: "tracker", label: "Score Tracker" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
-
-      <Panel id="season" open={active === "season"}>
+      {/* the season's result and the running score tracker are one story: the
+          season on top, what it did to the standings underneath */}
+      <Panel id="season" open>
         <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             {humanChampGm
@@ -187,7 +179,7 @@ export function SeasonComplete() {
             </p>
           )}
           <p style={{ margin: "16px 0 0", fontSize: 12, color: "var(--ink-faint)" }}>
-            The cross-season score tracker has been updated — see the tab above.
+            The cross-season score tracker has been updated — it&rsquo;s below.
           </p>
         </div>
         {/* the headline is one GM; in a league of several, how the others
@@ -239,9 +231,9 @@ export function SeasonComplete() {
             </tbody>
           </table>
         )}
-      </Panel>
-
-      <Panel id="tracker" open={active === "tracker"}>
+        <p className="subhead" style={{ marginTop: 24 }}>
+          Score tracker
+        </p>
         <ScoreTrackerTable />
       </Panel>
 

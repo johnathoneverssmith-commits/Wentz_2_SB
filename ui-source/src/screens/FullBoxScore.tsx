@@ -6,6 +6,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayerGameLine, type PlayoffRound, type TeamGameTotals } from "@/domain";
 import { useStore } from "@/state/store";
+import { teamInfoFor } from "@/state/teamInfo";
 import { posLabel, seconds, weeksOut } from "@/util/format";
 
 export function FullBoxScore() {
@@ -16,6 +17,7 @@ export function FullBoxScore() {
   const back = useSearchParams()[0].get("back");
   const game = useStore((s) => s.games.find((g) => g.id === gameId));
   const bracket = useStore((s) => s.bracket);
+  const league = useStore();
   const badge = useStore(leagueBadge);
   const { active, setActive } = useTabs("team");
 
@@ -49,6 +51,8 @@ export function FullBoxScore() {
   const injuries = [...(game.injuries ?? [])].sort(
     (a, b) => (b.projectedWeeks[1] ?? 0) - (a.projectedWeeks[1] ?? 0),
   );
+  // each team's rating and record as of this game
+  const info = teamInfoFor(league, league.games, game.phase, game.week);
   const homeMeta = TEAMS_BY_CODE[game.homeTeam]!;
   const awayMeta = TEAMS_BY_CODE[game.awayTeam]!;
 
@@ -56,9 +60,9 @@ export function FullBoxScore() {
     <Card maxWidth={860} twoTeam>
       <div className="header two-team">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <TeamSide meta={homeMeta} score={game.homeScore} won={homeWin} />
+          <TeamSide meta={homeMeta} score={game.homeScore} won={homeWin} info={info(game.homeTeam)} />
           <span style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>–</span>
-          <TeamSide meta={awayMeta} score={game.awayScore} won={!homeWin && !tie} right />
+          <TeamSide meta={awayMeta} score={game.awayScore} won={!homeWin && !tie} right info={info(game.awayTeam)} />
         </div>
         <div className="right">
           <p>
@@ -125,6 +129,15 @@ export function FullBoxScore() {
             <TeamStatRow label="Time of possession" h={seconds(home.topSeconds)} a={seconds(away.topSeconds)} />
             <TeamStatRow label="Penalties" h={`${home.penalties}-${home.penaltyYards}`} a={`${away.penalties}-${away.penaltyYards}`} />
             <TeamStatRow label="Turnovers" h={home.turnovers} a={away.turnovers} />
+            {/* what each defense did: the totals of its players' lines */}
+            {game.playerLines && (
+              <>
+                <TeamStatRow label="Sacks" h={sumOf(game.playerLines.home, "sacks")} a={sumOf(game.playerLines.away, "sacks")} />
+                <TeamStatRow label="Interceptions" h={sumOf(game.playerLines.home, "defInt")} a={sumOf(game.playerLines.away, "defInt")} />
+                <TeamStatRow label="Forced fumbles" h={sumOf(game.playerLines.home, "ffum")} a={sumOf(game.playerLines.away, "ffum")} />
+                <TeamStatRow label="Passes defended" h={sumOf(game.playerLines.home, "passDef")} a={sumOf(game.playerLines.away, "passDef")} />
+              </>
+            )}
           </tbody>
         </table>
       </Panel>
@@ -228,11 +241,13 @@ function TeamSide({
   score,
   won,
   right = false,
+  info,
 }: {
   meta: import("@/domain").TeamMeta;
   score: number;
   won: boolean;
   right?: boolean;
+  info?: string;
 }) {
   return (
     <div style={{ display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 10 }}>
@@ -242,6 +257,7 @@ function TeamSide({
           {score}
         </span>
         <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.6)" }}>{meta.label}</span>
+        {info && <span style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)" }}>{info}</span>}
       </div>
     </div>
   );
@@ -272,6 +288,9 @@ function QuarterRow({ name, q, total }: { name: string; q: number[]; total: numb
   );
 }
 
+const sumOf = (lines: PlayerGameLine[], key: "sacks" | "defInt" | "ffum" | "passDef"): number =>
+  lines.reduce((n, l) => n + (l[key] ?? 0), 0);
+
 function TeamLines({ lines }: { lines: PlayerGameLine[] }) {
   // leaders first, as a box score reads: they came in roster order, which put
   // a 71-yard receiver under a 12-yard one
@@ -281,15 +300,15 @@ function TeamLines({ lines }: { lines: PlayerGameLine[] }) {
   const rush = lines.filter((l) => (l.rushAtt ?? 0) > 0).sort(by((l) => l.rushYds));
   const rec = lines.filter((l) => (l.rec ?? 0) > 0).sort(by((l) => l.recYds));
   const def = lines
-    .filter((l) => (l.tackles ?? 0) > 0 || (l.sacks ?? 0) > 0 || (l.defInt ?? 0) > 0)
-    .sort(by((l) => (l.tackles ?? 0) + 2 * (l.sacks ?? 0) + 3 * (l.defInt ?? 0)));
+    .filter((l) => (l.tackles ?? 0) + (l.sacks ?? 0) + (l.defInt ?? 0) + (l.passDef ?? 0) + (l.ffum ?? 0) > 0)
+    .sort(by((l) => (l.tackles ?? 0) + 2 * (l.sacks ?? 0) + 3 * (l.defInt ?? 0) + 2 * (l.ffum ?? 0) + (l.passDef ?? 0)));
   const kick = lines.filter((l) => (l.fga ?? 0) > 0 || (l.xpa ?? 0) > 0);
   return (
     <>
       <StatGroup title="Passing" rows={pass} cols={[["C/ATT", (l) => `${l.passCmp}/${l.passAtt}`], ["Yds", (l) => l.passYds], ["TD", (l) => l.passTd], ["INT", (l) => l.passInt]]} />
       <StatGroup title="Rushing" rows={rush} cols={[["Att", (l) => l.rushAtt], ["Yds", (l) => l.rushYds], ["TD", (l) => l.rushTd]]} />
       <StatGroup title="Receiving" rows={rec} cols={[["Rec", (l) => l.rec], ["Yds", (l) => l.recYds], ["TD", (l) => l.recTd]]} />
-      <StatGroup title="Defense" rows={def} cols={[["Tkl", (l) => l.tackles], ["Sack", (l) => l.sacks], ["INT", (l) => l.defInt], ["PD", (l) => l.passDef]]} />
+      <StatGroup title="Defense" rows={def} cols={[["Tkl", (l) => l.tackles ?? 0], ["Sack", (l) => l.sacks ?? 0], ["INT", (l) => l.defInt ?? 0], ["FF", (l) => l.ffum ?? 0], ["PD", (l) => l.passDef ?? 0]]} />
       <StatGroup title="Kicking" rows={kick} cols={[["FG", (l) => `${l.fgm ?? 0}/${l.fga ?? 0}`], ["XP", (l) => `${l.xpm ?? 0}/${l.xpa ?? 0}`]]} />
     </>
   );
