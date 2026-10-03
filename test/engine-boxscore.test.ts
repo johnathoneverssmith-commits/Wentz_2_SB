@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { clock } from "../src/engine/boxscore.js";
 import { formatBoxScore } from "../src/engine/report.js";
 import { boxScoreFor, playWeek, startSeason } from "../src/engine/season.js";
@@ -21,7 +21,7 @@ describe("clock", () => {
   });
 });
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("boxScoreFor", () => {
   const p0 = startSeason(4, { year: 2026 });

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { roundRobinSchedule, rosterStrength, simulateSeason } from "../src/engine/season.js";
 import { teamList } from "../src/engine/roster.js";
 
@@ -58,7 +58,7 @@ describe("roundRobinSchedule (pool-independent)", () => {
   });
 });
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("simulateSeason (needs the generated pool)", () => {
   const teams = teamList();

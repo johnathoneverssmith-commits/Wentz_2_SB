@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { NFL_TEAMS } from "../src/engine/nfl-structure.js";
 import {
   finishPlayoffs,
@@ -30,7 +30,7 @@ const SEEDING = {
   NFC: mkSeeding(["DET", "PHI", "TB", "LA", "MIN", "GB", "SEA"]),
 };
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("playoff stepper", () => {
   it("emits 6 / 4 / 2 / 1 games across the four rounds", { timeout: 60_000 }, () => {

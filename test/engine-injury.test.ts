@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import type { Player } from "../src/schema/player.js";
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { type InjuryPlayContext, makeInjury } from "../src/engine/injury.js";
 import { Rng } from "../src/engine/rng.js";
 import { simulateGame } from "../src/engine/sim.js";
@@ -90,7 +90,7 @@ describe("makeInjury (pool-free)", () => {
   });
 });
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("injuries + trace in simulateGame", () => {
   it("the trace adds no RNG — a trace-only game scores exactly like a plain one", { timeout: 60_000 }, () => {

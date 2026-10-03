@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { NFL_TEAMS } from "../src/engine/nfl-structure.js";
 import {
   finishSeason,
@@ -50,7 +50,7 @@ describe("season loop — structure (pool-free)", () => {
   });
 });
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("season loop — with the pool", () => {
   it("week-by-week reaches the same result as simulateNflSeason", { timeout: 240_000 }, () => {

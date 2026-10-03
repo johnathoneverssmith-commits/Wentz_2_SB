@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { NFL_TEAMS } from "../src/engine/nfl-structure.js";
 import { simulateGame } from "../src/engine/sim.js";
 import {
@@ -82,7 +82,7 @@ describe("staff shift math (pool-free)", () => {
   });
 });
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("staff in simulateGame", () => {
   const avg = leagueAverageStaff();

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import type { Player } from "../src/schema/player.js";
 import {
   completionLogitShift,
@@ -42,7 +42,7 @@ describe("ratings.familyModifier (synthetic, pool-independent)", () => {
 });
 
 // The pool file is git-ignored (large); roster-dependent checks only run locally.
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 describe.runIf(hasPool)("ratings — against the live pool", () => {
   it("§12 offsets match the Python reference", () => {
     const got = offsets();

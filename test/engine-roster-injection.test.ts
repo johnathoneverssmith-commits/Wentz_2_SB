@@ -3,11 +3,11 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import type { Player } from "../src/schema/player.js";
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { Roster } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 /**
  * `simulateGame`'s `homeRoster`/`awayRoster` override — lets a caller (the

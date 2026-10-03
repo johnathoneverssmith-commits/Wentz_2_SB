@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import type { Player } from "../src/schema/player.js";
 import {
   familyModifier,
@@ -118,7 +118,7 @@ describe("M21 punter families (familyModifier, pool-independent)", () => {
 // The pool file is git-ignored (large); roster-dependent shift-function
 // checks (which run through centered()/offsets(), needing all 32 rosters)
 // only run locally, matching engine-ratings.test.ts's convention.
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 describe.runIf(hasPool)("M21 punter shift functions — against the live pool", () => {
   it("§12 offsets exist for every punt family and are small (an average matchup nets ~0)", () => {
     const off = offsets();

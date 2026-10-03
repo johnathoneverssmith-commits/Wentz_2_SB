@@ -31,9 +31,20 @@ export const SAMPLE_POOL_PATH = dataFile("players_sample.json");
  */
 export const LOCAL_POOL_PATH = dataFile("players.local.json");
 
-/** The local pool if present, otherwise the committed sample. */
+/**
+ * `NFL_POOL_PATH`, if it names a file; otherwise the local pool if present,
+ * otherwise the committed sample. The override is how a machine without the
+ * git-ignored local pool (CI) runs the engine tests on a full league.
+ */
 export function resolveDefaultPoolPath(): string {
+  const override = process.env.NFL_POOL_PATH;
+  if (override && existsSync(override)) return override;
   return existsSync(LOCAL_POOL_PATH) ? LOCAL_POOL_PATH : SAMPLE_POOL_PATH;
+}
+
+/** Whether a full league's pool is available — the local one, or the override. */
+export function hasFullPool(): boolean {
+  return resolveDefaultPoolPath() !== SAMPLE_POOL_PATH;
 }
 
 export interface LoadOptions {

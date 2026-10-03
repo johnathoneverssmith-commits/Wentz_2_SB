@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { NFL_TEAMS, conferenceOf } from "../src/engine/nfl-structure.js";
 import { formatSeasonReport, formatStandingsCompact } from "../src/engine/report.js";
 import { simulateNflSeason } from "../src/engine/season.js";
@@ -13,7 +13,7 @@ import { simulateNflSeason } from "../src/engine/season.js";
  * roster), so it is skipped on a bare checkout.
  */
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("simulateNflSeason", () => {
   const season = simulateNflSeason(7, { year: 2025 });

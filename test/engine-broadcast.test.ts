@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { LOCAL_POOL_PATH } from "../src/data/players.js";
+import { hasFullPool } from "../src/data/players.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import { NFL_TEAMS } from "../src/engine/nfl-structure.js";
 
@@ -11,7 +11,7 @@ import { NFL_TEAMS } from "../src/engine/nfl-structure.js";
  * sims a real game with the trace + injuries on.
  */
 
-const hasPool = existsSync(LOCAL_POOL_PATH);
+const hasPool = hasFullPool();
 
 describe.runIf(hasPool)("broadcastGame", () => {
   const b = broadcastGame(5, "KC", "BUF");
