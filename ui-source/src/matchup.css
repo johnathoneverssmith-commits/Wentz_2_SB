@@ -1,0 +1,102 @@
+/* ---- matchup board: one grid, so every number sits under its team --------- */
+.mgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 96px;
+  column-gap: 8px;
+  align-items: center;
+}
+@media (max-width: 520px) {
+  .mgrid {
+    grid-template-columns: minmax(0, 1fr) 72px 72px;
+    column-gap: 4px;
+  }
+}
+.mhead {
+  padding: 4px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.mhead .mteam {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  min-width: 0;
+}
+.mhead .mteam strong {
+  font-size: 13px;
+  line-height: 1.2;
+}
+.mhead .mteam small {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.mhead .mwhen {
+  color: var(--ink-faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.mhead .mwhen b {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+.mbar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 14px 0 6px;
+  background: var(--panel-sunken);
+}
+.mbar > span {
+  display: block;
+  min-width: 2px;
+}
+.mbarlabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.mbarlabels .oswald {
+  font-size: 15px;
+  color: var(--ink);
+}
+.mrow {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.mrow:last-child {
+  border-bottom: none;
+}
+.mrow .mlabel {
+  color: var(--ink-dim);
+  min-width: 0;
+}
+.mrow .mlabel small {
+  display: block;
+  font-size: 11px;
+  margin-top: 1px;
+}
+.mrow .mval {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 0;
+  border-radius: var(--r-sm);
+  color: var(--ink-dim);
+}
+.mrow .mval.fav {
+  color: var(--good);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--good) 14%, transparent);
+}
+.msection {
+  margin: 20px 0 2px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}

@@ -2,10 +2,9 @@ import { LeagueWire } from "@/components/LeagueWire";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
-import { UnitMatchups } from "@/components/UnitMatchups";
+import { MatchupBoard } from "@/components/MatchupBoard";
 import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
@@ -50,7 +49,10 @@ const favWinProb = (
 
 export function WeeklyTeamHub() {
   const nav = useNavigate();
-  const { active, setActive } = useTabs("overview");
+  // a game week opens on the matchup; the offseason, and a bye, on the overview
+  const { active, setActive } = useTabs(
+    useStore.getState().stage === "preseason" || useStore.getState().stage === "regularSeason" ? "matchup" : "overview",
+  );
   const s = useStore();
   const simulateGameDay = useStore((st) => st.simulateGameDay);
 
@@ -169,6 +171,8 @@ export function WeeklyTeamHub() {
   })();
 
   const notes = watchNotes(s);
+  // no game this week (a bye, the offseason): the matchup tab isn't offered
+  const tab = active === "matchup" && !oppCode ? "overview" : active;
   const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
   return (
@@ -270,19 +274,21 @@ export function WeeklyTeamHub() {
       )}
       <Tabs
         tabs={[
-          { id: "overview", label: "Overview" },
-          { id: "matchup", label: "Matchup" },
+          // the game is what this screen is for in a season; the league's
+          // overview is the last stop
+          ...(oppCode ? [{ id: "matchup", label: "Matchup" }] : []),
           ...(single ? [] : [{ id: "division", label: "Division Standings" }]),
           { id: "league", label: "League Standings" },
           // a solo dynasty has one human GM: a standings table of one
           ...(gmRows.length > 1 ? [{ id: "gms", label: "GM Standings" }] : []),
           { id: "injuries", label: "Injuries" },
+          { id: "overview", label: "Overview" },
         ]}
-        active={active}
+        active={tab}
         onChange={setActive}
       />
 
-      <Panel id="overview" open={active === "overview"}>
+      <Panel id="overview" open={tab === "overview"}>
         {code && <ExpiringContracts teamCode={code} />}
         {/* inert in a single-player dynasty; the component decides */}
         <LeagueRoster />
@@ -332,63 +338,35 @@ export function WeeklyTeamHub() {
         </div>
       </Panel>
 
-      <Panel id="matchup" open={active === "matchup"}>
+      <Panel id="matchup" open={tab === "matchup"}>
         {oppCode && opp ? (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <div style={{ textAlign: "center" }}>
-                <TeamBadge code={code} size={40} />
-                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600 }}>{meta.label}</p>
-                <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{record(team)}{iHost ? " · home" : " · away"}</p>
-              </div>
-              <div style={{ textAlign: "center", fontSize: 12, color: "var(--ink-faint)" }}>
-                <div>{isPreseason ? `Preseason Wk ${headerWeek}` : `Week ${headerWeek}`}</div>
-                <div className="oswald" style={{ fontSize: 15, marginTop: 4 }}>
-                  {winProb}% – {100 - winProb}%
-                </div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <TeamBadge code={oppCode} size={40} />
-                <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 600 }}>{TEAMS_BY_CODE[oppCode]!.label}</p>
-                <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{record(opp)}{iHost ? " · away" : " · home"}</p>
-              </div>
-            </div>
-            <table className="stbl">
-              <thead>
-                <tr>
-                  <th>Metric</th>
-                  <th className="c">{meta.abbr}</th>
-                  <th className="c">{TEAMS_BY_CODE[oppCode]!.abbr}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <MatchRow label="Team overall" a={team.ratings.overall} b={opp.ratings.overall} higherBetter />
-                {/* the same engine-weighted ranks as Unit ranks on the overview —
-                    the stored ones disagreed with it by a place or two */}
-                <MatchRow label="Offense rank" a={sides[code]?.offenseRank ?? team.ratings.offenseRank} b={sides[oppCode]?.offenseRank ?? opp.ratings.offenseRank} higherBetter={false} rank />
-                <MatchRow label="Defense rank" a={sides[code]?.defenseRank ?? team.ratings.defenseRank} b={sides[oppCode]?.defenseRank ?? opp.ratings.defenseRank} higherBetter={false} rank />
-                <MatchRow label="Special teams rank" a={team.ratings.specialTeamsRank} b={opp.ratings.specialTeamsRank} higherBetter={false} rank />
-                <MatchRow label="Win probability" a={winProb} b={100 - winProb} higherBetter suffix="%" />
-              </tbody>
-            </table>
-            <p style={{ margin: "10px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
-              Green marks the team favored in that row.
-            </p>
-            {active === "matchup" && <UnitMatchups teamCode={code} oppCode={oppCode} />}
-          </>
+          <MatchupBoard
+            when={isPreseason ? `Preseason Wk ${headerWeek}` : `Week ${headerWeek}`}
+            me={{ code, record: record(team), site: iHost ? "home" : "away" }}
+            them={{ code: oppCode, record: record(opp), site: iHost ? "away" : "home" }}
+            winProb={winProb}
+            metrics={[
+              { label: "Team overall", a: team.ratings.overall, b: opp.ratings.overall },
+              // the same engine-weighted ranks as Unit ranks on the overview —
+              // the stored ones disagreed with it by a place or two
+              { label: "Offense rank", rank: true, a: sides[code]?.offenseRank ?? team.ratings.offenseRank, b: sides[oppCode]?.offenseRank ?? opp.ratings.offenseRank },
+              { label: "Defense rank", rank: true, a: sides[code]?.defenseRank ?? team.ratings.defenseRank, b: sides[oppCode]?.defenseRank ?? opp.ratings.defenseRank },
+              { label: "Special teams rank", rank: true, a: team.ratings.specialTeamsRank, b: opp.ratings.specialTeamsRank },
+            ]}
+          />
         ) : (
           <div className="emptystate">{phase ? "Bye week — no matchup." : "No game this week — the league is in the offseason."}</div>
         )}
       </Panel>
 
-      <Panel id="division" open={active === "division"}>
+      <Panel id="division" open={tab === "division"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           {meta.conference} {meta.division}
         </p>
         <StandingsTable s={s} codes={divCodes} me={code} />
       </Panel>
 
-      <Panel id="league" open={active === "league"}>
+      <Panel id="league" open={tab === "league"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           {single ? "League — playoff seeding" : `${meta.conference} — playoff seeding`}
         </p>
@@ -400,7 +378,7 @@ export function WeeklyTeamHub() {
         </p>
       </Panel>
 
-      <Panel id="gms" open={active === "gms"}>
+      <Panel id="gms" open={tab === "gms"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           Human GM standings
         </p>
@@ -445,7 +423,7 @@ export function WeeklyTeamHub() {
         </div>
       </Panel>
 
-      <Panel id="injuries" open={active === "injuries"}>
+      <Panel id="injuries" open={tab === "injuries"}>
         <p className="subhead" style={{ marginTop: 0 }}>
           Your team
         </p>
@@ -739,33 +717,6 @@ function UnitCard({ label, rank, rating, of }: { label: string; rank: number; ra
         <div style={{ height: "100%", background: "var(--team)", borderRadius: 3, width: `${pct}%` }} />
       </div>
     </div>
-  );
-}
-
-function MatchRow({
-  label,
-  a,
-  b,
-  higherBetter,
-  rank = false,
-  suffix = "",
-}: {
-  label: string;
-  a: number;
-  b: number;
-  higherBetter: boolean;
-  rank?: boolean;
-  suffix?: string;
-}) {
-  const aFav = higherBetter ? a > b : a < b;
-  const bFav = higherBetter ? b > a : b < a;
-  const fmt = (n: number) => (rank ? ordinal(n) : `${n}${suffix}`);
-  return (
-    <tr>
-      <td>{label}</td>
-      <td className={`c ${aFav ? "fav" : "und"}`}>{fmt(a)}</td>
-      <td className={`c ${bFav ? "fav" : "und"}`}>{fmt(b)}</td>
-    </tr>
   );
 }
 

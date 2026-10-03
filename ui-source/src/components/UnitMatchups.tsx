@@ -35,20 +35,21 @@ export function UnitMatchups({ teamCode, oppCode }: { teamCode: string; oppCode:
   const opp = TEAMS_BY_CODE[oppCode]?.abbr ?? oppCode;
 
   return (
-    <div style={{ marginTop: 18 }}>
-      <p className="subhead">Unit matchups</p>
-      <div style={{ display: "grid", gap: 6 }}>
+    <div>
+      <div className="msection">Where the game is won</div>
+      <div>
         {rows.map((r) => {
           const edge = r.a - r.b;
-          const tone = edge >= 3 ? "var(--good)" : edge <= -3 ? "var(--bad)" : "var(--ink-dim)";
+          const tone = edge >= 3 ? "var(--good)" : edge <= -3 ? "var(--bad)" : "var(--ink-faint)";
           const word = edge >= 3 ? "edge you" : edge <= -3 ? `edge ${opp}` : "even";
           return (
-            <div key={r.label} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 10, fontSize: 12, alignItems: "center" }}>
-              <span>{r.label}</span>
-              <span className="oswald" style={{ fontSize: 13 }}>
-                {Math.round(r.a)} – {Math.round(r.b)}
+            <div key={r.label} className="mrow mgrid">
+              <span className="mlabel">
+                {r.label}
+                <small style={{ color: tone, fontWeight: 600 }}>{word}</small>
               </span>
-              <span style={{ color: tone, fontWeight: 600, minWidth: 64, textAlign: "right" }}>{word}</span>
+              <span className={`mval ${edge >= 3 ? "fav" : ""}`}>{Math.round(r.a)}</span>
+              <span className={`mval ${edge <= -3 ? "fav" : ""}`}>{Math.round(r.b)}</span>
             </div>
           );
         })}
