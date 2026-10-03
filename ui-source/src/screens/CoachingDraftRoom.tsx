@@ -21,6 +21,7 @@ import {
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
+import { posLabel } from "@/util/format";
 
 /**
  * The coaching fantasy draft.
@@ -366,7 +367,7 @@ function CoachRow({
         <p className="lobby-sub">
           {COACH_ROLE_LABEL[coach.role]}
           {coach.scheme ? ` · ${SCHEME_LABEL[coach.scheme]}` : ""}
-          {group && group.length > 0 ? ` · develops ${group.join(", ")}` : ""}
+          {group && group.length > 0 ? ` · develops ${group.map(posLabel).join(", ")}` : ""}
           {coach.role === "MED" ? " · injury recovery for everyone" : ""}
         </p>
       </div>

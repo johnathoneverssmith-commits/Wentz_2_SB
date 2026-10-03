@@ -6,7 +6,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import { leagueDevelopmentsFor, swindleLineFor, type LeagueDevelopmentEntry } from "@/state/hoodedFigure";
 import type { CoachingChange } from "@/state/coachingCarousel";
 import { useStore } from "@/state/store";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 function teamName(code: string): string {
   return TEAMS_BY_CODE[code]?.name ?? code;
@@ -49,7 +49,7 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
         <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
           {o.playerChanges.map((c) => (
             <div key={c.playerId} style={{ fontSize: 12.5 }}>
-              <strong>{c.name}</strong> — {c.position} — OVR {c.before} → <strong>{c.after}</strong>
+              <strong>{c.name}</strong> — {posLabel(c.position)} — OVR {c.before} → <strong>{c.after}</strong>
             </div>
           ))}
         </div>
@@ -59,7 +59,7 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
         <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
           {o.negativePlayers.map((p) => (
             <div key={p.playerId} style={{ fontSize: 12.5 }}>
-              <strong>{p.name}</strong> — {p.position} — OVR {p.overall}
+              <strong>{p.name}</strong> — {posLabel(p.position)} — OVR {p.overall}
               <br />
               <span style={{ color: "var(--ink-faint)" }}>
                 Unavailable: {o.absenceWeeks == null ? "rest of season" : `${o.absenceWeeks} week${o.absenceWeeks === 1 ? "" : "s"}`}
@@ -118,7 +118,7 @@ export function LeagueDevelopments() {
               <div key={h.playerId} style={{ fontSize: 12.5 }}>
                 <strong>{h.name}</strong>{" "}
                 <span style={{ color: "var(--ink-dim)" }}>
-                  {h.position} · {h.seasons} seasons · {h.why}
+                  {posLabel(h.position)} · {h.seasons} seasons · {h.why}
                 </span>
               </div>
             ))}

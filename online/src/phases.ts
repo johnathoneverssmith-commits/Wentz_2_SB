@@ -24,7 +24,7 @@ import { checkTrade,
 import { generateAiTradeOffers } from "@/state/aiTrades.ts";
 import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { andList } from "@/util/format";
+import { andList, posLabel } from "@/util/format";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
 import { resolveTransition, STAGE_LABEL } from "@/state/stageMachine.ts";
 import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tradeDeadline.ts";
@@ -336,7 +336,7 @@ function finalizeSeasonNoting(state: LeagueState): void {
   for (const [id, team] of before) {
     const p = state.players[id];
     if (!p || !p.free_agent) continue;
-    gone.set(team, [...(gone.get(team) ?? []), { name: `${p.name} (${p.position} ${p.overall})`, overall: p.overall }]);
+    gone.set(team, [...(gone.get(team) ?? []), { name: `${p.name} (${posLabel(p.position)} ${p.overall})`, overall: p.overall }]);
   }
   for (const [team, list] of gone) {
     // the best of them by name; a deep roster can lose fifteen at once
@@ -721,7 +721,7 @@ function reportStaffMoves(state: LeagueState, when: string, run: () => void): vo
       const named = ps
         .filter((p): p is { name: string; position: string; overall: number } => !!p)
         .sort((a, b) => b.overall - a.overall);
-      const shown = named.slice(0, 5).map((p) => `${p.name} (${p.position} ${p.overall})`);
+      const shown = named.slice(0, 5).map((p) => `${p.name} (${posLabel(p.position)} ${p.overall})`);
       return named.length > 5 ? `${shown.join(", ")} and ${named.length - 5} more` : shown.join(", ");
     };
     const parts = [

@@ -10,7 +10,7 @@ import { reconciliationIssues, rosterOf } from "@/state/reconciliation";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { tradesFor, type ResolvedOffer } from "@/state/tradeDeadline";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 /**
  * What the deadline did, from one GM's side.
@@ -130,7 +130,7 @@ function TradeList({ offers, empty }: { offers: ResolvedOffer[]; empty: string }
       return a.pick.originalTeam === sender ? `${a.pick.year + 1} Round ${a.pick.round}` : tradedPickLabel(a.pick);
     }
     const p = s.players[a.playerId ?? ""];
-    return p ? `${p.name} (${p.position} ${p.overall})` : "—";
+    return p ? `${p.name} (${posLabel(p.position)} ${p.overall})` : "—";
   };
 
   return (

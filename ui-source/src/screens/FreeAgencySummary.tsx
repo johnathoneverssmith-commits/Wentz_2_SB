@@ -24,7 +24,7 @@ import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { recentNews } from "@/state/online";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import { andList, millions } from "@/util/format";
+import { andList, millions, posLabel } from "@/util/format";
 
 /**
  * How free agency went, and the bill.
@@ -185,7 +185,7 @@ export function FreeAgencySummary() {
                 <div>
                   <p className="pname">
                     {p?.name ?? sig.playerId}
-                    <span className="ppos">{p?.position}</span>
+                    <span className="ppos">{posLabel(p?.position)}</span>
                   </p>
                   <p className="lobby-sub">
                     Round {sig.round} · {millions(sig.salary)}/yr × {sig.years}y
@@ -213,7 +213,7 @@ export function FreeAgencySummary() {
                 <div>
                   <p className="pname">
                     {p?.name ?? playerId}
-                    <span className="ppos">{p?.position}</span>
+                    <span className="ppos">{posLabel(p?.position)}</span>
                   </p>
                   <p className="lobby-sub">
                     Went to {TEAMS_BY_CODE[won.teamCode]?.label ?? won.teamCode} ·{" "}
@@ -259,7 +259,7 @@ export function FreeAgencySummary() {
                   return (
                     <tr key={`${sig.playerId}-${i}`} className={sig.teamCode === code ? "highlight" : ""}>
                       <td className="name">{p?.name ?? sig.playerId}</td>
-                      <td className="c">{p?.position}</td>
+                      <td className="c">{posLabel(p?.position)}</td>
                       <td>{TEAMS_BY_CODE[sig.teamCode]?.abbr ?? sig.teamCode}</td>
                       <td className="c">{millions(sig.salary)}</td>
                       <td className="c">{sig.years}</td>
@@ -285,7 +285,7 @@ export function FreeAgencySummary() {
               <div>
                 <p className="pname">
                   {p.name}
-                  <span className="ppos">{p.position}</span>
+                  <span className="ppos">{posLabel(p.position)}</span>
                 </p>
                 <p className="lobby-sub">
                   Age {p.age} · was asking {millions(expectedSalary(p))}/yr
@@ -353,7 +353,7 @@ export function FreeAgencySummary() {
                 <div>
                   <p className="pname">
                     {p.name}
-                    <span className="ppos">{p.position}</span>
+                    <span className="ppos">{posLabel(p.position)}</span>
                   </p>
                   <p className="lobby-sub">
                     {millions(p.contract?.cap_hit_by_year[0] ?? 0)}/yr ·{" "}
@@ -363,7 +363,7 @@ export function FreeAgencySummary() {
                       ? ` · releasing frees ${millions(Math.round(((p.contract?.cap_hit_by_year[0] ?? 0) - releasePenalty(p)) * 10) / 10)} (${millions(releasePenalty(p))} dead)`
                       : ` · ${can.reason}`}
                     {can.ok && lastBackup(p.position) && (
-                      <strong style={{ color: "var(--bad)" }}> · leaves no backup {p.position}</strong>
+                      <strong style={{ color: "var(--bad)" }}> · leaves no backup {posLabel(p.position)}</strong>
                     )}
                   </p>
                 </div>
@@ -408,7 +408,7 @@ export function FreeAgencySummary() {
               const cuts = planStaffTrim(useStore.getState(), code);
               const short = issues.some((i) => i.kind === "position");
               const cost = Math.round(cuts.reduce((n, p) => n + releasePenalty(p), 0) * 10) / 10;
-              const list = cuts.map((p) => `${p.name} (${p.position} ${p.overall})`).join(", ");
+              const list = cuts.map((p) => `${p.name} (${posLabel(p.position)} ${p.overall})`).join(", ");
               const plan = [
                 cuts.length > 0 ? `release ${list} — ${millions(cost)} of dead money` : "",
                 // a hole at a position can't be cut away: the staff signs a
@@ -431,8 +431,8 @@ export function FreeAgencySummary() {
                     .map((id) => useStore.getState().players[id]);
                   const added = now.filter((p) => !had.has(p.id));
                   const parts: string[] = [];
-                  if (gone.length > 0) parts.push(`Your staff released ${gone.map((p) => (p ? `${p.name} (${p.position} ${p.overall})` : "a player")).join(", ")}.`);
-                  if (added.length > 0) parts.push(`It signed ${added.map((p) => `${p.name} (${p.position} ${p.overall})`).join(", ")}.`);
+                  if (gone.length > 0) parts.push(`Your staff released ${gone.map((p) => (p ? `${p.name} (${posLabel(p.position)} ${p.overall})` : "a player")).join(", ")}.`);
+                  if (added.length > 0) parts.push(`It signed ${added.map((p) => `${p.name} (${posLabel(p.position)} ${p.overall})`).join(", ")}.`);
                   if (!res.ok) parts.push(res.reason ?? "The staff couldn't finish.");
                   setTrimNote(parts.join(" ") || null);
                 })

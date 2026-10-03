@@ -2,6 +2,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import type { LeagueState } from "@/domain";
 import { roundLabelFor } from "@/domain";
 import { AWARD_LABEL, RECORD_LABEL, type SeasonAward } from "@/state/seasonAwards";
+import { posLabel } from "@/util/format";
 
 const abbr = (code: string | null | undefined) => (code ? (TEAMS_BY_CODE[code]?.abbr ?? code) : "—");
 
@@ -106,7 +107,7 @@ export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: strin
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "2px 16px" }}>
             {allPro.map((a) => (
               <div key={a.playerId} style={{ fontSize: 12.5 }}>
-                <span style={{ color: "var(--ink-faint)", display: "inline-block", minWidth: 42 }}>{a.position}</span>
+                <span style={{ color: "var(--ink-faint)", display: "inline-block", minWidth: 42 }}>{posLabel(a.position)}</span>
                 {a.name} <span style={{ color: "var(--ink-faint)" }}>{abbr(a.team)}</span>
               </div>
             ))}
@@ -148,7 +149,7 @@ export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: strin
             <div key={h.playerId} style={row}>
               <strong>{h.name}</strong>
               <span style={{ color: "var(--ink-dim)" }}>
-                {h.position} · {h.seasons} seasons · {h.why} · inducted {h.inducted}
+                {posLabel(h.position)} · {h.seasons} seasons · {h.why} · inducted {h.inducted}
               </span>
             </div>
           ))}
@@ -168,7 +169,7 @@ export function SeasonAwardsList({ awards }: { awards: SeasonAward[] }) {
           <span style={{ color: "var(--ink-faint)", minWidth: 200 }}>{AWARD_LABEL[a.award]}</span>
           <strong>{a.name}</strong>
           <span style={{ color: "var(--ink-dim)" }}>
-            {a.position} · {abbr(a.team)}
+            {posLabel(a.position)} · {abbr(a.team)}
           </span>
         </div>
       ))}

@@ -6,7 +6,7 @@ import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/compon
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayerGameLine, type PlayoffRound, type TeamGameTotals } from "@/domain";
 import { useStore } from "@/state/store";
-import { seconds, weeksOut } from "@/util/format";
+import { posLabel, seconds, weeksOut } from "@/util/format";
 
 export function FullBoxScore() {
   const { gameId } = useParams();
@@ -181,7 +181,7 @@ export function FullBoxScore() {
           <div key={`${e.playerId}-${i}`} className="neg-row">
             <div>
               <span className="pname">
-                {e.player} <span className="ppos">{e.position}</span>
+                {e.player} <span className="ppos">{posLabel(e.position)}</span>
               </span>
               <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
                 {TEAMS_BY_CODE[e.team]?.abbr ?? e.team} · Q{e.quarter} {e.clock} · {e.bodyPart}
@@ -323,7 +323,7 @@ function StatGroup({
           {rows.map((l) => (
             <tr key={l.playerId + title}>
               <td className="name">
-                {l.name} <span className="pos">{l.position}</span>
+                {l.name} <span className="pos">{posLabel(l.position)}</span>
               </td>
               {cols.map(([h, fn]) => (
                 <td className="r" key={h}>

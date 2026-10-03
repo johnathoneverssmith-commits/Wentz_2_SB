@@ -94,3 +94,12 @@ export function weeksOut(range: readonly [number, number] | readonly number[], l
   const unit = (n: number) => (long ? (n === 1 ? "week" : "weeks") : n === 1 ? "wk" : "wks");
   return a === b ? `${a} ${unit(a)}` : `${a}–${b} ${unit(b)}`;
 }
+
+/**
+ * How a position reads on screen. The data says ILB because the pool also has
+ * two OLBs, but a league with no outside linebackers has no use for the
+ * "I": it just reads as a typo, so the screens say LB.
+ */
+export function posLabel<T extends string | null | undefined>(position: T): T {
+  return (position === "ILB" ? "LB" : position) as T;
+}

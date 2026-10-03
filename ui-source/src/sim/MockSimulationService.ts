@@ -87,6 +87,7 @@ import type {
   SimulationService,
   TradeEvaluation,
 } from "./SimulationService.ts";
+import { posLabel } from "@/util/format";
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -1169,7 +1170,7 @@ export class MockSimulationService implements SimulationService {
           playerId: p.id,
           decision: retiring ? "retiring" : "returning",
           reason: retiring
-            ? `Age ${p.age} vs ${p.position} norm ${baseNorm}${
+            ? `Age ${p.age} vs ${posLabel(p.position)} norm ${baseNorm}${
                 reduction >= 0.5 ? ` (effective ${norm.toFixed(1)} after injury history)` : ""
               }${p.injury_history.length ? `, ${p.injury_history.length} prior injuries` : ""}`
             : `Age ${p.age}, wants another year`,

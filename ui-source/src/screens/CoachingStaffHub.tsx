@@ -10,7 +10,7 @@ import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, DEVELOPMENT_ROLES
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 const sim = new HybridSimulationService();
 // the twelve-role table now lives in the domain, with the position groups
@@ -197,7 +197,7 @@ function NormalHub({ code }: { code: string | undefined }) {
             {fitRows.map(({ p, fit }) => (
               <tr key={p.id}>
                 <td className="name">{p.name}</td>
-                <td className="c">{p.position}</td>
+                <td className="c">{posLabel(p.position)}</td>
                 <td className="c" style={{ fontWeight: 600, color: fit >= 75 ? "var(--good)" : fit >= 60 ? "var(--notice)" : "var(--bad)" }}>
                   {fit}%
                 </td>

@@ -19,7 +19,7 @@ import { pickTradeValue } from "@/sim/MockSimulationService";
 import { checkTrade, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
-import { ordinal } from "@/util/format";
+import { ordinal, posLabel } from "@/util/format";
 
 const sim = new MockSimulationService();
 
@@ -657,7 +657,7 @@ export function TradeColumn({
               {...pressable(() => onToggle(p.id))}
               aria-pressed={on}
               // the row's text ran together as "96Xander JenningsWR+"
-              aria-label={`${on ? "Remove" : "Add"} ${p.name}${p.position !== "PICK" ? `, ${p.position} ${p.overall}` : ""}`}
+              aria-label={`${on ? "Remove" : "Add"} ${p.name}${p.position !== "PICK" ? `, ${posLabel(p.position)} ${p.overall}` : ""}`}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -678,7 +678,7 @@ export function TradeColumn({
               <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
                 {p.name}
                 {/* a pick's "position" is only there to drive the filter */}
-                {p.position !== "PICK" && <span className="ppos"> {p.position}</span>}
+                {p.position !== "PICK" && <span className="ppos"> {posLabel(p.position)}</span>}
               </span>
               <span style={{ fontSize: 13, color: on ? "var(--bad)" : "var(--good)" }}>{on ? "×" : "+"}</span>
             </div>

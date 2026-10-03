@@ -1,3 +1,4 @@
+import { posLabel } from "@/util/format";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { isHumansOnly, seasonShape } from "./leagueFormat";
 import type { GameResult, LeagueState, Player, ScheduledGame } from "@/domain";
@@ -190,7 +191,7 @@ export function watchNotes(
         gmId: g.id,
         gmName: g.id === s.viewerGmId ? "You" : g.name,
         teamCode: g.teamCode,
-        player: player ? `${player.name} (${player.position})` : "the roster",
+        player: player ? `${player.name} (${posLabel(player.position)})` : "the roster",
         note,
       };
     });

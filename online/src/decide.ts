@@ -82,6 +82,7 @@ import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
 import { MockSimulationService } from "@/sim/MockSimulationService";
+import { posLabel } from "@/util/format";
 
 const tradeJudge = new MockSimulationService();
 
@@ -133,7 +134,7 @@ export function decideSignFreeAgent(
       {
         teamCode: actor.teamCode,
         kind: "fa.signed",
-        summary: `${city(actor.teamCode)} signed ${p.name} (${p.position}) for $${offer.baseSalary.toFixed(1)}M a year.`,
+        summary: `${city(actor.teamCode)} signed ${p.name} (${posLabel(p.position)}) for $${offer.baseSalary.toFixed(1)}M a year.`,
         detail: { playerId },
       },
     ],
@@ -815,7 +816,7 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   reconcileCpuTeam(state, actor.teamCode);
   recomputeTeamRatings(state);
   const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
-  const named = (ps: { name: string; position: string }[]) => ps.map((p) => `${p.name} (${p.position})`).join(", ");
+  const named = (ps: { name: string; position: string }[]) => ps.map((p) => `${p.name} (${posLabel(p.position)})`).join(", ");
   const signed = after.filter((p) => !before.has(p.id));
   const cut = [...before].filter((id) => !after.some((p) => p.id === id)).map((id) => state.players[id]).filter((p) => !!p);
   const left = reconciliationIssues(state, actor.teamCode).length;
@@ -850,7 +851,7 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
       {
         teamCode: actor.teamCode,
         kind: "roster.released",
-        summary: `${city(actor.teamCode)} released ${p.name} (${p.position}).`,
+        summary: `${city(actor.teamCode)} released ${p.name} (${posLabel(p.position)}).`,
         detail: { playerId },
       },
     ],

@@ -21,7 +21,7 @@ import { useLeagueActions } from "@/state/useLeagueActions";
 
 import { TradeColumn } from "./TradeProposal";
 import { MockSimulationService } from "@/sim/MockSimulationService";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 const sim = new MockSimulationService();
 
@@ -562,7 +562,7 @@ function Package({ title, assets }: { title: string; assets: DeadlineOffer["from
         return (
           <div key={p.id} className="neg-row">
             <span className="pname">
-              {p.name} <span className="ppos">{p.position}</span>
+              {p.name} <span className="ppos">{posLabel(p.position)}</span>
               {/* a deadline deal is a contract as much as a player — the
                   offer used to show neither his age nor what he's owed */}
               <span style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>
@@ -595,7 +595,7 @@ function RecentActivity({ resolved }: { resolved: TradeDeadlineState["resolved"]
           ? tradedPickLabel(a.pick)
           : (() => {
               const p = players[a.playerId ?? ""];
-              return p ? `${p.name} (${p.position})` : "a player";
+              return p ? `${p.name} (${posLabel(p.position)})` : "a player";
             })(),
       )
       .join(", ") || "nothing";

@@ -12,7 +12,7 @@ import { onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 const sim = new MockSimulationService();
 
@@ -135,11 +135,11 @@ export function RetirementReview() {
                 <>
                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     <p className="pname">
-                      {p.name} <span className="ppos">{p.position}</span>
+                      {p.name} <span className="ppos">{posLabel(p.position)}</span>
                     </p>
                     <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
                       {starting.has(p.id) && <strong style={{ color: "var(--bad)" }}>Starter · </strong>}
-                      Age {p.age} · typical {p.position} retirement {RETIREMENT_AGE[p.position]}
+                      Age {p.age} · typical {posLabel(p.position)} retirement {RETIREMENT_AGE[p.position]}
                     </p>
                   </div>
                   {/* the column says Ovr; it showed his age */}
@@ -196,7 +196,7 @@ export function RetirementReview() {
             {league.map((p) => (
               <tr key={p.id}>
                 <td className="name">
-                  {p.name} <span className="pos">{p.position}</span>
+                  {p.name} <span className="pos">{posLabel(p.position)}</span>
                 </td>
                 <td className="c">{p.nfl_team}</td>
                 <td className="c" style={{ color: "var(--ink)", fontWeight: 600 }}>

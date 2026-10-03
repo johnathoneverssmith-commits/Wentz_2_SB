@@ -29,7 +29,7 @@ import { depthAt } from "@/state/seed";
 import { onInjuredReserve } from "@/state/injuries";
 import { capUsed as contractsUsed, checkRelease, positionalMinimums, releasePenalty } from "@/state/reconciliation";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 const sim = new HybridSimulationService();
 
@@ -331,7 +331,7 @@ export function RosterCapManagement() {
                 <>
                   <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}</span>
                   <span className="pname">
-                    {p.name} <span className="ppos">{p.position}</span>
+                    {p.name} <span className="ppos">{posLabel(p.position)}</span>
                     {p.injury_status && (
                       <span
                         title={`${p.injury_status.description}${p.injury_status.weeks_out_est ? `, ${p.injury_status.weeks_out_est[0]}-${p.injury_status.weeks_out_est[1]} weeks` : ""}`}
@@ -387,14 +387,14 @@ export function RosterCapManagement() {
                     <button
                       onClick={() => nudge(p, -1)}
                       disabled={depthLocked || lineAt(p.position)[0]?.id === p.id}
-                      title={`Move up the ${p.position} depth chart`}
+                      title={`Move up the ${posLabel(p.position)} depth chart`}
                     >
                       Move up
                     </button>
                     <button
                       onClick={() => nudge(p, 1)}
                       disabled={depthLocked || lineAt(p.position).at(-1)?.id === p.id}
-                      title={`Move down the ${p.position} depth chart`}
+                      title={`Move down the ${posLabel(p.position)} depth chart`}
                     >
                       Move down
                     </button>
@@ -543,7 +543,7 @@ export function RosterCapManagement() {
       {extending && (
         <ContractNegotiation
           title={`Extend — ${extending.name}`}
-          subtitle={`${extending.position} · age ${extending.age} · ${extending.overall} OVR · ${extending.contract?.years_remaining ?? 0}y left`}
+          subtitle={`${posLabel(extending.position)} · age ${extending.age} · ${extending.overall} OVR · ${extending.contract?.years_remaining ?? 0}y left`}
           priorities={{
             ...playerPriorities(extending),
             // an extension is negotiated against what he'd get on the open

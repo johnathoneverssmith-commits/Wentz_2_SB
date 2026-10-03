@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useState } from "react";
+import { posLabel } from "@/util/format";
 
 /**
  * Finding one player in a list of hundreds.
@@ -17,6 +18,42 @@ import { type ReactNode, useMemo, useState } from "react";
 export interface Filterable {
   name: string;
   position: string;
+}
+
+/**
+ * Groupings of positions a drafter thinks in — "the line", "the secondary" —
+ * offered beside the single positions. A group is only listed when the list
+ * holds at least two of its positions (a lone one is just that position).
+ */
+export const POSITION_GROUPS: { id: string; label: string; positions: readonly string[] }[] = [
+  { id: "OFFENSE", label: "Offense", positions: ["QB", "RB", "WR", "TE", "OT", "OG", "C"] },
+  { id: "DEFENSE", label: "Defense", positions: ["EDGE", "DT", "ILB", "OLB", "CB", "S"] },
+  { id: "SPECIAL", label: "Special teams", positions: ["K", "P"] },
+  { id: "SKILL", label: "Skill (RB, WR, TE)", positions: ["RB", "WR", "TE"] },
+  { id: "OLINE", label: "Offensive line (OT, OG, C)", positions: ["OT", "OG", "C"] },
+  { id: "DLINE", label: "Defensive line (DT, EDGE)", positions: ["DT", "EDGE"] },
+  { id: "LB", label: "Linebackers (LB, OLB)", positions: ["ILB", "OLB"] },
+  { id: "DB", label: "Defensive backs (CB, S)", positions: ["CB", "S"] },
+];
+
+const GROUP_PREFIX = "GROUP:";
+
+/** Whether a position passes a filter value (a position, a group, or "ALL"). */
+export function positionMatches(filter: string, position: string | null | undefined): boolean {
+  if (filter === "ALL") return true;
+  if (filter.startsWith(GROUP_PREFIX)) {
+    return !!position && !!POSITION_GROUPS.find((g) => g.id === filter.slice(GROUP_PREFIX.length))?.positions.includes(position);
+  }
+  return position === filter;
+}
+
+/** What to call a filter value in a sentence. */
+export function positionFilterLabel(filter: string): string {
+  if (filter === "ALL") return "players";
+  if (filter.startsWith(GROUP_PREFIX)) {
+    return POSITION_GROUPS.find((g) => g.id === filter.slice(GROUP_PREFIX.length))?.label.replace(/ \(.*\)$/, "").toLowerCase() ?? filter;
+  }
+  return filter;
 }
 
 export function useListFilter<T extends Filterable>(
@@ -44,11 +81,16 @@ export function useListFilter<T extends Filterable>(
     return [...seen].sort((a, b) => (a === "PICK" ? -1 : b === "PICK" ? 1 : a.localeCompare(b)));
   }, [all]);
 
+  const groups = useMemo(
+    () => POSITION_GROUPS.filter((g) => g.positions.filter((p) => positions.includes(p)).length >= 2),
+    [positions],
+  );
+
   const matched = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return all.filter(
       (item) =>
-        (position === "ALL" || item.position === position) &&
+        positionMatches(position, item.position) &&
         (needle === "" || item.name.toLowerCase().includes(needle)),
     );
   }, [all, query, position]);
@@ -68,11 +110,22 @@ export function useListFilter<T extends Filterable>(
         onChange={(e) => setPosition(e.target.value)}
       >
         <option value="ALL">All positions</option>
-        {positions.map((p) => (
-          <option key={p} value={p}>
-            {p === "PICK" ? "Draft picks" : p}
-          </option>
-        ))}
+        {groups.length > 0 && (
+          <optgroup label="Position groups">
+            {groups.map((g) => (
+              <option key={g.id} value={`${GROUP_PREFIX}${g.id}`}>
+                {g.label}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label="Positions">
+          {positions.map((p) => (
+            <option key={p} value={p}>
+              {p === "PICK" ? "Draft picks" : posLabel(p)}
+            </option>
+          ))}
+        </optgroup>
       </select>
       <span className="count" role="status">
         {countLabel(matched.length, all.length, limit)}

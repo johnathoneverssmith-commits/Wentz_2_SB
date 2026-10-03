@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 
 import { OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
-import { useListFilter } from "@/components/ListFilter";
+import { positionFilterLabel, positionMatches, useListFilter } from "@/components/ListFilter";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { lastLeagueId } from "@/state/online";
@@ -20,6 +20,7 @@ import { draftTargetsFor } from "@/state/rules";
 import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
+import { posLabel } from "@/util/format";
 
 interface Available {
   id: string;
@@ -186,7 +187,7 @@ export function DraftRoom() {
             (() => {
               const n = (atPosition.get(p.position) ?? 0) + 1;
               atPosition.set(p.position, n);
-              return `${p.position}${n} on the board`;
+              return `${posLabel(p.position)}${n} on the board`;
             })(),
         }))
     );
@@ -371,7 +372,7 @@ export function DraftRoom() {
                   — {suggested.id === topTarget ? "your top target" : "the AI would take"}:{" "}
                   <strong style={{ color: "var(--ink)" }}>{suggested.name}</strong>{" "}
                   <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
-                    ({suggested.position}, {suggested.ovr} {mode === "rookie" ? "grade" : "OVR"})
+                    ({posLabel(suggested.position)}, {suggested.ovr} {mode === "rookie" ? "grade" : "OVR"})
                   </span>
                 </>
               ) : (
@@ -410,7 +411,7 @@ export function DraftRoom() {
         )}
         {filtered.length === 0 && (
           <div className="emptystate" style={{ marginBottom: 12 }}>
-            No {posFilter === "ALL" ? "players" : posFilter} left on the board.
+            No {positionFilterLabel(posFilter)} left on the board.
           </div>
         )}
         <div className="scroll-list" style={{ overflowX: "auto" }}>
@@ -469,7 +470,7 @@ export function DraftRoom() {
                     )}
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
                   </td>
-                  <td className="c">{p.position}</td>
+                  <td className="c">{posLabel(p.position)}</td>
                   <td className="c">
                     <OvrPill value={p.ovr} />
                   </td>
@@ -521,7 +522,7 @@ export function DraftRoom() {
                 return (
                   <tr key={r.pickNumber}>
                     <td className="name">{r.selectedName}</td>
-                    <td className="c">{r.selectedPosition}</td>
+                    <td className="c">{posLabel(r.selectedPosition)}</td>
                     <td className="c">{age}</td>
                     <td className="c">
                       R{r.round} · #{r.pickNumber}
@@ -552,7 +553,7 @@ export function DraftRoom() {
         <div className="scroll-list">
           {[...draft.results]
             .reverse()
-            .filter((r) => posFilter === "ALL" || r.selectedPosition === posFilter)
+            .filter((r) => positionMatches(posFilter, r.selectedPosition))
             .slice(0, 60)
             .map((r) => (
               <div key={r.pickNumber} style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr", alignItems: "center", gap: 12, padding: "10px 6px", borderBottom: "1px solid var(--line)" }}>
@@ -563,7 +564,7 @@ export function DraftRoom() {
                   {gmOf(r.teamCode) && <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 400 }}> {gmOf(r.teamCode)}</span>}
                 </span>
                 <span style={{ fontSize: 12.5, textAlign: "right", color: "var(--ink)" }}>
-                  {r.selectedName} · {r.selectedPosition}
+                  {r.selectedName} · {posLabel(r.selectedPosition)}
                 </span>
               </div>
             ))}

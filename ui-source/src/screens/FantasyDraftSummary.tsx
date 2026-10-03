@@ -9,7 +9,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import { useStore } from "@/state/store";
 import { RosterByPosition } from "@/components/RosterByPosition";
 import { viewerTeamCode } from "@/state/selectors";
-import { ordinal } from "@/util/format";
+import { ordinal, posLabel } from "@/util/format";
 import { isHumansOnly } from "@/state/leagueFormat";
 
 /** Starting-lineup overall rank (1 = best) → letter grade. */
@@ -175,7 +175,7 @@ export function FantasyDraftSummary({
                         {x.p.name}
                         <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{x.p.school}</span>
                       </td>
-                      <td className="c">{x.p.position}</td>
+                      <td className="c">{posLabel(x.p.position)}</td>
                       <td className="c">{x.p.collegeOverall}</td>
                     </tr>
                   ))}

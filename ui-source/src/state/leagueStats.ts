@@ -1,3 +1,4 @@
+import { posLabel } from "@/util/format";
 import { TEAMS } from "@/data/teams";
 import { mvpRace } from "./seasonAwards";
 import type { LeagueState } from "@/domain";
@@ -124,7 +125,7 @@ export function mvpTracker(s: LeagueState): LeaderRow[] {
       position: p.position,
       team: p.nfl_team,
       value: Math.round(score),
-      line: `${p.position} · ${p.nfl_team}`,
+      line: `${posLabel(p.position)} · ${p.nfl_team}`,
     }));
 }
 

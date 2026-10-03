@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { POSITIONS } from "@/domain";
 import { useStore } from "@/state/store";
+import { posLabel } from "@/util/format";
 
 /**
  * A roster the way a depth chart reads: grouped by position, best first.
@@ -95,7 +96,7 @@ export function RosterByPosition({
                     men.map((p, i) => (
                       <tr key={p.id}>
                         <td style={{ color: i === 0 ? "var(--ink)" : "var(--ink-faint)", fontWeight: i === 0 ? 600 : 400 }}>
-                          {pos}
+                          {posLabel(pos)}
                         </td>
                         <td className="name">
                           {p.name}

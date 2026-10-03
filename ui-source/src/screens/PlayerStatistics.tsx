@@ -8,7 +8,7 @@ import { useStore } from "@/state/store";
 import { anyBoxScores, playedGames, regularSeasonUnderway, statsThroughWeek } from "@/state/selectors";
 import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
-import { commas } from "@/util/format";
+import { commas, posLabel } from "@/util/format";
 
 const CATS = ["passing", "rushing", "receiving", "defense", "kicking", "returns"] as const;
 
@@ -111,7 +111,7 @@ export function PlayerStatistics() {
                 <tr key={r.playerId}>
                   <td style={{ color: "var(--ink-faint)" }}>{i + 1}</td>
                   <td className="name">
-                    {r.name} <span className="pos">{r.position}</span>
+                    {r.name} <span className="pos">{posLabel(r.position)}</span>
                   </td>
                   <td className="c">{r.team}</td>
                   <td className="r">

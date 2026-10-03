@@ -17,7 +17,7 @@ import {
 import { viewerTeamCode } from "@/state/selectors";
 import { rankBy, staffCards } from "@/state/staffRatings";
 import { useStore } from "@/state/store";
-import { ordinal } from "@/util/format";
+import { ordinal, posLabel } from "@/util/format";
 
 /**
  * What everybody ended up with.
@@ -247,7 +247,7 @@ function CoachDetailRow({ coach, role }: { coach: Coach; role: CoachRole }) {
       // against an average coach: "development -3%" on its own read as a
       // hire that made the players worse
       <>
-        {group?.join(", ")} · development {pct(developmentMultiplier(rating))} · regression{" "}
+        {group?.map(posLabel).join(", ")} · development {pct(developmentMultiplier(rating))} · regression{" "}
         {pct(regressionMultiplier(rating))} vs an average coach
       </>
     );

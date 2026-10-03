@@ -12,7 +12,7 @@ import { useStore } from "@/state/store";
 import { rookieCapHits, rookieSlotFor } from "@/state/rules";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
-import { millions, count } from "@/util/format";
+import { count, millions, posLabel } from "@/util/format";
 
 
 const ROOKIE_GRID = "0.5fr 1.5fr 1fr 0.9fr auto 16px";
@@ -134,7 +134,7 @@ export function RookieSignings() {
                     <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>R{pick.round}</span>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <p className="pname">
-                        {p.name} <span className="ppos">{p.position}</span>
+                        {p.name} <span className="ppos">{posLabel(p.position)}</span>
                       </p>
                       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{p.school}</p>
                     </div>
@@ -252,7 +252,7 @@ export function RookieSignings() {
               return (
                 <tr key={p.id}>
                   <td className="name">{p.name}</td>
-                  <td className="c">{p.position}</td>
+                  <td className="c">{posLabel(p.position)}</td>
                   <td className="c">R{pick.round}</td>
                   <td className="c" style={{ fontWeight: 600 }}>{p.trueOverall}</td>
                   <td className="c" style={{ color: outcome === "signed" ? "var(--good)" : "var(--bad)", fontWeight: 600 }}>

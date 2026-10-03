@@ -9,6 +9,7 @@ import { POSITIONS } from "@/domain";
 import { FOCUS_LABEL, planFor } from "@/state/trainingCamp";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
+import { posLabel } from "@/util/format";
 
 /**
  * What camp did to the roster.
@@ -115,7 +116,7 @@ export function TrainingCampResults() {
                   <tbody>
                     {rows.map(({ p, r }) => (
                       <tr key={p.id}>
-                        <td style={{ color: "var(--ink-faint)" }}>{p.position}</td>
+                        <td style={{ color: "var(--ink-faint)" }}>{posLabel(p.position)}</td>
                         <td className="name">{p.name}</td>
                         <td className="c" style={{ color: "var(--ink-dim)" }}>{r!.previous}</td>
                         <td

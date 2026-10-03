@@ -7,6 +7,7 @@ import {
 } from "@/state/coachEffects";
 import { ratingOf } from "@/state/coachingDraft";
 import { useDialog } from "./useDialog.ts";
+import { posLabel } from "@/util/format";
 
 /** A multiplier as the swing it actually is: 1.12 reads "+12%". */
 const pct = (multiplier: number): string => {
@@ -98,7 +99,7 @@ export function CoachDetailsModal({ coach, onClose }: { coach: Coach; onClose: (
                 <Stat label="Regression" text={pct(regressionMultiplier(ratingOf(coach)))} />
               </div>
               <p className="subhead">Develops</p>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-dim)" }}>{group.join(", ")}</p>
+              <p style={{ margin: 0, fontSize: 12.5, color: "var(--ink-dim)" }}>{group.map(posLabel).join(", ")}</p>
             </>
           )}
           {coach.role === "MED" && (

@@ -7,7 +7,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import { AWARD_LABEL, type SeasonAward } from "@/state/seasonAwards";
 import { useStore } from "@/state/store";
 import { buildScoreTracker } from "@/state/scoreTracker";
-import { points } from "@/util/format";
+import { points, posLabel } from "@/util/format";
 
 export function LeagueHistory() {
   const nav = useNavigate();
@@ -71,7 +71,7 @@ function AwardsHistory({ awards }: { awards: SeasonAward[] }) {
                   <span style={{ color: "var(--ink-faint)", minWidth: 210 }}>{AWARD_LABEL[a.award]}</span>
                   <strong>{a.name}</strong>
                   <span style={{ color: "var(--ink-dim)" }}>
-                    {a.position} · {TEAMS_BY_CODE[a.team]?.abbr ?? a.team} · {a.line}
+                    {posLabel(a.position)} · {TEAMS_BY_CODE[a.team]?.abbr ?? a.team} · {a.line}
                   </span>
                 </div>
               ))}

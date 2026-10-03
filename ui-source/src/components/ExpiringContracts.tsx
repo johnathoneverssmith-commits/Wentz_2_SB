@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { OvrPill } from "@/components/bits";
 import { extensionAsk } from "@/state/contracts";
 import { useStore } from "@/state/store";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 /**
  * Who walks at the end of this season unless the GM acts.
@@ -61,7 +61,7 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
                 <OvrPill value={p.overall} />
                 <span style={{ fontWeight: 600 }}>{p.name}</span>
                 <span style={{ color: "var(--ink-faint)" }}>
-                  {p.position} · age {p.age} · asking {millions(extensionAsk(p).baseSalary)}/yr × {extensionAsk(p).years}
+                  {posLabel(p.position)} · age {p.age} · asking {millions(extensionAsk(p).baseSalary)}/yr × {extensionAsk(p).years}
                 </span>
                 {note[p.id] ? (
                   <span style={{ color: "var(--ink-dim)" }}>{note[p.id]}</span>

@@ -8,7 +8,7 @@ import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { POSITION_GROUPS, POSITION_TO_GROUP, type Player } from "@/domain";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
-import { ordinal } from "@/util/format";
+import { ordinal, posLabel } from "@/util/format";
 import { sideRatings } from "@/state/unitReport";
 
 export function LeagueRosters() {
@@ -81,7 +81,7 @@ export function LeagueRosters() {
                 >
                   <span className="rank-num">{i + 1}</span>
                   <span className="pname" style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)" }}>
-                    {p.name} <span className="ppos">{p.position}</span>
+                    {p.name} <span className="ppos">{posLabel(p.position)}</span>
                     {/* scouting a trade partner: who's hurt, and what they cost */}
                     {p.injury_status && (
                       <span style={{ marginLeft: 6, fontSize: 10, color: "var(--bad)", textDecoration: "none" }}>

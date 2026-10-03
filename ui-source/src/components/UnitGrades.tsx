@@ -1,3 +1,4 @@
+import { posLabel } from "@/util/format";
 import { useMemo } from "react";
 
 import { OvrPill } from "@/components/bits";
@@ -95,7 +96,7 @@ export function UnitGrades({ teamCode }: { teamCode: string }) {
               </div>
               {u.weakLink && (
                 <div style={{ fontSize: 11, color: "var(--bad)", marginTop: 2 }}>
-                  Weak link: {u.weakLink.id ? u.weakLink.name : `no starting ${u.weakLink.position}`}
+                  Weak link: {u.weakLink.id ? u.weakLink.name : `no starting ${posLabel(u.weakLink.position)}`}
                 </div>
               )}
             </div>
@@ -164,7 +165,7 @@ export function UnitGrades({ teamCode }: { teamCode: string }) {
 
 function upgradeReason(u: UnitRow): string {
   const low = u.starters.reduce((a, b) => (b.overall < a.overall ? b : a));
-  const who = low.id ? `${low.name} (${low.overall})` : `an empty ${low.position} spot`;
+  const who = low.id ? `${low.name} (${low.overall})` : `an empty ${posLabel(low.position)} spot`;
   return u.upgradeRank < u.rank
     ? `Replacing ${who} with an 80 would lift this unit from ${ordinal(u.rank)} to ${ordinal(u.upgradeRank)} in the league.`
     : `Replacing ${who} with an 80 would firm up the weakest spot in this unit.`;

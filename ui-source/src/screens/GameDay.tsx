@@ -9,7 +9,7 @@ import { useStore } from "@/state/store";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 
 import { Gamecast } from "./gamecast/Gamecast";
-import { weeksOut } from "@/util/format";
+import { posLabel, weeksOut } from "@/util/format";
 
 /**
  * Post-simulation Game Day screen. Deliberately a light canvas for now — the
@@ -113,7 +113,7 @@ export function GameDay() {
             {myInjuries.map((e, i) => (
               <div key={`${e.playerId}-${i}`} className="neg-row">
                 <span className="pname">
-                  {e.player} <span className="ppos">{e.position}</span>
+                  {e.player} <span className="ppos">{posLabel(e.position)}</span>
                 </span>
                 <span style={{ fontSize: 12.5, color: "var(--bad)", fontWeight: 600 }}>
                   {e.bodyPart} · {weeksOut(e.projectedWeeks)}

@@ -11,7 +11,7 @@ import { visibleGames } from "@/state/reveal";
 import { currentBlock } from "@/state/revealBlocks";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
-import { weeksOut } from "@/util/format";
+import { posLabel, weeksOut } from "@/util/format";
 
 /**
  * What a reveal opens: every week it just uncovered, on one screen.
@@ -249,7 +249,7 @@ export function WeekResults({
           {myInjuries.map((e, i) => (
             <div key={`${e.playerId}-${i}`} className="neg-row">
               <span className="pname">
-                {e.player} <span className="ppos">{e.position}</span>
+                {e.player} <span className="ppos">{posLabel(e.position)}</span>
               </span>
               <span style={{ fontSize: 12.5, color: "var(--bad)", fontWeight: 600 }}>
                 {e.bodyPart} · {weeksOut(e.projectedWeeks)}

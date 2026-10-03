@@ -35,7 +35,7 @@ import {
   weekGame,
 } from "@/state/selectors";
 import { winProbability } from "@/sim/win-probability";
-import { millions, ordinal, count } from "@/util/format";
+import { count, millions, ordinal, posLabel } from "@/util/format";
 
 // Was `0.5 + 0.02 * gap + a 4% home edge`, which was a guess in both terms.
 // `win-probability.ts` is the same question answered by 47,616 engine games,
@@ -468,7 +468,7 @@ export function WeeklyTeamHub() {
               <ul style={{ margin: "0 0 12px", paddingLeft: 18, fontSize: 12.5 }}>
                 {out.map(({ u, p }) => (
                   <li key={u.playerId}>
-                    {p!.name} <span className="pos">{p!.position}</span> · {p!.nfl_team ?? "FA"} ·{" "}
+                    {p!.name} <span className="pos">{posLabel(p!.position)}</span> · {p!.nfl_team ?? "FA"} ·{" "}
                     {u.untilWeek === null ? "rest of season" : `through week ${u.untilWeek}`}
                   </li>
                 ))}
@@ -816,7 +816,7 @@ function InjuryTable({
           {players.map((p) => (
             <tr key={p.id}>
               <td className="name">
-                {p.name} <span className="pos">{p.position}</span>
+                {p.name} <span className="pos">{posLabel(p.position)}</span>
               </td>
               {showTeam && <td className="c">{p.nfl_team}</td>}
               <td className="c" style={{ color: "var(--ink)", fontWeight: 600 }}>

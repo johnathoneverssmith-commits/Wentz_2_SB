@@ -15,6 +15,7 @@ import { useStore } from "@/state/store";
 import { draftTargetsFor } from "@/state/rules";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
+import { posLabel } from "@/util/format";
 
 const PROSPECT_GRID = "24px 1.7fr 0.5fr 0.8fr 16px";
 
@@ -130,7 +131,7 @@ export function DraftPreview() {
                     </button>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <p className="pname">
-                        {p.name} <span className="ppos">{p.position}</span>
+                        {p.name} <span className="ppos">{posLabel(p.position)}</span>
                       </p>
                       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
                         {p.school} · {p.classYear} · projects{" "}
@@ -185,7 +186,7 @@ export function DraftPreview() {
           targetProspects.map((p) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 6px", borderBottom: "1px solid var(--line)" }}>
               <span style={{ fontSize: 13.5, fontWeight: 500 }}>
-                {p.name} <span className="ppos">{p.position}</span>
+                {p.name} <span className="ppos">{posLabel(p.position)}</span>
               </span>
               <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>
                 {p.school} · {projected(p)}

@@ -1,7 +1,7 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { passerRating } from "@/state/leagueStats";
 import type { Player } from "@/domain";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 import { useDialog } from "./useDialog.ts";
 import { useStore } from "@/state/store";
 
@@ -46,7 +46,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
         <div className="modal-head">
           <div>
             <p className="modal-title" id="player-card-title">
-              {player.name} · {player.position}
+              {player.name} · {posLabel(player.position)}
             </p>
             <p className="modal-sub">
               {TEAMS_BY_CODE[player.nfl_team]?.label ?? "Free agent"} · age {player.age} · {player.overall} OVR

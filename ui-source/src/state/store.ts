@@ -132,6 +132,7 @@ import {
   signUndraftedAsFreeAgents,
   type Subject,
 } from "./rules.ts";
+import { posLabel } from "@/util/format";
 
 // the rules live in `rules.ts` so a server can enforce them too; everything
 // the app used to import from here still comes from here
@@ -456,7 +457,7 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
     const byTeam: Record<string, string[]> = {};
     for (const p of Object.values(s.players).sort((a, b) => b.overall - a.overall)) {
       if (!humans.has(p.nfl_team) || p.free_agent || had.has(p.id)) continue;
-      (byTeam[p.nfl_team] ??= []).push(`${p.name} (${p.position} ${p.overall})`);
+      (byTeam[p.nfl_team] ??= []).push(`${p.name} (${posLabel(p.position)} ${p.overall})`);
     }
     s.staffFill = { season: s.season, byTeam };
   }

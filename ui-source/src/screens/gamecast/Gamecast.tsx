@@ -24,7 +24,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import type { BroadcastDrive, BroadcastPlay, GameResult, InjuryEvent } from "@/domain";
 
 import "./gamecast.css";
-import { weeksOut } from "@/util/format";
+import { posLabel, weeksOut } from "@/util/format";
 
 /* ---- geometry (unchanged from the original) ---- */
 const OWN = 100;
@@ -724,7 +724,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
                       {it.event.team} injury · Q{it.event.quarter} {it.event.clock}
                     </p>
                     <h2>{it.event.player}</h2>
-                    <p className="gc-sub">{it.event.position} · out for the rest of the game</p>
+                    <p className="gc-sub">{posLabel(it.event.position)} · out for the rest of the game</p>
                     <p className="gc-narr">{it.event.narrative}</p>
                     <span className="gc-wk">
                       Projected:{" "}

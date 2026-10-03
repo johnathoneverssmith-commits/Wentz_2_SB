@@ -19,7 +19,7 @@ import { RosterNeeds } from "@/components/RosterNeeds";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
-import { millions, seconds } from "@/util/format";
+import { millions, posLabel, seconds } from "@/util/format";
 
 export function FreeAgencyBoard() {
   const nav = useNavigate();
@@ -200,7 +200,7 @@ export function FreeAgencyBoard() {
                   <>
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <p className="pname">
-                        {p.name} <span className="ppos">{p.position}</span>
+                        {p.name} <span className="ppos">{posLabel(p.position)}</span>
                         {fit && <FitTag fit={fit(p.position, p.overall)} />}
                       </p>
                       <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
@@ -346,7 +346,7 @@ export function FreeAgencyBoard() {
                 <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 6px", borderBottom: "1px solid var(--line)" }}>
                   <div>
                     <p className="pname" style={{ margin: 0 }}>
-                      {p?.name ?? sg.id} <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>· {p?.position}</span>
+                      {p?.name ?? sg.id} <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>· {posLabel(p?.position)}</span>
                     </p>
                     <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>
                       <TeamBadge code={sg.toTeam} size={16} /> {TEAMS_BY_CODE[sg.toTeam]?.label ?? sg.toTeam} · Day {sg.at}

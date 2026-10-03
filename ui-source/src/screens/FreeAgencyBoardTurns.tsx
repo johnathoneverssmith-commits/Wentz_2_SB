@@ -26,7 +26,7 @@ import { viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
 import { draftValue, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import { millions } from "@/util/format";
+import { millions, posLabel } from "@/util/format";
 
 /**
  * Turn-based free agency.
@@ -193,7 +193,7 @@ export function FreeAgencyBoardTurns() {
             return (
               <div key={x.playerId} className="neg-row">
                 <span style={{ fontSize: 12.5 }}>
-                  {p?.name ?? x.playerId} <span className="ppos">{p?.position}</span> · {millions(x.salary)}/yr × {x.years}y
+                  {p?.name ?? x.playerId} <span className="ppos">{posLabel(p?.position)}</span> · {millions(x.salary)}/yr × {x.years}y
                 </span>
                 <span style={{ fontSize: 11.5, fontWeight: 600, color: won ? "var(--good)" : "var(--notice)" }}>
                   {won ? "Signed with you" : `Signed with ${TEAMS_BY_CODE[x.teamCode]?.abbr ?? x.teamCode}`}
@@ -216,7 +216,7 @@ export function FreeAgencyBoardTurns() {
             return (
               <div key={`${o.playerId}-${o.sequence}`} className="neg-row">
                 <span style={{ fontSize: 12.5 }}>
-                  {p?.name ?? o.playerId} <span className="ppos">{p?.position}</span> · {millions(o.salary)}/yr ×{" "}
+                  {p?.name ?? o.playerId} <span className="ppos">{posLabel(p?.position)}</span> · {millions(o.salary)}/yr ×{" "}
                   {o.years}y
                 </span>
                 <span style={{ fontSize: 11.5, fontWeight: 600, color: leading ? "var(--good)" : "var(--notice)" }}>
@@ -273,7 +273,7 @@ export function FreeAgencyBoardTurns() {
             <option value="all">All positions</option>
             {POSITIONS.filter((pos) => pool.some((p) => p.position === pos)).map((pos) => (
               <option key={pos} value={pos}>
-                {pos}
+                {posLabel(pos)}
               </option>
             ))}
           </select>
@@ -294,7 +294,7 @@ export function FreeAgencyBoardTurns() {
                   <div>
                     <p className="pname">
                       {p.name}
-                      <span className="ppos">{p.position}</span>
+                      <span className="ppos">{posLabel(p.position)}</span>
                       {fit && <FitTag fit={fit(p.position, p.overall)} />}
                     </p>
                     <p className="lobby-sub">
@@ -356,7 +356,7 @@ export function FreeAgencyBoardTurns() {
                 <div>
                   <p className="pname">
                     {p?.name ?? sig.playerId}
-                    <span className="ppos">{p?.position}</span>
+                    <span className="ppos">{posLabel(p?.position)}</span>
                   </p>
                   <p className="lobby-sub">
                     Round {sig.round} · {millions(sig.salary)}/yr × {sig.years}y
@@ -428,7 +428,7 @@ function OfferDialog({
   return (
     <div ref={box} className="lobby-claim" style={{ marginTop: 16 }} role="group" aria-label={`Offer to ${player.name}`}>
       <p className="subhead" style={{ marginTop: 0 }}>
-        Offer to {player.name} ({player.position})
+        Offer to {player.name} ({posLabel(player.position)})
       </p>
       <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink-dim)" }}>
         He&rsquo;s asking {millions(ask)}/yr and cares most about{" "}
