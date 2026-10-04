@@ -73,6 +73,7 @@ export function FullBoxScore() {
                 ? `Week ${game.week}`
                 : roundLabelFor(bracket, game.phase as PlayoffRound)}
           </p>
+          {game.weather && <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>{game.weather}</p>}
           <p style={{ fontSize: 16, fontWeight: 700 }}>
             {tie ? (
               <span style={{ color: "var(--ink-dim)" }}>Tie</span>

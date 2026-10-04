@@ -55,6 +55,8 @@ export interface ScoringPlay {
 
 export interface GameResult {
   id: string;
+  /** game-day conditions, e.g. "34°F, wind 18 mph, snow" or "Indoors" (`describeWeather`) */
+  weather?: string;
   week: number;
   /** "PRE" weeks 1-3, "REG" weeks 1-18, or a playoff round label. */
   phase: "PRE" | "REG" | "WC" | "DIV" | "CONF" | "SB";

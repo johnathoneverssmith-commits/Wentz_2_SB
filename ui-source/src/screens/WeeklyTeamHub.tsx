@@ -1,4 +1,6 @@
 import { LeagueWire } from "@/components/LeagueWire";
+import { seasonShape } from "@/state/leagueFormat";
+import { recordWatch } from "@/state/seasonAwards";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -305,6 +307,14 @@ export function WeeklyTeamHub() {
                 </div>
                 <p className="txt">
                   <strong style={{ color: "var(--ink)" }}>{n.player}</strong> {n.note}.
+                </p>
+              </div>
+            ))}
+            {recordWatch(s, s.config.leagueFormat === "humansOnly" ? seasonShape(s).regularSeasonWeeks : 17).map((r) => (
+              <div className="watchnote" key={`rw-${r.playerId}-${r.text}`}>
+                <div className="who">Record watch · {TEAMS_BY_CODE[r.team]?.label ?? r.team}</div>
+                <p className="txt">
+                  <strong style={{ color: "var(--ink)" }}>{s.players[r.playerId]?.name}</strong> {r.text}.
                 </p>
               </div>
             ))}

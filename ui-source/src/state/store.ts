@@ -49,9 +49,13 @@ import {
 } from "./stageMachine.ts";
 import {
   type ContractMoveResult,
+  endHoldouts,
+  exerciseFifthYearOption,
   extendContract,
+  franchiseTag,
   restructureContract,
 } from "./contracts.ts";
+import { promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly } from "./leagueFormat.ts";
 import { CURRENT_SAVE_VERSION, migrateLeagueSave, upgradeLeagueState } from "./saveMigration.ts";
@@ -216,6 +220,8 @@ export interface StoreActions {
     playerId: string,
     offer: { baseSalary: number; years: number; guaranteed: number },
   ) => ContractMoveResult;
+  /** Franchise-tag a player in his final year, or pick up a first-rounder's fifth-year option. */
+  tenderPlayer: (playerId: string, kind: "tag" | "option" | "practiceSquad" | "promote") => ContractMoveResult;
 
   /** Cut a player from the roster. He goes straight onto the standing free
    *  agent market; his cap hit comes off the books and `releasePenalty`
@@ -501,6 +507,9 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
 
   // the deadline builds its order from the week 1-9 standings and runs
   // itself forward until a human is on the clock
+  // the deadline is the last day a holdout can report and still have the
+  // season count toward free agency; every one of them does
+  if (to === "tradeDeadline") endHoldouts(s);
   if (to === "tradeDeadline" && !s.tradeDeadline) {
     beginTradeDeadline(s);
     runDeadlineTurns(s);
@@ -1115,6 +1124,24 @@ export const useStore = create<Store>()(
           const p = s.players[playerId];
           if (!p || p.free_agent || p.retired) return;
           result = extendContract(s, p, offer);
+          if (result.ok) recomputeTeamRatings(s);
+        });
+        return result;
+      },
+
+      tenderPlayer: (playerId, kind) => {
+        let result: ContractMoveResult = { ok: false, reason: "Unknown player." };
+        set((s) => {
+          const p = s.players[playerId];
+          if (!p || p.free_agent || p.retired) return;
+          result =
+            kind === "tag"
+              ? franchiseTag(s, p)
+              : kind === "option"
+                ? exerciseFifthYearOption(s, p)
+                : kind === "practiceSquad"
+                  ? toPracticeSquad(s, p)
+                  : promoteFromPracticeSquad(s, p);
           if (result.ok) recomputeTeamRatings(s);
         });
         return result;

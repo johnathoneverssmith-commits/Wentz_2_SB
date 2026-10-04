@@ -37,7 +37,8 @@ import {
   runAiPicks,
   type Subject,
 } from "@/state/rules.ts";
-import { extendContract, restructureContract } from "@/state/contracts.ts";
+import { exerciseFifthYearOption, extendContract, franchiseTag, restructureContract } from "@/state/contracts.ts";
+import { practiceSquadTeam, promoteFromPracticeSquad, toPracticeSquad } from "@/state/practiceSquad.ts";
 import {
   applyOffer,
   applyPass,
@@ -861,6 +862,10 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
 
 export type ContractMove =
   | { kind: "restructure" }
+  | { kind: "tag" }
+  | { kind: "option" }
+  | { kind: "practiceSquad" }
+  | { kind: "promote" }
   | { kind: "extend"; baseSalary: number; years: number; guaranteed: number };
 
 /** Restructure or extend one of your contracts. */
@@ -872,8 +877,19 @@ export function decideContractMove(
 ): Decision {
   const p = state.players[playerId];
   if (!p) throw new ActionError("No such player.", 404);
-  if (p.nfl_team !== actor.teamCode) throw new ActionError("He isn't yours.", 403);
-  const out = move.kind === "restructure" ? restructureContract(p, state.season) : extendContract(state, p, move);
+  if (p.nfl_team !== actor.teamCode && practiceSquadTeam(p) !== actor.teamCode) throw new ActionError("He isn't yours.", 403);
+  const out =
+    move.kind === "restructure"
+      ? restructureContract(p, state.season)
+      : move.kind === "tag"
+        ? franchiseTag(state, p)
+        : move.kind === "option"
+          ? exerciseFifthYearOption(state, p)
+          : move.kind === "practiceSquad"
+            ? toPracticeSquad(state, p)
+            : move.kind === "promote"
+              ? promoteFromPracticeSquad(state, p)
+              : extendContract(state, p, move);
   if (!out.ok) throw new ActionError(out.reason ?? "That contract move isn't allowed.");
   recomputeTeamRatings(state);
   return {
@@ -884,7 +900,15 @@ export function decideContractMove(
         summary:
           move.kind === "restructure"
             ? `${city(actor.teamCode)} restructured ${p.name}'s deal.`
-            : `${city(actor.teamCode)} extended ${p.name}.`,
+            : move.kind === "tag"
+              ? `${city(actor.teamCode)} put the franchise tag on ${p.name}.`
+              : move.kind === "option"
+                ? `${city(actor.teamCode)} picked up ${p.name}'s fifth-year option.`
+                : move.kind === "practiceSquad"
+                  ? `${city(actor.teamCode)} moved ${p.name} to the practice squad.`
+                  : move.kind === "promote"
+                    ? `${city(actor.teamCode)} promoted ${p.name} from the practice squad.`
+                    : `${city(actor.teamCode)} extended ${p.name}.`,
         detail: { playerId },
       },
     ],

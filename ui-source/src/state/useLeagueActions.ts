@@ -76,6 +76,8 @@ export interface LeagueActions {
     playerId: string,
     terms: { baseSalary: number; years: number; guaranteed: number },
   ) => Promise<ActionResult>;
+  /** Franchise tag, or a first-rounder's fifth-year option. */
+  tender: (playerId: string, kind: "tag" | "option" | "practiceSquad" | "promote") => Promise<ActionResult>;
   /** Sign or release a rookie you drafted. */
   settleRookie: (prospectId: string, released: boolean) => Promise<ActionResult>;
   /**
@@ -277,6 +279,7 @@ export function useLeagueActions(): LeagueActions {
         },
         restructure: async (playerId) => store.restructurePlayer(playerId),
         extend: async (playerId, terms) => store.extendPlayer(playerId, terms),
+        tender: async (playerId, kind) => store.tenderPlayer(playerId, kind),
         settleRookie: async (prospectId, released) => {
           const code = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
           if (!code) return { ok: false, reason: "You don't have a team." };
@@ -400,6 +403,8 @@ export function useLeagueActions(): LeagueActions {
             s.client.contractMove(s.leagueId, playerId, { kind: "extend", ...terms }, s.version),
           ),
         ).then(after),
+      tender: (playerId, kind) =>
+        attempt(() => send((s) => s.client.contractMove(s.leagueId, playerId, { kind }, s.version))).then(after),
       settleRookie: (prospectId, released) =>
         attempt(() =>
           send((s) => s.client.settleRookie(s.leagueId, prospectId, released, s.version)),

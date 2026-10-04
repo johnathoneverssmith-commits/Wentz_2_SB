@@ -3,6 +3,7 @@ import { talentScaleOf } from "@/state/talentImpact.ts";
 import { staffPairOf } from "./staffs.js";
 import { boxScoreOf, trimStoredBoxScores } from "./boxscore.js";
 import { simulateGame } from "../../src/engine/sim.js";
+import { describeWeather, weatherFor } from "../../src/engine/weather.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
 
@@ -133,6 +134,7 @@ export function simulateBlock(
         talentScale: talentScaleOf(state.config),
         offenseAdjust: state.offenseAdjust ?? 0,
         overtime: "nfl",
+        weather: weatherFor(toEngine(g.homeTeam), phase, week, seed),
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
       results.push({
@@ -147,6 +149,7 @@ export function simulateBlock(
         ...boxScoreOf(sim, g.homeTeam, g.awayTeam, week, { home: home.squad, away: away.squad }),
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
         sidelined: { home: home.sidelined, away: away.sidelined },
+        weather: describeWeather(sim.weather),
       });
       played++;
     }
@@ -210,6 +213,7 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
     overtime: "nfl",
     mustDecide: game.phase !== "REG" && game.phase !== "PRE",
     neutralSite: game.phase === "SB",
+    weather: weatherFor(toEngine(game.homeTeam), game.phase, game.week, seed, game.phase === "SB"),
         ...staffPairOf(state, game.homeTeam, game.awayTeam),
   });
   // the engine spells the Rams differently; the UI should never see that
@@ -293,6 +297,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         offenseAdjust: state.offenseAdjust ?? 0,
         overtime: "nfl",
         mustDecide: true,
+        weather: weatherFor(toEngine(home), round, 0, seed, round === "SB"),
         ...staffPairOf(state, home, away),
       });
       let [hs, as] = [sim.score[0], sim.score[1]];
@@ -315,6 +320,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         ...boxScoreOf(sim, home, away, 0, { home: h.squad, away: a.squad }),
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
         sidelined: { home: h.sidelined, away: a.sidelined },
+        weather: describeWeather(sim.weather),
       });
       played++;
     }

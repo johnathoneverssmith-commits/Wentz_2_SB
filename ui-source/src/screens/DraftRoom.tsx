@@ -235,8 +235,12 @@ export function DraftRoom() {
 
   // read the board rather than a constant: the fantasy draft's length is a
   // league setting, and this used to say "Round 3 of 20" in a ten-round draft
-  const maxRounds = Math.max(1, Math.round(draft.pickOrder.length / Object.keys(s.teams).length));
-  const round = Math.floor((draft.currentPickIndex / draft.pickOrder.length) * maxRounds) + 1;
+  const maxRounds = draft.roundOf?.length
+    ? Math.max(...draft.roundOf)
+    : Math.max(1, Math.round(draft.pickOrder.length / Object.keys(s.teams).length));
+  const round =
+    draft.roundOf?.[Math.min(draft.currentPickIndex, draft.pickOrder.length - 1)] ??
+    Math.floor((draft.currentPickIndex / draft.pickOrder.length) * maxRounds) + 1;
   const myResults = draft.results.filter((r) => r.teamCode === code);
   // in a fantasy draft every roster is being rebuilt from the pool, so the
   // only players that count are the ones drafted so far — not whoever still

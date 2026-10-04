@@ -15,6 +15,7 @@ import type { ConferenceSeeding } from "./standings.js";
 import type { Roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import { simulateGame } from "./sim.js";
+import { weatherFor } from "./weather.js";
 
 export type PlayoffRound = "wildcard" | "divisional" | "conference" | "superbowl";
 
@@ -112,6 +113,7 @@ function decide(
           overtime: "nfl" as const,
           mustDecide: true,
           offenseAdjust: _playoffOffense,
+          weather: weatherFor(home.team, "PO", 20, seed, neutralSite),
         }
       : { neutralSite };
   for (let k = 0; k < TIE_BREAK_TRIES; k += 1) {

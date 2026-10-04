@@ -15,6 +15,7 @@ import { talentScaleOf } from "@/state/talentImpact.ts";
 import { staffPairOf } from "./staffs.js";
 import { boxScoreOf, trimStoredBoxScores } from "./boxscore.js";
 import { simulateGame } from "../../src/engine/sim.js";
+import { describeWeather, weatherFor } from "../../src/engine/weather.js";
 import { broadcastGame } from "../../src/engine/broadcast.js";
 import { Roster } from "../../src/engine/roster.js";
 import type { Player as EnginePlayer } from "../../src/schema/player.js";
@@ -177,6 +178,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         talentScale: talentScaleOf(state.config),
         offenseAdjust: state.offenseAdjust ?? 0,
         overtime: "nfl",
+        weather: weatherFor(toEngine(g.homeTeam), phase, state.week, seed),
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
       });
       const watched = humanTeams.has(g.homeTeam) || humanTeams.has(g.awayTeam);
@@ -194,6 +196,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
           away: squads.get(g.awayTeam) ?? [],
         }),
         injuries: (sim.injuryLog ?? []) as NonNullable<GameResult["injuries"]>,
+        weather: describeWeather(sim.weather),
         // same seed and the same rosters, so the drives it walks through are
         // the drives that produced the score above
         ...(watched
@@ -204,6 +207,7 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
                 talentScale: talentScaleOf(state.config),
         offenseAdjust: state.offenseAdjust ?? 0,
                 overtime: "nfl",
+                weather: weatherFor(toEngine(g.homeTeam), phase, state.week, seed),
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
               }) as NonNullable<GameResult["broadcast"]>,
             }

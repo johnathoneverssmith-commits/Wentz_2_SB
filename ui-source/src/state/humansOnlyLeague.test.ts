@@ -113,7 +113,9 @@ function expectOnlyLeagueTeams(where: string): void {
     for (const c of [m.highSeed?.code, m.lowSeed?.code]) if (c && !league.has(c)) stray.add(c);
   }
   for (const p of Object.values(s().players)) {
-    if (!p.retired && !p.free_agent && p.nfl_team && p.nfl_team !== "FA" && !league.has(p.nfl_team)) {
+    // a practice-squad player ("PS:BUF") belongs to his team
+    const team = p.nfl_team?.replace(/^PS:/, "");
+    if (!p.retired && !p.free_agent && team && team !== "FA" && !league.has(team)) {
       stray.add(p.nfl_team);
     }
   }

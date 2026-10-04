@@ -78,6 +78,7 @@ import { MockSimulationService } from "@/sim/MockSimulationService";
 
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
 import { noteEvent } from "./notes.js";
+import { endHoldouts } from "@/state/contracts.ts";
 
 /**
  * Only ever asked for things it computes rather than invents: seeding a
@@ -503,7 +504,14 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (state.stage === "trainingCamp") {
     // a fresh camp each season — it used to open once ever, so from year two
     // every team read as having already trained
-    openTrainingCamp(state, humanTeamsOf(state));
+    for (const p of openTrainingCamp(state, humanTeamsOf(state))) {
+      noteEvent(state, {
+        teamCode: p.nfl_team,
+        kind: "contract.holdout",
+        summary: `${p.name} (${p.position}, ${TEAMS_BY_CODE[p.nfl_team]?.label ?? p.nfl_team}) is holding out for a new contract.`,
+        detail: { playerId: p.id },
+      });
+    }
   }
   // Leaving camp with a GM who never ran theirs — the commissioner moved the
   // league on, or the GM was away — their players simply got no camp that
@@ -649,6 +657,14 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // the league can resolve before anyone sees the screen, which is the point
   // — a GM opens it and it is their move or it is over.
   if (state.stage === "tradeDeadline" && from !== "tradeDeadline") {
+    for (const p of endHoldouts(state)) {
+      noteEvent(state, {
+        teamCode: p.nfl_team,
+        kind: "contract.holdoutEnds",
+        summary: `${p.name} ended his holdout and reported to ${TEAMS_BY_CODE[p.nfl_team]?.label ?? p.nfl_team}.`,
+        detail: { playerId: p.id },
+      });
+    }
     beginTradeDeadline(state);
     runDeadlineTurns(state);
     // every human may have skipped it, and the CPU teams finish three rounds

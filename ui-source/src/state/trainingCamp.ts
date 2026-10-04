@@ -1,4 +1,5 @@
-import type { LeagueState } from "@/domain";
+import type { LeagueState, Player } from "@/domain";
+import { startHoldouts } from "./contracts";
 import { COACH_POSITION_GROUPS } from "@/domain";
 import { Rng } from "@/sim/rng";
 import { agingDelta } from "@/sim/MockSimulationService";
@@ -95,10 +96,13 @@ export function beginTrainingCamp(s: LeagueState): void {
  * and online's `onStageEntered`) — the local one used to skip the CPU camps
  * entirely, so in a solo dynasty only the viewer's players ever developed.
  */
-export function openTrainingCamp(s: LeagueState, humanTeams: Set<string>): void {
-  if (s.trainingCamp?.season !== s.season) s.trainingCamp = null;
+export function openTrainingCamp(s: LeagueState, humanTeams: Set<string>): Player[] {
+  const fresh = s.trainingCamp?.season !== s.season;
+  if (fresh) s.trainingCamp = null;
   beginTrainingCamp(s);
   runCpuTrainingCamps(s, humanTeams);
+  // the underpaid stars decide whether to report (`startHoldouts`), once a season
+  return fresh ? startHoldouts(s, humanTeams) : [];
 }
 
 export function planFor(s: LeagueState, teamCode: string): TrainingCampPlan {

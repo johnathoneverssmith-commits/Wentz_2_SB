@@ -7,6 +7,7 @@
  * multiplayer server can't do without — cookies, a caller identity, and
  * errors that come back as JSON a client can show a person.
  */
+import { dirname, join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -179,6 +180,19 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   if (uiPath && (req.method === "GET" || req.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
     await sendUi(req, res, uiPath);
+    return;
+  }
+  // the push notifications' service worker and the app manifest, beside the
+  // page (`ui-source/public/`; a worker has to come from the page's origin)
+  const asset = { "/sw.js": "text/javascript; charset=utf-8", "/manifest.webmanifest": "application/manifest+json" }[url.pathname];
+  if (uiPath && req.method === "GET" && asset) {
+    try {
+      const body = await readFile(join(dirname(uiPath), url.pathname.slice(1)));
+      res.writeHead(200, { "content-type": asset, "cache-control": "no-cache" });
+      res.end(body);
+    } catch {
+      res.writeHead(404).end();
+    }
     return;
   }
   const found = match(req.method ?? "GET", url.pathname);

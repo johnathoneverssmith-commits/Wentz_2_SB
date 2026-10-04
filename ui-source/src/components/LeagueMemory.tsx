@@ -1,7 +1,7 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { LeagueState } from "@/domain";
 import { roundLabelFor } from "@/domain";
-import { AWARD_LABEL, RECORD_LABEL, type SeasonAward } from "@/state/seasonAwards";
+import { AWARD_LABEL, NFL_RECORDS, RECORD_LABEL, type SeasonAward } from "@/state/seasonAwards";
 import { posLabel } from "@/util/format";
 
 const abbr = (code: string | null | undefined) => (code ? (TEAMS_BY_CODE[code]?.abbr ?? code) : "—");
@@ -94,6 +94,14 @@ export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: strin
               <span>
                 {r.name} · {abbr(r.team)} · {r.season}
               </span>
+              {NFL_RECORDS[r.stat] && (
+                <span
+                  style={{ color: r.value > NFL_RECORDS[r.stat]!.value ? "var(--good)" : "var(--ink-faint)" }}
+                  title={`NFL record: ${NFL_RECORDS[r.stat]!.holder}`}
+                >
+                  {r.value > NFL_RECORDS[r.stat]!.value ? "beats" : "NFL"} {NFL_RECORDS[r.stat]!.value.toLocaleString("en-US")}
+                </span>
+              )}
             </div>
           ))}
         </section>
@@ -177,25 +185,43 @@ export function SeasonAwardsList({ awards }: { awards: SeasonAward[] }) {
   );
 }
 
-const CAREER_STATS: [string, "passYds" | "passTd" | "rushYds" | "recYds" | "sacks" | "defInt"][] = [
+const CAREER_STATS: [string, "passYds" | "passTd" | "rushYds" | "rushTd" | "recYds" | "recTd" | "sacks" | "defInt" | "tackles"][] = [
   ["Passing yards", "passYds"],
   ["Passing touchdowns", "passTd"],
   ["Rushing yards", "rushYds"],
+  ["Rushing touchdowns", "rushTd"],
   ["Receiving yards", "recYds"],
+  ["Receiving touchdowns", "recTd"],
   ["Sacks", "sacks"],
   ["Interceptions", "defInt"],
+  ["Tackles", "tackles"],
 ];
 
-/** Top five in each career total this league has banked (current players and recent retirees). */
+/**
+ * Top five in each career total: the league's all-time book
+ * (`careerRecords`, which outlives a pruned retiree), topped up with anyone
+ * whose career is in the save now.
+ */
 function careerLeaders(s: LeagueState) {
   const players = Object.values(s.players).filter((p) => p.career && p.career.seasons > 0);
-  if (players.length === 0) return [];
-  return CAREER_STATS.map(([label, key]) => ({
-    label,
-    rows: players
-      .map((p) => ({ id: p.id, name: p.name, retired: !!p.retired, value: p.career?.[key] ?? 0 }))
-      .filter((r) => r.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5),
-  })).filter((c) => c.rows.length > 0);
+  const banked = s.careerRecords ?? [];
+  if (players.length === 0 && banked.length === 0) return [];
+  return CAREER_STATS.map(([label, key]) => {
+    const byId = new Map<string, { id: string; name: string; retired: boolean; value: number }>();
+    for (const r of banked.filter((r) => r.stat === key)) {
+      const p = s.players[r.playerId];
+      byId.set(r.playerId, { id: r.playerId, name: r.name, retired: !p || !!p.retired, value: r.value });
+    }
+    for (const p of players) {
+      const value = p.career?.[key] ?? 0;
+      if (value > (byId.get(p.id)?.value ?? 0)) byId.set(p.id, { id: p.id, name: p.name, retired: !!p.retired, value });
+    }
+    return {
+      label,
+      rows: [...byId.values()]
+        .filter((r) => r.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5),
+    };
+  }).filter((c) => c.rows.length > 0);
 }

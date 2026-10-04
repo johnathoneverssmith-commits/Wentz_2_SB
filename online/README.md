@@ -192,6 +192,27 @@ signing a draft class, a staff trim, a whole depth chart (`actions/rookies`,
 `actions/releases`, `actions/depths`) — are one transaction and one push to
 the league, not one per item.
 
+### With the game closed: Web Push
+
+The stream only helps a GM with a tab open, and an asynchronous league is
+mostly GMs without one. `src/push.ts` sends a real push notification to every
+device a GM has switched "Turn alerts" on for: when a change puts them on
+the clock (their pick, their free-agency or coaching-draft turn, their move at
+the deadline), when a trade offer arrives, and when a new stage opens that is
+waiting on them. `withLeague` computes who was being asked for what before
+the action and after it, and notifies the difference once the transaction
+commits. The push is fire and forget, so a push service that is down never
+touches the action.
+
+It is RFC 8291/8292 on Node's own crypto, so there's no dependency to audit. The server's
+VAPID key pair is made on first use and kept in `push_keys`, so there is
+nothing to configure (`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` /
+`VAPID_SUBJECT` override it). Subscriptions are refused unless they point at
+a browser's own push service, because the server POSTs to whatever endpoint
+a subscription names. The service worker is `ui-source/public/sw.js`, served
+at `/sw.js` beside the page. On an iPhone, Safari only allows push for a site
+added to the home screen.
+
 ## The way in
 
 `ui-source/src/screens/OnlineLobby.tsx`, at `#/online`. Sign in or create an

@@ -24,9 +24,22 @@ import {
 import { useStore } from "@/state/store";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 import { playerPriorities } from "@/sim/priorities";
-import { extensionAsk, previewRestructure } from "@/state/contracts";
+import {
+  extensionAsk,
+  fifthYearEligible,
+  previewFifthYearOption,
+  previewFranchiseTag,
+  previewRestructure,
+} from "@/state/contracts";
 import { depthAt } from "@/state/seed";
 import { onInjuredReserve } from "@/state/injuries";
+import {
+  checkPromote,
+  checkToPracticeSquad,
+  PRACTICE_SQUAD_SIZE,
+  practiceSquad,
+  practiceSquadEligible,
+} from "@/state/practiceSquad";
 import { capUsed as contractsUsed, checkRelease, positionalMinimums, releasePenalty } from "@/state/reconciliation";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions, posLabel } from "@/util/format";
@@ -346,6 +359,19 @@ export function RosterCapManagement() {
                         </span>
                       </span>
                     )}
+                    {p.holdout === p.nfl_team && (
+                      <span
+                        title="Holding out for a new contract: he sits until he's extended or traded, or reports at the trade deadline"
+                        style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--notice)" }}
+                      >
+                        HOLDOUT
+                      </span>
+                    )}
+                    {p.contract?.franchise_tag_season === s.season && (
+                      <span title="Franchise-tagged for next season" style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--accent)" }}>
+                        TAG
+                      </span>
+                    )}
                   </span>
                   <OvrPill value={p.overall} />
                   <span className="pcell" title={arcOf(p).hint}>
@@ -424,6 +450,63 @@ export function RosterCapManagement() {
                       Restructure
                     </button>
                     <button onClick={() => setExtending(p)}>Extend</button>
+                    {p.contract?.years_remaining === 1 && (
+                      <button
+                        onClick={() => {
+                          void actions.tender(p.id, "tag").then((r) =>
+                            setMoveNote({
+                              id: p.id,
+                              ok: r.ok,
+                              text: r.ok
+                                ? `Tagged. ${p.name} plays next season on a one-year tender of ${millions(previewFranchiseTag(s, p).price ?? 0)}.`
+                                : (r.reason ?? "Couldn't tag him."),
+                            }),
+                          );
+                        }}
+                        disabled={!previewFranchiseTag(s, p).ok}
+                        title={
+                          previewFranchiseTag(s, p).reason ??
+                          `Keep him off the market one more year at ${millions(previewFranchiseTag(s, p).price ?? 0)}, fully guaranteed`
+                        }
+                      >
+                        Franchise tag ({millions(previewFranchiseTag(s, p).price ?? 0)})
+                      </button>
+                    )}
+                    {practiceSquadEligible(p) && (
+                      <button
+                        onClick={() => {
+                          void actions.tender(p.id, "practiceSquad").then((r) => {
+                            if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't move him." });
+                          });
+                        }}
+                        disabled={depthLocked || !checkToPracticeSquad(s, p).ok}
+                        title={
+                          checkToPracticeSquad(s, p).reason ??
+                          "Keep him and develop him without a roster spot: off the 53, out of games, on a $0.2M deal"
+                        }
+                      >
+                        To practice squad
+                      </button>
+                    )}
+                    {fifthYearEligible(p) && (
+                      <button
+                        onClick={() => {
+                          void actions.tender(p.id, "option").then((r) =>
+                            setMoveNote({
+                              id: p.id,
+                              ok: r.ok,
+                              text: r.ok
+                                ? `Option picked up: one more year at ${millions(previewFifthYearOption(s, p).price ?? 0)}, fully guaranteed.`
+                                : (r.reason ?? "Couldn't pick up the option."),
+                            }),
+                          );
+                        }}
+                        disabled={!previewFifthYearOption(s, p).ok}
+                        title={previewFifthYearOption(s, p).reason ?? "Add a fifth year to his rookie deal at a fixed tender"}
+                      >
+                        5th-year option ({millions(previewFifthYearOption(s, p).price ?? 0)})
+                      </button>
+                    )}
                     {confirming === p.id ? (
                       <>
                         <button
@@ -478,6 +561,48 @@ export function RosterCapManagement() {
             />
           ))}
         </div>
+        {(() => {
+          const squad = practiceSquad(s, code);
+          return (
+            <>
+              <p className="sectionlabel" style={{ marginTop: 18 }}>
+                Practice squad · {squad.length} / {PRACTICE_SQUAD_SIZE}
+              </p>
+              {squad.length === 0 ? (
+                <p style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "4px 0 0" }}>
+                  Nobody yet. A player with two seasons or fewer on a minimum-level deal can be moved here from
+                  his row above: he stays yours and keeps developing, without a roster spot, and doesn't play.
+                </p>
+              ) : (
+                squad.map((p) => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 13 }}>
+                    <span style={{ flex: 1 }}>
+                      {p.name} <span className="ppos">{posLabel(p.position)}</span>
+                      <span style={{ color: "var(--ink-faint)", marginLeft: 6, fontSize: 11.5 }}>age {p.age}</span>
+                    </span>
+                    <OvrPill value={p.overall} />
+                    <button
+                      onClick={() => {
+                        void actions.tender(p.id, "promote").then((r) => {
+                          if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't promote him." });
+                        });
+                      }}
+                      disabled={depthLocked || !checkPromote(s, p).ok}
+                      title={checkPromote(s, p).reason ?? "Promote to the 53 on a one-year minimum deal"}
+                    >
+                      Promote
+                    </button>
+                  </div>
+                ))
+              )}
+              {moveNote && squad.some((p) => p.id === moveNote.id) && (
+                <p className="form-error" style={{ margin: "6px 0 0", fontSize: 11.5 }}>
+                  {moveNote.text}
+                </p>
+              )}
+            </>
+          );
+        })()}
       </Panel>
 
       <Panel id="cap" open={active === "cap"}>

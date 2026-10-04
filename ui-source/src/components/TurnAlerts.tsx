@@ -1,8 +1,56 @@
 import { useEffect, useRef, useState } from "react";
 
+import { onlineSession } from "@/state/online";
+
 const KEY = "fs.turnAlerts";
 
 const supported = (): boolean => typeof window !== "undefined" && "Notification" in window;
+const pushSupported = (): boolean =>
+  supported() && "serviceWorker" in navigator && "PushManager" in window && window.isSecureContext;
+
+const fromB64u = (s: string): Uint8Array => {
+  const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4));
+  return Uint8Array.from(b, (c) => c.charCodeAt(0));
+};
+
+/**
+ * Real push: the league server notifies this device when it's your turn,
+ * a trade offer arrives or a stage opens, with the game closed
+ * (`online/src/push.ts`). The in-tab alerts below stay as the fallback for a
+ * browser without push. (On an iPhone, push needs the game added to the home
+ * screen first; Safari's rule.)
+ */
+async function subscribePush(): Promise<boolean> {
+  const session = onlineSession();
+  if (!session || !pushSupported()) return false;
+  try {
+    const reg = await navigator.serviceWorker.register("./sw.js");
+    await navigator.serviceWorker.ready;
+    const { publicKey } = await session.client.pushKey();
+    const sub =
+      (await reg.pushManager.getSubscription()) ??
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: fromB64u(publicKey) as BufferSource }));
+    const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return false;
+    await session.client.pushSubscribe({ endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function unsubscribePush(): Promise<void> {
+  if (!pushSupported()) return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration("./sw.js");
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return;
+    await onlineSession()?.client.pushUnsubscribe(sub.endpoint).catch(() => {});
+    await sub.unsubscribe();
+  } catch {
+    // nothing to undo
+  }
+}
 
 function readOn(): boolean {
   try {
@@ -33,6 +81,12 @@ export function TurnAlerts({
   // a browser that has the API but won't let a page use it (Android Chrome
   // wants a service worker) — the switch said "on" and nothing ever came
   const [unusable, setUnusable] = useState(false);
+  // whether this device gets real push, not just in-tab alerts
+  const [pushing, setPushing] = useState(false);
+  // a device switched on before push existed signs up the next time it loads
+  useEffect(() => {
+    if (on && supported() && Notification.permission === "granted") void subscribePush().then(setPushing);
+  }, [on]);
   const was = useRef(yourTurn);
   const offersWere = useRef(offers);
 
@@ -87,6 +141,11 @@ export function TurnAlerts({
         setUnusable(true);
       }
     }
+    if (next) setPushing(await subscribePush());
+    else {
+      await unsubscribePush();
+      setPushing(false);
+    }
     setOn(next);
     try {
       localStorage.setItem(KEY, next ? "on" : "off");
@@ -112,7 +171,7 @@ export function TurnAlerts({
       title={blocked ? "Notifications are blocked for this site in your browser settings." : undefined}
       aria-pressed={on}
     >
-      {blocked ? "Turn alerts blocked" : on ? "Turn alerts: on" : "Turn alerts: off"}
+      {blocked ? "Turn alerts blocked" : on ? (pushing ? "Turn alerts: on (push)" : "Turn alerts: on") : "Turn alerts: off"}
     </button>
   );
 }

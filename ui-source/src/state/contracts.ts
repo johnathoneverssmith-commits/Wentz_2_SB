@@ -192,4 +192,217 @@ export function applyExtension(p: Player, offer: { baseSalary: number; years: nu
   ];
   c.total_value = round1(thisYear + (offer.baseSalary + carried) * offer.years);
   c.guaranteed = round1(offer.guaranteed);
+  // paid: a new deal ends a holdout, and replaces any tag or option
+  delete p.holdout;
+  delete c.franchise_tag_season;
+  delete c.franchise_tag_price;
+  c.option_exercised = true;
+}
+
+// ---- the franchise tag and the fifth-year option ---------------------------
+
+const capHit = (p: Player): number => p.contract?.cap_hit_by_year[0] ?? 0;
+
+/**
+ * What a tag costs: the average of the five biggest cap hits at his position
+ * — the real tender's formula — and never less than 120% of what he makes
+ * now, which is what makes a second and third tag expensive.
+ */
+export function franchiseTagPrice(state: LeagueState, p: Player): number {
+  const top = Object.values(state.players)
+    .filter((x) => x.position === p.position && x.contract && !x.retired && !x.free_agent)
+    .map(capHit)
+    .sort((a, b) => b - a)
+    .slice(0, 5);
+  const avg = top.length ? top.reduce((a, b) => a + b, 0) / top.length : contractValueFor(p.overall, p.position);
+  return round1(Math.max(avg, capHit(p) * 1.2, MIN_SALARY_M));
+}
+
+/** The fifth-year option's price: a fixed tender a step below the tag. */
+export function fifthYearPrice(state: LeagueState, p: Player): number {
+  return round1(Math.max(franchiseTagPrice(state, p) * 0.8, capHit(p) * 1.1, MIN_SALARY_M));
+}
+
+/** Next year's cap with this player's next-year hit replaced by `price`. */
+function fitsNextYear(state: LeagueState, p: Player, price: number): ContractMoveResult {
+  const team = state.teams[p.nfl_team];
+  const c = p.contract;
+  if (!team || !c) return { ok: true };
+  const capNextYear = team.cap.used - (c.cap_hit_by_year[1] ?? 0) + price;
+  if (capNextYear > team.cap.total) {
+    return {
+      ok: false,
+      reason: `That puts next year's cap $${round1(capNextYear - team.cap.total).toFixed(1)}M over. Clear room first.`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Can this player be tagged, and for how much.
+ *
+ * In his final contract year, one player a team a season. The tag keeps him
+ * off the market for one more year at the tender; it is how a team keeps a
+ * star it can't agree terms with, and why it is dear.
+ */
+export function previewFranchiseTag(state: LeagueState, p: Player): ContractMoveResult & { price?: number } {
+  const c = p.contract;
+  if (!c || p.free_agent || p.retired) return { ok: false, reason: "He isn't under contract." };
+  if (c.years_remaining !== 1) return { ok: false, reason: "Only a player in the last year of his deal can be tagged." };
+  if (c.franchise_tag_season === state.season) return { ok: false, reason: "He's already tagged for next season." };
+  const taken = Object.values(state.players).find(
+    (x) => x.nfl_team === p.nfl_team && x.id !== p.id && x.contract?.franchise_tag_season === state.season,
+  );
+  if (taken) return { ok: false, reason: `One tag a season, and ${taken.name} already has it.` };
+  const price = franchiseTagPrice(state, p);
+  const fits = fitsNextYear(state, p, price);
+  return fits.ok ? { ok: true, price } : { ...fits, price };
+}
+
+export function franchiseTag(state: LeagueState, p: Player): ContractMoveResult {
+  const check = previewFranchiseTag(state, p);
+  if (!check.ok) return check;
+  const c = p.contract!;
+  c.franchise_tag_season = state.season;
+  c.franchise_tag_price = check.price!;
+  return { ok: true };
+}
+
+/**
+ * Turns a tag into next year's deal as the contract runs out. Called from
+ * `expireContracts` for a deal that just reached zero years.
+ */
+export function applyTagIfAny(p: Player, season: number): boolean {
+  const c = p.contract;
+  if (!c || c.franchise_tag_season !== season || !c.franchise_tag_price) return false;
+  const price = c.franchise_tag_price;
+  p.contract = {
+    team_id: c.team_id,
+    years_remaining: 1,
+    total_value: price,
+    guaranteed: price,
+    cap_hit_by_year: [price],
+    signing_bonus: 0,
+    tag_count: (c.tag_count ?? 0) + 1,
+  };
+  return true;
+}
+
+/** A first-rounder in the last year of his rookie deal, option not yet used. */
+export function fifthYearEligible(p: Player): boolean {
+  const c = p.contract;
+  if (!c || p.free_agent || p.retired || c.option_exercised) return false;
+  if (p.draft_info?.round !== 1) return false;
+  return c.years_remaining === 1 && (c.rookie_deal === true || p.years_pro <= 3);
+}
+
+export function previewFifthYearOption(state: LeagueState, p: Player): ContractMoveResult & { price?: number } {
+  if (!fifthYearEligible(p)) {
+    return { ok: false, reason: "Only a first-round pick in the last year of his rookie deal has a fifth-year option." };
+  }
+  const price = fifthYearPrice(state, p);
+  const fits = fitsNextYear(state, p, price);
+  return fits.ok ? { ok: true, price } : { ...fits, price };
+}
+
+/** Pick up the option: one more year, fully guaranteed, at the tender. */
+export function exerciseFifthYearOption(state: LeagueState, p: Player): ContractMoveResult {
+  const check = previewFifthYearOption(state, p);
+  if (!check.ok) return check;
+  const c = p.contract!;
+  const price = check.price!;
+  c.years_remaining += 1;
+  c.cap_hit_by_year = [...c.cap_hit_by_year.slice(0, 1), price];
+  c.total_value = round1(c.total_value + price);
+  c.guaranteed = round1(c.guaranteed + price);
+  c.option_exercised = true;
+  return { ok: true };
+}
+
+// ---- holdouts ----------------------------------------------------------------
+
+function hashStr(s: string): number {
+  let h = 0x811c9dc5;
+  for (let k = 0; k < s.length; k++) {
+    h ^= s.charCodeAt(k);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Is he badly enough underpaid to stay away from camp?
+ *
+ * A star (good enough, young enough, with his market worth nearly double
+ * what he makes), and not every one of them: about two in five actually do
+ * it, the rest grumble and report. Seeded on player and season, so it is the
+ * same answer on every client and every reload.
+ */
+export function wouldHoldOut(p: Player, season: number): boolean {
+  const c = p.contract;
+  if (!c || p.free_agent || p.retired || c.years_remaining < 1) return false;
+  if (p.overall < 86 || p.age > 30) return false;
+  if (c.tag_count) return false; // a tagged player has been paid the tender
+  const market = contractValueFor(p.overall, p.position);
+  if (market < 2.2 * Math.max(1, capHit(p))) return false;
+  return hashStr(`${p.id}|holdout|${season}`) % 100 < 25;
+}
+
+/**
+ * Camp opens: the underpaid stars decide whether to show up.
+ *
+ * A CPU front office pays him (the extension he asks for, if it fits); a
+ * human GM has a decision to make, and until they make it he sits, every
+ * preseason and regular-season game, until he is extended or traded, or
+ * reports at the trade deadline, as real holdouts do so the season still
+ * counts toward free agency. Returns the holdouts, for the news feed.
+ */
+export function startHoldouts(state: LeagueState, humanTeams: Set<string>): Player[] {
+  const out: Player[] = [];
+  const teamsWithOne = new Set<string>();
+  // what each CPU team has already promised for next year, so two
+  // extensions can't each fit the cap alone and break it together
+  const committed = new Map<string, number>();
+  const nextYear = (team: string): number => {
+    let v = committed.get(team);
+    if (v === undefined) {
+      v = Object.values(state.players)
+        .filter((x) => x.nfl_team === team && !x.retired && (x.contract?.years_remaining ?? 0) >= 2)
+        .reduce((n, x) => n + (x.contract!.cap_hit_by_year[1] ?? 0), 0);
+      committed.set(team, v);
+    }
+    return v;
+  };
+  const candidates = Object.values(state.players)
+    .filter((p) => !p.holdout && wouldHoldOut(p, state.season))
+    .sort((a, b) => b.overall - a.overall);
+  for (const p of candidates) {
+    // one a team: a locker room with two stars staying away is a story, not a rule
+    if (teamsWithOne.has(p.nfl_team)) continue;
+    if (!humanTeams.has(p.nfl_team)) {
+      // a CPU front office pays him if the budget allows; if it doesn't, he
+      // reports unhappy rather than costing a CPU team its star for half a season
+      const ask = extensionAsk(p);
+      const team = state.teams[p.nfl_team];
+      const budget = (team?.cap.total ?? 0) - 12;
+      if (team && nextYear(p.nfl_team) - (p.contract?.cap_hit_by_year[1] ?? 0) + ask.baseSalary <= budget) {
+        if (extendContract(state, p, ask).ok) {
+          committed.set(p.nfl_team, nextYear(p.nfl_team) + ask.baseSalary);
+          teamsWithOne.add(p.nfl_team);
+        }
+      }
+      continue;
+    }
+    p.holdout = p.nfl_team;
+    teamsWithOne.add(p.nfl_team);
+    out.push(p);
+  }
+  return out;
+}
+
+/** The trade deadline, or the season's end: every holdout reports. */
+export function endHoldouts(state: LeagueState): Player[] {
+  const back = Object.values(state.players).filter((p) => p.holdout);
+  for (const p of back) delete p.holdout;
+  return back;
 }

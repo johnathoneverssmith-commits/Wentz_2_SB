@@ -120,7 +120,10 @@ export function clearInjuries(state: LeagueState): void {
  * on the sheet is a crash, not a hardship.
  */
 export function availableRoster(roster: Player[]): Player[] {
-  const healthy = roster.filter((p) => !p.injury_status || p.injury_status.status !== "out");
+  // a holdout isn't hurt, but he isn't playing either
+  const healthy = roster.filter(
+    (p) => (!p.injury_status || p.injury_status.status !== "out") && p.holdout !== p.nfl_team,
+  );
   const covered = new Set(healthy.map((p) => p.position));
   const playingHurt = roster.filter((p) => !covered.has(p.position));
   if (playingHurt.length === 0) return healthy;

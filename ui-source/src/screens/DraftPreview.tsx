@@ -24,7 +24,7 @@ export function DraftPreview() {
   const nav = useNavigate();
   const { active, setActive } = useTabs("prospects");
   const code = viewerTeamCode(s);
-  const myPicks = code ? picksOwnedBy(s, code, s.season) : [];
+  const myPicks = code ? picksOwnedBy(s, code, s.season, true) : [];
   const actions = useLeagueActions();
   // league-level and saved on the server, so they survive the preview, a
   // reload and the start of the draft (they used to live on last season's
@@ -73,7 +73,7 @@ export function DraftPreview() {
           // three firsts or had traded them all away
           {
             label: "Your picks",
-            value: myPicks.length === 0 ? "None" : myPicks.map((p) => `R${p.round}`).join(" "),
+            value: myPicks.length === 0 ? "None" : myPicks.map((p) => `R${p.round}${p.comp ? "c" : ""}`).join(" "),
             className: "sm",
           },
         ]}

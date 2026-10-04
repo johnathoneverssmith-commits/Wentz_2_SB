@@ -54,9 +54,15 @@ export function forgetSpentPicks(state: LeagueState, season: number): void {
 }
 
 /** Every pick `teamCode` owns in `year`, earliest round first. */
-export function picksOwnedBy(state: LeagueState, teamCode: string, year?: number): DraftPickAsset[] {
+export function picksOwnedBy(
+  state: LeagueState,
+  teamCode: string,
+  year?: number,
+  /** compensatory picks too — they can't be traded, so trade screens leave them out */
+  includeComp = false,
+): DraftPickAsset[] {
   return Object.values(state.draftPicks ?? {})
-    .filter((p) => p.ownedBy === teamCode && (year == null || p.year === year))
+    .filter((p) => p.ownedBy === teamCode && (year == null || p.year === year) && (includeComp || !p.comp))
     .sort((a, b) => a.year - b.year || a.round - b.round);
 }
 
@@ -95,7 +101,7 @@ export function tradedPickLabel(pick: DraftPickAsset): string {
 
 export function pickLabel(pick: DraftPickAsset): string {
   const via = pick.originalTeam !== pick.ownedBy ? ` (via ${pick.originalTeam})` : "";
-  return `${pick.year + 1} Round ${pick.round}${via}`;
+  return `${pick.year + 1} Round ${pick.round}${pick.comp ? " (compensatory)" : ""}${via}`;
 }
 
 /**
@@ -110,14 +116,80 @@ export function pickOrderFor(
   baseOrder: string[],
   rounds: number,
 ): string[] {
-  const out: string[] = [];
+  return draftOrderFor(state, season, baseOrder, rounds).order;
+}
+
+/**
+ * The full draft order, compensatory picks included, with each pick's round.
+ * A round's compensatory picks come after its regular ones, the most valuable
+ * loss first.
+ */
+export function draftOrderFor(
+  state: LeagueState,
+  season: number,
+  baseOrder: string[],
+  rounds: number,
+): { order: string[]; roundOf: number[] } {
+  const order: string[] = [];
+  const roundOf: number[] = [];
+  const comps = Object.values(state.draftPicks ?? {}).filter((p) => p.comp && p.year === season);
   for (let round = 1; round <= rounds; round++) {
     for (const earnedBy of baseOrder) {
       const owner = state.draftPicks?.[pickKey(season, round, earnedBy)]?.ownedBy;
-      out.push(owner ?? earnedBy);
+      order.push(owner ?? earnedBy);
+      roundOf.push(round);
+    }
+    for (const c of comps.filter((p) => p.round === round)) {
+      order.push(c.ownedBy);
+      roundOf.push(round);
     }
   }
-  return out;
+  return { order, roundOf };
+}
+
+/**
+ * The compensatory formula, simplified: a team that lost more of its own
+ * free agents than it signed from other teams' gets a pick for each net loss,
+ * the round set by what the departed player signed for — at most four a
+ * team, rounds three to seven, in the draft after the season they left
+ * before. It is what makes letting a star walk a decision rather than only
+ * a loss, and what rewards a team that builds through the draft over one
+ * that buys every March.
+ *
+ * Run at the season's end: every player whose deal ran out the offseason
+ * before (`expired_season`) and has since signed elsewhere is a loss for the
+ * team he left and a gain for the team that signed him.
+ */
+export function awardCompensatoryPicks(state: LeagueState): { team: string; round: number; player: string }[] {
+  const lastOffseason = state.season - 1;
+  const losses = new Map<string, { value: number; name: string }[]>();
+  const gains = new Map<string, number>();
+  for (const p of Object.values(state.players)) {
+    if (p.expired_season !== lastOffseason || !p.expired_from) continue;
+    if (p.retired || p.free_agent || !p.contract || p.nfl_team === p.expired_from) continue;
+    const value = p.contract.cap_hit_by_year[0] ?? 0;
+    if (value < 1.5) continue; // a minimum deal doesn't qualify
+    const list = losses.get(p.expired_from) ?? [];
+    list.push({ value, name: p.name });
+    losses.set(p.expired_from, list);
+    gains.set(p.nfl_team, (gains.get(p.nfl_team) ?? 0) + 1);
+  }
+  const roundFor = (v: number): number => (v >= 20 ? 3 : v >= 12 ? 4 : v >= 6 ? 5 : v >= 3 ? 6 : 7);
+  const year = state.season + 1;
+  const awarded: { team: string; round: number; player: string }[] = [];
+  state.draftPicks ??= {};
+  for (const [team, list] of losses) {
+    if (!state.teams[team]) continue;
+    const net = list.length - (gains.get(team) ?? 0);
+    if (net <= 0) continue;
+    const kept = [...list].sort((a, b) => b.value - a.value).slice(0, Math.min(4, net));
+    kept.forEach((l, i) => {
+      const round = roundFor(l.value);
+      state.draftPicks![`${pickKey(year, round, team)}-comp${i}`] = { year, round, ownedBy: team, originalTeam: team, comp: true };
+      awarded.push({ team, round, player: l.name });
+    });
+  }
+  return awarded;
 }
 
 /**

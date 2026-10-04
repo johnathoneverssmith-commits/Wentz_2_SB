@@ -41,8 +41,9 @@ import {
 import { Rng } from "./rng.js";
 import { homePenaltyScale, homeShift, type HomeEdge } from "./home-field.js";
 import { strengthIndex, strengthShift } from "./team-strength.js";
-import { type CreditKind, creditWeight, synergyShift } from "./synergy.js";
-import { type Lineup, type Roster, roster } from "./roster.js";
+import { blitzContext, type CreditKind, creditWeight, synergyShift } from "./synergy.js";
+import { NO_WEATHER_EFFECT, type Weather, type WeatherEffect, weatherEffect } from "./weather.js";
+import { REST_DT1, REST_DT2, REST_EDGE1, REST_EDGE2, type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import type { Player } from "../schema/player.js";
 import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
@@ -207,6 +208,12 @@ export class Game {
   /** No home team: the Super Bowl, and any sim with no real venue behind it. */
   neutralSite = false;
   rzFlag = false;
+  /** game-day conditions (`weather.ts`); null plays in neutral air */
+  weather: Weather | null = null;
+  wx: WeatherEffect = NO_WEATHER_EFFECT;
+  /** scrimmage snaps so far, and which front starters sit out this one */
+  private snaps = 0;
+  private restMask = 0;
   clockStopped = true; // running-clock state for 2-minute-drill management
 
   // opt-in flavour outputs (null = disabled, [] = collect). Both consume no RNG
@@ -312,7 +319,33 @@ export class Game {
     return this.off().offense(this.injuredOut);
   }
   private defLineup(nickel = false): Lineup {
-    return this.def().defense(nickel, this.injuredOut);
+    return this.def().defense(nickel, this.injuredOut, this.restMask);
+  }
+
+  /**
+   * Which front starters take this snap off.
+   *
+   * Starters played every snap, so a team's third tackle and third edge
+   * rusher never touched the field and a line was exactly as good as its top
+   * four. Real fronts rotate - starting tackles play about 60-70% of snaps,
+   * edge rushers 75-85% - and rotate more the longer a drive keeps them on
+   * the field, which is how depth on the line, and a tired defense, show up
+   * on the scoreboard. Like credit attribution, a hash of where the game is
+   * rather than the game's random numbers, so it never shifts the dice.
+   */
+  private rotation(): number {
+    let h = Math.imul(this.snaps + 1, 2654435761) ^ Math.imul(this.gsr + 7, 40503) ^ Math.imul(this.pos + 1, 0x9e3779b9);
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+    h = Math.imul(h ^ (h >>> 13), 0x297a2d39) >>> 0;
+    // a defense on the field for a long drive tires: +2 points of rotation a
+    // snap past the sixth, to a ceiling
+    const tired = Math.max(0, this.dPlays - 6) * 2;
+    const dt = Math.min(45, 30 + tired);
+    const edge = Math.min(35, 20 + tired);
+    let mask = 0;
+    if (h % 100 < dt) mask |= (h >>> 7) % 5 < 2 ? REST_DT1 : REST_DT2;
+    if ((h >>> 12) % 100 < edge) mask |= (h >>> 20) % 5 < 2 ? REST_EDGE1 : REST_EDGE2;
+    return mask;
   }
   private clockText(): string {
     const s = Math.max(0, this.qsr);
@@ -552,10 +585,18 @@ export class Game {
     );
     const ofit = offSchemeFitShift(ocS.scheme, offTags);
     const dfit = defSchemeFitShift(dcS.scheme, defTags);
+    // The blitz against the personnel on both sides of it: corners who can
+    // hold up alone let it get home and give little back; a great line picks
+    // it up; a great quarterback punishes it. Centred on the reference
+    // lineups, so an ordinary matchup is the flat blitz trade it always was.
+    const bz = blitzContext(o, d);
+    const b = dcS.blitzBias;
+    const blitzSack = 0.14 * b * (0.35 * bz.coverage - 0.25 * bz.protection - 0.15 * bz.quarterback);
+    const blitzComplete = 0.09 * b * (-0.35 * bz.coverage + 0.3 * bz.quarterback + 0.2 * bz.protection);
     return {
-      complete: oc.complete + dc.complete + ofit.complete + dfit.complete,
+      complete: oc.complete + dc.complete + ofit.complete + dfit.complete + blitzComplete,
       rush: oc.rush + dc.rush + ofit.rush + dfit.rush,
-      sack: dc.sack,
+      sack: dc.sack + blitzSack,
     };
   }
 
@@ -584,6 +625,8 @@ export class Game {
           staff.complete +
           homeShift(edge, "complete") +
           this.calib.complete +
+          (this.yardline100 <= 20 ? this.calib.rzComplete : 0) +
+          (this.down >= 3 ? this.calib.thirdDown : 0) +
           this.offenseAdjust,
         INTERCEPTION:
           this.talent *
@@ -602,7 +645,14 @@ export class Game {
       };
     }
     if (kind === "M20") {
-      return { MADE: this.talent * fgLogitShift(this.off().kicker()) + homeShift(edge, "fgMade") };
+      return {
+        MADE:
+          this.talent * fgLogitShift(this.off().kicker()) +
+          homeShift(edge, "fgMade") +
+          this.calib.fg +
+          this.wx.fg +
+          this.wx.fgPerYard * Math.max(0, this.yardline100 + 18 - 30),
+      };
     }
     return null;
   }
@@ -620,6 +670,7 @@ export class Game {
       this.staffOffShift().rush +
       homeShift(this.homeEdge, "rushYards") +
       this.calib.rushYards +
+      (this.yardline100 <= 20 ? this.calib.rzRush : 0) +
       this.offenseAdjust * 1.5
     );
   }
@@ -1030,7 +1081,7 @@ export class Game {
       const preQtr = this.qtr;
       const preClock = this.clockText();
       const punter = this.ratingsOn ? this.off().punter() : undefined;
-      const dist = samplePuntDistance(this.yardline100, this.rng) + (this.ratingsOn ? puntDistanceShift(punter) : 0);
+      const dist = samplePuntDistance(this.yardline100, this.rng) + (this.ratingsOn ? puntDistanceShift(punter) : 0) + this.wx.punt;
       const landing = this.yardline100 - dist;
       this.advanceClock("run_inbounds", 0, true);
       const kicker = this.ratingsOn ? (punter?.name ?? undefined) : undefined;
@@ -1126,6 +1177,8 @@ export class Game {
       if (!this.presnapPenalty()) break;
       this.dPlays += 1; // a dead-ball foul is its own nflverse no_play row
     }
+    this.snaps += 1;
+    this.restMask = this.ratingsOn ? this.rotation() : 0;
     const s0: [Stats, Stats] = [{ ...this.teams[0].s }, { ...this.teams[1].s }];
     const call = sampleClass("M02", this.ctx(0), this.rng);
     const sg = sampleClass("M03", { ...this.ctx(0), play_call: call }, this.rng) === "SHOTGUN" ? 1 : 0;
@@ -1171,7 +1224,7 @@ export class Game {
         const base = this.offShift("M09") ?? {};
         const m09Shift: Shift = {
           ...base,
-          COMPLETE: (base.COMPLETE ?? 0) + (M09_COMPLETE_CALIB[depth] ?? 0),
+          COMPLETE: (base.COMPLETE ?? 0) + (M09_COMPLETE_CALIB[depth] ?? 0) + (this.wx.complete[depth] ?? 0),
         };
         const res = sampleClass(
           "M09",
@@ -1253,6 +1306,10 @@ export class Game {
       const fp = this.yardline100 <= 10 ? "gl" : this.yardline100 <= 50 ? "opp" : "own";
       const sd = this.ydstogo <= 2 ? "short" : "norm";
       gained = sampleExactYards("m14", cat, `${loc}|${fp}|${sd}`, this.rng) + this.rushYdMod();
+      // the long-run tail: a run that gets to the second level goes further
+      // (the run game's calibration as a flat shift added yards to every
+      // carry alike, and left the engine short on 15-yard runs)
+      if (this.ratingsOn && gained > 4) gained += this.calib.rushTail * (gained - 4);
       gained = Math.max(gained, -12.0);
       this.st("rush_yards", gained);
       outcomeBucket = this.rng.random() < 0.1 ? "run_oob" : "run_inbounds";
@@ -1269,13 +1326,13 @@ export class Game {
     ) {
       const fumQbHit = family === "sack" ? 1 : 0;
       const pf =
-        predictProba("M15", {
+        (predictProba("M15", {
           yards_gained: gained,
           qb_hit: fumQbHit,
           yardline_100: this.yardline100,
           down: this.down,
           event_family: family,
-        }).FUMBLE ?? 0.011;
+        }).FUMBLE ?? 0.011) * this.wx.fumble;
       if (this.rng.random() < pf) {
         this.st("fumble");
         if (this.rng.random() < FUMBLE_LOST_RATE) {
@@ -1527,25 +1584,41 @@ export interface OffenseCalibration {
   sack: number;
   /** interception log-odds */
   interception: number;
+  /** completion log-odds inside the opponent's 20 */
+  rzComplete: number;
+  /** yards a carry inside the opponent's 20 */
+  rzRush: number;
+  /** extra yards per yard a run makes past the fourth */
+  rushTail: number;
+  /** completion log-odds on third and fourth down */
+  thirdDown: number;
+  /** field-goal log-odds */
+  fg: number;
 }
 
 /**
  * Per channel, per talent setting.
  *
  * The first version nudged only completions and the run game, and fitted them
- * to points. But spreading teams apart moves *every* rate channel, sacks
- * included — so the sack rate drifted 14% high. Sacks and interceptions now
- * have their own offsets, fitted to their NFL rates; completions and the run
- * game share one nudge fitted to the league's scoring (22.56 a team-game),
- * because the engine's red zone converts short of the NFL's and with all four
- * rates exact a game scores ~20 (`analysis/40_channel_calibration.ts`, the
- * default `--fit points`). The spread being larger at a higher talent setting
- * is why the offsets depend on it. Linear between the fitted settings.
+ * to points. But spreading teams apart moves *every* rate channel, so the
+ * sack rate drifted 14% high, and points were bought back with completions
+ * and yards a carry that ran 7% and 9% high. The scoring gap had specific
+ * causes, and each now has its own term, fitted to its own NFL number
+ * (`analysis/40_channel_calibration.ts --fit full`, weather on): the red
+ * zone converted short (`rzComplete` / `rzRush`), the run game had no long
+ * tail (`rushTail`), third downs converted 35% against 39% (`thirdDown`),
+ * and kickers missed (`fg`). With every one of them exact a game still
+ * scored ~21.3 of the NFL's 22.6 (more drives, each a little less
+ * productive), so a last shared nudge on completions and the run game
+ * (`--fit points`) takes it the rest of the way: completion runs ~3% high
+ * and yards a carry ~5%, where they ran 7% and 9%. Linear between the
+ * fitted settings; the spread is larger at higher talent, which is why the
+ * offsets depend on it.
  */
 const CALIB_BY_TALENT: [number, OffenseCalibration][] = [
-  [1, { complete: 0.208, rushYards: 0.313, sack: -0.178, interception: -0.148 }],
-  [1.5, { complete: 0.175, rushYards: 0.263, sack: -0.224, interception: -0.367 }],
-  [2, { complete: 0.162, rushYards: 0.243, sack: -0.35, interception: -0.556 }],
+  [1, { complete: -0.132, rushYards: -0.188, sack: -0.152, interception: -0.209, rzComplete: 0.245, rzRush: 0.367, rushTail: 0.065, thirdDown: 0.695, fg: 0.162 }],
+  [1.5, { complete: -0.063, rushYards: -0.126, sack: -0.21, interception: -0.369, rzComplete: 0.206, rzRush: 0.31, rushTail: 0.066, thirdDown: 0.672, fg: 0.216 }],
+  [2, { complete: -0.088, rushYards: -0.174, sack: -0.302, interception: -0.543, rzComplete: 0.171, rzRush: 0.256, rushTail: 0.069, thirdDown: 0.699, fg: 0.144 }],
 ];
 let calibOverride: OffenseCalibration | null = null;
 
@@ -1560,7 +1633,7 @@ export function offenseCalibrationFor(talent: number): OffenseCalibration {
     if (talent <= t1) {
       const f = (talent - t0) / (t1 - t0);
       const mix = (k: keyof OffenseCalibration) => c0[k] + f * (c1[k] - c0[k]);
-      return { complete: mix("complete"), rushYards: mix("rushYards"), sack: mix("sack"), interception: mix("interception") };
+      return Object.fromEntries(Object.keys(c0).map((k) => [k, mix(k as keyof OffenseCalibration)])) as unknown as OffenseCalibration;
     }
   }
   return t[t.length - 1]![1];
@@ -1614,6 +1687,11 @@ export interface GameStaff {
    * applies only with the rating layer on.
    */
   offenseAdjust?: number | undefined;
+  /**
+   * Game-day conditions (`gameWeather` in `weather.ts`). Omitted plays in
+   * neutral air, byte-identical; the franchise game passes the venue's.
+   */
+  weather?: Weather | undefined;
 }
 
 /**
@@ -1648,6 +1726,10 @@ export function simulateGame(
   if (opts?.overtime) g.overtime = opts.overtime;
   if (opts?.mustDecide) g.mustDecide = true;
   if (opts?.offenseAdjust) g.offenseAdjust = opts.offenseAdjust;
+  if (opts?.weather) {
+    g.weather = opts.weather;
+    g.wx = weatherEffect(opts.weather);
+  }
   if (opts?.trace) g.playTrace = [];
   if (opts?.injuries && rosters) g.injuryLog = [];
   return g.run();

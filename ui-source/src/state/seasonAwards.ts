@@ -138,6 +138,7 @@ export function accrueCareers(s: LeagueState): void {
       (c as unknown as Record<string, number>)[key] = ((c as unknown as Record<string, number>)[key] ?? 0) + v;
     }
   }
+  bankCareerRecords(s);
 }
 
 // ---- the MVP race, as the award will score it ---------------------------------
@@ -188,6 +189,95 @@ export const RECORD_LABEL: Record<RecordStat, string> = {
   defInt: "Interceptions",
   tackles: "Tackles",
 };
+
+/**
+ * The real NFL single-season marks, as the bar a league's own records are
+ * read against (through the 2024 season). Tackles have no official record.
+ */
+export const NFL_RECORDS: Partial<Record<RecordStat, { value: number; holder: string }>> = {
+  passYds: { value: 5477, holder: "Peyton Manning, 2013" },
+  passTd: { value: 55, holder: "Peyton Manning, 2013" },
+  rushYds: { value: 2105, holder: "Eric Dickerson, 1984" },
+  rushTd: { value: 28, holder: "LaDainian Tomlinson, 2006" },
+  rec: { value: 149, holder: "Michael Thomas, 2019" },
+  recYds: { value: 1964, holder: "Calvin Johnson, 2012" },
+  recTd: { value: 23, holder: "Randy Moss, 2007" },
+  sacks: { value: 22.5, holder: "Michael Strahan, 2001; T.J. Watt, 2021" },
+  defInt: { value: 14, holder: "Night Train Lane, 1952" },
+};
+
+/** One all-time career mark the league keeps, whether or not the player still exists in the save. */
+export interface CareerRecordRow {
+  stat: RecordStat;
+  playerId: string;
+  name: string;
+  value: number;
+}
+const CAREER_RECORDS_KEPT = 5;
+
+/**
+ * Bank every career into the league's all-time lists. Retirees are pruned
+ * from the save a few seasons after they leave (`forgetOldRetirees`), and
+ * the career leaders went with them: a league's greatest passer vanished from
+ * its record book the year his file did. The lists keep the top five per
+ * stat on their own, by player.
+ */
+function bankCareerRecords(s: LeagueState): void {
+  const rows = [...(s.careerRecords ?? [])];
+  for (const stat of Object.keys(RECORD_LABEL) as RecordStat[]) {
+    const mine = rows.filter((r) => r.stat === stat);
+    const byId = new Map(mine.map((r) => [r.playerId, r]));
+    for (const p of Object.values(s.players)) {
+      const v = p.career?.[stat] ?? 0;
+      if (v <= 0) continue;
+      const cur = byId.get(p.id);
+      if (!cur || v > cur.value) byId.set(p.id, { stat, playerId: p.id, name: p.name, value: v });
+    }
+    const top = [...byId.values()].sort((a, b) => b.value - a.value).slice(0, CAREER_RECORDS_KEPT);
+    for (let i = rows.length - 1; i >= 0; i--) if (rows[i]!.stat === stat) rows.splice(i, 1);
+    rows.push(...top);
+  }
+  s.careerRecords = rows;
+}
+
+/**
+ * Who is chasing a record this season: anyone past the league's record or
+ * the NFL's, or on pace to pass one, after at least four games. The hub's
+ * "Around the league" reads it, so a record falling is something a GM sees
+ * coming rather than finds in the history afterwards.
+ */
+export function recordWatch(s: LeagueState, seasonGames: number): { playerId: string; team: string; text: string }[] {
+  const out: { playerId: string; team: string; text: string; heat: number }[] = [];
+  const league = new Map((s.records ?? []).map((r) => [r.stat, r]));
+  for (const stat of Object.keys(RECORD_LABEL) as RecordStat[]) {
+    let best: Player | undefined;
+    for (const p of Object.values(s.players)) {
+      const v = p.season_stats?.[stat] ?? 0;
+      if (v > 0 && (p.season_stats?.gamesPlayed ?? 0) >= 4 && (!best || v > (best.season_stats?.[stat] ?? 0))) best = p;
+    }
+    if (!best) continue;
+    const v = best.season_stats![stat] ?? 0;
+    const gp = best.season_stats!.gamesPlayed;
+    const pace = Math.round((v / gp) * Math.max(gp, seasonGames));
+    const label = RECORD_LABEL[stat].toLowerCase();
+    const fmt = (x: number) => x.toLocaleString("en-US");
+    const nfl = NFL_RECORDS[stat];
+    const mark = league.get(stat);
+    const target = nfl && (!mark || nfl.value > mark.value) ? { value: nfl.value, what: `the NFL record (${fmt(nfl.value)}, ${nfl.holder})` } : mark ? { value: mark.value, what: `the league record (${fmt(mark.value)}, ${mark.name} ${mark.season})` } : null;
+    if (!target) continue;
+    if (v > target.value) {
+      out.push({ playerId: best.id, team: best.nfl_team, heat: 3, text: `has ${fmt(v)} ${label}, past ${target.what}` });
+    } else if (pace > target.value) {
+      out.push({
+        playerId: best.id,
+        team: best.nfl_team,
+        heat: pace / target.value,
+        text: `has ${fmt(v)} ${label} in ${gp} games, on pace for ${fmt(pace)}: ${target.what} is in reach`,
+      });
+    }
+  }
+  return out.sort((a, b) => b.heat - a.heat).slice(0, 4).map(({ playerId, team, text }) => ({ playerId, team, text }));
+}
 
 export interface AllProRow {
   season: number;

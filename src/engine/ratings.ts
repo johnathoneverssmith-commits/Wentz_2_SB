@@ -184,13 +184,27 @@ export function sackLogitShift(ol: Unit, rushers: Unit): number {
   return centered("protection", ol) + centered("pass_rush", rushers);
 }
 
+/**
+ * How much of the fitted runner family is the runner's own.
+ *
+ * The family was fitted on real seasons, where good backs mostly run behind
+ * good lines — and the fit had no line term to give that to, so the back took
+ * the line's credit too. The line now has its own run-game channels (synergy's
+ * `runBlockLinear`, the team-strength run index), so leaving the back the
+ * whole coefficient counted the line twice: an elite back was worth nearly an
+ * elite quarterback. Two thirds is the share the line-controlled literature
+ * leaves the back (and what brought him to about two thirds of a
+ * quarterback's value, `analysis/38_unit_links.ts`).
+ */
+export const RUNNER_OWN_SHARE = 0.65;
+
 /** M14 yards: runner (+) + front seven (−). */
 export function rushYardsShift(
   _ol: Unit,
   front7: Unit,
   runner: Player | null | undefined,
 ): number {
-  return centered("runner", [runner]) + centered("run_defense_front7", front7);
+  return RUNNER_OWN_SHARE * centered("runner", [runner]) + centered("run_defense_front7", front7);
 }
 
 /** M10 yards: ball-carrier (+) + open-field tackling (−). */

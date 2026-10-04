@@ -122,7 +122,7 @@ describe.runIf(hasPool)("injuries + trace in simulateGame", () => {
     const g = simulateGame(7, "KC", "BUF", { trace: true });
     const t = g.playTrace!;
     expect(t.length).toBeGreaterThan(90);
-    expect(t.length).toBeLessThan(170);
+    expect(t.length).toBeLessThan(185);
     expect(t[0]!.down).toBe(1);
     for (const r of t) {
       expect(r.ballOn).toBeGreaterThanOrEqual(0);

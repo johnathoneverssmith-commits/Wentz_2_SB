@@ -93,6 +93,15 @@ export interface Contract {
    * value instead of 75% of it (exploit audit, contracts §3).
    */
   restructured_season?: number;
+  /** Tagged in this season's final contract year: next year is a one-year tender at `franchise_tag_price`. */
+  franchise_tag_season?: number;
+  franchise_tag_price?: number;
+  /** How many franchise tags this player has played under — each one costs more. */
+  tag_count?: number;
+  /** A first-round rookie deal (eligible for the fifth-year option in its final year). */
+  rookie_deal?: boolean;
+  /** The fifth-year option has been picked up. */
+  option_exercised?: boolean;
 }
 
 export interface InjuryStatus {
@@ -197,6 +206,18 @@ export interface Player {
   career?: PlayerStatLine & { seasons: number; lastSeason?: number; peak?: number };
   /** Scheme fit 0–99 vs the team's current OC/DC (spec §6.3). */
   scheme_fit?: number;
+  /**
+   * Holding out for a new deal — the team code he is refusing to play for.
+   * He sits out every game until he is extended, traded, or reports at the
+   * trade deadline (`contracts.ts`).
+   */
+  holdout?: string;
+  /**
+   * The team whose contract with him ran out, and the season it did — what
+   * the compensatory-pick formula counts as a free agent lost.
+   */
+  expired_from?: string;
+  expired_season?: number;
 }
 
 /** overall → the elite/mid/low class the mockups colour by. */

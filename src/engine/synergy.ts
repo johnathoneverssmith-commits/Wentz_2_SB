@@ -600,3 +600,56 @@ export function synergyShift(o: Lineup, d: Lineup, channel: Channel): number {
   const cap = channel === "sack" && total > 0 ? SACK_CEILING_UP : SATURATION[channel];
   return cap * Math.tanh((total * synergyScale) / cap);
 }
+
+// ---- the blitz ----------------------------------------------------------------
+
+/**
+ * What a blitz is sending into, as z-scores against the reference lineups
+ * (clamped to ±2): the coverage left behind it, the protection it is
+ * attacking, and the quarterback who has to beat it.
+ *
+ * A coordinator's blitz bias was a flat trade — more sacks, more completions
+ * when it is beaten — whatever the personnel. In football it depends on them:
+ * blitzing in front of corners who can hold up alone is how a defense gets
+ * home, blitzing in front of bad ones is how it gives up the big play, and a
+ * great quarterback behind a great line is the one man you do not send
+ * pressure at.
+ */
+export interface BlitzContext {
+  coverage: number;
+  protection: number;
+  quarterback: number;
+}
+const meanSkill = (ps: (Player | null | undefined)[], skill: Skill): number | null => {
+  const zs = ps.map((p) => skillZ(p, skill)).filter((z): z is number => z !== null);
+  return zs.length ? zs.reduce((a, b) => a + b, 0) / zs.length : null;
+};
+const blitzRaw = (o: Lineup, d: Lineup) => ({
+  coverage: meanSkill([d.CB1, d.CB2, d.S1, d.S2], COVERAGE),
+  protection: meanSkill([o.LT, o.LG, o.C, o.RG, o.RT], PASS_PRO),
+  quarterback: meanSkill([o.QB1], QB_PASS),
+});
+let _blitzRef: { mean: Record<keyof BlitzContext, number>; sd: Record<keyof BlitzContext, number> } | null = null;
+function blitzReference() {
+  if (_blitzRef) return _blitzRef;
+  const rows = teamList().map((t) => blitzRaw(roster(t).offense(), roster(t).defense()));
+  const keys = ["coverage", "protection", "quarterback"] as const;
+  const mean = {} as Record<keyof BlitzContext, number>;
+  const sd = {} as Record<keyof BlitzContext, number>;
+  for (const k of keys) {
+    const xs = rows.map((r) => r[k]).filter((x): x is number => x !== null);
+    const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+    mean[k] = m;
+    sd[k] = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / xs.length) || 1;
+  }
+  return (_blitzRef = { mean, sd });
+}
+export function blitzContext(o: Lineup, d: Lineup): BlitzContext {
+  const ref = blitzReference();
+  const raw = blitzRaw(o, d);
+  const z = (k: keyof BlitzContext) => {
+    const v = raw[k];
+    return v === null ? 0 : Math.max(-2, Math.min(2, (v - ref.mean[k]) / ref.sd[k]));
+  };
+  return { coverage: z("coverage"), protection: z("protection"), quarterback: z("quarterback") };
+}

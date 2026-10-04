@@ -7,6 +7,7 @@ import { extractBoxScore } from "../src/engine/boxscore.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import { Roster, type DepthOrder } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
+import { describeWeather, weatherFor } from "../src/engine/weather.js";
 import type { Staff } from "../src/engine/staff.js";
 import type { Player } from "../src/schema/player.js";
 import { playerLinesFrom, quarterScores, scoringPlaysFrom, toTeamTotals } from "./boxscore-map.js";
@@ -43,7 +44,8 @@ export function simulateOne(i: GameInput) {
   // game. The engine takes a staff pair or none — a game with only one side's
   // coaches would hand that side the whole coaching layer.
   const staffPair = i.homeStaff && i.awayStaff ? { homeStaff: i.homeStaff, awayStaff: i.awayStaff } : {};
-  const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, offenseAdjust: i.offenseAdjust, overtime: "nfl", ...staffPair } as const;
+  const weather = weatherFor(homeTeam, phase, week, gameSeed);
+  const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, offenseAdjust: i.offenseAdjust, overtime: "nfl", weather, ...staffPair } as const;
   const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
   const trace = g.playTrace ?? [];
   const box = extractBoxScore(g, homeTeam, awayTeam, week);
@@ -70,6 +72,7 @@ export function simulateOne(i: GameInput) {
     scoringPlays: scoringPlaysFrom(trace, homeTeam, awayTeam, finalScore, g.drivesLog),
     playerLines: playerLinesFrom(trace, homeTeam, awayTeam, rosters),
     injuries: g.injuryLog ?? [],
+    weather: describeWeather(weather),
   };
   // the viewer's game also gets the play-by-play view; same seed and same
   // options, so it is the same simulated game as the box score above
@@ -82,6 +85,7 @@ export function simulateOne(i: GameInput) {
           talentScale,
           offenseAdjust: i.offenseAdjust,
           overtime: "nfl",
+          weather,
           ...staffPair,
         }),
       }

@@ -407,7 +407,13 @@ export class OnlineLeagueClient {
   contractMove = (
     leagueId: string,
     playerId: string,
-    move: { kind: "restructure" } | { kind: "extend"; baseSalary: number; years: number; guaranteed: number },
+    move:
+      | { kind: "restructure" }
+      | { kind: "tag" }
+      | { kind: "option" }
+      | { kind: "practiceSquad" }
+      | { kind: "promote" }
+      | { kind: "extend"; baseSalary: number; years: number; guaranteed: number },
     version: string,
   ) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/contract`, {
@@ -417,6 +423,12 @@ export class OnlineLeagueClient {
     });
 
   /** `stage` is the one on screen: the server ignores a ready for a stage the league has left. */
+  /** The server's VAPID public key, for `PushManager.subscribe`. */
+  pushKey = () => this.call<{ publicKey: string }>("/push/key");
+  pushSubscribe = (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    this.call<{ ok: true }>("/push/subscribe", sub);
+  pushUnsubscribe = (endpoint: string) => this.call<{ ok: true }>("/push/unsubscribe", { endpoint });
+
   readyUp = (leagueId: string, ready = true, stage?: string) =>
     this.call<{ moved: boolean; stage: string; autopiloted: string[] }>(
       `/leagues/${leagueId}/actions/ready`,

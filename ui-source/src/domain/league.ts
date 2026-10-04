@@ -316,6 +316,8 @@ export interface LeagueState {
   champions?: import("@/state/seasonAwards").ChampionRow[];
   /** The league's single-season records. */
   records?: import("@/state/seasonAwards").RecordRow[];
+  /** All-time career top five per stat, kept after the players themselves are pruned. */
+  careerRecords?: import("@/state/seasonAwards").CareerRecordRow[];
   /** All-Pro first teams, the last ten seasons. */
   allPro?: import("@/state/seasonAwards").AllProRow[];
   /** Every team's season record and finish (`recordSeason`). */

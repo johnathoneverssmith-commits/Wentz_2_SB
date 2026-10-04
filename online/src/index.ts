@@ -87,6 +87,7 @@ import { redactHoodedFigureFor } from "@/state/hoodedFigure.ts";
 import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
 import { rewindInjuries } from "@/state/injuries.ts";
 import { openStream, pruneWatchers } from "./stream.js";
+import { isPushService, vapidKeys } from "./push.js";
 
 const serverStartedAt = new Date().toISOString();
 
@@ -210,6 +211,33 @@ post("/auth/logout", async (ctx) => {
 });
 
 get("/auth/me", async (ctx) => ({ user: ctx.user }));
+
+/* ---- push notifications (push.ts) ------------------------------------- */
+
+get("/push/key", async () => ({ publicKey: (await vapidKeys(pool)).publicKey }));
+
+post("/push/subscribe", async (ctx) => {
+  const user = requireUser(ctx);
+  const endpoint = field<string>(ctx, "endpoint", "string");
+  const keys = field<{ p256dh?: unknown; auth?: unknown }>(ctx, "keys", "object");
+  if (!isPushService(endpoint)) throw new ActionError("That isn't a push endpoint.");
+  if (typeof keys.p256dh !== "string" || typeof keys.auth !== "string") throw new ActionError("Missing subscription keys.");
+  await pool.query(
+    `INSERT INTO push_subscriptions (endpoint, user_id, p256dh, auth) VALUES ($1, $2, $3, $4)
+     ON CONFLICT (endpoint) DO UPDATE SET user_id = EXCLUDED.user_id, p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth`,
+    [endpoint, user.id, keys.p256dh, keys.auth],
+  );
+  return { ok: true };
+});
+
+post("/push/unsubscribe", async (ctx) => {
+  const user = requireUser(ctx);
+  await pool.query("DELETE FROM push_subscriptions WHERE endpoint = $1 AND user_id = $2", [
+    field<string>(ctx, "endpoint", "string"),
+    user.id,
+  ]);
+  return { ok: true };
+});
 
 /* ---- leagues --------------------------------------------------------- */
 

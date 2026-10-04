@@ -61,6 +61,12 @@ export interface DraftPickAsset {
   ownedBy: string;
   /** Team the pick originally belonged to (for "via trade w/ X"). */
   originalTeam: string;
+  /**
+   * A compensatory pick, at the end of its round, for free agents lost the
+   * year before (`awardCompensatoryPicks`). Not tradeable, as under the rule
+   * the NFL had until 2017.
+   */
+  comp?: boolean;
 }
 
 export interface DraftState {
@@ -69,6 +75,8 @@ export interface DraftState {
   order: "snake" | "linear";
   /** Full pick order as team codes, already expanded across all rounds. */
   pickOrder: string[];
+  /** The round of each pick in `pickOrder`, when rounds differ in length (compensatory picks). */
+  roundOf?: number[];
   currentPickIndex: number;
   results: DraftPickResult[];
   /** Prospect/player ids marked as targets, keyed by human GM id (private). */

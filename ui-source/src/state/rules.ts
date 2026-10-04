@@ -33,7 +33,16 @@ import {
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
-import { applyExtension, extensionAsk } from "./contracts";
+import {
+  applyExtension,
+  endHoldouts,
+  exerciseFifthYearOption,
+  extensionAsk,
+  fifthYearEligible,
+  fifthYearPrice,
+  franchiseTag,
+  franchiseTagPrice,
+} from "./contracts";
 import { runCoachingCarousel } from "./coachingCarousel";
 import { accrueCareers, awardSeason, inductHallOfFame, recordSeason, scoringCommittee } from "./seasonAwards";
 import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
@@ -47,7 +56,7 @@ import {
   recomputeTeamRatings,
   releaseToMarket,
 } from "./seed.ts";
-import { DRAFT_ROUNDS, FANTASY_DRAFT_ROUNDS, ensureDraftPicks, pickKey, pickOrderFor } from "./draftPicks.ts";
+import { DRAFT_ROUNDS, FANTASY_DRAFT_ROUNDS, awardCompensatoryPicks, draftOrderFor, ensureDraftPicks, pickKey } from "./draftPicks.ts";
 import {
   strategyAgeBonus,
   strategyCoachBonus,
@@ -202,7 +211,8 @@ export function applyPick(s: LeagueState, selectedId: string): void {
   // the number of human GMs, which put pick 33 in "round 12" and drove the
   // slotted rookie contract (36 - round*4.5) negative for later picks
   const teamsPerRound = Object.keys(s.teams).length || 32;
-  const round = Math.floor(idx / teamsPerRound) + 1;
+  // compensatory picks make a round longer than the team count
+  const round = d.roundOf?.[idx] ?? Math.floor(idx / teamsPerRound) + 1;
   if (d.mode === "rookie") {
     const pr = s.draftClass.find((p) => p.id === selectedId);
     d.results.push({
@@ -1485,6 +1495,7 @@ export function upsertRookiePlayer(
       : {
           team_id: teamCode,
           years_remaining: 4,
+          ...(round === 1 ? { rookie_deal: true } : {}),
           // the total is what the four cap hits actually add up to
           total_value: rookieCapHits(slot).reduce((a, b) => a + b, 0),
           guaranteed: rookieCapHits(slot).reduce((a, b) => a + b, 0),
@@ -1876,6 +1887,11 @@ export function finalizeSeason(s: LeagueState): void {
   accrueCareers(s);
   // the CPU teams keep the players worth keeping before their deals run out
   resignAiCore(s);
+  // anyone still holding out reports: the season is over
+  endHoldouts(s);
+  // last offseason's free-agent losses earn next draft's compensatory picks,
+  // before this year's expiries are marked
+  awardCompensatoryPicks(s);
   // and turn over the staffs that failed
   runCoachingCarousel(s);
   // the year has been played, so every contract is a year shorter — and the
@@ -1937,6 +1953,19 @@ export function resignAiCore(s: LeagueState): number {
       committed += ask.baseSalary;
       signed++;
     }
+    // the first-round rookie deals worth a fifth year, then the one star the
+    // money ran out for: tagged rather than lost for nothing
+    // (budgeted against the same next-year commitments as the extensions)
+    for (const p of roster) {
+      if (p.overall < 74 || !fifthYearEligible(p)) continue;
+      const price = fifthYearPrice(s, p);
+      if (committed + price > team.cap.total - RESIGN_CAP_BUFFER) continue;
+      if (exerciseFifthYearOption(s, p).ok) committed += price;
+    }
+    const star = roster
+      .filter((p) => p.contract!.years_remaining === 1 && p.overall >= 86 && p.age <= 30)
+      .sort((a, b) => b.overall - a.overall)[0];
+    if (star && committed + franchiseTagPrice(s, star) <= team.cap.total - ELITE_RESIGN_CAP_BUFFER) franchiseTag(s, star);
   }
   return signed;
 }
@@ -2002,11 +2031,12 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
   // setting (the GMs' manual picks are the only thing that is)
   const rounds = mode === "fantasy" ? FANTASY_DRAFT_ROUNDS : DRAFT_ROUNDS;
   let order: string[] = [];
+  let roundOf: number[] | undefined;
   if (mode === "rookie") {
     // the slots are earned by record; who *uses* each one is whoever
     // owns that pick, which is the whole point of trading them
     ensureDraftPicks(s, s.season);
-    order = pickOrderFor(s, s.season, fullFirstRound, rounds);
+    ({ order, roundOf } = draftOrderFor(s, s.season, fullFirstRound, rounds));
   } else {
     for (let r = 0; r < rounds; r++) {
       const seq =
@@ -2023,6 +2053,7 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     // snake setting is the fantasy draft's, and the room read "Snake" for it
     order: mode === "rookie" ? "linear" : s.config.draftType,
     pickOrder: order,
+    ...(roundOf ? { roundOf } : {}),
     currentPickIndex: 0,
     results: [],
     targetsByGm: Object.fromEntries(s.gms.filter((g) => g.isHuman).map((g) => [g.id, []])),

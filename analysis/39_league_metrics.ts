@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 
 import { roster, teamList } from "../src/engine/roster.js";
 import { setOffenseCalibration, simulateGame } from "../src/engine/sim.js";
+import { gameWeather } from "../src/engine/weather.js";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -40,7 +41,7 @@ const pts: number[] = [];
 const margins: number[] = [];
 let favWins = 0;
 let favGames = 0;
-const tot = { att: 0, cmp: 0, int: 0, sack: 0, ruA: 0, ruY: 0, py: 0, xp: 0, xr: 0, rzT: 0, rzD: 0, drv: 0, td: 0, fg: 0, plays: 0 };
+const tot = { att: 0, cmp: 0, int: 0, sack: 0, ruA: 0, ruY: 0, py: 0, xp: 0, xr: 0, rzT: 0, rzD: 0, drv: 0, td: 0, fg: 0, fga: 0, plays: 0, pen: 0, penY: 0, dpi: 0, t3: 0, c3: 0, to: 0, punt: 0 };
 let k = 0;
 for (let s = 0; s < SEEDS; s++) {
   for (const h of teams) {
@@ -52,6 +53,7 @@ for (let s = 0; s < SEEDS; s++) {
         injuries: true,
         talentScale: TALENT,
         overtime: "nfl",
+        weather: process.argv.includes("--no-weather") ? undefined : gameWeather(h, 1 + (k % 17), 5000 + k),
       });
       pts.push(g.score[0], g.score[1]);
       margins.push(g.score[0] - g.score[1]);
@@ -76,6 +78,15 @@ for (let s = 0; s < SEEDS; s++) {
         tot.drv += st.drives ?? 0;
         tot.td += st.td ?? 0;
         tot.fg += st.fg_made ?? 0;
+        tot.fga += st.fg_att ?? 0;
+        tot.plays += st.plays ?? 0;
+        tot.pen += st.penalty ?? 0;
+        tot.penY += st.penalty_yards ?? 0;
+        tot.dpi += st.dpi ?? 0;
+        tot.t3 += st.third_att ?? 0;
+        tot.c3 += st.third_conv ?? 0;
+        tot.to += st.turnover ?? 0;
+        tot.punt += st.punt ?? 0;
       }
     }
   }
@@ -102,6 +113,16 @@ const rows: [string, number, number | string][] = [
   ["drives per team-game", tot.drv / pts.length, empirical.per_game.drives_per_team_game],
   ["TDs per team-game", tot.td / pts.length, "-"],
   ["FGs per team-game", tot.fg / pts.length, "-"],
+  ["FG make %", tot.fg / tot.fga, empirical.rates.fg_make_pct],
+  ["plays per team-game", tot.plays / pts.length, empirical.per_game.plays_per_team_game],
+  ["pass att per team-game", tot.att / pts.length, empirical.per_game.pass_attempts_per_team_game],
+  ["rush att per team-game", tot.ruA / pts.length, empirical.per_game.rush_attempts_per_team_game],
+  ["penalties per team-game", tot.pen / pts.length, empirical.per_game.penalties_per_team_game],
+  ["penalty yds per team-game", tot.penY / pts.length, empirical.per_game.penalty_yards_per_team_game],
+  ["3rd down conv", tot.c3 / tot.t3, 0.39],
+  ["turnovers per team-game", tot.to / pts.length, 1.3],
+  ["punts per team-game", tot.punt / pts.length, 3.9],
+  ["rz trips per team-game", tot.rzT / pts.length, 3.2],
 ];
 console.log(`${margins.length} games, talent ${TALENT}\n`);
 console.log("metric                    engine     real    rel err");

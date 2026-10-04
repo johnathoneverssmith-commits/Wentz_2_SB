@@ -21,6 +21,12 @@ export const DEF_SLOTS_NICKEL = [
 
 export type Lineup = Record<string, Player | null>;
 
+/** `Roster.defense` rest mask bits: which front starter sits out a snap. */
+export const REST_DT1 = 1;
+export const REST_DT2 = 2;
+export const REST_EDGE1 = 4;
+export const REST_EDGE2 = 8;
+
 function pushInto<K, V>(m: Map<K, V[]>, k: K, v: V): void {
   const list = m.get(k);
   if (list) list.push(v);
@@ -59,7 +65,7 @@ export class Roster {
   /** position -> players, in depth order (by `overall` unless one was given) */
   readonly depth: Map<string, Player[]>;
   private _off: Lineup | null = null;
-  private readonly _def = new Map<boolean, Lineup>();
+  private readonly _def = new Map<number, Lineup>();
 
   constructor(team: string, players: Player[], order?: DepthOrder) {
     this.team = team;
@@ -110,12 +116,18 @@ export class Roster {
     return this._off;
   }
 
-  defense(nickel = false, out?: ReadonlySet<string>): Lineup {
-    if (out && out.size) return this.buildDefense(nickel, out);
-    let d = this._def.get(nickel);
+  /**
+   * `rest` is a bit mask of front starters taking a breather this snap
+   * (`REST_DT1` …): each is replaced by the next lineman down the chart, if
+   * the team has one. Zero is the plain starting front.
+   */
+  defense(nickel = false, out?: ReadonlySet<string>, rest = 0): Lineup {
+    if (out && out.size) return this.buildDefense(nickel, out, rest);
+    const key = (nickel ? 1 : 0) + rest * 2;
+    let d = this._def.get(key);
     if (!d) {
-      d = this.buildDefense(nickel);
-      this._def.set(nickel, d);
+      d = this.buildDefense(nickel, undefined, rest);
+      this._def.set(key, d);
     }
     return d;
   }
@@ -150,7 +162,7 @@ export class Roster {
     };
   }
 
-  private buildDefense(nickel: boolean, out?: ReadonlySet<string>): Lineup {
+  private buildDefense(nickel: boolean, out?: ReadonlySet<string>, rest = 0): Lineup {
     const d: Lineup = {
       EDGE1: this.nth("EDGE", 0, out),
       EDGE2: this.nth("EDGE", 1, out),
@@ -164,7 +176,22 @@ export class Roster {
       S2: this.nth("S", 1, out),
     };
     if (nickel) d.CB3 = this.nth("CB", 2, out);
+    // the rotation: a resting starter's snap goes to the third man at his
+    // position — never to a starter twice, so a team without one plays on
+    const sub = (pos: "DT" | "EDGE", slot: string) => {
+      const third = this.available(pos, out)[2];
+      if (third) d[slot] = third;
+    };
+    if (rest & REST_DT1) sub("DT", "DT1");
+    else if (rest & REST_DT2) sub("DT", "DT2");
+    if (rest & REST_EDGE1) sub("EDGE", "EDGE1");
+    else if (rest & REST_EDGE2) sub("EDGE", "EDGE2");
     return d;
+  }
+
+  private available(pos: string, out?: ReadonlySet<string>): Player[] {
+    const d = this.depth.get(pos) ?? [];
+    return out && out.size ? d.filter((p) => !out.has(p.id)) : d;
   }
 }
 

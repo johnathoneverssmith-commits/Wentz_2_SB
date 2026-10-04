@@ -4,6 +4,7 @@
  * data to render from the start; setup/draft stages then reassign as needed.
  */
 import { fittedAttributes } from "@/sim/attributeFit";
+import { practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
 import {
   type Coach,
   type Gm,
@@ -523,6 +524,10 @@ export function releaseToMarket(state: LeagueState, p: Player): void {
   p.free_agent = true;
   p.nfl_team = "FA";
   p.contract = null;
+  // a cut is not a free agent lost (`awardCompensatoryPicks`); an expiry
+  // sets these again just after
+  delete p.expired_from;
+  delete p.expired_season;
   if (!state.standingFreeAgents.includes(p.id)) state.standingFreeAgents.push(p.id);
 }
 
@@ -548,7 +553,25 @@ export function expireContracts(state: LeagueState): void {
     if (!c || p.retired || p.free_agent) continue;
     c.years_remaining -= 1;
     if (c.cap_hit_by_year.length > 1) c.cap_hit_by_year.shift();
-    if (c.years_remaining <= 0) releaseToMarket(state, p);
+    if (c.years_remaining > 0) continue;
+    // a franchise tag (`contracts.ts`) turns into next year's one-year tender
+    if (c.franchise_tag_season === state.season && c.franchise_tag_price) {
+      const price = c.franchise_tag_price;
+      p.contract = {
+        team_id: c.team_id,
+        years_remaining: 1,
+        total_value: price,
+        guaranteed: price,
+        cap_hit_by_year: [price],
+        signing_bonus: 0,
+        tag_count: (c.tag_count ?? 0) + 1,
+      };
+      continue;
+    }
+    const from = p.nfl_team;
+    releaseToMarket(state, p);
+    p.expired_from = from;
+    p.expired_season = state.season;
   }
 }
 
@@ -584,7 +607,11 @@ function trimToLegalRoster(
   /** Returns the cap the cut frees; `releaseToMarket` clears the contract. */
   const drop = (p: Player): number => {
     const freed = capHitOf(p);
-    releaseToMarket(state, p);
+    // a CPU staff keeps a young cut on its practice squad rather than lose
+    // him for nothing; a GM decides that for themselves on Roster & Cap
+    const team = p.nfl_team;
+    const cpu = state.teams[team]?.controlledBy.kind === "ai";
+    if (!(cpu && practiceSquadEligible(p) && toPracticeSquad(state, p).ok)) releaseToMarket(state, p);
     roster.splice(roster.indexOf(p), 1);
     released++;
     return freed;
@@ -853,6 +880,16 @@ export function fillRosterGaps(
     const roster = Object.values(state.players).filter((p) => p.nfl_team === code && !p.retired);
     const countAt = (pos: Position) => roster.filter((p) => p.position === pos).length;
     const capTotal = state.teams[code]?.cap.total ?? 255;
+    // a CPU team short at a position looks to its own practice squad before
+    // the market: the player it has been developing is the one it promotes
+    if (state.teams[code]?.controlledBy.kind === "ai") {
+      for (const { pos, count } of ROSTER_TEMPLATE) {
+        for (const p of practiceSquad(state, code).filter((x) => x.position === pos)) {
+          if (countAt(pos) >= count || roster.length >= ROSTER_SIZE) break;
+          if (promoteFromPracticeSquad(state, p).ok) roster.push(p);
+        }
+      }
+    }
     // Pass 0 — cut down to a legal roster before filling up to one. A team
     // that just signed a draft class is usually over 53 and over the cap;
     // `used` comes back reflecting the cuts (players only, since coaching
@@ -1081,8 +1118,12 @@ export function recomputeTeamRatings(state: LeagueState): void {
     // line then rebuilt from contracts alone — so every charge vanished the
     // next time anything recomputed, usually in the same action.
     const team = state.teams[code]!;
+    // the practice squad's small deals count too, as they do in the NFL
+    const squadHits = practiceSquad(state, code).reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
     team.cap.used =
-      Math.round((fullRoster.reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0) + (team.cap.dead ?? 0)) * 10) / 10;
+      Math.round(
+        (fullRoster.reduce((s, p) => s + (p.contract?.cap_hit_by_year[0] ?? 0), 0) + squadHits + (team.cap.dead ?? 0)) * 10,
+      ) / 10;
   }
 
   const rank = (key: keyof (typeof raw)[string]) => {

@@ -12,6 +12,7 @@ import { upgradeLeagueState } from "@/state/saveMigration.ts";
 
 import { takeBlockJobs } from "./blockJobs.js";
 import { takeNotes } from "./notes.js";
+import { attentionOf, deliverNudges, nudgesFor, type Attention } from "./push.js";
 import { runBlockJobs } from "./simPool.js";
 
 /** Every league read passes through the shared upgrade step (idempotent). */
@@ -193,6 +194,14 @@ export async function withLeague<T>(
       phaseEndsAt: row.phase_ends_at,
     };
 
+    // who was being asked for what, before this change — so a GM it puts on
+    // the clock gets a push (`push.ts`)
+    let attentionBefore: Attention | null = null;
+    try {
+      attentionBefore = attentionOf(loaded.state);
+    } catch {
+      // notifications are never a reason to refuse an action
+    }
     const out = await apply(loaded, client);
     // a stage that opened a block of games queued it rather than playing it
     // on the event loop; play it now, off-thread, before anything is written
@@ -244,6 +253,14 @@ export async function withLeague<T>(
         fn(leagueId, newVersion);
       } catch {
         // a notifier is not allowed to undo a committed action
+      }
+    }
+    if (attentionBefore) {
+      try {
+        const nudges = nudgesFor(leagueId, row.name, attentionBefore, attentionOf(next), next);
+        void deliverNudges(pool, leagueId, nudges).catch(() => {});
+      } catch {
+        // as above
       }
     }
     return { result: out.result, version: newVersion };
