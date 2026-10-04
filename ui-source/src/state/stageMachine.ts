@@ -55,6 +55,7 @@ export const STAGE_HOME: Record<Stage, string> = {
   endOfSeasonAnnounce: "/end-of-season",
   endOfSeasonWin: "/season-complete",
   endOfSeasonConsolation: "/season-complete",
+  offseasonHotSeat: "/hot-seat",
   offseasonRetirement: "/retirement",
   offseasonDraftPrep: "/draft-preview",
   offseasonDraft: "/draft",
@@ -88,6 +89,7 @@ export const STAGE_READY_LABEL: Record<Stage, string> = {
   endOfSeasonAnnounce: "Continue",
   endOfSeasonWin: "Ready to advance to the offseason",
   endOfSeasonConsolation: "Ready to advance to the offseason",
+  offseasonHotSeat: "Continue to the offseason",
   offseasonRetirement: "Ready to advance to the draft",
   offseasonDraftPrep: "Ready to advance to the Rookie Draft",
   offseasonDraft: "Ready to advance to signings",
@@ -121,6 +123,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
   endOfSeasonAnnounce: "Season Complete",
   endOfSeasonWin: "Season Complete",
   endOfSeasonConsolation: "Season Complete",
+  offseasonHotSeat: "Hot Seat",
   offseasonRetirement: "Retirement Review",
   offseasonDraftPrep: "Draft Preview",
   offseasonDraft: "Rookie Draft", // not "NFL": humans-only leagues have one too
@@ -272,6 +275,8 @@ export function resolveTransition(
       };
     case "endOfSeasonWin":
     case "endOfSeasonConsolation":
+      return { stage: "offseasonHotSeat", week: 0 };
+    case "offseasonHotSeat":
       return { stage: "offseasonRetirement", week: 0 };
 
     // Straight to the draft: the draft preview is the second step of the
@@ -335,6 +340,7 @@ const PREPARING_STAGES: ReadonlySet<Stage> = new Set<Stage>([
   "trainingCampResults",
   "hoodedFigureEncounter",
   "coachingHiring",
+  "offseasonHotSeat",
   "offseasonRetirement",
   "offseasonDraftPrep",
   "offseasonDraft",

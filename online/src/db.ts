@@ -236,6 +236,20 @@ export async function withLeague<T>(
     const newVersion = updated.rows[0]?.version;
     if (!newVersion) throw new ActionError("Another change landed first — try again.", 409);
 
+    // A fired GM who took a new team (`hotSeat.ts`) changed seats inside the
+    // document; the seat table follows it, so every later action finds them
+    // on the right team.
+    if (next.hotSeat?.entries.some((e) => e.chosen)) {
+      for (const gm of next.gms) {
+        if (!gm.isHuman || !gm.teamCode) continue;
+        await client.query(
+          `UPDATE franchises SET team_code = $3
+            WHERE league_id = $1 AND gm_id = $2 AND team_code <> $3 AND team_code NOT LIKE 'unclaimed:%'`,
+          [leagueId, gm.id, gm.teamCode],
+        );
+      }
+    }
+
     for (const e of [...(out.events ?? []), ...notes]) {
       await client.query(
         `INSERT INTO events (league_id, actor_user, team_code, kind, summary, detail)

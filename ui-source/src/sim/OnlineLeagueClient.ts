@@ -423,6 +423,10 @@ export class OnlineLeagueClient {
     });
 
   /** `stage` is the one on screen: the server ignores a ready for a stage the league has left. */
+  /** A fired GM takes a new team. */
+  chooseJob = (leagueId: string, teamCode: string, version: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/job`, { teamCode, version });
+
   /** The server's VAPID public key, for `PushManager.subscribe`. */
   pushKey = () => this.call<{ publicKey: string }>("/push/key");
   pushSubscribe = (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>

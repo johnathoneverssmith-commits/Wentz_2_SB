@@ -56,6 +56,7 @@ import {
   restructureContract,
 } from "./contracts.ts";
 import { promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad.ts";
+import { ensureHotSeat, placeUnemployed, takeNewJob } from "./hotSeat.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly } from "./leagueFormat.ts";
 import { CURRENT_SAVE_VERSION, migrateLeagueSave, upgradeLeagueState } from "./saveMigration.ts";
@@ -221,6 +222,8 @@ export interface StoreActions {
     offer: { baseSalary: number; years: number; guaranteed: number },
   ) => ContractMoveResult;
   /** Franchise-tag a player in his final year, or pick up a first-rounder's fifth-year option. */
+  /** A fired GM takes a new team (`hotSeat.takeNewJob`). */
+  chooseNewJob: (teamCode: string) => { ok: boolean; reason?: string };
   tenderPlayer: (playerId: string, kind: "tag" | "option" | "practiceSquad" | "promote") => ContractMoveResult;
 
   /** Cut a player from the roster. He goes straight onto the standing free
@@ -392,6 +395,14 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // leaving setup in a humans-only league → the league becomes the GMs' teams
   // plus the fewest CPU teams that make it even; every other franchise goes
   if (from === "setup" && isHumansOnly(s)) formHumansOnlyLeague(s);
+
+  // the owners review each human GM's job after the season; whoever is still
+  // unemployed as the stage closes takes the worst job on offer
+  if (to === "offseasonHotSeat") ensureHotSeat(s);
+  if (from === "offseasonHotSeat") {
+    placeUnemployed(s);
+    recomputeTeamRatings(s);
+  }
 
   // training camp: this season's camp, and every CPU team runs theirs as it
   // opens (online always did; locally the CPU teams never trained at all)
@@ -1124,6 +1135,16 @@ export const useStore = create<Store>()(
           const p = s.players[playerId];
           if (!p || p.free_agent || p.retired) return;
           result = extendContract(s, p, offer);
+          if (result.ok) recomputeTeamRatings(s);
+        });
+        return result;
+      },
+
+      chooseNewJob: (teamCode) => {
+        let result: { ok: boolean; reason?: string } = { ok: false, reason: "No such GM." };
+        set((s) => {
+          if (!s.viewerGmId) return;
+          result = takeNewJob(s, s.viewerGmId, teamCode);
           if (result.ok) recomputeTeamRatings(s);
         });
         return result;

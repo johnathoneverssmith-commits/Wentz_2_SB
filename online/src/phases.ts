@@ -79,6 +79,7 @@ import { MockSimulationService } from "@/sim/MockSimulationService";
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
 import { noteEvent } from "./notes.js";
 import { endHoldouts } from "@/state/contracts.ts";
+import { ensureHotSeat, placeUnemployed } from "@/state/hotSeat.ts";
 
 /**
  * Only ever asked for things it computes rather than invents: seeding a
@@ -448,6 +449,21 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // before the draft builds anyone's roster — the same step the local store
   // takes in `applyStageEntry`
   if (from === "setup" && isHumansOnly(state)) formHumansOnlyLeague(state);
+
+  // job security after the season (`hotSeat.ts`): made as the stage opens;
+  // a fired GM who never chose takes the worst job on offer as it closes
+  if (state.stage === "offseasonHotSeat") ensureHotSeat(state);
+  if (from === "offseasonHotSeat") {
+    for (const m of placeUnemployed(state)) {
+      noteEvent(state, {
+        teamCode: m.to,
+        kind: "hotseat.placed",
+        summary: `${state.gms.find((g) => g.id === m.gmId)?.name ?? "A GM"} was fired by ${TEAMS_BY_CODE[m.from]?.label ?? m.from} and took over ${TEAMS_BY_CODE[m.to]?.label ?? m.to}.`,
+        detail: m,
+      });
+    }
+    recomputeTeamRatings(state);
+  }
 
   if (state.stage === "fantasyDraft" && state.draft?.mode !== "fantasy") {
     beginDraft(state, "fantasy");

@@ -22,6 +22,7 @@ import { franchiseOf, isCommissioner } from "./auth.js";
 import { ActionError, withLeague, type Applied } from "./db.js";
 import { deadlineFor, turnKey } from "./phases.js";
 import {
+  decideChooseJob,
   decideContractMove,
   decideCoachHire,
   decideCoachingPick,
@@ -234,6 +235,9 @@ export const setDepthOrders = (actor: Actor, orders: { position: Position; playe
     for (const o of batchOf(orders)) decideSetDepth(s, actor, o.position, Array.isArray(o.playerIds) ? o.playerIds : []);
     return { events: [] };
   });
+
+export const chooseJob = (actor: Actor, teamCode: string, expectedVersion?: string) =>
+  run(actor, expectedVersion, (s) => decideChooseJob(s, actor, teamCode));
 
 export const contractMove = (
   actor: Actor,

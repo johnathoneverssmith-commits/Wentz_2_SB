@@ -97,6 +97,7 @@ describe("a season, end to end", () => {
       "playoffs",
       "endOfSeasonAnnounce",
       "endOfSeasonConsolation",
+      "offseasonHotSeat",
       "offseasonRetirement",
     ]);
   });

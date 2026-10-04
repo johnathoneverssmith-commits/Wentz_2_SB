@@ -27,6 +27,7 @@ import { EndOfSeasonAnnounce, SeasonComplete } from "./screens/EndOfSeason.tsx";
 import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
 import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
+import { HotSeat } from "./screens/HotSeat.tsx";
 import { HoodedFigureEncounter } from "./screens/HoodedFigureEncounter.tsx";
 import { LeagueDevelopments } from "./screens/LeagueDevelopments.tsx";
 import { SeasonResults } from "./screens/SeasonResults.tsx";
@@ -179,8 +180,9 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // nothing anyone could press. (The draft preview's check-in has been part
   // of `offseasonRetirement` since Change 12; the `offseasonDraftPrep` entry
   // above only serves leagues saved in that older stage.)
-  endOfSeasonWin: { from: "Season Complete", to: "Retirements" },
-  endOfSeasonConsolation: { from: "Season Complete", to: "Retirements" },
+  endOfSeasonWin: { from: "Season Complete", to: "Hot Seat" },
+  endOfSeasonConsolation: { from: "Season Complete", to: "Hot Seat" },
+  offseasonHotSeat: { from: "Hot Seat", to: "Retirements" },
   offseasonRetirement: { from: "Draft Preview", to: "Rookie Draft" },
   trainingCamp: { from: "Training Camp", to: "Re-order Depth Chart" },
   trainingCampResults: { from: "Training Camp", to: "Re-order Depth Chart" },
@@ -470,6 +472,7 @@ export function App() {
           <Route path="/results/round/:round" element={<PlayoffRoundResults />} />
           <Route path="/results/:phase/:from/:to" element={<SeasonResults />} />
           <Route path="/results/:phase/:from/:to/:week" element={<SeasonResults />} />
+          <Route path="/hot-seat" element={<HotSeat />} />
           <Route path="/retirement" element={<RetirementReview />} />
           <Route path="/rookie-draft-summary" element={<RookieDraftSummary />} />
           <Route path="/rookie-signings" element={<RookieSignings />} />

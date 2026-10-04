@@ -39,6 +39,7 @@ export type Stage =
   | "endOfSeasonAnnounce" // "END OF {year} SEASON" — click past, no gate
   | "endOfSeasonWin" // Super Bowl champion screen (tabs: this season / score tracker)
   | "endOfSeasonConsolation" // furthest-advanced screen (same tabs)
+  | "offseasonHotSeat" // per-GM job security after the season; a fired GM picks a new team
   | "offseasonRetirement"
   | "offseasonDraftPrep"
   | "offseasonDraft"
@@ -330,4 +331,6 @@ export interface LeagueState {
   coachingChanges?: import("@/state/coachingCarousel").CoachingChange[];
   /** Hooded Figure catch-up mechanic state. Null until first needed. */
   hoodedFigure: HoodedFigureLeagueState | null;
+  /** Job security for each human GM after the season just played (`state/hotSeat.ts`). */
+  hotSeat?: import("@/state/hotSeat").HotSeatState;
 }

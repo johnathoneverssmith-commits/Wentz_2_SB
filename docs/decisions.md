@@ -1156,3 +1156,19 @@ persistent career record book with the NFL's real marks and an in-season
 record watch.
 
 **Online.** Web Push (`online/src/push.ts`), see `online/README.md`.
+
+## The hot seat: human GMs can be fired
+
+After the season (stage `offseasonHotSeat`, between the season-end screens and
+the retirement review) every human GM is scored 0–100 on the last five
+seasons with their current team (`ui-source/src/state/hotSeat.ts`): start 60;
+±4 per win above/below .500; +10 for the playoffs, −2 for missing them; +5 per
+round won; +15 for the title. 55+ secure, 40–54 warm, 20–39 hot seat, below 20
+fired, and never before the third season with a team (so the Hooded Figure,
+which triggers on two losing seasons, gets to act first). A fired GM chooses
+one of the five worst CPU-run teams (nobody else's); the old team goes to the
+CPU, and the new tenure starts at zero. One who doesn't choose (away, or the
+timer) takes the worst on offer as the stage closes. Computed from
+`state.history` plus a per-season `state.hotSeat` snapshot (so options and
+choices survive a reload). Online, the move goes through `actions/job`, and
+`withLeague` keeps the `franchises` seat table in step with the document.

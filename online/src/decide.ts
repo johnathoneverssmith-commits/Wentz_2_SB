@@ -38,6 +38,7 @@ import {
   type Subject,
 } from "@/state/rules.ts";
 import { exerciseFifthYearOption, extendContract, franchiseTag, restructureContract } from "@/state/contracts.ts";
+import { takeNewJob } from "@/state/hotSeat.ts";
 import { practiceSquadTeam, promoteFromPracticeSquad, toPracticeSquad } from "@/state/practiceSquad.ts";
 import {
   applyOffer,
@@ -855,6 +856,24 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
         kind: "roster.released",
         summary: `${city(actor.teamCode)} released ${p.name} (${posLabel(p.position)}).`,
         detail: { playerId },
+      },
+    ],
+  };
+}
+
+/** A fired GM takes a new team (`hotSeat.ts`). */
+export function decideChooseJob(state: LeagueState, actor: Actor, teamCode: string): Decision {
+  const out = takeNewJob(state, actor.gmId, teamCode);
+  if (!out.ok) throw new ActionError(out.reason ?? "You can't take that job.");
+  recomputeTeamRatings(state);
+  const name = state.gms.find((g) => g.id === actor.gmId)?.name ?? "A GM";
+  return {
+    events: [
+      {
+        teamCode,
+        kind: "hotseat.hired",
+        summary: `${name} was fired by ${city(out.left!)} and took over ${city(teamCode)}.`,
+        detail: { gmId: actor.gmId, from: out.left, to: teamCode },
       },
     ],
   };
