@@ -218,9 +218,25 @@ export function franchiseTagPrice(state: LeagueState, p: Player): number {
   return round1(Math.max(avg, capHit(p) * 1.2, MIN_SALARY_M));
 }
 
-/** The fifth-year option's price: a fixed tender a step below the tag. */
+/**
+ * The fifth-year option's price, tiered as the real one is: a star (the
+ * multiple-Pro-Bowl tier) costs the tag; a very good player the average of
+ * the 3rd-20th biggest cap hits at his position; anyone else the 3rd-25th.
+ * A flat fraction of the tag priced a backup quarterback's option at $48M.
+ */
 export function fifthYearPrice(state: LeagueState, p: Player): number {
-  return round1(Math.max(franchiseTagPrice(state, p) * 0.8, capHit(p) * 1.1, MIN_SALARY_M));
+  if (p.overall >= 90) return franchiseTagPrice(state, p);
+  const hits = Object.values(state.players)
+    .filter((x) => x.position === p.position && x.contract && !x.retired && !x.free_agent)
+    .map(capHit)
+    .sort((a, b) => b - a);
+  // the real ranks are out of 32 teams; a smaller league scales them down
+  const scale = Math.min(1, Object.keys(state.teams).length / 32);
+  const lo = Math.max(0, Math.round(2 * scale));
+  const hi = Math.max(lo + 1, Math.round((p.overall >= 84 ? 20 : 25) * scale));
+  const band = hits.slice(lo, hi);
+  const avg = band.length ? band.reduce((a, b) => a + b, 0) / band.length : contractValueFor(p.overall, p.position);
+  return round1(Math.max(avg, capHit(p) * 1.1, MIN_SALARY_M));
 }
 
 /** Next year's cap with this player's next-year hit replaced by `price`. */

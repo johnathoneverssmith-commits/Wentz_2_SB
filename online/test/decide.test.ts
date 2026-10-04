@@ -135,6 +135,9 @@ describe("proposing a trade", () => {
   it("moves nothing — that's what the second phase is for", () => {
     const mine = rosterOf(alice.teamCode)[0]!;
     const theirs = rosterOf(bob.teamCode)[0]!;
+    // room on both sides: this is about what a proposal moves, not the cap
+    state.teams[alice.teamCode]!.cap.total = 400;
+    state.teams[bob.teamCode]!.cap.total = 400;
     decideProposeTrade(state, alice, "t1", bob.teamCode, [mine.id], [theirs.id]);
     expect(state.players[mine.id]!.nfl_team).toBe(alice.teamCode);
     expect(state.players[theirs.id]!.nfl_team).toBe(bob.teamCode);

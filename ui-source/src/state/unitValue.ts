@@ -39,16 +39,16 @@ export interface Unit {
  * carries almost no weight.
  */
 export const UNITS: Readonly<Record<string, Unit>> = {
-  offensiveLine: { slots: { OT: 2, OG: 2, C: 1 }, weakLink: 0.45, weight: 0.459 },
-  passRush: { slots: { EDGE: 2 }, weakLink: 0.5, weight: 0.36 },
-  interior: { slots: { DT: 2 }, weakLink: 0.35, weight: 0.238 },
-  quarterback: { slots: { QB: 1 }, weakLink: 0, weight: 0.367 },
-  receivers: { slots: { WR: 3 }, weakLink: 0.25, weight: 0.289 },
-  tightEnd: { slots: { TE: 1 }, weakLink: 0, weight: 0.055 },
-  runningBack: { slots: { RB: 1 }, weakLink: 0, weight: 0.213 },
-  corners: { slots: { CB: 2 }, weakLink: 0.5, weight: 0.371 },
-  safeties: { slots: { S: 2 }, weakLink: 0.35, weight: 0.292 },
-  linebackers: { slots: { ILB: 2 }, weakLink: 0.3, weight: 0.226 },
+  offensiveLine: { slots: { OT: 2, OG: 2, C: 1 }, weakLink: 0.45, weight: 0.58 },
+  passRush: { slots: { EDGE: 2 }, weakLink: 0.5, weight: 0.352 },
+  interior: { slots: { DT: 2 }, weakLink: 0.35, weight: 0.169 },
+  quarterback: { slots: { QB: 1 }, weakLink: 0, weight: 0.391 },
+  receivers: { slots: { WR: 3 }, weakLink: 0.25, weight: 0.229 },
+  tightEnd: { slots: { TE: 1 }, weakLink: 0, weight: 0.104 },
+  runningBack: { slots: { RB: 1 }, weakLink: 0, weight: 0.162 },
+  corners: { slots: { CB: 2 }, weakLink: 0.5, weight: 0.372 },
+  safeties: { slots: { S: 2 }, weakLink: 0.35, weight: 0.278 },
+  linebackers: { slots: { ILB: 2 }, weakLink: 0.3, weight: 0.233 },
   outsideLinebackers: { slots: { OLB: 2 }, weakLink: 0, weight: 0.02 },
 };
 

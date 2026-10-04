@@ -73,6 +73,14 @@ the story in `docs/decisions.md` → Synergy. Playoff games now take the
 franchise rosters too (`withPlayoffRosters` in `playoffs.ts`) — they used to
 fall back to the reference NFL teams.
 
+**The 2026-10 realism pass** (`docs/decisions.md` → The 2026-10 realism
+pass) added a rotating defensive front, blitz × personnel, venue weather
+(`weather.ts`; every franchise game and replay passes `weatherFor(...)`, so
+pass it from any new call site too), per-channel league calibration, and
+`test/engine-realism.test.ts` as the guard. A practice-squad player is
+`nfl_team = "PS:<team>"` (`state/practiceSquad.ts`): every roster, cap and
+game filter by `nfl_team === team` excludes him by design.
+
 **Phases 2-6 are built on top of this.** `ui-source/` is the franchise UI (a
 complete single-player dynasty, React + Vite); `server/` is the stateless
 adapter that lets it play real engine games; `online/` is a league server with
@@ -157,8 +165,10 @@ deliberately orthogonal to each other:**
   weak-link weighting and value over replacement, in the draft and free
   agency; it also never accepts a trade that loses value. Measured against
   Expert-built rosters from the same draft slot (`online/test/ai-master.test.ts`):
-  53% / +1.7 margin at Realistic talent, 54% / +1.8 Amplified (re-measured
-  after the per-channel unit links, `docs/decisions.md` → Unit links). The honest ceiling for
+  49–51% / +0.1–0.2 margin at both settings after the 2026-10 engine pass
+  (rotation, weather, RB share), which is inside the benchmark's own noise
+  (a 320-game margin has a standard error of ~0.8). The earlier "+1.7" was
+  mostly noise too, so treat Master as Expert's equal with a sounder evaluator. The honest ceiling for
   a rules-abiding CPU — the user chose that over giving it an edge.
 - **The Hooded Figure catch-up mechanic**
   (`ui-source/src/state/hoodedFigure.ts`) is unrelated to either: a rare,

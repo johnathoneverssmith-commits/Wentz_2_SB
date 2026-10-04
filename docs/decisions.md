@@ -1115,3 +1115,44 @@ The Master AI's unit weights and the price table were re-measured from the
 same harness; Master vs Expert margin went +1.0 → +1.7 (talent 1) and
 +0.5 → +1.8 (talent 1.5). DPOY scoring now favours splash plays over tackle
 volume.
+
+## The 2026-10 realism pass: rotation, blitz, weather, calibration, contracts
+
+**Engine.** `RUNNER_OWN_SHARE = 0.65` on the fitted runner family: the
+family had no line term, so the back took the line's credit, and with the
+line now carrying its own run-game channels the back was counted with it
+(an elite back was worth ~QB). The defensive front rotates (`Game.rotation`,
+a hash of the snap, never the RNG): starting DTs rest ~30% of snaps and edges
+~20%, more on long drives, so line depth matters. A coordinator's blitz bias
+now depends on the personnel around it (`blitzContext`: coverage left behind,
+protection, quarterback). Weather (`weather.ts`) by venue and week: wind,
+cold, rain/snow, domes, Denver's air, deterministic from venue/week/seed and
+threaded through every franchise game and replay (`weatherFor`).
+
+**Calibration** (`CALIB_BY_TALENT`, `analysis/40_channel_calibration.ts`).
+With completions, INTs, sacks and YPC exact, a game scored ~20. The causes
+were measured (`analysis/39_league_metrics.ts`): the red zone (TD rate
+0.50 vs 0.56), no long-run tail, third downs (35% vs 39%), kicking. Each got
+its own fitted term, and a final shared nudge closes the remaining ~1.3
+points. At talent 1, over 1,984 games: points +0.1%, points sd −2.9%, margin
+sd +4.0%, favourite 68.7%, completion +3.2%, INT +1.1%, sack +1.2%, YPC
++4.2%, red-zone TD +6.7%, third down +3.3%, FG −1.1%, drives +0.4%, punts
+−1.3%. `test/engine-realism.test.ts` guards these bands on every test run.
+
+**Unit values after the pass** (median team, elite starters swapped in,
+talent 1.5): QB +7.4, RB +3.5, WR +4.3, TE +2.0, OL +9.6, EDGE +7.5, DT +2.9,
+LB +3.5, CB +5.7, S +4.0, defense/offense 1.02. The Master AI's weights and
+the price table were re-derived from these. The Master-vs-Expert benchmark
+now reads within its own noise (a 320-game margin has a standard error of ~0.8).
+
+**Franchise.** Franchise tag (top-5 average at the position, ≥120% of
+current pay, one a team a season), fifth-year option for first-rounders
+(tiered like the real one), holdouts (an underpaid star on a human team sits
+until extended, traded, or the deadline; CPU teams pay if their budget
+allows, at most one a team), compensatory picks (net free-agent losses,
+rounds 3–7, not tradeable, the pre-2017 rule), a 16-man practice squad
+(`nfl_team = "PS:<team>"`, so no roster filter has to know about it), and a
+persistent career record book with the NFL's real marks and an in-season
+record watch.
+
+**Online.** Web Push (`online/src/push.ts`), see `online/README.md`.
