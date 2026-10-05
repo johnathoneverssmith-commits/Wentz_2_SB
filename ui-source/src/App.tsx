@@ -26,6 +26,7 @@ import { DraftRoom } from "./screens/DraftRoom.tsx";
 import { EndOfSeasonAnnounce, SeasonComplete } from "./screens/EndOfSeason.tsx";
 import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
 import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
+import { ScreenTransition } from "@/motion/ScreenTransition";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
 import { HotSeat } from "./screens/HotSeat.tsx";
 import { HoodedFigureEncounter } from "./screens/HoodedFigureEncounter.tsx";
@@ -438,6 +439,7 @@ export function App() {
         </div>
       )}
       <ScreenBoundary resetKey={pathname}>
+        <ScreenTransition key={pathname}>
         <Routes>
           <Route path="/" element={<StageHome />} />
           <Route path="/setup" element={<LeagueSetup />} />
@@ -485,6 +487,7 @@ export function App() {
           {import.meta.env.DEV && <Route path="/gallery" element={<ScreenGallery />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </ScreenTransition>
       </ScreenBoundary>
       </>
       )}

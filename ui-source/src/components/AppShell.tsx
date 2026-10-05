@@ -14,6 +14,7 @@ import { useOnlineSync } from "@/state/useLeagueActions";
 import { useGameAudio } from "@/audio/useGameAudio";
 
 import { SoundControl } from "./SoundControl.tsx";
+import { MotionControl } from "@/motion/MotionControl";
 import { isOnline } from "@/state/online";
 import { isInSeason, onSaveCorrupted, onSaveStateChange, useStore } from "@/state/store";
 import { teamFullName } from "@/data/teams";
@@ -227,6 +228,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="spacer" />
         {session && <TurnAlerts yourTurn={yourTurn} stageLabel={screen.label} offers={offers} />}
         <SoundControl />
+        <MotionControl />
         {!inSetup && (
           <NavLink to="/setup" className={active}>
             League settings

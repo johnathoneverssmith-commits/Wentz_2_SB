@@ -17,6 +17,8 @@
  * Geometry, arrow shapes and the drive/step model are a faithful port of the
  * original — see `segPath` and `buildSteps`.
  */
+import { AnimatedNumber } from "@/motion/AnimatedNumber";
+import { type Moment, ScoreMoment } from "@/motion/ScoreMoment";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cue } from "@/audio/cues";
 
@@ -289,6 +291,9 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
   const [lastQuarter, setLastQuarter] = useState(steps[0]?.quarter ?? 1);
   const [pending, setPending] = useState<Interstitial[]>([]);
   const rootRef = useRef<HTMLDivElement>(null);
+  // the score that just happened, for the broadcast-style moment over the field
+  const [moment, setMoment] = useState<Moment | null>(null);
+  const momentSeq = useRef(0);
 
   const step = steps[gi - 1];
   const drive = step ? drives[step.k] : undefined;
@@ -317,6 +322,32 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
     if (st.type === "play") {
       const p = st.p;
       if (p.injuries.length) for (const e of p.injuries) queued.push({ kind: "injury", event: e });
+      // who scored, from the board: the last play before this one is the
+      // score it started from. Both teams get the moment, in their own colours.
+      if (p.scoreAfter && bc) {
+        let before: readonly [number, number] = [0, 0];
+        for (let i = next - 2; i >= 0; i--) {
+          const prev = steps[i];
+          if (prev?.type === "play" && prev.p.scoreAfter) {
+            before = prev.p.scoreAfter;
+            break;
+          }
+        }
+        const dh = p.scoreAfter[0] - before[0];
+        const da = p.scoreAfter[1] - before[1];
+        const homeScored = dh > da;
+        const pts = homeScored ? dh : da;
+        if (pts > 0) {
+          const team = homeScored ? bc.home : bc.away;
+          setMoment({
+            key: ++momentSeq.current,
+            color: teamColor(team),
+            label: pts >= 6 ? "Touchdown" : pts === 3 ? "Field goal" : pts === 2 ? "Safety" : "Score",
+            sub: `${team} · ${bc.away} ${p.scoreAfter[1]} – ${bc.home} ${p.scoreAfter[0]}`,
+            from: homeScored ? "right" : "left",
+          });
+        }
+      }
       // one cue per play, in the order a viewer would rank them
       if (p.touchdown) cue("touchdown");
       else if (p.call === "field_goal" && p.outcome === "made") cue("fieldGoal");
@@ -325,7 +356,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
     }
     setGi(next);
     if (queued.length) setPending((q) => [...q, ...queued]);
-  }, [gi, total, steps, lastQuarter]);
+  }, [gi, total, steps, lastQuarter, bc]);
 
   /** random access (drive click, scrub): jump, no interstitials */
   const jumpTo = useCallback(
@@ -459,12 +490,13 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
         }
       }}
     >
+      <ScoreMoment moment={moment} onDone={() => setMoment(null)} />
       {/* scoreboard */}
       <div className="gc-board">
         <div className="gc-side" style={{ ["--gc-tc" as string]: teamColor(bc.away) }}>
           <span className="gc-chip" />
           <span className="gc-code">{bc.away}</span>
-          <span className="gc-score">{as}</span>
+          <span className="gc-score"><AnimatedNumber value={as} /></span>
         </div>
         <div className="gc-mid">
           <span className={`gc-status${done ? "" : " live"}`}>
@@ -477,7 +509,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
         <div className="gc-side home" style={{ ["--gc-tc" as string]: teamColor(bc.home) }}>
           <span className="gc-chip" />
           <span className="gc-code">{bc.home}</span>
-          <span className="gc-score">{hs}</span>
+          <span className="gc-score"><AnimatedNumber value={hs} /></span>
         </div>
       </div>
 

@@ -5,6 +5,7 @@ import { HashRouter } from "react-router-dom";
 import "./theme.css";
 import "./matchup.css";
 import { App } from "./App.tsx";
+import { MotionProvider } from "./motion/MotionProvider.tsx";
 import { moveOnlinePlayToLeagueOrigin } from "./state/leagueOrigin";
 
 moveOnlinePlayToLeagueOrigin();
@@ -14,7 +15,9 @@ moveOnlinePlayToLeagueOrigin();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <HashRouter>
-      <App />
+      <MotionProvider>
+        <App />
+      </MotionProvider>
     </HashRouter>
   </StrictMode>,
 );

@@ -130,6 +130,7 @@
  */
 .gc {
   container-type: inline-size;
+  position: relative;
 }
 .gc-grid {
   display: grid;
