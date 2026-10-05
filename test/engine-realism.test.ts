@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { playerLinesFrom } from "../server/boxscore-map.js";
-import { roster, teamList } from "../src/engine/roster.js";
-import { simulateGame } from "../src/engine/sim.js";
+import type { Player } from "../src/schema/player.js";
+import { loadPool, Roster, roster, teamList } from "../src/engine/roster.js";
+import { simulateGame, softCap } from "../src/engine/sim.js";
 import { gameWeather } from "../src/engine/weather.js";
 
 /**
@@ -116,4 +117,55 @@ describe("engine realism (franchise options)", () => {
       if (sk >= 15) expect(topS / sk, `${team} top sacker share`).toBeLessThan(0.55);
     }
   }, 240_000);
+
+  it("a team far outside the validated range still throws the ball and scores", () => {
+    // The weakest offence in the league, scaled down further, against the best
+    // defence: the shifts added past any real team, and used to put a sack on
+    // half of all dropbacks (twelve pass attempts a game, two points).
+    const cnt: Record<string, number> = { QB: 1, OT: 2, OG: 2, C: 1, WR: 3, TE: 1 };
+    const starters = (pos: string, n: number) =>
+      teamList().flatMap((t) => (roster(t).depth.get(pos) ?? []).slice(0, n));
+    const weakest = (pos: string) =>
+      starters(pos, cnt[pos]!).sort((a, b) => (a.overall ?? 0) - (b.overall ?? 0)).slice(0, cnt[pos]!);
+    let k = 0;
+    const base = "CHI";
+    const ps: Player[] = [...loadPool().get(base)!];
+    const order: Record<string, string[]> = {};
+    for (const pos of Object.keys(cnt)) {
+      const picked = weakest(pos).map((p) => {
+        const attrs = Object.fromEntries(Object.entries(p.attributes ?? {}).map(([a, v]) => [a, Math.max(20, Math.round((v as number) - 12))]));
+        return { ...p, id: `${p.id}_x${k++}`, overall: Math.max(30, (p.overall ?? 60) - 10), attributes: attrs } as Player;
+      });
+      ps.push(...picked);
+      order[pos] = picked.map((p) => p.id);
+    }
+    const offense = new Roster(base, ps, order);
+    // the strongest defence in the league
+    const best = teamList()
+      .map((t) => ({ t, v: [...roster(t).defense(false).EDGE1 ? Object.values(roster(t).defense(false)) : []].reduce((n, p) => n + (p?.overall ?? 0), 0) }))
+      .sort((a, b) => b.v - a.v)[0]!.t;
+    const t = { att: 0, sack: 0, int: 0, pts: 0, g: 0 };
+    for (let i = 0; i < 24; i++) {
+      const g = simulateGame(77_000 + i, best, base, { homeRoster: roster(best), awayRoster: offense, talentScale: 1.5, overtime: "nfl" });
+      const s = g.teams[1]!.s as Record<string, number>;
+      t.att += s.pass_att ?? 0;
+      t.sack += s.sack ?? 0;
+      t.int += s.int_thrown ?? 0;
+      t.pts += g.score[1]!;
+      t.g++;
+    }
+    expect(t.att / t.g, "pass attempts a game").toBeGreaterThan(20);
+    expect(t.sack / (t.att + t.sack), "sack rate").toBeLessThan(0.22);
+    expect(t.int / t.att, "interception rate").toBeLessThan(0.09);
+    expect(t.pts / t.g, "points a game").toBeGreaterThan(4);
+  }, 240_000);
+
+  it("the soft limit leaves ordinary shifts alone and never passes its cap", () => {
+    expect(softCap(0.3, 0.6, 1.1)).toBe(0.3);
+    expect(softCap(-0.6, 0.6, 1.1)).toBe(-0.6);
+    expect(softCap(5, 0.6, 1.1)).toBeLessThan(1.1);
+    expect(softCap(5, 0.6, 1.1)).toBeGreaterThan(1.0);
+    expect(softCap(-5, 0.6, 1.1)).toBeGreaterThan(-1.1);
+    expect(softCap(1.0, 0.6, 1.1)).toBeLessThan(1.0);
+  });
 });

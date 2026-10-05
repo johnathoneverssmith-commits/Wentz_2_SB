@@ -1236,3 +1236,25 @@ checked at a 375 px phone width for sideways overflow: none.
   they are revealed.
 - Full-screen interstitials and dialogs fade and lift in.
 
+
+## A soft limit on how far a roster can move a channel (the "nobody throws" bug)
+
+A weak team's passing game collapsed. Each channel's logit is the sum of the
+rating families, the team-strength index and synergy, with no ceiling; a
+54-rated quarterback behind a 58-rated line against an 83-rated defence summed
+to about +2.8 on the sack logit, a sack on half of all dropbacks, 4.6
+interceptions a game, twelve pass attempts and two points. Real teams never get
+there (the worst offence in the pool sacks 14%), but a fantasy draft or a
+freshly generated league can build one, and the league the bug was found in had
+a 20-point spread between its best and worst offence index.
+
+`softCap` (`src/engine/sim.ts`, `SHIFT_LIMIT`) bends the roster shift of each
+channel (complete, sack, interception, run) toward a ceiling beyond a knee, and
+leaves everything inside the knee exactly as it was. It acts on the raw sum
+*before* the talent scale multiplies it, so Amplified and Extreme still make a
+stacked team win by more (`test/engine-talent.test.ts` pins that). Home field,
+coaching and the league calibration sit outside it. League numbers are
+unchanged (talent 1, 992 games: points -0.3%, margin sd 14.37 vs 14.33,
+completion +3.3%, INT +0.2%, sack +1.0%). `test/engine-realism.test.ts` plays
+a deliberately sub-worst offence against the league's best defence and requires
+more than 20 attempts a game, a sack rate under 22% and more than four points.

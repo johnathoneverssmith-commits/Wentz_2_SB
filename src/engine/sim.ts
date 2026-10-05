@@ -185,6 +185,40 @@ function clip(x: number, lo: number, hi: number): number {
   return Math.min(Math.max(x, lo), hi);
 }
 
+/**
+ * A soft limit on how far a channel's roster-driven shift can go.
+ *
+ * Ratings, team strength and synergy each add to a channel's logit, and the
+ * sum has no ceiling: a 54-rated quarterback behind a 58-rated line against
+ * an 83-rated defence added up to +2.8 on the sack logit, a sack on half of
+ * all dropbacks, a team that threw twelve passes a game and scored two
+ * points. Nothing in football (or in the data this was fitted to) is that
+ * lopsided. Within `knee` the shift is untouched, so every matchup the model
+ * was validated on plays exactly as before; beyond it the shift bends toward
+ * `cap` and never passes it. Applied to the roster terms only: home field,
+ * coaching and the league calibration sit outside it.
+ */
+export function softCap(x: number, knee: number, cap: number): number {
+  const a = Math.abs(x);
+  if (a <= knee) return x;
+  const room = cap - knee;
+  return Math.sign(x) * (knee + room * Math.tanh((a - knee) / room));
+}
+/**
+ * Per channel: [knee, cap] on the roster shift *before* the talent scale
+ * multiplies it (logits; yards for the run). Limiting the raw sum and then
+ * scaling keeps the talent setting meaningful at the extremes: an all-star
+ * team still wins by more at Extreme than at Realistic, it just cannot be
+ * more than a bounded distance from a real one at any setting.
+ */
+const SHIFT_LIMIT = {
+  complete: [0.35, 0.55],
+  sack: [0.45, 0.75],
+  interception: [0.35, 0.55],
+  rushYards: [0.55, 1.0],
+} as const;
+const limited = (channel: keyof typeof SHIFT_LIMIT, x: number): number => softCap(x, SHIFT_LIMIT[channel][0], SHIFT_LIMIT[channel][1]);
+
 class Team {
   s: Stats = {};
 }
@@ -619,9 +653,12 @@ export class Game {
       return {
         COMPLETE:
           this.talent *
-            (completionLogitShift(catchers, dbs, o.QB1 ?? null) +
-              this.strengthEdge("complete") +
-              synergyShift(o, d, "complete")) +
+            limited(
+              "complete",
+              completionLogitShift(catchers, dbs, o.QB1 ?? null) +
+                this.strengthEdge("complete") +
+                synergyShift(o, d, "complete"),
+            ) +
           staff.complete +
           homeShift(edge, "complete") +
           this.calib.complete +
@@ -630,7 +667,10 @@ export class Game {
           this.offenseAdjust,
         INTERCEPTION:
           this.talent *
-            (interceptionLogitShift(o.QB1 ?? null) + this.strengthEdge("interception") + synergyShift(o, d, "interception")) +
+            limited(
+              "interception",
+              interceptionLogitShift(o.QB1 ?? null) + this.strengthEdge("interception") + synergyShift(o, d, "interception"),
+            ) +
           homeShift(edge, "interception") +
           this.calib.interception,
       };
@@ -638,7 +678,7 @@ export class Game {
     if (kind === "M04") {
       return {
         SACK:
-          this.talent * (sackLogitShift(ol, rush) + this.strengthEdge("sack") + synergyShift(o, d, "sack")) +
+          this.talent * limited("sack", sackLogitShift(ol, rush) + this.strengthEdge("sack") + synergyShift(o, d, "sack")) +
           staff.sack +
           homeShift(edge, "sack") +
           this.calib.sack,
@@ -664,9 +704,12 @@ export class Game {
     const front7 = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2];
     return (
       this.talent *
-        (rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) +
-          this.strengthEdge("rushYards") +
-          synergyShift(o, d, "rushYards")) +
+        limited(
+          "rushYards",
+          rushYardsShift([o.LT, o.LG, o.C, o.RG, o.RT], front7, o.RB1 ?? null) +
+            this.strengthEdge("rushYards") +
+            synergyShift(o, d, "rushYards"),
+        ) +
       this.staffOffShift().rush +
       homeShift(this.homeEdge, "rushYards") +
       this.calib.rushYards +
