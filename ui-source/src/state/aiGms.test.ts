@@ -116,8 +116,14 @@ describe("CPU general managers", () => {
     // other people see "human GM" and no identity
     expect(gmIdentity(s, "KC")).toMatchObject({ isHuman: true, strategy: null });
     expect(gmIdentity(s, "GB")).toMatchObject({ isHuman: false });
+    // locked while the league is running, open again at the owners' review each offseason
     s.stage = "fantasyDraft";
     expect(chooseGmStrategy(s, s.gms[0]!.id, "run_heavy").ok).toBe(false);
+    s.stage = "regularSeason";
+    expect(chooseGmStrategy(s, s.gms[0]!.id, "run_heavy").ok).toBe(false);
+    s.stage = "offseasonHotSeat";
+    expect(chooseGmStrategy(s, s.gms[0]!.id, "run_heavy").ok).toBe(true);
+    expect(strategyOf(s, "KC")).toBe("run_heavy");
   });
 
   it("fires a CPU GM after three terrible seasons, to the pool, and hires a different mind who has not just worked", () => {

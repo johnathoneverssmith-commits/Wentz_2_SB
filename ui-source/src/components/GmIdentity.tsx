@@ -96,7 +96,7 @@ export function GmIdentityPicker({
       <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
         Your auto-picks in the fantasy draft and the rest of the offseason, and what your staff signs and proposes for you, lean this way. It is a
         preference, not a promise: it breaks ties between similar players and never takes a clearly worse one. Other GMs can&apos;t see it, and
-        it is locked once the league starts.
+        you can change it again at the owners' review each offseason.
       </p>
     </div>
   );

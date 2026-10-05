@@ -297,15 +297,17 @@ export function aiMovesOf(s: Pick<LeagueState, "aiGmMoves">, season: number): Ai
 }
 
 /**
- * A person picks their GM identity at team select and keeps it for the
- * dynasty: it is set before the fantasy draft (the draft and every auto-pick
- * after it follow it) and then locked, like the team and the rules.
+ * A person picks their GM identity at team select, before the fantasy draft
+ * (the draft and every auto-pick after it follow it), and may change it once a
+ * year, at the owners' review in the offseason (the hot seat stage).
  */
 export function chooseGmStrategy(s: LeagueState, gmId: string, strategy: string): { ok: boolean; reason?: string } {
   const gm = s.gms.find((g) => g.id === gmId);
   if (!gm || !gm.isHuman) return { ok: false, reason: "No such GM." };
   if (!(AI_SEASON_STRATEGIES as readonly string[]).includes(strategy)) return { ok: false, reason: "That isn't an identity." };
-  if (s.stage !== "setup") return { ok: false, reason: "Your identity is set before the draft; it can't change once the league has started." };
+  if (s.stage !== "setup" && s.stage !== "offseasonHotSeat") {
+    return { ok: false, reason: "You can change your identity before the draft and at the owners' review each offseason." };
+  }
   gm.strategy = strategy as AiSeasonStrategy;
   return { ok: true };
 }

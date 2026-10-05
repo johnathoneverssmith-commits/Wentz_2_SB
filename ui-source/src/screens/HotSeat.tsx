@@ -7,6 +7,7 @@ import { EASE, useMotion } from "@/motion/tokens";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { GmIdentityPicker } from "@/components/GmIdentity";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { aiMovesOf, aiSecurity } from "@/state/aiGms";
@@ -266,6 +267,11 @@ export function HotSeat() {
               </div>
             )}
           </>
+        )}
+        {me && (
+          <div style={{ marginTop: 18, paddingTop: 6, borderTop: "1px solid var(--line)" }}>
+            <GmIdentityPicker value={me.strategy ?? "balanced"} onChange={(k) => void actions.setStrategy(k)} />
+          </div>
         )}
       </Panel>
 

@@ -1405,9 +1405,8 @@ of 8 and 40% of the CPU teams). A new league seats them in team order from a
 shuffled deck of the eight strategies, so no league is eight GMs of one mind.
 `syncAiGms` is idempotent and keeps the roster in step with who runs what (a
 person takes a team and its GM goes to the pool; a seat reopens and the pool
-supplies one); an older save gets its GMs on load (`upgradeLeagueState`) and
-a hosted league at its next stage entry (`onStageEntered`). Until then
-`strategyOf` falls back to the old hash. Everything that read `strategyFor`
+supplies one); a hosted league keeps it in step at every stage entry (`onStageEntered`). Saves from
+before CPU GMs existed are not migrated; `strategyOf` falls back to the old hash for them. Everything that read `strategyFor`
 now reads `strategyOf(state, team)`.
 
 **Skill, a normal curve inside a difficulty.** A GM's skill is a bell-curve draw
@@ -1430,8 +1429,9 @@ third season with a team. The Hot Seat screen's "Around the league" tab shows
 who was let go, who replaced them, and which CPU GMs are on the seat.
 
 **People choose an identity too**, at team select and before the fantasy draft
-(`GmIdentityPicker`, `chooseGmStrategy`, `/actions/strategy`); it is locked
-once the league starts, rides on the `Gm` (so a fired GM keeps it into a new
+(`GmIdentityPicker`, `chooseGmStrategy`, `/actions/strategy`), and may change it
+once a year at the owners' review (the hot seat screen); it is locked the rest
+of the year, rides on the `Gm` (so a fired GM keeps it into a new
 job), steers their fantasy-draft auto-picks (the human branch of
 `planAutopicks` no longer plays "balanced"), and steers what their staff does.
 It is not shown to anyone else (`gmIdentity` returns none for a person) and
