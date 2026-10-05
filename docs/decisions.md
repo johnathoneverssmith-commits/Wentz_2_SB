@@ -1202,3 +1202,9 @@ existing audio engine (`audio/cues.ts`), whose own switch mutes them.
 The embedded preview browser throttles to ~2 fps, so smoothness and feel were
 verified structurally (what renders at each level, final states, clean-up) and
 need a human eye on a normal screen.
+
+Later additions to the same system: every table body's rows rise in order from
+one global CSS rule (`tbody > tr`, step 30 ms full / 12 ms subtle, capped at
+the 24th row), so the thirty-odd tables need no per-screen code; and taking a
+new job has its own cue (`newJob` in `audio/cues.ts`). The motion screens were
+checked at a 375 px phone width for sideways overflow: none.

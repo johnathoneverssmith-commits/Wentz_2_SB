@@ -29,6 +29,7 @@ export type Cue =
   | "injury"
   | "tradeOffer"
   | "signed"
+  | "newJob"
   | "gameWon"
   | "gameLost"
   | "champion";
@@ -130,6 +131,18 @@ const CUES: Record<Cue, Player> = {
     pluck(dest, { when: t, freq: hz(64), dur: 0.26, gain: 0.17 });
     pluck(dest, { when: t + 0.1, freq: hz(71), dur: 0.42, gain: 0.15 });
     noise(dest, { when: t + 0.01, dur: 0.1, gain: 0.04, center: 6400, q: 1.5 });
+  },
+
+  /**
+   * A new job. Fired (a GM, fired, takes over another team) is a fresh start,
+   * so it is the "signed" figure answered by a lift: a horn call rising a
+   * fifth over a low pluck, brighter than anything else a signature sounds like.
+   */
+  newJob: (dest, t) => {
+    pluck(dest, { when: t, freq: hz(52), dur: 0.4, gain: 0.2 });
+    horn(dest, { when: t + 0.08, freq: hz(64), dur: 0.36, gain: 0.3 });
+    horn(dest, { when: t + 0.26, freq: hz(71), dur: 0.55, gain: 0.34 });
+    horn(dest, { when: t + 0.26, freq: hz(83), dur: 0.55, gain: 0.16 });
   },
 
   /** You won. Brief — there are seventeen of these in a season. */

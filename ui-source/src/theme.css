@@ -2188,3 +2188,57 @@ input[type="range"]::-moz-range-thumb {
   transform: scale(0.972);
   transition: transform var(--dur-fast) var(--ease);
 }
+
+/*
+ * Every table's rows rise in, in order.
+ *
+ * Standings, box scores, stat leaders and summaries are tables, and there are
+ * thirty of them: this one rule does for all what StaggerList does for the
+ * div-based lists. It plays whenever the table is shown (a tab opening
+ * counts, since the panel goes from display:none to block), the delay is
+ * capped at the 24th row so a long table doesn't drag, and the levels set
+ * the step: 30 ms in full, 12 in subtle, none in off (which the global
+ * off-rule also zeroes).
+ */
+:root { --row-step: 0.03s; }
+:root[data-motion="subtle"] { --row-step: 0.012s; }
+:root[data-motion="off"] { --row-step: 0s; }
+@keyframes row-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+tbody > tr {
+  animation: row-rise var(--dur-slow) var(--ease) backwards;
+}
+tbody > tr:nth-child(n + 25) {
+  animation-delay: calc(var(--row-step) * 24);
+}
+tbody > tr:nth-child(2) { animation-delay: calc(var(--row-step) * 1); }
+tbody > tr:nth-child(3) { animation-delay: calc(var(--row-step) * 2); }
+tbody > tr:nth-child(4) { animation-delay: calc(var(--row-step) * 3); }
+tbody > tr:nth-child(5) { animation-delay: calc(var(--row-step) * 4); }
+tbody > tr:nth-child(6) { animation-delay: calc(var(--row-step) * 5); }
+tbody > tr:nth-child(7) { animation-delay: calc(var(--row-step) * 6); }
+tbody > tr:nth-child(8) { animation-delay: calc(var(--row-step) * 7); }
+tbody > tr:nth-child(9) { animation-delay: calc(var(--row-step) * 8); }
+tbody > tr:nth-child(10) { animation-delay: calc(var(--row-step) * 9); }
+tbody > tr:nth-child(11) { animation-delay: calc(var(--row-step) * 10); }
+tbody > tr:nth-child(12) { animation-delay: calc(var(--row-step) * 11); }
+tbody > tr:nth-child(13) { animation-delay: calc(var(--row-step) * 12); }
+tbody > tr:nth-child(14) { animation-delay: calc(var(--row-step) * 13); }
+tbody > tr:nth-child(15) { animation-delay: calc(var(--row-step) * 14); }
+tbody > tr:nth-child(16) { animation-delay: calc(var(--row-step) * 15); }
+tbody > tr:nth-child(17) { animation-delay: calc(var(--row-step) * 16); }
+tbody > tr:nth-child(18) { animation-delay: calc(var(--row-step) * 17); }
+tbody > tr:nth-child(19) { animation-delay: calc(var(--row-step) * 18); }
+tbody > tr:nth-child(20) { animation-delay: calc(var(--row-step) * 19); }
+tbody > tr:nth-child(21) { animation-delay: calc(var(--row-step) * 20); }
+tbody > tr:nth-child(22) { animation-delay: calc(var(--row-step) * 21); }
+tbody > tr:nth-child(23) { animation-delay: calc(var(--row-step) * 22); }
+tbody > tr:nth-child(24) { animation-delay: calc(var(--row-step) * 23); }

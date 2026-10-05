@@ -99,7 +99,7 @@ export function HotSeat() {
     if (hadJob.current !== undefined && now && now !== hadJob.current) {
       const t = TEAMS_BY_CODE[now];
       setMoment({ key: now, color: t?.color ?? "#444", label: t?.city ?? now, sub: "Your new team", from: "right" });
-      cue("signed");
+      cue("newJob");
     }
     hadJob.current = now;
   }, [mine?.chosen]);
