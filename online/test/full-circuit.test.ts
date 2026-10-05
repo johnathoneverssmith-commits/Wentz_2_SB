@@ -37,6 +37,21 @@ function leagueInPreseason(humans = ["KC", "BUF"]): LeagueState {
   return s;
 }
 
+/**
+ * These walks are about where the league goes once the season ends, not about
+ * who won it. Whether a human team takes the title follows from the engine's
+ * games, so a change to the engine can flip it (a stronger KC won it in CI)
+ * and send the league to the winners' screen instead of the consolation one.
+ * Put the trophy with a CPU team so the stage under test is fixed.
+ */
+function crownACpuTeam(s: LeagueState): void {
+  const humans = new Set(s.gms.filter((g) => g.isHuman).map((g) => g.teamCode));
+  const cpu = Object.keys(s.teams).find((c) => !humans.has(c))!;
+  const sb = s.bracket?.matchups.find((m) => m.round === "SB");
+  if (sb) sb.winner = cpu;
+  if (s.bracket) s.bracket.champion = cpu;
+}
+
 /** Everybody says they're done, which is what moves a checkpoint. */
 function everyoneReady(s: LeagueState): boolean {
   for (const g of s.gms) if (g.isHuman) s.readiness[g.id] = true;
@@ -143,6 +158,7 @@ describe("a season, driven by the buttons", () => {
     // and there is no fifth
     expect(() => decideRevealRound(s, a)).toThrow();
 
+    crownACpuTeam(s);
     expect(everyoneReady(s)).toBe(true);
     // the announcement is a splash online, not a second gate: the league
     // lands on the season screen itself (nobody here won it)
@@ -190,6 +206,7 @@ describe("the offseason, driven by the buttons", () => {
     for (const a of [actorFor(s, 0), actorFor(s, 1)]) {
       for (let i = 0; i < 4; i++) decideRevealRound(s, a);
     }
+    crownACpuTeam(s);
     everyoneReady(s);
     return s;
   }
