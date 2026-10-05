@@ -1208,3 +1208,31 @@ one global CSS rule (`tbody > tr`, step 30 ms full / 12 ms subtle, capped at
 the 24th row), so the thirty-odd tables need no per-screen code; and taking a
 new job has its own cue (`newJob` in `audio/cues.ts`). The motion screens were
 checked at a 375 px phone width for sideways overflow: none.
+
+**Optimization pass.**
+- Count-ups write each frame straight to the DOM instead of through React
+  state, so a running count no longer re-renders its component sixty times a
+  second.
+- A count started in a background tab lands on the value at once, and an
+  interrupted count never leaves a half-counted figure.
+- Score moments render through a portal on `<body>`, so a moment fired while
+  a screen is still sliding in can't be trapped inside the transformed
+  wrapper.
+- A moment in a hidden tab is skipped and releases whatever was waiting on it.
+- Lists and tables animate only their first 24 rows; the rest appear with no
+  animation work at all (a 120-row market cost 120 animations; it now costs
+  24).
+
+**Gamecast.**
+- The ball glides between spots (CSS transform transitions timed from the
+  playback speed, never longer than a play's slot).
+- At 1x a cinematic score holds the replay until its moment finishes, the
+  way a broadcast holds on a celebration.
+- At 2x and up moments use the brisk version, so a skimmed replay is never
+  covered.
+- The viewer's own game ends with a Victory / Defeat moment in the winner's
+  colours; a loss is the brisk one.
+- Headline results on Game Day and the results screens count up from zero as
+  they are revealed.
+- Full-screen interstitials and dialogs fade and lift in.
+

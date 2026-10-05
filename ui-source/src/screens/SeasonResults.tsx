@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { AnimatedNumber } from "@/motion/AnimatedNumber";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -328,7 +329,7 @@ function Side({
           className="oswald"
           style={{ display: "block", fontSize: 26, fontWeight: 700, color: won ? "var(--good)" : "var(--ink)" }}
         >
-          {score}
+          <AnimatedNumber value={score} from={0} duration={1.1} />
         </span>
         <span style={{ fontSize: 11.5, color: "var(--ink-dim)" }}>{TEAMS_BY_CODE[code]!.label}</span>
         {info && <span style={{ display: "block", fontSize: 11, color: "var(--ink-faint)" }}>{info}</span>}

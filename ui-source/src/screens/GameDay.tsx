@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 
+import { AnimatedNumber } from "@/motion/AnimatedNumber";
 import { pressable, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -283,7 +284,8 @@ function ScoreSide({
       <TeamBadge code={code} size={44} />
       <div>
         <p className="oswald" style={{ margin: 0, fontSize: 30, fontWeight: 700, color: won ? "var(--good)" : "var(--ink)" }}>
-          {score}
+          {/* the result is being revealed: it counts up from nothing */}
+          <AnimatedNumber value={score} from={0} duration={1.1} />
         </p>
         <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{TEAMS_BY_CODE[code]!.label}</p>
       </div>

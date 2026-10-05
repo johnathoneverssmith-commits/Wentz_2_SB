@@ -17,6 +17,9 @@
  * Geometry, arrow shapes and the drive/step model are a faithful port of the
  * original — see `segPath` and `buildSteps`.
  */
+import { useMotion } from "@/motion/tokens";
+import { useStore } from "@/state/store";
+import { viewerTeamCode } from "@/state/selectors";
 import { AnimatedNumber } from "@/motion/AnimatedNumber";
 import { type Moment, ScoreMoment } from "@/motion/ScoreMoment";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -246,9 +249,11 @@ function StaticField(): JSX.Element {
 }
 
 function Ball({ x, y, team, glow }: { x: number; y: number; team: string; glow: boolean }): JSX.Element {
+  // CSS transforms rather than the transform attribute, so a new spot is a
+  // glide (`.gc-ball`, timed by --gc-glide from the playback speed)
   return (
     <>
-      <g transform={`translate(${x} ${y})`} filter={glow ? "url(#gc-glow)" : undefined}>
+      <g className="gc-ball" style={{ transform: `translate(${x}px, ${y}px)` }} filter={glow ? "url(#gc-glow)" : undefined}>
         <ellipse rx={27} ry={17.5} fill="none" stroke={teamColor(team)} strokeWidth={4} />
         <ellipse rx={21.5} ry={13.5} fill="#7a3c14" stroke="#2b1405" strokeWidth={2.2} />
         <line x1={-9.5} y1={0} x2={9.5} y2={0} stroke="#f4ead9" strokeWidth={2.6} />
@@ -256,7 +261,7 @@ function Ball({ x, y, team, glow }: { x: number; y: number; team: string; glow: 
         <line x1={0} y1={-4.8} x2={0} y2={4.8} stroke="#f4ead9" strokeWidth={2.1} />
         <line x1={5.2} y1={-4.2} x2={5.2} y2={4.2} stroke="#f4ead9" strokeWidth={2.1} />
       </g>
-      <g transform={`translate(${x} ${y - 36})`}>
+      <g className="gc-ball" style={{ transform: `translate(${x}px, ${y - 36}px)` }}>
         <rect x={-24} y={-14} width={48} height={25} rx={6} fill={teamColor(team)} />
         <text textAnchor="middle" y={5} className="gc-figure" fontWeight={700} fontSize={16}
           letterSpacing={0.5} fill="#fff">{team}</text>
@@ -294,6 +299,8 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
   // the score that just happened, for the broadcast-style moment over the field
   const [moment, setMoment] = useState<Moment | null>(null);
   const momentSeq = useRef(0);
+  const motion = useMotion();
+  const viewer = useStore((s) => viewerTeamCode(s));
 
   const step = steps[gi - 1];
   const drive = step ? drives[step.k] : undefined;
@@ -345,6 +352,9 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
             label: pts >= 6 ? "Touchdown" : pts === 3 ? "Field goal" : pts === 2 ? "Safety" : "Score",
             sub: `${team} · ${bc.away} ${p.scoreAfter[1]} – ${bc.home} ${p.scoreAfter[0]}`,
             from: homeScored ? "right" : "left",
+            // at 2x and up the replay is being skimmed: the brisk version,
+            // so a moment never sits on top of the next two plays
+            quiet: speed > 1,
           });
         }
       }
@@ -356,7 +366,7 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
     }
     setGi(next);
     if (queued.length) setPending((q) => [...q, ...queued]);
-  }, [gi, total, steps, lastQuarter, bc]);
+  }, [gi, total, steps, lastQuarter, bc, speed]);
 
   /** random access (drive click, scrub): jump, no interstitials */
   const jumpTo = useCallback(
@@ -373,13 +383,16 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
   // playback clock — paused while an interstitial is up, cleaned up on unmount
   useEffect(() => {
     if (!playing || pending.length > 0) return;
+    // at normal speed a score is a beat: the replay waits for its moment to
+    // finish, the way a broadcast holds on the celebration
+    if (moment && !moment.quiet && motion.full) return;
     if (gi >= total) {
       setPlaying(false);
       return;
     }
     const t = setTimeout(advance, 1100 / speed);
     return () => clearTimeout(t);
-  }, [playing, pending.length, gi, total, speed, advance]);
+  }, [playing, pending.length, gi, total, speed, advance, moment, motion.full]);
 
   const stepOnce = useCallback(
     (delta: number) => {
@@ -410,6 +423,37 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
     }
     return out;
   }, [gi, steps]);
+
+  // the final whistle on the viewer's own game: their result, in the
+  // winner's colours, once the last score's moment (if any) has had its turn
+  const finalShown = useRef(false);
+  useEffect(() => {
+    const atEnd = gi >= total;
+    if (!atEnd || finalShown.current || moment || !bc || !viewer) return;
+    let last: readonly [number, number] = bc.finalScore;
+    for (let i = gi - 1; i >= 0; i--) {
+      const st = steps[i];
+      if (st?.type === "play" && st.p.scoreAfter) {
+        last = st.p.scoreAfter;
+        break;
+      }
+    }
+    const [hs, as] = last;
+    if (bc.home !== viewer && bc.away !== viewer) return;
+    finalShown.current = true;
+    const mine = bc.home === viewer ? hs : as;
+    const theirs = bc.home === viewer ? as : hs;
+    const winner = hs === as ? null : hs > as ? bc.home : bc.away;
+    setMoment({
+      key: `final-${gi}`,
+      color: winner ? teamColor(winner) : "#5f5e5a",
+      label: mine > theirs ? "Victory" : mine < theirs ? "Defeat" : "Tie",
+      sub: `Final · ${bc.away} ${as} – ${bc.home} ${hs}`,
+      from: winner === bc.home ? "right" : "left",
+      // a loss is noted, not celebrated
+      quiet: mine < theirs || speed > 1,
+    });
+  }, [gi, total, steps, moment, bc, viewer, speed]);
 
   if (!bc || !step || !drive) return null;
 
@@ -462,12 +506,15 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
   })();
   const [hs, as] = liveScore;
   const done = gi >= total;
+
   const it = pending[0];
 
   return (
     <div
       className="gc"
       ref={rootRef}
+      // the ball glides for most of a play's slot, never longer than it
+      style={{ ["--gc-glide" as string]: `${motion.off ? 0 : Math.round(((motion.full ? 0.55 : 0.25) * 1100) / Math.max(0.5, speed || 1))}ms` }}
       tabIndex={-1}
       onKeyDown={(e) => {
         if ((e.target as HTMLElement).matches("input,select")) return;

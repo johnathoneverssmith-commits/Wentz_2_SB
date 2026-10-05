@@ -1,6 +1,7 @@
 import { m, type Variants } from "framer-motion";
 import { type ReactNode, useRef, useState } from "react";
 
+import { useRowRises } from "@/motion/Stagger";
 import { EASE, useMotion } from "@/motion/tokens";
 
 /**
@@ -29,6 +30,7 @@ export function ExpandableRow({
 }) {
   const motion = useMotion();
   const detailRef = useRef<HTMLDivElement>(null);
+  const rises = useRowRises();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = openProp ?? uncontrolledOpen;
   const setOpen = (next: boolean | ((o: boolean) => boolean)): void => {
@@ -43,7 +45,7 @@ export function ExpandableRow({
     show: { opacity: 1, y: 0, transition: { duration: motion.dur, ease: EASE } },
   };
   return (
-    <m.div className={`prow-wrap${dimmed ? " dimmed" : ""}`} variants={motion.off ? undefined : rise}>
+    <m.div className={`prow-wrap${dimmed ? " dimmed" : ""}`} variants={motion.off || !rises ? undefined : rise}>
       <div
         className="prow"
         style={{ gridTemplateColumns: gridTemplate }}

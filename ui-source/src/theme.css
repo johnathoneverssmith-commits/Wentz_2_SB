@@ -2216,8 +2216,10 @@ input[type="range"]::-moz-range-thumb {
 tbody > tr {
   animation: row-rise var(--dur-slow) var(--ease) backwards;
 }
+/* past the first two dozen the rows are below the fold anyway: no animation
+   at all, so a 500-row stats table costs 24 animations, not 500 */
 tbody > tr:nth-child(n + 25) {
-  animation-delay: calc(var(--row-step) * 24);
+  animation: none;
 }
 tbody > tr:nth-child(2) { animation-delay: calc(var(--row-step) * 1); }
 tbody > tr:nth-child(3) { animation-delay: calc(var(--row-step) * 2); }
@@ -2242,3 +2244,28 @@ tbody > tr:nth-child(21) { animation-delay: calc(var(--row-step) * 20); }
 tbody > tr:nth-child(22) { animation-delay: calc(var(--row-step) * 21); }
 tbody > tr:nth-child(23) { animation-delay: calc(var(--row-step) * 22); }
 tbody > tr:nth-child(24) { animation-delay: calc(var(--row-step) * 23); }
+
+/* the full-screen interstitials ("on the clock", "draft complete") and the
+   dialogs arrive instead of appearing */
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes lift-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+.fs-overlay,
+.modal-scrim {
+  animation: scrim-in var(--dur) var(--ease) both;
+}
+.fs-overlay > div,
+.modal-scrim > .modal-card {
+  animation: lift-in var(--dur-slow) var(--ease) both;
+}
+.fs-overlay .fs-big {
+  animation: lift-in var(--dur-slow) var(--ease) 0.06s both;
+}

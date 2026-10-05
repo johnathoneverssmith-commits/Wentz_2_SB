@@ -1,5 +1,6 @@
 import { m } from "framer-motion";
 import { useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 
 import { EASE, EASE_IMPACT, useMotion } from "./tokens";
 
@@ -74,10 +75,20 @@ export function ScoreMoment({ moment, onDone }: { moment: Moment | null; onDone?
     });
   }, [moment, full]);
 
+  // a moment is something to see: in a hidden tab it is skipped, and its
+  // owner (which waits on `onDone`) is released at once
   if (!moment || motion.off) return null;
+  if (typeof document !== "undefined" && document.hidden) {
+    queueMicrotask(() => onDone?.());
+    return null;
+  }
   const dir = moment.from === "right" ? 1 : -1;
 
-  return (
+  // On <body>, not where it was rendered: a screen still sliding in has a
+  // transform, and a transformed ancestor turns position:fixed into
+  // position:absolute-within-it, so a moment fired on arrival (the title, a
+  // pick) used to land inside a moving card instead of across the screen.
+  return createPortal(
     <div className="score-moment" aria-hidden="true" key={moment.key}>
       <m.div
         className="sm-band"
@@ -122,6 +133,7 @@ export function ScoreMoment({ moment, onDone }: { moment: Moment | null; onDone?
           transition={{ duration: 1.25, delay: 0.3 + b.delay, ease: [0.1, 0.7, 0.3, 1], times: [0, 0.1, 0.65, 1] }}
         />
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }
