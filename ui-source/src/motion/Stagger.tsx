@@ -1,5 +1,5 @@
 import { m, type Variants } from "framer-motion";
-import type { ReactNode } from "react";
+import { Children, type ReactNode } from "react";
 
 import { EASE, useMotion } from "./tokens";
 
@@ -27,7 +27,10 @@ export function StaggerList({
     return <Plain className={className}>{children}</Plain>;
   }
   const Tag = m[as];
-  const variants: Variants = { hidden: {}, show: { transition: { staggerChildren: motion.stagger } } };
+  // a 100-row market mustn't take three seconds to arrive: the whole
+  // cascade is capped at about 0.6 s however many rows there are
+  const per = Math.min(motion.stagger, 0.6 / Math.max(1, Children.count(children)));
+  const variants: Variants = { hidden: {}, show: { transition: { staggerChildren: per } } };
   return (
     <Tag className={className} variants={variants} initial="hidden" animate="show">
       {children}

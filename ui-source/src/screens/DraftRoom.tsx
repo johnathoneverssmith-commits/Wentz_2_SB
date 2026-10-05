@@ -20,6 +20,7 @@ import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store"
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
 import { posLabel } from "@/util/format";
+import { PickMoments } from "@/components/PickMoments";
 
 interface Available {
   id: string;
@@ -264,6 +265,7 @@ export function DraftRoom() {
 
   return (
     <Card maxWidth={860}>
+      <PickMoments />
       {yourPick && !complete && !overlayDismissed && (
         <FullScreenOverlay
           kicker="On the clock"

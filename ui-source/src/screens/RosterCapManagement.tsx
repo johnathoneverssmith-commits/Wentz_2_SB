@@ -1,4 +1,5 @@
 import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
+import { StaggerList } from "@/motion/Stagger";
 import { onlineSession } from "@/state/online";
 import { useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
@@ -321,7 +322,7 @@ export function RosterCapManagement() {
         {ordered.length === 0 && (
           <div className="emptystate">No players in this group.</div>
         )}
-        <div className="rowlist roster-list">
+        <StaggerList className="rowlist roster-list">
           {ordered.length > 0 && (
             <RowHeader
               gridTemplate={ROSTER_GRID}
@@ -560,7 +561,7 @@ export function RosterCapManagement() {
               }
             />
           ))}
-        </div>
+        </StaggerList>
         {(() => {
           const squad = practiceSquad(s, code);
           return (

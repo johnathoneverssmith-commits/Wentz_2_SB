@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { StaggerList } from "@/motion/Stagger";
 import { careerArc } from "@/state/careerArc";
 import { useNavigate } from "react-router-dom";
 
@@ -174,7 +175,7 @@ export function FreeAgencyBoard() {
             Nobody on the market matches that. Clear the search or pick another position.
           </div>
         )}
-        <div className="scroll-list fa-list">
+        <StaggerList className="scroll-list fa-list">
           {market.matched > 0 && (
             <RowHeader
               gridTemplate={FA_GRID}
@@ -319,7 +320,7 @@ export function FreeAgencyBoard() {
               />
             );
           })}
-        </div>
+        </StaggerList>
         {isWindowStage && (
           <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
             Free agents can be signed at any time; there is no window and no deadline.

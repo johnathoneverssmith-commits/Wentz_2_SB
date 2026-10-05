@@ -1,4 +1,7 @@
-import { type ReactNode, useState } from "react";
+import { m, type Variants } from "framer-motion";
+import { type ReactNode, useRef, useState } from "react";
+
+import { EASE, useMotion } from "@/motion/tokens";
 
 /**
  * The chevron-expand row the mockups use for players / prospects / coaches:
@@ -24,6 +27,8 @@ export function ExpandableRow({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
+  const motion = useMotion();
+  const detailRef = useRef<HTMLDivElement>(null);
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = openProp ?? uncontrolledOpen;
   const setOpen = (next: boolean | ((o: boolean) => boolean)): void => {
@@ -31,8 +36,14 @@ export function ExpandableRow({
     if (onOpenChange) onOpenChange(resolved);
     else setUncontrolledOpen(resolved);
   };
+  // Inside a <StaggerList> the row rises in with its siblings; outside one,
+  // `variants` has no parent driving it and the row is just a row.
+  const rise: Variants = {
+    hidden: { opacity: 0, y: motion.full ? 10 : 4 },
+    show: { opacity: 1, y: 0, transition: { duration: motion.dur, ease: EASE } },
+  };
   return (
-    <div className={`prow-wrap${dimmed ? " dimmed" : ""}`}>
+    <m.div className={`prow-wrap${dimmed ? " dimmed" : ""}`} variants={motion.off ? undefined : rise}>
       <div
         className="prow"
         style={{ gridTemplateColumns: gridTemplate }}
@@ -55,8 +66,24 @@ export function ExpandableRow({
         {columns}
         {detail ? <span className={`chev${open ? " open" : ""}`}>▸</span> : <span />}
       </div>
-      {detail && open && <div className="pdetail" style={{ display: "block" }}>{detail}</div>}
-    </div>
+      {detail && open && (
+        // opens by growing rather than appearing
+        <m.div
+          className="pdetail"
+          style={{ display: "block", overflow: "hidden" }}
+          ref={detailRef}
+          // clip only while it grows; afterwards tooltips and focus rings must show
+          onAnimationComplete={() => {
+            if (detailRef.current) detailRef.current.style.overflow = "visible";
+          }}
+          initial={motion.off ? false : { height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          transition={{ duration: motion.full ? 0.28 : 0.14, ease: EASE }}
+        >
+          {detail}
+        </m.div>
+      )}
+    </m.div>
   );
 }
 

@@ -29,6 +29,8 @@ export interface Moment {
   sub?: string;
   /** which edge the banner enters from: the away side from the left, home from the right */
   from?: "left" | "right";
+  /** play the brisk version even in full motion: for moments that are frequent */
+  quiet?: boolean;
 }
 
 /** A small deterministic generator so a moment looks the same each time it replays. */
@@ -45,7 +47,8 @@ function rng(seed: string | number): () => number {
 
 export function ScoreMoment({ moment, onDone }: { moment: Moment | null; onDone?: () => void }) {
   const motion = useMotion();
-  const total = motion.full ? 1.9 : 0.8;
+  const full = motion.full && !moment?.quiet;
+  const total = full ? 1.9 : 0.8;
 
   useEffect(() => {
     if (!moment || motion.off) return;
@@ -54,7 +57,7 @@ export function ScoreMoment({ moment, onDone }: { moment: Moment | null; onDone?
   }, [moment, motion.off, total, onDone]);
 
   const bits = useMemo(() => {
-    if (!moment || !motion.full) return [];
+    if (!moment || !full) return [];
     const r = rng(moment.key);
     return Array.from({ length: 30 }, (_, i) => {
       const angle = r() * Math.PI * 2;
@@ -69,7 +72,7 @@ export function ScoreMoment({ moment, onDone }: { moment: Moment | null; onDone?
         tone: i % 3 === 0 ? "#ffffff" : i % 3 === 1 ? moment.color : `color-mix(in srgb, ${moment.color} 55%, white)`,
       };
     });
-  }, [moment, motion.full]);
+  }, [moment, full]);
 
   if (!moment || motion.off) return null;
   const dir = moment.from === "right" ? 1 : -1;
@@ -86,25 +89,25 @@ export function ScoreMoment({ moment, onDone }: { moment: Moment | null; onDone?
         }}
         initial={{ x: `${dir * -110}%`, opacity: 1 }}
         animate={
-          motion.full
+          full
             ? { x: ["" + dir * -110 + "%", "0%", "0%", `${dir * 110}%`], opacity: 1 }
             : { x: ["0%", "0%"], opacity: [0, 0.9, 0] }
         }
         transition={
-          motion.full
+          full
             ? { duration: total, times: [0, 0.22, 0.72, 1], ease: EASE }
             : { duration: total, times: [0, 0.3, 1], ease: EASE }
         }
       />
       <m.div
         className="sm-label"
-        initial={{ opacity: 0, scale: motion.full ? 2.4 : 1, letterSpacing: motion.full ? "0.5em" : "0.12em" }}
+        initial={{ opacity: 0, scale: full ? 2.4 : 1, letterSpacing: full ? "0.5em" : "0.12em" }}
         animate={
-          motion.full
+          full
             ? { opacity: [0, 1, 1, 0], scale: [2.4, 1, 1, 1], letterSpacing: ["0.5em", "0.12em", "0.12em", "0.12em"] }
             : { opacity: [0, 1, 1, 0], scale: 1 }
         }
-        transition={{ duration: total, times: motion.full ? [0.05, 0.3, 0.78, 1] : [0, 0.2, 0.7, 1], ease: motion.full ? EASE_IMPACT : EASE }}
+        transition={{ duration: total, times: full ? [0.05, 0.3, 0.78, 1] : [0, 0.2, 0.7, 1], ease: full ? EASE_IMPACT : EASE }}
       >
         <span>{moment.label}</span>
         {moment.sub && <small>{moment.sub}</small>}

@@ -1,4 +1,9 @@
-import { useState } from "react";
+import { m } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+
+import { cue } from "@/audio/cues";
+import { type Moment, ScoreMoment } from "@/motion/ScoreMoment";
+import { EASE, useMotion } from "@/motion/tokens";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -19,13 +24,19 @@ const label = (code: string) => TEAMS_BY_CODE[code]?.label ?? code;
 
 /** The 0–100 meter, with the firing line marked. */
 function Meter({ score, color }: { score: number; color: string }) {
+  const motion = useMotion();
   return (
     <div
       role="img"
       aria-label={`Job security ${score} out of 100`}
       style={{ position: "relative", height: 10, borderRadius: 5, background: "var(--panel-sunken)", border: "1px solid var(--line)" }}
     >
-      <div style={{ width: `${score}%`, height: "100%", borderRadius: 5, background: color }} />
+      <m.div
+        initial={{ width: motion.off ? `${score}%` : "0%" }}
+        animate={{ width: `${score}%` }}
+        transition={{ duration: motion.full ? 0.9 : 0.25, ease: EASE, delay: motion.full ? 0.15 : 0 }}
+        style={{ height: "100%", borderRadius: 5, background: color }}
+      />
       <div title={`Fired below ${FIRE_BELOW}`} style={{ position: "absolute", left: `${FIRE_BELOW}%`, top: -3, bottom: -3, width: 2, background: "var(--ink-faint)" }} />
     </div>
   );
@@ -79,8 +90,22 @@ export function HotSeat() {
 
   const waiting = mine?.level === "fired" && !mine.chosen;
 
+  // taking a new job is an occasion: the new team's colours take over
+  const [moment, setMoment] = useState<Moment | null>(null);
+  const hadJob = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const now = mine?.chosen ?? null;
+    if (hadJob.current !== undefined && now && now !== hadJob.current) {
+      const t = TEAMS_BY_CODE[now];
+      setMoment({ key: now, color: t?.color ?? "#444", label: t?.city ?? now, sub: "Your new team", from: "right" });
+      cue("signed");
+    }
+    hadJob.current = now;
+  }, [mine?.chosen]);
+
   return (
     <Card maxWidth={800}>
+      <ScoreMoment moment={moment} onDone={() => setMoment(null)} />
       <CardHeader
         badge={me?.teamCode ? TEAMS_BY_CODE[me.teamCode]?.abbr ?? "FS" : "FS"}
         title="Hot Seat"

@@ -3,6 +3,7 @@
  * header with a team badge, the stat ticker, underline tabs, and tab panels.
  * Class names match the mockups so screen markup ports 1:1.
  */
+import { AnimatedNumber } from "@/motion/AnimatedNumber";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 export function Card({
@@ -114,8 +115,36 @@ function StatValue({ stat }: { stat: TickerStat }) {
 
   return (
     <p className={`stat-value${stat.className ? ` ${stat.className}` : ""}${moved ? " moved" : ""}`}>
-      {stat.value}
+      <CountedValue value={stat.value} />
     </p>
+  );
+}
+
+/**
+ * "$165.2M", "7", "1,204 yds": a figure with one number in it counts to its
+ * new value; anything else ("32 of 32", an element) shows as it is. The
+ * prefix, suffix and number of decimals are kept from the text, so the
+ * formatting of every frame is the formatting of the final one.
+ */
+const COUNTABLE = /^([^\d-]*)(-?\d[\d,]*(?:\.(\d+))?)([^\d]*)$/;
+function CountedValue({ value }: { value: ReactNode }) {
+  if (typeof value !== "string" && typeof value !== "number") return <>{value}</>;
+  const text = String(value);
+  const m = COUNTABLE.exec(text);
+  if (!m) return <>{text}</>;
+  const [, pre, num, dec, post] = m;
+  const decimals = dec?.length ?? 0;
+  const grouped = num!.includes(",");
+  const n = Number(num!.replace(/,/g, ""));
+  if (!Number.isFinite(n)) return <>{text}</>;
+  return (
+    <AnimatedNumber
+      value={n}
+      duration={0.6}
+      format={(x) =>
+        `${pre}${grouped ? x.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) : x.toFixed(decimals)}${post}`
+      }
+    />
   );
 }
 
