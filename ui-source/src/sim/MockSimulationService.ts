@@ -1055,6 +1055,27 @@ export class MockSimulationService implements SimulationService {
     // adjustment below (which only drives the AI's actual decision) muddies.
     const delta = round1(inn - out);
 
+    // A team doesn't sell its franchise quarterback. The one exception is a swap
+    // for another quarterback of the same class, so two teams can trade
+    // starters; picks, prospects and depth never buy one.
+    const franchiseGiven = toAssets
+      .map((a) => (a.kind === "player" ? state.players[a.playerId ?? ""] : undefined))
+      .filter((p): p is Player => !!p && isFranchiseQb(state, p));
+    if (franchiseGiven.length > 0) {
+      const best = Math.max(...franchiseGiven.map((p) => p.overall));
+      const getsComparable = fromAssets.some((a) => {
+        const q = a.kind === "player" ? state.players[a.playerId ?? ""] : undefined;
+        return !!q && q.position === "QB" && q.overall >= best - 4 && q.age <= 34;
+      });
+      if (!getsComparable) {
+        return {
+          valueDelta: delta,
+          acceptLikelihood: 0,
+          refusal: `${franchiseGiven[0]!.name} is their franchise quarterback. They won't trade him for anything but another franchise quarterback.`,
+        };
+      }
+    }
+
     // OQ-9: the AI's real interest in a trade isn't just raw value — a
     // player who fills an actual hole on toTeam's roster is worth more to
     // them than his overall alone says, and a player leaving a position
@@ -1382,6 +1403,38 @@ export const pickTradeValue = (round: number): number =>
   PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
 
 /**
+ * A franchise quarterback: his team's starter, good enough to be the reason
+ * they win (84+), and not yet at the end. There are a handful in the league.
+ */
+export function isFranchiseQb(state: LeagueState, p: Player): boolean {
+  if (p.position !== "QB" || p.retired || p.free_agent || p.overall < FRANCHISE_QB_OVERALL || p.age > 36) return false;
+  // the best QB his team has
+  return !Object.values(state.players).some(
+    (x) => x.nfl_team === p.nfl_team && x.position === "QB" && !x.retired && x.id !== p.id && x.overall > p.overall,
+  );
+}
+const FRANCHISE_QB_OVERALL = 84;
+
+/**
+ * What a franchise quarterback costs beyond his rating.
+ *
+ * The value curve prices a 94 quarterback at about two firsts, two seconds and
+ * a third, and a GM got Joe Burrow for exactly that. In the NFL a quarterback
+ * of that class has essentially never been traded for picks, because the supply
+ * is a few dozen people and the position decides games more than any other: a
+ * team that moves one is starting over. So the price climbs steeply past 80
+ * (x1 at 80, x2.4 at 84, x5.5 at 90, x8.5 at 94) and past 84 is a premium
+ * most of a draft's capital can't reach. (And the CPU won't sell one at all
+ * for anything but another franchise quarterback, in `evaluateTrade`.)
+ */
+export function franchiseQbPremium(state: LeagueState, p: Player): number {
+  if (p.position !== "QB" || p.overall <= 80) return 1;
+  const over = p.overall - 80;
+  const star = isFranchiseQb(state, p) ? 1 : 0.6;
+  return 1 + (over * 0.35 + Math.pow(over, 1.6) * 0.06) * star * 1.25;
+}
+
+/**
  * What one asset is worth in a trade — the single currency.
  *
  * `evaluateTrade` judges every deal with this, so anything that *builds* a
@@ -1397,7 +1450,7 @@ export function tradeAssetValue(state: LeagueState, a: TradeAsset): number {
   if (a.kind === "player") {
     const p = state.players[a.playerId ?? ""];
     const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.72) / 12.5;
-    return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1);
+    return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1) * (p ? franchiseQbPremium(state, p) : 1);
   }
   const round = a.pick?.round ?? 4;
   const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;

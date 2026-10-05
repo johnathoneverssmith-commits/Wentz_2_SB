@@ -6,6 +6,7 @@
 import { extractBoxScore } from "../src/engine/boxscore.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import { Roster, type DepthOrder } from "../src/engine/roster.js";
+import type { GamePlan } from "../src/engine/gameplan.js";
 import { type Game, simulateGame } from "../src/engine/sim.js";
 import { describeWeather, type Weather, weatherFor } from "../src/engine/weather.js";
 import type { Staff } from "../src/engine/staff.js";
@@ -28,6 +29,9 @@ export interface GameInput {
   offenseAdjust?: number | undefined;
   homeStaff?: Staff | undefined;
   awayStaff?: Staff | undefined;
+  /** the two teams' game plans (`src/engine/gameplan.ts`); omitted plays the default */
+  homePlan?: GamePlan | undefined;
+  awayPlan?: GamePlan | undefined;
 }
 
 const rosterFrom = (team: string, players: Player[] | undefined, order?: DepthOrder): Roster | undefined =>
@@ -77,7 +81,8 @@ export function simulateOne(i: GameInput) {
   // coaches would hand that side the whole coaching layer.
   const staffPair = i.homeStaff && i.awayStaff ? { homeStaff: i.homeStaff, awayStaff: i.awayStaff } : {};
   const weather = weatherFor(homeTeam, phase, week, gameSeed);
-  const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, offenseAdjust: i.offenseAdjust, overtime: "nfl", weather, ...staffPair } as const;
+  const plans = { homePlan: i.homePlan, awayPlan: i.awayPlan };
+  const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, offenseAdjust: i.offenseAdjust, overtime: "nfl", weather, ...plans, ...staffPair } as const;
   const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
   const base = {
     id: `${season ?? "s"}-${phase}-${week}-${homeTeam}-${awayTeam}`,
@@ -111,6 +116,7 @@ export function simulateOne(i: GameInput) {
           offenseAdjust: i.offenseAdjust,
           overtime: "nfl",
           weather,
+          ...plans,
           ...staffPair,
         }),
       }

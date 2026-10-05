@@ -12,7 +12,7 @@
  * only who calls it and where the answer goes.
  */
 import { talentScaleOf } from "@/state/talentImpact.ts";
-import { staffPairOf } from "./staffs.js";
+import { planPairOf, staffPairOf } from "./staffs.js";
 import { boxScoreOf, trimStoredBoxScores } from "./boxscore.js";
 import { simulateGame } from "../../src/engine/sim.js";
 import { describeWeather, weatherFor } from "../../src/engine/weather.js";
@@ -180,9 +180,12 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
         overtime: "nfl",
         weather: weatherFor(toEngine(g.homeTeam), phase, state.week, seed),
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
+        homePlan: planPairOf(state, g.homeTeam, g.awayTeam).homePlan,
+        awayPlan: planPairOf(state, g.homeTeam, g.awayTeam).awayPlan,
       });
       const watched = humanTeams.has(g.homeTeam) || humanTeams.has(g.awayTeam);
       results.push({
+        plans: planPairOf(state, g.homeTeam, g.awayTeam).record,
         id: `${state.season}-${phase}-${state.week}-${g.homeTeam}-${g.awayTeam}`,
         week: state.week,
         phase,
@@ -209,6 +212,8 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
                 overtime: "nfl",
                 weather: weatherFor(toEngine(g.homeTeam), phase, state.week, seed),
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
+                homePlan: planPairOf(state, g.homeTeam, g.awayTeam).homePlan,
+                awayPlan: planPairOf(state, g.homeTeam, g.awayTeam).awayPlan,
               }) as NonNullable<GameResult["broadcast"]>,
             }
           : {}),

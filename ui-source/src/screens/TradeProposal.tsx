@@ -429,7 +429,8 @@ export function TradeProposal() {
             {/* an empty proposal came out at "48% likely to accept" — of nothing */}
             {give.length + get.length === 0
               ? "Pick what each side sends"
-              : `${TEAMS_BY_CODE[partner]!.label} accept likelihood: ${Math.round(evalResult.acceptLikelihood * 100)}%`}
+              : (evalResult as { refusal?: string }).refusal ??
+                `${TEAMS_BY_CODE[partner]!.label} accept likelihood: ${Math.round(evalResult.acceptLikelihood * 100)}%`}
           </span>
         </div>
 

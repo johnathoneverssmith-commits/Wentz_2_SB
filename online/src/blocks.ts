@@ -1,6 +1,6 @@
 import { broadcastGame } from "../../src/engine/broadcast.js";
 import { talentScaleOf } from "@/state/talentImpact.ts";
-import { staffPairOf } from "./staffs.js";
+import { planPairOf, staffPairOf } from "./staffs.js";
 import { boxScoreOf, trimStoredBoxScores } from "./boxscore.js";
 import { simulateGame } from "../../src/engine/sim.js";
 import { describeWeather, weatherFor } from "../../src/engine/weather.js";
@@ -136,8 +136,11 @@ export function simulateBlock(
         overtime: "nfl",
         weather: weatherFor(toEngine(g.homeTeam), phase, week, seed),
         ...staffPairOf(state, g.homeTeam, g.awayTeam),
+        homePlan: planPairOf(state, g.homeTeam, g.awayTeam).homePlan,
+        awayPlan: planPairOf(state, g.homeTeam, g.awayTeam).awayPlan,
       });
       results.push({
+        plans: planPairOf(state, g.homeTeam, g.awayTeam).record,
         id,
         week,
         phase,
@@ -215,6 +218,9 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
     neutralSite: game.phase === "SB",
     weather: weatherFor(toEngine(game.homeTeam), game.phase, game.week, seed, game.phase === "SB"),
         ...staffPairOf(state, game.homeTeam, game.awayTeam),
+    // the plans it was played with, not whatever they have been set to since
+    homePlan: (game.plans ?? planPairOf(state, game.homeTeam, game.awayTeam).record).home,
+    awayPlan: (game.plans ?? planPairOf(state, game.homeTeam, game.awayTeam).record).away,
   });
   // the engine spells the Rams differently; the UI should never see that
   const toUi = (c: string): string => (c === "LA" ? "LAR" : c);
@@ -299,6 +305,8 @@ export function simulatePlayoffBlock(state: LeagueState): number {
         mustDecide: true,
         weather: weatherFor(toEngine(home), round, 0, seed, round === "SB"),
         ...staffPairOf(state, home, away),
+        homePlan: planPairOf(state, home, away).homePlan,
+        awayPlan: planPairOf(state, home, away).awayPlan,
       });
       let [hs, as] = [sim.score[0], sim.score[1]];
       // somebody has to go home; break a tie with the seed rather than
@@ -309,6 +317,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
       m.awayScore = as;
       m.winner = hs > as ? home : away;
       results.push({
+        plans: planPairOf(state, home, away).record,
         id,
         week: 0,
         phase: round,

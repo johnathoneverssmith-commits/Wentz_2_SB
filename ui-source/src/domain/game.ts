@@ -74,6 +74,8 @@ export interface ScoringPlay {
 
 export interface GameResult {
   id: string;
+  /** the game plans it was played with, kept so a replay is the same game (`online/src/staffs.ts`) */
+  plans?: { home: import("../../../src/engine/gameplan.js").GamePlan; away: import("../../../src/engine/gameplan.js").GamePlan };
   /** game-day conditions, e.g. "34°F, wind 18 mph, snow" or "Indoors" (`describeWeather`) */
   weather?: string;
   week: number;

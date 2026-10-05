@@ -38,6 +38,7 @@ import {
   type Subject,
 } from "@/state/rules.ts";
 import { exerciseFifthYearOption, extendContract, franchiseTag, restructureContract } from "@/state/contracts.ts";
+import { cleanPlan, type GamePlan } from "@/state/gamePlan.ts";
 import { takeNewJob } from "@/state/hotSeat.ts";
 import { practiceSquadTeam, promoteFromPracticeSquad, toPracticeSquad } from "@/state/practiceSquad.ts";
 import {
@@ -858,6 +859,14 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
         detail: { playerId },
       },
     ],
+  };
+}
+
+/** Save this GM's game plan; every dial is clamped here, whatever the client sent. */
+export function decideGamePlan(state: LeagueState, actor: Actor, plan: unknown): Decision {
+  state.gamePlans = { ...(state.gamePlans ?? {}), [actor.teamCode]: cleanPlan(plan as Partial<GamePlan>) };
+  return {
+    events: [{ teamCode: actor.teamCode, kind: "gameplan.set", summary: `${city(actor.teamCode)} set a new game plan.` }],
   };
 }
 

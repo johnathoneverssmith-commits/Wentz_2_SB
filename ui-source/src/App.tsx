@@ -29,6 +29,7 @@ import { FreeAgencyBoard } from "./screens/FreeAgencyBoard.tsx";
 import { ScreenTransition } from "@/motion/ScreenTransition";
 import { FullBoxScore } from "./screens/FullBoxScore.tsx";
 import { HotSeat } from "./screens/HotSeat.tsx";
+import { GamePlanScreen } from "./screens/GamePlanScreen.tsx";
 import { HoodedFigureEncounter } from "./screens/HoodedFigureEncounter.tsx";
 import { LeagueDevelopments } from "./screens/LeagueDevelopments.tsx";
 import { SeasonResults } from "./screens/SeasonResults.tsx";
@@ -475,6 +476,7 @@ export function App() {
           <Route path="/results/:phase/:from/:to" element={<SeasonResults />} />
           <Route path="/results/:phase/:from/:to/:week" element={<SeasonResults />} />
           <Route path="/hot-seat" element={<HotSeat />} />
+          <Route path="/game-plan" element={<GamePlanScreen />} />
           <Route path="/retirement" element={<RetirementReview />} />
           <Route path="/rookie-draft-summary" element={<RookieDraftSummary />} />
           <Route path="/rookie-signings" element={<RookieSignings />} />

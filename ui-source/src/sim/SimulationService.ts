@@ -32,6 +32,8 @@ import type {
 export interface TradeEvaluation {
   valueDelta: number;
   acceptLikelihood: number;
+  /** why the AI won't consider the deal at any price, when that's the case */
+  refusal?: string;
 }
 
 export interface RetirementOutcome {

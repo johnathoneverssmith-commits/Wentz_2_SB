@@ -39,6 +39,7 @@ interface NavItem {
 
 const IN_SEASON_NAV: NavItem[] = [
   { to: "/hub", label: "Weekly Team Hub" },
+  { to: "/game-plan", label: "Game Plan" },
   { to: "/bracket", label: "Playoff Bracket" },
   { to: "/roster", label: "Roster & Cap", group: "Front office" },
   { to: "/league-rosters", label: "League Rosters" },

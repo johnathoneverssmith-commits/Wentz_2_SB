@@ -15,6 +15,7 @@ import { createServer } from "node:http";
 import {
   actorFor,
   chooseJob,
+  saveGamePlan,
   contractMove,
   draftCoach,
   freeAgencyTurn,
@@ -678,6 +679,10 @@ post("/leagues/:id/actions/releases", async (ctx) =>
 
 post("/leagues/:id/actions/depths", async (ctx) =>
   setDepthOrders(await actor(ctx), field(ctx, "orders", "object")),
+);
+
+post("/leagues/:id/actions/gameplan", async (ctx) =>
+  saveGamePlan(await actor(ctx), field(ctx, "plan", "object")),
 );
 
 post("/leagues/:id/actions/job", async (ctx) =>

@@ -42,6 +42,7 @@ import { Rng } from "./rng.js";
 import { homePenaltyScale, homeShift, type HomeEdge } from "./home-field.js";
 import { strengthIndex, strengthShift } from "./team-strength.js";
 import { blitzContext, type CreditKind, creditWeight, synergyShift } from "./synergy.js";
+import { cleanPlan, type GamePlan, fourthDelta, isDefaultPlan, passLogit, personnelDelta } from "./gameplan.js";
 import { NO_WEATHER_EFFECT, type Weather, type WeatherEffect, weatherEffect } from "./weather.js";
 import { REST_DT1, REST_DT2, REST_EDGE1, REST_EDGE2, type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
@@ -244,6 +245,8 @@ export class Game {
   rzFlag = false;
   /** game-day conditions (`weather.ts`); null plays in neutral air */
   weather: Weather | null = null;
+  /** each team's game plan (`gameplan.ts`), home then away; null (or the default plan) is the engine as validated */
+  plans: [GamePlan, GamePlan] | null = null;
   wx: WeatherEffect = NO_WEATHER_EFFECT;
   /** scrimmage snaps so far, and which front starters sit out this one */
   private snaps = 0;
@@ -340,6 +343,44 @@ export class Game {
       strengthIndex(this.rosters![this.other() as 0 | 1]),
       channel,
     );
+  }
+
+  private offPlan(): GamePlan | null {
+    return this.ratingsOn ? (this.plans?.[this.pos as 0 | 1] ?? null) : null;
+  }
+  private defPlan(): GamePlan | null {
+    return this.ratingsOn ? (this.plans?.[this.other() as 0 | 1] ?? null) : null;
+  }
+  /** the last two minutes of the game, where the clock rather than the plan decides what a team does */
+  private finalTwoMinutes(): boolean {
+    return this.qtr >= 4 && this.qsr <= 120;
+  }
+  /**
+   * What both teams' plans do to this snap, on top of everything else: the
+   * blitz the defence is sending, the personnel the offence is in. Zero for a
+   * default plan, so the validated engine is untouched.
+   */
+  private planShift(o: Lineup, d: Lineup): { complete: number; sack: number } {
+    const po = this.offPlan();
+    const pd = this.defPlan();
+    let complete = 0;
+    let sack = 0;
+    if (po) {
+      const pers = personnelDelta(po);
+      complete += pers.complete;
+      sack += pers.sack;
+    }
+    if (pd && pd.blitz !== 0) {
+      const b = pd.blitz / 100;
+      // Pressure gets home more, and a beaten blitz gives up the big play: the
+      // coordinator's blitz trade (`staff-shift.ts`), moved by who is behind
+      // it and who it is sent at. Good corners hold up alone; a great
+      // quarterback behind a great line punishes it.
+      const bz = blitzContext(o, d);
+      sack += 0.42 * b + 0.14 * b * (0.35 * bz.coverage - 0.25 * bz.protection - 0.15 * bz.quarterback);
+      complete += 0.1 * b + 0.09 * b * (-0.35 * bz.coverage + 0.3 * bz.quarterback + 0.2 * bz.protection);
+    }
+    return { complete, sack };
   }
 
   private off(): Roster {
@@ -454,9 +495,12 @@ export class Game {
       // odd end-around or designed QB run — every carry to RB1 made a
       // 3,000-yard rusher and a thousand-yard back on every team; a lead back
       // at two thirds still put ~25 backs over a thousand (the NFL has ~15)
+      // (the second back's share is the plan's: 35% by default, which is the
+      // 56 / 30 split these weights were written with)
+      const committee = (this.offPlan()?.rbCommittee ?? 35) / 100;
       const targetOrRusher = weighted([
-        [o.RB1 ?? o.TE1, 56],
-        [offRoster.depthAt("RB", 1, out), 30],
+        [o.RB1 ?? o.TE1, 86 * (1 - committee)],
+        [offRoster.depthAt("RB", 1, out), 86 * committee],
         [o.QB1, 10],
         [o.WR3, 4],
       ]);
@@ -664,6 +708,7 @@ export class Game {
           this.calib.complete +
           (this.yardline100 <= 20 ? this.calib.rzComplete : 0) +
           (this.down >= 3 ? this.calib.thirdDown : 0) +
+          this.planShift(o, d).complete +
           this.offenseAdjust,
         INTERCEPTION:
           this.talent *
@@ -680,6 +725,7 @@ export class Game {
         SACK:
           this.talent * limited("sack", sackLogitShift(ol, rush) + this.strengthEdge("sack") + synergyShift(o, d, "sack")) +
           staff.sack +
+          this.planShift(o, d).sack +
           homeShift(edge, "sack") +
           this.calib.sack,
       };
@@ -697,6 +743,28 @@ export class Game {
     return null;
   }
 
+  /**
+   * The run game's share of the plan: heavier personnel block better, and a
+   * back who shares the work is fresher but the one behind him is worse (all
+   * relative to the league's usual 35%, so a default plan adds nothing).
+   */
+  private planRushShift(o: Lineup, front7: (Player | null | undefined)[]): number {
+    const po = this.offPlan();
+    if (!po) return 0;
+    let yards = personnelDelta(po).rush;
+    const c = po.rbCommittee / 100;
+    const c0 = 0.35;
+    if (c !== c0) {
+      const ol = [o.LT, o.LG, o.C, o.RG, o.RT];
+      const rb2 = this.off().depthAt("RB", 1, this.injuredOut);
+      const lead = rushYardsShift(ol, front7, o.RB1 ?? null);
+      const second = rushYardsShift(ol, front7, rb2 ?? o.RB1 ?? null);
+      // expected yards a carry from the change in who carries it, plus the legs
+      yards += (c - c0) * (second - lead) * this.talent + 0.3 * (c - c0);
+    }
+    return yards;
+  }
+
   private rushYdMod(): number {
     if (!this.ratingsOn) return 0;
     const o = this.offLineup();
@@ -711,6 +779,7 @@ export class Game {
             synergyShift(o, d, "rushYards"),
         ) +
       this.staffOffShift().rush +
+      this.planRushShift(o, front7) +
       homeShift(this.homeEdge, "rushYards") +
       this.calib.rushYards +
       (this.yardline100 <= 20 ? this.calib.rzRush : 0) +
@@ -1114,9 +1183,13 @@ export class Game {
   }
 
   private fourthDown(): void {
-    const m01Shift = this.staffOn
-      ? { GO_FOR_IT: hcGoForItDelta(this.offStaff().headCoach) }
-      : undefined;
+    const plan = this.offPlan();
+    // the three fourth-down dials stay off in the last two minutes
+    const planGo = plan && !this.finalTwoMinutes() ? fourthDelta(plan, this.yardline100) : 0;
+    const m01Shift =
+      this.staffOn || planGo !== 0
+        ? { GO_FOR_IT: (this.staffOn ? hcGoForItDelta(this.offStaff().headCoach) : 0) + planGo }
+        : undefined;
     const act = sampleClass("M01", this.ctx(), this.rng, m01Shift);
     if (act === "FIELD_GOAL") return this.kickFg("field_goal");
     if (act === "PUNT") {
@@ -1227,7 +1300,9 @@ export class Game {
     this.snaps += 1;
     this.restMask = this.ratingsOn ? this.rotation() : 0;
     const s0: [Stats, Stats] = [{ ...this.teams[0].s }, { ...this.teams[1].s }];
-    const call = sampleClass("M02", this.ctx(0), this.rng);
+    const planPass = this.offPlan();
+    const m02Shift = planPass && !this.finalTwoMinutes() && !isDefaultPlan(planPass) ? { DROPBACK: passLogit(planPass) } : undefined;
+    const call = sampleClass("M02", this.ctx(0), this.rng, m02Shift);
     const sg = sampleClass("M03", { ...this.ctx(0), play_call: call }, this.rng) === "SHOTGUN" ? 1 : 0;
 
     let gained = 0.0;
@@ -1756,6 +1831,9 @@ export interface GameStaff {
    * neutral air, byte-identical; the franchise game passes the venue's.
    */
   weather?: Weather | undefined;
+  /** the two teams' game plans (`gameplan.ts`); omitted is the default plan, byte-identical */
+  homePlan?: GamePlan | undefined;
+  awayPlan?: GamePlan | undefined;
 }
 
 /**
@@ -1790,6 +1868,11 @@ export function simulateGame(
   if (opts?.overtime) g.overtime = opts.overtime;
   if (opts?.mustDecide) g.mustDecide = true;
   if (opts?.offenseAdjust) g.offenseAdjust = opts.offenseAdjust;
+  if (opts?.homePlan || opts?.awayPlan) {
+    const hp = cleanPlan(opts.homePlan);
+    const ap = cleanPlan(opts.awayPlan);
+    if (!isDefaultPlan(hp) || !isDefaultPlan(ap)) g.plans = [hp, ap];
+  }
   if (opts?.weather) {
     g.weather = opts.weather;
     g.wx = weatherEffect(opts.weather);

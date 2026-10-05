@@ -58,6 +58,7 @@ import {
 } from "./contracts.ts";
 import { promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad.ts";
 import { ensureHotSeat, placeUnemployed, takeNewJob } from "./hotSeat.ts";
+import { cleanPlan, type GamePlan } from "./gamePlan.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly } from "./leagueFormat.ts";
 import { CURRENT_SAVE_VERSION, migrateLeagueSave, upgradeLeagueState } from "./saveMigration.ts";
@@ -225,6 +226,8 @@ export interface StoreActions {
   /** Franchise-tag a player in his final year, or pick up a first-rounder's fifth-year option. */
   /** A fired GM takes a new team (`hotSeat.takeNewJob`). */
   chooseNewJob: (teamCode: string) => { ok: boolean; reason?: string };
+  /** Save the viewer's game plan; it applies to games not yet simulated. */
+  saveGamePlan: (plan: Partial<GamePlan>) => { ok: boolean };
   tenderPlayer: (playerId: string, kind: "tag" | "option" | "practiceSquad" | "promote") => ContractMoveResult;
 
   /** Cut a player from the roster. He goes straight onto the standing free
@@ -1153,6 +1156,15 @@ export const useStore = create<Store>()(
           if (result.ok) recomputeTeamRatings(s);
         });
         return result;
+      },
+
+      saveGamePlan: (plan) => {
+        const code = get().gms.find((g) => g.id === get().viewerGmId)?.teamCode;
+        if (!code) return { ok: false };
+        set((s) => {
+          s.gamePlans = { ...(s.gamePlans ?? {}), [code]: cleanPlan(plan) };
+        });
+        return { ok: true };
       },
 
       chooseNewJob: (teamCode) => {

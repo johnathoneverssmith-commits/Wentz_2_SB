@@ -1310,3 +1310,34 @@ completions, sacks, QB hits, interceptions, fumbles lost, return TDs, extra
 points, drive starts) over the games the GM has seen. Separation is a modelled
 estimate (receivers' route running and hands against the coverage, by depth),
 not a simulated quantity; it never affects a game.
+
+## Franchise quarterbacks and the game plan (2026-10)
+
+**Franchise QBs.** The value curve priced a 94 quarterback at two firsts, two
+seconds and a third, and a GM bought Joe Burrow for that. `franchiseQbPremium`
+(`MockSimulationService.ts`) multiplies a quarterback's value steeply past 80
+(x2.4 at 84, x5.5 at 90, x8.5 at 94, a smaller premium for a non-starter), and
+`evaluateTrade` refuses outright (`refusal`, acceptance 0, shown on the trade
+screen) to move a team's franchise QB (its best QB, 84+, 36 or younger) for
+anything but a quarterback within four points who is 34 or younger.
+
+**Game plan** (`src/engine/gameplan.ts`, `GamePlanScreen`, `/game-plan`). A team's
+dials: pass rate (+-15 points), go-for-it tendency on fourth down in three
+zones (opponent's red zone, opponent's territory, own territory; off in the last
+two minutes), blitz rate, the 11/12/13 personnel mix, and the second back's
+share of runs. Every dial is a change from the validated engine and the default
+plan is byte-identical to no plan (`test/engine-gameplan.test.ts`). Each has
+a price: passing costs sacks, going for it costs field goals, blitzing costs
+the big play (and depends on the corners and the opposing line), heavy sets run
+better and throw worse, a committee is fresher with a worse back behind him.
+CPU teams play the plan their GM philosophy implies (`aiGamePlan`), which keeps
+league scoring and pass rate within the noise. A human's plan is saved on the
+league (`gamePlans`, online via `actions/gameplan` with every dial clamped
+server-side) and applies to every game simulated after it is saved; online, the
+plans a block was simulated with are stored on each game (`GameResult.plans`) so a
+replay is that game and not the plan as it is now.
+
+It is a screen reached from the rail and from a strip on the weekly hub, not a
+stage in the stage machine: the football is simulated in blocks online and a
+gate between every set of games would have meant a new checkpoint in every
+league.

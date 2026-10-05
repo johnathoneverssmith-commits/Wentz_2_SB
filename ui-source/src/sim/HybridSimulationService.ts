@@ -51,6 +51,7 @@ import { ROUND_ORDER } from "@/domain";
 import { isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
 import { talentScaleOf } from "@/state/talentImpact.ts";
 import { coachToUi, engineStaffsFor } from "@/state/coachScale.ts";
+import { gamePlansFor } from "@/state/gamePlan.ts";
 import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket.ts";
 
 import {
@@ -299,6 +300,7 @@ export class HybridSimulationService implements SimulationService {
         // the coaches each franchise actually employs
         engineStaffsFor(state),
         state.offenseAdjust ?? 0,
+        gamePlansFor(state),
       );
     }, () => this.mock.simulateWeek(state, week, phase));
   }
@@ -364,6 +366,7 @@ export class HybridSimulationService implements SimulationService {
             engineStaffsFor(state),
             state.offenseAdjust ?? 0,
             viewerTeam,
+            gamePlansFor(state),
           );
           m.homeScore = g.homeScore;
           m.awayScore = g.awayScore;
@@ -388,6 +391,7 @@ export class HybridSimulationService implements SimulationService {
         engineStaffsFor(state),
         state.offenseAdjust ?? 0,
         viewerTeam,
+        gamePlansFor(state),
       );
 
       const matchups = bracket.matchups.map((m) => ({ ...m }));

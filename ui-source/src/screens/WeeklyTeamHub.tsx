@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
+import { GamePlanStrip } from "@/components/GamePlanStrip";
 import { MatchupBoard, type SubMetric } from "@/components/MatchupBoard";
 import { WaitingStakes } from "@/components/WaitingStakes";
 import { productionRanks } from "@/state/productionRanks";
@@ -273,6 +274,7 @@ export function WeeklyTeamHub() {
           Jump to what&rsquo;s next ↓
         </button>
       )}
+      {weekly && <GamePlanStrip />}
       <Tabs
         tabs={[
           // the game is what this screen is for in a season; the league's

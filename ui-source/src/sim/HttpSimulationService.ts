@@ -11,6 +11,7 @@
  * code matches. `toEngine`/`toUi` translate at this boundary only.
  */
 import type { EngineStaff } from "@/state/coachScale";
+import type { GamePlan } from "../../../src/engine/gameplan.js";
 import type { GameBroadcast } from "@/domain/broadcast.ts";
 import type { GameResult, Player, ScheduledGame } from "@/domain";
 
@@ -111,6 +112,11 @@ function presentedToUi<T extends Partial<PresentedGame>>(g: T): Pick<PresentedGa
 }
 
 export class HttpSimulationService {
+  /** game plans keyed by the engine's team codes */
+  private enginePlansOf(plans: Record<string, GamePlan>): Record<string, GamePlan> {
+    return Object.fromEntries(Object.entries(plans).map(([t, p]) => [toEngine(t), p]));
+  }
+
   async generateInitialPool(): Promise<Player[]> {
     const pool = await post<Player[]>("/pool", {});
     return pool.map(playerToUi);
@@ -172,6 +178,7 @@ export class HttpSimulationService {
     talentScale = 1,
     staffs: Record<string, EngineStaff> = {},
     offenseAdjust = 0,
+    plans: Record<string, GamePlan> = {},
   ): Promise<GameResult[]> {
     const engineRosters: Record<string, Player[]> = {};
     for (const [team, players] of Object.entries(rosters)) {
@@ -196,6 +203,7 @@ export class HttpSimulationService {
       talentScale,
       staffs: this.engineStaffsOf(staffs),
       offenseAdjust,
+      plans: this.enginePlansOf(plans),
     };
     const results = await post<
       (GameResult & { broadcast?: GameBroadcast & { home: string; away: string } })[]
@@ -261,6 +269,7 @@ export class HttpSimulationService {
     staffs: Record<string, EngineStaff> = {},
     offenseAdjust = 0,
     viewerTeam: string | null = null,
+    plans: Record<string, GamePlan> = {},
   ): Promise<RawPlayoffRoundResult> {
     const body = {
       seed,
@@ -276,6 +285,7 @@ export class HttpSimulationService {
       staffs: this.engineStaffsOf(staffs),
       offenseAdjust,
       viewerTeam: viewerTeam ? toEngine(viewerTeam) : null,
+      plans: this.enginePlansOf(plans),
     };
     const res = await post<RawPlayoffRoundResult>("/playoffs/round", body);
     const translateGame = (g: RawPlayoffGame): RawPlayoffGame => ({
@@ -310,9 +320,11 @@ export class HttpSimulationService {
     staffs: Record<string, EngineStaff> = {},
     offenseAdjust = 0,
     viewerTeam: string | null = null,
+    plans: Record<string, GamePlan> = {},
   ): Promise<{ homeScore: number; awayScore: number; winner: string; box: PresentedGame | null }> {
     const res = await post<{ homeScore: number; awayScore: number; winner: string; box: PresentedGame | null }>("/playoffs/game", {
       viewerTeam: viewerTeam ? toEngine(viewerTeam) : null,
+      plans: this.enginePlansOf(plans),
       seed,
       homeTeam: toEngine(homeTeam),
       awayTeam: toEngine(awayTeam),

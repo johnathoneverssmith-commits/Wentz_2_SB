@@ -14,6 +14,7 @@
  * working game at risk for no gain today. Screens migrate to this hook one
  * at a time, and the ones that haven't go on calling the store directly.
  */
+import type { GamePlan } from "./gamePlan.ts";
 import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -78,6 +79,8 @@ export interface LeagueActions {
   ) => Promise<ActionResult>;
   /** A fired GM takes over a new team. */
   chooseNewJob: (teamCode: string) => Promise<ActionResult>;
+  /** Save this GM's game plan (`state/gamePlan.ts`). */
+  saveGamePlan: (plan: Partial<GamePlan>) => Promise<ActionResult>;
   /** Franchise tag, or a first-rounder's fifth-year option. */
   tender: (playerId: string, kind: "tag" | "option" | "practiceSquad" | "promote") => Promise<ActionResult>;
   /** Sign or release a rookie you drafted. */
@@ -283,6 +286,7 @@ export function useLeagueActions(): LeagueActions {
         extend: async (playerId, terms) => store.extendPlayer(playerId, terms),
         tender: async (playerId, kind) => store.tenderPlayer(playerId, kind),
         chooseNewJob: async (teamCode) => store.chooseNewJob(teamCode),
+        saveGamePlan: async (plan) => store.saveGamePlan(plan),
         settleRookie: async (prospectId, released) => {
           const code = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
           if (!code) return { ok: false, reason: "You don't have a team." };
@@ -406,6 +410,8 @@ export function useLeagueActions(): LeagueActions {
             s.client.contractMove(s.leagueId, playerId, { kind: "extend", ...terms }, s.version),
           ),
         ).then(after),
+      saveGamePlan: (plan) =>
+        attempt(() => send((s) => s.client.saveGamePlan(s.leagueId, plan))).then(after),
       chooseNewJob: (teamCode) =>
         attempt(() => send((s) => s.client.chooseJob(s.leagueId, teamCode, s.version))).then(after),
       tender: (playerId, kind) =>

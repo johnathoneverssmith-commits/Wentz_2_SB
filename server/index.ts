@@ -34,6 +34,7 @@ import {
 } from "../src/engine/playoffs.js";
 import { nflSchedule } from "../src/engine/schedule.js";
 import { Roster, type DepthOrder } from "../src/engine/roster.js";
+import type { GamePlan } from "../src/engine/gameplan.js";
 import type { Staff } from "../src/engine/staff.js";
 import { type Game, simulateGame } from "../src/engine/sim.js";
 import { allStaffs } from "../src/engine/staff-data.js";
@@ -117,10 +118,12 @@ interface SimulateWeekBody {
    * engine's coaching layer never ran in a franchise game at all.
    */
   staffs?: Record<string, Staff>;
+  /** team code -> its game plan (`src/engine/gameplan.ts`) */
+  plans?: Record<string, GamePlan>;
 }
 
 async function handleSimulateWeek(body: SimulateWeekBody) {
-  const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale, staffs, offenseAdjust } = body;
+  const { seed, season, week, phase, games, viewer, rosters, depthCharts, talentScale, staffs, offenseAdjust, plans } = body;
   // each game on a worker (`simPool.ts`) — same seeds, same games, in parallel
   return Promise.all(
     games.map(({ homeTeam, awayTeam }) =>
@@ -140,6 +143,8 @@ async function handleSimulateWeek(body: SimulateWeekBody) {
         offenseAdjust,
         homeStaff: staffs?.[homeTeam],
         awayStaff: staffs?.[awayTeam],
+        homePlan: plans?.[homeTeam],
+        awayPlan: plans?.[awayTeam],
       }),
     ),
   );
@@ -172,6 +177,8 @@ interface PlayoffRoundBody {
   talentScale?: number;
   offenseAdjust?: number;
   staffs?: Record<string, Staff>;
+  /** team code -> its game plan (`src/engine/gameplan.ts`) */
+  plans?: Record<string, GamePlan>;
   /** how many rounds have already been played, before this call plays the next one. */
   roundsPlayed: number;
 }
@@ -196,6 +203,7 @@ function handlePlayoffRound(body: PlayoffRoundBody & { viewerTeam?: string | nul
     body.staffs ?? null,
     body.offenseAdjust ?? 0,
     captured.hook,
+    body.plans ?? null,
   );
   return { ...out, boxes: presentCaptured(captured, body, rosters) };
 }
@@ -222,6 +230,7 @@ function presentCaptured(
     talentScale?: number | undefined;
     offenseAdjust?: number | undefined;
     staffs?: Record<string, Staff> | undefined;
+    plans?: Record<string, GamePlan> | undefined;
     viewerTeam?: string | null | undefined;
   },
   rosters: Record<string, Roster> | null,
@@ -252,6 +261,8 @@ function presentCaptured(
               neutralSite: neutral,
               ...(g.weather ? { weather: g.weather } : {}),
               ...(hs && as ? { homeStaff: hs, awayStaff: as } : {}),
+              ...(body.plans?.[home] ? { homePlan: body.plans[home] } : {}),
+              ...(body.plans?.[away] ? { awayPlan: body.plans[away] } : {}),
             }),
           }
         : present;
@@ -270,6 +281,8 @@ function handlePlayoffGame(body: {
   talentScale?: number;
   offenseAdjust?: number;
   staffs?: Record<string, Staff>;
+  /** team code -> its game plan (`src/engine/gameplan.ts`) */
+  plans?: Record<string, GamePlan>;
   viewerTeam?: string | null;
 }) {
   const rosters = rostersFrom(body.rosters, body.depthCharts);
@@ -281,6 +294,7 @@ function handlePlayoffGame(body: {
     body.staffs ?? null,
     body.offenseAdjust ?? 0,
     captured.hook,
+    body.plans ?? null,
   );
   const boxes = presentCaptured(captured, body, rosters);
   return { ...result, box: boxes[`${body.homeTeam}|${body.awayTeam}`] ?? null };

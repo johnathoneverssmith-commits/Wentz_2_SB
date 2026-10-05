@@ -221,6 +221,8 @@ export interface LeagueState {
    * and keep the shared classes.
    */
   seed?: number;
+  /** Each human GM's game plan, by team (`state/gamePlan.ts`); CPU teams derive theirs. */
+  gamePlans?: Record<string, import("../../../src/engine/gameplan.js").GamePlan>;
   /** Drawn once per league for the fantasy draft's order (`rules.ts` `draftSalt`). */
   draftSalt?: number;
   season: number;

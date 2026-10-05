@@ -15,6 +15,7 @@ import type { ConferenceSeeding } from "./standings.js";
 import type { Roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import { type Game, simulateGame } from "./sim.js";
+import type { GamePlan } from "./gameplan.js";
 import { weatherFor } from "./weather.js";
 
 export type PlayoffRound = "wildcard" | "divisional" | "conference" | "superbowl";
@@ -66,6 +67,7 @@ let _playoffOffense = 0;
 /** told about each game that decides a matchup, so a caller can build its box score */
 export type PlayoffGameHook = (game: Game, home: string, away: string, neutralSite: boolean, seed: number) => void;
 let _onGame: PlayoffGameHook | null = null;
+let _plans: Readonly<Record<string, GamePlan>> | null = null;
 
 /** Run `fn` with playoff games played by these rosters, at this talent scale. */
 export function withPlayoffRosters<T>(
@@ -75,9 +77,12 @@ export function withPlayoffRosters<T>(
   staffs: Readonly<Record<string, Staff>> | null = null,
   offenseAdjust = 0,
   onGame: PlayoffGameHook | null = null,
+  plans: Readonly<Record<string, GamePlan>> | null = null,
 ): T {
   const prevHook = _onGame;
   _onGame = onGame;
+  const prevPlans = _plans;
+  _plans = plans;
   const prev = _playoffRosters;
   const prevTalent = _playoffTalent;
   const prevStaffs = _playoffStaffs;
@@ -90,6 +95,7 @@ export function withPlayoffRosters<T>(
     return fn();
   } finally {
     _onGame = prevHook;
+    _plans = prevPlans;
     _playoffOffense = prevOffense;
     _playoffRosters = prev;
     _playoffTalent = prevTalent;
@@ -127,6 +133,8 @@ function decide(
           // starter ever hurt.
           injuries: true,
           trace: true,
+          ...(_plans?.[home.team] ? { homePlan: _plans[home.team] } : {}),
+          ...(_plans?.[away.team] ? { awayPlan: _plans[away.team] } : {}),
           weather: weatherFor(home.team, "PO", 20, seed, neutralSite),
         }
       : { neutralSite };
