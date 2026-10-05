@@ -615,10 +615,95 @@ export function synergyShift(o: Lineup, d: Lineup, channel: Channel): number {
  * great quarterback behind a great line is the one man you do not send
  * pressure at.
  */
+/**
+ * How good a player is at one thing the heavy personnel groups ask of a tight
+ * end, as a z-score against the league (clamped to +-2; 0 when the attributes
+ * aren't there): run blocking, and catching and running routes.
+ */
+export function blockingZ(p: Player | null | undefined): number {
+  const z = skillZ(p, RUN_BLOCK);
+  return z === null ? 0 : Math.max(-2, Math.min(2, z));
+}
+export function receivingZ(p: Player | null | undefined): number {
+  const z = skillZ(p, RECEIVING);
+  return z === null ? 0 : Math.max(-2, Math.min(2, z));
+}
+
+/**
+ * How well an offense is built to pass and to run, as z-scores against the
+ * league (clamped): the quarterback, the receivers and the protection for the
+ * one; the back, the line's run blocking and the tight ends' for the other. A
+ * game plan that leans on either is only as good as this.
+ */
+const RUNNER_GRADE: Skill = { ball_carrier_vision: 0.35, break_tackle: 0.25, speed: 0.2, acceleration: 0.2 };
+export function styleGrades(o: Lineup): { pass: number; run: number } {
+  const clamp = (x: number | null) => (x === null ? 0 : Math.max(-2, Math.min(2, x)));
+  const qb = clamp(skillZ(o.QB1, QB_PASS));
+  const recv = clamp(meanSkill([o.WR1, o.WR2, o.WR3, o.TE1], RECEIVING));
+  const pro = clamp(meanSkill([o.LT, o.LG, o.C, o.RG, o.RT], PASS_PRO));
+  const back = clamp(skillZ(o.RB1, RUNNER_GRADE));
+  const blocking = clamp(meanSkill([o.LT, o.LG, o.C, o.RG, o.RT], RUN_BLOCK));
+  const te = clamp(skillZ(o.TE1, RUN_BLOCK));
+  return { pass: 0.45 * qb + 0.35 * recv + 0.2 * pro, run: 0.35 * back + 0.5 * blocking + 0.15 * te };
+}
+
+/**
+ * How athletic a quarterback is, as a z-score against the league's
+ * quarterbacks (clamped to +-2): Lamar Jackson ~ +1.8, Kirk Cousins ~ -1.6.
+ * Speed, burst and agility, the legs a scramble or a keeper runs on.
+ */
+export function qbMobilityZ(p: Player | null | undefined): number {
+  const a = p?.attributes;
+  if (!a) return 0;
+  const parts: [number | undefined, number][] = [[a.speed, 0.4], [a.acceleration, 0.3], [a.agility, 0.3]];
+  let num = 0;
+  let den = 0;
+  for (const [v, w] of parts) {
+    if (typeof v !== "number") continue;
+    num += v * w;
+    den += w;
+  }
+  return den > 0 ? Math.max(-2, Math.min(2, (num / den - 77) / 9)) : 0;
+}
+
+/** How dangerous a man is with the ball in space (a returner), z against the league (clamped to +-2). */
+export function returnerZ(p: Player | null | undefined): number {
+  const z = skillZ(p, { speed: 0.4, acceleration: 0.3, agility: 0.3 });
+  return z === null ? 0 : Math.max(-2, Math.min(2, z));
+}
+
+/** A kicker's leg, z against the league (clamped to +-2). */
+export function kickerLegZ(p: Player | null | undefined): number {
+  const z = skillZ(p, { kick_power: 1 });
+  return z === null ? 0 : Math.max(-2, Math.min(2, z));
+}
+
 export interface BlitzContext {
+  /** corners and safeties left in coverage */
   coverage: number;
+  /** the linebackers who rush or drop */
+  linebackers: number;
+  /** the defensive line that gets there */
+  rush: number;
   protection: number;
   quarterback: number;
+}
+
+/**
+ * What a blitz is worth *because of who is sending it and who it is sent at*,
+ * per unit of blitz (the flat trade, more sacks and more big plays, is the
+ * caller's). The front four decide whether pressure arrives (a blitz from a
+ * line that can't win a one-on-one is five rushers losing), the linebackers
+ * are who actually comes and who drops, and the corners and safeties are what
+ * the pressure's hot throws land on. The line is the largest share, as it is
+ * in the game: 40% line, 30% linebackers, 30% secondary.
+ */
+export function blitzEffect(bz: BlitzContext): { sack: number; complete: number } {
+  const send = 0.4 * bz.rush + 0.3 * bz.linebackers + 0.3 * bz.coverage;
+  return {
+    sack: 0.4 * send - 0.1 * bz.protection - 0.06 * bz.quarterback,
+    complete: -0.12 * send + 0.06 * bz.quarterback + 0.04 * bz.protection,
+  };
 }
 const meanSkill = (ps: (Player | null | undefined)[], skill: Skill): number | null => {
   const zs = ps.map((p) => skillZ(p, skill)).filter((z): z is number => z !== null);
@@ -626,6 +711,8 @@ const meanSkill = (ps: (Player | null | undefined)[], skill: Skill): number | nu
 };
 const blitzRaw = (o: Lineup, d: Lineup) => ({
   coverage: meanSkill([d.CB1, d.CB2, d.S1, d.S2], COVERAGE),
+  linebackers: meanSkill([d.ILB1, d.ILB2], LB_COVERAGE),
+  rush: meanSkill([d.EDGE1, d.EDGE2, d.DT1, d.DT2], PASS_RUSH),
   protection: meanSkill([o.LT, o.LG, o.C, o.RG, o.RT], PASS_PRO),
   quarterback: meanSkill([o.QB1], QB_PASS),
 });
@@ -633,7 +720,7 @@ let _blitzRef: { mean: Record<keyof BlitzContext, number>; sd: Record<keyof Blit
 function blitzReference() {
   if (_blitzRef) return _blitzRef;
   const rows = teamList().map((t) => blitzRaw(roster(t).offense(), roster(t).defense()));
-  const keys = ["coverage", "protection", "quarterback"] as const;
+  const keys = ["coverage", "linebackers", "rush", "protection", "quarterback"] as const;
   const mean = {} as Record<keyof BlitzContext, number>;
   const sd = {} as Record<keyof BlitzContext, number>;
   for (const k of keys) {
@@ -651,5 +738,11 @@ export function blitzContext(o: Lineup, d: Lineup): BlitzContext {
     const v = raw[k];
     return v === null ? 0 : Math.max(-2, Math.min(2, (v - ref.mean[k]) / ref.sd[k]));
   };
-  return { coverage: z("coverage"), protection: z("protection"), quarterback: z("quarterback") };
+  return {
+    coverage: z("coverage"),
+    linebackers: z("linebackers"),
+    rush: z("rush"),
+    protection: z("protection"),
+    quarterback: z("quarterback"),
+  };
 }

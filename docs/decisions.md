@@ -1341,3 +1341,54 @@ It is a screen reached from the rail and from a strip on the weekly hub, not a
 stage in the stage machine: the football is simulated in blocks online and a
 gate between every set of games would have meant a new checkpoint in every
 league.
+
+### Game plan, second pass (2026-10)
+
+**Blitz and tight ends.** A blitz is worth what the people sending it and facing it
+are worth: 40% the defensive line, 30% linebackers, 30% corners and safeties
+(`blitzEffect`), minus the offence's protection and quarterback. Heavier
+personnel is worth what the tight ends are: their blocking adds to the run and
+holds the rush off, and a second tight end who out-catches the third receiver
+makes 12 personnel a passing set (`personnelQuality`).
+
+**Lean costs and payoffs.** A defence plays a lopsided tendency: heavy passing
+loses completions per point, heavy running loses yards a carry, and each pays
+back in proportion to the offence's own grade for it (`leanDelta`,
+`styleGrades`). A running plan on a good line and back also keeps the ball: more
+clock per carry (`advanceClock`), so the other side gets fewer snaps.
+
+**AI strategies** (`STRATEGY_PLANS`) are tuned by `analysis/42_strategy_tournament.ts`:
+32 rosters x plan against the standard plan on identical seeds. Last run
+(60 games a roster, talent 1.5, points of margin; overall / best-fit 8 / worst-fit 8):
+offense_heavy +0.15 / +0.91 / -1.10, defense_heavy -0.09 / +0.67 / -1.36,
+pass_heavy -0.10 / +1.16 / -1.97, run_heavy -0.09 / +0.41 / -1.03,
+high_ceiling +0.49 / +1.11 / -0.77, high_floor -0.14 / -0.17 / -0.42 (low
+variance is its point, it only breaks even), trenches_first -0.09 / -0.18 / -0.67
+(not yet positive on its best-fit rosters). No style steamrolls.
+
+**Seven more dials.** Quarterback runs (scrambles and designed keepers, priced by
+the quarterback's athleticism, `qbMobilityZ`: Jackson ~ +1.8, Cousins ~ -1.6),
+two-point tries (0 is the engine as it was, a kick every time; positive follows
+the chart then widens, negative kicks everything but a late tie try), fourth and
+short / fourth and long (added to the zone dials by distance), kickoffs (deep for
+the touchback vs pinned and covered, by the kicker's leg), returns (bring it back
+vs fair catch, by the returner), and rookie playing time (a rookie starts ahead of
+a veteran within 4 overall points; he develops faster at training camp, a veteran
+who sits him slows him: `withRookiePlaytime`, `rookieDevelopment`).
+
+**Keeping decisions sane.** The fourth-down push is capped (`fourthSane`: no go
+from fourth-and-15, from inside the own 20, or from fourth-and-long in the own
+end; a team behind late can't be pushed into a punt), no field goal past 62
+yards, no two-point try with a 17-point lead, and the last two minutes belong to
+the clock. `nonsense()` is a separate statement of the rules and
+`test/engine-gameplan-levers.test.ts` runs every decision of four extreme plans
+through it (it caught three fourth-and-15+ go-for-its on the first run).
+
+**What the levers are worth** (`analysis/43_lever_audit.ts`, points of margin;
+noise is about +-0.3 on an overall figure): quarterback runs +100 is +0.04
+overall, +0.91 on the 8 most athletic quarterbacks, -0.96 on the 8 least.
+Kickoffs deep +100 are +0.98 with the strongest legs and -1.19 with the weakest.
+Rookies +100 cost -0.49 now (what you pay for development). Fourth and short
++100 is +0.48 and -100 is -0.50: going on short yardage is a real edge in this
+engine, as it is in the league. Two-point tries, fourth and long, returns and
+the kickoff overalls are inside the noise.

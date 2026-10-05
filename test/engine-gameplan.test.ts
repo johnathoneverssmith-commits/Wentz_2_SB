@@ -105,8 +105,9 @@ describe("game plans", () => {
   }, 240_000);
 
   it("personnel: heavier sets run for more yards a carry and run more", () => {
-    const base = measure(undefined);
-    const heavy = measure({ p11: 20, p12: 50, p13: 30 });
+    // the effect is a few tenths of a yard a carry, so it needs a big sample to stand clear of the noise
+    const base = measure(undefined, 400);
+    const heavy = measure({ p11: 20, p12: 50, p13: 30 }, 400);
     expect(heavy.ypc).toBeGreaterThan(base.ypc);
     expect(heavy.passRate).toBeLessThan(base.passRate);
   }, 240_000);
@@ -116,5 +117,36 @@ describe("game plans", () => {
     const split = measure({ rbCommittee: 50 });
     // not the same game: the dial does something
     expect(Math.abs(workhorse.ypc - split.ypc)).toBeGreaterThan(0.01);
+  }, 240_000);
+});
+
+describe("ball control", () => {
+  it("a running plan on a good back and line holds the ball longer than the standard plan", () => {
+    // the eight best run-blocking teams by their line's and back's ratings
+    const fit = (t: string) => {
+      const r = roster(t);
+      const ovr = (pos: string[], n: number) => {
+        const xs = pos.flatMap((p) => (r.depth.get(p) ?? []).slice(0, n).map((x) => x.overall ?? 0));
+        return xs.reduce((a, b) => a + b, 0) / xs.length;
+      };
+      return 0.5 * ovr(["OT", "OG", "C"], 2) + 0.5 * ovr(["RB"], 1);
+    };
+    const best = [...teams].sort((a, b) => fit(b) - fit(a)).slice(0, 8);
+    const top = (plan: Partial<GamePlan> | undefined) => {
+      let secs = 0, g = 0;
+      for (const [i, t] of best.entries()) {
+        for (let k = 0; k < 8; k++) {
+          const opp = teams[(teams.indexOf(t) + 3 + i * 3 + k) % 32]!;
+          if (opp === t) continue;
+          const game = simulateGame(77000 + i * 40 + k, t, opp, {
+            homeRoster: roster(t), awayRoster: roster(opp), overtime: "nfl", ...(plan ? { homePlan: cleanPlan(plan) } : {}),
+          });
+          secs += (game.teams[0]!.s as Record<string, number>).top ?? 0;
+          g++;
+        }
+      }
+      return secs / g;
+    };
+    expect(top({ passRate: -12 })).toBeGreaterThan(top(undefined) + 90);
   }, 240_000);
 });

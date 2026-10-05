@@ -41,8 +41,39 @@ import {
 import { Rng } from "./rng.js";
 import { homePenaltyScale, homeShift, type HomeEdge } from "./home-field.js";
 import { strengthIndex, strengthShift } from "./team-strength.js";
-import { blitzContext, type CreditKind, creditWeight, synergyShift } from "./synergy.js";
-import { cleanPlan, type GamePlan, fourthDelta, isDefaultPlan, passLogit, personnelDelta } from "./gameplan.js";
+import {
+  blitzContext,
+  blitzEffect,
+  blockingZ,
+  type CreditKind,
+  kickerLegZ,
+  qbMobilityZ,
+  receivingZ,
+  returnerZ,
+  styleGrades,
+  creditWeight,
+  synergyShift,
+} from "./synergy.js";
+import { withRookiePlaytime } from "./roster.js";
+import {
+  cleanPlan,
+  type DecisionRecord,
+  FIELD_GOAL_LIMIT,
+  type GamePlan,
+  fourthDelta,
+  fourthSane,
+  isDefaultPlan,
+  kickoffEffect,
+  lateAndTrailing,
+  leanDelta,
+  passLogit,
+  personnelDelta,
+  personnelQuality,
+  qbRunEffect,
+  returnEffect,
+  twoPointOdds,
+  twoPointProb,
+} from "./gameplan.js";
 import { NO_WEATHER_EFFECT, type Weather, type WeatherEffect, weatherEffect } from "./weather.js";
 import { REST_DT1, REST_DT2, REST_EDGE1, REST_EDGE2, type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
@@ -247,6 +278,8 @@ export class Game {
   weather: Weather | null = null;
   /** each team's game plan (`gameplan.ts`), home then away; null (or the default plan) is the engine as validated */
   plans: [GamePlan, GamePlan] | null = null;
+  /** every decision a plan had a hand in, when the tests ask for it (no RNG, no effect on the game) */
+  audit: DecisionRecord[] | null = null;
   wx: WeatherEffect = NO_WEATHER_EFFECT;
   /** scrimmage snaps so far, and which front starters sit out this one */
   private snaps = 0;
@@ -367,20 +400,37 @@ export class Game {
     let sack = 0;
     if (po) {
       const pers = personnelDelta(po);
-      complete += pers.complete;
-      sack += pers.sack;
+      const q = personnelQuality(po, this.tightEndGrades(o));
+      complete += pers.complete + q.complete + leanDelta(po, styleGrades(o)).complete;
+      sack += pers.sack + q.sack;
     }
     if (pd && pd.blitz !== 0) {
       const b = pd.blitz / 100;
       // Pressure gets home more, and a beaten blitz gives up the big play: the
-      // coordinator's blitz trade (`staff-shift.ts`), moved by who is behind
-      // it and who it is sent at. Good corners hold up alone; a great
-      // quarterback behind a great line punishes it.
+      // coordinator's blitz trade (`staff-shift.ts`), moved by who sends it
+      // (the line most, then the linebackers and the secondary: `blitzEffect`)
+      // and who it is sent at. A great quarterback behind a great line
+      // punishes it.
       const bz = blitzContext(o, d);
-      sack += 0.42 * b + 0.14 * b * (0.35 * bz.coverage - 0.25 * bz.protection - 0.15 * bz.quarterback);
-      complete += 0.1 * b + 0.09 * b * (-0.35 * bz.coverage + 0.3 * bz.quarterback + 0.2 * bz.protection);
+      const eff = blitzEffect(bz);
+      sack += b * (0.3 + eff.sack);
+      complete += b * (0.1 + eff.complete);
     }
     return { complete, sack };
+  }
+
+  /** what the offence's quarterback-run dial does with this quarterback's legs (all zero for a default plan) */
+  private qbRunShift(o: Lineup): ReturnType<typeof qbRunEffect> {
+    const po = this.offPlan();
+    if (!po || po.qbRun === 0 || this.finalTwoMinutes()) return { scramble: 0, sack: 0, scrambleYards: 0, keeperShare: 0, keeperYards: 0 };
+    return qbRunEffect(po, qbMobilityZ(o.QB1));
+  }
+
+  /** the tight ends' blocking, and how the second one catches against the receiver he replaces */
+  private tightEndGrades(o: Lineup): { blocking: number; receivingGap: number } {
+    const te2 = this.off().depthAt("TE", 1, this.injuredOut);
+    const blocking = (blockingZ(o.TE1) + (te2 ? blockingZ(te2) : blockingZ(o.TE1))) / 2;
+    return { blocking, receivingGap: receivingZ(te2 ?? o.TE1) - receivingZ(o.WR3) };
   }
 
   private off(): Roster {
@@ -501,7 +551,7 @@ export class Game {
       const targetOrRusher = weighted([
         [o.RB1 ?? o.TE1, 86 * (1 - committee)],
         [offRoster.depthAt("RB", 1, out), 86 * committee],
-        [o.QB1, 10],
+        [o.QB1, 10 + 40 * Math.max(0, (this.offPlan()?.qbRun ?? 0) / 100)],
         [o.WR3, 4],
       ]);
       return outcome === "fumble"
@@ -669,8 +719,9 @@ export class Game {
     // lineups, so an ordinary matchup is the flat blitz trade it always was.
     const bz = blitzContext(o, d);
     const b = dcS.blitzBias;
-    const blitzSack = 0.14 * b * (0.35 * bz.coverage - 0.25 * bz.protection - 0.15 * bz.quarterback);
-    const blitzComplete = 0.09 * b * (-0.35 * bz.coverage + 0.3 * bz.quarterback + 0.2 * bz.protection);
+    const eff = blitzEffect(bz);
+    const blitzSack = b * eff.sack;
+    const blitzComplete = b * eff.complete;
     return {
       complete: oc.complete + dc.complete + ofit.complete + dfit.complete + blitzComplete,
       rush: oc.rush + dc.rush + ofit.rush + dfit.rush,
@@ -726,8 +777,10 @@ export class Game {
           this.talent * limited("sack", sackLogitShift(ol, rush) + this.strengthEdge("sack") + synergyShift(o, d, "sack")) +
           staff.sack +
           this.planShift(o, d).sack +
+          this.qbRunShift(o).sack +
           homeShift(edge, "sack") +
           this.calib.sack,
+        ...(this.qbRunShift(o).scramble !== 0 ? { SCRAMBLE: this.qbRunShift(o).scramble } : {}),
       };
     }
     if (kind === "M20") {
@@ -751,7 +804,7 @@ export class Game {
   private planRushShift(o: Lineup, front7: (Player | null | undefined)[]): number {
     const po = this.offPlan();
     if (!po) return 0;
-    let yards = personnelDelta(po).rush;
+    let yards = personnelDelta(po).rush + personnelQuality(po, this.tightEndGrades(o)).rush + leanDelta(po, styleGrades(o)).rush;
     const c = po.rbCommittee / 100;
     const c0 = 0.35;
     if (c !== c0) {
@@ -899,6 +952,16 @@ export class Game {
     const cs = this.gsr <= 300 ? "final_5min" : this.gsr <= 600 ? "final_10min" : "normal";
     let e = sampleRunoff(bucket, noHuddle, cs, this.rng) * CLOCK_SCALE;
     if (this.staffOn) e = e * ocTempoScale(this.offStaff().oc);
+    // Ball control: a team that has chosen to run, and has the back and the
+    // line to do it well, stays on the field longer on every carry (it gets
+    // the first down, and it makes the defense wait). That is the point of the
+    // style: time of possession, and with it fewer snaps for the other side.
+    // A running plan on a bad line is the opposite, and runs the clock less.
+    const lean = this.offPlan();
+    if (lean && lean.passRate < 0 && bucket.startsWith("run") && !this.finalTwoMinutes()) {
+      const grade = styleGrades(this.offLineup()).run;
+      e = e * (1 + 0.0125 * -lean.passRate * Math.max(-0.4, Math.min(1.6, 0.4 + grade)));
+    }
     if (driveEnds) e = e * 0.65;
     e = Math.round(e);
     if (this.qsr > 0) e = Math.min(e, this.qsr);
@@ -921,8 +984,33 @@ export class Game {
   private touchdown(): void {
     this.scorePts(6);
     this.st("td");
-    if (this.rng.random() < XP_RATE) this.scorePts(1);
+    this.tryAfterTouchdown();
     this.kickoff(this.other());
+  }
+
+  /**
+   * The point after: a kick, unless the plan has a say. The chart and the dial
+   * decide whether to go for two (`twoPointProb`); the offence's own quality
+   * decides whether it works.
+   */
+  private tryAfterTouchdown(): void {
+    const plan = this.offPlan();
+    const diff = this.score[this.pos as 0 | 1] - this.score[this.other() as 0 | 1];
+    const p = twoPointProb(plan, { diff, qtr: this.qtr, gsr: this.gsr });
+    if (plan && plan.twoPoint !== 0) {
+      const go = p >= 1 ? true : p <= 0 ? false : this.rng.random() < p;
+      this.audit?.push({ kind: "two", go, diff, qtr: this.qtr, gsr: this.gsr });
+      if (go) {
+        this.st("two_att");
+        const odds = this.ratingsOn ? twoPointOdds(styleGrades(this.offLineup())) : 0.48;
+        if (this.rng.random() < odds) {
+          this.scorePts(2);
+          this.st("two_made");
+        }
+        return;
+      }
+    }
+    if (this.rng.random() < XP_RATE) this.scorePts(1);
   }
 
   private turnover(returnYards = 0, spot?: number, result = "downs"): void {
@@ -937,21 +1025,50 @@ export class Game {
     this.startDrive();
   }
 
+  /** the best of the receiving team's usual returners: how dangerous he is with the ball in space */
+  private bestReturnerZ(team: number): number {
+    const o = this.rosters![team as 0 | 1].offense(this.injuredOut);
+    return Math.max(...[o.WR3, o.RB1, o.WR2].map((p) => returnerZ(p)));
+  }
+
   private kickoff(receiving: number, result = "touchdown"): void {
     this.finishDrive(result); // close the drive that led to this kickoff
+    const kicking = 1 - receiving;
     this.pos = receiving;
-    if (this.rng.random() < KICKOFF_TOUCHBACK) {
-      this.yardline100 = 70.0;
-    } else {
-      if (this.rng.random() < KICK_RETURN_TD_RATE) {
-        this.scorePts(6, receiving);
-        this.st("st_td", 1, receiving);
-        this.st("kr_td", 1, receiving);
-        if (this.rng.random() < XP_RATE) this.scorePts(1, receiving);
-        this.kickoff(1 - receiving);
-        return;
+    // the two plans' kick dials; none in the last two minutes, where the clock decides
+    const live = this.ratingsOn && this.plans && !this.finalTwoMinutes();
+    const kp = live ? this.plans![kicking as 0 | 1] : null;
+    const rp = live ? this.plans![receiving as 0 | 1] : null;
+    const ke = kp && kp.kickoff !== 0 ? kickoffEffect(kp.kickoff, kickerLegZ(this.rosters![kicking as 0 | 1].kicker())) : null;
+    const re = rp && rp.returns !== 0 ? returnEffect(rp.returns, this.bestReturnerZ(receiving)) : null;
+    const tdRate = KICK_RETURN_TD_RATE * (ke?.tdMult ?? 1) * (re?.tdMult ?? 1);
+    const returnTd = (): boolean => {
+      this.scorePts(6, receiving);
+      this.st("st_td", 1, receiving);
+      this.st("kr_td", 1, receiving);
+      if (this.rng.random() < XP_RATE) this.scorePts(1, receiving);
+      this.kickoff(1 - receiving);
+      return true;
+    };
+    if (this.rng.random() < clip(KICKOFF_TOUCHBACK + (ke?.touchback ?? 0), 0.1, 0.97)) {
+      if (ke && ke.outOfBounds > 0 && this.rng.random() < ke.outOfBounds) {
+        // sailed out of bounds: the receiving team takes it at its own 40
+        this.yardline100 = 60.0;
+      } else if (re && re.touchbackToReturn > 0 && this.rng.random() < re.touchbackToReturn) {
+        // brought out of the end zone: a live return from deep
+        if (this.rng.random() < tdRate * 1.4) return void returnTd();
+        const spot = clip(24 + this.rng.normal(0, 7) + 3 * this.bestReturnerZ(receiving) + re.returnYards, 8, 55);
+        this.yardline100 = clip(100 - spot, 45, 99);
+      } else {
+        this.yardline100 = 70.0;
       }
-      const spot = 25 + this.rng.normal(3, 6);
+    } else if (re && re.fairCatch > 0 && this.rng.random() < re.fairCatch) {
+      // the knee: no return, no risk, the 25
+      this.audit?.push({ kind: "fair_catch", qtr: this.qtr, gsr: this.gsr, diff: this.score[receiving as 0 | 1] - this.score[kicking as 0 | 1] });
+      this.yardline100 = 75.0;
+    } else {
+      if (this.rng.random() < tdRate) return void returnTd();
+      const spot = 25 + this.rng.normal(3, 6) + (ke?.spotShift ?? 0) + (re?.returnYards ?? 0);
       this.yardline100 = clip(100 - spot, 55, 99);
     }
     this.down = 1;
@@ -1184,13 +1301,32 @@ export class Game {
 
   private fourthDown(): void {
     const plan = this.offPlan();
-    // the three fourth-down dials stay off in the last two minutes
-    const planGo = plan && !this.finalTwoMinutes() ? fourthDelta(plan, this.yardline100) : 0;
+    const diff = this.score[this.pos as 0 | 1] - this.score[this.other() as 0 | 1];
+    const fctx = { ydstogo: this.ydstogo, yardline100: this.yardline100, qtr: this.qtr, gsr: this.gsr, diff };
+    // the fourth-down dials stay off in the last two minutes, and never talk a team into what no coach would do
+    const planGo = plan && !this.finalTwoMinutes() ? fourthSane(fourthDelta(plan, this.yardline100, this.ydstogo), fctx) : 0;
     const m01Shift =
       this.staffOn || planGo !== 0
         ? { GO_FOR_IT: (this.staffOn ? hcGoForItDelta(this.offStaff().headCoach) : 0) + planGo }
         : undefined;
-    const act = sampleClass("M01", this.ctx(), this.rng, m01Shift);
+    let act = sampleClass("M01", this.ctx(), this.rng, m01Shift);
+    // a plan's team never sends the kicker out beyond his range: it goes (if it has to score) or punts
+    if (plan && act === "FIELD_GOAL" && this.yardline100 + 18 > FIELD_GOAL_LIMIT) {
+      act = lateAndTrailing(fctx) && this.ydstogo <= 10 ? "GO_FOR_IT" : "PUNT";
+    }
+    // ... and never goes for it from where nobody would, whatever the dials do to the odds
+    if (plan && act === "GO_FOR_IT" && !lateAndTrailing(fctx) && (this.ydstogo >= 15 || this.yardline100 >= 85)) {
+      act = this.yardline100 + 18 <= FIELD_GOAL_LIMIT ? "FIELD_GOAL" : "PUNT";
+    }
+    this.audit?.push({
+      kind: "fourth",
+      act: act === "FIELD_GOAL" ? "FG" : act === "PUNT" ? "PUNT" : "GO",
+      ydstogo: this.ydstogo,
+      yardline100: this.yardline100,
+      qtr: this.qtr,
+      gsr: this.gsr,
+      diff,
+    });
     if (act === "FIELD_GOAL") return this.kickFg("field_goal");
     if (act === "PUNT") {
       this.st("punt");
@@ -1233,7 +1369,14 @@ export class Game {
       } else {
         const punterShift = this.ratingsOn ? puntPlacementLogitShift(punter, this.yardline100) : undefined;
         const out = sampleClass("M21", { yardline_100: this.yardline100, ...ENV }, this.rng, punterShift);
-        if (out === "RETURNED" && this.rng.random() < PUNT_RETURN_TD_RATE) {
+        const rp = this.ratingsOn && !this.finalTwoMinutes() ? this.defPlan() : null;
+        const re = rp && rp.returns !== 0 ? returnEffect(rp.returns, this.bestReturnerZ(this.other())) : null;
+        let returned = out === "RETURNED";
+        if (returned && re && re.fairCatch > 0 && this.rng.random() < re.fairCatch) {
+          returned = false; // a fair catch: no return, and nothing to lose
+          this.audit?.push({ kind: "fair_catch", qtr: this.qtr, gsr: this.gsr, diff: this.score[this.other() as 0 | 1] - this.score[this.pos as 0 | 1] });
+        }
+        if (returned && this.rng.random() < PUNT_RETURN_TD_RATE * (re?.tdMult ?? 1)) {
           const r = this.other();
           // the return carries the ball to the kicking team's own goal line —
           // i.e. distance 0 from the *receiving* team's target end zone.
@@ -1246,16 +1389,15 @@ export class Game {
           this.kickoff(this.pos, "opp_touchdown");
           return;
         }
-        const ret =
-          out === "RETURNED"
-            ? this.ratingsOn
-              ? Math.max(0, samplePuntReturn(this.rng) + puntReturnYardsShift(punter))
-              : samplePuntReturn(this.rng)
-            : 0;
+        const ret = returned
+          ? this.ratingsOn
+            ? Math.max(0, samplePuntReturn(this.rng) + puntReturnYardsShift(punter) + (re?.returnYards ?? 0))
+            : samplePuntReturn(this.rng)
+          : 0;
         // receiving team's yardline_100 = 100 − landing spot, then a return
         // advances them toward the punting team's goal (−ret).
         const newYl = 100 - landing - ret;
-        tracePunt(out === "RETURNED" ? "returned" : "downed", newYl, out === "RETURNED" ? this.pickReturner() : undefined);
+        tracePunt(returned ? "returned" : "downed", newYl, returned ? this.pickReturner() : undefined);
         this.flipField(newYl);
       }
       this.puntPenalty();
@@ -1331,6 +1473,7 @@ export class Game {
         const cat = sampleClass("M11", this.ctx(sg), this.rng);
         const bucket = `${this.down}|${this.yardline100 <= 20 ? "rz" : this.yardline100 <= 60 ? "mid" : "own"}`;
         gained = sampleExactYards("m11", cat, bucket, this.rng);
+        if (this.ratingsOn) gained += this.qbRunShift(this.offLineup()).scrambleYards;
         family = "scramble";
         outcomeBucket = "scramble";
       } else {
@@ -1445,6 +1588,12 @@ export class Game {
       const fp = this.yardline100 <= 10 ? "gl" : this.yardline100 <= 50 ? "opp" : "own";
       const sd = this.ydstogo <= 2 ? "short" : "norm";
       gained = sampleExactYards("m14", cat, `${loc}|${fp}|${sd}`, this.rng) + this.rushYdMod();
+      // a designed quarterback run, when the plan calls them: his legs, not the back's
+      const keeper = this.ratingsOn ? this.qbRunShift(this.offLineup()) : null;
+      if (keeper && keeper.keeperShare > 0 && this.rng.random() < keeper.keeperShare) {
+        gained += keeper.keeperYards;
+        this.st("qb_keeper");
+      }
       // the long-run tail: a run that gets to the second level goes further
       // (the run game's calibration as a flat shift added yards to every
       // carry alike, and left the engine short on 15-yard runs)
@@ -1834,6 +1983,8 @@ export interface GameStaff {
   /** the two teams' game plans (`gameplan.ts`); omitted is the default plan, byte-identical */
   homePlan?: GamePlan | undefined;
   awayPlan?: GamePlan | undefined;
+  /** collect every plan-influenced decision here (tests); no effect on the game */
+  audit?: DecisionRecord[] | undefined;
 }
 
 /**
@@ -1853,12 +2004,19 @@ export function simulateGame(
   away?: string,
   opts?: GameStaff,
 ): Game {
-  const rosters: [Roster, Roster] | null =
+  const hp = cleanPlan(opts?.homePlan);
+  const ap = cleanPlan(opts?.awayPlan);
+  const picked: [Roster, Roster] | null =
     opts?.homeRoster && opts?.awayRoster
       ? [opts.homeRoster, opts.awayRoster]
       : home && away
         ? [roster(home), roster(away)]
         : null;
+  // the rookie policy sets who starts: a copy of the roster, never the shared one
+  const rosters: [Roster, Roster] | null =
+    picked && (hp.rookies !== 0 || ap.rookies !== 0)
+      ? [withRookiePlaytime(picked[0], hp.rookies), withRookiePlaytime(picked[1], ap.rookies)]
+      : picked;
   // the coaching layer rides on top of the rating layer — no rosters, no staff
   const staffPair: [Staff, Staff] | null =
     rosters && opts?.homeStaff && opts?.awayStaff
@@ -1869,10 +2027,9 @@ export function simulateGame(
   if (opts?.mustDecide) g.mustDecide = true;
   if (opts?.offenseAdjust) g.offenseAdjust = opts.offenseAdjust;
   if (opts?.homePlan || opts?.awayPlan) {
-    const hp = cleanPlan(opts.homePlan);
-    const ap = cleanPlan(opts.awayPlan);
     if (!isDefaultPlan(hp) || !isDefaultPlan(ap)) g.plans = [hp, ap];
   }
+  if (opts?.audit) g.audit = opts.audit;
   if (opts?.weather) {
     g.weather = opts.weather;
     g.wx = weatherEffect(opts.weather);

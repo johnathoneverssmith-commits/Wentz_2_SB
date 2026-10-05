@@ -142,6 +142,17 @@ export function GamePlanScreen() {
             high="more passes"
             note="Points added to or taken off the share of plays that are passes. More throws means more yards a play and more sacks and interceptions; more runs shortens the game and keeps the defense honest."
           />
+          <Dial
+            label="Quarterback runs"
+            value={plan.qbRun}
+            min={-100}
+            max={100}
+            onChange={(n) => set({ qbRun: n })}
+            display={signed(plan.qbRun)}
+            low="stay in the pocket"
+            high="run him"
+            note="Scrambles and designed keepers. It is only as good as his legs: an athletic quarterback turns them into yards and slips the rush, one without speed loses yards and takes the sack. Pocket passers should stay put."
+          />
         </Group>
 
         <Group title="Fourth down" blurb="Going for it, by where the ball is. None of these applies in the last two minutes.">
@@ -178,6 +189,42 @@ export function GamePlanScreen() {
             high="always go"
             note={fourthNote("in your own half")}
           />
+          <Dial
+            label="Fourth and short (1-3 yards)"
+            value={plan.fourthShort}
+            min={-100}
+            max={100}
+            onChange={(n) => set({ fourthShort: n })}
+            display={signed(plan.fourthShort)}
+            low="kick or punt"
+            high="go for it"
+            note="Added on top of the zone dials when there is only a yard or two to get. Nothing here will send the offense out from deep in its own end."
+          />
+          <Dial
+            label="Fourth and long (7+ yards)"
+            value={plan.fourthLong}
+            min={-100}
+            max={100}
+            onChange={(n) => set({ fourthLong: n })}
+            display={signed(plan.fourthLong)}
+            low="kick or punt"
+            high="go for it"
+            note="Added on top of the zone dials when it is a long way to go. Past fourth-and-14 the offense kicks no matter what, unless it is behind late and has to score."
+          />
+        </Group>
+
+        <Group title="After touchdowns" blurb="Kick the point, or go for two.">
+          <Dial
+            label="Two-point tries"
+            value={plan.twoPoint}
+            min={-100}
+            max={100}
+            onChange={(n) => set({ twoPoint: n })}
+            display={plan.twoPoint === 0 ? "kick it" : signed(plan.twoPoint)}
+            low="kick unless a tie is on the line"
+            high="go whenever it makes sense"
+            note="At zero the team kicks every time. Higher goes for two where the chart says to (down 2, 5 or 10; up 1, 5 or 8, late in the game), then more and more often in the second half. It never goes for two with a big lead, and in the last two minutes the situation decides, not this."
+          />
         </Group>
 
         <Group title="Defense" blurb="What the defense sends.">
@@ -190,7 +237,7 @@ export function GamePlanScreen() {
             display={signed(plan.blitz)}
             low="sit back"
             high="send the house"
-            note="More blitzing gets home more often and costs you when it's picked up: the big play behind it. It works best with corners who can hold up alone, and worst against a great quarterback behind a great line."
+            note="More blitzing gets home more often and costs you when it's picked up: the big play behind it. It works best with a strong pass rush first (the D-line), then linebackers who can fly to the ball, then corners and safeties who can cover while the rush gets there. It works worst against a great quarterback behind a great line."
           />
         </Group>
 
@@ -213,11 +260,50 @@ export function GamePlanScreen() {
                 p.key === "p11"
                   ? "The spread look: the most receivers, the most completions, the least help for the run."
                   : p.key === "p12"
-                    ? "A second tight end blocks for the run and the passer, and takes a receiver off the field."
-                    : "The heavy package: the best run blocking and the least passing game."
+                    ? "A second tight end blocks for the run and the passer, and takes a receiver off the field. Only as good as your tight ends: good blockers and a second tight end who can catch make it pay."
+                    : "The heavy package: the best run blocking and the least passing game. Three tight ends is only worth it if they can block."
               }
             />
           ))}
+        </Group>
+
+        <Group title="Special teams" blurb="Kickoffs and returns. Neither applies in the last two minutes.">
+          <Dial
+            label="Kickoffs"
+            value={plan.kickoff}
+            min={-100}
+            max={100}
+            onChange={(n) => set({ kickoff: n })}
+            display={signed(plan.kickoff)}
+            low="pin them short"
+            high="deep for the touchback"
+            note="Deep kicks end up touchbacks more often, and the odd one sails out of bounds. Pinning them short and covering gives them a worse start the better your kicker's leg, but more live returns, and one in a while goes the distance."
+          />
+          <Dial
+            label="Returns"
+            value={plan.returns}
+            min={-100}
+            max={100}
+            onChange={(n) => set({ returns: n })}
+            display={signed(plan.returns)}
+            low="fair catch, take the knee"
+            high="bring everything back"
+            note="Bringing it back pays if you have a fast, elusive returner and costs if you don't. Fair catching and taking the touchback takes the risk and the big play off the table."
+          />
+        </Group>
+
+        <Group title="Young players" blurb="Rookies and snaps.">
+          <Dial
+            label="Rookie playing time"
+            value={plan.rookies}
+            min={-100}
+            max={100}
+            onChange={(n) => set({ rookies: n })}
+            display={signed(plan.rookies)}
+            low="veterans first"
+            high="play the rookies"
+            note="Higher puts a rookie ahead of a veteran who is only a few points better, so he starts. You give up a little now (never more than four points at a position) and he grows faster at training camp. Lower keeps the veteran in and slows the young player's development."
+          />
         </Group>
 
         <Group title="Running backs" blurb="Who carries it.">
