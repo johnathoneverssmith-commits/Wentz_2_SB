@@ -5,7 +5,9 @@ import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { offerToContract } from "./rules";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
-import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { difficultyFor, strategyOf } from "./aiGms.ts";
+import { strategyAgeBonus, strategyEliteBonus, strategyPositionBonus } from "./aiStrategy.ts";
 
 /**
  * Turn-based free agency: five rounds, one offer or pass per team per round.
@@ -236,15 +238,31 @@ export function resolveRound(s: LeagueState): void {
  * not chase a player another team has already bid far more for, which keeps
  * the AI from burning every round on the same name.
  */
+export type FaMove = { kind: "pass" } | { kind: "offer"; playerId: string; salary: number; years: number };
+
+/** A CPU team's turn: choose, then do it. */
 export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): void {
+  const m = chooseFaMove(s, teamCode, index);
+  if (m.kind === "offer") applyOffer(s, teamCode, m.playerId, m.salary, m.years);
+  else applyPass(s, teamCode);
+}
+
+/**
+ * What a team's front office would do with its turn, without doing it. The
+ * CPU teams play it, and so does a person's staff when they ask it to take
+ * their turn (`staffFaMove`): the same evaluator, led by the GM's identity and
+ * skill.
+ */
+export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundIndex): FaMove {
+  const PASS: FaMove = { kind: "pass" };
   const e = s.freeAgencyEvent;
-  if (!e) return applyPass(s, teamCode);
+  if (!e) return PASS;
 
   // `runCpuTurns` hands these down so a sweep costs one pass over the players
   // rather than two per team; a lone call still works on its own.
   const idx = index ?? indexRound(s);
   const pool = idx.pool;
-  if (pool.length === 0) return applyPass(s, teamCode);
+  if (pool.length === 0) return PASS;
 
   // Best overall this team already has at each position. It is a map lookup
   // rather than a roster re-scan because `shortlistByBaseScore` below asks
@@ -256,7 +274,8 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
   // AI Difficulty (§13.1): search only the top `candidateDepth` plausible
   // targets by raw gain — Expert (Infinity) considers every legal target,
   // exactly the prior behavior.
-  const difficulty = difficultyProfile(s.config.difficulty);
+  const difficulty = difficultyFor(s, teamCode);
+  const strategy = strategyOf(s, teamCode);
   const shortlist = shortlistByBaseScore(pool, (p) => p.overall - bestAt(p.position), difficulty.candidateDepth);
 
   // Free Agency + Contracts optimization pass (free_agency.five_round_cpu):
@@ -284,14 +303,16 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
     const noise =
       difficulty.evaluationNoise === 0 ? 0 : deterministicNoiseUnit(teamCode, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
     const gain =
-      p.overall - bestAt(p.position) + noise + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0);
+      p.overall - bestAt(p.position) + noise + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0) +
+      // the GM's identity: a bounded preference among similar signings, never a reason to take a clearly worse one
+      0.5 * (strategyPositionBonus(strategy, p.position as never) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall));
     if (gain > bestGain) {
       bestGain = gain;
       target = p;
     }
   }
 
-  if (!target || bestGain < 2) return applyPass(s, teamCode);
+  if (!target || bestGain < 2) return PASS;
 
   const lead = leadingOffer(s, target.id, idx.ratingsByTeam);
   // §13.3: a rebid over an existing offer can be deterministically missed
@@ -299,16 +320,16 @@ export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): v
   // never is (there is no "rebid" to miss).
   if (lead && difficulty.missedRebidRate > 0) {
     const missUnit = (deterministicNoiseUnit(teamCode, s.season, "fa_rebid", target.id) + 1) / 2; // [0,1)
-    if (missUnit < difficulty.missedRebidRate) return applyPass(s, teamCode);
+    if (missUnit < difficulty.missedRebidRate) return PASS;
   }
 
   const ask = expectedSalary(target);
   // a bidding war tops out at the league's max deal (a CPU outbid its way
   // to $86M a year for one player)
   const salary = Math.min(MAX_CONTRACT_M, Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10);
-  if (lead && salary <= lead.salary) return applyPass(s, teamCode);
+  if (lead && salary <= lead.salary) return PASS;
   const years = target.age <= 26 ? 4 : target.age <= 29 ? 3 : 2;
-  applyOffer(s, teamCode, target.id, salary, years);
+  return { kind: "offer", playerId: target.id, salary, years };
 }
 
 /**

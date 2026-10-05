@@ -1,4 +1,5 @@
 import { ManualPicksInput } from "@/components/ManualPicksInput";
+import { GmIdentityPicker } from "@/components/GmIdentity";
 import { CopyButton, inviteLink } from "@/components/CopyButton";
 import { useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -150,6 +151,14 @@ export function LeagueSetup() {
           </div>
         )}
         <FranchiseBanner meta={myMeta} locked={locked} humansOnly={formatOf(config) === "humansOnly"} />
+
+        {viewer && (
+          <GmIdentityPicker
+            value={viewer.strategy ?? "balanced"}
+            disabled={locked}
+            onChange={(k) => void actions.setStrategy(k)}
+          />
+        )}
 
         <p className="sectionlabel">GM lobby</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8, marginBottom: 6 }}>

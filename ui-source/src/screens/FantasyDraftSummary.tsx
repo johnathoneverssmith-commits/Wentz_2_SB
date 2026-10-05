@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { IdentityMap } from "@/components/IdentityMap";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
@@ -101,8 +102,6 @@ export function FantasyDraftSummary({
     };
     return [...Object.keys(s.teams)].sort((a, b) => score(b) - score(a));
   }, [classes, s.teams]);
-  const maxStart = Math.max(...rows.map((r) => r.r.overall));
-  const minStart = Math.min(...rows.map((r) => r.r.overall));
 
   return (
     <Card maxWidth={840}>
@@ -217,49 +216,12 @@ export function FantasyDraftSummary({
               <UnitStat label="Starting special teams" value={mine.specialTeams} rank={mine.specialTeamsRank} />
             </div>
 
-            <p className="subhead">Starting lineup overall — league</p>
-            {humanTeams.length > 1 && (
-              // who the highlighted bars are
-              <p style={{ margin: "-6px 0 8px", fontSize: 11, color: "var(--ink-faint)", display: "flex", gap: 14, flexWrap: "wrap" }}>
-                <span><span style={{ color: "var(--team)" }}>■</span> You</span>
-                <span><span style={{ color: "var(--partner)" }}>■</span> Other GMs</span>
-              </p>
-            )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 16 }}>
-              {rows.map((row) => {
-                const pct =
-                  maxStart === minStart ? 100 : ((row.r.overall - minStart) / (maxStart - minStart)) * 100;
-                const isMine = row.code === code;
-                // another person's team, not the CPU's
-                const otherGm = !isMine ? s.gms.find((g) => g.isHuman && g.teamCode === row.code) : undefined;
-                const tone = isMine ? "var(--team)" : otherGm ? "var(--partner)" : null;
-                return (
-                  <div
-                    key={row.code}
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    title={otherGm ? `${otherGm.name}'s team` : undefined}
-                  >
-                    <span style={{ width: 34, fontSize: 11, color: tone ?? "var(--ink-faint)", fontWeight: tone ? 700 : 400, textAlign: "right" }}>
-                      {TEAMS_BY_CODE[row.code]!.abbr}
-                    </span>
-                    <div style={{ flex: 1, height: 12, background: "var(--panel-sunken)", borderRadius: 3, overflow: "hidden" }}>
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${Math.max(4, pct)}%`,
-                          background: tone ?? "var(--panel-raised)",
-                          borderRadius: 3,
-                        }}
-                      />
-                    </div>
-                    <span className="oswald" style={{ width: 26, fontSize: 12, fontWeight: 600, color: tone ?? "var(--ink-dim)" }}>
-                      {row.r.overall}
-                    </span>
-                    {otherGm && <span style={{ fontSize: 11, color: "var(--partner)", minWidth: 60 }}>{otherGm.name}</span>}
-                  </div>
-                );
-              })}
-            </div>
+            <p className="subhead">How every team was built</p>
+            <p style={{ margin: "-6px 0 10px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+              Each dot is a team, coloured by what its GM prioritizes. Below, each identity&rsquo;s teams ranked against each other, with the
+              units that group built stronger than the league. People sit in one group; their identity is private.
+            </p>
+            <IdentityMap code={code} />
           </>
         )}
 

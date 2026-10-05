@@ -8,6 +8,7 @@ import { isHumansOnly } from "@/state/leagueFormat";
 import { talentScaleOf } from "@/state/talentImpact";
 import { coachToUi } from "@/state/coachScale";
 import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket";
+import { seasonOutcomeFor } from "@/state/seasonOutcome";
 import {
   ROUND_ORDER,
   type BracketMatchup,
@@ -76,8 +77,9 @@ import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
 import { expectedRookieOverall, rookieOverallSpread, SPECIALIST_ROOKIE_OFFSET } from "./draft-outcomes.ts";
 import { winChance, winProbability, type Venue } from "./win-probability.ts";
 import { futureDiscount, pickSlotFactor } from "@/state/draftPicks.ts";
-import { strategyFor, strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
-import { clampTradeAcceptance, deterministicNoiseUnit, difficultyProfile } from "@/state/aiDifficulty.ts";
+import { strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
+import { clampTradeAcceptance, deterministicNoiseUnit } from "@/state/aiDifficulty.ts";
+import { difficultyFor, strategyOf } from "@/state/aiGms.ts";
 import {
   DEFENSE_SCHEMES,
   OFFENSE_SCHEMES,
@@ -1105,7 +1107,7 @@ export class MockSimulationService implements SimulationService {
     // of the optimized base acceptance model — never enough on its own to
     // turn a clearly bad deal attractive, and never touching valueDelta,
     // which is the plain-value number the trade screen shows.
-    const strategy = strategyFor(toTeam, state.season);
+    const strategy = strategyOf(state, toTeam);
     const incomingPlayers = fromAssets
       .filter((a) => a.kind === "player" && a.playerId)
       .map((a) => state.players[a.playerId!])
@@ -1120,7 +1122,7 @@ export class MockSimulationService implements SimulationService {
     // acceptance threshold, keyed on the canonical asset sets so reordering
     // the same offer (or resubmitting it identically) can never reroll it —
     // only the assets actually offered can move it.
-    const difficulty = difficultyProfile(state.config.difficulty);
+    const difficulty = difficultyFor(state, toTeam);
     const canonicalKey = (assets: TradeAsset[]): string =>
       [...assets]
         .map((a) => (a.kind === "player" ? `p:${a.playerId}` : `k:${a.pick?.year}.${a.pick?.round}.${a.pick?.originalTeam}`))
@@ -1204,55 +1206,9 @@ export class MockSimulationService implements SimulationService {
 
 
   finalizeSeasonOutcomes(state: LeagueState): SeasonOutcome[] {
-    const bracket = state.bracket;
     return state.gms
       .filter((g) => g.isHuman && state.teams[g.teamCode])
-      .map((g) => {
-        const t = state.teams[g.teamCode]!;
-        const madePlayoffs =
-          !!bracket &&
-          (bracket.seeds.AFC.includes(g.teamCode) || bracket.seeds.NFC.includes(g.teamCode));
-        const seed = madePlayoffs
-          ? [...bracket!.seeds.AFC, ...bracket!.seeds.NFC].indexOf(g.teamCode) % 7 + 1
-          : 0;
-        let furthest: SeasonOutcome["furthestRound"] = "none";
-        let elimMargin: number | null = null;
-        const rivalsEliminated: string[] = [];
-        if (madePlayoffs && bracket) {
-          for (const r of ROUND_ORDER) {
-            const m = bracket.matchups.find(
-              (x) =>
-                x.round === r &&
-                (x.highSeed?.code === g.teamCode || x.lowSeed?.code === g.teamCode),
-            );
-            if (!m || m.winner == null) break;
-            if (m.winner === g.teamCode) {
-              furthest = r;
-              const opp = m.highSeed?.code === g.teamCode ? m.lowSeed?.code : m.highSeed?.code;
-              if (opp && state.gms.some((x) => x.isHuman && x.teamCode === opp)) {
-                rivalsEliminated.push(opp);
-              }
-            } else {
-              furthest = r;
-              elimMargin = Math.abs((m.homeScore ?? 0) - (m.awayScore ?? 0));
-              break;
-            }
-          }
-        }
-        return {
-          season: state.season,
-          gmId: g.id,
-          teamCode: g.teamCode,
-          madePlayoffs,
-          seed,
-          furthestRound: furthest,
-          wonSuperBowl: bracket?.champion === g.teamCode,
-          regularSeasonRecord: { wins: t.wins, losses: t.losses, ties: t.ties },
-          eliminationMargin: bracket?.champion === g.teamCode ? null : elimMargin,
-          pointDifferential: t.pointsFor - t.pointsAgainst,
-          rivalsEliminated,
-        };
-      });
+      .map((g) => seasonOutcomeFor(state, g.id, g.teamCode));
   }
 }
 

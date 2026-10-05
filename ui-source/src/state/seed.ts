@@ -3,6 +3,7 @@
  * coach market + first draft class are generated up front so every screen has
  * data to render from the start; setup/draft stages then reassign as needed.
  */
+import { syncAiGms } from "./aiGms.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
 import {
@@ -1338,5 +1339,7 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
   // offseason, so there is no draft for this one and its picks would be
   // tradeable capital for a draft that never happens.
   ensureDraftPicks(state, state.season + 1);
+  // the CPU general managers: named, with a philosophy and a skill (`aiGms.ts`)
+  syncAiGms(state);
   return state;
 }

@@ -145,15 +145,18 @@ deliberately orthogonal to each other:**
 - **AI GM Season Strategy** (`ui-source/src/state/aiStrategy.ts`) answers
   "what kind of roster does this GM want?" Eight strategies
   (balanced/offense-heavy/defense-heavy/pass-heavy/run-heavy/high-floor/
-  high-ceiling/trenches-first), assigned deterministically by a hash of
-  `teamCode + season` — no persisted field, so a save/reload or a second
-  multiplayer client can't reroll it. Wired into the draft, coaching draft,
+  high-ceiling/trenches-first) belong to a **GM**, not a team
+  (`state/aiGms.ts`): `LeagueState.aiGms` holds named CPU GMs, more of them
+  than CPU teams, each with a strategy and a skill; fired ones wait in a pool.
+  A person picks theirs at team select (`Gm.strategy`, private). Read it with
+  `strategyOf(state, team)`, never `strategyFor` (the old hash, kept only as
+  the fallback for a league that has no GMs yet). Wired into the draft, coaching draft,
   free agency, AI trade offers/acceptance, and Training Camp focus as a
   small bounded bonus on top of the base evaluator.
 - **AI Difficulty** (`ui-source/src/state/aiDifficulty.ts`) answers "how
   well does it search for and evaluate the options?" — never a rules/rating/
   cap change. Four levels (casual/standard/competitive/expert) via
-  `LeagueConfig.difficulty` (a field that predates this and was previously
+  `LeagueConfig.difficulty` (each CPU GM's skill is a bell-curve draw around the level, `difficultyFor(state, team)`) (a field that predates this and was previously
   wired to nothing), controlling candidate-search depth, deterministic score
   noise, need-awareness, and FA chase-ceiling/rebid discipline. Same
   integration points as strategy, applied first in the pipeline (base value →

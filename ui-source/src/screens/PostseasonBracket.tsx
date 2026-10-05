@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { GmLine } from "@/components/GmIdentity";
 import type React from "react";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { PostseasonMatchups } from "@/components/PostseasonMatchups";
@@ -418,6 +419,7 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
                 {mineSide ? "you" : gm.name}
               </span>
             )}
+            <GmLine code={side.code} style={{ display: "block", fontSize: 10.5 }} />
             {st && (
               <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>
                 {st.ratings.overall} OVR · {st.wins}-{st.losses}

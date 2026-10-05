@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { GmCard } from "@/components/GmIdentity";
 import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
 import { tradeUnitImpact } from "@/state/unitReport";
 import { useNavigate } from "react-router-dom";
@@ -241,6 +242,10 @@ export function TradeProposal() {
             </option>
           ))}
         </select>
+      </div>
+
+      <div style={{ padding: "10px 26px 0" }}>
+        <GmCard code={partner} />
       </div>
 
       {/* Offers the league made you. Every trade in the game used to start

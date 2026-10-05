@@ -288,3 +288,28 @@ export function strategyGroupBonus(strategy: AiSeasonStrategy, group: OffensiveF
 export function strategyWeaknessMultiplier(strategy: AiSeasonStrategy): number {
   return strategy === "high_floor" ? 1.1 : 1.0;
 }
+
+/**
+ * How a GM's identity reads in the app: what they prioritize, in plain words.
+ * A CPU GM's identity is public (a person's is private); it is a preference,
+ * never a promise, since every GM still tries to win.
+ */
+export const AI_STRATEGY_IDENTITY: Record<AiSeasonStrategy, { label: string; headline: string }> = {
+  balanced: { label: "Balanced", headline: "No strong preference: takes the best player and the biggest need" },
+  offense_heavy: { label: "Offense first", headline: "Prioritizes the offense" },
+  defense_heavy: { label: "Defense first", headline: "Prioritizes the defense" },
+  pass_heavy: { label: "Prioritizes the pass", headline: "Prioritizes the pass: quarterback, receivers, protection" },
+  run_heavy: { label: "Prioritizes the run", headline: "Prioritizes the run: backs, linemen, tight ends" },
+  high_floor: { label: "High floor", headline: "Prioritizes a high floor: proven, steady, no big swings" },
+  high_ceiling: { label: "High ceiling", headline: "Prioritizes upside: stars and young talent, accepts the risk" },
+  trenches_first: { label: "Trenches first", headline: "Prioritizes the trenches: both lines before anything else" },
+};
+
+/** The positions a strategy pays up for, best first (from its profile). */
+export function prioritizedPositions(strategy: AiSeasonStrategy, limit = 4): Position[] {
+  return (Object.entries(STRATEGY_PROFILES[strategy].positionBonus) as [Position, number][])
+    .filter(([, v]) => v >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([p]) => p);
+}

@@ -9,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { aiMovesOf, aiSecurity } from "@/state/aiGms";
+import { AI_STRATEGY_IDENTITY } from "@/state/aiStrategy";
 import { FIRE_BELOW, type HotSeatEntry, type SecurityLevel } from "@/state/hotSeat";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -21,6 +23,55 @@ const LEVEL: Record<SecurityLevel, { label: string; color: string; blurb: string
 };
 
 const label = (code: string) => TEAMS_BY_CODE[code]?.label ?? code;
+
+/**
+ * The same review for the CPU GMs: who the owners let go, who they hired and
+ * what that GM builds, and which CPU GMs are on the hot seat going into next year.
+ */
+function CpuGmMoves() {
+  const s = useStore();
+  const moves = aiMovesOf(s, s.season);
+  const fired = moves.filter((m) => m.kind === "fired");
+  const hired = moves.filter((m) => m.kind === "hired");
+  const warm = (s.aiGms ?? [])
+    .filter((g) => g.teamCode)
+    .map((g) => ({ g, sec: aiSecurity(g) }))
+    .filter((x) => x.sec && x.sec.level === "hot")
+    .sort((a, b) => a.sec!.score - b.sec!.score);
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p className="sectionlabel" style={{ margin: "0 0 6px" }}>
+        CPU GMs
+      </p>
+      {fired.length === 0 ? (
+        <p style={{ margin: "0 0 6px", fontSize: 12.5, color: "var(--ink-dim)" }}>No CPU GM was let go this offseason.</p>
+      ) : (
+        <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+          {fired.map((f) => {
+            const h = hired.find((x) => x.teamCode === f.teamCode);
+            return (
+              <div key={f.gmId} style={{ fontSize: 12.5, padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
+                <strong>{label(f.teamCode)}</strong> let <strong>{f.name}</strong> ({AI_STRATEGY_IDENTITY[f.strategy].label}) go
+                {h ? (
+                  <>
+                    {" "}and hired <strong>{h.name}</strong> ({AI_STRATEGY_IDENTITY[h.strategy].label}).
+                  </>
+                ) : (
+                  "."
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {warm.length > 0 && (
+        <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)" }}>
+          On the hot seat: {warm.map((x) => `${x.g.name} (${TEAMS_BY_CODE[x.g.teamCode!]?.abbr ?? x.g.teamCode}, ${x.sec!.score})`).join(", ")}.
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** The 0–100 meter, with the firing line marked. */
 function Meter({ score, color }: { score: number; color: string }) {
@@ -219,8 +270,9 @@ export function HotSeat() {
       </Panel>
 
       <Panel id="league" open={active === "league"}>
+        <CpuGmMoves />
         {others.length === 0 ? (
-          <div className="emptystate">You&rsquo;re the only GM here.</div>
+          <div className="emptystate">You&rsquo;re the only person running a team here.</div>
         ) : (
           others.map((e) => (
             <div key={e.gmId} style={{ padding: "10px 0", borderBottom: "1px solid var(--line)" }}>

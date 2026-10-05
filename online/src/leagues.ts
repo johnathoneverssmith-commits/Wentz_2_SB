@@ -13,6 +13,7 @@ import type { DeadlineChoice, LeagueConfig, LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { cleanConfigPatch } from "@/state/rules.ts";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
+import { syncAiGms } from "@/state/aiGms.ts";
 
 import { ActionError, pool, withLeague } from "./db.js";
 import { runPendingCpuTurns } from "./decide.js";
@@ -84,6 +85,7 @@ export async function createOnlineLeague(
     gm.isHuman = false;
   }
   for (const code of Object.keys(state.teams)) state.teams[code]!.controlledBy = { kind: "ai" };
+  syncAiGms(state);
 
   const id = randomUUID();
   const code = inviteCode();
@@ -224,6 +226,7 @@ export async function claimTeam(
         }
         if (state.teams[teamCode]) {
           state.teams[teamCode]!.controlledBy = { kind: "human", gmId: open.gm_id };
+          syncAiGms(state);
         }
         const label = TEAMS_BY_CODE[teamCode]?.label ?? teamCode;
         return {
@@ -360,6 +363,7 @@ export async function vacateSeat(
       delete state.readiness[gm.id];
     }
     if (state.teams[teamCode]) state.teams[teamCode]!.controlledBy = { kind: "ai" };
+    syncAiGms(state);
     // if that team was on the clock, its turn is the CPU's now — take it
     runPendingCpuTurns(state);
     // everyone else may have checked in already, waiting only on this GM:

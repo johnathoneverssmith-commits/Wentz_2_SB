@@ -61,11 +61,11 @@ import {
   strategyAgeBonus,
   strategyCoachBonus,
   strategyEliteBonus,
-  strategyFor,
   strategyNeedAdjustment,
   strategyPositionBonus,
 } from "./aiStrategy.ts";
 import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
 /** Which side of the market an action is about. */
@@ -343,9 +343,8 @@ export function bestAvailable(s: LeagueState): string | null {
   // Strategy and difficulty mirror planAutopicks' scoring exactly (isAiTeam
   // gate, same bonus/noise/shortlist terms) so the two paths never diverge;
   // draftPerf.test.ts guards this invariant directly.
-  const isAi = !!teamCode && isAiTeam(s, teamCode);
-  const strategy = isAi ? strategyFor(teamCode!, s.season) : "balanced";
-  const difficulty = isAi ? difficultyProfile(s.config.difficulty) : difficultyProfile("expert");
+  const strategy = teamCode ? strategyOf(s, teamCode) : "balanced";
+  const difficulty = teamCode ? difficultyFor(s, teamCode) : difficultyProfile("expert");
   const pickIndex = d.currentPickIndex;
   // what the team already carries at each position — the same lists
   // `planAutopicks` keeps, so a pick that would only be cut is penalised alike
@@ -554,13 +553,12 @@ export function planAutopicks(s: LeagueState): string[] {
       if (v === undefined) needByPos.set(pos, (v = needOf(teamCode, pos)));
       return v;
     };
-    // Strategy and difficulty are both CPU-only preference/competence
-    // layers (§1.1/§18, difficulty §20): a human's own team, even when
-    // autopicked on their behalf, uses the shared base evaluator only — the
-    // same guarantee `isAiTeam` already gives every other gate.
+    // A team's GM identity steers its picks, a person's included (chosen at team
+    // select, so an auto-pick drafts the way they said they would). Difficulty is
+    // the CPU GMs' own skill; a person's auto-pick is Expert's.
     const isAi = !!teamCode && isAiTeam(s, teamCode);
-    const strategy = isAi ? strategyFor(teamCode!, s.season) : "balanced";
-    const difficulty = isAi ? difficultyProfile(s.config.difficulty) : difficultyProfile("expert");
+    const strategy = teamCode ? strategyOf(s, teamCode) : "balanced";
+    const difficulty = teamCode ? difficultyFor(s, teamCode) : difficultyProfile("expert");
     const posScale = rookie ? 0.75 : 1;
     const noiseScale = rookie ? difficulty.rookieEvaluationNoise : difficulty.evaluationNoise;
     // Master only: what the candidate adds to this team's units
@@ -1226,12 +1224,12 @@ export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): 
   // strategy a bigger say than the base evaluator has. No strategy changes
   // the price, the cap check, or which teams can afford to bid at all.
   const weights = candidates.map((code) => {
-    const strategy = strategyFor(code, s.season);
+    const strategy = strategyOf(s, code);
     // AI Difficulty (§13.1): need-awareness scales the shared need term
     // before strategy ever sees it, and deterministic noise sits alongside
     // strategy's bounded adjustment — same cap deal, same asking price,
     // just a less accurate read of which team needs this player most.
-    const difficulty = difficultyProfile(s.config.difficulty);
+    const difficulty = difficultyFor(s, code);
     const raw = positionalNeed(s, code, p.position) * difficulty.needAwareness;
     const noise =
       difficulty.evaluationNoise === 0
@@ -1303,7 +1301,7 @@ export function aiOfferForCoach(rng: () => number, s: LeagueState, c: Coach): Co
   const pool = candidates.length > 0 ? candidates : vacant;
   if (pool.length === 0) return null;
   const weights = pool.map((code) => {
-    const strategy = strategyFor(code, s.season);
+    const strategy = strategyOf(s, code);
     // §6: the same bounded role bonus the coaching draft uses, folded into
     // the hiring weight the same way a position bonus folds into free agency.
     const roleAdj = 1 + clamp(strategyCoachBonus(strategy, c.role) / 8, -0.4, 0.4);
@@ -1879,6 +1877,8 @@ export function finalizeSeason(s: LeagueState): void {
   // toward every human team's Hooded Figure losing streak.
   if (!s.games.some((g) => g.phase === "REG" && g.played)) return;
   s.history.push(...sim.finalizeSeasonOutcomes(s));
+  // the CPU GMs' seasons count the same way (their firings are the hot seat's)
+  recordAiOutcomes(s);
   // name the season's award winners and bank everyone's stats, before the
   // next kickoff resets them
   awardSeason(s);

@@ -1,4 +1,5 @@
 import { TeamBadge } from "@/components/bits";
+import { GmLine } from "./GmIdentity";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { ordinal } from "@/util/format";
 
@@ -79,6 +80,7 @@ export function MatchupBoard({
             <small>
               {side.record} · {side.site}
             </small>
+            <GmLine code={side.code} style={{ display: "block", marginTop: 2 }} />
           </div>
         ))}
       </div>

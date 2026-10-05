@@ -169,6 +169,14 @@ describe("running the board", () => {
     s.config.difficulty = "expert";
     beginCoachingDraft(s);
     const team = coachingOnTheClock(s)!;
+    // ... and a GM of exactly the level's skill: the league's GMs are spread
+    // around it (`aiGms.ts`), and a weaker Expert GM may miss a close call
+    const gm = s.aiGms?.find((g) => g.teamCode === team);
+    if (gm) {
+      gm.skill = 0;
+      // ... with no identity pulling a role ahead of a better coach
+      gm.strategy = "balanced";
+    }
     const pick = bestCoachingPick(s, team)!;
     const chosen = s.coaches[pick]!;
     // nobody available at any of this team's open jobs rates higher

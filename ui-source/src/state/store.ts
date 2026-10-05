@@ -8,6 +8,8 @@
  *   Game Day screen. `finishGameDay()` then steps the week / advances the stage.
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
+import { chooseGmStrategy } from "./aiGms.ts";
+import { syncAiGms } from "./aiGms.ts";
 import { setSkip as setSkipFor, type SkipKind } from "./skips.ts";
 import { create } from "zustand";
 import { lastLeagueId, onOnlineChange } from "./online.ts";
@@ -228,6 +230,8 @@ export interface StoreActions {
   chooseNewJob: (teamCode: string) => { ok: boolean; reason?: string };
   /** Save the viewer's game plan; it applies to games not yet simulated. */
   saveGamePlan: (plan: Partial<GamePlan>) => { ok: boolean };
+  /** Choose the viewer's GM identity (before the fantasy draft); it steers their auto-picks and their staff. */
+  setGmStrategy: (strategy: string) => { ok: boolean; reason?: string };
   tenderPlayer: (playerId: string, kind: "tag" | "option" | "practiceSquad" | "promote") => ContractMoveResult;
 
   /** Cut a player from the roster. He goes straight onto the standing free
@@ -396,6 +400,8 @@ function humanTeamsOf(s: LeagueState): Set<string> {
 function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // (runs before `s.stage` changes) a draft leaves with its board full
   finishDraftBoard(s);
+  // whoever the people took, the CPU teams each have a GM
+  syncAiGms(s);
   // leaving setup in a humans-only league → the league becomes the GMs' teams
   // plus the fewest CPU teams that make it even; every other franchise goes
   if (from === "setup" && isHumansOnly(s)) formHumansOnlyLeague(s);
@@ -619,6 +625,8 @@ export const useStore = create<Store>()(
               }
             }
             s.readiness = Object.fromEntries(s.gms.map((g) => [g.id, g.id !== s.viewerGmId]));
+            s.aiGms = fresh.aiGms;
+            syncAiGms(s);
           }
         }),
 
@@ -631,6 +639,7 @@ export const useStore = create<Store>()(
           const g = s.gms.find((x) => x.id === gmId);
           if (g) g.teamCode = teamCode;
           s.teams[teamCode]!.controlledBy = { kind: "human", gmId };
+          syncAiGms(s);
         }),
 
       setReady: (gmId, ready) => set((s) => { s.readiness[gmId] = ready; }),
@@ -1165,6 +1174,16 @@ export const useStore = create<Store>()(
           s.gamePlans = { ...(s.gamePlans ?? {}), [code]: cleanPlan(plan) };
         });
         return { ok: true };
+      },
+
+      setGmStrategy: (strategy) => {
+        let result: { ok: boolean; reason?: string } = { ok: false, reason: "No such GM." };
+        set((s) => {
+          const gm = s.gms.find((g) => g.id === s.viewerGmId);
+          if (!gm) return;
+          result = chooseGmStrategy(s, gm.id, strategy);
+        });
+        return result;
       },
 
       chooseNewJob: (teamCode) => {

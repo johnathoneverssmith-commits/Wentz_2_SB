@@ -34,6 +34,7 @@
  * The score is computed from `state.history`, so it needs nothing saved
  * between seasons and cannot drift.
  */
+import { runAiFirings, syncAiGms } from "./aiGms.ts";
 import type { LeagueState, SeasonOutcome } from "@/domain";
 
 export type SecurityLevel = "secure" | "warm" | "hot" | "fired";
@@ -122,11 +123,13 @@ export function levelFor(score: number): SecurityLevel {
   return score >= 55 ? "secure" : score >= 40 ? "warm" : score >= FIRE_BELOW ? "hot" : "fired";
 }
 
-/** Where one human GM stands, as of the seasons in `history`. */
-export function jobSecurity(s: LeagueState, gmId: string): Omit<HotSeatEntry, "options" | "chosen"> | null {
-  const gm = s.gms.find((g) => g.id === gmId);
-  if (!gm || !gm.isHuman || !gm.teamCode) return null;
-  const tenure = tenureOf(s, gmId, gm.teamCode);
+export type Security = Omit<HotSeatEntry, "options" | "chosen" | "gmId" | "teamCode">;
+
+/**
+ * Where a GM stands from their seasons with one team, oldest first. The same
+ * rule for a person and for a CPU GM (`aiGms.ts`): one score, one firing line.
+ */
+export function securityOfTenure(tenure: SeasonOutcome[]): Security | null {
   if (tenure.length === 0) return null;
   const counted = tenure.slice(-WINDOW).map(seasonDelta);
   // consecutive latest seasons with no playoff win, over the whole tenure
@@ -138,7 +141,15 @@ export function jobSecurity(s: LeagueState, gmId: string): Omit<HotSeatEntry, "o
   let level = levelFor(score);
   // a new hire gets three seasons
   if (level === "fired" && tenure.length < MIN_TENURE_TO_FIRE) level = "hot";
-  return { gmId, teamCode: gm.teamCode, score, level, seasons: counted, tenure: tenure.length, drought, droughtPenalty };
+  return { score, level, seasons: counted, tenure: tenure.length, drought, droughtPenalty };
+}
+
+/** Where one human GM stands, as of the seasons in `history`. */
+export function jobSecurity(s: LeagueState, gmId: string): Omit<HotSeatEntry, "options" | "chosen"> | null {
+  const gm = s.gms.find((g) => g.id === gmId);
+  if (!gm || !gm.isHuman || !gm.teamCode) return null;
+  const sec = securityOfTenure(tenureOf(s, gmId, gm.teamCode));
+  return sec ? { gmId, teamCode: gm.teamCode, ...sec } : null;
 }
 
 /**
@@ -177,6 +188,8 @@ export function ensureHotSeat(s: LeagueState): HotSeatState {
     entries.push(options.length === 0 && j.level === "fired" ? { ...j, level: "hot", options } : { ...j, options });
   }
   s.hotSeat = { season: s.season, entries };
+  // the same review for the CPU GMs: whoever it fires joins the pool and the team hires someone new
+  runAiFirings(s);
   return s.hotSeat;
 }
 
@@ -212,6 +225,8 @@ export function takeNewJob(s: LeagueState, gmId: string, teamCode: string): JobR
   team.controlledBy = { kind: "human", gmId };
   gm.teamCode = teamCode;
   entry.chosen = teamCode;
+  // the team they took loses its CPU GM; the one they left hires one
+  syncAiGms(s);
   return { ok: true, teamCode, left };
 }
 

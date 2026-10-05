@@ -81,6 +81,7 @@ export interface LeagueActions {
   chooseNewJob: (teamCode: string) => Promise<ActionResult>;
   /** Save this GM's game plan (`state/gamePlan.ts`). */
   saveGamePlan: (plan: Partial<GamePlan>) => Promise<ActionResult>;
+  setStrategy: (strategy: string) => Promise<ActionResult>;
   /** Franchise tag, or a first-rounder's fifth-year option. */
   tender: (playerId: string, kind: "tag" | "option" | "practiceSquad" | "promote") => Promise<ActionResult>;
   /** Sign or release a rookie you drafted. */
@@ -287,6 +288,7 @@ export function useLeagueActions(): LeagueActions {
         tender: async (playerId, kind) => store.tenderPlayer(playerId, kind),
         chooseNewJob: async (teamCode) => store.chooseNewJob(teamCode),
         saveGamePlan: async (plan) => store.saveGamePlan(plan),
+        setStrategy: async (strategy) => store.setGmStrategy(strategy),
         settleRookie: async (prospectId, released) => {
           const code = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
           if (!code) return { ok: false, reason: "You don't have a team." };
@@ -412,6 +414,8 @@ export function useLeagueActions(): LeagueActions {
         ).then(after),
       saveGamePlan: (plan) =>
         attempt(() => send((s) => s.client.saveGamePlan(s.leagueId, plan))).then(after),
+      setStrategy: (strategy) =>
+        attempt(() => send((s) => s.client.setStrategy(s.leagueId, strategy))).then(after),
       chooseNewJob: (teamCode) =>
         attempt(() => send((s) => s.client.chooseJob(s.leagueId, teamCode, s.version))).then(after),
       tender: (playerId, kind) =>

@@ -1,4 +1,5 @@
 import type { LeagueState } from "@/domain";
+import { syncAiGms } from "./aiGms.ts";
 import { ensureDraftPicks, forgetSpentPicks, pickKey } from "./draftPicks.ts";
 
 /**
@@ -59,6 +60,9 @@ export function migrateLeagueSave(persisted: unknown, version: number): LeagueSt
  * Each fix here must be safe to apply to a league that already has it.
  */
 export function upgradeLeagueState(st: LeagueState): void {
+  // a league from before CPU GMs had names and philosophies gets them now (`aiGms.ts`)
+  if (!st.aiGms) syncAiGms(st);
+
   // No OLB slot exists on any depth chart; the pool's two OLBs (Frankie
   // Luvu, Isaiah Simmons — off-ball backers) sat unplayable, and "best fit"
   // still recommended signing them.

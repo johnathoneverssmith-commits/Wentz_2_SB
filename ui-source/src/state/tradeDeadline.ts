@@ -5,6 +5,8 @@ import { cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades";
 
 import { applyTrade } from "./rules";
 import { seasonShape } from "./leagueFormat";
+import { pickKey, pickLabel } from "./draftPicks";
+import { TEAMS_BY_CODE } from "@/data/teams";
 
 /**
  * The trade deadline, as three rounds of turns rather than an open market.
@@ -464,6 +466,47 @@ function hash(key: string): number {
     h = Math.imul(h, 0x01000193);
   }
   return h >>> 0;
+}
+
+/** What a person's staff would do with their turn at the deadline. */
+export type StaffDeadlineMove = DeadlineMove & { summary: string };
+
+/**
+ * The staff's move for a GM's turn, without making it: shop for an upgrade
+ * (when the team is a contender) and offer picks for it, or sit out; and answer
+ * an offer by the same read of the trade a CPU team uses, accepting what is
+ * worth taking. Led by the GM's identity, shown first, done only on a yes.
+ */
+export function staffDeadlineMove(s: LeagueState, teamCode: string): StaffDeadlineMove | null {
+  const d = s.tradeDeadline;
+  const duty = pendingFor(s, teamCode);
+  if (!d || !duty) return null;
+  const name = (a: TradeAsset): string =>
+    a.kind === "pick" && a.pick ? pickLabel(a.pick) : `${s.players[a.playerId ?? ""]?.name ?? "a player"}`;
+  const list = (assets: TradeAsset[]): string => assets.map(name).join(", ") || "nothing";
+  if (duty === "propose") {
+    const o = cpuToCpuOffer(s, teamCode, d.round * 1000 + d.index, true);
+    if (!o) return { kind: "skip", summary: "sit this round out: nothing worth shopping for" };
+    return {
+      kind: "propose",
+      toTeam: o.toTeam,
+      give: idsOfAssets(o.fromAssets),
+      get: idsOfAssets(o.toAssets),
+      summary: `offer ${list(o.fromAssets)} to ${TEAMS_BY_CODE[o.toTeam]?.label ?? o.toTeam} for ${list(o.toAssets)}`,
+    };
+  }
+  const offer = d.active!;
+  const ev = new MockSimulationService().evaluateTrade(s, offer.fromTeam, offer.toTeam, offer.fromAssets, offer.toAssets);
+  const forMe = offer.awaiting === "recipient" ? ev.acceptLikelihood : 1 - ev.acceptLikelihood;
+  const give = offer.awaiting === "recipient" ? offer.toAssets : offer.fromAssets;
+  const get = offer.awaiting === "recipient" ? offer.fromAssets : offer.toAssets;
+  return forMe >= 0.55
+    ? { kind: "accept", summary: `accept: send ${list(give)} and get ${list(get)}` }
+    : { kind: "deny", summary: `turn it down: send ${list(give)} and get ${list(get)}` };
+}
+
+function idsOfAssets(assets: TradeAsset[]): string[] {
+  return assets.flatMap((a) => (a.kind === "pick" && a.pick ? [`pick:${pickKey(a.pick.year, a.pick.round, a.pick.originalTeam)}`] : a.playerId ? [a.playerId] : []));
 }
 
 /** Everything that finished, from the viewing GM's side. */

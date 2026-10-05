@@ -8,8 +8,9 @@ import { agingBalance } from "./draftSupply";
 import { applyCoachToDelta, coachModifiersFor } from "./coachEffects";
 import { ratingOf } from "./coachingDraft";
 import { gamePlanFor, rookieDevelopment } from "./gamePlan.ts";
-import { strategyFor, strategyGroupBonus, strategyWeaknessMultiplier } from "./aiStrategy.ts";
-import { deterministicNoiseUnit, difficultyProfile } from "./aiDifficulty.ts";
+import { strategyGroupBonus, strategyWeaknessMultiplier } from "./aiStrategy.ts";
+import { deterministicNoiseUnit } from "./aiDifficulty.ts";
+import { difficultyFor, strategyOf } from "./aiGms.ts";
 
 /**
  * Training camp: where a season's development actually happens.
@@ -247,13 +248,13 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
     // amplifies the real weakness signal (high-floor), and the additive group
     // bonus is small enough that a catastrophically weak group still wins its
     // own focus regardless of what the strategy would otherwise prefer.
-    const strategy = strategyFor(teamCode, s.season);
+    const strategy = strategyOf(s, teamCode);
     // AI Difficulty (§18): focus-selection quality only — the optimized
     // development magnitudes in runTrainingCamp never change. Casual reads
     // the roster's weakness noisily; Expert adds a small tie-break toward
     // the group with more players still in their developing years, on top
     // of the same exact weakness signal every other level uses.
-    const difficulty = difficultyProfile(s.config.difficulty);
+    const difficulty = difficultyFor(s, teamCode);
     const weakest = (groups: readonly string[]): string => {
       let best = groups[0]!;
       let bestScore = -Infinity;

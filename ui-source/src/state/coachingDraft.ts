@@ -1,7 +1,8 @@
 import type { Coach, CoachRole, LeagueState } from "@/domain";
 import { COACH_ROLES } from "@/domain";
-import { strategyCoachBonus, strategyFor } from "./aiStrategy.ts";
-import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { strategyCoachBonus } from "./aiStrategy.ts";
+import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { difficultyFor, strategyOf } from "./aiGms.ts";
 import { coachPriorities } from "@/sim/priorities";
 import { STAFF_WEIGHTS } from "./staffRatings.ts";
 
@@ -219,11 +220,11 @@ export function bestCoachingPick(s: LeagueState, teamCode: string): string | nul
   // rating-based evaluator — a strategy can break a close tie between two
   // similarly-rated candidates for different roles, never hand a team a
   // meaningfully worse coach because the role fits its personality.
-  const strategy = strategyFor(teamCode, s.season);
+  const strategy = strategyOf(s, teamCode);
   // AI Difficulty (§12): a narrower search (fewer candidates seriously
   // evaluated) plus deterministic score noise on top of the same base
   // rating — role vacancies/availability stay identical at every level.
-  const difficulty = difficultyProfile(s.config.difficulty);
+  const difficulty = difficultyFor(s, teamCode);
   const eligible = availableCoaches(s).filter((c) => vacancies.has(c.role));
   const shortlist = shortlistByBaseScore(eligible, ratingOf, difficulty.candidateDepth);
   const score = (c: Coach): number => {

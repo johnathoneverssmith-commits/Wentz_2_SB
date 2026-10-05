@@ -16,6 +16,7 @@ import {
   actorFor,
   chooseJob,
   saveGamePlan,
+  setStrategy,
   contractMove,
   draftCoach,
   freeAgencyTurn,
@@ -438,6 +439,13 @@ get("/leagues/:id", async (ctx) => {
     p.injury_history = [];
     p.contract = null;
   }
+  // Another person's GM identity and game plan are theirs: a CPU GM's identity
+  // is public (the app shows it) and a person's is not.
+  for (const g of state.gms) if (g.isHuman && g.id !== franchise?.gmId) delete g.strategy;
+  if (state.gamePlans) {
+    const mine = franchise?.teamCode;
+    state.gamePlans = mine && state.gamePlans[mine] ? { [mine]: state.gamePlans[mine]! } : {};
+  }
   // A prospect's true rating is the draft's one hidden fact: it shows only
   // once the pick is signed or released. It went out with every pull for
   // all 320 prospects, so any GM with the developer tools open could read
@@ -679,6 +687,10 @@ post("/leagues/:id/actions/releases", async (ctx) =>
 
 post("/leagues/:id/actions/depths", async (ctx) =>
   setDepthOrders(await actor(ctx), field(ctx, "orders", "object")),
+);
+
+post("/leagues/:id/actions/strategy", async (ctx) =>
+  setStrategy(await actor(ctx), field(ctx, "strategy", "string")),
 );
 
 post("/leagues/:id/actions/gameplan", async (ctx) =>

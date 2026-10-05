@@ -424,6 +424,8 @@ export class OnlineLeagueClient {
 
   /** `stage` is the one on screen: the server ignores a ready for a stage the league has left. */
   /** Save this GM's game plan; the server clamps every dial. */
+  setStrategy = (leagueId: string, strategy: string) =>
+    this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/strategy`, { strategy });
   saveGamePlan = (leagueId: string, plan: unknown) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/gameplan`, { plan });
 

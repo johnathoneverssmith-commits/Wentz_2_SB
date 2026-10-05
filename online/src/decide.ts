@@ -16,6 +16,7 @@
  * `actions.ts` wraps each of these in `withLeague`, which supplies the row
  * lock, the version check and the event log.
  */
+import { chooseGmStrategy } from "@/state/aiGms.ts";
 import { setSkip } from "@/state/skips.ts";
 import { bracketRounds, COACH_ROLE_LABEL, ROUND_ORDER, roundLabelFor } from "@/domain";
 import type { ContractOffer, LeagueState, Position, TradeAsset } from "@/domain";
@@ -863,6 +864,12 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
 }
 
 /** Save this GM's game plan; every dial is clamped here, whatever the client sent. */
+export function decideSetStrategy(state: LeagueState, actor: Actor, strategy: string): Decision {
+  const out = chooseGmStrategy(state, actor.gmId, strategy);
+  if (!out.ok) throw new ActionError(out.reason ?? "You can't choose that.");
+  return { events: [] };
+}
+
 export function decideGamePlan(state: LeagueState, actor: Actor, plan: unknown): Decision {
   state.gamePlans = { ...(state.gamePlans ?? {}), [actor.teamCode]: cleanPlan(plan as Partial<GamePlan>) };
   return {

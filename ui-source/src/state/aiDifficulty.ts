@@ -154,6 +154,51 @@ export function difficultyProfile(difficulty: Difficulty): AiDifficultyProfile {
   return DIFFICULTY_PROFILES[difficulty];
 }
 
+/** Where a level sits on the scale the GMs' skill moves along: casual 0 .. master 4. */
+export function levelIndex(difficulty: Difficulty): number {
+  return AI_DIFFICULTY_LEVELS.indexOf(difficulty);
+}
+
+const PROFILE_CACHE = new Map<number, AiDifficultyProfile>();
+
+/**
+ * A profile between two levels, for a GM who is better or worse than their
+ * difficulty's average: `at` is 0 (casual) to 4 (master), and 2.6 is a
+ * Competitive GM good enough to be nearly Expert. Every number is a straight
+ * blend of the two levels either side; the search depth, which is Infinity at
+ * Expert, and the strict-trades switch take the nearer level's.
+ */
+export function difficultyProfileAt(at: number): AiDifficultyProfile {
+  const x = Math.max(0, Math.min(AI_DIFFICULTY_LEVELS.length - 1, Math.round(at * 50) / 50));
+  const hit = PROFILE_CACHE.get(x);
+  if (hit) return hit;
+  const lo = Math.floor(x);
+  const hi = Math.min(AI_DIFFICULTY_LEVELS.length - 1, lo + 1);
+  const t = x - lo;
+  const a = DIFFICULTY_PROFILES[AI_DIFFICULTY_LEVELS[lo]!];
+  const b = DIFFICULTY_PROFILES[AI_DIFFICULTY_LEVELS[hi]!];
+  const mix = (k: keyof AiDifficultyProfile): number => (a[k] as number) + ((b[k] as number) - (a[k] as number)) * t;
+  const cap = (n: number): number => (Number.isFinite(n) ? n : 128);
+  const depth = cap(a.candidateDepth) + (cap(b.candidateDepth) - cap(a.candidateDepth)) * t;
+  const out: AiDifficultyProfile = {
+    evaluationNoise: mix("evaluationNoise"),
+    rookieEvaluationNoise: mix("rookieEvaluationNoise"),
+    coachEvaluationNoise: mix("coachEvaluationNoise"),
+    tradeEvaluationNoise: mix("tradeEvaluationNoise"),
+    candidateDepth: depth >= 128 ? Infinity : Math.round(depth),
+    longTermWeight: mix("longTermWeight"),
+    needAwareness: mix("needAwareness"),
+    capPlanningWeight: mix("capPlanningWeight"),
+    chaseCeilingFloor: mix("chaseCeilingFloor"),
+    missedRebidRate: mix("missedRebidRate"),
+    tradeAcceptanceThresholdVariation: mix("tradeAcceptanceThresholdVariation"),
+    unitAwareness: mix("unitAwareness"),
+    strictTrades: t >= 0.5 ? b.strictTrades : a.strictTrades,
+  };
+  PROFILE_CACHE.set(x, out);
+  return out;
+}
+
 /** FNV-1a over a string, for the deterministic-noise hash below. */
 function hashString(s: string): number {
   let h = 0x811c9dc5;

@@ -80,6 +80,7 @@ import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "
 import { noteEvent } from "./notes.js";
 import { endHoldouts } from "@/state/contracts.ts";
 import { ensureHotSeat, placeUnemployed } from "@/state/hotSeat.ts";
+import { syncAiGms } from "@/state/aiGms.ts";
 
 /**
  * Only ever asked for things it computes rather than invents: seeding a
@@ -444,6 +445,8 @@ function humanTeamsOf(state: LeagueState): Set<string> {
 }
 
 export function onStageEntered(state: LeagueState, from?: string): void {
+  // whoever the people took, the CPU teams each have a GM (and an older league gets its GMs)
+  syncAiGms(state);
   // leaving setup in a humans-only league: the league becomes the claimed
   // teams plus the fewest CPU teams that make it even (and at least four),
   // before the draft builds anyone's roster — the same step the local store

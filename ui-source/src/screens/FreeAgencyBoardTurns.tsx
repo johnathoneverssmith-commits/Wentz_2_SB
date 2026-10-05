@@ -12,6 +12,7 @@ import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { POSITIONS, type Player } from "@/domain";
 import {
+  chooseFaMove,
   FREE_AGENCY_ROUNDS,
   leadingOffer,
   onTheClock,
@@ -237,6 +238,31 @@ export function FreeAgencyBoardTurns() {
           <div style={{ marginTop: 8 }}>
             <button type="button" className="btnlink" disabled={busy} onClick={() => act({ pass: true })}>
               Pass this round
+            </button>
+            {" · "}
+            {/* the staff plays the turn the way it would for a CPU team, led by your GM identity: shown first, done only on a yes */}
+            <button
+              type="button"
+              className="btnlink"
+              disabled={busy}
+              onClick={() => {
+                const st = useStore.getState();
+                const move = chooseFaMove(st, code);
+                if (move.kind === "pass") {
+                  if (confirm("Your staff would pass this round: nobody on the board is worth a bid. Go ahead?")) act({ pass: true });
+                  return;
+                }
+                const p = st.players[move.playerId];
+                const what = p ? `${p.name} (${posLabel(p.position)} ${p.overall}, ${p.age})` : "a free agent";
+                if (
+                  confirm(
+                    `Your staff would offer ${what} ${millions(move.salary)} a year for ${move.years} year${move.years === 1 ? "" : "s"}. Go ahead?`,
+                  )
+                )
+                  act({ playerId: move.playerId, salary: move.salary, years: move.years });
+              }}
+            >
+              Let my staff take this turn
             </button>
           </div>
         </div>

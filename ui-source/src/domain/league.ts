@@ -109,6 +109,48 @@ export interface Gm {
    * arrive and wait for an answer.
    */
   skips?: { freeAgency?: boolean; tradeDeadline?: boolean };
+  /**
+   * The GM's identity: what kind of roster they build (`state/aiStrategy.ts`).
+   * A human picks it at team select, before the fantasy draft, and it steers
+   * their auto-picks and their staff. It goes with the GM, not the team, and it
+   * is not shown to anyone else.
+   */
+  strategy?: import("@/state/aiStrategy").AiSeasonStrategy;
+}
+
+/**
+ * A CPU general manager: a person with a name, a philosophy and a skill, who
+ * works for one team at a time or sits in the pool waiting for a job
+ * (`state/aiGms.ts`). The league keeps more of them than it has CPU teams, so
+ * a fired one is replaced by somebody who isn't already working.
+ */
+export interface AiGm {
+  id: string;
+  name: string;
+  /** what they build, for as long as they are a GM: the reason rosters differ */
+  strategy: import("@/state/aiStrategy").AiSeasonStrategy;
+  /** how good they are among their difficulty's GMs, a z-score (best near +2, worst near -2) */
+  skill: number;
+  /** the team they run, or null while in the pool */
+  teamCode: string | null;
+  /** the first season with the current team */
+  hiredSeason: number;
+  /** the last season they held a job; null if never */
+  lastEmployedSeason: number | null;
+  /** one outcome per season with a team (like a human GM's history) */
+  seasons: SeasonOutcome[];
+}
+
+/** A CPU GM moving: fired, or hired. Kept for the hot seat screen. */
+export interface AiGmMove {
+  season: number;
+  kind: "fired" | "hired";
+  gmId: string;
+  name: string;
+  teamCode: string;
+  strategy: import("@/state/aiStrategy").AiSeasonStrategy;
+  /** for a hire: who they replaced, and what that GM built */
+  replaced?: { name: string; strategy: import("@/state/aiStrategy").AiSeasonStrategy };
 }
 
 /** A single negotiated contract offer (players and coaches share the shape). */
@@ -225,6 +267,10 @@ export interface LeagueState {
   gamePlans?: Record<string, import("../../../src/engine/gameplan.js").GamePlan>;
   /** Drawn once per league for the fantasy draft's order (`rules.ts` `draftSalt`). */
   draftSalt?: number;
+  /** Every CPU general manager, working or waiting (`state/aiGms.ts`). */
+  aiGms?: AiGm[];
+  /** This and recent offseasons' firings and hirings among them. */
+  aiGmMoves?: AiGmMove[];
   season: number;
   stage: Stage;
   week: number;

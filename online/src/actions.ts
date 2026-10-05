@@ -24,6 +24,7 @@ import { deadlineFor, turnKey } from "./phases.js";
 import {
   decideChooseJob,
   decideGamePlan,
+  decideSetStrategy,
   decideContractMove,
   decideCoachHire,
   decideCoachingPick,
@@ -236,6 +237,9 @@ export const setDepthOrders = (actor: Actor, orders: { position: Position; playe
     for (const o of batchOf(orders)) decideSetDepth(s, actor, o.position, Array.isArray(o.playerIds) ? o.playerIds : []);
     return { events: [] };
   });
+
+export const setStrategy = (actor: Actor, strategy: string) =>
+  run(actor, undefined, (s) => decideSetStrategy(s, actor, strategy));
 
 export const saveGamePlan = (actor: Actor, plan: unknown) =>
   run(actor, undefined, (s) => decideGamePlan(s, actor, plan));

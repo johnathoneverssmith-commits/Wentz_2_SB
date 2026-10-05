@@ -13,8 +13,9 @@ import { packageValue, tradeAssetValue } from "@/sim/MockSimulationService";
 
 import { pickKey, picksOwnedBy } from "./draftPicks.ts";
 import { TEAMS_BY_CODE } from "@/data/teams";
-import { strategyAgeBonus, strategyEliteBonus, strategyFor, strategyPositionBonus } from "./aiStrategy.ts";
-import { deterministicNoiseUnit, difficultyProfile } from "./aiDifficulty.ts";
+import { strategyAgeBonus, strategyEliteBonus, strategyPositionBonus } from "./aiStrategy.ts";
+import { deterministicNoiseUnit } from "./aiDifficulty.ts";
+import { difficultyFor, strategyOf } from "./aiGms.ts";
 import { unitGainer } from "./unitValue.ts";
 
 /** Deterministic per league + season + stage, so an offer isn't reroll-able. */
@@ -102,11 +103,11 @@ export function generateAiTradeOffers(s: LeagueState, salt: number, howMany = 1)
     // §8.1: the suitor's own season strategy biases which near-equivalent
     // target it goes after — a bounded add-on to gain+need, not a
     // replacement for either.
-    const strategy = strategyFor(suitor, s.season);
+    const strategy = strategyOf(s, suitor);
     // AI Difficulty (§14): the same bounded valuation noise and need-
     // awareness scaling as every other target-ranking call site — never a
     // change to the canonical trade-value formula itself.
-    const difficulty = difficultyProfile(s.config.difficulty);
+    const difficulty = difficultyFor(s, suitor);
     const positions = [...new Set(myRoster.map((p) => p.position))]
       .map((pos) => {
         const theirs = bestOf(theirRoster, pos);
@@ -322,12 +323,15 @@ export function cpuToCpuOffer(
   s: LeagueState,
   buyer: string,
   salt: number,
+  /** a person's staff shopping for them: same eyes, but it works the phones every time it is asked */
+  asStaff = false,
 ): { toTeam: string; fromAssets: TradeAsset[]; toAssets: TradeAsset[] } | null {
   const isCpu = (code: string) => s.teams[code]?.controlledBy.kind === "ai";
   const me = s.teams[buyer];
-  if (!me || !isCpu(buyer) || me.wins <= me.losses) return null;
+  if (!me || (!asStaff && !isCpu(buyer)) || me.wins <= me.losses) return null;
   // not every contender works the phones every round
-  if (rng(s.season * 104729 + salt + hashCode(buyer))() > 0.4) return null;
+  if (!asStaff && rng(s.season * 104729 + salt + hashCode(buyer))() > 0.4) return null;
+  const strategy = strategyOf(s, buyer);
 
   const mine = ROSTER_OF(s, buyer);
   const byPos = new Map<string, number[]>();
@@ -352,7 +356,9 @@ export function cpuToCpuOffer(
       if (p.age > 31 || p.overall < 75 || p.injury_status) continue;
       if (isCornerstone(p)) continue;
       const g = gain(p.position, p.overall);
-      if (g >= 0.6 && (!best || g > best.g)) best = { p, team, g };
+      // the GM's identity breaks ties between similar upgrades
+      const ranked = g + 0.08 * (strategyPositionBonus(strategy, p.position) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall));
+      if (g >= 0.6 && (!best || ranked > best.g)) best = { p, team, g: ranked };
     }
   }
   if (!best) return null;

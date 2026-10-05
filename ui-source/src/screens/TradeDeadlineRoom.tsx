@@ -13,6 +13,7 @@ import {
   leagueVoteBlock,
   onTheClock,
   pendingFor,
+  staffDeadlineMove,
   TRADE_DEADLINE_ROUNDS,
   type DeadlineOffer,
   type TradeDeadlineState,
@@ -135,6 +136,24 @@ export function TradeDeadlineRoom() {
         );
       })()}
       <SkipToggle kind="tradeDeadline" />
+      {duty !== null && (
+        <div style={{ padding: "6px 26px 0", textAlign: "right" }}>
+          {/* the staff's read of this turn, shown first and done only on a yes: the same shape as the roster fix */}
+          <button
+            type="button"
+            className="btnlink"
+            disabled={busy}
+            onClick={() => {
+              const plan = staffDeadlineMove(useStore.getState(), code);
+              if (!plan) return;
+              const { summary, ...move } = plan;
+              if (confirm(`Your staff would ${summary}. Go ahead?`)) submit(move as Parameters<typeof actions.deadlineTurn>[0]);
+            }}
+          >
+            Let my staff handle this turn
+          </button>
+        </div>
+      )}
       {duty === "propose" && <ProposeTurn code={code} busy={busy} onSubmit={submit} />}
       {(duty === "respond" || duty === "final") && (
         <RespondTurn offer={d.active!} code={code} duty={duty} busy={busy} onSubmit={submit} />

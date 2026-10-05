@@ -1392,3 +1392,63 @@ Rookies +100 cost -0.49 now (what you pay for development). Fourth and short
 +100 is +0.48 and -100 is -0.50: going on short yardage is a real edge in this
 engine, as it is in the league. Two-point tries, fourth and long, returns and
 the kickoff overalls are inside the noise.
+
+## GM identity, CPU GMs and the staff (2026-10)
+
+**A strategy belongs to a GM.** It used to be a hash of team and season, so a
+franchise's philosophy changed every year and belonged to nobody. Its job is to
+make rosters differ, so now it goes where the GM goes (`state/aiGms.ts`).
+`LeagueState.aiGms` holds every CPU GM: a name, a strategy, a skill, the team
+they run (or null in the pool), when they last worked, and a season-by-season
+record. The league keeps more of them than CPU teams (`poolExtras`: the larger
+of 8 and 40% of the CPU teams). A new league seats them in team order from a
+shuffled deck of the eight strategies, so no league is eight GMs of one mind.
+`syncAiGms` is idempotent and keeps the roster in step with who runs what (a
+person takes a team and its GM goes to the pool; a seat reopens and the pool
+supplies one); an older save gets its GMs on load (`upgradeLeagueState`) and
+a hosted league at its next stage entry (`onStageEntered`). Until then
+`strategyOf` falls back to the old hash. Everything that read `strategyFor`
+now reads `strategyOf(state, team)`.
+
+**Skill, a normal curve inside a difficulty.** A GM's skill is a bell-curve draw
+(z, clipped at +-2.2) and moves them 0.3 of a level per standard deviation
+along casual 0 .. master 4 (`effectiveLevel`), so the best Competitive GM is
+past the halfway mark to Expert and the worst is past it toward Standard.
+`difficultyProfileAt` blends the two neighbouring profiles (numbers linearly;
+search depth and strict trades take the nearer level's). `difficultyFor(state,
+team)` is what every decision site now calls: a person's own team plays at
+Expert as before.
+
+**The firing block.** The hot seat's score (`securityOfTenure`, extracted from
+`jobSecurity`) is applied to the CPU GMs too: their seasons are recorded at the
+same point as a person's (`recordAiOutcomes`) and `ensureHotSeat` runs
+`runAiFirings` once a season. A fired GM joins the pool and the team hires a
+different mind (a different strategy from the one it let go) from whoever has
+been out of work longest; a GM who has not worked in years has no recent bad
+results, and one fired this season is hired last. Nobody is fired before a
+third season with a team. The Hot Seat screen's "Around the league" tab shows
+who was let go, who replaced them, and which CPU GMs are on the seat.
+
+**People choose an identity too**, at team select and before the fantasy draft
+(`GmIdentityPicker`, `chooseGmStrategy`, `/actions/strategy`); it is locked
+once the league starts, rides on the `Gm` (so a fired GM keeps it into a new
+job), steers their fantasy-draft auto-picks (the human branch of
+`planAutopicks` no longer plays "balanced"), and steers what their staff does.
+It is not shown to anyone else (`gmIdentity` returns none for a person) and
+the online pull strips other people's identity and game plan.
+
+**Seen in the app.** Every team's GM and identity ("Prioritizes the trenches",
+"Prioritizes the pass", "Defense first", ...) show on the matchup tab, the
+postseason bracket and the trade window (with the positions that GM pays up
+for). The fantasy-draft summary's bars are replaced by a map of every team by
+offense and defense, coloured by identity, and each identity's teams ranked
+within the group and against the league with the units that group built
+stronger than the league (`state/draftIdentity.ts`, `IdentityMap`).
+
+**Staff sign.** Free agency and the trade deadline get the roster fix's
+mechanism: "Let my staff take this turn" shows exactly what the staff would do
+(`chooseFaMove`, `staffDeadlineMove`: the CPU teams' own choosers, led by the
+GM's identity) and does it only on a yes, through the same action a person
+would have sent. A CPU free-agency turn is now `chooseFaMove` then apply, so
+the CPU teams and a person's staff are the same code; free agency and the CPU
+deadline buyers gained a bounded identity term.
