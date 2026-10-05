@@ -35,6 +35,12 @@ export interface BracketState {
   rounds?: PlayoffRound[];
   /** A single bracket's field, index 0 = 1-seed. */
   field?: string[];
+  /**
+   * The games the round just played, with their box scores, handed from the
+   * simulator to the store in the same call as the bracket. Never stored:
+   * the store moves them into `games` and drops this.
+   */
+  playedGames?: import("./game").GameResult[];
 }
 
 /** The rounds a bracket plays, in order. */

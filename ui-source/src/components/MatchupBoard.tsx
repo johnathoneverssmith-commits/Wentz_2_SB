@@ -10,12 +10,28 @@ interface Side {
   site: "home" | "away" | "neutral";
 }
 
+/** One figure under a unit's rank: the value for each team, and where it ranks in the league. */
+export interface SubMetric {
+  label: string;
+  a: number | null;
+  b: number | null;
+  aRank?: number | null;
+  bRank?: number | null;
+  /** which way is better, so the favoured side can be marked */
+  better: "high" | "low";
+  fmt: (n: number) => string;
+  /** says what the figure is, when the label can't */
+  hint?: string;
+}
+
 interface Metric {
   label: string;
   a: number;
   b: number;
   /** a lower number is better (ranks) */
   rank?: boolean;
+  /** the figures behind this rank, shown indented beneath it */
+  subs?: SubMetric[];
 }
 
 /**
@@ -90,10 +106,30 @@ export function MatchupBoard({
           const bFav = m.rank ? m.b < m.a : m.b > m.a;
           const fmt = (n: number) => (m.rank ? ordinal(n) : String(n));
           return (
-            <div key={m.label} className="mrow mgrid">
-              <span className="mlabel">{m.label}</span>
-              <span className={`mval ${aFav ? "fav" : ""}`}>{fmt(m.a)}</span>
-              <span className={`mval ${bFav ? "fav" : ""}`}>{fmt(m.b)}</span>
+            <div key={m.label}>
+              <div className="mrow mgrid">
+                <span className="mlabel">{m.label}</span>
+                <span className={`mval ${aFav ? "fav" : ""}`}>{fmt(m.a)}</span>
+                <span className={`mval ${bFav ? "fav" : ""}`}>{fmt(m.b)}</span>
+              </div>
+              {m.subs?.map((x) => {
+                const both = x.a !== null && x.b !== null;
+                const aWins = both && (x.better === "high" ? x.a! > x.b! : x.a! < x.b!);
+                const bWins = both && (x.better === "high" ? x.b! > x.a! : x.b! < x.a!);
+                const cell = (v: number | null, rank: number | null | undefined, win: boolean) => (
+                  <span className={`mval msubval ${win ? "fav" : ""}`}>
+                    {v === null ? "—" : x.fmt(v)}
+                    {v !== null && rank != null && <small>{ordinal(rank)}</small>}
+                  </span>
+                );
+                return (
+                  <div key={x.label} className="mrow msub mgrid" title={x.hint}>
+                    <span className="mlabel">{x.label}</span>
+                    {cell(x.a, x.aRank, aWins)}
+                    {cell(x.b, x.bRank, bWins)}
+                  </div>
+                );
+              })}
             </div>
           );
         })}

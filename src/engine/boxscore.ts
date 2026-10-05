@@ -33,6 +33,19 @@ export interface TeamBox {
   touchdowns: number;
   drives: number;
   possessionSeconds: number;
+  /** hits on the quarterback (sacks are `sacksAllowed`) */
+  qbHits: number;
+  /** interceptions thrown */
+  interceptionsThrown: number;
+  /** fumbles this team lost (the other side's recoveries) */
+  fumblesLost: number;
+  kickReturnTds: number;
+  puntReturnTds: number;
+  /** extra points made */
+  extraPoints: number;
+  /** sum and count of the modelled separation on this team's targets */
+  separationSum: number;
+  separationN: number;
 }
 
 export interface BoxScore {
@@ -72,6 +85,14 @@ function teamBox(game: Game, side: 0 | 1, name: string): TeamBox {
     touchdowns: r("td"),
     drives: r("drives"),
     possessionSeconds: Math.round(n("top")),
+    qbHits: r("qb_hit"),
+    interceptionsThrown: r("int_thrown"),
+    fumblesLost: r("fumble_lost"),
+    kickReturnTds: r("kr_td"),
+    puntReturnTds: r("pr_td"),
+    extraPoints: r("xp_made"),
+    separationSum: Math.round(n("sep_sum") * 100) / 100,
+    separationN: r("sep_n"),
   };
 }
 

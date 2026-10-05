@@ -76,11 +76,38 @@ export interface RawPlayoffGame {
   winner: string;
 }
 
+/** A playoff game as the engine presents it: what a regular-season game carries beyond its score. */
+export type PresentedGame = Pick<GameResult, "totals" | "scoringPlays" | "playerLines" | "injuries" | "weather"> & {
+  broadcast?: GameBroadcast & { home: string; away: string };
+};
+
 export interface RawPlayoffRoundResult {
   games: RawPlayoffGame[];
+  /** each game's box score, keyed "HOME|AWAY" in the UI's team codes */
+  boxes: Record<string, PresentedGame>;
   nextRoundPreview: { conference: string; home: string; away: string; homeSeed: number; awaySeed: number }[] | null;
   done: boolean;
   champion: string | null;
+}
+
+/**
+ * Team codes come back in the engine's vocabulary; anything the UI filters by
+ * team has to be translated, the injury list and the play-by-play included.
+ */
+function presentedToUi<T extends Partial<PresentedGame>>(g: T): Pick<PresentedGame, "injuries" | "broadcast"> & T {
+  return {
+    ...g,
+    injuries: (g.injuries ?? []).map((e) => ({ ...e, team: toUi(e.team) })),
+    broadcast: g.broadcast
+      ? {
+          ...g.broadcast,
+          home: toUi(g.broadcast.home),
+          away: toUi(g.broadcast.away),
+          drives: g.broadcast.drives.map((d) => ({ ...d, team: toUi(d.team) })),
+          injuries: g.broadcast.injuries.map((e) => ({ ...e, team: toUi(e.team) })),
+        }
+      : undefined,
+  } as Pick<PresentedGame, "injuries" | "broadcast"> & T;
 }
 
 export class HttpSimulationService {
@@ -174,21 +201,9 @@ export class HttpSimulationService {
       (GameResult & { broadcast?: GameBroadcast & { home: string; away: string } })[]
     >("/simulate-week", body);
     return results.map((g) => ({
-      ...g,
+      ...presentedToUi(g),
       homeTeam: toUi(g.homeTeam),
       awayTeam: toUi(g.awayTeam),
-      // team codes come back in the engine's vocabulary; anything the UI
-      // filters by team has to be translated, this list included
-      injuries: (g.injuries ?? []).map((e) => ({ ...e, team: toUi(e.team) })),
-      broadcast: g.broadcast
-        ? {
-            ...g.broadcast,
-            home: toUi(g.broadcast.home),
-            away: toUi(g.broadcast.away),
-            drives: g.broadcast.drives.map((d) => ({ ...d, team: toUi(d.team) })),
-            injuries: g.broadcast.injuries.map((e) => ({ ...e, team: toUi(e.team) })),
-          }
-        : undefined,
     }));
   }
 
@@ -245,6 +260,7 @@ export class HttpSimulationService {
     talentScale = 1,
     staffs: Record<string, EngineStaff> = {},
     offenseAdjust = 0,
+    viewerTeam: string | null = null,
   ): Promise<RawPlayoffRoundResult> {
     const body = {
       seed,
@@ -259,6 +275,7 @@ export class HttpSimulationService {
       talentScale,
       staffs: this.engineStaffsOf(staffs),
       offenseAdjust,
+      viewerTeam: viewerTeam ? toEngine(viewerTeam) : null,
     };
     const res = await post<RawPlayoffRoundResult>("/playoffs/round", body);
     const translateGame = (g: RawPlayoffGame): RawPlayoffGame => ({
@@ -268,6 +285,12 @@ export class HttpSimulationService {
       winner: toUi(g.winner),
     });
     return {
+      boxes: Object.fromEntries(
+        Object.entries(res.boxes ?? {}).map(([k, v]) => {
+          const [h, a] = k.split("|") as [string, string];
+          return [`${toUi(h)}|${toUi(a)}`, presentedToUi(v)];
+        }),
+      ),
       games: res.games.map(translateGame),
       nextRoundPreview: res.nextRoundPreview?.map((g) => ({ ...g, home: toUi(g.home), away: toUi(g.away) })) ?? null,
       done: res.done,
@@ -286,8 +309,10 @@ export class HttpSimulationService {
     talentScale = 1,
     staffs: Record<string, EngineStaff> = {},
     offenseAdjust = 0,
-  ): Promise<{ homeScore: number; awayScore: number; winner: string }> {
-    const res = await post<{ homeScore: number; awayScore: number; winner: string }>("/playoffs/game", {
+    viewerTeam: string | null = null,
+  ): Promise<{ homeScore: number; awayScore: number; winner: string; box: PresentedGame | null }> {
+    const res = await post<{ homeScore: number; awayScore: number; winner: string; box: PresentedGame | null }>("/playoffs/game", {
+      viewerTeam: viewerTeam ? toEngine(viewerTeam) : null,
       seed,
       homeTeam: toEngine(homeTeam),
       awayTeam: toEngine(awayTeam),
@@ -297,6 +322,11 @@ export class HttpSimulationService {
       staffs: this.engineStaffsOf(staffs),
       offenseAdjust,
     });
-    return { homeScore: res.homeScore, awayScore: res.awayScore, winner: toUi(res.winner) };
+    return {
+      homeScore: res.homeScore,
+      awayScore: res.awayScore,
+      winner: toUi(res.winner),
+      box: res.box ? presentedToUi(res.box) : null,
+    };
   }
 }

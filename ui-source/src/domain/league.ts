@@ -221,6 +221,8 @@ export interface LeagueState {
    * and keep the shared classes.
    */
   seed?: number;
+  /** Drawn once per league for the fantasy draft's order (`rules.ts` `draftSalt`). */
+  draftSalt?: number;
   season: number;
   stage: Stage;
   week: number;

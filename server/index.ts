@@ -35,7 +35,7 @@ import {
 import { nflSchedule } from "../src/engine/schedule.js";
 import { Roster, type DepthOrder } from "../src/engine/roster.js";
 import type { Staff } from "../src/engine/staff.js";
-import { simulateGame } from "../src/engine/sim.js";
+import { type Game, simulateGame } from "../src/engine/sim.js";
 import { allStaffs } from "../src/engine/staff-data.js";
 import {
   defSchemeFitShift,
@@ -50,6 +50,7 @@ import {
 } from "../src/engine/standings.js";
 import type { Player } from "../src/schema/player.js";
 import { runGame, warmPool } from "./simPool.js";
+import { presentGame } from "./simGame.js";
 
 const PORT = 8787;
 
@@ -185,14 +186,77 @@ interface PlayoffRoundBody {
  * "who's up next" before that round is actually played — same two-step
  * seed-then-play flow the UI's bracket screen already expects.
  */
-function handlePlayoffRound(body: PlayoffRoundBody) {
-  return withPlayoffRosters(
-    rostersFrom(body.rosters, body.depthCharts),
-    () => playoffRound(body),
+function handlePlayoffRound(body: PlayoffRoundBody & { viewerTeam?: string | null }) {
+  const rosters = rostersFrom(body.rosters, body.depthCharts);
+  const captured = new Capture();
+  const out = withPlayoffRosters(
+    rosters,
+    () => playoffRound(body, (on) => (captured.on = on)),
     body.talentScale ?? 1,
     body.staffs ?? null,
     body.offenseAdjust ?? 0,
+    captured.hook,
   );
+  return { ...out, boxes: presentCaptured(captured, body, rosters) };
+}
+
+/** The games a playoff call decided, keyed "HOME|AWAY", while capturing is on. */
+class Capture {
+  on = true;
+  games = new Map<string, { g: Game; neutral: boolean; seed: number }>();
+  hook = (g: Game, home: string, away: string, neutral: boolean, seed: number): void => {
+    if (this.on) this.games.set(`${home}|${away}`, { g, neutral, seed });
+  };
+}
+
+/**
+ * Each captured playoff game, presented by the same builder a regular-season
+ * week uses (`presentGame`), and for the viewer's own game the play-by-play
+ * too: replayed from the seed that decided it, with the options it was played
+ * with. A playoff game is no longer a score and nothing else.
+ */
+function presentCaptured(
+  c: Capture,
+  body: {
+    rosters?: Record<string, Player[]> | undefined;
+    talentScale?: number | undefined;
+    offenseAdjust?: number | undefined;
+    staffs?: Record<string, Staff> | undefined;
+    viewerTeam?: string | null | undefined;
+  },
+  rosters: Record<string, Roster> | null,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, { g, neutral, seed }] of c.games) {
+    const [home, away] = key.split("|") as [string, string];
+    const present = presentGame(g, {
+      homeTeam: home,
+      awayTeam: away,
+      week: 0,
+      weather: g.weather,
+      players: body.rosters ? { [home]: body.rosters[home] ?? [], [away]: body.rosters[away] ?? [] } : undefined,
+    });
+    const hs = body.staffs?.[home];
+    const as = body.staffs?.[away];
+    out[key] =
+      body.viewerTeam && (body.viewerTeam === home || body.viewerTeam === away)
+        ? {
+            ...present,
+            broadcast: broadcastGame(seed, home, away, {
+              homeRoster: rosters?.[home],
+              awayRoster: rosters?.[away],
+              talentScale: body.talentScale,
+              offenseAdjust: body.offenseAdjust,
+              overtime: "nfl",
+              mustDecide: true,
+              neutralSite: neutral,
+              ...(g.weather ? { weather: g.weather } : {}),
+              ...(hs && as ? { homeStaff: hs, awayStaff: as } : {}),
+            }),
+          }
+        : present;
+  }
+  return out;
 }
 
 /** One humans-only playoff game: decided, never tied, on the teams GMs built. */
@@ -206,21 +270,30 @@ function handlePlayoffGame(body: {
   talentScale?: number;
   offenseAdjust?: number;
   staffs?: Record<string, Staff>;
+  viewerTeam?: string | null;
 }) {
-  return withPlayoffRosters(
-    rostersFrom(body.rosters, body.depthCharts),
+  const rosters = rostersFrom(body.rosters, body.depthCharts);
+  const captured = new Capture();
+  const result = withPlayoffRosters(
+    rosters,
     () => decidePlayoffGame(body.seed, body.homeTeam, body.awayTeam, body.neutralSite ?? false),
     body.talentScale ?? 1,
     body.staffs ?? null,
     body.offenseAdjust ?? 0,
+    captured.hook,
   );
+  const boxes = presentCaptured(captured, body, rosters);
+  return { ...result, box: boxes[`${body.homeTeam}|${body.awayTeam}`] ?? null };
 }
 
-function playoffRound(body: PlayoffRoundBody) {
+function playoffRound(body: PlayoffRoundBody, capture: (on: boolean) => void = () => {}) {
   const seeding = body.seeding as Record<Conference, ConferenceSeeding>;
+  capture(false); // the rounds replayed to reach this one aren't this call's games
   let p: PlayoffProgress = startPlayoffs(body.seed, seeding);
   for (let i = 0; i < body.roundsPlayed; i++) p = playPlayoffRound(p).progress;
+  capture(true);
   const { progress, games } = playPlayoffRound(p);
+  capture(false); // and neither is the next round's preview, played only to name its pairings
 
   let nextRoundPreview: { conference: string; home: string; away: string; homeSeed: number; awaySeed: number }[] | null = null;
   if (progress.nextRound !== "done") {

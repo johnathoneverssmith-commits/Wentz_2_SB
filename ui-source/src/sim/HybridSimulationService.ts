@@ -56,6 +56,7 @@ import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket.t
 import {
   HttpSimulationService,
   type RawCoachCandidate,
+  type PresentedGame,
   type RawConferenceSeeding,
   type SchemeFitBaseline,
 } from "./HttpSimulationService.ts";
@@ -330,6 +331,22 @@ export class HybridSimulationService implements SimulationService {
     if (!bracket) return this.mock.simulatePlayoffRound(state, round);
     const rosters = leagueRosters(state, playoffWeek(state));
     const depth = state.depthChart ?? {};
+    const viewerTeam = state.gms.find((g) => g.id === state.viewerGmId)?.teamCode ?? null;
+    // A playoff game is stored like any other: same id format, the engine's
+    // own box score, the viewer's with its play-by-play. (Online builds the
+    // same thing in `online/src/blocks.ts`.)
+    const asGame = (home: string, away: string, hs: number, as: number, box: PresentedGame | null | undefined): GameResult => ({
+      id: `${state.season}-${round}-${home}-${away}`,
+      week: 0,
+      phase: round,
+      homeTeam: home,
+      awayTeam: away,
+      played: true,
+      homeScore: hs,
+      awayScore: as,
+      ...(box ?? {}),
+    });
+    const playedGames: GameResult[] = [];
 
     if (bracket.format === "single") {
       return this.viaAdapter<BracketState>(async () => {
@@ -346,12 +363,14 @@ export class HybridSimulationService implements SimulationService {
             talentScaleOf(state.config),
             engineStaffsFor(state),
             state.offenseAdjust ?? 0,
+            viewerTeam,
           );
           m.homeScore = g.homeScore;
           m.awayScore = g.awayScore;
           m.winner = g.winner;
+          playedGames.push(asGame(m.highSeed.code, m.lowSeed.code, g.homeScore, g.awayScore, g.box));
         }
-        return advanceSingleBracket(b, round, (h, a, site) => favProb(state, h, a, site));
+        return { ...advanceSingleBracket(b, round, (h, a, site) => favProb(state, h, a, site)), playedGames };
       }, () => this.mock.simulatePlayoffRound(state, round));
     }
 
@@ -368,10 +387,12 @@ export class HybridSimulationService implements SimulationService {
         talentScaleOf(state.config),
         engineStaffsFor(state),
         state.offenseAdjust ?? 0,
+        viewerTeam,
       );
 
       const matchups = bracket.matchups.map((m) => ({ ...m }));
       for (const g of result.games) {
+        playedGames.push(asGame(g.home, g.away, g.homeScore, g.awayScore, result.boxes[`${g.home}|${g.away}`]));
         const m = matchups.find(
           (x) => x.round === round && x.highSeed?.code === g.home && x.lowSeed?.code === g.away,
         );
@@ -402,7 +423,7 @@ export class HybridSimulationService implements SimulationService {
           });
         }
       }
-      return { ...bracket, matchups, currentRound, champion };
+      return { ...bracket, matchups, currentRound, champion, playedGames };
     }, () => this.mock.simulatePlayoffRound(state, round));
   }
 

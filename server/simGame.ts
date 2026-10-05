@@ -6,8 +6,8 @@
 import { extractBoxScore } from "../src/engine/boxscore.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import { Roster, type DepthOrder } from "../src/engine/roster.js";
-import { simulateGame } from "../src/engine/sim.js";
-import { describeWeather, weatherFor } from "../src/engine/weather.js";
+import { type Game, simulateGame } from "../src/engine/sim.js";
+import { describeWeather, type Weather, weatherFor } from "../src/engine/weather.js";
 import type { Staff } from "../src/engine/staff.js";
 import type { Player } from "../src/schema/player.js";
 import { playerLinesFrom, quarterScores, scoringPlaysFrom, toTeamTotals } from "./boxscore-map.js";
@@ -33,6 +33,38 @@ export interface GameInput {
 const rosterFrom = (team: string, players: Player[] | undefined, order?: DepthOrder): Roster | undefined =>
   players && players.length ? new Roster(team, players, order) : undefined;
 
+/**
+ * A finished game as the UI keeps it: team totals, scoring plays, player
+ * lines, injuries and the weather. The one place a game becomes a box score,
+ * so a regular-season week and a playoff game (`server/index.ts`) can't be
+ * presented differently.
+ */
+export function presentGame(
+  g: Game,
+  o: {
+    homeTeam: string;
+    awayTeam: string;
+    week: number;
+    weather: Weather | null | undefined;
+    players?: Record<string, Player[]> | undefined;
+  },
+) {
+  const trace = g.playTrace ?? [];
+  const box = extractBoxScore(g, o.homeTeam, o.awayTeam, o.week);
+  const finalScore: [number, number] = [g.score[0], g.score[1]];
+  const byQuarter = quarterScores(trace, finalScore, g.drivesLog);
+  return {
+    totals: {
+      home: toTeamTotals(box.home, byQuarter[0]!, g.drivesLog.filter((d) => d.team === 0)),
+      away: toTeamTotals(box.away, byQuarter[1]!, g.drivesLog.filter((d) => d.team === 1)),
+    },
+    scoringPlays: scoringPlaysFrom(trace, o.homeTeam, o.awayTeam, finalScore, g.drivesLog),
+    playerLines: playerLinesFrom(trace, o.homeTeam, o.awayTeam, o.players),
+    injuries: g.injuryLog ?? [],
+    weather: describeWeather(o.weather),
+  };
+}
+
 export function simulateOne(i: GameInput) {
   const { gameSeed, season, week, phase, homeTeam, awayTeam, talentScale } = i;
   const homeRoster = rosterFrom(homeTeam, i.homePlayers, i.homeDepth);
@@ -47,15 +79,6 @@ export function simulateOne(i: GameInput) {
   const weather = weatherFor(homeTeam, phase, week, gameSeed);
   const opts = { homeRoster, awayRoster, trace: true, injuries: true, talentScale, offenseAdjust: i.offenseAdjust, overtime: "nfl", weather, ...staffPair } as const;
   const g = simulateGame(gameSeed, homeTeam, awayTeam, opts);
-  const trace = g.playTrace ?? [];
-  const box = extractBoxScore(g, homeTeam, awayTeam, week);
-  const finalScore: [number, number] = [g.score[0], g.score[1]];
-  const byQuarter = quarterScores(trace, finalScore, g.drivesLog);
-  const rosters =
-    i.homePlayers || i.awayPlayers
-      ? { [homeTeam]: i.homePlayers ?? [], [awayTeam]: i.awayPlayers ?? [] }
-      : undefined;
-
   const base = {
     id: `${season ?? "s"}-${phase}-${week}-${homeTeam}-${awayTeam}`,
     week,
@@ -63,16 +86,18 @@ export function simulateOne(i: GameInput) {
     homeTeam,
     awayTeam,
     played: true,
-    homeScore: finalScore[0],
-    awayScore: finalScore[1],
-    totals: {
-      home: toTeamTotals(box.home, byQuarter[0]!),
-      away: toTeamTotals(box.away, byQuarter[1]!),
-    },
-    scoringPlays: scoringPlaysFrom(trace, homeTeam, awayTeam, finalScore, g.drivesLog),
-    playerLines: playerLinesFrom(trace, homeTeam, awayTeam, rosters),
-    injuries: g.injuryLog ?? [],
-    weather: describeWeather(weather),
+    homeScore: g.score[0],
+    awayScore: g.score[1],
+    ...presentGame(g, {
+      homeTeam,
+      awayTeam,
+      week,
+      weather,
+      players:
+        i.homePlayers || i.awayPlayers
+          ? { [homeTeam]: i.homePlayers ?? [], [awayTeam]: i.awayPlayers ?? [] }
+          : undefined,
+    }),
   };
   // the viewer's game also gets the play-by-play view; same seed and same
   // options, so it is the same simulated game as the box score above

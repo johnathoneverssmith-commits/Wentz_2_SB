@@ -29,6 +29,7 @@ import { TEAMS } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
 
 import {
+  applyDraftSetting,
   applySeasonAging,
   createLeague,
   campCuts,
@@ -554,7 +555,9 @@ let advanceInFlight: Promise<{ moved: boolean; route: string }> | null = null;
 export const useStore = create<Store>()(
   persist(
     immer((set, get) => ({
-      ...createLeague(),
+      // a random seed: with the default of 1 every fresh league drew the same
+      // fantasy-draft order (Minnesota first, every time)
+      ...createLeague(Date.now() % 100_000),
 
       newLeague: async (seed = Date.now() % 100000, config) => {
         // instant, Mock-backed skeleton — always playable, never blocks on the network
@@ -598,6 +601,8 @@ export const useStore = create<Store>()(
           Object.assign(s.config, partial);
           // a humans-only league has no NFL rosters to inherit
           if (isHumansOnly(s)) s.config.fantasyDraft = true;
+          // the pool was made under the old setting: make it match the new one
+          if (s.stage === "setup" && partial.fantasyDraft != null) applyDraftSetting(s);
           if (s.stage === "setup" && partial.humanGmCount != null) {
             const fresh = createLeague(1, s.config);
             s.gms = fresh.gms.map((g) => s.gms.find((x) => x.id === g.id) ?? g);
@@ -764,12 +769,22 @@ export const useStore = create<Store>()(
               viewerGameId: viewerGame?.id ?? null,
             };
           } else if (newBracket && playoffRoundToPlay) {
-            s.bracket = newBracket;
+            // the round's games arrive with the bracket, with the same box
+            // scores and injuries a regular-season week's do: a playoff game is
+            // the same simulation, stored the same way
+            const { playedGames, ...bracket } = newBracket;
+            s.bracket = bracket;
+            const games = playedGames ?? [];
+            const viewerTeam = s.gms.find((g) => g.id === s.viewerGmId)?.teamCode;
+            const fresh = games.filter((g) => !s.games.some((x) => x.id === g.id));
+            s.games.push(...fresh);
+            applyInjuries(s, fresh, s.season);
+            trimStoredBoxScores(fresh, humanTeamsOf(s));
             s.pendingGameDay = {
               phase: playoffRoundToPlay,
               week: 0,
-              gameIds: [],
-              viewerGameId: null,
+              gameIds: games.map((g) => g.id),
+              viewerGameId: games.find((g) => g.homeTeam === viewerTeam || g.awayTeam === viewerTeam)?.id ?? null,
             };
           }
           recomputeTeamRatings(s);

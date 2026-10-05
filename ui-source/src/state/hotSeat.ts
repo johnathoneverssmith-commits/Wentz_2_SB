@@ -18,6 +18,12 @@
  *
  *   >= 55 secure     40-54 warm     20-39 hot seat     < 20 fired
  *
+ * then, for a GM three or more seasons in, a playoff drought: every
+ * consecutive season ending with no playoff win beyond the second costs 10
+ * more (three in a row -10, four -20, five -30). A team that loses its
+ * wild-card game every year has still won nothing, and that's how the league
+ * treats it: front offices rarely last long on a run of winless Januaries.
+ *
  * and nobody is fired before their third season with a team, which also
  * leaves the Hooded Figure (two losing seasons running) time to act first.
  * Two 5-12 years leave a GM at 28 (hot); a third ends it (12). Three 3-14
@@ -53,6 +59,10 @@ export interface HotSeatEntry {
   seasons: HotSeatSeason[];
   /** total seasons with this team */
   tenure: number;
+  /** consecutive latest seasons without a playoff win (a missed postseason counts) */
+  drought: number;
+  /** what the drought took off the score (0 until the third season of it) */
+  droughtPenalty: number;
   /** teams a fired GM may take over, worst first */
   options: string[];
   /** the team a fired GM has taken */
@@ -68,6 +78,9 @@ export interface HotSeatState {
 const START = 60;
 const WINDOW = 5;
 const MIN_TENURE_TO_FIRE = 3;
+/** the drought starts to cost from the third winless season, 10 more for each after */
+const DROUGHT_FROM = 3;
+const DROUGHT_STEP = 10;
 export const FIRE_BELOW = 20;
 export const OPTION_COUNT = 5;
 
@@ -116,11 +129,16 @@ export function jobSecurity(s: LeagueState, gmId: string): Omit<HotSeatEntry, "o
   const tenure = tenureOf(s, gmId, gm.teamCode);
   if (tenure.length === 0) return null;
   const counted = tenure.slice(-WINDOW).map(seasonDelta);
-  const score = Math.max(0, Math.min(100, Math.round(START + counted.reduce((n, x) => n + x.delta, 0))));
+  // consecutive latest seasons with no playoff win, over the whole tenure
+  // (not just the five that score): the drought is a fact about the stretch
+  let drought = 0;
+  for (let i = tenure.length - 1; i >= 0 && seasonDelta(tenure[i]!).roundsWon === 0 && !tenure[i]!.wonSuperBowl; i--) drought++;
+  const droughtPenalty = tenure.length >= MIN_TENURE_TO_FIRE && drought >= DROUGHT_FROM ? DROUGHT_STEP * (drought - DROUGHT_FROM + 1) : 0;
+  const score = Math.max(0, Math.min(100, Math.round(START + counted.reduce((n, x) => n + x.delta, 0) - droughtPenalty)));
   let level = levelFor(score);
   // a new hire gets three seasons
   if (level === "fired" && tenure.length < MIN_TENURE_TO_FIRE) level = "hot";
-  return { gmId, teamCode: gm.teamCode, score, level, seasons: counted, tenure: tenure.length };
+  return { gmId, teamCode: gm.teamCode, score, level, seasons: counted, tenure: tenure.length, drought, droughtPenalty };
 }
 
 /**

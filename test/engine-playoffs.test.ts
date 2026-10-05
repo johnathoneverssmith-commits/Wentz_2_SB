@@ -101,3 +101,47 @@ describe.runIf(hasPool)("playoff stepper", () => {
     for (const g of wc) expect(g.homeSeed).toBeLessThan(g.awaySeed);
   });
 });
+
+describe("playoff games are the same simulation as regular-season games", () => {
+  it("decidePlayoffGame plays exactly the game simulateGame plays with the franchise options", async () => {
+    const { roster } = await import("../src/engine/roster.js");
+    const { simulateGame } = await import("../src/engine/sim.js");
+    const { weatherFor } = await import("../src/engine/weather.js");
+    const { decidePlayoffGame, withPlayoffRosters } = await import("../src/engine/playoffs.js");
+    const home = "KC";
+    const away = "BUF";
+    const rosters = { [home]: roster(home), [away]: roster(away) };
+    const seed = 424_242;
+
+    const seen: { hurt: number; trace: number } = { hurt: -1, trace: -1 };
+    const viaPlayoffs = withPlayoffRosters(
+      rosters,
+      () => decidePlayoffGame(seed, home, away, false),
+      1.5,
+      null,
+      0,
+      (g) => {
+        seen.hurt = g.injuryLog?.length ?? -1;
+        seen.trace = g.playTrace?.length ?? -1;
+      },
+    );
+    // what a regular-season week plays (`server/simGame.ts`), plus the two
+    // things only a playoff game adds: nobody can tie, and the crowd is the home team's
+    const direct = simulateGame(seed, home, away, {
+      homeRoster: rosters[home],
+      awayRoster: rosters[away],
+      trace: true,
+      injuries: true,
+      talentScale: 1.5,
+      offenseAdjust: 0,
+      overtime: "nfl",
+      mustDecide: true,
+      weather: weatherFor(home, "PO", 20, seed, false),
+    });
+    expect([viaPlayoffs.homeScore, viaPlayoffs.awayScore]).toEqual([direct.score[0], direct.score[1]]);
+    // in-game injuries roll in the playoffs: the injury log exists (it is null with the flag off)
+    expect(seen.hurt).toBeGreaterThanOrEqual(0);
+    expect(seen.trace).toBeGreaterThan(80);
+    expect(seen.hurt).toBe(direct.injuryLog?.length);
+  }, 120_000);
+});

@@ -14,7 +14,7 @@ import type { Conference } from "./nfl-structure.js";
 import type { ConferenceSeeding } from "./standings.js";
 import type { Roster } from "./roster.js";
 import type { Staff } from "./staff.js";
-import { simulateGame } from "./sim.js";
+import { type Game, simulateGame } from "./sim.js";
 import { weatherFor } from "./weather.js";
 
 export type PlayoffRound = "wildcard" | "divisional" | "conference" | "superbowl";
@@ -63,6 +63,9 @@ let _playoffRosters: Readonly<Record<string, Roster>> | null = null;
 let _playoffTalent = 1;
 let _playoffStaffs: Readonly<Record<string, Staff>> | null = null;
 let _playoffOffense = 0;
+/** told about each game that decides a matchup, so a caller can build its box score */
+export type PlayoffGameHook = (game: Game, home: string, away: string, neutralSite: boolean, seed: number) => void;
+let _onGame: PlayoffGameHook | null = null;
 
 /** Run `fn` with playoff games played by these rosters, at this talent scale. */
 export function withPlayoffRosters<T>(
@@ -71,7 +74,10 @@ export function withPlayoffRosters<T>(
   talentScale = 1,
   staffs: Readonly<Record<string, Staff>> | null = null,
   offenseAdjust = 0,
+  onGame: PlayoffGameHook | null = null,
 ): T {
+  const prevHook = _onGame;
+  _onGame = onGame;
   const prev = _playoffRosters;
   const prevTalent = _playoffTalent;
   const prevStaffs = _playoffStaffs;
@@ -83,6 +89,7 @@ export function withPlayoffRosters<T>(
   try {
     return fn();
   } finally {
+    _onGame = prevHook;
     _playoffOffense = prevOffense;
     _playoffRosters = prev;
     _playoffTalent = prevTalent;
@@ -113,6 +120,13 @@ function decide(
           overtime: "nfl" as const,
           mustDecide: true,
           offenseAdjust: _playoffOffense,
+          // the same game a regular-season week plays (`server/simGame.ts`):
+          // injuries roll and pull starters, and the play trace is kept for
+          // the box score. Without the injury flag a playoff game was a
+          // different simulation, with a different RNG stream and no
+          // starter ever hurt.
+          injuries: true,
+          trace: true,
           weather: weatherFor(home.team, "PO", 20, seed, neutralSite),
         }
       : { neutralSite };
@@ -120,6 +134,7 @@ function decide(
     const g = simulateGame(seed + k * SEED_STRIDE, home.team, away.team, opts);
     const [hs, as] = g.score;
     if (hs !== as) {
+      _onGame?.(g, home.team, away.team, neutralSite, seed + k * SEED_STRIDE);
       return {
         homeScore: hs,
         awayScore: as,
@@ -130,6 +145,7 @@ function decide(
   }
   // deadlocked: the better seed (listed home) advances
   const g = simulateGame(seed, home.team, away.team, opts);
+  _onGame?.(g, home.team, away.team, neutralSite, seed);
   return {
     homeScore: g.score[0],
     awayScore: g.score[1],

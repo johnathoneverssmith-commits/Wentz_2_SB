@@ -17,6 +17,7 @@
  * Geometry, arrow shapes and the drive/step model are a faithful port of the
  * original — see `segPath` and `buildSteps`.
  */
+import { pressable } from "@/components/bits";
 import { useMotion } from "@/motion/tokens";
 import { useStore } from "@/state/store";
 import { viewerTeamCode } from "@/state/selectors";
@@ -284,7 +285,7 @@ const ICON = {
   pause: "M6 4h4v16H6z M14 4h4v16h-4z",
 };
 
-export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
+export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: () => void }): JSX.Element | null {
   const bc = game.broadcast;
   const drives = useMemo(() => bc?.drives ?? [], [bc]);
   const { steps, driveStart } = useMemo(() => buildSteps(drives), [drives]);
@@ -539,7 +540,12 @@ export function Gamecast({ game }: { game: GameResult }): JSX.Element | null {
     >
       <ScoreMoment moment={moment} onDone={() => setMoment(null)} />
       {/* scoreboard */}
-      <div className="gc-board">
+      {/* once the game is over the scoreboard opens the box score; mid-replay it
+          would hand over the result the viewer is still watching */}
+      <div
+        className="gc-board"
+        {...(done && onBoxScore ? { ...pressable(onBoxScore), title: "Open the box score", style: { cursor: "pointer" } } : {})}
+      >
         <div className="gc-side" style={{ ["--gc-tc" as string]: teamColor(bc.away) }}>
           <span className="gc-chip" />
           <span className="gc-code">{bc.away}</span>

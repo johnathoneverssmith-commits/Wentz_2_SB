@@ -38,6 +38,20 @@ export interface TeamGameTotals {
   penaltyYards: number;
   turnovers: number;
   byQuarter: number[];
+  // what the matchup comparison reads (mirrors `ui-source/src/domain/game.ts`)
+  passAtt?: number;
+  passComp?: number;
+  sacksAllowed?: number;
+  qbHits?: number;
+  intThrown?: number;
+  fumblesLost?: number;
+  krTd?: number;
+  prTd?: number;
+  kickPoints?: number;
+  startSum?: number;
+  startN?: number;
+  sepSum?: number;
+  sepN?: number;
 }
 
 export interface ScoringPlay {
@@ -244,7 +258,14 @@ export function quarterScores(
   return out;
 }
 
-export function toTeamTotals(box: TeamBox, byQuarter: number[]): TeamGameTotals {
+export function toTeamTotals(
+  box: TeamBox,
+  byQuarter: number[],
+  /** this side's drives, for where they started */
+  drives: readonly DriveRecord[] = [],
+): TeamGameTotals {
+  // yards from its own goal line each drive began, 25 being the usual start
+  const starts = drives.map((d) => 100 - d.startYl);
   return {
     points: box.points,
     totalYards: box.totalYards,
@@ -258,6 +279,18 @@ export function toTeamTotals(box: TeamBox, byQuarter: number[]): TeamGameTotals 
     penaltyYards: box.penaltyYards,
     turnovers: box.turnovers,
     byQuarter,
+    passAtt: box.passAtt,
+    passComp: box.completions,
+    sacksAllowed: box.sacksAllowed,
+    qbHits: box.qbHits,
+    intThrown: box.interceptionsThrown,
+    fumblesLost: box.fumblesLost,
+    krTd: box.kickReturnTds,
+    prTd: box.puntReturnTds,
+    // field goals and extra points: the kicker's scoring
+    kickPoints: box.fieldGoals[0] * 3 + box.extraPoints,
+    ...(starts.length ? { startSum: Math.round(starts.reduce((a, b) => a + b, 0)), startN: starts.length } : {}),
+    ...(box.separationN > 0 ? { sepSum: box.separationSum, sepN: box.separationN } : {}),
   };
 }
 

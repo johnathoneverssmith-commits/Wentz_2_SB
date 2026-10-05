@@ -347,6 +347,8 @@ export function normalizePool(
   for (const p of players) p.years_pro = Math.max(1, p.years_pro ?? 0);
   if (fantasyDraft) {
     for (const p of players) {
+      // remember where he really plays, in case the draft is switched off again
+      if (p.nfl_team && p.nfl_team !== "FA" && !p.nfl_team.startsWith("PS:")) p.home_team = p.nfl_team;
       p.free_agent = true;
       p.nfl_team = "FA";
       p.contract = null;
@@ -416,6 +418,48 @@ export function normalizePool(
       p.contract = dealFor(team, salary, rng.int(2, 5));
     });
   }
+}
+
+/**
+ * The fantasy-draft setting changed while the league is still in setup:
+ * make the players match it.
+ *
+ * The pool is normalised once, at creation, under whatever the setting was
+ * then, and the default is on, which releases every player to free agency.
+ * Turning it off afterwards changed the flag and nothing else, so a league
+ * that was meant to start from real rosters opened with no player on any team.
+ * Off restores every team's real roster (priced to its cap, extras on the
+ * market) exactly as a league created with it off would have; on releases
+ * everyone for the draft. Leagues saved before players remembered their team
+ * rebuild it from the seeded real pool, which carries the same ids.
+ */
+export function applyDraftSetting(s: LeagueState): void {
+  const players = Object.values(s.players);
+  if (s.config.fantasyDraft) {
+    normalizePool(players, true, s.seed ?? 0);
+    return;
+  }
+  if (players.some((p) => !p.home_team)) {
+    const real = new Map(
+      new MockSimulationService()
+        .generateInitialPool(s.seed ?? 0, "realRosters")
+        .map((p) => [p.id, p.nfl_team] as const),
+    );
+    for (const p of players) {
+      const t = real.get(p.id);
+      if (!p.home_team && t && t !== "FA") p.home_team = t;
+    }
+  }
+  for (const p of players) {
+    if (p.home_team && s.teams[p.home_team]) {
+      p.nfl_team = p.home_team;
+      p.free_agent = false;
+      p.contract = null;
+    }
+  }
+  normalizePool(players, false, s.seed ?? 0);
+  s.standingFreeAgents = players.filter((p) => p.free_agent && !p.retired).map((p) => p.id);
+  recomputeTeamRatings(s);
 }
 
 /**

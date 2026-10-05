@@ -1989,6 +1989,24 @@ export function isInSeason(stage: Stage): boolean {
  * shuffles are seeded on the season), and the server makes it at the moment
  * the stage opens. One order, made once, by the machine that owns the league.
  */
+/**
+ * What the fantasy draft's shuffle is seeded on.
+ *
+ * A league with a real seed derives it from the seed, so the same league draws
+ * the same order on every machine and after a reload. The default seed (1) is
+ * what a solo dynasty's first league was created with, and it gave every such
+ * league the same order, so one franchise had the first pick of every fantasy
+ * draft; that seed (and a league with none) draws a random salt instead, kept
+ * on the league the first time so it doesn't change on a reload or between
+ * clients. Drawn by the one machine that builds the draft (the server online).
+ */
+function draftSalt(s: LeagueState): number {
+  if (s.draftSalt == null) {
+    s.draftSalt = s.seed != null && s.seed !== 1 ? s.seed * 31 : Math.floor(Math.random() * 2_000_000_000);
+  }
+  return s.draftSalt;
+}
+
 export function beginDraft(s: LeagueState, mode: DraftMode): void {
   // a GM who somehow reached the draft without a team contributes no
   // slot, rather than an empty string in the pick order
@@ -2021,10 +2039,10 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     // which handed the human GMs the top picks of all 20 rounds
     // seeded on the league as well as the year: on the year alone, every league
     // ever created drew the same order, and the same team picked first each time
-    fullFirstRound = shuffle(allCodes, (s.seed ?? 0) * 31 + s.season + 7);
+    fullFirstRound = shuffle(allCodes, draftSalt(s) + s.season + 7);
   } else {
     // "in order": GM 1 first, GM 2 second, …, then the AI teams
-    fullFirstRound = [...humanCodes, ...shuffle(aiCodes, s.season + 11)];
+    fullFirstRound = [...humanCodes, ...shuffle(aiCodes, draftSalt(s) + s.season + 11)];
   }
 
   // the fantasy draft runs until every roster is full; its length is not a

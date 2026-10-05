@@ -845,6 +845,8 @@ export class Game {
   private scorePts(pts: number, team?: number): void {
     this.score[(team ?? this.pos) as 0 | 1] += pts;
     this.st("points", pts, team);
+    // extra points, for a kicker's scoring line (the box score's special teams)
+    if (pts === 1) this.st("xp_made", 1, team);
   }
 
   private touchdown(): void {
@@ -875,6 +877,7 @@ export class Game {
       if (this.rng.random() < KICK_RETURN_TD_RATE) {
         this.scorePts(6, receiving);
         this.st("st_td", 1, receiving);
+        this.st("kr_td", 1, receiving);
         if (this.rng.random() < XP_RATE) this.scorePts(1, receiving);
         this.kickoff(1 - receiving);
         return;
@@ -1164,6 +1167,7 @@ export class Game {
           tracePunt("return_td", 0, this.pickReturner());
           this.scorePts(6, r);
           this.st("st_td", 1, r);
+          this.st("pr_td", 1, r);
           if (this.rng.random() < XP_RATE) this.scorePts(1, r);
           // nflverse codes the punting team's drive as "Opp touchdown"
           this.kickoff(this.pos, "opp_touchdown");
@@ -1264,6 +1268,23 @@ export class Game {
         playDepth = depth;
         const ploc = this.rng.choice(PASS_LOC, PASS_LOC_P);
         const qbHit = this.rng.random() < (QB_HIT_BY_DEPTH[depth] ?? QB_HIT_RATE) ? 1 : 0;
+        // pressure, for the box score: a hit on the quarterback (a sack is
+        // counted on its own). Counting only; it decides nothing.
+        if (qbHit) this.st("qb_hit");
+        // How open the target was, in yards: a modelled figure, not a simulated
+        // one (the engine has no separation to measure). Deeper throws get more
+        // of it, and it moves with the receivers' route running and hands
+        // against the coverage, the same families that decide the catch. Never
+        // read by the game; it exists so the receiving corps and the secondary
+        // have a number to be compared on.
+        if (this.ratingsOn) {
+          const o = this.offLineup();
+          const d = this.defLineup(this.down >= 3 && this.ydstogo >= 6);
+          const fit = completionLogitShift([o.WR1, o.WR2, o.WR3, o.TE1], [d.CB1, d.CB2, d.S1, d.S2], null);
+          const SEP_BY_DEPTH: Record<string, number> = { BEHIND_LOS: 2.6, SHORT: 2.6, INTERMEDIATE: 3.1, DEEP: 3.6 };
+          this.st("sep_sum", Math.max(0.6, Math.min(6, (SEP_BY_DEPTH[depth] ?? 3) + 3.5 * fit)));
+          this.st("sep_n");
+        }
         const base = this.offShift("M09") ?? {};
         const m09Shift: Shift = {
           ...base,

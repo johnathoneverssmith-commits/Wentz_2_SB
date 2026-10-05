@@ -1258,3 +1258,55 @@ unchanged (talent 1, 992 games: points -0.3%, margin sd 14.37 vs 14.33,
 completion +3.3%, INT +0.2%, sack +1.0%). `test/engine-realism.test.ts` plays
 a deliberately sub-worst offence against the league's best defence and requires
 more than 20 attempts a game, a sack rate under 22% and more than four points.
+
+## Roster construction, draft settings, playoffs, and the compare tab (2026-10)
+
+**Roster construction (audit, no change to the AI).** An 8-season dynasty
+audit (`online/test/_spread.test.ts`, scratch) measured the AI teams' average
+starter rating: sd 1.0-1.8 across the league, against 1.9 for the real rosters, so
+the AI GMs' differing philosophies don't spread teams further than real life;
+offense/defense and QB/line spreads track the real ones. The only holes were
+momentary (a starting QB whose deal had just expired is a free agent at season
+end and is replaced by the next preseason: the worst starting QB was 75-79
+every year). The lopsided league that exposed the passing collapse came from the
+non-default start, below, and from the engine having no ceiling (see "A soft
+limit").
+
+**Fantasy draft off now starts from real rosters.** A new league's pool is
+normalised once, under the default (draft on), which releases every player and
+forgot who he played for; switching the draft off in setup changed the flag
+and nothing else, so every team started with no players. Players now remember
+their team (`home_team`), and `applyDraftSetting` re-normalises the pool
+whenever the setting changes during setup, locally and from the online
+commissioner's settings; a save from before the field rebuilds it from the
+seeded real pool.
+
+**Fantasy draft order.** The order was seeded on the league seed, and the app's
+first league (and any created with the default seed) used seed 1, so one
+franchise had the first pick every time. The initial league now gets a random
+seed, and a league with the legacy default seed draws and keeps a random salt
+(`draftSalt`); a league with a real seed still derives its order from it.
+
+**Playoff games run the regular-season simulation.** The local adapter played
+them without in-game injuries and returned only scores. They now go through the
+same options as a regular-season week (`injuries` and `trace` on) and the same
+box-score builder (`presentGame` in `server/simGame.ts`); the client stores them
+in `games` with the same ids online uses, the viewer's with play-by-play, and
+applies their injuries. `test/engine-playoffs.test.ts` plays a game via
+`decidePlayoffGame` and via `simulateGame` with the franchise options and
+requires the identical result.
+
+**Job security: playoff drought.** From the third season, every consecutive
+season with no playoff win beyond the second costs 10 more (a first-round loss
+doesn't end it). Five 8-9 years with no January now ends a GM.
+
+**How they compare.** Each unit rank on the matchup tab has its figures
+underneath, with the league rank: offense (points, rushing, passing, completion
+%, separation, pressure allowed, time of possession), defense (points, passing
+and rushing yards allowed, interceptions, fumble recoveries), special teams
+(kicking points, kick and punt return TDs, own and opponents' average start).
+`teamProduction` aggregates the box-score totals (new counts: attempts,
+completions, sacks, QB hits, interceptions, fumbles lost, return TDs, extra
+points, drive starts) over the games the GM has seen. Separation is a modelled
+estimate (receivers' route running and hands against the coverage, by depth),
+not a simulated quantity; it never affects a game.

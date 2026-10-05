@@ -83,6 +83,7 @@ import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js
 import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
 import { cleanConfigPatch, isInSeason } from "@/state/rules.ts";
+import { applyDraftSetting } from "@/state/seed.ts";
 import { redactedGames, revealedWeek, visibleBracket, visibleGames } from "@/state/reveal.ts";
 import { redactHoodedFigureFor } from "@/state/hoodedFigure.ts";
 import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
@@ -766,6 +767,8 @@ post("/leagues/:id/admin/config", async (ctx) => {
     const clean = cleanConfigPatch(state, patch);
     if (!clean.ok) throw new ActionError(clean.reason);
     state.config = { ...state.config, ...clean.patch };
+    // the pool was made under the old fantasy-draft setting (`applyDraftSetting`)
+    if (state.stage === "setup" && "fantasyDraft" in clean.patch) applyDraftSetting(state);
     return {
       result: { ok: true as const },
       state,

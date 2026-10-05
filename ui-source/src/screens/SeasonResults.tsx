@@ -181,7 +181,11 @@ export function WeekResults({
     <>
       {mine ? (
         <div
+          // your own score opens the box score, as every other game's does
+          {...(hasBoxScore(mine) ? pressable(() => onBox(mine.id)) : {})}
+          title={hasBoxScore(mine) ? "Open the box score" : undefined}
           style={{
+            cursor: hasBoxScore(mine) ? "pointer" : "default",
             display: "grid",
             gridTemplateColumns: "1fr auto 1fr",
             alignItems: "center",

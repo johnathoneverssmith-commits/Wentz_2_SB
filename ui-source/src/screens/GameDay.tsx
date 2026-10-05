@@ -85,13 +85,17 @@ export function GameDay() {
       <div className="panel open">
         {viewerGame?.broadcast && (
           <div style={{ marginBottom: 16 }}>
-            <Gamecast game={viewerGame} />
+            <Gamecast game={viewerGame} {...(hasBoxScore(viewerGame) ? { onBoxScore: () => nav(`/box/${viewerGame.id}`) } : {})} />
           </div>
         )}
 
         {viewerGame && !viewerGame.broadcast && (
           <div
+            // your own score opens the box score, as every other game's does
+            {...(hasBoxScore(viewerGame) ? pressable(() => nav(`/box/${viewerGame.id}`)) : {})}
+            title={hasBoxScore(viewerGame) ? "Open the box score" : undefined}
             style={{
+              cursor: hasBoxScore(viewerGame) ? "pointer" : "default",
               display: "grid",
               gridTemplateColumns: "1fr auto 1fr",
               alignItems: "center",

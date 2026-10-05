@@ -152,6 +152,17 @@ export function HotSeat() {
             </p>
             <Meter score={mine.score} color={LEVEL[mine.level].color} />
             <Seasons e={mine} />
+            {mine.droughtPenalty > 0 && (
+              <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--bad)" }}>
+                {mine.drought} seasons without winning a playoff game: −{mine.droughtPenalty}. It gets worse every
+                year it continues.
+              </p>
+            )}
+            {mine.drought === 2 && mine.tenure >= 2 && (
+              <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--ink-faint)" }}>
+                Two seasons without a playoff win. A third starts to cost you.
+              </p>
+            )}
 
             {mine.level === "fired" && (
               <div style={{ marginTop: 18 }}>
@@ -241,6 +252,11 @@ export function HotSeat() {
           <p style={{ margin: 0 }}>
             Secure is 55 or more, warm is 40–54, and the hot seat is 20–39. Below 20 you&rsquo;re fired, but never before
             your third season with a team. A long run of good years is a cushion.
+          </p>
+          <p style={{ margin: 0 }}>
+            From your third season, a stretch with no playoff win costs more every year (−10 for the third winless
+            season, −20 for the fourth, −30 for the fifth). Making the playoffs and losing the first game doesn&rsquo;t
+            end the drought; winning one does.
           </p>
           <p style={{ margin: 0 }}>
             A fired GM takes over one of the five worst teams in the league that no one else is running, and starts again:

@@ -58,9 +58,30 @@ describe("the hot seat", () => {
     expect(j.level).toBe("hot");
   });
 
-  it("leaves a middling team that misses the playoffs out of danger", () => {
-    const j = jobSecurity(league([[8, 9], [8, 9], [8, 9], [8, 9], [8, 9]]), "gm1")!;
-    expect(j.level).toBe("warm");
+  it("lets a middling team miss the playoffs for a while, then runs out of patience", () => {
+    const yr = (n: number) => league(Array.from({ length: n }, () => [8, 9] as [number, number]));
+    expect(jobSecurity(yr(2), "gm1")!.level).toBe("warm");
+    // the third winless season starts to cost, the fifth ends it
+    const three = jobSecurity(yr(3), "gm1")!;
+    expect(three.droughtPenalty).toBe(10);
+    expect(three.level).toBe("hot");
+    expect(jobSecurity(yr(5), "gm1")!.level).toBe("fired");
+  });
+
+  it("a playoff win ends the drought, and losing the first game doesn't", () => {
+    const losers = league(Array.from({ length: 4 }, () => [10, 7, true, "WC"] as [number, number, boolean, SeasonOutcome["furthestRound"]]));
+    const l = jobSecurity(losers, "gm1")!;
+    expect(l.drought).toBe(4);
+    expect(l.droughtPenalty).toBe(20);
+    // the same team, but one season it won a round
+    const one = league([[10, 7, true, "WC"], [10, 7, true, "WC"], [10, 7, true, "DIV"], [10, 7, true, "WC"]]);
+    const o = jobSecurity(one, "gm1")!;
+    expect(o.drought).toBe(1);
+    expect(o.droughtPenalty).toBe(0);
+  });
+
+  it("no drought penalty before the third season with a team", () => {
+    expect(jobSecurity(league([[8, 9], [8, 9]]), "gm1")!.droughtPenalty).toBe(0);
   });
 
   it("counts only the last five seasons, and only with this team", () => {

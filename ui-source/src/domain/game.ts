@@ -42,6 +42,25 @@ export interface TeamGameTotals {
   turnovers: number;
   /** points per quarter, index 0 = Q1; extra entries = OT. */
   byQuarter: number[];
+  // The rest arrived with the matchup comparison; games from older saves
+  // don't have them, and the comparison treats a missing figure as no data.
+  passAtt?: number;
+  passComp?: number;
+  sacksAllowed?: number;
+  /** hits on the quarterback, not counting sacks */
+  qbHits?: number;
+  intThrown?: number;
+  fumblesLost?: number;
+  krTd?: number;
+  prTd?: number;
+  /** points from field goals and extra points */
+  kickPoints?: number;
+  /** sum and count of the yards-from-own-goal each of this team's drives began at */
+  startSum?: number;
+  startN?: number;
+  /** a modelled estimate of receiver separation (see the engine's `sep_sum`) */
+  sepSum?: number;
+  sepN?: number;
 }
 
 export interface ScoringPlay {

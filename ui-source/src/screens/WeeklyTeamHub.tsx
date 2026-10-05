@@ -6,9 +6,10 @@ import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
-import { MatchupBoard } from "@/components/MatchupBoard";
+import { MatchupBoard, type SubMetric } from "@/components/MatchupBoard";
 import { WaitingStakes } from "@/components/WaitingStakes";
 import { productionRanks } from "@/state/productionRanks";
+import { BETTER, type StatKey, teamProduction } from "@/state/teamProduction";
 import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
@@ -169,7 +170,10 @@ export function WeeklyTeamHub() {
   // no game this week (a bye, the offseason): the matchup tab isn't offered
   const tab = active === "matchup" && !oppCode ? "overview" : active;
   // ranks of what's been done on the field this season (null before the first game)
-  const produced = productionRanks(s, s.games);
+  // from what this GM has watched: online, `state.games` runs ahead of them
+  const seenGames = online ? visibleGames(s, s.viewerGmId) : s.games;
+  const produced = productionRanks(s, seenGames);
+  const prod = teamProduction(seenGames, Object.keys(s.teams));
   const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
   return (
@@ -348,18 +352,41 @@ export function WeeklyTeamHub() {
               // scores — roster ratings only until a game has been played
               {
                 label: produced ? "Offense rank (points scored)" : "Offense rank",
+                subs: subsOf(prod, code, oppCode, [
+                  ["points", "Points scored", f1, "per game"],
+                  ["rushYds", "Rushing yards", f1, "per game"],
+                  ["passYds", "Passing yards", f1, "per game"],
+                  ["compPct", "Completion %", pct, "completions per attempt"],
+                  ["separation", "Avg. separation", yd, "Yards of separation on targets. A modelled estimate of the receivers' route running and hands against the coverage; the game doesn't measure it."],
+                  ["pressure", "Pressure % allowed", pct, "Sacks plus quarterback hits per dropback: the offensive line's grade. Lower is better."],
+                  ["possession", "Time of possession", clock, "average per game"],
+                ]),
                 rank: true,
                 a: produced?.get(code)?.offense ?? sides[code]?.offenseRank ?? team.ratings.offenseRank,
                 b: produced?.get(oppCode)?.offense ?? sides[oppCode]?.offenseRank ?? opp.ratings.offenseRank,
               },
               {
                 label: produced ? "Defense rank (points allowed)" : "Defense rank",
+                subs: subsOf(prod, code, oppCode, [
+                  ["pointsAllowed", "Points allowed", f1, "per game"],
+                  ["passYdsAllowed", "Passing yards allowed", f1, "per game"],
+                  ["rushYdsAllowed", "Rushing yards allowed", f1, "per game"],
+                  ["interceptions", "Interceptions", int, "season total"],
+                  ["recoveries", "Fumble recoveries", int, "season total"],
+                ]),
                 rank: true,
                 a: produced?.get(code)?.defense ?? sides[code]?.defenseRank ?? team.ratings.defenseRank,
                 b: produced?.get(oppCode)?.defense ?? sides[oppCode]?.defenseRank ?? opp.ratings.defenseRank,
               },
               {
                 label: produced?.get(code)?.specialTeams != null ? "Special teams rank (kicking points)" : "Special teams rank",
+                subs: subsOf(prod, code, oppCode, [
+                  ["kickPoints", "Kicking points", f1, "field goals and extra points, per game"],
+                  ["krTd", "Kick return TDs", int, "season total"],
+                  ["prTd", "Punt return TDs", int, "season total"],
+                  ["startOwn", "Own avg. start", spot, "Where this team's drives begin, in yards from its own goal line. Higher is better."],
+                  ["startOpp", "Opponents' avg. start", spot, "Where opponents' drives begin against this team. Lower is better."],
+                ]),
                 rank: true,
                 a: produced?.get(code)?.specialTeams ?? team.ratings.specialTeamsRank,
                 b: produced?.get(oppCode)?.specialTeams ?? opp.ratings.specialTeamsRank,
@@ -838,4 +865,32 @@ function InjuryTable({
       </table>
     </div>
   );
+}
+
+// ---- the figures behind each unit rank on the matchup tab ---------------------
+
+const f1 = (n: number): string => n.toFixed(1);
+const pct = (n: number): string => `${n.toFixed(1)}%`;
+const yd = (n: number): string => `${n.toFixed(1)} yd`;
+const int = (n: number): string => String(Math.round(n));
+const spot = (n: number): string => `own ${n.toFixed(1)}`;
+const clock = (secs: number): string => `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, "0")}`;
+
+/** One unit's sub-rows for the two teams in the matchup, from the season's box scores. */
+function subsOf(
+  prod: ReturnType<typeof teamProduction>,
+  me: string,
+  them: string,
+  rows: [StatKey, string, (n: number) => string, string][],
+): SubMetric[] {
+  return rows.map(([key, label, fmt, hint]) => ({
+    label,
+    a: prod?.get(me)?.[key]?.value ?? null,
+    b: prod?.get(them)?.[key]?.value ?? null,
+    aRank: prod?.get(me)?.[key]?.rank ?? null,
+    bRank: prod?.get(them)?.[key]?.rank ?? null,
+    better: BETTER[key],
+    fmt,
+    hint,
+  }));
 }

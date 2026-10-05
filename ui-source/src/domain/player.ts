@@ -212,6 +212,8 @@ export interface Player {
    * trade deadline (`contracts.ts`).
    */
   holdout?: string;
+  /** The team he really plays for, kept when a fantasy-draft league releases everyone, so switching the draft off restores real rosters. */
+  home_team?: string;
   /**
    * The team whose contract with him ran out, and the season it did — what
    * the compensatory-pick formula counts as a free agent lost.
