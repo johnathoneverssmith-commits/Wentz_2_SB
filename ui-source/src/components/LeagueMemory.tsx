@@ -1,4 +1,5 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { StaggerItem, StaggerList } from "@/motion/Stagger";
 import type { LeagueState } from "@/domain";
 import { roundLabelFor } from "@/domain";
 import { AWARD_LABEL, NFL_RECORDS, RECORD_LABEL, type SeasonAward } from "@/state/seasonAwards";
@@ -171,17 +172,17 @@ export function LeagueMemory({ s, teamCode }: { s: LeagueState; teamCode?: strin
 export function SeasonAwardsList({ awards }: { awards: SeasonAward[] }) {
   if (awards.length === 0) return null;
   return (
-    <div style={{ display: "grid", gap: 4, textAlign: "left", maxWidth: 520, margin: "0 auto" }}>
+    <StaggerList className="awards-list">
       {awards.map((a) => (
-        <div key={a.award} style={{ fontSize: 12.5, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <StaggerItem key={a.award} className="award-row">
           <span style={{ color: "var(--ink-faint)", minWidth: 200 }}>{AWARD_LABEL[a.award]}</span>
           <strong>{a.name}</strong>
           <span style={{ color: "var(--ink-dim)" }}>
             {posLabel(a.position)} · {abbr(a.team)}
           </span>
-        </div>
+        </StaggerItem>
       ))}
-    </div>
+    </StaggerList>
   );
 }
 

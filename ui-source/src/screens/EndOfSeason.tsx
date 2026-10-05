@@ -1,4 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+import { type Moment, ScoreMoment } from "@/motion/ScoreMoment";
 import { leagueBadge } from "@/state/leagueFormat";
 import { SeasonAwardsList } from "@/components/LeagueMemory";
 import { useNavigate } from "react-router-dom";
@@ -82,6 +84,19 @@ export function SeasonComplete() {
   const champ = s.bracket?.champion ?? s.bracket?.matchups.find((m) => m.round === "SB")?.winner ?? null;
   const humanChampGm = s.gms.find((g) => g.isHuman && g.teamCode === champ);
 
+  // the title is an occasion for whoever won it: their colours, once, on arrival
+  const [crown, setCrown] = useState<Moment | null>(null);
+  useEffect(() => {
+    if (!champ) return;
+    setCrown({
+      key: `champ-${s.season}`,
+      color: TEAMS_BY_CODE[champ]?.color ?? "#444",
+      label: "Champions",
+      sub: teamFullName(champ),
+      from: "left",
+    });
+  }, [champ, s.season]);
+
   // furthest-advanced human GM (used when no human won it all)
   const furthest = useMemo(() => {
     const rank = (r: string) => ({ SB: 4, CONF: 3, DIV: 2, WC: 1, none: 0 })[r as PlayoffRound | "none"] ?? 0;
@@ -143,6 +158,7 @@ export function SeasonComplete() {
 
   return (
     <Card maxWidth={760}>
+      <ScoreMoment moment={crown} onDone={() => setCrown(null)} />
       {/* the badge is the viewer's own team: the headline below can be somebody
           else's, and a header showing their team over your season confused */}
       <CardHeader

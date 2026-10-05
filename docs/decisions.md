@@ -1172,3 +1172,33 @@ timer) takes the worst on offer as the stage closes. Computed from
 `state.history` plus a per-season `state.hotSeat` snapshot (so options and
 choices survive a reload). Online, the move goes through `actions/job`, and
 `withLeague` keeps the `franchises` seat table in step with the document.
+
+## Motion: Framer Motion, three levels, a moment for every score
+
+The interface moves, at a level the player chooses per device (Full / Subtle /
+Off, `ui-source/src/motion/level.ts`; with no saved choice it follows the OS
+"reduce motion" setting). The level is mirrored on `<html data-motion>`: CSS
+reads it to scale the `--dur*` tokens (everything in the stylesheet already
+takes its timing from them) and the Framer-driven parts read it through
+`useMotion()`. Framer Motion loads through `LazyMotion` with the DOM feature
+set only (`m` components, never `motion`); it costs about +30 KB gzipped on a
+~390 KB game. Motion is enter-only (no exit animations: an old screen never
+holds up the next one) and animates transform and opacity, so it stays on the
+compositor while a week simulates.
+
+What moves: the routed screen slides in; stat figures count to new values
+(`CountedValue` in `primitives.tsx`, which parses "$165.2M" and keeps its
+format); rows rise in a staggered cascade capped at ~0.6 s however long the
+list (`ExpandableRow` is its own stagger item inside a `StaggerList`); detail
+panels grow open; team colours are registered `@property` colours, so a
+change of team (a new job after a firing) blends instead of snapping. The big
+beats are `ScoreMoment`: every score in the gamecast, in the *scoring team's*
+colours (so the opponent's touchdown is as big as yours in theirs), the
+viewer's draft picks (first-round picks by others in the quiet version), the
+champion, and taking a new job. Full is a banner sweep, an overshooting label
+and confetti; Subtle a brief band and label; Off nothing. Cues come from the
+existing audio engine (`audio/cues.ts`), whose own switch mutes them.
+
+The embedded preview browser throttles to ~2 fps, so smoothness and feel were
+verified structurally (what renders at each level, final states, clean-up) and
+need a human eye on a normal screen.

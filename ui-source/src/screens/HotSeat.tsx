@@ -66,6 +66,7 @@ function Seasons({ e }: { e: HotSeatEntry }) {
 }
 
 export function HotSeat() {
+  const motion = useMotion();
   const nav = useNavigate();
   const s = useStore();
   const actions = useLeagueActions();
@@ -134,9 +135,16 @@ export function HotSeat() {
           <div className="emptystate">You don&rsquo;t have a job to review.</div>
         ) : (
           <>
-            <p style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: LEVEL[mine.level].color }}>
+            {/* the verdict lands like a stamp: big, then home */}
+            <m.p
+              key={mine.level}
+              initial={motion.off ? false : { opacity: 0, scale: motion.full ? 2.2 : 1, rotate: motion.full ? -6 : 0 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              transition={{ duration: motion.full ? 0.5 : 0.15, ease: [0.2, 1.2, 0.3, 1] }}
+              style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: LEVEL[mine.level].color, transformOrigin: "left center" }}
+            >
               {LEVEL[mine.level].label}
-            </p>
+            </m.p>
             <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--ink-dim)" }}>
               {mine.level === "fired"
                 ? `After ${mine.tenure} seasons running ${label(mine.teamCode)}, the owner is going in a different direction.`

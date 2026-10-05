@@ -2168,3 +2168,23 @@ input[type="range"]::-moz-range-thumb {
   top: 45%;
   border-radius: 1px;
 }
+
+.awards-list {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.awards-list .award-row {
+  font-size: 12.5px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* a press you can feel: buttons dip slightly under the pointer (not in "off") */
+:root:not([data-motion="off"]) :is(button, [role="button"], .btn-primary):active:not(:disabled) {
+  transform: scale(0.972);
+  transition: transform var(--dur-fast) var(--ease);
+}
