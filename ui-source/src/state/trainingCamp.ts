@@ -269,12 +269,14 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
             ? 0
             : deterministicNoiseUnit(teamCode, s.season, "camp_focus", g) * difficulty.evaluationNoise;
         const weakness = (77 - bestOvr) * strategyWeaknessMultiplier(strategy) + noise;
-        // Expert-only: up to +1.5, toward whichever group has the larger
-        // share of players still below their development-age threshold.
+        // Expert-level GMs only: up to +1.5, toward whichever group has the
+        // larger share of players still below their development-age threshold.
+        // (By the GM's own skill, so a sharp Competitive GM does a little of it
+        // and a weak Expert one less: full at no evaluation noise, none at
+        // Competitive's.)
+        const sharp = Math.max(0, 1 - difficulty.evaluationNoise / 0.8);
         const developingShare =
-          (s.config.difficulty === "expert" || s.config.difficulty === "master") && men.length > 0
-            ? men.filter((p) => p.age < p.dev_age_threshold).length / men.length
-            : 0;
+          sharp > 0 && men.length > 0 ? (sharp * men.filter((p) => p.age < p.dev_age_threshold).length) / men.length : 0;
         const score = weakness + strategyGroupBonus(strategy, g as OffensiveFocus | DefensiveFocus) + developingShare * 1.5;
         if (score > bestScore) {
           bestScore = score;

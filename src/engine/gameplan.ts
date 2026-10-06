@@ -431,5 +431,5 @@ export const STRATEGY_PLANS: Record<string, Partial<GamePlan>> = {
   run_heavy: { passRate: -8, p11: 46, p12: 38, p13: 16, rbCommittee: 20 },
   high_floor: { passRate: -6, fourthOwn: -15, twoPoint: -30, p11: 48, p12: 38, p13: 14, rbCommittee: 25 },
   high_ceiling: { fourthRedZone: 30, fourthOpp: 30, fourthOwn: 10, fourthShort: 30, twoPoint: 40, blitz: 20 },
-  trenches_first: { passRate: -4, p11: 50, p12: 36, p13: 14, blitz: 10 },
+  trenches_first: { passRate: -4, p11: 50, p12: 36, p13: 14, blitz: 20, fourthShort: 30, rbCommittee: 30 },
 };

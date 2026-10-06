@@ -1918,6 +1918,46 @@ export function finalizeSeason(s: LeagueState): void {
  */
 const RESIGN_CAP_BUFFER = 18;
 const ELITE_RESIGN_CAP_BUFFER = 6;
+/**
+ * The extensions a front office would make for one team at season's end, best
+ * first, within next year's budget: the starters and good depth, young enough
+ * to be worth it, at the price each asks. Pure: the CPU teams apply it as the
+ * season closes (`resignAiCore`), and a person's staff proposes it (the
+ * expiring-contracts notice) and does it only on a yes.
+ */
+export function planCoreResign(s: LeagueState, code: string): { player: Player; ask: ReturnType<typeof extensionAsk> }[] {
+  const team = s.teams[code];
+  if (!team) return [];
+  const roster = Object.values(s.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent && p.contract);
+  // what next season already costs: every deal that runs past this one
+  let committed = roster.reduce(
+    (n, p) => n + ((p.contract!.years_remaining ?? 0) >= 2 ? (p.contract!.cap_hit_by_year[1] ?? 0) : 0),
+    0,
+  );
+  const rankAt = (p: Player): number => roster.filter((x) => x.position === p.position && x.overall > p.overall).length;
+  const expiring = roster
+    .filter((p) => (p.contract!.years_remaining ?? 0) <= 1)
+    .filter((p) => {
+      const starters = ROSTER_TEMPLATE.find((r) => r.pos === p.position)?.starters ?? 0;
+      const keeper = p.overall >= 80 || (p.overall >= 70 && rankAt(p) < starters + 1);
+      const declining = p.age >= (p.decline_age_threshold ?? 32) + 1 && p.overall < 85;
+      return keeper && !declining && starters > 0;
+    })
+    .sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position));
+  const out: { player: Player; ask: ReturnType<typeof extensionAsk> }[] = [];
+  for (const p of expiring) {
+    const ask = extensionAsk(p);
+    // a franchise player is kept even when it squeezes the draft budget
+    const buffer = p.overall >= 88 ? ELITE_RESIGN_CAP_BUFFER : RESIGN_CAP_BUFFER;
+    if (committed + ask.baseSalary > team.cap.total - buffer) continue;
+    // budgeted against next year's commitments, not this year's payroll —
+    // at season's end a third of that payroll is about to expire
+    out.push({ player: p, ask });
+    committed += ask.baseSalary;
+  }
+  return out;
+}
+
 export function resignAiCore(s: LeagueState): number {
   let signed = 0;
   for (const code of Object.keys(s.teams)) {
@@ -1926,33 +1966,16 @@ export function resignAiCore(s: LeagueState): number {
     const roster = Object.values(s.players).filter(
       (p) => p.nfl_team === code && !p.retired && !p.free_agent && p.contract,
     );
-    // what next season already costs: every deal that runs past this one
+    const plan = planCoreResign(s, code);
+    for (const { player, ask } of plan) {
+      applyExtension(player, ask);
+      signed++;
+    }
+    // next year's commitments after the extensions, for the options and the tag below
     let committed = roster.reduce(
       (n, p) => n + ((p.contract!.years_remaining ?? 0) >= 2 ? (p.contract!.cap_hit_by_year[1] ?? 0) : 0),
       0,
     );
-    const rankAt = (p: Player): number =>
-      roster.filter((x) => x.position === p.position && x.overall > p.overall).length;
-    const expiring = roster
-      .filter((p) => (p.contract!.years_remaining ?? 0) <= 1)
-      .filter((p) => {
-        const starters = ROSTER_TEMPLATE.find((r) => r.pos === p.position)?.starters ?? 0;
-        const keeper = p.overall >= 80 || (p.overall >= 70 && rankAt(p) < starters + 1);
-        const declining = p.age >= (p.decline_age_threshold ?? 32) + 1 && p.overall < 85;
-        return keeper && !declining && starters > 0;
-      })
-      .sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position));
-    for (const p of expiring) {
-      const ask = extensionAsk(p);
-      // a franchise player is kept even when it squeezes the draft budget
-      const buffer = p.overall >= 88 ? ELITE_RESIGN_CAP_BUFFER : RESIGN_CAP_BUFFER;
-      if (committed + ask.baseSalary > team.cap.total - buffer) continue;
-      // budgeted against next year's commitments above, not this year's
-      // payroll — at season's end a third of that payroll is about to expire
-      applyExtension(p, ask);
-      committed += ask.baseSalary;
-      signed++;
-    }
     // the first-round rookie deals worth a fifth year, then the one star the
     // money ran out for: tagged rather than lost for nothing
     // (budgeted against the same next-year commitments as the extensions)

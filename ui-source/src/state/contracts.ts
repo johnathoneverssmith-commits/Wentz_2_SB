@@ -163,9 +163,14 @@ export function extendContract(
 
   const team = state.teams[p.nfl_team];
   if (team) {
-    // the extension years have to fit under the cap in the first of them
+    // the extension years have to fit under the cap in the first of them:
+    // next year's commitments (every deal that runs past this one), with his
+    // new salary in place of whatever he was due. This used to start from this
+    // year's payroll, which in season sits a few million under the cap, so a
+    // person could almost never extend a star while the CPU teams, budgeting
+    // against next year as here (`planCoreResign`), always could.
     const capNextYear =
-      team.cap.used - (c.cap_hit_by_year[1] ?? 0) + offer.baseSalary + (c.prorated_per_year ?? 0);
+      nextYearCommitments(state, p.nfl_team) - (c.years_remaining >= 2 ? (c.cap_hit_by_year[1] ?? 0) : 0) + offer.baseSalary + (c.prorated_per_year ?? 0);
     if (capNextYear > team.cap.total) {
       const over = round1(capNextYear - team.cap.total);
       return {
@@ -177,6 +182,16 @@ export function extendContract(
 
   applyExtension(p, offer);
   return { ok: true };
+}
+
+/** What a team already owes next season: every contract that runs past this one. */
+export function nextYearCommitments(state: LeagueState, teamCode: string): number {
+  let n = 0;
+  for (const x of Object.values(state.players)) {
+    if (x.nfl_team !== teamCode || x.retired || x.free_agent || !x.contract) continue;
+    if ((x.contract.years_remaining ?? 0) >= 2) n += x.contract.cap_hit_by_year[1] ?? 0;
+  }
+  return Math.round(n * 10) / 10;
 }
 
 /** Rewrite a deal as extended — the part of `extendContract` after the checks. */

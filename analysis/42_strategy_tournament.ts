@@ -65,7 +65,11 @@ function margin(team: string, plan: GamePlan): number {
 const base = new Map(teams.map((t) => [t, margin(t, cleanPlan(DEFAULT_PLAN))]));
 console.log(`talent ${TALENT}, ${GAMES} games a roster; margin vs the standard plan (points/game)\n`);
 console.log("strategy          overall    best-fit 8   worst-fit 8   spread");
-for (const [name, partial] of Object.entries(AI_PLANS)) {
+// --only name, and --try 'json' to measure a candidate plan under that name (the FIT metric of the name)
+const ONLY = arg("only", "");
+const TRY = arg("try", "");
+const entries: [string, Partial<GamePlan>][] = TRY ? [[ONLY, JSON.parse(TRY) as Partial<GamePlan>]] : Object.entries(AI_PLANS).filter(([n]) => !ONLY || ONLY.split(",").includes(n));
+for (const [name, partial] of entries) {
   if (name === "balanced") continue;
   const plan = cleanPlan(partial);
   const delta = new Map(teams.map((t) => [t, margin(t, plan) - base.get(t)!]));

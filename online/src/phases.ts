@@ -451,7 +451,11 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // teams plus the fewest CPU teams that make it even (and at least four),
   // before the draft builds anyone's roster — the same step the local store
   // takes in `applyStageEntry`
-  if (from === "setup" && isHumansOnly(state)) formHumansOnlyLeague(state);
+  if (from === "setup" && isHumansOnly(state)) {
+    formHumansOnlyLeague(state);
+    // the franchises that just went had CPU GMs; they go back to the pool
+    syncAiGms(state);
+  }
 
   // job security after the season (`hotSeat.ts`): made as the stage opens;
   // a fired GM who never chose takes the worst job on offer as it closes

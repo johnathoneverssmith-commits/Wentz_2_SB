@@ -1452,3 +1452,53 @@ GM's identity) and does it only on a yes, through the same action a person
 would have sent. A CPU free-agency turn is now `chooseFaMove` then apply, so
 the CPU teams and a person's staff are the same code; free agency and the CPU
 deadline buyers gained a bounded identity term.
+
+## Audit of the game-plan / GM-identity stretch (2026-10)
+
+Driven by one question: does an engaged person's team do as well as the CPU's?
+It did not. An engaged GM (identity set, staff running free agency and the
+deadline, re-signing starters) still collapsed to 1-16 within four seasons.
+
+**Defect: a person could almost never extend a star.** `extendContract` judged
+next year's cap from *this* year's payroll (`team.cap.used`, a few million
+under the cap in season), so 11 of 32 teams could not extend their best player
+even in preseason, and nearly none in season. The CPU re-signs through
+`applyExtension` against next year's commitments, so only people were hit:
+the measured human team lost an 87 QB to free agency and went 4-13 twice with
+a roster the screens ranked third. Now judged against `nextYearCommitments`
+(`extensionCap.test.ts`). With it, the same engaged GM went 5-11, 15-2, 12-5,
+15-2, 9-7, 13-4, 11-6, 8-9 and was never fired.
+
+**Staff re-sign.** The expiring-contracts notice offers "Let my staff re-sign
+the core": the exact list the CPU teams use (`planCoreResign`, extracted from
+`resignAiCore`), within next year's budget, shown first, signed on a yes.
+Holdouts (a person-only cost; CPU teams pay theirs as camp opens) now appear
+in the same notice with their price and a "Pay him" button.
+
+**Team ratings weighted by position.** The starting-lineup overall was a plain
+mean of 24 starters, so a 73 QB counted as much as a 73 guard. Each starter is
+now weighted by his unit's measured worth (`UNITS` in `unitValue.ts`, shared
+among its starters; a QB is about 3.5x an average starter). Against 24 engine
+games per team on the real rosters, the rating's correlation with margin rose
+from 0.877 to 0.926. It feeds the win probabilities, rankings and free agents'
+"winning now" appeal.
+
+**Fantasy draft defaults to snake.** With the same order every round, slots
+1-8 finished 1.7 starting-lineup points ahead of slots 25-32 on luck alone;
+snake order, 0.7. Still selectable.
+
+**Trenches-first plan retuned** to `{ passRate -4, heavy personnel, blitz 20,
+fourthShort 30, rbCommittee 30 }`: tournament overall +0.03, best-fit +0.48,
+worst-fit -0.46 (was -0.09 / -0.18 / -0.67). `high_floor` is unchanged: its
+point is lower variance, which a mean-margin tournament cannot see.
+
+**Smaller fixes.** Camp focus's development tie-break follows the GM's skill
+rather than the league's difficulty label; CPU GMs of franchises a humans-only
+league deletes return to the pool; coincident dots on the identity map fan
+out; a slow draft test got headroom under load.
+
+**Checked and left alone.** Default-plan byte-identity; replays (36/36 in the
+dynasty); CPU firings run 1-6 an offseason (NFL-like), the pool never drains,
+a replacement never shares the fired GM's strategy; no remaining direct reads
+of `config.difficulty` or `strategyFor`; the new screens at phone width (no
+horizontal scroll).

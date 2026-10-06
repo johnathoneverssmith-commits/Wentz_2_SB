@@ -3,6 +3,7 @@
  * coach market + first draft class are generated up front so every screen has
  * data to render from the start; setup/draft stages then reassign as needed.
  */
+import { UNITS } from "./unitValue.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
@@ -45,7 +46,10 @@ export const DEFAULT_CONFIG: LeagueConfig = {
   humanGmCount: 3,
   fantasyDraft: true,
   draftOrder: "randomized",
-  draftType: "linear",
+  // snake, as fantasy drafts are run: with the same order every round the
+  // first slot took the best player of all 53 rounds, and slots 1-8 ended up
+  // 1.7 starting-lineup points ahead of slots 25-32 on luck alone (0.7 snake)
+  draftType: "snake",
   // twenty rounds by hand is a long evening; five picks is enough to shape a
   // roster before the rest fills itself in
   draftSimulateAfterPicks: 5,
@@ -122,6 +126,21 @@ const STARTER_COUNTS: Partial<Record<Position, number>> = {
   QB: 1, RB: 1, WR: 3, TE: 1, OT: 2, OG: 2, C: 1,
   EDGE: 2, DT: 2, ILB: 2, CB: 2, S: 2, K: 1, P: 1,
 };
+
+/**
+ * What one starter at each position counts for in the team's starting-lineup
+ * rating: his unit's measured worth (`UNITS` in unitValue.ts) shared among the
+ * unit's starters. A quarterback is about three and a half times an average
+ * starter; a kicker or punter, nearly nothing (special teams has its own rating).
+ */
+const STARTER_WEIGHT: Partial<Record<Position, number>> = (() => {
+  const out: Partial<Record<Position, number>> = { K: 0.01, P: 0.01 };
+  for (const u of Object.values(UNITS)) {
+    const n = Object.values(u.slots).reduce((a, b) => a + b, 0);
+    for (const pos of Object.keys(u.slots)) out[pos as Position] = u.weight / n;
+  }
+  return out;
+})();
 
 /** League-minimum depth deal — no guarantee. */
 const MIN_SALARY_M = 1;
@@ -1139,14 +1158,28 @@ export function recomputeTeamRatings(state: LeagueState): void {
     if (l) l.push(p);
     else byTeam.set(p.nfl_team, [p]);
   }
+  // The starting-lineup ratings weight each starter by what his position is
+  // measured to be worth on the field (`unitValue.ts`, per player): a plain
+  // average counted a 73 quarterback the same as a 73 guard, and a team the
+  // screens called third-best went 4-13 with one. Same 0-99 scale.
+  const weighted = (arr: Player[], fallback = 72) => {
+    let n = 0;
+    let w = 0;
+    for (const p of arr) {
+      const k = STARTER_WEIGHT[p.position] ?? 0.05;
+      n += k * p.overall;
+      w += k;
+    }
+    return w > 0 ? Math.round(n / w) : fallback;
+  };
   const raw: Record<string, { o: number; off: number; def: number; st: number; roster: number }> = {};
   for (const code of codes) {
     const fullRoster = byTeam.get(code) ?? [];
     const starters = lineupFrom(state, code, fullRoster);
     raw[code] = {
-      o: mean(starters),
-      off: mean(starters.filter((p) => OFF.has(p.position))),
-      def: mean(starters.filter((p) => DEF.has(p.position))),
+      o: weighted(starters),
+      off: weighted(starters.filter((p) => OFF.has(p.position))),
+      def: weighted(starters.filter((p) => DEF.has(p.position))),
       st: mean(starters.filter((p) => p.position === "K" || p.position === "P"), 68),
       roster: mean(fullRoster),
     };

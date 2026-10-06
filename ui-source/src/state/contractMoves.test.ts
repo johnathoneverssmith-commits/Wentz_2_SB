@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LeagueState, Player } from "@/domain";
 
-import { extendContract, extensionAsk, previewRestructure, restructureContract } from "./contracts.ts";
+import { extendContract, extensionAsk, previewRestructure, restructureContract, nextYearCommitments } from "./contracts.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 import { releasePenalty } from "./reconciliation.ts";
 
@@ -180,9 +180,10 @@ describe("restructure then extend", () => {
     p.contract!.cap_hit_by_year = [24, 24, 24, 24];
     restructureContract(p, s.season);
     const ask = extensionAsk(p);
-    // exactly enough room for the salary alone, none for the carried bonus
+    // exactly enough room next year for the salary alone, none for the carried bonus
+    // (next year's cap is next year's commitments, not this year's payroll)
     s.teams[p.nfl_team]!.cap.total =
-      s.teams[p.nfl_team]!.cap.used - (p.contract!.cap_hit_by_year[1] ?? 0) + ask.baseSalary;
+      nextYearCommitments(s, p.nfl_team) - (p.contract!.cap_hit_by_year[1] ?? 0) + ask.baseSalary;
     expect(extendContract(s, p, ask).ok).toBe(false);
   });
 });

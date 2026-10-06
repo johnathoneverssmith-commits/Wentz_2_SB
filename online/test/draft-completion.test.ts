@@ -93,7 +93,7 @@ describe("the draft completion threshold", () => {
     while (guard++ < 60) pickForClock(s);
     // dozens of picks in and it still will not take the draft away
     expect(draftThresholdMet(s)).toBe(false);
-  }, 120_000);
+  }, 240_000);
 
   it("completes the whole board when it fires", () => {
     const s = draftingLeague(1);

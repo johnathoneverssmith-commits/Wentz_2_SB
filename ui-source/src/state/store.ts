@@ -404,7 +404,11 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   syncAiGms(s);
   // leaving setup in a humans-only league → the league becomes the GMs' teams
   // plus the fewest CPU teams that make it even; every other franchise goes
-  if (from === "setup" && isHumansOnly(s)) formHumansOnlyLeague(s);
+  if (from === "setup" && isHumansOnly(s)) {
+    formHumansOnlyLeague(s);
+    // the franchises that just went had CPU GMs; they go back to the pool
+    syncAiGms(s);
+  }
 
   // the owners review each human GM's job after the season; whoever is still
   // unemployed as the stage closes takes the worst job on offer

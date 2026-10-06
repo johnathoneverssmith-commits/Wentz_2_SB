@@ -48,6 +48,18 @@ export function IdentityMap({ code }: { code: string | null | undefined }) {
   const B = 26;
   const px = (v: number) => L + ((v - x0) / (x1 - x0 || 1)) * (W - L - 10);
   const py = (v: number) => H - B - ((v - y0) / (y1 - y0 || 1)) * (H - B - 10);
+  // teams with the same two ratings sit on one spot: fan them out so every dot and label shows
+  const spot = new Map<string, number>();
+  const placed = all.map((t) => {
+    const key = `${t.offense}|${t.defense}`;
+    const k = spot.get(key) ?? 0;
+    spot.set(key, k + 1);
+    return { ...t, k };
+  });
+  const dx = (t: { offense: number; defense: number; k: number }): number => {
+    const n = spot.get(`${t.offense}|${t.defense}`) ?? 1;
+    return (t.k - (n - 1) / 2) * 13;
+  };
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const my = ys.reduce((a, b) => a + b, 0) / ys.length;
 
@@ -69,20 +81,21 @@ export function IdentityMap({ code }: { code: string | null | undefined }) {
         <text x={10} y={(H - B) / 2} fontSize={11} fill="var(--ink-dim)" transform={`rotate(-90 10 ${(H - B) / 2})`} textAnchor="middle">
           Starting defense →
         </text>
-        {all.map((t) => {
+        {placed.map((t) => {
           const mine = t.code === code;
+          const x = px(t.offense) + dx(t);
           return (
             <g key={t.code}>
               <title>{`${TEAMS_BY_CODE[t.code]?.label ?? t.code} · ${t.gm} · ${NAME(t.key)} · off ${t.offense}, def ${t.defense}`}</title>
               <circle
-                cx={px(t.offense)}
+                cx={x}
                 cy={py(t.defense)}
                 r={mine ? 7 : 5.5}
                 fill={COLOR[t.key]}
                 stroke={mine ? "var(--team)" : "var(--panel)"}
                 strokeWidth={mine ? 2.5 : 1}
               />
-              <text x={px(t.offense)} y={py(t.defense) - 8} textAnchor="middle" fontSize={8.5} fill={mine ? "var(--team)" : "var(--ink-faint)"} fontWeight={mine ? 700 : 400}>
+              <text x={x} y={py(t.defense) - (t.k % 2 === 0 ? 8 : -15)} textAnchor="middle" fontSize={8.5} fill={mine ? "var(--team)" : "var(--ink-faint)"} fontWeight={mine ? 700 : 400}>
                 {TEAMS_BY_CODE[t.code]?.abbr ?? t.code}
               </text>
             </g>

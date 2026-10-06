@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { OvrPill } from "@/components/bits";
 import { extensionAsk } from "@/state/contracts";
+import { planCoreResign } from "@/state/rules";
 import { useStore } from "@/state/store";
 import { millions, posLabel } from "@/util/format";
 
@@ -39,7 +40,13 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
         .sort((a, b) => b.overall - a.overall),
     [players, teamCode],
   );
-  if (expiring.length === 0 && done.length === 0) return null;
+  // a star staying away from the team until he is paid: CPU teams pay theirs
+  // as camp opens (`startHoldouts`); a person sees it here, with his price
+  const holdouts = useMemo(
+    () => Object.values(players).filter((p) => p.holdout === teamCode && p.nfl_team === teamCode && !p.retired),
+    [players, teamCode],
+  );
+  if (expiring.length === 0 && done.length === 0 && holdouts.length === 0) return null;
   const shown = expiring.slice(0, 5);
 
   return (
@@ -49,6 +56,38 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
           {line}
         </p>
       ))}
+      {holdouts.map((p) => {
+        const ask = extensionAsk(p);
+        return (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, marginBottom: 10 }}>
+            <OvrPill value={p.overall} />
+            <span>
+              <strong>{p.name}</strong> ({posLabel(p.position)}) is holding out and won&rsquo;t play until he&rsquo;s paid or the deadline passes. He wants{" "}
+              {millions(ask.baseSalary)}/yr × {ask.years}.
+            </span>
+            {note[p.id] ? (
+              <span style={{ color: "var(--ink-dim)" }}>{note[p.id]}</span>
+            ) : (
+              <button
+                type="button"
+                className="btn-ghost"
+                style={{ fontSize: 11, padding: "3px 8px", marginLeft: "auto" }}
+                aria-label={`Pay ${p.name} his ask`}
+                onClick={() => {
+                  if (!confirm(`Extend ${p.name} for ${ask.years} more year${ask.years === 1 ? "" : "s"} at ${millions(ask.baseSalary)}/yr to end the holdout?`)) return;
+                  setNote((n) => ({ ...n, [p.id]: "Extending…" }));
+                  void actions.extend(p.id, ask).then((r) => {
+                    setNote((n) => ({ ...n, [p.id]: r.ok ? "Signed; he reports" : (r.reason ?? "He turned it down.") }));
+                    if (r.ok) setDone((d) => [...d, `${p.name} signed and ended his holdout.`]);
+                  });
+                }}
+              >
+                Pay him
+              </button>
+            )}
+          </div>
+        );
+      })}
       {expiring.length > 0 && (
         <>
           <strong>
@@ -107,9 +146,41 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
           </div>
         </>
       )}
-      <button className="btn-ghost" style={{ marginTop: 10, fontSize: 11.5 }} onClick={() => nav("/roster")}>
-        Extend on Roster &amp; Cap
-      </button>
+      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+        {expiring.length > 0 && (
+          // the CPU teams keep their core at season's end (`resignAiCore`); a
+          // person's staff proposes the same list, within next year's budget,
+          // and signs it only on a yes
+          <button
+            type="button"
+            className="btn-ghost"
+            style={{ fontSize: 11.5 }}
+            onClick={() => {
+              const plan = planCoreResign(useStore.getState(), teamCode).filter((x) => !note[x.player.id]);
+              if (plan.length === 0) {
+                alert("Your staff wouldn't extend anyone: nobody expiring is a starter worth his ask within next year's budget.");
+                return;
+              }
+              const total = plan.reduce((n, x) => n + x.ask.baseSalary, 0);
+              const list = plan.map((x) => `${x.player.name} (${posLabel(x.player.position)} ${x.player.overall}) ${millions(x.ask.baseSalary)}/yr × ${x.ask.years}`).join(", ");
+              if (!confirm(`Your staff would extend ${list}: ${millions(Math.round(total * 10) / 10)} a year in all. Go ahead?`)) return;
+              void (async () => {
+                for (const { player, ask } of plan) {
+                  setNote((n) => ({ ...n, [player.id]: "Extending…" }));
+                  const r = await actions.extend(player.id, ask);
+                  setNote((n) => ({ ...n, [player.id]: r.ok ? "Extended" : (r.reason ?? "He turned it down.") }));
+                  if (r.ok) setDone((d) => [...d, `${player.name} extended: ${ask.years} more year${ask.years === 1 ? "" : "s"} at ${millions(ask.baseSalary)}/yr.`]);
+                }
+              })();
+            }}
+          >
+            Let my staff re-sign the core
+          </button>
+        )}
+        <button className="btn-ghost" style={{ fontSize: 11.5 }} onClick={() => nav("/roster")}>
+          Extend on Roster &amp; Cap
+        </button>
+      </div>
     </div>
   );
 }
