@@ -23,6 +23,8 @@ import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent";
 import { coachingOnTheClock } from "@/state/coachingDraft";
 import { onTheClock as deadlineOnTheClock, pendingFor } from "@/state/tradeDeadline";
 
+import { HowItWorksDock } from "./HowItWorksDock";
+import { UnitGradesDock } from "./UnitGradesDock";
 import "./app-shell.css";
 import { useTeamTheme } from "./useTeamTheme.ts";
 
@@ -299,6 +301,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
         {children}
+        <UnitGradesDock teamCode={teamCode} />
+        <HowItWorksDock />
       </main>
     </div>
   );

@@ -47,6 +47,20 @@ export function TeamBadge({ code, size = 30 }: { code: string; size?: number }) 
   );
 }
 
+/**
+ * A prospect's college grade, labelled as one. It runs well above the overall
+ * he arrives with, so it is outlined and spelled out rather than shown in the
+ * same bare-number pill an NFL player's overall uses.
+ */
+export function GradePill({ value, short = false }: { value: number; short?: boolean }) {
+  return (
+    <span className="pgrade" title="College grade: how he rated in college. His NFL overall is lower, and his projection is shown beside it.">
+      {short ? "" : <small>College Grade</small>}
+      <b>{value}</b>
+    </span>
+  );
+}
+
 export function OvrPill({ value }: { value: number }) {
   const cls = value >= 85 ? "elite" : value >= 75 ? "mid" : "low";
   return <span className={`povr ${cls}`}>{value}</span>;

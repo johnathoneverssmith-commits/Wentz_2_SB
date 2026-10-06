@@ -923,6 +923,8 @@ function CreateLeague({
   // Change 1: how many picks each GM makes before the board finishes itself.
   // "" is the Never option — the whole draft by hand.
   const [simAfter, setSimAfter] = useState<string>("5");
+  const [draftRounds, setDraftRounds] = useState<string>("3");
+  const [faRounds, setFaRounds] = useState<string>("3");
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
   const [talentImpact, setTalentImpact] = useState<TalentImpact>("amplified");
   const gameDayHours: DeadlineChoice = 24;
@@ -946,6 +948,8 @@ function CreateLeague({
                 draftType,
                 draftOrder,
                 draftSimulateAfterPicks: Number(simAfter),
+                draftHumanRounds: draftRounds === "all" ? null : Number(draftRounds),
+                faHumanRounds: faRounds === "all" ? null : Number(faRounds),
                 difficulty,
                 talentImpact,
                 gameDayDeadlineHours: gameDayHours,
@@ -1019,6 +1023,25 @@ function CreateLeague({
               You can still change these in League settings until the league starts; once it
               kicks off they&rsquo;re fixed for everyone.
             </p>
+
+            <OnlineSetting label="Rookie draft rounds by hand" hint="How many rounds of each year's rookie draft the human GMs pick by hand. After them the staff picks for everyone, so nobody waits on seven rounds of special-teamers.">
+              <select value={draftRounds} onChange={(e) => setDraftRounds(e.target.value)}>
+                {["1", "2", "3", "all"].map((v) => (
+                  <option key={v} value={v}>
+                    {v === "all" ? "All 7" : v}
+                  </option>
+                ))}
+              </select>
+            </OnlineSetting>
+            <OnlineSetting label="Free agency rounds by hand" hint="How many of free agency's five rounds a human GM takes their own turn in. After them their staff takes the turn. You can change both at the start of each offseason.">
+              <select value={faRounds} onChange={(e) => setFaRounds(e.target.value)}>
+                {["1", "2", "3", "4", "all"].map((v) => (
+                  <option key={v} value={v}>
+                    {v === "all" ? "All 5" : v}
+                  </option>
+                ))}
+              </select>
+            </OnlineSetting>
 
             <OnlineSetting
               label="Fantasy draft"

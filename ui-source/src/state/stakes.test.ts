@@ -55,3 +55,43 @@ describe("what's at stake on a waiting screen", () => {
     expect(stakeFor(s, "KC")).toMatch(/most cap room in the league/);
   });
 });
+
+describe("what is at stake reads the situation it is in", () => {
+  const play = (s: LeagueState, code: string, w: number, l: number) => {
+    for (let i = 1; i <= w + l; i++) {
+      const won = i <= w;
+      s.games.push({ id: `${code}${i}`, week: i, phase: "REG", homeTeam: code, awayTeam: "ZZZ", played: true, homeScore: won ? 24 : 10, awayScore: won ? 10 : 24 } as never);
+    }
+    setRecord(s, code, w, l);
+  };
+
+  it("never calls an undefeated team a bubble team, whatever the odds say", () => {
+    const s = league();
+    s.stage = "regularSeason";
+    play(s, "GB", 8, 0);
+    const line = stakeFor(s, "GB");
+    expect(line).not.toMatch(/bubble|needs help|fighting|miracle/);
+    expect(line).toMatch(/8-0|perfect/);
+  });
+
+  it("a team with a losing record is never a contender or a hot start", () => {
+    const s = league();
+    s.stage = "regularSeason";
+    play(s, "GB", 3, 6);
+    expect(stakeFor(s, "GB")).not.toMatch(/contender|hot hand|favorite|perfect|unbeaten|threat/);
+  });
+
+  it("has real variety across situations and teams", () => {
+    const s = league();
+    s.stage = "regularSeason";
+    const lines = new Set<string>();
+    const records: [number, number][] = [[1, 7], [2, 6], [3, 5], [4, 4], [5, 3], [6, 2], [7, 1], [8, 0]];
+    for (const code of ["GB", "KC", "CHI", "DET", "MIN", "BUF"]) {
+      for (const [w, l] of records) {
+        setRecord(s, code, w, l);
+        lines.add(stakeFor(s, code).replace(/^.*?\)/, "").trim());
+      }
+    }
+    expect(lines.size).toBeGreaterThan(14);
+  });
+});

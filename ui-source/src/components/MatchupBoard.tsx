@@ -68,18 +68,26 @@ export function MatchupBoard({
   ];
   return (
     <div>
-      <div className="mhead mgrid">
-        <div className="mwhen">
-          <b>{when}</b>
-          {note ?? (me.site === "home" ? "Hosting" : me.site === "away" ? "On the road" : "Neutral site")}
-        </div>
-        {sides.map(({ side, team }) => (
+      {/* the viewer's team on the left, the opponent on the right, the week between them */}
+      <div className="mhead mhead3">
+        {[sides[0]!].map(({ side, team }) => (
           <div key={side.code} className="mteam">
             <TeamBadge code={side.code} size={44} />
             <strong>{team.abbr}</strong>
-            <small>
-              {side.record} · {side.site}
-            </small>
+            <small>{side.record}</small>
+            <GmLine code={side.code} style={{ display: "block", marginTop: 2 }} />
+          </div>
+        ))}
+        <div className="mwhen">
+          <b>{when}</b>
+          <span className="mat">{me.site === "away" ? "at" : "vs."}</span>
+          <span>{note ?? (me.site === "home" ? "Hosting" : me.site === "away" ? "On the road" : "Neutral site")}</span>
+        </div>
+        {[sides[1]!].map(({ side, team }) => (
+          <div key={side.code} className="mteam">
+            <TeamBadge code={side.code} size={44} />
+            <strong>{team.abbr}</strong>
+            <small>{side.record}</small>
             <GmLine code={side.code} style={{ display: "block", marginTop: 2 }} />
           </div>
         ))}
@@ -101,6 +109,12 @@ export function MatchupBoard({
 
       <div className="msection" style={{ marginTop: 14 }}>
         How they compare
+      </div>
+      {/* the same left-to-right order as the header above */}
+      <div className="mgrid mcolheads" aria-hidden="true">
+        <span />
+        <span style={{ color: mine.color }}>{mine.abbr}</span>
+        <span style={{ color: theirs.color }}>{theirs.abbr}</span>
       </div>
       <div>
         {metrics.map((m) => {

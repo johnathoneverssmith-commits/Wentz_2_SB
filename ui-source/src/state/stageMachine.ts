@@ -53,11 +53,12 @@ export const STAGE_HOME: Record<Stage, string> = {
   midseasonDepthChart: "/roster",
   playoffs: "/bracket",
   endOfSeasonAnnounce: "/end-of-season",
-  endOfSeasonWin: "/season-complete",
-  endOfSeasonConsolation: "/season-complete",
+  // each GM opens on the awards, and moves on to the season screen once they have seen them (`awardsSeenBy`)
+  endOfSeasonWin: "/end-of-season",
+  endOfSeasonConsolation: "/end-of-season",
   offseasonHotSeat: "/hot-seat",
   offseasonRetirement: "/retirement",
-  offseasonDraftPrep: "/draft-preview",
+  offseasonDraftPrep: "/retirement", // the old preview stage: its screen is gone, its readiness gate lives on the retirement screen
   offseasonDraft: "/draft",
   offseasonDraftSummary: "/rookie-draft-summary",
   offseasonSignings: "/rookie-signings",
@@ -139,9 +140,10 @@ export const STAGE_LABEL: Record<Stage, string> = {
  * GM who had moved on to the draft preview back to the retirement list.
  */
 const STEPS: Partial<Record<Stage, Record<string, { route: string; label: string }>>> = {
-  offseasonRetirement: { draftPreview: { route: "/draft-preview", label: "Draft Preview" } },
   offseasonDraftSummary: { rookieSignings: { route: "/rookie-signings", label: "Rookie Signings" } },
   trainingCamp: { trainingCampResults: { route: "/training-camp-results", label: "Training Camp Results" } },
+  endOfSeasonWin: { awardsSeen: { route: "/season-complete", label: "Season Complete" } },
+  endOfSeasonConsolation: { awardsSeen: { route: "/season-complete", label: "Season Complete" } },
 };
 
 /** Where this GM's current screen is, and what to call it. */

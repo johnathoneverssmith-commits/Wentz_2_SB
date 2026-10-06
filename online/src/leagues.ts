@@ -61,6 +61,10 @@ export async function createOnlineLeague(
   // local one are the same object — that's what lets the rules be shared.
   const config: LeagueConfig = {
     ...DEFAULT_CONFIG,
+    // an online league is played over days: three rounds of the annual draft
+    // and of free agency by hand unless the commissioner says otherwise
+    draftHumanRounds: 3,
+    faHumanRounds: 3,
     ...clean.patch,
     ...(deadline(gameDayDeadlineHours) ? { gameDayDeadlineHours: deadline(gameDayDeadlineHours)! } : {}),
     ...(deadline(offseasonStageDeadlineHours)

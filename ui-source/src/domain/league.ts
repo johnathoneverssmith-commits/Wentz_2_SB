@@ -71,6 +71,19 @@ export interface LeagueConfig {
    * GMs had already been asked for.
    */
   draftSimulateAfterPicks: number | null;
+  /**
+   * How many rounds of each year's rookie draft the human GMs pick by hand;
+   * after them the staff picks for every team. `null` is every round. Absent
+   * (a save from before it existed) is the first round only, as it was.
+   * Changeable at the start of each offseason (`cleanConfigPatch`).
+   */
+  draftHumanRounds?: number | null;
+  /**
+   * The same for free agency's five rounds: the rounds a human GM takes their
+   * own turn in, with their staff taking it afterwards. `null` (or absent) is
+   * all of them.
+   */
+  faHumanRounds?: number | null;
   gameDayDeadlineHours: DeadlineChoice;
   offseasonStageDeadlineHours: DeadlineChoice;
   /** how well the AI GMs optimise their roster / game decisions. */

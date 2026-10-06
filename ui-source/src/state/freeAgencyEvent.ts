@@ -3,7 +3,7 @@ import type { LeagueState, Player } from "@/domain";
 
 import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
-import { offerToContract } from "./rules";
+import { humanFaRounds, offerToContract } from "./rules";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
 import { difficultyFor, strategyOf } from "./aiGms.ts";
@@ -412,10 +412,19 @@ export function runCpuTurns(s: LeagueState, humanTeams: Set<string>): number {
     if (!team) break;
     if (humanTeams.has(team)) {
       // a GM who chose to skip free agency passes every turn of it
-      if (!isSkipping(s, team, "freeAgency")) break;
-      applyPass(s, team);
-      acted++;
-      continue;
+      if (isSkipping(s, team, "freeAgency")) {
+        applyPass(s, team);
+        acted++;
+        continue;
+      }
+      // past the rounds the league plays by hand, their staff takes the turn
+      const byHand = humanFaRounds(s.config);
+      if (byHand !== null && e.round > byHand) {
+        cpuTurn(s, team, index);
+        acted++;
+        continue;
+      }
+      break;
     }
     cpuTurn(s, team, index);
     acted++;

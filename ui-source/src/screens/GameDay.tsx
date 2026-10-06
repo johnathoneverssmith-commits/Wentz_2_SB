@@ -79,7 +79,7 @@ export function GameDay() {
     (s.bracket?.matchups ?? []).some((m) => m.round === pgd.phase && !m.lowSeed && m.highSeed?.code === code);
 
   return (
-    <Card maxWidth={760}>
+    <Card maxWidth={viewerGame?.broadcast ? 1440 : 760}>
       <CardHeader badge={code ? TEAMS_BY_CODE[code]?.abbr ?? "FS" : "FS"} title="Game Day" subtitle={`${label} · results are in`} />
 
       <div className="panel open">

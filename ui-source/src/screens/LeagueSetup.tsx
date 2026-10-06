@@ -390,6 +390,32 @@ export function LeagueSetup() {
             onChange={(n) => setConfig({ draftSimulateAfterPicks: n })}
           />
         </SettingRow>
+        <SettingRow label="Rookie draft rounds by hand" hint="How many rounds of each year's rookie draft the human GMs pick by hand. After them the staff picks for everyone, so nobody waits on seven rounds of special-teamers.">
+          <select
+            value={config.draftHumanRounds === undefined ? "1" : config.draftHumanRounds === null ? "all" : String(config.draftHumanRounds)}
+            disabled={settingsLocked}
+            onChange={(e) => setConfig({ draftHumanRounds: e.target.value === "all" ? null : Number(e.target.value) })}
+          >
+            {["1", "2", "3", "all"].map((v) => (
+              <option key={v} value={v}>
+                {v === "all" ? "All 7" : v}
+              </option>
+            ))}
+          </select>
+        </SettingRow>
+        <SettingRow label="Free agency rounds by hand" hint="How many of free agency's five rounds a human GM takes their own turn in. After them their staff takes the turn. You can change both at the start of each offseason.">
+          <select
+            value={config.faHumanRounds == null ? "all" : String(config.faHumanRounds)}
+            disabled={settingsLocked}
+            onChange={(e) => setConfig({ faHumanRounds: e.target.value === "all" ? null : Number(e.target.value) })}
+          >
+            {["1", "2", "3", "4", "all"].map((v) => (
+              <option key={v} value={v}>
+                {v === "all" ? "All 5" : v}
+              </option>
+            ))}
+          </select>
+        </SettingRow>
         <SettingRow
           label="Talent impact"
           hint={TALENT_IMPACT_HINT[config.talentImpact ?? "realistic"]}

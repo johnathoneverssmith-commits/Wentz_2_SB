@@ -21,7 +21,6 @@ import { FreeAgencySummary } from "./screens/FreeAgencySummary.tsx";
 import { TrainingCamp } from "./screens/TrainingCamp.tsx";
 import { TrainingCampResults } from "./screens/TrainingCampResults.tsx";
 import { CoachingStaffHub } from "./screens/CoachingStaffHub.tsx";
-import { DraftPreview } from "./screens/DraftPreview.tsx";
 import { DraftRoom } from "./screens/DraftRoom.tsx";
 import { EndOfSeasonAnnounce, SeasonComplete } from "./screens/EndOfSeason.tsx";
 import { FantasyDraftSummary } from "./screens/FantasyDraftSummary.tsx";
@@ -151,7 +150,7 @@ const CHECKPOINTS: Partial<Record<string, { from: string; to: string }>> = {
   // finding 4: this one was never added when Draft Preview's own "Change 12"
   // comment already promised it — the league waited at nothing, and the
   // button just sat there once the viewer was ready.
-  offseasonDraftPrep: { from: "Draft Preview", to: "Rookie Draft" },
+  offseasonDraftPrep: { from: "Retirement Review", to: "Rookie Draft" },
   leagueDevelopments: { from: "League Developments", to: "Regular Season" },
   hoodedFigureEncounter: { from: "Training Camp", to: "Re-order Depth Chart" },
   fantasyDraftSummary: { from: "Draft Summary", to: "Coaching Fantasy Draft" },
@@ -480,7 +479,7 @@ export function App() {
           <Route path="/retirement" element={<RetirementReview />} />
           <Route path="/rookie-draft-summary" element={<RookieDraftSummary />} />
           <Route path="/rookie-signings" element={<RookieSignings />} />
-          <Route path="/draft-preview" element={<DraftPreview />} />
+          <Route path="/draft-preview" element={<Navigate to="/retirement" replace />} />
           <Route path="/end-of-season" element={<EndOfSeasonAnnounce />} />
           <Route path="/season-complete" element={<SeasonComplete />} />
           <Route path="/history" element={<LeagueHistory />} />

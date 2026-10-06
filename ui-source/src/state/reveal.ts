@@ -40,6 +40,12 @@ export interface RevealState {
    * so it lives here with the rest of them.
    */
   step: Record<string, string>;
+  /**
+   * The season each GM last saw the awards splash for. A fact about the GM,
+   * not the league: only whoever pressed the button that left the playoffs
+   * used to get the awards, and everyone else slid straight past them.
+   */
+  awardsSeen?: Record<string, number>;
 }
 
 export function emptyReveal(): RevealState {
@@ -68,14 +74,29 @@ export function markRevealed(
   map[gmId] = Math.max(map[gmId] ?? 0, week);
 }
 
+/** Whether this GM has seen this season's awards (or there are none to see). */
+export function awardsSeenBy(s: LeagueState, gmId: string): boolean {
+  if (!(s.awards ?? []).some((a) => a.season === s.season)) return true;
+  return (revealOf(s).awardsSeen?.[gmId] ?? 0) >= s.season;
+}
+
 /** Which screen of a multi-screen stage this GM has reached. */
 export function stepOf(s: LeagueState, gmId: string): string | null {
+  // the season screen opens on the awards for each GM until that GM has seen them
+  if (s.stage === "endOfSeasonWin" || s.stage === "endOfSeasonConsolation") {
+    return awardsSeenBy(s, gmId) ? "awardsSeen" : null;
+  }
   return revealOf(s).step?.[gmId] ?? null;
 }
 
 /** Move one GM forward within a stage. Never backward — like every reveal. */
 export function markStep(s: LeagueState, gmId: string, step: string): void {
   s.reveal ??= emptyReveal();
+  if (step === "awardsSeen") {
+    s.reveal.awardsSeen ??= {};
+    s.reveal.awardsSeen[gmId] = s.season;
+    return;
+  }
   s.reveal.step ??= {};
   s.reveal.step[gmId] = step;
 }

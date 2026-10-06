@@ -23,7 +23,7 @@ import { readyUpLocal } from "../src/phases.js";
  * stopped.
  */
 function leagueInPreseason(humans = ["KC", "BUF"]): LeagueState {
-  const s = createLeague(90210, { ...DEFAULT_CONFIG, humanGmCount: humans.length });
+  const s = createLeague(90210, { ...DEFAULT_CONFIG, humanGmCount: humans.length, draftHumanRounds: 1 });
   fillRosterGaps(s);
   humans.forEach((code, i) => {
     s.gms[i]!.teamCode = code;

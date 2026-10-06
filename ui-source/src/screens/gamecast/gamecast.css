@@ -159,6 +159,20 @@
       "injuries";
   }
 }
+/* a wide screen is a broadcast: the field takes the stage, the drive chart and
+   injury report stand beside it at the full height of the field */
+@container (min-width: 1040px) {
+  .gc-grid {
+    grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr);
+    grid-template-areas:
+      "stage drives"
+      "stage injuries";
+  }
+  .gc-drives,
+  .gc-injuries {
+    max-height: min(46vh, 640px);
+  }
+}
 .gc-panel {
   background: var(--panel-sunken);
   border: 1px solid var(--line);
@@ -566,4 +580,14 @@
 /* the ball travels to its new spot (Gamecast.tsx sets --gc-glide from the speed) */
 .gc-ball {
   transition: transform var(--gc-glide, 0ms) cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+
+/* ---- on a big screen the broadcast is the screen ---- */
+@container (min-width: 1040px) {
+  .gc-code { font-size: 38px; }
+  .gc-score { font-size: 52px; }
+  .gc-dd { font-size: 22px; }
+  .gc-desc { font-size: 18px; }
+  .gc-drive { padding: 12px 16px; font-size: 14px; }
+  .gc-phead { font-size: 12.5px; padding: 13px 16px; }
 }

@@ -306,3 +306,14 @@ aging curves, injury severity vocabulary). OQ-1 (pool sourcing) is done:
 heuristic. The model constants there (`AGING_CURVES`, physical bases, overall
 priors) are v0 placeholders feeding OQ-2/OQ-4; expect to tune them once the
 sim engine exists. Revisit each question before the phase that depends on it.
+
+## Conventions to keep
+
+- **How It Works stays true.** `ui-source/src/state/howItWorks.ts` is the player-facing
+  explanation of every system (drafts, free agency, trades, trade value, development,
+  aging, injuries, recovery, the game sim, game plans, awards, unit grades, playoff odds,
+  job security, coaching). When you change a mechanic, change its text in the same
+  commit. Figures that exist as constants are read from them; `howItWorks.test.ts`
+  pins the rest it can.
+- **Check the UI with `npm run typecheck` in `ui-source/` (`tsc -b`), never `tsc -p .`**:
+  the latter doesn't follow the project references and passes vacuously.

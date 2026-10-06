@@ -2138,7 +2138,12 @@ input[type="range"]::-moz-range-thumb {
   position: absolute;
   left: 0;
   right: 0;
-  top: 36%;
+  /* centred on the viewport (margin auto, not a transform: the motion
+     library owns this element's transform), so the label sits in the middle
+     of the band at every size; it used to start at 36% and sit above it */
+  top: 0;
+  bottom: 0;
+  margin: auto 0;
   height: 20%;
   min-height: 84px;
   opacity: 0.94;
@@ -2165,7 +2170,7 @@ input[type="range"]::-moz-range-thumb {
 .score-moment .sm-bit {
   position: absolute;
   left: 50%;
-  top: 45%;
+  top: 50%;
   border-radius: 1px;
 }
 
@@ -2268,4 +2273,29 @@ tbody > tr:nth-child(24) { animation-delay: calc(var(--row-step) * 23); }
 }
 .fs-overlay .fs-big {
   animation: lift-in var(--dur-slow) var(--ease) 0.06s both;
+}
+
+/* a college grade: outlined and labelled, so it is never read as an overall */
+.pgrade {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 6px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.pgrade small {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.pgrade b {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
 }

@@ -4,7 +4,7 @@ import { projectedRookieRange } from "@/sim/draft-outcomes";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
-import { OvrPill, TeamBadge } from "@/components/bits";
+import { GradePill, OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { positionFilterLabel, positionMatches, useListFilter } from "@/components/ListFilter";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
@@ -15,7 +15,7 @@ import { FitTag } from "@/components/FitTag";
 import { RosterNeeds } from "@/components/RosterNeeds";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { DraftMode, Player, Position } from "@/domain";
-import { draftTargetsFor } from "@/state/rules";
+import { draftTargetsFor, humanDraftRounds } from "@/state/rules";
 import { bestAvailable, draftValue, picksMadeBy, useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
@@ -29,6 +29,8 @@ interface Available {
   age: number;
   ovr: number;
   sub: string;
+  /** scouting: measurements, projected draft range and the note (rookie board) */
+  scout?: string;
 }
 
 export function DraftRoom() {
@@ -123,9 +125,12 @@ export function DraftRoom() {
   // commissioner's number in a fantasy draft — none when it's all by hand
   // (a rookie first round is every first-round pick a team holds — a GM who
   // traded for a second one makes both by hand)
+  const handRounds = humanDraftRounds(s.config);
   const handPicks: number | null =
     mode === "rookie"
-      ? (draft?.pickOrder ?? []).slice(0, Object.keys(s.teams).length).filter((c) => c === code).length
+      ? handRounds === null
+        ? null
+        : (draft?.pickOrder ?? []).filter((c, i) => c === code && (draft?.roundOf?.[i] ?? Math.floor(i / Math.max(1, Object.keys(s.teams).length)) + 1) <= handRounds).length
       : (s.config.draftSimulateAfterPicks ?? null);
   const complete = draft ? draft.currentPickIndex >= draft.pickOrder.length : false;
   // how much hand-drafting this GM still owes before the board finishes itself
@@ -154,6 +159,13 @@ export function DraftRoom() {
             const [lo, hi] = projectedRookieRange(p);
             return `${p.school} · ${p.classYear} · projects ${lo}–${hi} as a rookie`;
           })(),
+          scout: [
+            `${Math.floor(p.heightIn / 12)}'${p.heightIn % 12}" · ${p.weightLb} lb${p.fortyTime ? ` · ${p.fortyTime}s 40` : ""}`,
+            p.projectedRange ? `projected ${p.projectedRange}` : "",
+            p.scoutingNote,
+          ]
+            .filter(Boolean)
+            .join(" · "),
         }));
     }
     // everyone on a fantasy board is unsigned, so "Free agent" under every
@@ -321,7 +333,7 @@ export function DraftRoom() {
       {handPicks != null && !complete && (
         <p style={{ margin: "0 26px 10px", fontSize: 12, color: "var(--ink-faint)" }}>
           {mode === "rookie"
-            ? `The first round is picked by hand${handPicks === 1 ? " — you have one pick in it" : handPicks ? ` — you have ${handPicks} picks in it` : " — you have no picks in it"}. After it, the rest of the draft is made automatically.`
+            ? `The first ${handRounds === 1 ? "round is" : `${handRounds} rounds are`} picked by hand${handPicks === 1 ? " — you have one pick in it" : handPicks ? ` — you have ${handPicks} picks in ${handRounds === 1 ? "it" : "them"}` : ` — you have no picks in ${handRounds === 1 ? "it" : "them"}`}. After ${handRounds === 1 ? "it" : "them"}, your staff makes your remaining picks and the rest of the draft is made automatically.`
             : `Each GM makes ${handPicks === 1 ? "one pick" : `${handPicks} picks`} by hand. Once everyone has, the rest of the draft is made automatically, for every team.`}
         </p>
       )}
@@ -409,7 +421,7 @@ export function DraftRoom() {
                 <th>Player</th>
                 <th className="c">Pos</th>
                 {/* a rookie board shows college grades, which run high */}
-                <th className="c">{mode === "rookie" ? "Grade" : "OVR"}</th>
+                <th className="c">{mode === "rookie" ? "College Grade" : "OVR"}</th>
                 <th className="c">Age</th>
                 <th className="r"></th>
               </tr>
@@ -457,10 +469,11 @@ export function DraftRoom() {
                       )
                     )}
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
+                    {p.scout && <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-dim)", marginTop: 2 }}>{p.scout}</span>}
                   </td>
                   <td className="c">{posLabel(p.position)}</td>
                   <td className="c">
-                    <OvrPill value={p.ovr} />
+                    {mode === "rookie" ? <GradePill value={p.ovr} short /> : <OvrPill value={p.ovr} />}
                   </td>
                   <td className="c">{p.age}</td>
                   <td className="r">
@@ -498,7 +511,7 @@ export function DraftRoom() {
                 <th className="c">Pos</th>
                 <th className="c">Age</th>
                 <th className="c">Round · Pick</th>
-                <th className="c">OVR</th>
+                <th className="c">{mode === "rookie" ? "College Grade" : "OVR"}</th>
               </tr>
             </thead>
             <tbody>
@@ -515,7 +528,7 @@ export function DraftRoom() {
                     <td className="c">
                       R{r.round} · #{r.pickNumber}
                     </td>
-                    <td className="c">{ovr}</td>
+                    <td className="c">{mode === "rookie" && typeof ovr === "number" ? <GradePill value={ovr} short /> : ovr}</td>
                   </tr>
                 );
               })}

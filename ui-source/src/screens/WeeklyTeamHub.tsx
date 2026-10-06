@@ -355,13 +355,13 @@ export function WeeklyTeamHub() {
               {
                 label: produced ? "Offense rank (points scored)" : "Offense rank",
                 subs: subsOf(prod, code, oppCode, [
-                  ["points", "Points scored", f1, "per game"],
-                  ["rushYds", "Rushing yards", f1, "per game"],
-                  ["passYds", "Passing yards", f1, "per game"],
+                  ["points", "Points per game", f1, "average per game"],
+                  ["rushYds", "Rushing yards per game", f1, "average per game"],
+                  ["passYds", "Passing yards per game", f1, "average per game"],
                   ["compPct", "Completion %", pct, "completions per attempt"],
                   ["separation", "Avg. separation", yd, "Yards of separation on targets. A modelled estimate of the receivers' route running and hands against the coverage; the game doesn't measure it."],
                   ["pressure", "Pressure % allowed", pct, "Sacks plus quarterback hits per dropback: the offensive line's grade. Lower is better."],
-                  ["possession", "Time of possession", clock, "average per game"],
+                  ["possession", "Avg. time of possession", clock, "average per game"],
                 ]),
                 rank: true,
                 a: produced?.get(code)?.offense ?? sides[code]?.offenseRank ?? team.ratings.offenseRank,
@@ -370,9 +370,9 @@ export function WeeklyTeamHub() {
               {
                 label: produced ? "Defense rank (points allowed)" : "Defense rank",
                 subs: subsOf(prod, code, oppCode, [
-                  ["pointsAllowed", "Points allowed", f1, "per game"],
-                  ["passYdsAllowed", "Passing yards allowed", f1, "per game"],
-                  ["rushYdsAllowed", "Rushing yards allowed", f1, "per game"],
+                  ["pointsAllowed", "Points allowed per game", f1, "average per game"],
+                  ["passYdsAllowed", "Passing yards allowed per game", f1, "average per game"],
+                  ["rushYdsAllowed", "Rushing yards allowed per game", f1, "average per game"],
                   ["interceptions", "Interceptions", int, "season total"],
                   ["recoveries", "Fumble recoveries", int, "season total"],
                 ]),

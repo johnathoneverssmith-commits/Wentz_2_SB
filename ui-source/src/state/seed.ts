@@ -53,6 +53,9 @@ export const DEFAULT_CONFIG: LeagueConfig = {
   // twenty rounds by hand is a long evening; five picks is enough to shape a
   // roster before the rest fills itself in
   draftSimulateAfterPicks: 5,
+  // solo plays every round of the annual draft and of free agency by hand; an online league picks its own (the lobby defaults to three of each)
+  draftHumanRounds: null,
+  faHumanRounds: null,
   gameDayDeadlineHours: 12,
   offseasonStageDeadlineHours: 24,
   difficulty: "standard",

@@ -173,3 +173,42 @@
   color: var(--ink-faint);
   line-height: 1.1;
 }
+
+/* header: viewer's team, the week and venue between, the opponent */
+.mhead3 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  padding: 4px 0 14px;
+  border-bottom: 1px solid var(--line);
+}
+.mhead3 .mteam {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  min-width: 0;
+}
+.mhead3 .mteam strong { font-size: 14px; line-height: 1.2; }
+.mhead3 .mteam small { font-size: 11px; color: var(--ink-faint); }
+.mhead3 .mwhen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+.mhead3 .mwhen b { color: var(--ink); font-size: 15px; font-weight: 600; }
+.mhead3 .mwhen .mat { font-size: 20px; font-weight: 700; color: var(--ink-dim); text-transform: lowercase; letter-spacing: 0.02em; }
+.mcolheads {
+  padding: 2px 0 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}

@@ -15,7 +15,7 @@ import { resolveTransition } from "@/state/stageMachine.ts";
  * area that cannot be found by looking at a single change.
  */
 function league(stage: Stage, week = 0, patch: Partial<LeagueState> = {}): LeagueState {
-  const s = createLeague(31337, { ...DEFAULT_CONFIG, humanGmCount: 2 });
+  const s = createLeague(31337, { ...DEFAULT_CONFIG, humanGmCount: 2, draftHumanRounds: 1 });
   fillRosterGaps(s);
   s.stage = stage;
   s.week = week;

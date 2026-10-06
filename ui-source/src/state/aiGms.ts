@@ -27,19 +27,6 @@ import { AI_SEASON_STRATEGIES, type AiSeasonStrategy, strategyFor } from "./aiSt
 import { securityOfTenure } from "./hotSeat.ts";
 import { seasonOutcomeFor } from "./seasonOutcome.ts";
 
-const FIRST = [
-  "Alex", "Blake", "Carmen", "Dante", "Elena", "Felix", "Gina", "Hugo", "Imani", "Jonas", "Kira", "Leo", "Mara", "Nico", "Olive",
-  "Pablo", "Quinn", "Rosa", "Sam", "Tessa", "Uri", "Vera", "Wade", "Xena", "Yusuf", "Zane", "Abe", "Bria", "Cal", "Dina",
-  "Eli", "Fay", "Gus", "Hana", "Ian", "Jules", "Kai", "Lena", "Milo", "Nora", "Omar", "Pia", "Reed", "Sana", "Toby", "Una",
-  "Vic", "Wren", "Yara", "Zeke",
-];
-const LAST = [
-  "Abbott", "Bishop", "Castillo", "Dalton", "Ellis", "Frost", "Garza", "Hale", "Ito", "Jensen", "Kovacs", "Lowe", "Mercer", "Nakamura",
-  "Okafor", "Pruitt", "Quill", "Rhodes", "Sato", "Tran", "Underhill", "Vance", "Whitaker", "Xiong", "Yoder", "Zimmer", "Archer",
-  "Beck", "Crane", "Doyle", "Estrada", "Fischer", "Greer", "Holt", "Ingram", "Joyce", "Keane", "Lund", "Marsh", "Nolan", "Osei",
-  "Pike", "Rowe", "Stone", "Thorne", "Voss", "Wilde", "Yates", "Zahn", "Ames",
-];
-
 function hash(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
@@ -84,9 +71,53 @@ export function poolExtras(aiTeams: number): number {
   return Math.max(8, Math.ceil(aiTeams * 0.4));
 }
 
+// American first and last names, mostly the kind you would find running a regional
+// car dealership. Plenty of them also run a football team.
+const FIRST = [
+  "Todd", "Chad", "Brett", "Gary", "Dale", "Rick", "Randy", "Wendell", "Duane", "Skip", "Buck", "Clint", "Darryl", "Earl", "Floyd",
+  "Gene", "Hank", "Irv", "Jerry", "Kirk", "Lyle", "Merle", "Norm", "Orville", "Pete", "Rod", "Stu", "Tucker", "Vern", "Walt",
+  "Chip", "Biff", "Brad", "Kyle", "Dwight", "Cliff", "Ron", "Larry", "Doug", "Mitch", "Troy", "Wade", "Cody", "Dustin", "Jeb",
+  "Rusty", "Boone", "Cletus", "Dewey", "Ernie", "Frank", "Greg", "Hal", "Ike", "Jim", "Ken", "Lou", "Mike", "Ned", "Otis",
+  "Phil", "Ray", "Sal", "Tim", "Brenda", "Donna", "Tammy", "Peggy", "Darlene", "Connie", "Barb", "Linda", "Sheryl", "Trish",
+  "Marge", "Gail", "Joyce", "Carol", "Dot", "Faye", "Renee", "Tasha", "Monique", "Keisha", "Priya", "Maria", "Lupe", "Mei",
+  "Dana", "Jordan", "Casey", "Taylor", "Kelsey", "Brandon", "Marcus", "Terrance", "Javier", "Hector", "Dmitri", "Sven",
+];
+const LAST = [
+  "Henderson", "Thompson", "Sullivan", "Murphy", "Gallagher", "Brannigan", "O'Malley", "Pickett", "Tuttle", "Fitzgerald",
+  "Dunleavy", "Spivey", "Lundgren", "Bledsoe", "Hatfield", "McCoy", "Tanner", "Boudreaux", "Ledbetter", "Crabtree",
+  "Stokes", "Pruitt", "McAllister", "Kowalski", "Buckley", "Jenkins", "Whitmore", "Butterworth", "Pennywhistle", "Gutierrez",
+  "Nguyen", "Washington", "Okafor", "Patel", "Kim", "Romano", "Delgado", "Abernathy", "Blankenship", "Cavanaugh", "Dillard",
+  "Eckhart", "Fogarty", "Gilliam", "Hollister", "Ivers", "Jessup", "Kimball", "Lockhart", "Mulligan", "Nesbitt", "Oakley",
+  "Pettibone", "Quigley", "Rasmussen", "Schaefer", "Tolliver", "Upshaw", "Vandenberg", "Wexler", "Yancey", "Zimmerman",
+  "Barlow", "Cobb", "Dobbs", "Eubanks", "Fenwick", "Gaskill", "Hobbs", "Kessler", "Landry", "Mackey", "Nash", "Odom",
+  "Pierce", "Rudd", "Sipes", "Trumble", "Voorhees", "Wickham", "Yost", "Zook",
+];
+
+// Most CPU GMs are just a name. Some are a name with a story.
+const EPITHETS = [
+  "the Great", "the Impaler", "the Terrible", "the Magnificent", "the Unemployed", "the Gambler", "the Cap Wizard", "the Patient",
+  "the Unflappable", "the Optimistic", "the Haunted", "the Inevitable", "the Frugal", "the Reckless", "the Overpaid", "the Brief",
+];
+const NICKNAMES = [
+  "No Picks", "Cap Space", "Two-Minute", "Trade Machine", "Fourth and Long", "Dumpster Fire", "Mad Dog", "Bulldozer", "Lucky",
+  "Ledger", "Sunday", "Draft Day", "The Hammer", "Handshake", "Waiver Wire", "Blitz",
+];
+const PREFIXES = ["Big", "Mad Dog", "Little", "Honest", "Coach", "Slick", "Doc", "Deacon"];
+
 function nameFor(seed: number, n: number, taken: Set<string>): string {
   for (let k = 0; k < 2500; k++) {
-    const name = `${FIRST[hash(`${seed}|f|${n}|${k}`) % FIRST.length]} ${LAST[hash(`${seed}|l|${n}|${k}`) % LAST.length]}`;
+    const h = (tag: string, size: number): number => hash(`${seed}|${tag}|${n}|${k}`) % size;
+    const first = FIRST[h("f", FIRST.length)]!;
+    const last = LAST[h("l", LAST.length)]!;
+    // the name's style: about half are plain, the rest have some character
+    const roll = h("style", 100);
+    let name: string;
+    if (roll < 46) name = `${first} ${last}`;
+    else if (roll < 60) name = `${first} "${NICKNAMES[h("nick", NICKNAMES.length)]}" ${last}`;
+    else if (roll < 72) name = `${PREFIXES[h("pre", PREFIXES.length)]} ${first} ${last}`;
+    else if (roll < 86) name = `${first} ${last} ${EPITHETS[h("epi", EPITHETS.length)]}`;
+    else if (roll < 93) name = `${first} ${EPITHETS[h("epi", EPITHETS.length)]}`;
+    else name = `${PREFIXES[h("pre", PREFIXES.length)]} ${last}`;
     if (!taken.has(name)) return name;
   }
   return `GM ${n}`;

@@ -6,6 +6,7 @@ import { SeasonAwardsList } from "@/components/LeagueMemory";
 import { useNavigate } from "react-router-dom";
 
 import { pressable } from "@/components/bits";
+import { OffseasonRounds } from "@/components/OffseasonRounds";
 import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
 import { Card, CardHeader, Footer, Panel } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
@@ -13,6 +14,7 @@ import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { roundLabelFor, winPct, type PlayoffRound } from "@/domain";
 import { useStore } from "@/state/store";
 import { isOnline } from "@/state/online";
+import { useLeagueActions } from "@/state/useLeagueActions";
 
 /** Big "END OF {year} SEASON" card. Any GM clicks past on their own. */
 export function EndOfSeasonAnnounce() {
@@ -26,13 +28,17 @@ export function EndOfSeasonAnnounce() {
   // readies the other human GMs. Without that, "click anywhere" did nothing
   // at all in a multi-GM league: `tryAdvance` refuses until every human is
   // ready, and it routes back to this same screen when it refuses.
+  const actions = useLeagueActions();
   const goOn = async () => {
     // online the league has already moved past the announcement (it is a
-    // splash there, not a stage) — the local store's gate would do nothing
+    // splash there, not a stage) — the local store's gate would do nothing.
+    // Seeing the awards is this GM's own step, so every GM gets them.
     if (isOnline()) {
+      await actions.stepForward("awardsSeen");
       nav("/season-complete");
       return;
     }
+    await actions.stepForward("awardsSeen");
     setReady(s.viewerGmId, true);
     autoReady();
     const { moved, route } = await tryAdvance();
@@ -168,7 +174,7 @@ export function SeasonComplete() {
       {/* the season's result and the running score tracker are one story: the
           season on top, what it did to the standings underneath */}
       <Panel id="season" open>
-        <div style={{ textAlign: "center", padding: "24px 8px 8px" }}>
+        <div style={{ textAlign: "center", padding: "28px 8px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: 170 }}>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
             {humanChampGm
               ? // "Final Champions" in a humans-only league
@@ -194,9 +200,6 @@ export function SeasonComplete() {
               {teamFullName(champ)} took the title.
             </p>
           )}
-          <p style={{ margin: "16px 0 0", fontSize: 12, color: "var(--ink-faint)" }}>
-            The cross-season score tracker has been updated — it&rsquo;s below.
-          </p>
         </div>
         {/* the headline is one GM; in a league of several, how the others
             finished is the first thing anyone asks */}
@@ -248,9 +251,10 @@ export function SeasonComplete() {
           </table>
         )}
         <p className="subhead" style={{ marginTop: 24 }}>
-          Score tracker
+          Cross-season score
         </p>
         <ScoreTrackerTable />
+        <OffseasonRounds />
       </Panel>
 
       <Footer>

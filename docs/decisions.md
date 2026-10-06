@@ -1596,3 +1596,20 @@ says "too close to call". It reads the margin, not the win count, because a
 plan moves a game a point or two and paired win counts cannot see that at
 this sample size. Only in the preseason; from Week 1 on, win chances are
 labelled "with default game strategy".
+
+### Playthrough fixes, 2026-10 (Sonnet pass)
+
+Matchup header is viewer-left / opponent-right with the week and "at" / "vs." between,
+with column heads over How They Compare; averages are labelled as averages. What's at
+stake reads the situation (record, rank, odds, division, streak, season stage) with
+guards so no 8-0 team is a bubble team. The score-moment banner is centred with margin
+auto rather than a transform (the motion library owns the transform). The standalone
+Draft Preview screen is gone: the retirement screen carries the draft readiness gate,
+and the draft room shows the scouting detail (measurements, projected range, note) and
+labels prospect ratings "College Grade" in their own pill. Season awards are per GM
+(`reveal.awardsSeen`, `stepOf` on the season stages). Unit Grades and How It Works open
+over the screen they are used on. New league settings: `draftHumanRounds` (rookie draft
+rounds the humans pick by hand; null is all; an old save is 1) and `faHumanRounds`
+(free-agency rounds a human takes their own turn in; null is all); online leagues
+default both to 3, solo to all, and both change at the start of each offseason on the
+season screen. GM names are American with a minority carrying a nickname or epithet.

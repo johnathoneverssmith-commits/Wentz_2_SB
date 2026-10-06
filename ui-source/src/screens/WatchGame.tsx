@@ -102,7 +102,7 @@ export function WatchGame() {
   }
 
   return (
-    <Card maxWidth={860}>
+    <Card maxWidth={1640}>
       <CardHeader
         badge="TV"
         title="Play-by-Play"

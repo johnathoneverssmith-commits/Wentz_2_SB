@@ -1,16 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { LeagueState, Player } from "@/domain";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Card, CardHeader, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
+import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { RETIREMENT_AGE, ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
-import { useLeagueActions } from "@/state/useLeagueActions";
 import { viewerTeamCode } from "@/state/selectors";
 import { millions, posLabel } from "@/util/format";
 
@@ -23,9 +23,6 @@ export function RetirementReview() {
   const s = useStore();
   const { active, setActive } = useTabs("yours");
   const code = viewerTeamCode(s);
-  const actions = useLeagueActions();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Online the league retires everyone the moment this stage opens, so the
   // players are already marked. Rolling the odds again here rolled them for
@@ -215,29 +212,7 @@ export function RetirementReview() {
         already fixed, so none of those could change anything the next screen
         is about — and free agency does not open for two more stages.
       */}
-      <Footer>
-        <span style={{ flex: 1, fontSize: 11.5, color: error ? "var(--bad)" : "var(--ink-faint)", alignSelf: "center" }}>
-          {error ?? "Review the retirements, then continue to the draft preview."}
-        </span>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            setError(null);
-            void actions
-              .stepForward("draftPreview")
-              .then((res) => {
-                if (res.ok) nav("/draft-preview");
-                else setError(res.reason ?? "Couldn't move on. Try again.");
-              })
-              .finally(() => setBusy(false));
-          }}
-        >
-          Advance to Draft Preview
-        </button>
-      </Footer>
+      <ReadinessGate title="Draft readiness" label="Advance to the Draft" onAdvance={(r) => nav(r)} />
     </Card>
   );
 }

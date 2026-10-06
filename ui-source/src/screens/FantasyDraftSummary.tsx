@@ -3,7 +3,7 @@ import { IdentityMap } from "@/components/IdentityMap";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
-import { TeamBadge } from "@/components/bits";
+import { GradePill, TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -161,7 +161,7 @@ export function FantasyDraftSummary({
                     <th>Pick</th>
                     <th>Player</th>
                     <th className="c">Pos</th>
-                    <th className="c">Grade</th>
+                    <th className="c">College Grade</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -175,7 +175,7 @@ export function FantasyDraftSummary({
                         <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{x.p.school}</span>
                       </td>
                       <td className="c">{posLabel(x.p.position)}</td>
-                      <td className="c">{x.p.collegeOverall}</td>
+                      <td className="c"><GradePill value={x.p.collegeOverall} short /></td>
                     </tr>
                   ))}
                 </tbody>

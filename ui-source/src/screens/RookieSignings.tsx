@@ -202,7 +202,7 @@ export function RookieSignings() {
                         <p>{millions(total * 0.4)}</p>
                       </div>
                       <div>
-                        <p>College grade</p>
+                        <p>College Grade</p>
                         <p>
                           {p.collegeOverall}
                           <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>

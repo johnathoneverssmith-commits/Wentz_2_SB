@@ -757,14 +757,33 @@ export function picksMadeBy(s: LeagueState, teamCode: string): number {
  * whole thing by hand, so this is never true and the draft ends only when the
  * board does.
  */
+/** free agency's rounds (`FREE_AGENCY_ROUNDS` in freeAgencyEvent.ts, which imports this file; a test keeps them equal) */
+export const FA_ROUNDS_MAX = 5;
+
+/** The rounds of the rookie draft the human GMs pick by hand: the league's setting, a number or `null` for all of them. */
+export function humanDraftRounds(config: Pick<LeagueState["config"], "draftHumanRounds">): number | null {
+  // a save from before the setting existed drafted its first round by hand
+  return config.draftHumanRounds === undefined ? 1 : config.draftHumanRounds;
+}
+
+/** The free-agency rounds a human GM takes their own turn in: a number, or `null` for every round. */
+export function humanFaRounds(config: Pick<LeagueState["config"], "faHumanRounds">): number | null {
+  return config.faHumanRounds ?? null;
+}
+
 export function draftThresholdMet(s: LeagueState): boolean {
-  // Change 13: the rookie draft is one manual round and six automatic ones,
-  // for everybody, regardless of what the commissioner set for the fantasy
-  // draft. Seven rounds of turn-taking across eight GMs is a week of
-  // real time spent on picks that are mostly special-teamers; round one is
-  // the part with decisions in it.
+  // The rookie draft is hand-picked for the league's setting of rounds
+  // (`draftHumanRounds`), and automatic after them, for every team: each
+  // human's remaining picks go to their staff, and the CPU teams were
+  // never by hand. Seven rounds of turn-taking across eight GMs is a week of
+  // real time spent on picks that are mostly special-teamers, so a league
+  // chooses how much of it is theirs.
   if (s.draft?.mode === "rookie") {
-    return s.draft.currentPickIndex >= Object.keys(s.teams).length;
+    const rounds = humanDraftRounds(s.config);
+    if (rounds === null) return false;
+    const d = s.draft;
+    const round = d.roundOf?.[d.currentPickIndex] ?? Math.floor(d.currentPickIndex / Math.max(1, Object.keys(s.teams).length)) + 1;
+    return round > rounds;
   }
   const threshold = s.config.draftSimulateAfterPicks;
   if (threshold == null) return false;
@@ -2135,10 +2154,21 @@ export function cleanConfigPatch(
   s: LeagueState,
   patch: Record<string, unknown>,
 ): { ok: true; patch: Partial<LeagueConfig> } | { ok: false; reason: string } {
-  if (s.stage !== "setup") return { ok: false, reason: "Settings lock once the league starts." };
   const out: Partial<LeagueConfig> = {};
   const oneOf = <T,>(v: unknown, allowed: readonly T[]): v is T => allowed.includes(v as T);
+  // These two are the league's to change at the start of every offseason, not
+  // only at setup: how much of the draft and of free agency the humans play.
+  const offseason = new Set<string>(["endOfSeasonWin", "endOfSeasonConsolation", "offseasonHotSeat", "offseasonRetirement"]);
+  const roundsOk = (v: unknown, max: number): v is number | null =>
+    v === null || (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= max);
   for (const [k, v] of Object.entries(patch)) {
+    if (k === "draftHumanRounds" || k === "faHumanRounds") {
+      if (s.stage !== "setup" && !offseason.has(s.stage)) return { ok: false, reason: "That can be changed at setup and at the start of each offseason." };
+      if (!roundsOk(v, k === "draftHumanRounds" ? DRAFT_ROUNDS : FA_ROUNDS_MAX)) return { ok: false, reason: `"${k}" can't be set to that.` };
+      out[k] = v;
+      continue;
+    }
+    if (s.stage !== "setup") return { ok: false, reason: "Settings lock once the league starts." };
     if (k === "fantasyDraft" && typeof v === "boolean") out.fantasyDraft = v;
     else if (k === "draftOrder" && oneOf(v, ["randomized", "inOrder"] as const)) out.draftOrder = v;
     else if (k === "draftType" && oneOf(v, ["snake", "linear"] as const)) out.draftType = v;

@@ -7,7 +7,8 @@ import { cleanPlan, DEFAULT_PLAN, type GamePlan, isDefaultPlan } from "@/state/g
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import { type PlanPreviewAnswer, requestPlanPreview } from "@/state/planPreview";
+import type { PlanPreviewAnswer } from "@/state/planPreview";
+import { requestPlanPreview } from "@/state/planPreviewClient";
 
 /** What each personnel group is, for the labels. */
 const PERSONNEL: { key: "p11" | "p12" | "p13"; label: string; note: string }[] = [
@@ -53,10 +54,23 @@ function Dial({
   note: string;
 }) {
   return (
-    <div style={{ padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-        <label style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</label>
-        <span className="oswald" style={{ marginLeft: "auto", fontSize: 15, color: value === 0 || display.startsWith("0") ? "var(--ink-dim)" : "var(--team)" }}>
+    <div style={{ padding: "16px 0 14px", borderTop: "1px solid var(--line)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <label style={{ fontSize: 15, fontWeight: 600 }}>{label}</label>
+        <span
+          className="oswald"
+          style={{
+            marginLeft: "auto",
+            minWidth: 56,
+            textAlign: "center",
+            padding: "3px 12px",
+            borderRadius: 999,
+            fontSize: 16,
+            border: "1px solid var(--line-strong)",
+            color: value === 0 || display.startsWith("0") ? "var(--ink-dim)" : "var(--team)",
+            background: value === 0 || display.startsWith("0") ? "transparent" : "var(--panel)",
+          }}
+        >
           {display}
         </span>
       </div>
@@ -68,24 +82,33 @@ function Dial({
         value={value}
         aria-label={label}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: "100%", margin: "8px 0 2px", accentColor: "var(--team)" }}
+        style={{ width: "100%", margin: "12px 0 4px", accentColor: "var(--team)", height: 6 }}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--ink-faint)" }}>
-        <span>{low}</span>
-        <span>{high}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, color: "var(--ink-dim)" }}>
+        <span>← {low}</span>
+        <span>{high} →</span>
       </div>
-      <p style={{ margin: "6px 0 0", fontSize: 11.5, color: "var(--ink-dim)", lineHeight: 1.5 }}>{note}</p>
+      <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.55, maxWidth: 680 }}>{note}</p>
     </div>
   );
 }
 
 function Group({ title, blurb, children }: { title: string; blurb: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: 18 }}>
-      <p className="sectionlabel" style={{ margin: "0 0 2px" }}>
+    <section
+      style={{
+        marginBottom: 22,
+        padding: "16px 20px 6px",
+        border: "1px solid var(--line)",
+        borderLeft: "4px solid var(--team)",
+        borderRadius: "var(--r-md)",
+        background: "var(--panel-sunken)",
+      }}
+    >
+      <h3 className="oswald" style={{ margin: 0, fontSize: 20, letterSpacing: "0.03em", fontWeight: 600 }}>
         {title}
-      </p>
-      <p style={{ margin: "0 0 4px", fontSize: 11.5, color: "var(--ink-faint)" }}>{blurb}</p>
+      </h3>
+      <p style={{ margin: "3px 0 6px", fontSize: 13, color: "var(--ink-dim)" }}>{blurb}</p>
       {children}
     </section>
   );
@@ -128,9 +151,9 @@ export function GamePlanScreen() {
     `Higher means more fourth downs ${zone} are gone for rather than punted or kicked. It never applies in the final two minutes, where the clock decides.`;
 
   return (
-    <Card maxWidth={800}>
+    <Card maxWidth={900}>
       <CardHeader badge={meta.abbr} title="Game Plan" subtitle={`${meta.label} · applies to games not yet simulated`} />
-      <div style={{ padding: "6px 22px 4px" }}>
+      <div style={{ padding: "14px 22px 4px" }}>
         <Group title="Pass or run" blurb="How the offense calls its game.">
           <Dial
             label="Pass rate"

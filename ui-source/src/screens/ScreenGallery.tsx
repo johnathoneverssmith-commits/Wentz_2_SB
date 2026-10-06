@@ -18,7 +18,6 @@ const SCREENS: Array<{ to: string; title: string; note: string }> = [
   { to: "/bracket", title: "Postseason Bracket", note: "WC → SB" },
   { to: "/retirement", title: "Retirement Review", note: "Retire / return" },
   { to: "/rookie-signings", title: "Rookie Signings", note: "Slotted deals" },
-  { to: "/draft-preview", title: "Draft Preview", note: "Scouting + targets" },
   { to: "/game-day", title: "Game Day", note: "Post-sim results" },
   { to: "/end-of-season", title: "End of Season", note: "Announcement" },
   { to: "/season-complete", title: "Season Complete", note: "Recap + score tracker" },
