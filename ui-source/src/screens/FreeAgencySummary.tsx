@@ -1,4 +1,5 @@
 import { StageLoading } from "@/components/StageLoading";
+import { useStaffPlan } from "@/components/StaffPlan";
 import { useMemo, useState } from "react";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +42,7 @@ import { andList, millions, posLabel } from "@/util/format";
 export function FreeAgencySummary() {
   const s = useStore();
   const actions = useLeagueActions();
+  const staff = useStaffPlan();
   const nav = useNavigate();
   const code = viewerTeamCode(s);
   const { active, setActive } = useTabs("yours");
@@ -386,6 +388,7 @@ export function FreeAgencySummary() {
           })}
       </Panel>
 
+      {staff.card}
       <Footer>
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
           {legal
@@ -410,12 +413,13 @@ export function FreeAgencySummary() {
               const cost = Math.round(cuts.reduce((n, p) => n + releasePenalty(p), 0) * 10) / 10;
               const list = cuts.map((p) => `${p.name} (${posLabel(p.position)} ${p.overall})`).join(", ");
               const plan = [
-                cuts.length > 0 ? `release ${list} — ${millions(cost)} of dead money` : "",
+                cuts.length > 0 ? `Release ${list} (${millions(cost)} of dead money)` : "",
                 // a hole at a position can't be cut away: the staff signs a
                 // street free agent into it, as it does for the CPU teams
-                short ? "sign a one-year minimum free agent into each empty position" : "",
+                short ? "Sign a one-year minimum free agent into each empty position" : "",
               ].filter(Boolean);
-              if (plan.length > 0 && !confirm(`Your staff would ${plan.join(", and ")}. Go ahead?`)) return;
+              void (async () => {
+              if (plan.length > 0 && !(await staff.ask({ title: "Your staff would:", lines: plan, note: "Releases can't be undone and cost dead money.", yes: "Fix the roster" }))) return;
               setTrimming(true);
               setTrimNote(null);
               const had = new Set(rosterOf(useStore.getState(), code).map((p) => p.id));
@@ -437,6 +441,7 @@ export function FreeAgencySummary() {
                   setTrimNote(parts.join(" ") || null);
                 })
                 .finally(() => setTrimming(false));
+              })();
             }}
           >
             {trimming ? "Fixing…" : "Let my staff fix the roster"}

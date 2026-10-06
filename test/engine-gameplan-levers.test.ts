@@ -18,11 +18,15 @@ import {
   twoPointProb,
 } from "../src/engine/gameplan.js";
 import { Roster, roster, withRookiePlaytime } from "../src/engine/roster.js";
+import { rookieRoles } from "../src/engine/rookies.js";
 import { simulateGame } from "../src/engine/sim.js";
 import { qbMobilityZ } from "../src/engine/synergy.js";
 import type { Player } from "../src/schema/player.js";
 
 const plan = (p: Partial<GamePlan>): GamePlan => cleanPlan(p);
+/** A different set of seeds, to check a statistical assertion is not resting on the lucky ones: `SEED_SHIFT=1000 npx vitest run ...` */
+const SHIFT = Number(process.env.SEED_SHIFT ?? "0");
+
 
 describe("the new dials are clamped and default to the engine as it was", () => {
   it("fills in every new dial at zero and clamps wild ones", () => {
@@ -123,15 +127,25 @@ describe("what each dial is worth, and to whom", () => {
     expect(returnEffect(100, 1.5).returnYards).toBeGreaterThan(0);
     expect(returnEffect(100, -1).returnYards).toBeLessThan(0);
     expect(returnEffect(-100, 0).fairCatch).toBeGreaterThan(0);
+    // bringing it back risks the ball, more so with poor hands; taking the knee or the standard plan risks none
+    expect(returnEffect(100, 0).fumbleLost).toBeGreaterThan(0);
+    expect(returnEffect(100, -1.5).fumbleLost).toBeGreaterThan(returnEffect(100, 1.5).fumbleLost);
+    expect(returnEffect(-100, 0).fumbleLost).toBe(0);
+    expect(returnEffect(0, 0).fumbleLost).toBe(0);
   });
-  it("rookies who play develop; rookies who sit develop less", () => {
-    const kid = { years_pro: 0, overall: 70, potential: 82 };
-    expect(rookieDevelopment(100, kid)).toBeGreaterThan(0);
-    expect(rookieDevelopment(-100, kid)).toBeLessThan(0);
-    expect(rookieDevelopment(100, { ...kid, years_pro: 4 })).toBe(0);
-    expect(rookieDevelopment(0, kid)).toBe(0);
+  it("rookies the policy plays develop; rookies it sits develop less; the bench is unchanged", () => {
+    const kid = { overall: 70, potential: 82 };
+    expect(rookieDevelopment(100, kid, "promoted")).toBeGreaterThan(rookieDevelopment(100, kid, "merit"));
+    expect(rookieDevelopment(100, kid, "merit")).toBeGreaterThan(0);
+    expect(rookieDevelopment(-100, kid, "benched")).toBeLessThan(0);
+    // no role (he sits either way), or no dial: nothing
+    expect(rookieDevelopment(100, kid, undefined)).toBe(0);
+    expect(rookieDevelopment(0, kid, "promoted")).toBe(0);
+    // sitting only hurts under a negative dial, playing only helps under a positive one
+    expect(rookieDevelopment(100, kid, "benched")).toBe(0);
+    expect(rookieDevelopment(-100, kid, "promoted")).toBe(0);
     // already at his ceiling, there's less to gain
-    expect(rookieDevelopment(100, { ...kid, potential: 70 })).toBeLessThan(rookieDevelopment(100, kid));
+    expect(rookieDevelopment(100, { ...kid, potential: 70 }, "promoted")).toBeLessThan(rookieDevelopment(100, kid, "promoted"));
   });
 });
 
@@ -172,7 +186,7 @@ function withQuarterback(team: string, qb: Player): Roster {
 function avgMargin(home: Roster, away: Roster, homePlan: Partial<GamePlan>, n: number, salt = 0): number {
   let sum = 0;
   for (let i = 0; i < n; i++) {
-    const g = simulateGame(9000 + salt * 100000 + i, home.team, away.team, {
+    const g = simulateGame(9000 + SHIFT + salt * 100000 + i, home.team, away.team, {
       homeRoster: home,
       awayRoster: away,
       homePlan: plan(homePlan),
@@ -227,7 +241,7 @@ describe("no lever can make a catastrophic decision", () => {
         for (let k = 0; k < 6; k++) {
           const a = teams[i]!;
           const b = teams[(i + 1 + k) % teams.length]!;
-          const g = simulateGame(700 + i * 31 + k, a, b, { homePlan: plan(p), awayPlan: plan(p), audit, talentScale: 1.5, mustDecide: true });
+          const g = simulateGame(700 + SHIFT + i * 31 + k, a, b, { homePlan: plan(p), awayPlan: plan(p), audit, talentScale: 1.5, mustDecide: true });
           points += g.score[0] + g.score[1];
           games++;
         }
@@ -252,7 +266,7 @@ describe("the new dials move the engine the way they say", () => {
     let two = 0;
     let td = 0;
     for (let i = 0; i < n; i++) {
-      const g = simulateGame(4100 + i, "DAL", "PHI", { homePlan: plan(p), awayPlan: plan(p), audit, talentScale: 1.5 });
+      const g = simulateGame(4100 + SHIFT + i, "DAL", "PHI", { homePlan: plan(p), awayPlan: plan(p), audit, talentScale: 1.5 });
       for (const t of g.teams) {
         two += t.s["two_att"] ?? 0;
         td += t.s["td"] ?? 0;
@@ -290,13 +304,25 @@ describe("kickoffs, returns and rookies in the games", () => {
     let drives = 0;
     let returnTds = 0;
     for (let i = 0; i < n; i++) {
-      const g = simulateGame(6100 + i, "DAL", "PHI", { homePlan: plan(kickPlan), awayPlan: plan(retPlan), talentScale: 1.5 });
+      const g = simulateGame(6100 + SHIFT + i, "DAL", "PHI", { homePlan: plan(kickPlan), awayPlan: plan(retPlan), talentScale: 1.5 });
       // drives of the away team (the receiver) that began with a kickoff are all we can see: use every away drive
       for (const d of g.drivesLog) if (d.team === 1) { start += 100 - d.startYl; drives++; }
       returnTds += (g.teams[1].s["kr_td"] ?? 0) + (g.teams[1].s["pr_td"] ?? 0);
     }
     return { start: start / drives, returnTds };
   };
+  it("a team that brings everything back fumbles it away sometimes, and the standard plan never does on a return", () => {
+    const lost = (r: number) => {
+      let n = 0;
+      for (let i = 0; i < 300; i++) {
+        const g = simulateGame(8100 + SHIFT + i, "DAL", "PHI", { awayPlan: plan({ returns: r }), talentScale: 1.5 });
+        // a fumble lost on a return is the receiving team's with no scrimmage play: compare totals with and without
+        n += g.teams[1].s["fumble_lost"] ?? 0;
+      }
+      return n;
+    };
+    expect(lost(100)).toBeGreaterThan(lost(0));
+  }, 300000);
   it("a team that fair catches takes the big play off the table", () => {
     const base = specials({ kickoff: 1 }, { returns: 1 }, 300);
     const cautious = specials({}, { returns: -100 }, 300);
@@ -320,5 +346,22 @@ describe("kickoffs, returns and rookies in the games", () => {
     const played = withRookiePlaytime(me, 100);
     const start = (r: Roster) => [...r.depth.values()].map((l) => l[0]?.id).join(",");
     expect(start(played)).not.toBe(start(me));
+  });
+});
+
+describe("who the rookie policy plays", () => {
+  const mk = (id: string, position: string, overall: number, years_pro: number) => ({ id, position, overall, years_pro });
+  const team = [mk("v1", "WR", 80, 5), mk("v2", "WR", 76, 4), mk("v3", "WR", 74, 3), mk("v4", "WR", 71, 2), mk("kidA", "WR", 72, 0), mk("kidB", "WR", 60, 0), mk("qb", "QB", 85, 0), mk("qb2", "QB", 70, 6)];
+  it("labels who is promoted, who starts anyway, and who is sat", () => {
+    const up = rookieRoles(team, 100);
+    // three WR start: v1 80, v2 76, v3 74; kidA 72 is within 4 of v3 (74) and passes him
+    expect(up.get("kidA")).toBe("promoted");
+    expect(up.has("kidB")).toBe(false);
+    // the QB starts on merit either way
+    expect(up.get("qb")).toBe("merit");
+    // a negative dial sits a rookie who would have started
+    const down = rookieRoles([mk("a", "WR", 75, 0), mk("b", "WR", 74, 5), mk("c", "WR", 73, 5), mk("d", "WR", 72, 5)], -100);
+    expect(down.get("a")).toBe("benched");
+    expect(rookieRoles(team, 0).size).toBe(0);
   });
 });

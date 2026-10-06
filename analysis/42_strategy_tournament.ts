@@ -42,8 +42,18 @@ const FIT: Record<string, (t: string) => number> = {
   balanced: () => 0,
 };
 
-function margin(team: string, plan: GamePlan): number {
-  let m = 0, n = 0;
+interface Tape {
+  mean: number;
+  /** standard deviation of a game's margin: a floor is a smaller one */
+  sd: number;
+  /** share of games decided by a score or less that the team won */
+  close: number;
+  /** share of games lost by two scores or more: the bad nights */
+  blowouts: number;
+}
+
+function margin(team: string, plan: GamePlan): Tape {
+  const ms: number[] = [];
   for (let i = 0; i < GAMES; i++) {
     const opp = teams[(teams.indexOf(team) + 1 + ((i * 7) % 31)) % 32]!;
     if (opp === team) continue;
@@ -56,15 +66,22 @@ function margin(team: string, plan: GamePlan): number {
       talentScale: TALENT,
       ...(home ? { homePlan: plan } : { awayPlan: plan }),
     });
-    m += home ? g.score[0] - g.score[1] : g.score[1] - g.score[0];
-    n++;
+    ms.push(home ? g.score[0] - g.score[1] : g.score[1] - g.score[0]);
   }
-  return m / n;
+  const m = mean(ms);
+  const closeGames = ms.filter((x) => Math.abs(x) <= 8);
+  return {
+    mean: m,
+    sd: Math.sqrt(mean(ms.map((x) => (x - m) ** 2))),
+    close: closeGames.length ? closeGames.filter((x) => x > 0).length / closeGames.length : 0.5,
+    blowouts: ms.filter((x) => x <= -17).length / Math.max(1, ms.length),
+  };
 }
 
 const base = new Map(teams.map((t) => [t, margin(t, cleanPlan(DEFAULT_PLAN))]));
-console.log(`talent ${TALENT}, ${GAMES} games a roster; margin vs the standard plan (points/game)\n`);
-console.log("strategy          overall    best-fit 8   worst-fit 8   spread");
+console.log(`talent ${TALENT}, ${GAMES} games a roster; margin vs the standard plan (points/game)
+`);
+console.log("strategy          overall    best-fit 8   worst-fit 8   spread  | sd of margin   close-game win%   17+ pt losses");
 // --only name, and --try 'json' to measure a candidate plan under that name (the FIT metric of the name)
 const ONLY = arg("only", "");
 const TRY = arg("try", "");
@@ -72,11 +89,16 @@ const entries: [string, Partial<GamePlan>][] = TRY ? [[ONLY, JSON.parse(TRY) as 
 for (const [name, partial] of entries) {
   if (name === "balanced") continue;
   const plan = cleanPlan(partial);
-  const delta = new Map(teams.map((t) => [t, margin(t, plan) - base.get(t)!]));
+  const tapes = new Map(teams.map((t) => [t, margin(t, plan)]));
+  const delta = new Map(teams.map((t) => [t, tapes.get(t)!.mean - base.get(t)!.mean]));
   const ranked = [...teams].sort((a, b) => FIT[name]!(b) - FIT[name]!(a));
   const top = mean(ranked.slice(0, 8).map((t) => delta.get(t)!));
   const bot = mean(ranked.slice(-8).map((t) => delta.get(t)!));
   const all = mean([...delta.values()]);
-  const f = (x: number) => (x >= 0 ? "+" : "") + x.toFixed(2);
-  console.log(`${name.padEnd(16)} ${f(all).padStart(7)}   ${f(top).padStart(10)}   ${f(bot).padStart(11)}   ${f(top - bot).padStart(6)}`);
+  const dd = (k: keyof Tape) => mean(teams.map((t) => tapes.get(t)![k] - base.get(t)![k]));
+  const f = (x: number, d = 2) => (x >= 0 ? "+" : "") + x.toFixed(d);
+  const pc = (x: number) => (x >= 0 ? "+" : "") + (x * 100).toFixed(1);
+  console.log(
+    `${name.padEnd(16)} ${f(all).padStart(7)}   ${f(top).padStart(10)}   ${f(bot).padStart(11)}   ${f(top - bot).padStart(6)}  | ${f(dd("sd")).padStart(8)}   ${pc(dd("close")).padStart(14)}   ${pc(dd("blowouts")).padStart(11)}`,
+  );
 }

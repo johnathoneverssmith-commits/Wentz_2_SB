@@ -103,6 +103,8 @@ function PlayDesc({ p }: { p: BroadcastPlay }): JSX.Element {
       return (<><N n={p.kicker} /> punts {p.distance} yards — returned by <N n={p.returner} /> for a TOUCHDOWN</>);
     if (p.outcome === "downed")
       return (<><N n={p.kicker} /> punts {p.distance} yards, downed</>);
+    if (p.outcome === "fumbled")
+      return (<><N n={p.kicker} /> punts {p.distance} yards, <N n={p.returner} /> FUMBLES it away on the return</>);
     return (<><N n={p.kicker} /> punts {p.distance} yards, returned by <N n={p.returner} /></>);
   }
 

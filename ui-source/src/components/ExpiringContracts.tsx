@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useStaffPlan } from "@/components/StaffPlan";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { useNavigate } from "react-router-dom";
 
@@ -20,6 +21,7 @@ import { millions, posLabel } from "@/util/format";
 export function ExpiringContracts({ teamCode }: { teamCode: string }) {
   const nav = useNavigate();
   const actions = useLeagueActions();
+  const staff = useStaffPlan();
   const [note, setNote] = useState<Record<string, string>>({});
   // an extended player stops expiring, so his row disappeared the moment it
   // worked — with nothing to say it had
@@ -51,6 +53,7 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
 
   return (
     <div className="notice" role="status" style={{ marginBottom: 16 }}>
+      {staff.card}
       {done.map((line) => (
         <p key={line} style={{ margin: "0 0 8px", fontSize: 12, color: "var(--good)" }}>
           {line}
@@ -162,9 +165,14 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
                 return;
               }
               const total = plan.reduce((n, x) => n + x.ask.baseSalary, 0);
-              const list = plan.map((x) => `${x.player.name} (${posLabel(x.player.position)} ${x.player.overall}) ${millions(x.ask.baseSalary)}/yr × ${x.ask.years}`).join(", ");
-              if (!confirm(`Your staff would extend ${list}: ${millions(Math.round(total * 10) / 10)} a year in all. Go ahead?`)) return;
               void (async () => {
+                const ok = await staff.ask({
+                  title: `Your staff would extend ${plan.length} player${plan.length === 1 ? "" : "s"}:`,
+                  lines: plan.map((x) => `${x.player.name} (${posLabel(x.player.position)} ${x.player.overall}, age ${x.player.age}): ${millions(x.ask.baseSalary)}/yr × ${x.ask.years}`),
+                  note: `${millions(Math.round(total * 10) / 10)} a year in all, within next year's budget.`,
+                  yes: "Extend them",
+                });
+                if (!ok) return;
                 for (const { player, ask } of plan) {
                   setNote((n) => ({ ...n, [player.id]: "Extending…" }));
                   const r = await actions.extend(player.id, ask);

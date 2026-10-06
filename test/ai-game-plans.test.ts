@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { cleanPlan, isDefaultPlan, STRATEGY_PLANS } from "../src/engine/gameplan.js";
 import { roster, teamList } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
+/** A different set of seeds, to check a statistical assertion is not resting on the lucky ones: `SEED_SHIFT=1000 npx vitest run ...` */
+const SHIFT = Number(process.env.SEED_SHIFT ?? "0");
+
 
 /**
  * The plans CPU teams play (`STRATEGY_PLANS`): valid, and between them they leave
@@ -28,7 +31,7 @@ describe("AI strategy plans", () => {
       for (let i = 0; i < 140; i++) {
         const h = teams[i % 32]!, a = teams[(i * 7 + 5) % 32]!;
         if (h === a) continue;
-        const game = simulateGame(5500 + i, h, a, {
+        const game = simulateGame(5500 + SHIFT + i, h, a, {
           homeRoster: roster(h),
           awayRoster: roster(a),
           overtime: "nfl",

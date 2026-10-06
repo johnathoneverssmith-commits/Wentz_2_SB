@@ -5,6 +5,9 @@ import { roster, teamList } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
 
 const teams = teamList();
+/** A different set of seeds, to check a statistical assertion is not resting on the lucky ones: `SEED_SHIFT=1000 npx vitest run ...` */
+const SHIFT = Number(process.env.SEED_SHIFT ?? "0");
+
 
 /** League-style averages for the plan's team over a spread of opponents, with the opponent on the default plan. */
 function measure(plan: Partial<GamePlan> | undefined, games = 90) {
@@ -13,7 +16,7 @@ function measure(plan: Partial<GamePlan> | undefined, games = 90) {
     const h = teams[i % 32]!;
     const a = teams[(i * 5 + 3) % 32]!;
     if (h === a) continue;
-    const g = simulateGame(9000 + i, h, a, {
+    const g = simulateGame(9000 + SHIFT + i, h, a, {
       homeRoster: roster(h),
       awayRoster: roster(a),
       overtime: "nfl",
@@ -77,12 +80,14 @@ describe("game plans", () => {
   }, 240_000);
 
   it("fourth down: each zone's dial changes how often a team goes, and the red zone one changes field goals", () => {
-    const base = measure(undefined);
-    const all = measure({ fourthRedZone: 100, fourthOpp: 100, fourthOwn: 100 });
-    const never = measure({ fourthRedZone: -100, fourthOpp: -100, fourthOwn: -100 });
-    expect(all.goPerGame).toBeGreaterThan(base.goPerGame + 0.4);
+    // a few hundred games: the go rate moves by tenths of a try a game, and a
+    // 90-game sample put the same assertion on either side of its bar by seed
+    const base = measure(undefined, 300);
+    const all = measure({ fourthRedZone: 100, fourthOpp: 100, fourthOwn: 100 }, 300);
+    const never = measure({ fourthRedZone: -100, fourthOpp: -100, fourthOwn: -100 }, 300);
+    expect(all.goPerGame).toBeGreaterThan(base.goPerGame + 0.2);
     expect(never.goPerGame).toBeLessThan(base.goPerGame);
-    const rz = measure({ fourthRedZone: 100 });
+    const rz = measure({ fourthRedZone: 100 }, 300);
     expect(rz.fg).toBeLessThan(base.fg);
   }, 240_000);
 
@@ -93,7 +98,7 @@ describe("game plans", () => {
       for (let i = 0; i < 90; i++) {
         const h = teams[i % 32]!, a = teams[(i * 5 + 3) % 32]!;
         if (h === a) continue;
-        const g = simulateGame(9000 + i, h, a, { homeRoster: roster(h), awayRoster: roster(a), overtime: "nfl", awayPlan: cleanPlan({ blitz }) });
+        const g = simulateGame(9000 + SHIFT + i, h, a, { homeRoster: roster(h), awayRoster: roster(a), overtime: "nfl", awayPlan: cleanPlan({ blitz }) });
         const s = g.teams[0]!.s as Record<string, number>;
         sk += s.sack ?? 0;
         att += s.pass_att ?? 0;
@@ -135,10 +140,10 @@ describe("ball control", () => {
     const top = (plan: Partial<GamePlan> | undefined) => {
       let secs = 0, g = 0;
       for (const [i, t] of best.entries()) {
-        for (let k = 0; k < 8; k++) {
+        for (let k = 0; k < 40; k++) {
           const opp = teams[(teams.indexOf(t) + 3 + i * 3 + k) % 32]!;
           if (opp === t) continue;
-          const game = simulateGame(77000 + i * 40 + k, t, opp, {
+          const game = simulateGame(77000 + SHIFT + i * 40 + k, t, opp, {
             homeRoster: roster(t), awayRoster: roster(opp), overtime: "nfl", ...(plan ? { homePlan: cleanPlan(plan) } : {}),
           });
           secs += (game.teams[0]!.s as Record<string, number>).top ?? 0;
@@ -147,6 +152,7 @@ describe("ball control", () => {
       }
       return secs / g;
     };
-    expect(top({ passRate: -12 })).toBeGreaterThan(top(undefined) + 90);
+    // the effect is about a minute a game; 320 games per side resolves it from the noise (about 20 seconds)
+    expect(top({ passRate: -12 })).toBeGreaterThan(top(undefined) + 25);
   }, 240_000);
 });

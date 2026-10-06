@@ -1502,3 +1502,45 @@ dynasty); CPU firings run 1-6 an offseason (NFL-like), the pool never drains,
 a replacement never shares the fired GM's strategy; no remaining direct reads
 of `config.difficulty` or `strategyFor`; the new screens at phone width (no
 horizontal scroll).
+
+### Audit follow-ups (2026-10)
+
+**Rookie development follows who plays.** The camp bonus used to go to every
+rookie whether he played or not (about +1 a year across ~14 young players a
+team, for a cost of a few starts: a free upgrade). It now goes by role
+(`rookieRoles`, `src/engine/rookies.ts`, browser-safe): the rookie the policy
+promotes ahead of a better veteran grows most (x1.6), one who starts on merit a
+little (x0.4), a rookie it sits who would have started loses a point under a
+negative dial; a rookie on the bench either way is unchanged
+(`rookieCamp.test.ts`).
+
+**Kickoff and return dials re-priced** with a 1,500-game isolated benchmark
+(returns +100: all +0.26, best returners +0.09, worst -0.16 points a game, noise
+about 0.4; the league-wide lever audit is too noisy for these two). Pinning the
+kickoff short was a free lunch (+0.56 even with weak kickers): it now costs
+more return touchdowns and less field position, helping with a strong leg.
+Bringing everything back raised return touchdowns 0.049 to 0.083 a game for
+every returner and now carries a flat yardage cost and a **fumble risk** (about
+2.5% of live returns at the full dial, more with poor hands; a kickoff fumble
+gives the kicking team the ball where it fell, a punt fumble the punting team).
+Fair catching risks none. The broadcast and gamecast describe a fumbled punt
+return.
+
+**high_ceiling's CPU plan trimmed** (+0.46 to +0.31 overall in the tournament;
+fit stays positive). **Variance is now measured**: the tournament reports the
+standard deviation of a game's margin, the close-game win rate and 17+ point
+losses. high_floor narrows the spread by 0.53 points (and costs 0.05 a game);
+pass_heavy widens it by 0.86 and adds 2.3 points of 17+ point losses; so the
+styles are doing what their names say. Close-game win rate fell for every plan
+(-1.4 to -6.8 points); not understood, not acted on.
+
+**Statistical tests.** `SEED_SHIFT` runs the plan tests on a different set of
+seeds. The first attempt at this check silently changed nothing (an assertion
+aborted the edit), so its "robust" result was meaningless; the real one found two
+fragile assertions (the fourth-down go rate, ball control), now measured on
+300 games with smaller bars; all plan tests pass at shifts 0, 2000, 3000 and 4000.
+
+**UI.** Every staff button (roster fix, free-agency turn, deadline, re-sign the
+core) shows its plan inline (`useStaffPlan`) with a yes and a no instead of a
+browser `confirm()`; the draft map places its labels clear of each other
+(`layoutLabels`; 1 of 32 overlaps on a real post-draft league).

@@ -1,4 +1,5 @@
 import { SkipToggle } from "@/components/SkipToggle";
+import { useStaffPlan } from "@/components/StaffPlan";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +42,7 @@ const sim = new MockSimulationService();
  */
 export function TradeDeadlineRoom() {
   const s = useStore();
+  const staff = useStaffPlan();
   const nav = useNavigate();
   const actions = useLeagueActions();
   const code = viewerTeamCode(s);
@@ -136,6 +138,7 @@ export function TradeDeadlineRoom() {
         );
       })()}
       <SkipToggle kind="tradeDeadline" />
+      <div style={{ padding: "0 26px" }}>{staff.card}</div>
       {duty !== null && (
         <div style={{ padding: "6px 26px 0", textAlign: "right" }}>
           {/* the staff's read of this turn, shown first and done only on a yes: the same shape as the roster fix */}
@@ -147,7 +150,9 @@ export function TradeDeadlineRoom() {
               const plan = staffDeadlineMove(useStore.getState(), code);
               if (!plan) return;
               const { summary, ...move } = plan;
-              if (confirm(`Your staff would ${summary}. Go ahead?`)) submit(move as Parameters<typeof actions.deadlineTurn>[0]);
+              void staff
+                .ask({ title: "Your staff would:", lines: [summary.charAt(0).toUpperCase() + summary.slice(1)], yes: "Go ahead" })
+                .then((ok) => ok && submit(move as Parameters<typeof actions.deadlineTurn>[0]));
             }}
           >
             Let my staff handle this turn

@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { AI_STRATEGY_IDENTITY, type AiSeasonStrategy } from "@/state/aiStrategy";
 import { type IdentityGroup, identityGroups, UNIT_LABEL } from "@/state/draftIdentity";
+import { layoutLabels } from "@/state/labelLayout";
 import { useStore } from "@/state/store";
 
 const COLOR: Record<AiSeasonStrategy | "human", string> = {
@@ -60,6 +61,10 @@ export function IdentityMap({ code }: { code: string | null | undefined }) {
     const n = spot.get(`${t.offense}|${t.defense}`) ?? 1;
     return (t.k - (n - 1) / 2) * 13;
   };
+  // labels placed clear of each other and of the other dots (`layoutLabels`)
+  const spots = layoutLabels(
+    placed.map((t) => ({ id: t.code, x: px(t.offense) + dx(t), y: py(t.defense), r: t.code === code ? 7 : 5.5, w: 19, h: 9 })),
+  );
   const mx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const my = ys.reduce((a, b) => a + b, 0) / ys.length;
 
@@ -95,7 +100,7 @@ export function IdentityMap({ code }: { code: string | null | undefined }) {
                 stroke={mine ? "var(--team)" : "var(--panel)"}
                 strokeWidth={mine ? 2.5 : 1}
               />
-              <text x={x} y={py(t.defense) - (t.k % 2 === 0 ? 8 : -15)} textAnchor="middle" fontSize={8.5} fill={mine ? "var(--team)" : "var(--ink-faint)"} fontWeight={mine ? 700 : 400}>
+              <text x={spots.get(t.code)!.x} y={spots.get(t.code)!.y} textAnchor={spots.get(t.code)!.anchor} fontSize={8.5} fill={mine ? "var(--team)" : "var(--ink-faint)"} fontWeight={mine ? 700 : 400}>
                 {TEAMS_BY_CODE[t.code]?.abbr ?? t.code}
               </text>
             </g>

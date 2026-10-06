@@ -8,6 +8,7 @@ import { agingBalance } from "./draftSupply";
 import { applyCoachToDelta, coachModifiersFor } from "./coachEffects";
 import { ratingOf } from "./coachingDraft";
 import { gamePlanFor, rookieDevelopment } from "./gamePlan.ts";
+import { rookieRoles } from "../../../src/engine/rookies.js";
 import { strategyGroupBonus, strategyWeaknessMultiplier } from "./aiStrategy.ts";
 import { deterministicNoiseUnit } from "./aiDifficulty.ts";
 import { difficultyFor, strategyOf } from "./aiGms.ts";
@@ -192,6 +193,14 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
 
   const balance = agingBalance(s);
   const rookiePolicy = gamePlanFor(s, teamCode).rookies;
+  const roles =
+    rookiePolicy === 0
+      ? new Map<string, "promoted" | "merit" | "benched">()
+      : rookieRoles(
+          Object.values(s.players).filter((p) => p.nfl_team === teamCode && !p.retired && !p.free_agent),
+          rookiePolicy,
+          s.depthChart?.[teamCode],
+        );
   for (const p of Object.values(s.players)) {
     if (p.nfl_team !== teamCode || p.retired || p.free_agent) continue;
 
@@ -202,7 +211,7 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
     const aged = balance(p.position, agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold, room));
     // the rookie policy: young players who got the snaps grow, those who sat on the bench grow less
     // (a whole point, rolled with the player's own seeded stream so a retry is the same camp)
-    const grow = rookiePolicy === 0 ? 0 : rookieDevelopment(rookiePolicy, p);
+    const grow = rookiePolicy === 0 ? 0 : rookieDevelopment(rookiePolicy, p, roles.get(p.id));
     const extra = grow === 0 ? 0 : grow > 0 ? Math.floor(grow + rng.random()) : -Math.floor(-grow + rng.random());
     const base = aged + extra;
 

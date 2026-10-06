@@ -268,9 +268,9 @@ export function qbRunEffect(plan: GamePlan, mobility: number): {
 export function kickoffEffect(k: number, kickerZ: number): { touchback: number; spotShift: number; tdMult: number; outOfBounds: number } {
   const a = k / 100;
   return {
-    touchback: a > 0 ? 0.28 * a * (1 + 0.2 * kickerZ) : 0.4 * a,
-    spotShift: a < 0 ? a * (1.2 + 1.6 * kickerZ) : 0,
-    tdMult: a < 0 ? 1 - 1.2 * a : 1,
+    touchback: a > 0 ? 0.28 * a * (1 + 0.2 * kickerZ) : 0.3 * a,
+    spotShift: a < 0 ? a * (0.4 + 2.4 * kickerZ) : 0,
+    tdMult: a < 0 ? 1 - 2.0 * a : 1,
     outOfBounds: a > 0 ? 0.05 * a * Math.max(0.2, 1 - 0.4 * kickerZ) : 0,
   };
 }
@@ -287,13 +287,17 @@ export function returnEffect(r: number, returnerZ: number): {
   fairCatch: number;
   returnYards: number;
   tdMult: number;
+  /** the chance a live return ends in a lost fumble: the price of bringing it back, higher for a returner with poor hands */
+  fumbleLost: number;
 } {
   const a = r / 100;
   return {
     touchbackToReturn: a > 0 ? 0.5 * a : 0,
     fairCatch: a < 0 ? -0.6 * a : 0,
-    returnYards: a > 0 ? a * (2.4 * returnerZ - 0.5) : 0,
-    tdMult: a > 0 ? Math.max(0.2, 1 + a * (0.9 * returnerZ + 0.2)) : 1,
+    returnYards: a > 0 ? a * (2.4 * returnerZ - 1.3) : 0,
+    // bringing more back gets more of the big ones only if he is dangerous: a slow returner's extra returns are stuffed
+    tdMult: a > 0 ? Math.max(0.2, 1 + a * (0.9 * returnerZ - 0.25)) : 1,
+    fumbleLost: a > 0 ? a * 0.025 * Math.max(0.4, 1 - 0.25 * returnerZ) : 0,
   };
 }
 
@@ -302,12 +306,29 @@ export function returnEffect(r: number, returnerZ: number): {
 /** The most overall points a rookie can be behind a veteran and still start ahead of him. */
 export const ROOKIE_MARGIN = 4;
 
-/** A rookie's development at training camp from the policy: playing time is how young players grow (and sitting is how they don't). */
-export function rookieDevelopment(dial: number, p: { years_pro?: number | undefined; overall: number; potential?: number | undefined }): number {
-  if (!dial || (p.years_pro ?? 9) > 1) return 0;
+/**
+ * Why a rookie is on the field, under the policy (`rookieRoles`): `promoted`
+ * he starts ahead of a better veteran because of it, `merit` he starts either
+ * way, `benched` the policy sat a rookie who would have started.
+ */
+export type RookieRole = "promoted" | "merit" | "benched";
+
+/**
+ * A rookie's development at training camp from the policy. Playing time is how
+ * young players grow, so only the rookies the policy actually plays grow
+ * faster: the one it promotes ahead of a better veteran (the cost it pays in
+ * games now) most, one who starts anyway a little, and a rookie it sits who
+ * would have started, less. A rookie on the bench either way is unchanged:
+ * the dial used to hand every young player a bonus whether he played or not,
+ * which was a free +1 a year for the cost of a few starts.
+ */
+export function rookieDevelopment(dial: number, p: { overall: number; potential?: number | undefined }, role?: RookieRole): number {
+  if (!dial || !role) return 0;
   const a = dial / 100;
   const room = p.potential === undefined ? 1 : p.potential > p.overall ? 1 : 0.35;
-  return a > 0 ? a * 1.2 * room : a * 0.7;
+  if (role === "promoted") return a > 0 ? a * 1.6 * room : 0;
+  if (role === "merit") return a > 0 ? a * 0.4 * room : 0;
+  return a < 0 ? a * 1.0 : 0;
 }
 
 // ---- the judge ---------------------------------------------------------------
@@ -430,6 +451,6 @@ export const STRATEGY_PLANS: Record<string, Partial<GamePlan>> = {
   pass_heavy: { passRate: 8, p11: 72, p12: 22, p13: 6, rbCommittee: 40 },
   run_heavy: { passRate: -8, p11: 46, p12: 38, p13: 16, rbCommittee: 20 },
   high_floor: { passRate: -6, fourthOwn: -15, twoPoint: -30, p11: 48, p12: 38, p13: 14, rbCommittee: 25 },
-  high_ceiling: { fourthRedZone: 30, fourthOpp: 30, fourthOwn: 10, fourthShort: 30, twoPoint: 40, blitz: 20 },
+  high_ceiling: { fourthRedZone: 20, fourthOpp: 20, fourthOwn: 5, fourthShort: 15, twoPoint: 25, blitz: 15 },
   trenches_first: { passRate: -4, p11: 50, p12: 36, p13: 14, blitz: 20, fourthShort: 30, rbCommittee: 30 },
 };

@@ -8,7 +8,7 @@
 
 import type { Player } from "../schema/player.js";
 import { loadPlayerPool } from "../data/players.js";
-import { ROOKIE_MARGIN } from "./gameplan.js";
+import { policyOrder } from "./rookies.js";
 
 export const OFF_SLOTS = [
   "QB1", "RB1", "WR1", "WR2", "WR3", "TE1", "LT", "LG", "C", "RG", "RT",
@@ -197,42 +197,16 @@ export class Roster {
 }
 
 /**
- * A copy of the roster with the rookie policy applied to its depth chart: with
- * a positive dial a rookie moves up past the veterans who are no more than a
- * few overall points better than he is (`ROOKIE_MARGIN` at the full dial), so
- * he starts; with a negative one he drops below the veterans he is within that
- * margin of. A veteran who is clearly better is never passed, so what the
- * policy costs now is bounded. The shared roster is not changed.
+ * A copy of the roster with the rookie policy applied to its depth chart
+ * (`policyOrder`). The shared roster is not changed.
  */
 export function withRookiePlaytime(r: Roster, dial: number): Roster {
   if (!dial) return r;
-  const margin = (Math.abs(dial) / 100) * ROOKIE_MARGIN;
-  const rookie = (p: Player): boolean => p.years_pro === 0;
   const order: Record<string, string[]> = {};
   const all: Player[] = [];
   for (const [pos, list] of r.depth) {
-    const next = [...list];
     all.push(...list);
-    if (dial > 0) {
-      for (let i = 1; i < next.length; i++) {
-        if (!rookie(next[i]!)) continue;
-        for (let j = i; j > 0; j--) {
-          const up = next[j - 1]!;
-          if (rookie(up) || (up.overall ?? 0) > (next[j]!.overall ?? 0) + margin) break;
-          [next[j - 1], next[j]] = [next[j]!, up];
-        }
-      }
-    } else {
-      for (let i = next.length - 2; i >= 0; i--) {
-        if (!rookie(next[i]!)) continue;
-        for (let j = i; j < next.length - 1; j++) {
-          const down = next[j + 1]!;
-          if (rookie(down) || (down.overall ?? 0) < (next[j]!.overall ?? 0) - margin) break;
-          [next[j + 1], next[j]] = [next[j]!, down];
-        }
-      }
-    }
-    order[pos] = next.map((p) => p.id);
+    order[pos] = policyOrder(list, dial).map((p) => p.id);
   }
   return new Roster(r.team, all, order);
 }

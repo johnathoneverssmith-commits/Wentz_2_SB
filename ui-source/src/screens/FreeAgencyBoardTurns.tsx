@@ -1,4 +1,5 @@
 import { SkipToggle } from "@/components/SkipToggle";
+import { useStaffPlan } from "@/components/StaffPlan";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { StageLoading } from "@/components/StageLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -47,6 +48,7 @@ export function FreeAgencyBoardTurns() {
   const s = useStore();
   const nav = useNavigate();
   const actions = useLeagueActions();
+  const staff = useStaffPlan();
   const code = viewerTeamCode(s);
   const { active, setActive } = useTabs("unsigned");
   const [busy, setBusy] = useState(false);
@@ -229,6 +231,7 @@ export function FreeAgencyBoardTurns() {
         </div>
       )}
 
+      {staff.card}
       {yourTurn && (
         <div className="notice" role="status">
           <strong>You&rsquo;re up.</strong> Make one offer or pass. Offers are binding and stay
@@ -249,17 +252,21 @@ export function FreeAgencyBoardTurns() {
                 const st = useStore.getState();
                 const move = chooseFaMove(st, code);
                 if (move.kind === "pass") {
-                  if (confirm("Your staff would pass this round: nobody on the board is worth a bid. Go ahead?")) act({ pass: true });
+                  void staff
+                    .ask({ title: "Your staff would pass this round.", lines: ["Nobody on the board is worth a bid."], yes: "Pass" })
+                    .then((ok) => ok && act({ pass: true }));
                   return;
                 }
                 const p = st.players[move.playerId];
-                const what = p ? `${p.name} (${posLabel(p.position)} ${p.overall}, ${p.age})` : "a free agent";
-                if (
-                  confirm(
-                    `Your staff would offer ${what} ${millions(move.salary)} a year for ${move.years} year${move.years === 1 ? "" : "s"}. Go ahead?`,
-                  )
-                )
-                  act({ playerId: move.playerId, salary: move.salary, years: move.years });
+                const what = p ? `${p.name} (${posLabel(p.position)} ${p.overall}, age ${p.age})` : "a free agent";
+                void staff
+                  .ask({
+                    title: "Your staff would make this offer:",
+                    lines: [`${what}: ${millions(move.salary)} a year for ${move.years} year${move.years === 1 ? "" : "s"}`],
+                    note: "Offers are binding and stay live until the player signs.",
+                    yes: "Make the offer",
+                  })
+                  .then((ok) => ok && act({ playerId: move.playerId, salary: move.salary, years: move.years }));
               }}
             >
               Let my staff take this turn

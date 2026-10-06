@@ -1056,8 +1056,9 @@ export class Game {
         this.yardline100 = 60.0;
       } else if (re && re.touchbackToReturn > 0 && this.rng.random() < re.touchbackToReturn) {
         // brought out of the end zone: a live return from deep
-        if (this.rng.random() < tdRate * 1.4) return void returnTd();
+        if (this.rng.random() < tdRate) return void returnTd();
         const spot = clip(24 + this.rng.normal(0, 7) + 3 * this.bestReturnerZ(receiving) + re.returnYards, 8, 55);
+        if (this.rng.random() < re.fumbleLost) return void this.kickoffFumble(receiving, spot);
         this.yardline100 = clip(100 - spot, 45, 99);
       } else {
         this.yardline100 = 70.0;
@@ -1069,11 +1070,28 @@ export class Game {
     } else {
       if (this.rng.random() < tdRate) return void returnTd();
       const spot = 25 + this.rng.normal(3, 6) + (ke?.spotShift ?? 0) + (re?.returnYards ?? 0);
+      // a live return can be put on the ground (only when the team has chosen to bring it back)
+      if (re && re.fumbleLost > 0 && this.rng.random() < re.fumbleLost) return void this.kickoffFumble(receiving, spot);
       this.yardline100 = clip(100 - spot, 55, 99);
     }
     this.down = 1;
     this.ydstogo = 10.0;
     this.st("drives", 1, receiving);
+    this.rzFlag = false;
+    this.startDrive();
+  }
+
+  /** The receiving team fumbles the return away: the kicking team takes over where it landed (`spot` yards from the receiver's goal). */
+  private kickoffFumble(receiving: number, spot: number): void {
+    const kicking = 1 - receiving;
+    this.st("fumble", 1, receiving);
+    this.st("fumble_lost", 1, receiving);
+    this.st("turnover", 1, receiving);
+    this.pos = kicking;
+    this.yardline100 = clip(spot, 1, 99);
+    this.down = 1;
+    this.ydstogo = Math.min(10.0, this.yardline100);
+    this.st("drives", 1, kicking);
     this.rzFlag = false;
     this.startDrive();
   }
@@ -1397,7 +1415,23 @@ export class Game {
         // receiving team's yardline_100 = 100 − landing spot, then a return
         // advances them toward the punting team's goal (−ret).
         const newYl = 100 - landing - ret;
-        tracePunt(returned ? "returned" : "downed", newYl, returned ? this.pickReturner() : undefined);
+        // a punt brought back can be fumbled away: the punting team takes it where it fell
+        const fumbled = returned && !!re && re.fumbleLost > 0 && this.rng.random() < re.fumbleLost;
+        tracePunt(fumbled ? "fumbled" : returned ? "returned" : "downed", newYl, returned ? this.pickReturner() : undefined);
+        if (fumbled) {
+          const r = this.other();
+          this.st("fumble", 1, r);
+          this.st("fumble_lost", 1, r);
+          this.st("turnover", 1, r);
+          this.finishDrive("punt");
+          this.yardline100 = clip(100 - newYl, 1, 99);
+          this.down = 1;
+          this.ydstogo = Math.min(10.0, this.yardline100);
+          this.st("drives");
+          this.rzFlag = false;
+          this.startDrive();
+          return;
+        }
         this.flipField(newYl);
       }
       this.puntPenalty();

@@ -123,6 +123,7 @@ function describe(p: {
     if (p.outcome === "touchback") return `${p.distance}-yard punt, touchback`;
     if (p.outcome === "return_td") return `${p.distance}-yard punt, returned for a TOUCHDOWN`;
     if (p.outcome === "downed") return `${p.distance}-yard punt, downed at the ${yardLabel(100 - p.ballOn + p.gained)}`;
+    if (p.outcome === "fumbled") return `${p.distance}-yard punt, FUMBLED on the return and recovered by the punting team`;
     return `${p.distance}-yard punt, returned to the ${yardLabel(100 - p.ballOn + p.gained)}`;
   }
   let s: string;

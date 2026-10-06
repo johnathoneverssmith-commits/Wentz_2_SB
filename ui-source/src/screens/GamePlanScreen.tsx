@@ -302,7 +302,7 @@ export function GamePlanScreen() {
             display={signed(plan.rookies)}
             low="veterans first"
             high="play the rookies"
-            note="Higher puts a rookie ahead of a veteran who is only a few points better, so he starts. You give up a little now (never more than four points at a position) and he grows faster at training camp. Lower keeps the veteran in and slows the young player's development."
+            note="Higher puts a rookie ahead of a veteran who is only a few points better, so he starts. You give up a little now (never more than four points at a position), and the rookies it plays, the ones starting ahead of a better veteran, grow faster at training camp. Lower keeps the veteran in, and a rookie who would have started grows more slowly for sitting. A rookie on the bench either way is unaffected."
           />
         </Group>
 
