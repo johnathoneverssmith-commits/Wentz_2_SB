@@ -54,6 +54,8 @@ import {
   signSession,
 } from "./auth.js";
 import { regenerateBroadcast } from "./blocks.js";
+import { previewInput } from "./planPreview.js";
+import { runPreviewJob } from "./simPool.js";
 import { ActionError, migrate, pool, readLeague, withLeague } from "./db.js";
 import {
   clearSessionCookie,
@@ -500,6 +502,30 @@ get("/leagues/:id/games/:gameId/broadcast", async (ctx) => {
   const broadcast = regenerateBroadcast(loaded.state, gameId);
   if (!broadcast) throw new ActionError("No such game.", 404);
   return { broadcast };
+});
+
+/**
+ * The preseason lab: what a game plan does to this GM's chance against their
+ * next opponent, measured by playing the game both ways (`previewPlan`).
+ * Read-only, and only in the preseason — from the regular season on, the
+ * plan is a call a GM makes without the answer key.
+ */
+post("/leagues/:id/plan-preview", async (ctx) => {
+  const user = requireUser(ctx);
+  const loaded = await readLeague(ctx.params.id!);
+  if (!loaded) throw new ActionError("No such league.", 404);
+  const franchise = await franchiseOf(ctx.params.id!, user.id);
+  if (!franchise) throw new ActionError("You're not in this league.", 403);
+  if (loaded.state.stage !== "preseason") throw new ActionError("Plan previews are a preseason tool.");
+  const built = previewInput(
+    loaded.state,
+    franchise.teamCode,
+    field(ctx, "plan", "object"),
+    revealedWeek(loaded.state, franchise.gmId, "PRE"),
+  );
+  if (!built) throw new ActionError("No game to preview against.");
+  const preview = await runPreviewJob(built.input);
+  return { preview: { ...preview, opponent: built.opponent, game: built.label } };
 });
 
 get("/leagues/:id/feed", async (ctx) => {

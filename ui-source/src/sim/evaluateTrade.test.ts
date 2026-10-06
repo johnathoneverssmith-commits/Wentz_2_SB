@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps } from "../state/seed.ts";
-import { contractValueFor, MockSimulationService } from "./MockSimulationService.ts";
+import { contractValueFor, MockSimulationService, tradeAssetValue } from "./MockSimulationService.ts";
 import type { LeagueState, TradeAsset } from "@/domain";
 
 /**
@@ -35,8 +35,11 @@ describe("evaluateTrade", () => {
 
     // a lopsided ask: proposer gives a weak player, asks for a star back
     const lopsided = sim.evaluateTrade(s, fromTeam, toTeam, [playerAsset(lo.id)], [playerAsset(hi.id)]);
-    // a fair-ish swap of similar value
-    const similarLo = players.find((p) => p.id !== lo.id && Math.abs(p.overall - lo.overall) <= 2 && p.nfl_team === fromTeam);
+    // a fair-ish swap: their player nearest in trade value (age and contract count, not just overall)
+    const worth = (id: string) => tradeAssetValue(s, playerAsset(id));
+    const similarLo = players
+      .filter((p) => p.nfl_team === toTeam && p.position === lo.position && !p.retired && !p.free_agent)
+      .sort((a, b) => Math.abs(worth(a.id) - worth(lo.id)) - Math.abs(worth(b.id) - worth(lo.id)))[0];
     const fair = similarLo
       ? sim.evaluateTrade(s, fromTeam, toTeam, [playerAsset(lo.id)], [playerAsset(similarLo.id)])
       : null;

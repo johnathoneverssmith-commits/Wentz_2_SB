@@ -41,6 +41,13 @@ export interface BracketState {
    * the store moves them into `games` and drops this.
    */
   playedGames?: import("./game").GameResult[];
+  /**
+   * Online: how many rounds have been played, whether or not this GM has
+   * watched them (`visibleBracket` fills it in). Not a result: it says only
+   * whether the next round is waiting to be watched or waiting on a
+   * checkpoint, where a GM still alive sets a plan and checks in.
+   */
+  roundsPlayed?: number;
 }
 
 /** The rounds a bracket plays, in order. */

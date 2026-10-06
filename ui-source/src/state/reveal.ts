@@ -188,8 +188,13 @@ export function visibleBracket(
   );
   const known = (side: BracketState["matchups"][number]["highSeed"], at: number) =>
     side && at === unseenAt + 1 && byeTeams.has(side.code) ? side : null;
+  // a round is played once one real game in it is decided (a bye is decided from the start)
+  const roundsPlayed = rounds.filter((r) =>
+    bracket.matchups.some((m) => m.round === r && m.winner != null && m.highSeed && m.lowSeed),
+  ).length;
   return {
     ...bracket,
+    roundsPlayed,
     currentRound: firstUnseen ?? bracket.currentRound,
     champion: seen.includes("SB") ? bracket.champion : null,
     matchups: bracket.matchups.map((m) => {

@@ -99,11 +99,10 @@ describe("a season on the server", () => {
       finishPlayedWeek(s);
     }
     expect(s.bracket).toBeTruthy();
-    // Change 11: the whole postseason is played the moment the stage opens,
-    // so the bracket arrives finished and every GM reveals it a round at a
-    // time. It used to sit on the wild card waiting to be simulated.
-    expect(s.bracket!.currentRound).toBe("SB");
-    expect(s.bracket!.champion).toBeTruthy();
+    // the postseason is played a round per checkpoint, so the bracket
+    // arrives seeded and unplayed, and every GM sets a plan for the wild card
+    expect(s.bracket!.currentRound).toBe("WC");
+    expect(s.bracket!.champion).toBeFalsy();
     expect(s.bracket!.seeds.AFC).toHaveLength(7);
     expect(s.bracket!.seeds.NFC).toHaveLength(7);
     // the regular season's stats were reset on the way in, not carried

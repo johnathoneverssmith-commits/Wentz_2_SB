@@ -1544,3 +1544,55 @@ fragile assertions (the fourth-down go rate, ball control), now measured on
 core) shows its plan inline (`useStaffPlan`) with a yes and a no instead of a
 browser `confirm()`; the draft map places its labels clear of each other
 (`layoutLabels`; 1 of 32 overlaps on a real post-draft league).
+
+## Playthrough fixes, 2026-10 (Opus pass)
+
+**0 passing yards league-wide (live server only).** Every dropback on the live
+server became a scramble: no throws, no sacks, 0 passing yards for all 32
+teams, in every new league. The rating caches (`ratings.ts` `familyModifier`,
+`synergy.ts` lineup caches) keyed on player *ids*, which a real player shares
+across every league, every season, and the 32 reference rosters every rating
+is centred on. A long-running server therefore scored one league's lineups
+with another league's attributes, and a single non-finite value computed
+anywhere was cached and served to every league after it. One NaN in the M04
+shift made every class NaN, and `Rng.choice` falls through to the last label,
+which on M04 is SCRAMBLE. Fixes: caches key on object identity
+(`playerKey`), non-finite attributes are treated as missing and never cached,
+and `predictProba` drops a non-finite shift term (logging it once) instead of
+poisoning the resolver. `test/engine-cache-isolation.test.ts` reproduces it:
+on the old code a broken league simulated first leaves every later game at 0
+passes. `online/test/passing-volume.test.ts` guards a simulated week at every
+stat layer.
+
+**Skip Free Agency soft-lock.** A skip carried from one market to the next
+finished year two's market on the way in, and `runPendingCpuTurns` only moved
+the league on from a market still open, so the stage never left. Skips now
+reset when every market and every trade deadline opens (`clearSkips`), a
+finished market or deadline always moves the league on, and the deadline
+sweep moves on a save already stuck that way.
+
+**Trade value follows the market.** `tradeAssetValue` used the engine-measured
+`POSITION_VALUE` (DT 0.79, CB 1.42), which priced a 92 DT below a 78 CB. Trades
+now use `TRADE_POSITION_VALUE` (the NFL market's hierarchy, interior line a
+little under the edge), a steeper rating curve (`playerTradeBase`, exponent
+2.2, a 90 about a first), an age factor, and years of control and contract
+surplus. Free-agent salaries keep `POSITION_VALUE`. The Master AI's measured
+unit value still decides what it will accept, so it and the market can disagree.
+
+**Playoffs a round at a time (online).** The postseason used to be simulated
+in one pass when the stage opened, so a GM had no say in any playoff game.
+Now each round is a checkpoint: GMs still alive set a plan and check in, and
+the round is played (`playNextPlayoffRound` -> `playoffRound` block job) once
+everyone has, or the clock runs out, with the plans saved at that moment.
+Eliminated GMs stand ready. The bracket sent to a client carries
+`roundsPlayed` so the screen knows "watch" from "plan and check in". Solo
+already played a round per press; both bracket screens show the plan strip.
+
+**Preseason lab.** `src/engine/plan-preview.ts` plays the GM's next game
+(next unwatched preseason game, else Week 1) both ways on paired seeds, 160
+games each, and reports the standard plan's win chance, the plan's, the
+margin change and its uncertainty (two standard errors); inside the noise it
+says "too close to call". It reads the margin, not the win count, because a
+plan moves a game a point or two and paired win counts cannot see that at
+this sample size. Only in the preseason; from Week 1 on, win chances are
+labelled "with default game strategy".

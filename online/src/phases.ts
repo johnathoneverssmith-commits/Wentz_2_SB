@@ -31,7 +31,7 @@ import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tra
 import { currentBlock } from "@/state/revealBlocks.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
-import { runOrDefer } from "./blockJobs.js";
+import { readyEliminated, runOrDefer } from "./blockJobs.js";
 import { wipePreseason } from "@/state/preseasonWipe.ts";
 import {
   advanceBiddingDayOn,
@@ -194,7 +194,9 @@ export async function readyUp(
     // `rosterGate` is what stops one GM starting a league by themselves while
     // the other seats are still empty — see its note in `rules.ts`.
     const gateOpen = ready && humanGate(state) && rosterGate(state);
-    const outcome = gateOpen ? advanceOrTurnDay(state) : { moved: false, autopiloted: [] as string[] };
+    const outcome: { moved: boolean; autopiloted: string[]; playedRound?: boolean } = gateOpen
+      ? advanceOrTurnDay(state)
+      : { moved: false, autopiloted: [] as string[] };
     // Online, each GM already sees their camp results as a step inside
     // training camp, and the only check-in there is on that results screen —
     // so the league-wide results stage that follows asked every GM to press
@@ -207,10 +209,12 @@ export async function readyUp(
       state,
       // a repeated press that opened nothing
       unchanged: already && !gateOpen,
-      phaseEndsAt: outcome.moved ? deadlineFor(state, league) : undefined,
+      phaseEndsAt: outcome.moved || outcome.playedRound ? deadlineFor(state, league) : undefined,
       events: outcome.moved
         ? [{ kind: "phase.advanced", summary: `The league moved on to ${stageName(state.stage)}.` }]
-        : [],
+        : outcome.playedRound
+          ? [{ kind: "phase.round", summary: "Everyone was set: the next playoff round has been played." }]
+          : [],
     } satisfies { result: AdvanceOutcome } & Applied;
   });
   return result;
@@ -260,7 +264,7 @@ function inSeasonTransition(state: LeagueState) {
  * they are done with it, or when the phase deadline runs out — the same two
  * things that move everything else in an asynchronous league.
  */
-function advanceOrTurnDay(state: LeagueState): { moved: boolean; autopiloted: string[] } {
+function advanceOrTurnDay(state: LeagueState): { moved: boolean; autopiloted: string[]; playedRound?: boolean } {
   const subject =
     state.stage === "coachingHiring"
       ? ("coaches" as const)
@@ -289,6 +293,19 @@ export function readyUpLocal(state: LeagueState): boolean {
 }
 
 /**
+ * The postseason's checkpoint: with every GM checked in (or the clock out),
+ * the next round is played with the plans saved right now, and everybody
+ * still alive checks in again for the one after. False once there is a
+ * champion — then the checkpoint is the stage's own, and the league leaves.
+ */
+export function playNextPlayoffRound(state: LeagueState): boolean {
+  if (state.stage !== "playoffs" || !state.bracket || state.bracket.champion) return false;
+  clearReadinessOnline(state);
+  runOrDefer(state, { kind: "playoffRound" });
+  return true;
+}
+
+/**
  * Applies the stage transition to a state in hand.
  *
  * Deliberately thin: the one thing it must not do is re-implement the
@@ -296,7 +313,8 @@ export function readyUpLocal(state: LeagueState): boolean {
  * there. In-season stages are excluded because a week advances by being
  * *simulated*, not by a gate opening — see `simulateWeek`.
  */
-export function advanceStage(state: LeagueState): { moved: boolean; autopiloted: string[] } {
+export function advanceStage(state: LeagueState): { moved: boolean; autopiloted: string[]; playedRound?: boolean } {
+  if (playNextPlayoffRound(state)) return { moved: false, autopiloted: [], playedRound: true };
   const from = state.stage;
   const t = inSeasonTransition(state);
   if (!t) return { moved: false, autopiloted: [] };
@@ -735,11 +753,15 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // same reason the regular season is — except that a bracket has no partial
   // state worth saving. The divisional round does not exist until the wild
   // card is settled, so it is all four rounds or none.
+  // The postseason is played a round at a time, each one a checkpoint: a GM
+  // still alive sets their game plan for the next game, checks in, and the
+  // round is simulated once everybody has (or the clock runs out) — see
+  // `playNextPlayoffRound`. It used to be all four rounds here, in one pass,
+  // which left a GM no say in any playoff game at all.
   if (state.stage === "playoffs" && from !== "playoffs") {
     // seeding is a pure reading of the completed standings, so the server
     // does it here rather than waiting for a screen to ask
     state.bracket ??= sim.seedBracket(state);
-    runOrDefer(state, { kind: "playoffs" });
   }
 
   recomputeTeamRatings(state);
@@ -814,6 +836,8 @@ export function clearReadinessOnline(state: LeagueState): void {
       if (g.isHuman && g.teamCode && !hoodedFigureEncounterFor(state, g.teamCode)) state.readiness[g.id] = true;
     }
   }
+  // a GM already out of the postseason has no game to plan for
+  if (state.stage === "playoffs") readyEliminated(state);
 }
 
 /**
@@ -899,6 +923,15 @@ export function autopilotAbsent(state: LeagueState, by: "clock" | "commissioner"
     const gm = state.gms.find((g) => g.isHuman && g.teamCode === teamCode);
     return gm ? { userId: "", leagueId: "", teamCode, gmId: gm.id } : null;
   };
+  // a market or deadline that already finished and never left its stage (a
+  // save from before `runPendingCpuTurns` moved finished events on): move it now
+  if (
+    ((state.stage === "freeAgency" || state.stage === "midseasonFreeAgency") && state.freeAgencyEvent?.complete) ||
+    (state.stage === "tradeDeadline" && state.tradeDeadline?.done)
+  ) {
+    runPendingCpuTurns(state);
+    return played;
+  }
   // a CPU team on the clock (a seat reopened mid-event) — nothing else prompts it
   const onClock =
     state.stage === "coachingDraft"
@@ -1015,7 +1048,7 @@ export async function forceAdvance(leagueId: string, actorUserId?: string): Prom
   const { result } = await withLeague(leagueId, async ({ state, league }) => {
     const autopiloted = autopilotAbsent(state);
     const outcome = advanceStage(state);
-    if (!outcome.moved && !autopiloted.length) {
+    if (!outcome.moved && !outcome.playedRound && !autopiloted.length) {
       throw new ActionError("There's nothing to advance past right now.");
     }
     return {

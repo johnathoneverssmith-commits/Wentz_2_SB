@@ -10,25 +10,35 @@ import { beginTradeDeadline, pendingFor, respondAtDeadline, runCpuTurns, skipTur
  */
 describe("CPU offers at the deadline", () => {
   it("never re-ask a GM for a player they already refused that team", () => {
-    const s = createLeague(21, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false });
-    fillRosterGaps(s);
-    const gm = s.gms[0]!;
-    gm.isHuman = true;
-    gm.teamCode = "GB";
-    for (const g of s.gms.slice(1)) g.isHuman = false;
-    Object.keys(s.teams).forEach((c, i) => {
-      const [w, l] = i % 2 === 0 ? [6, 3] : [3, 6];
-      s.teams[c]!.wins = w;
-      s.teams[c]!.losses = l;
-    });
-    s.stage = "tradeDeadline";
-    beginTradeDeadline(s);
-    runCpuTurns(s);
+    // a league where some CPU team does call GB (whether one does in a given
+    // league is the suitor draw's business, not this test's)
+    const deadlineWithAnOffer = () => {
+      for (let seed = 21; seed < 41; seed++) {
+        const s = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false });
+        fillRosterGaps(s);
+        const gm = s.gms[0]!;
+        gm.isHuman = true;
+        gm.teamCode = "GB";
+        for (const g of s.gms.slice(1)) g.isHuman = false;
+        Object.keys(s.teams).forEach((c, i) => {
+          const [w, l] = i % 2 === 0 ? [6, 3] : [3, 6];
+          s.teams[c]!.wins = w;
+          s.teams[c]!.losses = l;
+        });
+        s.stage = "tradeDeadline";
+        beginTradeDeadline(s);
+        runCpuTurns(s);
+        for (let guard = 0; guard < 200 && pendingFor(s, "GB") === "propose"; guard++) {
+          skipTurn(s, "GB");
+          runCpuTurns(s);
+        }
+        if (pendingFor(s, "GB") === "respond") return s;
+      }
+      return null;
+    };
+    const s = deadlineWithAnOffer()!;
+    expect(s, "no CPU team called GB in twenty leagues").toBeTruthy();
     const d = s.tradeDeadline!;
-    for (let guard = 0; guard < 200 && pendingFor(s, "GB") === "propose"; guard++) {
-      skipTurn(s, "GB");
-      runCpuTurns(s);
-    }
     expect(pendingFor(s, "GB")).toBe("respond");
     const refused = structuredClone(d.active!);
     const { round, index } = d;

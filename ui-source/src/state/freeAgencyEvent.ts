@@ -1,4 +1,4 @@
-import { isSkipping } from "./skips.ts";
+import { clearSkips, isSkipping } from "./skips.ts";
 import type { LeagueState, Player } from "@/domain";
 
 import { unitGainer } from "./unitValue.ts";
@@ -70,6 +70,10 @@ export function unsignedPool(s: LeagueState): Player[] {
 
 export function beginFreeAgencyEvent(s: LeagueState): void {
   if (s.freeAgencyEvent) return;
+  // "Skip free agency" is a choice about this market, not every market after
+  // it: carried into the next one it passed a GM's turns before they had
+  // seen the board, and left year two's market over before it began
+  clearSkips(s, "freeAgency");
   s.freeAgencyEvent = {
     round: 1,
     order: freeAgencyOrder(s),

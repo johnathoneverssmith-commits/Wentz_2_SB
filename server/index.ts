@@ -52,6 +52,9 @@ import {
 import type { Player } from "../src/schema/player.js";
 import { runGame, warmPool } from "./simPool.js";
 import { presentGame } from "./simGame.js";
+import { previewPlan } from "../src/engine/plan-preview.js";
+import { cleanPlan } from "../src/engine/gameplan.js";
+import { weatherFor } from "../src/engine/weather.js";
 
 const PORT = 8787;
 
@@ -334,6 +337,48 @@ const routes: Record<string, (body: any) => unknown> = {
       awayTeam: g.away,
     })),
   "/simulate-week": handleSimulateWeek,
+  // the preseason lab (`src/engine/plan-preview.ts`): one game, played both ways
+  "/plan-preview": (b: {
+    seed: number;
+    phase: "PRE" | "REG";
+    week: number;
+    homeTeam: string;
+    awayTeam: string;
+    side: "home" | "away";
+    plan: Partial<GamePlan>;
+    homePlayers?: Player[];
+    awayPlayers?: Player[];
+    homeDepth?: DepthOrder;
+    awayDepth?: DepthOrder;
+    talentScale?: number;
+    offenseAdjust?: number;
+    homeStaff?: Staff;
+    awayStaff?: Staff;
+    homePlan?: GamePlan;
+    awayPlan?: GamePlan;
+  }) => {
+    const seed = hashStr(`${b.seed}|${b.phase}|${b.week}|${b.homeTeam}|${b.awayTeam}|preview`);
+    const roster = (team: string, players?: Player[], order?: DepthOrder) =>
+      players && players.length ? new Roster(team, players, order) : undefined;
+    return previewPlan(
+      seed,
+      b.homeTeam,
+      b.awayTeam,
+      {
+        homeRoster: roster(b.homeTeam, b.homePlayers, b.homeDepth),
+        awayRoster: roster(b.awayTeam, b.awayPlayers, b.awayDepth),
+        talentScale: b.talentScale,
+        offenseAdjust: b.offenseAdjust,
+        overtime: "nfl",
+        weather: weatherFor(b.homeTeam, b.phase, b.week, seed),
+        homePlan: b.homePlan,
+        awayPlan: b.awayPlan,
+        ...(b.homeStaff && b.awayStaff ? { homeStaff: b.homeStaff, awayStaff: b.awayStaff } : {}),
+      },
+      b.side,
+      cleanPlan(b.plan),
+    );
+  },
   "/coach-market": (body: { seed: number }) => {
     // the real 32 current staffs (96 coaches) — all free agents in this
     // game's design (every league starts with 0 coaches employed) but

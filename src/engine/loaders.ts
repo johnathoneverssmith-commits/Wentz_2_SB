@@ -85,7 +85,27 @@ export function predictProba(
   const base = r.linear
     ? predictProbaLinear(r.model as LinearPortableModel, ctx)
     : predictProbaPortable(r.model as HgbPortableModel, ctx);
-  return logitShift ? applyShift(base, logitShift) : base;
+  return logitShift ? applyShift(base, finiteShift(mid, logitShift)) : base;
+}
+
+const _reportedShift = new Set<string>();
+/**
+ * A shift with a non-finite term in it, minus that term.
+ *
+ * One NaN made every class NaN, and `choice` then fell through to the last
+ * label — on M04 that is SCRAMBLE, so every dropback in a league became a
+ * scramble: no throws, no sacks, 0 passing yards league-wide (live playthrough,
+ * 2026-10). A broken input must cost one adjustment, never the whole resolver.
+ */
+function finiteShift(mid: string, shift: Record<string, number>): Record<string, number> {
+  let bad: string | null = null;
+  for (const [k, v] of Object.entries(shift)) if (!Number.isFinite(v)) bad = k;
+  if (bad === null) return shift;
+  if (!_reportedShift.has(`${mid}|${bad}`)) {
+    _reportedShift.add(`${mid}|${bad}`);
+    console.error(`engine: non-finite ${mid} shift on ${bad}; ignoring it`);
+  }
+  return Object.fromEntries(Object.entries(shift).filter(([, v]) => Number.isFinite(v)));
 }
 
 export function sampleClass(

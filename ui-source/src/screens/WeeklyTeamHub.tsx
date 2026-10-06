@@ -229,7 +229,7 @@ export function WeeklyTeamHub() {
           // months. Cap space is the number a GM is actually working against
           // in an offseason, so the tile says something either way.
           oppCode
-            ? { label: "Win probability", value: `${winProb}%` }
+            ? { label: "Win probability (default strategy)", value: `${winProb}%` }
             : {
                 label: "Cap space",
                 value: millions(Math.round((team.cap.total - team.cap.used) * 10) / 10),

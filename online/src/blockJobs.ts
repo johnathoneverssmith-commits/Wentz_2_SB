@@ -19,7 +19,9 @@ import { simulateBlock, simulatePlayoffBlock } from "./blocks.js";
  */
 export type BlockJob =
   | { kind: "block"; phase: "PRE" | "REG"; from: number; to: number }
-  | { kind: "playoffs" };
+  | { kind: "playoffs" }
+  /** one postseason round: the next checkpoint is when every GM is set for the one after */
+  | { kind: "playoffRound" };
 
 let deferring = false;
 const pending = new WeakMap<LeagueState, BlockJob[]>();
@@ -47,5 +49,28 @@ export function takeBlockJobs(state: LeagueState): BlockJob[] {
 
 export function runBlockJob(state: LeagueState, job: BlockJob): void {
   if (job.kind === "playoffs") simulatePlayoffBlock(state);
+  else if (job.kind === "playoffRound") {
+    simulatePlayoffBlock(state, 1);
+    readyEliminated(state);
+  }
   else simulateBlock(state, job.phase, job.from, job.to);
+}
+
+/**
+ * A GM whose team is out has no next game to plan for, so they never hold
+ * the league up: they stand ready for every round after their exit (the
+ * final checkpoint, once there is a champion, waits for everybody again).
+ */
+export function readyEliminated(state: LeagueState): void {
+  const b = state.bracket;
+  if (!b || b.champion) return;
+  const alive = new Set(
+    b.matchups
+      .filter((m) => m.round === b.currentRound && m.winner == null)
+      .flatMap((m) => [m.highSeed?.code, m.lowSeed?.code])
+      .filter((c): c is string => !!c),
+  );
+  for (const g of state.gms) {
+    if (g.isHuman && g.teamCode && !alive.has(g.teamCode)) state.readiness[g.id] = true;
+  }
 }

@@ -52,6 +52,9 @@ import { isHumansOnly, seasonShape } from "@/state/leagueFormat.ts";
 import { talentScaleOf } from "@/state/talentImpact.ts";
 import { coachToUi, engineStaffsFor } from "@/state/coachScale.ts";
 import { gamePlansFor } from "@/state/gamePlan.ts";
+import type { GamePlan } from "../../../src/engine/gameplan.js";
+import { type PlanPreviewAnswer, previewOpponent } from "@/state/planPreview.ts";
+import { revealedWeek } from "@/state/reveal.ts";
 import { advanceSingleBracket, seedSingleBracket } from "@/state/singleBracket.ts";
 
 import {
@@ -303,6 +306,32 @@ export class HybridSimulationService implements SimulationService {
         gamePlansFor(state),
       );
     }, () => this.mock.simulateWeek(state, week, phase));
+  }
+
+  /** The preseason lab, single-player: needs the engine adapter (there is no mock answer to give). */
+  async previewPlan(state: LeagueState, plan: GamePlan): Promise<PlanPreviewAnswer | null> {
+    const team = state.gms.find((g) => g.id === state.viewerGmId)?.teamCode;
+    if (!team) return null;
+    const next = previewOpponent(state, team, revealedWeek(state, state.viewerGmId, "PRE"));
+    if (!next) return null;
+    const [homeTeam, awayTeam] = next.home ? [team, next.opponent] : [next.opponent, team];
+    const rosters = leagueRosters(state, next.week);
+    const out = await this.http.previewPlan({
+      seed: state.season * 1_000_003 + next.week,
+      phase: next.phase,
+      week: next.week,
+      homeTeam,
+      awayTeam,
+      side: next.home ? "home" : "away",
+      plan,
+      rosters: { [homeTeam]: rosters[homeTeam] ?? [], [awayTeam]: rosters[awayTeam] ?? [] },
+      depthCharts: state.depthChart ?? {},
+      talentScale: talentScaleOf(state.config),
+      offenseAdjust: state.offenseAdjust ?? 0,
+      staffs: engineStaffsFor(state),
+      plans: gamePlansFor(state),
+    });
+    return { ...out, opponent: next.opponent, game: next.label };
   }
 
   async seedBracket(state: LeagueState): Promise<BracketState> {

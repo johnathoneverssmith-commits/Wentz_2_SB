@@ -426,6 +426,9 @@ export class OnlineLeagueClient {
   /** Save this GM's game plan; the server clamps every dial. */
   setStrategy = (leagueId: string, strategy: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/strategy`, { strategy });
+  /** The preseason lab: what this plan does to the next game's chance. Reads only. */
+  previewPlan = (leagueId: string, plan: unknown) =>
+    this.call<{ preview: import("@/state/planPreview").PlanPreviewAnswer }>(`/leagues/${leagueId}/plan-preview`, { plan });
   saveGamePlan = (leagueId: string, plan: unknown) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/gameplan`, { plan });
 

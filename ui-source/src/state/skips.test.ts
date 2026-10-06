@@ -39,12 +39,22 @@ describe("skipping a stage", () => {
     expect(Object.values(e.offers).flat().some((o) => o.teamCode === "GB")).toBe(false);
   });
 
+  it("opens every market and deadline with nobody skipping", () => {
+    const s = twoHumans();
+    setSkip(s, "GB", "freeAgency", true);
+    setSkip(s, "GB", "tradeDeadline", true);
+    beginFreeAgencyEvent(s);
+    beginTradeDeadline(s);
+    expect(s.gms.some((g) => g.skips?.freeAgency || g.skips?.tradeDeadline)).toBe(false);
+  });
+
   it("finishes the whole market when every human skips it", () => {
     const s = twoHumans();
     s.stage = "freeAgency";
+    // each market opens with everyone in; skipping is chosen once it is open
+    beginFreeAgencyEvent(s);
     setSkip(s, "GB", "freeAgency", true);
     setSkip(s, "KC", "freeAgency", true);
-    beginFreeAgencyEvent(s);
     faTurns(s, new Set(["GB", "KC"]));
     expect(s.freeAgencyEvent!.complete).toBe(true);
   });
@@ -52,8 +62,8 @@ describe("skipping a stage", () => {
   it("passes a skipping GM's own deadline turns but still lets offers reach them", () => {
     const s = twoHumans();
     s.stage = "tradeDeadline";
-    setSkip(s, "GB", "tradeDeadline", true);
     beginTradeDeadline(s);
+    setSkip(s, "GB", "tradeDeadline", true);
     deadlineTurns(s);
     // the deadline stops only for GB to answer an offer, or for KC's turn — never for GB to propose
     expect(pendingFor(s, "GB")).not.toBe("propose");

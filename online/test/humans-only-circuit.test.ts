@@ -128,7 +128,9 @@ function act(s: LeagueState): void {
     case "playoffs":
       for (const g of humans(s)) {
         const rounds = s.bracket ? bracketRounds(s.bracket) : [];
-        while (revealedRounds(s, g.id).length < rounds.length) decideRevealRound(s, actor(s, g.id));
+        // watch what has been played so far; the readiness below plays the next round
+        const played = rounds.filter((r) => s.bracket!.matchups.some((m) => m.round === r && m.winner != null));
+        while (revealedRounds(s, g.id).length < played.length) decideRevealRound(s, actor(s, g.id));
       }
       break;
     case "offseasonDraftSummary":

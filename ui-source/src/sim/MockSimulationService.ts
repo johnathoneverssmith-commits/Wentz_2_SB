@@ -1405,14 +1405,92 @@ export function franchiseQbPremium(state: LeagueState, p: Player): number {
 export function tradeAssetValue(state: LeagueState, a: TradeAsset): number {
   if (a.kind === "player") {
     const p = state.players[a.playerId ?? ""];
-    const base = Math.pow(clamp(p?.overall ?? 60, 40, 99) - 40, 1.72) / 12.5;
-    return base * (p ? (POSITION_VALUE[p.position] ?? 1) : 1) * (p ? franchiseQbPremium(state, p) : 1);
+    if (!p) return playerTradeBase(60);
+    return (
+      playerTradeBase(p.overall) *
+      (TRADE_POSITION_VALUE[p.position] ?? 1) *
+      franchiseQbPremium(state, p) *
+      tradeAgeFactor(p.age, p.position) *
+      tradeContractFactor(p)
+    );
   }
   const round = a.pick?.round ?? 4;
   const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
   // and a pick two drafts away is worth less than the same pick this year
   // discounted by distance, and scaled by where the pick projects to land
   return a.pick ? raw * futureDiscount(a.pick, state.season) * pickSlotFactor(state, a.pick) : raw;
+}
+
+/**
+ * What a player's rating is worth on the trade market, before position, age
+ * and contract. Convex, because the market is: a 92 is not "a bit more" than
+ * a 78, he is the reason teams call. Pinned to the pick table — a 90 is about
+ * a first-round pick (82.7), an 80 about half of one, a 70 about a second —
+ * and steeper at the top than the old curve (exponent 1.72), which priced a
+ * 92 only 1.7x a 78.
+ */
+export function playerTradeBase(overall: number): number {
+  return Math.pow(clamp(overall, 40, 99) - 40, 2.2) / 68;
+}
+
+/**
+ * Trade value by position: the NFL market's hierarchy, not the engine's.
+ *
+ * `POSITION_VALUE` (below) prices free-agent salaries by what the engine
+ * measures a rating point to be worth, and on this engine an interior
+ * defensive lineman measures low — so trades priced a 92 defensive tackle
+ * below a 78 corner (playthrough). Teams do not trade like that: an elite
+ * three-technique costs a premium pick haul. This table follows the real
+ * market (premium: QB, edge, tackle, corner, receiver; then the interior),
+ * with interior linemen a little under the edge rather than a third of a
+ * corner.
+ */
+export const TRADE_POSITION_VALUE: Record<Position, number> = {
+  QB: 2.92,
+  EDGE: 1.3,
+  OT: 1.15,
+  WR: 1.15,
+  CB: 1.15,
+  DT: 1.08,
+  S: 0.9,
+  OG: 0.92,
+  C: 0.88,
+  TE: 0.9,
+  ILB: 0.85,
+  RB: 0.78,
+  OLB: 0.6,
+  K: 0.3,
+  P: 0.2,
+};
+
+/**
+ * Youth is worth paying for and age is a discount, steeply after thirty.
+ * Quarterbacks age three years slower and running backs two years faster.
+ */
+export function tradeAgeFactor(age: number, position: Position): number {
+  const a = age - (position === "QB" ? 3 : 0) + (position === "RB" ? 2 : 0);
+  if (a <= 23) return 1.15;
+  if (a <= 25) return 1.1;
+  if (a <= 28) return 1;
+  if (a === 29) return 0.9;
+  if (a === 30) return 0.8;
+  if (a === 31) return 0.68;
+  if (a === 32) return 0.56;
+  return 0.45;
+}
+
+/**
+ * Years of control and what they cost. Four cheap years of a star are worth
+ * more than one expensive one: up to ±25% for pay against his market rate
+ * (`contractValueFor`), and 0.9x (one year left) to 1.05x (four or more).
+ */
+export function tradeContractFactor(p: Player): number {
+  const years = p.contract?.years_remaining ?? 1;
+  const pay = p.contract?.cap_hit_by_year?.[0] ?? 0;
+  const market = contractValueFor(p.overall, p.position);
+  const control = 0.85 + 0.05 * clamp(years, 1, 4);
+  const surplus = market > 0 && pay > 0 ? clamp((market - pay) / market, -1, 1) : 0;
+  return control * (1 + 0.25 * surplus);
 }
 
 /**

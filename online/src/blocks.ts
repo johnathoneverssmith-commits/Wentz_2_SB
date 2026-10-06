@@ -15,7 +15,7 @@ import { makeEmergencyPlayer, positionalMinimums } from "@/state/reconciliation.
 import { accrueSeasonStats, recomputeStandings } from "@/state/standings.ts";
 
 /** The engine spells the Rams "LA"; this UI spells them "LAR". */
-const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
+export const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
 
 /**
  * Deterministic per league, season, week and matchup — the same seed the live
@@ -51,7 +51,7 @@ function gameSeed(
  * placeholder that got saved would be a 0 OVR quarterback who could then be
  * traded, and that is a worse bug than a team playing a man short.
  */
-function withPlaceholders(
+export function withPlaceholders(
   state: LeagueState,
   teamCode: string,
   squad: UiPlayer[],
@@ -249,9 +249,9 @@ export function regenerateBroadcast(state: LeagueState, gameId: string) {
  * box scores, statistics, and the reveal filter, which keys playoff games off
  * their round rather than their week.
  */
-export function simulatePlayoffBlock(state: LeagueState): number {
+export function simulatePlayoffBlock(state: LeagueState, maxRounds = Number.POSITIVE_INFINITY): number {
   const bracket = state.bracket;
-  if (!bracket) return 0;
+  if (!bracket || bracket.champion) return 0;
 
   const squadFor = (code: string) => {
     const all = Object.values(state.players).filter(
@@ -272,8 +272,9 @@ export function simulatePlayoffBlock(state: LeagueState): number {
     );
 
   let played = 0;
+  let rounds = 0;
   // four rounds, plus a stop in case a bracket ever fails to advance
-  for (let guard = 0; guard < ROUND_ORDER.length + 1; guard++) {
+  for (let guard = 0; guard < ROUND_ORDER.length + 1 && rounds < maxRounds; guard++) {
     const round = bracket.currentRound;
     const live = bracket.matchups.filter((m) => m.round === round && m.winner == null);
     const results: GameResult[] = [];
@@ -338,6 +339,7 @@ export function simulatePlayoffBlock(state: LeagueState): number {
       state.games.push(...results);
       applyInjuries(state, results, state.season);
     }
+    rounds++;
 
     // a humans-only league's single bracket pairs its own winners
     if (bracket.format === "single") {

@@ -59,7 +59,7 @@ const REF: Record<string, RefStat> = readArtifact<{
  */
 export function attributeZ(attr: string, value: number): number | null {
   const r = REF[attr];
-  if (!r || !r.sd) return null;
+  if (!r || !r.sd || !Number.isFinite(value)) return null;
   return Math.max(-CLIP, Math.min(CLIP, (value - r.mean) / r.sd));
 }
 
@@ -69,7 +69,7 @@ function unitMean(players: Unit, attr: string): number | null {
   let n = 0;
   for (const p of players) {
     const v = p?.attributes?.[attr as keyof Player["attributes"]];
-    if (typeof v === "number") {
+    if (typeof v === "number" && Number.isFinite(v)) {
       sum += v;
       n += 1;
     }
@@ -77,11 +77,31 @@ function unitMean(players: Unit, attr: string): number | null {
   return n ? sum / n : null;
 }
 
+/**
+ * A cache key for one player *object*, not his id.
+ *
+ * The caches here and in `synergy.ts` used to key on ids, and ids are not
+ * unique across a server's life: a real player has the same id in every
+ * league, at every age, and in the 32 reference rosters every rating is
+ * centred on. A long-running server therefore scored one league's lineup with
+ * another league's (or another season's) attributes, and one bad value
+ * computed anywhere was served to every league after it. Each object gets its
+ * own token instead; a league loaded fresh is a fresh set of objects.
+ */
+const _tokens = new WeakMap<object, number>();
+let _nextToken = 1;
+export function playerKey(p: Player | null | undefined): string {
+  if (!p) return "";
+  let t = _tokens.get(p);
+  if (t === undefined) _tokens.set(p, (t = _nextToken++));
+  return `${t}`;
+}
+
 const _modCache = new Map<string, number>();
 
 /** Σ beta·z over the family's attributes for this participating unit. */
 export function familyModifier(famKey: string, players: Unit, scale = 1): number {
-  const key = `${famKey}|${players.map((p) => p?.id ?? "").join(",")}`;
+  const key = `${famKey}|${players.map(playerKey).join(",")}`;
   const hit = _modCache.get(key);
   if (hit !== undefined) return hit * scale;
 
@@ -97,6 +117,8 @@ export function familyModifier(famKey: string, players: Unit, scale = 1): number
       total += a.beta_per_z * z;
     }
   }
+  if (!Number.isFinite(total)) return 0; // a broken attribute moves nothing, and is never kept
+  if (_modCache.size > 50_000) _modCache.clear();
   _modCache.set(key, total);
   return total * scale;
 }

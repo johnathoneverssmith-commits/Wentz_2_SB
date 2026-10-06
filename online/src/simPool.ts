@@ -3,6 +3,8 @@ import { Worker } from "node:worker_threads";
 import type { LeagueState } from "@/domain";
 
 import { type BlockJob, runBlockJob } from "./blockJobs.js";
+import type { PlanPreview } from "../../src/engine/plan-preview.js";
+import { type PreviewInput, runPreview } from "./planPreview.js";
 
 /**
  * One long-lived worker for block simulation (see `blockJobs.ts`).
@@ -19,7 +21,8 @@ let worker: Worker | null = null;
 let brokenUntil = 0;
 const COOL_OFF_MS = 60_000;
 let nextId = 1;
-const waiting = new Map<number, { resolve: (s: LeagueState) => void; reject: (e: Error) => void }>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const waiting = new Map<number, { resolve: (s: any) => void; reject: (e: Error) => void }>();
 
 function getWorker(): Worker | null {
   if (Date.now() < brokenUntil) return null;
@@ -27,12 +30,13 @@ function getWorker(): Worker | null {
   try {
     const w = new Worker(new URL("./simWorker.ts", import.meta.url));
     w.unref();
-    w.on("message", (msg: { id: number; state?: LeagueState; error?: string }) => {
+    w.on("message", (msg: { id: number; state?: LeagueState; preview?: PlanPreview; error?: string }) => {
       const p = waiting.get(msg.id);
       if (!p) return;
       waiting.delete(msg.id);
-      if (msg.error || !msg.state) p.reject(new Error(msg.error ?? "simulation worker returned nothing"));
-      else p.resolve(msg.state);
+      const out = msg.preview ?? msg.state;
+      if (msg.error || !out) p.reject(new Error(msg.error ?? "simulation worker returned nothing"));
+      else p.resolve(out);
     });
     const fail = (err: unknown) => {
       console.error("simulation worker failed; running blocks in-process for a minute", err);
@@ -74,4 +78,21 @@ export async function runBlockJobs(state: LeagueState, jobs: BlockJob[]): Promis
   }
   for (const job of jobs) runBlockJob(state, job);
   return state;
+}
+
+/** A game-plan preview (`planPreview.ts`): a few seconds of games, off the request thread. */
+export async function runPreviewJob(input: PreviewInput): Promise<PlanPreview> {
+  const w = getWorker();
+  if (w) {
+    try {
+      return await new Promise<PlanPreview>((resolve, reject) => {
+        const id = nextId++;
+        waiting.set(id, { resolve, reject });
+        w.postMessage({ id, preview: input });
+      });
+    } catch (err) {
+      console.error("plan preview in the worker failed; running it in-process", err);
+    }
+  }
+  return runPreview(input);
 }

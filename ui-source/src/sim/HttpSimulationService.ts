@@ -112,6 +112,49 @@ function presentedToUi<T extends Partial<PresentedGame>>(g: T): Pick<PresentedGa
 }
 
 export class HttpSimulationService {
+  /** The preseason lab: one game played both ways (`src/engine/plan-preview.ts`). */
+  async previewPlan(b: {
+    seed: number;
+    phase: "PRE" | "REG";
+    week: number;
+    homeTeam: string;
+    awayTeam: string;
+    side: "home" | "away";
+    plan: GamePlan;
+    rosters: Record<string, Player[]>;
+    depthCharts: Record<string, Partial<Record<string, string[]>>>;
+    talentScale: number;
+    offenseAdjust: number;
+    staffs: Record<string, EngineStaff>;
+    plans: Record<string, GamePlan>;
+  }): Promise<{ standard: number; withPlan: number; marginDelta: number; plusMinus: number; tooClose: boolean; games: number }> {
+    const depth = (team: string) => {
+      const entries = Object.entries(b.depthCharts[team] ?? {}).filter(([, ids]) => ids && ids.length > 0);
+      return entries.length ? (Object.fromEntries(entries) as Record<string, string[]>) : undefined;
+    };
+    const staffs = this.engineStaffsOf(b.staffs);
+    const [h, a] = [toEngine(b.homeTeam), toEngine(b.awayTeam)];
+    return post("/plan-preview", {
+      seed: b.seed,
+      phase: b.phase,
+      week: b.week,
+      homeTeam: h,
+      awayTeam: a,
+      side: b.side,
+      plan: b.plan,
+      homePlayers: (b.rosters[b.homeTeam] ?? []).map(playerToEngine),
+      awayPlayers: (b.rosters[b.awayTeam] ?? []).map(playerToEngine),
+      homeDepth: depth(b.homeTeam),
+      awayDepth: depth(b.awayTeam),
+      talentScale: b.talentScale,
+      offenseAdjust: b.offenseAdjust,
+      homeStaff: staffs[h],
+      awayStaff: staffs[a],
+      homePlan: b.plans[b.homeTeam],
+      awayPlan: b.plans[b.awayTeam],
+    });
+  }
+
   /** game plans keyed by the engine's team codes */
   private enginePlansOf(plans: Record<string, GamePlan>): Record<string, GamePlan> {
     return Object.fromEntries(Object.entries(plans).map(([t, p]) => [toEngine(t), p]));

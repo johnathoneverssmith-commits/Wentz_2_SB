@@ -52,6 +52,11 @@ function crownACpuTeam(s: LeagueState): void {
   if (s.bracket) s.bracket.champion = cpu;
 }
 
+/** Every round, each one a checkpoint everybody checks in to. */
+function playPostseason(s: LeagueState): void {
+  for (let i = 0; i < 6 && s.bracket && !s.bracket.champion; i++) everyoneReady(s);
+}
+
 /** Everybody says they're done, which is what moves a checkpoint. */
 function everyoneReady(s: LeagueState): boolean {
   for (const g of s.gms) if (g.isHuman) s.readiness[g.id] = true;
@@ -125,7 +130,17 @@ describe("a season, driven by the buttons", () => {
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), REGULAR_SEASON_WEEKS);
     expect(everyoneReady(s)).toBe(true);
     expect(s.stage).toBe("playoffs");
-    // Change 11: it is already played by the time anyone arrives
+    // seeded, and nothing played: every GM sets a plan for the first round
+    expect(s.bracket).toBeTruthy();
+    expect(s.bracket?.champion).toBeFalsy();
+    expect(s.games.some((g) => g.phase === "WC")).toBe(false);
+
+    // the checkpoint plays one round and stays in the playoffs
+    expect(everyoneReady(s)).toBe(false);
+    expect(s.stage).toBe("playoffs");
+    expect(s.games.some((g) => g.phase === "WC")).toBe(true);
+    expect(s.games.some((g) => g.phase === "DIV")).toBe(false);
+    playPostseason(s);
     expect(s.bracket?.champion).toBeTruthy();
   }, 1_800_000);
 
@@ -148,10 +163,16 @@ describe("a season, driven by the buttons", () => {
 
     // one round at a time, and one GM's pace is not the other's
     const [a, b] = [actorFor(s, 0), actorFor(s, 1)];
+    // nothing to watch until the round is played
+    expect(() => decideRevealRound(s, a)).toThrow();
+    everyoneReady(s);
     decideRevealRound(s, a);
     expect(revealedRounds(s, a.gmId)).toEqual(["WC"]);
     expect(revealedRounds(s, b.gmId)).toEqual([]);
+    // and the next round isn't played until the next checkpoint
+    expect(() => decideRevealRound(s, a)).toThrow();
 
+    playPostseason(s);
     for (let i = 0; i < 3; i++) decideRevealRound(s, a);
     for (let i = 0; i < 4; i++) decideRevealRound(s, b);
     expect(revealedRounds(s, a.gmId)).toHaveLength(4);
@@ -203,6 +224,7 @@ describe("the offseason, driven by the buttons", () => {
     everyoneReady(s);
     for (let i = 0; i < 2; i++) decideReveal(s, actorFor(s, i), REGULAR_SEASON_WEEKS);
     everyoneReady(s);
+    playPostseason(s);
     for (const a of [actorFor(s, 0), actorFor(s, 1)]) {
       for (let i = 0; i < 4; i++) decideRevealRound(s, a);
     }

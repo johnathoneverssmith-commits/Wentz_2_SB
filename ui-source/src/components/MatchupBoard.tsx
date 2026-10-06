@@ -93,7 +93,7 @@ export function MatchupBoard({
         <span>
           <span className="oswald">{winProb}%</span> {mine.abbr}
         </span>
-        <span>win probability</span>
+        <span>win probability · with default game strategy</span>
         <span>
           {theirs.abbr} <span className="oswald">{100 - winProb}%</span>
         </span>

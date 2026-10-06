@@ -100,25 +100,18 @@ export async function simulateWeekForLeague(leagueId: string): Promise<WeekOutco
       );
     };
 
-    // The whole postseason is decided once, in one pass, the moment the
-    // playoffs stage opens (`onStageEntered` -> `simulatePlayoffBlock`,
-    // phases.ts) — the same "simulate the block at the checkpoint, reveal it
-    // after" design the rest of the season uses, and there is no partial
-    // bracket state worth a request like this one acting on. This branch
-    // used to play one round per request, from before that design existed;
-    // nothing reaches this function while the league is still in the
-    // playoffs stage without `state.bracket.champion` already set. It stays
-    // as an inert refusal — never as a second place that can move the
-    // bracket or announce the champion — because "nothing currently calls
-    // this that way" is a property of the surrounding request flow, not a
-    // rule this function enforces, and a future change to that flow must
-    // not be able to turn this back into a second, ungated way to resolve
-    // or re-announce a postseason the checkpoint already decided.
+    // The postseason is played a round at a time at its checkpoints
+    // (`playNextPlayoffRound`, phases.ts): the next round runs once every GM
+    // still alive has set their plan and checked in. This branch used to play
+    // a round per request, from before checkpoints existed. It stays as an
+    // inert refusal, never a second place that can move the bracket or
+    // announce a champion, because a future change to the request flow must
+    // not be able to turn it back into an ungated way to resolve a postseason.
     if (state.stage === "playoffs") {
       return {
         result: {
           played: false,
-          reason: "The postseason is decided at the checkpoint, not here.",
+          reason: "Playoff rounds are played at their checkpoints, not here.",
           week: state.week,
           results: 0,
         },

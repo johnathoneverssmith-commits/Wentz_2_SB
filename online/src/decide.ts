@@ -628,7 +628,8 @@ export function decideRevealRound(state: LeagueState, actor: Actor): Decision {
   // a round a GM has not been given yet cannot be revealed — it exists in
   // saved state, which is exactly why this has to be checked rather than
   // assumed from the button being on screen
-  const exists = state.bracket?.matchups.some((m) => m.round === next && m.winner != null);
+  // (a bye is decided before anything is played, so it doesn't count)
+  const exists = state.bracket?.matchups.some((m) => m.round === next && m.winner != null && m.highSeed && m.lowSeed);
   if (!exists) throw new ActionError("That round hasn't been played yet.");
 
   markRoundRevealed(state, actor.gmId, next);
@@ -1064,16 +1065,21 @@ export function runPendingCpuTurns(state: LeagueState): boolean {
     }
     return false;
   }
-  if ((stage === "freeAgency" || stage === "midseasonFreeAgency") && state.freeAgencyEvent && !state.freeAgencyEvent.complete) {
-    runCpuTurns(state, humans);
+  // A market that is already over still has to leave its stage. Every human
+  // skipping it ends it on the way in (`onStageEntered` passes their turns
+  // before this runs), and this used to ask only about markets still open —
+  // so the league sat on a finished market with no turn to take and no ready
+  // button, for good (playthrough: Skip Free Agency soft-locked year two).
+  if ((stage === "freeAgency" || stage === "midseasonFreeAgency") && state.freeAgencyEvent) {
+    if (!state.freeAgencyEvent.complete) runCpuTurns(state, humans);
     if (state.freeAgencyEvent.complete) {
       finish(stage);
       return true;
     }
     return false;
   }
-  if (stage === "tradeDeadline" && state.tradeDeadline && !state.tradeDeadline.done) {
-    runDeadlineTurns(state);
+  if (stage === "tradeDeadline" && state.tradeDeadline) {
+    if (!state.tradeDeadline.done) runDeadlineTurns(state);
     if (state.tradeDeadline.done) {
       finish(stage);
       return true;

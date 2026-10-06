@@ -7,6 +7,7 @@ import { cleanPlan, DEFAULT_PLAN, type GamePlan, isDefaultPlan } from "@/state/g
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
+import { type PlanPreviewAnswer, requestPlanPreview } from "@/state/planPreview";
 
 /** What each personnel group is, for the labels. */
 const PERSONNEL: { key: "p11" | "p12" | "p13"; label: string; note: string }[] = [
@@ -321,6 +322,8 @@ export function GamePlanScreen() {
         </Group>
       </div>
 
+      <PlanLab plan={plan} />
+
       <Footer>
         <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
           {note ?? (isDefaultPlan(plan) ? "This is the standard plan: the game as it's always been played." : dirty ? "Unsaved changes." : "Saved. It applies to every game from the next one simulated.")}
@@ -347,5 +350,73 @@ export function GamePlanScreen() {
         </button>
       </Footer>
     </Card>
+  );
+}
+
+/**
+ * The preseason lab: play the next game both ways and see what this plan does
+ * to the chance of winning it. Only in the preseason — from Week 1 on, a plan
+ * is a call made without the answer key, and the win chances shown elsewhere
+ * are the standard plan's.
+ */
+function PlanLab({ plan }: { plan: GamePlan }) {
+  const stage = useStore((s) => s.stage);
+  const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<PlanPreviewAnswer | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const tried = useMemo(() => JSON.stringify(plan), [plan]);
+  const [measured, setMeasured] = useState<string | null>(null);
+  if (stage !== "preseason") return null;
+  const stale = answer && measured !== tried;
+  const opp = answer ? (TEAMS_BY_CODE[answer.opponent]?.label ?? answer.opponent) : "";
+  const delta = answer ? answer.withPlan - answer.standard : 0;
+  return (
+    <div style={{ margin: "4px 22px 14px", padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "var(--r-md)", background: "var(--panel-sunken)" }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <strong style={{ fontSize: 14 }}>Preseason lab</strong>
+        <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>Test this plan against your next opponent before it counts.</span>
+        <button
+          type="button"
+          style={{ marginLeft: "auto" }}
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setError(null);
+            void requestPlanPreview(plan)
+              .then((a) => {
+                setAnswer(a);
+                setMeasured(tried);
+                if (!a) setError("There's no game left to test against.");
+              })
+              .catch((e: unknown) => setError(e instanceof Error ? e.message : "Couldn't run the test. Try again."))
+              .finally(() => setBusy(false));
+          }}
+        >
+          {busy ? "Playing it out…" : answer ? "Test again" : "Test this plan"}
+        </button>
+      </div>
+      {answer && (
+        <div style={{ marginTop: 10, opacity: stale ? 0.55 : 1 }}>
+          <p style={{ margin: 0, fontSize: 13.5 }}>
+            vs {opp} ({answer.game}): <span className="oswald">{answer.standard}%</span> with the standard plan,{" "}
+            <span className="oswald" style={{ color: delta > 0 ? "var(--good, #4caf50)" : delta < 0 ? "var(--bad, #e05d5d)" : undefined }}>
+              {answer.withPlan}%
+            </span>{" "}
+            with this one ({signed(delta, " pts")} chance, {signed(answer.marginDelta)} points a game).
+          </p>
+          <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
+            {answer.tooClose
+              ? `Too close to call: the difference is inside the noise of ${answer.games} games each way (±${answer.plusMinus} points).`
+              : `Measured over ${answer.games} games each way, ±${answer.plusMinus} points.`}
+            {stale ? " You've changed the plan since; test again." : ""}
+          </p>
+        </div>
+      )}
+      {error && (
+        <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

@@ -69,7 +69,7 @@
  */
 
 import type { Player } from "../schema/player.js";
-import { attributeZ } from "./ratings.js";
+import { attributeZ, playerKey } from "./ratings.js";
 import { type Lineup, roster, teamList } from "./roster.js";
 
 // ---- per-player skill scores -------------------------------------------------
@@ -490,7 +490,7 @@ const _offCache = new Map<string, ReturnType<typeof offenseScores>>();
 const _defCache = new Map<string, ReturnType<typeof defenseScores>>();
 const keyOf = (l: Lineup): string =>
   Object.entries(l)
-    .map(([slot, p]) => `${slot}:${p?.id ?? ""}`)
+    .map(([slot, p]) => `${slot}:${playerKey(p)}`)
     .join(",");
 
 function cachedOffense(o: Lineup): ReturnType<typeof offenseScores> {

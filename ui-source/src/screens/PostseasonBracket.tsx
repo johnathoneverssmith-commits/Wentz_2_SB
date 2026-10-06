@@ -11,6 +11,7 @@ import { onColorFor, TEAMS_BY_CODE } from "@/data/teams";
 import type { BracketMatchup, PlayoffRound } from "@/domain";
 import { bracketRounds, record, roundLabelFor, winPct } from "@/domain";
 import { isHumansOnly, playoffFieldSize, leagueBadge } from "@/state/leagueFormat";
+import { GamePlanStrip } from "@/components/GamePlanStrip";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleBracket } from "@/state/reveal";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -274,6 +275,7 @@ export function PostseasonBracket() {
         </div>
       )}
       {isPlayoffStage && online && <RoundReveal />}
+      {isPlayoffStage && !online && !s.pendingGameDay && !b.champion && <GamePlanStrip />}
       {isPlayoffStage && !online && !s.pendingGameDay && !b.champion && (
         <ReadinessGate
           title={`${roundLabelFor(b, b.currentRound)} readiness`}
@@ -490,6 +492,19 @@ function RoundReveal() {
   const seen = revealedRounds(s, s.viewerGmId);
   const rounds = s.bracket ? bracketRounds(s.bracket) : [];
   const next = rounds.find((r) => !seen.includes(r)) as PlayoffRound | undefined;
+  // rounds are played one checkpoint at a time; one this GM hasn't watched may not exist yet
+  const played = s.bracket?.roundsPlayed ?? rounds.length;
+  const nextPlayed = !!next && rounds.indexOf(next) < played;
+  const myTeam = s.gms.find((g) => g.id === s.viewerGmId)?.teamCode;
+  const imReady = !!s.readiness[s.viewerGmId];
+  const waitingOn = s.gms.filter((g) => g.isHuman && g.teamCode && !s.readiness[g.id] && g.id !== s.viewerGmId).map((g) => g.name);
+  // still alive: in the round after everything played so far, with no loss on the board
+  const alive =
+    !!myTeam &&
+    !(s.bracket?.matchups ?? []).some(
+      (m) => m.winner != null && m.winner !== myTeam && (m.highSeed?.code === myTeam || m.lowSeed?.code === myTeam),
+    ) &&
+    (s.bracket?.seeds.AFC.includes(myTeam) || s.bracket?.seeds.NFC.includes(myTeam) || !!s.bracket?.field?.includes(myTeam));
 
   if (!next) {
     return (
@@ -522,6 +537,52 @@ function RoundReveal() {
     );
   }
 
+  if (!nextPlayed) {
+    // the next round is a checkpoint: plans for it, then everybody checks in
+    return (
+      <div className="readiness">
+        <div className="readiness-top">
+          <p>{roundLabelFor(s.bracket, next)}</p>
+          <span aria-live="polite">
+            {imReady ? (waitingOn.length ? `Waiting on ${waitingOn.join(", ")}` : "Playing the round…") : "Not played yet"}
+          </span>
+        </div>
+        {alive ? (
+          <>
+            <p className="readiness-held">
+              Your next game is in the {roundLabelFor(s.bracket, next)}. Set your game plan for this opponent, then check in: the
+              round is played once every GM still alive has.
+            </p>
+            <GamePlanStrip />
+            <button
+              className="btn-primary"
+              style={{ width: "100%" }}
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                setError(null);
+                void actions
+                  .readyUp(!imReady)
+                  .then((res) => {
+                    if (!res.ok) setError(res.reason ?? "Couldn't reach the league. Try again.");
+                  })
+                  .finally(() => setBusy(false));
+              }}
+            >
+              {busy ? "…" : imReady ? "Change my plan (un-check in)" : `Ready for the ${roundLabelFor(s.bracket, next)}`}
+            </button>
+          </>
+        ) : (
+          <p className="readiness-held">
+            Your season is over. The {roundLabelFor(s.bracket, next)} is played once the GMs still alive have set their plans;
+            you can watch it then.
+          </p>
+        )}
+        {errorLine}
+      </div>
+    );
+  }
+
   return (
     <div className="readiness">
       <div className="readiness-top">
@@ -549,7 +610,7 @@ function RoundReveal() {
             .finally(() => setBusy(false));
         }}
       >
-        {busy ? "…" : `Simulate the ${roundLabelFor(s.bracket, next)}`}
+        {busy ? "…" : `Watch the ${roundLabelFor(s.bracket, next)}`}
       </button>
       {errorLine}
     </div>

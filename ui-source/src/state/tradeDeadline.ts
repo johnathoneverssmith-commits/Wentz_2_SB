@@ -1,4 +1,4 @@
-import { isSkipping } from "./skips.ts";
+import { clearSkips, isSkipping } from "./skips.ts";
 import type { LeagueState, TradeAsset } from "@/domain";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades";
@@ -128,6 +128,8 @@ export function deadlineOrder(s: LeagueState): string[] {
 
 export function beginTradeDeadline(s: LeagueState): void {
   if (s.tradeDeadline) return;
+  // like free agency's skip, this one is for this deadline only
+  clearSkips(s, "tradeDeadline");
   s.tradeDeadline = {
     order: deadlineOrder(s),
     round: 1,
