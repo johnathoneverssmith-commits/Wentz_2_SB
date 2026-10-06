@@ -772,15 +772,16 @@ export class Game {
       };
     }
     if (kind === "M04") {
+      const qb = this.qbRunShift(o);
       return {
         SACK:
           this.talent * limited("sack", sackLogitShift(ol, rush) + this.strengthEdge("sack") + synergyShift(o, d, "sack")) +
           staff.sack +
           this.planShift(o, d).sack +
-          this.qbRunShift(o).sack +
+          qb.sack +
           homeShift(edge, "sack") +
           this.calib.sack,
-        ...(this.qbRunShift(o).scramble !== 0 ? { SCRAMBLE: this.qbRunShift(o).scramble } : {}),
+        ...(qb.scramble !== 0 ? { SCRAMBLE: qb.scramble } : {}),
       };
     }
     if (kind === "M20") {
