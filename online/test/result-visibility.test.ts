@@ -1,6 +1,6 @@
 import type { AddressInfo } from "node:net";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { LeagueState } from "@/domain";
 import { MockSimulationService } from "@/sim/MockSimulationService";
@@ -43,6 +43,32 @@ const setup = (change: (state: LeagueState) => void) =>
     return { result: null, state, events: [] };
   });
 
+/**
+ * Every test starts from the same league, whatever ran before it.
+ *
+ * Tests here change the saved league (a GM reveals a week, the postseason is
+ * seeded), and used to lean on each other's leftovers: the second postseason
+ * test read the bracket the first one built, and the "watched week 1" tests
+ * assumed the "reveal week 2" test had not yet run. So the league as
+ * `beforeAll` leaves it is kept as text, and `beforeEach` writes it back.
+ * Any test can be run alone, or the file in any order.
+ */
+let baseline = "";
+/** The baseline plus a seeded, fully decided bracket: built by the first test that wants it, then restored. */
+let postseasonBaseline = "";
+const restore = (text: string) =>
+  withLeague(leagueId, async () => ({ result: null, state: JSON.parse(text) as LeagueState, events: [] }));
+const enterPostseason = async () => {
+  if (postseasonBaseline) return restore(postseasonBaseline);
+  await setup((s) => {
+    const sim = new MockSimulationService();
+    s.bracket = sim.seedBracket(s);
+    s.stage = "playoffs";
+    simulatePlayoffBlock(s); // all four rounds, decided up front
+  });
+  postseasonBaseline = JSON.stringify((await readLeague(leagueId))!.state);
+};
+
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
   try {
@@ -80,8 +106,14 @@ beforeAll(async () => {
     week2Game = s.games.find((g) => g.phase === "REG" && g.week === 2)!.id;
   });
 
+  baseline = JSON.stringify((await readLeague(leagueId))!.state);
+
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+});
+
+beforeEach(async () => {
+  if (reachable) await restore(baseline);
 });
 
 afterAll(async () => {
@@ -207,12 +239,7 @@ describe("people who are not in the league", () => {
 
 describe("the postseason", () => {
   maybe("hides every winner and the champion until each round is watched", async () => {
-    await setup((s) => {
-      const sim = new MockSimulationService();
-      s.bracket = sim.seedBracket(s);
-      s.stage = "playoffs";
-      simulatePlayoffBlock(s); // all four rounds, decided up front
-    });
+    await enterPostseason();
     // so there is something to leak: the saved bracket is complete
     const raw = (await readLeague(leagueId))!.state;
     expect(raw.bracket!.champion).not.toBeNull();
@@ -224,6 +251,7 @@ describe("the postseason", () => {
   });
 
   maybe("shows a round only to the GM who has watched it", async () => {
+    await enterPostseason(); // its own bracket: it does not rely on another test having made one
     await setup((s) => markRoundRevealed(s, watcherGm, "WC"));
     const mine = (await league(users.watcher)).bracket!;
     const wild = mine.matchups.filter((m) => m.round === "WC" && m.highSeed && m.lowSeed);
