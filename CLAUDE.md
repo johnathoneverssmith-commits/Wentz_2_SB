@@ -3,6 +3,14 @@
 Project guide for the NFL franchise sim. Read `README.md` for the product
 vision and the 7-phase roadmap; this file is about working in the codebase.
 
+## Supervised automation
+
+See `docs/agent-loop.md` and `AGENTS.md`. The loop starts disabled with an empty
+approved backlog. Select tasks only from human-approved requirements, publish
+machine-readable plans for independent Codex review, and stop on new scope or
+conflicting findings. Never merge, deploy, expose secrets, or treat roadmap prose
+as permission to implement outstanding work.
+
 ## Current phase
 
 **Phase 1 — simulation engine. Empirical build (spec `docs/engine_spec.md`)
