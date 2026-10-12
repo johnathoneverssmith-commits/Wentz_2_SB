@@ -1,0 +1,62 @@
+name: Supervised agent loop
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [reconcile, pause, resume]
+        default: reconcile
+      expected_sequence:
+        description: Current durable state sequence for pause/resume
+        required: false
+  schedule:
+    - cron: '*/10 * * * *'
+  repository_dispatch:
+    types: [agent-loop-observe]
+permissions:
+  contents: read
+concurrency:
+  group: supervised-agent-loop
+  cancel-in-progress: false
+jobs:
+  eligibility:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    outputs:
+      eligible: ${{ steps.gate.outputs.eligible == 'true' || inputs.operation == 'pause' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - id: gate
+        run: node scripts/agent-loop/run.mjs status
+  reconcile:
+    needs: eligibility
+    if: needs.eligibility.outputs.eligible == 'true'
+    environment: agent-loop-control
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - id: app
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.LOOP_APP_ID }}
+          private-key: ${{ secrets.LOOP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: Wentz_2_SB
+      - name: Reconcile verified observations
+        env:
+          LOOP_APP_TOKEN: ${{ steps.app.outputs.token }}
+          LOOP_BROKER_TOKEN: ${{ secrets.LOOP_BROKER_TOKEN }}
+          LOOP_OPERATION: ${{ inputs.operation || 'reconcile' }}
+          LOOP_EXPECTED_SEQUENCE: ${{ inputs.expected_sequence }}
+        run: node scripts/agent-loop/run.mjs "$LOOP_OPERATION"
