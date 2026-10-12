@@ -1,10 +1,10 @@
 import { digest, validate } from './contracts.mjs';
-import { validatePlan, validateDiff } from './policy.mjs';
+import { validatePlan, validateDiff, authorizeTask, enablementProblems } from './policy.mjs';
 
 export function initialState(manifestDigest) {return {schemaVersion:1,manifestDigest,sequence:0,paused:false,tasks:{},seen:[]};}
 // Events enter here only after the controller has verified API identities/results.
 // There is no event-provided "verified" bypass and no generic transition command.
-export function reduce(previous,event,policy) {
+export function reduce(previous,event,policy,authority) {
   validate('event',event);
   if(previous.seen.includes(event.id))return {state:previous,effects:[]};
   const state=structuredClone(previous), effects=[];
@@ -18,6 +18,9 @@ export function reduce(previous,event,policy) {
     case 'resume': if(d.expectedSequence!==previous.sequence)throw new Error('Stale resume');state.paused=false;break;
     case 'cancel': status('planning','plan_review','implementing','ci_pending','code_review','fixing','ready_for_human','blocked');t.status='cancelled';effects.push({type:'cancel_workers'});break;
     case 'start': {
+      if(!authority||digest(authority.manifest)!==state.manifestDigest||enablementProblems(policy,authority.prerequisites).length)throw new Error('Verified enabled manifest authority required');
+      authorizeTask(authority.manifest,authority.evidence,{policy,baseSha:authority.evidence.commitSha});
+      if(!authority.manifest.tasks.some(task=>digest(task)===digest(d.task)))throw new Error('Task outside approved manifest');
       if(t || Object.values(state.tasks).some(x=>!['complete','cancelled','blocked','ready_for_human'].includes(x.status)))throw new Error('Task already active');
       validate('backlog',{schemaVersion:1,enabled:true,tasks:[{...d.task,dependencies:[]}]});
       if(d.task.dependencies.some(id=>state.tasks[id]?.status!=='complete'))throw new Error('Dependency incomplete');
@@ -57,11 +60,12 @@ export function reduce(previous,event,policy) {
     case 'close': status('ci_pending','code_review','fixing','ready_for_human');fail('PR closed without human merge');break;
     case 'human_merge': status('ready_for_human');if(d.headSha!==t.headSha||!policy.humans.includes(d.actor)||! /^[a-f0-9]{40}$/.test(d.mergeSha)||d.acceptanceVerified!==true)throw new Error('Unverified human merge');t.mergeSha=d.mergeSha;t.status='complete';break;
     case 'failure': status('planning','plan_review','implementing','ci_pending','code_review','fixing');t.infraFailures++;if(t.infraFailures>policy.infraRetries)fail('Infrastructure retry limit');else effects.push({type:'retry',taskId:event.taskId,afterMs:Math.min(60000,1000*2**t.infraFailures)});break;
+    case 'outbox_exhausted': if(t&&!['complete','cancelled','blocked'].includes(t.status))fail('Outbox retry limit');else state.paused=true;break;
     default: throw new Error('Unsupported event');
   }
   if(t?.status==='code_review' && t.codeReview && t.managedReview) {
     const r=t.codeReview,m=t.managedReview;
-    if(r.verdict==='escalate'||r.findings.some(f=>f.scope!=='approved')||m.conflict||((r.verdict==='accept')!==m.clean))fail('Conflicting or scope-changing review');
+    if(r.verdict==='escalate'||[...r.findings,...m.findings].some(f=>f.scope!=='approved')||m.conflict||((r.verdict==='accept')!==m.clean))fail('Conflicting or scope-changing review');
     else if(r.verdict==='accept'&&m.clean)t.status='ready_for_human';
     else if(t.fixes>=policy.fixRounds)fail('Code fix limit');
     else {t.fixes++;t.findings=[...r.findings,...m.findings];t.status='fixing';effects.push({type:'worker',role:'claude-fix',taskId:event.taskId});}

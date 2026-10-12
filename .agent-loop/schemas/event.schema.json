@@ -25,7 +25,8 @@
         "failure",
         "pause",
         "resume",
-        "cancel"
+        "cancel",
+        "outbox_exhausted"
       ]
     },
     "at": {
