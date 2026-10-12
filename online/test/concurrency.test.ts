@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
-import { ActionError, migrate, pool, withLeague } from "../src/db.js";
-import { requireDatabaseInCi } from "./requireDatabase.js";
+import { ActionError, pool, withLeague } from "../src/db.js";
+import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { readyUp } from "../src/phases.js";
 
 /**
@@ -26,14 +26,9 @@ let leagueId = "";
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  try {
-    await pool.query("SELECT 1");
-    await migrate();
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-  if (!reachable) return requireDatabaseInCi("The database could not be reached");
+  const attempt = await prepareDatabase(pool);
+  reachable = attempt.reachable;
+  if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
 
   const state = createLeague(303, DEFAULT_CONFIG);
   fillRosterGaps(state);

@@ -10,8 +10,8 @@ import {
   signSession,
   userById,
 } from "../src/auth.js";
-import { migrate, pool } from "../src/db.js";
-import { requireDatabaseInCi } from "./requireDatabase.js";
+import { pool } from "../src/db.js";
+import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 
 /**
  * Accounts have no email, so a GM who forgot their password lost their team
@@ -27,14 +27,9 @@ let userId = "";
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  try {
-    await pool.query("SELECT 1");
-    await migrate();
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-  if (!reachable) return requireDatabaseInCi("The database could not be reached");
+  const attempt = await prepareDatabase(pool);
+  reachable = attempt.reachable;
+  if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
   userId = (await register(name, "first-password")).id;
 });
 

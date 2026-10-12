@@ -3,8 +3,8 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { signSession } from "../src/auth.js";
-import { migrate, pool } from "../src/db.js";
-import { requireDatabaseInCi } from "./requireDatabase.js";
+import { pool } from "../src/db.js";
+import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { server } from "../src/index.js";
 import { claimTeam, createOnlineLeague } from "../src/leagues.js";
 
@@ -24,14 +24,9 @@ let baseUrl = "";
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  try {
-    await pool.query("SELECT 1");
-    await migrate();
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-  if (!reachable) return requireDatabaseInCi("The database could not be reached");
+  const attempt = await prepareDatabase(pool);
+  reachable = attempt.reachable;
+  if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
   for (const u of users) {
     await pool.query(
       `INSERT INTO users (id, name, name_folded, password_hash, password_salt)
