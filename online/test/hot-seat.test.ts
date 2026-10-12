@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { actorFor, chooseJob } from "../src/actions.js";
 import { migrate, pool, withLeague } from "../src/db.js";
-import { requireDatabaseInCi } from "./requireDatabase.js";
+import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { claimTeam, createOnlineLeague } from "../src/leagues.js";
 import { ensureHotSeat } from "@/state/hotSeat.ts";
 
@@ -21,14 +21,9 @@ let options: string[] = [];
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  try {
-    await pool.query("SELECT 1");
-    await migrate();
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-  if (!reachable) return requireDatabaseInCi("The database could not be reached");
+  const attempt = await prepareDatabase(pool, migrate);
+  reachable = attempt.reachable;
+  if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
   await pool.query(
     `INSERT INTO users (id, name, name_folded, password_hash, password_salt)
      VALUES ($1, $1, $1, 'x', 'y') ON CONFLICT DO NOTHING`,
