@@ -22,8 +22,9 @@ memory or on how a result is phrased:
 1. **Be in the right place.** `git branch --show-current`; if another session owns the shared
    checkout, use your own worktree (see CLAUDE.md). Keep scratch files out of the repo: write
    `plan.json` and `results.json` to your scratch directory.
-2. **Plan.** `node .claude/skills/wentz-verify/select-checks.mjs --json > <scratch>/plan.json`, and
-   run it again without `--json` to read it. It sees commits since the merge-base, staged,
+2. **Plan.** `node .claude/skills/wentz-verify/select-checks.mjs --out <scratch>/plan.json` (it prints the
+   readable plan and writes the JSON; do not use a shell `>` redirect, which on Windows PowerShell 5.1
+   writes UTF-16). It sees commits since the merge-base, staged,
    unstaged and untracked files; renames and deletions count at both paths.
    - **PROBLEMS** (exit code 3), such as a scratch file staged or committed: fix first.
    - **Unknown source paths** make it ask for everything CI runs. Do that; then add a rule to

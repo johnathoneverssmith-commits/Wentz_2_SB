@@ -13,10 +13,10 @@
  * Exit codes: 0 verified or locally verified; 1 failed or blocked;
  * 4 incomplete (a required check did not run or was skipped); 2 bad arguments.
  */
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { readJson } from "./io.mjs";
 import { exitCodeFor, renderReport, summarize } from "./verdict.mjs";
 
 export function main(argv = process.argv.slice(2)) {
@@ -36,8 +36,8 @@ export function main(argv = process.argv.slice(2)) {
     process.stderr.write(`${e.message}\n`);
     return 2;
   }
-  const plan = JSON.parse(readFileSync(o.plan, "utf8"));
-  const results = JSON.parse(readFileSync(o.results, "utf8")).results ?? [];
+  const plan = readJson(o.plan);
+  const results = readJson(o.results).results ?? [];
   const byId = new Map(results.map((r) => [r.id, r]));
   for (const id of o.confirm) byId.set(id, { id, status: "CONFIRMED" });
   if (o.ci) byId.set("ci-pr", { id: "ci-pr", ci: o.ci });

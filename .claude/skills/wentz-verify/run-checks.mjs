@@ -2,7 +2,7 @@
 /**
  * Runs checks from a plan and records exactly what happened.
  *
- *   node select-checks.mjs --json > plan.json
+ *   node select-checks.mjs --out plan.json
  *   node run-checks.mjs --plan plan.json --out results.json [--tier-max 1] [--ids a,b]
  *        [--level required|all] [--with-database] [--timeout-sec 900] [--cwd <repo>]
  *   node report.mjs --plan plan.json --results results.json
@@ -19,9 +19,11 @@
  * from GitHub.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { readJson } from "./io.mjs";
 
 const ALLOWED_PROGRAMS = new Set(["npm", "npx", "node"]);
 const SHELL_OPERATORS = /[;&|<>`$\n\r]/;
@@ -110,10 +112,10 @@ export function main(argv = process.argv.slice(2)) {
     process.stderr.write(`${e.message}\n`);
     return 2;
   }
-  const plan = JSON.parse(readFileSync(a.plan, "utf8"));
+  const plan = readJson(a.plan);
   let existing = [];
   try {
-    existing = JSON.parse(readFileSync(a.out, "utf8")).results ?? [];
+    existing = readJson(a.out).results ?? [];
   } catch {
     // no earlier record
   }

@@ -1,0 +1,270 @@
+[
+  {
+    "pr": 1,
+    "title": "Run checks on pull requests; deploy only from master",
+    "merge": "9a067c1",
+    "parent": "0f386fc",
+    "changes": [
+      {
+        "path": ".github/workflows/deploy-render.yml",
+        "status": "M",
+        "source": "committed"
+      }
+    ]
+  },
+  {
+    "pr": 2,
+    "title": "Fail database suites in CI instead of silently passing",
+    "merge": "8a64073",
+    "parent": "9a067c1",
+    "changes": [
+      {
+        "path": "online/test/commissioner-away.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/commissioner-transfer.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/concurrency.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/hot-seat.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/inbox-facts.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/lobby.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/password-reset.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/poll-unchanged.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/require-database.test.ts",
+        "status": "A",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/requireDatabase.ts",
+        "status": "A",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/vacate-advances.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/vacate-seat.test.ts",
+        "status": "M",
+        "source": "committed"
+      }
+    ]
+  },
+  {
+    "pr": 4,
+    "title": "Multiplayer result visibility regression tests",
+    "merge": "224192c",
+    "parent": "23392bf",
+    "changes": [
+      {
+        "path": "online/test/result-visibility.test.ts",
+        "status": "A",
+        "source": "committed"
+      }
+    ]
+  },
+  {
+    "pr": 5,
+    "title": "Multi-seed franchise statistics regression tests",
+    "merge": "74b2cfc",
+    "parent": "8a64073",
+    "changes": [
+      {
+        "path": "online/test/passing-volume.test.ts",
+        "status": "M",
+        "source": "committed"
+      }
+    ]
+  },
+  {
+    "pr": 7,
+    "title": "Report database setup errors in CI",
+    "merge": "4f5942e",
+    "parent": "74b2cfc",
+    "changes": [
+      {
+        "path": "online/test/commissioner-away.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/commissioner-transfer.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/concurrency.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/hot-seat.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/inbox-facts.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/lobby.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/password-reset.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/poll-unchanged.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/require-database.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/requireDatabase.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/vacate-advances.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/vacate-seat.test.ts",
+        "status": "M",
+        "source": "committed"
+      }
+    ]
+  },
+  {
+    "pr": 11,
+    "title": "Apply the test database schema once (global setup)",
+    "merge": "23392bf",
+    "parent": "4f5942e",
+    "changes": [
+      {
+        "path": "online/test/commissioner-away.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/commissioner-transfer.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/concurrency.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/globalSetup.ts",
+        "status": "A",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/hot-seat.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/inbox-facts.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/lobby.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/no-schema-in-suites.test.ts",
+        "status": "A",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/password-reset.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/poll-unchanged.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/require-database.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/requireDatabase.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/schema-setup.test.ts",
+        "status": "A",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/schemaSetup.ts",
+        "status": "A",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/vacate-advances.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/test/vacate-seat.test.ts",
+        "status": "M",
+        "source": "committed"
+      },
+      {
+        "path": "online/vitest.config.ts",
+        "status": "M",
+        "source": "committed"
+      }
+    ]
+  }
+]
