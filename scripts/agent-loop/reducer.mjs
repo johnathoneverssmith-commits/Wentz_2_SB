@@ -12,7 +12,7 @@ export function reduce(previous,event,policy,authority) {
   const fail=reason=>{t.status='blocked';t.reason=reason;effects.push({type:'escalate',taskId:event.taskId,reason});};
   const status=(...allowed)=>{if(!t || !allowed.includes(t.status))throw new Error('Illegal transition');};
   if(state.paused && !['resume','pause','published','failure','cancel'].includes(event.type))throw new Error('Loop paused');
-  if(t && event.at-t.startedAt>policy.taskMs && !['pause','resume','cancel'].includes(event.type)) { fail('Task deadline exceeded'); }
+  if(t && ['planning','plan_review','implementing','ci_pending','code_review','fixing'].includes(t.status) && event.at-t.startedAt>policy.taskMs && !['pause','resume','cancel'].includes(event.type)) { fail('Task deadline exceeded'); }
   else switch(event.type) {
     case 'pause': state.paused=true;effects.push({type:'cancel_workers'});break;
     case 'resume': if(d.expectedSequence!==previous.sequence)throw new Error('Stale resume');state.paused=false;break;
@@ -50,12 +50,12 @@ export function reduce(previous,event,policy,authority) {
     case 'published': status('ci_pending');if(d.headSha!==t.headSha||!Number.isSafeInteger(d.pr)||d.pr<1)throw new Error('Wrong published PR');t.pr=d.pr;break;
     case 'ci': status('ci_pending');if(d.headSha!==t.headSha)throw new Error('Stale CI');
       if(!t.task.requiredChecks.every(c=>d.checks[c]==='success')){fail('Required CI failed');break;}
-      t.ci={headSha:t.headSha,checks:d.checks};t.status='code_review';t.reviewStartedAt=event.at;effects.push({type:'worker',role:'codex-code-review',taskId:event.taskId});break;
+      t.ci={headSha:t.headSha,checks:d.checks};t.status='code_review';t.reviewStartedAt=event.at;break;
     case 'code_review': {
       status('code_review');const r=validate('review',d.review);
       if(r.taskId!==event.taskId||r.runId!==t.runId||r.headSha!==t.headSha||r.baseSha!==t.baseSha||r.subjectDigest!==t.planDigest)throw new Error('Stale code review');t.codeReview=r;break;
     }
-    case 'managed_review': status('code_review');if(d.headSha!==t.headSha||typeof d.clean!=='boolean'||!Array.isArray(d.findings))throw new Error('Stale managed review');t.managedReview=d;break;
+    case 'managed_review': status('code_review');if(d.headSha!==t.headSha||typeof d.clean!=='boolean'||!Array.isArray(d.findings))throw new Error('Stale managed review');t.managedReview=d;t.findings=d.findings;if(!t.codeReview)effects.push({type:'worker',role:'codex-code-review',taskId:event.taskId});break;
     case 'review_timeout': status('code_review');if(!t.managedReview&&event.at-t.reviewStartedAt>=policy.reviewMs){state.paused=true;fail('Managed review missing');}break;
     case 'close': status('ci_pending','code_review','fixing','ready_for_human');fail('PR closed without human merge');break;
     case 'human_merge': status('ready_for_human');if(d.headSha!==t.headSha||!policy.humans.includes(d.actor)||! /^[a-f0-9]{40}$/.test(d.mergeSha)||d.acceptanceVerified!==true)throw new Error('Unverified human merge');t.mergeSha=d.mergeSha;t.status='complete';break;
@@ -65,10 +65,11 @@ export function reduce(previous,event,policy,authority) {
   }
   if(t?.status==='code_review' && t.codeReview && t.managedReview) {
     const r=t.codeReview,m=t.managedReview;
-    if(r.verdict==='escalate'||[...r.findings,...m.findings].some(f=>f.scope!=='approved')||m.conflict||((r.verdict==='accept')!==m.clean))fail('Conflicting or scope-changing review');
+    const unmanaged=m.findings.some(f=>f.scope==='new'||f.scope==='conflict'||(f.scope==='unknown'&&!r.findings.some(c=>c.id===f.id&&c.scope==='approved')));
+    if(r.verdict==='escalate'||r.findings.some(f=>f.scope!=='approved')||unmanaged||m.conflict||((r.verdict==='accept')!==m.clean))fail('Conflicting or scope-changing review');
     else if(r.verdict==='accept'&&m.clean)t.status='ready_for_human';
     else if(t.fixes>=policy.fixRounds)fail('Code fix limit');
-    else {t.fixes++;t.findings=[...r.findings,...m.findings];t.status='fixing';effects.push({type:'worker',role:'claude-fix',taskId:event.taskId});}
+    else {t.fixes++;t.findings=r.findings;t.status='fixing';effects.push({type:'worker',role:'claude-fix',taskId:event.taskId});}
   }
   state.seen.push(event.id);state.sequence++;
   return {state,effects};

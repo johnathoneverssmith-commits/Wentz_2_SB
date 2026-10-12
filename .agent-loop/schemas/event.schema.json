@@ -443,7 +443,8 @@
                         "enum": [
                           "approved",
                           "new",
-                          "conflict"
+                          "conflict",
+                          "unknown"
                         ]
                       }
                     },
@@ -687,7 +688,8 @@
                     "enum": [
                       "approved",
                       "new",
-                      "conflict"
+                      "conflict",
+                      "unknown"
                     ]
                   }
                 },
