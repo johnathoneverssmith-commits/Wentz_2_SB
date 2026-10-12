@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
 import { ActionError, migrate, pool, withLeague } from "../src/db.js";
+import { requireDatabaseInCi } from "./requireDatabase.js";
 import { readyUp } from "../src/phases.js";
 
 /**
@@ -24,7 +25,7 @@ let reachable = false;
 let leagueId = "";
 
 beforeAll(async () => {
-  if (!url) return;
+  if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
   try {
     await pool.query("SELECT 1");
     await migrate();
@@ -32,7 +33,7 @@ beforeAll(async () => {
   } catch {
     reachable = false;
   }
-  if (!reachable) return;
+  if (!reachable) return requireDatabaseInCi("The database could not be reached");
 
   const state = createLeague(303, DEFAULT_CONFIG);
   fillRosterGaps(state);
