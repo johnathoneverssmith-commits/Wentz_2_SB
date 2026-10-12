@@ -9,10 +9,10 @@ import { fillRosterGaps } from "@/state/seed.ts";
 
 import { signSession } from "../src/auth.js";
 import { simulateBlock, simulatePlayoffBlock } from "../src/blocks.js";
-import { migrate, pool, readLeague, withLeague } from "../src/db.js";
+import { pool, readLeague, withLeague } from "../src/db.js";
 import { server } from "../src/index.js";
 import { claimTeam, createOnlineLeague } from "../src/leagues.js";
-import { requireDatabaseInCi } from "./requireDatabase.js";
+import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 
 /**
  * A block of games is simulated once, for everyone, at the checkpoint — so the
@@ -71,14 +71,11 @@ const enterPostseason = async () => {
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  try {
-    await pool.query("SELECT 1");
-    await migrate();
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-  if (!reachable) return requireDatabaseInCi("The database could not be reached");
+  // connects and checks the schema is there; the schema itself is applied once,
+  // before any test file starts (test/globalSetup.ts), never by a suite
+  const attempt = await prepareDatabase(pool);
+  reachable = attempt.reachable;
+  if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
 
   for (const u of Object.values(users)) {
     await pool.query(
