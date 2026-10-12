@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { LeagueState } from "@/domain";
 
 import { migrate, pool } from "../src/db.js";
-import { requireDatabaseInCi } from "./requireDatabase.js";
+import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { claimTeam, createOnlineLeague, vacateSeat } from "../src/leagues.js";
 import { readyUp } from "../src/phases.js";
 
@@ -23,14 +23,9 @@ const gm: Record<string, string> = {};
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  try {
-    await pool.query("SELECT 1");
-    await migrate();
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-  if (!reachable) return requireDatabaseInCi("The database could not be reached");
+  const attempt = await prepareDatabase(pool, migrate);
+  reachable = attempt.reachable;
+  if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
   for (const u of users) {
     await pool.query(
       `INSERT INTO users (id, name, name_folded, password_hash, password_salt)

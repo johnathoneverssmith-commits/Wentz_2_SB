@@ -4,7 +4,7 @@ import type { LeagueState } from "@/domain";
 
 import { franchiseOf } from "../src/auth.js";
 import { migrate, pool } from "../src/db.js";
-import { requireDatabaseInCi } from "./requireDatabase.js";
+import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { EventEmitter } from "node:events";
 import type { ServerResponse } from "node:http";
 
@@ -27,14 +27,9 @@ let leagueId = "";
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  try {
-    await pool.query("SELECT 1");
-    await migrate();
-    reachable = true;
-  } catch {
-    reachable = false;
-  }
-  if (!reachable) return requireDatabaseInCi("The database could not be reached");
+  const attempt = await prepareDatabase(pool, migrate);
+  reachable = attempt.reachable;
+  if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
   for (const u of users) {
     await pool.query(
       `INSERT INTO users (id, name, name_folded, password_hash, password_salt)
