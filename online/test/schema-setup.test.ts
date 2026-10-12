@@ -1,4 +1,8 @@
+import { existsSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
+
+import config from "../vitest.config.ts";
 
 import { type SchemaDeps, applySchemaOnce } from "./schemaSetup.js";
 
@@ -69,5 +73,28 @@ describe("applying the schema once, before the workers", () => {
       },
     });
     expect((await applySchemaOnce({ DATABASE_URL: "postgres://u:p@h/db" }, load)).state).toBe("applied");
+  });
+});
+
+describe("the setup is wired in, and 'skipped' means exactly 'no database URL'", () => {
+  it("is registered in the online Vitest config, and the file it names exists", () => {
+    // Without this entry the setup silently never runs and the suites would
+    // find an empty database. They would fail loudly in CI, but fail for the
+    // wrong reason; this keeps the cause where it can be read.
+    const registered = [config.test?.globalSetup ?? []].flat();
+    expect(registered).toEqual(["./test/globalSetup.ts"]);
+    expect(existsSync(new URL("./globalSetup.ts", import.meta.url))).toBe(true);
+  });
+
+  it("is skipped for no URL and never for any URL, whichever variable carries it", async () => {
+    const never = async () => {
+      throw new Error("must not load");
+    };
+    expect((await applySchemaOnce({}, never)).state).toBe("skipped");
+    expect((await applySchemaOnce({ DATABASE_URL: "" }, never)).state).toBe("skipped");
+    for (const env of [{ DATABASE_URL: "postgres://h/db" }, { TEST_DATABASE_URL: "postgres://h/db" }]) {
+      const state = await applySchemaOnce(env, never);
+      expect(state.state, JSON.stringify(Object.keys(env))).toBe("failed"); // it tried, and said why
+    }
   });
 });

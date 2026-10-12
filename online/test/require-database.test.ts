@@ -227,6 +227,53 @@ describe("removing credentials from what is reported", () => {
   });
 });
 
+/**
+ * The ways a failed or missing one-time setup could let a required database
+ * suite pass, and the check that each is closed. A suite does exactly this:
+ * prepare the database, then call requireDatabaseInCi if it is not reachable.
+ */
+describe("a failed schema setup cannot let a required database suite pass", () => {
+  const healthy = {
+    query: async (sql: string) => (/to_regclass/.test(sql) ? { rows: [{ t: "league_state" }] } : { rows: [] }),
+  };
+  /** What a database suite's beforeAll does with the result. */
+  const suiteSetup = async (pool: Parameters<typeof prepareDatabase>[0], schema: Parameters<typeof prepareDatabase>[1], env: NodeJS.ProcessEnv) => {
+    const attempt = await prepareDatabase(pool, schema, env);
+    if (!attempt.reachable) requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`, env);
+    return attempt.reachable;
+  };
+  const failed = { state: "failed", failure: "applying the schema failed after 5 ms: error[40P01]: deadlock detected" } as const;
+
+  it("fails the suite in CI even though the database itself is healthy now", async () => {
+    await expect(suiteSetup(healthy, failed, { CI: "true" })).rejects.toThrow(/before any test file started.*40P01/);
+  });
+
+  it("fails it when the run asks for a database by any other name", async () => {
+    await expect(suiteSetup(healthy, failed, { REQUIRE_DATABASE: "1" })).rejects.toThrow(/40P01/);
+  });
+
+  it("lets it skip, loudly elsewhere, where a database is not required", async () => {
+    await expect(suiteSetup(healthy, failed, {})).resolves.toBe(false);
+  });
+
+  it("fails it in CI when the setup never ran and the schema is not there", async () => {
+    const noSetup = undefined; // as if globalSetup were not configured
+    const empty = { query: async (sql: string) => (/to_regclass/.test(sql) ? { rows: [{ t: null }] } : { rows: [] }) };
+    await expect(suiteSetup(empty, noSetup, { CI: "true" })).rejects.toThrow(/no league_state table.*globalSetup/);
+  });
+
+  it("fails it in CI when the schema check cannot be confirmed", async () => {
+    const silent = { query: async () => ({ rows: [] }) };
+    await expect(suiteSetup(silent, { state: "applied", ms: 1 }, { CI: "true" })).rejects.toThrow(/cannot be confirmed/);
+    const odd = { query: async () => undefined };
+    await expect(suiteSetup(odd, { state: "applied", ms: 1 }, { CI: "true" })).rejects.toThrow(/cannot be confirmed/);
+  });
+
+  it("passes only when a database is there and the setup did not fail", async () => {
+    await expect(suiteSetup(healthy, { state: "applied", ms: 1 }, { CI: "true" })).resolves.toBe(true);
+  });
+});
+
 describe("preparing the database", () => {
   const applied = { state: "applied", ms: 5 } as const;
   /** A pool whose catalog says the schema is there (or not), recording every statement it is sent. */

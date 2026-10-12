@@ -201,7 +201,10 @@ export async function prepareDatabase(
       | { rows?: { t: string | null }[] }
       | undefined;
     const row = found?.rows?.[0];
-    if (row && row.t == null) {
+    // A catalog query always returns its one row. Not getting one means the
+    // check cannot be confirmed, which must not count as confirmed.
+    if (!row) throw new Error("the schema check returned no row, so the schema cannot be confirmed");
+    if (row.t == null) {
       throw new Error(
         "the schema is not there (no league_state table): online/vitest.config.ts applies it once through test/globalSetup.ts before the workers start",
       );
