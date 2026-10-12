@@ -3,11 +3,22 @@ name: Test and deploy Render
 on:
   push:
     branches: [master]
+  # Pull requests get the same checks (the `test` job) but never deploy: the
+  # `deploy` job below only runs for master.
+  pull_request:
+    branches: [master]
   workflow_dispatch:
 
+# The checks only read the repository; nothing here needs to write to it.
+permissions:
+  contents: read
+
+# One run per branch at a time. A newer push to a pull request supersedes the
+# older, now-pointless run; runs on master are never cancelled, so a deploy
+# in flight is not interrupted (the same behaviour as before).
 concurrency:
-  group: production-render
-  cancel-in-progress: false
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -49,6 +60,13 @@ jobs:
 
   deploy:
     needs: test
+    # Production is only ever touched by a run on master, never a pull request
+    # (or a manual run of some other branch).
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    # Deploys queue one after another, whichever run they came from.
+    concurrency:
+      group: production-render
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     env:
       UI_DEPLOY_HOOK: ${{ secrets.RENDER_UI_DEPLOY_HOOK }}
