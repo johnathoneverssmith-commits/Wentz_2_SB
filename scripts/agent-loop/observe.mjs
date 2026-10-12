@@ -23,9 +23,10 @@ export async function verifyManifestApproval(client,approval,manifest,baseSha,po
 export async function collectObservations(client,state,{now,policy,broker,managedBot}) {
   const events=[];
   const emit=(type,taskId,data,id)=>events.push({id,type,at:now,actor:'observer',taskId,data});
+  const expired=new Set(Object.entries(state.tasks).filter(([,t])=>['planning','plan_review','implementing','fixing','ci_pending','code_review'].includes(t.status)&&now-t.startedAt>=policy.taskMs).map(([id])=>id));
   for(const item of await broker.results()) {
     const t=state.tasks[item.taskId];
-    if(!t||t.runId!==item.runId||state.seen.includes(item.id))continue;
+    if(!t||expired.has(item.taskId)||t.runId!==item.runId||state.seen.includes(item.id))continue;
     if(item.error){emit('failure',item.taskId,{reason:'Isolated worker failed'},item.id);continue;}
     const kind=item.role==='claude-plan'?'plan':item.role.startsWith('codex')?'review':'implementation';
     validate(kind,item.result);
@@ -37,7 +38,7 @@ export async function collectObservations(client,state,{now,policy,broker,manage
     } else emit(kind==='plan'?'plan':item.role==='codex-plan-review'?'plan_review':'code_review',item.taskId,{[kind]:item.result},item.id);
   }
   for(const [taskId,t] of Object.entries(state.tasks)) {
-    if(['planning','plan_review','implementing','fixing'].includes(t.status)&&now-t.startedAt>=policy.taskMs) {
+    if(expired.has(taskId)) {
       emit('failure',taskId,{reason:'Task deadline exceeded'},`deadline-${t.runId}`);continue;
     }
     if(!t.pr||!['ci_pending','code_review','ready_for_human'].includes(t.status))continue;
@@ -71,7 +72,7 @@ export async function collectObservations(client,state,{now,policy,broker,manage
       const summary=comments.find(c=>c.user.login===managedBot&&c.user.type==='Bot'&&c.body.startsWith('<!-- codex-pull-request-review-summary -->')&&c.body.includes('Completed')&&c.body.includes(`\`${t.headSha.slice(0,7)}\``));
       if(summary) {
         const inline=await client.api(`/pulls/${t.pr}/comments?per_page=100`);
-        const findings=inline.filter(c=>c.user.login===managedBot&&c.user.type==='Bot'&&c.commit_id===t.headSha).map(c=>({id:`managed-${c.id}`,severity:'P1',evidence:`${c.path}:${c.line??c.original_line??0} ${c.body.slice(0,3000)}`,correction:'Address this finding within the approved requirements',scope:'approved'}));
+        const findings=inline.filter(c=>c.user.login===managedBot&&c.user.type==='Bot'&&c.commit_id===t.headSha).map(c=>({id:`managed-${c.id}`,severity:'P1',evidence:`${c.path}:${c.line??c.original_line??0} ${c.body.slice(0,3000)}`,correction:'Independently classify scope and conflict before proposing a fix',scope:'unknown'}));
         // Managed summary completion has no stable typed verdict. Require explicit
         // no-findings reaction from the authenticated bot as well, never alone.
         const reactions=await client.api(`/issues/${t.pr}/reactions?per_page=100`);

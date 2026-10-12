@@ -28,3 +28,11 @@ test('new implementation invalidates previous evidence and requires re-review',(
 test('conflicting reviewers escalate instead of looping',()=>{let s=reduce(reviewed(),observation('code_review',{review:review()}),policy,authority).state;s=reduce(s,observation('managed_review',{headSha:head,clean:false,findings:[]}),policy,authority).state;assert.equal(s.tasks[task.id].status,'blocked');});
 test('managed new-scope finding cannot enter fixing',()=>{const f={id:'F1',severity:'P1',evidence:'fixture',correction:'fix within scope',scope:'approved'};let s=reduce(reviewed(),observation('code_review',{review:review('revise',[f])}),policy,authority).state;s=reduce(s,observation('managed_review',{headSha:head,clean:false,findings:[{...f,id:'M1',scope:'new'}]}),policy,authority).state;assert.equal(s.tasks[task.id].status,'blocked');});
 test('missing managed review and closed unmerged PR never mean success',()=>{let s=reviewed();s=reduce(s,{...observation('review_timeout'),at:1201001},policy,authority).state;assert.equal(s.tasks[task.id].status,'blocked');assert.equal(s.paused,true);assert.equal(reduce(reviewed(),observation('close'),policy,authority).state.tasks[task.id].status,'blocked');});
+test('unknown managed scope needs matching independent classification',()=>{
+ const f={id:'managed-1',severity:'P1',evidence:'bot finding',correction:'review scope',scope:'unknown'};
+ let s=reviewed();s=reduce(s,observation('managed_review',{headSha:head,clean:false,findings:[f]}),policy,authority).state;
+ assert.equal(s.tasks[task.id].status,'code_review');
+ const approved={...f,scope:'approved'};
+ assert.equal(reduce(s,observation('code_review',{review:review('revise',[approved])}),policy,authority).state.tasks[task.id].status,'fixing');
+ assert.equal(reduce(s,observation('code_review',{review:review('revise',[{...approved,id:'unrelated'}])}),policy,authority).state.tasks[task.id].status,'blocked');
+});

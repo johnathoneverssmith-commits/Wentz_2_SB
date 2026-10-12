@@ -14,7 +14,15 @@ export class HttpBroker {
     return response.json();
   }
   async live(owner) {const result=await this.call(`/live?owner=${encodeURIComponent(owner)}`);if(typeof result.live!=='boolean')throw new Error('Invalid live-worker evidence');return result.live;}
-  async results() {const result=await this.call('/results');if(!Array.isArray(result)||result.length>100)throw new Error('Invalid worker results');return result;}
+  async results() {
+    const items=[],seen=new Set();let cursor='';
+    do {const page=await this.call(`/results?cursor=${encodeURIComponent(cursor)}`);
+      if(!Array.isArray(page.items)||page.items.length>100||(page.nextCursor!==null&&!/^[a-f0-9]{64}$/.test(page.nextCursor)))throw new Error('Invalid result page');
+      items.push(...page.items);cursor=page.nextCursor;
+      if(cursor){if(seen.has(cursor))throw new Error('Repeated result cursor');seen.add(cursor);}
+    }while(cursor);
+    return items;
+  }
   async execute(effect,state) {validate('state',state);return this.call('/execute',{key:effect.key,effect,state});}
   async select(ready,state) {return this.call('/select',{ready,state});}
   async pause(key){return this.call('/pause',{key});}

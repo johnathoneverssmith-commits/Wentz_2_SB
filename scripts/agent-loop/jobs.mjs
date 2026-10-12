@@ -14,6 +14,13 @@ export class JobStore {
   async begin(key){try{const file=await open(this.path(key,'.started'),'wx',0o600);await file.close();}catch(error){if(error.code==='EEXIST')throw new Error('Job already started; reconcile instead of rerunning');throw error;}}
   async finish(key,result){const target=this.path(key,'.result.json'),temp=target+'.tmp';await writeFile(temp,JSON.stringify(result),{mode:0o600});await rename(temp,target);}
   async results(){await mkdir(this.directory,{recursive:true});return Promise.all((await readdir(this.directory)).filter(p=>p.endsWith('.result.json')).map(async p=>JSON.parse(await readFile(join(this.directory,p),'utf8'))));}
+  async page(cursor='') {
+    if(cursor&&!/^[a-f0-9]{64}$/.test(cursor))throw new Error('Invalid result cursor');
+    await mkdir(this.directory,{recursive:true});
+    const keys=(await readdir(this.directory)).filter(p=>/^[a-f0-9]{64}\.result\.json$/.test(p)).map(p=>p.slice(0,64)).filter(key=>key>cursor).sort();
+    const batch=keys.slice(0,100),items=await Promise.all(batch.map(key=>readFile(this.path(key,'.result.json'),'utf8').then(JSON.parse)));
+    return {items,nextCursor:keys.length>100?batch.at(-1):null};
+  }
   async paused(){try{return JSON.parse(await readFile(join(this.directory,'control.json'),'utf8')).paused===true;}catch(e){if(e.code==='ENOENT')return false;throw e;}}
   async setPaused(paused){await mkdir(this.directory,{recursive:true});await writeFile(join(this.directory,'control.json'),JSON.stringify({paused}),{mode:0o600});}
 }

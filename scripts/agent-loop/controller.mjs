@@ -23,6 +23,7 @@ export async function reconcile(context,client) {
   async function drain(onlyPublication=false) {
     for(const effect of [...document.outbox]) {
       if(onlyPublication&&effect.type!=='publish')continue;
+      if(['worker','retry','publish'].includes(effect.type)&&['blocked','cancelled','complete'].includes(document.state.tasks[effect.taskId]?.status)){document.outbox=document.outbox.filter(e=>e.key!==effect.key);await persist();continue;}
       if(document.state.paused&&!['escalate','cancel_workers'].includes(effect.type)) {
         if(effect.type==='publish'&&effect.attempts>0&&client.recoverPublication){const result=await client.recoverPublication(effect,document.state);if(result){acknowledge(effect,result);await persist();}}
         continue;
@@ -40,7 +41,7 @@ export async function reconcile(context,client) {
   try {
     // Incoming pause has priority over new publication. Recover already-pending
     // publication before processing CI observations of that visible PR.
-    if(!context.events.some(e=>e.type==='pause'))await drain(true);
+    if(!context.events.some(e=>['pause','failure','outbox_exhausted'].includes(e.type)))await drain(true);
     for(const event of context.events)record(event);
     await persist();await drain();await drain();
   } finally {

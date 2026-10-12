@@ -22,7 +22,7 @@ const server=createServer(async(req,res)=>{
   try {
     const url=new URL(req.url,'http://localhost');
     if(req.method==='GET'&&url.pathname==='/live'){send(200,{live:gate.tokens.size>0});return;}
-    if(req.method==='GET'&&url.pathname==='/results'){send(200,await store.results());return;}
+    if(req.method==='GET'&&url.pathname==='/results'){send(200,await store.page(url.searchParams.get('cursor')??''));return;}
     if(req.method!=='POST'||!['/execute','/select','/pause','/resume'].includes(url.pathname)){send(404,{error:'Unsupported route'});return;}
     let body='';for await(const chunk of req){body+=chunk;if(body.length>2000000)throw new Error('Request too large');}const input=JSON.parse(body);
     if(url.pathname==='/pause'){await pauseWorkers();send(200,{paused:true});return;}

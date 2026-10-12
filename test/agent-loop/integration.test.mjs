@@ -30,3 +30,13 @@ test('managed reaction alone never produces a clean observation',async()=>{
  const events=await collectObservations(client,s,{now:1001,policy,broker:{results:async()=>[]},managedBot:'chatgpt-codex-connector[bot]'});
  assert.equal(events.filter(e=>e.type==='managed_review').length,0);
 });
+test('queued or absent CI blocks after the approved task deadline',async()=>{
+ const s=implementing();s.tasks[task.id].status='ci_pending';s.tasks[task.id].pr=7;s.tasks[task.id].headSha='2'.repeat(40);
+ const client={repository:'owner/repo',api:async()=>({head:{sha:'2'.repeat(40)},state:'open',merged:false,check_runs:[]})};
+ const events=await collectObservations(client,s,{now:7201001,policy,broker:{results:async()=>[]}});assert.deepEqual(events.map(e=>e.type),['failure']);
+});
+test('broker pages more than one hundred historical results',async()=>{
+ let calls=0;const first=Array.from({length:100},(_,i)=>({id:String(i)}));
+ const broker=new HttpBroker({url:'https://broker.example',token:'fixture',request:async()=>({ok:true,json:async()=>++calls===1?{items:first,nextCursor:'a'.repeat(64)}:{items:[{id:'last'}],nextCursor:null}})});
+ const result=await broker.results();assert.equal(result.length,101);assert.equal(calls,2);
+});

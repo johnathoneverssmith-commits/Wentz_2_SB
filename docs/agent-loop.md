@@ -135,10 +135,19 @@ Managed review observation uses the authenticated bot summary for the exact head
 current-head inline findings and a fresh no-findings reaction. This is an observed
 UI convention, not a stable provider JSON contract; unknown formats, missing fresh
 reaction or incomplete pages must pause instead of approving. The separate Codex
-JSON reviewer supplies the stable handoff and disagreements escalate. The publisher
+JSON reviewer runs after the managed result is available and independently
+classifies each managed finding against the approved requirements, preserving its
+finding ID. Managed prose starts with unknown scope; unmatched, new-scope or
+conflicting findings escalate instead of reaching Claude. It supplies the stable
+handoff and disagreements escalate. The publisher
 requests `@codex review` once per updated head using an auditable marker, rather
 than assuming push re-review. Re-review after bot-published fixes and all
 token-dependent triggers require a live test.
+
+Absent or queued CI is bounded by the same task deadline. Broker result history
+is paged in durable batches; prior completed jobs do not impose a 100-job lifetime
+limit. The complete GitHub journal is still subject to file/schema size bounds;
+an operator must plan protected archival before very large backlogs approach them.
 
 Protected production environment review rules and Render's independent automatic
 deploy settings remain external setup. No App/environment/ruleset/Render settings,
