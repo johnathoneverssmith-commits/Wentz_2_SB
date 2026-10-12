@@ -171,9 +171,12 @@ describe("across leagues", () => {
       const games = l.s.games.filter((g) => g.phase === "REG" && g.played);
       expect(games.length).toBeGreaterThan(40); // 3 weeks of a 32-team league
       for (const g of games) {
-        expect(Number.isInteger(g.homeScore) && Number.isInteger(g.awayScore), g.id).toBe(true);
-        expect(g.homeScore, g.id).toBeGreaterThanOrEqual(0);
-        expect(g.awayScore, g.id).toBeLessThan(90);
+        // both teams' scores: a whole number from 0 up to a ceiling no real game reaches
+        for (const [side, score] of [["home", g.homeScore], ["away", g.awayScore]] as const) {
+          expect(Number.isInteger(score), `${g.id} ${side} score ${score}`).toBe(true);
+          expect(score, `${g.id} ${side} score`).toBeGreaterThanOrEqual(0);
+          expect(score, `${g.id} ${side} score`).toBeLessThan(90);
+        }
         for (const side of ["home", "away"] as const) {
           for (const [k, v] of Object.entries(g.totals![side])) {
             if (typeof v === "number") expect(Number.isFinite(v), `${g.id} ${side}.${k}`).toBe(true);
