@@ -84,6 +84,67 @@ the DO NOT MERGE test PR without merging. Test actual human merge/completion in 
 separate repository after deployment settings are verified. Assert master unchanged
 and zero deployment-hook calls in the no-merge production-repo test.
 
+## Worker/controller setup and present limitations
+
+The controller workflow first runs a credential-free eligibility gate. It cannot
+run privileged steps with the shipped disabled/empty manifest and missing budgets.
+After explicit setup approval, the protected `agent-loop-control` environment
+supplies publisher App credentials and a separate broker authentication token.
+The controller never runs application code with those credentials.
+
+The worker broker code (`broker-server.mjs`) is intended for a dedicated Linux host
+behind HTTPS. It binds localhost only. Its job store deduplicates exact operation
+keys across restarts; an interrupted started job requires reconciliation instead
+of rerunning silently. Docker containers run unprivileged, with resource limits,
+a read-only root, isolated temporary home, read-only git metadata and trusted
+runtime modules. Worker output transcripts are discarded. Actual edited text is
+captured, checked and committed by the publisher, which independently checks the
+GitHub diff/tree before PR creation. Normal tasks support text additions/edits;
+deletions, symlinks and binary changes fail closed.
+
+`worker-runtime.example.json` deliberately cannot run until an operator supplies
+a verified image digest containing Node, git, Claude Code and Codex; a restricted
+Docker network named `loop-proxy-*`; an external provider proxy with server-side
+USD/token limits; approved manifest digest/baseline; and private job storage.
+The proxy is a required external service, **not implemented here**. Worker calls
+use a non-secret dummy credential and can reach only the operator's proxy.
+Image availability, proxy isolation, CLI compatibility/authentication and provider
+budget enforcement have not been exercised live. These attestations must be
+verified on the actual host, not merely changed from false to true.
+
+Run the broker only after provisioning is authorized:
+
+```sh
+node scripts/agent-loop/broker-server.mjs /protected/worker-runtime.json
+```
+
+Set `.agent-loop/integration.json` to the HTTPS broker origin and merged manifest
+PR/review IDs. The observer fetches human review/content/ancestry from GitHub;
+it never trusts an approval passed by a webhook or model. Initialize the protected
+state branch with an empty journal and `initialState(digest(manifest))`, `outbox: []`
+and `lease: null`, through a separately authorized setup operation. Do not initialize
+or repair state by overwriting an existing branch. Run `run.mjs status` to inspect
+the shipped gates without credentials. Pause/resume are manual workflow operations
+bound to the current durable sequence and authenticated human account. Emergency
+pause authenticates stop authority separately, stops the broker first and appends
+a pause to the existing state's hash-checked journal even if execution approval
+has become invalid. Broker pause persists across restarts; only an authenticated
+resume of verified execution state clears it.
+
+Managed review observation uses the authenticated bot summary for the exact head,
+current-head inline findings and a fresh no-findings reaction. This is an observed
+UI convention, not a stable provider JSON contract; unknown formats, missing fresh
+reaction or incomplete pages must pause instead of approving. The separate Codex
+JSON reviewer supplies the stable handoff and disagreements escalate. The publisher
+requests `@codex review` once per updated head using an auditable marker, rather
+than assuming push re-review. Re-review after bot-published fixes and all
+token-dependent triggers require a live test.
+
+Protected production environment review rules and Render's independent automatic
+deploy settings remain external setup. No App/environment/ruleset/Render settings,
+broker hosting, proxy installation, credentials, activation or deployment were
+performed by implementing this code.
+
 ## References
 
 [Codex structured automation](https://learn.chatgpt.com/docs/non-interactive-mode),

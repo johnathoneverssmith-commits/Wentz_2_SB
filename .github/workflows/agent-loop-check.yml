@@ -1,7 +1,7 @@
 name: Agent loop policy checks
 on:
   pull_request:
-    branches: [master]
+    branches: [master, feat/supervised-loop-core]
   push:
     branches: [master]
 permissions:

@@ -1,0 +1,21 @@
+{
+  "image": null,
+  "network": null,
+  "trustedRoot": "/srv/agent-loop/trusted",
+  "jobDirectory": "/srv/agent-loop/private-jobs",
+  "manifestDigest": null,
+  "selectionBaseSha": null,
+  "port": 8080,
+  "policy": { "workerMs": 1800000, "maxUsd": null, "maxTokens": null },
+  "isolation": {
+    "verified": false,
+    "providerProxy": false,
+    "budgetEnforced": false,
+    "proxyEnvironment": {
+      "ANTHROPIC_BASE_URL": "http://proxy:8080",
+      "OPENAI_BASE_URL": "http://proxy:8080/v1",
+      "ANTHROPIC_API_KEY": "proxy-only",
+      "CODEX_API_KEY": "proxy-only"
+    }
+  }
+}
