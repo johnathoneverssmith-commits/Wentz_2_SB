@@ -9,7 +9,7 @@ import { simulateBlock } from "../src/blocks.js";
  * A playthrough reported the whole league at 0 passing yards. Whatever the
  * cause, a simulated week must never get there quietly: one real week through
  * the block path the server runs, checked at every place a passing yard is
- * kept â€” the game's team totals, the player lines, and the season stats.
+ * kept - the game's team totals, the player lines, and the season stats.
  */
 it("a simulated week throws the ball, and every stat layer records it", () => {
   const s = createLeague(9090, { ...DEFAULT_CONFIG });
@@ -52,31 +52,57 @@ it("a simulated week throws the ball, and every stat layer records it", () => {
  * within a few standard errors (sd / sqrt(n)) of the truth, and "a few" is
  * chosen so that a healthy engine all but never trips it.
  *
- * What the numbers are measured against is this path as it plays today â€” the
+ * What the numbers are measured against is this path as it plays today - the
  * franchise defaults (Amplified talent, weather, injuries), not raw NFL
  * averages, which the engine is calibrated near but deliberately runs a little
  * hotter than (more rushing, slightly fewer sacks). `NFL` below is a wide
  * sanity envelope so that re-measuring the baseline can never quietly bless a
  * broken engine. Nothing here changes any rating, formula or probability.
  *
- * BASELINE: 12 leagues (seeds 9090, 1-8, 11-13) x 3 regular-season weeks =
- * 1,152 team-games, on 2026-10-12. If a deliberate engine change moves the
- * averages, re-measure and update it in the same commit, saying why.
+ * BASELINE: 24 leagues (seeds 101-124) x 3 regular-season weeks = 2,304
+ * team-games, measured on 2026-10-12. Those seeds are in neither the default
+ * nor the deep set below (a test checks it), so the baseline and the leagues
+ * under test are independent samples and the allowed distance can count both
+ * errors honestly: z * sd * sqrt(1/n + 1/N). If a deliberate engine change
+ * moves the averages, re-measure on the same seeds and update it in the same
+ * commit, saying why.
+ *
+ * The same 24 leagues showed how much league means really vary: only 0.6 to
+ * 0.75 of what treating every team-game as independent predicts (passing
+ * yards: 6.8 against 9.1). Games share a schedule and an opponent, which
+ * evens things out. So the per-game bands below err on the generous side,
+ * which is the right side for a check that must not cry wolf.
  *
  * Cost: ~5 seconds a league. The default is 6 leagues; STATS_SEEDS=12 (or any
  * number up to the length of SEEDS) widens the net for a deep check.
  */
+const BASELINE_SEEDS = Array.from({ length: 24 }, (_, i) => 101 + i);
 const BASELINE = {
-  n: 1152,
+  n: 2304,
   // per team-game: mean and standard deviation
-  passYards: { mean: 228.4, sd: 88.8 },
-  rushYards: { mean: 116.3, sd: 57.1 },
-  points: { mean: 23.8, sd: 12.6 },
-  sacksAllowed: { mean: 2.25, sd: 2.05 },
-  passAtt: { mean: 30.0, sd: 6.7 },
+  passYards: { mean: 227.2, sd: 89.0 },
+  rushYards: { mean: 118.0, sd: 60.6 },
+  points: { mean: 23.84, sd: 12.56 },
+  sacksAllowed: { mean: 2.127, sd: 1.936 },
+  passAtt: { mean: 29.59, sd: 6.54 },
 } as const;
 type Stat = keyof Omit<typeof BASELINE, "n">;
 const STATS = Object.keys(BASELINE).filter((k) => k !== "n") as Stat[];
+/** The statistics judged one by one; sacks are judged as a rate (below), which is far more sensitive. */
+const BANDED = STATS.filter((k) => k !== "sacksAllowed");
+
+/**
+ * Sacks as a share of dropbacks. A game's sack count is a small number (about
+ * two) with a standard deviation as large as itself, so averaging counts
+ * leaves a band near a fifth of the value. The rate a league produces over
+ * its three weeks (about 200 sacks) is far steadier: it differs from league to
+ * league by only 0.0041, 6% of its value. The spread is measured between whole
+ * leagues, not assumed, so it already includes everything that makes a league's
+ * rate wander. It is inflated by 15% (about one standard error of an estimate
+ * made from 24 leagues) so that a baseline that happened to be quiet cannot
+ * make the band too tight.
+ */
+const SACK_RATE = { mean: 0.06706, leagueSd: 0.00409, leagues: 24, inflate: 1.15 };
 
 /** The NFL, 2018-2025 (artifacts/validation/simulation_validation.json), as a wide envelope. */
 const NFL = { points: 22.56, passAtt: 32.82, completion: 0.647, sackRate: 0.0663, rushYards: 23.99 * 4.276 };
@@ -117,6 +143,15 @@ const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
 /** How far a mean of n team-games may sit from the baseline: z standard errors, counting the baseline's own error. */
 const allowed = (stat: Stat, n: number, z: number) =>
   z * BASELINE[stat].sd * Math.sqrt(1 / n + 1 / BASELINE.n);
+
+/** How far the mean of `leagues` leagues' sack rates may sit from the baseline. */
+const allowedSackRate = (leagues: number, z: number) =>
+  z * SACK_RATE.leagueSd * SACK_RATE.inflate * Math.sqrt(1 / leagues + 1 / SACK_RATE.leagues);
+/** A league's sacks as a share of its dropbacks (a sack replaces an attempt). */
+const sackRateOf = (l: Played) => {
+  const sacks = l.rows.sacksAllowed.reduce((x, y) => x + y, 0);
+  return sacks / (sacks + l.rows.passAtt.reduce((x, y) => x + y, 0));
+};
 
 /** A league is played the first time a test asks for it, and kept for the rest. */
 const leaguesPlayed = new Map<number, Played>();
@@ -170,32 +205,45 @@ describe("across leagues", () => {
     (seed) => {
       const l = league(seed);
       const n = l.rows.points.length;
-      for (const k of STATS) {
+      for (const k of BANDED) {
         const got = mean(l.rows[k]);
         const tol = allowed(k, n, Z_ONE);
-        expect(Math.abs(got - BASELINE[k].mean), `${k}: ${got.toFixed(2)} vs ${BASELINE[k].mean} Â±${tol.toFixed(2)}`).toBeLessThan(tol);
+        expect(Math.abs(got - BASELINE[k].mean), `${k}: ${got.toFixed(2)} vs ${BASELINE[k].mean} +/-${tol.toFixed(2)}`).toBeLessThan(tol);
       }
+      const rate = sackRateOf(l);
+      const tol = allowedSackRate(1, Z_ONE);
+      expect(Math.abs(rate - SACK_RATE.mean), `sack rate: ${rate.toFixed(4)} vs ${SACK_RATE.mean} +/-${tol.toFixed(4)}`).toBeLessThan(tol);
     },
   );
 
   it("pooled over every league, each statistic stays within a tight band of the baseline", () => {
     const n = leagues.all.reduce((m, l) => m + l.rows.points.length, 0);
-    for (const k of STATS) {
+    for (const k of BANDED) {
       const got = mean(leagues.all.flatMap((l) => l.rows[k]));
       const tol = allowed(k, n, Z_POOLED);
-      expect(Math.abs(got - BASELINE[k].mean), `${k}: ${got.toFixed(2)} vs ${BASELINE[k].mean} Â±${tol.toFixed(2)} (${(100 * tol / BASELINE[k].mean).toFixed(1)}%)`).toBeLessThan(tol);
+      expect(Math.abs(got - BASELINE[k].mean), `${k}: ${got.toFixed(2)} vs ${BASELINE[k].mean} +/-${tol.toFixed(2)} (${(100 * tol / BASELINE[k].mean).toFixed(1)}%)`).toBeLessThan(tol);
     }
+    const rate = mean(leagues.all.map(sackRateOf));
+    const tol = allowedSackRate(leagues.all.length, Z_POOLED);
+    expect(Math.abs(rate - SACK_RATE.mean), `sack rate: ${rate.toFixed(4)} vs ${SACK_RATE.mean} +/-${tol.toFixed(4)} (${(100 * tol / SACK_RATE.mean).toFixed(1)}%)`).toBeLessThan(tol);
+  });
+
+  it("the baseline was measured on leagues the tests never play", () => {
+    expect(BASELINE_SEEDS.filter((seed) => SEEDS.includes(seed))).toEqual([]);
+    expect(new Set(BASELINE_SEEDS).size).toBe(24);
   });
 
   it("the bands are tight enough to notice a real shift (a loose band would pass anything)", () => {
     // Computed, not simulated. Even one league's three weeks must flag a
     // quarter-sized move in yards, points or attempts; at the default size it
-    // is about a tenth. Sacks are noisier per game and are checked more loosely.
+    // is about a tenth. The sack rate is judged between leagues, so it needs
+    // several: at the default size a shift of about a seventh is noticed.
     const n = chosen.length * 96;
     for (const k of ["passYards", "rushYards", "points", "passAtt"] as const) {
       expect(allowed(k, n, Z_POOLED) / BASELINE[k].mean, k).toBeLessThan(0.25);
     }
-    expect(allowed("sacksAllowed", n, Z_POOLED) / BASELINE.sacksAllowed.mean).toBeLessThan(0.5);
+    const sacks = allowedSackRate(chosen.length, Z_POOLED) / SACK_RATE.mean;
+    expect(sacks, "sack rate").toBeLessThan(chosen.length >= 3 ? 0.18 : 0.45);
   });
 
   it("and remains inside the NFL's own envelope, so the baseline cannot drift somewhere absurd", () => {
