@@ -15,6 +15,13 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     environment: "node",
     /**
+     * Applies the database schema once, in the main process, before any test
+     * file starts, so the database suites never run schema DDL themselves (two
+     * of them did at once, and deadlocked). It does nothing without a
+     * DATABASE_URL, and never fails a run whose tests need no database.
+     */
+    globalSetup: ["./test/globalSetup.ts"],
+    /**
      * A league fixture builds a full 32-team pool, and several tests here
      * simulate whole seasons on top of that.
      *

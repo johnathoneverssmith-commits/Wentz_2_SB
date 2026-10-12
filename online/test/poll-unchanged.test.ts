@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { signSession } from "../src/auth.js";
-import { migrate, pool } from "../src/db.js";
+import { pool } from "../src/db.js";
 import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { server } from "../src/index.js";
 import { claimTeam, createOnlineLeague } from "../src/leagues.js";
@@ -24,7 +24,7 @@ let baseUrl = "";
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  const attempt = await prepareDatabase(pool, migrate);
+  const attempt = await prepareDatabase(pool);
   reachable = attempt.reachable;
   if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
   for (const u of users) {

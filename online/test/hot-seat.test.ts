@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { actorFor, chooseJob } from "../src/actions.js";
-import { migrate, pool, withLeague } from "../src/db.js";
+import { pool, withLeague } from "../src/db.js";
 import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { claimTeam, createOnlineLeague } from "../src/leagues.js";
 import { ensureHotSeat } from "@/state/hotSeat.ts";
@@ -21,7 +21,7 @@ let options: string[] = [];
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  const attempt = await prepareDatabase(pool, migrate);
+  const attempt = await prepareDatabase(pool);
   reachable = attempt.reachable;
   if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
   await pool.query(
