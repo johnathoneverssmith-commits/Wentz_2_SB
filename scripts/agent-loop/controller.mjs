@@ -34,7 +34,7 @@ export async function reconcile(context,client) {
         document.outbox=document.outbox.filter(e=>e.key!==effect.key);await persist();continue;
       }
       effect.attempts++;document.outbox=document.outbox.map(e=>e.key===effect.key?effect:e);await persist();
-      const result=await client.execute(effect,document.state);
+      const result=await client.execute(effect,document.state,{stateSha:sha});
       acknowledge(effect,result);await persist();
     }
   }

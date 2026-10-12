@@ -83,9 +83,11 @@ export class GitHubClient {
     document.journal=append(document.journal,event);
     await this.compareAndSwap(sha,document);
   }
-  async publish({task,baseSha,headSha,branch,key}) {
+  async publish({task,baseSha,headSha,branch,key,stateSha,planDigest}) {
     if(!new RegExp(`^agent-loop/${task.id}/[A-Za-z0-9-]+$`).test(branch))throw new Error('Prohibited publication branch');
     if(!SHA.test(baseSha)||!SHA.test(headSha)||! /^[a-f0-9]{64}$/.test(key))throw new Error('Invalid publication identity');
+    if(!SHA.test(stateSha)||! /^[a-f0-9]{64}$/.test(planDigest))throw new Error('Immutable plan audit identity required');
+    const body=`Supervised task ${task.id}. Publication ${key}.\n\nApproved phase: ${task.phase}\nPlan digest: ${planDigest}\nPublished head: ${headSha}\n\n[Immutable plan/review audit](https://github.com/${this.repository}/blob/${stateSha}/loop.json)\n[Approved backlog](https://github.com/${this.repository}/blob/${baseSha}/.agent-loop/approved-backlog.json)\n\nAcceptance:\n${task.acceptance.map(c=>'- '+c).join('\n')}\n\nRequired checks: ${task.requiredChecks.join(', ')}\n\nHuman merge required. No deployment authorization.`;
     const comparison=await this.api(`/compare/${baseSha}...${headSha}`);
     if(!Array.isArray(comparison.files)||comparison.files.length>10||comparison.files.length===300||!['ahead','identical'].includes(comparison.status))throw new Error('Invalid actual Git comparison');
     const tree=await this.api(`/git/trees/${headSha}?recursive=1`);
@@ -96,6 +98,7 @@ export class GitHubClient {
     if(existing[0]) {
       if(existing[0].state==='closed')throw new Error('Task PR closed');
       if(existing[0].head.sha!==headSha)await this.advanceBranch(branch,existing[0].head.sha,headSha);
+      if(existing[0].body!==body)await this.api(`/pulls/${existing[0].number}`,'PATCH',{body});
       const marker=`agent-loop-review:${headSha}`;
       const comments=await this.api(`/issues/${existing[0].number}/comments?per_page=100`);
       if(comments.length>=100)throw new Error('Review-request history requires pagination');
@@ -107,7 +110,7 @@ export class GitHubClient {
     try {ref=await this.api(`/git/ref/heads/${branch}`);}catch(error){if(!error.message.includes('(404)'))throw error;}
     if(ref&&ref.object.sha!==headSha)throw new Error('Publication branch conflict');
     if(!ref)await this.api('/git/refs','POST',{ref:`refs/heads/${branch}`,sha:headSha});
-    const pr=await this.api('/pulls','POST',{base:'master',head:branch,title:`${task.id}: approved requirement implementation`,body:`Supervised task ${task.id}. Publication ${key}.\n\nHuman merge required. No deployment authorization.`,draft:false});
+    const pr=await this.api('/pulls','POST',{base:'master',head:branch,title:`${task.id}: approved requirement implementation`,body,draft:false});
     return {pr:pr.number,headSha};
   }
   async advanceBranch(branch,expected,headSha) {
@@ -128,9 +131,9 @@ export class GitHubClient {
     // Deliberately omit untrusted finding bodies and runtime output from public issues.
     await this.api('/issues','POST',{title:`Agent loop blocked: ${effect.taskId}`,body:`${marker}\n\nController stopped this approved task. Inspect the durable state branch and exact evidence privately before resuming. No merge or deployment occurred.`});
   }
-  async execute(effect,state) {
+  async execute(effect,state,metadata={}) {
     switch(effect.type) {
-      case 'publish': {const t=state.tasks[effect.taskId];return this.publish({task:t.task,baseSha:t.baseSha,headSha:t.headSha,branch:`agent-loop/${effect.taskId}/${t.runId}`,key:effect.key});}
+      case 'publish': {const t=state.tasks[effect.taskId];return this.publish({task:t.task,baseSha:t.baseSha,headSha:t.headSha,branch:`agent-loop/${effect.taskId}/${t.runId}`,key:effect.key,stateSha:metadata.stateSha,planDigest:t.planDigest});}
       case 'escalate': await this.escalate(effect);return {};
       case 'worker': case 'retry': case 'cancel_workers':
         if(!this.broker)throw new Error('Isolated worker broker not configured');
