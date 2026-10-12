@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { isCommissioner } from "../src/auth.js";
 import { migrate, pool } from "../src/db.js";
+import { requireDatabaseInCi } from "./requireDatabase.js";
 import { claimCommissioner, claimTeam, commissionerAway, createOnlineLeague, touchSeen } from "../src/leagues.js";
 
 /**
@@ -18,7 +19,7 @@ const users = [`away_a_${stamp}`, `away_b_${stamp}`, `away_c_${stamp}`] as const
 let leagueId = "";
 
 beforeAll(async () => {
-  if (!url) return;
+  if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
   try {
     await pool.query("SELECT 1");
     await migrate();
@@ -26,7 +27,7 @@ beforeAll(async () => {
   } catch {
     reachable = false;
   }
-  if (!reachable) return;
+  if (!reachable) return requireDatabaseInCi("The database could not be reached");
   for (const u of users) {
     await pool.query(
       `INSERT INTO users (id, name, name_folded, password_hash, password_salt)

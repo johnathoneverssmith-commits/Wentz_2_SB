@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { LeagueState } from "@/domain";
 
 import { migrate, pool } from "../src/db.js";
+import { requireDatabaseInCi } from "./requireDatabase.js";
 import { claimTeam, createOnlineLeague, leaguesFor } from "../src/leagues.js";
 
 /**
@@ -25,7 +26,7 @@ const userId = `lobby_user_${Date.now()}`;
 const madeLeagues: string[] = [];
 
 beforeAll(async () => {
-  if (!url) return;
+  if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
   try {
     await pool.query("SELECT 1");
     await migrate();
@@ -33,7 +34,7 @@ beforeAll(async () => {
   } catch {
     reachable = false;
   }
-  if (!reachable) return;
+  if (!reachable) return requireDatabaseInCi("The database could not be reached");
   await pool.query(
     `INSERT INTO users (id, name, name_folded, password_hash, password_salt)
      VALUES ($1, $1, $1, 'x', 'y') ON CONFLICT DO NOTHING`,
