@@ -4,7 +4,7 @@ import type { LeagueState } from "@/domain";
 import { beginFreeAgencyEvent } from "@/state/freeAgencyEvent.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
-import { migrate, pool } from "../src/db.js";
+import { pool } from "../src/db.js";
 import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 import { factsFromState, inboxFacts } from "../src/inbox.js";
 
@@ -28,7 +28,7 @@ let state: LeagueState;
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
-  const attempt = await prepareDatabase(pool, migrate);
+  const attempt = await prepareDatabase(pool);
   reachable = attempt.reachable;
   if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
 

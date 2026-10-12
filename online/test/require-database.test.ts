@@ -216,7 +216,7 @@ describe("removing credentials from what is reported", () => {
   it("scrubs and bounds the whole failure line a suite will print", async () => {
     const attempt = await prepareDatabase(
       { query: async () => { throw Object.assign(new Error(`password='${SECRET} q r' ${"y".repeat(5000)}`), { code: "28P01" }); } },
-      async () => undefined,
+      { state: "applied", ms: 1 },
       none,
     );
     const failure = (attempt as { failure: string }).failure;
@@ -227,29 +227,87 @@ describe("removing credentials from what is reported", () => {
   });
 });
 
-describe("preparing the database", () => {
-  const pool = (query: (sql: string) => Promise<unknown>) => ({ query, totalCount: 2, idleCount: 1, waitingCount: 0 });
+/**
+ * The ways a failed or missing one-time setup could let a required database
+ * suite pass, and the check that each is closed. A suite does exactly this:
+ * prepare the database, then call requireDatabaseInCi if it is not reachable.
+ */
+describe("a failed schema setup cannot let a required database suite pass", () => {
+  const healthy = {
+    query: async (sql: string) => (/to_regclass/.test(sql) ? { rows: [{ t: "league_state" }] } : { rows: [] }),
+  };
+  /** What a database suite's beforeAll does with the result. */
+  const suiteSetup = async (pool: Parameters<typeof prepareDatabase>[0], schema: Parameters<typeof prepareDatabase>[1], env: NodeJS.ProcessEnv) => {
+    const attempt = await prepareDatabase(pool, schema, env);
+    if (!attempt.reachable) requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`, env);
+    return attempt.reachable;
+  };
+  const failed = { state: "failed", failure: "applying the schema failed after 5 ms: error[40P01]: deadlock detected" } as const;
 
-  it("is reachable once it connects and the schema applies, in that order", async () => {
-    const order: string[] = [];
-    const result = await prepareDatabase(
-      pool(async (sql) => void order.push(sql)),
-      async () => void order.push("migrate"),
-    );
-    expect(result).toEqual({ reachable: true });
-    expect(order).toEqual(["SELECT 1", "migrate"]);
+  it("fails the suite in CI even though the database itself is healthy now", async () => {
+    await expect(suiteSetup(healthy, failed, { CI: "true" })).rejects.toThrow(/before any test file started.*40P01/);
   });
 
-  it("names the connection step when the connection fails, without running the schema", async () => {
-    let migrated = false;
+  it("fails it when the run asks for a database by any other name", async () => {
+    await expect(suiteSetup(healthy, failed, { REQUIRE_DATABASE: "1" })).rejects.toThrow(/40P01/);
+  });
+
+  it("lets it skip, loudly elsewhere, where a database is not required", async () => {
+    await expect(suiteSetup(healthy, failed, {})).resolves.toBe(false);
+  });
+
+  it("fails it in CI when the setup never ran and the schema is not there", async () => {
+    const noSetup = undefined; // as if globalSetup were not configured
+    const empty = { query: async (sql: string) => (/to_regclass/.test(sql) ? { rows: [{ t: null }] } : { rows: [] }) };
+    await expect(suiteSetup(empty, noSetup, { CI: "true" })).rejects.toThrow(/no league_state table.*globalSetup/);
+  });
+
+  it("fails it in CI when the schema check cannot be confirmed", async () => {
+    const silent = { query: async () => ({ rows: [] }) };
+    await expect(suiteSetup(silent, { state: "applied", ms: 1 }, { CI: "true" })).rejects.toThrow(/cannot be confirmed/);
+    const odd = { query: async () => undefined };
+    await expect(suiteSetup(odd, { state: "applied", ms: 1 }, { CI: "true" })).rejects.toThrow(/cannot be confirmed/);
+  });
+
+  it("passes only when a database is there and the setup did not fail", async () => {
+    await expect(suiteSetup(healthy, { state: "applied", ms: 1 }, { CI: "true" })).resolves.toBe(true);
+  });
+});
+
+describe("preparing the database", () => {
+  const applied = { state: "applied", ms: 5 } as const;
+  /** A pool whose catalog says the schema is there (or not), recording every statement it is sent. */
+  const pool = (opts: { schemaThere?: boolean; fail?: unknown; sent?: string[] } = {}) => ({
+    query: async (sql: string) => {
+      opts.sent?.push(sql);
+      if (opts.fail) throw opts.fail;
+      return /to_regclass/.test(sql) ? { rows: [{ t: opts.schemaThere === false ? null : "league_state" }] } : { rows: [] };
+    },
+    totalCount: 2,
+    idleCount: 1,
+    waitingCount: 0,
+  });
+
+  it("is reachable when it connects and the schema is there", async () => {
+    const sent: string[] = [];
+    expect(await prepareDatabase(pool({ sent }), applied)).toEqual({ reachable: true });
+    expect(sent).toHaveLength(2);
+    expect(sent[0]).toBe("SELECT 1");
+  });
+
+  it("only reads: no statement it sends changes the schema", async () => {
+    const sent: string[] = [];
+    await prepareDatabase(pool({ sent }), applied);
+    for (const sql of sent) expect(sql, sql).toMatch(/^\s*select\b/i);
+    for (const sql of sent) expect(sql, sql).not.toMatch(/\b(create|alter|drop|lock)\b/i);
+  });
+
+  it("names the connection step when the connection fails", async () => {
     const result = await prepareDatabase(
-      pool(async () => {
-        throw netError("ECONNREFUSED", "connect ECONNREFUSED 127.0.0.1:5432");
-      }),
-      async () => void (migrated = true),
+      pool({ fail: netError("ECONNREFUSED", "connect ECONNREFUSED 127.0.0.1:5432") }),
+      applied,
       { VITEST_POOL_ID: "3", VITEST_WORKER_ID: "7" },
     );
-    expect(migrated).toBe(false);
     expect(result.reachable).toBe(false);
     const failure = (result as { failure: string }).failure;
     expect(failure).toContain("connecting failed after");
@@ -258,26 +316,30 @@ describe("preparing the database", () => {
     expect(failure).toContain("pool 2 open, 1 idle, 0 waiting");
   });
 
-  it("names the schema step when the migration fails, with the server's own error", async () => {
-    const result = await prepareDatabase(
-      pool(async () => undefined),
-      async () => {
-        throw pgError({ code: "XX000", severity: "ERROR" }, "tuple concurrently updated");
-      },
-    );
+  it("says so, without trying to fix it, when the schema is not there", async () => {
+    const sent: string[] = [];
+    const result = await prepareDatabase(pool({ schemaThere: false, sent }), applied);
     const failure = (result as { failure: string }).failure;
-    expect(failure).toContain("applying the schema failed after");
-    expect(failure).toContain("[XX000]");
-    expect(failure).toContain("tuple concurrently updated");
+    expect(failure).toContain("checking the schema failed after");
+    expect(failure).toContain("no league_state table");
+    expect(failure).toContain("globalSetup");
+    expect(sent.some((sql) => /\b(create|alter)\b/i.test(sql))).toBe(false);
+  });
+
+  it("reports the one-time setup's failure, and does not even connect", async () => {
+    const sent: string[] = [];
+    const result = await prepareDatabase(pool({ sent }), {
+      state: "failed",
+      failure: "applying the schema failed after 1021 ms: error[40P01]: deadlock detected",
+    });
+    const failure = (result as { failure: string }).failure;
+    expect(failure).toContain("before any test file started");
+    expect(failure).toContain("[40P01]");
+    expect(sent).toEqual([]);
   });
 
   it("reaches the failing suite's message, so CI shows it", async () => {
-    const attempt = await prepareDatabase(
-      pool(async () => {
-        throw pgError({ code: "53300" }, "sorry, too many clients already");
-      }),
-      async () => undefined,
-    );
+    const attempt = await prepareDatabase(pool({ fail: pgError({ code: "53300" }, "sorry, too many clients already") }), applied);
     expect(() =>
       requireDatabaseInCi(`The database could not be reached: ${(attempt as { failure: string }).failure}`, { CI: "true" }),
     ).toThrow(/53300.*too many clients already/);

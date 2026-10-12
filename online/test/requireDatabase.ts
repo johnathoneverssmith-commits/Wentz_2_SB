@@ -1,3 +1,7 @@
+import { inject } from "vitest";
+
+import type { SchemaState } from "./schemaSetup.js";
+
 /**
  * Whether a test run is one that must have a database.
  *
@@ -154,27 +158,57 @@ interface Queryable {
 
 export type DatabaseAttempt = { reachable: true } | { reachable: false; failure: string };
 
+/** What the one-time setup recorded for this run, if it ran (see `globalSetup.ts`). */
+function recordedSchemaState(): SchemaState | undefined {
+  try {
+    return inject("databaseSchema");
+  } catch {
+    return undefined; // not inside a Vitest run with the setup configured
+  }
+}
+
 /**
- * Connects and applies the schema, and says exactly what failed if it did not.
+ * Connects, and checks that the schema is there. Never applies it.
  *
- * Replaces a bare `catch { reachable = false }` that threw the reason away:
- * a CI run failed with "could not be reached" and nothing to say whether it
- * was the connection, the schema, or two workers migrating at once. The report
- * names the step, how long it took, the error with its code, which test worker
- * it was, and how many connections that worker's pool held. It makes no
- * attempt to retry or work around anything: the point is to find out.
+ * The schema is applied once, before any test file starts (`globalSetup.ts`).
+ * A suite applying it again in its own `beforeAll` is what deadlocked in CI:
+ * `schema.sql` is one transaction that takes SHARE locks and then an ACCESS
+ * EXCLUSIVE lock on `leagues`, and it collided with another file's open league
+ * transaction. So here a worker reads one catalog entry and nothing more.
+ *
+ * Says exactly what failed if anything did: whether the one-time setup failed
+ * before any test ran, the connection failed, or the schema is missing, with the
+ * error's code, how long it took, which test worker this was, and how many
+ * connections its pool held. It does not retry or work around anything.
  */
 export async function prepareDatabase(
   pool: Queryable,
-  migrate: () => Promise<void>,
+  schema: SchemaState | undefined = recordedSchemaState(),
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<DatabaseAttempt> {
+  if (schema?.state === "failed") {
+    return {
+      reachable: false,
+      failure: scrub(`the one-time schema setup failed before any test file started: ${schema.failure}`, env).slice(0, 2000),
+    };
+  }
   let step = "connecting";
   const started = Date.now();
   try {
     await pool.query("SELECT 1");
-    step = "applying the schema";
-    await migrate();
+    step = "checking the schema";
+    const found = (await pool.query("SELECT to_regclass('public.league_state') AS t")) as
+      | { rows?: { t: string | null }[] }
+      | undefined;
+    const row = found?.rows?.[0];
+    // A catalog query always returns its one row. Not getting one means the
+    // check cannot be confirmed, which must not count as confirmed.
+    if (!row) throw new Error("the schema check returned no row, so the schema cannot be confirmed");
+    if (row.t == null) {
+      throw new Error(
+        "the schema is not there (no league_state table): online/vitest.config.ts applies it once through test/globalSetup.ts before the workers start",
+      );
+    }
     return { reachable: true };
   } catch (err) {
     const where = `worker ${env.VITEST_POOL_ID ?? "?"}/${env.VITEST_WORKER_ID ?? "?"}`;
