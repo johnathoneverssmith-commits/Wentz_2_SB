@@ -2,7 +2,8 @@
   "version": 1,
   "about": "Maps changed paths to the checks that should run. Read by select-checks.mjs. Rules are tried in order and the first match wins, so more specific rules come first. A path no rule matches is NOT ignored: a source file triggers the conservative set in `unknown`. Update this file in the same change that adds a new area to the repo.",
 
-  "sourceExtensions": [".ts", ".tsx", ".js", ".mjs", ".cjs", ".mts", ".json", ".sql", ".yml", ".yaml", ".css", ".html", ".py", ".sh", ".ps1", ".toml"],
+  "sourceNames": ["Dockerfile", "Makefile", "Procfile"],
+  "sourceExtensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue", ".svelte", ".json", ".sql", ".yml", ".yaml", ".css", ".html", ".py", ".sh", ".ps1", ".toml"],
 
   "projects": {
     "engine": { "prefixes": ["src/", "server/", "analysis/", "artifacts/", "data/", "test/"] },
@@ -54,7 +55,7 @@
   "checks": {
     "scope": {
       "kind": "manual", "tier": 0, "label": "Confirm the scope of the change",
-      "commands": ["git status --short", "git diff --stat <base>"],
+      "commands": ["git status --short", "git diff --stat {base}"],
       "note": "Right branch and worktree (never switch a shared checkout), and the diff is exactly the intended files. No scratch file is staged or committed."
     },
     "tc-engine": { "kind": "command", "tier": 0, "label": "Engine typecheck", "commands": ["npm run typecheck"], "seconds": { "local": 3, "ci": 2 } },
@@ -65,7 +66,10 @@
     "engine-realism": { "kind": "command", "tier": 1, "label": "Engine realism guard (league rates against the NFL)", "commands": ["npx vitest run test/engine-realism.test.ts"], "seconds": { "local": 15, "ci": 10 } },
     "stat-guard": { "kind": "command", "tier": 1, "label": "Passing, rushing, scoring and sack statistics across 6 leagues", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "seconds": { "local": 40, "ci": 25 }, "note": "Compares with a baseline measured on seeds 101-124; if a deliberate change moves the averages, re-measure the baseline in the same commit." },
     "circuits": { "kind": "command", "tier": 1, "label": "Whole-season walkthroughs through the stage wiring", "commands": ["npx vitest run --root online test/full-circuit.test.ts test/annual-circuit.test.ts test/humans-only-circuit.test.ts"], "seconds": { "local": 60, "ci": 30 } },
-    "visibility": { "kind": "command", "tier": 1, "label": "Unrevealed results are never sent to a GM who has not watched them", "commands": ["npx vitest run --root online test/result-visibility.test.ts"], "needsDatabase": true, "seconds": { "local": 20, "ci": 15 } },
+    "visibility": { "kind": "command", "tier": 1, "label": "Unrevealed results are never sent to a GM who has not watched them", "commands": ["npx vitest run --root online --no-file-parallelism test/result-visibility.test.ts"], "needsDatabase": true, "seconds": { "local": 20, "ci": 15 },
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "Run one file at a time on PGlite. Without a database this suite skips, and a skip is not a pass." },
     "db-suites": {
       "kind": "command", "tier": 1, "label": "Database-backed suites",
       "commands": ["npx vitest run --root online --no-file-parallelism test/concurrency.test.ts test/commissioner-away.test.ts test/commissioner-transfer.test.ts test/hot-seat.test.ts test/inbox-facts.test.ts test/lobby.test.ts test/password-reset.test.ts test/poll-unchanged.test.ts test/vacate-advances.test.ts test/vacate-seat.test.ts test/result-visibility.test.ts"],
@@ -80,8 +84,8 @@
     "selector-tests": { "kind": "command", "tier": 1, "label": "Verification tooling's own tests (selector, verdict, runner)", "commands": ["npx vitest run test/verify-selector.test.ts test/verify-verdict.test.ts"], "seconds": { "local": 10, "ci": 6 } },
 
     "related-engine": { "kind": "command", "tier": 2, "label": "Every engine test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "seconds": { "local": 150, "ci": 80 }, "projectFiles": "engine" },
-    "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npm --prefix ui-source run test -- related {files} --run"], "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source" },
-    "related-online": { "kind": "command", "tier": 2, "label": "Every online test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --root online --run"], "seconds": { "local": 100, "ci": 60 }, "projectFiles": "online" },
+    "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "cwd": "ui-source", "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source", "note": "Runs inside ui-source so it uses the UI project's own vitest and config." },
+    "related-online": { "kind": "command", "tier": 2, "label": "Every online test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --root online --run"], "seconds": { "local": 100, "ci": 60 }, "projectFiles": "online", "relativeTo": "online" },
 
     "full-engine": { "kind": "command", "tier": 3, "label": "Full engine suite", "commands": ["npm test"], "seconds": { "local": 180, "ci": 100 } },
     "full-ui": { "kind": "command", "tier": 3, "label": "Full UI suite", "commands": ["npm --prefix ui-source run test"], "seconds": { "local": 325, "ci": 80 } },
