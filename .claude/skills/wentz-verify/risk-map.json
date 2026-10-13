@@ -1,0 +1,300 @@
+{
+  "version": 1,
+  "about": "Maps changed paths to the checks that should run. Read by select-checks.mjs. Rules are tried in order and the first match wins, so more specific rules come first. A path no rule matches is NOT ignored: a source file triggers the conservative set in `unknown`. Update this file in the same change that adds a new area to the repo.",
+
+  "sourceNames": ["Dockerfile", "Makefile", "Procfile"],
+  "sourceExtensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue", ".svelte", ".json", ".sql", ".yml", ".yaml", ".css", ".html", ".py", ".sh", ".ps1", ".toml"],
+
+  "projects": {
+    "engine": { "prefixes": ["src/", "server/", "analysis/", "artifacts/", "data/", "test/"] },
+    "ui": { "prefixes": ["ui-source/"] },
+    "online": { "prefixes": ["online/"] }
+  },
+
+  "testTrees": [
+    { "project": "engine", "dir": "test", "root": "." },
+    { "project": "ui", "dir": "ui-source/src", "root": "ui-source" },
+    { "project": "online", "dir": "online/test", "root": "online" }
+  ],
+
+  "databaseSuites": [
+    "commissioner-away.test.ts",
+    "commissioner-transfer.test.ts",
+    "concurrency.test.ts",
+    "hot-seat.test.ts",
+    "inbox-facts.test.ts",
+    "lobby.test.ts",
+    "password-reset.test.ts",
+    "poll-unchanged.test.ts",
+    "result-visibility.test.ts",
+    "vacate-advances.test.ts",
+    "vacate-seat.test.ts"
+  ],
+
+  "scratch": [
+    "**/_*.test.ts",
+    "**/_*.ts",
+    "**/_*.mjs",
+    "**/_*.py",
+    "online/*.tsv",
+    "online/dev/_*"
+  ],
+
+  "unknown": {
+    "conservative": ["tc-engine", "tc-online", "tc-ui", "ui-build", "full-engine", "full-ui", "full-online", "ci-pr"],
+    "why": "No rule covers this path, so the selector cannot say what it affects. It asks for everything CI would run, rather than for nothing."
+  },
+
+  "limitations": [
+    "This plan is a recommendation computed from file paths. It cannot see runtime data (the engine reads artifacts/**/*.json and the player pool when it runs), so engine-adjacent changes carry explicit rules.",
+    "Direct-test selection finds tests that import a changed file. A change can break a test that only reaches it through other modules; the `related` checks cover that, at a higher cost.",
+    "Local PGlite is a single PostgreSQL session (version 18; CI runs 16). It cannot show locks, deadlocks or true concurrency, and parallel database runs fail for unrelated reasons. Only GitHub CI is authoritative for those.",
+    "Local results are not CI results. A plan is only complete when GitHub's required `test` job has passed on the pull request and `deploy` was skipped."
+  ],
+
+  "checks": {
+    "scope": {
+      "kind": "manual", "tier": 0, "label": "Confirm the scope of the change",
+      "commands": ["git status --short", "git diff --stat {base}"],
+      "note": "Right branch and worktree (never switch a shared checkout), and the diff is exactly the intended files. No scratch file is staged or committed."
+    },
+    "tc-engine": { "kind": "command", "tier": 0, "label": "Engine typecheck", "commands": ["npm run typecheck"], "seconds": { "local": 3, "ci": 2 } },
+    "tc-online": { "kind": "command", "tier": 0, "label": "Online server typecheck", "commands": ["npm run online:typecheck"], "seconds": { "local": 5, "ci": 3 } },
+    "tc-ui": { "kind": "command", "tier": 0, "label": "UI typecheck (tsc -b)", "commands": ["npm --prefix ui-source run typecheck"], "seconds": { "local": 12, "ci": 2 }, "note": "Never use `tsc -p .` in ui-source: it does not follow project references and passes vacuously." },
+    "ui-build": { "kind": "command", "tier": 1, "label": "UI production build", "commands": ["npm --prefix ui-source run build"], "seconds": { "local": 15, "ci": 11 } },
+
+    "engine-realism": { "kind": "command", "tier": 1, "label": "Engine realism guard (league rates against the NFL)", "commands": ["npx vitest run test/engine-realism.test.ts"], "seconds": { "local": 15, "ci": 10 } },
+    "stat-guard": { "kind": "command", "tier": 1, "label": "Passing, rushing, scoring and sack statistics across 6 leagues", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "seconds": { "local": 40, "ci": 25 }, "note": "Compares with a baseline measured on seeds 101-124; if a deliberate change moves the averages, re-measure the baseline in the same commit." },
+    "circuits": { "kind": "command", "tier": 1, "label": "Whole-season walkthroughs through the stage wiring", "commands": ["npx vitest run --root online test/full-circuit.test.ts test/annual-circuit.test.ts test/humans-only-circuit.test.ts"], "seconds": { "local": 60, "ci": 30 } },
+    "visibility": { "kind": "command", "tier": 1, "label": "Unrevealed results are never sent to a GM who has not watched them", "commands": ["npx vitest run --root online --no-file-parallelism test/result-visibility.test.ts"], "needsDatabase": true, "seconds": { "local": 20, "ci": 15 },
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "Run one file at a time on PGlite. Without a database this suite skips, and a skip is not a pass." },
+    "db-suites": {
+      "kind": "command", "tier": 1, "label": "Database-backed suites",
+      "commands": ["npx vitest run --root online --no-file-parallelism test/concurrency.test.ts test/commissioner-away.test.ts test/commissioner-transfer.test.ts test/hot-seat.test.ts test/inbox-facts.test.ts test/lobby.test.ts test/password-reset.test.ts test/poll-unchanged.test.ts test/vacate-advances.test.ts test/vacate-seat.test.ts test/result-visibility.test.ts"],
+      "needsDatabase": true, "seconds": { "local": 60, "ci": 40 },
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "Run one file at a time on PGlite. A pass here says nothing about locks, deadlocks or concurrency; CI's PostgreSQL does."
+    },
+    "infra-checks": { "kind": "command", "tier": 1, "label": "Database test helpers, global setup and the no-DDL-in-suites guard", "commands": ["npx vitest run --root online test/require-database.test.ts test/schema-setup.test.ts test/no-schema-in-suites.test.ts"], "seconds": { "local": 3, "ci": 3 } },
+    "how-it-works-test": { "kind": "command", "tier": 1, "label": "How It Works text matches the mechanics it states", "commands": ["npm --prefix ui-source run test -- src/state/howItWorks.test.ts"], "seconds": { "local": 5, "ci": 3 } },
+    "how-it-works-review": { "kind": "manual", "tier": 1, "label": "If a mechanic changed, ui-source/src/state/howItWorks.ts changes in the same commit", "commands": [], "note": "CLAUDE.md: the player-facing explanation of every system must stay true." },
+    "selector-tests": { "kind": "command", "tier": 1, "label": "Verification selector's own tests", "commands": ["npx vitest run test/verify-selector.test.ts"], "seconds": { "local": 5, "ci": 3 } },
+
+    "related-engine": { "kind": "command", "tier": 2, "label": "Every engine test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "seconds": { "local": 150, "ci": 80 }, "projectFiles": "engine" },
+    "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "cwd": "ui-source", "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source", "note": "Runs inside ui-source so it uses the UI project's own vitest and config." },
+    "related-online": {
+      "kind": "command", "tier": 2, "label": "Every online test that reaches the changed files (transitive; with a database, one file at a time)",
+      "commands": ["npx vitest related {files} --root online --no-file-parallelism --run"],
+      "needsDatabase": true, "seconds": { "local": 100, "ci": 60 }, "projectFiles": "online", "relativeTo": "online",
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "The import graph decides which online tests run, and it can reach any of the database suites through db.ts, the league modules or the UI rules the server shares. Those suites return early without a database and a runner counts that as a pass (199 passed, 1 skipped, no database touched), so every transitive online run is a database check: it counts only if a database was used, and is not run without an explicit test database. Serial, because a local PGlite is one session."
+    },
+
+    "full-engine": { "kind": "command", "tier": 3, "label": "Full engine suite", "commands": ["npm test"], "seconds": { "local": 180, "ci": 100 } },
+    "full-ui": { "kind": "command", "tier": 3, "label": "Full UI suite", "commands": ["npm --prefix ui-source run test"], "seconds": { "local": 325, "ci": 80 } },
+    "full-online": {
+      "kind": "command", "tier": 3, "label": "Full online suite (with a database, one file at a time)",
+      "commands": ["npm run online:test -- --no-file-parallelism"],
+      "needsDatabase": true, "seconds": { "local": 400, "ci": 90 },
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "About a dozen of these suites return early without a database and a runner counts that as a pass, so this run only counts as the full online suite when a database was really used. Run it with a test database; without one it is not run and the plan stays incomplete. Serial, because a local PGlite is one session."
+    },
+
+    "stats-deep": { "kind": "command", "tier": 4, "label": "Statistics across 12 leagues instead of 6", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "env": { "STATS_SEEDS": "12" }, "seconds": { "local": 90, "ci": 60 } },
+    "league-metrics": { "kind": "command", "tier": 4, "label": "Full league calibration against 2018-2025 NFL aggregates", "commands": ["npx tsx analysis/39_league_metrics.ts"], "seconds": { "local": 600, "ci": null }, "note": "Long. Run for any change to how units affect a play." },
+    "stress-smoke": { "kind": "command", "tier": 4, "label": "Franchise stress test, smoke mode (three seasons plus a replay)", "commands": ["npm run franchise:stress -- --mode smoke"], "seconds": { "local": 120, "ci": null }, "note": "Uses the mock backend, not the real engine." },
+    "preview-ui": { "kind": "manual", "tier": 4, "label": "Look at the change in a browser", "commands": ["npm --prefix ui-source run dev"], "note": "Presentation changes are not covered by tests." },
+
+    "static-review": { "kind": "manual", "tier": 1, "label": "Read the whole diff of the CI/deploy file", "commands": [], "note": "There is no YAML or Actions linter on this machine, so syntax and deploy conditions are only proven by GitHub running the workflow." },
+    "ci-pr": { "kind": "ci", "tier": 5, "label": "GitHub CI on the pull request", "commands": [], "authoritative": true, "note": "Open a PR into master. The required `test` job must pass and `deploy` must be skipped. This, not any local run, is the authoritative result." },
+    "ci-repeat-db": { "kind": "ci", "tier": 5, "label": "Re-run the pull request's CI at least three times", "commands": [], "note": "Lock, deadlock and concurrency problems are intermittent and cannot be reproduced on PGlite." }
+  },
+
+  "rules": [
+    {
+      "id": "ci-deploy-config", "class": "ci-or-deploy-config", "risk": "high",
+      "match": [".github/**", "scripts/trigger-render-deploys.mjs", "scripts/verify-deployment.mjs", "scripts/render-build-ui.mjs", "render.yaml", ".node-version", ".nvmrc"],
+      "requires": ["static-review", "tc-engine", "tc-online", "tc-ui", "ui-build", "ci-pr"],
+      "recommends": [],
+      "approval": "CI or deployment configuration",
+      "notes": ["Cannot be verified locally. A change here can alter what runs on master or what deploys; it needs explicit approval before it is pushed."]
+    },
+    {
+      "id": "dependencies", "class": "dependencies", "risk": "high",
+      "match": ["package.json", "package-lock.json", "ui-source/package.json", "ui-source/package-lock.json"],
+      "requires": ["tc-engine", "tc-online", "tc-ui", "ui-build", "full-engine", "full-ui", "full-online", "ci-pr"],
+      "recommends": [],
+      "approval": "Dependencies or npm scripts",
+      "notes": ["Scripts in package.json are what this plan's commands call: check they still exist."]
+    },
+    {
+      "id": "build-config", "class": "build-or-test-config", "risk": "high",
+      "match": ["tsconfig*.json", "ui-source/tsconfig*.json", "online/tsconfig.json", "vitest.config.ts", "online/vitest.config.ts", "ui-source/vitest.config.ts", "ui-source/vite.config.ts"],
+      "requires": ["tc-engine", "tc-online", "tc-ui", "ui-build", "full-engine", "full-ui", "full-online", "ci-pr"],
+      "recommends": [],
+      "notes": ["Changes how everything is compiled or tested, so every project is checked."]
+    },
+    {
+      "id": "database", "class": "database", "risk": "high", "component": "online",
+      "match": ["online/schema.sql", "online/src/db.ts", "online/src/migrate.ts"],
+      "requires": ["tc-online", "direct-tests", "db-suites", "ci-pr"],
+      "recommends": ["related-online", "full-online", "ci-repeat-db"],
+      "approval": "Database schema, migrations or database access code",
+      "notes": ["Locks, deadlocks and concurrency cannot be verified on PGlite; only CI's PostgreSQL shows them."]
+    },
+    {
+      "id": "test-infrastructure", "class": "test-infrastructure", "risk": "high", "component": "online",
+      "match": ["online/test/requireDatabase.ts", "online/test/globalSetup.ts", "online/test/schemaSetup.ts", "online/test/require-database.test.ts", "online/test/schema-setup.test.ts", "online/test/no-schema-in-suites.test.ts"],
+      "requires": ["tc-online", "infra-checks", "db-suites", "ci-pr"],
+      "recommends": ["ci-repeat-db"],
+      "notes": ["A database suite must FAIL (not skip) when CI requires a database: run with CI=true. Never apply schema DDL inside a suite."]
+    },
+    {
+      "id": "statistical-baseline", "class": "statistical-tests", "risk": "medium", "component": "online",
+      "match": ["online/test/passing-volume.test.ts"],
+      "requires": ["tc-online", "stat-guard", "ci-pr"],
+      "recommends": ["stats-deep"],
+      "notes": ["Baseline seeds (101-124) must stay disjoint from the test seeds. Re-measure the baseline if the engine's averages deliberately move."]
+    },
+    {
+      "id": "online-tests", "class": "tests-only", "risk": "low", "component": "online",
+      "match": ["online/test/**"],
+      "requires": ["tc-online", "run-changed-tests", "ci-pr"],
+      "recommends": []
+    },
+    {
+      "id": "engine-tests", "class": "tests-only", "risk": "low", "component": "engine",
+      "match": ["test/**"],
+      "requires": ["tc-engine", "run-changed-tests", "ci-pr"],
+      "recommends": []
+    },
+    {
+      "id": "ui-tests", "class": "tests-only", "risk": "low", "component": "ui",
+      "match": ["ui-source/src/**/*.test.ts", "ui-source/src/**/*.test.tsx", "ui-source/src/test-setup.ts"],
+      "requires": ["tc-ui", "run-changed-tests", "ci-pr"],
+      "recommends": []
+    },
+    {
+      "id": "stage-wiring", "class": "online-stage-wiring", "risk": "high", "component": "online",
+      "match": ["online/src/{phases,decide,blocks,blockJobs,leagues,actions,simulate,simPool,simWorker,planPreview,deadlineClock}.ts"],
+      "requires": ["tc-online", "direct-tests", "circuits", "ci-pr"],
+      "recommends": ["related-online", "full-online"],
+      "notes": ["A league that cannot leave a stage is only caught by the whole-season walkthroughs."]
+    },
+    {
+      "id": "http-and-visibility", "class": "online-http-and-visibility", "risk": "high", "component": "online",
+      "match": ["online/src/{index,http,auth,stream,inbox,push,throttle,boxscore,notes,staffs}.ts"],
+      "requires": ["tc-online", "direct-tests", "visibility", "ci-pr"],
+      "recommends": ["related-online", "full-online"],
+      "notes": ["Result redaction for each GM is built in the league route in index.ts: anything that returns league data must be checked against it."]
+    },
+    {
+      "id": "online-source", "class": "online-server", "risk": "medium", "component": "online",
+      "match": ["online/src/**"],
+      "requires": ["tc-online", "direct-tests", "ci-pr"],
+      "recommends": ["related-online"]
+    },
+    {
+      "id": "online-other", "class": "online-dev-tooling", "risk": "low", "component": "online",
+      "match": ["online/dev/**", "online/package.json", "online/*.json"],
+      "requires": ["scope"],
+      "recommends": ["tc-online"]
+    },
+    {
+      "id": "engine-data", "class": "engine-data", "risk": "high", "component": "engine",
+      "match": ["artifacts/**", "data/**", "ui-source/src/data/pool-*.json"],
+      "requires": ["tc-engine", "direct-tests", "engine-realism", "stat-guard", "full-engine", "ci-pr"],
+      "recommends": ["stats-deep", "league-metrics", "full-online"],
+      "approval": "Simulation balance, model artifacts or player ratings data",
+      "notes": ["The engine loads these files at run time, so no import graph shows who depends on them."]
+    },
+    {
+      "id": "engine", "class": "engine", "risk": "high", "component": "engine",
+      "match": ["src/engine/**"],
+      "requires": ["tc-engine", "direct-tests", "engine-realism", "stat-guard", "full-engine", "ci-pr"],
+      "recommends": ["stats-deep", "league-metrics", "full-online"],
+      "approval": "Simulation formulas or balance (any edit that changes game behaviour)",
+      "notes": ["Almost every test imports the engine, so a transitive `related` run is close to the full suite: the full engine suite is required."]
+    },
+    {
+      "id": "engine-support", "class": "engine-support", "risk": "medium", "component": "engine",
+      "match": ["src/schema/**", "src/model/**", "src/data/**", "src/*.ts"],
+      "requires": ["tc-engine", "direct-tests", "full-engine", "ci-pr"],
+      "recommends": ["full-online"]
+    },
+    {
+      "id": "adapter", "class": "engine-adapter", "risk": "medium", "component": "engine",
+      "match": ["server/**"],
+      "requires": ["tc-engine", "direct-tests", "ci-pr"],
+      "recommends": ["related-engine", "full-online"]
+    },
+    {
+      "id": "analysis", "class": "analysis-scripts", "risk": "low", "component": "engine",
+      "match": ["analysis/**"],
+      "requires": ["scope"],
+      "recommends": ["tc-engine"],
+      "notes": ["Analysis scripts are not run by CI; run the one you changed."]
+    },
+    {
+      "id": "how-it-works", "class": "how-it-works", "risk": "medium", "component": "ui",
+      "match": ["ui-source/src/state/howItWorks.ts", "ui-source/src/components/HowItWorksDock.tsx"],
+      "requires": ["tc-ui", "how-it-works-test", "how-it-works-review", "ci-pr"],
+      "recommends": ["ui-build"]
+    },
+    {
+      "id": "franchise-stage-rules", "class": "franchise-stage-rules", "risk": "high", "component": "ui",
+      "match": ["ui-source/src/state/{stageMachine,rules,freeAgencyEvent,skips,reveal,revealBlocks,stageEntry,seed,leagueFormat}.ts"],
+      "requires": ["tc-ui", "tc-online", "direct-tests", "circuits", "how-it-works-review", "ci-pr"],
+      "recommends": ["related-ui", "related-online", "full-ui", "full-online", "stress-smoke"],
+      "notes": ["The league server runs these same rules through the `@/` alias, so the online project is checked too."]
+    },
+    {
+      "id": "franchise-rules", "class": "franchise-rules", "risk": "high", "component": "ui",
+      "match": ["ui-source/src/state/**", "ui-source/src/sim/**", "ui-source/src/domain/**"],
+      "requires": ["tc-ui", "tc-online", "direct-tests", "how-it-works-review", "ci-pr"],
+      "recommends": ["related-ui", "related-online", "full-ui", "stress-smoke"],
+      "notes": ["Shared with the league server through the `@/` alias."]
+    },
+    {
+      "id": "ui-presentation", "class": "ui-presentation", "risk": "medium", "component": "ui",
+      "match": ["ui-source/src/components/**", "ui-source/src/screens/**", "ui-source/src/styles/**", "ui-source/src/**/*.css", "ui-source/src/*.tsx", "ui-source/index.html", "ui-source/public/**"],
+      "requires": ["tc-ui", "ui-build", "direct-tests", "ci-pr"],
+      "recommends": ["full-ui", "preview-ui"]
+    },
+    {
+      "id": "ui-other", "class": "ui-other", "risk": "medium", "component": "ui",
+      "match": ["ui-source/src/**", "ui-source/scripts/**"],
+      "requires": ["tc-ui", "direct-tests", "ci-pr"],
+      "recommends": ["related-ui"]
+    },
+    {
+      "id": "verification-tooling", "class": "verification-tooling", "risk": "low",
+      "match": [".claude/skills/wentz-verify/**"],
+      "requires": ["scope", "tc-engine", "selector-tests"],
+      "recommends": ["ci-pr"]
+    },
+    {
+      "id": "claude-config", "class": "claude-config", "risk": "low",
+      "match": [".claude/**"],
+      "requires": ["scope"],
+      "recommends": []
+    },
+    {
+      "id": "docs", "class": "docs", "risk": "none",
+      "match": ["docs/**", "*.md", "**/*.md", "LICENSE"],
+      "requires": ["scope"],
+      "recommends": []
+    },
+    {
+      "id": "repo-meta", "class": "repo-meta", "risk": "low",
+      "match": [".gitignore", ".gitattributes", ".editorconfig"],
+      "requires": ["scope"],
+      "recommends": []
+    }
+  ]
+}
