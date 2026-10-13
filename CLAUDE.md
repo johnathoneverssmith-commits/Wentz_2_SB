@@ -229,7 +229,75 @@ npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm run analysis:audit                    # spec §28 schema audit -> artifacts/
 npm start             # loads + prints the active pool
 npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W] [--picture W] [--box KC@BUF] [--staff KC] [--no-staff]  # season/franchise; --through=standings+clinch, --picture=seeds+in-hunt, --box=one game, --staff=coaching card
+# The three test projects (each has its own config; run from the repo root)
+npm test                                  # engine: test/**  (41 files)
+npm run typecheck                         # engine typecheck
+npm --prefix ui-source run test           # UI: ui-source/src/**  (~116 files)
+npm --prefix ui-source run typecheck      # UI typecheck = tsc -b (NEVER `tsc -p .`, it passes vacuously)
+npm --prefix ui-source run build          # UI production build (also what CI runs)
+npm run online:test                       # online server: online/test/**  (~58 files; database suites need a database)
+npm run online:typecheck                  # online typecheck
+npx vitest run test/engine-realism.test.ts                      # one engine file
+npm --prefix ui-source run test -- src/state/stageMachine.test.ts   # one UI file
+npx vitest run --root online test/passing-volume.test.ts        # one online file
+STATS_SEEDS=12 npx vitest run --root online test/passing-volume.test.ts   # deeper statistics check (12 leagues, ~90 s)
+npm run online:db                         # a local PostgreSQL (PGlite) on :5433, see "Database tests" below
 ```
+
+## Testing, CI and working safely
+
+**What CI runs** (`.github/workflows/deploy-render.yml`): on every pull request into `master`
+and every push to `master`, the `test` job: engine typecheck, online typecheck, UI build,
+`npm test`, the UI tests, `npm run online:test` against a Postgres 16 service
+(`DATABASE_URL` set, and `CI=true`, which GitHub sets). About 5-7 minutes. The workflow
+also has a manual `workflow_dispatch` trigger. The `deploy` job runs for any run on `master`
+that is not a pull request, so **both a push to `master` and a manual `workflow_dispatch` run
+on `master` deploy** both Render services and then verify both serve the exact commit; on a
+pull request `deploy` is skipped, and a manual run on any other branch does not deploy. Not in CI: lint (ESLint is not installed),
+`franchise:stress`, `ai-strategy:validate`, `analysis/39_league_metrics.ts`, `STATS_SEEDS=12`.
+`master` is protected by a ruleset: changes arrive by pull request and the `test` check must
+pass. **Local results are not CI.** Say which one a result came from; CI is the authority.
+
+**Database tests.** About a dozen online suites (`concurrency`, `lobby`, `vacate-*`,
+`result-visibility`, ...) need PostgreSQL.
+
+- The schema is applied **once**, before any test file starts, by `online/test/globalSetup.ts`
+  (registered in `online/vitest.config.ts`). A suite never applies it: it calls
+  `prepareDatabase(pool)` from `online/test/requireDatabase.ts`, which only connects and checks
+  the schema is there. `online/test/no-schema-in-suites.test.ts` fails if a suite runs schema
+  DDL or `migrate()`. (Two suites applying it at once deadlocked in CI: `schema.sql` is one
+  transaction, and its `ALTER TABLE leagues` needs an exclusive lock.)
+- With `CI` or `REQUIRE_DATABASE` set, a database suite that cannot get a database **fails**,
+  with the underlying error (code, step, worker; credentials scrubbed). Without them it skips,
+  and the test name says so. A skipped database test is not a passed one: report it as skipped.
+- Local run: `npm run online:db`, then, in another terminal,
+  `DATABASE_URL=postgres://postgres@localhost:5433/postgres DB_POOL_MAX=1 CI=true npx vitest run --root online --no-file-parallelism <files>`.
+- **PGlite is not CI's PostgreSQL.** It is one session behind every socket (PostgreSQL 18; CI
+  runs 16), so parallel database runs tangle transactions and fail for reasons that are not
+  real, and it cannot reproduce locks, deadlocks or true concurrency. Run database suites one
+  at a time locally, and treat anything about concurrency as unverified until CI has run it.
+
+**Statistical tests** (`online/test/passing-volume.test.ts`) compare league averages with a
+baseline measured on 24 separate leagues (seeds 101-124) using standard-error bands. Seeds in
+the baseline must never be test seeds (a test enforces it). If a deliberate engine change moves
+the averages, re-measure the baseline on those seeds and update it in the same commit.
+
+**Which checks, after which change.** `typecheck` (a few seconds) after any edit; the tests
+that import the changed file next; the full suites before pushing a risky change; CI before
+merging. A change to the engine, the draft/free-agency/stage rules, `online/src`, the schema,
+or the CI/deploy configuration is risky. Do not run the full suites after every edit.
+
+**Worktrees.** Claude and Codex can share one checkout, and another session may switch its
+branch under you. Check `git branch --show-current` before editing. If it is not your branch,
+do not switch it: `git worktree add <scratch-dir>/wt-name <branch>`, junction (or install)
+`node_modules` for the root and `ui-source`, and remove the junctions (not their targets)
+before `git worktree remove`. Leftover `.git/worktrees/*` folders that cannot be deleted are
+harmless. Commit with `git commit -F <file>` (PowerShell splits `-m` messages containing
+double quotes), and never stage scratch files (`_*.test.ts`, `online/dev/_*`).
+
+**Approval.** Never merge, deploy, force-push, or run a workflow by hand without being asked.
+Production code, the schema or migrations, simulation balance or ratings, CI/deploy
+configuration and dependencies need explicit approval for each change.
 
 ## Layout
 
