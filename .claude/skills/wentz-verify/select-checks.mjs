@@ -107,12 +107,48 @@ export function parseNameStatus(text, source) {
   return out;
 }
 
+/**
+ * Parses `git diff --name-status -M -z`: fields are NUL-separated, so a path is read exactly as it is.
+ * (Without -z, git wraps a path containing a quote, a tab, a backslash or a newline in quotes and escapes it,
+ * and a line-based reader sees a name that is not a file: the change was then classified as nothing.)
+ */
+export function parseNameStatusZ(text, source) {
+  const out = [];
+  const parts = text.split("\0");
+  for (let i = 0; i < parts.length; ) {
+    const code = (parts[i++] ?? "")[0];
+    if (!code) continue;
+    if (code === "R" || code === "C") {
+      const oldPath = parts[i++];
+      const path = parts[i++];
+      if (oldPath !== undefined && path !== undefined) out.push({ path: raw(path), oldPath: raw(oldPath), status: code, source });
+    } else {
+      const path = parts[i++];
+      if (path !== undefined && path !== "") out.push({ path: raw(path), status: code === "T" || code === "U" ? "M" : code, source });
+    }
+  }
+  return out;
+}
+
+/** Parses `git ls-files --others -z`. */
+export function parseUntrackedZ(text) {
+  return text
+    .split("\0")
+    .filter(Boolean)
+    .map((p) => ({ path: raw(p), status: "A", source: "untracked" }));
+}
+
 export function parseUntracked(text) {
   return text
     .split("\n")
     .map((l) => l.replace(/\r$/, "").trim())
     .filter(Boolean)
     .map((p) => ({ path: norm(p), status: "A", source: "untracked" }));
+}
+
+/** A path from `git -z`: already `/`-separated and exact, so a backslash or any other character is part of the name. */
+function raw(p) {
+  return String(p);
 }
 
 function norm(p) {
@@ -188,10 +224,10 @@ export function collectChanges({ cwd = process.cwd(), base = "origin/master", in
     warnings.push(`could not find a common ancestor with ${base}; fetch it, or name another base with --base`);
   }
   const entries = [];
-  if (mergeBase) entries.push(...parseNameStatus(git(cwd, ["diff", "--name-status", "-M", mergeBase, "HEAD"]), "committed"));
-  entries.push(...parseNameStatus(git(cwd, ["diff", "--cached", "--name-status", "-M"]), "staged"));
-  entries.push(...parseNameStatus(git(cwd, ["diff", "--name-status", "-M"]), "unstaged"));
-  if (includeUntracked) entries.push(...parseUntracked(git(cwd, ["ls-files", "--others", "--exclude-standard"])));
+  if (mergeBase) entries.push(...parseNameStatusZ(git(cwd, ["diff", "--name-status", "-M", "-z", mergeBase, "HEAD"]), "committed"));
+  entries.push(...parseNameStatusZ(git(cwd, ["diff", "--cached", "--name-status", "-M", "-z"]), "staged"));
+  entries.push(...parseNameStatusZ(git(cwd, ["diff", "--name-status", "-M", "-z"]), "unstaged"));
+  if (includeUntracked) entries.push(...parseUntrackedZ(git(cwd, ["ls-files", "--others", "--exclude-standard", "-z"])));
   return { changes: mergeChanges(entries), mergeBase, base, baseMissing: mergeBase === null, warnings };
 }
 
@@ -549,6 +585,7 @@ function materialize(entry, files, map, mergeBaseOf) {
   let usedFiles = [];
   let cwd = def.cwd;
   let fallbackNote;
+  let fellBackTo = null;
   if (def.projectFiles) {
     const root = def.relativeTo ?? ".";
     const source = files.filter((f) => !isTestFile(f));
@@ -559,6 +596,7 @@ function materialize(entry, files, map, mergeBaseOf) {
     if (source.length === 0 || source.length > MAX_FILES_IN_COMMAND || source.some((f) => !isCodeFile(f))) {
       commands = full.commands;
       cwd = full.cwd;
+      fellBackTo = full;
       fallbackNote =
         source.length === 0
           ? "No changed file is left to trace from, so the whole suite runs."
@@ -581,10 +619,9 @@ function materialize(entry, files, map, mergeBaseOf) {
     ...(cwd && cwd !== "." ? { cwd } : {}),
     files: usedFiles,
     reasons,
-    needsDatabase: Boolean(def.needsDatabase),
-    ...(def.env ? { env: def.env } : {}),
-    ...(def.prerequisite ? { prerequisite: def.prerequisite } : {}),
-    ...(def.parser ? { parser: def.parser } : {}),
+    needsDatabase: Boolean(def.needsDatabase || fellBackTo?.needsDatabase),
+    ...(def.env || fellBackTo?.env ? { env: def.env ?? fellBackTo.env } : {}),
+    ...(def.prerequisite || fellBackTo?.prerequisite ? { prerequisite: def.prerequisite ?? fellBackTo.prerequisite } : {}),
     ...(def.seconds ? { seconds: def.seconds } : {}),
     ...(def.note || fallbackNote ? { note: [def.note, fallbackNote].filter(Boolean).join(" ") } : {}),
     ...(def.authoritative ? { authoritative: true } : {}),

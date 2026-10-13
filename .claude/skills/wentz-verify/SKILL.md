@@ -47,6 +47,9 @@ memory or on how a result is phrased:
    - Do the **manual** checks for real (diff review, How It Works text, browser look) and attest
      with `--confirm <id,...>` in step 4. Never confirm one you did not do. `--confirm` works only
      for manual checks, and the report marks them *attested*, not observed.
+   - What a result is bound to includes files git ignores but the tests read (`data/*.local.json`,
+     `.env*`: only hashes are kept, never content), the Node version, and for a database check a digest of
+     the test database it ran against (pass `--test-database` to `report.mjs` to require the same one).
    - If you change a file after a check ran, that result is **stale** and the check shows as not
      run: rerun it. A rerun adds an attempt; the earlier failure stays in the report.
 4. **Report.** `node .claude/skills/wentz-verify/report.mjs --plan <scratch>/plan.json --results <scratch>/results.json --confirm <ids>`
@@ -56,7 +59,9 @@ memory or on how a result is phrased:
    pull request, add `--check-ci`: the script reads GitHub's own record (read-only) of the
    `Test and deploy Render` run for the commit checked out here and accepts it only if it was a
    `pull_request` run for exactly this commit, with a clean working tree, `test` successful and
-   `deploy` skipped. Only that can make the verdict **VERIFIED**. A CI result you type in
+   `deploy` skipped, **and** attached to an *open* pull request whose head is this commit and whose base
+   is the plan's base branch (`--base` and `--pr N` to say otherwise): a run for the same commit under another
+   pull request, or before a retarget, does not count. Only that can make the verdict **VERIFIED**. A CI result you type in
    (`--ci '{...}'`) is shown as a claim and never believed: it cannot produce VERIFIED, and a claim
    that CI failed counts as a failure. Without `--check-ci` the best is **LOCALLY VERIFIED**.
 
@@ -67,6 +72,8 @@ memory or on how a result is phrased:
 - One failed check, required or recommended, makes the verdict **FAILED**. Quote the real error and
   the failing test names; do not summarise them away. Rerun a failure **once** to see whether it
   repeats, and report both runs; do not average them or keep only the green one.
+- The whole online suite (`full-online`) is a database check: it counts as run only when the output
+  shows a database was used. Explicit failing-test lines fail a check even if a later summary is green.
 - **SKIPPED is not passed.** A database suite that ran without a database returns early and a
   runner counts that as a pass; `report.mjs` marks it SKIPPED unless the output shows the database
   was used. In CI (`CI=true`) such a suite fails instead, which is what you want.

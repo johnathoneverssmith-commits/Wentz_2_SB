@@ -13,6 +13,9 @@
  *   - its event is `pull_request` (a push or a manual run is not the PR check);
  *   - it ran for exactly the commit checked out here, and that commit has no
  *     uncommitted or untracked changes on top of it;
+ *   - the run is attached to a pull request that is open, whose head is exactly this commit and whose
+ *     base branch is the expected one (master), in this repository: a run for the same commit under
+ *     another pull request, or before the pull request was retargeted, does not count;
  *   - the run completed with conclusion `success`;
  *   - its `test` job concluded `success` and its `deploy` job was `skipped`.
  */
@@ -34,7 +37,7 @@ export function parseRemote(url) {
  * @param {object} args.runs      body of GET /actions/runs?head_sha=...
  * @param {(runId: number) => object | undefined} args.jobsFor  body of GET /actions/runs/{id}/jobs
  */
-export function validateCiEvidence({ headSha, dirty, runs, jobsFor }) {
+export function validateCiEvidence({ headSha, dirty, runs, jobsFor, pullFor = () => undefined, repoFullName, expectedBase = "master", expectedPr }) {
   const no = (reason, extra = {}) => ({ validated: false, reason, ...extra });
   if (!/^[0-9a-f]{40}$/.test(headSha ?? "")) return no("the local commit is not known");
   if (dirty) return no("the working tree has uncommitted or untracked changes, so CI on the pushed commit does not describe it: commit or stash them");
@@ -46,6 +49,24 @@ export function validateCiEvidence({ headSha, dirty, runs, jobsFor }) {
   const run = mine[0];
   if (run.status !== "completed") return no(`the latest run for ${headSha.slice(0, 7)} is ${run.status}, not completed`, { runUrl: run.html_url });
   if (run.conclusion !== "success") return no(`the latest run for ${headSha.slice(0, 7)} concluded ${run.conclusion}`, { failed: true, runUrl: run.html_url, runId: run.id });
+  // which pull request: the run names it, and GitHub's current record of that pull request must agree
+  const attached = Array.isArray(run.pull_requests) ? run.pull_requests : [];
+  if (attached.length === 0) return no("the run is not attached to a pull request");
+  let pr;
+  let prWhy = "no pull request is attached to the run";
+  for (const a of attached) {
+    const live = pullFor(a.number);
+    if (!live) { prWhy = `GitHub did not report pull request #${a.number}`; continue; }
+    if (expectedPr !== undefined && Number(a.number) !== Number(expectedPr)) { prWhy = `the run belongs to pull request #${a.number}, not #${expectedPr}`; continue; }
+    if (live.state !== "open") { prWhy = `pull request #${a.number} is ${live.state}, not open`; continue; }
+    if (live.head?.sha !== headSha) { prWhy = `pull request #${a.number} now has head ${String(live.head?.sha).slice(0, 7)}, not ${headSha.slice(0, 7)}`; continue; }
+    if (repoFullName && (live.base?.repo?.full_name !== repoFullName || live.head?.repo?.full_name !== repoFullName)) { prWhy = `pull request #${a.number} is not within ${repoFullName}`; continue; }
+    if (live.base?.ref !== expectedBase) { prWhy = `pull request #${a.number} targets ${live.base?.ref}, not ${expectedBase}: retarget it, so CI runs for that base`; continue; }
+    if (a.base?.ref !== undefined && a.base.ref !== expectedBase) { prWhy = `the run was made when pull request #${a.number} targeted ${a.base.ref}, not ${expectedBase}: run CI again`; continue; }
+    pr = { number: live.number ?? a.number, baseRef: live.base.ref, headRef: live.head?.ref ?? null, url: live.html_url ?? null };
+    break;
+  }
+  if (!pr) return no(prWhy, { runUrl: run.html_url });
   const jobs = jobsFor(run.id)?.jobs;
   if (!Array.isArray(jobs)) return no("GitHub did not report this run's jobs");
   const job = (name) => jobs.find((j) => j.name === name);
@@ -65,6 +86,7 @@ export function validateCiEvidence({ headSha, dirty, runs, jobsFor }) {
     test: test.conclusion,
     deploy: deploy.conclusion,
     workflow: run.name ?? WORKFLOW_NAME,
+    pr,
   };
 }
 
@@ -72,7 +94,7 @@ export function validateCiEvidence({ headSha, dirty, runs, jobsFor }) {
  * Asks GitHub and validates the answer. `fetchImpl` is replaced in tests.
  * Never throws: a network problem is reported as "not validated".
  */
-export async function fetchCiEvidence({ owner, repo, headSha, dirty, fetchImpl = globalThis.fetch, token = process.env.GITHUB_TOKEN, now = () => new Date() }) {
+export async function fetchCiEvidence({ owner, repo, headSha, dirty, expectedBase = "master", expectedPr, fetchImpl = globalThis.fetch, token = process.env.GITHUB_TOKEN, now = () => new Date() }) {
   if (!owner || !repo) return { validated: false, reason: "the GitHub repository could not be worked out from the `origin` remote" };
   if (dirty) return validateCiEvidence({ headSha, dirty, runs: {}, jobsFor: () => undefined });
   const headers = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "wentz-verify", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
@@ -86,8 +108,12 @@ export async function fetchCiEvidence({ owner, repo, headSha, dirty, fetchImpl =
     const runs = await get(`/actions/runs?head_sha=${headSha}&event=pull_request&per_page=30`);
     const candidates = (runs.workflow_runs ?? []).filter((r) => r.head_sha === headSha && r.event === "pull_request");
     const jobs = new Map();
-    for (const r of candidates) jobs.set(r.id, await get(`/actions/runs/${r.id}/jobs?per_page=100`));
-    const result = validateCiEvidence({ headSha, dirty, runs, jobsFor: (id) => jobs.get(id) });
+    const pulls = new Map();
+    for (const r of candidates) {
+      jobs.set(r.id, await get(`/actions/runs/${r.id}/jobs?per_page=100`));
+      for (const a of r.pull_requests ?? []) if (!pulls.has(a.number)) pulls.set(a.number, await get(`/pulls/${a.number}`));
+    }
+    const result = validateCiEvidence({ headSha, dirty, runs, jobsFor: (id) => jobs.get(id), pullFor: (n) => pulls.get(n), repoFullName: `${owner}/${repo}`, expectedBase, expectedPr });
     return { ...result, retrievedAt: now().toISOString() };
   } catch (e) {
     return { validated: false, reason: `could not read GitHub: ${e.message}` };

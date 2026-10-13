@@ -6,6 +6,8 @@ export interface RepoState {
   dirty: boolean;
   files: Array<{ path: string; hash: string }>;
   config: Array<{ path: string; hash: string }>;
+  runtime: Array<{ path: string; hash: string }>;
+  node: string;
   digest: string;
   error?: undefined;
 }
@@ -18,8 +20,8 @@ export function commandDigest(check: Partial<Check> & { id: string }): string;
 export function planDigest(plan: Partial<Plan>): string;
 export function parsePorcelainZ(text: string): string[];
 export function fingerprint(cwd: string): StateOrError;
-export function bindingFor(check: Partial<Check> & { id: string }, plan: Partial<Plan>, state: { head: string | null; digest: string | null }): NonNullable<RunRecord["binding"]>;
-export function bindingProblems(run: RunRecord | undefined, check: Partial<Check> & { id: string }, plan: Partial<Plan>, state: StateOrError | undefined): string[];
+export function bindingFor(check: Partial<Check> & { id: string }, plan: Partial<Plan>, state: { head: string | null; digest: string | null }, extra?: { databaseDigest?: string | null }): NonNullable<RunRecord["binding"]>;
+export function bindingProblems(run: RunRecord | undefined, check: Partial<Check> & { id: string }, plan: Partial<Plan>, state: StateOrError | undefined, options?: { databaseDigest?: string }): string[];
 export function normalizeHistory(data: unknown): History;
 export function appendRun(history: History, run: RunRecord): History;
 export function attemptsFor(history: History, id: string): RunRecord[];

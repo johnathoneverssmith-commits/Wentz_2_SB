@@ -3,7 +3,8 @@
  * Judges the recorded results against the plan and prints the report.
  *
  *   node report.mjs --plan plan.json --results results.json [--json] [--cwd <repo>]
- *        [--confirm scope,how-it-works-review] [--check-ci [--repo owner/name]]
+ *        [--confirm scope,how-it-works-review] [--check-ci [--repo owner/name] [--pr 12] [--base master]]
+ *        [--test-database local-pglite|<local url>]
  *
  * Results count only while they still describe the plan and the files as they are
  * now; otherwise the check shows as stale and NOT RUN. Earlier failed attempts are
@@ -15,7 +16,11 @@
  *   --check-ci  asks GitHub (read-only) for the CI run of the commit checked out
  *               here and validates it (ci-evidence.mjs). This is the only route to
  *               VERIFIED. It needs the commit pushed, a pull request open, and a
- *               clean working tree.
+ *               clean working tree. The run must belong to an OPEN pull request whose head
+ *               is this commit and whose base is the plan's base branch (--base to say
+ *               otherwise); --pr N additionally requires that pull request number.
+ * --test-database  the database the database checks must have run against; a check that ran
+ *               against another one is stale.
  *   --ci '{..}' records a claim about CI that you read somewhere else. It is shown
  *               and NOT believed: it can fail the verdict if it says CI failed, but
  *               it can never make it VERIFIED.
@@ -28,7 +33,8 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { fetchCiEvidence, parseRemote } from "./ci-evidence.mjs";
-import { fingerprint, normalizeHistory } from "./evidence.mjs";
+import { resolveTestDatabase } from "./db-safety.mjs";
+import { sha256, fingerprint, normalizeHistory } from "./evidence.mjs";
 import { readJson } from "./io.mjs";
 import { exitCodeFor, renderReport, summarize } from "./verdict.mjs";
 
@@ -45,7 +51,7 @@ function remoteOf(cwd, override) {
 }
 
 export async function main(argv = process.argv.slice(2), { fetchImpl } = {}) {
-  const o = { plan: null, results: null, json: false, confirm: [], ci: null, checkCi: false, repo: null, cwd: process.cwd() };
+  const o = { plan: null, results: null, json: false, confirm: [], ci: null, checkCi: false, repo: null, pr: undefined, base: undefined, testDatabase: undefined, cwd: process.cwd() };
   try {
     for (let i = 0; i < argv.length; i++) {
       const a = argv[i];
@@ -56,6 +62,9 @@ export async function main(argv = process.argv.slice(2), { fetchImpl } = {}) {
       else if (a === "--ci") o.ci = JSON.parse(argv[++i]);
       else if (a === "--check-ci") o.checkCi = true;
       else if (a === "--repo") o.repo = argv[++i];
+      else if (a === "--pr") o.pr = Number(argv[++i]);
+      else if (a === "--base") o.base = argv[++i];
+      else if (a === "--test-database") o.testDatabase = argv[++i];
       else if (a === "--cwd") o.cwd = resolve(argv[++i]);
       else throw new Error(`unknown argument: ${a}`);
     }
@@ -72,6 +81,15 @@ export async function main(argv = process.argv.slice(2), { fetchImpl } = {}) {
     process.stderr.write(`--confirm only attests manual checks; ${notManual.join(", ")} ${notManual.length === 1 ? "is" : "are"} not one (a command check can only be recorded by run-checks.mjs).\n`);
     return 2;
   }
+  let databaseDigest;
+  if (o.testDatabase !== undefined) {
+    const chosen = resolveTestDatabase(o.testDatabase);
+    if (!chosen.ok) {
+      process.stderr.write(`${chosen.reason}\n`);
+      return 2;
+    }
+    databaseDigest = sha256(chosen.url);
+  }
   const state = fingerprint(o.cwd);
   const attested = o.confirm.map((id) => ({ id, status: "CONFIRMED", evidence: "attested" }));
 
@@ -80,9 +98,18 @@ export async function main(argv = process.argv.slice(2), { fetchImpl } = {}) {
     const remote = remoteOf(o.cwd, o.repo);
     ciEvidence = state.error
       ? { validated: false, reason: state.error }
-      : await fetchCiEvidence({ owner: remote?.owner, repo: remote?.repo, headSha: state.head, dirty: state.dirty, ...(fetchImpl ? { fetchImpl } : {}) });
+      : await fetchCiEvidence({
+          owner: remote?.owner,
+          repo: remote?.repo,
+          headSha: state.head,
+          dirty: state.dirty,
+          // the pull request has to target the branch the plan was made against (origin/master -> master)
+          expectedBase: o.base ?? String(plan.base ?? "origin/master").replace(/^origin\//, ""),
+          ...(o.pr !== undefined && Number.isFinite(o.pr) ? { expectedPr: o.pr } : {}),
+          ...(fetchImpl ? { fetchImpl } : {}),
+        });
   }
-  const summary = summarize(plan, [...history.runs, ...attested], { state, ciEvidence, attestedCi: o.ci ?? undefined });
+  const summary = summarize(plan, [...history.runs, ...attested], { state, ciEvidence, attestedCi: o.ci ?? undefined, ...(databaseDigest ? { databaseDigest } : {}) });
   process.stdout.write(`${o.json ? JSON.stringify(summary, null, 2) : renderReport(summary)}\n`);
   return exitCodeFor(summary.verdict);
 }

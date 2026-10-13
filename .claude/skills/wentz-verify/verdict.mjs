@@ -79,12 +79,16 @@ export function parseStressOutput(raw = "") {
   const text = String(raw).replace(ANSI, "");
   const failures = /Invariant failures and crashes:\s*(\d+)/.exec(text);
   const replay = /Deterministic replay:\s*([A-Za-z_]+)/.exec(text);
-  return { invariantFailures: failures ? Number(failures[1]) : null, replay: replay ? replay[1] : null };
+  const seasons = /Team seasons completed:\s*(\d+)/.exec(text);
+  return { invariantFailures: failures ? Number(failures[1]) : null, replay: replay ? replay[1] : null, teamSeasons: seasons ? Number(seasons[1]) : null };
 }
 
-/** How a check reports: "vitest", "stress" or "exit" (a typecheck, a build, a script: only its exit code). */
+/**
+ * How a check reports: "vitest", "stress" or "exit" (a typecheck, a build, a script: only its exit code).
+ * Decided from the commands alone. A plan is an editable file, and a check that could name its own parser
+ * could switch off failure detection for a Vitest run by calling it "exit".
+ */
 export function parserFor(check) {
-  if (check.parser) return check.parser;
   const commands = check.commands ?? [];
   if (commands.some((c) => /\bfranchise:stress\b/.test(c))) return "stress";
   if (commands.some((c) => /\bvitest\b|^npm test\b|\bonline:test\b|\brun test\b/.test(c))) return "vitest";
@@ -124,10 +128,11 @@ export function judge(check, run) {
 
   if (parser === "stress") {
     const s = parseStressOutput(run.output ?? "");
-    const said = s.invariantFailures === null ? "no summary" : `${s.invariantFailures} invariant failure(s), replay ${s.replay ?? "unreported"}`;
+    const said = s.invariantFailures === null ? "no summary" : `${s.invariantFailures} invariant failure(s), replay ${s.replay ?? "unreported"}, ${s.teamSeasons ?? "unknown"} team season(s)`;
     if (run.exitCode !== 0) return { ...base, status: "FAILED", detail: `exit code ${run.exitCode} (${said})` };
-    if (s.invariantFailures === null) return { ...base, status: "FAILED", detail: "exit code 0 but the stress test printed no summary: not counted as a pass" };
-    if (s.invariantFailures > 0 || s.replay === "mismatch") return { ...base, status: "FAILED", detail: `exit code 0 but the summary reports ${said}` };
+    // a pass needs the whole summary: no failures, the replay compared and identical, and seasons actually played
+    if (s.invariantFailures === null || s.replay === null || s.teamSeasons === null) return { ...base, status: "FAILED", detail: `exit code 0 but the stress summary is incomplete (${said}): not counted as a pass` };
+    if (s.invariantFailures > 0 || s.replay !== "identical" || s.teamSeasons < 1) return { ...base, status: "FAILED", detail: `exit code 0 but the summary reports ${said}` };
     return { ...base, status: "PASSED", detail: `exit code 0, ${said}` };
   }
 
@@ -135,8 +140,12 @@ export function judge(check, run) {
     const what = parser === "vitest" && parsed.tests?.failed ? `${parsed.tests.failed} test(s) failed` : parsed.tscErrors ? `${parsed.tscErrors} type error(s)` : "";
     return { ...base, status: "FAILED", detail: `exit code ${run.exitCode}${what ? `: ${what}` : ""}`, failures: parser === "vitest" ? failures : [] };
   }
-  if (parser === "vitest" && ((parsed.tests?.failed ?? 0) > 0 || (parsed.files?.failed ?? 0) > 0)) {
+  // conservative, whichever tool: a failure line or a failed count in the output is never overridden by a green exit code
+  if ((parsed.tests?.failed ?? 0) > 0 || (parsed.files?.failed ?? 0) > 0) {
     return { ...base, status: "FAILED", detail: `exit code 0 but the output reports ${parsed.tests?.failed ?? 0} failed test(s): not counted as a pass`, failures };
+  }
+  if (parser === "vitest" && parsed.failures.length > 0) {
+    return { ...base, status: "FAILED", detail: `exit code 0 but the output lists ${parsed.failures.length} failing test line(s) (${parsed.failures[0]}), even if a later summary is green: not counted as a pass`, failures };
   }
   if (parsed.tscErrors > 0) return { ...base, status: "FAILED", detail: `exit code 0 but the output shows ${parsed.tscErrors} type error(s)` };
   if (parsed.databaseSetupFailed) return { ...base, status: "FAILED", detail: "the database schema could not be applied", failures };
@@ -185,10 +194,10 @@ function chooseRun(check, attempts, plan, context) {
   if (attempts.length === 0) return { run: undefined, stale: null };
   if (!context.state || check.kind !== "command") return { run: attempts[attempts.length - 1], stale: null };
   for (let i = attempts.length - 1; i >= 0; i--) {
-    if (bindingProblems(attempts[i], check, plan, context.state).length === 0) return { run: attempts[i], stale: null };
+    if (bindingProblems(attempts[i], check, plan, context.state, { databaseDigest: context.databaseDigest }).length === 0) return { run: attempts[i], stale: null };
   }
   const last = attempts[attempts.length - 1];
-  return { run: last, stale: bindingProblems(last, check, plan, context.state) };
+  return { run: last, stale: bindingProblems(last, check, plan, context.state, { databaseDigest: context.databaseDigest }) };
 }
 
 /**
@@ -227,7 +236,7 @@ export function summarize(plan, results = [], context = {}) {
         if (j.status === "PASSED" && sameInputs > 0) {
           j = { ...j, flaky: true, detail: `${j.detail}; it FAILED ${sameInputs} earlier time(s) on identical inputs (possibly flaky)` };
         }
-        row = { ...j, evidence: run ? (run.evidence === "observed" ? "observed" : run.evidence ?? "unbound") : null, attempt: run?.attempt ?? null, earlierFailures: earlier };
+        row = { ...j, evidence: run ? (run.evidence === "observed" ? `observed${run.database ? ` (database: ${run.database})` : ""}` : run.evidence ?? "unbound") : null, attempt: run?.attempt ?? null, earlierFailures: earlier };
       }
       rows.push({ ...row, label: check.label, level: level.toUpperCase(), kind: check.kind, commands: check.commands, needsDatabase: check.needsDatabase });
     }
@@ -276,6 +285,7 @@ function ciRecordFrom(context) {
   const e = context.ciEvidence;
   const state = context.state;
   if (e?.validated === true) {
+    if (!e.pr?.number) return { id: "ci-pr", status: "PENDING_CI", detail: "the CI evidence names no pull request: not counted" };
     if (state && (state.error || state.dirty || state.head !== e.headSha)) {
       return { id: "ci-pr", status: "PENDING_CI", detail: "CI passed for a commit that is not exactly what is checked out here (or the tree has changes on top of it): not counted" };
     }
