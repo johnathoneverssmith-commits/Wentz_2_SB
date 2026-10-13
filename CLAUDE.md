@@ -249,9 +249,11 @@ npm run online:db                         # a local PostgreSQL (PGlite) on :5433
 **What CI runs** (`.github/workflows/deploy-render.yml`): on every pull request into `master`
 and every push to `master`, the `test` job: engine typecheck, online typecheck, UI build,
 `npm test`, the UI tests, `npm run online:test` against a Postgres 16 service
-(`DATABASE_URL` set, and `CI=true`, which GitHub sets). About 5-7 minutes. Only a push to
-`master` runs the `deploy` job (deploy both Render services, then verify both serve the exact
-commit); on a pull request `deploy` is skipped. Not in CI: lint (ESLint is not installed),
+(`DATABASE_URL` set, and `CI=true`, which GitHub sets). About 5-7 minutes. The workflow
+also has a manual `workflow_dispatch` trigger. The `deploy` job runs for any run on `master`
+that is not a pull request, so **both a push to `master` and a manual `workflow_dispatch` run
+on `master` deploy** both Render services and then verify both serve the exact commit; on a
+pull request `deploy` is skipped, and a manual run on any other branch does not deploy. Not in CI: lint (ESLint is not installed),
 `franchise:stress`, `ai-strategy:validate`, `analysis/39_league_metrics.ts`, `STATS_SEEDS=12`.
 `master` is protected by a ruleset: changes arrive by pull request and the `test` check must
 pass. **Local results are not CI.** Say which one a result came from; CI is the authority.
