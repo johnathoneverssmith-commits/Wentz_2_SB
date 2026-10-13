@@ -26,7 +26,7 @@
  * are appended: a rerun keeps the earlier attempts, failures included.
  * Manual and CI checks are never run here.
  */
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -39,6 +39,66 @@ import { readJson } from "./io.mjs";
 
 /** The last part of the output, where a runner prints its summary. */
 const KEEP_OUTPUT_CHARS = 16_000;
+
+/**
+ * Ends a process and everything it started. A timeout that only killed the shell would leave npm, node and
+ * vitest running, holding database connections, file handles and CPU, so the whole tree goes.
+ * Windows: `taskkill /T /F`. Elsewhere the child leads its own process group (see `runProcess`) and the group is killed.
+ */
+export function killTree(pid, { platform = process.platform } = {}) {
+  if (!pid) return;
+  try {
+    if (platform === "win32") spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+    else process.kill(-pid, "SIGKILL");
+  } catch {
+    // already gone
+  }
+}
+
+/**
+ * Runs one process to the end or to the timeout, and on a timeout kills the whole tree before returning.
+ * Resolves with { status, stdout, stderr, timedOut, error }; never rejects.
+ */
+export function runProcess(spec, { cwd, env, timeoutMs, maxBytes = 64 * 1024 * 1024, platform = process.platform }) {
+  return new Promise((done) => {
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    let finished = false;
+    let timer;
+    const finish = (result) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      done({ stdout, stderr, timedOut, ...result });
+    };
+    let child;
+    try {
+      child = spawn(spec.file, spec.args, { cwd, env, shell: spec.shell, windowsHide: true, detached: platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) {
+      finish({ status: null, error: e.message });
+      return;
+    }
+    const keep = (current, chunk) => {
+      const next = current + chunk;
+      return next.length > maxBytes ? next.slice(-maxBytes) : next;
+    };
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (c) => (stdout = keep(stdout, c)));
+    child.stderr.on("data", (c) => (stderr = keep(stderr, c)));
+    child.on("error", (e) => finish({ status: null, error: e.message }));
+    child.on("close", (status) => {
+      // a normal exit can still leave a background child of the command behind: end the group
+      if (platform !== "win32") killTree(child.pid, { platform });
+      finish({ status: timedOut ? null : status });
+    });
+    timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child.pid, { platform });
+    }, timeoutMs);
+  });
+}
 
 /** Why a command may not be run, or null if it may. */
 export function refusal(command, { repoRoot = process.cwd(), cwd = ".", policy = DEFAULT_POLICY, fileExists } = {}) {
@@ -60,7 +120,7 @@ export function selectChecks(plan, { ids = null, tierMax = 99, level = "all", te
 }
 
 /** Runs one check; returns the record `verdict.mjs` judges. Never throws for a refused command: it records why. */
-export function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, log = () => {}, policy = DEFAULT_POLICY, parentEnv = process.env, testDatabase, platform = process.platform, fileExists } = {}) {
+export async function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, log = () => {}, policy = DEFAULT_POLICY, parentEnv = process.env, testDatabase, platform = process.platform, fileExists } = {}) {
   const started = Date.now();
   const record = { id: check.id, exitCode: null, output: "", durationSec: 0, timedOut: false, commands: [], evidence: "observed", startedAt: new Date(started).toISOString() };
   const finish = () => {
@@ -102,16 +162,16 @@ export function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, log = (
       if (v.kind === "stress") outputDir = mkdtempSync(join(tmpdir(), "wentz-stress-")); // the stress test writes many files: never into the repository
       const spec = launchSpec(v, { platform, appendArgs: outputDir ? ["--output", outputDir] : [] });
       log(`  $ ${command}`);
-      const r = spawnSync(spec.file, spec.args, { cwd: resolve(repoRoot, v.cwd), env: environment.env, shell: spec.shell, encoding: "utf8", timeout: timeoutSec * 1000, maxBuffer: 256 * 1024 * 1024 });
+      const r = await runProcess(spec, { cwd: resolve(repoRoot, v.cwd), env: environment.env, timeoutMs: timeoutSec * 1000, platform });
       record.commands.push(command);
       out += `${r.stdout ?? ""}${r.stderr ?? ""}`;
-      if (r.error && r.error.code === "ETIMEDOUT") {
+      if (r.timedOut) {
         record.timedOut = true;
         record.exitCode = null;
         break;
       }
       if (r.error) {
-        record.error = r.error.message;
+        record.error = r.error;
         record.exitCode = null;
         break;
       }
@@ -145,7 +205,7 @@ function parseArgs(argv) {
   return o;
 }
 
-export function main(argv = process.argv.slice(2)) {
+export async function main(argv = process.argv.slice(2)) {
   let a;
   try {
     a = parseArgs(argv);
@@ -185,7 +245,7 @@ export function main(argv = process.argv.slice(2)) {
   for (const check of chosen) {
     process.stdout.write(`[${check.id}] ${check.label}\n`);
     const before = fingerprint(a.cwd);
-    const rec = runCheck(check, { cwd: a.cwd, timeoutSec: a.timeoutSec, testDatabase: a.testDatabase, log: (l) => process.stdout.write(`${l}\n`) });
+    const rec = await runCheck(check, { cwd: a.cwd, timeoutSec: a.timeoutSec, testDatabase: a.testDatabase, log: (l) => process.stdout.write(`${l}\n`) });
     const after = fingerprint(a.cwd);
     if (before.error || after.error || before.digest !== after.digest) {
       rec.error = rec.error ?? "the working tree changed while this check ran, so its result cannot be tied to one state of the files";
@@ -201,5 +261,5 @@ export function main(argv = process.argv.slice(2)) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  process.exitCode = main();
+  process.exitCode = await main();
 }
