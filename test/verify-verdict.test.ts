@@ -747,7 +747,8 @@ describe("the commands, end to end", () => {
       }
     });
 
-    it("keeps an earlier failure in the history and the report after a rerun passes", () => {
+    // two runner calls and four reports (a dozen processes): 5.5 s alone, 36 s while a full engine run shared the CPU
+    it("keeps an earlier failure in the history and the report after a rerun passes", { timeout: 90_000 }, () => {
       const t = setup();
       try {
         writeFileSync(join(t.dir, "package.json"), JSON.stringify({ name: "t", version: "0.0.0", scripts: { typecheck: 'node -e "process.exit(5)"' } }));
@@ -789,7 +790,7 @@ describe("the commands, end to end", () => {
       }
     });
 
-    it("gets VERIFIED only through --check-ci with GitHub's validated answer for this very commit", async () => {
+    it("gets VERIFIED only through --check-ci with GitHub's validated answer for this very commit", { timeout: 90_000 }, async () => {
       const t = setup();
       try {
         t.go();
