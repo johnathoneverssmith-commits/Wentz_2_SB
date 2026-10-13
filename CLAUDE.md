@@ -385,3 +385,8 @@ sim engine exists. Revisit each question before the phase that depends on it.
   pins the rest it can.
 - **Check the UI with `npm run typecheck` in `ui-source/` (`tsc -b`), never `tsc -p .`**:
   the latter doesn't follow the project references and passes vacuously.
+- **Verify with `wentz-verify`.** `.claude/skills/wentz-verify/` works out which checks a change
+  needs from the real diff (committed, staged, unstaged and untracked files), runs them, and reports
+  PASSED / FAILED / SKIPPED / NOT RUN without rounding a failure or a skip up to a pass. Start with
+  `node .claude/skills/wentz-verify/select-checks.mjs`. Its results are local; GitHub CI on the
+  pull request is the authority. It never pushes, merges or deploys.
