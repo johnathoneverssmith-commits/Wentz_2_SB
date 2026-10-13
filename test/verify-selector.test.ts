@@ -117,7 +117,10 @@ describe("folding committed, staged, unstaged and untracked changes into one set
 });
 
 describe("collecting changes from a real git repository", () => {
-  it("sees committed, staged, unstaged, untracked, renamed and deleted files", () => {
+  // About 20 real git processes: 1.7 s alone, but over 30 s when two full engine suites share the CPU
+  // (measured, see the PR). A real git repository is the point of the test, so it keeps its repository
+  // and gets the time it needs on a loaded machine.
+  it("sees committed, staged, unstaged, untracked, renamed and deleted files", { timeout: 120_000 }, () => {
     const dir = mkdtempSync(join(tmpdir(), "wentz-sel-"));
     try {
       const sh = (...args: string[]) => execFileSync("git", args, { cwd: dir, stdio: "pipe", encoding: "utf8" });
