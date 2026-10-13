@@ -6,4 +6,4 @@ export function environmentFor(
   check: { needsDatabase?: boolean },
   declared: Record<string, string>,
   options?: { parentEnv?: Record<string, string | undefined>; testDatabase?: string },
-): { ok: true; env: Record<string, string>; database: string | null } | { ok: false; reason: string };
+): { ok: true; env: Record<string, string>; database: string | null; databaseDigest?: string } | { ok: false; reason: string };

@@ -68,6 +68,14 @@ const CONFIG_FILES = [
   ".github/workflows/deploy-render.yml", ".claude/skills/wentz-verify/risk-map.json",
 ];
 
+/**
+ * Files that are ignored by git yet change what the tests do: the engine tests use data/players.local.json when
+ * it exists and a committed fixture when it does not, and environment files change configuration. Only a hash
+ * of each is kept (an environment file can hold secrets, so its content is never recorded), and a file that is
+ * absent is recorded as absent, so creating or deleting one changes the fingerprint.
+ */
+const RUNTIME_INPUTS = ["data/players.local.json", ".env", ".env.local", "online/.env", "online/.env.local", "ui-source/.env", "ui-source/.env.local"];
+
 function hashFile(path) {
   try {
     const st = lstatSync(path);
@@ -116,19 +124,23 @@ export function fingerprint(cwd) {
       }
     }
     config.sort((a, b) => a.path.localeCompare(b.path));
-    return { head, dirty: files.length > 0, files, config, digest: sha256(canonical({ head, files, config })) };
+    const runtimeNames = new Set(RUNTIME_INPUTS);
+    if (existsSync(join(cwd, "data"))) for (const name of readdirSync(join(cwd, "data"))) if (/\.local\.[a-z]+$/.test(name)) runtimeNames.add(`data/${name}`);
+    const runtime = [...runtimeNames].sort().map((path) => ({ path, hash: hashFile(join(cwd, path)) }));
+    // the interpreter version is part of what a result was a result of
+    return { head, dirty: files.length > 0, files, config, runtime, node: process.version, digest: sha256(canonical({ head, files, config, runtime, node: process.version })) };
   } catch (e) {
     return { error: `could not read the repository state: ${e.message.split("\n")[0]}` };
   }
 }
 
 /** What a run record is bound to. */
-export function bindingFor(check, plan, state) {
-  return { planDigest: planDigest(plan), commandDigest: commandDigest(check), head: state.head, treeDigest: state.digest };
+export function bindingFor(check, plan, state, extra = {}) {
+  return { planDigest: planDigest(plan), commandDigest: commandDigest(check), head: state.head, treeDigest: state.digest, databaseDigest: extra.databaseDigest ?? null };
 }
 
 /** Why a record no longer counts for the plan and repository as they are now. Empty means it still does. */
-export function bindingProblems(run, check, plan, state) {
+export function bindingProblems(run, check, plan, state, options = {}) {
   if (!run?.binding) return ["it carries no binding, so there is no telling what it was run against"];
   if (!state || state.error) return [state?.error ?? "the repository state is unknown"];
   const b = run.binding;
@@ -137,6 +149,10 @@ export function bindingProblems(run, check, plan, state) {
   if (b.commandDigest !== commandDigest(check)) out.push("the command or its settings have changed since it ran");
   if (b.head !== state.head) out.push("HEAD has moved since it ran");
   if (b.treeDigest !== state.digest) out.push("files in the working tree have changed since it ran");
+  if (check.needsDatabase) {
+    if (!b.databaseDigest) out.push("no test database selection was recorded for this database check");
+    else if (options.databaseDigest && b.databaseDigest !== options.databaseDigest) out.push("it ran against a different test database than the one selected now");
+  }
   return out;
 }
 

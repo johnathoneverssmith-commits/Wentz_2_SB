@@ -15,9 +15,10 @@ export interface RunRecord {
   status?: Status;
   detail?: string;
   evidence?: string;
-  binding?: { planDigest: string; commandDigest: string; head: string | null; treeDigest: string | null };
+  binding?: { planDigest: string; commandDigest: string; head: string | null; treeDigest: string | null; databaseDigest?: string | null };
   commands?: string[];
   database?: string;
+  databaseDigest?: string;
   ci?: { test?: string; deploy?: string; event?: string; validated?: boolean; failed?: boolean; reason?: string; headSha?: string; runId?: number };
 }
 
@@ -79,8 +80,10 @@ export interface Parsed {
 export interface SummarizeContext {
   /** The repository now (from `fingerprint`). Absent means bindings are not checked. */
   state?: { head?: string; dirty?: boolean; digest?: string; error?: string };
+  /** Digest of the test database selected now, if any: a database check must have run against it. */
+  databaseDigest?: string;
   /** From `fetchCiEvidence`. Only `validated: true` can produce VERIFIED. */
-  ciEvidence?: { validated: boolean; reason?: string; failed?: boolean; headSha?: string; test?: string; deploy?: string; event?: string; runId?: number; runUrl?: string };
+  ciEvidence?: { validated: boolean; reason?: string; failed?: boolean; headSha?: string; test?: string; deploy?: string; event?: string; runId?: number; runUrl?: string; pr?: { number: number } };
   /** A person's claim about CI: shown, never believed. */
   attestedCi?: { test?: string; deploy?: string; event?: string };
 }
@@ -88,9 +91,9 @@ export interface SummarizeContext {
 export const VERDICTS: Verdict[];
 export const STATUSES: Status[];
 export function parseTestOutput(raw?: string): Parsed;
-export function parseStressOutput(raw?: string): { invariantFailures: number | null; replay: string | null };
-export function parserFor(check: Pick<Check, "commands"> & { parser?: string }): "vitest" | "stress" | "exit";
-export function judge(check: Pick<Check, "id" | "kind" | "commands" | "needsDatabase"> & { parser?: string }, run: RunRecord | undefined): Judgement;
+export function parseStressOutput(raw?: string): { invariantFailures: number | null; replay: string | null; teamSeasons: number | null };
+export function parserFor(check: Pick<Check, "commands">): "vitest" | "stress" | "exit";
+export function judge(check: Pick<Check, "id" | "kind" | "commands" | "needsDatabase">, run: RunRecord | undefined): Judgement;
 export function summarize(plan: Plan, results?: RunRecord[], context?: SummarizeContext): Summary;
 export function renderReport(summary: Summary): string;
 export function exitCodeFor(verdict: Verdict): number;

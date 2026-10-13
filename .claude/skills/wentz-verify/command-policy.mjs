@@ -21,7 +21,7 @@
  * and `npx` are .cmd files that need one, which is safe only because of the
  * character set above, so `launchSpec` refuses to build a command that breaks it.
  */
-import { statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 /** Anything outside this set (quotes, `;`, `&`, `|`, `<`, `>`, `$`, backtick, `%`, `^`, `\`, newline, tab) is refused. */
@@ -33,6 +33,7 @@ const FIXED = new Map([
   ["npm run online:typecheck", "."],
   ["npm test", "."],
   ["npm run online:test", "."],
+  ["npm run online:test -- --no-file-parallelism", "."],
   ["npm --prefix ui-source run typecheck", "."],
   ["npm --prefix ui-source run build", "."],
   ["npm --prefix ui-source run test", "."],
@@ -56,6 +57,15 @@ const exists = (path) => {
   }
 };
 
+/** The real location of a path, with every symlink and Windows junction followed; null if it cannot be resolved. */
+const realOf = (path) => {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return null;
+  }
+};
+
 const insideRepo = (repoRoot, absolute) => {
   const rel = relative(repoRoot, absolute);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
@@ -65,7 +75,7 @@ const insideRepo = (repoRoot, absolute) => {
  * A repo file named in a command. `baseDir` is the directory the command resolves it from.
  * Returns null when fine, else why not.
  */
-function badPath(token, { baseDir, repoRoot, fileExists, allowParent, pattern, what }) {
+function badPath(token, { baseDir, repoRoot, fileExists, realPath, allowParent, pattern, what }) {
   if (token.startsWith("-")) return `"${token}" looks like an option, not ${what}`;
   if (token.startsWith("/") || token.includes(":")) return `"${token}" is an absolute path`;
   const parts = token.split("/");
@@ -76,6 +86,10 @@ function badPath(token, { baseDir, repoRoot, fileExists, allowParent, pattern, w
   const absolute = resolve(baseDir, token);
   if (!insideRepo(repoRoot, absolute)) return `"${token}" is outside the repository`;
   if (!fileExists(absolute)) return `"${token}" does not exist`;
+  // the name can be inside the repository while a symlink or junction in the path leads outside it
+  const rootReal = realPath(repoRoot);
+  const fileReal = realPath(absolute);
+  if (!rootReal || !fileReal || !insideRepo(rootReal, fileReal)) return `"${token}" resolves outside the repository (a symlink or junction)`;
   return null;
 }
 
@@ -91,12 +105,17 @@ const CODE_FILE = /\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts)$/;
  * @param {Policy} [ctx.policy]   replaced only by tests
  * @returns {{ ok: true, kind: string, argv: string[], cwd: string } | { ok: false, reason: string }}
  */
-export function validateCommand(command, { repoRoot, cwd = ".", fileExists = exists, policy = DEFAULT_POLICY } = {}) {
+export function validateCommand(command, { repoRoot, cwd = ".", fileExists = exists, realPath = realOf, policy = DEFAULT_POLICY } = {}) {
   if (typeof command !== "string" || command.trim() === "") return { ok: false, reason: "the command is empty" };
   if (!policy.safeCharacters.test(command)) return { ok: false, reason: "contains a character that is not allowed (quotes, redirects, pipes, $, `, ;, &, %, or a newline)" };
   if (command !== command.trim() || command.includes("  ")) return { ok: false, reason: "has leading, trailing or repeated spaces" };
   if (!CWDS.has(cwd)) return { ok: false, reason: `"${cwd}" is not a directory a check may run in` };
   const root = resolve(repoRoot);
+  if (cwd !== ".") {
+    const rootReal = realPath(root);
+    const dirReal = realPath(resolve(root, cwd));
+    if (!rootReal || !dirReal || !insideRepo(rootReal, dirReal)) return { ok: false, reason: `"${cwd}" resolves outside the repository (a symlink or junction)` };
+  }
 
   for (const rule of policy.extra) {
     const hit = rule(command, { repoRoot: root, cwd });
@@ -122,7 +141,7 @@ export function validateCommand(command, { repoRoot, cwd = ".", fileExists = exi
     const files = tokens.slice(6);
     if (files.length === 0) return bad("names no test file");
     for (const f of files) {
-      const why = badPath(f, { baseDir: resolve(root, "ui-source"), repoRoot: root, fileExists, allowParent: false, pattern: TEST_FILE, what: "a .test.ts or .test.tsx file" });
+      const why = badPath(f, { baseDir: resolve(root, "ui-source"), repoRoot: root, fileExists, realPath, allowParent: false, pattern: TEST_FILE, what: "a .test.ts or .test.tsx file" });
       if (why) return bad(why);
     }
     return { ok: true, kind: "ui-test", argv: tokens, cwd };
@@ -145,7 +164,7 @@ export function validateCommand(command, { repoRoot, cwd = ".", fileExists = exi
     if (files.length === 0) return bad("names no test file");
     const baseDir = online ? resolve(root, "online") : root;
     for (const f of files) {
-      const why = badPath(f, { baseDir, repoRoot: root, fileExists, allowParent: false, pattern: TEST_FILE, what: "a .test.ts or .test.tsx file" });
+      const why = badPath(f, { baseDir, repoRoot: root, fileExists, realPath, allowParent: false, pattern: TEST_FILE, what: "a .test.ts or .test.tsx file" });
       if (why) return bad(why);
     }
     return { ok: true, kind: "vitest-run", argv: tokens, cwd };
@@ -167,7 +186,7 @@ export function validateCommand(command, { repoRoot, cwd = ".", fileExists = exi
     if (files.length === 0) return bad("names no file");
     const baseDir = resolve(root, online ? "online" : cwd);
     for (const f of files) {
-      const why = badPath(f, { baseDir, repoRoot: root, fileExists, allowParent: true, pattern: CODE_FILE, what: "a source file" });
+      const why = badPath(f, { baseDir, repoRoot: root, fileExists, realPath, allowParent: true, pattern: CODE_FILE, what: "a source file" });
       if (why) return bad(why);
     }
     return { ok: true, kind: "vitest-related", argv: tokens, cwd };

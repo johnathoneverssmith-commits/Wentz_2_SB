@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +43,7 @@ describe("the command allowlist", () => {
       "npm --prefix ui-source run test -- src/state/reveal.test.ts src/state/howItWorks.test.ts",
       "npx tsx analysis/39_league_metrics.ts",
       "npm run franchise:stress -- --mode smoke",
+      "npm run online:test -- --no-file-parallelism",
       "npx vitest run test/engine-realism.test.ts",
       "npx vitest run test/engine-realism.test.ts test/verify-selector.test.ts",
       "npx vitest run --root online test/passing-volume.test.ts",
@@ -443,7 +444,7 @@ describe("evidence is tied to what it is evidence of", () => {
   });
 
   describe("whether a record still applies", () => {
-    const state = { head: "h1", dirty: false, digest: "t1", files: [], config: [] };
+    const state = { head: "h1", dirty: false, digest: "t1", files: [], config: [], runtime: [], node: "v1" };
     const c = check("tc", { commands: ["npm run typecheck"] });
     const plan = { base: "origin/master", mergeBase: "m", changes: [{ path: "a.ts", status: "M" }], required: [c], recommended: [] } as never;
     const bound = (over: Record<string, unknown> = {}) => ({ id: "tc", exitCode: 0, binding: { ...evidence.bindingFor(c, plan, state), ...over } });
@@ -487,14 +488,20 @@ describe("GitHub CI evidence", () => {
   const SHA = "0123456789abcdef0123456789abcdef01234567";
   const run = (over: Record<string, unknown> = {}) => ({
     id: 11, name: "Test and deploy Render", head_sha: SHA, event: "pull_request", path: ".github/workflows/deploy-render.yml", status: "completed", conclusion: "success",
-    created_at: "2026-01-02T00:00:00Z", run_number: 5, html_url: "https://github.com/o/r/actions/runs/11", ...over,
+    created_at: "2026-01-02T00:00:00Z", run_number: 5, html_url: "https://github.com/o/r/actions/runs/11",
+    pull_requests: [{ number: 12, base: { ref: "master" }, head: { sha: SHA } }], ...over,
+  });
+  /** GitHub's current record of pull request #12. */
+  const pull = (over: Record<string, unknown> = {}) => ({
+    number: 12, state: "open", html_url: "https://github.com/o/r/pull/12",
+    head: { sha: SHA, ref: "feat/x", repo: { full_name: "o/r" } }, base: { ref: "master", repo: { full_name: "o/r" } }, ...over,
   });
   const jobs = (test = "success", deploy = "skipped") => ({ jobs: [{ name: "test", conclusion: test }, { name: "deploy", conclusion: deploy }] });
   const judge = (runs: unknown[], jobsBody: unknown = jobs(), over: Record<string, unknown> = {}) =>
-    ci.validateCiEvidence({ headSha: SHA, dirty: false, runs: { workflow_runs: runs }, jobsFor: () => jobsBody, ...over } as never);
+    ci.validateCiEvidence({ headSha: SHA, dirty: false, runs: { workflow_runs: runs }, jobsFor: () => jobsBody, pullFor: (n: number) => (n === 12 ? pull() : undefined), repoFullName: "o/r", ...over } as never);
 
   it("trusts a completed pull_request run of the workflow for exactly this commit with test passed and deploy skipped", () => {
-    expect(judge([run()])).toMatchObject({ validated: true, source: "github-api", event: "pull_request", test: "success", deploy: "skipped", headSha: SHA, runId: 11 });
+    expect(judge([run()])).toMatchObject({ validated: true, source: "github-api", event: "pull_request", test: "success", deploy: "skipped", headSha: SHA, runId: 11, pr: { number: 12, baseRef: "master" } });
   });
 
   it.each([
@@ -518,6 +525,48 @@ describe("GitHub CI evidence", () => {
     expect(judge([run()], jobs("success", "success"))).toMatchObject({ validated: false, failed: true });
     expect(judge([run()], jobs("success", "success")).reason).toMatch(/must not deploy/);
     expect(judge([])).not.toMatchObject({ failed: true });
+  });
+
+  describe("binds the run to the right pull request", () => {
+    const withPull = (over: Record<string, unknown>) => judge([run()], jobs(), { pullFor: (n: number) => (n === 12 ? pull(over) : undefined) });
+
+    it("accepts the open pull request whose head is this commit and whose base is master", () => {
+      expect(withPull({})).toMatchObject({ validated: true, pr: { number: 12 } });
+    });
+    it("refuses a run that is attached to no pull request", () => {
+      expect(judge([run({ pull_requests: [] })]).reason).toMatch(/not attached to a pull request/);
+    });
+    it("refuses a pull request that GitHub does not know, or that has moved on to another head", () => {
+      expect(judge([run({ pull_requests: [{ number: 999, base: { ref: "master" } }] })]).reason).toMatch(/did not report pull request #999/);
+      expect(withPull({ head: { sha: "f".repeat(40), repo: { full_name: "o/r" } } }).reason).toMatch(/now has head fffffff/);
+    });
+    it("refuses a pull request that is closed or merged", () => {
+      expect(withPull({ state: "closed" }).reason).toMatch(/closed, not open/);
+    });
+    it("refuses a pull request retargeted away from master after the run, even for the same head commit", () => {
+      const r = withPull({ base: { ref: "feat/wentz-verify-selector", repo: { full_name: "o/r" } } });
+      expect(r.validated).toBe(false);
+      expect(r.reason).toMatch(/targets feat\/wentz-verify-selector, not master/);
+    });
+    it("refuses a run made when the pull request targeted another branch", () => {
+      expect(judge([run({ pull_requests: [{ number: 12, base: { ref: "feat/old" } }] })]).reason).toMatch(/targeted feat\/old, not master/);
+    });
+    it("refuses a pull request from or into another repository", () => {
+      expect(withPull({ head: { sha: SHA, ref: "x", repo: { full_name: "fork/r" } } }).reason).toMatch(/not within o\/r/);
+      expect(withPull({ base: { ref: "master", repo: { full_name: "other/r" } } }).reason).toMatch(/not within o\/r/);
+    });
+    it("accepts only the pull request number that was asked for", () => {
+      expect(judge([run()], jobs(), { expectedPr: 12 }).validated).toBe(true);
+      expect(judge([run()], jobs(), { expectedPr: 13 }).reason).toMatch(/belongs to pull request #12, not #13/);
+    });
+    it("accepts another base only when it is asked for", () => {
+      const other = judge([run({ pull_requests: [{ number: 12, base: { ref: "release" } }] })], jobs(), { expectedBase: "release", pullFor: () => pull({ base: { ref: "release", repo: { full_name: "o/r" } } }) });
+      expect(other.validated).toBe(true);
+    });
+    it("is not fooled by a synthetic payload that names an unrelated pull request", () => {
+      const unrelated = pull({ number: 7, head: { sha: "e".repeat(40), repo: { full_name: "o/r" } } });
+      expect(judge([run({ pull_requests: [{ number: 7, base: { ref: "master" } }] })], jobs(), { pullFor: (n: number) => (n === 7 ? unrelated : undefined) }).validated).toBe(false);
+    });
   });
 
   it("needs both jobs to have been reported", () => {
@@ -552,7 +601,7 @@ describe("GitHub CI evidence", () => {
       (async (url: string, init: Call["init"]) => {
         calls.push({ url, init });
         if (dep.status && dep.status !== 200) return { ok: false, status: dep.status, json: async () => ({}) } as Response;
-        const body = url.includes("/jobs") ? jobs("success", dep.deploy ?? "skipped") : { workflow_runs: [run({ head_sha: dep.sha ?? SHA })] };
+        const body = url.includes("/jobs") ? jobs("success", dep.deploy ?? "skipped") : url.includes("/pulls/") ? pull() : { workflow_runs: [run({ head_sha: dep.sha ?? SHA })] };
         return { ok: true, status: 200, json: async () => body } as Response;
       }) as unknown as typeof fetch;
 
@@ -560,9 +609,10 @@ describe("GitHub CI evidence", () => {
       const calls: Call[] = [];
       const r = await ci.fetchCiEvidence({ owner: "o", repo: "r", headSha: SHA, dirty: false, fetchImpl: fake(calls), token: "", now: () => new Date("2026-02-01T00:00:00Z") });
       expect(r).toMatchObject({ validated: true, retrievedAt: "2026-02-01T00:00:00.000Z" });
-      expect(calls.length).toBeGreaterThanOrEqual(2);
+      expect(calls.length).toBeGreaterThanOrEqual(3);
+      expect(calls.some((c) => c.url.endsWith("/repos/o/r/pulls/12"))).toBe(true);
       for (const c of calls) {
-        expect(c.url).toMatch(/^https:\/\/api\.github\.com\/repos\/o\/r\/actions\/runs/);
+        expect(c.url).toMatch(/^https:\/\/api\.github\.com\/repos\/o\/r\/(?:actions\/runs|pulls\/\d+)/);
         expect(c.init.method).toBe("GET");
         expect(c.init.headers?.Authorization).toBeUndefined();
       }
@@ -677,5 +727,190 @@ describe("a timed-out check leaves nothing running", () => {
   it("kills a tree by pid, and ignores a pid that is already gone", () => {
     expect(() => runner.killTree(undefined)).not.toThrow();
     expect(() => runner.killTree(2_147_000_000)).not.toThrow();
+  });
+});
+
+describe("the evidence fingerprint covers what the tests read, without exposing secrets", () => {
+  const repo = () => {
+    const dir = mkdtempSync(join(tmpdir(), "wentz-runtime-"));
+    const git = (...a: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...a], { cwd: dir, stdio: "pipe", encoding: "utf8" });
+    git("init", "-q");
+    writeFileSync(join(dir, ".gitignore"), "data/*.local.json\n.env\n.env.local\n");
+    mkdirSync(join(dir, "data"));
+    writeFileSync(join(dir, "package.json"), '{"name":"t"}\n');
+    git("add", "-A");
+    git("commit", "-qm", "init");
+    return { dir, state: () => evidence.fingerprint(dir) as evidence.RepoState };
+  };
+
+  it("changes when an ignored runtime data file is created, edited or removed, as the engine tests read it when it exists", () => {
+    const { dir, state } = repo();
+    try {
+      const none = state();
+      expect(none.dirty).toBe(false); // git itself sees nothing
+      writeFileSync(join(dir, "data/players.local.json"), "[1]");
+      const made = state();
+      expect(made.dirty).toBe(false); // still invisible to git status
+      expect(made.digest).not.toBe(none.digest);
+      writeFileSync(join(dir, "data/players.local.json"), "[2]");
+      expect(state().digest).not.toBe(made.digest);
+      writeFileSync(join(dir, "data/other.local.json"), "[]");
+      const another = state();
+      expect(another.runtime.some((r) => r.path === "data/other.local.json")).toBe(true);
+      rmSync(join(dir, "data/players.local.json"));
+      rmSync(join(dir, "data/other.local.json"));
+      expect(state().digest).toBe(none.digest);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("changes when an ignored environment file changes, and never records its content", () => {
+    const { dir, state } = repo();
+    try {
+      const none = state();
+      writeFileSync(join(dir, ".env"), "DATABASE_URL=postgres://app:hunter2-secret@prod.example.com/db\n");
+      const withEnv = state();
+      expect(withEnv.digest).not.toBe(none.digest);
+      writeFileSync(join(dir, ".env"), "DATABASE_URL=postgres://app:other@prod.example.com/db\n");
+      expect(state().digest).not.toBe(withEnv.digest);
+      const text = JSON.stringify(state());
+      for (const secret of ["hunter2-secret", "prod.example.com", "postgres://"]) expect(text).not.toContain(secret);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("stale-marks an old pass when such a file appears (the reviewer's reproduction)", () => {
+    const { dir, state } = repo();
+    try {
+      const c = check("tc", { commands: ["npm run typecheck"] });
+      const plan = { base: "origin/master", mergeBase: "m", changes: [], required: [c], recommended: [] } as never;
+      const before = state();
+      const run = { id: "tc", exitCode: 0, binding: evidence.bindingFor(c, plan, before) };
+      expect(evidence.bindingProblems(run, c, plan, before)).toEqual([]);
+      writeFileSync(join(dir, "data/players.local.json"), "[]");
+      expect(evidence.bindingProblems(run, c, plan, state()).join(" ")).toMatch(/files in the working tree have changed/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  describe("the database a check ran against", () => {
+    const state = { head: "h", dirty: false, digest: "d", files: [], config: [], runtime: [], node: "v1" };
+    const c = check("db", { needsDatabase: true, commands: ["npm run online:test -- --no-file-parallelism"] });
+    const plan = { base: "origin/master", mergeBase: "m", changes: [], required: [c], recommended: [] } as never;
+    const digestOf = (url: string) => evidence.sha256(url);
+
+    it("binds a digest of the chosen database, never its URL", () => {
+      const env = dbSafety.environmentFor(c, { CI: "true", DB_POOL_MAX: "1" }, { testDatabase: "postgres://u:topsecret@localhost:5433/postgres" });
+      expect(env.ok).toBe(true);
+      if (!env.ok) return;
+      expect(env.databaseDigest).toBe(digestOf("postgres://u:topsecret@localhost:5433/postgres"));
+      const binding = evidence.bindingFor(c, plan, state, { databaseDigest: env.databaseDigest ?? null });
+      expect(JSON.stringify(binding)).not.toContain("topsecret");
+    });
+    it("makes a database check without a recorded selection stale", () => {
+      const run = { id: "db", exitCode: 0, binding: evidence.bindingFor(c, plan, state) };
+      expect(evidence.bindingProblems(run, c, plan, state).join(" ")).toMatch(/no test database selection was recorded/);
+    });
+    it("makes a result for another database stale once a database is selected", () => {
+      const run = { id: "db", exitCode: 0, binding: evidence.bindingFor(c, plan, state, { databaseDigest: digestOf("postgres://postgres@localhost:5433/postgres") }) };
+      expect(evidence.bindingProblems(run, c, plan, state, { databaseDigest: digestOf("postgres://postgres@localhost:5433/postgres") })).toEqual([]);
+      expect(evidence.bindingProblems(run, c, plan, state, { databaseDigest: digestOf("postgres://postgres@localhost:5432/other_test") }).join(" ")).toMatch(/different test database/);
+    });
+    it("does not ask a check that needs no database for one", () => {
+      const plain = check("tc", { commands: ["npm run typecheck"] });
+      const run = { id: "tc", exitCode: 0, binding: evidence.bindingFor(plain, plan, state) };
+      expect(evidence.bindingProblems(run, plain, plan, state, { databaseDigest: "x" })).toEqual([]);
+    });
+  });
+});
+
+describe("a path inside the repository that leads outside it is refused", () => {
+  // The name is inside the repository; a symlink (or a Windows junction) in it is not. Checking the name is not enough.
+  const layout = () => {
+    const base = mkdtempSync(join(tmpdir(), "wentz-link-"));
+    const repo = join(base, "repo");
+    const outside = join(base, "outside");
+    mkdirSync(join(repo, "test"), { recursive: true });
+    mkdirSync(join(repo, "online", "test"), { recursive: true });
+    mkdirSync(join(repo, "ui-source", "src"), { recursive: true });
+    mkdirSync(outside);
+    writeFileSync(join(repo, "test", "ok.test.ts"), "export {};");
+    writeFileSync(join(outside, "evil.test.ts"), "export {};");
+    writeFileSync(join(outside, "evil.ts"), "export {};");
+    return { base, repo, outside };
+  };
+  const link = (target: string, at: string) => {
+    try {
+      symlinkSync(target, at, "junction"); // a junction on Windows (no privilege needed); the type is ignored elsewhere
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const check_ = (command: string, repoRoot: string, cwd = ".") => policy.validateCommand(command, { repoRoot, cwd });
+
+  it("accepts a real file and refuses the same name reached through a junction or symlink to somewhere else", () => {
+    const { base, repo, outside } = layout();
+    try {
+      expect(check_("npx vitest run test/ok.test.ts", repo).ok).toBe(true);
+      if (!link(outside, join(repo, "test", "linked"))) return; // this system cannot make a link: nothing to test
+      const through = check_("npx vitest run test/linked/evil.test.ts", repo);
+      expect(through.ok).toBe(false);
+      expect(through.ok ? "" : through.reason).toMatch(/resolves outside the repository/);
+      expect(check_("npx vitest run --root online test/ok.test.ts", repo).ok).toBe(false); // not there either
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a file that is itself a link to a file outside", () => {
+    const { base, repo, outside } = layout();
+    try {
+      try {
+        symlinkSync(join(outside, "evil.test.ts"), join(repo, "test", "sneaky.test.ts"), "file");
+      } catch {
+        return; // creating a file symlink needs a privilege on Windows
+      }
+      expect(check_("npx vitest run test/sneaky.test.ts", repo).ok).toBe(false);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses related files, UI test files and working directories that lead outside", () => {
+    const { base, repo, outside } = layout();
+    try {
+      if (!link(outside, join(repo, "online", "linked"))) return;
+      writeFileSync(join(repo, "online", "real.ts"), "export {};");
+      expect(check_("npx vitest related linked/evil.ts --root online --run", repo).ok).toBe(false);
+      expect(check_("npx vitest related real.ts --root online --run", repo).ok).toBe(true);
+      expect(link(outside, join(repo, "ui-source", "src", "linked"))).toBe(true);
+      expect(check_("npm --prefix ui-source run test -- src/linked/evil.test.ts", repo).ok).toBe(false);
+      // a working directory that is itself a link to outside
+      rmSync(join(repo, "ui-source"), { recursive: true, force: true });
+      expect(link(outside, join(repo, "ui-source"))).toBe(true);
+      const cwd = check_("npx vitest related evil.ts --run", repo, "ui-source");
+      expect(cwd.ok).toBe(false);
+      expect(cwd.ok ? "" : cwd.reason).toMatch(/resolves outside/);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+  it("still accepts a repository reached through a link to it, and links that stay inside", () => {
+    const { base, repo } = layout();
+    try {
+      if (!link(repo, join(base, "alias"))) return;
+      expect(check_("npx vitest run test/ok.test.ts", join(base, "alias")).ok).toBe(true);
+      writeFileSync(join(repo, "online", "test", "inside.test.ts"), "export {};");
+      if (link(join(repo, "online", "test"), join(repo, "test", "inner"))) {
+        expect(check_("npx vitest run test/inner/inside.test.ts", repo).ok).toBe(true);
+      }
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
   });
 });

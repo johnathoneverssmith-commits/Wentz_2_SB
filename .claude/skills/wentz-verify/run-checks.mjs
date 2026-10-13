@@ -142,6 +142,7 @@ export async function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, l
   }
   if (environment.database) {
     record.database = environment.database;
+    record.databaseDigest = environment.databaseDigest;
     log(`  database: ${environment.database}`);
   }
   // validate every command before starting any, so a bad second command cannot follow a first that already ran
@@ -250,7 +251,7 @@ export async function main(argv = process.argv.slice(2)) {
     if (before.error || after.error || before.digest !== after.digest) {
       rec.error = rec.error ?? "the working tree changed while this check ran, so its result cannot be tied to one state of the files";
     }
-    rec.binding = { ...bindingFor(check, plan, before.error ? { head: null, digest: null } : before), planDigest: digest };
+    rec.binding = { ...bindingFor(check, plan, before.error ? { head: null, digest: null } : before, { databaseDigest: rec.databaseDigest ?? null }), planDigest: digest };
     history = appendRun(history, rec);
     const verdict = rec.timedOut ? "TIMED OUT" : rec.error ? "ERROR" : `exit ${rec.exitCode}`;
     process.stdout.write(`    -> ${verdict} in ${rec.durationSec.toFixed(1)} s${rec.error ? `: ${rec.error}` : ""}\n`);

@@ -44,7 +44,7 @@ const plan = (required: Check[], recommended: Check[] = [], extra: Partial<Plan>
 const PASS = "\n Test Files  1 passed (1)\n      Tests  17 passed (17)\n";
 const ok = (id: string, output = PASS): RunRecord => ({ id, exitCode: 0, output });
 /** What fetchCiEvidence returns once GitHub's answer has been validated. */
-const validCi = (extra: Record<string, unknown> = {}) => ({ validated: true, source: "github-api", test: "success", deploy: "skipped", event: "pull_request", headSha: "a".repeat(40), runId: 7, ...extra }) as NonNullable<SummarizeContext["ciEvidence"]> & NonNullable<RunRecord["ci"]>;
+const validCi = (extra: Record<string, unknown> = {}) => ({ validated: true, source: "github-api", test: "success", deploy: "skipped", event: "pull_request", headSha: "a".repeat(40), runId: 7, pr: { number: 12, baseRef: "master" }, ...extra }) as NonNullable<SummarizeContext["ciEvidence"]> & NonNullable<RunRecord["ci"]>;
 /** The record the report builds from it. */
 const ci = (extra: Record<string, unknown> = {}): RunRecord => ({ id: "ci-pr", evidence: "github-api", ci: validCi(extra) });
 const withCi = (extra: Record<string, unknown> = {}) => ({ ciEvidence: validCi(extra) });
@@ -80,9 +80,9 @@ describe("reading a runner's output", () => {
   });
 
   it("reads the stress test by its own summary", () => {
-    expect(v.parseStressOutput("- Invariant failures and crashes: 0\n- Deterministic replay: identical\n")).toEqual({ invariantFailures: 0, replay: "identical" });
-    expect(v.parseStressOutput("- Invariant failures and crashes: 1825\n- Deterministic replay: mismatch\n")).toEqual({ invariantFailures: 1825, replay: "mismatch" });
-    expect(v.parseStressOutput("nothing")).toEqual({ invariantFailures: null, replay: null });
+    expect(v.parseStressOutput("- Team seasons completed: 3\n- Invariant failures and crashes: 0\n- Deterministic replay: identical\n")).toEqual({ invariantFailures: 0, replay: "identical", teamSeasons: 3 });
+    expect(v.parseStressOutput("- Invariant failures and crashes: 1825\n- Deterministic replay: mismatch\n")).toEqual({ invariantFailures: 1825, replay: "mismatch", teamSeasons: null });
+    expect(v.parseStressOutput("nothing")).toEqual({ invariantFailures: null, replay: null, teamSeasons: null });
   });
 
   it("returns nothing for text that is not a summary", () => {
@@ -120,17 +120,18 @@ describe("judging one check", () => {
     expect(v.judge(tc, { id: "tc-engine", exitCode: 0, output: "" })).toMatchObject({ status: "PASSED", detail: "exit code 0" });
   });
 
-  it("does not judge a typecheck, a build or a script by test counts", () => {
-    const build = check("ui-build", { commands: ["npm --prefix ui-source run build"], parser: "exit" });
-    // a build that prints something that looks like a vitest line is still judged by its exit code
-    expect(v.judge(build, { id: "ui-build", exitCode: 0, output: " Tests  3 failed | 1 passed (4)\n" }).status).toBe("PASSED");
+  it("does not demand test counts from a typecheck, a build or a script, but never excuses a failure it prints", () => {
+    const build = check("ui-build", { commands: ["npm --prefix ui-source run build"] });
+    expect(v.judge(build, { id: "ui-build", exitCode: 0, output: "built in 4s" }).status).toBe("PASSED");
+    // conservative: a build that somehow prints failed tests is not a pass because its exit code was 0
+    expect(v.judge(build, { id: "ui-build", exitCode: 0, output: " Tests  3 failed | 1 passed (4)\n" }).status).toBe("FAILED");
     expect(v.judge(build, { id: "ui-build", exitCode: 1, output: "" }).status).toBe("FAILED");
-    expect(v.judge(check("m", { commands: ["npx tsx analysis/39_league_metrics.ts"], parser: "exit" }), { id: "m", exitCode: 0, output: "done" }).status).toBe("PASSED");
+    expect(v.judge(check("m", { commands: ["npx tsx analysis/39_league_metrics.ts"] }), { id: "m", exitCode: 0, output: "done" }).status).toBe("PASSED");
   });
 
   describe("the franchise stress test is not a Vitest run", () => {
-    const stress = check("stress-smoke", { commands: ["npm run franchise:stress -- --mode smoke"], parser: "stress" });
-    const good = "- Invariant failures and crashes: 0\n- Deterministic replay: identical\n";
+    const stress = check("stress-smoke", { commands: ["npm run franchise:stress -- --mode smoke"] });
+    const good = "- Team seasons completed: 3\n- Invariant failures and crashes: 0\n- Deterministic replay: identical\n";
     it("passes on exit 0 with a clean summary, although it prints no test counts", () => {
       expect(v.judge(stress, { id: "stress-smoke", exitCode: 0, output: good })).toMatchObject({ status: "PASSED" });
       // the same without an explicit parser: found from the command
@@ -143,6 +144,13 @@ describe("judging one check", () => {
       expect(v.judge(stress, { id: "s", exitCode: 0, output: "- Invariant failures and crashes: 0\n- Deterministic replay: mismatch\n" }).status).toBe("FAILED");
       expect(v.judge(stress, { id: "s", exitCode: 0, output: "League 1/1: 3 seasons complete\n" }).status).toBe("FAILED");
     });
+    it("does not pass an incomplete summary: no replay line, a replay that was not run, or no seasons played", () => {
+      const failing = "- Invariant failures and crashes: 0\n";
+      expect(v.judge(stress, { id: "s", exitCode: 0, output: `- Team seasons completed: 3\n${failing}` })).toMatchObject({ status: "FAILED", detail: expect.stringMatching(/incomplete/) });
+      expect(v.judge(stress, { id: "s", exitCode: 0, output: `- Team seasons completed: 3\n${failing}- Deterministic replay: not_requested\n` }).status).toBe("FAILED");
+      expect(v.judge(stress, { id: "s", exitCode: 0, output: `${failing}- Deterministic replay: identical\n` }).status).toBe("FAILED"); // no seasons line
+      expect(v.judge(stress, { id: "s", exitCode: 0, output: `- Team seasons completed: 0\n${failing}- Deterministic replay: identical\n` }).status).toBe("FAILED");
+    });
   });
 
   it("counts every summary of a command that ran vitest twice, and says so", () => {
@@ -151,6 +159,25 @@ describe("judging one check", () => {
     // a failure in the second summary is not hidden by a clean first one
     const bad = " Tests  10 passed (10)\n Tests  1 failed | 6 passed (7)\n";
     expect(v.judge(c, { id: "x", exitCode: 0, output: bad }).status).toBe("FAILED");
+  });
+
+  it("does not let a green summary hide an explicit failing test line", () => {
+    const out = " × the unrevealed result stays hidden 4ms\n FAIL  test/a.test.ts > the unrevealed result stays hidden\n Tests  17 passed (17)\n";
+    const j = v.judge(c, { id: "x", exitCode: 0, output: out });
+    expect(j.status).toBe("FAILED");
+    expect(j.detail).toMatch(/failing test line/);
+    expect(j.failures).toContain("the unrevealed result stays hidden");
+  });
+
+  it("decides how to read a check from its commands, not from a field in the plan", () => {
+    // a plan is an editable file: naming the parser "exit" must not switch off failure detection for vitest
+    const sneaky = { ...check("x"), parser: "exit" } as unknown as Check;
+    expect(v.parserFor(sneaky)).toBe("vitest");
+    expect(v.judge(sneaky, { id: "x", exitCode: 0, output: " Tests  1 failed | 16 passed (17)\n × a thing 3ms\n" }).status).toBe("FAILED");
+    expect(v.judge(sneaky, { id: "x", exitCode: 0, output: "all fine!" }).status).toBe("FAILED"); // still wants a summary
+    const stressSneaky = { ...check("s", { commands: ["npm run franchise:stress -- --mode smoke"] }), parser: "exit" } as unknown as Check;
+    expect(v.parserFor(stressSneaky)).toBe("stress");
+    expect(v.judge(stressSneaky, { id: "s", exitCode: 0, output: "League 1/1 done" }).status).toBe("FAILED");
   });
 
   it("calls tests that all skipped, or never ran, SKIPPED", () => {
@@ -184,6 +211,17 @@ describe("judging one check", () => {
     expect(j.detail).toMatch(/returned early/);
     const used = v.judge(db, ok("db-suites", `[test setup] database schema applied once, before any test file (800 ms)\n${PASS}`));
     expect(used.status).toBe("PASSED");
+  });
+
+  it("does not count the whole online suite as run unless a database was used", () => {
+    const full = check("full-online", { commands: ["npm run online:test -- --no-file-parallelism"], needsDatabase: true });
+    // every suite that needs a database returns early without one, and vitest counts that as a pass
+    expect(v.judge(full, ok("full-online", " Test Files  54 passed (54)\n      Tests  311 passed | 1 skipped (312)\n"))).toMatchObject({ status: "SKIPPED" });
+    expect(v.judge(full, ok("full-online", `[test setup] database schema applied once, before any test file (900 ms)\n Tests  317 passed (317)\n`)).status).toBe("PASSED");
+    const P = plan([scope, full]);
+    const s = v.summarize(P, [confirmed("scope"), ok("full-online", " Tests  311 passed | 1 skipped (312)\n")]);
+    expect(s.verdict).toBe("INCOMPLETE");
+    expect(s.notRun).toEqual(["full-online"]);
   });
 
   it("needs a human's word for a manual check, and GitHub's for CI", () => {
@@ -281,6 +319,11 @@ describe("the overall verdict", () => {
       const verdict = v.summarize(P, results, context).verdict;
       expect(verdict, name).toBe("LOCALLY_VERIFIED");
     }
+  });
+
+  it("does not count CI evidence that names no pull request", () => {
+    const planWithCi = plan([scope, ciCheck]);
+    expect(v.summarize(planWithCi, [confirmed("scope")], withCi({ pr: undefined })).verdict).toBe("LOCALLY_VERIFIED");
   });
 
   it("is FAILED when CI failed, or a pull request deployed, and an attested claim of failure also fails", () => {
@@ -536,7 +579,7 @@ describe("the commands, end to end", () => {
     git("commit", "-qm", "init");
     return { dir, git };
   };
-  const tcCheck = () => check("tc-engine", { tier: 0, commands: ["npm run typecheck"], parser: "exit" });
+  const tcCheck = () => check("tc-engine", { tier: 0, commands: ["npm run typecheck"] });
 
   it("goes from a change to a verdict, and a docs-only change is locally verified once the scope is confirmed", () => {
     const dir = tmp();
@@ -735,10 +778,12 @@ describe("the commands, end to end", () => {
         t.go();
         const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: t.dir, encoding: "utf8" }).trim();
         const reportMod = await import("../.claude/skills/wentz-verify/report.mjs");
-        const answers = (sha: string, deploy = "skipped") => async (url: string) => {
+        const answers = (sha: string, deploy = "skipped", base = "master") => async (url: string) => {
           const body = url.includes("/jobs")
             ? { jobs: [{ name: "test", conclusion: "success" }, { name: "deploy", conclusion: deploy }] }
-            : { workflow_runs: [{ id: 9, head_sha: sha, event: "pull_request", path: ".github/workflows/deploy-render.yml", status: "completed", conclusion: "success", created_at: "2026-01-01T00:00:00Z", run_number: 1, html_url: "https://github.com/o/r/actions/runs/9" }] };
+            : url.includes("/pulls/")
+              ? { number: 12, state: "open", head: { sha: head, ref: "feat/x", repo: { full_name: "o/r" } }, base: { ref: base, repo: { full_name: "o/r" } } }
+              : { workflow_runs: [{ id: 9, head_sha: sha, event: "pull_request", path: ".github/workflows/deploy-render.yml", status: "completed", conclusion: "success", created_at: "2026-01-01T00:00:00Z", run_number: 1, html_url: "https://github.com/o/r/actions/runs/9", pull_requests: [{ number: 12, base: { ref: "master" } }] }] };
           return { ok: true, status: 200, json: async () => body } as Response;
         };
         const args = ["--plan", t.planPath, "--results", t.resultsPath, "--cwd", t.dir, "--confirm", "scope", "--check-ci", "--repo", "o/r"];
@@ -751,15 +796,21 @@ describe("the commands, end to end", () => {
             await reportMod.main(args, { fetchImpl: answers(head) as unknown as typeof fetch }),
             await reportMod.main(args, { fetchImpl: answers("f".repeat(40)) as unknown as typeof fetch }), // a different commit
             await reportMod.main(args, { fetchImpl: answers(head, "success") as unknown as typeof fetch }), // deploy ran
+            await reportMod.main(args, { fetchImpl: answers(head, "skipped", "feat/wentz-verify-selector") as unknown as typeof fetch }), // retargeted away from master
+            await reportMod.main([...args, "--pr", "13"], { fetchImpl: answers(head) as unknown as typeof fetch }), // a different pull request number
           ];
         } finally {
           process.stdout.write = write;
         }
-        expect(codes).toEqual([0, 0, 1]);
+        expect(codes).toEqual([0, 0, 1, 0, 0]);
         expect(text[0]).toMatch(/Verdict: VERIFIED/);
         expect(text[1]).toMatch(/Verdict: LOCALLY VERIFIED/);
         expect(text[1]).toMatch(/no pull_request run/);
         expect(text[2]).toMatch(/Verdict: FAILED/);
+        expect(text[3]).toMatch(/Verdict: LOCALLY VERIFIED/);
+        expect(text[3]).toMatch(/targets master|targets feat\/wentz-verify-selector, not master/);
+        expect(text[4]).toMatch(/Verdict: LOCALLY VERIFIED/);
+        expect(text[4]).toMatch(/belongs to pull request #12, not #13/);
       } finally {
         t.cleanup();
       }

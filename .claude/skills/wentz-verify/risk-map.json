@@ -58,10 +58,10 @@
       "commands": ["git status --short", "git diff --stat {base}"],
       "note": "Right branch and worktree (never switch a shared checkout), and the diff is exactly the intended files. No scratch file is staged or committed."
     },
-    "tc-engine": { "kind": "command", "tier": 0, "parser": "exit", "label": "Engine typecheck", "commands": ["npm run typecheck"], "seconds": { "local": 3, "ci": 2 } },
-    "tc-online": { "kind": "command", "tier": 0, "parser": "exit", "label": "Online server typecheck", "commands": ["npm run online:typecheck"], "seconds": { "local": 5, "ci": 3 } },
-    "tc-ui": { "kind": "command", "tier": 0, "parser": "exit", "label": "UI typecheck (tsc -b)", "commands": ["npm --prefix ui-source run typecheck"], "seconds": { "local": 12, "ci": 2 }, "note": "Never use `tsc -p .` in ui-source: it does not follow project references and passes vacuously." },
-    "ui-build": { "kind": "command", "tier": 1, "parser": "exit", "label": "UI production build", "commands": ["npm --prefix ui-source run build"], "seconds": { "local": 15, "ci": 11 } },
+    "tc-engine": { "kind": "command", "tier": 0, "label": "Engine typecheck", "commands": ["npm run typecheck"], "seconds": { "local": 3, "ci": 2 } },
+    "tc-online": { "kind": "command", "tier": 0, "label": "Online server typecheck", "commands": ["npm run online:typecheck"], "seconds": { "local": 5, "ci": 3 } },
+    "tc-ui": { "kind": "command", "tier": 0, "label": "UI typecheck (tsc -b)", "commands": ["npm --prefix ui-source run typecheck"], "seconds": { "local": 12, "ci": 2 }, "note": "Never use `tsc -p .` in ui-source: it does not follow project references and passes vacuously." },
+    "ui-build": { "kind": "command", "tier": 1, "label": "UI production build", "commands": ["npm --prefix ui-source run build"], "seconds": { "local": 15, "ci": 11 } },
 
     "engine-realism": { "kind": "command", "tier": 1, "label": "Engine realism guard (league rates against the NFL)", "commands": ["npx vitest run test/engine-realism.test.ts"], "seconds": { "local": 15, "ci": 10 } },
     "stat-guard": { "kind": "command", "tier": 1, "label": "Passing, rushing, scoring and sack statistics across 6 leagues", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "seconds": { "local": 40, "ci": 25 }, "note": "Compares with a baseline measured on seeds 101-124; if a deliberate change moves the averages, re-measure the baseline in the same commit." },
@@ -99,8 +99,8 @@
     },
 
     "stats-deep": { "kind": "command", "tier": 4, "label": "Statistics across 12 leagues instead of 6", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "env": { "STATS_SEEDS": "12" }, "seconds": { "local": 90, "ci": 60 } },
-    "league-metrics": { "kind": "command", "tier": 4, "parser": "exit", "label": "Full league calibration against 2018-2025 NFL aggregates", "commands": ["npx tsx analysis/39_league_metrics.ts"], "seconds": { "local": 600, "ci": null }, "note": "Long. Run for any change to how units affect a play." },
-    "stress-smoke": { "kind": "command", "tier": 4, "parser": "stress", "label": "Franchise stress test, smoke mode (three seasons plus a replay)", "commands": ["npm run franchise:stress -- --mode smoke"], "seconds": { "local": 120, "ci": null }, "note": "Uses the mock backend, not the real engine. Not a Vitest run: it prints its own summary and sets its exit code. It writes its files to a scratch directory outside the repository, chosen by the runner." },
+    "league-metrics": { "kind": "command", "tier": 4, "label": "Full league calibration against 2018-2025 NFL aggregates", "commands": ["npx tsx analysis/39_league_metrics.ts"], "seconds": { "local": 600, "ci": null }, "note": "Long. Run for any change to how units affect a play." },
+    "stress-smoke": { "kind": "command", "tier": 4, "label": "Franchise stress test, smoke mode (three seasons plus a replay)", "commands": ["npm run franchise:stress -- --mode smoke"], "seconds": { "local": 120, "ci": null }, "note": "Uses the mock backend, not the real engine. Not a Vitest run: it prints its own summary and sets its exit code. It writes its files to a scratch directory outside the repository, chosen by the runner." },
     "preview-ui": { "kind": "manual", "tier": 4, "label": "Look at the change in a browser", "commands": ["npm --prefix ui-source run dev"], "note": "Presentation changes are not covered by tests." },
 
     "static-review": { "kind": "manual", "tier": 1, "label": "Read the whole diff of the CI/deploy file", "commands": [], "note": "There is no YAML or Actions linter on this machine, so syntax and deploy conditions are only proven by GitHub running the workflow." },

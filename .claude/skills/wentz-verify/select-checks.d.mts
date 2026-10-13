@@ -34,8 +34,6 @@ export interface Check {
   commands: string[];
   /** Directory (relative to the repo root) the commands run in; absent means the repo root. */
   cwd?: string;
-  /** How the result is read: "vitest" (summary lines), "stress" (its own summary) or "exit" (exit code only). */
-  parser?: "vitest" | "stress" | "exit";
   files: string[];
   reasons: string[];
   needsDatabase: boolean;

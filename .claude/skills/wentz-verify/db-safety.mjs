@@ -52,6 +52,8 @@ export function baseEnvironment(parent = process.env) {
   return out;
 }
 
+import { createHash } from "node:crypto";
+
 export const LOCAL_PGLITE_URL = "postgres://postgres@localhost:5433/postgres";
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
@@ -97,5 +99,6 @@ export function environmentFor(check, declared, { parentEnv = process.env, testD
   env.DATABASE_URL = chosen.url;
   env.DB_POOL_MAX = declared.DB_POOL_MAX ?? "1";
   env.CI = declared.CI ?? "true";
-  return { ok: true, env, database: chosen.description };
+  // a digest of the exact URL (it can hold a password, so the URL itself is never recorded)
+  return { ok: true, env, database: chosen.description, databaseDigest: createHash("sha256").update(chosen.url).digest("hex") };
 }
