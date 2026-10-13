@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import * as sel from "../.claude/skills/wentz-verify/select-checks.mjs";
 import type { Check, Plan } from "../.claude/skills/wentz-verify/select-checks.mjs";
+import * as io from "../.claude/skills/wentz-verify/io.mjs";
 import * as runner from "../.claude/skills/wentz-verify/run-checks.mjs";
 import type { Policy } from "../.claude/skills/wentz-verify/command-policy.mjs";
 import * as v from "../.claude/skills/wentz-verify/verdict.mjs";
@@ -837,5 +838,70 @@ describe("the commands, end to end", () => {
   it("exits 2 on bad arguments", () => {
     expect(run("report.mjs", ["--nonsense"]).status).toBe(2);
     expect(run("run-checks.mjs", ["--plan", "x"]).status).toBe(2);
+  });
+});
+
+describe("reading the files the scripts pass to each other", () => {
+  const sample = JSON.stringify({ results: [{ id: "x", exitCode: 0 }] });
+  const write = (bytes: Buffer) => {
+    const dir = mkdtempSync(join(tmpdir(), "wentz-io-"));
+    const file = join(dir, "f.json");
+    writeFileSync(file, bytes);
+    return { file, dir };
+  };
+  const utf16le = (text: string) => Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, "utf16le")]);
+  const utf16be = (text: string) => {
+    const body = Buffer.from(text, "utf16le");
+    body.swap16();
+    return Buffer.concat([Buffer.from([0xfe, 0xff]), body]);
+  };
+
+  it.each([
+    ["plain UTF-8", () => Buffer.from(sample, "utf8")],
+    ["UTF-8 with a byte-order mark (PowerShell Out-File -Encoding utf8)", () => Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(sample, "utf8")])],
+    ["UTF-16 LE with a byte-order mark (a PowerShell 5.1 redirect)", () => utf16le(sample)],
+    ["UTF-16 BE with a byte-order mark", () => utf16be(sample)],
+  ])("reads %s", (_name, make) => {
+    const { file, dir } = write(make());
+    try {
+      expect(io.readJson(file)).toEqual({ results: [{ id: "x", exitCode: 0 }] });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps non-ASCII text intact", () => {
+    const { file, dir } = write(utf16le('{"s":"× é ✓"}'));
+    try {
+      expect(io.readJson(file)).toEqual({ s: "× é ✓" });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("lets report.mjs judge a plan and results that PowerShell wrote as UTF-16", () => {
+    const dir = mkdtempSync(join(tmpdir(), "wentz-io-"));
+    try {
+      const P = plan([scope]);
+      writeFileSync(join(dir, "plan.json"), utf16le(JSON.stringify(P)));
+      writeFileSync(join(dir, "results.json"), utf16le(JSON.stringify({ results: [] })));
+      const out = execFileSync(process.execPath, [join(DIR, "report.mjs"), "--plan", join(dir, "plan.json"), "--results", join(dir, "results.json"), "--confirm", "scope"], { encoding: "utf8" });
+      expect(out).toMatch(/LOCALLY VERIFIED/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("writes the plan with --out as UTF-8 with no byte-order mark, which the other scripts read", () => {
+    const dir = mkdtempSync(join(tmpdir(), "wentz-io-"));
+    try {
+      writeFileSync(join(dir, "changes.json"), JSON.stringify({ changes: [{ path: "docs/a.md", status: "M", sources: ["unstaged"] }] }));
+      execFileSync(process.execPath, [join(DIR, "select-checks.mjs"), "--cwd", ROOT, "--changes-file", join(dir, "changes.json"), "--out", join(dir, "plan.json")], { encoding: "utf8" });
+      const bytes = readFileSync(join(dir, "plan.json"));
+      expect(bytes[0]).toBe(0x7b); // "{", not a byte-order mark
+      expect((JSON.parse(bytes.toString("utf8")) as Plan).required.map((c) => c.id)).toEqual(["scope"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

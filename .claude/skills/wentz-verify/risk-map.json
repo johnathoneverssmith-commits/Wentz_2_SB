@@ -81,7 +81,7 @@
     "infra-checks": { "kind": "command", "tier": 1, "label": "Database test helpers, global setup and the no-DDL-in-suites guard", "commands": ["npx vitest run --root online test/require-database.test.ts test/schema-setup.test.ts test/no-schema-in-suites.test.ts"], "seconds": { "local": 3, "ci": 3 } },
     "how-it-works-test": { "kind": "command", "tier": 1, "label": "How It Works text matches the mechanics it states", "commands": ["npm --prefix ui-source run test -- src/state/howItWorks.test.ts"], "seconds": { "local": 5, "ci": 3 } },
     "how-it-works-review": { "kind": "manual", "tier": 1, "label": "If a mechanic changed, ui-source/src/state/howItWorks.ts changes in the same commit", "commands": [], "note": "CLAUDE.md: the player-facing explanation of every system must stay true." },
-    "selector-tests": { "kind": "command", "tier": 1, "label": "Verification tooling's own tests (selector, verdict, runner, safety)", "commands": ["npx vitest run test/verify-selector.test.ts test/verify-verdict.test.ts test/verify-safety.test.ts"], "seconds": { "local": 90, "ci": 40 }, "note": "Includes tests that run vitest and a repository clone of the git commands; the longest is the one proving an exported production DATABASE_URL never reaches a run." },
+    "selector-tests": { "kind": "command", "tier": 1, "label": "Verification tooling's own tests (selector, verdict, runner, safety, replay)", "commands": ["npx vitest run test/verify-selector.test.ts test/verify-verdict.test.ts test/verify-safety.test.ts test/verify-replay.test.ts"], "seconds": { "local": 100, "ci": 45 }, "note": "Includes tests that run vitest and a repository clone of the git commands; the longest is the one proving an exported production DATABASE_URL never reaches a run." },
 
     "related-engine": { "kind": "command", "tier": 2, "label": "Every engine test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "seconds": { "local": 150, "ci": 80 }, "projectFiles": "engine" },
     "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "cwd": "ui-source", "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source", "note": "Runs inside ui-source so it uses the UI project's own vitest and config." },
@@ -133,11 +133,32 @@
       "notes": ["Scripts in package.json are what this plan's commands call: check they still exist."]
     },
     {
+      "id": "online-config", "class": "online-test-config", "risk": "high", "component": "online",
+      "match": ["online/tsconfig.json", "online/vitest.config.ts"],
+      "requires": ["tc-online", "infra-checks", "db-suites", "full-online", "ci-pr"],
+      "recommends": ["ci-repeat-db"],
+      "notes": ["Configures only the online project (including the one-time database setup), so the engine and UI suites cannot be affected. The whole online suite is required: this applies to every online test."]
+    },
+    {
+      "id": "engine-config", "class": "engine-test-config", "risk": "high", "component": "engine",
+      "match": ["vitest.config.ts"],
+      "requires": ["tc-engine", "full-engine", "ci-pr"],
+      "recommends": [],
+      "notes": ["Configures only the engine tests (test/**)."]
+    },
+    {
+      "id": "ui-config", "class": "ui-build-config", "risk": "high", "component": "ui",
+      "match": ["ui-source/tsconfig*.json", "ui-source/vitest.config.ts", "ui-source/vite.config.ts"],
+      "requires": ["tc-ui", "ui-build", "full-ui", "ci-pr"],
+      "recommends": [],
+      "notes": ["Configures only the UI project."]
+    },
+    {
       "id": "build-config", "class": "build-or-test-config", "risk": "high",
-      "match": ["tsconfig*.json", "ui-source/tsconfig*.json", "online/tsconfig.json", "vitest.config.ts", "online/vitest.config.ts", "ui-source/vitest.config.ts", "ui-source/vite.config.ts"],
+      "match": ["tsconfig*.json"],
       "requires": ["tc-engine", "tc-online", "tc-ui", "ui-build", "full-engine", "full-ui", "full-online", "ci-pr"],
       "recommends": [],
-      "notes": ["Changes how everything is compiled or tested, so every project is checked."]
+      "notes": ["The root tsconfig is extended by the online project and checked with the engine, so every project is checked."]
     },
     {
       "id": "database", "class": "database", "risk": "high", "component": "online",
@@ -160,6 +181,13 @@
       "requires": ["tc-online", "stat-guard", "ci-pr"],
       "recommends": ["stats-deep"],
       "notes": ["Baseline seeds (101-124) must stay disjoint from the test seeds. Re-measure the baseline if the engine's averages deliberately move."]
+    },
+    {
+      "id": "verification-fixtures", "class": "verification-tooling", "risk": "low",
+      "match": ["test/fixtures/verify-*.json", "test/verify-*.test.ts"],
+      "requires": ["scope", "tc-engine", "selector-tests"],
+      "recommends": ["ci-pr"],
+      "notes": ["Data and tests the verification tooling reads: they are exercised only by the selector, verdict, safety and replay tests, not by the engine suite."]
     },
     {
       "id": "online-tests", "class": "tests-only", "risk": "low", "component": "online",

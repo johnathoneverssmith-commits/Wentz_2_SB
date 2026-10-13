@@ -3,7 +3,10 @@
  * Picks the checks a change needs. It does not run anything.
  *
  *   node .claude/skills/wentz-verify/select-checks.mjs [--base origin/master] [--json]
- *        [--no-untracked] [--changes-file changes.json] [--cwd <dir>] [--map risk-map.json]
+ *        [--no-untracked] [--changes-file changes.json] [--cwd <dir>] [--map risk-map.json] [--out plan.json]
+ *
+ * `--out` also writes the plan as JSON (UTF-8, no byte-order mark) for run-checks.mjs and
+ * report.mjs. Prefer it to a shell redirect: Windows PowerShell 5.1 writes redirects as UTF-16.
  *
  * The change set is everything that differs from the base: commits on this
  * branch since it left the base, staged changes, unstaged changes and
@@ -21,9 +24,11 @@
  * tested without git or a file system (test/verify-selector.test.ts).
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { readJson } from "./io.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -34,7 +39,7 @@ const SOURCE_RANK = { committed: 0, staged: 1, unstaged: 2, untracked: 3 };
 const MAX_FILES_IN_COMMAND = 40;
 
 export function loadMap(path = join(HERE, "risk-map.json")) {
-  return JSON.parse(readFileSync(path, "utf8"));
+  return readJson(path);
 }
 
 /* ---------------------------------------------------------------- globs -- */
@@ -675,7 +680,7 @@ export function renderText(p) {
 /* ------------------------------------------------------------------ cli -- */
 
 function parseArgs(argv) {
-  const o = { base: "origin/master", json: false, untracked: true, cwd: process.cwd(), changesFile: null, mapPath: null };
+  const o = { base: "origin/master", json: false, untracked: true, cwd: process.cwd(), changesFile: null, mapPath: null, out: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--json") o.json = true;
@@ -684,6 +689,7 @@ function parseArgs(argv) {
     else if (a === "--cwd") o.cwd = resolve(argv[++i]);
     else if (a === "--changes-file") o.changesFile = argv[++i];
     else if (a === "--map") o.mapPath = argv[++i];
+    else if (a === "--out") o.out = argv[++i];
     else throw new Error(`unknown argument: ${a}`);
   }
   return o;
@@ -701,11 +707,12 @@ export function main(argv = process.argv.slice(2)) {
     const map = args.mapPath ? loadMap(args.mapPath) : loadMap();
     let collected;
     if (args.changesFile) {
-      const given = JSON.parse(readFileSync(args.changesFile, "utf8"));
+      const given = readJson(args.changesFile);
       collected = { changes: given.changes ?? given, base: given.base ?? args.base, mergeBase: given.mergeBase ?? null, baseMissing: false, warnings: [] };
     } else collected = collectChanges({ cwd: args.cwd, base: args.base, includeUntracked: args.untracked });
     const testIndex = buildTestIndex(args.cwd, map);
     const result = plan({ changes: collected.changes, testIndex, map, context: collected });
+    if (args.out) writeFileSync(args.out, `${JSON.stringify(result, null, 2)}\n`, "utf8");
     process.stdout.write(`${args.json ? JSON.stringify(result, null, 2) : renderText(result)}\n`);
     return result.problems.length > 0 ? 3 : 0;
   } catch (e) {

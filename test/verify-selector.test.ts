@@ -220,7 +220,11 @@ describe("classifying paths", () => {
     ["package.json", "dependencies"],
     ["ui-source/package-lock.json", "dependencies"],
     ["tsconfig.json", "build-or-test-config"],
-    ["online/vitest.config.ts", "build-or-test-config"],
+    ["online/vitest.config.ts", "online-test-config"],
+    ["online/tsconfig.json", "online-test-config"],
+    ["vitest.config.ts", "engine-test-config"],
+    ["ui-source/vite.config.ts", "ui-build-config"],
+    ["ui-source/tsconfig.app.json", "ui-build-config"],
     ["CLAUDE.md", "docs"],
     ["docs/decisions.md", "docs"],
     ["ui-source/README.md", "docs"],
@@ -753,7 +757,7 @@ describe("deleted and renamed files give a plan that can run", () => {
 
 describe("files tests read at run time cannot silently select nothing", () => {
   it("runs the whole engine suite for a fixture under test/", () => {
-    const p = run([change("test/fixtures/verify-replay.json")]);
+    const p = run([change("test/fixtures/league-seed.json")]);
     expect(ids(p)).toContain("full-engine");
     expect(p.notes.join(" ")).toMatch(/no test imports it/);
   });
@@ -817,6 +821,23 @@ describe("database checks are serialised and carry their setup", () => {
     const d = run([change("online/test/boxscore.test.ts", "M", ["unstaged"])]).required.find((c) => c.id === "direct:online")!;
     expect(d.needsDatabase).toBe(false);
     expect(d.commands[0]).not.toContain("--no-file-parallelism");
+  });
+});
+
+describe("the data and tests the verification tooling reads", () => {
+  // The replay fixture is read only by test/verify-replay.test.ts. Changing it alone used to select
+  // scope, the engine typecheck and CI, and so never ran the one test that reads it.
+  it.each(["test/fixtures/verify-replay.json", "test/verify-replay.test.ts", "test/verify-selector.test.ts", "test/verify-safety.test.ts"])("%s selects the tooling's own tests", (path) => {
+    const p = run([change(path)]);
+    expect(ids(p)).toEqual(expect.arrayContaining(["scope", "tc-engine", "selector-tests"]));
+    expect(p.classes).toContain("verification-tooling");
+    expect(ids(p)).not.toContain("full-engine");
+  });
+
+  it("makes that check run the replay test as well", () => {
+    const check = sel.loadMap().checks["selector-tests"] as { commands: string[] };
+    expect(check.commands[0]).toContain("test/verify-replay.test.ts");
+    expect(check.commands[0]).toContain("test/verify-safety.test.ts");
   });
 });
 
