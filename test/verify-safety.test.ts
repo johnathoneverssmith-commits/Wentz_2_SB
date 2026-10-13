@@ -685,11 +685,12 @@ describe("a timed-out check leaves nothing running", () => {
     return dir;
   };
 
-  it("ends the command's whole process tree when it times out, so no child keeps writing or holding the directory", { timeout: 60_000 }, async () => {
+  it("ends the command's whole process tree when it times out, so no child keeps writing or holding the directory", { timeout: 90_000 }, async () => {
     const dir = setup();
     let pid = 0;
     try {
-      const rec = await runner.runCheck(check("a", { commands: ["node parent.js"] }), { cwd: dir, timeoutSec: 2, policy: treePolicy });
+      // long enough for the grandchild to have started even when the machine is busy
+      const rec = await runner.runCheck(check("a", { commands: ["node parent.js"] }), { cwd: dir, timeoutSec: 8, policy: treePolicy });
       expect(rec.timedOut).toBe(true);
       pid = Number(execFileSync(process.execPath, ["-e", "process.stdout.write(require('node:fs').readFileSync('pid.txt','utf8'))"], { cwd: dir, encoding: "utf8" }));
       expect(pid).toBeGreaterThan(0);
@@ -711,7 +712,7 @@ describe("a timed-out check leaves nothing running", () => {
     try {
       const started = Date.now();
       const rec = await runner.runCheck(check("a", { commands: ["node parent.js"] }), { cwd: dir, timeoutSec: 2, policy: treePolicy });
-      expect(Date.now() - started).toBeLessThan(15_000);
+      expect(Date.now() - started).toBeLessThan(30_000);
       expect(rec).toMatchObject({ timedOut: true, exitCode: null });
     } finally {
       try {

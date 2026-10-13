@@ -709,18 +709,34 @@ describe("the commands, end to end", () => {
       }
     });
 
-    it("marks it stale when a tracked file is edited, committed, or the plan or command changes", () => {
+    // one runner call and one report each: this used to be a single test of three runner calls and five reports,
+    // which took 11 s alone and over 50 s when a full engine run shared the CPU
+    it("marks it stale when a tracked file is edited afterwards", () => {
       const t = setup();
       try {
         t.go();
         writeFileSync(join(t.dir, "package.json"), JSON.stringify({ name: "t", version: "0.0.1", scripts: { typecheck: 'node -e "process.exit(0)"' } }));
         expect(t.report().stdout).toMatch(/stale/);
-        t.git("add", "-A");
-        t.git("commit", "-qm", "edit");
-        expect(t.report().stdout).toMatch(/HEAD has moved/);
-        // a changed command
+      } finally {
+        t.cleanup();
+      }
+    });
+
+    it("marks it stale when HEAD moves", () => {
+      const t = setup();
+      try {
         t.go();
-        expect(t.report().status).toBe(0);
+        t.git("commit", "-q", "--allow-empty", "-m", "move");
+        expect(t.report().stdout).toMatch(/HEAD has moved/);
+      } finally {
+        t.cleanup();
+      }
+    });
+
+    it("marks it stale when the plan's command changes", () => {
+      const t = setup();
+      try {
+        t.go();
         const edited = JSON.parse(readFileSync(t.planPath, "utf8"));
         edited.required[1].commands = ["npm run typecheck", "npm test"];
         writeFileSync(t.planPath, JSON.stringify(edited));
