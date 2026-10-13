@@ -220,9 +220,16 @@ export function looksLikeScratch(path, map) {
 }
 
 export function isSourceLike(path, map) {
+  const name = path.split("/").pop();
+  if ((map.sourceNames ?? []).includes(name) || name.startsWith(".env")) return true;
   const i = path.lastIndexOf(".");
   const ext = i > path.lastIndexOf("/") ? path.slice(i).toLowerCase() : "";
   return map.sourceExtensions.includes(ext);
+}
+
+/** Files vitest can follow imports from. Anything else is read at run time (fs), so no import graph sees it. */
+export function isCodeFile(path) {
+  return /\.(?:ts|tsx|js|jsx|mjs|cjs|mts|cts)$/.test(path);
 }
 
 /** { kind: "rule" | "unknown-source" | "unclassified", rule? } */
@@ -316,8 +323,14 @@ export function directTestsFor(path, testIndex) {
 
 const LEVEL_RANK = { REQUIRED: 1, RECOMMENDED: 0 };
 
+/** `path` as seen from the directory `projectRoot` (both repo-relative, posix): `../ui-source/x.ts` for a file outside it. */
 function relativeTo(path, projectRoot) {
-  return projectRoot === "." ? path : path.startsWith(`${projectRoot}/`) ? path.slice(projectRoot.length + 1) : path;
+  if (projectRoot === ".") return path;
+  const from = projectRoot.split("/").filter(Boolean);
+  const to = path.split("/");
+  let i = 0;
+  while (i < from.length && i < to.length - 1 && from[i] === to[i]) i++;
+  return [...from.slice(i).map(() => ".."), ...to.slice(i)].join("/");
 }
 
 /**
@@ -415,7 +428,11 @@ export function plan({ changes, testIndex, map, context = {} }) {
         if (id === "direct-tests") {
           if (deleted || isTestFile(path)) continue;
           const direct = directTestsFor(path, testIndex);
-          if (direct.length === 0) {
+          if (direct.length === 0 && !isCodeFile(path)) {
+            // a data file is read at run time: no import graph, and so no `related` run, can find its tests
+            notes.add(`${path}: not a code file, so no test imports it and a related-tests run cannot find its users: the whole ${component ?? "engine"} suite is selected instead.`);
+            add(`full-${component ?? "engine"}`, level, `${reason}: data file with no direct tests`);
+          } else if (direct.length === 0) {
             notes.add(`${path}: no test imports it directly, so the transitive related-tests run is required instead.`);
             if (component) add(`related-${component}`, level, `${reason}: no direct tests`, [path]);
           } else for (const t of direct) add(`direct:${t.project}`, level, reason, [t.path]);
@@ -424,16 +441,25 @@ export function plan({ changes, testIndex, map, context = {} }) {
           else if (isTestFile(path)) {
             const project = projectOf(path, map) ?? component;
             add(`direct:${project}`, level, reason, [path]);
+          } else {
+            // a helper or fixture beside the tests: run the tests that import it, or the whole project if none do
+            const users = directTestsFor(path, testIndex);
+            const project = projectOf(path, map) ?? component;
+            if (users.length > 0) for (const t of users) add(`direct:${t.project}`, level, `${reason}: imported by this test`, [t.path]);
+            else {
+              notes.add(`${path} is not a test and no test imports it (a fixture or data file?), so the whole ${project} suite is selected: it cannot be traced to the tests that read it.`);
+              add(`full-${project}`, level, `${reason}: support file with no importing test`);
+            }
           }
         } else if (id.startsWith("related-")) {
           if (!deleted && !isTestFile(path)) add(id, level, reason, [path]);
-          else if (deleted) add(id, level, reason, []);
+          else if (deleted) add(`full-${id.slice("related-".length)}`, level, `${reason}: deleted, so nothing can be traced from it`);
         } else add(id, level, reason);
       }
     };
     expand(rule.requires, "REQUIRED");
     expand(rule.recommends ?? [], "RECOMMENDED");
-    if (deleted && component && !isTestFile(path)) add(`related-${component}`, "RECOMMENDED", `${path} was deleted`, []);
+    if (deleted && component && !isTestFile(path)) add(`full-${component}`, "RECOMMENDED", `${path} was deleted`);
   }
 
   const nothing = changes.length === 0;
@@ -449,7 +475,7 @@ export function plan({ changes, testIndex, map, context = {} }) {
   const out = [];
   for (const entry of [...checks.values()]) {
     const files = [...entry.files].sort();
-    out.push(materialize(entry, files, map));
+    out.push(materialize(entry, files, map, /^[0-9a-f]{7,64}$/.test(context.mergeBase ?? "") ? context.mergeBase : null));
   }
   out.sort((a, b) => a.tier - b.tier || a.id.localeCompare(b.id));
 
@@ -483,7 +509,7 @@ export function plan({ changes, testIndex, map, context = {} }) {
 }
 
 /** One check, with its commands filled in. */
-function materialize(entry, files, map) {
+function materialize(entry, files, map, mergeBaseOf) {
   const reasons = [...entry.reasons].sort();
   if (entry.id.startsWith("direct:")) {
     const project = entry.id.slice("direct:".length);
@@ -491,12 +517,13 @@ function materialize(entry, files, map) {
     const rel = files.map((f) => relativeTo(f, tree?.root ?? "."));
     const dbFiles = files.filter((f) => map.databaseSuites.includes(f.split("/").pop()));
     const list = rel.join(" ");
+    const serial = dbFiles.length > 0 ? " --no-file-parallelism" : "";
     const command =
       project === "ui"
         ? `npm --prefix ui-source run test -- ${list}`
         : project === "online"
-          ? `npx vitest run --root online ${list}`
-          : `npx vitest run ${list}`;
+          ? `npx vitest run --root online${serial} ${list}`
+          : `npx vitest run${serial} ${list}`;
     return {
       id: entry.id,
       level: entry.level,
@@ -520,19 +547,30 @@ function materialize(entry, files, map) {
   if (!def) throw new Error(`risk-map.json has no check called ${entry.id}`);
   let commands = def.commands;
   let usedFiles = [];
+  let cwd = def.cwd;
+  let fallbackNote;
   if (def.projectFiles) {
     const root = def.relativeTo ?? ".";
     const source = files.filter((f) => !isTestFile(f));
-    if (source.length > MAX_FILES_IN_COMMAND) {
-      const full = { engine: "full-engine", ui: "full-ui", online: "full-online" }[def.projectFiles];
-      commands = map.checks[full].commands;
-      usedFiles = source;
+    usedFiles = source;
+    const full = map.checks[{ engine: "full-engine", ui: "full-ui", online: "full-online" }[def.projectFiles]];
+    // vitest can only follow imports: a data file, a long list, or no file at all cannot be turned into a
+    // `related` run, so the whole project's suite runs instead (never a command with a placeholder left in it)
+    if (source.length === 0 || source.length > MAX_FILES_IN_COMMAND || source.some((f) => !isCodeFile(f))) {
+      commands = full.commands;
+      cwd = full.cwd;
+      fallbackNote =
+        source.length === 0
+          ? "No changed file is left to trace from, so the whole suite runs."
+          : source.some((f) => !isCodeFile(f))
+            ? "A changed file is not code, so it cannot be traced through imports: the whole suite runs."
+            : `More than ${MAX_FILES_IN_COMMAND} files changed: the whole suite runs.`;
     } else {
-      usedFiles = source;
       const list = source.map((f) => relativeTo(f, root)).join(" ");
-      commands = def.commands.map((c) => c.replace("{files}", list || "<changed files>"));
+      commands = def.commands.map((c) => c.replace("{files}", list));
     }
   }
+  commands = commands.map((c) => c.replace("{base}", mergeBaseOf ?? "HEAD"));
   return {
     id: entry.id,
     level: entry.level,
@@ -540,13 +578,15 @@ function materialize(entry, files, map) {
     tier: def.tier,
     label: def.label,
     commands,
+    ...(cwd && cwd !== "." ? { cwd } : {}),
     files: usedFiles,
     reasons,
     needsDatabase: Boolean(def.needsDatabase),
     ...(def.env ? { env: def.env } : {}),
     ...(def.prerequisite ? { prerequisite: def.prerequisite } : {}),
+    ...(def.parser ? { parser: def.parser } : {}),
     ...(def.seconds ? { seconds: def.seconds } : {}),
-    ...(def.note ? { note: def.note } : {}),
+    ...(def.note || fallbackNote ? { note: [def.note, fallbackNote].filter(Boolean).join(" ") } : {}),
     ...(def.authoritative ? { authoritative: true } : {}),
   };
 }
@@ -588,6 +628,7 @@ export function renderText(p) {
       L.push(`  [${c.id}] ${c.label}${secs}${c.needsDatabase ? "  (needs a database)" : ""}`);
       if (c.prerequisite) L.push(`      first: ${c.prerequisite}`);
       if (c.env) L.push(`      env:   ${Object.entries(c.env).map(([k, v]) => `${k}=${v}`).join(" ")}`);
+      if (c.cwd) L.push(`      in:    ${c.cwd}/`);
       for (const cmd of c.commands) L.push(`      $ ${cmd}`);
       if (c.note) L.push(`      note: ${c.note}`);
     }

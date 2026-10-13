@@ -10,10 +10,21 @@
  *   - a check that needs a database is SKIPPED unless the output shows the
  *     database was really used (the suites return early without one, and a
  *     test runner counts an early return as a pass);
- *   - one FAILED check anywhere, required or recommended, makes the verdict FAILED;
+ *   - each tool is read the way it reports: Vitest by its summary lines (all of
+ *     them, when a command runs more than one), the stress test by its own
+ *     summary, a typecheck or build by its exit code;
+ *   - a result only counts while the plan, the command and the files it was run
+ *     against are unchanged (see evidence.mjs); otherwise it is stale and the
+ *     check is NOT RUN again;
+ *   - one FAILED check anywhere, required or recommended, makes the verdict FAILED,
+ *     and an earlier failed attempt stays in the report after a rerun;
  *   - a required check that was not run makes the verdict INCOMPLETE;
- *   - nothing local can make the verdict VERIFIED: only a passing CI run can.
+ *   - only GitHub CI for this exact commit, fetched and validated by the tool
+ *     (ci-evidence.mjs), can make the verdict VERIFIED. Nothing typed in by hand
+ *     can: a manual attestation of CI is shown, but it leaves the verdict at
+ *     LOCALLY VERIFIED.
  */
+import { bindingProblems } from "./evidence.mjs";
 
 /** Overall verdicts, worst first. */
 export const VERDICTS = ["BLOCKED", "FAILED", "INCOMPLETE", "LOCALLY_VERIFIED", "VERIFIED"];
@@ -24,18 +35,29 @@ const ANSI = /\u001b\[[0-9;]*[A-Za-z]/g;
 /** Counts from a vitest summary line such as `Tests  3 failed | 12 passed | 1 skipped (16)`. */
 function counts(line) {
   const out = { passed: 0, failed: 0, skipped: 0, todo: 0, total: 0 };
-  if (!line) return null;
   for (const m of line.matchAll(/(\d+)\s+(passed|failed|skipped|todo)/g)) out[m[2]] = Number(m[1]);
   const total = /\((\d+)\)/.exec(line);
   out.total = total ? Number(total[1]) : out.passed + out.failed + out.skipped + out.todo;
   return out;
 }
 
+/** Adds up every summary line of one kind: a command can run Vitest more than once. */
+function sumSummaries(text, label) {
+  const lines = [...text.matchAll(new RegExp(`^\\s*${label}\\s+(.*)$`, "gm"))].map((m) => m[0]);
+  if (lines.length === 0) return null;
+  const sum = { passed: 0, failed: 0, skipped: 0, todo: 0, total: 0 };
+  for (const line of lines) {
+    const c = counts(line);
+    for (const k of Object.keys(sum)) sum[k] += c[k];
+  }
+  return { ...sum, summaries: lines.length };
+}
+
 /** What a test or typecheck run says about itself. Reads text only. */
 export function parseTestOutput(raw = "") {
   const text = String(raw).replace(ANSI, "");
-  const tests = counts(/^\s*Tests\s+(.*)$/m.exec(text)?.[0] ?? "");
-  const files = counts(/^\s*Test Files\s+(.*)$/m.exec(text)?.[0] ?? "");
+  const tests = sumSummaries(text, "Tests");
+  const files = sumSummaries(text, "Test Files");
   const failures = [];
   for (const m of text.matchAll(/^\s*(?:×|✗|✕|FAIL)\s+(.+?)(?:\s+\d+ms)?\s*$/gm)) {
     if (!failures.includes(m[1])) failures.push(m[1]);
@@ -52,8 +74,22 @@ export function parseTestOutput(raw = "") {
   };
 }
 
-const isTestRun = (check) =>
-  (check.commands ?? []).some((c) => /\bvitest\b|^npm test\b|\bonline:test\b|\brun test\b|\bfranchise:stress\b/.test(c));
+/** The franchise stress test prints its own summary and sets its exit code from it; it is not a Vitest run. */
+export function parseStressOutput(raw = "") {
+  const text = String(raw).replace(ANSI, "");
+  const failures = /Invariant failures and crashes:\s*(\d+)/.exec(text);
+  const replay = /Deterministic replay:\s*([A-Za-z_]+)/.exec(text);
+  return { invariantFailures: failures ? Number(failures[1]) : null, replay: replay ? replay[1] : null };
+}
+
+/** How a check reports: "vitest", "stress" or "exit" (a typecheck, a build, a script: only its exit code). */
+export function parserFor(check) {
+  if (check.parser) return check.parser;
+  const commands = check.commands ?? [];
+  if (commands.some((c) => /\bfranchise:stress\b/.test(c))) return "stress";
+  if (commands.some((c) => /\bvitest\b|^npm test\b|\bonline:test\b|\brun test\b/.test(c))) return "vitest";
+  return "exit";
+}
 
 function short(parsed) {
   const t = parsed.tests;
@@ -62,7 +98,7 @@ function short(parsed) {
 
 /**
  * One check's status, from the record of running it.
- * `run`: { exitCode: number | null, output?, timedOut?, error?, durationSec?, status?, ci? }
+ * `run`: { exitCode: number | null, output?, timedOut?, error?, durationSec?, status?, evidence?, ci? }
  */
 export function judge(check, run) {
   const base = { id: check.id, durationSec: run?.durationSec ?? null };
@@ -71,37 +107,41 @@ export function judge(check, run) {
   if (!run) return { ...base, status: "NOT_RUN", detail: "no record that this was run" };
 
   if (check.kind === "manual") {
-    if (run.status === "CONFIRMED") return { ...base, status: "CONFIRMED", detail: run.detail ?? "confirmed by hand" };
+    if (run.status === "CONFIRMED") return { ...base, status: "CONFIRMED", detail: run.detail ?? "confirmed by hand (attested, not observed by this tool)" };
     return { ...base, status: "NOT_RUN", detail: "not confirmed" };
   }
 
-  if (check.kind === "ci") {
-    const ci = run.ci;
-    if (!ci || run.status === "PENDING_CI") return { ...base, status: "PENDING_CI", detail: "GitHub CI has not reported" };
-    if (ci.test !== "success") return { ...base, status: "FAILED", detail: `the required \`test\` job was ${ci.test ?? "not reported"}` };
-    if (ci.event === "pull_request" && ci.deploy !== "skipped") {
-      return { ...base, status: "FAILED", detail: `a pull request must not deploy, but deploy was ${ci.deploy ?? "not reported"}` };
-    }
-    return { ...base, status: "PASSED", detail: `\`test\` ${ci.test}, \`deploy\` ${ci.deploy ?? "n/a"}` };
-  }
+  if (check.kind === "ci") return judgeCi(base, run);
 
+  if (run.evidence === "attested") return { ...base, status: "NOT_RUN", detail: "only attested by hand: this tool did not run it, and a command check cannot be confirmed that way" };
   if (run.timedOut) return { ...base, status: "FAILED", detail: "timed out" };
   if (run.error) return { ...base, status: "FAILED", detail: `could not run: ${run.error}` };
   if (run.exitCode === null || run.exitCode === undefined) return { ...base, status: "NOT_RUN", detail: "no exit code was recorded" };
 
+  const parser = parserFor(check);
   const parsed = parseTestOutput(run.output ?? "");
   const failures = parsed.failures.slice(0, 5);
-  if (run.exitCode !== 0) {
-    const what = parsed.tests?.failed ? `${parsed.tests.failed} test(s) failed` : parsed.tscErrors ? `${parsed.tscErrors} type error(s)` : "";
-    return { ...base, status: "FAILED", detail: `exit code ${run.exitCode}${what ? `: ${what}` : ""}`, failures };
+
+  if (parser === "stress") {
+    const s = parseStressOutput(run.output ?? "");
+    const said = s.invariantFailures === null ? "no summary" : `${s.invariantFailures} invariant failure(s), replay ${s.replay ?? "unreported"}`;
+    if (run.exitCode !== 0) return { ...base, status: "FAILED", detail: `exit code ${run.exitCode} (${said})` };
+    if (s.invariantFailures === null) return { ...base, status: "FAILED", detail: "exit code 0 but the stress test printed no summary: not counted as a pass" };
+    if (s.invariantFailures > 0 || s.replay === "mismatch") return { ...base, status: "FAILED", detail: `exit code 0 but the summary reports ${said}` };
+    return { ...base, status: "PASSED", detail: `exit code 0, ${said}` };
   }
-  if ((parsed.tests?.failed ?? 0) > 0 || (parsed.files?.failed ?? 0) > 0) {
+
+  if (run.exitCode !== 0) {
+    const what = parser === "vitest" && parsed.tests?.failed ? `${parsed.tests.failed} test(s) failed` : parsed.tscErrors ? `${parsed.tscErrors} type error(s)` : "";
+    return { ...base, status: "FAILED", detail: `exit code ${run.exitCode}${what ? `: ${what}` : ""}`, failures: parser === "vitest" ? failures : [] };
+  }
+  if (parser === "vitest" && ((parsed.tests?.failed ?? 0) > 0 || (parsed.files?.failed ?? 0) > 0)) {
     return { ...base, status: "FAILED", detail: `exit code 0 but the output reports ${parsed.tests?.failed ?? 0} failed test(s): not counted as a pass`, failures };
   }
   if (parsed.tscErrors > 0) return { ...base, status: "FAILED", detail: `exit code 0 but the output shows ${parsed.tscErrors} type error(s)` };
   if (parsed.databaseSetupFailed) return { ...base, status: "FAILED", detail: "the database schema could not be applied", failures };
 
-  if (isTestRun(check)) {
+  if (parser === "vitest") {
     if (!parsed.tests) {
       return { ...base, status: "FAILED", detail: "exit code 0 but no test summary could be read: not counted as a pass" };
     }
@@ -116,27 +156,84 @@ export function judge(check, run) {
       };
     }
     const skipped = parsed.tests.skipped;
-    return { ...base, status: "PASSED", detail: short(parsed) + (skipped ? ` (${skipped} skipped, not exercised)` : ""), skipped };
+    const runs = parsed.tests.summaries > 1 ? ` across ${parsed.tests.summaries} test runs` : "";
+    return { ...base, status: "PASSED", detail: short(parsed) + runs + (skipped ? ` (${skipped} skipped, not exercised)` : ""), skipped };
   }
   return { ...base, status: "PASSED", detail: "exit code 0" };
+}
+
+/** CI counts only when the tool fetched and validated it. A person's word for it is shown, not believed. */
+function judgeCi(base, run) {
+  const ci = run.ci;
+  if (!ci || run.status === "PENDING_CI") return { ...base, status: "PENDING_CI", detail: run.detail ?? "GitHub CI has not reported" };
+  if (run.evidence === "github-api" && ci.failed === true) return { ...base, status: "FAILED", detail: `GitHub CI failed: ${ci.reason}` };
+  if (run.evidence !== "github-api" || ci.validated !== true) {
+    if (ci.test && ci.test !== "success") return { ...base, status: "FAILED", detail: `an unverified claim says the \`test\` job was ${ci.test}: treated as failed until GitHub shows otherwise` };
+    return { ...base, status: "PENDING_CI", detail: ci.reason ?? "CI was asserted by hand, not retrieved from GitHub by this tool: not counted" };
+  }
+  if (ci.test !== "success") return { ...base, status: "FAILED", detail: `the required \`test\` job was ${ci.test ?? "not reported"}` };
+  if (ci.event !== "pull_request") return { ...base, status: "PENDING_CI", detail: `the run was a ${ci.event ?? "unknown"} event, not the pull request check` };
+  if (ci.deploy !== "skipped") return { ...base, status: "FAILED", detail: `a pull request must not deploy, but deploy was ${ci.deploy ?? "not reported"}` };
+  return { ...base, status: "PASSED", detail: `GitHub run ${ci.runId ?? "?"} for ${String(ci.headSha ?? "").slice(0, 7)}: \`test\` ${ci.test}, \`deploy\` ${ci.deploy} (retrieved by this tool)` };
+}
+
+/**
+ * The record that stands for a check among its attempts: the latest one that still describes the current
+ * plan and files, else the latest of all (reported as stale). `context.state` absent means bindings are not checked.
+ */
+function chooseRun(check, attempts, plan, context) {
+  if (attempts.length === 0) return { run: undefined, stale: null };
+  if (!context.state || check.kind !== "command") return { run: attempts[attempts.length - 1], stale: null };
+  for (let i = attempts.length - 1; i >= 0; i--) {
+    if (bindingProblems(attempts[i], check, plan, context.state).length === 0) return { run: attempts[i], stale: null };
+  }
+  const last = attempts[attempts.length - 1];
+  return { run: last, stale: bindingProblems(last, check, plan, context.state) };
 }
 
 /**
  * The verdict for a whole plan.
  * @param plan    output of select-checks.mjs --json
- * @param results array of run records: { id, exitCode, output, ... } (see `judge`)
+ * @param results every recorded attempt: { id, exitCode, output, binding?, evidence?, attempt?, ... } (see `judge`)
+ * @param context { state?: fingerprint of the repository now, ciEvidence?: from fetchCiEvidence, attestedCi?: what a person claimed }
  */
-export function summarize(plan, results = []) {
-  const byId = new Map(results.map((r) => [r.id, r]));
+export function summarize(plan, results = [], context = {}) {
+  const attemptsById = new Map();
+  for (const r of results) {
+    if (r.id === "ci-pr") continue; // CI is never read from a results file
+    attemptsById.set(r.id, [...(attemptsById.get(r.id) ?? []), r]);
+  }
+  const ciRecord = ciRecordFrom(context);
   const rows = [];
   for (const level of ["required", "recommended"]) {
     for (const check of plan[level]) {
-      const j = judge(check, byId.get(check.id));
-      rows.push({ ...j, label: check.label, level: level.toUpperCase(), kind: check.kind, commands: check.commands, needsDatabase: check.needsDatabase });
+      let row;
+      if (check.kind === "ci") {
+        const j = judge(check, ciRecord);
+        row = { ...j, evidence: ciRecord?.evidence === "github-api" ? "github (validated)" : ciRecord?.ci ? "claimed (not validated)" : null };
+      } else if (check.kind === "manual") {
+        const manual = attemptsById.get(check.id);
+        const j = judge(check, manual?.[manual.length - 1]);
+        row = { ...j, evidence: j.status === "CONFIRMED" ? "attested" : null };
+      } else {
+        const attempts = attemptsById.get(check.id) ?? [];
+        const { run, stale } = chooseRun(check, attempts, plan, context);
+        let j = judge(check, run);
+        if (stale) j = { id: check.id, durationSec: run?.durationSec ?? null, status: "NOT_RUN", stale: true, detail: `stale: its result no longer applies because ${stale.join("; ")}` };
+        const earlier = attempts.filter((a) => a !== run).map((a) => ({ attempt: a.attempt ?? null, ...judge(check, a) })).filter((a) => a.status === "FAILED");
+        const chosenBinding = run?.binding;
+        const identical = (a) => chosenBinding && a.binding && a.binding.commandDigest === chosenBinding.commandDigest && a.binding.treeDigest === chosenBinding.treeDigest && a.binding.planDigest === chosenBinding.planDigest;
+        const sameInputs = attempts.filter((a) => a !== run && identical(a) && judge(check, a).status === "FAILED").length;
+        if (j.status === "PASSED" && sameInputs > 0) {
+          j = { ...j, flaky: true, detail: `${j.detail}; it FAILED ${sameInputs} earlier time(s) on identical inputs (possibly flaky)` };
+        }
+        row = { ...j, evidence: run ? (run.evidence === "observed" ? "observed" : run.evidence ?? "unbound") : null, attempt: run?.attempt ?? null, earlierFailures: earlier };
+      }
+      rows.push({ ...row, label: check.label, level: level.toUpperCase(), kind: check.kind, commands: check.commands, needsDatabase: check.needsDatabase });
     }
   }
   const planned = new Set(rows.map((r) => r.id));
-  const unplanned = results.filter((r) => !planned.has(r.id)).map((r) => r.id).sort();
+  const unplanned = [...attemptsById.keys()].filter((id) => !planned.has(id)).sort();
 
   const required = rows.filter((r) => r.level === "REQUIRED");
   const requiredLocal = required.filter((r) => r.kind !== "ci");
@@ -159,6 +256,10 @@ export function summarize(plan, results = []) {
     rows,
     failed: failed.map((r) => r.id),
     notRun: notDone.map((r) => r.id),
+    stale: rows.filter((r) => r.stale).map((r) => r.id),
+    flaky: rows.filter((r) => r.flaky).map((r) => r.id),
+    earlierFailures: rows.flatMap((r) => (r.earlierFailures ?? []).map((e) => ({ id: r.id, attempt: e.attempt, detail: e.detail }))),
+    attestedOnly: rows.filter((r) => r.evidence === "attested").map((r) => r.id),
     recommendedNotRun: rows.filter((r) => r.level === "RECOMMENDED" && (r.status === "NOT_RUN" || r.status === "SKIPPED")).map((r) => r.id),
     unplanned,
     problems: plan.problems,
@@ -170,12 +271,30 @@ export function summarize(plan, results = []) {
   };
 }
 
+/** The `ci-pr` record: validated evidence from the tool, a claim, or nothing. */
+function ciRecordFrom(context) {
+  const e = context.ciEvidence;
+  const state = context.state;
+  if (e?.validated === true) {
+    if (state && (state.error || state.dirty || state.head !== e.headSha)) {
+      return { id: "ci-pr", status: "PENDING_CI", detail: "CI passed for a commit that is not exactly what is checked out here (or the tree has changes on top of it): not counted" };
+    }
+    return { id: "ci-pr", evidence: "github-api", ci: e };
+  }
+  if (e && e.validated === false) {
+    if (e.failed) return { id: "ci-pr", evidence: "github-api", ci: { validated: false, failed: true, reason: e.reason, runId: e.runId } };
+    return { id: "ci-pr", status: "PENDING_CI", detail: e.reason };
+  }
+  if (context.attestedCi) return { id: "ci-pr", evidence: "attested", ci: context.attestedCi };
+  return undefined;
+}
+
 const VERDICT_TEXT = {
   BLOCKED: "BLOCKED - fix the problems below first",
   FAILED: "FAILED - at least one check failed",
-  INCOMPLETE: "INCOMPLETE - required checks were not run or were skipped",
+  INCOMPLETE: "INCOMPLETE - required checks were not run, were skipped, or no longer apply",
   LOCALLY_VERIFIED: "LOCALLY VERIFIED - every required local check passed; this is NOT the CI result",
-  VERIFIED: "VERIFIED - every required local check passed and GitHub CI passed",
+  VERIFIED: "VERIFIED - every required check passed here, and GitHub CI for this exact commit passed (retrieved and validated by this tool)",
 };
 
 /** The report, as Markdown. Deterministic. */
@@ -185,7 +304,7 @@ export function renderReport(s) {
   L.push(`**Verdict: ${VERDICT_TEXT[s.verdict]}**`, "");
   L.push(`Base: ${s.base ?? "?"}. Risk: ${s.risk}${s.conservative ? " (conservative: some path could not be classified)" : ""}.`);
   if (s.verdict !== "VERIFIED") {
-    L.push(s.ciRequired ? "GitHub CI has not (yet) passed on the pull request. Only that result is authoritative." : "No CI check was required by this plan; CI still runs on the pull request.");
+    L.push(s.ciRequired ? "GitHub CI for this exact commit has not been shown to pass by this tool. Only that result is authoritative." : "No CI check was required by this plan; CI still runs on the pull request.");
   }
   L.push("");
   if (s.problems.length > 0) L.push("**Problems**", ...s.problems.map((p) => `- ${p}`), "");
@@ -197,12 +316,21 @@ export function renderReport(s) {
     }
     L.push("");
   }
-  L.push("| Check | Level | Status | Detail |", "|---|---|---|---|");
+  L.push("| Check | Level | Status | Evidence | Detail |", "|---|---|---|---|---|");
   for (const r of s.rows) {
     const secs = r.durationSec != null ? ` (${Math.round(r.durationSec)} s)` : "";
-    L.push(`| ${r.id} | ${r.level} | ${r.status.replace("_", " ")} | ${String(r.detail).replace(/\|/g, "/")}${secs} |`);
+    const attempt = r.attempt > 1 ? ` [attempt ${r.attempt}]` : "";
+    L.push(`| ${r.id} | ${r.level} | ${r.status.replace("_", " ")} | ${r.evidence ?? "-"} | ${String(r.detail).replace(/\|/g, "/")}${secs}${attempt} |`);
   }
   L.push("");
+  if (s.earlierFailures.length > 0) {
+    L.push("**Earlier failed attempts (kept: a rerun does not erase them)**");
+    for (const e of s.earlierFailures) L.push(`- \`${e.id}\` attempt ${e.attempt ?? "?"}: ${e.detail}`);
+    L.push("");
+  }
+  if (s.attestedOnly.length > 0) {
+    L.push(`**Attested by hand, not observed by this tool:** ${s.attestedOnly.map((i) => `\`${i}\``).join(", ")}`, "");
+  }
   const notRun = s.rows.filter((r) => r.status === "NOT_RUN" || r.status === "SKIPPED" || r.status === "PENDING_CI");
   L.push("**Skipped / not run**");
   if (notRun.length === 0) L.push("- none");

@@ -14,8 +14,8 @@ memory or on how a result is phrased:
 | Script | Job |
 |---|---|
 | `select-checks.mjs` | Reads the diff and prints the plan: **REQUIRED** checks, **RECOMMENDED** deeper ones, approvals needed, and limits. Runs nothing. |
-| `run-checks.mjs` | Runs plan checks (only `npm`/`npx`/`node` commands, no shell operators) and records the real exit code and output. |
-| `report.mjs` | Judges the records against the plan and prints the report and its verdict. |
+| `run-checks.mjs` | Runs plan checks and records the real exit code and output, bound to the plan, the command and the exact files. It runs only the verification commands in `command-policy.mjs` and never passes on this shell's database settings. |
+| `report.mjs` | Judges the records against the plan and prints the report and its verdict. Stale results (anything changed since they ran) count as not run. |
 
 ## Procedure
 
@@ -33,19 +33,32 @@ memory or on how a result is phrased:
 3. **Run, cheapest first.** Tier 0 and 1 after a logical change, tier 2-3 before pushing a
    risky change (or leave them to CI, which is faster than this laptop):
    `node .claude/skills/wentz-verify/run-checks.mjs --plan <scratch>/plan.json --out <scratch>/results.json --tier-max 1 --level required`
-   - Database checks are skipped unless `--with-database`, and then you must have started one:
-     `npm run online:db`, and run those checks one file at a time.
+   - **The runner will not run any command that is not a known verification command**, and will not
+     pass on `DATABASE_URL`, `TEST_DATABASE_URL` or any Neon/Postgres variable from your shell: a
+     check starts with a clean environment. A database check runs only with an explicit test
+     database: start one (`npm run online:db`) and add `--test-database local-pglite` (or a URL on
+     this machine that is clearly a test database: port 5433 or a name containing `test`, no query
+     string). Without it those checks are not run, and the report says so. Never point it at a real
+     or hosted database; it will refuse.
+   - Run database files one at a time (the plan already says `--no-file-parallelism`).
    - **RECOMMENDED** checks are the deeper ones (12-league statistics, league metrics, stress
      test, transitive related-tests). Run them for engine or balance changes and before asking
      to merge a high-risk change; otherwise name them as not run.
    - Do the **manual** checks for real (diff review, How It Works text, browser look) and attest
-     with `--confirm <id,...>` in step 4. Never confirm one you did not do.
+     with `--confirm <id,...>` in step 4. Never confirm one you did not do. `--confirm` works only
+     for manual checks, and the report marks them *attested*, not observed.
+   - If you change a file after a check ran, that result is **stale** and the check shows as not
+     run: rerun it. A rerun adds an attempt; the earlier failure stays in the report.
 4. **Report.** `node .claude/skills/wentz-verify/report.mjs --plan <scratch>/plan.json --results <scratch>/results.json --confirm <ids>`
    and give its output as it is. Its exit code: 0 verified or locally verified; 1 failed or
    blocked; 4 incomplete.
-5. **CI is the authority.** After a push the user has asked for, read the PR's checks (public API,
-   or ask). Pass the result as `--ci '{"test":"success","deploy":"skipped","event":"pull_request"}'`.
-   Only then can the verdict be **VERIFIED**; without it the best is **LOCALLY VERIFIED**.
+5. **CI is the authority, and the tool must fetch it.** After a push the user has asked for and an open
+   pull request, add `--check-ci`: the script reads GitHub's own record (read-only) of the
+   `Test and deploy Render` run for the commit checked out here and accepts it only if it was a
+   `pull_request` run for exactly this commit, with a clean working tree, `test` successful and
+   `deploy` skipped. Only that can make the verdict **VERIFIED**. A CI result you type in
+   (`--ci '{...}'`) is shown as a claim and never believed: it cannot produce VERIFIED, and a claim
+   that CI failed counts as a failure. Without `--check-ci` the best is **LOCALLY VERIFIED**.
 
 ## Reporting rules
 

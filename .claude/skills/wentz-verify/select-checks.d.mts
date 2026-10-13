@@ -32,6 +32,10 @@ export interface Check {
   tier: number;
   label: string;
   commands: string[];
+  /** Directory (relative to the repo root) the commands run in; absent means the repo root. */
+  cwd?: string;
+  /** How the result is read: "vitest" (summary lines), "stress" (its own summary) or "exit" (exit code only). */
+  parser?: "vitest" | "stress" | "exit";
   files: string[];
   reasons: string[];
   needsDatabase: boolean;
@@ -127,6 +131,7 @@ export function looksLikeScratch(path: string, map: RiskMap): boolean;
 export function classify(path: string, map: RiskMap): { kind: "rule"; rule: RiskMapRule } | { kind: "unknown-source" | "unclassified" };
 export function projectOf(path: string, map: RiskMap): string | null;
 export function isTestFile(path: string): boolean;
+export function isCodeFile(path: string): boolean;
 export function extractSpecifiers(source: string): string[];
 export function specifierKey(spec: string, fromPath: string): string | null;
 export function buildTestIndex(root: string, map: RiskMap): IndexedTest[];

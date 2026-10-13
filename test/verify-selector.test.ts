@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -308,7 +308,7 @@ describe("renamed and deleted files", () => {
     const p = run([change("online/src/phases.ts", "D", ["unstaged"])]);
     expect(ids(p)).toContain("tc-online");
     expect(ids(p)).toContain("circuits");
-    expect(ids(p, "recommended")).toContain("related-online");
+    expect(ids(p, "recommended")).toContain("full-online"); // nothing is left to trace a related run from
     expect(p.notes.join(" ")).toContain("was deleted");
   });
 
@@ -340,7 +340,7 @@ describe("choosing the tests that import a changed file", () => {
     expect(ui?.commands[0]).toContain("npm --prefix ui-source run test -- src/state/");
     expect(ui?.files).toContain("ui-source/src/state/reveal.test.ts");
     expect(online?.files).toContain("online/test/preseason-block.test.ts");
-    expect(online?.commands[0]).toContain("npx vitest run --root online test/");
+    expect(online?.commands[0]).toContain("npx vitest run --root online --no-file-parallelism test/"); // result-visibility needs a database
   });
 
   it("runs the changed test itself when only a test changed", () => {
@@ -647,5 +647,192 @@ describe("the command line", () => {
     expect(text).toContain('execFileSync("git"');
     // a bare spawn(...) / exec(...) call; `regex.exec(...)` is a method call and is fine
     expect(text).not.toMatch(/(?<![.\w])(?:spawn|spawnSync|exec|execSync)\(/);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------
+ * Corrections after an independent review. Each test names the defect it pins.
+ * ------------------------------------------------------------------------------------------ */
+
+const every = (p: Plan) => [...p.required, ...p.recommended];
+const allCommands = (p: Plan) => every(p).flatMap((c) => c.commands);
+
+describe("a generated command is always runnable as written", () => {
+  const scenarios: Array<[string, Change[], IndexedTest[]?]> = [
+    ["a deleted source file", [change("online/src/phases.ts", "D", ["unstaged"])]],
+    ["a renamed source file", [change("online/src/b.ts", "R", ["committed"], { oldPath: "online/src/a.ts" }), change("online/src/a.ts", "D", ["committed"], { renamedTo: "online/src/b.ts" })]],
+    ["a rename across projects", [change("ui-source/src/state/a.ts", "D", ["committed"], { renamedTo: "online/src/b.ts" }), change("online/src/b.ts", "R", ["committed"], { oldPath: "ui-source/src/state/a.ts" })]],
+    ["a runtime data file", [change("test/fixtures/verify-replay.json")]],
+    ["an unknown jsx file", [change("tools/Thing.jsx", "A", ["untracked"])]],
+    ["a source file nothing imports", [change("src/data/csv.ts")], []],
+    ["an engine file", [change("src/engine/weather.ts")]],
+    ["a ui state file", [change("ui-source/src/state/reveal.ts")]],
+    ["an http file", [change("online/src/throttle.ts")]],
+    ["a pool file", [change("ui-source/src/data/pool-2025.json")]],
+  ];
+  it.each(scenarios)("%s", (_name, changes, index) => {
+    const p = run(changes, index);
+    expect(every(p).length).toBeGreaterThan(0);
+    for (const cmd of allCommands(p)) {
+      // an unfilled placeholder such as <base>, {files} or <changed files> is a command nobody can run
+      expect(cmd, cmd).not.toMatch(/[<>{}]/);
+      expect(cmd, cmd).not.toMatch(/\brelated\s+(?:--|$)/); // `related` with no file after it
+      expect(cmd.trim(), cmd).not.toBe("");
+    }
+  });
+
+  it("prints the real base in the scope command", () => {
+    const p = run([change("docs/a.md")], realIndex, { base: "origin/master", mergeBase: "0123456789abcdef0123456789abcdef01234567" });
+    expect(p.required.find((c) => c.id === "scope")?.commands).toContain("git diff --stat 0123456789abcdef0123456789abcdef01234567");
+  });
+
+  it("never copies an unvetted --base into a command", () => {
+    const p = run([change("docs/a.md")], realIndex, { base: "origin/master; rm -rf /", mergeBase: "not-a-sha; rm -rf /" });
+    expect(p.required.find((c) => c.id === "scope")?.commands).toContain("git diff --stat HEAD");
+    expect(JSON.stringify(allCommands(p))).not.toContain("rm -rf");
+  });
+});
+
+describe("related-test commands select tests (they were empty before)", () => {
+  const cmdOf = (p: Plan, id: string) => every(p).find((c) => c.id === id)!;
+
+  it("puts online paths relative to the online root, which is where --root online looks", () => {
+    const c = cmdOf(run([change("online/src/throttle.ts")]), "related-online");
+    expect(c.commands).toEqual(["npx vitest related src/throttle.ts --root online --run"]);
+  });
+
+  it("runs the UI related command inside ui-source, with the UI project's own vitest", () => {
+    const c = cmdOf(run([change("ui-source/src/state/roasts.ts")]), "related-ui");
+    expect(c.cwd).toBe("ui-source");
+    expect(c.commands).toEqual(["npx vitest related src/state/roasts.ts --run"]);
+  });
+
+  it("reaches across projects with a relative path, not an unusable repo path", () => {
+    const p = run([change("ui-source/src/state/reveal.ts")]);
+    expect(cmdOf(p, "related-online").commands[0]).toBe("npx vitest related ../ui-source/src/state/reveal.ts --root online --run");
+  });
+
+  it("keeps engine paths repo-relative", () => {
+    const c = cmdOf(run([change("src/data/csv.ts")], []), "related-engine");
+    expect(c.commands).toEqual(["npx vitest related src/data/csv.ts --run"]);
+    expect(c.cwd).toBeUndefined();
+  });
+
+  // The decisive test: run what the selector generates, in collection-only mode, and require that
+  // it finds test files. The old commands answered "No test files found" and ran nothing.
+  const collectOnly = (c: { commands: string[]; cwd?: string }) => {
+    const [cmd] = c.commands;
+    const result = spawnSync(`${cmd} --testNamePattern=__none__`, { cwd: join(ROOT, c.cwd ?? "."), shell: true, encoding: "utf8", timeout: 120_000, env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" } });
+    return `${result.stdout}\n${result.stderr}`;
+  };
+  it.each([
+    ["online", "online/src/throttle.ts", "related-online", undefined],
+    ["ui", "ui-source/src/state/roasts.ts", "related-ui", undefined],
+    ["engine", "src/data/csv.ts", "related-engine", [] as IndexedTest[]],
+  ])("the generated %s command collects test files", { timeout: 150_000 }, (_n, file, id, index) => {
+    const out = collectOnly(cmdOf(run([change(file)], index), id));
+    expect(out).not.toMatch(/No test files found/i);
+    expect(out).toMatch(/Test Files\s+(?:\d+ \w+\s*\|\s*)*\d+ skipped \((\d+)\)/);
+    const total = Number(/Test Files[^\n]*\((\d+)\)/.exec(out)?.[1] ?? 0);
+    expect(total).toBeGreaterThan(0);
+  });
+});
+
+describe("deleted and renamed files give a plan that can run", () => {
+  it("falls back to the whole suite when a deleted file leaves nothing to trace from", () => {
+    const p = run([change("online/src/phases.ts", "D", ["unstaged"])]);
+    expect(ids(p, "recommended")).toContain("full-online");
+    expect(every(p).find((c) => c.id === "related-online")).toBeUndefined();
+  });
+
+  it("selects tests for the new path of a rename and the whole suite for the old one", () => {
+    const p = run([change("online/src/throttle2.ts", "R", ["committed"], { oldPath: "online/src/throttle.ts" }), change("online/src/throttle.ts", "D", ["committed"], { renamedTo: "online/src/throttle2.ts" })]);
+    expect(ids(p, "recommended")).toContain("full-online");
+    expect(allCommands(p).join(" ")).not.toMatch(/[<>{}]/);
+  });
+});
+
+describe("files tests read at run time cannot silently select nothing", () => {
+  it("runs the whole engine suite for a fixture under test/", () => {
+    const p = run([change("test/fixtures/league-seed.json")]);
+    expect(ids(p)).toContain("full-engine");
+    expect(p.notes.join(" ")).toMatch(/no test imports it/);
+  });
+
+  it("runs the whole suite for a data file with no importing test, never a related run", () => {
+    const p = run([change("online/src/seed-data.json", "A", ["unstaged"])], []);
+    const related = every(p).find((c) => c.id === "related-online");
+    expect(related?.commands).toEqual(["npm run online:test"]); // the whole suite, not a related run that finds nothing
+    expect(related?.note).toMatch(/not code/);
+  });
+
+  it("runs the whole online suite for a fixture under online/test", () => {
+    expect(ids(run([change("online/test/fixtures/league.json")]))).toContain("full-online");
+  });
+
+  it("still runs the importing tests for a helper that tests import", () => {
+    const index = [test_("test/a.test.ts", ["test/helpers"]), test_("test/b.test.ts", [])];
+    const p = run([change("test/helpers.ts")], index);
+    expect(p.required.find((c) => c.id === "direct:engine")?.files).toEqual(["test/a.test.ts"]);
+    expect(ids(p)).not.toContain("full-engine");
+  });
+});
+
+describe("unknown file types are verified conservatively", () => {
+  it.each(["tools/Thing.jsx", "scripts/legacy.cts", "tools/thing.vue", "tools/thing.svelte", "Dockerfile", "online/Dockerfile", ".env", ".env.production", "Makefile"])("%s", (path) => {
+    const p = run([change(path, "A", ["untracked"])]);
+    expect(p.conservative).toBe(true);
+    expect(p.unknownSourcePaths).toContain(path);
+    expect(ids(p)).toEqual(expect.arrayContaining(["full-engine", "full-ui", "full-online", "ci-pr"]));
+  });
+});
+
+describe("database checks are serialised and carry their setup", () => {
+  it("gives the visibility check a prerequisite, a test database URL and --no-file-parallelism", () => {
+    const c = every(run([change("online/src/index.ts")])).find((x) => x.id === "visibility")!;
+    expect(c.needsDatabase).toBe(true);
+    expect(c.prerequisite).toMatch(/5433/);
+    expect(c.env).toMatchObject({ DATABASE_URL: "postgres://postgres@localhost:5433/postgres", DB_POOL_MAX: "1", CI: "true" });
+    expect(c.commands[0]).toContain("--no-file-parallelism");
+  });
+
+  it("every check that needs a database says how to reach one", () => {
+    for (const path of ["online/src/db.ts", "online/test/lobby.test.ts", "online/src/index.ts", "online/test/requireDatabase.ts"]) {
+      for (const c of every(run([change(path)])).filter((x) => x.needsDatabase)) {
+        expect(c.env, `${c.id} for ${path}`).toBeDefined();
+        expect(c.prerequisite, `${c.id} for ${path}`).toBeDefined();
+        if (c.commands.some((cmd) => /vitest run/.test(cmd))) expect(c.commands.join(" "), `${c.id}`).toContain("--no-file-parallelism");
+      }
+    }
+  });
+
+  it("serialises direct database suites when several are chosen together", () => {
+    const p = run([change("online/test/lobby.test.ts", "M", ["unstaged"]), change("online/test/hot-seat.test.ts", "M", ["unstaged"])]);
+    const d = p.required.find((c) => c.id === "direct:online")!;
+    expect(d.needsDatabase).toBe(true);
+    expect(d.commands[0]).toMatch(/^npx vitest run --root online --no-file-parallelism /);
+  });
+
+  it("does not add the flag to a command that touches no database suite", () => {
+    const d = run([change("online/test/boxscore.test.ts", "M", ["unstaged"])]).required.find((c) => c.id === "direct:online")!;
+    expect(d.needsDatabase).toBe(false);
+    expect(d.commands[0]).not.toContain("--no-file-parallelism");
+  });
+});
+
+describe("the data and tests the verification tooling reads", () => {
+  // The replay fixture is read only by test/verify-replay.test.ts. Changing it alone used to select
+  // scope, the engine typecheck and CI, and so never ran the one test that reads it.
+  it.each(["test/fixtures/verify-replay.json", "test/verify-replay.test.ts", "test/verify-selector.test.ts", "test/verify-safety.test.ts"])("%s selects the tooling's own tests", (path) => {
+    const p = run([change(path)]);
+    expect(ids(p)).toEqual(expect.arrayContaining(["scope", "tc-engine", "selector-tests"]));
+    expect(p.classes).toContain("verification-tooling");
+    expect(ids(p)).not.toContain("full-engine");
+  });
+
+  it("makes that check run the replay test as well", () => {
+    const check = sel.loadMap().checks["selector-tests"] as { commands: string[] };
+    expect(check.commands[0]).toContain("test/verify-replay.test.ts");
+    expect(check.commands[0]).toContain("test/verify-safety.test.ts");
   });
 });

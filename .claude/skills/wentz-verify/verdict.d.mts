@@ -6,6 +6,7 @@ export type Verdict = "BLOCKED" | "FAILED" | "INCOMPLETE" | "LOCALLY_VERIFIED" |
 
 export interface RunRecord {
   id: string;
+  attempt?: number;
   exitCode?: number | null;
   output?: string;
   timedOut?: boolean;
@@ -13,7 +14,11 @@ export interface RunRecord {
   durationSec?: number;
   status?: Status;
   detail?: string;
-  ci?: { test?: string; deploy?: string; event?: string };
+  evidence?: string;
+  binding?: { planDigest: string; commandDigest: string; head: string | null; treeDigest: string | null };
+  commands?: string[];
+  database?: string;
+  ci?: { test?: string; deploy?: string; event?: string; validated?: boolean; failed?: boolean; reason?: string; headSha?: string; runId?: number };
 }
 
 export interface Judgement {
@@ -23,6 +28,8 @@ export interface Judgement {
   durationSec: number | null;
   failures?: string[];
   skipped?: number;
+  stale?: boolean;
+  flaky?: boolean;
 }
 
 export interface Row extends Judgement {
@@ -31,6 +38,9 @@ export interface Row extends Judgement {
   kind: string;
   commands: string[];
   needsDatabase: boolean;
+  evidence: string | null;
+  attempt?: number | null;
+  earlierFailures?: Array<{ attempt: number | null; detail: string }>;
 }
 
 export interface Summary {
@@ -41,6 +51,10 @@ export interface Summary {
   rows: Row[];
   failed: string[];
   notRun: string[];
+  stale: string[];
+  flaky: string[];
+  earlierFailures: Array<{ id: string; attempt: number | null; detail: string }>;
+  attestedOnly: string[];
   recommendedNotRun: string[];
   unplanned: string[];
   problems: string[];
@@ -51,19 +65,32 @@ export interface Summary {
   ciRequired: boolean;
 }
 
+export interface Counts { passed: number; failed: number; skipped: number; todo: number; total: number; summaries: number }
+
 export interface Parsed {
-  tests: { passed: number; failed: number; skipped: number; todo: number; total: number } | null;
-  files: { passed: number; failed: number; skipped: number; todo: number; total: number } | null;
+  tests: Counts | null;
+  files: Counts | null;
   failures: string[];
   tscErrors: number;
   databaseUsed: boolean;
   databaseSetupFailed: boolean;
 }
 
+export interface SummarizeContext {
+  /** The repository now (from `fingerprint`). Absent means bindings are not checked. */
+  state?: { head?: string; dirty?: boolean; digest?: string; error?: string };
+  /** From `fetchCiEvidence`. Only `validated: true` can produce VERIFIED. */
+  ciEvidence?: { validated: boolean; reason?: string; failed?: boolean; headSha?: string; test?: string; deploy?: string; event?: string; runId?: number; runUrl?: string };
+  /** A person's claim about CI: shown, never believed. */
+  attestedCi?: { test?: string; deploy?: string; event?: string };
+}
+
 export const VERDICTS: Verdict[];
 export const STATUSES: Status[];
 export function parseTestOutput(raw?: string): Parsed;
-export function judge(check: Pick<Check, "id" | "kind" | "commands" | "needsDatabase">, run: RunRecord | undefined): Judgement;
-export function summarize(plan: Plan, results?: RunRecord[]): Summary;
+export function parseStressOutput(raw?: string): { invariantFailures: number | null; replay: string | null };
+export function parserFor(check: Pick<Check, "commands"> & { parser?: string }): "vitest" | "stress" | "exit";
+export function judge(check: Pick<Check, "id" | "kind" | "commands" | "needsDatabase"> & { parser?: string }, run: RunRecord | undefined): Judgement;
+export function summarize(plan: Plan, results?: RunRecord[], context?: SummarizeContext): Summary;
 export function renderReport(summary: Summary): string;
 export function exitCodeFor(verdict: Verdict): number;

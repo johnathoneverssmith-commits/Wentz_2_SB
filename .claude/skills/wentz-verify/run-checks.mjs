@@ -4,89 +4,129 @@
  *
  *   node select-checks.mjs --out plan.json
  *   node run-checks.mjs --plan plan.json --out results.json [--tier-max 1] [--ids a,b]
- *        [--level required|all] [--with-database] [--timeout-sec 900] [--cwd <repo>]
+ *        [--level required|all] [--test-database local-pglite|<local url>] [--timeout-sec 900] [--cwd <repo>]
  *   node report.mjs --plan plan.json --results results.json
  *
- * The record (exit code, the end of the output, how long it took) is written by
- * this script, not retyped by whoever is reporting, which is what keeps a
- * failure from being summarised as a pass. It only runs commands that appear in
- * the plan AND start with npm, npx or node AND contain no shell operators: it
- * cannot push, merge, deploy, call a network service or delete anything.
+ * A plan is a file anyone can edit, so nothing in it is trusted:
+ *   - each command must match one of the verification commands in
+ *     command-policy.mjs (an allowlist of exact shapes: typecheck, the test
+ *     scripts, `vitest run|related` on files that exist, the two analysis
+ *     scripts). Arbitrary `node -e`, other npx packages, other npm scripts,
+ *     paths outside the repository and any shell operator are refused;
+ *   - a check never inherits this shell's environment. In particular a
+ *     DATABASE_URL, TEST_DATABASE_URL or Neon/Postgres variable that happens to
+ *     be exported is NOT passed on (db-safety.mjs). A check that needs a
+ *     database runs only with `--test-database`, which must be a database on
+ *     this machine that is clearly a test database; without it, or with
+ *     anything else, the check does not run.
  *
- * Checks that need a database are skipped unless --with-database is given, and
- * then it is up to the caller to have started one (`npm run online:db`).
- * Manual and CI checks are never run here; they are confirmed by hand or read
- * from GitHub.
+ * The record (exit code, the end of the output, how long it took) is written by
+ * this script, not retyped by whoever is reporting, and is bound to the plan,
+ * the command and the exact state of the working tree (evidence.mjs). Records
+ * are appended: a rerun keeps the earlier attempts, failures included.
+ * Manual and CI checks are never run here.
  */
 import { spawnSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { DEFAULT_POLICY, launchSpec, validateCommand, validateEnv } from "./command-policy.mjs";
+import { environmentFor, resolveTestDatabase } from "./db-safety.mjs";
+import { appendRun, bindingFor, fingerprint, normalizeHistory, planDigest } from "./evidence.mjs";
 import { readJson } from "./io.mjs";
 
-const ALLOWED_PROGRAMS = new Set(["npm", "npx", "node"]);
-const SHELL_OPERATORS = /[;&|<>`$\n\r]/;
 /** The last part of the output, where a runner prints its summary. */
 const KEEP_OUTPUT_CHARS = 16_000;
 
 /** Why a command may not be run, or null if it may. */
-export function refusal(command) {
-  const program = command.trim().split(/\s+/)[0] ?? "";
-  if (!ALLOWED_PROGRAMS.has(program)) return `"${program}" is not npm, npx or node`;
-  if (SHELL_OPERATORS.test(command)) return "contains a shell operator";
-  return null;
+export function refusal(command, { repoRoot = process.cwd(), cwd = ".", policy = DEFAULT_POLICY, fileExists } = {}) {
+  const v = validateCommand(command, { repoRoot, cwd, policy, ...(fileExists ? { fileExists } : {}) });
+  return v.ok ? null : v.reason;
 }
 
-/** Which of the plan's checks this invocation would run. */
-export function selectChecks(plan, { ids = null, tierMax = 99, level = "all", withDatabase = false } = {}) {
+/** Which of the plan's checks this invocation would run. A database check needs `testDatabase`, a valid one. */
+export function selectChecks(plan, { ids = null, tierMax = 99, level = "all", testDatabase = undefined } = {}) {
   const pool = level === "required" ? plan.required : [...plan.required, ...plan.recommended];
+  const haveDatabase = resolveTestDatabase(testDatabase).ok;
   return pool.filter((c) => {
     if (c.kind !== "command") return false;
     if (ids && !ids.includes(c.id)) return false;
     if (c.tier > tierMax) return false;
-    if (c.needsDatabase && !withDatabase) return false;
+    if (c.needsDatabase && !haveDatabase) return false;
     return true;
   });
 }
 
-/** Runs one check; returns the record `verdict.mjs` judges. */
-export function runCheck(check, { cwd, timeoutSec = 900, log = () => {} } = {}) {
+/** Runs one check; returns the record `verdict.mjs` judges. Never throws for a refused command: it records why. */
+export function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, log = () => {}, policy = DEFAULT_POLICY, parentEnv = process.env, testDatabase, platform = process.platform, fileExists } = {}) {
   const started = Date.now();
-  const record = { id: check.id, exitCode: null, output: "", durationSec: 0, timedOut: false, commands: [] };
-  const env = { ...process.env, ...(check.env ?? {}) };
-  let out = "";
+  const record = { id: check.id, exitCode: null, output: "", durationSec: 0, timedOut: false, commands: [], evidence: "observed", startedAt: new Date(started).toISOString() };
+  const finish = () => {
+    record.durationSec = (Date.now() - started) / 1000;
+    return record;
+  };
+  const repoRoot = resolve(cwd);
+  const runDir = check.cwd ?? ".";
+
+  const declared = validateEnv(check.env);
+  if (!declared.ok) {
+    record.error = `refused to run: ${declared.reason}`;
+    return finish();
+  }
+  const environment = environmentFor(check, declared.env, { parentEnv, testDatabase });
+  if (!environment.ok) {
+    record.error = `refused to run: ${environment.reason}`;
+    return finish();
+  }
+  if (environment.database) {
+    record.database = environment.database;
+    log(`  database: ${environment.database}`);
+  }
+  // validate every command before starting any, so a bad second command cannot follow a first that already ran
+  const validated = [];
   for (const command of check.commands) {
-    const why = refusal(command);
-    if (why) {
-      record.error = `refused to run "${command}": ${why}`;
-      record.exitCode = null;
-      break;
+    const v = validateCommand(command, { repoRoot, cwd: runDir, policy, ...(fileExists ? { fileExists } : {}) });
+    if (!v.ok) {
+      record.error = `refused to run "${command}": ${v.reason}`;
+      return finish();
     }
-    log(`  $ ${command}`);
-    const r = spawnSync(command, { cwd, env, shell: true, encoding: "utf8", timeout: timeoutSec * 1000, maxBuffer: 256 * 1024 * 1024 });
-    record.commands.push(command);
-    out += `${r.stdout ?? ""}${r.stderr ?? ""}`;
-    if (r.error && r.error.code === "ETIMEDOUT") {
-      record.timedOut = true;
-      record.exitCode = null;
-      break;
+    validated.push({ command, v });
+  }
+
+  let out = "";
+  for (const { command, v } of validated) {
+    let outputDir = null;
+    try {
+      if (v.kind === "stress") outputDir = mkdtempSync(join(tmpdir(), "wentz-stress-")); // the stress test writes many files: never into the repository
+      const spec = launchSpec(v, { platform, appendArgs: outputDir ? ["--output", outputDir] : [] });
+      log(`  $ ${command}`);
+      const r = spawnSync(spec.file, spec.args, { cwd: resolve(repoRoot, v.cwd), env: environment.env, shell: spec.shell, encoding: "utf8", timeout: timeoutSec * 1000, maxBuffer: 256 * 1024 * 1024 });
+      record.commands.push(command);
+      out += `${r.stdout ?? ""}${r.stderr ?? ""}`;
+      if (r.error && r.error.code === "ETIMEDOUT") {
+        record.timedOut = true;
+        record.exitCode = null;
+        break;
+      }
+      if (r.error) {
+        record.error = r.error.message;
+        record.exitCode = null;
+        break;
+      }
+      record.exitCode = r.status ?? null;
+      if (r.status !== 0) break; // a later command cannot make up for this one
+    } finally {
+      if (outputDir) rmSync(outputDir, { recursive: true, force: true });
     }
-    if (r.error) {
-      record.error = r.error.message;
-      record.exitCode = null;
-      break;
-    }
-    record.exitCode = r.status ?? null;
-    if (r.status !== 0) break; // a later command cannot make up for this one
   }
   record.output = out.length > KEEP_OUTPUT_CHARS ? out.slice(-KEEP_OUTPUT_CHARS) : out;
-  record.durationSec = (Date.now() - started) / 1000;
-  return record;
+  return finish();
 }
 
 function parseArgs(argv) {
-  const o = { plan: null, out: null, tierMax: 99, ids: null, level: "all", withDatabase: false, timeoutSec: 900, cwd: process.cwd() };
+  const o = { plan: null, out: null, tierMax: 99, ids: null, level: "all", testDatabase: undefined, timeoutSec: 900, cwd: process.cwd() };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--plan") o.plan = argv[++i];
@@ -94,7 +134,8 @@ function parseArgs(argv) {
     else if (a === "--tier-max") o.tierMax = Number(argv[++i]);
     else if (a === "--ids") o.ids = argv[++i].split(",").filter(Boolean);
     else if (a === "--level") o.level = argv[++i];
-    else if (a === "--with-database") o.withDatabase = true;
+    else if (a === "--test-database") o.testDatabase = argv[++i];
+    else if (a === "--with-database") throw new Error("--with-database was removed: it let a run use whatever DATABASE_URL was set. Use --test-database local-pglite (after `npm run online:db`) or a local test database URL");
     else if (a === "--timeout-sec") o.timeoutSec = Number(argv[++i]);
     else if (a === "--cwd") o.cwd = resolve(argv[++i]);
     else throw new Error(`unknown argument: ${a}`);
@@ -112,28 +153,50 @@ export function main(argv = process.argv.slice(2)) {
     process.stderr.write(`${e.message}\n`);
     return 2;
   }
+  if (a.testDatabase !== undefined) {
+    const chosen = resolveTestDatabase(a.testDatabase);
+    if (!chosen.ok) {
+      process.stderr.write(`${chosen.reason}\nnothing was run.\n`);
+      return 2;
+    }
+    process.stdout.write(`test database: ${chosen.description}\n`);
+  }
   const plan = readJson(a.plan);
-  let existing = [];
-  try {
-    existing = readJson(a.out).results ?? [];
-  } catch {
-    // no earlier record
+  const state = fingerprint(a.cwd);
+  if (state.error) {
+    process.stderr.write(`${state.error}\nnothing was run: a result cannot be tied to a repository state that cannot be read.\n`);
+    return 2;
+  }
+  let history = { version: 2, runs: [] };
+  if (existsSync(a.out)) {
+    try {
+      history = normalizeHistory(readJson(a.out));
+    } catch (e) {
+      process.stderr.write(`${a.out} exists but cannot be read (${e.message}): not overwriting it. Move it aside to start again.\n`);
+      return 2;
+    }
   }
   const chosen = selectChecks(plan, a);
-  const skippedForDatabase = [...plan.required, ...plan.recommended].filter((c) => c.kind === "command" && c.needsDatabase && !a.withDatabase);
-  if (skippedForDatabase.length > 0) {
-    process.stdout.write(`not running (need a database; pass --with-database after starting one): ${skippedForDatabase.map((c) => c.id).join(", ")}\n`);
+  const left = [...plan.required, ...plan.recommended].filter((c) => c.kind === "command" && c.needsDatabase && !chosen.includes(c));
+  if (left.length > 0) {
+    process.stdout.write(`not running (need a database; start one with \`npm run online:db\` and pass --test-database local-pglite): ${left.map((c) => c.id).join(", ")}\n`);
   }
-  const results = new Map(existing.map((r) => [r.id, r]));
+  const digest = planDigest(plan);
   for (const check of chosen) {
     process.stdout.write(`[${check.id}] ${check.label}\n`);
-    const rec = runCheck(check, { cwd: a.cwd, timeoutSec: a.timeoutSec, log: (l) => process.stdout.write(`${l}\n`) });
-    results.set(check.id, rec);
+    const before = fingerprint(a.cwd);
+    const rec = runCheck(check, { cwd: a.cwd, timeoutSec: a.timeoutSec, testDatabase: a.testDatabase, log: (l) => process.stdout.write(`${l}\n`) });
+    const after = fingerprint(a.cwd);
+    if (before.error || after.error || before.digest !== after.digest) {
+      rec.error = rec.error ?? "the working tree changed while this check ran, so its result cannot be tied to one state of the files";
+    }
+    rec.binding = { ...bindingFor(check, plan, before.error ? { head: null, digest: null } : before), planDigest: digest };
+    history = appendRun(history, rec);
     const verdict = rec.timedOut ? "TIMED OUT" : rec.error ? "ERROR" : `exit ${rec.exitCode}`;
-    process.stdout.write(`    -> ${verdict} in ${rec.durationSec.toFixed(1)} s\n`);
+    process.stdout.write(`    -> ${verdict} in ${rec.durationSec.toFixed(1)} s${rec.error ? `: ${rec.error}` : ""}\n`);
   }
-  writeFileSync(a.out, JSON.stringify({ results: [...results.values()] }, null, 2));
-  process.stdout.write(`recorded ${chosen.length} check(s) in ${a.out}. Not judged here: run report.mjs.\n`);
+  writeFileSync(a.out, JSON.stringify(history, null, 2));
+  process.stdout.write(`recorded ${chosen.length} check(s) in ${a.out} (earlier attempts are kept). Not judged here: run report.mjs.\n`);
   return 0;
 }
 

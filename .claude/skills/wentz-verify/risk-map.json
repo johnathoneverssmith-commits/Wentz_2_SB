@@ -2,7 +2,8 @@
   "version": 1,
   "about": "Maps changed paths to the checks that should run. Read by select-checks.mjs. Rules are tried in order and the first match wins, so more specific rules come first. A path no rule matches is NOT ignored: a source file triggers the conservative set in `unknown`. Update this file in the same change that adds a new area to the repo.",
 
-  "sourceExtensions": [".ts", ".tsx", ".js", ".mjs", ".cjs", ".mts", ".json", ".sql", ".yml", ".yaml", ".css", ".html", ".py", ".sh", ".ps1", ".toml"],
+  "sourceNames": ["Dockerfile", "Makefile", "Procfile"],
+  "sourceExtensions": [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue", ".svelte", ".json", ".sql", ".yml", ".yaml", ".css", ".html", ".py", ".sh", ".ps1", ".toml"],
 
   "projects": {
     "engine": { "prefixes": ["src/", "server/", "analysis/", "artifacts/", "data/", "test/"] },
@@ -54,18 +55,21 @@
   "checks": {
     "scope": {
       "kind": "manual", "tier": 0, "label": "Confirm the scope of the change",
-      "commands": ["git status --short", "git diff --stat <base>"],
+      "commands": ["git status --short", "git diff --stat {base}"],
       "note": "Right branch and worktree (never switch a shared checkout), and the diff is exactly the intended files. No scratch file is staged or committed."
     },
-    "tc-engine": { "kind": "command", "tier": 0, "label": "Engine typecheck", "commands": ["npm run typecheck"], "seconds": { "local": 3, "ci": 2 } },
-    "tc-online": { "kind": "command", "tier": 0, "label": "Online server typecheck", "commands": ["npm run online:typecheck"], "seconds": { "local": 5, "ci": 3 } },
-    "tc-ui": { "kind": "command", "tier": 0, "label": "UI typecheck (tsc -b)", "commands": ["npm --prefix ui-source run typecheck"], "seconds": { "local": 12, "ci": 2 }, "note": "Never use `tsc -p .` in ui-source: it does not follow project references and passes vacuously." },
-    "ui-build": { "kind": "command", "tier": 1, "label": "UI production build", "commands": ["npm --prefix ui-source run build"], "seconds": { "local": 15, "ci": 11 } },
+    "tc-engine": { "kind": "command", "tier": 0, "parser": "exit", "label": "Engine typecheck", "commands": ["npm run typecheck"], "seconds": { "local": 3, "ci": 2 } },
+    "tc-online": { "kind": "command", "tier": 0, "parser": "exit", "label": "Online server typecheck", "commands": ["npm run online:typecheck"], "seconds": { "local": 5, "ci": 3 } },
+    "tc-ui": { "kind": "command", "tier": 0, "parser": "exit", "label": "UI typecheck (tsc -b)", "commands": ["npm --prefix ui-source run typecheck"], "seconds": { "local": 12, "ci": 2 }, "note": "Never use `tsc -p .` in ui-source: it does not follow project references and passes vacuously." },
+    "ui-build": { "kind": "command", "tier": 1, "parser": "exit", "label": "UI production build", "commands": ["npm --prefix ui-source run build"], "seconds": { "local": 15, "ci": 11 } },
 
     "engine-realism": { "kind": "command", "tier": 1, "label": "Engine realism guard (league rates against the NFL)", "commands": ["npx vitest run test/engine-realism.test.ts"], "seconds": { "local": 15, "ci": 10 } },
     "stat-guard": { "kind": "command", "tier": 1, "label": "Passing, rushing, scoring and sack statistics across 6 leagues", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "seconds": { "local": 40, "ci": 25 }, "note": "Compares with a baseline measured on seeds 101-124; if a deliberate change moves the averages, re-measure the baseline in the same commit." },
     "circuits": { "kind": "command", "tier": 1, "label": "Whole-season walkthroughs through the stage wiring", "commands": ["npx vitest run --root online test/full-circuit.test.ts test/annual-circuit.test.ts test/humans-only-circuit.test.ts"], "seconds": { "local": 60, "ci": 30 } },
-    "visibility": { "kind": "command", "tier": 1, "label": "Unrevealed results are never sent to a GM who has not watched them", "commands": ["npx vitest run --root online test/result-visibility.test.ts"], "needsDatabase": true, "seconds": { "local": 20, "ci": 15 } },
+    "visibility": { "kind": "command", "tier": 1, "label": "Unrevealed results are never sent to a GM who has not watched them", "commands": ["npx vitest run --root online --no-file-parallelism test/result-visibility.test.ts"], "needsDatabase": true, "seconds": { "local": 20, "ci": 15 },
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "Run one file at a time on PGlite. Without a database this suite skips, and a skip is not a pass." },
     "db-suites": {
       "kind": "command", "tier": 1, "label": "Database-backed suites",
       "commands": ["npx vitest run --root online --no-file-parallelism test/concurrency.test.ts test/commissioner-away.test.ts test/commissioner-transfer.test.ts test/hot-seat.test.ts test/inbox-facts.test.ts test/lobby.test.ts test/password-reset.test.ts test/poll-unchanged.test.ts test/vacate-advances.test.ts test/vacate-seat.test.ts test/result-visibility.test.ts"],
@@ -77,19 +81,19 @@
     "infra-checks": { "kind": "command", "tier": 1, "label": "Database test helpers, global setup and the no-DDL-in-suites guard", "commands": ["npx vitest run --root online test/require-database.test.ts test/schema-setup.test.ts test/no-schema-in-suites.test.ts"], "seconds": { "local": 3, "ci": 3 } },
     "how-it-works-test": { "kind": "command", "tier": 1, "label": "How It Works text matches the mechanics it states", "commands": ["npm --prefix ui-source run test -- src/state/howItWorks.test.ts"], "seconds": { "local": 5, "ci": 3 } },
     "how-it-works-review": { "kind": "manual", "tier": 1, "label": "If a mechanic changed, ui-source/src/state/howItWorks.ts changes in the same commit", "commands": [], "note": "CLAUDE.md: the player-facing explanation of every system must stay true." },
-    "selector-tests": { "kind": "command", "tier": 1, "label": "Verification tooling's own tests (selector, verdict, runner, replay)", "commands": ["npx vitest run test/verify-selector.test.ts test/verify-verdict.test.ts test/verify-replay.test.ts"], "seconds": { "local": 12, "ci": 7 } },
+    "selector-tests": { "kind": "command", "tier": 1, "label": "Verification tooling's own tests (selector, verdict, runner, safety, replay)", "commands": ["npx vitest run test/verify-selector.test.ts test/verify-verdict.test.ts test/verify-safety.test.ts test/verify-replay.test.ts"], "seconds": { "local": 100, "ci": 45 }, "note": "Includes tests that run vitest and a repository clone of the git commands; the longest is the one proving an exported production DATABASE_URL never reaches a run." },
 
     "related-engine": { "kind": "command", "tier": 2, "label": "Every engine test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "seconds": { "local": 150, "ci": 80 }, "projectFiles": "engine" },
-    "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npm --prefix ui-source run test -- related {files} --run"], "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source" },
-    "related-online": { "kind": "command", "tier": 2, "label": "Every online test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --root online --run"], "seconds": { "local": 100, "ci": 60 }, "projectFiles": "online" },
+    "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "cwd": "ui-source", "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source", "note": "Runs inside ui-source so it uses the UI project's own vitest and config." },
+    "related-online": { "kind": "command", "tier": 2, "label": "Every online test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --root online --run"], "seconds": { "local": 100, "ci": 60 }, "projectFiles": "online", "relativeTo": "online" },
 
     "full-engine": { "kind": "command", "tier": 3, "label": "Full engine suite", "commands": ["npm test"], "seconds": { "local": 180, "ci": 100 } },
     "full-ui": { "kind": "command", "tier": 3, "label": "Full UI suite", "commands": ["npm --prefix ui-source run test"], "seconds": { "local": 325, "ci": 80 } },
     "full-online": { "kind": "command", "tier": 3, "label": "Full online suite", "commands": ["npm run online:test"], "seconds": { "local": 350, "ci": 90 }, "note": "Without DATABASE_URL the database suites SKIP here (they are not exercised). With CI=true and no database they fail, which is what CI does." },
 
     "stats-deep": { "kind": "command", "tier": 4, "label": "Statistics across 12 leagues instead of 6", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "env": { "STATS_SEEDS": "12" }, "seconds": { "local": 90, "ci": 60 } },
-    "league-metrics": { "kind": "command", "tier": 4, "label": "Full league calibration against 2018-2025 NFL aggregates", "commands": ["npx tsx analysis/39_league_metrics.ts"], "seconds": { "local": 600, "ci": null }, "note": "Long. Run for any change to how units affect a play." },
-    "stress-smoke": { "kind": "command", "tier": 4, "label": "Franchise stress test, smoke mode (three seasons plus a replay)", "commands": ["npm run franchise:stress -- --mode smoke"], "seconds": { "local": 120, "ci": null }, "note": "Uses the mock backend, not the real engine." },
+    "league-metrics": { "kind": "command", "tier": 4, "parser": "exit", "label": "Full league calibration against 2018-2025 NFL aggregates", "commands": ["npx tsx analysis/39_league_metrics.ts"], "seconds": { "local": 600, "ci": null }, "note": "Long. Run for any change to how units affect a play." },
+    "stress-smoke": { "kind": "command", "tier": 4, "parser": "stress", "label": "Franchise stress test, smoke mode (three seasons plus a replay)", "commands": ["npm run franchise:stress -- --mode smoke"], "seconds": { "local": 120, "ci": null }, "note": "Uses the mock backend, not the real engine. Not a Vitest run: it prints its own summary and sets its exit code. It writes its files to a scratch directory outside the repository, chosen by the runner." },
     "preview-ui": { "kind": "manual", "tier": 4, "label": "Look at the change in a browser", "commands": ["npm --prefix ui-source run dev"], "note": "Presentation changes are not covered by tests." },
 
     "static-review": { "kind": "manual", "tier": 1, "label": "Read the whole diff of the CI/deploy file", "commands": [], "note": "There is no YAML or Actions linter on this machine, so syntax and deploy conditions are only proven by GitHub running the workflow." },
@@ -163,6 +167,13 @@
       "requires": ["tc-online", "stat-guard", "ci-pr"],
       "recommends": ["stats-deep"],
       "notes": ["Baseline seeds (101-124) must stay disjoint from the test seeds. Re-measure the baseline if the engine's averages deliberately move."]
+    },
+    {
+      "id": "verification-fixtures", "class": "verification-tooling", "risk": "low",
+      "match": ["test/fixtures/verify-*.json", "test/verify-*.test.ts"],
+      "requires": ["scope", "tc-engine", "selector-tests"],
+      "recommends": ["ci-pr"],
+      "notes": ["Data and tests the verification tooling reads: they are exercised only by the selector, verdict, safety and replay tests, not by the engine suite."]
     },
     {
       "id": "online-tests", "class": "tests-only", "risk": "low", "component": "online",
