@@ -152,7 +152,9 @@ describe("replaying the pull requests this work went through", () => {
     }
   });
 
-  it("matches git history when the history is available", () => {
+  // Replays real git history with a git call per file listing: 1.8 s alone, over 30 s when two full engine
+  // suites shared the CPU (measured). It keeps reading the real history and gets its own limit.
+  it("matches git history when the history is available", { timeout: 120_000 }, () => {
     const have = (sha: string) => {
       try {
         execFileSync("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: ROOT, stdio: "ignore" });

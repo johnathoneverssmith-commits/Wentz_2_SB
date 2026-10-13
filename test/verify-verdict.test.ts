@@ -516,7 +516,7 @@ describe("the runner", () => {
   });
 });
 
-describe("the commands, end to end", { timeout: 120_000 }, () => {
+describe("the commands, end to end", () => {
   const run = (script: string, args: string[]) => {
     try {
       return { status: 0, stdout: execFileSync(process.execPath, [join(DIR, script), ...args], { encoding: "utf8", stdio: "pipe" }), stderr: "" };
@@ -624,7 +624,7 @@ describe("the commands, end to end", { timeout: 120_000 }, () => {
     }
   });
 
-  describe("results are tied to what they were results of", { timeout: 120_000 }, () => {
+  describe("results are tied to what they were results of", () => {
     const setup = () => {
       const { dir, git } = makeRepo();
       const out = tmp();
