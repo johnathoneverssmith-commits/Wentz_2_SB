@@ -838,6 +838,8 @@ describe("the data and tests the verification tooling reads", () => {
     const check = sel.loadMap().checks["selector-tests"] as { commands: string[] };
     expect(check.commands[0]).toContain("test/verify-replay.test.ts");
     expect(check.commands[0]).toContain("test/verify-safety.test.ts");
+  });
+});
 
 describe("paths git quotes when it writes them one per line", () => {
   // Without -z, git prints a path containing a quote, a tab, a backslash or a newline as a quoted, escaped
