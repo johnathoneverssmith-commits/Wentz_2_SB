@@ -579,6 +579,7 @@ function materialize(entry, files, map, mergeBaseOf) {
     needsDatabase: Boolean(def.needsDatabase),
     ...(def.env ? { env: def.env } : {}),
     ...(def.prerequisite ? { prerequisite: def.prerequisite } : {}),
+    ...(def.parser ? { parser: def.parser } : {}),
     ...(def.seconds ? { seconds: def.seconds } : {}),
     ...(def.note || fallbackNote ? { note: [def.note, fallbackNote].filter(Boolean).join(" ") } : {}),
     ...(def.authoritative ? { authoritative: true } : {}),

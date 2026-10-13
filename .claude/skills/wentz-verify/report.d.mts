@@ -1,1 +1,1 @@
-export function main(argv?: string[]): number;
+export function main(argv?: string[], options?: { fetchImpl?: typeof fetch }): Promise<number>;
