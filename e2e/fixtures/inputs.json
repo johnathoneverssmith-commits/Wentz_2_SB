@@ -1,0 +1,7 @@
+{
+  "ui-source/src/data/pool-2026.json": "136d2e5e284d95edad6b32490cf98376fce97570732f6184da57c686fa4660fa",
+  "ui-source/src/data/teams.ts": "8fd9fac5c180ec15d0f46c1ddbe684476b3c86923a1aa161f8edbdc657447353",
+  "src/engine/schedule.ts": "490ab5e00a9cec8e6bcdff98c5ef98074056fd808c834c03aed7ba4ba803d1f0",
+  "src/engine/nfl-structure.ts": "caa20afa5f5b4c696eb22b82956d14562fe57786f6dccab9086bdad7736d0bce",
+  "src/engine/staff-data.ts": "c0243dc92bf6936ef39a30f533aa7c00dfd225dc85c8274a29eb4a5e98962c0a"
+}

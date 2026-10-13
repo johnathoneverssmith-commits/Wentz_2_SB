@@ -190,6 +190,13 @@
       "notes": ["Data and tests the verification tooling reads: they are exercised only by the selector, verdict, safety and replay tests, not by the engine suite."]
     },
     {
+      "id": "e2e-harness", "class": "browser-e2e", "risk": "low",
+      "match": ["e2e/**"],
+      "requires": ["scope", "tc-engine"],
+      "recommends": ["ci-pr"],
+      "notes": ["Browser tests are not yet a wentz-verify command. Run `npm run e2e:typecheck` and `npm run e2e` (E2E_BROWSER_CHANNEL=chrome uses an installed Chrome) and report the result as it is. A fixed, allowlisted command is planned for a later change."]
+    },
+    {
       "id": "online-tests", "class": "tests-only", "risk": "low", "component": "online",
       "match": ["online/test/**"],
       "requires": ["tc-online", "run-changed-tests", "ci-pr"],

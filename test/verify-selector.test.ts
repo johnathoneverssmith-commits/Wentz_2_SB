@@ -982,3 +982,20 @@ describe("the list of database suites cannot silently miss one", () => {
     }
   });
 });
+
+describe("the browser test harness", () => {
+  it.each(["e2e/playwright.config.ts", "e2e/support/guard.ts", "e2e/specs/draft.spec.ts", "e2e/fixtures/build.ts", "e2e/README.md"])("%s is classified, not left to the conservative default", (path) => {
+    const p = run([change(path)]);
+    expect(p.classes).toContain("browser-e2e");
+    expect(p.unknownSourcePaths).toEqual([]);
+    expect(p.conservative).toBe(false);
+    expect(p.notes.join(" ")).toMatch(/npm run e2e/);
+  });
+
+  it("treats the new dev dependency as a dependency change, which needs approval and the full suites", () => {
+    const p = run([change("package.json"), change("package-lock.json")]);
+    expect(p.classes).toContain("dependencies");
+    expect(p.approvalsNeeded.join(" ")).toMatch(/Dependencies/);
+    expect(ids(p)).toEqual(expect.arrayContaining(["full-engine", "full-ui", "full-online", "ui-build"]));
+  });
+});

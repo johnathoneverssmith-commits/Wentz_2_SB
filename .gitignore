@@ -42,3 +42,7 @@ scratch/
 
 # local online-testing database (online/dev/local-db.ts)
 .pglite-data/
+
+# browser tests (e2e/): run output
+/e2e/test-results/
+/e2e/playwright-report/

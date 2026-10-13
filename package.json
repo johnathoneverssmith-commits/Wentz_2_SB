@@ -33,7 +33,9 @@
     "online:migrate": "tsx --tsconfig online/tsconfig.json online/src/migrate.ts",
     "online:test": "vitest run --root online --exclude \"test/_*.test.ts\"",
     "online:db": "tsx online/dev/local-db.ts",
-    "online:local": "tsx --tsconfig online/tsconfig.json online/dev/local-server.ts"
+    "online:local": "tsx --tsconfig online/tsconfig.json online/dev/local-server.ts",
+    "e2e": "playwright test -c e2e/playwright.config.ts",
+    "e2e:typecheck": "tsc -p e2e/tsconfig.json && tsc -p e2e/fixtures/tsconfig.json"
   },
   "dependencies": {
     "@types/pg": "^8.23.1",
@@ -44,6 +46,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@electric-sql/pglite-socket": "^0.2.11",
+    "@playwright/test": "^1.64.0",
     "@types/node": "^22.10.0",
     "hyparquet": "^1.30.0",
     "hyparquet-compressors": "^1.1.1",
