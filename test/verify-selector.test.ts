@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -697,7 +697,7 @@ describe("related-test commands select tests (they were empty before)", () => {
 
   it("puts online paths relative to the online root, which is where --root online looks", () => {
     const c = cmdOf(run([change("online/src/throttle.ts")]), "related-online");
-    expect(c.commands).toEqual(["npx vitest related src/throttle.ts --root online --run"]);
+    expect(c.commands).toEqual(["npx vitest related src/throttle.ts --root online --no-file-parallelism --run"]);
   });
 
   it("runs the UI related command inside ui-source, with the UI project's own vitest", () => {
@@ -708,7 +708,7 @@ describe("related-test commands select tests (they were empty before)", () => {
 
   it("reaches across projects with a relative path, not an unusable repo path", () => {
     const p = run([change("ui-source/src/state/reveal.ts")]);
-    expect(cmdOf(p, "related-online").commands[0]).toBe("npx vitest related ../ui-source/src/state/reveal.ts --root online --run");
+    expect(cmdOf(p, "related-online").commands[0]).toBe("npx vitest related ../ui-source/src/state/reveal.ts --root online --no-file-parallelism --run");
   });
 
   it("keeps engine paths repo-relative", () => {
@@ -897,5 +897,67 @@ describe("the full online run counts only if a database was used", () => {
 
   it("makes the plan say it needs a database whenever the whole online suite is selected", () => {
     expect(run([change("package.json")]).needsDatabase).toBe(true);
+  });
+});
+
+describe("a transitive online run can reach database suites, so it is a database check", () => {
+  // The reproduction from the review: `npx vitest related src/db.ts --root online --run` exited 0 with
+  // "199 passed, 1 skipped" and touched no database, because the suites that need one return early.
+  const relatedOnline = (p: Plan) => [...p.required, ...p.recommended].filter((c) => c.id === "related-online");
+
+  it("is a database check, serial, with a prerequisite and a test database, on the ordinary path", () => {
+    // no direct test imports this file, so the transitive run is REQUIRED (the ordinary path, not the full-suite fallback)
+    const p = run([change("online/src/orphan.ts", "A", ["unstaged"])], []);
+    const [c] = p.required.filter((x) => x.id === "related-online");
+    expect(c).toBeDefined();
+    expect(c!.commands).toEqual(["npx vitest related src/orphan.ts --root online --no-file-parallelism --run"]);
+    expect(c!.needsDatabase).toBe(true);
+    expect(c!.prerequisite).toMatch(/5433/);
+    expect(c!.env).toMatchObject({ CI: "true", DB_POOL_MAX: "1" });
+    expect(p.needsDatabase).toBe(true);
+  });
+
+  it("is one wherever it is chosen: required or recommended, from online, database or UI rules", () => {
+    for (const path of ["online/src/db.ts", "online/src/throttle.ts", "online/src/phases.ts", "ui-source/src/state/reveal.ts", "ui-source/src/state/rules.ts"]) {
+      const found = relatedOnline(run([change(path)]));
+      expect(found.length, path).toBeGreaterThan(0);
+      for (const c of found) {
+        expect(c.needsDatabase, `${path}: ${c.id}`).toBe(true);
+        expect(c.commands.join(" "), path).toMatch(/--no-file-parallelism/);
+      }
+    }
+  });
+
+  it("is not a database check for the engine or the UI, whose tests reach no database", () => {
+    const p = run([change("src/data/csv.ts")], []);
+    for (const id of ["related-engine"]) expect(p.required.find((c) => c.id === id)?.needsDatabase).toBe(false);
+    const ui = [...run([change("ui-source/src/state/roasts.ts")]).recommended].find((c) => c.id === "related-ui");
+    expect(ui?.needsDatabase).toBe(false);
+  });
+
+  it("makes the plan say it needs a database, so a run without one cannot complete it", () => {
+    expect(run([change("online/src/orphan.ts", "A", ["unstaged"])], []).needsDatabase).toBe(true);
+  });
+});
+
+describe("the list of database suites cannot silently miss one", () => {
+  // direct:online decides it needs a database by test file name. A new database suite that is not in the list
+  // would be run without one, return early, and count as passed.
+  it("names every online test that sets up a database", () => {
+    const dir = join(ROOT, "online/test");
+    const users = readdirSync(dir)
+      .filter((f) => f.endsWith(".test.ts"))
+      .filter((f) => /\bprepareDatabase\(/.test(readFileSync(join(dir, f), "utf8")))
+      .filter((f) => f !== "require-database.test.ts"); // tests prepareDatabase itself with a fake pool
+    expect(users.length).toBeGreaterThan(5);
+    expect([...users].sort()).toEqual([...map.databaseSuites].sort());
+  });
+
+  it("makes a direct run of any listed suite a serial database check", () => {
+    for (const name of map.databaseSuites) {
+      const d = run([change(`online/test/${name}`, "M", ["unstaged"])]).required.find((c) => c.id === "direct:online")!;
+      expect(d.needsDatabase, name).toBe(true);
+      expect(d.commands[0], name).toContain("--no-file-parallelism");
+    }
   });
 });
