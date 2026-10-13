@@ -316,10 +316,10 @@ describe("a verification run cannot reach a database it was not pointed at", () 
     };
     const probePolicy: policy.Policy = { safeCharacters: policy.SAFE_COMMAND, extra: [(c) => (c === "node probe.js" ? { ok: true, kind: "probe", argv: ["node", "probe.js"], cwd: "." } : null)] };
 
-    it("starts a check with none of the exported database variables", () => {
+    it("starts a check with none of the exported database variables", async () => {
       const dir = scratch();
       try {
-        const rec = runner.runCheck(check("a", { commands: ["node probe.js"] }), { cwd: dir, policy: probePolicy, parentEnv: inherited });
+        const rec = await runner.runCheck(check("a", { commands: ["node probe.js"] }), { cwd: dir, policy: probePolicy, parentEnv: inherited });
         expect(rec.output).toContain("SEEN=[]");
         expect(rec.output).not.toContain("production.invalid");
       } finally {
@@ -327,10 +327,10 @@ describe("a verification run cannot reach a database it was not pointed at", () 
       }
     });
 
-    it("gives a database check exactly the chosen database and nothing it inherited", () => {
+    it("gives a database check exactly the chosen database and nothing it inherited", async () => {
       const dir = scratch();
       try {
-        const rec = runner.runCheck(check("db", { commands: ["node probe.js"], needsDatabase: true, env: { DB_POOL_MAX: "1", CI: "true" } }), { cwd: dir, policy: probePolicy, parentEnv: inherited, testDatabase: "local-pglite" });
+        const rec = await runner.runCheck(check("db", { commands: ["node probe.js"], needsDatabase: true, env: { DB_POOL_MAX: "1", CI: "true" } }), { cwd: dir, policy: probePolicy, parentEnv: inherited, testDatabase: "local-pglite" });
         expect(rec.output).toContain('SEEN=["DATABASE_URL","DB_POOL_MAX"]');
         expect(rec.database).toBe("local PGlite on localhost:5433");
       } finally {
@@ -338,11 +338,11 @@ describe("a verification run cannot reach a database it was not pointed at", () 
       }
     });
 
-    it("does not run a database check at all without a chosen test database, and spawns nothing", () => {
+    it("does not run a database check at all without a chosen test database, and spawns nothing", async () => {
       const dir = scratch();
       try {
         writeFileSync(join(dir, "probe.js"), "require('node:fs').writeFileSync('spawned.txt','x')");
-        const rec = runner.runCheck(check("db", { commands: ["node probe.js"], needsDatabase: true }), { cwd: dir, policy: probePolicy, parentEnv: inherited });
+        const rec = await runner.runCheck(check("db", { commands: ["node probe.js"], needsDatabase: true }), { cwd: dir, policy: probePolicy, parentEnv: inherited });
         expect(rec.error).toMatch(/refused to run: no test database was chosen/);
         expect(rec.commands).toEqual([]);
         expect(() => execFileSync(process.execPath, ["-e", "require('node:fs').readFileSync('spawned.txt')"], { cwd: dir, stdio: "pipe" })).toThrow();
@@ -351,14 +351,14 @@ describe("a verification run cannot reach a database it was not pointed at", () 
       }
     });
 
-    it("never lets an exported production URL initialise a database when it runs the online tests", { timeout: 240_000 }, () => {
+    it("never lets an exported production URL initialise a database when it runs the online tests", { timeout: 240_000 }, async () => {
       const command = "npx vitest run --root online test/require-database.test.ts";
       // the control: with the URL exported, the online tests' global setup does try to reach and migrate it
       // (a host that cannot resolve, so nothing real is touched); this is what the runner must prevent
       const control = spawnSync(command, { cwd: ROOT, shell: true, encoding: "utf8", timeout: 200_000, env: { ...inherited, NO_COLOR: "1", FORCE_COLOR: "0" } });
       expect(`${control.stdout}${control.stderr}`).toMatch(/\[test setup\] DATABASE SCHEMA NOT APPLIED/);
 
-      const rec = runner.runCheck(check("online-infra", { commands: [command] }), { cwd: ROOT, parentEnv: { ...inherited, NO_COLOR: "1", FORCE_COLOR: "0" }, timeoutSec: 200 });
+      const rec = await runner.runCheck(check("online-infra", { commands: [command] }), { cwd: ROOT, parentEnv: { ...inherited, NO_COLOR: "1", FORCE_COLOR: "0" }, timeoutSec: 200 });
       expect(rec.error).toBeUndefined();
       expect(rec.exitCode).toBe(0);
       expect(rec.output).toMatch(/Tests\s+\d+ passed/);
@@ -608,5 +608,74 @@ describe("the permissions of the files themselves", () => {
       for (const i of imports) expect(i, `${name} imports ${i}`).toMatch(/^(node:[a-z_:/]+|\.\/[a-z-]+\.mjs)$/);
       expect(text, name).not.toMatch(/\beval\s*\(|new Function\s*\(|child_process.*\bexec\b\s*\(/);
     }
+  });
+});
+
+describe("a timed-out check leaves nothing running", () => {
+  // A check is `npm` -> `node` -> `vitest` -> workers. Killing only the first process leaves the rest
+  // running, holding database connections, file handles and CPU. The parent here starts a grandchild
+  // that records its pid and keeps writing; after a timeout it must be gone.
+  const treePolicy: policy.Policy = {
+    safeCharacters: policy.SAFE_COMMAND,
+    extra: [(c) => (c === "node parent.js" ? { ok: true, kind: "tree", argv: ["node", "parent.js"], cwd: "." } : null)],
+  };
+  const alive = (pid: number) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const setup = () => {
+    const dir = mkdtempSync(join(tmpdir(), "wentz-tree-"));
+    writeFileSync(join(dir, "parent.js"), "const { spawn } = require('node:child_process'); spawn(process.execPath, ['child.js'], { stdio: 'ignore' }); setTimeout(function () {}, 60000);");
+    writeFileSync(join(dir, "child.js"), "const fs = require('node:fs'); fs.writeFileSync('pid.txt', String(process.pid)); setInterval(function () { fs.appendFileSync('beat.txt', 'x'); }, 100);");
+    return dir;
+  };
+
+  it("ends the command's whole process tree when it times out, so no child keeps writing or holding the directory", { timeout: 60_000 }, async () => {
+    const dir = setup();
+    let pid = 0;
+    try {
+      const rec = await runner.runCheck(check("a", { commands: ["node parent.js"] }), { cwd: dir, timeoutSec: 2, policy: treePolicy });
+      expect(rec.timedOut).toBe(true);
+      pid = Number(execFileSync(process.execPath, ["-e", "process.stdout.write(require('node:fs').readFileSync('pid.txt','utf8'))"], { cwd: dir, encoding: "utf8" }));
+      expect(pid).toBeGreaterThan(0);
+      await sleep(1200);
+      expect(alive(pid), "the grandchild is still running").toBe(false);
+      const size = execFileSync(process.execPath, ["-e", "process.stdout.write(String(require('node:fs').statSync('beat.txt').size))"], { cwd: dir, encoding: "utf8" });
+      await sleep(600);
+      const later = execFileSync(process.execPath, ["-e", "process.stdout.write(String(require('node:fs').statSync('beat.txt').size))"], { cwd: dir, encoding: "utf8" });
+      expect(later, "the grandchild is still writing").toBe(size);
+      rmSync(dir, { recursive: true, force: true }); // nothing holds the directory any more
+    } finally {
+      if (pid && alive(pid)) process.kill(pid, "SIGKILL");
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns promptly on a timeout, and records it as one", { timeout: 60_000 }, async () => {
+    const dir = setup();
+    try {
+      const started = Date.now();
+      const rec = await runner.runCheck(check("a", { commands: ["node parent.js"] }), { cwd: dir, timeoutSec: 2, policy: treePolicy });
+      expect(Date.now() - started).toBeLessThan(15_000);
+      expect(rec).toMatchObject({ timedOut: true, exitCode: null });
+    } finally {
+      try {
+        const pid = Number(execFileSync(process.execPath, ["-e", "process.stdout.write(require('node:fs').readFileSync('pid.txt','utf8'))"], { cwd: dir, encoding: "utf8" }));
+        if (alive(pid)) process.kill(pid, "SIGKILL");
+      } catch {
+        // already gone
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("kills a tree by pid, and ignores a pid that is already gone", () => {
+    expect(() => runner.killTree(undefined)).not.toThrow();
+    expect(() => runner.killTree(2_147_000_000)).not.toThrow();
   });
 });

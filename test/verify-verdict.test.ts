@@ -434,10 +434,10 @@ describe("the runner", () => {
     }
   });
 
-  it("records the real exit code and output", () => {
+  it("records the real exit code and output", async () => {
     const dir = scripts({ ok: "x" , "ok.js": "console.log('Tests  2 passed (2)')" });
     try {
-      const rec = runner.runCheck(check("a", { commands: ["node ok.js"] }), { cwd: dir, policy: testPolicy });
+      const rec = await runner.runCheck(check("a", { commands: ["node ok.js"] }), { cwd: dir, policy: testPolicy });
       expect(rec.exitCode).toBe(0);
       expect(rec.output).toContain("Tests  2 passed (2)");
       expect(rec.evidence).toBe("observed");
@@ -447,10 +447,10 @@ describe("the runner", () => {
     }
   });
 
-  it("records a failing exit code, and stops at the first failing command", () => {
+  it("records a failing exit code, and stops at the first failing command", async () => {
     const dir = scripts({ "bad.js": "process.exit(3)", "next.js": "console.log('not reached')" });
     try {
-      const rec = runner.runCheck(check("a", { commands: ["node bad.js", "node next.js"] }), { cwd: dir, policy: testPolicy });
+      const rec = await runner.runCheck(check("a", { commands: ["node bad.js", "node next.js"] }), { cwd: dir, policy: testPolicy });
       expect(rec.exitCode).toBe(3);
       expect(rec.commands).toHaveLength(1);
       expect(rec.output).not.toContain("not reached");
@@ -460,10 +460,10 @@ describe("the runner", () => {
     }
   });
 
-  it("will not run a refused command, runs none of the check's commands if any is refused, and records why", () => {
+  it("will not run a refused command, runs none of the check's commands if any is refused, and records why", async () => {
     const dir = scripts({ "ok.js": "require('node:fs').writeFileSync('ran.txt','x')" });
     try {
-      const rec = runner.runCheck(check("a", { commands: ["node ok.js", "git push origin master"] }), { cwd: dir, policy: testPolicy });
+      const rec = await runner.runCheck(check("a", { commands: ["node ok.js", "git push origin master"] }), { cwd: dir, policy: testPolicy });
       expect(rec.exitCode).toBeNull();
       expect(rec.error).toMatch(/refused to run/);
       expect(rec.commands).toEqual([]);
@@ -474,10 +474,10 @@ describe("the runner", () => {
     }
   });
 
-  it("records a timeout as one", () => {
+  it("records a timeout as one", async () => {
     const dir = scripts({ "slow.js": "setTimeout(function(){},2500)" });
     try {
-      const rec = runner.runCheck(check("a", { commands: ["node slow.js"] }), { cwd: dir, timeoutSec: 1, policy: testPolicy });
+      const rec = await runner.runCheck(check("a", { commands: ["node slow.js"] }), { cwd: dir, timeoutSec: 1, policy: testPolicy });
       expect(rec.timedOut).toBe(true);
       expect(v.judge(check("a"), rec).status).toBe("FAILED");
     } finally {
@@ -485,13 +485,13 @@ describe("the runner", () => {
     }
   });
 
-  it("passes only the settings a check may set, and refuses any other", () => {
+  it("passes only the settings a check may set, and refuses any other", async () => {
     const dir = scripts({ "env.js": "console.log('Tests  1 passed (1) ' + process.env.STATS_SEEDS + ' ' + process.env.WENTZ_PROBE + ' ' + process.env.NODE_OPTIONS)" });
     try {
-      const rec = runner.runCheck(check("a", { commands: ["node env.js"], env: { STATS_SEEDS: "12" } }), { cwd: dir, policy: testPolicy, parentEnv: { ...process.env, WENTZ_PROBE: "inherited", NODE_OPTIONS: "--no-warnings" } });
+      const rec = await runner.runCheck(check("a", { commands: ["node env.js"], env: { STATS_SEEDS: "12" } }), { cwd: dir, policy: testPolicy, parentEnv: { ...process.env, WENTZ_PROBE: "inherited", NODE_OPTIONS: "--no-warnings" } });
       expect(rec.output).toContain("12 undefined undefined"); // declared setting passed; inherited ones are not
       for (const env of [{ NODE_OPTIONS: "--require x" }, { PATH: "/evil" }, { STATS_SEEDS: "12; rm x" }, { CI: "1" }]) {
-        const bad = runner.runCheck(check("a", { commands: ["node env.js"], env }), { cwd: dir, policy: testPolicy });
+        const bad = await runner.runCheck(check("a", { commands: ["node env.js"], env }), { cwd: dir, policy: testPolicy });
         expect(bad.error, JSON.stringify(env)).toMatch(/refused to run/);
         expect(bad.commands).toEqual([]);
       }
