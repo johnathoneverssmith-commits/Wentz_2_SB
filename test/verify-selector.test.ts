@@ -761,7 +761,8 @@ describe("files tests read at run time cannot silently select nothing", () => {
   it("runs the whole suite for a data file with no importing test, never a related run", () => {
     const p = run([change("online/src/seed-data.json", "A", ["unstaged"])], []);
     const related = every(p).find((c) => c.id === "related-online");
-    expect(related?.commands).toEqual(["npm run online:test"]); // the whole suite, not a related run that finds nothing
+    expect(related?.commands).toEqual(["npm run online:test -- --no-file-parallelism"]); // the whole suite, not a related run that finds nothing
+    expect(related?.needsDatabase).toBe(true); // and it is only the whole suite if a database was used
     expect(related?.note).toMatch(/not code/);
   });
 
@@ -816,5 +817,85 @@ describe("database checks are serialised and carry their setup", () => {
     const d = run([change("online/test/boxscore.test.ts", "M", ["unstaged"])]).required.find((c) => c.id === "direct:online")!;
     expect(d.needsDatabase).toBe(false);
     expect(d.commands[0]).not.toContain("--no-file-parallelism");
+  });
+});
+
+describe("paths git quotes when it writes them one per line", () => {
+  // Without -z, git prints a path containing a quote, a tab, a backslash or a newline as a quoted, escaped
+  // string that no line-based reader recognises as a file: the change was classified as nothing and only
+  // the scope check was required. With -z the path is read exactly as written.
+  const odd = ['online/src/we"ird.ts', "online/src/tab\there.ts", "online/src/back\\slash.ts", "online/src/new\nline.ts", "online/src/caf\u00e9.ts", "online/src/sp ace.ts"];
+
+  it.each(odd)("reads %j exactly as written (NUL-separated)", (path) => {
+    expect(sel.parseNameStatusZ(`M\0${path}\0`, "unstaged")).toEqual([{ path, status: "M", source: "unstaged" }]);
+    expect(sel.parseUntrackedZ(`${path}\0other.ts\0`)[0]).toMatchObject({ path, status: "A" });
+  });
+
+  it("reads renames with both paths, and several entries in a row", () => {
+    const out = sel.parseNameStatusZ("R100\0online/src/a b.ts\0online/src/tab\there.ts\0D\0test/x.test.ts\0M\0src/y.ts\0", "committed");
+    expect(out).toEqual([
+      { path: "online/src/tab\there.ts", oldPath: "online/src/a b.ts", status: "R", source: "committed" },
+      { path: "test/x.test.ts", status: "D", source: "committed" },
+      { path: "src/y.ts", status: "M", source: "committed" },
+    ]);
+    expect(sel.parseNameStatusZ("", "staged")).toEqual([]);
+  });
+
+  it.each(odd)("classifies a changed %j as a source file with its checks, not as nothing", (path) => {
+    const p = run([change(path, "M", ["unstaged"])]);
+    expect(p.unclassifiedPaths).toEqual([]);
+    expect(p.risk).not.toBe("none");
+    expect(ids(p)).toContain("tc-online");
+  });
+
+  it("collects such files from a real git repository where the file system allows the name", () => {
+    const dir = mkdtempSync(join(tmpdir(), "wentz-quoted-"));
+    try {
+      const sh = (...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: dir, stdio: "pipe", encoding: "utf8" });
+      sh("init", "-q");
+      writeFileSync(join(dir, "README.md"), "x");
+      sh("add", "-A");
+      sh("commit", "-qm", "init");
+      sh("update-ref", "refs/remotes/origin/master", "HEAD");
+      mkdirSync(join(dir, "online/src"), { recursive: true });
+      const made: string[] = [];
+      for (const n of ["tab\there.ts", "back\\slash.ts", 'we"ird.ts', "caf\u00e9.ts"]) {
+        try {
+          writeFileSync(join(dir, "online/src", n), "export {};\n");
+          made.push(`online/src/${n}`);
+        } catch {
+          // this file system (Windows) cannot hold that name; the parser tests above cover it
+        }
+      }
+      expect(made.length).toBeGreaterThan(0);
+      const { changes } = sel.collectChanges({ cwd: dir, base: "origin/master" });
+      for (const path of made) expect(changes.map((c) => c.path), path).toContain(path);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the full online run counts only if a database was used", () => {
+  const full = (p: Plan) => [...p.required, ...p.recommended].find((x) => x.id === "full-online")!;
+
+  it("is a database check with a prerequisite, a test database and serial files", () => {
+    const c = full(run([change("online/src/phases.ts")]));
+    expect(c.needsDatabase).toBe(true);
+    expect(c.prerequisite).toMatch(/5433/);
+    expect(c.env).toMatchObject({ CI: "true", DB_POOL_MAX: "1" });
+    expect(c.commands).toEqual(["npm run online:test -- --no-file-parallelism"]);
+  });
+
+  it("is what a related-online fallback becomes, with the same requirement", () => {
+    const p = run([change("online/src/seed-data.json", "A", ["unstaged"])], []);
+    const related = [...p.required, ...p.recommended].find((c) => c.id === "related-online")!;
+    expect(related.commands).toEqual(["npm run online:test -- --no-file-parallelism"]);
+    expect(related.needsDatabase).toBe(true);
+    expect(related.prerequisite).toBeDefined();
+  });
+
+  it("makes the plan say it needs a database whenever the whole online suite is selected", () => {
+    expect(run([change("package.json")]).needsDatabase).toBe(true);
   });
 });
