@@ -176,6 +176,8 @@ export function validateCommand(command, { repoRoot, cwd = ".", fileExists = exi
     const body = tokens.slice(3, -1);
     let online = false;
     const files = [...body];
+    // the one other option: one test file at a time, which a single-session local database needs (after the root, before --run)
+    if (files[files.length - 1] === "--no-file-parallelism") files.pop();
     const rootAt = files.indexOf("--root");
     if (rootAt >= 0) {
       if (files[rootAt + 1] !== "online" || rootAt + 2 !== files.length) return bad("only `--root online`, after the files, is allowed");

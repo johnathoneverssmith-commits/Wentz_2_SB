@@ -12,6 +12,7 @@ import * as dbSafety from "../.claude/skills/wentz-verify/db-safety.mjs";
 import * as evidence from "../.claude/skills/wentz-verify/evidence.mjs";
 import * as runner from "../.claude/skills/wentz-verify/run-checks.mjs";
 import * as sel from "../.claude/skills/wentz-verify/select-checks.mjs";
+import * as v from "../.claude/skills/wentz-verify/verdict.mjs";
 import type { Check } from "../.claude/skills/wentz-verify/select-checks.mjs";
 
 /**
@@ -52,6 +53,8 @@ describe("the command allowlist", () => {
       "npx vitest related src/data/csv.ts --run",
       "npx vitest related src/throttle.ts src/boxscore.ts --root online --run",
       "npx vitest related ../ui-source/src/state/reveal.ts --root online --run",
+      "npx vitest related src/throttle.ts --root online --no-file-parallelism --run",
+      "npx vitest related src/data/csv.ts --no-file-parallelism --run",
     ])("%s", (command) => {
       expect(refused(command), command).toBeNull();
     });
@@ -132,6 +135,10 @@ describe("the command allowlist", () => {
       ["npx vitest related src/data/csv.ts", "related without --run"],
       ["npx vitest related src/data/csv.ts --run --coverage", "related with an extra flag"],
       ["npx vitest related src/throttle.ts --root ../ui-source --run", "related with another root"],
+      ["npx vitest related --no-file-parallelism src/throttle.ts --root online --run", "the flag where a file belongs"],
+      ["npx vitest related src/throttle.ts --root online --no-file-parallelism --no-file-parallelism --run", "the flag twice"],
+      ["npx vitest related src/throttle.ts --no-file-parallelism --root online --run", "the flag before the root"],
+      ["npx vitest related src/throttle.ts --root online --no-file-parallelism", "no --run"],
       // paths
       ["npx vitest run package.json", "a non-test file"],
       ["npx vitest run test/verify-selector.ts", "not a .test file"],
@@ -913,5 +920,58 @@ describe("a path inside the repository that leads outside it is refused", () => 
     } finally {
       rmSync(base, { recursive: true, force: true });
     }
+  });
+});
+
+describe("an ordinary transitive online run cannot report a database it did not use", () => {
+  // The review's reproduction: `npx vitest related src/db.ts --root online --run` exited 0 with 199 passed and
+  // 1 skipped, needsDatabase false and no database touched. Here the plan, the runner and the verdict are put
+  // end to end on the ordinary path: a file no test imports, so the transitive run is REQUIRED.
+  const REPRO = "\n Test Files  40 passed | 1 skipped (41)\n      Tests  199 passed | 1 skipped (200)\n";
+  const planFor = () => {
+    const map = sel.loadMap();
+    return sel.plan({ changes: [{ path: "online/src/db.ts", status: "M", sources: ["unstaged"] }], testIndex: [], map, context: { base: "origin/master", mergeBase: "0123456789abcdef0123456789abcdef01234567" } });
+  };
+
+  it("is planned as a required database check on one file at a time", () => {
+    const related = planFor().required.find((c) => c.id === "related-online")!;
+    expect(related.commands).toEqual(["npx vitest related src/db.ts --root online --no-file-parallelism --run"]);
+    expect(related.needsDatabase).toBe(true);
+    expect(policy.validateCommand(related.commands[0] as string, { repoRoot: ROOT }).ok).toBe(true);
+  });
+
+  it("is not run without a chosen test database, whatever database is exported, and nothing is spawned", async () => {
+    const related = planFor().required.find((c) => c.id === "related-online")!;
+    const exported = { ...(process.env as Record<string, string>), DATABASE_URL: "postgres://app:pw@ep-prod.neon.tech.production.invalid/neondb" };
+    expect(runner.selectChecks(planFor()).map((c) => c.id)).not.toContain("related-online");
+    expect(runner.selectChecks(planFor(), { testDatabase: "local-pglite" }).map((c) => c.id)).toContain("related-online");
+    const rec = await runner.runCheck(related, { cwd: ROOT, parentEnv: exported });
+    expect(rec.error).toMatch(/refused to run: no test database was chosen/);
+    expect(rec.commands).toEqual([]);
+    expect(rec.exitCode).toBeNull();
+  });
+
+  it("is judged SKIPPED, so the plan is INCOMPLETE, when the output shows no database was used (the reproduction)", () => {
+    const P = planFor();
+    const related = P.required.find((c) => c.id === "related-online")!;
+    expect(v.judge(related, { id: "related-online", exitCode: 0, output: REPRO })).toMatchObject({ status: "SKIPPED" });
+    const s = v.summarize(P, [{ id: "related-online", exitCode: 0, output: REPRO }]);
+    expect(s.notRun).toContain("related-online");
+    expect(s.verdict).not.toBe("LOCALLY_VERIFIED");
+    expect(v.judge(related, { id: "related-online", exitCode: 0, output: `[test setup] database schema applied once, before any test file (800 ms)${REPRO}` }).status).toBe("PASSED");
+  });
+
+  it("runs for real through the runner against the chosen database, and a database that is not there fails instead of passing", { timeout: 240_000 }, async () => {
+    const map = sel.loadMap();
+    const P = sel.plan({ changes: [{ path: "online/src/throttle.ts", status: "M", sources: ["unstaged"] }], testIndex: [], map, context: { base: "origin/master", mergeBase: "0123456789abcdef0123456789abcdef01234567" } });
+    const related = P.required.find((c) => c.id === "related-online")!;
+    // a local test database nothing listens on: the setup cannot apply the schema, and must not be read as a pass
+    const rec = await runner.runCheck(related, { cwd: ROOT, testDatabase: "postgres://u@127.0.0.1:59999/wentz_test", timeoutSec: 200, parentEnv: { ...(process.env as Record<string, string>), NO_COLOR: "1", FORCE_COLOR: "0", DATABASE_URL: "postgres://app:pw@ep-prod.neon.tech.production.invalid/neondb" } });
+    expect(rec.error).toBeUndefined();
+    expect(rec.database).toBe("127.0.0.1:59999/wentz_test");
+    expect(rec.output).not.toContain("production.invalid"); // the exported production URL never reached the run
+    const j = v.judge(related, rec);
+    expect(j.status).not.toBe("PASSED");
+    expect(["FAILED", "SKIPPED"]).toContain(j.status);
   });
 });
