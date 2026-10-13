@@ -89,7 +89,14 @@
 
     "full-engine": { "kind": "command", "tier": 3, "label": "Full engine suite", "commands": ["npm test"], "seconds": { "local": 180, "ci": 100 } },
     "full-ui": { "kind": "command", "tier": 3, "label": "Full UI suite", "commands": ["npm --prefix ui-source run test"], "seconds": { "local": 325, "ci": 80 } },
-    "full-online": { "kind": "command", "tier": 3, "label": "Full online suite", "commands": ["npm run online:test"], "seconds": { "local": 350, "ci": 90 }, "note": "Without DATABASE_URL the database suites SKIP here (they are not exercised). With CI=true and no database they fail, which is what CI does." },
+    "full-online": {
+      "kind": "command", "tier": 3, "label": "Full online suite (with a database, one file at a time)",
+      "commands": ["npm run online:test -- --no-file-parallelism"],
+      "needsDatabase": true, "seconds": { "local": 400, "ci": 90 },
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "About a dozen of these suites return early without a database and a runner counts that as a pass, so this run only counts as the full online suite when a database was really used. Run it with a test database; without one it is not run and the plan stays incomplete. Serial, because a local PGlite is one session."
+    },
 
     "stats-deep": { "kind": "command", "tier": 4, "label": "Statistics across 12 leagues instead of 6", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "env": { "STATS_SEEDS": "12" }, "seconds": { "local": 90, "ci": 60 } },
     "league-metrics": { "kind": "command", "tier": 4, "parser": "exit", "label": "Full league calibration against 2018-2025 NFL aggregates", "commands": ["npx tsx analysis/39_league_metrics.ts"], "seconds": { "local": 600, "ci": null }, "note": "Long. Run for any change to how units affect a play." },
