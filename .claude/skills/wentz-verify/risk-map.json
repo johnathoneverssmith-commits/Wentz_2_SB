@@ -85,7 +85,14 @@
 
     "related-engine": { "kind": "command", "tier": 2, "label": "Every engine test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "seconds": { "local": 150, "ci": 80 }, "projectFiles": "engine" },
     "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "cwd": "ui-source", "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source", "note": "Runs inside ui-source so it uses the UI project's own vitest and config." },
-    "related-online": { "kind": "command", "tier": 2, "label": "Every online test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --root online --run"], "seconds": { "local": 100, "ci": 60 }, "projectFiles": "online", "relativeTo": "online" },
+    "related-online": {
+      "kind": "command", "tier": 2, "label": "Every online test that reaches the changed files (transitive; with a database, one file at a time)",
+      "commands": ["npx vitest related {files} --root online --no-file-parallelism --run"],
+      "needsDatabase": true, "seconds": { "local": 100, "ci": 60 }, "projectFiles": "online", "relativeTo": "online",
+      "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
+      "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
+      "note": "The import graph decides which online tests run, and it can reach any of the database suites through db.ts, the league modules or the UI rules the server shares. Those suites return early without a database and a runner counts that as a pass (199 passed, 1 skipped, no database touched), so every transitive online run is a database check: it counts only if a database was used, and is not run without an explicit test database. Serial, because a local PGlite is one session."
+    },
 
     "full-engine": { "kind": "command", "tier": 3, "label": "Full engine suite", "commands": ["npm test"], "seconds": { "local": 180, "ci": 100 } },
     "full-ui": { "kind": "command", "tier": 3, "label": "Full UI suite", "commands": ["npm --prefix ui-source run test"], "seconds": { "local": 325, "ci": 80 } },
