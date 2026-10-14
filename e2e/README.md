@@ -52,6 +52,7 @@ saves; it also builds with another seed (different) and with the real clock (the
 | `fixtures.spec.ts` | pinned inputs, genuine progression, determinism, size |
 | `save-reload.spec.ts` | each save opens at its own stage's screen and survives a reload |
 | `draft.spec.ts` | a real action: draft a player, check the saved league, reload, check again |
+| `free-agency-offers.spec.ts` | real offers in a free-agency market: the form, what the game accepts and refuses, the signing, the roster, the books and the cap, across rounds and reloads (see below) |
 | `free-agency-skip.spec.ts` | the "Skip free agency" soft-lock (commit `b757e8d`): the real checkbox and buttons, on screen and in the saved league, across a reload (see below) |
 | `stack.spec.ts` | the static server: read-only, loopback, refuses taken ports, exits with its parent |
 
@@ -74,6 +75,30 @@ Negative control, done once in a disposable copy and not part of the suite: with
 and 2 still pass and test 3 fails at "the offseason market is the board": the page is the market's summary, the
 market over before its human saw it. (In solo play the league then moves on by itself; the literal "stage never
 leaves" form of the bug was in the online server's turn runner, which these tests do not cover.)
+
+### Offers, signings and the cap
+
+From the `midseason-fa` save (the same engine and screens as the offseason market, with a smaller pool). The rules the
+tests lean on, all in `ui-source/src/state/freeAgencyEvent.ts` and `freeAgencyValues.ts`: a player will only take an
+offer at or above his asking price; the best eligible offer wins when the round ends (salary against his asking price,
+capped, and fit, which counts for less); the cap and the roster limit are suspended while bidding and come back at the
+summary. What is therefore pinned, and what is not:
+
+* **Pinned**: the form refuses a bid below the ask (and at exactly the ask lets it through); the rules refuse one above
+  the league maximum, in words, with the turn unspent and nothing saved; a bid at three times the ask cannot be beaten by
+  any CPU offer, so it is accepted at the end of the round.
+* **Then checked three ways** (the market's record, the player, the books) against exactly what was offered: owner,
+  contract years and per-year cap hit, roster, and the team's cap use as the game computes it (the first-year cap hit
+  of every contract on the roster, which is also what the summary shows).
+* **Not pinned**: which of two close offers a player prefers. That is a matter of fit and tuning.
+
+The three tests: one offer through the form, accepted, with the Signed tab and a reload; the refusals above; and
+three rounds of offers on different terms (1, 2 and 5 years) through to the summary, where the suspended limits are
+back (roster and cap both over, the gate reads "Roster not legal"), the staff fixes the roster, and the league moves on.
+
+Each test below was shown to fail when one thing was broken in a disposable copy (not part of the suite): the contract
+paid half, a signing that never changes the owner, a form that lets a below-ask bid through, no league maximum, and a
+market whose rounds never advance.
 
 Runs on GitHub's Ubuntu in the advisory workflow `.github/workflows/browser-e2e.yml`, which runs the whole suite. Not part
 of `wentz-verify`. Multiplayer is out of scope.
