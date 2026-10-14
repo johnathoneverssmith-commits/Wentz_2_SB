@@ -334,3 +334,153 @@ describe("memory", () => {
     expect(Date.now() - started).toBeLessThan(120_000);
   }, 180_000);
 });
+
+describe("a line too long to hold is still read to its end", () => {
+  const long = (n: number) => "x".repeat(n);
+  const stream = (name: "stdout" | "stderr", text: string) => `process.${name}.write(${JSON.stringify(text)});`;
+  /** Delivers `text` in chunks, the way a pipe does. */
+  const feed = (cap: ReturnType<typeof createCapture>, name: "stdout" | "stderr", text: string, size = 50_000) => {
+    for (let i = 0; i < text.length; i += size) cap.push(name, text.slice(i, i + size));
+  };
+  /** A line of `total` characters with `needle` at `at`: past the first piece, inside what used to be thrown away. */
+  const lineWith = (needle: string, at: number, total: number) => `${long(at)} ${needle} ${long(total - at - needle.length - 2)}`;
+
+  for (const name of ["stdout", "stderr"] as const) {
+    it(`${name}: a type error past the first ${LIMITS.line} characters of a line is counted`, () => {
+      const cap = createCapture();
+      feed(cap, name, `${lineWith("error TS2322: late", 100_000, 300_000)}\n`);
+      expect(cap.result().signals.tscErrors).toBe(1);
+    });
+
+    it(`${name}: a type error on the unfinished last line, with no newline, is counted`, () => {
+      const cap = createCapture();
+      feed(cap, name, lineWith("error TS2322: late", 100_000, 300_000));
+      expect(cap.result().signals.tscErrors).toBe(1);
+    });
+
+    it(`${name}: a database marker deep inside one long line is seen`, () => {
+      const cap = createCapture();
+      feed(cap, name, `${lineWith(MARKER, 90_000, 400_000)}\n`);
+      expect(cap.result().signals.databaseUsed).toBe(true);
+    });
+
+    it(`${name}: a marker or a type error cut in two by the end of a piece is still seen`, () => {
+      for (const target of [MARKER, "error TS2322: late"]) {
+        for (let cut = 1; cut < target.length; cut += 3) {
+          const cap = createCapture({ line: 1000, overlap: 64 });
+          cap.push(name, `${long(1100)} ${target.slice(0, cut)}`);
+          cap.push(name, `${target.slice(cut)}\n`);
+          const s = cap.result().signals;
+          if (target === MARKER) expect(s.databaseUsed, `marker cut at ${cut}`).toBe(true);
+          else expect(s.tscErrors, `error cut at ${cut}`).toBeGreaterThanOrEqual(1);
+        }
+      }
+    });
+  }
+
+  it("a type error is not counted twice when the same line is read in overlapping pieces", () => {
+    const cap = createCapture({ line: 1000, overlap: 64 });
+    feed(cap, "stdout", `${long(990)} error TS2322: a ${long(3000)}\n`, 700);
+    expect(cap.result().signals.tscErrors).toBe(1);
+  });
+
+  it("many chunks of one endless line cost bounded memory and every piece is scanned", () => {
+    const cap = createCapture({ line: 4096 });
+    for (let i = 0; i < 500; i++) cap.push("stdout", long(10_000));
+    cap.push("stdout", " error TS2322: at the very end\n");
+    const r = cap.result();
+    expect(r.signals.tscErrors).toBe(1);
+    expect(r.log.length).toBeLessThan(20_000);
+  });
+
+  it("the first piece is still read as a line, and a later piece does not become a fake one", () => {
+    const cap = createCapture({ line: 1000 });
+    feed(cap, "stdout", `${FAIL_LINE}${long(3000)}\n`, 700);
+    expect(cap.result().signals.failureLines).toBe(1);
+    const mid = createCapture({ line: 1000 });
+    feed(mid, "stdout", `${long(1500)} × not at the start of its line ${long(1500)}\n`, 700);
+    expect(mid.result().signals.failureLines).toBe(0);
+  });
+
+  for (const name of ["stdout", "stderr"] as const) {
+    it(`${name}: end to end, an error in an oversized line followed by a passing summary is not a PASS`, async () => {
+      const dir = scripts({ "o/tsc.js": `${stream(name, `${lineWith("error TS2322: late", 100_000, 300_000)}\n`)} ${stream("stdout", "all fine\n")}` });
+      const chk = check(["node o/tsc.js"]);
+      const j = v.judge(chk, await run(chk, dir));
+      expect(j).toMatchObject({ status: "FAILED", detail: expect.stringMatching(/1 type error/) });
+    });
+
+    it(`${name}: end to end, a database marker inside an oversized line counts as used`, async () => {
+      const dir = scripts({ "o/vitest.js": `${stream(name, `${lineWith(MARKER, 100_000, 300_000)}\n`)} ${out(SUMMARY(4))}` });
+      const chk = check(["node o/vitest.js"], { needsDatabase: true });
+      expect(v.judge(chk, await run(chk, dir, { testDatabase: "local-pglite" }))).toMatchObject({ status: "PASSED" });
+    });
+  }
+});
+
+describe("every test command must itself have run tests", () => {
+  const SKIPPED_ALL = " Test Files  1 skipped (1)\n      Tests  5 skipped (5)\n";
+  const ZERO = " Test Files  0 passed (0)\n      Tests  0 passed (0)\n";
+  const pair = (a: string, b: string) => scripts({ "a/vitest.js": a, "b/vitest.js": b });
+  const marked = (summary: string) => `${out(`${MARKER}\n`)} ${out(summary)}`;
+  const chk = check(["node a/vitest.js", "node b/vitest.js"], { needsDatabase: true });
+  const judged = async (a: string, b: string) => v.judge(chk, await run(chk, pair(a, b), { testDatabase: "local-pglite" }));
+
+  it("control: two database commands that both ran tests are PASSED", async () => {
+    expect(await judged(marked(SUMMARY(3)), marked(SUMMARY(2)))).toMatchObject({ status: "PASSED" });
+  });
+
+  it("a command whose tests are all skipped is not masked by a passing one (marker present on both)", async () => {
+    const j = await judged(marked(SUMMARY(3)), marked(SKIPPED_ALL));
+    expect(j.status).toBe("SKIPPED");
+    expect(j.detail).toContain("node b/vitest.js");
+    expect(j.detail).toMatch(/5 test\(s\) skipped/);
+  });
+
+  it("the same, in the other order", async () => {
+    const j = await judged(marked(SKIPPED_ALL), marked(SUMMARY(3)));
+    expect(j.status).toBe("SKIPPED");
+    expect(j.detail).toContain("node a/vitest.js");
+  });
+
+  it("a command that ran zero tests is not masked by a passing one", async () => {
+    const j = await judged(marked(SUMMARY(3)), marked(ZERO));
+    expect(j.status).toBe("SKIPPED");
+    expect(j.detail).toContain("node b/vitest.js");
+  });
+
+  it("a command with no summary at all is FAILED, and named, though another passed", async () => {
+    const j = await judged(marked(SUMMARY(3)), out(`${MARKER}\nno summary here\n`));
+    expect(j.status).toBe("FAILED");
+    expect(j.detail).toMatch(/no test summary/);
+    expect(j.detail).toContain("node b/vitest.js");
+  });
+
+  it("a mix of skipped and summary-less commands is FAILED (the stronger finding)", async () => {
+    expect((await judged(marked(SKIPPED_ALL), out(`${MARKER}\n`))).status).toBe("FAILED");
+  });
+
+  it("each database command still needs its own marker", async () => {
+    const j = await judged(marked(SUMMARY(3)), out(SUMMARY(2)));
+    expect(j.status).toBe("SKIPPED");
+    expect(j.detail).toContain("node b/vitest.js");
+  });
+
+  it("a command that is not Vitest is not asked for a test summary", async () => {
+    const dir = scripts({ "a/vitest.js": marked(SUMMARY(3)), "t/tsc.js": out("ok\n") });
+    const mixed = check(["node a/vitest.js", "node t/tsc.js"], { needsDatabase: true });
+    expect(v.judge(mixed, await run(mixed, dir, { testDatabase: "local-pglite" }))).toMatchObject({ status: "PASSED" });
+  });
+
+  it("a hand-built record with a skipped command beside a passing one is not a PASS either", () => {
+    const sig = (summary: string) => ({ interesting: summary.split("\n").filter(Boolean), interestingOverflow: 0, failureLines: 0, failureNames: [], tscErrors: 0, databaseUsed: true, databaseSetupFailed: false, lines: 2 });
+    const rec = {
+      id: "c", exitCode: 0, output: "", durationSec: 1, timedOut: false, evidence: "observed", commands: ["node a/vitest.js", "node b/vitest.js"],
+      commandResults: [
+        { command: "node a/vitest.js", exitCode: 0, signals: sig(SUMMARY(3)) },
+        { command: "node b/vitest.js", exitCode: 0, signals: sig(SKIPPED_ALL) },
+      ],
+    } as unknown as RunRecord;
+    expect(v.judge(chk, rec).status).toBe("SKIPPED");
+  });
+});

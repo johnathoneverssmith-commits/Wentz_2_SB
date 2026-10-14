@@ -34,8 +34,10 @@ export const LIMITS = Object.freeze({
   interesting: 200,
   /** Failing test names kept (the count is exact). */
   failureNames: 12,
-  /** A single line longer than this is read in pieces, so one huge line cannot grow memory. */
+  /** A single line longer than this is read in pieces, so one huge line cannot grow memory. Every piece is scanned. */
   line: 64 * 1024,
+  /** How much of one piece is read again at the start of the next, so a marker split between two pieces is still seen. */
+  overlap: 64,
   /** Each kept summary line is cut to this. */
   keptLine: 300,
 });
@@ -49,6 +51,10 @@ export function createCapture(overrides = {}) {
   let tail = "";
   let chars = 0;
   const partial = { stdout: "", stderr: "" };
+  // a line cut into pieces: its first piece was scanned as a line, later ones only for what can sit anywhere in a line
+  const continued = { stdout: false, stderr: false };
+  // leading characters of the buffer that are overlap already scanned (matches wholly inside it are not counted twice)
+  const carried = { stdout: 0, stderr: 0 };
   const signals = {
     interesting: [],
     interestingOverflow: 0,
@@ -61,13 +67,17 @@ export function createCapture(overrides = {}) {
   };
   let finished = false;
 
+  /** What can appear anywhere in a line: type errors and the database markers. `skip` leading characters were seen before. */
+  const scanAnywhere = (line, skip = 0) => {
+    if (DATABASE_USED.test(line)) signals.databaseUsed = true;
+    if (DATABASE_FAILED.test(line)) signals.databaseSetupFailed = true;
+    for (const m of line.matchAll(/\berror TS\d+/g)) if (m.index + m[0].length > skip) signals.tscErrors++;
+  };
+
   const scanLine = (raw) => {
     signals.lines++;
     const line = raw.replace(/\r$/, "").replace(ANSI, "");
-    if (DATABASE_USED.test(line)) signals.databaseUsed = true;
-    if (DATABASE_FAILED.test(line)) signals.databaseSetupFailed = true;
-    const ts = line.match(/\berror TS\d+/g);
-    if (ts) signals.tscErrors += ts.length;
+    scanAnywhere(line);
     const failure = FAILURE_LINE.exec(line);
     if (failure) {
       signals.failureLines++;
@@ -86,6 +96,12 @@ export function createCapture(overrides = {}) {
     tail = (tail + text).slice(-limits.tail);
   };
 
+  /** The first piece of a line is scanned as a line; a later piece for what can sit anywhere in a line. */
+  const scanPiece = (stream, text) => {
+    if (continued[stream]) scanAnywhere(text.replace(/\r$/, "").replace(ANSI, ""), carried[stream]);
+    else scanLine(text);
+  };
+
   return {
     /** Feed one chunk from one of the process's streams, in the order it arrived. */
     push(stream, chunk) {
@@ -93,11 +109,19 @@ export function createCapture(overrides = {}) {
       log(text);
       const pieces = (partial[stream] + text).split("\n");
       partial[stream] = pieces.pop() ?? "";
-      if (partial[stream].length > limits.line) {
-        scanLine(partial[stream].slice(0, limits.line));
-        partial[stream] = "";
+      for (const piece of pieces) {
+        scanPiece(stream, piece);
+        continued[stream] = false;
+        carried[stream] = 0;
       }
-      for (const piece of pieces) scanLine(piece);
+      // a line still open and too long to hold: scan what is held, keep only the overlap, go on
+      while (partial[stream].length > limits.line) {
+        scanPiece(stream, partial[stream]);
+        continued[stream] = true;
+        const keep = Math.min(limits.overlap, partial[stream].length);
+        partial[stream] = partial[stream].slice(-keep);
+        carried[stream] = keep;
+      }
     },
 
     /** Ends the capture (the last line of a stream needs no newline) and returns what was learned. */
@@ -105,7 +129,8 @@ export function createCapture(overrides = {}) {
       if (!finished) {
         finished = true;
         for (const stream of ["stdout", "stderr"]) {
-          if (partial[stream]) scanLine(partial[stream]);
+          // text that is only the overlap was scanned already
+          if (partial[stream] && partial[stream].length > carried[stream]) scanPiece(stream, partial[stream]);
           partial[stream] = "";
         }
       }

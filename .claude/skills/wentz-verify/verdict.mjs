@@ -135,7 +135,7 @@ function evidenceOf(run) {
   const results = Array.isArray(run.commandResults) ? run.commandResults : [];
   if (results.length === 0) {
     const parsed = parseTestOutput(run.output ?? "");
-    return { parsed: { ...parsed, failureLines: parsed.failures.length, overflow: false, text: String(run.output ?? "") }, missingDatabase: parsed.databaseUsed ? [] : ["(the recorded output)"], incomplete: false, commands: 0 };
+    return { parsed: { ...parsed, failureLines: parsed.failures.length, overflow: false, text: String(run.output ?? "") }, missingDatabase: parsed.databaseUsed ? [] : ["(the recorded output)"], noSummary: [], noneRan: [], incomplete: false, commands: 0 };
   }
   const per = results.map((r) => ({ command: r.command, parsed: parsedFromSignals(r.signals), vitest: parserFor({ commands: [r.command] }) === "vitest" }));
   const names = [];
@@ -153,6 +153,9 @@ function evidenceOf(run) {
       text: per.map((p) => p.parsed.text).join("\n"),
     },
     missingDatabase: per.filter((p) => p.vitest && !p.parsed.databaseUsed).map((p) => p.command),
+    // each Vitest command must itself have run tests: another command's passes cannot stand in for it
+    noSummary: per.filter((p) => p.vitest && !p.parsed.tests).map((p) => p.command),
+    noneRan: per.filter((p) => p.vitest && p.parsed.tests && (p.parsed.tests.total === 0 || p.parsed.tests.passed === 0)).map((p) => ({ command: p.command, skipped: p.parsed.tests.skipped })),
     // the runner stops at the first command that fails, so a shorter list is only complete when that happened
     incomplete: results.length < (run.commands?.length ?? results.length),
     commands: results.length,
@@ -213,8 +216,13 @@ export function judge(check, run) {
   if (parsed.databaseSetupFailed) return { ...base, status: "FAILED", detail: "the database schema could not be applied", failures };
 
   if (parser === "vitest") {
-    if (!parsed.tests) {
-      return { ...base, status: "FAILED", detail: "exit code 0 but no test summary could be read: not counted as a pass" };
+    if (!parsed.tests || ev.noSummary.length > 0) {
+      const which = ev.commands > 1 && ev.noSummary.length > 0 ? ` from ${ev.noSummary.map((c) => `\`${c}\``).join(", ")}` : "";
+      return { ...base, status: "FAILED", detail: `exit code 0 but no test summary could be read${which}: not counted as a pass` };
+    }
+    if (ev.noneRan.length > 0) {
+      const what = ev.noneRan.map((n) => `${ev.commands > 1 ? `\`${n.command}\`: ` : ""}${n.skipped ? `all ${n.skipped} test(s) skipped, none ran` : "no tests ran"}`).join("; ");
+      return { ...base, status: "SKIPPED", detail: what };
     }
     if (parsed.tests.total === 0 || parsed.tests.passed === 0) {
       return { ...base, status: "SKIPPED", detail: parsed.tests.skipped ? `all ${parsed.tests.skipped} test(s) skipped, none ran` : "no tests ran" };
