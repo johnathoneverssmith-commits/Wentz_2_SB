@@ -47,8 +47,8 @@ test.describe("fixture saves", () => {
 
   test("two independently generated games from the same inputs are byte-identical", async () => {
     test.setTimeout(240_000);
-    const a = buildFixtures();
-    const b = buildFixtures();
+    const a = await buildFixtures();
+    const b = await buildFixtures();
     try {
       for (const name of NAMES) {
         const fa = readFixture(a.dir, name);
@@ -67,7 +67,7 @@ test.describe("fixture saves", () => {
 
   test("the seed is what makes a league: another seed gives a different one", async () => {
     test.setTimeout(240_000);
-    const other = buildFixtures({ seed: FIXTURE_SEED + 1 });
+    const other = await buildFixtures({ seed: FIXTURE_SEED + 1 });
     try {
       for (const name of NAMES) expect(readFixture(other.dir, name).digest, name).not.toBe(readFixture(process.env.E2E_FIXTURE_DIR!, name).digest);
       expect(readSummary(other.dir).draftPickOrder).not.toEqual(readSummary(process.env.E2E_FIXTURE_DIR!).draftPickOrder);
@@ -78,7 +78,7 @@ test.describe("fixture saves", () => {
 
   test("what the clock changes, measured rather than assumed", async () => {
     test.setTimeout(240_000);
-    const real = buildFixtures({ realClock: true });
+    const real = await buildFixtures({ realClock: true });
     try {
       const fixed = process.env.E2E_FIXTURE_DIR!;
       const same = NAMES.map((n) => readFixture(real.dir, n).digest === readFixture(fixed, n).digest);
