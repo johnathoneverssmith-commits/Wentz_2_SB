@@ -78,7 +78,7 @@
       "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
       "note": "Run one file at a time on PGlite. A pass here says nothing about locks, deadlocks or concurrency; CI's PostgreSQL does."
     },
-    "launcher-tests": { "kind": "command", "tier": 1, "label": "Local league server launcher: database choice, scrubbed environment, loopback binding, readiness and cleanup", "commands": ["npx vitest run --root online test/local-launcher.test.ts"], "seconds": { "local": 30, "ci": 25 }, "note": "Starts its own in-memory PGlite and a real league server on free loopback ports; needs no database from you." },
+    "launcher-tests": { "kind": "command", "tier": 1, "label": "Local league server launcher: database choice, scrubbed environment, loopback binding, readiness and cleanup", "commands": ["npx vitest run --root online test/local-launcher.test.ts test/harness-redirects.test.ts"], "seconds": { "local": 40, "ci": 30 }, "note": "Starts its own in-memory PGlite and a real league server on free loopback ports, and runs the HTTP harness against servers that redirect; needs no database from you." },
     "infra-checks": { "kind": "command", "tier": 1, "label": "Database test helpers, global setup and the no-DDL-in-suites guard", "commands": ["npx vitest run --root online test/require-database.test.ts test/schema-setup.test.ts test/no-schema-in-suites.test.ts"], "seconds": { "local": 3, "ci": 3 } },
     "how-it-works-test": { "kind": "command", "tier": 1, "label": "How It Works text matches the mechanics it states", "commands": ["npm --prefix ui-source run test -- src/state/howItWorks.test.ts"], "seconds": { "local": 5, "ci": 3 } },
     "how-it-works-review": { "kind": "manual", "tier": 1, "label": "If a mechanic changed, ui-source/src/state/howItWorks.ts changes in the same commit", "commands": [], "note": "CLAUDE.md: the player-facing explanation of every system must stay true." },
@@ -192,7 +192,7 @@
     },
     {
       "id": "online-dev-launcher", "class": "online-dev-launcher", "risk": "medium", "component": "online",
-      "match": ["online/dev/local-server.ts", "online/dev/local-launcher.ts", "online/dev/launcher-safety.ts", "online/dev/loopback-only.mjs", "online/dev/e2e-http.ts", "online/test/local-launcher.test.ts"],
+      "match": ["online/dev/local-server.ts", "online/dev/local-launcher.ts", "online/dev/launcher-safety.ts", "online/dev/loopback-only.mjs", "online/dev/e2e-http.ts", "online/dev/harness-fetch.ts", "online/test/local-launcher.test.ts", "online/test/harness-redirects.test.ts"],
       "requires": ["tc-online", "launcher-tests", "ci-pr"],
       "recommends": [],
       "notes": ["The launcher decides which database the real server is started against. A change here must keep an inherited production URL from reaching database initialization: the launcher tests prove it."]

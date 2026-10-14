@@ -984,12 +984,12 @@ describe("the list of database suites cannot silently miss one", () => {
 });
 
 describe("the local league server launcher", () => {
-  it.each(["online/dev/local-server.ts", "online/dev/local-launcher.ts", "online/dev/launcher-safety.ts", "online/dev/loopback-only.mjs", "online/dev/e2e-http.ts", "online/test/local-launcher.test.ts"])("%s requires the launcher tests", (path) => {
+  it.each(["online/dev/local-server.ts", "online/dev/local-launcher.ts", "online/dev/launcher-safety.ts", "online/dev/loopback-only.mjs", "online/dev/e2e-http.ts", "online/dev/harness-fetch.ts", "online/test/local-launcher.test.ts", "online/test/harness-redirects.test.ts"])("%s requires the launcher tests", (path) => {
     const p = run([change(path)]);
     expect(p.classes).toContain("online-dev-launcher");
     expect(ids(p)).toEqual(expect.arrayContaining(["tc-online", "launcher-tests"]));
     const c = p.required.find((x) => x.id === "launcher-tests")!;
-    expect(c.commands).toEqual(["npx vitest run --root online test/local-launcher.test.ts"]);
+    expect(c.commands).toEqual(["npx vitest run --root online test/local-launcher.test.ts test/harness-redirects.test.ts"]);
     expect(c.needsDatabase).toBe(false); // it starts its own database
   });
 

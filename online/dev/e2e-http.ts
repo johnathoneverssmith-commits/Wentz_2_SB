@@ -15,6 +15,7 @@
  *   npm run online:db & npm run online:local
  *   npx tsx --tsconfig online/tsconfig.json online/dev/e2e-http.ts [--seasons 2] [--humans 2] [--format nfl|humansOnly] [--fantasy]
  */
+import { harnessFetch, RedirectRefused } from "./harness-fetch.ts";
 import { validateLeagueApi } from "./launcher-safety.ts";
 import type { LeagueState } from "@/domain";
 import { bracketRounds } from "@/domain";
@@ -70,7 +71,7 @@ const check = (ok: boolean, what: string) => {
 
 async function call<T>(u: User | null, method: "GET" | "POST", path: string, body?: unknown): Promise<T | null> {
   const t0 = performance.now();
-  const res = await fetch(`${API}${path}`, {
+  const res = await harnessFetch(`${API}${path}`, {
     method,
     headers: { ...(u ? { cookie: u.cookie } : {}), ...(body === undefined ? {} : { "content-type": "application/json" }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -90,7 +91,7 @@ async function call<T>(u: User | null, method: "GET" | "POST", path: string, bod
 
 async function register(name: string): Promise<User> {
   const u: User = { name, cookie: "", team: "", gmId: "" };
-  const res = await fetch(`${API}/auth/register`, {
+  const res = await harnessFetch(`${API}/auth/register`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name, password: PASSWORD }),
@@ -168,7 +169,7 @@ async function act(u: User, leagueId: string, s: LeagueState): Promise<void> {
 const PASSWORD = process.env.E2E_PASSWORD ?? "password123";
 
 async function login(name: string): Promise<User> {
-  const res = await fetch(`${API}/auth/login`, {
+  const res = await harnessFetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ name, password: PASSWORD }),
@@ -372,4 +373,15 @@ async function main() {
   process.exit(failures.length ? 1 : 0);
 }
 
-await main();
+try {
+  await main();
+} catch (e) {
+  if (e instanceof RedirectRefused) {
+    // nothing was followed: no request went anywhere but the validated address
+    console.error(`refusing to continue: ${e.message}. The league server answered with a redirect, and this harness never follows one.`);
+    // not process.exit(): with a keep-alive connection still open it aborts the process on Windows (0xC0000409)
+    process.exitCode = 2;
+  } else {
+    throw e;
+  }
+}
