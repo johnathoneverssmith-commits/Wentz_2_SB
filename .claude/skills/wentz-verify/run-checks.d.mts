@@ -1,6 +1,7 @@
 import type { Check, Plan } from "./select-checks.mjs";
 import type { RunRecord } from "./verdict.mjs";
 import type { Policy } from "./command-policy.mjs";
+import type { Capture } from "./output-signals.mjs";
 
 export function refusal(command: string, options?: { repoRoot?: string; cwd?: string; policy?: Policy; fileExists?: (path: string) => boolean }): string | null;
 export function selectChecks(
@@ -10,7 +11,7 @@ export function selectChecks(
 export function killTree(pid: number | undefined, options?: { platform?: string }): void;
 export function runProcess(
   spec: { file: string; args: string[]; shell: boolean },
-  options: { cwd: string; env: Record<string, string>; timeoutMs: number; maxBytes?: number; platform?: string },
+  options: { cwd: string; env: Record<string, string>; timeoutMs: number; maxBytes?: number; platform?: string; capture?: Capture },
 ): Promise<{ status: number | null; stdout: string; stderr: string; timedOut: boolean; error?: string }>;
 export function runCheck(
   check: Check,
