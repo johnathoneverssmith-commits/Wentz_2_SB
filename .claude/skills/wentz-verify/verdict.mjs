@@ -100,6 +100,68 @@ function short(parsed) {
   return t ? `${t.passed} passed${t.failed ? `, ${t.failed} failed` : ""}${t.skipped ? `, ${t.skipped} skipped` : ""}` : "";
 }
 
+/** The parsed form of the signals the runner scanned from one command's whole output (output-signals.mjs). */
+function parsedFromSignals(signals = {}) {
+  const parsed = parseTestOutput((signals.interesting ?? []).join("\n"));
+  return {
+    ...parsed,
+    failures: signals.failureNames ?? [],
+    failureLines: signals.failureLines ?? 0,
+    tscErrors: signals.tscErrors ?? 0,
+    databaseUsed: Boolean(signals.databaseUsed),
+    databaseSetupFailed: Boolean(signals.databaseSetupFailed),
+    overflow: (signals.interestingOverflow ?? 0) > 0,
+    text: (signals.interesting ?? []).join("\n"),
+  };
+}
+
+const addCounts = (parts) => {
+  const live = parts.filter(Boolean);
+  if (live.length === 0) return null;
+  const sum = { passed: 0, failed: 0, skipped: 0, todo: 0, total: 0, summaries: 0 };
+  for (const p of live) for (const k of Object.keys(sum)) sum[k] += p[k] ?? 0;
+  return sum;
+};
+
+/**
+ * What the record proves, per executed command and then together.
+ *   - Records written by the runner carry `commandResults`, one entry per command with the signals scanned from its
+ *     whole output. Those are what is judged; the bounded `output` is only for people.
+ *   - An older record (or one written by hand) has only `output`, which is parsed as before.
+ * A database is "used" only if every Vitest command of the check printed the marker: one command's marker does
+ * not vouch for another, and a database being selected, or a zero exit code, vouches for nothing.
+ */
+function evidenceOf(run) {
+  const results = Array.isArray(run.commandResults) ? run.commandResults : [];
+  if (results.length === 0) {
+    const parsed = parseTestOutput(run.output ?? "");
+    return { parsed: { ...parsed, failureLines: parsed.failures.length, overflow: false, text: String(run.output ?? "") }, missingDatabase: parsed.databaseUsed ? [] : ["(the recorded output)"], noSummary: [], noneRan: [], incomplete: false, commands: 0 };
+  }
+  const per = results.map((r) => ({ command: r.command, parsed: parsedFromSignals(r.signals), vitest: parserFor({ commands: [r.command] }) === "vitest" }));
+  const names = [];
+  for (const p of per) for (const n of p.parsed.failures) if (!names.includes(n) && names.length < 12) names.push(n);
+  return {
+    parsed: {
+      tests: addCounts(per.map((p) => p.parsed.tests)),
+      files: addCounts(per.map((p) => p.parsed.files)),
+      failures: names,
+      failureLines: per.reduce((n, p) => n + p.parsed.failureLines, 0),
+      tscErrors: per.reduce((n, p) => n + p.parsed.tscErrors, 0),
+      databaseSetupFailed: per.some((p) => p.parsed.databaseSetupFailed),
+      databaseUsed: per.some((p) => p.vitest) && per.filter((p) => p.vitest).every((p) => p.parsed.databaseUsed),
+      overflow: per.some((p) => p.parsed.overflow),
+      text: per.map((p) => p.parsed.text).join("\n"),
+    },
+    missingDatabase: per.filter((p) => p.vitest && !p.parsed.databaseUsed).map((p) => p.command),
+    // each Vitest command must itself have run tests: another command's passes cannot stand in for it
+    noSummary: per.filter((p) => p.vitest && !p.parsed.tests).map((p) => p.command),
+    noneRan: per.filter((p) => p.vitest && p.parsed.tests && (p.parsed.tests.total === 0 || p.parsed.tests.passed === 0)).map((p) => ({ command: p.command, skipped: p.parsed.tests.skipped })),
+    // the runner stops at the first command that fails, so a shorter list is only complete when that happened
+    incomplete: results.length < (run.commands?.length ?? results.length),
+    commands: results.length,
+  };
+}
+
 /**
  * One check's status, from the record of running it.
  * `run`: { exitCode: number | null, output?, timedOut?, error?, durationSec?, status?, evidence?, ci? }
@@ -123,11 +185,12 @@ export function judge(check, run) {
   if (run.exitCode === null || run.exitCode === undefined) return { ...base, status: "NOT_RUN", detail: "no exit code was recorded" };
 
   const parser = parserFor(check);
-  const parsed = parseTestOutput(run.output ?? "");
+  const ev = evidenceOf(run);
+  const parsed = ev.parsed;
   const failures = parsed.failures.slice(0, 5);
 
   if (parser === "stress") {
-    const s = parseStressOutput(run.output ?? "");
+    const s = parseStressOutput(parsed.text);
     const said = s.invariantFailures === null ? "no summary" : `${s.invariantFailures} invariant failure(s), replay ${s.replay ?? "unreported"}, ${s.teamSeasons ?? "unknown"} team season(s)`;
     if (run.exitCode !== 0) return { ...base, status: "FAILED", detail: `exit code ${run.exitCode} (${said})` };
     // a pass needs the whole summary: no failures, the replay compared and identical, and seasons actually played
@@ -144,24 +207,34 @@ export function judge(check, run) {
   if ((parsed.tests?.failed ?? 0) > 0 || (parsed.files?.failed ?? 0) > 0) {
     return { ...base, status: "FAILED", detail: `exit code 0 but the output reports ${parsed.tests?.failed ?? 0} failed test(s): not counted as a pass`, failures };
   }
-  if (parser === "vitest" && parsed.failures.length > 0) {
-    return { ...base, status: "FAILED", detail: `exit code 0 but the output lists ${parsed.failures.length} failing test line(s) (${parsed.failures[0]}), even if a later summary is green: not counted as a pass`, failures };
+  if (parser === "vitest" && parsed.failureLines > 0) {
+    return { ...base, status: "FAILED", detail: `exit code 0 but the output lists ${parsed.failureLines} failing test line(s) (${parsed.failures[0] ?? "name not kept"}), even if a later summary is green: not counted as a pass`, failures };
   }
+  if (ev.incomplete) return { ...base, status: "NOT_RUN", detail: `evidence was recorded for ${ev.commands} of ${run.commands.length} command(s): not counted` };
+  if (parser === "vitest" && parsed.overflow) return { ...base, status: "FAILED", detail: "the output has more test summaries than can be read reliably: not counted as a pass" };
   if (parsed.tscErrors > 0) return { ...base, status: "FAILED", detail: `exit code 0 but the output shows ${parsed.tscErrors} type error(s)` };
   if (parsed.databaseSetupFailed) return { ...base, status: "FAILED", detail: "the database schema could not be applied", failures };
 
   if (parser === "vitest") {
-    if (!parsed.tests) {
-      return { ...base, status: "FAILED", detail: "exit code 0 but no test summary could be read: not counted as a pass" };
+    if (!parsed.tests || ev.noSummary.length > 0) {
+      const which = ev.commands > 1 && ev.noSummary.length > 0 ? ` from ${ev.noSummary.map((c) => `\`${c}\``).join(", ")}` : "";
+      return { ...base, status: "FAILED", detail: `exit code 0 but no test summary could be read${which}: not counted as a pass` };
+    }
+    if (ev.noneRan.length > 0) {
+      const what = ev.noneRan.map((n) => `${ev.commands > 1 ? `\`${n.command}\`: ` : ""}${n.skipped ? `all ${n.skipped} test(s) skipped, none ran` : "no tests ran"}`).join("; ");
+      return { ...base, status: "SKIPPED", detail: what };
     }
     if (parsed.tests.total === 0 || parsed.tests.passed === 0) {
       return { ...base, status: "SKIPPED", detail: parsed.tests.skipped ? `all ${parsed.tests.skipped} test(s) skipped, none ran` : "no tests ran" };
     }
-    if (check.needsDatabase && !parsed.databaseUsed) {
+    if (check.needsDatabase && ev.missingDatabase.length > 0) {
       return {
         ...base,
         status: "SKIPPED",
-        detail: "no database was used, so these suites returned early (a runner counts that as a pass); not exercised",
+        detail:
+          ev.commands > 1
+            ? `no database was used by ${ev.missingDatabase.map((c) => `\`${c}\``).join(", ")}, so its suites returned early (a runner counts that as a pass); not exercised`
+            : "no database was used, so these suites returned early (a runner counts that as a pass); not exercised",
       };
     }
     const skipped = parsed.tests.skipped;
