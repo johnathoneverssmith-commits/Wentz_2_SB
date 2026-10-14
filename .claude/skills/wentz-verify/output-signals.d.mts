@@ -22,5 +22,5 @@ export interface Capture {
   push(stream: "stdout" | "stderr", chunk: string): void;
   result(): Captured;
 }
-export const LIMITS: Readonly<{ head: number; tail: number; interesting: number; failureNames: number; line: number; keptLine: number }>;
-export function createCapture(overrides?: Partial<{ head: number; tail: number; interesting: number; failureNames: number; line: number; keptLine: number }>): Capture;
+export const LIMITS: Readonly<{ head: number; tail: number; interesting: number; failureNames: number; line: number; overlap: number; keptLine: number }>;
+export function createCapture(overrides?: Partial<{ head: number; tail: number; interesting: number; failureNames: number; line: number; overlap: number; keptLine: number }>): Capture;
