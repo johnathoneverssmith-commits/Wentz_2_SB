@@ -19,6 +19,9 @@ export interface FixtureDoc {
   stage: string;
   draftSalt: number;
   viewerTeam: string | null;
+  season: number;
+  /** Whether the viewer's "Skip free agency" choice is set in this save (the carried-skip fixture requires it). */
+  skipFreeAgency: boolean;
   clock: "fixed" | "real";
   sizeBytes: number;
   digest: string;
@@ -37,6 +40,8 @@ export interface FixtureSummary {
 export interface BuildFixturesOptions {
   seed?: number;
   realClock?: boolean;
+  /** Build only these fixtures, and stop playing once they are kept (the whole-year saves are the slow ones). */
+  only?: readonly string[];
   /** Replaces the builder script (tests only: one that fails or hangs). */
   script?: string;
   timeoutMs?: number;
@@ -58,7 +63,7 @@ export async function buildFixtures(options: BuildFixturesOptions = {}): Promise
     const r = await runProcess(
       {
         file: process.execPath,
-        args: [tsx, "--tsconfig", "tsconfig.app.json", options.script ?? BUILDER, "--out", dir, "--seed", String(options.seed ?? FIXTURE_SEED), ...(options.realClock ? ["--real-clock"] : [])],
+        args: [tsx, "--tsconfig", "tsconfig.app.json", options.script ?? BUILDER, "--out", dir, "--seed", String(options.seed ?? FIXTURE_SEED), ...(options.realClock ? ["--real-clock"] : []), ...(options.only ? ["--only", options.only.join(",")] : [])],
         shell: false,
       },
       { cwd: UI_DIR, env: baseEnvironment(process.env), timeoutMs },

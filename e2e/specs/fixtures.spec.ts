@@ -11,8 +11,16 @@ import { REPO_ROOT } from "../support/stack.ts";
  * About the saves the browser tests start from. No browser here: these are the checks that the starting states are
  * deterministic, pinned to their inputs, built by genuine play, and small enough for a browser to hold.
  */
-const NAMES = ["fantasy-draft", "coaching-draft", "preseason"] as const;
-const STAGES: Record<(typeof NAMES)[number], string> = { "fantasy-draft": "fantasyDraft", "coaching-draft": "coachingDraft", preseason: "preseason" };
+// the first three are reached early and rebuilt cheaply (`only`); the other two need a whole year played, and are built in full once
+const EARLY = ["fantasy-draft", "coaching-draft", "preseason"] as const;
+const NAMES = [...EARLY, "midseason-fa", "offseason-fa-skip-carried"] as const;
+const STAGES: Record<(typeof NAMES)[number], string> = {
+  "fantasy-draft": "fantasyDraft",
+  "coaching-draft": "coachingDraft",
+  preseason: "preseason",
+  "midseason-fa": "midseasonFreeAgency",
+  "offseason-fa-skip-carried": "offseasonDraftSummary",
+};
 const PINNED = JSON.parse(readFileSync(new URL("../fixtures/inputs.json", import.meta.url), "utf8")) as Record<string, string>;
 const sha = (text: string): string => createHash("sha256").update(text).digest("hex");
 
@@ -40,13 +48,37 @@ test.describe("fixture saves", () => {
     }
     // later stages hold more of the league's history: the draft's 1,000-plus picks and a coaching draft were really played
     const sizes = NAMES.map((n) => readFixture(dir, n).sizeBytes);
-    expect(new Set(sizes).size).toBe(3);
+    expect(new Set(sizes).size).toBe(NAMES.length);
     const preseason = JSON.parse(readFixture(dir, "preseason").save) as { state: { draft: { results: unknown[] } | null; coachingDraft: unknown } };
     expect(preseason.state.coachingDraft, "the coaching draft was played").toBeTruthy();
   });
 
+  test("the free-agency saves are the two moments the skip regression needs, from one playthrough", () => {
+    const dir = process.env.E2E_FIXTURE_DIR!;
+    type Doc = { state: { stage: string; season: number; week: number; freeAgencyEvent: { complete: boolean; round: number } | null; gms: Array<{ id: string; skips?: { freeAgency?: boolean } }>; viewerGmId: string } };
+    const mid = readFixture(dir, "midseason-fa");
+    const midDoc = JSON.parse(mid.save) as Doc;
+    const late = readFixture(dir, "offseason-fa-skip-carried");
+    const lateDoc = JSON.parse(late.save) as Doc;
+    const choice = (d: Doc) => d.state.gms.find((g) => g.id === d.state.viewerGmId)?.skips?.freeAgency ?? false;
+
+    // the first: the mid-season market has just opened, round one, and nothing has been chosen
+    expect(midDoc.state.freeAgencyEvent).toMatchObject({ complete: false, round: 1 });
+    expect(choice(midDoc)).toBe(false);
+    expect(mid.skipFreeAgency).toBe(false);
+
+    // the second: the same league, after that market was skipped and the season and the offseason were played on to the
+    // door of the next market: the earlier market is the one still held, and the choice made in it is still set
+    expect(lateDoc.state.season).toBe(midDoc.state.season); // the offseason after the season's playoffs, still before its rollover
+    expect(lateDoc.state.freeAgencyEvent).toMatchObject({ complete: true, round: 5 });
+    expect(choice(lateDoc)).toBe(true);
+    expect(late.skipFreeAgency).toBe(true);
+    expect(late.viewerTeam).toBe(mid.viewerTeam);
+    expect(late.sizeBytes).toBeGreaterThan(mid.sizeBytes); // a season of results and a rookie draft later
+  });
+
   test("two independently generated games from the same inputs are byte-identical", async () => {
-    test.setTimeout(240_000);
+    test.setTimeout(600_000); // two full builds: each plays a whole year
     const a = await buildFixtures();
     const b = await buildFixtures();
     try {
@@ -67,9 +99,9 @@ test.describe("fixture saves", () => {
 
   test("the seed is what makes a league: another seed gives a different one", async () => {
     test.setTimeout(240_000);
-    const other = await buildFixtures({ seed: FIXTURE_SEED + 1 });
+    const other = await buildFixtures({ seed: FIXTURE_SEED + 1, only: EARLY });
     try {
-      for (const name of NAMES) expect(readFixture(other.dir, name).digest, name).not.toBe(readFixture(process.env.E2E_FIXTURE_DIR!, name).digest);
+      for (const name of EARLY) expect(readFixture(other.dir, name).digest, name).not.toBe(readFixture(process.env.E2E_FIXTURE_DIR!, name).digest);
       expect(readSummary(other.dir).draftPickOrder).not.toEqual(readSummary(process.env.E2E_FIXTURE_DIR!).draftPickOrder);
     } finally {
       rmSync(other.dir, { recursive: true, force: true });
@@ -78,15 +110,15 @@ test.describe("fixture saves", () => {
 
   test("what the clock changes, measured rather than assumed", async () => {
     test.setTimeout(240_000);
-    const real = await buildFixtures({ realClock: true });
+    const real = await buildFixtures({ realClock: true, only: EARLY });
     try {
       const fixed = process.env.E2E_FIXTURE_DIR!;
-      const same = NAMES.map((n) => readFixture(real.dir, n).digest === readFixture(fixed, n).digest);
+      const same = EARLY.map((n) => readFixture(real.dir, n).digest === readFixture(fixed, n).digest);
       // the real clock still builds legal, complete leagues of the same stages and the same draft; whether the
       // bytes differ is the finding, recorded for the report (some ids and deadlines are derived from Date.now)
-      for (const name of NAMES) expect(readFixture(real.dir, name).stage).toBe(STAGES[name]);
+      for (const name of EARLY) expect(readFixture(real.dir, name).stage).toBe(STAGES[name]);
       expect(readSummary(real.dir).draftPickOrder).toEqual(readSummary(fixed).draftPickOrder);
-      test.info().annotations.push({ type: "clock-sensitivity", description: same.every(Boolean) ? "saves identical with the real clock" : `saves differ with the real clock: ${NAMES.filter((_, i) => !same[i]).join(", ")}` });
+      test.info().annotations.push({ type: "clock-sensitivity", description: same.every(Boolean) ? "saves identical with the real clock" : `saves differ with the real clock: ${EARLY.filter((_, i) => !same[i]).join(", ")}` });
     } finally {
       rmSync(real.dir, { recursive: true, force: true });
     }
