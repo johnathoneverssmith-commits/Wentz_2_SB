@@ -74,6 +74,10 @@ memory or on how a result is phrased:
   repeats, and report both runs; do not average them or keep only the green one.
 - The whole online suite (`full-online`) is a database check: it counts as run only when the output
   shows a database was used. Explicit failing-test lines fail a check even if a later summary is green.
+- A check is judged from signals scanned out of each command's **whole** output as it ran (the database marker,
+  Vitest's summaries, every failing-test line, type errors), kept per command; what is printed in the report is only
+  a bounded start and end of the output. A long run can no longer lose the "database was used" marker or a failing
+  test's name, and a check with several commands needs the marker from each of its Vitest commands.
 - **SKIPPED is not passed.** A database suite that ran without a database returns early and a
   runner counts that as a pass; `report.mjs` marks it SKIPPED unless the output shows the database
   was used. In CI (`CI=true`) such a suite fails instead, which is what you want.
