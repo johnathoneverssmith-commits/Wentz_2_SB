@@ -18,7 +18,11 @@
  * `interestingOverflow`, which the verdict treats as unreadable, never as a pass.
  */
 
-const ANSI = /\u001b\[[0-9;]*[A-Za-z]/g;
+// Colour codes are removed from the text before it is split, held, overlapped or matched, so every position the
+// scanner reasons about is a position in the same (plain) text. The parameters are bounded so a code can be held
+// back whole when a chunk ends in the middle of one (ANSI_OPEN), and the two patterns agree on what a code is.
+const ANSI = /\u001b\[[0-9;]{0,64}[A-Za-z]/g;
+const ANSI_OPEN = /\u001b(?:\[[0-9;]{0,64})?$/;
 const FAILURE_LINE = /^\s*(?:×|✗|✕|FAIL)\s+(.+?)(?:\s+\d+ms)?\s*$/;
 const SUMMARY_LINE = /^\s*(?:Tests|Test Files)\s+/;
 const STRESS_LINE = /(?:Invariant failures and crashes|Deterministic replay|Team seasons completed):/;
@@ -55,6 +59,8 @@ export function createCapture(overrides = {}) {
   const continued = { stdout: false, stderr: false };
   // leading characters of the buffer that are overlap already scanned (matches wholly inside it are not counted twice)
   const carried = { stdout: 0, stderr: 0 };
+  // the start of a colour code that a chunk ended in the middle of: held back until the next chunk completes it
+  const openCode = { stdout: "", stderr: "" };
   const signals = {
     interesting: [],
     interestingOverflow: 0,
@@ -68,16 +74,24 @@ export function createCapture(overrides = {}) {
   let finished = false;
 
   /** What can appear anywhere in a line: type errors and the database markers. `skip` leading characters were seen before. */
-  const scanAnywhere = (line, skip = 0) => {
+  const scanAnywhere = (line, skip = 0, final = true) => {
     if (DATABASE_USED.test(line)) signals.databaseUsed = true;
     if (DATABASE_FAILED.test(line)) signals.databaseSetupFailed = true;
-    for (const m of line.matchAll(/\berror TS\d+/g)) if (m.index + m[0].length > skip) signals.tscErrors++;
+    // `skip`: leading characters that are overlap from the piece before. A match that ended inside them and before the
+    // end of that piece was counted then. A match touching the end of a piece that is not the last is left for the
+    // next piece, which still holds all of it (a match is at most 16 characters; the overlap is longer).
+    for (const m of line.matchAll(/\berror TS\d{1,8}/g)) {
+      const end = m.index + m[0].length;
+      if (end < skip) continue;
+      if (!final && end === line.length) continue;
+      signals.tscErrors++;
+    }
   };
 
-  const scanLine = (raw) => {
+  const scanLine = (raw, final = true) => {
     signals.lines++;
-    const line = raw.replace(/\r$/, "").replace(ANSI, "");
-    scanAnywhere(line);
+    const line = raw.replace(/\r$/, "");
+    scanAnywhere(line, 0, final);
     const failure = FAILURE_LINE.exec(line);
     if (failure) {
       signals.failureLines++;
@@ -97,16 +111,21 @@ export function createCapture(overrides = {}) {
   };
 
   /** The first piece of a line is scanned as a line; a later piece for what can sit anywhere in a line. */
-  const scanPiece = (stream, text) => {
-    if (continued[stream]) scanAnywhere(text.replace(/\r$/, "").replace(ANSI, ""), carried[stream]);
-    else scanLine(text);
+  const scanPiece = (stream, text, final = true) => {
+    if (continued[stream]) scanAnywhere(text.replace(/\r$/, ""), carried[stream], final);
+    else scanLine(text, final);
   };
 
   return {
     /** Feed one chunk from one of the process's streams, in the order it arrived. */
     push(stream, chunk) {
-      const text = String(chunk);
-      log(text);
+      const raw = String(chunk);
+      log(raw); // for people: as printed
+      let text = openCode[stream] + raw;
+      const open = ANSI_OPEN.exec(text);
+      openCode[stream] = open ? open[0] : "";
+      if (open) text = text.slice(0, open.index);
+      text = text.replace(ANSI, "");
       const pieces = (partial[stream] + text).split("\n");
       partial[stream] = pieces.pop() ?? "";
       for (const piece of pieces) {
@@ -116,7 +135,7 @@ export function createCapture(overrides = {}) {
       }
       // a line still open and too long to hold: scan what is held, keep only the overlap, go on
       while (partial[stream].length > limits.line) {
-        scanPiece(stream, partial[stream]);
+        scanPiece(stream, partial[stream], false);
         continued[stream] = true;
         const keep = Math.min(limits.overlap, partial[stream].length);
         partial[stream] = partial[stream].slice(-keep);
@@ -129,8 +148,11 @@ export function createCapture(overrides = {}) {
       if (!finished) {
         finished = true;
         for (const stream of ["stdout", "stderr"]) {
-          // text that is only the overlap was scanned already
-          if (partial[stream] && partial[stream].length > carried[stream]) scanPiece(stream, partial[stream]);
+          // a colour code never completed is ordinary text
+          partial[stream] += openCode[stream];
+          openCode[stream] = "";
+          // text that is only the overlap was scanned already, apart from a match left for this last piece
+          if (partial[stream] && (partial[stream].length > carried[stream] || carried[stream] > 0)) scanPiece(stream, partial[stream]);
           partial[stream] = "";
         }
       }

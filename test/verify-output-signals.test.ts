@@ -484,3 +484,145 @@ describe("every test command must itself have run tests", () => {
     expect(v.judge(chk, rec).status).toBe("SKIPPED");
   });
 });
+
+describe("colour codes are removed before anything is measured", () => {
+  const ESC = "\u001b";
+  const red = `${ESC}[1;31m`; // 7 characters
+  const reset = `${ESC}[0m`; // 4 characters
+  const long = (n: number) => "x".repeat(n);
+  const feedBy = (cap: ReturnType<typeof createCapture>, name: "stdout" | "stderr", text: string, size: number) => {
+    for (let i = 0; i < text.length; i += size) cap.push(name, text.slice(i, i + size));
+  };
+
+  for (const name of ["stdout", "stderr"] as const) {
+    it(`${name}: the reviewer's probe: 64 kept raw characters holding 14 colour characters, then a new type error, is counted`, () => {
+      const cap = createCapture({ line: 1000, overlap: 64 });
+      cap.push(name, `${long(1100)}${red}${red}${long(49)} `); // the last 64 raw characters = 14 colour + 50 text
+      cap.push(name, "error TS2322: late\n");
+      expect(cap.result().signals.tscErrors).toBe(1);
+    });
+
+    it(`${name}: heavy colouring before a database marker in an oversized line does not hide the marker`, () => {
+      const cap = createCapture({ line: 1000, overlap: 64 });
+      cap.push(name, `${long(1100)}${(red + reset).repeat(6)}${long(4)}`);
+      cap.push(name, `${MARKER}\n`);
+      expect(cap.result().signals.databaseUsed).toBe(true);
+    });
+
+    it(`${name}: a colour code split across chunk boundaries at every offset is removed, and the error inside is still found`, () => {
+      const decorated = `${long(30)} ${red}error TS2322${reset}: coloured\n`;
+      for (let size = 1; size <= 12; size++) {
+        const cap = createCapture();
+        feedBy(cap, name, decorated, size);
+        expect(cap.result().signals.tscErrors, `chunks of ${size}`).toBe(1);
+      }
+    });
+
+    it(`${name}: a type error with colour codes inside its own words is the same error as the plain one`, () => {
+      const plain = createCapture();
+      plain.push(name, "a.ts(1,1): error TS2322: x\n");
+      const coloured = createCapture();
+      for (let i = 0; i < 26; i++) coloured.push(name, "a.ts(1,1): error TS2322: x\n".slice(i, i + 1));
+      // one character at a time, with a colour code in the middle of the words
+      const split = createCapture();
+      split.push(name, `a.ts(1,1): ${red}er`);
+      split.push(name, `ror${reset} TS2322: x\n`);
+      expect(plain.result().signals.tscErrors).toBe(1);
+      expect(coloured.result().signals.tscErrors).toBe(1);
+      expect(split.result().signals.tscErrors).toBe(1);
+    });
+
+    it(`${name}: many coloured errors in one oversized line are counted exactly, whatever the chunk size`, () => {
+      const unit = `${red}error TS2322${reset} ${long(37)} `;
+      const decorated = `${long(2000)} ${unit.repeat(40)}${long(500)}\n`;
+      for (const size of [1, 3, 7, 13, 64, 65, 66, 500, 4096]) {
+        const cap = createCapture({ line: 1000, overlap: 64 });
+        feedBy(cap, name, decorated, size);
+        expect(cap.result().signals.tscErrors, `chunks of ${size}`).toBe(40);
+      }
+    });
+  }
+
+  it("the same counts come out of coloured and plain text, at default limits, across a megabyte of mixed streams", () => {
+    const body = Array.from({ length: 5000 }, (_, i) => `${i % 7 === 0 ? red : ""}line ${i} ${i % 50 === 0 ? "error TS2322" : "ok"}${i % 7 === 0 ? reset : ""} ${long(150)}\n`).join("");
+    const plain = body.replaceAll(red, "").replaceAll(reset, "");
+    const a = createCapture();
+    const b = createCapture();
+    feedBy(a, "stdout", body, 777);
+    feedBy(b, "stdout", plain, 777);
+    expect(a.result().signals.tscErrors).toBe(100);
+    expect(b.result().signals.tscErrors).toBe(100);
+  });
+
+  it("a lone escape character that never becomes a colour code is just text, and nothing is lost after it", () => {
+    const cap = createCapture();
+    cap.push("stdout", `abc${ESC}`);
+    cap.push("stdout", "error TS2322\n");
+    expect(cap.result().signals.tscErrors).toBe(1);
+    const tail = createCapture();
+    tail.push("stderr", `error TS2322${ESC}[3`);
+    expect(tail.result().signals.tscErrors).toBe(1);
+  });
+
+  it("a match cut by the end of a piece is counted once, not twice and not never", () => {
+    for (let cut = 1; cut < "error TS2322".length; cut++) {
+      const cap = createCapture({ line: 1000, overlap: 64 });
+      cap.push("stdout", `${long(1100)} ${"error TS2322".slice(0, cut)}`);
+      cap.push("stdout", `${"error TS2322".slice(cut)} ok\n`);
+      expect(cap.result().signals.tscErrors, `cut ${cut}`).toBe(1);
+    }
+  });
+
+  it("end to end: a coloured error in an oversized line, followed by a passing summary, is FAILED (both streams)", async () => {
+    for (const name of ["stdout", "stderr"] as const) {
+      const text = `${long(70_000)}${red}${red}${long(49)} `;
+      const second = `error TS2322: late\n`;
+      const body = `process.${name}.write(${JSON.stringify(text)}); setTimeout(() => process.${name}.write(${JSON.stringify(second)}), 150);`;
+      const dir = scripts({ "o/tsc.js": body });
+      const chk = check(["node o/tsc.js"]);
+      expect(v.judge(chk, await run(chk, dir))).toMatchObject({ status: "FAILED", detail: expect.stringMatching(/type error/) });
+    }
+  });
+});
+
+describe("the scanner agrees with a plain reading of the whole text, however it is chopped up", () => {
+  /** A small seeded generator, so a failure can be replayed. */
+  const rng = (seed: number) => () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  const ANSI_ALL = /\u001b\[[0-9;]{0,64}[A-Za-z]/g;
+
+  it("counts exactly the type errors and notices the marker, over 400 random streams of colour codes, long lines and chunk sizes", () => {
+    for (let trial = 0; trial < 400; trial++) {
+      const next = rng(trial + 1);
+      const pick = <T,>(items: T[]) => items[Math.floor(next() * items.length)]!;
+      const tokens: string[] = [];
+      for (let i = 0, n = 5 + Math.floor(next() * 60); i < n; i++) {
+        tokens.push(
+          pick([
+            () => "x".repeat(1 + Math.floor(next() * 400)),
+            () => " error TS" + String(1000 + Math.floor(next() * 9000)) + " ",
+            () => "\u001b[" + pick(["0", "1;31", "32", "38;5;208", "1;3;4;7"]) + "m",
+            () => "\n",
+            () => "\r\n",
+            () => " " + MARKER + " ",
+            () => "\u001b",
+            () => "error TS",
+            () => "TS2322",
+          ])(),
+        );
+      }
+      const text = tokens.join("");
+      const plain = text.replace(ANSI_ALL, "");
+      const expected = (plain.match(/\berror TS\d{1,8}/g) ?? []).length;
+      const cap = createCapture({ line: 100 + Math.floor(next() * 400), overlap: 64 });
+      const size = 1 + Math.floor(next() * 90);
+      const stream = next() < 0.5 ? "stdout" : "stderr";
+      for (let i = 0; i < text.length; i += size) cap.push(stream, text.slice(i, i + size));
+      const got = cap.result().signals;
+      expect(got.tscErrors, `trial ${trial}`).toBe(expected);
+      expect(got.databaseUsed, `trial ${trial}`).toBe(/\[test setup\] database schema applied once/.test(plain));
+    }
+  });
+});
