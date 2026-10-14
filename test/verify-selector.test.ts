@@ -998,3 +998,31 @@ describe("the local league server launcher", () => {
     expect(run([change("online/dev/local-db.ts")]).classes).toContain("online-dev-tooling");
   });
 });
+
+describe("the browser test harness", () => {
+  it.each(["e2e/playwright.config.ts", "e2e/support/guard.ts", "e2e/specs/draft.spec.ts", "e2e/fixtures/build.ts", "e2e/README.md"])("%s is classified, not left to the conservative default", (path) => {
+    const p = run([change(path)]);
+    expect(p.classes).toContain("browser-e2e");
+    expect(p.unknownSourcePaths).toEqual([]);
+    expect(p.conservative).toBe(false);
+    expect(p.notes.join(" ")).toMatch(/npm run e2e/);
+  });
+
+  it("treats the new dev dependency as a dependency change, which needs approval and the full suites", () => {
+    const p = run([change("package.json"), change("package-lock.json")]);
+    expect(p.classes).toContain("dependencies");
+    expect(p.approvalsNeeded.join(" ")).toMatch(/Dependencies/);
+    expect(ids(p)).toEqual(expect.arrayContaining(["full-engine", "full-ui", "full-online", "ui-build"]));
+  });
+});
+
+describe("combined launcher and browser selection", () => {
+  it("keeps both rules and the required launcher verification", () => {
+    const p = run([change("online/dev/local-server.ts"), change("e2e/support/stack.ts")]);
+    expect(p.classes).toEqual(expect.arrayContaining(["online-dev-launcher", "browser-e2e"]));
+    expect(ids(p)).toEqual(expect.arrayContaining(["scope", "tc-engine", "tc-online", "launcher-tests", "ci-pr"]));
+    expect(p.unknownSourcePaths).toEqual([]);
+    expect(p.conservative).toBe(false);
+    expect(p.notes.join(" ")).toMatch(/npm run e2e/);
+  });
+});

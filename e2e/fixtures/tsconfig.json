@@ -1,0 +1,9 @@
+{
+  "extends": "../../ui-source/tsconfig.app.json",
+  "compilerOptions": {
+    "baseUrl": "../../ui-source",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["./build.ts", "../../ui-source/src/vite-env.d.ts"]
+}
