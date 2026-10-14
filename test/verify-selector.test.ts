@@ -827,7 +827,7 @@ describe("database checks are serialised and carry their setup", () => {
 describe("the data and tests the verification tooling reads", () => {
   // The replay fixture is read only by test/verify-replay.test.ts. Changing it alone used to select
   // scope, the engine typecheck and CI, and so never ran the one test that reads it.
-  it.each(["test/fixtures/verify-replay.json", "test/verify-replay.test.ts", "test/verify-selector.test.ts", "test/verify-safety.test.ts"])("%s selects the tooling's own tests", (path) => {
+  it.each(["test/fixtures/verify-replay.json", "test/verify-replay.test.ts", "test/verify-selector.test.ts", "test/verify-safety.test.ts", "test/verify-output-signals.test.ts"])("%s selects the tooling's own tests", (path) => {
     const p = run([change(path)]);
     expect(ids(p)).toEqual(expect.arrayContaining(["scope", "tc-engine", "selector-tests"]));
     expect(p.classes).toContain("verification-tooling");
@@ -837,6 +837,7 @@ describe("the data and tests the verification tooling reads", () => {
   it("makes that check run the replay test as well", () => {
     const check = sel.loadMap().checks["selector-tests"] as { commands: string[] };
     expect(check.commands[0]).toContain("test/verify-replay.test.ts");
+    expect(check.commands[0]).toContain("test/verify-output-signals.test.ts");
     expect(check.commands[0]).toContain("test/verify-safety.test.ts");
   });
 });
