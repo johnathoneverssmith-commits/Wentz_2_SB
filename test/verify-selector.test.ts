@@ -827,7 +827,7 @@ describe("database checks are serialised and carry their setup", () => {
 describe("the data and tests the verification tooling reads", () => {
   // The replay fixture is read only by test/verify-replay.test.ts. Changing it alone used to select
   // scope, the engine typecheck and CI, and so never ran the one test that reads it.
-  it.each(["test/fixtures/verify-replay.json", "test/verify-replay.test.ts", "test/verify-selector.test.ts", "test/verify-safety.test.ts"])("%s selects the tooling's own tests", (path) => {
+  it.each(["test/fixtures/verify-replay.json", "test/verify-replay.test.ts", "test/verify-selector.test.ts", "test/verify-safety.test.ts", "test/verify-output-signals.test.ts"])("%s selects the tooling's own tests", (path) => {
     const p = run([change(path)]);
     expect(ids(p)).toEqual(expect.arrayContaining(["scope", "tc-engine", "selector-tests"]));
     expect(p.classes).toContain("verification-tooling");
@@ -837,6 +837,7 @@ describe("the data and tests the verification tooling reads", () => {
   it("makes that check run the replay test as well", () => {
     const check = sel.loadMap().checks["selector-tests"] as { commands: string[] };
     expect(check.commands[0]).toContain("test/verify-replay.test.ts");
+    expect(check.commands[0]).toContain("test/verify-output-signals.test.ts");
     expect(check.commands[0]).toContain("test/verify-safety.test.ts");
   });
 });
@@ -983,6 +984,21 @@ describe("the list of database suites cannot silently miss one", () => {
   });
 });
 
+describe("the local league server launcher", () => {
+  it.each(["online/dev/local-server.ts", "online/dev/local-launcher.ts", "online/dev/launcher-safety.ts", "online/dev/loopback-only.mjs", "online/dev/e2e-http.ts", "online/dev/harness-fetch.ts", "online/test/local-launcher.test.ts", "online/test/harness-redirects.test.ts"])("%s requires the launcher tests", (path) => {
+    const p = run([change(path)]);
+    expect(p.classes).toContain("online-dev-launcher");
+    expect(ids(p)).toEqual(expect.arrayContaining(["tc-online", "launcher-tests"]));
+    const c = p.required.find((x) => x.id === "launcher-tests")!;
+    expect(c.commands).toEqual(["npx vitest run --root online test/local-launcher.test.ts test/harness-redirects.test.ts"]);
+    expect(c.needsDatabase).toBe(false); // it starts its own database
+  });
+
+  it("leaves the other online dev tooling on its lighter rule", () => {
+    expect(run([change("online/dev/local-db.ts")]).classes).toContain("online-dev-tooling");
+  });
+});
+
 describe("the browser test harness", () => {
   it.each(["e2e/playwright.config.ts", "e2e/support/guard.ts", "e2e/specs/draft.spec.ts", "e2e/fixtures/build.ts", "e2e/README.md"])("%s is classified, not left to the conservative default", (path) => {
     const p = run([change(path)]);
@@ -997,5 +1013,16 @@ describe("the browser test harness", () => {
     expect(p.classes).toContain("dependencies");
     expect(p.approvalsNeeded.join(" ")).toMatch(/Dependencies/);
     expect(ids(p)).toEqual(expect.arrayContaining(["full-engine", "full-ui", "full-online", "ui-build"]));
+  });
+});
+
+describe("combined launcher and browser selection", () => {
+  it("keeps both rules and the required launcher verification", () => {
+    const p = run([change("online/dev/local-server.ts"), change("e2e/support/stack.ts")]);
+    expect(p.classes).toEqual(expect.arrayContaining(["online-dev-launcher", "browser-e2e"]));
+    expect(ids(p)).toEqual(expect.arrayContaining(["scope", "tc-engine", "tc-online", "launcher-tests", "ci-pr"]));
+    expect(p.unknownSourcePaths).toEqual([]);
+    expect(p.conservative).toBe(false);
+    expect(p.notes.join(" ")).toMatch(/npm run e2e/);
   });
 });

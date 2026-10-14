@@ -36,9 +36,14 @@ import { DEFAULT_POLICY, launchSpec, validateCommand, validateEnv } from "./comm
 import { environmentFor, resolveTestDatabase } from "./db-safety.mjs";
 import { appendRun, bindingFor, fingerprint, normalizeHistory, planDigest } from "./evidence.mjs";
 import { readJson } from "./io.mjs";
+import { createCapture } from "./output-signals.mjs";
 
-/** The last part of the output, where a runner prints its summary. */
-const KEEP_OUTPUT_CHARS = 16_000;
+/**
+ * How much of a stream runProcess keeps for its caller (the tail). The verdict does not read this: it reads the
+ * signals scanned from the whole output as it streamed (output-signals.mjs), so what the verdict depends on does
+ * not depend on how much output there was or how little is kept.
+ */
+const KEEP_STREAM_CHARS = 1024 * 1024;
 
 /**
  * Ends a process and everything it started. A timeout that only killed the shell would leave npm, node and
@@ -57,9 +62,11 @@ export function killTree(pid, { platform = process.platform } = {}) {
 
 /**
  * Runs one process to the end or to the timeout, and on a timeout kills the whole tree before returning.
- * Resolves with { status, stdout, stderr, timedOut, error }; never rejects.
+ * Resolves with { status, stdout, stderr, timedOut, error }; never rejects. `stdout` and `stderr` are the tails
+ * of the streams (bounded by `maxBytes`). Pass `capture` (output-signals.mjs) to have every chunk scanned as it
+ * arrives, in arrival order, whatever is kept.
  */
-export function runProcess(spec, { cwd, env, timeoutMs, maxBytes = 64 * 1024 * 1024, platform = process.platform }) {
+export function runProcess(spec, { cwd, env, timeoutMs, maxBytes = KEEP_STREAM_CHARS, platform = process.platform, capture }) {
   return new Promise((done) => {
     let stdout = "";
     let stderr = "";
@@ -85,8 +92,14 @@ export function runProcess(spec, { cwd, env, timeoutMs, maxBytes = 64 * 1024 * 1
     };
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (c) => (stdout = keep(stdout, c)));
-    child.stderr.on("data", (c) => (stderr = keep(stderr, c)));
+    child.stdout.on("data", (c) => {
+      capture?.push("stdout", c);
+      stdout = keep(stdout, c);
+    });
+    child.stderr.on("data", (c) => {
+      capture?.push("stderr", c);
+      stderr = keep(stderr, c);
+    });
     child.on("error", (e) => finish({ status: null, error: e.message }));
     child.on("close", (status) => {
       // a normal exit can still leave a background child of the command behind: end the group
@@ -122,7 +135,7 @@ export function selectChecks(plan, { ids = null, tierMax = 99, level = "all", te
 /** Runs one check; returns the record `verdict.mjs` judges. Never throws for a refused command: it records why. */
 export async function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, log = () => {}, policy = DEFAULT_POLICY, parentEnv = process.env, testDatabase, platform = process.platform, fileExists } = {}) {
   const started = Date.now();
-  const record = { id: check.id, exitCode: null, output: "", durationSec: 0, timedOut: false, commands: [], evidence: "observed", startedAt: new Date(started).toISOString() };
+  const record = { id: check.id, exitCode: null, output: "", durationSec: 0, timedOut: false, commands: [], commandResults: [], evidence: "observed", startedAt: new Date(started).toISOString() };
   const finish = () => {
     record.durationSec = (Date.now() - started) / 1000;
     return record;
@@ -156,16 +169,31 @@ export async function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, l
     validated.push({ command, v });
   }
 
-  let out = "";
+  const logs = [];
   for (const { command, v } of validated) {
     let outputDir = null;
+    const capture = createCapture();
+    const commandStarted = Date.now();
     try {
       if (v.kind === "stress") outputDir = mkdtempSync(join(tmpdir(), "wentz-stress-")); // the stress test writes many files: never into the repository
       const spec = launchSpec(v, { platform, appendArgs: outputDir ? ["--output", outputDir] : [] });
       log(`  $ ${command}`);
-      const r = await runProcess(spec, { cwd: resolve(repoRoot, v.cwd), env: environment.env, timeoutMs: timeoutSec * 1000, platform });
+      const r = await runProcess(spec, { cwd: resolve(repoRoot, v.cwd), env: environment.env, timeoutMs: timeoutSec * 1000, platform, capture });
       record.commands.push(command);
-      out += `${r.stdout ?? ""}${r.stderr ?? ""}`;
+      // each executed command keeps its own evidence: the verdict reads these, not one blended string
+      const seen = capture.result();
+      record.commandResults.push({
+        command,
+        exitCode: r.timedOut || r.error ? null : (r.status ?? null),
+        timedOut: Boolean(r.timedOut),
+        ...(r.error ? { error: r.error } : {}),
+        durationSec: (Date.now() - commandStarted) / 1000,
+        log: seen.log,
+        logChars: seen.chars,
+        omittedChars: seen.omitted,
+        signals: seen.signals,
+      });
+      logs.push(record.commands.length > 1 || validated.length > 1 ? `$ ${command}\n${seen.log}` : seen.log);
       if (r.timedOut) {
         record.timedOut = true;
         record.exitCode = null;
@@ -182,7 +210,8 @@ export async function runCheck(check, { cwd = process.cwd(), timeoutSec = 900, l
       if (outputDir) rmSync(outputDir, { recursive: true, force: true });
     }
   }
-  record.output = out.length > KEEP_OUTPUT_CHARS ? out.slice(-KEEP_OUTPUT_CHARS) : out;
+  // for people: the start and end of each command's output, bounded. The verdict reads `commandResults`.
+  record.output = logs.join("\n");
   return finish();
 }
 

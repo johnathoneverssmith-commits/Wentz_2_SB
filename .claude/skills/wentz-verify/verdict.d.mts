@@ -17,9 +17,23 @@ export interface RunRecord {
   evidence?: string;
   binding?: { planDigest: string; commandDigest: string; head: string | null; treeDigest: string | null; databaseDigest?: string | null };
   commands?: string[];
+  /** One entry per executed command: its own exit code, bounded log and the signals scanned from its whole output. */
+  commandResults?: CommandResult[];
   database?: string;
   databaseDigest?: string;
   ci?: { test?: string; deploy?: string; event?: string; validated?: boolean; failed?: boolean; reason?: string; headSha?: string; runId?: number };
+}
+
+export interface CommandResult {
+  command: string;
+  exitCode: number | null;
+  timedOut?: boolean;
+  error?: string;
+  durationSec?: number;
+  log?: string;
+  logChars?: number;
+  omittedChars?: number;
+  signals?: import("./output-signals.mjs").Signals;
 }
 
 export interface Judgement {

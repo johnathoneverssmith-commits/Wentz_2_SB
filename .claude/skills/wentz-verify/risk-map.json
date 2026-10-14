@@ -78,10 +78,11 @@
       "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
       "note": "Run one file at a time on PGlite. A pass here says nothing about locks, deadlocks or concurrency; CI's PostgreSQL does."
     },
+    "launcher-tests": { "kind": "command", "tier": 1, "label": "Local league server launcher: database choice, scrubbed environment, loopback binding, readiness and cleanup", "commands": ["npx vitest run --root online test/local-launcher.test.ts test/harness-redirects.test.ts"], "seconds": { "local": 40, "ci": 30 }, "note": "Starts its own in-memory PGlite and a real league server on free loopback ports, and runs the HTTP harness against servers that redirect; needs no database from you." },
     "infra-checks": { "kind": "command", "tier": 1, "label": "Database test helpers, global setup and the no-DDL-in-suites guard", "commands": ["npx vitest run --root online test/require-database.test.ts test/schema-setup.test.ts test/no-schema-in-suites.test.ts"], "seconds": { "local": 3, "ci": 3 } },
     "how-it-works-test": { "kind": "command", "tier": 1, "label": "How It Works text matches the mechanics it states", "commands": ["npm --prefix ui-source run test -- src/state/howItWorks.test.ts"], "seconds": { "local": 5, "ci": 3 } },
     "how-it-works-review": { "kind": "manual", "tier": 1, "label": "If a mechanic changed, ui-source/src/state/howItWorks.ts changes in the same commit", "commands": [], "note": "CLAUDE.md: the player-facing explanation of every system must stay true." },
-    "selector-tests": { "kind": "command", "tier": 1, "label": "Verification tooling's own tests (selector, verdict, runner, safety, replay)", "commands": ["npx vitest run test/verify-selector.test.ts test/verify-verdict.test.ts test/verify-safety.test.ts test/verify-replay.test.ts"], "seconds": { "local": 100, "ci": 45 }, "note": "Includes tests that run vitest and a repository clone of the git commands; the longest is the one proving an exported production DATABASE_URL never reaches a run." },
+    "selector-tests": { "kind": "command", "tier": 1, "label": "Verification tooling's own tests (selector, verdict, runner, safety, replay)", "commands": ["npx vitest run test/verify-selector.test.ts test/verify-verdict.test.ts test/verify-safety.test.ts test/verify-replay.test.ts test/verify-output-signals.test.ts"], "seconds": { "local": 100, "ci": 45 }, "note": "Includes tests that run vitest and a repository clone of the git commands; the longest is the one proving an exported production DATABASE_URL never reaches a run." },
 
     "related-engine": { "kind": "command", "tier": 2, "label": "Every engine test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "seconds": { "local": 150, "ci": 80 }, "projectFiles": "engine" },
     "related-ui": { "kind": "command", "tier": 2, "label": "Every UI test that reaches the changed files (transitive)", "commands": ["npx vitest related {files} --run"], "cwd": "ui-source", "seconds": { "local": 100, "ci": 60 }, "projectFiles": "ui", "relativeTo": "ui-source", "note": "Runs inside ui-source so it uses the UI project's own vitest and config." },
@@ -195,6 +196,13 @@
       "requires": ["scope", "tc-engine"],
       "recommends": ["ci-pr"],
       "notes": ["Browser tests are not yet a wentz-verify command. Run `npm run e2e:typecheck` and `npm run e2e` (E2E_BROWSER_CHANNEL=chrome uses an installed Chrome) and report the result as it is. A fixed, allowlisted command is planned for a later change."]
+    },
+    {
+      "id": "online-dev-launcher", "class": "online-dev-launcher", "risk": "medium", "component": "online",
+      "match": ["online/dev/local-server.ts", "online/dev/local-launcher.ts", "online/dev/launcher-safety.ts", "online/dev/loopback-only.mjs", "online/dev/e2e-http.ts", "online/dev/harness-fetch.ts", "online/test/local-launcher.test.ts", "online/test/harness-redirects.test.ts"],
+      "requires": ["tc-online", "launcher-tests", "ci-pr"],
+      "recommends": [],
+      "notes": ["The launcher decides which database the real server is started against. A change here must keep an inherited production URL from reaching database initialization: the launcher tests prove it."]
     },
     {
       "id": "online-tests", "class": "tests-only", "risk": "low", "component": "online",
