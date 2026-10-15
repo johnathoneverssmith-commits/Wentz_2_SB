@@ -52,6 +52,7 @@ saves; it also builds with another seed (different) and with the real clock (the
 | `fixtures.spec.ts` | pinned inputs, genuine progression, determinism, size |
 | `save-reload.spec.ts` | each save opens at its own stage's screen and survives a reload |
 | `draft.spec.ts` | a real action: draft a player, check the saved league, reload, check again |
+| `regular-season.spec.ts` | the regular season through the hub and Game Day: each game once, records and standings recounted from the games, reloads that never replay, the trade deadline and the stages after it, and the move into the playoffs (see below) |
 | `free-agency-offers.spec.ts` | real offers in a free-agency market: the form, what the game accepts and refuses, the signing, the roster, the books and the cap, across rounds and reloads (see below) |
 | `free-agency-skip.spec.ts` | the "Skip free agency" soft-lock (commit `b757e8d`): the real checkbox and buttons, on screen and in the saved league, across a reload (see below) |
 | `stack.spec.ts` | the static server: read-only, loopback, refuses taken ports, exits with its parent |
@@ -75,6 +76,36 @@ Negative control, done once in a disposable copy and not part of the suite: with
 and 2 still pass and test 3 fails at "the offseason market is the board": the page is the market's summary, the
 market over before its human saw it. (In solo play the league then moves on by itself; the literal "stage never
 leaves" form of the bug was in the online server's turn runner, which these tests do not cover.)
+
+### The regular season
+
+Three more saves from the same playthrough: `season-week-1` (the opener), `season-week-9` (the last week before the
+trade deadline) and `season-week-17` (two weeks from the playoffs); each holds exactly the games already played. A
+week is "Ready for Game Day" on the hub, the Game Day screen, and "Continue". After every week the tests recount the
+season from the saved games alone (`support/season.ts`, `expectSeasonConsistent`): each scheduled game is on the books
+exactly once and nothing else is; no team plays twice in a week; every record and point total is what its games add up
+to; the ranks agree with the records. Then the screens: the hub's record, the standings table and the schedule's final
+scores are compared with the save.
+
+1. **Three weeks from the opener**, then the hub, the standings table and the schedule against the books.
+2. **Reloads never replay a game**: on Game Day (the slate is held and shown again, same games and scores), after
+   Continue, and into the next week, whose games are added on top of the same books.
+3. **The trade deadline**: week 9 is played like any other; then, each reached by the player's own action and each
+   leaving the games and the standings untouched, the deadline (sat out, offers turned down), its summary, the
+   mid-season market (sat out), the depth chart, and week 10, which is then played.
+4. **Into the playoffs**: weeks 17 and 18, then the regular season is complete (272 games, 17 per team), fourteen
+   teams are seeded (seven a conference, the right conference, no team twice, the best seven by wins, the same seven the
+   standings table shows), the one seed has a bye, the rest are paired 2-7, 3-6, 4-5, nothing is played, the screen shows
+   the same records, and a reload finds the same bracket. Playing the rounds is not covered here.
+
+Two findings are recorded in the test output (as annotations), not asserted, because they would need a change to the
+game's rules rather than to a test: teams with the same record are ordered on the standings table, and the bracket's
+seeds are ordered, by wins then point difference, while the saved conference and division ranks apply head-to-head, division
+and conference record first (`recomputeStandings`). The seven teams in the field are the same either way in this save.
+
+Each test was shown to fail when one thing was broken in a disposable copy (not part of the suite): every game played
+twice, ties counted as losses, a week that never advances, a held slate that is never cleared, a deadline that is
+skipped, and a bracket that seeds the worst teams.
 
 ### Offers, signings and the cap
 

@@ -13,11 +13,14 @@ import { REPO_ROOT } from "../support/stack.ts";
  */
 // the first three are reached early and rebuilt cheaply (`only`); the other two need a whole year played, and are built in full once
 const EARLY = ["fantasy-draft", "coaching-draft", "preseason"] as const;
-const NAMES = [...EARLY, "midseason-fa", "offseason-fa-skip-carried"] as const;
+const NAMES = [...EARLY, "season-week-1", "season-week-9", "season-week-17", "midseason-fa", "offseason-fa-skip-carried"] as const;
 const STAGES: Record<(typeof NAMES)[number], string> = {
   "fantasy-draft": "fantasyDraft",
   "coaching-draft": "coachingDraft",
   preseason: "preseason",
+  "season-week-1": "regularSeason",
+  "season-week-9": "regularSeason",
+  "season-week-17": "regularSeason",
   "midseason-fa": "midseasonFreeAgency",
   "offseason-fa-skip-carried": "offseasonDraftSummary",
 };
@@ -51,6 +54,25 @@ test.describe("fixture saves", () => {
     expect(new Set(sizes).size).toBe(NAMES.length);
     const preseason = JSON.parse(readFixture(dir, "preseason").save) as { state: { draft: { results: unknown[] } | null; coachingDraft: unknown } };
     expect(preseason.state.coachingDraft, "the coaching draft was played").toBeTruthy();
+  });
+
+  test("the regular-season saves are three moments of one season, each with exactly the games already played", () => {
+    const dir = process.env.E2E_FIXTURE_DIR!;
+    type Doc = { state: { stage: string; week: number; schedule: Array<{ week: number; phase: string }>; games: Array<{ phase: string; week: number; played: boolean }>; bracket: unknown } };
+    const at = (name: string) => JSON.parse(readFixture(dir, name).save) as Doc;
+    for (const [name, week] of [["season-week-1", 1], ["season-week-9", 9], ["season-week-17", 17]] as const) {
+      const f = readFixture(dir, name);
+      const d = at(name);
+      expect(f.week, name).toBe(week);
+      expect(d.state, name).toMatchObject({ stage: "regularSeason", week });
+      const reg = d.state.games.filter((g) => g.phase === "REG");
+      // every scheduled game of the weeks before this one, and none of this week or after
+      const scheduledBefore = d.state.schedule.filter((g) => g.phase === "REG" && g.week < week).length;
+      expect(reg, name).toHaveLength(scheduledBefore);
+      expect(reg.every((g) => g.played && g.week < week), name).toBe(true);
+      expect(d.state.bracket, `${name}: no bracket yet`).toBeNull();
+    }
+    expect(at("season-week-1").state.games.filter((g) => g.phase === "REG")).toHaveLength(0);
   });
 
   test("the free-agency saves are the two moments the skip regression needs, from one playthrough", () => {

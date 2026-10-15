@@ -20,6 +20,7 @@ export interface FixtureDoc {
   draftSalt: number;
   viewerTeam: string | null;
   season: number;
+  week: number;
   /** Whether the viewer's "Skip free agency" choice is set in this save (the carried-skip fixture requires it). */
   skipFreeAgency: boolean;
   clock: "fixed" | "real";
