@@ -88,10 +88,21 @@ describe("standings tiebreakers", () => {
     const game = (home: string, away: string, hs: number, as: number, week: number): GameResult => ({
       id: `${home}-${away}-${week}`, week, phase: "REG", homeTeam: home, awayTeam: away, played: true, homeScore: hs, awayScore: as,
     });
-    // KC and LV both 1-1; LV beat KC, KC has the far better point differential
-    s.games = [game("KC", "LV", 10, 13, 1), game("KC", "DEN", 50, 0, 2), game("LV", "DEN", 0, 3, 2)];
+    // KC and LV both 1-1 (DEN is 0-1, so this is a two-team tie); LV beat KC, KC has the far better point differential
+    s.games = [game("KC", "LV", 10, 13, 1), game("KC", "DEN", 50, 0, 2), game("LV", "NE", 0, 3, 2)];
     recomputeStandings(s);
     expect(s.teams.LV!.divisionRank).toBeLessThan(s.teams.KC!.divisionRank);
+  });
+
+  it("a three-way tie with no sweep is not decided head-to-head: net points decide (the engine's documented rule)", () => {
+    const s = league();
+    const game = (home: string, away: string, hs: number, as: number, week: number): GameResult => ({
+      id: `${home}-${away}-${week}`, week, phase: "REG", homeTeam: home, awayTeam: away, played: true, homeScore: hs, awayScore: as,
+    });
+    // KC, LV and DEN are each 1-1 against the other two: LV beat KC, KC beat DEN, DEN beat LV. Nobody swept anyone.
+    s.games = [game("KC", "LV", 10, 13, 1), game("KC", "DEN", 50, 0, 2), game("LV", "DEN", 0, 3, 2)];
+    recomputeStandings(s);
+    expect(s.teams.KC!.divisionRank, "KC's net points are by far the best").toBe(1);
   });
 });
 

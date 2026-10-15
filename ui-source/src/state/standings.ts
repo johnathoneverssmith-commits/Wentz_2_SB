@@ -1,6 +1,56 @@
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { GameResult, LeagueState, PlayerStatLine, TeamState } from "@/domain";
 
+import { NFL_TEAMS } from "../../../src/engine/nfl-structure.ts";
+import { computeStandings, type FinishedGame } from "../../../src/engine/standings.ts";
+import { isHumansOnly } from "./leagueFormat.ts";
+
+// The engine spells the Rams "LA"; this UI spells them "LAR" (the same translation HttpSimulationService makes).
+const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
+const toUi = (code: string): string => (code === "LA" ? "LAR" : code);
+
+export interface ConferenceField {
+  /** Seeds 1-7, best first: the four division champions, then the three wild cards. */
+  seeds: string[];
+  divisionWinners: string[];
+  wildCards: string[];
+  /** The whole conference, best first: the seeds, then everyone else by the wild-card procedure. */
+  order: string[];
+}
+
+export interface AuthoritativeStandings {
+  AFC: ConferenceField;
+  NFC: ConferenceField;
+  /** 1-4 within each division, by team code. */
+  divisionRank: Record<string, number>;
+}
+
+/**
+ * The league's standings and playoff seeding by the one documented rule book: the engine's `computeStandings`
+ * (division champions are seeds 1-4 whatever their record, wild cards 5-7, and every tie goes through head-to-head,
+ * division / common / conference record, strength of victory and schedule, then net points).
+ *
+ * This is the only place the UI decides who ranks where. The ranks stored on each team, the bracket the local game
+ * seeds (and the multiplayer server, which seeds with the same code), and the order the standings tables list all
+ * come from it, so the same completed season reads the same everywhere. A league with no NFL structure (humans only:
+ * one table, no divisions) has no such rules and keeps its own ordering; this returns null for it.
+ */
+export function authoritativeStandings(state: Pick<LeagueState, "teams" | "games" | "config">): AuthoritativeStandings | null {
+  if (isHumansOnly(state)) return null;
+  const codes = Object.keys(state.teams);
+  const nfl = new Set<string>(NFL_TEAMS);
+  if (codes.length !== nfl.size || codes.some((c) => !nfl.has(toEngine(c)))) return null;
+  const games: FinishedGame[] = state.games
+    .filter((g) => g.phase === "REG" && g.played)
+    .map((g) => ({ home: toEngine(g.homeTeam), away: toEngine(g.awayTeam), homeScore: g.homeScore, awayScore: g.awayScore }));
+  const result = computeStandings(games, codes.map(toEngine));
+  const field = (conf: "AFC" | "NFC"): ConferenceField => {
+    const c = result.seeding[conf];
+    return { seeds: c.seeds.map(toUi), divisionWinners: c.divisionWinners.map(toUi), wildCards: c.wildCards.map(toUi), order: c.order.map(toUi) };
+  };
+  return { AFC: field("AFC"), NFC: field("NFC"), divisionRank: Object.fromEntries(result.rows.map((r) => [toUi(r.team), r.divisionRank])) };
+}
+
 /** Recompute every team's W/L/T + points + ranks from played REG games. */
 export function recomputeStandings(state: LeagueState): void {
   for (const code of Object.keys(state.teams)) {
@@ -68,6 +118,15 @@ export function recomputeStandings(state: LeagueState): void {
   for (const d of divs) {
     const inDiv = codes.filter((c) => divKey(c) === d).sort(cmp);
     inDiv.forEach((c, i) => (state.teams[c]!.divisionRank = i + 1));
+  }
+
+  // The division and conference ranks come from the rule book, not from the shorter ordering above (which stays for
+  // the league-wide rank and for a league with no divisions): a division champion is a top-four seed, and ties follow
+  // the whole tiebreak procedure.
+  const rules = authoritativeStandings(state);
+  if (rules) {
+    for (const [code, rank] of Object.entries(rules.divisionRank)) state.teams[code]!.divisionRank = rank;
+    for (const conf of [rules.AFC, rules.NFC]) conf.order.forEach((code, i) => (state.teams[code]!.conferenceRank = i + 1));
   }
 }
 

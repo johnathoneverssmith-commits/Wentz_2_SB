@@ -79,6 +79,7 @@ import { winChance, winProbability, type Venue } from "./win-probability.ts";
 import { futureDiscount, pickSlotFactor } from "@/state/draftPicks.ts";
 import { strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
 import { clampTradeAcceptance, deterministicNoiseUnit } from "@/state/aiDifficulty.ts";
+import { authoritativeStandings } from "@/state/standings.ts";
 import { difficultyFor, strategyOf } from "@/state/aiGms.ts";
 import {
   DEFENSE_SCHEMES,
@@ -970,6 +971,9 @@ export class MockSimulationService implements SimulationService {
         100 * winChance(this.teamOverall(state, h), this.teamOverall(state, a), site),
       );
     }
+    // The documented rules (division champions 1-4, wild cards 5-7, the full tiebreak sequence): the same answer
+    // the engine, the standings and the multiplayer server give for the same season.
+    const rules = authoritativeStandings(state);
     const bySeed = (conf: "AFC" | "NFC") =>
       TEAMS.filter((t) => t.conference === conf)
         .map((t) => t.code)
@@ -982,7 +986,7 @@ export class MockSimulationService implements SimulationService {
           );
         })
         .slice(0, 7);
-    const seeds = { AFC: bySeed("AFC"), NFC: bySeed("NFC") };
+    const seeds = rules ? { AFC: rules.AFC.seeds, NFC: rules.NFC.seeds } : { AFC: bySeed("AFC"), NFC: bySeed("NFC") };
     return {
       currentRound: "WC",
       seeds,

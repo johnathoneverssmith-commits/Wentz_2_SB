@@ -38,19 +38,17 @@ export function PostseasonBracket() {
     : null;
 
   if (!b) {
-    // Seeded the way the bracket will be (tiebreakers aside): the four
-    // division leaders take 1-4, then the three best records left. Sorting on
-    // record alone listed a 10-7 wild card above a 9-8 division winner.
+    // Seeded the way the bracket will be: the ranks stored on each team come from the rule book (four division
+    // champions take 1-4, the three best of the rest 5-7, every tie through the whole tiebreak procedure), the same
+    // ranks the bracket is seeded from. Before any game has set them, the record orders the list.
     const byRecord = (x: (typeof s.teams)[string], y: (typeof s.teams)[string]) =>
+      (x.conferenceRank || 99) - (y.conferenceRank || 99) ||
       winPct(y) - winPct(x) || y.pointsFor - y.pointsAgainst - (x.pointsFor - x.pointsAgainst);
-    const inHunt = (conf: "AFC" | "NFC") => {
-      const teams = Object.values(s.teams).filter((t) => TEAMS_BY_CODE[t.code]?.conference === conf);
-      const leaders = [...new Set(teams.map((t) => TEAMS_BY_CODE[t.code]!.division))]
-        .map((d) => teams.filter((t) => TEAMS_BY_CODE[t.code]!.division === d).sort(byRecord)[0]!)
-        .sort(byRecord);
-      const rest = teams.filter((t) => !leaders.includes(t)).sort(byRecord);
-      return [...leaders, ...rest].slice(0, 7);
-    };
+    const inHunt = (conf: "AFC" | "NFC") =>
+      Object.values(s.teams)
+        .filter((t) => TEAMS_BY_CODE[t.code]?.conference === conf)
+        .sort(byRecord)
+        .slice(0, 7);
     const started = s.games.some((g) => g.phase === "REG" && g.played);
     return (
       <Card maxWidth={940}>
