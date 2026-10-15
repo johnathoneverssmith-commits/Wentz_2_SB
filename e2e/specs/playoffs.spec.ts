@@ -3,13 +3,17 @@ import type { Page } from "@playwright/test";
 import {
   bracketOnScreen,
   expectBracketConsistent,
+  expectedGameDay,
   expectedOnScreen,
   expectedOutcome,
+  expectedSuperBowl,
+  gameDayResults,
   type Postseason,
   ROUND_NAME,
   ROUNDS,
   readPostseason,
   type Round,
+  superBowlOnScreen,
 } from "../support/postseason.ts";
 import { authoritativeSeeding, readSeason, teamIdentity } from "../support/season.ts";
 import { expect, test } from "../support/test.ts";
@@ -43,6 +47,9 @@ async function expectRoundOnGameDay(page: Page, p: Postseason, round: Round): Pr
     expect(text).toContain(teamIdentity(m.high!.code).label);
     expect(text).toContain(teamIdentity(m.low!.code).label);
   }
+  // and the games themselves, row by row: which team is home and which away, each with its own score, and the winner's name in the
+  // winner's weight (a loser emphasised, or two games' scores swapped, are not the same list)
+  expect(await gameDayResults(page), `${ROUND_NAME[round]}: the Game Day list, row by row`).toEqual(expectedGameDay(p, round));
 }
 
 /** Presses the round's button and checks the league as the round leaves it. Ends on Game Day. */
@@ -118,6 +125,16 @@ test.describe("the postseason", () => {
     await expect(page).toHaveURL(BRACKET);
     await expect(statBeside(page, "Champion")).toHaveText(teamIdentity(now.champion!).label);
     for (const conf of ["AFC", "NFC"] as const) expect(await bracketOnScreen(page, conf), `${conf}: the finished bracket`).toEqual(expectedOnScreen(now, conf));
+
+    // the Super Bowl tab, opened by name: the AFC and NFC champions, each with its own score, the winner marked, the champion named
+    const shownSb = await superBowlOnScreen(page);
+    expect(shownSb, "the Super Bowl as drawn: the persisted matchup, the two champions, their scores, the winner").toEqual(expectedSuperBowl(now));
+    expect(shownSb).toHaveLength(1);
+    expect(shownSb[0]!.labels, "the AFC champion, then the NFC champion").toEqual([teamIdentity(sb.high!.code).label, teamIdentity(sb.low!.code).label]);
+    expect(shownSb[0]!.winners.filter(Boolean), "exactly one team is marked the winner").toHaveLength(1);
+    expect(shownSb[0]!.labels[shownSb[0]!.winners.indexOf(true)], "and it is the champion").toBe(teamIdentity(now.champion!).label);
+    await expect(statBeside(page, "Champion")).toHaveText(teamIdentity(now.champion!).label);
+
     await page.getByRole("button", { name: "See the final result" }).click();
     await expect(page).toHaveURL(GAME_DAY);
 
@@ -163,6 +180,7 @@ test.describe("the postseason", () => {
       await expect(page.getByRole("button", { name: /^Simulate the / })).toHaveCount(0);
       await expect(page.getByRole("button", { name: round === "SB" ? "See the final result" : "View round results" })).toBeVisible();
       expect(await readPostseason(page)).toEqual(after);
+      if (round === "SB") expect(await superBowlOnScreen(page), "the Super Bowl tab after a reload").toEqual(expectedSuperBowl(after));
       await page.getByRole("button", { name: round === "SB" ? "See the final result" : "View round results" }).click();
       await expect(page).toHaveURL(GAME_DAY);
 

@@ -187,37 +187,121 @@ export interface ShownMatchup {
   seeds: number[];
   labels: string[];
   scores: Array<number | null>;
+  /** Per team, whether the screen marks it as the winner of that game (the winner's score is drawn in the "good" colour). */
+  winners: boolean[];
 }
 
-/** One conference's bracket as drawn: for each round (Wild Card, Divisional, Conference Championship), each game's teams and scores. */
-export async function bracketOnScreen(page: Page, conf: "AFC" | "NFC"): Promise<ShownMatchup[][]> {
-  await page.getByRole("tab", { name: conf, exact: true }).or(page.getByRole("button", { name: conf, exact: true })).first().click();
-  const columns = page.locator(".panel.open .bracket-col");
-  await expect(columns.first()).toBeVisible();
-  return columns.evaluateAll((cols) =>
-    cols.map((col) =>
-      Array.from(col.children).map((box) => {
+/**
+ * Reads bracket boxes as drawn, one array of games per container. Self-contained: it runs in the page.
+ * A game's winner is the team whose score is drawn in the colour the UI keeps for winners (`--good`), not the other's.
+ */
+function readColumns(cols: Element[]): ShownMatchup[][] {
+  const probe = document.createElement("span");
+  probe.style.color = "var(--good)";
+  document.body.appendChild(probe);
+  const good = getComputedStyle(probe).color;
+  probe.remove();
+  return cols.map((col) =>
+    Array.from(col.children)
+      .map((box) => {
         const rows = Array.from(box.querySelectorAll("span"))
           .filter((el) => el.children.length === 0 && /^\d+ OVR · \d+-\d+(?:-\d+)?$/.test((el.textContent ?? "").trim()))
           .map((record) => {
             const name = record.parentElement!;
             const cluster = name.parentElement!;
             const row = cluster.parentElement!;
-            const score = row.querySelector(":scope > .oswald")?.textContent;
-            return { seed: Number((cluster.querySelector(".oswald")?.textContent ?? "").replace("•", "0")), label: name.querySelector("span")?.textContent?.trim() ?? "", score: score == null ? null : Number(score) };
+            const scoreEl = row.querySelector(":scope > .oswald");
+            return {
+              seed: Number((cluster.querySelector(".oswald")?.textContent ?? "").replace("•", "0")),
+              label: name.querySelector("span")?.textContent?.trim() ?? "",
+              score: scoreEl == null ? null : Number(scoreEl.textContent),
+              winner: scoreEl != null && getComputedStyle(scoreEl).color === good,
+            };
           });
-        return { seeds: rows.map((r) => r.seed), labels: rows.map((r) => r.label), scores: rows.map((r) => r.score) };
-      }).filter((m) => m.labels.length > 0), // (a round not made yet is a "TBD" placeholder, not a game)
-    ),
+        return { seeds: rows.map((r) => r.seed), labels: rows.map((r) => r.label), scores: rows.map((r) => r.score), winners: rows.map((r) => r.winner) };
+      })
+      .filter((m) => m.labels.length > 0), // (a round not made yet is a "TBD" placeholder, not a game)
   );
 }
 
-/** What the bracket screen must show for a conference, from the save: the same games, the same teams and seeds, the same scores. */
+/** One conference's bracket as drawn: for each round (Wild Card, Divisional, Conference Championship), each game's teams, scores and winner. */
+export async function bracketOnScreen(page: Page, conf: "AFC" | "NFC"): Promise<ShownMatchup[][]> {
+  await page.getByRole("tab", { name: conf, exact: true }).or(page.getByRole("button", { name: conf, exact: true })).first().click();
+  const columns = page.locator(".panel.open .bracket-col");
+  await expect(columns.first()).toBeVisible();
+  return columns.evaluateAll(readColumns);
+}
+
+/** The Super Bowl tab, opened by name: the one game drawn there. */
+export async function superBowlOnScreen(page: Page): Promise<ShownMatchup[]> {
+  await page.getByRole("tab", { name: "Super Bowl", exact: true }).or(page.getByRole("button", { name: "Super Bowl", exact: true })).first().click();
+  const panel = page.locator(".panel.open > div").first();
+  await expect(panel, "the Super Bowl tab is open").toBeVisible();
+  const [games] = await panel.evaluateAll(readColumns);
+  return games!;
+}
+
+const homeWon = (m: Matchup) => m.homeScore !== null && m.awayScore !== null && m.homeScore > m.awayScore;
+const awayWon = (m: Matchup) => m.homeScore !== null && m.awayScore !== null && m.awayScore > m.homeScore;
+
+/** What the bracket screen must show for a conference, from the save: the same games, teams, seeds, scores and winners. */
 export function expectedOnScreen(p: Postseason, conf: "AFC" | "NFC"): ShownMatchup[][] {
   return (["WC", "DIV", "CONF"] as const).map((round) =>
     inRound(p, round, conf).map((m) => {
       const sides = [m.high, m.low].filter((s): s is Side => s !== null);
-      return { seeds: sides.map((s) => s.seed), labels: sides.map((s) => teamIdentity(s.code).label), scores: isBye(m) ? [null] : m.homeScore === null ? [null, null] : [m.homeScore, m.awayScore] };
+      return {
+        seeds: sides.map((s) => s.seed),
+        labels: sides.map((s) => teamIdentity(s.code).label),
+        scores: isBye(m) ? [null] : m.homeScore === null ? [null, null] : [m.homeScore, m.awayScore],
+        winners: isBye(m) ? [false] : [homeWon(m), awayWon(m)],
+      };
     }),
   );
+}
+
+/** The Super Bowl as the save has it: the AFC champion (home, seed shown as a dot) against the NFC champion, both scores, the winner marked. */
+export function expectedSuperBowl(p: Postseason): ShownMatchup[] {
+  return inRound(p, "SB").map((m) => ({
+    seeds: [0, 0],
+    labels: [teamIdentity(m.high!.code).label, teamIdentity(m.low!.code).label],
+    scores: m.homeScore === null ? [null, null] : [m.homeScore, m.awayScore],
+    winners: [homeWon(m), awayWon(m)],
+  }));
+}
+
+/** One finished game as the Game Day screen lists it: the home team, the score, the away team, and which name is set in the winner's weight. */
+export interface ShownResult {
+  home: string;
+  away: string;
+  score: string;
+  homeBold: boolean;
+  awayBold: boolean;
+}
+
+/** The Game Day screen's "This round" list, row by row, in the order shown. */
+export async function gameDayResults(page: Page): Promise<ShownResult[]> {
+  const rows = page.getByText("This round", { exact: true }).locator("xpath=following-sibling::div[1]").locator(":scope > div");
+  await expect(rows.first(), "the Game Day screen lists the round's games").toBeVisible();
+  return rows.evaluateAll((rs) =>
+    rs.map((row) => {
+      const [homeSide, middle, awaySide] = Array.from(row.children);
+      const side = (el: Element) => {
+        const label = el.lastElementChild!; // [badge, label]; the away side only reads right to left
+        return { name: (label.firstChild?.textContent ?? "").trim(), bold: Number(getComputedStyle(label).fontWeight) >= 600 };
+      };
+      return { home: side(homeSide!).name, away: side(awaySide!).name, score: (middle!.textContent ?? "").trim(), homeBold: side(homeSide!).bold, awayBold: side(awaySide!).bold };
+    }),
+  );
+}
+
+/**
+ * The games of a round as Game Day must list them, from the save: the home (higher-seeded) team, its score first, the away team, and
+ * the winner's name emphasised. The viewer's own game comes first, then the bracket's order (the screen's own rule).
+ */
+export function expectedGameDay(p: Postseason, round: Round): ShownResult[] {
+  const mine = (m: Matchup) => m.high?.code === p.me || m.low?.code === p.me;
+  return inRound(p, round)
+    .filter((m) => m.high && m.low && m.homeScore !== null && m.awayScore !== null)
+    .sort((a, b) => Number(mine(b)) - Number(mine(a)))
+    .map((m) => ({ home: teamIdentity(m.high!.code).label, away: teamIdentity(m.low!.code).label, score: `${m.homeScore}–${m.awayScore}`, homeBold: m.winner === m.high!.code, awayBold: m.winner === m.low!.code }));
 }

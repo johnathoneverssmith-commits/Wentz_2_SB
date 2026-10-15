@@ -124,19 +124,24 @@ holds `homeScore`); the next round is the reseeding of those winners (best survi
 Super Bowl is the AFC champion against the NFC champion); no team that lost ever comes back; nothing later has been played; the
 champion is the Super Bowl winner and only then.
 
-1. **All four rounds**, with the bracket screen (both conferences) and the Game Day results compared with the save after each round,
-   the champion shown on the bracket, and, after the season ends, each team's recorded season (furthest round, seed, champion)
-   compared with where the bracket says it went out.
+1. **All four rounds.** After each round the Game Day list is compared with the save row by row, in the order shown: which team is
+   home and which away, each with its own score, and the winner's name in the winner's weight (a loser emphasised, or two games'
+   scores swapped, is not the same list). Both conferences' brackets are compared team by team (seed, name, score) with the
+   winner marked as the screen marks it (the winner's score in the "good" colour). After the Super Bowl the Super Bowl tab is opened
+   by name and its one game compared with the save: the AFC then the NFC champion, each with its own score, exactly one winner
+   marked, and it is the champion the bracket names. After the season ends, each team's recorded season (furthest round, seed,
+   champion) is compared with where the bracket says it went out.
 2. **Reloads replay nothing**: on Game Day (the round is held and shown again, the whole postseason unchanged), on the bracket while
-   a round's results are held (it offers the results and no other round to simulate), and between rounds (the next round waiting,
-   unplayed, the one just played not offered again).
+   a round's results are held (it offers the results and no other round to simulate, and the Super Bowl tab still shows the same
+   game), and between rounds (the next round waiting, unplayed, the one just played not offered again).
 
 The Mock simulation (what plays when the engine adapter is unreachable, as in these tests) records a playoff round in the bracket's
 matchups (scores and winners) and not in the list of games, so "recorded once" here means each matchup decided once, never twice;
 a round that is replayed would show as a round skipped or a bracket made again. Each test was shown to fail when one thing was
 broken in a disposable copy (not part of the suite): a bracket that never advances a round, the loser recorded as the winner, byes
-not carried into the next round, the wrong reseeding, the champion always the AFC side, Continue making the bracket again, and
-every round made twice.
+not carried into the next round, the wrong reseeding, the champion always the AFC side, Continue making the bracket again, every
+round made twice; and, in the screens themselves, Game Day scores rotated between games, Game Day emphasising the loser, a Super
+Bowl bracket showing a score of 99, a bracket marking the loser as the winner, and the Super Bowl's scores on the wrong teams.
 
 ### Offers, signings and the cap
 
