@@ -128,13 +128,18 @@ export function WeeklyTeamHub() {
   const byTable = (a: string, b: string): number =>
     winPct(s.teams[b]!) - winPct(s.teams[a]!) ||
     s.teams[b]!.pointsFor - s.teams[b]!.pointsAgainst - (s.teams[a]!.pointsFor - s.teams[a]!.pointsAgainst);
-  const divCodes = single ? [] : divisionRivals(code).filter((c) => s.teams[c]).sort(byTable);
+  // An NFL league lists teams in the order the rule book ranks them (the ranks stored on each team, which put the four
+  // division champions in the top four seeds and apply every tiebreaker); the record alone only orders a league with
+  // no divisions, and a season with no ranks yet.
+  const byRank = (rank: "divisionRank" | "conferenceRank") => (a: string, b: string): number =>
+    (s.teams[a]![rank] || 99) - (s.teams[b]![rank] || 99) || byTable(a, b);
+  const divCodes = single ? [] : divisionRivals(code).filter((c) => s.teams[c]).sort(byRank("divisionRank"));
   const confCodes = single
     ? Object.keys(s.teams).sort(byTable)
     : Object.values(TEAMS_BY_CODE)
         .filter((t) => t.conference === meta.conference && s.teams[t.code])
         .map((t) => t.code)
-        .sort(byTable);
+        .sort(byRank("conferenceRank"));
   const fieldSize = single ? playoffFieldSize(leagueSize) : 7;
 
   const h2h = humanHeadToHead(s);

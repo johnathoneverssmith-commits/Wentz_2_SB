@@ -65,9 +65,19 @@ export interface ConferenceSeeding {
   wildCards: string[]; // seeds 5–7, in seed order
 }
 
+/** What `computeStandings` returns for a conference: the seeding, plus the whole conference in rank order. */
+export interface ConferenceRanking extends ConferenceSeeding {
+  /**
+   * The whole conference, best first, by the same rules: the seven seeds in seed order, then everyone else in
+   * the order the wild-card procedure ranks them. What a standings table should list, so that the table, the
+   * seeds and the bracket cannot disagree.
+   */
+  order: string[];
+}
+
 export interface LeagueStandings {
   rows: StandingRow[]; // all teams, sorted conference → seed/divisionRank
-  seeding: Record<Conference, ConferenceSeeding>;
+  seeding: Record<Conference, ConferenceRanking>;
 }
 
 // --- per-team game log -------------------------------------------------------
@@ -390,7 +400,7 @@ export function computeStandings(
   }
 
   // conference seeding
-  const seeding = {} as Record<Conference, ConferenceSeeding>;
+  const seeding = {} as Record<Conference, ConferenceRanking>;
   for (const conf of ["AFC", "NFC"] as Conference[]) {
     const confTeams = teams.filter((t) => conferenceOf(t) === conf);
     const winners = confTeams.filter((t) => rowOf.get(t)!.wonDivision);
@@ -413,7 +423,7 @@ export function computeStandings(
       const note = winnerRank.notes.get(t) ?? wildRank.notes.get(t);
       if (note) r.tiebreaker = note;
     });
-    seeding[conf] = { seeds, divisionWinners: seededWinners, wildCards };
+    seeding[conf] = { seeds, divisionWinners: seededWinners, wildCards, order: [...seededWinners, ...wildRank.order] };
   }
 
   const rows = [...rowOf.values()].sort(

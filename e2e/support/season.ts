@@ -131,7 +131,8 @@ export function expectSeasonConsistent(s: Season, through: number): void {
   expect(all.reduce((n, r) => n + r.w, 0)).toBe(all.reduce((n, r) => n + r.l, 0));
   expect(all.reduce((n, r) => n + r.pf, 0)).toBe(all.reduce((n, r) => n + r.pa, 0));
 
-  // ranks: every rank 1..n is used once, and a team with a better winning percentage is never ranked behind a worse one
+  // Every rank 1..n is used once. League ranks follow winning percentage; conference ranks compare percentages
+  // within division champions and within non-champions, since champions receive seeds 1-4 regardless of wild-card records.
   const pct = (t: SavedTeam) => (t.w + t.l + t.t === 0 ? 0 : (t.w + 0.5 * t.t) / (t.w + t.l + t.t));
   const groups: Record<string, { codes: string[]; rank: (t: SavedTeam) => number }> = {
     league: { codes: Object.keys(s.teams), rank: (t) => t.leagueRank },
@@ -140,7 +141,7 @@ export function expectSeasonConsistent(s: Season, through: number): void {
   };
   for (const [name, g] of Object.entries(groups)) {
     expect(g.codes.map((c) => g.rank(s.teams[c]!)).sort((a, b) => a - b), `${name}: ranks 1..${g.codes.length}, each once`).toEqual(g.codes.map((_, i) => i + 1));
-    for (const a of g.codes) for (const b of g.codes) if (pct(s.teams[a]!) > pct(s.teams[b]!)) expect(g.rank(s.teams[a]!), `${name}: ${a} (${recordText(s.teams[a]!)}) ranks ahead of ${b} (${recordText(s.teams[b]!)})`).toBeLessThan(g.rank(s.teams[b]!));
+    for (const a of g.codes) for (const b of g.codes) if ((name === "league" || (s.teams[a]!.divRank === 1) === (s.teams[b]!.divRank === 1)) && pct(s.teams[a]!) > pct(s.teams[b]!)) expect(g.rank(s.teams[a]!), `${name}: ${a} (${recordText(s.teams[a]!)}) ranks ahead of ${b} (${recordText(s.teams[b]!)})`).toBeLessThan(g.rank(s.teams[b]!));
   }
 }
 
