@@ -13,7 +13,7 @@ import { REPO_ROOT } from "../support/stack.ts";
  */
 // the first three are reached early and rebuilt cheaply (`only`); the other two need a whole year played, and are built in full once
 const EARLY = ["fantasy-draft", "coaching-draft", "preseason"] as const;
-const NAMES = [...EARLY, "season-week-1", "season-week-9", "season-week-17", "midseason-fa", "offseason-fa-skip-carried"] as const;
+const NAMES = [...EARLY, "season-week-1", "season-week-9", "season-week-17", "playoffs-wild-card", "midseason-fa", "offseason-fa-skip-carried"] as const;
 const STAGES: Record<(typeof NAMES)[number], string> = {
   "fantasy-draft": "fantasyDraft",
   "coaching-draft": "coachingDraft",
@@ -21,6 +21,7 @@ const STAGES: Record<(typeof NAMES)[number], string> = {
   "season-week-1": "regularSeason",
   "season-week-9": "regularSeason",
   "season-week-17": "regularSeason",
+  "playoffs-wild-card": "playoffs",
   "midseason-fa": "midseasonFreeAgency",
   "offseason-fa-skip-carried": "offseasonDraftSummary",
 };
@@ -73,6 +74,22 @@ test.describe("fixture saves", () => {
       expect(d.state.bracket, `${name}: no bracket yet`).toBeNull();
     }
     expect(at("season-week-1").state.games.filter((g) => g.phase === "REG")).toHaveLength(0);
+  });
+
+  test("the playoff save is the first arrival at the playoffs: the season played out, the bracket seeded by the game, nothing in it played", () => {
+    const f = readFixture(process.env.E2E_FIXTURE_DIR!, "playoffs-wild-card");
+    const d = JSON.parse(f.save) as { state: { stage: string; week: number; games: Array<{ phase: string }>; schedule: Array<{ phase: string }>; bracket: { currentRound: string; champion: string | null; seeds: { AFC: string[]; NFC: string[] }; matchups: Array<{ round: string; winner: string | null; homeScore: number | null }> } } };
+    expect(d.state).toMatchObject({ stage: "playoffs", week: 0 });
+    expect(d.state.games.filter((g) => g.phase === "REG"), "every regular-season game played").toHaveLength(d.state.schedule.filter((g) => g.phase === "REG").length);
+    expect(d.state.games.filter((g) => g.phase !== "REG" && g.phase !== "PRE")).toEqual([]);
+    const b = d.state.bracket;
+    expect(b).toMatchObject({ currentRound: "WC", champion: null });
+    expect(b.seeds.AFC).toHaveLength(7);
+    expect(b.seeds.NFC).toHaveLength(7);
+    expect(b.matchups.every((m) => m.round === "WC")).toBe(true);
+    // the byes are through and nothing else has been played
+    expect(b.matchups.filter((m) => m.winner !== null)).toHaveLength(2);
+    expect(b.matchups.every((m) => m.homeScore === null)).toBe(true);
   });
 
   test("the free-agency saves are the two moments the skip regression needs, from one playthrough", () => {

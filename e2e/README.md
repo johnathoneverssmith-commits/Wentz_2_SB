@@ -52,6 +52,7 @@ saves; it also builds with another seed (different) and with the real clock (the
 | `fixtures.spec.ts` | pinned inputs, genuine progression, determinism, size |
 | `save-reload.spec.ts` | each save opens at its own stage's screen and survives a reload |
 | `draft.spec.ts` | a real action: draft a player, check the saved league, reload, check again |
+| `playoffs.spec.ts` | the postseason through the bracket and Game Day: every round, who advances, byes, the champion, and reloads that replay nothing (see below) |
 | `regular-season.spec.ts` | the regular season through the hub and Game Day: each game once, records and standings recounted from the games, reloads that never replay, the trade deadline and the stages after it, and the move into the playoffs (see below) |
 | `free-agency-offers.spec.ts` | real offers in a free-agency market: the form, what the game accepts and refuses, the signing, the roster, the books and the cap, across rounds and reloads (see below) |
 | `free-agency-skip.spec.ts` | the "Skip free agency" soft-lock (commit `b757e8d`): the real checkbox and buttons, on screen and in the saved league, across a reload (see below) |
@@ -110,6 +111,32 @@ but still give the test and suite a failing exit code. Production fixes belong i
 Each test was shown to fail when one thing was broken in a disposable copy (not part of the suite): every game played
 twice, ties counted as losses, a week that never advances, a held slate that is never cleared, a deadline that is
 skipped, and a bracket that seeds the worst teams.
+
+### The postseason
+
+One more save from the same playthrough, `playoffs-wild-card`: the first arrival at the playoffs, the regular season played out,
+the bracket seeded by the game, nothing in it played. A round is "Simulate the <round>" on the bracket, the Game Day screen, and
+"Continue" (which goes back to the bracket; after the Super Bowl it goes on to the end of the season). No participant is chosen and
+no result is made up. `support/postseason.ts` checks the bracket from the saved league alone after every round
+(`expectBracketConsistent`): the field is the seeded fourteen (and is the engine's seeding of the season just played); the one seeds
+were on a bye and 2-7, 3-6, 4-5 were paired; every game played has a winner that its score gives (the home side, the higher seed,
+holds `homeScore`); the next round is the reseeding of those winners (best surviving seed against worst, the higher seed hosts; the
+Super Bowl is the AFC champion against the NFC champion); no team that lost ever comes back; nothing later has been played; the
+champion is the Super Bowl winner and only then.
+
+1. **All four rounds**, with the bracket screen (both conferences) and the Game Day results compared with the save after each round,
+   the champion shown on the bracket, and, after the season ends, each team's recorded season (furthest round, seed, champion)
+   compared with where the bracket says it went out.
+2. **Reloads replay nothing**: on Game Day (the round is held and shown again, the whole postseason unchanged), on the bracket while
+   a round's results are held (it offers the results and no other round to simulate), and between rounds (the next round waiting,
+   unplayed, the one just played not offered again).
+
+The Mock simulation (what plays when the engine adapter is unreachable, as in these tests) records a playoff round in the bracket's
+matchups (scores and winners) and not in the list of games, so "recorded once" here means each matchup decided once, never twice;
+a round that is replayed would show as a round skipped or a bracket made again. Each test was shown to fail when one thing was
+broken in a disposable copy (not part of the suite): a bracket that never advances a round, the loser recorded as the winner, byes
+not carried into the next round, the wrong reseeding, the champion always the AFC side, Continue making the bracket again, and
+every round made twice.
 
 ### Offers, signings and the cap
 
