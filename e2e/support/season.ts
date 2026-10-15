@@ -1,3 +1,5 @@
+import { computeStandings } from "../../src/engine/standings.ts";
+
 import type { Page } from "@playwright/test";
 
 import { expect } from "@playwright/test";
@@ -144,3 +146,43 @@ export function expectSeasonConsistent(s: Season, through: number): void {
 
 /** A digest of every game on the books (who, when, the score), to show none was replayed or rewritten. */
 export const gamesDigest = (s: Season): string => s.games.map((g) => `${g.id}:${g.phase}:${g.week}:${g.home}:${g.away}:${g.homeScore}-${g.awayScore}`).join("\n");
+
+/** Independent of Mock and saved ranks: the documented main-engine NFL rules, from completed games only. */
+export function authoritativeSeeding(s: Season) {
+  const engineCode = (c: string) => c === "LAR" ? "LA" : c;
+  const uiCode = (c: string) => c === "LA" ? "LAR" : c;
+  const standings = computeStandings(regGames(s).filter((g) => g.played).map((g) => ({
+    home: engineCode(g.home), away: engineCode(g.away), homeScore: g.homeScore, awayScore: g.awayScore,
+  })));
+  const conference = (conf: "AFC" | "NFC") => ({
+    seeds: standings.seeding[conf].seeds.map(uiCode),
+    divisionWinners: standings.seeding[conf].divisionWinners.map(uiCode),
+    wildCards: standings.seeding[conf].wildCards.map(uiCode),
+  });
+  return { AFC: conference("AFC"), NFC: conference("NFC") };
+}
+
+/** Independent identity oracle. The fixture pins the source team list; names must match a saved code, not another rendered row. */
+const IDENTITIES: Record<string, readonly [string, string]> = {
+  BAL: ["Baltimore Ravens", "Baltimore"], BUF: ["Buffalo Bills", "Buffalo"],
+  CIN: ["Cincinnati Bengals", "Cincinnati"], CLE: ["Cleveland Browns", "Cleveland"],
+  DEN: ["Denver Broncos", "Denver"], HOU: ["Houston Texans", "Houston"],
+  IND: ["Indianapolis Colts", "Indianapolis"], JAX: ["Jacksonville Jaguars", "Jacksonville"],
+  KC: ["Kansas City Chiefs", "Kansas City"], LAC: ["Los Angeles Chargers", "L.A. Chargers"],
+  LV: ["Las Vegas Raiders", "Las Vegas"], MIA: ["Miami Dolphins", "Miami"],
+  NE: ["New England Patriots", "New England"], NYJ: ["New York Jets", "N.Y. Jets"],
+  PIT: ["Pittsburgh Steelers", "Pittsburgh"], TEN: ["Tennessee Titans", "Tennessee"],
+  ARI: ["Arizona Cardinals", "Arizona"], ATL: ["Atlanta Falcons", "Atlanta"],
+  CAR: ["Carolina Panthers", "Carolina"], CHI: ["Chicago Bears", "Chicago"],
+  DAL: ["Dallas Cowboys", "Dallas"], DET: ["Detroit Lions", "Detroit"],
+  GB: ["Green Bay Packers", "Green Bay"], LAR: ["Los Angeles Rams", "L.A. Rams"],
+  MIN: ["Minnesota Vikings", "Minnesota"], NO: ["New Orleans Saints", "New Orleans"],
+  NYG: ["New York Giants", "N.Y. Giants"], PHI: ["Philadelphia Eagles", "Philadelphia"],
+  SEA: ["Seattle Seahawks", "Seattle"], SF: ["San Francisco 49ers", "San Francisco"],
+  TB: ["Tampa Bay Buccaneers", "Tampa Bay"], WAS: ["Washington Commanders", "Washington"],
+};
+export function teamIdentity(code: string) {
+  const identity = IDENTITIES[code];
+  if (!identity) throw new Error(`unknown persisted team identity: ${code}`);
+  return { name: identity[0], label: identity[1] };
+}

@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { AFC, expectSeasonConsistent, gamesDigest, NFC, readSeason, recordText, regGames, scheduledIn, type Season } from "../support/season.ts";
+import { AFC, authoritativeSeeding, teamIdentity, expectSeasonConsistent, gamesDigest, NFC, readSeason, recordText, regGames, scheduledIn, type Season } from "../support/season.ts";
 import { expect, test } from "../support/test.ts";
 
 /**
@@ -59,18 +59,28 @@ async function continueTo(page: Page, stage: string, week: number): Promise<Seas
   return readSeason(page);
 }
 
-/** Reads the conference standings table on the hub as [wins, losses, ties, pf, pa] in the order shown. */
-async function standingsOnScreen(page: Page): Promise<number[][]> {
+/** Each rendered team keeps its identity attached to its seed, record and points. */
+async function standingsOnScreen(page: Page) {
   await page.getByRole("tab", { name: /League Standings/ }).or(page.getByRole("button", { name: /League Standings/ })).first().click();
   const rows = page.locator("main table:visible tbody tr");
   await expect(rows.first()).toBeVisible();
-  return rows.evaluateAll((trs) =>
-    trs.map((tr) => {
-      const cells = Array.from(tr.querySelectorAll("td")).map((td) => (td.textContent ?? "").trim());
-      // Sd, Team, W, L, T, PF, PA, PD
-      return cells.slice(2, 7).map(Number);
-    }),
-  );
+  return rows.evaluateAll((trs) => trs.map((tr) => {
+    const c = Array.from(tr.querySelectorAll("td")).map((td) => (td.textContent ?? "").trim());
+    return { seed: c[0], name: c[1], w: Number(c[2]), l: Number(c[3]), t: Number(c[4]), pf: Number(c[5]), pa: Number(c[6]), pd: Number(c[7]) };
+  }));
+}
+
+/** Wild Card team rows, including the bye, in actual matchup order. Names and seeds stay attached to each record. */
+async function bracketOnScreen(page: Page) {
+  const column = page.locator(".panel.open .bracket-col").first();
+  await expect(column).toBeVisible();
+  return column.evaluate((col) => Array.from(col.querySelectorAll("span"))
+    .filter((el) => el.children.length === 0 && /^\d+ OVR · \d+-\d+(?:-\d+)?$/.test((el.textContent ?? "").trim()))
+    .map((el) => {
+      const name = el.parentElement!;
+      const row = name.parentElement!;
+      return { label: name.querySelector("span")?.textContent?.trim(), seed: Number(row.querySelector(".oswald")?.textContent), record: el.textContent!.trim().split("OVR · ")[1] };
+    }));
 }
 
 /** The schedule screen's final scores for a week, as "home|away|homeScore-awayScore", from what is on the screen. */
@@ -92,7 +102,7 @@ const scoresOf = (s: Season, week: number) => regGames(s, week).map((g) => `${g.
 test.describe("weeks of the regular season", () => {
   test.use({ fixtureName: "season-week-1" });
 
-  test("three weeks from the opener: each game is played once, the standings add up, and the screens agree with the books", async ({ page }, testInfo) => {
+  test("three weeks from the opener: each game is played once, the standings add up, and the screens agree with the books", async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto("/");
     await expect(page).toHaveURL(HUB);
@@ -116,17 +126,14 @@ test.describe("weeks of the regular season", () => {
     expect(regGames(s)).toHaveLength(scheduledIn(s, 1).length + scheduledIn(s, 2).length + scheduledIn(s, 3).length);
     await expect(hubRecord(page)).toHaveText(recordText(s.teams[s.me]!));
     const mine = (AFC as readonly string[]).includes(s.me) ? AFC : NFC;
-    const expected = [...mine].sort((a, b) => s.teams[a]!.confRank - s.teams[b]!.confRank).map((c) => [s.teams[c]!.w, s.teams[c]!.l, s.teams[c]!.t, s.teams[c]!.pf, s.teams[c]!.pa]);
+    const ranked = [...mine].sort((a, b) => s.teams[a]!.confRank - s.teams[b]!.confRank);
+    const expected = ranked.map((code, i) => {
+      const t = s.teams[code]!;
+      return { seed: i < 7 ? String(i + 1) : "\u2013", name: teamIdentity(code).name, w: t.w, l: t.l, t: t.t, pf: t.pf, pa: t.pa, pd: t.pf - t.pa };
+    });
     const shown = await standingsOnScreen(page);
-    // the table has every team of the conference, with the numbers the books give it ...
-    const key = (r: number[]) => r.join(",");
-    expect(shown.map(key).sort(), "the standings table: the same sixteen teams' numbers").toEqual(expected.map(key).sort());
-    // ... best winning percentage first
-    const pct = (r: number[]) => (r[0]! + 0.5 * r[2]!) / Math.max(1, r[0]! + r[1]! + r[2]!);
-    for (let i = 1; i < shown.length; i++) expect(pct(shown[i]!), `row ${i + 1} is not better than row ${i}`).toBeLessThanOrEqual(pct(shown[i - 1]!));
-    if (shown.map(key).join("/") !== expected.map(key).join("/")) {
-      testInfo.annotations.push({ type: "finding", description: "Teams with the same record are ordered on the standings table by point difference, but the saved conference ranks (recomputeStandings: head-to-head, division and conference record first) order them differently." });
-    }
+    // Identity is checked per row even when records are equal. Soft failures keep schedule/accounting coverage running.
+    expect.soft(shown, "each standings identity, seed, record and points must match persisted conference ranks").toEqual(expected);
     await page.getByRole("button", { name: "Full Schedule" }).click();
     for (let week = 1; week <= 3; week++) expect(await scheduleOnScreen(page, week), `week ${week}'s final scores on the schedule`).toEqual(scoresOf(s, week));
   });
@@ -238,7 +245,7 @@ test.describe("the trade deadline", () => {
 test.describe("into the playoffs", () => {
   test.use({ fixtureName: "season-week-17" });
 
-  test("after week 18 the regular season is complete, the right fourteen teams are seeded, and the bracket opens at the Wild Card unplayed", async ({ page }, testInfo) => {
+  test("after week 18 the regular season is complete, the right fourteen teams are seeded, and the bracket opens at the Wild Card unplayed", async ({ page }) => {
     test.setTimeout(150_000);
     await page.goto("/");
     await expect(page).toHaveURL(HUB);
@@ -265,34 +272,29 @@ test.describe("into the playoffs", () => {
     // the bracket: seven a conference, the right conference, no one twice, a bye for the one seed, the rest paired 2-7, 3-6, 4-5
     const b = end.bracket!;
     expect(b).toMatchObject({ round: "WC", champion: null });
+    const authoritative = authoritativeSeeding(end);
     for (const [conf, members] of [["AFC", AFC], ["NFC", NFC]] as const) {
       const seeds = b.seeds[conf];
       expect(seeds, `${conf}: seven seeds`).toHaveLength(7);
       expect(new Set(seeds).size).toBe(7);
       for (const c of seeds) expect(members as readonly string[], `${c} is in the ${conf}`).toContain(c);
 
-      // they are the best seven: each beat or matched everyone left out on wins, and the order never rises in wins
-      const wins = (c: string) => end.teams[c]!.w;
-      const out = members.filter((c) => !seeds.includes(c));
-      expect(Math.min(...seeds.map(wins)), `${conf}: nobody left out has more wins than a team let in`).toBeGreaterThanOrEqual(Math.max(...out.map(wins)));
-      for (let i = 1; i < 7; i++) expect(wins(seeds[i]!), `${conf}: seed ${i + 1} has no more wins than seed ${i}`).toBeLessThanOrEqual(wins(seeds[i - 1]!));
-
-      // and they are the seven the standings table calls the playoff field
-      const byRank = [...members].sort((x, y) => end.teams[x]!.confRank - end.teams[y]!.confRank).slice(0, 7);
-      expect([...seeds].sort(), `${conf}: the same seven the standings table shows`).toEqual(byRank.slice().sort());
-      if (JSON.stringify(seeds) !== JSON.stringify(byRank)) {
-        testInfo.annotations.push({ type: "finding", description: `${conf}: the bracket orders its seeds ${seeds.join(",")} but the standings table's seeding reads ${byRank.join(",")}. The bracket sorts on wins then point difference; the table also uses ties, head-to-head, division and conference record.` });
-      }
+      // These are ordinary failing assertions, never annotations or expected-failure/skip markers.
+      // Soft assertions expose both conferences and still exercise the UI, pairings and reload after a seeding defect.
+      const expected = authoritative[conf];
+      expect.soft(seeds, `${conf}: exact main-engine seed order from completed games`).toEqual(expected.seeds);
+      expect.soft(seeds.slice(0, 4), `${conf}: seeds 1-4 are the four division champions`).toEqual(expected.divisionWinners);
+      expect.soft(seeds.slice(4), `${conf}: seeds 5-7 are the three authoritative wild cards`).toEqual(expected.wildCards);
 
       const wc = b.matchups.filter((m) => m.round === "WC" && m.conference === conf);
       expect(wc).toHaveLength(4);
       const bye = wc.find((m) => m.low === null)!;
-      expect(bye.high).toEqual({ code: seeds[0], seed: 1 });
-      expect(bye.winner).toBe(seeds[0]);
+      expect.soft(bye.high, `${conf}: authoritative bye team`).toEqual({ code: expected.seeds[0], seed: 1 });
+      expect.soft(bye.winner).toBe(expected.seeds[0]);
       for (const [hi, lo] of [[2, 7], [3, 6], [4, 5]] as const) {
         const m = wc.find((x) => x.high?.seed === hi)!;
-        expect(m.high).toEqual({ code: seeds[hi - 1], seed: hi });
-        expect(m.low).toEqual({ code: seeds[lo - 1], seed: lo });
+        expect.soft(m.high, `${conf}: seed ${hi} hosts seed ${lo}`).toEqual({ code: expected.seeds[hi - 1], seed: hi });
+        expect.soft(m.low).toEqual({ code: expected.seeds[lo - 1], seed: lo });
         expect(m.winner, "not played yet").toBeNull();
         expect(m.homeScore).toBeNull();
       }
@@ -301,12 +303,14 @@ test.describe("into the playoffs", () => {
 
     // the screen shows the same fourteen teams with the same records, and the round waiting to be played
     // (the screen shows one conference at a time)
-    const recordsShown = async () => (await page.locator("main").innerText()).match(/OVR · \d+-\d+(?:-\d+)?/g)!.map((x) => x.replace("OVR · ", ""));
     const all = [...b.seeds.AFC, ...b.seeds.NFC];
-    const recordsOf = (codes: string[]) => codes.map((c) => recordText(end.teams[c]!));
-    expect((await recordsShown()).sort(), "the AFC bracket's seven records").toEqual(recordsOf(b.seeds.AFC).sort());
-    await page.getByRole("tab", { name: "NFC", exact: true }).or(page.getByRole("button", { name: "NFC", exact: true })).first().click();
-    expect((await recordsShown()).sort(), "the NFC bracket's seven records").toEqual(recordsOf(b.seeds.NFC).sort());
+    for (const conf of ["AFC", "NFC"] as const) {
+      await page.getByRole("tab", { name: conf, exact: true }).or(page.getByRole("button", { name: conf, exact: true })).first().click();
+      const expectedRows = b.matchups.filter((m) => m.round === "WC" && m.conference === conf)
+        .flatMap((m) => [m.high, m.low]).filter((side) => side !== null)
+        .map((side) => ({ label: teamIdentity(side.code).label, seed: side.seed, record: recordText(end.teams[side.code]!) }));
+      expect.soft(await bracketOnScreen(page), `${conf}: every rendered team identity, seed and record matches the saved matchup`).toEqual(expectedRows);
+    }
     await expect(page.getByRole("button", { name: "Simulate the Wild Card" })).toBeVisible();
     // and what it says about the viewer's own team agrees: out of the field reads "Missed"
     if (!all.includes(end.me)) await expect(statBeside(page, "Your team")).toHaveText("Missed");
@@ -318,5 +322,57 @@ test.describe("into the playoffs", () => {
     expect(again.bracket).toEqual(b);
     expect(again.stage).toBe("playoffs");
     expect(regGames(again)).toHaveLength(272);
+  });
+});
+
+
+// Reader negative controls use the real rendered page. Substituted identities must not disappear in numeric sorting.
+test.describe("team identity negative controls", () => {
+  test.use({ fixtureName: "season-week-1" });
+  test("the standings comparison rejects another team's name even when every number stays unchanged", async ({ page }) => {
+    await page.goto("/");
+    const s = await readSeason(page);
+    const members = (AFC as readonly string[]).includes(s.me) ? AFC : NFC;
+    const shown = await standingsOnScreen(page);
+    const byName = (rows: typeof shown) => rows.slice().sort((a, b) => a.name!.localeCompare(b.name!));
+    const expected = shown.map((row) => {
+      const code = members.find((c) => teamIdentity(c).name === row.name);
+      expect(code, "every rendered identity belongs to the persisted conference").toBeTruthy();
+      const t = s.teams[code!]!;
+      return { ...row, name: teamIdentity(code!).name, w: t.w, l: t.l, t: t.t, pf: t.pf, pa: t.pa, pd: t.pf - t.pa };
+    });
+    expect(byName(shown)).toEqual(byName(expected));
+    const cells = page.locator("main table:visible tbody tr td:nth-child(2)");
+    const replacement = await cells.nth(1).innerText();
+    await cells.first().evaluate((cell, text) => { cell.textContent = text; }, replacement);
+    const corrupted = await standingsOnScreen(page);
+    expect(corrupted.map(({ name, ...numbers }) => numbers)).toEqual(shown.map(({ name, ...numbers }) => numbers));
+    expect(() => expect(byName(corrupted)).toEqual(byName(expected))).toThrow();
+  });
+});
+
+test.describe("bracket identity negative control", () => {
+  test.use({ fixtureName: "season-week-17" });
+  test("the bracket comparison rejects another team's name without changing its seed or record", async ({ page }) => {
+    test.setTimeout(150_000);
+    await page.goto("/");
+    await playToGameDay(page, 17);
+    await continueTo(page, "regularSeason", 18);
+    await playToGameDay(page, 18);
+    const s = await continueTo(page, "playoffs", 0);
+    await expect(page).toHaveURL(/#\/bracket$/);
+    await page.getByRole("tab", { name: "AFC", exact: true }).or(page.getByRole("button", { name: "AFC", exact: true })).first().click();
+    const expected = s.bracket!.matchups.filter((m) => m.round === "WC" && m.conference === "AFC")
+      .flatMap((m) => [m.high, m.low]).filter((side) => side !== null)
+      .map((side) => ({ label: teamIdentity(side.code).label, seed: side.seed, record: recordText(s.teams[side.code]!) }));
+    const shown = await bracketOnScreen(page);
+    expect(shown).toEqual(expected);
+    await page.locator(".panel.open .bracket-col").first().evaluate((col) => {
+      const record = Array.from(col.querySelectorAll("span")).find((el) => el.children.length === 0 && /^\d+ OVR · /.test(el.textContent?.trim() ?? ""))!;
+      record.parentElement!.querySelector("span")!.textContent = "Baltimore";
+    });
+    const corrupted = await bracketOnScreen(page);
+    expect(corrupted.map(({ label, ...numbers }) => numbers)).toEqual(shown.map(({ label, ...numbers }) => numbers));
+    expect(() => expect(corrupted).toEqual(expected)).toThrow();
   });
 });

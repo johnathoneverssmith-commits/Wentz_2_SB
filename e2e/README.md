@@ -93,15 +93,19 @@ scores are compared with the save.
 3. **The trade deadline**: week 9 is played like any other; then, each reached by the player's own action and each
    leaving the games and the standings untouched, the deadline (sat out, offers turned down), its summary, the
    mid-season market (sat out), the depth chart, and week 10, which is then played.
-4. **Into the playoffs**: weeks 17 and 18, then the regular season is complete (272 games, 17 per team), fourteen
-   teams are seeded (seven a conference, the right conference, no team twice, the best seven by wins, the same seven the
-   standings table shows), the one seed has a bye, the rest are paired 2-7, 3-6, 4-5, nothing is played, the screen shows
-   the same records, and a reload finds the same bracket. Playing the rounds is not covered here.
+4. **Into the playoffs**: weeks 17 and 18, 272 completed games, fourteen unique teams, one bye per conference,
+   2-7 / 3-6 / 4-5 pairings, and reload persistence. Expected seed identities and numbers come independently from
+   `src/engine/standings.ts` (`computeStandings`) using only the finished regular-season games: four division winners
+   at seeds 1-4, then three wild cards, with the documented NFL tiebreakers. Mock's bracket and saved ranks are not the oracle.
 
-Two findings are recorded in the test output (as annotations), not asserted, because they would need a change to the
-game's rules rather than to a test: teams with the same record are ordered on the standings table, and the bracket's
-seeds are ordered, by wins then point difference, while the saved conference and division ranks apply head-to-head, division
-and conference record first (`recomputeStandings`). The seven teams in the field are the same either way in this save.
+Standings rows retain team identity, seed, record and points and must agree with persisted conference ranks in order.
+Bracket rows retain identity, seed and record, matched to each persisted Wild Card side. Numerical multisets are not enough. Two real-page reader negative controls replace a standings name and a bracket name with another team while leaving all numbers unchanged; the exact-identity comparisons must reject both.
+
+**Known production dependencies (tests intentionally fail):** the hub orders tied teams by point differential rather than
+persisted conference rank; Mock (also used for multiplayer seeding) selects by wins and point differential instead of the
+main-engine division-winner and tiebreak rules. The corrected assertions expose these discrepancies as failures, not
+annotations, skips or expected-failure markers. Soft assertions keep later schedule, bracket and reload coverage running
+but still give the test and suite a failing exit code. Production fixes belong in a separate focused gameplay PR.
 
 Each test was shown to fail when one thing was broken in a disposable copy (not part of the suite): every game played
 twice, ties counted as losses, a week that never advances, a held slate that is never cleared, a deadline that is
