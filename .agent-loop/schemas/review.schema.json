@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent loop review v1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[A-Za-z0-9-]+$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[A-Za-z0-9-]+$"
+    },
+    "subjectDigest": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "baseSha": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "headSha": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000,
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "accept",
+        "revise",
+        "escalate"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000,
+            "pattern": "^[A-Za-z0-9-]+$"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "P0",
+              "P1",
+              "P2",
+              "P3"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "correction": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "new",
+              "conflict",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "evidence",
+          "correction",
+          "scope"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 1000,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "runId",
+    "subjectDigest",
+    "baseSha",
+    "headSha",
+    "verdict",
+    "findings"
+  ],
+  "additionalProperties": false
+}
