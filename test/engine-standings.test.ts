@@ -66,6 +66,16 @@ describe("computeStandings — structure", () => {
     }
   });
 
+  it("the conference order is the seven seeds, then everyone else, each team once", () => {
+    for (const conf of ["AFC", "NFC"] as const) {
+      const { order, seeds } = standings.seeding[conf];
+      expect(order.slice(0, 7)).toEqual(seeds);
+      expect(order).toHaveLength(16);
+      expect(new Set(order).size).toBe(16);
+      expect(order.every((t) => conferenceOf(t) === conf)).toBe(true);
+    }
+  });
+
   it("seeds 1–4 are the division winners, 5–7 the wild cards", () => {
     for (const conf of ["AFC", "NFC"] as const) {
       const { seeds, divisionWinners, wildCards } = standings.seeding[conf];
