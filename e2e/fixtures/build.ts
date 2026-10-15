@@ -57,7 +57,7 @@ Object.assign(globalThis, {
 type Stage = ReturnType<typeof useStore.getState>["stage"];
 
 /** Stages at which a save is kept, in the order a league reaches them. */
-const FIXTURES: Array<{ name: string; stage: Stage }> = [
+const FIXTURES: Array<{ name: string; stage: Stage; /** keep the first arrival at this week of the stage, not the first at the stage */ week?: number }> = [
   { name: "fantasy-draft", stage: "fantasyDraft" },
   { name: "coaching-draft", stage: "coachingDraft" },
   { name: "preseason", stage: "preseason" },
@@ -67,6 +67,12 @@ const FIXTURES: Array<{ name: string; stage: Stage }> = [
   //   chose "Skip free agency" in the mid-season market (the store's own `setSkip`, which the checkbox calls) and the
   //   league was then played on through its stage machine. Whether that choice is still set here is what the defect
   //   was; the builder refuses to write the fixture unless it is, so the fixture always exercises the carry-over.
+  // The regular season, kept at three moments of the same playthrough (before the mid-season fixtures below, which are later):
+  //   season-week-1: the opening week, nothing played; season-week-9: the last week before the trade deadline;
+  //   season-week-17: two weeks from the playoffs.
+  { name: "season-week-1", stage: "regularSeason", week: 1 },
+  { name: "season-week-9", stage: "regularSeason", week: 9 },
+  { name: "season-week-17", stage: "regularSeason", week: 17 },
   { name: "midseason-fa", stage: "midseasonFreeAgency" },
   { name: "offseason-fa-skip-carried", stage: "offseasonDraftSummary" },
 ];
@@ -184,14 +190,13 @@ mkdirSync(resolve(out), { recursive: true });
 const written: string[] = [];
 const chosen = FIXTURES.filter((f) => !only || only.includes(f.name));
 if (only) for (const n of only) if (!FIXTURES.some((f) => f.name === n)) throw new Error(`--only names a fixture that does not exist: ${n}`);
-const wanted = new Map(chosen.map((f) => [f.stage, f.name]));
 const kept = new Set<string>();
 // the whole-year fixtures need the playthrough to go on past the preseason; the guard is generous but finite
 for (let guard = 0; guard < 220 && kept.size < chosen.length; guard++) {
   const stage = state().stage;
   if (process.env.E2E_BUILD_TRACE) console.error(`[build] ${guard} ${stage} season ${state().season} week ${state().week}`);
-  const name = wanted.get(stage);
-  if (name && !kept.has(name)) {
+  const name = chosen.find((f) => f.stage === stage && (f.week === undefined || f.week === state().week) && !kept.has(f.name))?.name;
+  if (name) {
     const save = saved.get(SAVE_KEY);
     if (!save) throw new Error(`no save had been written on arriving at ${stage}`);
     const s = state();
@@ -207,6 +212,7 @@ for (let guard = 0; guard < 220 && kept.size < chosen.length; guard++) {
       draftSalt,
       viewerTeam,
       season: s.season,
+      week: s.week,
       skipFreeAgency: skipSet,
       clock: realClock ? "real" : "fixed",
       sizeBytes: Buffer.byteLength(save, "utf8"),
