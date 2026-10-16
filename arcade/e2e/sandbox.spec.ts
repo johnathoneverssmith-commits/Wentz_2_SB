@@ -1,4 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./fixtures";
+import { installLifecycleProbe } from "./lifecycle-probe";
 
 const externalRequests = new WeakMap<Page, string[]>();
 const position = async (page: Page, id: string) => {
@@ -12,6 +14,7 @@ const position = async (page: Page, id: string) => {
   return { x: await coordinate("x"), y: await coordinate("y") };
 };
 test.beforeEach(async ({ page }) => {
+  await installLifecycleProbe(page);
   // This standalone entry is not allowed to contact any API or persist franchise state.
   const external: string[] = [];
   externalRequests.set(page, external);
@@ -21,12 +24,47 @@ test.beforeEach(async ({ page }) => {
     }
     return route.continue();
   });
-  page.on("pageerror", error => { throw error; });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Backyard football" })).toBeVisible();
   await page.getByText("Player positions", { exact: false }).click();
   await page.getByRole("img", { name: /Football field/ }).click();
   expect(external).toEqual([]);
+});
+
+test("restart clears both physically held movement keys without needing keyup", async ({ page }) => {
+  await page.keyboard.down("KeyD"); await page.keyboard.down("ArrowLeft");
+  await expect.poll(async () => (await position(page, "home-1")).x).toBeGreaterThan(39);
+  await expect.poll(async () => (await position(page, "away-1")).x).toBeLessThan(71);
+  await page.getByRole("button", { name: "Restart", exact: true }).click();
+  await page.waitForTimeout(300); // both physical keys are deliberately still held
+  expect(await position(page, "home-1"), "restart must discard the held blue input").toEqual({ x: 38, y: 26.67 });
+  expect(await position(page, "away-1"), "restart must discard the held orange input").toEqual({ x: 72, y: 26.67 });
+  await page.keyboard.up("KeyD"); await page.keyboard.up("ArrowLeft");
+});
+
+test("restart from paused resumes live practice and AI movement", async ({ page }) => {
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.getByRole("button", { name: "Restart", exact: true }).click();
+  expect(await page.getByRole("button", { name: /^(Pause|Resume)$/ }).innerText(), "restart resumes rather than retaining paused state").toBe("Pause");
+  await expect(page.getByText("Live practice", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await position(page, "home-2")).x).toBeGreaterThan(37);
+});
+
+test("React effect replay leaves exactly one keyboard listener set and one animation loop", async ({ page }) => {
+  const read = () => page.evaluate(async () => {
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    return window.arcadeLifecycle.read();
+  });
+  const lifecycle = await read();
+  expect(lifecycle.setups, "Strict Mode must actually re-execute the effect").toBeGreaterThanOrEqual(2);
+  expect(lifecycle, "effect replay must not leak active listeners or frame callbacks").toMatchObject({ keydown: 1, keyup: 1, blur: 1, visibilitychange: 1, pendingFrames: 1 });
+  expect(lifecycle.cleanups, "the first effect must remove its keyboard listener").toBeGreaterThanOrEqual(1);
+  expect(lifecycle.cancelledFrames, "the first effect must cancel its scheduled frame").toBeGreaterThanOrEqual(1);
+  await page.keyboard.down("KeyD");
+  await expect.poll(async () => (await position(page, "home-1")).x).toBeGreaterThan(39);
+  await page.keyboard.up("KeyD");
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Restart", exact: true }).click();
+  expect(await read()).toMatchObject({ keydown: 1, keyup: 1, blur: 1, visibilitychange: 1, pendingFrames: 1 });
 });
 test.afterEach(async ({ page }) => {
   expect(externalRequests.get(page)).toEqual([]);

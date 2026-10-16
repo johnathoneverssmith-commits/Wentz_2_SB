@@ -1036,6 +1036,7 @@ describe("the isolated arcade module", () => {
     expect(ids(p)).toContain("arcade-verify");
     const verification = p.required.find(c => c.id === "arcade-verify")!;
     expect(verification.kind).toBe("manual");
+    expect(verification.executionEvidenceRequired).toBe(true);
     expect(verification.commands).toEqual([]);
     expect(verification.note).toContain("npm --prefix arcade run verify");
     expect(verification.note).toContain("attestation");

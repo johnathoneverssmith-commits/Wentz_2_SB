@@ -60,13 +60,48 @@ Playwright owns its temporary Vite server; it refuses an existing server and tea
 it down afterwards. Traces, failure screenshots and JSON results are kept under
 `arcade/test-results/` (ignored). The build writes only `arcade/dist/` (ignored).
 
-**CI limitation:** existing standard CI still checks the franchise, not arcade.
-Its root/UI Vitest includes and browser workflow path filter do not discover this
-module. No shared CI or `wentz-verify` command allowlist has been changed. The
-approved risk-map rule classifies `arcade/**` and requires explicit arcade
-verification as a **manual attestation**, not observed runner evidence. Before relying
-on GitHub for arcade coverage, separately approve an advisory Ubuntu job invoking
-this explicit verification command. A green standard check is not arcade evidence.
+**CI scope:** `.github/workflows/arcade-e2e.yml` is a separate advisory PR workflow
+on Ubuntu 24.04 / Node 22. It checks out the exact PR head, installs the locked
+root/UI dependencies and Chromium with system libraries, and executes arcade
+typecheck, unit tests, build and browser tests as separate steps. It uploads JSON
+results, traces and the build even on failure. It has read-only permissions, no
+production secrets, no database services and no deployment trigger. Advisory means
+it is not required by branch protection; a failed test still makes this job fail.
+
+The existing standard and franchise-browser workflows are unchanged and do not
+execute arcade tests. Inspect the dedicated job's exact head, executed steps and
+test counts before claiming Linux arcade coverage. A green standard check is not
+arcade evidence. No `wentz-verify` command allowlist has changed. Its arcade check
+is still a **manual attestation**, not observed runner evidence, so generic CI
+cannot promote an arcade plan to an unqualified `VERIFIED` verdict. The report
+explicitly qualifies its green local verdict and does not validate the dedicated
+arcade workflow; inspect that workflow separately.
+
+## Restart, lifecycle and error regressions
+
+Browser tests use actual simultaneous keyboard input. Restart is exercised both
+while two keys are still physically held and directly from paused practice. The
+entry runs inside React Strict Mode; its real development effect setup/cleanup/
+setup cycle is observed by test-side instrumentation of browser listener and
+animation APIs. Exactly one live keyboard listener set and one pending animation
+callback must remain. No application state hooks are exposed to tests.
+
+All specs import `e2e/fixtures.ts`, which collects `pageerror` messages through
+page closure and asserts the collection in awaited fixture teardown. It does not
+throw asynchronously from an event callback. Visibility/blur lifecycle events
+are dispatched in the browser while real keyboard keys are held.
+
+Deliberate defects reproduced in disposable copies (not committed to the suite):
+
+| Defect | Required failure |
+| --- | --- |
+| Remove Restart's input clear | Player moves away from its reset coordinate with keys still held |
+| Retain paused state on Restart | Actual control reads Resume instead of Pause |
+| Remove keyboard listener cleanup | Two active keydown/keyup listeners instead of one after effect replay |
+| Remove animation cancellation | Two pending animation callbacks instead of one after effect replay |
+| Throw an asynchronous browser error | Awaited page-safety teardown reports the captured sentinel exception |
+
+These controls fail on direct assertions, not unrelated navigation timeouts.
 
 ## Boundaries for the next milestone
 

@@ -46,3 +46,13 @@ arcade/**. The user approved a separate risk-map correction and regression tests
 The arcade check remains a required manual attestation; no command allowlist or
 GitHub workflow is changed. Six focused regressions first failed on the missing
 mapping; preserve the engine requirements on combined arcade/engine changes.
+
+Second-round review corrections (authorized): add held-key and paused-state
+restart regressions; run actual React Strict Mode effect replay and count active
+listeners/animation callbacks; collect page exceptions through awaited teardown.
+Baseline 8 browser tests passes. Disposable controls reproduce retained input,
+retained pause, duplicate listeners, duplicate animation callbacks and asynchronous
+page errors, all through specific assertions. Qualify arcade manual execution
+claims even when generic CI passes, including old arcade plans. Add only the
+separately authorized advisory arcade workflow; existing required/deploy workflows
+and command allowlist remain unchanged. No new gameplay or dependencies.

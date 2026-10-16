@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { advance, createClock } from "../core/clock";
 import type { Inputs } from "../core/simulation";
@@ -49,7 +49,7 @@ function Sandbox() {
     window.addEventListener("blur",pause);document.addEventListener("visibilitychange",hidden);
     frame=requestAnimationFrame(animate);
     return ()=>{
-      cancelAnimationFrame(frame);keys.current.clear();
+      cancelAnimationFrame(frame);keys.current.clear();previous.current=null;
       window.removeEventListener("keydown",keydown);window.removeEventListener("keyup",keyup);
       window.removeEventListener("blur",pause);document.removeEventListener("visibilitychange",hidden);
     };
@@ -68,4 +68,4 @@ function Sandbox() {
     <footer>Local exhibition sandbox <span>No accounts. No saved leagues. No server connection.</span></footer>
   </main>;
 }
-createRoot(document.getElementById("root")!).render(<Sandbox/>);
+createRoot(document.getElementById("root")!).render(<StrictMode><Sandbox/></StrictMode>);
