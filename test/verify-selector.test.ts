@@ -1026,3 +1026,24 @@ describe("combined launcher and browser selection", () => {
     expect(p.notes.join(" ")).toMatch(/npm run e2e/);
   });
 });
+
+describe("the isolated arcade module", () => {
+  it.each(["arcade/core/simulation.ts", "arcade/browser/main.tsx", "arcade/e2e/sandbox.spec.ts", "arcade/tooling/verify.mjs", "arcade/package.json"])("requires explicit arcade evidence for %s", (path) => {
+    const p = run([change(path, "A", ["untracked"])]);
+    expect(p.classes).toContain("arcade-sandbox");
+    expect(p.unknownSourcePaths).toEqual([]);
+    expect(p.conservative).toBe(false);
+    expect(ids(p)).toContain("arcade-verify");
+    const verification = p.required.find(c => c.id === "arcade-verify")!;
+    expect(verification.kind).toBe("manual");
+    expect(verification.commands).toEqual([]);
+    expect(verification.note).toContain("npm --prefix arcade run verify");
+    expect(verification.note).toContain("attestation");
+    expect(p.needsDatabase).toBe(false);
+  });
+
+  it("keeps existing engine requirements when an arcade change is combined with engine code", () => {
+    const p = run([change("arcade/core/simulation.ts"), change("src/engine/sim.ts")]);
+    expect(ids(p)).toEqual(expect.arrayContaining(["arcade-verify", "full-engine", "engine-realism"]));
+  });
+});

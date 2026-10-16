@@ -40,3 +40,9 @@ Add hidden-page and full-roster pause checks. Initial browser observation used
 collapsed cells; corrected to require visible numeric coordinates. No gameplay
 assertion was weakened. Shared verifier reports stale evidence if files change
 during a run; regenerate and rerun after the final edits.
+
+Approved scope addition: standard CI's tracked-source coverage guard rejected
+arcade/**. The user approved a separate risk-map correction and regression tests.
+The arcade check remains a required manual attestation; no command allowlist or
+GitHub workflow is changed. Six focused regressions first failed on the missing
+mapping; preserve the engine requirements on combined arcade/engine changes.

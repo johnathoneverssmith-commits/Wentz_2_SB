@@ -62,7 +62,9 @@ it down afterwards. Traces, failure screenshots and JSON results are kept under
 
 **CI limitation:** existing standard CI still checks the franchise, not arcade.
 Its root/UI Vitest includes and browser workflow path filter do not discover this
-module. No shared CI or `wentz-verify` allowlist has been changed. Before relying
+module. No shared CI or `wentz-verify` command allowlist has been changed. The
+approved risk-map rule classifies `arcade/**` and requires explicit arcade
+verification as a **manual attestation**, not observed runner evidence. Before relying
 on GitHub for arcade coverage, separately approve an advisory Ubuntu job invoking
 this explicit verification command. A green standard check is not arcade evidence.
 
