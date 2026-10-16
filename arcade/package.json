@@ -1,0 +1,13 @@
+{
+  "name": "wentz-arcade-sandbox",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../ui-source/node_modules/vite/bin/vite.js --config vite.config.ts --configLoader runner",
+    "build": "node ../ui-source/node_modules/vite/bin/vite.js build --config vite.config.ts --configLoader runner",
+    "typecheck": "node ../node_modules/typescript/bin/tsc -p tsconfig.json",
+    "test": "node ../node_modules/vitest/vitest.mjs run --config vitest.config.ts",
+    "e2e": "node ../node_modules/@playwright/test/cli.js test --config playwright.config.ts",
+    "verify": "node tooling/verify.mjs"
+  }
+}
