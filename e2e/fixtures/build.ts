@@ -75,6 +75,8 @@ const FIXTURES: Array<{ name: string; stage: Stage; /** keep the first arrival a
   { name: "season-week-17", stage: "regularSeason", week: 17 },
   // the first arrival at the playoffs: the regular season played out, the bracket seeded by the game, nothing in it played yet
   { name: "playoffs-wild-card", stage: "playoffs" },
+  // the first arrival after the Super Bowl: the season is over and scored (champion, awards, history recorded), the offseason not begun
+  { name: "end-of-season", stage: "endOfSeasonAnnounce" },
   { name: "midseason-fa", stage: "midseasonFreeAgency" },
   { name: "offseason-fa-skip-carried", stage: "offseasonDraftSummary" },
 ];

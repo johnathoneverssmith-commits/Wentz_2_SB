@@ -52,6 +52,7 @@ saves; it also builds with another seed (different) and with the real clock (the
 | `fixtures.spec.ts` | pinned inputs, genuine progression, determinism, size |
 | `save-reload.spec.ts` | each save opens at its own stage's screen and survives a reload |
 | `draft.spec.ts` | a real action: draft a player, check the saved league, reload, check again |
+| `offseason.spec.ts` | a finished season through the whole offseason into the next season's first week: history kept, the year turns once, draft, rosters and contracts, and reloads that repeat nothing (see below) |
 | `playoffs.spec.ts` | the postseason through the bracket and Game Day: every round, who advances, byes, the champion, and reloads that replay nothing (see below) |
 | `regular-season.spec.ts` | the regular season through the hub and Game Day: each game once, records and standings recounted from the games, reloads that never replay, the trade deadline and the stages after it, and the move into the playoffs (see below) |
 | `free-agency-offers.spec.ts` | real offers in a free-agency market: the form, what the game accepts and refuses, the signing, the roster, the books and the cap, across rounds and reloads (see below) |
@@ -111,6 +112,43 @@ but still give the test and suite a failing exit code. Production fixes belong i
 Each test was shown to fail when one thing was broken in a disposable copy (not part of the suite): every game played
 twice, ties counted as losses, a week that never advances, a held slate that is never cleared, a deadline that is
 skipped, and a bracket that seeds the worst teams.
+
+### The offseason
+
+One more save from the same playthrough, `end-of-season`: the first arrival after the Super Bowl, the season over and scored (champion,
+awards, every team's season and the human GM's history recorded), the offseason not begun. One test takes it, with the real controls, to
+the first regular-season week of the next season: the end-of-season screens and the hot seat, the retirement review, the rookie draft
+(the human's own seven picks, one click each), the rookie signings, free agency and the roster fix, training camp, the depth chart, the
+start of the next season, the three preseason games, and week one (simulated once). It checks, from the saved league
+(`support/offseason.ts`) and from the screens:
+
+* **History kept**: the season that ended stays on the record once and unchanged (champion and runner-up, every team's season, the
+  awards, the human GM's history; the Hall of Fame only grows), the League History screen shows it before and after the year turns, and
+  nothing is recorded for a season not yet played.
+* **The year turns once** (the old year until the season starts; `season + 1` after), and every player ages exactly once with it (camp
+  ages no one).
+* **Identity**: the same thirty-two franchises, the same human GM on the same team.
+* **Retirements** happen once as the review closes and are never undone; nobody retired is on a roster; players the staff released are on
+  the market.
+* **The draft**: 224 picks (seven rounds of the thirty-two teams), nobody taken twice, each by the team the order gave it, every round in
+  the same order, and that order the worst regular-season record first (the champion is not last: the order is the record, nothing
+  more). Every pick is with the picking team when free agency opens; by the start of the season most still are (a rookie who was cut
+  may be on the market or with whoever signed him since, on the practice squad `PS:<team>` still counts as the picking team's, and one
+  who was cut and found no job is pruned as the year turns).
+* **Contracts and rosters**: a player who stayed with his team keeps his contract (never shortened a second time, salary never rewritten;
+  the game's own change is a CPU extension, same salary, more years), and every team that takes the field is full (53), under the cap, on
+  real contracts.
+* **A new season**: records, points, games and the bracket start again, the schedule is a full new one (272 games, 17 each), and week
+  one's games, once played, add up (`expectSeasonConsistent`).
+* **Reloads change nothing**, at every boundary (the end-of-season screen, the hot seat, the retirement review, the start of the draft,
+  the middle of the draft, the completed draft, the rookie signings, the roster fix, camp results, the depth chart, the start of the next
+  season, the first hub, Game Day): no second retirement, no draft rebuilt, no second signing, no camp run again, no second year, no
+  second round of aging, no rewritten champion.
+
+Each defect below was shown to fail this test, on the intended assertion and not on a timeout, in a disposable copy (not part of the
+suite): the league year turning twice, the last champion dropped from the record, the draft taking a player twice, rookies signed to
+the wrong team, contracts shortened a second time at the rollover, new-season records not reset, offseason advancement stuck at the
+retirement review, the draft board rebuilt when the screen is re-entered, and everyone ageing twice.
 
 ### The postseason
 
