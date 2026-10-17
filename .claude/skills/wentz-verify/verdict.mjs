@@ -311,7 +311,7 @@ export function summarize(plan, results = [], context = {}) {
         }
         row = { ...j, evidence: run ? (run.evidence === "observed" ? `observed${run.database ? ` (database: ${run.database})` : ""}` : run.evidence ?? "unbound") : null, attempt: run?.attempt ?? null, earlierFailures: earlier };
       }
-      rows.push({ ...row, label: check.label, level: level.toUpperCase(), kind: check.kind, commands: check.commands, needsDatabase: check.needsDatabase });
+      rows.push({ ...row, label: check.label, level: level.toUpperCase(), kind: check.kind, commands: check.commands, needsDatabase: check.needsDatabase, ...(check.executionEvidenceRequired ? { executionEvidenceRequired: true } : {}) });
     }
   }
   const planned = new Set(rows.map((r) => r.id));
@@ -322,16 +322,22 @@ export function summarize(plan, results = [], context = {}) {
   const requiredCi = required.filter((r) => r.kind === "ci");
   const failed = rows.filter((r) => r.status === "FAILED");
   const notDone = requiredLocal.filter((r) => r.status === "NOT_RUN" || r.status === "SKIPPED");
+  // Scope/design attestations retain existing franchise semantics. An execution
+  // attestation is different: generic CI never proves that command was executed.
+  // Also recognize old arcade plans that predate the explicit metadata flag.
+  const executionAttestations = requiredLocal.filter(r => r.kind === "manual" && (r.executionEvidenceRequired || r.id === "arcade-verify"));
 
   let verdict;
   if (plan.problems.length > 0) verdict = "BLOCKED";
   else if (failed.length > 0) verdict = "FAILED";
   else if (notDone.length > 0) verdict = "INCOMPLETE";
+  else if (executionAttestations.length > 0) verdict = "LOCALLY_VERIFIED";
   else if (requiredCi.length > 0 && requiredCi.every((r) => r.status === "PASSED")) verdict = "VERIFIED";
   else verdict = "LOCALLY_VERIFIED";
 
   return {
     verdict,
+    executionAttestations: executionAttestations.map(r => r.id),
     base: plan.base,
     risk: plan.risk,
     conservative: plan.conservative,
@@ -384,9 +390,17 @@ const VERDICT_TEXT = {
 export function renderReport(s) {
   const L = [];
   L.push("## Verification report", "");
-  L.push(`**Verdict: ${VERDICT_TEXT[s.verdict]}**`, "");
+  const executionOnly = (s.executionAttestations ?? []).length > 0;
+  const verdictText = s.verdict === "LOCALLY_VERIFIED" && executionOnly
+    ? "LOCALLY VERIFIED (qualified) - execution is attested, not observed; generic CI does not prove these checks executed"
+    : VERDICT_TEXT[s.verdict];
+  L.push(`**Verdict: ${verdictText}**`, "");
+  if (executionOnly) L.push(`**Execution evidence limitation:** ${(s.executionAttestations ?? []).map(id => `\`${id}\``).join(", ")} is not observed execution evidence. Inspect the dedicated exact-head arcade workflow separately; this report does not validate it.`, "");
   L.push(`Base: ${s.base ?? "?"}. Risk: ${s.risk}${s.conservative ? " (conservative: some path could not be classified)" : ""}.`);
-  if (s.verdict !== "VERIFIED") {
+  const requiredCi = s.rows.filter(r => r.level === "REQUIRED" && r.kind === "ci");
+  if (executionOnly && requiredCi.length > 0 && requiredCi.every(r => r.status === "PASSED")) {
+    L.push("Required generic GitHub CI passed; its scope is shown below and does not imply arcade execution.");
+  } else if (s.verdict !== "VERIFIED") {
     L.push(s.ciRequired ? "GitHub CI for this exact commit has not been shown to pass by this tool. Only that result is authoritative." : "No CI check was required by this plan; CI still runs on the pull request.");
   }
   L.push("");

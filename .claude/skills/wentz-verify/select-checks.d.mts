@@ -42,6 +42,8 @@ export interface Check {
   seconds?: { local: number; ci: number | null };
   note?: string;
   authoritative?: boolean;
+  /** A manual execution claim must not be promoted to observed verification by generic CI. */
+  executionEvidenceRequired?: boolean;
 }
 
 export interface PlanRow {

@@ -1,0 +1,69 @@
+name: Arcade E2E (advisory)
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'arcade/**'
+      - '.github/workflows/arcade-e2e.yml'
+      - '.claude/skills/wentz-verify/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'ui-source/package.json'
+      - 'ui-source/package-lock.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arcade-e2e-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  arcade:
+    name: Arcade Chromium (advisory)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+      E2E_BROWSER_CHANNEL: ''
+      DATABASE_URL: ''
+      TEST_DATABASE_URL: ''
+      LEAGUE_API: ''
+      VITE_LEAGUE_API: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            ui-source/package-lock.json
+      - name: Install locked root dependencies
+        run: npm ci
+      - name: Install locked UI dependencies
+        run: npm ci --prefix ui-source
+      - name: Install Chromium and system libraries
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Arcade typecheck
+        run: npm --prefix arcade run typecheck
+      - name: Arcade unit tests
+        run: npm --prefix arcade test
+      - name: Arcade standalone build
+        run: npm --prefix arcade run build
+      - name: Arcade browser tests
+        run: npm --prefix arcade run e2e
+      - name: Upload arcade results and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcade-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            arcade/test-results/
+            arcade/dist/
+          if-no-files-found: warn
+          retention-days: 7

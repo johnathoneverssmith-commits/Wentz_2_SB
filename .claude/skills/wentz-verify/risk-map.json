@@ -110,6 +110,7 @@
     "league-metrics": { "kind": "command", "tier": 4, "label": "Full league calibration against 2018-2025 NFL aggregates", "commands": ["npx tsx analysis/39_league_metrics.ts"], "seconds": { "local": 600, "ci": null }, "note": "Long. Run for any change to how units affect a play." },
     "stress-smoke": { "kind": "command", "tier": 4, "label": "Franchise stress test, smoke mode (three seasons plus a replay)", "commands": ["npm run franchise:stress -- --mode smoke"], "seconds": { "local": 120, "ci": null }, "note": "Uses the mock backend, not the real engine. Not a Vitest run: it prints its own summary and sets its exit code. It writes its files to a scratch directory outside the repository, chosen by the runner." },
     "preview-ui": { "kind": "manual", "tier": 4, "label": "Look at the change in a browser", "commands": ["npm --prefix ui-source run dev"], "note": "Presentation changes are not covered by tests." },
+    "arcade-verify": { "kind": "manual", "executionEvidenceRequired": true, "tier": 1, "label": "Run standalone arcade verification explicitly (attestation)", "commands": [], "note": "Run npm --prefix arcade run verify for arcade typecheck, unit tests, build and browser tests. Confirm only after observing every check succeed. This is a manual attestation, not independently observed runner evidence. It cannot produce an unqualified VERIFIED verdict even when generic CI passes. The separate Arcade E2E (advisory) workflow must be inspected for exact-head execution of typecheck, unit tests, build and Chromium tests; this report does not fetch or validate that workflow. The command allowlist is unchanged." },
 
     "static-review": { "kind": "manual", "tier": 1, "label": "Read the whole diff of the CI/deploy file", "commands": [], "note": "There is no YAML or Actions linter on this machine, so syntax and deploy conditions are only proven by GitHub running the workflow." },
     "ci-pr": { "kind": "ci", "tier": 5, "label": "GitHub CI on the pull request", "commands": [], "authoritative": true, "note": "Open a PR into master. The required `test` job must pass and `deploy` must be skipped. This, not any local run, is the authoritative result." },
@@ -189,6 +190,13 @@
       "requires": ["scope", "tc-engine", "selector-tests"],
       "recommends": ["ci-pr"],
       "notes": ["Data and tests the verification tooling reads: they are exercised only by the selector, verdict, safety and replay tests, not by the engine suite."]
+    },
+    {
+      "id": "arcade-sandbox", "class": "arcade-sandbox", "risk": "low",
+      "match": ["arcade/**"],
+      "requires": ["scope", "tc-engine", "arcade-verify", "ci-pr"],
+      "recommends": [],
+      "notes": ["Standalone arcade module: no franchise imports, database or production entry point. Existing CI is franchise coverage only; arcade evidence must come from its explicit verification command."]
     },
     {
       "id": "e2e-harness", "class": "browser-e2e", "risk": "low",
