@@ -67,6 +67,15 @@ memory or on how a result is phrased:
 
 ## Reporting rules
 
+- The standalone arcade module's `arcade-verify` check is a manual execution
+  attestation. Generic franchise CI cannot promote it to unqualified VERIFIED.
+  The report caps an attested arcade plan at a qualified LOCALLY VERIFIED and
+  identifies missing execution evidence. Without that attestation it remains
+  INCOMPLETE. Inspect the separate exact-head Arcade E2E (advisory) workflow's
+  typecheck, unit, build and Chromium steps and test counts independently: this
+  report does not fetch or validate that workflow. Other franchise manual checks
+  retain their existing verdict behavior.
+
 - Report every check in the plan with one status: **PASSED, FAILED, SKIPPED, NOT RUN, PENDING CI,
   CONFIRMED**. Never write "tests pass" without that table.
 - One failed check, required or recommended, makes the verdict **FAILED**. Quote the real error and

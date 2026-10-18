@@ -48,6 +48,7 @@ export interface Judgement {
 }
 
 export interface Row extends Judgement {
+  executionEvidenceRequired?: boolean;
   label: string;
   level: "REQUIRED" | "RECOMMENDED";
   kind: string;
@@ -59,6 +60,7 @@ export interface Row extends Judgement {
 }
 
 export interface Summary {
+  executionAttestations?: string[];
   verdict: Verdict;
   base: string | null;
   risk: string;

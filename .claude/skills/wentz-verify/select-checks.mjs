@@ -625,6 +625,7 @@ function materialize(entry, files, map, mergeBaseOf) {
     ...(def.seconds ? { seconds: def.seconds } : {}),
     ...(def.note || fallbackNote ? { note: [def.note, fallbackNote].filter(Boolean).join(" ") } : {}),
     ...(def.authoritative ? { authoritative: true } : {}),
+    ...(def.executionEvidenceRequired ? { executionEvidenceRequired: true } : {}),
   };
 }
 

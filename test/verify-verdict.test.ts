@@ -383,6 +383,39 @@ describe("the overall verdict", () => {
   });
 });
 
+describe("arcade execution attestations are not observed verification", () => {
+  const arcade = check("arcade-verify", { kind: "manual", commands: [], executionEvidenceRequired: true });
+  const P = plan([scope, arcade, ciCheck]);
+  it("does not let generic green CI plus an arcade attestation produce VERIFIED", () => {
+    const s = v.summarize(P, [confirmed("scope"), confirmed("arcade-verify")], withCi());
+    expect(s.verdict).toBe("LOCALLY_VERIFIED");
+    expect(s.rows.find(r => r.id === "arcade-verify")?.evidence).toBe("attested");
+    const text = v.renderReport(s);
+    expect(text).toContain("execution is attested, not observed");
+    expect(text).toContain("generic CI does not prove these checks executed");
+    expect(text).not.toContain("every required check passed here");
+    expect(text).not.toContain("GitHub CI for this exact commit has not been shown to pass");
+  });
+  it("is incomplete when arcade execution has neither a run nor an attestation", () => {
+    const s = v.summarize(P, [confirmed("scope")], withCi());
+    expect(s.verdict).toBe("INCOMPLETE");
+    expect(s.notRun).toContain("arcade-verify");
+  });
+  it("does not trust an exit code or a claimed PASSED result for a manual execution check", () => {
+    const s = v.summarize(P, [confirmed("scope"), { id: "arcade-verify", exitCode: 0, status: "PASSED", evidence: "observed" }], withCi());
+    expect(s.verdict).toBe("INCOMPLETE");
+  });
+  it("preserves the normal franchise verdict for ordinary manual scope review", () => {
+    const s = v.summarize(plan([scope, ciCheck]), [confirmed("scope")], withCi());
+    expect(s.verdict).toBe("VERIFIED");
+    expect(v.renderReport(s)).not.toContain("arcade");
+  });
+  it("qualifies old arcade plans that lack the new metadata", () => {
+    const old = plan([scope, check("arcade-verify", { kind: "manual", commands: [] }), ciCheck]);
+    expect(v.summarize(old, [confirmed("scope"), confirmed("arcade-verify")], withCi()).verdict).toBe("LOCALLY_VERIFIED");
+  });
+});
+
 describe("the report", () => {
   it("lists the failing tests by name, the skipped checks, the risks and the approvals", () => {
     const P = plan([scope, check("tests", { needsDatabase: true }), check("tc")], [], { needsDatabase: true, approvalsNeeded: ["Database schema"] });
