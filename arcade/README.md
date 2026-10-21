@@ -25,17 +25,23 @@ tools; do not install packages inside `arcade/`.
    swap. On offense your control follows the carrier: QB #1, RB #2 on a handoff,
    or receiver #3/#4 after a catch. White rings identify human control; gold marks
    the carrier. Blue attacks right; orange attacks left after a turnover.
-3. In a passing play, **Q** targets #3 and **E** targets #4 (buttons also work).
-   The QB can move before throwing. Passes lead the receiver on the selected
-   route, travel for 0.6 seconds, and resolve at the arrival point. The closest
-   eligible player within 1.6 yards catches; defense wins an exact tie. A missed
-   target is incomplete. A catch transfers movement control immediately.
-4. Defense uses **/** or **Switch defender** to cycle all five players. Touch
-   the carrier to tackle. Other defenders pursue; offensive AI runs routes and
-   support lanes. Players can overlap; there is no blocking physics yet.
+3. Blue passes with **Q / E**; orange passes with **comma / period**. Each
+   player's keys stay theirs after a turnover. The QB can move before throwing.
+   The two routes lead #3/#4 to different spaces. Flight lasts **one second**;
+   the landing circle shows the target. A catch transfers held movement input
+   immediately to the receiver.
+4. Blue defense switches with **F** and contests with **R**. Orange defense
+   switches with **/** and contests with **Right Shift**. Touch a carrier within
+   **1.8 yards** to tackle. Stand within **2.2 yards** of a pass landing to break
+   it up. To intercept, get within **1.6 yards** and time **Hands** near arrival:
+   its visible ring lasts **0.6 seconds**. Early hands expire; switching cancels
+   the window. AI covers receivers before a throw, moves toward the landing
+   point during flight, and pursues a carrier after a catch. There are no random
+   outcome rolls or predetermined success percentages. Players may overlap;
+   blocking remains out of scope.
 5. Tackles, sidelines, touchdowns, interceptions, safeties and a 15-second play
    limit end the down once. The HUD reports signed yards, turnover and touchdown.
-   Interceptions have no return in this milestone. **Next down** / **Enter**
+   Interceptions award **zero offensive yards** and have no return in this milestone. **Next down** / **Enter**
    reforms at the spot (within the playable 2–98-yard range). Incompletions keep
    the original spot; turnovers change teams and attack direction. A touchdown
    resets practice to the same offense's own 28-yard line. A safety changes sides
@@ -46,7 +52,10 @@ tools; do not install packages inside `arcade/`.
    movement again. Click the field after navigating controls to restore focus.
 
 Only **`wentz.arcade.down.v1`** in localStorage is read/written. Reload preserves
-positions, phase, possession and result; a live down reloads paused. Invalid saves
+positions, phase, possession, result and completed-play count; a live down reloads
+paused, including during flight. Changed simulation frames save independently of
+the slower HUD updates. The version-2 envelope retains this key and migrates
+version-1 saves, deriving prior completions from their down number. Invalid saves
 start fresh. A storage-denied browser can still play, with a visible warning.
 Franchise saves and other keys are untouched. Open **Player positions** to compare
 all ten identities and coordinates with the saved arcade snapshot.
@@ -82,7 +91,8 @@ workflow's actual steps, counts and head separately.
   movement and field clamps. Gameplay supplies AI targets; defaults retain the
   original movement-drill contract. Speed is `4 + rating / 20` yards/second.
 - `core/down.ts`: formation, play commands, routes, pursuit, ball flight, catches,
-  contact and terminal rules. No React, storage, browser time or random generator.
+  contact and terminal rules, timed hands and the completed-play counter. No React,
+  storage, browser time or random generator.
   Commands are one-shot; movement advances at 1/60 second. Terminal steps return
   the exact same snapshot and cannot award a second result.
 - `core/clock.ts`: fixed-step accumulator, pause and capped 100 ms catch-up.
@@ -95,6 +105,12 @@ workflow's actual steps, counts and head separately.
   All eight original lifecycle/browser cases remain, with explicit snaps into a
   passing down. Strict Mode replay must leave exactly one active keyboard
   listener set and animation callback. Awaited page-error collection remains.
+
+See [PLAYTEST.md](PLAYTEST.md) for reachable input sequences, the independent
+yardage oracle and the focused correction evidence. New browser scenarios use
+Playwright to control time while sending real keyboard events through the UI;
+they do not inject or teleport gameplay state. Existing real-time lifecycle tests
+are retained.
 
 Negative controls run in a disposable copy, never in the PR branch. Removing the
 handoff, catch-control transfer, defender switching, tackle, interception or
@@ -109,7 +125,8 @@ This is a local shared-keyboard practice loop: no first-down marker, four-down
 possession rules, scoreboard, kicks, penalties, return plays, blocking, animations,
 touch controls, franchise roster import or network play. Catches/interceptions
 resolve at the endpoint, not at intermediate flight intersections. Auto-leading
-open receivers is intentionally generous. Keyboard rollover limits depend on the
+open receivers is intentionally generous; defenders can now contest their actual
+landing points. Keyboard rollover limits depend on the
 physical keyboard. Only Chromium is exercised by current CI.
 
 Milestone 3 should focus on down-and-distance, scoring/drive flow, better defensive

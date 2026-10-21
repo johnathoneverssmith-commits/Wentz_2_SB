@@ -1,7 +1,7 @@
 import type { DownState } from '../core/down';
 import { FIELD } from '../core/simulation';
 export const SAVE_KEY = 'wentz.arcade.down.v1';
-export const encodeSave = (state: DownState) => JSON.stringify({ version: 1, state });
+export const encodeSave = (state: DownState) => JSON.stringify({ version: 2, state });
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const integer = (v: unknown) => finite(v) && Number.isSafeInteger(v) && v >= 0;
@@ -14,9 +14,11 @@ export function decodeSave(text: string | null): DownState | null {
         if (!text || text.length > 20000)
             return null;
         const data: unknown = JSON.parse(text);
-        if (!object(data) || data.version !== 1 || !object(data.state))
+        if (!object(data) || (data.version !== 1 && data.version !== 2) || !object(data.state))
             return null;
-        const s = data.state;
+        const s = data.version === 1 ? { ...data.state, terminalCount: Number(data.state.playNumber) - (data.state.phase === 'dead' ? 0 : 1), contestUntil: 0 } : data.state;
+        if (!integer(s.terminalCount) || !integer(s.contestUntil))
+            return null;
         if (!['pre-snap', 'live', 'dead'].includes(String(s.phase)) || !['rush', 'slants', 'go'].includes(String(s.play)) || !team(s.offense) || !integer(s.tick) || !integer(s.liveTicks) || !integer(s.playNumber) || s.playNumber === 0 || !finite(s.line) || s.line < 10 || s.line > 110)
             return null;
         if (!Array.isArray(s.players) || s.players.length !== 10)

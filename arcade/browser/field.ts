@@ -113,6 +113,13 @@ export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: b
         }
     }
     if (state.ball.kind === "flight") {
+        ctx.strokeStyle = '#ffe2a2';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(x(state.ball.to.x), y(state.ball.to.y), 2.2 * scale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
         const b = state.ball, t = Math.min(1, b.elapsed / b.duration);
         const px = x(b.from.x + (b.to.x - b.from.x) * t), py = y(b.from.y + (b.to.y - b.from.y) * t) - Math.sin(t * Math.PI) * 18;
         ctx.fillStyle = "#ffe2a2";
@@ -121,6 +128,14 @@ export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: b
         ctx.fill();
         ctx.fillStyle = "#6d351f";
         ctx.fillRect(px - 3, py - 1, 6, 2);
+    }
+    if (state.phase === 'live' && state.contestUntil >= state.tick && state.contestUntil > 0) {
+        const defender = state.players.find(p => p.id === state.defender)!;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x(defender.x), y(defender.y), 2.2 * scale, 0, Math.PI * 2);
+        ctx.stroke();
     }
     if (paused) {
         ctx.fillStyle = "rgba(14,28,32,.65)";

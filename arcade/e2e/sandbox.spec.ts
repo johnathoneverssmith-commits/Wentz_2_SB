@@ -36,13 +36,13 @@ test("restart clears both physically held movement keys without needing keyup", 
     await page.keyboard.down("KeyD");
     await page.keyboard.down("ArrowLeft");
     await expect.poll(async () => (await position(page, "home-1")).x).toBeGreaterThan(39);
-    await expect.poll(async () => (await position(page, "away-1")).x).toBeLessThan(71);
+    await expect.poll(async () => (await position(page, "away-1")).x).toBeLessThan(44);
     await page.getByRole("button", { name: "Restart", exact: true }).click();
     await page.getByLabel("Play", { exact: true }).selectOption("go");
     await page.getByRole("button", { name: "Snap", exact: true }).click();
     await page.waitForTimeout(300); // both physical keys are deliberately still held
     expect(await position(page, "home-1"), "restart must discard the held blue input").toEqual({ x: 38, y: 26.67 });
-    expect(await position(page, "away-1"), "restart must discard the held orange input").toEqual({ x: 72, y: 26.67 });
+    expect(await position(page, "away-1"), "restart must discard the held orange input").toEqual({ x: 45, y: 26.67 });
     await page.keyboard.up("KeyD");
     await page.keyboard.up("ArrowLeft");
 });
@@ -110,7 +110,7 @@ test("pause freezes the drill and restart restores both players without held key
     await page.getByLabel("Play", { exact: true }).selectOption("go");
     await page.getByRole("button", { name: "Snap", exact: true }).click();
     await expect.poll(async () => (await position(page, "home-1")).x).toBe(38);
-    expect((await position(page, "away-1")).x).toBe(72);
+    expect((await position(page, "away-1")).x).toBe(45);
     await page.keyboard.down("ArrowUp");
     await expect.poll(async () => (await position(page, "away-1")).y).toBeLessThan(25);
     await page.keyboard.up("ArrowUp");
@@ -134,9 +134,11 @@ test("a hidden-page lifecycle event pauses all players and clears input", async 
     const roster = await page.getByRole("table").innerText();
     await page.waitForTimeout(200);
     expect(await page.getByRole("table").innerText()).toBe(roster);
-    await page.evaluate(() => { delete (document as unknown as {
-        hidden?: boolean;
-    }).hidden; });
+    await page.evaluate(() => {
+        delete (document as unknown as {
+            hidden?: boolean;
+        }).hidden;
+    });
     await page.getByRole("button", { name: "Resume", exact: true }).click();
     const stopped = await position(page, "home-1");
     await page.waitForTimeout(200);

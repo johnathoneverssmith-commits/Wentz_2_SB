@@ -1,10 +1,13 @@
 import { encodeSave, decodeSave } from "../browser/save";
 import { expect, it } from "vitest";
-import { createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, type DownState } from "../core/down";
+import { createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
 import type { Inputs, PlayerId } from "../core/simulation";
 const idle: Inputs = { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } };
-const ticks = (state: DownState, n: number, inputs = idle) => { for (let i = 0; i < n; i++)
-    state = stepDown(state, inputs); return state; };
+const ticks = (state: DownState, n: number, inputs = idle) => {
+    for (let i = 0; i < n; i++)
+        state = stepDown(state, inputs);
+    return state;
+};
 const place = (state: DownState, id: PlayerId, x: number, y: number): DownState => ({ ...state, players: state.players.map(p => p.id === id ? { ...p, x, y } : p) });
 const isolated = (state: DownState): DownState => ({ ...state, players: state.players.map(p => p.team !== state.possession.team ? { ...p, x: 105, y: 48 } : p) });
 it("waits for snap, rejects live play changes and cannot snap twice", () => {
@@ -28,7 +31,7 @@ it.each(["slants", "go"] as const)("has real flight then a catch on %s", play =>
     const air = throwPass(state, 1);
     expect(air.ball.kind).toBe("flight");
     expect(throwPass(air, 2)).toBe(air);
-    const caught = ticks(air, 40);
+    const caught = ticks(air, 64);
     expect(caught.phase).toBe("live");
     expect(caught.ball.kind).toBe("held");
     expect(caught.possession.carrier).toBe("home-3");
@@ -37,7 +40,7 @@ it.each(["slants", "go"] as const)("has real flight then a catch on %s", play =>
 it("an unreachable target is incomplete, with zero yards and the original spot", () => {
     let state = throwPass(isolated(snap(choosePlay(createDown(), "go"))), 2);
     state = place(state, "home-4", 15, 48);
-    const dead = ticks(state, 40);
+    const dead = ticks(state, 64);
     expect(dead.result).toMatchObject({ reason: "incomplete", yards: 0, turnover: false, touchdown: false });
     expect(nextDown(dead).line).toBe(38);
 });
@@ -46,7 +49,7 @@ it("a defender at the arrival point intercepts and the next down changes sides",
     if (air.ball.kind !== "flight")
         throw Error("flight required");
     air = place(air, "away-1", air.ball.to.x, air.ball.to.y);
-    const dead = ticks(air, 40);
+    const dead = ticks(contestPass(ticks(air, 40), "away"), 24);
     expect(dead.result?.reason).toBe("interception");
     expect(dead.result?.turnover).toBe(true);
     expect(dead.possession).toEqual({ team: "away", carrier: "away-1" });
@@ -97,7 +100,7 @@ it('preserves the snap source and cannot throw a second forward pass after a cat
     const before = choosePlay(createDown(), 'go'), live = snap(before);
     expect(before.phase).toBe('pre-snap');
     expect(before.players[0]!.human).toBe(true);
-    const caught = ticks(throwPass(isolated(live), 2), 40);
+    const caught = ticks(throwPass(isolated(live), 2), 64);
     expect(caught.possession.carrier).toBe('home-4');
     expect(throwPass(caught, 1)).toBe(caught);
 });
@@ -116,13 +119,13 @@ it('checks the lower end zone for an away offense and resets after a score', () 
 it('a pass led beyond the field is actually incomplete in an unmodified route', () => {
     let live = isolated(snap(choosePlay(createDown(), 'go')));
     live = { ...live, line: 108, players: live.players.map(p => p.id === 'home-3' ? { ...p, x: 119.1 } : p) };
-    const dead = ticks(throwPass(live, 1), 40);
+    const dead = ticks(throwPass(live, 1), 64);
     expect(dead.result?.reason).toBe('incomplete');
 });
 it('AI decisions and contested catches do not depend on player array order', () => {
     const a = throwPass(isolated(snap(choosePlay(createDown(), 'go'))), 1);
     const b = { ...a, players: [...a.players].reverse() };
-    const first = ticks(a, 40), second = ticks(b, 40);
+    const first = ticks(a, 64), second = ticks(b, 64);
     expect(first.possession).toEqual(second.possession);
     expect(first.result).toEqual(second.result);
     expect([...first.players].sort((a, b) => a.id.localeCompare(b.id))).toEqual([...second.players].sort((a, b) => a.id.localeCompare(b.id)));

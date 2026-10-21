@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { advance, createClock } from '../core/clock';
-import { choosePlay, snap, nextDown, switchDefender, throwPass, type DownState, type Play } from '../core/down';
+import { choosePlay, snap, nextDown, switchDefender, throwPass, contestPass, opposite, type DownState, type Play } from '../core/down';
 import type { Inputs } from '../core/simulation';
 import { SAVE_KEY, encodeSave, decodeSave } from './save';
 import { drawField } from './field';
@@ -26,16 +26,19 @@ function Sandbox() {
     const keys = useRef(new Set<string>()), previous = useRef<number | null>(null);
     const [view, setView] = useState(current());
     const [storageWarning, setStorageWarning] = useState(false);
-    const publish = () => {
-        setView(current());
-        if (canvas.current)
-            drawField(canvas.current, current().match, current().paused);
+    const persist = () => {
         try {
             localStorage.setItem(SAVE_KEY, encodeSave(current().match));
         }
         catch {
             setStorageWarning(true);
         }
+    };
+    const publish = () => {
+        setView(current());
+        if (canvas.current)
+            drawField(canvas.current, current().match, current().paused);
+        persist();
     };
     const clearInput = () => { keys.current.clear(); previous.current = null; };
     const pause = () => { clearInput(); clock.current = { ...current(), paused: true, accumulator: 0 }; publish(); };
@@ -53,7 +56,13 @@ function Sandbox() {
     useEffect(() => {
         let frame = 0, lastPublished = 0;
         const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
-        const actionKeys = new Set(['Enter', 'KeyQ', 'KeyE', 'Slash']);
+        const actions: Record<string, (s: DownState) => DownState> = {
+            KeyQ: s => throwPass(s, 1, 'home'), KeyE: s => throwPass(s, 2, 'home'),
+            Comma: s => throwPass(s, 1, 'away'), Period: s => throwPass(s, 2, 'away'),
+            KeyF: s => switchDefender(s, 'home'), Slash: s => switchDefender(s, 'away'),
+            KeyR: s => contestPass(s, 'home'), ShiftRight: s => contestPass(s, 'away'),
+        };
+        const actionKeys = new Set(['Enter', ...Object.keys(actions)]);
         const keydown = (e: KeyboardEvent) => {
             if ((!movementKeys.has(e.code) && !actionKeys.has(e.code)) || e.altKey || e.ctrlKey || e.metaKey)
                 return;
@@ -64,16 +73,18 @@ function Sandbox() {
                 return;
             if (movementKeys.has(e.code))
                 keys.current.add(e.code);
-            else if (e.code === 'Enter')
-                command(current().match.phase === 'dead' ? nextDown : snap, true);
-            else if (e.code === 'Slash')
-                command(switchDefender);
+            else if (e.code === 'Enter') {
+                if (current().match.phase !== 'live')
+                    command(current().match.phase === 'dead' ? nextDown : snap, true);
+            }
             else
-                command(s => throwPass(s, e.code === 'KeyQ' ? 1 : 2));
+                command(actions[e.code]!);
         };
         const keyup = (e: KeyboardEvent) => { keys.current.delete(e.code); };
-        const hidden = () => { if (document.hidden)
-            pause(); };
+        const hidden = () => {
+            if (document.hidden)
+                pause();
+        };
         const animate = (now: number) => {
             const elapsed = previous.current === null ? 0 : (now - previous.current) / 1000;
             previous.current = now;
@@ -87,6 +98,8 @@ function Sandbox() {
                 publish();
                 lastPublished = now;
             }
+            else if (before !== current().match)
+                persist();
             frame = requestAnimationFrame(animate);
         };
         window.addEventListener('keydown', keydown);
@@ -102,19 +115,25 @@ function Sandbox() {
   <section className="stadium" aria-label="Playable football down">
    <div className="scoreboard"><div className="team blue"><span className="swatch"/>Bluebirds <small>Player 1 · WASD</small></div><div className="drill"><strong>Down {state.playNumber}</strong><span data-testid="phase">{view.paused ? 'Paused' : state.phase === 'pre-snap' ? 'Pre-snap' : state.phase === 'live' ? 'Live play' : 'Play complete'}</span></div><div className="team orange">Foxes <span className="swatch"/><small>Player 2 · Arrow keys</small></div></div>
    <canvas ref={canvas} width={1200} height={560} tabIndex={0} role="img" aria-label="Football field with ten numbered players; white rings mark human players and a gold ring marks the ball carrier" onClick={() => canvas.current?.focus()}/>
-   <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · #${state.possession.carrier.split('-')[1]}`}</span><span>Defense: #{state.defender.split('-')[1]} · {state.offense === 'home' ? 'Attack →' : '← Attack'}</span></div>
+   <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · #${state.possession.carrier.split('-')[1]}`}</span><span>{state.phase === 'dead' ? `Next offense: ${names[state.result?.turnover ? opposite(state.offense) : state.offense]}` : `Defense: ${names[opposite(state.offense)]} #${state.defender.split('-')[1]} · ${state.offense === 'home' ? 'Attack →' : '← Attack'}`}</span></div>
   </section>
   <section className="play-controls" aria-label="Play controls">
    <label>Play <select aria-label="Play" value={state.play} disabled={state.phase !== 'pre-snap' || view.paused} onChange={e => command(s => choosePlay(s, e.target.value as Play))}><option value="rush">Handoff</option><option value="slants">Slants</option><option value="go">Go routes</option></select></label>
    <button disabled={view.paused || state.phase !== 'pre-snap'} onClick={() => command(snap, true)}>Snap</button>
-   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 1))}>Pass to #3 (Q)</button>
-   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 2))}>Pass to #4 (E)</button>
-   <button disabled={view.paused || state.phase === 'dead'} onClick={() => command(switchDefender)}>Switch defender (/)</button>
+   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 1))}>Pass to #3 ({state.offense === 'home' ? 'Q' : ','})</button>
+   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 2))}>Pass to #4 ({state.offense === 'home' ? 'E' : '.'})</button>
+   <button disabled={view.paused || state.phase === 'dead'} onClick={() => command(switchDefender)}>Switch defender ({state.offense === 'home' ? '/' : 'F'})</button>
+   <button disabled={view.paused || state.phase !== 'live' || state.ball.kind !== 'flight'} onClick={() => command(s => contestPass(s, opposite(s.offense)))}>Hands ({state.offense === 'home' ? 'Right Shift' : 'R'})</button>
    <button disabled={view.paused || state.phase !== 'dead'} onClick={() => command(nextDown, true)}>Next down</button>
   </section>
-  <section className="result" aria-live="polite"><h2>{result ? result.touchdown ? 'Touchdown!' : result.reason === 'interception' ? 'Intercepted!' : result.reason === 'incomplete' ? 'Incomplete pass' : `Play ended: ${result.reason}` : 'Choose your play'}</h2><p data-testid="result">{result ? `${result.yards.toFixed(1)} yards · Turnover: ${result.turnover ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`}</p></section>
+  <p data-testid="terminal-count">Completed plays: {state.terminalCount}</p>
+  <section className="result" aria-live="polite"><h2>{result ? result.touchdown ? 'Touchdown!' : result.reason === 'interception' ? 'Intercepted!' : result.reason === 'incomplete' ? 'Incomplete pass' : `Play ended: ${result.reason}` : 'Choose your play'}</h2><p data-testid="result">{result ? `${names[state.offense]}: ${result.yards.toFixed(1)} offensive yards · Turnover: ${result.turnover ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`}</p></section>
   {storageWarning && <p role="status">Arcade saving is unavailable. You can continue playing without a save.</p>}
-  <section className="instructions" aria-label="How to play"><h2>Pick a route. Find your space.</h2><p>Blue moves with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>; orange uses the arrow keys. Control follows your team's ball carrier. Choose Handoff, Slants or Go routes, then Snap (<kbd>Enter</kbd>). Pass to #3 with <kbd>Q</kbd> or #4 with <kbd>E</kbd>. Defense switches with <kbd>/</kbd>; touch the carrier to tackle.</p><p>White rings = human control. Gold = ball carrier. A pass travels for 0.6 seconds; the closest eligible player at its arrival point catches it. Interceptions end the down immediately. Next down (<kbd>Enter</kbd>) keeps the field position. This is a practice loop without first downs, four-down limits or a game clock; an idle play ends after 15 seconds. Switching windows pauses and clears input. Click the field to return keyboard focus.</p></section>
+  <section className="instructions" aria-label="How to play"><h2>Position. Time your hands.</h2>
+    <p>Blue: <kbd>WASD</kbd> move, <kbd>Q / E</kbd> pass on offense, <kbd>F</kbd> switch and <kbd>R</kbd> hands on defense. Orange: arrow keys move, <kbd>, / .</kbd> pass on offense, <kbd>/</kbd> switch and <kbd>Right Shift</kbd> hands on defense. Each player keeps their keys after a turnover. Snap / Next down: <kbd>Enter</kbd>.</p>
+    <p>The landing circle shows where the one-second pass will arrive. Move a defender there to break it up. Press Hands near arrival (a 0.6-second window) and be within the smaller catch radius to intercept. Early hands expire; switching cancels the window. AI covers receivers before a throw, contests the landing point in flight and pursues a carrier after a catch. Touch the carrier to tackle.</p>
+    <p>White rings = human control; gold = carrier. Interceptions end immediately and award zero offensive yards; possession changes for the next down. This is a practice loop without first downs, four-down limits, blocking or a scoreboard. A play ends after 15 seconds. Losing focus pauses and clears input; click the field to restore keyboard focus.</p>
+  </section>
   <details><summary>Player positions <span>yards from the left end and upper sideline</span></summary><table><thead><tr><th>Player</th><th>Control</th><th>X</th><th>Y</th></tr></thead><tbody>{state.players.map(p => <tr key={p.id}><th>{names[p.team]} #{p.number}</th><td>{p.human ? 'Human' : 'AI'}</td><td data-testid={`${p.id}-x`}>{p.x.toFixed(2)}</td><td data-testid={`${p.id}-y`}>{p.y.toFixed(2)}</td></tr>)}</tbody></table></details>
   <footer>Local practice <span>Only an arcade save. No franchise data. No server connection.</span></footer>
  </main>;
