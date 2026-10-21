@@ -2,8 +2,14 @@
   "extends": "../../ui-source/tsconfig.app.json",
   "compilerOptions": {
     "baseUrl": "../../ui-source",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "noEmit": true
   },
-  "include": ["./build.ts", "../../ui-source/src/vite-env.d.ts"]
+  "include": [
+    "./build.ts",
+    "./contract-quotes.ts",
+    "../../ui-source/src/vite-env.d.ts"
+  ]
 }

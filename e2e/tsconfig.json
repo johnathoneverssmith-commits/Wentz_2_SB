@@ -18,6 +18,7 @@
   ],
   "exclude": [
     "fixtures/build.ts",
+    "fixtures/contract-quotes.ts",
     "test-results",
     "playwright-report"
   ]

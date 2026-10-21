@@ -2,6 +2,10 @@ import type { Page } from "@playwright/test";
 
 import {
   contractProblems,
+  contractRuleQuotes,
+  expectContractContinuity,
+  expectRookieAccounting,
+  type OffseasonWindow,
   expectDraftValid,
   expectHistoryKept,
   expectIdentity,
@@ -32,7 +36,7 @@ import { expect, test } from "../support/test.ts";
  *   - the same thirty-two franchises, the same human GM on the same team; retirements happen once and never undone, and nobody retired
  *     is on a roster; released players are on the market, not on a team;
  *   - the draft: 224 picks, nobody twice, each by the team the order gave it, worst record first; the rookies end up with the team
- *     that picked them (or released, never on another team);
+ *     that picked them, or an evidenced release/signing/PS/retirement transition;
  *   - contracts carry forward untouched and every team that takes the field is full, legal and under the cap; records, standings and
  *     schedule start again, and the next season's first week is simulated once and adds up;
  *   - and a reload at every boundary changes nothing: no second retirement, no draft reset, no second year, no rewritten champion.
@@ -127,6 +131,7 @@ test.describe("the offseason", () => {
     expect(newlyRetired.length, "players retired as the review closed").toBeGreaterThan(0);
     expectRetirements(drafting, base);
     expectIdentity(drafting, base);
+    expectContractContinuity(base, drafting, { retirement: true });
     expectHistoryKept(drafting, base);
     expectDraftValid(drafting, base, false);
     expect(drafting.season).toBe(S);
@@ -184,9 +189,21 @@ test.describe("the offseason", () => {
       expect(p, `pick ${r.n} (${r.name}) is with ${r.team}`).toMatchObject({ team: r.team, fa: false, retired: false });
     }
     expect(drafted.draft, "the draft is what it was").toEqual(market.draft);
+    const picks = market.draft!.results;
+    expectRookieAccounting(picks, drafted, market);
+    expectContractContinuity(drafting, market);
+    let accounted = market;
+    const account = async (now: League, window: OffseasonWindow = {}) => {
+      if (window.fill) window = { ...window, fillQuotes: await contractRuleQuotes(page, accounted) };
+      expectRookieAccounting(picks, accounted, now, window);
+      const extended = expectContractContinuity(accounted, now, window);
+      if (extended) console.log("Validated CPU camp extensions against authoritative quotes: " + extended);
+      accounted = now;
+    };
     await page.getByRole("checkbox", { name: /Skip free agency/ }).click();
     const afterMarket = await stageIs(page, "freeAgencySummary");
     await expect(page).toHaveURL(/#\/free-agency-summary$/);
+    await account(afterMarket, { reconcile: true, fill: true });
 
     // ---- the roster is over the limit with the rookies in; the staff releases to fit, and the released are on the market
     const over = rosterOf(afterMarket, me);
@@ -195,6 +212,7 @@ test.describe("the offseason", () => {
     await page.getByRole("button", { name: "Fix the roster", exact: true }).click();
     await expect.poll(async () => rosterOf(await readLeague(page), me).length).toBe(53);
     const fixed = await readLeague(page);
+    await account(fixed, { reconcile: true });
     const released = over.filter((p) => !rosterOf(fixed, me).some((q) => q.id === p.id));
     expect(released.length, "the fix released the surplus").toBe(over.length - 53);
     for (const p of released) expect(fixed.players[p.id], `${p.id} was released: on the market, not on a roster`).toMatchObject({ fa: true });
@@ -205,17 +223,21 @@ test.describe("the offseason", () => {
     // ---- training camp: players develop; the league year has not turned
     const camp = await stageIs(page, "trainingCamp");
     expect(camp.season).toBe(S);
+    const campQuotes = await contractRuleQuotes(page, fixed);
+    await account(camp, { campQuotes });
     await page.getByRole("button", { name: /^Quarterbacks/ }).click();
     await page.getByRole("button", { name: /^Defensive line/ }).click();
     await lastRole(page, "Advance to End of Training Camp").click();
     await expect(page).toHaveURL(/#\/training-camp-results$/);
     const afterCamp = await readLeague(page);
+    await account(afterCamp);
     const moved = rosterOf(afterCamp, me).filter((p) => camp.players[p.id] && camp.players[p.id]!.overall !== p.overall);
     expect(moved.length, "camp changed some of the team's players").toBeGreaterThan(0);
     for (const p of Object.values(afterCamp.players)) if (camp.players[p.id]) expect(p.age, "camp does not age anyone").toBe(camp.players[p.id]!.age);
     await reloadChangesNothing(page, /#\/training-camp-results$/, "on the camp results (the camp is not run again)");
     await lastRole(page, "Advance to Re-order Depth Chart").click();
     const preRollover = await stageIs(page, "offseasonDepthChart", "hoodedFigureEncounter");
+    await account(preRollover);
     expect(preRollover.season, "still the old league year until the season starts").toBe(S);
     await reloadChangesNothing(page, /#\/roster$/, "on the depth chart");
 
@@ -235,37 +257,79 @@ test.describe("the offseason", () => {
     expectRetirements(next, fixed);
     expect(legalProblems(next), "every team that will take the field is full, under the cap, on real contracts").toEqual([]);
 
-    // contracts carry forward: a player who stayed with his team has the contract he had at the end of the season: never shortened again
-    // (the year was already taken off at season's end), the salary never rewritten; the only change the game makes is a CPU team
-    // extending a player (same salary, more years)
-    let stayed = 0;
-    let extended = 0;
-    for (const p of Object.values(next.players)) {
-      const was = base.players[p.id];
-      if (!was || was.retired || was.fa || p.retired || p.fa || was.team !== p.team) continue;
-      stayed++;
-      expect(p.years, `${p.id}: the contract was not shortened a second time`).toBeGreaterThanOrEqual(was.years);
-      expect(p.hit, `${p.id}: the salary was not rewritten`).toBe(was.hit);
-      if (p.years === was.years) expect(p.hits, `${p.id}: an unchanged contract is unchanged`).toBe(was.hits);
-      else extended++;
-    }
-    expect(stayed, "most of the league's players stayed where they were").toBeGreaterThan(1000);
-    expect(extended, "a few CPU extensions, not a rewrite of the league").toBeLessThan(stayed / 20);
-
-    // the draft class: with the team that picked it when the market opened (checked above, all 224); by the start of the season most are
-    // still there or on its practice squad, a cut one is on the market or with whoever signed him since, and one who was cut and found
-    // no job is pruned as the year turns: never a rookie who was under contract
-    let kept = 0;
-    for (const r of market.draft!.results) {
-      const p = next.players[rookieOf(r.id!)]!;
-      if (p.retired) {
-        expect(preRollover.players[rookieOf(r.id!)]!.fa, `${r.name} retired, but was not on the market before the year turned`).toBe(true);
-        continue;
-      }
-      if (p.team === r.team || p.team === `PS:${r.team}`) kept++;
-    }
-    expect(kept, "most of the draft class is still with the team that picked it").toBeGreaterThan(150);
+    await account(next, { reconcile: true, fill: true, rollover: true });
     expect(next.draft, "this year's draft is over and cleared").toBeNull();
+
+    // Exercise the oracle's failure modes against this real 224-pick cohort and its
+    // adjacent snapshots. No fixture player, team or observed extension count is special.
+    await test.step("ownership and full-contract negative controls", async () => {
+      const swap = structuredClone(next);
+      const candidates = picks.map(r => swap.players[rookieOf(r.id!)]!).filter(p =>
+        !p.retired && !p.fa && preRollover.players[p.id]?.team === p.team && !p.team.startsWith("PS:"));
+      const a = candidates.find(p => candidates.some(q => q.team !== p.team))!;
+      const b = candidates.find(p => p.team !== a.team)!;
+      [a.team, b.team] = [b.team, a.team];
+      expect(() => expectRookieAccounting(picks, preRollover, swap, { reconcile: true, fill: true, rollover: true }))
+        .toThrow(/unexplained ownership change/);
+      const missing = structuredClone(next); delete missing.players[rookieOf(picks[0]!.id!)];
+      expect(() => expectRookieAccounting(picks, preRollover, missing)).toThrow(/must not silently disappear/);
+      const duplicate = structuredClone(next);
+      duplicate.players[rookieOf(picks[1]!.id!)]!.storedId = rookieOf(picks[0]!.id!);
+      expect(() => expectRookieAccounting(picks, preRollover, duplicate)).toThrow(/one saved record per player identity/);
+
+      // Positive controls use the same complete real cohort, changing one documented
+      // transaction at a time. A signing record or an observed market snapshot is evidence;
+      // an arbitrary destination is not.
+      const released = structuredClone(market);
+      const chosen = picks.find(r => market.players[rookieOf(r.id!)]!.hit <= 1.5)!;
+      const rid = rookieOf(chosen.id!);
+      Object.assign(released.players[rid]!, { team: "FA", fa: true, contract: null, years: -1, hit: 0, hits: 0 });
+      expectRookieAccounting(picks, market, released, { reconcile: true });
+      expectContractContinuity(market, released, { reconcile: true });
+      const signed = structuredClone(released);
+      const destination = market.teamCodes.find(c => c !== chosen.team)!;
+      const terms = { team_id: destination, years_remaining: 2, total_value: 2, guaranteed: 0, cap_hit_by_year: [1, 1], signing_bonus: 0 };
+      Object.assign(signed.players[rid]!, { team: destination, fa: false, contract: terms, years: 2, hit: 1, hits: 2 });
+      signed.signings.push({ playerId: rid, teamCode: destination, salary: 1, years: 2, round: 1 });
+      expectRookieAccounting(picks, released, signed);
+      expectContractContinuity(released, signed);
+      const ps = structuredClone(market);
+      Object.assign(ps.players[rid]!, { team: "PS:" + chosen.team, contract: { team_id: chosen.team, years_remaining: 1, total_value: 0.2, guaranteed: 0, cap_hit_by_year: [0.2], signing_bonus: 0 }, years: 1, hit: 0.2, hits: 1 });
+      expectRookieAccounting(picks, market, ps, { reconcile: true });
+      expectContractContinuity(market, ps, { reconcile: true });
+      const promoted = structuredClone(ps);
+      Object.assign(promoted.players[rid]!, { team: chosen.team, contract: { team_id: chosen.team, years_remaining: 1, total_value: 1, guaranteed: 0, cap_hit_by_year: [1], signing_bonus: 0 }, hit: 1 });
+      expectRookieAccounting(picks, ps, promoted, { fill: true });
+      expectContractContinuity(ps, promoted, { fill: true });
+      const pruned = structuredClone(released); pruned.season++;
+      Object.assign(pruned.players[rid]!, { retired: true, retiredSeason: pruned.season });
+      expectRookieAccounting(picks, released, pruned, { rollover: true });
+      expectContractContinuity(released, pruned, { rollover: true });
+
+      const human = Object.values(preRollover.players).find(p =>
+        preRollover.humanTeams.includes(p.team) && !p.fa && !p.retired && p.contract && next.players[p.id]?.team === p.team)!;
+      const badCamp = structuredClone(camp), humanAtCamp = Object.values(fixed.players).find(p =>
+        fixed.humanTeams.includes(p.team) && !p.fa && !p.retired && p.contract && camp.players[p.id]?.team === p.team)!;
+      badCamp.players[humanAtCamp.id]!.contract!.years_remaining++;
+      expect(() => expectContractContinuity(fixed, badCamp, { campQuotes }),
+        "CPU camp entry does not authorize human extensions").toThrow(/human contract requires an explicit authorized action/);
+      const ineligible = Object.values(fixed.players).find(p => !fixed.humanTeams.includes(p.team) &&
+        fixed.teamCodes.includes(p.team) && !p.fa && !p.retired && p.contract && campQuotes[p.id]?.eligible === false)!;
+      const badCpu = structuredClone(camp); badCpu.players[ineligible.id]!.contract!.years_remaining++;
+      expect(() => expectContractContinuity(fixed, badCpu, { campQuotes }),
+        "CPU ownership alone does not authorize an extension").toThrow(/CPU extension must meet authoritative holdout rules/);
+
+      for (const change of ["extension", "expiration", "future salary", "guarantee", "bonus"] as const) {
+        const bad = structuredClone(next), c = bad.players[human.id]!.contract!;
+        if (change === "extension") { c.years_remaining++; c.cap_hit_by_year.push(c.cap_hit_by_year[0]!); }
+        if (change === "expiration") c.years_remaining--;
+        if (change === "future salary") c.cap_hit_by_year[c.cap_hit_by_year.length - 1]! += 1;
+        if (change === "guarantee") c.guaranteed++;
+        if (change === "bonus") c.signing_bonus++;
+        expect(() => expectContractContinuity(preRollover, bad, { reconcile: true, fill: true, rollover: true }),
+          change + " is not authorized by rollover").toThrow(/contract changed outside CPU camp entry/);
+      }
+    });
 
     // standings and schedule start again
     for (const code of next.teamCodes) expect(next.teams[code], `${code}'s record starts at nothing`).toMatchObject({ w: 0, l: 0, t: 0, pf: 0, pa: 0 });
@@ -289,6 +353,7 @@ test.describe("the offseason", () => {
       if (week < 3) await stageIs(page, "preseason");
     }
     const opener = await stageIs(page, "regularSeason");
+    await account(opener);
     expect(opener).toMatchObject({ season: S + 1, week: 1 });
     expect(opener.gameCounts.REG, "preseason games do not count").toBe(0);
     for (const code of opener.teamCodes) expect(opener.teams[code], `${code} is 0-0`).toMatchObject({ w: 0, l: 0, t: 0 });
@@ -304,6 +369,7 @@ test.describe("the offseason", () => {
     expect(played.gameCounts.REG).toBe(scheduledIn(season, 1).length);
     await lastRole(page, CONTINUE).click();
     const week2 = await stageIs(page, "regularSeason");
+    await account(week2);
     expect(week2).toMatchObject({ season: S + 1, week: 2 });
     for (const p of Object.values(week2.players)) {
       const was = again.players[p.id];

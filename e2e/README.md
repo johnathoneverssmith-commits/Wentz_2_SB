@@ -132,18 +132,33 @@ start of the next season, the three preseason games, and week one (simulated onc
   the market.
 * **The draft**: 224 picks (seven rounds of the thirty-two teams), nobody taken twice, each by the team the order gave it, every round in
   the same order, and that order the worst regular-season record first (the champion is not last: the order is the record, nothing
-  more). Every pick is with the picking team when free agency opens; by the start of the season most still are (a rookie who was cut
-  may be on the market or with whoever signed him since, on the practice squad `PS:<team>` still counts as the picking team's, and one
-  who was cut and found no job is pruned as the year turns).
-* **Contracts and rosters**: a player who stayed with his team keeps his contract (never shortened a second time, salary never rewritten;
-  the game's own change is a CPU extension, same salary, more years), and every team that takes the field is full (53), under the cap, on
-  real contracts.
+  more). Every pick is initially assigned to its drafting team. All 224 signed identities and original draft metadata are then
+  accounted for at each market, reconciliation, camp, rollover and new-season boundary. Duplicate identities, missing rookies and
+  unexplained active-team transfers fail. A release must be observed at an allowed boundary; a different-team signing needs a new
+  persisted market record or a prior market snapshot at roster fill. Own-team practice-squad moves and promotions use their documented
+  eligibility and fixed contracts. This year's retirees remain identifiable, with a market snapshot and retirement year.
+* **Contracts and rosters**: complete contract objects (all future cap hits, guarantees, bonuses and optional flags) are compared.
+  Untouched contracts are exact, including across rollover and reload. Only entry to camp permits automatic CPU extensions: authoritative
+  read-only eligibility/price quotes are checked against ownership, every extension term, one extension per team and the budget rules.
+  Human extensions are never inferred. Recorded free-agency deals match their signing terms; observed market players signed during
+  roster fill must have a documented fill price and contract shape. Every team that takes the field is full (53) and under the cap.
 * **A new season**: records, points, games and the bracket start again, the schedule is a full new one (272 games, 17 each), and week
   one's games, once played, add up (`expectSeasonConsistent`).
 * **Reloads change nothing**, at every boundary (the end-of-season screen, the hot seat, the retirement review, the start of the draft,
   the middle of the draft, the completed draft, the rookie signings, the roster fix, camp results, the depth chart, the start of the next
   season, the first hub, Game Day): no second retirement, no draft rebuilt, no second signing, no camp run again, no second year, no
   second round of aging, no rewritten champion.
+
+**Evidence limits:** the save has no exhaustive release, trade or roster-fill transaction log. Adjacent snapshots establish that a
+player was on the market; documented stage windows and signing records constrain what may happen next. They do not prove every internal
+operation or the ordering of transactions within one atomic save. An active-team-to-active-team change without a signing record or an
+intervening market snapshot is rejected, rather than inventing a release. No trade is initiated by this scenario. Authoritative quote
+functions establish permitted terms, not independent evidence that an extension command executed. Old retirees/generated fillers have
+documented compaction paths, but none permits a current drafted rookie to silently disappear.
+
+The lifecycle includes positive controls for releases, new-team signing records, practice-squad moves/promotions and market retirement;
+and negative controls for unauthorized rookie transfers, missing/duplicate identities, human extensions, second expiration, future
+salary, guarantee and bonus corruption. The former two false passes were reproduced in disposable browser builds before correction.
 
 Each defect below was shown to fail this test, on the intended assertion and not on a timeout, in a disposable copy (not part of the
 suite): the league year turning twice, the last champion dropped from the record, the draft taking a player twice, rookies signed to
