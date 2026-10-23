@@ -1,5 +1,5 @@
 import { FIELD } from "../core/simulation";
-import type { DownState } from "../core/down";
+import { engagements, type DownState } from "../core/down";
 const TEAMS = { home: { color: "#60b9ff", dark: "#174a81", name: "Bluebirds" }, away: { color: "#ffa763", dark: "#8c3c22", name: "Foxes" } };
 /** Rendering only; this module never advances gameplay or owns mutable match state. */
 export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: boolean): void {
@@ -79,6 +79,18 @@ export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: b
                 ctx.fillStyle = "#ffe2a2";
                 ctx.fillText(p.number === 3 ? "Q" : "E", x(p.x), y(p.y) - 22);
             }
+    }
+    // A bar joins each blocker to the defender he has engaged; that defender moves at a fraction of his speed.
+    if (state.phase === "live") {
+        ctx.strokeStyle = "#ffd24a";
+        ctx.lineWidth = 4;
+        for (const e of engagements(state)) {
+            const o = state.players.find(q => q.id === e.blocker)!, d = state.players.find(q => q.id === e.defender)!;
+            ctx.beginPath();
+            ctx.moveTo(x(o.x), y(o.y));
+            ctx.lineTo(x(d.x), y(d.y));
+            ctx.stroke();
+        }
     }
     for (const p of state.players) {
         const px = x(p.x), py = y(p.y), radius = FIELD.radius * scale;

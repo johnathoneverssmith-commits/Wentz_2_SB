@@ -1,4 +1,4 @@
-import { createMatch, step, FIELD, STEP_SECONDS, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
+import { createMatch, step, FIELD, STEP_SECONDS, type ArcadePlayer, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
 export type Play = 'rush' | 'slants' | 'go';
 export type EndReason = 'tackle' | 'out-of-bounds' | 'touchdown' | 'incomplete' | 'interception' | 'safety' | 'timeout';
 export type Ball = {
@@ -56,6 +56,11 @@ export const BREAKUP_RADIUS = 2.2;
 export const REACT_TICKS = 12;
 /** Man coverage sits this far ahead of the receiver. */
 export const COVER_CUSHION = 5;
+/** An offensive blocker this close to a defender has him engaged. */
+export const BLOCK_RADIUS = 1.8;
+/** An engaged defender, human or AI, moves at this fraction of his speed. */
+export const BLOCK_SLOW = 0.4;
+const BLOCK_SHIELD = 1.2;
 export const GO_CUSHION = -1;
 export const GO_REACT_TICKS = 30;
 const distance = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -158,14 +163,44 @@ export function nextDown(state: DownState): DownState {
     const carry = { score: state.score, down: fresh ? 1 : state.down + 1, firstDownLine: fresh ? firstDownMarker(team, line) : state.firstDownLine };
     return { ...formation(team, line, state.playNumber + 1, state.play, carry), terminalCount: state.terminalCount };
 }
+/** Two blockers per play (QB and #5 on a handoff, RB and #5 on a pass), each taking the next-closest defender to the carrier. */
+const blockerNumbers = (play: Play) => play === 'rush' ? [1, 5] : [2, 5];
+function blocking(state: DownState, carrier: ArcadePlayer): { readonly assignments: ReadonlyMap<PlayerId, ArcadePlayer>; readonly slow: ReadonlyMap<PlayerId, number> } {
+    const blockers = state.players.filter(p => p.team === state.offense && p.id !== carrier.id && !p.human && blockerNumbers(state.play).includes(p.number)).sort((a, b) => a.number - b.number);
+    const threats = state.players.filter(p => p.team !== state.offense).sort((a, b) => distance(a, carrier) - distance(b, carrier) || a.id.localeCompare(b.id));
+    const assignments = new Map<PlayerId, ArcadePlayer>();
+    blockers.forEach((b, i) => { if (threats[i]) assignments.set(b.id, threats[i]!); });
+    const slow = new Map<PlayerId, number>();
+    for (const d of threats)
+        if (blockers.some(b => distance(b, d) <= BLOCK_RADIUS))
+            slow.set(d.id, BLOCK_SLOW);
+    return { assignments, slow };
+}
+/** Blocker/defender pairs currently engaged (for the on-screen bars; the same test slows the defender). */
+export function engagements(state: DownState): { readonly blocker: PlayerId; readonly defender: PlayerId }[] {
+    const carrier = player(state, state.possession.carrier), out: { blocker: PlayerId; defender: PlayerId }[] = [];
+    for (const b of state.players.filter(p => p.team === state.offense && p.id !== carrier.id && !p.human && blockerNumbers(state.play).includes(p.number)))
+        for (const d of state.players.filter(p => p.team !== state.offense))
+            if (distance(b, d) <= BLOCK_RADIUS)
+                out.push({ blocker: b.id, defender: d.id });
+    return out;
+}
 export function stepDown(state: DownState, inputs: Inputs): DownState {
     if (state.phase !== 'live')
         return state;
     const carrier = player(state, state.possession.carrier), targets = new Map<PlayerId, Vector>();
+    const { assignments, slow } = blocking(state, carrier);
     for (const p of state.players) {
         let target: Vector;
-        if (p.team === state.offense)
-            target = p.number === 3 || p.number === 4 ? route(state, p.id) : { x: carrier.x + direction(state.offense) * 3, y: carrier.y + (p.number === 5 ? 5 : -5) };
+        if (p.team === state.offense) {
+            if (assignments.has(p.id)) {
+                // Stand between the defender and the carrier, a step off the defender, so he stays engaged.
+                const d = assignments.get(p.id)!, gap = distance(d, carrier);
+                target = gap < 0.5 ? p : { x: d.x + (carrier.x - d.x) / gap * BLOCK_SHIELD, y: d.y + (carrier.y - d.y) / gap * BLOCK_SHIELD };
+            }
+            else
+                target = p.number === 3 || p.number === 4 ? route(state, p.id) : { x: carrier.x + direction(state.offense) * 3, y: carrier.y + (p.number === 5 ? 5 : -5) };
+        }
         else if (state.ball.kind === 'flight' && state.ball.target.endsWith(`-${p.number}`) && state.ball.elapsed * 60 >= (state.play === 'go' ? GO_REACT_TICKS : REACT_TICKS) - 1e-9)
             target = state.ball.to;
         else if (state.play !== 'rush' && (state.ball.kind === 'flight' || carrier.number === 1) && (p.number === 3 || p.number === 4)) {
@@ -176,7 +211,7 @@ export function stepDown(state: DownState, inputs: Inputs): DownState {
             target = carrier;
         targets.set(p.id, target);
     }
-    let moved: DownState = { ...state, ...step(state, inputs, targets), liveTicks: state.liveTicks + 1 };
+    let moved: DownState = { ...state, ...step(state, inputs, targets, slow), liveTicks: state.liveTicks + 1 };
     if (state.ball.kind === 'flight') {
         const ball = { ...state.ball, elapsed: state.ball.elapsed + STEP_SECONDS };
         moved = { ...moved, ball };

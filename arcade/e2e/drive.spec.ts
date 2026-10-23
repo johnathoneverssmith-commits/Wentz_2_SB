@@ -17,10 +17,12 @@ test.beforeEach(async ({ page }) => {
 });
 
 /** Snap, hold the given keys while the play runs to its end, release, and leave the dead snapshot. */
-async function play(page: Page, keys: string[] = [], runMs = 1800): Promise<DownState> {
+async function play(page: Page, keys: string[] = [], runMs = 600): Promise<DownState> {
     await page.keyboard.press('Enter');
     for (const key of keys) await page.keyboard.down(key);
-    await page.clock.runFor(runMs);
+    // Run until the play ends (a blocked, idle carrier takes a few seconds to be caught); the limit is the 15 s play clock.
+    for (let waited = 0; waited < 16_000 && (await saved(page)).phase === 'live'; waited += runMs)
+        await page.clock.runFor(runMs);
     for (const key of keys) await page.keyboard.up(key);
     const dead = await saved(page);
     expect(dead.phase, 'the play should have ended').toBe('dead');
@@ -110,7 +112,7 @@ test('a touchdown by Orange scores for Orange and Restart clears the scoreboard'
     }
     expect((await saved(page)).offense).toBe('away');
     for (let n = 0; n < 40; n++) {
-        const dead = await play(page, ['ArrowLeft'], 1800);
+        const dead = await play(page, ['ArrowLeft']);
         if (dead.result!.touchdown) break;
         await nextDown(page);
     }
