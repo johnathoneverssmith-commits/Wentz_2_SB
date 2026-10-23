@@ -13,7 +13,7 @@ import { REPO_ROOT } from "../support/stack.ts";
  */
 // the first three are reached early and rebuilt cheaply (`only`); the other two need a whole year played, and are built in full once
 const EARLY = ["fantasy-draft", "coaching-draft", "preseason"] as const;
-const NAMES = [...EARLY, "season-week-1", "season-week-9", "season-week-17", "playoffs-wild-card", "midseason-fa", "offseason-fa-skip-carried"] as const;
+const NAMES = [...EARLY, "season-week-1", "season-week-9", "season-week-17", "playoffs-wild-card", "end-of-season", "midseason-fa", "offseason-fa-skip-carried"] as const;
 const STAGES: Record<(typeof NAMES)[number], string> = {
   "fantasy-draft": "fantasyDraft",
   "coaching-draft": "coachingDraft",
@@ -22,6 +22,7 @@ const STAGES: Record<(typeof NAMES)[number], string> = {
   "season-week-9": "regularSeason",
   "season-week-17": "regularSeason",
   "playoffs-wild-card": "playoffs",
+  "end-of-season": "endOfSeasonAnnounce",
   "midseason-fa": "midseasonFreeAgency",
   "offseason-fa-skip-carried": "offseasonDraftSummary",
 };
@@ -90,6 +91,18 @@ test.describe("fixture saves", () => {
     // the byes are through and nothing else has been played
     expect(b.matchups.filter((m) => m.winner !== null)).toHaveLength(2);
     expect(b.matchups.every((m) => m.homeScore === null)).toBe(true);
+  });
+
+  test("the end-of-season save is the first arrival after the Super Bowl: the season played and scored, the offseason not begun", () => {
+    const f = readFixture(process.env.E2E_FIXTURE_DIR!, "end-of-season");
+    type St = { stage: string; season: number; games: Array<{ phase: string }>; bracket: { champion: string | null } | null; champions: Array<{ season: number; champion: string }>; teamSeasons: Array<{ season: number }>; history: Array<{ season: number }> };
+    const d = (JSON.parse(f.save) as { state: St }).state;
+    expect(d.stage).toBe("endOfSeasonAnnounce");
+    expect(d.bracket?.champion, "the Super Bowl was played").toBeTruthy();
+    expect(d.champions.find((c) => c.season === d.season)?.champion, "and its winner is on the record").toBe(d.bracket!.champion);
+    expect(d.teamSeasons.filter((r) => r.season === d.season)).toHaveLength(32);
+    expect(d.history.filter((h) => h.season === d.season)).toHaveLength(1);
+    expect(d.games.filter((g) => g.phase === "REG"), "the regular season is all there").toHaveLength(272);
   });
 
   test("the free-agency saves are the two moments the skip regression needs, from one playthrough", () => {

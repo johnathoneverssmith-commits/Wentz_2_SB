@@ -52,6 +52,7 @@ saves; it also builds with another seed (different) and with the real clock (the
 | `fixtures.spec.ts` | pinned inputs, genuine progression, determinism, size |
 | `save-reload.spec.ts` | each save opens at its own stage's screen and survives a reload |
 | `draft.spec.ts` | a real action: draft a player, check the saved league, reload, check again |
+| `offseason.spec.ts` | a finished season through the whole offseason into the next season's first week: history kept, the year turns once, draft, rosters and contracts, and reloads that repeat nothing (see below) |
 | `playoffs.spec.ts` | the postseason through the bracket and Game Day: every round, who advances, byes, the champion, and reloads that replay nothing (see below) |
 | `regular-season.spec.ts` | the regular season through the hub and Game Day: each game once, records and standings recounted from the games, reloads that never replay, the trade deadline and the stages after it, and the move into the playoffs (see below) |
 | `free-agency-offers.spec.ts` | real offers in a free-agency market: the form, what the game accepts and refuses, the signing, the roster, the books and the cap, across rounds and reloads (see below) |
@@ -111,6 +112,58 @@ but still give the test and suite a failing exit code. Production fixes belong i
 Each test was shown to fail when one thing was broken in a disposable copy (not part of the suite): every game played
 twice, ties counted as losses, a week that never advances, a held slate that is never cleared, a deadline that is
 skipped, and a bracket that seeds the worst teams.
+
+### The offseason
+
+One more save from the same playthrough, `end-of-season`: the first arrival after the Super Bowl, the season over and scored (champion,
+awards, every team's season and the human GM's history recorded), the offseason not begun. One test takes it, with the real controls, to
+the first regular-season week of the next season: the end-of-season screens and the hot seat, the retirement review, the rookie draft
+(the human's own seven picks, one click each), the rookie signings, free agency and the roster fix, training camp, the depth chart, the
+start of the next season, the three preseason games, and week one (simulated once). It checks, from the saved league
+(`support/offseason.ts`) and from the screens:
+
+* **History kept**: the season that ended stays on the record once and unchanged (champion and runner-up, every team's season, the
+  awards, the human GM's history; the Hall of Fame only grows), the League History screen shows it before and after the year turns, and
+  nothing is recorded for a season not yet played.
+* **The year turns once** (the old year until the season starts; `season + 1` after), and every player ages exactly once with it (camp
+  ages no one).
+* **Identity**: the same thirty-two franchises, the same human GM on the same team.
+* **Retirements** happen once as the review closes and are never undone; nobody retired is on a roster; players the staff released are on
+  the market.
+* **The draft**: 224 picks (seven rounds of the thirty-two teams), nobody taken twice, each by the team the order gave it, every round in
+  the same order, and that order the worst regular-season record first (the champion is not last: the order is the record, nothing
+  more). Every pick is initially assigned to its drafting team. All 224 signed identities and original draft metadata are then
+  accounted for at each market, reconciliation, camp, rollover and new-season boundary. Duplicate identities, missing rookies and
+  unexplained active-team transfers fail. A release must be observed at an allowed boundary; a different-team signing needs a new
+  persisted market record or a prior market snapshot at roster fill. Own-team practice-squad moves and promotions use their documented
+  eligibility and fixed contracts. This year's retirees remain identifiable, with a market snapshot and retirement year.
+* **Contracts and rosters**: complete contract objects (all future cap hits, guarantees, bonuses and optional flags) are compared.
+  Untouched contracts are exact, including across rollover and reload. Only entry to camp permits automatic CPU extensions: authoritative
+  read-only eligibility/price quotes are checked against ownership, every extension term, one extension per team and the budget rules.
+  Human extensions are never inferred. Recorded free-agency deals match their signing terms; observed market players signed during
+  roster fill must have a documented fill price and contract shape. Every team that takes the field is full (53) and under the cap.
+* **A new season**: records, points, games and the bracket start again, the schedule is a full new one (272 games, 17 each), and week
+  one's games, once played, add up (`expectSeasonConsistent`).
+* **Reloads change nothing**, at every boundary (the end-of-season screen, the hot seat, the retirement review, the start of the draft,
+  the middle of the draft, the completed draft, the rookie signings, the roster fix, camp results, the depth chart, the start of the next
+  season, the first hub, Game Day): no second retirement, no draft rebuilt, no second signing, no camp run again, no second year, no
+  second round of aging, no rewritten champion.
+
+**Evidence limits:** the save has no exhaustive release, trade or roster-fill transaction log. Adjacent snapshots establish that a
+player was on the market; documented stage windows and signing records constrain what may happen next. They do not prove every internal
+operation or the ordering of transactions within one atomic save. An active-team-to-active-team change without a signing record or an
+intervening market snapshot is rejected, rather than inventing a release. No trade is initiated by this scenario. Authoritative quote
+functions establish permitted terms, not independent evidence that an extension command executed. Old retirees/generated fillers have
+documented compaction paths, but none permits a current drafted rookie to silently disappear.
+
+The lifecycle includes positive controls for releases, new-team signing records, practice-squad moves/promotions and market retirement;
+and negative controls for unauthorized rookie transfers, missing/duplicate identities, human extensions, second expiration, future
+salary, guarantee and bonus corruption. The former two false passes were reproduced in disposable browser builds before correction.
+
+Each defect below was shown to fail this test, on the intended assertion and not on a timeout, in a disposable copy (not part of the
+suite): the league year turning twice, the last champion dropped from the record, the draft taking a player twice, rookies signed to
+the wrong team, contracts shortened a second time at the rollover, new-season records not reset, offseason advancement stuck at the
+retirement review, the draft board rebuilt when the screen is re-entered, and everyone ageing twice.
 
 ### The postseason
 
