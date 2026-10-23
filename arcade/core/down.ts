@@ -17,7 +17,17 @@ export interface PlayResult {
     readonly yards: number;
     readonly turnover: boolean;
     readonly touchdown: boolean;
+    /** The offense reached the first-down marker on this play. */
+    readonly firstDown: boolean;
+    /** Fourth down failed: the ball changes sides at the spot. */
+    readonly turnoverOnDowns: boolean;
 }
+export interface Score {
+    readonly home: number;
+    readonly away: number;
+}
+export const TOUCHDOWN_POINTS = 6;
+export const SAFETY_POINTS = 2;
 export interface DownState extends MatchSnapshot {
     readonly phase: 'pre-snap' | 'live' | 'dead';
     readonly play: Play;
@@ -27,6 +37,11 @@ export interface DownState extends MatchSnapshot {
     readonly liveTicks: number;
     readonly terminalCount: number;
     readonly contestUntil: number;
+    readonly score: Score;
+    /** 1-4 */
+    readonly down: number;
+    /** World x of the first-down marker (clamped to the goal line). */
+    readonly firstDownLine: number;
     readonly defender: PlayerId;
     readonly ball: Ball;
     readonly result: PlayResult | null;
@@ -37,9 +52,31 @@ const id = (team: TeamId, n: number) => `${team}-${n}` as PlayerId;
 export const CONTACT_RADIUS = FIELD.radius * 2;
 export const CATCH_RADIUS = 1.6;
 export const BREAKUP_RADIUS = 2.2;
+/** A covering defender holds his coverage this many ticks into a throw before breaking on the ball. */
+export const REACT_TICKS = 12;
+/** Man coverage sits this far ahead of the receiver. */
+export const COVER_CUSHION = 5;
+export const GO_CUSHION = -1;
+export const GO_REACT_TICKS = 30;
 const distance = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
 const player = (state: DownState, key: PlayerId) => state.players.find(p => p.id === key)!;
-function formation(team: TeamId, line: number, playNumber: number, play: Play): DownState {
+export const firstDownMarker = (team: TeamId, line: number) => Math.max(10, Math.min(110, line + direction(team) * 10));
+export interface Situation {
+    readonly down: number;
+    readonly toGo: number;
+    readonly goalToGo: boolean;
+}
+export function situation(state: DownState): Situation {
+    const dir = direction(state.offense);
+    return { down: state.down, toGo: Math.max(0, Math.round((state.firstDownLine - state.line) * dir * 10) / 10), goalToGo: dir === 1 ? state.firstDownLine >= 110 : state.firstDownLine <= 10 };
+}
+export const ownTwentyEight = (team: TeamId) => team === 'home' ? 38 : 82;
+interface Carry {
+    readonly score: Score;
+    readonly down: number;
+    readonly firstDownLine: number;
+}
+function formation(team: TeamId, line: number, playNumber: number, play: Play, carry: Carry): DownState {
     const dir = direction(team), center = FIELD.width / 2;
     const players = createMatch().players.map(p => {
         const attacking = p.team === team;
@@ -47,9 +84,13 @@ function formation(team: TeamId, line: number, playNumber: number, play: Play): 
         const lanes = attacking ? [center, center, center - 26 / 3, center + 26 / 3, center + 5] : [center, center, center - 26 / 3, center + 26 / 3, center - 8];
         return { ...p, x: Math.max(FIELD.radius, Math.min(FIELD.length - FIELD.radius, line + dir * offsets[p.number - 1]!)), y: lanes[p.number - 1]!, human: p.number === 1 };
     });
-    return { tick: 0, players, possession: { team, carrier: id(team, 1) }, offense: team, phase: 'pre-snap', play, playNumber, line, liveTicks: 0, terminalCount: 0, contestUntil: 0, defender: id(opposite(team), 1), ball: { kind: 'held' }, result: null };
+    return { tick: 0, players, possession: { team, carrier: id(team, 1) }, offense: team, phase: 'pre-snap', play, playNumber, line, liveTicks: 0, terminalCount: 0, contestUntil: 0, ...carry, defender: id(opposite(team), 1), ball: { kind: 'held' }, result: null };
 }
-export const createDown = (): DownState => formation('home', 38, 1, 'rush');
+/** A pre-snap formation at an arbitrary spot: the entry point for reaching a situation without playing to it. */
+export function lineUp(team: TeamId, line: number, options: { down?: number; score?: Score; play?: Play; playNumber?: number } = {}): DownState {
+    return formation(team, line, options.playNumber ?? 1, options.play ?? 'rush', { score: options.score ?? { home: 0, away: 0 }, down: options.down ?? 1, firstDownLine: firstDownMarker(team, line) });
+}
+export const createDown = (): DownState => lineUp('home', 38);
 export const choosePlay = (state: DownState, play: Play): DownState => state.phase === 'pre-snap' ? { ...state, play } : state;
 function controls(state: DownState): DownState {
     return { ...state, players: state.players.map(p => ({ ...p, human: p.id === state.possession.carrier || p.id === state.defender })) };
@@ -75,7 +116,8 @@ export function contestPass(state: DownState, team: TeamId): DownState {
 /** Routes are world-space destinations. AI reads only the previous tick. */
 function route(state: DownState, key: PlayerId): Vector {
     const p = player(state, key), dir = direction(state.offense);
-    return { x: state.line + dir * 22, y: state.play === 'slants' ? FIELD.width / 2 : FIELD.width / 2 + (p.number === 3 ? -26 / 3 : 26 / 3) };
+    const depth = state.play === 'slants' ? (p.number === 3 ? 8 : 13) : (p.number === 3 ? 31 : 25);
+    return { x: state.line + dir * depth, y: state.play === 'slants' ? FIELD.width / 2 : FIELD.width / 2 + (p.number === 3 ? -26 / 3 : 26 / 3) };
 }
 export function throwPass(state: DownState, target: 1 | 2, team = state.offense): DownState {
     if (team !== state.offense || state.phase !== 'live' || state.play === 'rush' || state.ball.kind !== 'held' || state.possession.carrier !== id(state.offense, 1))
@@ -90,16 +132,31 @@ export function throwPass(state: DownState, target: 1 | 2, team = state.offense)
 function finish(state: DownState, reason: EndReason): DownState {
     if (state.phase !== 'live')
         return state;
-    const carrier = player(state, state.possession.carrier);
-    return { ...state, phase: 'dead', terminalCount: state.terminalCount + 1, ball: { kind: 'held' }, result: { playNumber: state.playNumber, reason, yards: reason === 'incomplete' || reason === 'interception' ? 0 : Math.round((carrier.x - state.line) * direction(state.offense) * 10) / 10, turnover: reason === 'interception' || reason === 'safety', touchdown: reason === 'touchdown' } };
+    const carrier = player(state, state.possession.carrier), dir = direction(state.offense);
+    const yards = reason === 'incomplete' || reason === 'interception' ? 0 : Math.round((carrier.x - state.line) * dir * 10) / 10;
+    const touchdown = reason === 'touchdown', safety = reason === 'safety', interception = reason === 'interception';
+    const ordinary = !touchdown && !safety && !interception;
+    // Reaching the marker is judged at the spot where the play ended, never on an earlier frame.
+    const firstDown = ordinary && reason !== 'incomplete' && (state.line + yards * dir - state.firstDownLine) * dir >= -1e-9;
+    const turnoverOnDowns = ordinary && !firstDown && state.down >= 4;
+    const score = touchdown ? { ...state.score, [state.offense]: state.score[state.offense] + TOUCHDOWN_POINTS }
+        : safety ? { ...state.score, [opposite(state.offense)]: state.score[opposite(state.offense)] + SAFETY_POINTS } : state.score;
+    return { ...state, phase: 'dead', terminalCount: state.terminalCount + 1, score, ball: { kind: 'held' }, result: { playNumber: state.playNumber, reason, yards, turnover: interception || safety, touchdown, firstDown, turnoverOnDowns } };
 }
+/** Builds the next snap. Scoring was already recorded by `finish`; this never changes the score. */
 export function nextDown(state: DownState): DownState {
     if (state.phase !== 'dead' || !state.result)
         return state;
-    const team = state.result.turnover ? opposite(state.offense) : state.offense;
-    const line = state.result.touchdown || state.result.reason === 'safety' ? (team === 'home' ? 38 : 82)
-        : state.result.reason === 'incomplete' ? state.line : Math.max(12, Math.min(108, player(state, state.possession.carrier).x));
-    return { ...formation(team, line, state.playNumber + 1, state.play), terminalCount: state.terminalCount };
+    const r = state.result, dir = direction(state.offense);
+    const change = r.turnover || r.touchdown || r.turnoverOnDowns;
+    const team = change ? opposite(state.offense) : state.offense;
+    const spot = Math.max(12, Math.min(108, player(state, state.possession.carrier).x));
+    const line = r.touchdown || r.reason === 'safety' ? ownTwentyEight(team)
+        : r.reason === 'incomplete' ? state.line
+            : r.turnoverOnDowns ? Math.max(12, Math.min(108, state.line + r.yards * dir)) : spot;
+    const fresh = change || r.firstDown;
+    const carry = { score: state.score, down: fresh ? 1 : state.down + 1, firstDownLine: fresh ? firstDownMarker(team, line) : state.firstDownLine };
+    return { ...formation(team, line, state.playNumber + 1, state.play, carry), terminalCount: state.terminalCount };
 }
 export function stepDown(state: DownState, inputs: Inputs): DownState {
     if (state.phase !== 'live')
@@ -109,11 +166,11 @@ export function stepDown(state: DownState, inputs: Inputs): DownState {
         let target: Vector;
         if (p.team === state.offense)
             target = p.number === 3 || p.number === 4 ? route(state, p.id) : { x: carrier.x + direction(state.offense) * 3, y: carrier.y + (p.number === 5 ? 5 : -5) };
-        else if (state.ball.kind === 'flight')
+        else if (state.ball.kind === 'flight' && state.ball.target.endsWith(`-${p.number}`) && state.ball.elapsed * 60 >= (state.play === 'go' ? GO_REACT_TICKS : REACT_TICKS) - 1e-9)
             target = state.ball.to;
-        else if (state.play !== 'rush' && carrier.number === 1 && (p.number === 3 || p.number === 4)) {
+        else if (state.play !== 'rush' && (state.ball.kind === 'flight' || carrier.number === 1) && (p.number === 3 || p.number === 4)) {
             const receiver = player(state, id(state.offense, p.number));
-            target = { x: receiver.x + direction(state.offense) * 5, y: receiver.y };
+            target = { x: receiver.x + direction(state.offense) * (state.play === 'go' ? GO_CUSHION : COVER_CUSHION), y: receiver.y };
         }
         else
             target = carrier;
@@ -126,17 +183,17 @@ export function stepDown(state: DownState, inputs: Inputs): DownState {
         if (ball.elapsed + 1e-9 >= ball.duration) {
             if (ball.to.x < FIELD.radius || ball.to.x > FIELD.length - FIELD.radius || ball.to.y < FIELD.radius || ball.to.y > FIELD.width - FIELD.radius)
                 return finish(moved, 'incomplete');
-            // Position can break up a pass; an interception additionally needs hands.
-            // AI contests when reachable. Human hands last 36 ticks and expire deterministically.
-            const defenders = moved.players.filter(p => p.team !== state.offense && distance(p, ball.to) <= BREAKUP_RADIUS)
+            // Position decides. A receiver wins the ball cleanly only with BREAKUP_RADIUS to spare over the nearest
+            // defender; a defender inside CATCH_RADIUS intercepts (a human defender also needs Hands), otherwise he breaks it up.
+            const receiver = player(moved, ball.target), rd = distance(receiver, ball.to);
+            const contesting = moved.players.filter(p => p.team !== state.offense && distance(p, ball.to) <= BREAKUP_RADIUS + rd)
                 .sort((a, b) => distance(a, ball.to) - distance(b, ball.to) || a.id.localeCompare(b.id));
-            const interceptor = defenders.find(p => distance(p, ball.to) <= CATCH_RADIUS && (!p.human || state.contestUntil >= moved.tick));
+            const interceptor = contesting.find(p => distance(p, ball.to) <= CATCH_RADIUS && (!p.human || state.contestUntil >= moved.tick));
             if (interceptor)
                 return finish(controls({ ...moved, ball: { kind: 'held' }, possession: { team: interceptor.team, carrier: interceptor.id } }), 'interception');
-            if (defenders.length)
+            if (contesting.length)
                 return finish(moved, 'incomplete');
-            const receiver = player(moved, ball.target);
-            if (distance(receiver, ball.to) > CATCH_RADIUS)
+            if (rd > CATCH_RADIUS)
                 return finish(moved, 'incomplete');
             moved = controls({ ...moved, ball: { kind: 'held' }, possession: { team: state.offense, carrier: receiver.id } });
         }

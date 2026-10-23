@@ -25,7 +25,7 @@ test('a real handoff lets both humans move, tackle and begin the next down', asy
     await page.waitForTimeout(150);
     expect(await saved(page)).toEqual(dead);
     await page.getByRole('button', { name: 'Next down', exact: true }).click();
-    await expect(page.getByText('Down 2', { exact: true })).toBeVisible();
+    await expect(page.getByText('Play 2 · Bluebirds ball', { exact: false })).toBeVisible();
     const next = await saved(page);
     expect(next.phase).toBe('pre-snap');
     expect(next.result).toBeNull();
@@ -101,16 +101,20 @@ test('wall-clock keyboard playthroughs complete, break up and intercept ordinary
         await page.getByRole('button', { name: 'Restart', exact: true }).click();
         await page.getByLabel('Play', { exact: true }).selectOption('slants');
         await page.getByRole('button', { name: 'Snap', exact: true }).click();
-        if (outcome !== 'complete')
+        if (outcome !== 'complete') {
+            // The landing point is up and to the left of Orange #1.
             await page.keyboard.down('ArrowUp');
+            await page.keyboard.down('ArrowLeft');
+        }
         await page.keyboard.press('KeyQ');
         if (outcome === 'interception') {
             await expect.poll(async () => { const s = await saved(page); return s.ball.kind === 'flight' ? s.ball.elapsed : -1; }, { intervals: [25] }).toBeGreaterThan(.45);
             await page.keyboard.press('ShiftRight');
         }
         if (outcome !== 'complete') {
-            await expect.poll(async () => (await saved(page)).players.find(p => p.id === 'away-1')!.y, { intervals: [25] }).toBeLessThanOrEqual(21);
+            await expect.poll(async () => (await saved(page)).players.find(p => p.id === 'away-1')!.y, { intervals: [25] }).toBeLessThanOrEqual(23.4);
             await page.keyboard.up('ArrowUp');
+            await page.keyboard.up('ArrowLeft');
         }
         await expect.poll(async () => (await saved(page)).ball.kind, { intervals: [25] }).toBe('held');
         const final = await saved(page);

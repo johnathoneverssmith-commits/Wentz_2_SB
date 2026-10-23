@@ -64,6 +64,12 @@ export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: b
     ctx.lineTo(x(state.line), y(FIELD.width));
     ctx.stroke();
     ctx.setLineDash([]);
+    ctx.strokeStyle = "#ffd24a";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x(state.firstDownLine), top);
+    ctx.lineTo(x(state.firstDownLine), y(FIELD.width));
+    ctx.stroke();
     if (state.phase === "pre-snap") {
         ctx.fillStyle = "#fff9da";
         ctx.font = "bold 20px Arial";

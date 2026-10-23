@@ -24,14 +24,20 @@ async function beginPass(page: Page, play = 'slants') {
 }
 async function humanPass(page: Page, mode: 'complete' | 'breakup' | 'intercept') {
     await beginPass(page);
-    if (mode !== 'complete')
+    if (mode !== 'complete') {
         await page.keyboard.down('ArrowUp');
+        await page.keyboard.down('ArrowLeft');
+    }
     await page.keyboard.press('KeyQ');
-    await page.clock.runFor(672);
+    await page.clock.runFor(640);
+    if (mode !== 'complete') {
+        await page.keyboard.up('ArrowUp');
+        await page.keyboard.up('ArrowLeft');
+    }
+    await page.clock.runFor(32);
     if (mode === 'intercept')
         await page.keyboard.press('ShiftRight');
     await page.clock.runFor(432);
-    await page.keyboard.up('ArrowUp');
     return saved(page);
 }
 test('identical starting passes have three outcomes controlled by the human defender', async ({ page }) => {
