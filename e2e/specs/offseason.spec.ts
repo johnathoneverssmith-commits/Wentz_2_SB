@@ -35,7 +35,7 @@ import { expect, test } from "../support/test.ts";
  *     the League History screen shows it; the league year turns exactly once, and every player ages exactly once with it;
  *   - the same thirty-two franchises, the same human GM on the same team; retirements happen once and never undone, and nobody retired
  *     is on a roster; released players are on the market, not on a team;
- *   - the draft: 224 picks, nobody twice, each by the team the order gave it, worst record first; the rookies end up with the team
+ *   - the draft: 224 picks, nobody twice, each by the team the order gave it, the NFL's order; the rookies end up with the team
  *     that picked them, or an evidenced release/signing/PS/retirement transition;
  *   - contracts carry forward untouched and every team that takes the field is full, legal and under the cap; records, standings and
  *     schedule start again, and the next season's first week is simulated once and adds up;
@@ -55,7 +55,12 @@ function acceptDialogs(page: Page): string[] {
 }
 
 async function stageIs(page: Page, ...stages: string[]): Promise<League> {
-  await expect.poll(async () => stages.includes((await readLeague(page)).stage), { message: `the league reached ${stages.join(" or ")}` }).toBe(true);
+  return stageWithin(page, 30_000, ...stages); // the save trails the screen while the page is busy
+}
+
+/** The assertion names the stage the league was in when the wait ran out, so a stuck league fails on that, not on a timeout. */
+async function stageWithin(page: Page, timeout: number, ...stages: string[]): Promise<League> {
+  await expect.poll(async () => (await readLeague(page)).stage, { message: `the league reached ${stages.join(" or ")}`, timeout }).toMatch(new RegExp(`^(${stages.join("|")})$`));
   return readLeague(page);
 }
 
@@ -243,7 +248,7 @@ test.describe("the offseason", () => {
 
     // ---- the next season starts: the year turns once, everyone ages once, the record is kept, the books are legal
     await lastRole(page, "Ready to start the season").click();
-    const next = await stageIs(page, "preseason");
+    const next = await stageWithin(page, 60_000, "preseason"); // the rollover is the heaviest step (over 10s here)
     expect(next.season, "the league year turned exactly once").toBe(S + 1);
     expect(next.week).toBe(1);
     for (const p of Object.values(next.players)) {

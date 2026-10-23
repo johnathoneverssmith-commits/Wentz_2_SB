@@ -127,14 +127,15 @@ export function pickOrderFor(
 export function draftOrderFor(
   state: LeagueState,
   season: number,
-  baseOrder: string[],
+  /** one order for every round, or the order each round's slots are earned in */
+  baseOrder: string[] | ((round: number) => string[]),
   rounds: number,
 ): { order: string[]; roundOf: number[] } {
   const order: string[] = [];
   const roundOf: number[] = [];
   const comps = Object.values(state.draftPicks ?? {}).filter((p) => p.comp && p.year === season);
   for (let round = 1; round <= rounds; round++) {
-    for (const earnedBy of baseOrder) {
+    for (const earnedBy of typeof baseOrder === "function" ? baseOrder(round) : baseOrder) {
       const owner = state.draftPicks?.[pickKey(season, round, earnedBy)]?.ownedBy;
       order.push(owner ?? earnedBy);
       roundOf.push(round);

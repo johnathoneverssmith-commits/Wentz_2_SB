@@ -57,6 +57,7 @@ import {
   releaseToMarket,
 } from "./seed.ts";
 import { DRAFT_ROUNDS, FANTASY_DRAFT_ROUNDS, awardCompensatoryPicks, draftOrderFor, ensureDraftPicks, pickKey } from "./draftPicks.ts";
+import { type RoundOrders, rookieRoundOrders } from "./draftOrder.ts";
 import {
   strategyAgeBonus,
   strategyCoachBonus,
@@ -2057,6 +2058,7 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
   const aiCodes = allCodes.filter((c) => !humanCodes.includes(c));
 
   let fullFirstRound: string[];
+  let rookieOrders: RoundOrders | undefined;
   if (mode === "rookie") {
     // real NFL order: worst record picks first. Falls back to a shuffle
     // before any games have been played.
@@ -2064,18 +2066,10 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
       const t = s.teams[c]!;
       return t.wins + t.losses + t.ties > 0;
     });
-    const pct = (code: string): number => {
-      const t = s.teams[code]!;
-      const g = t.wins + t.losses + t.ties;
-      return g === 0 ? 0.5 : (t.wins + 0.5 * t.ties) / g;
-    };
-    const diff = (code: string): number => {
-      const t = s.teams[code]!;
-      return t.pointsFor - t.pointsAgainst;
-    };
-    fullFirstRound = played
-      ? [...allCodes].sort((a, b) => pct(a) - pct(b) || diff(a) - diff(b))
-      : shuffle(allCodes, (s.seed ?? 0) * 31 + s.season + 11);
+    // (the NFL's: non-playoff teams by record, then the playoff teams by the
+    // round they went out in, the champion last; see `draftOrder.ts`)
+    if (played) rookieOrders = rookieRoundOrders(s);
+    fullFirstRound = played ? rookieOrders!(1) : shuffle(allCodes, (s.seed ?? 0) * 31 + s.season + 11);
   } else if (s.config.draftOrder === "randomized") {
     // every team in the hat — not the humans first and the AI after,
     // which handed the human GMs the top picks of all 20 rounds
@@ -2096,7 +2090,7 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     // the slots are earned by record; who *uses* each one is whoever
     // owns that pick, which is the whole point of trading them
     ensureDraftPicks(s, s.season);
-    ({ order, roundOf } = draftOrderFor(s, s.season, fullFirstRound, rounds));
+    ({ order, roundOf } = draftOrderFor(s, s.season, rookieOrders ?? fullFirstRound, rounds));
   } else {
     for (let r = 0; r < rounds; r++) {
       const seq =
