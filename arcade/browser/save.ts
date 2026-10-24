@@ -10,6 +10,22 @@ const point = (v: unknown) => object(v) && finite(v.x) && finite(v.y);
 const team = (v: unknown) => v === 'home' || v === 'away';
 const reasons = ['tackle', 'out-of-bounds', 'touchdown', 'incomplete', 'interception', 'safety', 'timeout'];
 /**
+ * Compatibility boundary: the last deployed save format is version 3 (Milestone 3, PR #28); versions 1-3 migrate. Version 4
+ * was never released: several unreleased Milestone 4 builds wrote it with different clock units (30-second quarters, then
+ * 180-second quarters), so it cannot be read safely and is rejected, never converted. Version 5 is the current format.
+ */
+export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3, 5];
+/** True when the text is a well-formed envelope of a version this build refuses to read (an unreleased or future format). */
+export function isUnsupportedSave(text: string | null): boolean {
+    try {
+        const data: unknown = text ? JSON.parse(text) : null;
+        return object(data) && typeof data.version === 'number' && !SUPPORTED_VERSIONS.includes(data.version);
+    }
+    catch {
+        return false;
+    }
+}
+/**
  * Older envelopes gain what they lacked: v1 had no completed-play count or hands window; v1/v2 had no score,
  * down or marker; v1-v3 had no game clock, quarter, kick, overtime or result. A finished touchdown or safety in an
  * old save is scored once here so no earlier score is lost. An old drive becomes the start of a new game's first
@@ -29,10 +45,8 @@ function upgrade(version: number, old: Record<string, unknown>): Record<string, 
             score[other] += SAFETY_POINTS;
         s = { ...s, score, down: 1, firstDownLine: firstDownMarker(offense, Number(s.line)), result: result ? { ...result, firstDown: false, turnoverOnDowns: false } : null };
     }
-    if (version <= 4)
-        s = { ...s, gap: 0 };
     if (version <= 3)
-        s = { ...s, quarter: 1, clock: QUARTER_TICKS, expired: false, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
+        s = { ...s, quarter: 1, clock: QUARTER_TICKS, expired: false, gap: 0, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
     return s;
 }
 /** The clock, quarter, mode, overtime, winner and kick must agree with each other and with the phase. */
@@ -69,7 +83,7 @@ export function decodeSave(text: string | null): DownState | null {
         if (!text || text.length > 20000)
             return null;
         const data: unknown = JSON.parse(text);
-        if (!object(data) || (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5) || !object(data.state))
+        if (!object(data) || (typeof data.version !== 'number' || !SUPPORTED_VERSIONS.includes(data.version)) || !object(data.state))
             return null;
         const s = upgrade(data.version, data.state);
         if (!integer(s.terminalCount) || !integer(s.contestUntil) || !integer(s.down) || Number(s.down) < 1 || Number(s.down) > 4 || !finite(s.firstDownLine) || s.firstDownLine < 10 || s.firstDownLine > 110)

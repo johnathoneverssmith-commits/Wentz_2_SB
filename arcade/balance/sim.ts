@@ -140,7 +140,7 @@ export function drive(team: 'home' | 'away', line: number, off: OffensePolicy, d
 }
 
 export interface Team { readonly off: OffensePolicy; readonly def: DefensePolicy }
-export interface GameResult { score: { home: number; away: number }; ended: 'final' | 'overtime'; stats: Stats; possessions: { home: number; away: number }; byTeam: Record<'home' | 'away', Stats>; quarterPlays: number[]; regulationClockTicks: number }
+export interface GameResult { score: { home: number; away: number }; ended: 'final' | 'overtime'; stats: Stats; possessions: { home: number; away: number }; byTeam: Record<'home' | 'away', Stats>; quarterPlays: number[]; liveClockTicks: number; betweenPlayClockTicks: number; regulationClockTicks: number }
 /** Regulation only (up to the end of the fourth quarter), with identical or different scripted teams. */
 export function game(home: Team, away: Team, opts: Options = DEFAULTS): GameResult {
     let s: DownState = createDown(), m = fresh(), counted = 0, lastEnded = true, lastOff = '';
@@ -148,7 +148,7 @@ export function game(home: Team, away: Team, opts: Options = DEFAULTS): GameResu
     const byTeam = { home: emptyStats(), away: emptyStats() };
     const possessions = { home: 0, away: 0 };
     const quarterPlays = [0, 0, 0, 0];
-    let clockBurned = 0;
+    let clockLive = 0, clockBetween = 0;
     for (let guard = 0; guard < 4_000_000 && s.mode === 'regulation'; guard++) {
         const me = s.offense === 'home' ? home : away, opp = s.offense === 'home' ? away : home;
         if (s.phase === 'pre-snap') {
@@ -156,7 +156,7 @@ export function game(home: Team, away: Team, opts: Options = DEFAULTS): GameResu
             lastOff = s.offense; lastEnded = false;
             const before = s.clock;
             const t = think(s, opts); s = t.state;
-            total.thinkTicks += opts.thinkTicks; clockBurned += before - s.clock; total.clockBurnedBetweenPlays += before - s.clock;
+            total.thinkTicks += opts.thinkTicks; clockBetween += before - s.clock; total.clockBurnedBetweenPlays += before - s.clock;
             const play = choose(s, me.off);
             if (play === 'fieldgoal') { total.fieldGoalsTried++; byTeam[s.offense].fieldGoalsTried++; }
             s = snap(choosePlay(s, play)); m = fresh(); counted = 0;
@@ -164,7 +164,9 @@ export function game(home: Team, away: Team, opts: Options = DEFAULTS): GameResu
         else if (s.phase === 'live') {
             const c = control(s, me.off, opp.def, opts, m);
             if (m.throws > counted) { total.passes++; byTeam[s.offense].passes++; counted = m.throws; }
+            const before = c.state.clock;
             s = stepDown(c.state, c.inputs); total.liveTicks++;
+            if (s.quarter === c.state.quarter) clockLive += before - s.clock;
         }
         else if (s.phase === 'dead') {
             record(total, s); record(byTeam[s.offense], s);
@@ -180,7 +182,7 @@ export function game(home: Team, away: Team, opts: Options = DEFAULTS): GameResu
         else break;
     }
     total.points = s.score.home + s.score.away;
-    return { score: s.score, ended: s.phase === 'final' ? 'final' : 'overtime', stats: total, possessions, byTeam, quarterPlays, regulationClockTicks: clockBurned };
+    return { score: s.score, ended: s.phase === 'final' ? 'final' : 'overtime', stats: total, possessions, byTeam, quarterPlays, liveClockTicks: clockLive, betweenPlayClockTicks: clockBetween, regulationClockTicks: clockLive + clockBetween };
 }
 /** Estimated minutes of real time for a game: live action, the players' thinking time, and a few seconds per kick. */
 export const minutes = (g: GameResult, kickSeconds = 3): number => (g.stats.liveTicks + g.stats.thinkTicks) / 3600 + (g.stats.kicks * kickSeconds) / 60;

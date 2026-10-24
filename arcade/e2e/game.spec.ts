@@ -262,3 +262,12 @@ test.describe('quarters, halftime, overtime and the final score', () => {
         expect(await saved(page)).toEqual(over);
     });
 });
+
+test('a save from an unreleased test format is refused with a visible notice and a fresh game starts; a current save shows none', async ({ page }) => {
+    const old = JSON.stringify({ version: 4, state: { ...lineUp('home', 60), clock: 1800 } });
+    await page.addInitScript(([key, value]) => { localStorage.setItem(key as string, value as string); }, ['wentz.arcade.down.v1', old]);
+    await startClocked(page);
+    await expect(page.getByTestId('save-notice')).toContainText('new game was started');
+    expect((await saved(page)).quarter).toBe(1);
+    expect((await saved(page)).clock).toBe(10800);
+});

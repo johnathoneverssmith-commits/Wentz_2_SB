@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { encodeSave, decodeSave, SAVE_KEY } from '../browser/save';
+import { encodeSave, decodeSave, isUnsupportedSave, SAVE_KEY, SUPPORTED_VERSIONS } from '../browser/save';
 import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, choosePlay, createDown, kickBall, lineUp, nextDown, snap, stepDown } from '../core/down';
 import { kickAtTick, CENTRE, expectOnlyClockMoved, tackled, touchdown } from './helpers';
 it('round trips an arcade snapshot, rejects corrupt saves and never uses a franchise key', () => {
@@ -126,13 +126,13 @@ it('rejects game states that contradict themselves', () => {
         { overtime: { first: 'both', possessions: 0 } }, { openingTeam: 'neither' }, { kick: { kind: 'xp', team: 'home', distance: 25, spot: 95, ticks: 0, lockedAt: null, good: null } },
     ];
     for (const change of bad)
-        expect(decodeSave(JSON.stringify({ version: 4, state: { ...state, ...change } })), JSON.stringify(change)).toBeNull();
+        expect(decodeSave(JSON.stringify({ version: 5, state: { ...state, ...change } })), JSON.stringify(change)).toBeNull();
     const kicking = nextDown(touchdown(lineUp('home', 100)));
     for (const change of [{ kick: { ...kicking.kick!, ticks: 9999 } }, { kick: { ...kicking.kick!, lockedAt: 5 } }, { kick: { ...kicking.kick!, good: true } }, { kick: { ...kicking.kick!, team: 'away' } }, { kick: { ...kicking.kick!, kind: 'punt' } }, { kick: null }])
-        expect(decodeSave(JSON.stringify({ version: 4, state: { ...kicking, ...change } })), JSON.stringify(change)).toBeNull();
+        expect(decodeSave(JSON.stringify({ version: 5, state: { ...kicking, ...change } })), JSON.stringify(change)).toBeNull();
     const ot = lineUp('away', 82, { game: { mode: 'overtime', quarter: 5, clock: 0, overtime: { first: 'away', possessions: 0 } } });
-    expect(decodeSave(JSON.stringify({ version: 4, state: { ...ot, clock: 5 } }))).toBeNull();
-    expect(decodeSave(JSON.stringify({ version: 4, state: { ...ot, quarter: 3 } }))).toBeNull();
+    expect(decodeSave(JSON.stringify({ version: 5, state: { ...ot, clock: 5 } }))).toBeNull();
+    expect(decodeSave(JSON.stringify({ version: 5, state: { ...ot, quarter: 3 } }))).toBeNull();
 });
 it('reloading mid-kick, after a kick, in overtime or at game over repeats nothing', () => {
     const kicking = nextDown(touchdown(lineUp('home', 100)));
@@ -157,13 +157,27 @@ it('reloading mid-kick, after a kick, in overtime or at game over repeats nothin
     }
 });
 
-it('saves keep the between-play allowance, and a version-4 save (which had none) restores with the clock waiting for the snap', () => {
+it('saves keep the between-play allowance, and a version-3 save (the last deployed format) migrates with the clock waiting for the snap', () => {
     const dead = tackled(createDown(), 4);
     expect(dead.gap).toBe(BETWEEN_PLAY_TICKS);
     expect(decodeSave(encodeSave(dead))?.gap).toBe(BETWEEN_PLAY_TICKS);
-    const partly = stepDown(stepDown(dead, { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } }), { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } });
+    const idle = { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } };
+    const partly = stepDown(stepDown(dead, idle), idle);
     expect(decodeSave(encodeSave(partly))).toEqual(partly);
-    const { gap: _gap, ...v4 } = dead;
-    expect(decodeSave(JSON.stringify({ version: 4, state: v4 }))?.gap).toBe(0);
     expect(decodeSave(JSON.stringify({ version: 5, state: { ...dead, gap: BETWEEN_PLAY_TICKS + 1 } }))).toBeNull();
+    const { gap: _g, quarter: _q, clock: _c, expired: _e, mode: _m, openingTeam: _o, overtime: _ot, winner: _w, kick: _k, ...v3 } = dead;
+    expect(decodeSave(JSON.stringify({ version: 3, state: v3 }))).toMatchObject({ quarter: 1, clock: QUARTER_TICKS, gap: 0, mode: 'regulation' });
+});
+
+it('compatibility boundary: version 4 (unreleased, with differing clock units) and unknown versions are rejected, never converted', () => {
+    const dead = tackled(createDown(), 4);
+    for (const clock of [1800, QUARTER_TICKS, 10]) {
+        const text = JSON.stringify({ version: 4, state: { ...dead, clock } });
+        expect(decodeSave(text), `v4 clock ${clock}`).toBeNull();
+        expect(isUnsupportedSave(text)).toBe(true);
+    }
+    for (const version of [0, 6, 99, '5', null]) expect(decodeSave(JSON.stringify({ version, state: dead })), String(version)).toBeNull();
+    expect(isUnsupportedSave(JSON.stringify({ version: 6, state: dead }))).toBe(true);
+    for (const text of [encodeSave(dead), JSON.stringify({ version: 3, state: {} }), 'not json', null, '{"version":5']) expect(isUnsupportedSave(text), String(text)).toBe(false);
+    expect(SUPPORTED_VERSIONS).toEqual([1, 2, 3, 5]);
 });

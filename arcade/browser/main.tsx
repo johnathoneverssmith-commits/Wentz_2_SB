@@ -4,7 +4,9 @@ import { advance, createClock } from '../core/clock';
 import { choosePlay, snap, nextDown, switchDefender, throwPass, contestPass, kickBall, clockText, fieldGoalInRange, opposite, situation, SAFETY_POINTS, TOUCHDOWN_POINTS, type DownState, type Play } from '../core/down';
 import { EXTRA_POINT_POINTS, FIELD_GOAL_POINTS } from '../core/kick';
 import type { Inputs } from '../core/simulation';
-import { SAVE_KEY, encodeSave, decodeSave } from './save';
+import { SAVE_KEY, encodeSave, decodeSave, isUnsupportedSave } from './save';
+/** Set when the stored save is an unreleased format this build will not read: the game starts fresh and says so. */
+let discardedSave = false;
 import { drawField } from './field';
 import './style.css';
 const names = { home: 'Bluebirds', away: 'Foxes' };
@@ -12,7 +14,9 @@ const ordinal = (n: number) => ['1st', '2nd', '3rd', '4th'][n - 1] ?? `${n}th`;
 function initialClock() {
     const fresh = createClock();
     try {
-        const saved = decodeSave(localStorage.getItem(SAVE_KEY));
+        const stored = localStorage.getItem(SAVE_KEY);
+        const saved = decodeSave(stored);
+        discardedSave = !saved && isUnsupportedSave(stored);
         return saved ? { ...fresh, match: saved, paused: saved.phase === 'live' || (saved.phase === 'kick' && saved.kick?.good === null) || ((saved.phase === 'dead' || saved.phase === 'pre-snap') && saved.mode === 'regulation' && saved.gap > 0 && saved.clock > 0) } : fresh;
     }
     catch {
@@ -146,10 +150,10 @@ function Sandbox() {
    <button disabled={view.paused || !(state.phase === 'dead' || kickDone)} onClick={() => command(nextDown, true)}>Next down</button>
   </section>
   <p data-testid="terminal-count">Completed plays: {state.terminalCount}</p>
-  <section className="result" aria-live="polite"><h2 data-testid="headline">{headline}</h2><p data-testid="result">{detail}</p>{clockNote && !over && <p data-testid="clock-note">{clockNote}</p>}{nextLine && <p data-testid="next-situation">{nextLine}</p>}</section>
+  <section className="result" aria-live="polite"><h2 data-testid="headline">{headline}</h2><p data-testid="result">{detail}</p>{discardedSave && <p data-testid="save-notice">An earlier test version of this game saved in a format this version cannot read, so a new game was started.</p>}{clockNote && !over && <p data-testid="clock-note">{clockNote}</p>}{nextLine && <p data-testid="next-situation">{nextLine}</p>}</section>
   {storageWarning && <p role="status">Arcade saving is unavailable. You can continue playing without a save.</p>}
   <section className="instructions" aria-label="How to play"><h2>Win the game.</h2>
-    <p>Four 3-minute quarters on a game clock that runs only while a play is live (it stops between downs and while a kick is lined up, and it is simulation time, not wall-clock time). A play in progress always finishes; the quarter then ends, halftime gives Orange the ball, and a tie goes to overtime: each team gets a possession from its own 28, first downs extend it, and the score is compared after both. Touchdown 6, extra point 1, field goal 3, safety 2.</p>
+    <p>Four 3-minute quarters. The game clock runs during live plays and for at most six seconds after a play ends while you choose and snap; then it waits for the snap. It stops while a kick is lined up or the game is paused, and it is simulation time, not wall-clock time. A play in progress always finishes; the quarter then ends, halftime gives Orange the ball, and a tie goes to overtime: each team gets a possession from its own 28, first downs extend it, and the score is compared after both. Touchdown 6, extra point 1, field goal 3, safety 2.</p>
     <p>Blue: <kbd>WASD</kbd> move, <kbd>Q / E</kbd> pass, <kbd>F</kbd> switch and <kbd>R</kbd> hands on defense, <kbd>G</kbd> kick. Orange: arrow keys move, <kbd>, / .</kbd> pass, <kbd>/</kbd> switch and <kbd>Right Shift</kbd> hands, <kbd>'</kbd> kick. <kbd>Enter</kbd> snaps and starts the next down. Choose <b>Field goal</b> in the play menu when the kick is in range (up to 57 yards); a touchdown goes straight to the extra point.</p>
     <p>The kick meter swings by itself: press your kick key as it crosses the centre. The green zone is the margin that counts; it is wide for an extra point and narrow for a long field goal. The landing circle shows where a pass will arrive; break it up by standing there and intercept by pressing Hands as it lands. Blockers hold the closest defenders.</p>
   </section>

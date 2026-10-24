@@ -37,7 +37,7 @@ test('a complete game in a real browser: both players attack and defend through 
     const run = async (ms: number) => { for (let t = 0; t < ms; t += 100) await page.clock.fastForward(100); };
     const started = Date.now();
     const held = new Set<string>();
-    const seen = { quarters: new Set<number>(), kicksXp: 0, kicksFg: 0, passes: 0, hands: 0, fgTried: 0, touchdowns: 0, turnovers: 0, firstDowns: 0, halftimeOffense: '', overtime: false, reloaded: false, clockMovedBetweenDowns: 0 };
+    const seen = { quarters: new Set<number>(), kicksXp: 0, kicksFg: 0, passes: 0, hands: 0, fgTried: 0, touchdowns: 0, turnovers: 0, firstDowns: 0, halftimeOffense: '', overtime: false, reloaded: false, reloads: 0, clockMovedBetweenDowns: 0 };
     let handsFlight = -1, lastTerminal = 0, safety = 0;
     let prev: DownState | null = null;
     let s = await saved(page);
@@ -97,6 +97,7 @@ test('a complete game in a real browser: both players attack and defend through 
             if (r.reason === 'safety') safety++;
             if (!seen.reloaded && s.quarter === 2 && s.down === 2) {
                 seen.reloaded = true;
+                seen.reloads++;
                 await page.reload();
                 await page.clock.runFor(300);
                 expect(await saved(page), 'a mid-game reload restores the finished down exactly').toEqual(s);
@@ -121,6 +122,7 @@ test('a complete game in a real browser: both players attack and defend through 
         s = await saved(page);
     }
     await hold(page, held, new Set());
+    expect(seen.reloads, 'the mid-game reload (and its exact restore) really happened').toBe(1);
     expect(s.phase, 'the game must reach its final').toBe('final');
     // The whole structure of a game was played through the real UI.
     expect([...seen.quarters].sort()).toEqual(expect.arrayContaining([1, 2, 3, 4]));

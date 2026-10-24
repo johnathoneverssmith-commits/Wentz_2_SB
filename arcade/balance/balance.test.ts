@@ -4,6 +4,7 @@
  * keeps the game healthy does not break them; a failure means a balance property the project documented has been lost.
  */
 import { describe, expect, it } from 'vitest';
+import { BETWEEN_PLAY_TICKS, QUARTER_TICKS } from '../core/down';
 import { DEFENSES, OFFENSES, drive, game, minutes, type Team } from './sim';
 import { STARTS, driveStats } from './report';
 
@@ -102,7 +103,18 @@ describe('game pacing', () => {
         const quick = game(team('balanced', 'cover'), team('balanced', 'cover'), { reaction: 12, thinkTicks: 2 * 60 });
         const slow = game(team('balanced', 'cover'), team('balanced', 'cover'), { reaction: 12, thinkTicks: 20 * 60 });
         expect(slow.stats.plays).toBeLessThanOrEqual(quick.stats.plays);
-        expect(slow.regulationClockTicks).toBeLessThanOrEqual(4 * 3 * 60 * 60);
+        expect(slow.regulationClockTicks).toBeLessThanOrEqual(4 * QUARTER_TICKS);
+    });
+    it.each(matchups)('regulation clock accounting (%s): live play plus between-play time is exactly four quarters', (_name, t) => {
+        for (const think of [2, 8]) {
+            const g = game(t, t, { reaction: 12, thinkTicks: think * 60 });
+            expect(g.liveClockTicks, 'live play burns the clock').toBeGreaterThan(0);
+            expect(g.betweenPlayClockTicks, 'between-play time burns the clock').toBeGreaterThan(0);
+            expect(g.regulationClockTicks).toBe(g.liveClockTicks + g.betweenPlayClockTicks);
+            expect(g.liveClockTicks, 'one clock tick per live simulation tick').toBeLessThanOrEqual(g.stats.liveTicks);
+            expect(g.betweenPlayClockTicks, 'at most six seconds a play').toBeLessThanOrEqual(BETWEEN_PLAY_TICKS * (g.stats.plays + 4));
+            expect(g.regulationClockTicks, 'all four quarters were played out').toBe(4 * QUARTER_TICKS);
+        }
     });
 });
 
