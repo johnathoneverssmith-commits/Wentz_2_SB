@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { encodeSave, decodeSave, SAVE_KEY } from '../browser/save';
-import { QUARTER_TICKS, choosePlay, createDown, kickBall, lineUp, nextDown, snap, stepDown } from '../core/down';
-import { kickAtTick, CENTRE, expectOnlyClockMoved, touchdown } from './helpers';
+import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, choosePlay, createDown, kickBall, lineUp, nextDown, snap, stepDown } from '../core/down';
+import { kickAtTick, CENTRE, expectOnlyClockMoved, tackled, touchdown } from './helpers';
 it('round trips an arcade snapshot, rejects corrupt saves and never uses a franchise key', () => {
     const state = snap(createDown());
     expect(decodeSave(encodeSave(state))).toEqual(state);
@@ -155,4 +155,15 @@ it('reloading mid-kick, after a kick, in overtime or at game over repeats nothin
         expect(nextDown(again)).toBe(again);
         expect(again.winner).toBe('home');
     }
+});
+
+it('saves keep the between-play allowance, and a version-4 save (which had none) restores with the clock waiting for the snap', () => {
+    const dead = tackled(createDown(), 4);
+    expect(dead.gap).toBe(BETWEEN_PLAY_TICKS);
+    expect(decodeSave(encodeSave(dead))?.gap).toBe(BETWEEN_PLAY_TICKS);
+    const partly = stepDown(stepDown(dead, { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } }), { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } });
+    expect(decodeSave(encodeSave(partly))).toEqual(partly);
+    const { gap: _gap, ...v4 } = dead;
+    expect(decodeSave(JSON.stringify({ version: 4, state: v4 }))?.gap).toBe(0);
+    expect(decodeSave(JSON.stringify({ version: 5, state: { ...dead, gap: BETWEEN_PLAY_TICKS + 1 } }))).toBeNull();
 });
