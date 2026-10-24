@@ -34,7 +34,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
       {
         heading: "The rookie draft",
         body: [
-          `${DRAFT_ROUNDS} rounds, worst record picks first, and picks can be traded. A team that lets a free agent walk and sees him sign for real money elsewhere can earn a compensatory pick (rounds three to seven, at most four a team), which comes after the regular picks of its round.`,
+          `${DRAFT_ROUNDS} rounds, the teams that missed the playoffs pick first, worst record first, then the playoff teams by the round they went out in, with the Super Bowl champion last, and picks can be traded. A team that lets a free agent walk and sees him sign for real money elsewhere can earn a compensatory pick (rounds three to seven, at most four a team), which comes after the regular picks of its round.`,
           "You pick by hand for the number of rounds your league sets (the league setting \"Rookie draft rounds by hand\", changed at the start of each offseason). After those rounds your staff makes your remaining picks, and the CPU teams were never by hand.",
           "The Star on a prospect marks him as a target. On the clock, the room suggests the best target still on the board; nobody else sees your stars online.",
         ],

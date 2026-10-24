@@ -59,6 +59,8 @@ export interface League {
   hallOfFame: number;
   bracketChampion: string | null;
   hasBracket: boolean;
+  /** Every playoff game as played, in the order saved (null once the bracket is gone). */
+  playoffGames: null | Array<{ round: string; teams: string[]; winner: string | null }>;
   players: Record<string, PlayerRow>;
   draft: null | { mode: string; pickOrder: string[]; current: number; results: Pick[] };
   signings: Array<{ playerId: string; teamCode: string; salary: number; years: number; round: number }>;
@@ -96,6 +98,7 @@ export async function readLeague(page: Page): Promise<League> {
       hallOfFame: (s.hallOfFame ?? []).length,
       bracketChampion: s.bracket ? s.bracket.champion : null,
       hasBracket: Boolean(s.bracket),
+      playoffGames: s.bracket ? (s.bracket.matchups as Array<{ round: string; highSeed: { code: string } | null; lowSeed: { code: string } | null; winner: string | null }>).map((m) => ({ round: m.round, teams: [m.highSeed?.code, m.lowSeed?.code].filter((c): c is string => !!c), winner: m.winner })) : null,
       players,
       draft: d ? { mode: d.mode, pickOrder: d.pickOrder, current: d.currentPickIndex, results: d.results.map((r) => ({ n: r.pickNumber, round: r.round, team: r.teamCode, id: r.selectedId, name: r.selectedName })) } : null,
       signings: (s.freeAgencyEvent?.signed ?? []).map((x: any) => ({ playerId: x.playerId, teamCode: x.teamCode, salary: x.salary, years: x.years, round: x.round })),
@@ -189,22 +192,95 @@ export function legalProblems(l: League): string[] {
 }
 
 /**
+ * The NFL's draft order, derived from the finished season in the save and written without the game's sorting code: each team's fate comes
+ * from the last playoff game it appears in, its record from the saved standings, and its schedule strength from the saved schedule.
+ *
+ *  - Picks 1-18: the teams that missed the playoffs. Then those out in the wild card, the divisional round, the conference final, the
+ *    Super Bowl runner-up (31st) and the champion (32nd). Within a stage, the worse record picks first.
+ *  - Level on record: the weaker schedule (the lower combined win percentage of the opponents it played) first, then fewer net points.
+ *  - Still level (only the coin toss can tell them apart): the group keeps its members in the later rounds and rotates: a pair swaps each
+ *    round, and in a larger group the first moves to the end while the others move up one.
+ */
+export function expectNflDraftOrder(pickOrder: string[], prior: League): void {
+  expect(prior.playoffGames, "the finished season's bracket is in the save").not.toBeNull();
+  const games = prior.playoffGames!;
+  const champion = prior.bracketChampion!;
+  const lastGame = new Map<string, { round: string; winner: string | null }>();
+  for (const g of games) for (const t of g.teams) lastGame.set(t, { round: g.round, winner: g.winner });
+  const stageOf = (code: string): number => {
+    const g = lastGame.get(code);
+    if (!g) return 0; // missed the playoffs
+    if (code === champion) return 5;
+    expect(g.winner, `${code} went out in its last game, the ${g.round}`).not.toBe(code);
+    return { WC: 1, DIV: 2, CONF: 3, SB: 4 }[g.round]!;
+  };
+  const expectedSizes = [0, 0, 0, 0, 0, 0];
+  for (const c of prior.teamCodes) expectedSizes[stageOf(c)]!++;
+  expect(expectedSizes, "18 missed the playoffs; 14 made them: 6 out in the wild card, 4 in the divisional round, 2 in the conference final, the runner-up, the champion").toEqual([18, 6, 4, 2, 1, 1]);
+
+  const pct = (c: string) => {
+    const t = prior.teams[c]!;
+    return (t.w + 0.5 * t.t) / (t.w + t.l + t.t);
+  };
+  const faced = new Map<string, string[]>();
+  for (const g of prior.schedule.filter((x) => x.phase === "REG")) {
+    faced.set(g.home, [...(faced.get(g.home) ?? []), g.away]);
+    faced.set(g.away, [...(faced.get(g.away) ?? []), g.home]);
+  }
+  const sos = (c: string) => {
+    let credit = 0, played = 0;
+    for (const o of faced.get(c) ?? []) {
+      const t = prior.teams[o]!;
+      credit += t.w + 0.5 * t.t;
+      played += t.w + t.l + t.t;
+    }
+    return played === 0 ? 0.5 : credit / played;
+  };
+  const net = (c: string) => prior.teams[c]!.pf - prior.teams[c]!.pa;
+  const same = (a: string, b: string) => stageOf(a) === stageOf(b) && Math.abs(pct(a) - pct(b)) < 1e-9 && Math.abs(sos(a) - sos(b)) < 1e-9 && net(a) === net(b);
+
+  expect(pickOrder, "seven rounds of thirty-two").toHaveLength(224);
+  const round1 = pickOrder.slice(0, 32);
+  expect(new Set(round1).size, "round one: every team once").toBe(32);
+
+  // stage by stage, in order, then within a stage the tiebreaks in order
+  for (let i = 1; i < 32; i++) {
+    const a = round1[i - 1]!, b = round1[i]!;
+    const where = `pick ${i} (${a}) then pick ${i + 1} (${b})`;
+    expect(stageOf(b), `${where}: the playoff stage never goes back (missed, wild card, divisional, conference, runner-up, champion)`).toBeGreaterThanOrEqual(stageOf(a));
+    if (stageOf(a) !== stageOf(b)) continue;
+    if (Math.abs(pct(a) - pct(b)) > 1e-9) expect(pct(b), `${where}: the worse record picks first`).toBeGreaterThan(pct(a));
+    else if (Math.abs(sos(a) - sos(b)) > 1e-9) expect(sos(b), `${where}: level on record, the weaker schedule picks first`).toBeGreaterThan(sos(a));
+    else if (net(a) !== net(b)) expect(net(b), `${where}: level on schedule, the fewer net points pick first`).toBeGreaterThan(net(a));
+  }
+  expect(stageOf(round1[30]!), "31st: the Super Bowl runner-up").toBe(4);
+  expect(stageOf(round1[31]!), "32nd: the Super Bowl champion").toBe(5);
+  expect(round1[31]).toBe(champion);
+  expect(round1.slice(0, expectedSizes[0]!).every((c) => stageOf(c) === 0), "the first picks are the teams that missed the playoffs").toBe(true);
+
+  // later rounds: the same order, except groups only the coin toss separated, which rotate
+  const groups: string[][] = [];
+  for (const c of round1) {
+    const g = groups[groups.length - 1];
+    if (g && same(g[0]!, c)) g.push(c);
+    else groups.push([c]);
+  }
+  for (let r = 2; r <= 7; r++) {
+    const want = groups.flatMap((g) => [...g.slice((r - 1) % g.length), ...g.slice(0, (r - 1) % g.length)]);
+    expect(pickOrder.slice((r - 1) * 32, r * 32), `round ${r}: round one's order, with tied groups rotated ${r - 1} place(s)`).toEqual(want);
+  }
+}
+
+/**
  * The rookie draft, from the save alone: 224 picks (seven rounds of the thirty-two teams), no player taken twice, each pick made by the team
- * the order gave it, every round in the same order, and that order the worst regular-season record first. (`prior` is the league as the
- * season left it, for the records the order is made from.)
+ * the order gave it, in the NFL's order (`expectNflDraftOrder`). (`prior` is the league as the season left it, for the bracket, records and
+ * schedule the order is made from.)
  */
 export function expectDraftValid(l: League, prior: League, complete: boolean): void {
   const d = l.draft!;
   expect(d.mode).toBe("rookie");
   expect(d.pickOrder, "seven rounds of thirty-two").toHaveLength(224);
-  const round1 = d.pickOrder.slice(0, 32);
-  expect(new Set(round1).size, "round one: every team once").toBe(32);
-  for (let r = 1; r < 7; r++) expect(d.pickOrder.slice(r * 32, r * 32 + 32), `round ${r + 1} is round one's order`).toEqual(round1);
-  const pct = (c: string) => {
-    const t = prior.teams[c]!;
-    return (t.w + 0.5 * t.t) / (t.w + t.l + t.t);
-  };
-  for (let i = 1; i < 32; i++) expect(pct(round1[i]!), `pick ${i + 1} (${round1[i]}) is not worse than pick ${i} (${round1[i - 1]})`).toBeGreaterThanOrEqual(pct(round1[i - 1]!));
+  expectNflDraftOrder(d.pickOrder, prior);
   d.results.forEach((r, i) => {
     expect(r.n, "picks are numbered in order").toBe(i + 1);
     expect(r.team, `pick ${i + 1} was made by the team the order gave it`).toBe(d.pickOrder[i]);

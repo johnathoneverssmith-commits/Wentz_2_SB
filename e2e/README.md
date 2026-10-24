@@ -131,8 +131,10 @@ start of the next season, the three preseason games, and week one (simulated onc
 * **Retirements** happen once as the review closes and are never undone; nobody retired is on a roster; players the staff released are on
   the market.
 * **The draft**: 224 picks (seven rounds of the thirty-two teams), nobody taken twice, each by the team the order gave it, every round in
-  the same order, and that order the worst regular-season record first (the champion is not last: the order is the record, nothing
-  more). Every pick is initially assigned to its drafting team. All 224 signed identities and original draft metadata are then
+  the NFL's order, derived in `support/offseason.ts` (`expectNflDraftOrder`) from the saved bracket, standings and schedule without
+  the game's sorting code: the teams that missed the playoffs first, then those out in the wild card, the divisional round and the
+  conference final, the Super Bowl runner-up 31st and the champion 32nd; within a stage the worse record first, level records split by
+  strength of schedule then net points, and teams only the coin toss separates rotating through the later rounds. Every pick is initially assigned to its drafting team. All 224 signed identities and original draft metadata are then
   accounted for at each market, reconciliation, camp, rollover and new-season boundary. Duplicate identities, missing rookies and
   unexplained active-team transfers fail. A release must be observed at an allowed boundary; a different-team signing needs a new
   persisted market record or a prior market snapshot at roster fill. Own-team practice-squad moves and promotions use their documented
