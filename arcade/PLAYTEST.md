@@ -103,7 +103,7 @@ play and why the README says the game is tuned, not calibrated.
 
 ## Regression gates and negative controls
 
-`npm --prefix arcade test` (135 tests), `npm --prefix arcade run test:balance` (17 gameplay-balance tests), `npm --prefix arcade run e2e` (38 browser tests, about 3.6 minutes locally),
+`npm --prefix arcade test` (136 tests), `npm --prefix arcade run test:balance` (17 gameplay-balance tests), `npm --prefix arcade run e2e` (38 browser tests, about 3.6 minutes locally),
 typecheck, standalone build; `verify` runs them in order.
 
 Each defect below was applied alone to a disposable copy and failed on a relevant assertion
