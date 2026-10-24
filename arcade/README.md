@@ -23,14 +23,18 @@ tools; do not install packages inside `arcade/`.
 second half. The leader at the end of regulation wins; a tie goes to overtime; the
 game ends on a **final-score screen with a Rematch button**.
 
-* **The clock** runs only while a play is live, one clock tick per 1/60-second
-  simulation tick, so a quarter is exactly **three minutes (180 s, 10,800 ticks) of live
-  play**. It stops between downs, while a kick is lined up, when the game is paused and
-  across a reload. When it reaches 0:00 the **play in progress finishes** (a
-  touchdown still gets its extra point); then the quarter ends. Q1 and Q3 end with the
-  same team, spot and down; the end of Q2 is halftime, which gives **Foxes the ball at
-  their own 28**. It is simulation time: it does not depend on the frame rate or the
-  wall clock.
+* **The clock** is hybrid and deterministic (one clock tick per 1/60-second simulation
+  tick). It runs during live play and, after a play ends, for at most **six game seconds**
+  (360 ticks) while the players choose and snap; then it **waits for the snap**, however
+  long that takes. The allowance belongs to the finished play: *Next down*, choosing a
+  play, switching defenders or pressing menu buttons never refill it, and it is part of
+  the save. It does not move while the game is paused, a kick is lined up or taken, in
+  overtime or after the final. A quarter is 180 s (10,800 ticks); if it reaches 0:00 while
+  players are choosing, the next snap starts the next period without a play. When it
+  reaches 0:00 during a play, the **play in progress finishes** (a touchdown still gets
+  its extra point); then the quarter ends. Q1 and Q3 end with the same team, spot and
+  down; the end of Q2 is halftime, which gives **Foxes the ball at their own 28**.
+  Estimated real duration of a regulation game: roughly 12-17 minutes (`npm --prefix arcade run balance`).
 * **Downs.** Four downs to gain ten yards: the gold line is the marker, the HUD shows
   "2nd & 6.3" (or "Goal"), and a failed fourth down hands the ball to the other team at
   the spot.
@@ -84,11 +88,11 @@ game ends on a **final-score screen with a Rematch button**.
    new game at 0-0. Changing windows or hiding the page pauses and clears input.
 
 **Saving.** Only **`wentz.arcade.down.v1`** in localStorage is read/written. The
-version-4 envelope holds the whole snapshot: quarter, clock, score, down, marker, any
+version-5 envelope holds the whole snapshot: quarter, clock, between-play allowance, score, down, marker, any
 kick in progress, the overtime possession count and the winner. A live play or a swinging
 kick **reloads paused**; a finished down, a kick that has been taken, overtime and the
-final screen reload exactly, and nothing is scored, kicked or advanced twice. Version 1, 2
-and 3 saves migrate (an old drive becomes the first quarter of a new game with a full
+final screen reload exactly (a finished down or a wait for the snap reloads paused so the allowance does not run unseen), and nothing is scored, kicked or advanced twice. Version 1 to 4
+saves migrate (an old drive becomes the first quarter of a new game with a full
 clock; a finished touchdown or safety is scored once; a finished touchdown still gets its
 extra point). Invalid or self-contradictory saves start fresh. A storage-denied browser can
 still play. Franchise saves and other keys are untouched.
@@ -145,8 +149,6 @@ A local shared-keyboard game: no kickoffs, punts, onside kicks, two-point tries,
 penalties, injuries, substitutions, touch controls, franchise roster import or network
 play. Catches resolve at the landing point, not along the flight path. The AI covers
 simply, so the game is tuned, not calibrated: an attentive human defender who goes to
-the landing point and presses Hands intercepts most early throws. **A game is long**:
-plays last only a second or two of live time and the clock stops between downs, so three
-live minutes per quarter is on the order of a hundred plays per quarter. Two players who
+the landing point and presses Hands intercepts most early throws. **Late deep passes** (the go route thrown late) are still the strongest offense against a defender who does not react to the ball, but a deep safety now stops most of them after a gain and can take the ball: about 57% of those drives score a touchdown rather than nearly all (see `PLAYTEST.md`). Two players who
 both play perfectly mirrored football could stay tied in overtime for as long as they like. Keyboard rollover limits depend on the physical keyboard. Only
 Chromium is exercised by current CI.

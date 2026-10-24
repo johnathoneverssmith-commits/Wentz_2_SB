@@ -65,7 +65,7 @@ distance (`kickTolerance`).
 ## The shape of a game (browser, prepared saves, real inputs)
 
 * **Clock:** a quarter is exactly **10,800 live ticks, three minutes at 60 ticks a second** (a unit test counts
-  them). Pausing, reloading, a finished down and a kick all leave the clock where it was (browser test).
+  them). Pausing, reloading and a kick leave the clock where it was; after a finished play it runs for at most **six game seconds (360 ticks)** and then waits for the snap, however many times the menus are used (unit and browser tests).
 * **Quarter end:** with 0:01 left and the ball at the 40, Blue runs; the clock hits 0:00
   mid-play, the HUD says the quarter ends after this play, the play finishes, and Next down
   opens **Q2 3:00** with the same team, spot and 2nd down.
@@ -85,9 +85,9 @@ distance (`kickTolerance`).
   the pocket and throws the go route's late window; the defender goes to the landing circle and presses
   Hands; after a catch the carrier runs for the goal line and the defender chases; kicks wait for the
   meter (Foxes' kicker misses every extra point and Foxes never kick field goals, so two otherwise identical
-  teams cannot tie forever). It reaches the final screen: **129-0 after 295 completed plays, 276 passes,
-  276 Hands presses, 18 touchdowns, 18 extra points, one field goal and 19 turnovers**, a mid-game reload
-  that restores the finished down exactly, a check that the clock never moved between downs, a reload at
+  teams cannot tie forever). It reaches the final screen: **122-0 after 278 completed plays, 260 passes,
+  260 Hands presses, 17 touchdowns, 17 extra points, one field goal and 18 turnovers** (was 129-0 after 295 plays before the deep safety), a mid-game reload
+  that restores the finished down exactly, a check that the clock never spent more than the six-second allowance between plays, a reload at
   the final and a Rematch, in about **a minute and a half to two minutes**. The page is drawn ten times a second (the app steps
   the simulation six 1/60-second ticks per frame), which is the same game on a slower screen; the lopsided
   score comes from the scripts, not from how people will play.
@@ -103,7 +103,7 @@ play and why the README says the game is tuned, not calibrated.
 
 ## Regression gates and negative controls
 
-`npm --prefix arcade test` (128 tests), `npm --prefix arcade run e2e` (38 browser tests, about 3.6 minutes locally),
+`npm --prefix arcade test` (135 tests), `npm --prefix arcade run test:balance` (17 gameplay-balance tests), `npm --prefix arcade run e2e` (38 browser tests, about 3.6 minutes locally),
 typecheck, standalone build; `verify` runs them in order.
 
 Each defect below was applied alone to a disposable copy and failed on a relevant assertion
@@ -134,3 +134,27 @@ unit test caught it, the browser run was skipped.
 Catches resolve at the landing point only. The AI's coverage is simple, and its interceptions
 need no timing. Blocking is two AI blockers and a speed penalty. No kickoffs, punts, two-point
 tries or penalties. Two perfect mirror-image players can stay tied in overtime indefinitely, which is the specified behaviour.
+
+## Pacing and balance (hybrid clock, deep safety, balance suite)
+
+Measured with `npm --prefix arcade run balance` (scripted offenses, defenses and reaction delays; deterministic; 7 starting spots, both teams). Before = `b069f24` (clock stopped between downs, no deep safety); after = this head.
+
+| | before | after |
+|---|---|---|
+| Plays per regulation game (think 2-8 s per snap) | 64-1800 (late/rush scripts looped without end) | 84-286 |
+| Estimated real minutes per game (live play + think time + 3 s per kick) | 17-274 | 12-18 |
+| Late deep pass vs idle/chasing defender: TD per drive, completions, interceptions | 100%, 100%, 0% (about 450 ticks of live play per throw) | 57%, 86%, 14% (3 plays a drive, about 175 ticks per throw) |
+| Late deep pass vs attentive defender: points per drive | 6.0 | 4.0 |
+| Late deep pass vs covering defender: points per drive | 1.3 | 1.3 (unchanged) |
+| Early pass vs idle/chasing defender: points per drive, completion | 2.0, 88% | 2.0, 88% (unchanged) |
+| Intermediate pass vs idle/chasing defender: points per drive, completion | 1.3, 74% | 0.4, 80% (see below) |
+| Run-only vs idle / vs chasing defender: points per drive | 7.0 / 3.0 | 7.0 / 3.0 (unchanged) |
+| Balanced offense vs covering defender: points per drive | 7.0 | 3.3 |
+
+What changed: the fifth defender no longer rushes on a pass. He plays a deep safety (26 yards past the line, in the middle) and breaks on any pass that lands 20 or more yards downfield after 24 ticks of its flight, so a receiver who beats his man now meets someone ahead of him. A late go pass against a defense that does not react to the ball gains about 19 yards and is tackled, instead of scoring from anywhere; it scores only when thrown from close to the goal line (from the 98 in testing, not from the 86 or earlier). Deep passing is still the strongest offense against such a defender and its completions are unchanged (the catch window and Hands timing are not touched). Early passes do not change at all.
+
+Intermediate passes drive differently: the same plays and yards happen, but the last play near the goal can now be an interception by the safety rather than an incomplete pass, and fewer drives end in a field goal; points per drive against an idle defender fell from 1.3 to 0.4 across the 14 sampled drives. This is a measured side effect, not a tuned target; it is not asserted by the suite.
+
+The balance suite (`balance/balance.test.ts`) is separate from the technical tests and checks invariants only: late deep passes score on fewer than 80% of drives against non-covering defenders yet complete over half their throws and can be intercepted; a covering defender stops them more; early and intermediate passes still complete over 70% against defenders that ignore them; slower defender reactions never help the defense; a drive and its mirror image give identical results; deep starting spots never score less than own-end ones; a regulation game takes 40-400 plays and 6-30 estimated minutes for each offense style; slow thinking cannot stretch the game clock. Removing the safety fails it (negative control).
+
+Remaining limitations: a late go pass against a defender who never switches to the ball is still the best play in the game (4.0 points per drive against 2.0 for early passes), because the scripted defenders are simple and a human defender who watches the throw can stop it; the balance numbers describe scripted players, not people.
