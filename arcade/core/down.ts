@@ -106,6 +106,14 @@ export const BLOCK_SLOW = 0.4;
 const BLOCK_SHIELD = 1.2;
 export const GO_CUSHION = -2;
 export const GO_REACT_TICKS = 36;
+/**
+ * On a passing play the fifth defender does not rush the quarterback: he plays a deep safety this many yards past the
+ * line, in the middle, so a receiver who beats his man still has someone ahead of him. He breaks on a pass that lands at
+ * least SAFETY_ZONE yards past the line once SAFETY_REACT_TICKS of the flight have gone, and chases any ball carrier.
+ */
+export const SAFETY_DEPTH = 26;
+export const SAFETY_ZONE = 20;
+export const SAFETY_REACT_TICKS = 24;
 const distance = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
 const player = (state: DownState, key: PlayerId) => state.players.find(p => p.id === key)!;
 export const firstDownMarker = (team: TeamId, line: number) => Math.max(10, Math.min(110, line + direction(team) * 10));
@@ -366,6 +374,10 @@ function stepPlay(state: DownState, inputs: Inputs): DownState {
             else
                 target = p.number === 3 || p.number === 4 ? route(state, p.id) : { x: carrier.x + direction(state.offense) * 3, y: carrier.y + (p.number === 5 ? 5 : -5) };
         }
+        else if (state.play !== 'rush' && p.number === 5 && carrier.number === 1 && state.ball.kind === 'held')
+            target = { x: state.line + direction(state.offense) * SAFETY_DEPTH, y: FIELD.width / 2 };
+        else if (state.play !== 'rush' && p.number === 5 && state.ball.kind === 'flight' && Math.abs(state.ball.to.x - state.line) >= SAFETY_ZONE)
+            target = state.ball.elapsed * 60 >= SAFETY_REACT_TICKS - 1e-9 ? state.ball.to : { x: state.line + direction(state.offense) * SAFETY_DEPTH, y: FIELD.width / 2 };
         else if (state.ball.kind === 'flight' && state.ball.target.endsWith(`-${p.number}`) && state.ball.elapsed * 60 >= (state.play === 'go' ? GO_REACT_TICKS : REACT_TICKS) - 1e-9)
             target = state.ball.to;
         else if (state.play !== 'rush' && (state.ball.kind === 'flight' || carrier.number === 1) && (p.number === 3 || p.number === 4)) {
