@@ -31,9 +31,12 @@ import { SPECIALIST_ROOKIE_OFFSET, expectedRookieOverall, projectedSlot } from "
  * How strongly a GM's season strategy leans on positions in the rookie draft (it was 0.75, against a
  * score whose need term sat at a floor). Need is a real term now: left at 0.75, an offense-heavy GM's
  * fantasy-draft roster was so stacked on offense that its rookie picks went to defense (22% offense in
- * rounds 1-3 against a defense-heavy GM's 64%). At 4 the strategies keep their character (67% against 28%).
+ * rounds 1-3 against a defense-heavy GM's 64%). Swept over 2, 3 and 4 on fresh and three-season leagues:
+ * 2 is too weak on fresh leagues (offense-heavy 50% against defense-heavy 42%), 4 is too strong on mature
+ * ones (a defense-heavy GM took 4% offense) and lowers the lineup gain; at 3 the strategies keep their
+ * character (fresh 54% against 32%, mature 76% against 12%) at the best draft quality of the three.
  */
-export const ROOKIE_STRATEGY_SCALE = 4;
+export const ROOKIE_STRATEGY_SCALE = 3;
 
 /**
  * The strategy's lean on a position for the next pick there: full for the first, half for the second,

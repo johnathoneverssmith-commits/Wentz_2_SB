@@ -5,6 +5,7 @@ import { projectionLabel } from "@/domain";
 import { SPECIALIST_ROOKIE_OFFSET } from "@/sim/draft-outcomes";
 import { AI_DIFFICULTY_LEVELS, difficultyProfile, difficultyProfileAt } from "./aiDifficulty.ts";
 import { effectiveRating, expectedRatings, rookieValue } from "./draftBoard.ts";
+import { strategyOf } from "./aiGms.ts";
 import { applyPick, beginDraft, bestAvailable, planAutopicks, readRookieBoard, runAiPicks } from "./rules.ts";
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 
@@ -250,8 +251,36 @@ describe("a whole rookie draft", () => {
       return picks.filter((p) => OFFENSE.has(p.position)).length / picks.length;
     };
     // same league, same rosters: only the strategy differs. (On rosters the strategies themselves built in a fantasy draft the
-    // gap is larger, about 40 points, but those rosters then also pull the other way through need.)
+    // gap is larger, but those rosters then also pull the other way through need.)
     expect(share("offense_heavy") - share("defense_heavy")).toBeGreaterThan(0.1);
+  });
+
+  it("does not reverse a strategy through the roster it built: offense-leaning GMs draft more offense than defense-heavy ones", () => {
+    // Rosters built by a fantasy draft, strategy and all: an offense-heavy GM's team is stacked on offense, and need pulls its
+    // rookie picks to defense. Left at the old 0.75, the strategy lost that tug of war and the two groups swapped (22% offense
+    // for offense-heavy against 64% for defense-heavy).
+    let offense = 0, offensePicks = 0, defense = 0, defensePicks = 0;
+    for (const seed of [25, 26]) {
+      const s = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+      for (const g of s.gms) g.isHuman = false;
+      s.stage = "fantasyDraft";
+      beginDraft(s, "fantasy");
+      runAiPicks(s);
+      s.draft = null;
+      s.stage = "offseasonDraft";
+      beginDraft(s, "rookie");
+      runAiPicks(s);
+      const byId = new Map(s.draftClass.map((p) => [p.id, p]));
+      for (const r of s.draft!.results.slice(0, 96)) {
+        const strategy = strategyOf(s, r.teamCode);
+        const isOffense = OFFENSE.has(byId.get(r.selectedId!)!.position);
+        if (strategy === "offense_heavy" || strategy === "pass_heavy" || strategy === "run_heavy") { offensePicks++; offense += Number(isOffense); }
+        else if (strategy === "defense_heavy") { defensePicks++; defense += Number(isOffense); }
+      }
+    }
+    expect(offensePicks).toBeGreaterThan(0);
+    expect(defensePicks).toBeGreaterThan(0);
+    expect(offense / offensePicks).toBeGreaterThan(defense / defensePicks);
   });
 
   it("is still credible at the easiest difficulty: its first-round picks are first- or second-round projections", () => {
