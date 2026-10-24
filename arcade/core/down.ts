@@ -82,16 +82,23 @@ export const CONTACT_RADIUS = FIELD.radius * 2;
 export const CATCH_RADIUS = 1.6;
 export const BREAKUP_RADIUS = 2.2;
 /** A covering defender holds his coverage this many ticks into a throw before breaking on the ball. */
-export const REACT_TICKS = 12;
+export const REACT_TICKS = 18;
+/** Route depths in yards past the line of scrimmage, by play and receiver number. */
+export const ROUTE_DEPTH = { slants: { 3: 10, 4: 18 }, go: { 3: 31, 4: 34 } } as const;
+/** Receivers are a touch quicker than defenders (50 against 45), and the ball leads them a bit further than a step. */
+export const RECEIVER_SPEED = 50;
+export const PASS_LEAD = 1.2;
+/** The two covering defenders line up this many yards past the line. */
+export const COVER_DEPTH = 20;
 /** Man coverage sits this far ahead of the receiver. */
-export const COVER_CUSHION = 5;
+export const COVER_CUSHION = 9;
 /** An offensive blocker this close to a defender has him engaged. */
 export const BLOCK_RADIUS = 1.8;
 /** An engaged defender, human or AI, moves at this fraction of his speed. */
 export const BLOCK_SLOW = 0.4;
 const BLOCK_SHIELD = 1.2;
-export const GO_CUSHION = -1;
-export const GO_REACT_TICKS = 30;
+export const GO_CUSHION = -2;
+export const GO_REACT_TICKS = 36;
 const distance = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
 const player = (state: DownState, key: PlayerId) => state.players.find(p => p.id === key)!;
 export const firstDownMarker = (team: TeamId, line: number) => Math.max(10, Math.min(110, line + direction(team) * 10));
@@ -123,9 +130,9 @@ function formation(team: TeamId, line: number, playNumber: number, play: Play, c
     const dir = direction(team), center = FIELD.width / 2;
     const players = createMatch().players.map(p => {
         const attacking = p.team === team;
-        const offsets = attacking ? [0, -2, 0, 0, -1] : [7, 12, 16, 16, 20];
+        const offsets = attacking ? [0, -2, 0, 0, -1] : [7, 12, COVER_DEPTH, COVER_DEPTH, 20];
         const lanes = attacking ? [center, center, center - 26 / 3, center + 26 / 3, center + 5] : [center, center, center - 26 / 3, center + 26 / 3, center - 8];
-        return { ...p, x: Math.max(FIELD.radius, Math.min(FIELD.length - FIELD.radius, line + dir * offsets[p.number - 1]!)), y: lanes[p.number - 1]!, human: p.number === 1 };
+        return { ...p, abilities: { speed: attacking && (p.number === 3 || p.number === 4) ? RECEIVER_SPEED : p.abilities.speed }, x: Math.max(FIELD.radius, Math.min(FIELD.length - FIELD.radius, line + dir * offsets[p.number - 1]!)), y: lanes[p.number - 1]!, human: p.number === 1 };
     });
     return { tick: 0, players, possession: { team, carrier: id(team, 1) }, offense: team, phase: 'pre-snap', play, playNumber, line, liveTicks: 0, terminalCount: 0, contestUntil: 0, ...carry, defender: id(opposite(team), 1), ball: { kind: 'held' }, result: null };
 }
@@ -161,7 +168,7 @@ export function contestPass(state: DownState, team: TeamId): DownState {
 /** Routes are world-space destinations. AI reads only the previous tick. */
 function route(state: DownState, key: PlayerId): Vector {
     const p = player(state, key), dir = direction(state.offense);
-    const depth = state.play === 'slants' ? (p.number === 3 ? 8 : 13) : (p.number === 3 ? 31 : 25);
+    const depth = ROUTE_DEPTH[state.play === 'go' ? 'go' : 'slants'][p.number === 3 ? 3 : 4];
     return { x: state.line + dir * depth, y: state.play === 'slants' ? FIELD.width / 2 : FIELD.width / 2 + (p.number === 3 ? -26 / 3 : 26 / 3) };
 }
 export function throwPass(state: DownState, target: 1 | 2, team = state.offense): DownState {
@@ -169,7 +176,7 @@ export function throwPass(state: DownState, target: 1 | 2, team = state.offense)
         return state;
     const receiver = player(state, id(state.offense, target + 2)), goal = route(state, receiver.id);
     const length = Math.max(1, distance(receiver, goal)), duration = 1;
-    const lead = Math.min(length, (4 + receiver.abilities.speed / 20) * duration);
+    const lead = Math.min(length, (4 + receiver.abilities.speed / 20) * duration * PASS_LEAD);
     const to = { x: receiver.x + (goal.x - receiver.x) / length * lead, y: receiver.y + (goal.y - receiver.y) / length * lead };
     const qb = player(state, state.possession.carrier);
     return { ...state, ball: { kind: 'flight', from: { x: qb.x, y: qb.y }, to, elapsed: 0, duration, target: receiver.id } };

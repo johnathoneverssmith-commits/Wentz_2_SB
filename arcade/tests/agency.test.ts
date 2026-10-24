@@ -9,8 +9,8 @@ function pass(defense: 'idle' | 'breakup' | 'hands', start = createDown()) {
     for (let tick = 0; s.phase === 'live' && s.ball.kind === 'flight' && tick < 100; tick++) {
         if (defense === 'hands' && tick === 40)
             s = contestPass(s, 'away');
-        // The landing point is up and to the left of Orange #1: hold Up+Left for 40 ticks (about 0.67 s), then stand.
-        s = stepDown(s, { home: zero, away: defense === 'idle' || tick >= 40 ? zero : { x: -1, y: -1 } });
+        // The landing point is above Orange #1: hold Up for 32 ticks (about 0.53 s), then stand.
+        s = stepDown(s, { home: zero, away: defense === 'idle' || tick >= 32 ? zero : { x: 0, y: -1 } });
     }
     return s;
 }
@@ -44,13 +44,13 @@ it('human pursuit stops the same rush sooner and offensive evasion gains more ya
 it('an expired hands attempt cannot intercept, but a well-timed one can', () => {
     let s = contestPass(throwPass(snap(choosePlay(createDown(), 'slants')), 1), 'away');
     for (let tick = 0; s.phase === 'live' && s.ball.kind === 'flight'; tick++)
-        s = stepDown(s, { home: zero, away: tick >= 40 ? zero : { x: -1, y: -1 } });
+        s = stepDown(s, { home: zero, away: tick >= 32 ? zero : { x: 0, y: -1 } });
     expect(s.result?.reason).toBe('incomplete');
     expect(pass('hands').result?.reason).toBe('interception');
 });
 it('AI covers the receiver, then breaks on the ball once it reacts, rather than continuing to chase the QB', () => {
     let s = snap(choosePlay(createDown(), 'go'));
-    for (let i = 0; i < 12; i++)
+    for (let i = 0; i < 32; i++)
         s = stepDown(s, idle);
     s = throwPass(s, 1);
     const point = s.ball.kind === 'flight' ? s.ball.to : zero;
