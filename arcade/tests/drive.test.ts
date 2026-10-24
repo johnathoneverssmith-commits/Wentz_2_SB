@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BREAKUP_RADIUS, CATCH_RADIUS, SAFETY_POINTS, TOUCHDOWN_POINTS, choosePlay, createDown, direction, lineUp, nextDown, situation, snap, stepDown, throwPass, type DownState } from '../core/down';
 import { STEP_SECONDS, type Inputs, type PlayerId } from '../core/simulation';
+import { CENTRE, kickAtTick } from './helpers';
 
 const zero = { x: 0, y: 0 };
 const idle: Inputs = { home: zero, away: zero };
@@ -129,16 +130,18 @@ describe('scoring', () => {
         for (let i = 0; i < 120; i++) s = stepDown(s, idle);
         expect(s).toBe(dead);
         const next = nextDown(dead);
-        expect(next.score).toEqual({ home: 6, away: 0 });
+        expect(next).toMatchObject({ phase: 'kick', score: { home: 6, away: 0 } });
         expect(nextDown(next)).toBe(next);
-        expect(stepDown(next, idle)).toBe(next);
+        let swinging = next;
+        for (let i = 0; i < 50; i++) swinging = stepDown(swinging, idle);
+        expect(swinging.score).toEqual({ home: 6, away: 0 });
         expect(next.terminalCount).toBe(dead.terminalCount);
     });
     it('after a score the other team gets the ball at its own 28, 1st and 10, attacking the other way', () => {
-        const home = nextDown(touchdown('home'));
+        const home = nextDown(kickAtTick(nextDown(touchdown('home')), CENTRE));
         expect(home).toMatchObject({ offense: 'away', line: 82, down: 1, firstDownLine: 72, phase: 'pre-snap', result: null });
         expect(home.possession).toEqual({ team: 'away', carrier: 'away-1' });
-        const away = nextDown(touchdown('away'));
+        const away = nextDown(kickAtTick(nextDown(touchdown('away')), CENTRE));
         expect(away).toMatchObject({ offense: 'home', line: 38, down: 1, firstDownLine: 48 });
     });
     it('a safety gives the defense two points and the ball back to the other side', () => {
@@ -176,7 +179,9 @@ describe('a drive from real play', () => {
             s = nextDown(s);
         }
         expect(firstDowns.length).toBeGreaterThanOrEqual(4);
-        expect(s.score).toEqual({ home: 6, away: 0 });
+        expect(s).toMatchObject({ phase: 'kick', score: { home: 6, away: 0 } });
+        s = nextDown(kickAtTick(s, CENTRE));
+        expect(s.score).toEqual({ home: 7, away: 0 });
         expect(s).toMatchObject({ offense: 'away', down: 1, line: 82 });
         expect(lines).toEqual([...lines].sort((a, b) => a - b));
     });

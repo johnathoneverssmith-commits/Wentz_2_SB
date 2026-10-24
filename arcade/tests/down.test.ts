@@ -2,6 +2,7 @@ import { encodeSave, decodeSave } from "../browser/save";
 import { expect, it } from "vitest";
 import { createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
 import type { Inputs, PlayerId } from "../core/simulation";
+import { CENTRE, kickAtTick } from './helpers';
 const idle: Inputs = { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } };
 const ticks = (state: DownState, n: number, inputs = idle) => {
     for (let i = 0; i < n; i++)
@@ -114,9 +115,10 @@ it('checks the lower end zone for an away offense, scores it once and gives the 
     expect(scored.result?.reason).toBe('touchdown');
     expect(scored.result?.touchdown).toBe(true);
     expect(scored.score).toEqual({ home: 0, away: 6 });
-    expect(nextDown(scored).line).toBe(38);
-    expect(nextDown(scored).offense).toBe('home');
-    expect(nextDown(scored).score).toEqual({ home: 0, away: 6 });
+    const kick = nextDown(scored);
+    expect(kick).toMatchObject({ phase: 'kick', kick: { kind: 'xp', team: 'away' }, score: { home: 0, away: 6 } });
+    const after = nextDown(kickAtTick(kick, CENTRE));
+    expect(after).toMatchObject({ line: 38, offense: 'home', score: { home: 0, away: 7 } });
 });
 it('a pass led beyond the field is actually incomplete in an unmodified route', () => {
     let live = isolated(snap(choosePlay(createDown(), 'go')));
