@@ -222,6 +222,16 @@ describe('pass boundaries', () => {
         expect(resolve(place(open, 'away-3', to.x + BREAKUP_RADIUS - 0.3, to.y)).phase).toBe('dead');
         expect(resolve(place(open, 'away-3', to.x + BREAKUP_RADIUS + 0.4, to.y)).possession.carrier).toBe('home-3');
     });
+    it('the break-up radius is fixed: a receiver a little off the circle does not widen it', () => {
+        const { base, to } = arrival();
+        const off = place(base, 'home-3', to.x - (CATCH_RADIUS - 0.3), to.y);
+        // A defender 3.2 yards the other side of the circle is outside 2.2 yards and cannot spoil the catch.
+        const caught = resolve(place(off, 'away-3', to.x + 3.2, to.y));
+        expect(caught.phase).toBe('live');
+        expect(caught.possession.carrier).toBe('home-3');
+        // Inside 2.2 yards of the circle he still can.
+        expect(resolve(place(off, 'away-3', to.x + BREAKUP_RADIUS - 0.3, to.y)).result?.reason).toBe('incomplete');
+    });
     it('nobody far from the landing point can intercept', () => {
         const { base, to } = arrival();
         const open = place(base, 'home-3', to.x, to.y);

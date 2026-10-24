@@ -56,6 +56,7 @@ test('an offense that goes nowhere hands the ball over on downs after four plays
         if (down < 4) await nextDown(page);
     }
     expect(await text(page, 'headline')).toBe('Turnover on downs');
+    expect(await text(page, 'result'), 'a failed fourth down is a turnover on screen').toContain('Turnover: Yes');
     expect(await text(page, 'next-situation')).toBe('Next: Foxes ball, 1st & 10.0');
     await nextDown(page);
     expect(await text(page, 'situation')).toBe('1st & 10.0');

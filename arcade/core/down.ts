@@ -170,20 +170,19 @@ function blocking(state: DownState, carrier: ArcadePlayer): { readonly assignmen
     const threats = state.players.filter(p => p.team !== state.offense).sort((a, b) => distance(a, carrier) - distance(b, carrier) || a.id.localeCompare(b.id));
     const assignments = new Map<PlayerId, ArcadePlayer>();
     blockers.forEach((b, i) => { if (threats[i]) assignments.set(b.id, threats[i]!); });
+    // Only a blocker's own assignment is held, and only while the two are within blocking range.
     const slow = new Map<PlayerId, number>();
-    for (const d of threats)
-        if (blockers.some(b => distance(b, d) <= BLOCK_RADIUS))
+    for (const b of blockers) {
+        const d = assignments.get(b.id);
+        if (d && distance(b, d) <= BLOCK_RADIUS)
             slow.set(d.id, BLOCK_SLOW);
+    }
     return { assignments, slow };
 }
 /** Blocker/defender pairs currently engaged (for the on-screen bars; the same test slows the defender). */
 export function engagements(state: DownState): { readonly blocker: PlayerId; readonly defender: PlayerId }[] {
-    const carrier = player(state, state.possession.carrier), out: { blocker: PlayerId; defender: PlayerId }[] = [];
-    for (const b of state.players.filter(p => p.team === state.offense && p.id !== carrier.id && !p.human && blockerNumbers(state.play).includes(p.number)))
-        for (const d of state.players.filter(p => p.team !== state.offense))
-            if (distance(b, d) <= BLOCK_RADIUS)
-                out.push({ blocker: b.id, defender: d.id });
-    return out;
+    const { assignments } = blocking(state, player(state, state.possession.carrier));
+    return [...assignments].filter(([b, d]) => distance(player(state, b), d) <= BLOCK_RADIUS).map(([blocker, d]) => ({ blocker, defender: d.id }));
 }
 export function stepDown(state: DownState, inputs: Inputs): DownState {
     if (state.phase !== 'live')
@@ -221,7 +220,7 @@ export function stepDown(state: DownState, inputs: Inputs): DownState {
             // Position decides. A receiver wins the ball cleanly only with BREAKUP_RADIUS to spare over the nearest
             // defender; a defender inside CATCH_RADIUS intercepts (a human defender also needs Hands), otherwise he breaks it up.
             const receiver = player(moved, ball.target), rd = distance(receiver, ball.to);
-            const contesting = moved.players.filter(p => p.team !== state.offense && distance(p, ball.to) <= BREAKUP_RADIUS + rd)
+            const contesting = moved.players.filter(p => p.team !== state.offense && distance(p, ball.to) <= BREAKUP_RADIUS)
                 .sort((a, b) => distance(a, ball.to) - distance(b, ball.to) || a.id.localeCompare(b.id));
             const interceptor = contesting.find(p => distance(p, ball.to) <= CATCH_RADIUS && (!p.human || state.contestUntil >= moved.tick));
             if (interceptor)
