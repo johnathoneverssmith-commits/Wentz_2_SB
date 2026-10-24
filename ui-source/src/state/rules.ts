@@ -65,7 +65,8 @@ import {
   strategyNeedAdjustment,
   strategyPositionBonus,
 } from "./aiStrategy.ts";
-import { deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { effectiveByPosition, expectedRatings, rookieValue, strategyScaleFor } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
@@ -324,6 +325,38 @@ export function draftValue(overall: number, position: Position): number {
   return overall + POSITION_VALUE[position];
 }
 
+/**
+ * The rookie board as one team's GM reads it: every prospect's expected rating
+ * (public data only, at that GM's scouting accuracy) and the team's incumbents
+ * by position as next season's effective ratings, counting its own picks in
+ * this draft at their expected rating. See `draftBoard.ts`.
+ */
+export function readRookieBoard(
+  s: LeagueState,
+  teamCode: string | undefined,
+  difficulty: AiDifficultyProfile,
+): { expected: Map<string, number>; carried: Map<Position, number[]>; drafted: Map<Position, number> } {
+  const expected = expectedRatings(s.draftClass, difficulty.scoutingAccuracy);
+  const drafted = new Map<Position, number>();
+  const incumbents: { position: Position; overall: number; age: number; yearsLeft: number }[] = [];
+  if (teamCode) {
+    for (const p of Object.values(s.players)) {
+      if (p.retired || p.nfl_team !== teamCode) continue;
+      incumbents.push({ position: p.position, overall: p.overall, age: p.age, yearsLeft: p.contract?.years_remaining ?? 0 });
+    }
+  }
+  const carried = effectiveByPosition(incumbents, difficulty.longTermWeight);
+  if (teamCode) {
+    for (const pk of draftedThisDraft(s).get(teamCode) ?? []) {
+      const l = carried.get(pk.position);
+      if (l) l.push(expected.get(pk.id)!);
+      else carried.set(pk.position, [expected.get(pk.id)!]);
+      drafted.set(pk.position, (drafted.get(pk.position) ?? 0) + 1);
+    }
+  }
+  return { expected, carried, drafted };
+}
+
 export function bestAvailable(s: LeagueState): string | null {
   const d = s.draft!;
   const teamCode = d.pickOrder[d.currentPickIndex];
@@ -350,22 +383,19 @@ export function bestAvailable(s: LeagueState): string | null {
   // what the team already carries at each position — the same lists
   // `planAutopicks` keeps, so a pick that would only be cut is penalised alike
   const carried = new Map<Position, number[]>();
-  if (teamCode) {
+  if (teamCode && d.mode !== "rookie") {
     for (const p of Object.values(s.players)) {
       if (p.retired || p.nfl_team !== teamCode) continue;
       const l = carried.get(p.position);
       if (l) l.push(p.overall);
       else carried.set(p.position, [p.overall]);
     }
-    if (d.mode === "rookie") {
-      for (const pk of draftedThisDraft(s).get(teamCode) ?? []) {
-        const l = carried.get(pk.position);
-        if (l) l.push(pk.collegeOverall);
-        else carried.set(pk.position, [pk.collegeOverall]);
-      }
-    }
   }
   const waste = surplusPenalties((pos) => carried.get(pos) ?? []);
+  // The rookie draft reads the board as a scout does, on the league's rating
+  // scale and from public data only (`draftBoard.ts`); `planAutopicks` builds
+  // the same thing incrementally.
+  const rookieBoard = d.mode === "rookie" ? readRookieBoard(s, teamCode, difficulty) : null;
   // Master only: what the candidate adds to this team's units — read from
   // exactly what `planAutopicks` keeps (roster by position, plus this rookie
   // draft's own picks) so the two paths still pick identically
@@ -389,17 +419,17 @@ export function bestAvailable(s: LeagueState): string | null {
       count(p.nfl_team, p.position);
       if (p.nfl_team === teamCode) push(p.position, p.overall);
     }
-    if (d.mode === "rookie") {
+    if (rookieBoard) {
       for (const [team, picks] of draftedThisDraft(s)) {
         for (const pk of picks) {
           count(team, pk.position);
-          if (team === teamCode) push(pk.position, pk.collegeOverall);
+          if (team === teamCode) push(pk.position, rookieBoard.expected.get(pk.id)!);
         }
       }
     }
     const board =
-      d.mode === "rookie"
-        ? s.draftClass.filter((x) => !taken.has(x.id)).map((x) => ({ position: x.position, overall: x.collegeOverall }))
+      rookieBoard
+        ? s.draftClass.filter((x) => !taken.has(x.id)).map((x) => ({ position: x.position, overall: rookieBoard.expected.get(x.id)! }))
         : Object.values(s.players)
             .filter((x) => !taken.has(x.id) && !x.retired)
             .map((x) => ({ position: x.position, overall: x.overall }));
@@ -421,11 +451,17 @@ export function bestAvailable(s: LeagueState): string | null {
   // first-max scan == stable sort's [0]: ties keep the earliest candidate
   let bestId: string | null = null;
   let bestScore = -Infinity;
-  if (d.mode === "rookie") {
+  if (rookieBoard) {
     const untaken = s.draftClass.filter((x) => !taken.has(x.id));
     const youngestAge = Math.min(...untaken.map((x) => x.age));
     const baseScore = (x: (typeof untaken)[number]): number =>
-      x.collegeOverall + need(x.position) * difficulty.needAwareness - waste(x.position, x.collegeOverall);
+      rookieValue({
+        expected: rookieBoard.expected.get(x.id)!,
+        position: x.position,
+        carried: rookieBoard.carried.get(x.position) ?? [],
+        needAwareness: difficulty.needAwareness,
+        draftedHere: rookieBoard.drafted.get(x.position) ?? 0,
+      });
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
     for (const x of shortlist) {
       const noise =
@@ -434,9 +470,9 @@ export function bestAvailable(s: LeagueState): string | null {
           : deterministicNoiseUnit(teamCode ?? "", s.season, "draft", x.id, pickIndex) * difficulty.rookieEvaluationNoise;
       let score =
         baseScore(x) +
-        strategyPositionBonus(strategy, x.position, 0.75) +
+        strategyPositionBonus(strategy, x.position, strategyScaleFor(rookieBoard.drafted.get(x.position) ?? 0)) +
         strategyEliteBonus(strategy, x.collegeOverall) +
-        unitTerm(x.position, x.collegeOverall) +
+        unitTerm(x.position, rookieBoard.expected.get(x.id)!) +
         noise;
       if (strategy === "high_ceiling" && x.age === youngestAge) score += 1;
       if (score > bestScore) {
@@ -520,11 +556,21 @@ export function planAutopicks(s: LeagueState): string[] {
   for (const p of Object.values(s.players)) {
     if (!p.retired) groupFor(p.nfl_team, p.position).push(p.overall);
   }
+  // Rookie draft: each team's board as its own GM reads it (public data only, at
+  // that GM's scouting accuracy), kept current as picks are planned. The same
+  // thing `bestAvailable` builds for the one team on the clock. See `draftBoard.ts`.
+  const boards = new Map<string, ReturnType<typeof readRookieBoard>>();
+  const boardOf = (team: string | undefined) => {
+    const key = team ?? "";
+    let b = boards.get(key);
+    if (!b) boards.set(key, (b = readRookieBoard(s, team, team ? difficultyFor(s, team) : difficultyProfile("expert"))));
+    return b;
+  };
   // A rookie pick isn't on the roster until it signs, so a team's own picks
   // in this draft are counted toward its need here — see `draftedThisDraft`.
   if (rookie) {
     for (const [team, picks] of draftedThisDraft(s)) {
-      for (const pk of picks) groupFor(team, pk.position).push(pk.collegeOverall);
+      for (const pk of picks) groupFor(team, pk.position).push(boardOf(team).expected.get(pk.id)!);
     }
   }
   const needOf = (team: string | undefined, pos: Position): number => {
@@ -560,8 +606,12 @@ export function planAutopicks(s: LeagueState): string[] {
     const isAi = !!teamCode && isAiTeam(s, teamCode);
     const strategy = teamCode ? strategyOf(s, teamCode) : "balanced";
     const difficulty = teamCode ? difficultyFor(s, teamCode) : difficultyProfile("expert");
-    const posScale = rookie ? 0.75 : 1;
+    const posScale = 1;
     const noiseScale = rookie ? difficulty.rookieEvaluationNoise : difficulty.evaluationNoise;
+    const board = rookie ? boardOf(teamCode) : null;
+    // the rating a candidate is valued at: his expected rookie rating in the
+    // rookie draft, his own in the fantasy draft
+    const valueOf = (c: { id: string; overall: number }): number => (board ? board.expected.get(c.id)! : c.overall);
     // Master only: what the candidate adds to this team's units
     let units: ((pos: string, value: number) => number) | null = null;
     if (difficulty.unitAwareness > 0 && teamCode) {
@@ -569,9 +619,11 @@ export function planAutopicks(s: LeagueState): string[] {
       for (const c of bestFirst) {
         if (taken.has(c.id)) continue;
         const l = availByPos.get(c.position);
-        if (l) l.push(c.overall);
-        else availByPos.set(c.position, [c.overall]);
+        if (l) l.push(valueOf(c));
+        else availByPos.set(c.position, [valueOf(c)]);
       }
+      // best first, which `replacementLevels` reads by rank
+      if (board) for (const l of availByPos.values()) l.sort((a, b) => b - a);
       const replacement = replacementLevels(
         leagueTeams,
         (pos) => availByPos.get(pos) ?? [],
@@ -606,10 +658,15 @@ export function planAutopicks(s: LeagueState): string[] {
     const untaken = fitting;
     const waste = surplusPenalties((pos) => (teamCode ? rosters.get(teamCode)?.get(pos) : undefined) ?? []);
     const baseScore = (c: (typeof untaken)[number]): number =>
-      (rookie
-        ? c.overall + need(c.position) * difficulty.needAwareness
-        : draftValue(c.overall, c.position) + need(c.position) * difficulty.needAwareness) -
-      waste(c.position, c.overall);
+      board
+        ? rookieValue({
+            expected: board.expected.get(c.id)!,
+            position: c.position,
+            carried: board.carried.get(c.position) ?? [],
+            needAwareness: difficulty.needAwareness,
+            draftedHere: board.drafted.get(c.position) ?? 0,
+          })
+        : draftValue(c.overall, c.position) + need(c.position) * difficulty.needAwareness - waste(c.position, c.overall);
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
 
     // a GM whose clock ran out gets their own stars first, in order
@@ -622,9 +679,9 @@ export function planAutopicks(s: LeagueState): string[] {
       const noise = noiseScale === 0 ? 0 : deterministicNoiseUnit(teamCode ?? "", s.season, "draft", c.id, i) * noiseScale;
       let score =
         baseScore(c) +
-        strategyPositionBonus(strategy, c.position, posScale) +
+        strategyPositionBonus(strategy, c.position, board ? strategyScaleFor(board.drafted.get(c.position) ?? 0) : posScale) +
         strategyEliteBonus(strategy, c.overall) +
-        unitTerm(c.position, c.overall) +
+        unitTerm(c.position, valueOf(c)) +
         noise;
       if (rookie) {
         if (strategy === "high_ceiling" && c.age === youngestRookieAge) score += 1;
@@ -649,9 +706,16 @@ export function planAutopicks(s: LeagueState): string[] {
     // a fantasy pick moves the player onto the picking team; a rookie pick
     // doesn't touch `players` until the signing stage, but it still fills
     // the need it was drafted for
-    if (rookie && teamCode) {
+    if (rookie && teamCode && board) {
       const c = byId.get(bestId);
-      if (c) groupFor(teamCode, c.position).push(c.overall);
+      if (c) {
+        const rating = board.expected.get(bestId)!;
+        groupFor(teamCode, c.position).push(rating);
+        const l = board.carried.get(c.position);
+        if (l) l.push(rating);
+        else board.carried.set(c.position, [rating]);
+        board.drafted.set(c.position, (board.drafted.get(c.position) ?? 0) + 1);
+      }
     }
     if (!rookie && teamCode) {
       const c = byId.get(bestId);

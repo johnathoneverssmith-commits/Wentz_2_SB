@@ -37,6 +37,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
           `${DRAFT_ROUNDS} rounds, the teams that missed the playoffs pick first, worst record first, then the playoff teams by the round they went out in, with the Super Bowl champion last, and picks can be traded. A team that lets a free agent walk and sees him sign for real money elsewhere can earn a compensatory pick (rounds three to seven, at most four a team), which comes after the regular picks of its round.`,
           "You pick by hand for the number of rounds your league sets (the league setting \"Rookie draft rounds by hand\", changed at the start of each offseason). After those rounds your staff makes your remaining picks, and the CPU teams were never by hand.",
           "The Star on a prospect marks him as a target. On the clock, the room suggests the best target still on the board; nobody else sees your stars online.",
+          "CPU GMs read the board the way you can: from the projection the room shows, never the hidden overall. Each weighs a prospect against the lineup he would join, slot by slot, with the age and contract of the player he would replace, and each pick at a position makes the next one there less likely. A GM's difficulty sets how much of the board it reads, and its strategy still leans its picks. Without a target, the room's suggestion is the same read, at Expert.",
         ],
       },
       {
