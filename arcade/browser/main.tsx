@@ -13,7 +13,7 @@ function initialClock() {
     const fresh = createClock();
     try {
         const saved = decodeSave(localStorage.getItem(SAVE_KEY));
-        return saved ? { ...fresh, match: saved, paused: saved.phase === 'live' || (saved.phase === 'kick' && saved.kick?.good === null) } : fresh;
+        return saved ? { ...fresh, match: saved, paused: saved.phase === 'live' || (saved.phase === 'kick' && saved.kick?.good === null) || ((saved.phase === 'dead' || saved.phase === 'pre-snap') && saved.mode === 'regulation' && saved.gap > 0 && saved.clock > 0) } : fresh;
     }
     catch {
         return fresh;
@@ -122,7 +122,8 @@ function Sandbox() {
     const periodName = (d: DownState) => d.mode === 'overtime' ? 'Overtime' : `Q${d.quarter}`;
     const kickHeadline = !kick ? '' : kick.good === null ? `${kick.kind === 'xp' ? 'Extra point' : 'Field goal'} — ${names[kick.team]}: stop the meter in the green` : kick.good ? (kick.kind === 'xp' ? `Extra point is good! ${names[kick.team]} +${EXTRA_POINT_POINTS}` : `Field goal is good! ${names[kick.team]} +${FIELD_GOAL_POINTS}`) : (kick.kind === 'xp' ? 'Extra point is no good' : 'Field goal is no good');
     const headline = state.phase === 'final' ? `Final: ${names[state.winner as 'home' | 'away']} win` : state.phase === 'kick' ? kickHeadline : !result ? 'Choose your play' : result.touchdown ? `Touchdown! ${names[state.offense]} +${TOUCHDOWN_POINTS}` : result.reason === 'safety' ? `Safety! ${names[opposite(state.offense)]} +${SAFETY_POINTS}` : result.reason === 'interception' ? 'Intercepted!' : result.turnoverOnDowns ? 'Turnover on downs' : result.firstDown ? 'First down!' : result.reason === 'incomplete' ? 'Incomplete pass' : `Play ended: ${result.reason}`;
-    const clockNote = state.expired ? (state.quarter === 2 ? 'Time: halftime follows this play' : state.quarter === 4 ? 'Time: the game ends after this play' : 'Time: the quarter ends after this play') : '';
+    const waiting = (state.phase === 'pre-snap' || state.phase === 'dead') && state.mode === 'regulation';
+    const clockNote = state.expired ? (state.phase === 'pre-snap' ? 'Time: the next snap ends the quarter' : state.quarter === 2 ? 'Time: halftime follows this play' : state.quarter === 4 ? 'Time: the game ends after this play' : 'Time: the quarter ends after this play') : waiting ? (state.gap > 0 ? `Clock running: ${Math.ceil(state.gap / 60)} s of between-play time left` : 'Clock stopped until the snap') : '';
     const detail = state.phase === 'kick' ? (kick!.good === null ? `${kick!.distance}-yard attempt · ${names[kick!.team]} press ${kick!.team === 'home' ? 'G' : "'"} to kick` : `${kick!.distance}-yard attempt · meter locked at ${kick!.lockedAt} of ${kick!.good ? 'a good window' : 'a missed window'}`) : state.phase === 'final' ? `${names.home} ${state.score.home} – ${state.score.away} ${names.away}` : result ? `${names[state.offense]}: ${result.yards.toFixed(1)} offensive yards · Turnover: ${result.turnover || result.turnoverOnDowns ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`;
     const nextLine = !preview ? '' : preview.phase === 'final' ? `Final: ${`${names[preview.winner as 'home' | 'away']} win`}` : preview.phase === 'kick' ? `Next: ${names[preview.kick!.team]} kick the extra point` : `Next: ${names[preview.offense]} ball, ${down(preview)}${preview.mode !== state.mode ? ' · overtime begins' : preview.quarter !== state.quarter ? ` · ${preview.quarter === 3 ? 'second half' : `Q${preview.quarter}`} begins` : ''}`;
     const kicking = state.phase === 'kick', over = state.phase === 'final';

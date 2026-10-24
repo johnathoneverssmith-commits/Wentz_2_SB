@@ -3,6 +3,14 @@ import { direction, kickBall, nextDown, snap, stepDown, type DownState } from '.
 import { KICK_PERIOD_TICKS } from '../core/kick';
 import type { Inputs, PlayerId } from '../core/simulation';
 
+/** Between plays only the clock may move: nothing about the play, the score or the players changes. */
+export const withoutClock = (s: DownState): DownState => ({ ...s, clock: 0, gap: 0, expired: false });
+export function expectOnlyClockMoved(after: DownState, before: DownState) {
+    expect(withoutClock(after)).toEqual(withoutClock(before));
+    expect(after.clock).toBeLessThanOrEqual(before.clock);
+    expect(after.gap).toBeLessThanOrEqual(before.gap);
+}
+
 export const zero = { x: 0, y: 0 };
 export const idle: Inputs = { home: zero, away: zero };
 export const MID = 26.66666666665;

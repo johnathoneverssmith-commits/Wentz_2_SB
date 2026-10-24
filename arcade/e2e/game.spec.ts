@@ -88,7 +88,7 @@ test.describe('field goals and extra points', () => {
 });
 
 test.describe('quarters, halftime, overtime and the final score', () => {
-    test('the game clock moves only while a play is live: not when paused, between downs, during a kick or across a reload', async ({ page }) => {
+    test('the game clock moves only while a play is live or inside the six-second allowance: never paused, across a reload, or after the allowance', async ({ page }) => {
         await startClocked(page, lineUp('home', 40, { game: { clock: 6000 } }));
         await page.keyboard.press('Enter');
         await page.keyboard.down('KeyD');
@@ -114,10 +114,12 @@ test.describe('quarters, halftime, overtime and the final score', () => {
         expect(dead.phase).toBe('dead');
         expect(dead.clock).toBeLessThan(paused.clock);
         await page.clock.runFor(10_000);
-        expect((await saved(page)).clock, 'a finished down does not run the clock').toBe(dead.clock);
+        const waited = await saved(page);
+        expect(dead.clock - waited.clock, 'after a play the clock runs for the six-second allowance and no longer').toBe(dead.gap);
+        expect(waited.gap).toBe(0);
         await nextDown(page);
         await page.clock.runFor(10_000);
-        expect((await saved(page)).clock, 'the next snap waits for the players').toBe(dead.clock);
+        expect((await saved(page)).clock, 'the next snap waits for the players once the allowance is used').toBe(waited.clock);
     });
     test('the kick meter does not run the clock either', async ({ page }) => {
         await startClocked(page, lineUp('home', 100, { down: 4, game: { clock: 4000 } }));

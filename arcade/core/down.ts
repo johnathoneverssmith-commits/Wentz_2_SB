@@ -31,6 +31,12 @@ export const TOUCHDOWN_POINTS = 6;
 export const SAFETY_POINTS = 2;
 /** Game time is simulation time: a quarter is three minutes of live play, one clock tick per 1/60-second simulation tick. */
 export const QUARTER_TICKS = 3 * 60 * 60;
+/**
+ * Between plays the clock keeps running, but only for this long (six game seconds) while the players choose and snap; once
+ * it is used up the clock waits for the snap, however long that takes. A play that ends starts a fresh allowance; menu
+ * actions, switching defenders and choosing a play never do.
+ */
+export const BETWEEN_PLAY_TICKS = 6 * 60;
 export type GameMode = 'regulation' | 'overtime' | 'final';
 export interface KickState {
     readonly kind: 'xp' | 'fg';
@@ -50,8 +56,10 @@ export interface DownState extends MatchSnapshot {
     readonly quarter: number;
     /** Simulation ticks of live play left in the quarter (60 per second). */
     readonly clock: number;
-    /** The quarter's clock ran out during a play: it finishes, then the quarter ends. */
+    /** The quarter's clock ran out: any play in progress finishes, then the quarter ends. */
     readonly expired: boolean;
+    /** Ticks of between-play clock still available before the next snap (0 = the clock is waiting for the snap). */
+    readonly gap: number;
     readonly mode: GameMode;
     /** The team that took the opening possession; the other team receives the second half. */
     readonly openingTeam: TeamId;
@@ -118,13 +126,14 @@ interface Carry {
     readonly quarter: number;
     readonly clock: number;
     readonly expired: boolean;
+    readonly gap: number;
     readonly mode: GameMode;
     readonly openingTeam: TeamId;
     readonly overtime: { readonly first: TeamId; readonly possessions: number };
     readonly winner: TeamId | null;
     readonly kick: KickState | null;
 }
-const freshGame = (score: Score = { home: 0, away: 0 }): Omit<Carry, 'down' | 'firstDownLine'> => ({ score, quarter: 1, clock: QUARTER_TICKS, expired: false, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null });
+const freshGame = (score: Score = { home: 0, away: 0 }): Omit<Carry, 'down' | 'firstDownLine'> => ({ score, quarter: 1, clock: QUARTER_TICKS, expired: false, gap: 0, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null });
 function formation(team: TeamId, line: number, playNumber: number, play: Play, carry: Carry): DownState {
     const dir = direction(team), center = FIELD.width / 2;
     const players = createMatch().players.map(p => {
@@ -147,6 +156,9 @@ function controls(state: DownState): DownState {
 export function snap(state: DownState): DownState {
     if (state.phase !== 'pre-snap')
         return state;
+    // The clock ran out while the players were choosing: the snap the next play would take starts the next period instead.
+    if (state.expired && state.mode === 'regulation')
+        return proceed(state, { team: state.offense, line: state.line, down: state.down, firstDownLine: state.firstDownLine, ended: false });
     if (state.play === 'fieldgoal')
         return fieldGoalInRange(state) ? { ...state, phase: 'kick', kick: kickSpec(state, 'fg') } : state;
     const carrier = id(state.offense, state.play === 'rush' ? 2 : 1), qb = player(state, id(state.offense, 1));
@@ -193,7 +205,7 @@ function finish(state: DownState, reason: EndReason): DownState {
     const turnoverOnDowns = ordinary && !firstDown && state.down >= 4;
     const score = touchdown ? { ...state.score, [state.offense]: state.score[state.offense] + TOUCHDOWN_POINTS }
         : safety ? { ...state.score, [opposite(state.offense)]: state.score[opposite(state.offense)] + SAFETY_POINTS } : state.score;
-    return { ...state, phase: 'dead', terminalCount: state.terminalCount + 1, score, ball: { kind: 'held' }, result: { playNumber: state.playNumber, reason, yards, turnover: interception || safety, touchdown, firstDown, turnoverOnDowns } };
+    return { ...state, phase: 'dead', gap: BETWEEN_PLAY_TICKS, terminalCount: state.terminalCount + 1, score, ball: { kind: 'held' }, result: { playNumber: state.playNumber, reason, yards, turnover: interception || safety, touchdown, firstDown, turnoverOnDowns } };
 }
 const kickSpec = (state: DownState, kind: 'xp' | 'fg'): KickState => {
     const yardsToGoal = state.offense === 'home' ? 110 - state.line : state.line - 10;
@@ -203,7 +215,7 @@ const kickSpec = (state: DownState, kind: 'xp' | 'fg'): KickState => {
 export const fieldGoalInRange = (state: DownState): boolean => kickSpec(state, 'fg').distance <= FIELD_GOAL_MAX_DISTANCE;
 /** A missed field goal gives the ball to the other team where it was snapped, but no deeper than their own 20. */
 const missedFieldGoalSpot = (team: TeamId, spot: number) => team === 'home' ? Math.min(spot, 90) : Math.max(spot, 30);
-const fullClock = { clock: QUARTER_TICKS, expired: false };
+const fullClock = { clock: QUARTER_TICKS, expired: false, gap: 0 };
 function final(state: DownState, winner: TeamId): DownState {
     return { ...state, phase: 'final', mode: 'final', winner, kick: null, expired: false };
 }
@@ -221,7 +233,7 @@ interface Next {
  */
 function proceed(state: DownState, next: Next): DownState {
     let { team, line, down, firstDownLine } = next;
-    let game = { quarter: state.quarter, clock: state.clock, expired: state.expired, mode: state.mode, overtime: state.overtime };
+    let game = { quarter: state.quarter, clock: state.clock, expired: state.expired, gap: state.gap, mode: state.mode, overtime: state.overtime };
     const fresh = (t: TeamId) => { team = t; line = ownTwentyEight(t); down = 1; firstDownLine = firstDownMarker(t, line); };
     if (game.mode === 'overtime') {
         if (next.ended) {
@@ -241,7 +253,7 @@ function proceed(state: DownState, next: Next): DownState {
         else if (game.quarter === 4) {
             if (state.score.home !== state.score.away)
                 return final(state, state.score.home > state.score.away ? 'home' : 'away');
-            game = { quarter: 5, clock: 0, expired: false, mode: 'overtime', overtime: { ...state.overtime, possessions: 0 } };
+            game = { quarter: 5, clock: 0, expired: false, gap: 0, mode: 'overtime', overtime: { ...state.overtime, possessions: 0 } };
             fresh(game.overtime.first);
         }
         else
@@ -322,6 +334,13 @@ export function stepDown(state: DownState, inputs: Inputs): DownState {
         const ticks = k.ticks + 1;
         const moving = { ...state, kick: { ...k, ticks } };
         return ticks >= KICK_MAX_TICKS ? resolveKick(moving, ticks) : moving;
+    }
+    if (state.phase === 'dead' || state.phase === 'pre-snap') {
+        // Awaiting the next snap: the clock runs for the rest of the six-second allowance and then waits.
+        if (state.mode !== 'regulation' || state.gap <= 0 || state.clock <= 0)
+            return state;
+        const clock = state.clock - 1;
+        return { ...state, clock, gap: state.gap - 1, expired: state.expired || clock === 0 };
     }
     if (state.phase !== 'live')
         return state;

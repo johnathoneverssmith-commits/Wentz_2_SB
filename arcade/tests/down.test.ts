@@ -2,7 +2,7 @@ import { encodeSave, decodeSave } from "../browser/save";
 import { expect, it } from "vitest";
 import { lineUp, createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
 import type { Inputs, PlayerId } from "../core/simulation";
-import { CENTRE, kickAtTick } from './helpers';
+import { CENTRE, expectOnlyClockMoved, kickAtTick } from './helpers';
 const idle: Inputs = { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } };
 const ticks = (state: DownState, n: number, inputs = idle) => {
     for (let i = 0; i < n; i++)
@@ -74,7 +74,7 @@ it("contact tackles exactly once and terminal snapshots cannot simulate again", 
     const state = place(snap(createDown()), "away-1", 38, 26.66666666665);
     const dead = stepDown(state, idle);
     expect(dead.result).toMatchObject({ reason: "tackle", yards: 0 });
-    expect(ticks(dead, 100)).toBe(dead);
+    expectOnlyClockMoved(ticks(dead, 100), dead);
     expect(snap(dead)).toBe(dead);
     expect(throwPass(dead, 1)).toBe(dead);
     const next = nextDown(dead);
@@ -88,7 +88,7 @@ it.each([{ x: 109.99, y: 26, reason: "touchdown", td: true }, { x: 50, y: 0.91, 
     const dead = stepDown(state, { ...idle, home: { x: reason === "safety" ? -1 : 1, y: reason === "out-of-bounds" ? -1 : 0 } });
     expect(dead.result?.reason).toBe(reason);
     expect(dead.result?.touchdown).toBe(td);
-    expect(ticks(dead, 3)).toBe(dead);
+    expectOnlyClockMoved(ticks(dead, 3), dead);
 });
 it("times out an abandoned play and deterministic replay has identical results", () => {
     const a = ticks(snap(createDown()), 1000), b = ticks(snap(createDown()), 1000);

@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { DownState } from '../core/down';
+import { withoutClock } from './helpers';
 const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse(localStorage.getItem('wentz.arcade.down.v1')!).state);
 const field = (page: Page) => page.getByRole('img', { name: /Football field/ });
 test.beforeEach(async ({ page }) => {
@@ -23,7 +24,7 @@ test('a real handoff lets both humans move, tackle and begin the next down', asy
     expect(dead.result?.turnover).toBe(false);
     await expect(page.getByTestId('result')).toHaveText(`Bluebirds: ${dead.result!.yards.toFixed(1)} offensive yards · Turnover: No · Touchdown: No`);
     await page.waitForTimeout(150);
-    expect(await saved(page)).toEqual(dead);
+    expect(withoutClock(await saved(page))).toEqual(withoutClock(dead));
     await page.getByRole('button', { name: 'Next down', exact: true }).click();
     await expect(page.getByText('Play 2 · Bluebirds ball', { exact: false })).toBeVisible();
     const next = await saved(page);

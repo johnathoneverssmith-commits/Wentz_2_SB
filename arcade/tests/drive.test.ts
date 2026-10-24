@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BREAKUP_RADIUS, CATCH_RADIUS, SAFETY_POINTS, TOUCHDOWN_POINTS, choosePlay, createDown, direction, lineUp, nextDown, situation, snap, stepDown, throwPass, type DownState } from '../core/down';
 import { STEP_SECONDS, type Inputs, type PlayerId } from '../core/simulation';
-import { CENTRE, kickAtTick } from './helpers';
+import { CENTRE, expectOnlyClockMoved, kickAtTick } from './helpers';
 
 const zero = { x: 0, y: 0 };
 const idle: Inputs = { home: zero, away: zero };
@@ -128,7 +128,7 @@ describe('scoring', () => {
         const dead = touchdown();
         let s = dead;
         for (let i = 0; i < 120; i++) s = stepDown(s, idle);
-        expect(s).toBe(dead);
+        expectOnlyClockMoved(s, dead);
         const next = nextDown(dead);
         expect(next).toMatchObject({ phase: 'kick', score: { home: 6, away: 0 } });
         expect(nextDown(next)).toBe(next);
@@ -161,7 +161,7 @@ describe('scoring', () => {
         const dead = touchdown();
         expect(dead.terminalCount).toBe(1);
         const again = stepDown(dead, { ...idle, home: { x: -1, y: 0 } });
-        expect(again).toBe(dead);
+        expectOnlyClockMoved(again, dead);
     });
 });
 

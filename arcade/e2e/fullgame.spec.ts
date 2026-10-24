@@ -46,8 +46,8 @@ test('a complete game in a real browser: both players attack and defend through 
         if (i % 500 === 0) console.log(`PROGRESS i=${i} t=${((Date.now() - started) / 1000).toFixed(0)}s q=${s.quarter} clock=${s.clock} play=${s.playNumber} phase=${s.phase} score=${s.score.home}-${s.score.away}`);
         if (s.mode === 'overtime') seen.overtime = true;
         if (s.quarter === 3 && s.phase === 'pre-snap' && !seen.halftimeOffense) seen.halftimeOffense = `${s.offense}@${s.line}`;
-        // The clock may only move while a play is live: two reads with no live play between them must agree.
-        if (prev && prev.phase !== 'live' && s.phase !== 'live' && prev.quarter === s.quarter && prev.mode === 'regulation' && prev.clock !== s.clock) seen.clockMovedBetweenDowns++;
+        // Between plays the clock may spend at most the six-second allowance: from a finished play to the next read, no more.
+        if (prev && prev.phase === 'dead' && s.phase !== 'live' && prev.quarter === s.quarter && prev.mode === 'regulation' && prev.clock - s.clock > 360) seen.clockMovedBetweenDowns++;
         if (s.terminalCount !== lastTerminal) {
             lastTerminal = s.terminalCount;
             if (s.kick?.kind === 'xp' && s.kick.good !== null) seen.kicksXp++;
@@ -100,6 +100,8 @@ test('a complete game in a real browser: both players attack and defend through 
                 await page.reload();
                 await page.clock.runFor(300);
                 expect(await saved(page), 'a mid-game reload restores the finished down exactly').toEqual(s);
+                await expect(page.getByTestId('phase')).toHaveText('Paused');
+                await page.getByRole('button', { name: 'Resume', exact: true }).click();
             }
             await page.keyboard.press('Enter');
         }
@@ -128,7 +130,7 @@ test('a complete game in a real browser: both players attack and defend through 
     expect(seen.hands, 'the defense went for the ball').toBeGreaterThan(0);
     expect(seen.kicksXp + seen.kicksFg, 'a kick was made through the meter').toBeGreaterThan(0);
     expect(seen.touchdowns).toBeGreaterThan(0);
-    expect(seen.clockMovedBetweenDowns, 'the clock never ran between downs').toBe(0);
+    expect(seen.clockMovedBetweenDowns, 'the clock never ran past the allowance between plays').toBe(0);
     expect(s.score.home + s.score.away, 'points were scored').toBeGreaterThan(0);
     const { home, away } = s.score;
     expect(home).not.toBe(away);

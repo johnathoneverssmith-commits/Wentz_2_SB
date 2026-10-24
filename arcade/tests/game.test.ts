@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { QUARTER_TICKS, choosePlay, clockText, createDown, fieldGoalInRange, kickBall, kickMeter, lineUp, newGame, nextDown, snap, stepDown, switchDefender, throwPass, type DownState } from '../core/down';
+import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, choosePlay, clockText, createDown, fieldGoalInRange, kickBall, kickMeter, lineUp, newGame, nextDown, snap, stepDown, switchDefender, throwPass, type DownState } from '../core/down';
 import { EXTRA_POINT_DISTANCE, FIELD_GOAL_MAX_DISTANCE, FIELD_GOAL_POINTS, KICK_MAX_TICKS, KICK_PERIOD_TICKS, isGood, kickTolerance, meterAt } from '../core/kick';
 import { STEP_SECONDS } from '../core/simulation';
 import { CENTRE, FAR_END, MID, farAway, idle, kickAtTick, place, tackled, throughExtraPoint, touchdown, turnedOverOnDowns, zero } from './helpers';
@@ -20,20 +20,12 @@ describe('the regulation clock', () => {
         expect(clockText(10740)).toBe('2:59');
         expect(clockText(3601)).toBe('1:01');
     });
-    it('burns one clock tick per live simulation tick and stops between downs and during kicks', () => {
+    it('burns one clock tick per live simulation tick', () => {
         let s = snap(createDown());
         for (let i = 1; i <= 5; i++) {
             s = stepDown(s, idle);
             expect(s.clock).toBe(QUARTER_TICKS - i);
         }
-        const dead = tackled(createDown(), 4);
-        expect(stepDown(dead, idle)).toBe(dead);
-        expect(nextDown(dead).clock).toBe(dead.clock);
-        const kick = nextDown(touchdown(createDown()));
-        const before = kick.clock;
-        let k = kick;
-        for (let i = 0; i < 30; i++) k = stepDown(k, idle);
-        expect(k.clock).toBe(before);
         expect(stepDown(createDown(), idle).clock).toBe(QUARTER_TICKS);
     });
     it('a quarter is exactly three minutes of live simulation time: 10,800 ticks at 60 per second', () => {
@@ -51,18 +43,6 @@ describe('the regulation clock', () => {
         }
         expect(ticks).toBe(QUARTER_TICKS);
         expect(s).toMatchObject({ clock: 0, expired: true, phase: 'live' });
-    });
-    it('pausing, stepping a dead play and sitting through a kick do not consume game time', () => {
-        const s = lineUp('home', 40);
-        expect(stepDown(s, idle)).toBe(s);
-        const dead = tackled(createDown(), 4);
-        let d = dead;
-        for (let i = 0; i < 600; i++) d = stepDown(d, idle);
-        expect(d.clock).toBe(dead.clock);
-        let k = nextDown(touchdown(createDown()));
-        const before = k.clock;
-        for (let i = 0; i < 150; i++) k = stepDown(k, idle);
-        expect(k.clock).toBe(before);
     });
     it('when the clock reaches zero the play finishes first, then the quarter changes', () => {
         let s = farAway(snap(lineUp('home', 40, { game: { clock: 3 } })));
@@ -255,10 +235,16 @@ describe('field goals', () => {
         expect(throwPass(s, 1)).toBe(s);
         expect(snap(s)).toBe(s);
     });
-    it('a field goal on the last play of the half is kicked, then the half ends', () => {
-        const s = kickAtTick(snap(choosePlay(lineUp('home', 95, { down: 4, game: { quarter: 2, clock: 5, expired: true } }), 'fieldgoal')), CENTRE);
-        expect(s.score.home).toBe(3);
-        expect(nextDown(s)).toMatchObject({ quarter: 3, offense: 'away', line: 82 });
+    it('a field goal with the clock nearly out is kicked (the meter takes no game time); the half ends at the next snap', () => {
+        const kicked = kickAtTick(snap(choosePlay(lineUp('home', 95, { down: 4, game: { quarter: 2, clock: 5, gap: BETWEEN_PLAY_TICKS } }), 'fieldgoal')), CENTRE);
+        expect(kicked.score.home).toBe(3);
+        expect(kicked.clock).toBe(5);
+        const waiting = nextDown(kicked);
+        expect(waiting).toMatchObject({ quarter: 2, offense: 'away', phase: 'pre-snap', clock: 5 });
+        let w = waiting;
+        for (let i = 0; i < 20; i++) w = stepDown(w, idle);
+        expect(w).toMatchObject({ clock: 0, expired: true, quarter: 2 });
+        expect(snap(w)).toMatchObject({ quarter: 3, clock: QUARTER_TICKS, expired: false, gap: 0, offense: 'away', line: 82, phase: 'pre-snap' });
     });
 });
 
@@ -370,3 +356,108 @@ describe('a whole game is deterministic', () => {
 
 // A kick is also a pass-free play: make sure MID is used (type-checks the helper import).
 void MID;
+
+describe('the between-play clock', () => {
+    const fresh = () => tackled(createDown(), 4);
+    it('six game seconds are available after every play, no more', () => {
+        expect(BETWEEN_PLAY_TICKS).toBe(360);
+        const dead = fresh();
+        expect(dead).toMatchObject({ gap: BETWEEN_PLAY_TICKS, phase: 'dead' });
+        let s = dead;
+        for (let i = 1; i <= BETWEEN_PLAY_TICKS; i++) {
+            s = stepDown(s, idle);
+            expect(s.clock).toBe(dead.clock - i);
+            expect(s.gap).toBe(BETWEEN_PLAY_TICKS - i);
+        }
+        expect(s.gap).toBe(0);
+        const spent = s.clock;
+        for (let i = 0; i < 5000; i++) s = stepDown(s, idle);
+        expect(s.clock, 'once the allowance is used the clock waits for the snap').toBe(spent);
+        expect(dead.clock - s.clock).toBe(360);
+    });
+    it('the allowance is shared by the result screen and the next snap: Next down does not refill it', () => {
+        let s = fresh();
+        const start = s.clock;
+        for (let i = 0; i < 100; i++) s = stepDown(s, idle);
+        const next = nextDown(s);
+        expect(next).toMatchObject({ phase: 'pre-snap', gap: 260, clock: start - 100 });
+        let w = next;
+        for (let i = 0; i < 1000; i++) w = stepDown(w, idle);
+        expect(w).toMatchObject({ gap: 0, clock: start - 360 });
+    });
+    it('menu actions cannot buy more time: choosing plays, switching defenders and pressing Next down never raise the allowance', () => {
+        let s = nextDown(fresh());
+        for (let i = 0; i < 200; i++) s = stepDown(s, idle);
+        const gap = s.gap;
+        let t = s;
+        for (const play of ['slants', 'go', 'rush', 'fieldgoal', 'go'] as const) t = choosePlay(t, play);
+        t = switchDefender(switchDefender(t));
+        t = nextDown(t);
+        expect(t.gap).toBe(gap);
+        expect(t.clock).toBe(s.clock);
+        expect(nextDown(snap(t)).gap).toBeLessThanOrEqual(BETWEEN_PLAY_TICKS);
+    });
+    it('only a finished play starts a new allowance, and it costs the live ticks it used', () => {
+        const dead = fresh();
+        let s = nextDown(dead);
+        for (let i = 0; i < 400; i++) s = stepDown(s, idle);
+        expect(s.gap).toBe(0);
+        const before = s.clock;
+        const next = tackled(s, 3);
+        expect(next.gap).toBe(BETWEEN_PLAY_TICKS);
+        expect(next.clock).toBeLessThan(before);
+        expect(before - next.clock).toBeLessThan(5);
+    });
+    it('a kick takes no game time and the leftover allowance resumes after it', () => {
+        const dead = touchdown(lineUp('home', 100));
+        let s = dead;
+        for (let i = 0; i < 50; i++) s = stepDown(s, idle);
+        const kick = nextDown(s);
+        expect(kick.phase).toBe('kick');
+        let k = kick;
+        for (let i = 0; i < 90; i++) k = stepDown(k, idle);
+        expect(k.clock).toBe(kick.clock);
+        expect(k.gap).toBe(kick.gap);
+        const after = nextDown(kickAtTick(kick, CENTRE));
+        expect(after).toMatchObject({ phase: 'pre-snap', gap: BETWEEN_PLAY_TICKS - 50, clock: kick.clock });
+    });
+    it('the clock can run out while the players choose: the quarter ends at the snap, with no play', () => {
+        let s = nextDown(tackled(lineUp('home', 40, { game: { clock: 100 } }), 3));
+        expect(s.clock).toBeGreaterThan(0);
+        s = lineUp('home', 43, { down: 2, game: { clock: 100, gap: BETWEEN_PLAY_TICKS } });
+        for (let i = 0; i < 100; i++) s = stepDown(s, idle);
+        expect(s).toMatchObject({ clock: 0, expired: true, gap: 260, quarter: 1, phase: 'pre-snap' });
+        expect(stepDown(s, idle)).toBe(s);
+        const q2 = snap(s);
+        expect(q2).toMatchObject({ quarter: 2, clock: QUARTER_TICKS, expired: false, gap: 0, offense: 'home', line: 43, down: 2, phase: 'pre-snap' });
+        // The same at the end of Q2 (halftime), Q3 and Q4 (final or overtime).
+        const half = snap(lineUp('home', 43, { game: { quarter: 2, clock: 0, expired: true } }));
+        expect(half).toMatchObject({ quarter: 3, offense: 'away', line: 82 });
+        expect(snap(lineUp('home', 43, { score: { home: 3, away: 0 }, game: { quarter: 4, clock: 0, expired: true } }))).toMatchObject({ phase: 'final', winner: 'home' });
+        expect(snap(lineUp('home', 43, { game: { quarter: 4, clock: 0, expired: true } }))).toMatchObject({ mode: 'overtime', quarter: 5 });
+    });
+    it('time does not move after the game ends or in overtime', () => {
+        const over = nextDown(tackled(lineUp('home', 40, { score: { home: 10, away: 3 }, game: { quarter: 4, clock: 1 } }), 3));
+        expect(over.phase).toBe('final');
+        expect(stepDown(over, idle)).toBe(over);
+        const ot = lineUp('away', 82, { game: { mode: 'overtime', quarter: 5, clock: 0, gap: BETWEEN_PLAY_TICKS, overtime: { first: 'away', possessions: 0 } } });
+        expect(stepDown(ot, idle)).toBe(ot);
+    });
+    it('over many plays the clock burns at most the live ticks plus six seconds a play, however slowly the players act', () => {
+        let s = createDown(), live = 0, plays = 0, burned = 0;
+        for (let i = 0; i < 40 && s.mode === 'regulation'; i++) {
+            const start = s.clock;
+            for (let t = 0; t < 2000; t++) s = stepDown(s, idle);
+            s = snap(s);
+            while (s.phase === 'live') { s = stepDown(s, idle); live++; }
+            expect(s.phase).toBe('dead');
+            plays++;
+            burned = start - s.clock;
+            expect(burned, `play ${plays}`).toBeLessThanOrEqual(BETWEEN_PLAY_TICKS + 1500);
+            s = nextDown(s);
+            if (s.phase === 'kick') break;
+        }
+        expect(plays).toBeGreaterThan(3);
+        expect(live).toBeGreaterThan(0);
+    });
+});

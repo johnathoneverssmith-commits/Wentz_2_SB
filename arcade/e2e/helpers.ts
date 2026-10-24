@@ -7,6 +7,13 @@ export const SAVE_KEY = 'wentz.arcade.down.v1';
 export const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse(localStorage.getItem('wentz.arcade.down.v1')!).state);
 export const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 export const text = (page: Page, id: string) => page.getByTestId(id).innerText();
+/** A finished down or a waiting snap may only spend between-play clock: compare everything else. */
+export const withoutClock = (s: DownState): DownState => ({ ...s, clock: 0, gap: 0, expired: false });
+/** A reload between plays restores a paused game (the between-play clock must not run unseen); resume it. */
+export async function resume(page: Page) {
+    const b = page.getByRole('button', { name: 'Resume', exact: true });
+    if (await b.count()) await b.click();
+}
 
 /** Time is the only thing controlled: keyboard events, React, animation frames and saving are real. */
 export async function startClocked(page: Page, seed?: DownState, options: { frameMs?: number } = {}) {

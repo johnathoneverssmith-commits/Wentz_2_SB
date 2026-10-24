@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { encodeSave, decodeSave, SAVE_KEY } from '../browser/save';
 import { QUARTER_TICKS, choosePlay, createDown, kickBall, lineUp, nextDown, snap, stepDown } from '../core/down';
-import { kickAtTick, CENTRE, touchdown } from './helpers';
+import { kickAtTick, CENTRE, expectOnlyClockMoved, touchdown } from './helpers';
 it('round trips an arcade snapshot, rejects corrupt saves and never uses a franchise key', () => {
     const state = snap(createDown());
     expect(decodeSave(encodeSave(state))).toEqual(state);
@@ -36,7 +36,7 @@ const asVersion2 = (state: unknown) => {
 it('round trips score, down, marker and the drive flags in the current version', () => {
     const dead = scoredHome();
     expect(dead.score).toEqual({ home: 13, away: 3 });
-    expect(JSON.parse(encodeSave(dead)).version).toBe(4);
+    expect(JSON.parse(encodeSave(dead)).version).toBe(5);
     expect(decodeSave(encodeSave(dead))).toEqual(dead);
     const live = snap(lineUp('away', 70, { down: 3, score: { home: 1, away: 2 } }));
     expect(decodeSave(encodeSave(live))).toEqual(live);
@@ -63,7 +63,7 @@ it('reloading a scored down never scores again: the snapshot, Next down and a se
     for (let reload = 0; reload < 3; reload++) {
         const restored = decodeSave(encodeSave(dead))!;
         expect(restored).toEqual(dead);
-        expect(stepDown(restored, { home: { x: 1, y: 0 }, away: { x: 0, y: 0 } })).toBe(restored);
+        expectOnlyClockMoved(stepDown(restored, { home: { x: 1, y: 0 }, away: { x: 0, y: 0 } }), restored);
         const next = nextDown(restored);
         expect(next.score).toEqual({ home: 13, away: 3 });
         expect(nextDown(next)).toBe(next);

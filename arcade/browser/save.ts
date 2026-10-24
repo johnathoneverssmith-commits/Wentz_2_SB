@@ -1,8 +1,8 @@
-import { QUARTER_TICKS, SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, type DownState } from '../core/down';
+import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, type DownState } from '../core/down';
 import { KICK_MAX_TICKS } from '../core/kick';
 import { FIELD } from '../core/simulation';
 export const SAVE_KEY = 'wentz.arcade.down.v1';
-export const encodeSave = (state: DownState) => JSON.stringify({ version: 4, state });
+export const encodeSave = (state: DownState) => JSON.stringify({ version: 5, state });
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const integer = (v: unknown) => finite(v) && Number.isSafeInteger(v) && v >= 0;
@@ -29,13 +29,15 @@ function upgrade(version: number, old: Record<string, unknown>): Record<string, 
             score[other] += SAFETY_POINTS;
         s = { ...s, score, down: 1, firstDownLine: firstDownMarker(offense, Number(s.line)), result: result ? { ...result, firstDown: false, turnoverOnDowns: false } : null };
     }
+    if (version <= 4)
+        s = { ...s, gap: 0 };
     if (version <= 3)
         s = { ...s, quarter: 1, clock: QUARTER_TICKS, expired: false, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
     return s;
 }
 /** The clock, quarter, mode, overtime, winner and kick must agree with each other and with the phase. */
 function gameFieldsValid(s: Record<string, unknown>): boolean {
-    if (!integer(s.quarter) || Number(s.quarter) < 1 || Number(s.quarter) > 5 || !integer(s.clock) || Number(s.clock) > QUARTER_TICKS || typeof s.expired !== 'boolean')
+    if (!integer(s.quarter) || Number(s.quarter) < 1 || Number(s.quarter) > 5 || !integer(s.clock) || Number(s.clock) > QUARTER_TICKS || typeof s.expired !== 'boolean' || !integer(s.gap) || Number(s.gap) > BETWEEN_PLAY_TICKS)
         return false;
     if (!['regulation', 'overtime', 'final'].includes(String(s.mode)) || !team(s.openingTeam))
         return false;
@@ -67,7 +69,7 @@ export function decodeSave(text: string | null): DownState | null {
         if (!text || text.length > 20000)
             return null;
         const data: unknown = JSON.parse(text);
-        if (!object(data) || (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4) || !object(data.state))
+        if (!object(data) || (data.version !== 1 && data.version !== 2 && data.version !== 3 && data.version !== 4 && data.version !== 5) || !object(data.state))
             return null;
         const s = upgrade(data.version, data.state);
         if (!integer(s.terminalCount) || !integer(s.contestUntil) || !integer(s.down) || Number(s.down) < 1 || Number(s.down) > 4 || !finite(s.firstDownLine) || s.firstDownLine < 10 || s.firstDownLine > 110)

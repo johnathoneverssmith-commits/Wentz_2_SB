@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { DownState } from '../core/down';
-import { button, kickCentred, saved, text } from './helpers';
+import { button, kickCentred, resume, saved, text } from './helpers';
 
 test.setTimeout(120_000);
 test.beforeEach(async ({ page }) => {
@@ -87,6 +87,7 @@ test('a real drive scores six and the point after once, survives reloads and giv
     }
     await page.clock.runFor(3000);
     expect((await saved(page)).score).toEqual({ home: 6, away: 0 });
+    await resume(page);
     // The touchdown goes to the extra point: Enter opens the kick, a reload keeps the meter where it was, and the kick scores once.
     await nextDown(page);
     const kicking = await saved(page);
@@ -114,6 +115,7 @@ test('a real drive scores six and the point after once, survives reloads and giv
     await page.reload();
     await page.clock.runFor(256);
     expect((await saved(page)).score).toEqual({ home: 7, away: 0 });
+    await resume(page);
     // Orange is now on offense: its own keys run the ball left and the scoreboard still reads 6-0.
     const orange = await play(page, ['ArrowLeft'], 1600);
     expect(orange.offense).toBe('away');

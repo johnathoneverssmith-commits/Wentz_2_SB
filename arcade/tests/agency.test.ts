@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, GO_REACT_TICKS, type DownState } from '../core/down';
 import { decodeSave, encodeSave } from '../browser/save';
 import type { Inputs } from '../core/simulation';
+import { expectOnlyClockMoved } from './helpers';
 const zero = { x: 0, y: 0 };
 const idle: Inputs = { home: zero, away: zero };
 function pass(defense: 'idle' | 'breakup' | 'hands', start = createDown()) {
@@ -85,7 +86,7 @@ it('airborne and completed snapshots round trip without changing the terminal co
     let restored = decodeSave(encodeSave(dead))!;
     for (let i = 0; i < 60; i++)
         restored = stepDown(restored, idle);
-    expect(restored).toEqual(dead);
+    expectOnlyClockMoved(restored, dead);
     expect(nextDown(restored).terminalCount).toBe(1);
 });
 it('contact has a strict radius boundary', () => {
