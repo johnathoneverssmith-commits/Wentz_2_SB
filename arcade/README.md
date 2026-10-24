@@ -91,7 +91,7 @@ game ends on a **final-score screen with a Rematch button**.
 version-5 envelope holds the whole snapshot: quarter, clock, between-play allowance, score, down, marker, any
 kick in progress, the overtime possession count and the winner. A live play or a swinging
 kick **reloads paused**; a finished down, a kick that has been taken, overtime and the
-final screen reload exactly (a finished down or a wait for the snap reloads paused so the allowance does not run unseen), and nothing is scored, kicked or advanced twice. Version 1 to 4
+final screen reload exactly (a finished down or a wait for the snap reloads paused so the allowance does not run unseen), and nothing is scored, kicked or advanced twice. **Compatibility boundary:** the last deployed format is version 3 (Milestone 3); versions 1-3 migrate. Version 4 was never released and several unreleased builds wrote it with different clock units, so it is refused, not converted (the game starts fresh and shows a notice), as is any unknown version. Version 5 is current. Version 1-3
 saves migrate (an old drive becomes the first quarter of a new game with a full
 clock; a finished touchdown or safety is scored once; a finished touchdown still gets its
 extra point). Invalid or self-contradictory saves start fresh. A storage-denied browser can
@@ -107,7 +107,7 @@ npm --prefix arcade run verify
 Linux machines missing libraries use `install --with-deps chromium`. Installed
 Chrome can be used locally via `E2E_BROWSER_CHANNEL=chrome` (PowerShell:
 `$env:E2E_BROWSER_CHANNEL='chrome'`). `verify` explicitly runs typecheck, all arcade
-unit tests, standalone production build and all arcade browser tests, failing at
+unit tests, the gameplay-balance tests (`npm --prefix arcade run test:balance`, also run by the Arcade workflow), standalone production build and all arcade browser tests, failing at
 the first failure. Individual scripts: `typecheck`, `test`, `build`, `e2e`.
 
 Playwright owns its temporary server, blocks service workers, refuses an existing

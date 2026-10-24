@@ -103,7 +103,7 @@ play and why the README says the game is tuned, not calibrated.
 
 ## Regression gates and negative controls
 
-`npm --prefix arcade test` (136 tests), `npm --prefix arcade run test:balance` (17 gameplay-balance tests), `npm --prefix arcade run e2e` (38 browser tests, about 3.6 minutes locally),
+`npm --prefix arcade test` (137 tests), `npm --prefix arcade run test:balance` (22 gameplay-balance tests, run in the Arcade Chromium workflow too), `npm --prefix arcade run e2e` (39 browser tests, about 3.6 minutes locally),
 typecheck, standalone build; `verify` runs them in order.
 
 Each defect below was applied alone to a disposable copy and failed on a relevant assertion
@@ -158,3 +158,10 @@ Intermediate passes drive differently: the same plays and yards happen, but the 
 The balance suite (`balance/balance.test.ts`) is separate from the technical tests and checks invariants only: late deep passes score on fewer than 80% of drives against non-covering defenders yet complete over half their throws and can be intercepted; a covering defender stops them more; early and intermediate passes still complete over 70% against defenders that ignore them; slower defender reactions never help the defense; a drive and its mirror image give identical results; deep starting spots never score less than own-end ones; a regulation game takes 40-400 plays and 6-30 estimated minutes for each offense style; slow thinking cannot stretch the game clock. Removing the safety fails it (negative control).
 
 Remaining limitations: a late go pass against a defender who never switches to the ball is still the best play in the game (4.0 points per drive against 2.0 for early passes), because the scripted defenders are simple and a human defender who watches the throw can stop it; the balance numbers describe scripted players, not people.
+
+### Review-cycle corrections (Codex findings on `1b0b572`)
+
+* **Balance tests in CI:** the Arcade workflow runs `npm --prefix arcade run test:balance` after the unit tests (the unit config does not include `balance/`, so nothing runs twice). Negative control: restoring the pre-safety `core/down.ts` fails exactly that command (exit 1).
+* **Save compatibility:** the last deployed format is version 3; it migrates. Unreleased version 4 (written by builds with 30-second and 180-second quarters) and unknown versions are rejected with a visible notice, never converted. Unit tests cover migration, rejection and the current format; a browser test checks the notice and the fresh game; negative controls: accepting version 4, removing the notice.
+* **Clock accounting:** the balance report counts live-play and between-play clock separately; the suite requires both to be non-zero and their sum to equal four quarters (43,200 ticks). Dropping either component fails five tests.
+* **Browser coverage:** the full-game test asserts its mid-game reload happened; disabling the reload condition fails it. The on-screen instructions now describe the hybrid clock.
