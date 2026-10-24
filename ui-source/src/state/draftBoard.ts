@@ -123,9 +123,12 @@ const SIGNING_MARGIN = 2;
  *
  * Free agency follows the draft and its pool is public, so a hole is only a hole if the market
  * cannot fill it. But the market is not unlimited: thirty-one teams cannot all sign the best tackle.
- * Each position is served neediest team first, each taking the best remaining free agent it can
- * afford (no more than a share of its cap room) and who actually upgrades it. Plain data in, a
- * rating per team and position out; a team with nothing realistic gets no entry.
+ * Every starting slot in the league is served neediest first, each taking the best remaining free
+ * agent its team can afford (no more than a share of the cap room it has left, which each signing
+ * spends down) and who actually upgrades it. Served one position at a time, a team's cap room was
+ * spent again at every position: on three-season leagues 27 of 32 teams were assumed to sign two or
+ * more free agents (up to ten) and six to eleven of them to spend more than all the room they had.
+ * Plain data in, a rating per team and position out; a team with nothing realistic gets no entry.
  */
 export function freeAgentAlternatives(
   teams: readonly MarketTeam[],
@@ -140,20 +143,27 @@ export function freeAgentAlternatives(
     if (l) l.push({ rating, asking: p.asking });
     else byPosition.set(p.position, [{ rating, asking: p.asking }]);
   }
-  for (const [position, list] of byPosition) {
-    list.sort((a, b) => b.rating - a.rating || a.asking - b.asking);
-    const order = [...teams].sort(
-      (a, b) => (a.weakest[position] ?? EMPTY_POSITION_BASE) - (b.weakest[position] ?? EMPTY_POSITION_BASE) || (a.code < b.code ? -1 : 1),
-    );
-    for (const team of order) {
-      const weakest = team.weakest[position] ?? EMPTY_POSITION_BASE;
-      const at = list.findIndex((f) => f.asking <= team.capRoom * AFFORD_SHARE && f.rating >= weakest + SIGNING_MARGIN);
-      if (at < 0) continue;
-      const m = out.get(team.code) ?? new Map<Position, number>();
-      m.set(position, list[at]!.rating);
-      out.set(team.code, m);
-      list.splice(at, 1);
+  for (const list of byPosition.values()) list.sort((a, b) => b.rating - a.rating || a.asking - b.asking);
+  // every team's starting slots at the positions the market has anyone at, neediest first across the league
+  const slots: { code: string; position: Position; weakest: number }[] = [];
+  for (const team of teams) {
+    for (const position of byPosition.keys()) {
+      if ((TEMPLATE.get(position)?.starters ?? 0) === 0) continue;
+      slots.push({ code: team.code, position, weakest: team.weakest[position] ?? EMPTY_POSITION_BASE });
     }
+  }
+  slots.sort((a, b) => a.weakest - b.weakest || (a.code < b.code ? -1 : a.code > b.code ? 1 : a.position < b.position ? -1 : 1));
+  const room = new Map(teams.map((t) => [t.code, t.capRoom]));
+  for (const slot of slots) {
+    const list = byPosition.get(slot.position)!;
+    const left = room.get(slot.code)!;
+    const at = list.findIndex((f) => f.asking <= left * AFFORD_SHARE && f.rating >= slot.weakest + SIGNING_MARGIN);
+    if (at < 0) continue;
+    const signed = list.splice(at, 1)[0]!;
+    room.set(slot.code, left - signed.asking);
+    const m = out.get(slot.code) ?? new Map<Position, number>();
+    m.set(slot.position, signed.rating);
+    out.set(slot.code, m);
   }
   return out;
 }
@@ -275,6 +285,33 @@ export function effectiveByPosition(
 }
 
 /**
+ * How much a prospect improves the lineup, in rating points: the weakest starting slot he would take
+ * (a slot the market can fill is a smaller hole: free agency follows the draft and its pool is public,
+ * and how much of that a GM counts on is its cap planning), plus a little for beating the player he
+ * would displace at the bottom of the position's roster spots, which shrinks as the team adds players
+ * there and so spreads a team's picks across positions.
+ */
+function lineupGain(args: {
+  expected: number;
+  position: Position;
+  carried: readonly number[];
+  alternative?: number;
+  capPlanningWeight?: number;
+}): number {
+  const { expected, position, carried, alternative = 0, capPlanningWeight = 1 } = args;
+  const row = TEMPLATE.get(position);
+  const starters = row?.starters ?? 0;
+  const count = row?.count ?? 0;
+  const sorted = [...carried].sort((a, b) => b - a);
+  const weakest = starters > 0 ? (sorted[starters - 1] ?? EMPTY_POSITION_BASE) : Infinity;
+  const marketFloor = alternative > 0 ? EMPTY_POSITION_BASE + MARKET_RELIANCE * capPlanningWeight * (alternative - EMPTY_POSITION_BASE) : -Infinity;
+  const gain = starters > 0 ? Math.max(0, expected - Math.max(weakest, marketFloor)) : 0;
+  const depthCut = count > starters ? (sorted.length < count ? EMPTY_POSITION_BASE : sorted[count - 1]!) : Infinity;
+  const depthGain = Number.isFinite(depthCut) ? Math.max(0, expected - depthCut) : 0;
+  return gain + DEPTH_WEIGHT * depthGain;
+}
+
+/**
  * What a prospect adds to a team, on the rating scale: what he is expected to be,
  * plus how much he improves the weakest starter slot (position-weighted, scaled
  * by how well the GM reads need), minus a penalty when he would not make the
@@ -304,16 +341,8 @@ export function rookieValue(args: {
   const sorted = [...carried].sort((a, b) => b - a);
   // the rating of the starter he would replace: the weakest starting slot (empty = nobody there)
   const weakest = starters > 0 ? (sorted[starters - 1] ?? EMPTY_POSITION_BASE) : Infinity;
-  // A slot the market can fill is a smaller hole: free agency follows the draft and the pool is public.
-  // How much of that a GM counts on is its cap planning.
-  const marketFloor = alternative > 0 ? EMPTY_POSITION_BASE + MARKET_RELIANCE * capPlanningWeight * (alternative - EMPTY_POSITION_BASE) : -Infinity;
-  const gain = starters > 0 ? Math.max(0, expected - Math.max(weakest, marketFloor)) : 0;
-  // depth: beating the player he would displace at the bottom of the position's roster spots is worth a
-  // little; it shrinks as the team adds players there, which is what spreads a team's picks across positions
-  const depthCut = count > starters ? (sorted.length < count ? EMPTY_POSITION_BASE : sorted[count - 1]!) : Infinity;
-  const depthGain = Number.isFinite(depthCut) ? Math.max(0, expected - depthCut) : 0;
-  const need =
-    NEED_GAIN * (NEED_WEIGHT_BY_POSITION[position] ?? 1) * needAwareness * slotNeedWeight(pickIndex) * (gain + DEPTH_WEIGHT * depthGain);
+  const lineup = lineupGain({ expected, position, carried, alternative, capPlanningWeight });
+  const need = NEED_GAIN * (NEED_WEIGHT_BY_POSITION[position] ?? 1) * needAwareness * slotNeedWeight(pickIndex) * lineup;
   const shortfall = starters > 0 ? Math.min(SHORTFALL_CAP, Math.max(0, weakest - expected)) * SHORTFALL_WEIGHT : 0;
   // roster-spot waste: once the position holds its template count, one who would be the first cut
   const cutLine = sorted.length < count ? -Infinity : count === 0 ? Infinity : sorted[count - 1]!;

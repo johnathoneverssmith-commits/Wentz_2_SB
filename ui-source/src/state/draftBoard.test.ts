@@ -214,6 +214,22 @@ describe("free agents as the alternative to drafting for a hole", () => {
     const m = freeAgentAlternatives(teams, [fa("K", 85), fa("K", 80)]);
     expect(teams.filter((t) => m.get(t.code)?.has("K")).length).toBe(2);
   });
+  it("spends a team's cap room down across positions: one team cannot sign at every position what it could afford at one", () => {
+    // $20M of room and four $7M free agents: one signing leaves $13M, and a second $7M is more than half of that.
+    // Served position by position, each would have been judged against the full $20M and all four assumed signed ($28M).
+    const need = { K: 60, P: 60, WR: 60, OT: 60 } as const;
+    const four = [fa("K", 85, 7), fa("P", 85, 7), fa("WR", 85, 7), fa("OT", 85, 7)];
+    expect(freeAgentAlternatives([team("A", 20, need)], four).get("A")?.size).toBe(1);
+    // room that really does cover several signings is not held back: $4M each against $20M all fit
+    const cheap = [fa("K", 85, 4), fa("P", 85, 4), fa("WR", 85, 4), fa("OT", 85, 4)];
+    expect(freeAgentAlternatives([team("A", 20, need)], cheap).get("A")?.size).toBe(4);
+  });
+  it("serves the neediest slot in the league first, whatever its position", () => {
+    // one team, room for one signing, two holes: the worse hole gets the free agent
+    const m = freeAgentAlternatives([team("A", 9, { K: 70, WR: 40 })], [fa("K", 85, 4), fa("WR", 85, 4)]);
+    expect(m.get("A")?.has("WR")).toBe(true);
+    expect(m.get("A")?.has("K")).toBe(false);
+  });
   it("counts only what a team can afford (no more than half its cap room on one player)", () => {
     const m = freeAgentAlternatives([team("poor", 6), team("rich", 60)], [fa("OT", 88, 14)]);
     expect(m.get("poor")?.get("OT")).toBeUndefined();
