@@ -56,6 +56,21 @@ npm start           # load + print the active pool
 
 Relative imports use `.js` extensions (NodeNext) even though sources are `.ts`.
 
+### Pull requests and CI
+
+Changes reach `master` through a pull request. The "Test and deploy Render"
+workflow (`.github/workflows/deploy-render.yml`) runs on every pull request
+into `master` and on every push to `master`:
+
+- typechecks for the engine, the online server and the UI, then the UI build;
+- the engine, UI and online test suites, with a Postgres service attached so
+  the database suites run for real (in CI they fail rather than skip if the
+  database is missing);
+- a deploy to Render **only** for a push to `master` — never for a pull
+  request — followed by a check that both services serve that exact commit.
+
+Look at the `test` job on the pull request before merging.
+
 ## Player pool
 
 `loadPlayerPool()` uses `data/players.local.json` when it exists, otherwise the
