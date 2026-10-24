@@ -1,0 +1,13 @@
+{
+  "humans": [
+    "johnathoneverssmith-commits"
+  ],
+  "planRounds": 2,
+  "fixRounds": 2,
+  "infraRetries": 3,
+  "taskMs": 7200000,
+  "reviewMs": 1200000,
+  "workerMs": 1800000,
+  "maxUsd": null,
+  "maxTokens": null
+}

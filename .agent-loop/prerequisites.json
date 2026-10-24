@@ -1,0 +1,11 @@
+{
+  "humanApprovalProtection": false,
+  "stateProtection": false,
+  "deploymentGate": false,
+  "renderAutoDeployOff": false,
+  "workerIsolation": false,
+  "providerBudget": false,
+  "publisherApp": false,
+  "reviewIntegration": false,
+  "pinnedRuntime": false
+}
