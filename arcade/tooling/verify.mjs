@@ -6,6 +6,7 @@ const cwd = fileURLToPath(new URL("..", import.meta.url));
 const commands = [
   ["typecheck", "../node_modules/typescript/bin/tsc", "-p", "tsconfig.json"],
   ["unit tests", "../node_modules/vitest/vitest.mjs", "run", "--config", "vitest.config.ts"],
+  ["balance tests", "../node_modules/vitest/vitest.mjs", "run", "--config", "vitest.balance.config.ts"],
   ["local build", "../ui-source/node_modules/vite/bin/vite.js", "build", "--config", "vite.config.ts", "--configLoader", "runner"],
   ["browser tests", "../node_modules/@playwright/test/cli.js", "test", "--config", "playwright.config.ts"],
 ];
