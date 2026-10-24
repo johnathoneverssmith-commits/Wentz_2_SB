@@ -131,7 +131,7 @@ export function projectedRookieRange(p: {
  * board prints. The middle of the round stood in for every first-rounder, so
  * a "Top 10" and a "Late Round 1" prospect both read "projects 70–81".
  */
-function projectedSlot(p: { projectedRound: number; projectedRange?: string }): number {
+export function projectedSlot(p: { projectedRound: number; projectedRange?: string }): number {
   const start = (p.projectedRound - 1) * 32;
   const label = p.projectedRange ?? "";
   if (label === "Top 10") return 5;
