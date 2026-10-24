@@ -29,9 +29,8 @@ export interface Score {
 }
 export const TOUCHDOWN_POINTS = 6;
 export const SAFETY_POINTS = 2;
-export const QUARTER_TENTHS = 1800;
-/** Game time is simulation time: each live tick burns one tenth of a game second, so a 3:00 quarter is 30 s of live play. */
-export const OVERTIME_MAX_PAIRS = 5;
+/** Game time is simulation time: a quarter is three minutes of live play, one clock tick per 1/60-second simulation tick. */
+export const QUARTER_TICKS = 3 * 60 * 60;
 export type GameMode = 'regulation' | 'overtime' | 'final';
 export interface KickState {
     readonly kind: 'xp' | 'fg';
@@ -49,7 +48,7 @@ export interface DownState extends MatchSnapshot {
     readonly phase: 'pre-snap' | 'live' | 'dead' | 'kick' | 'final';
     /** 1-4 regulation, 5 overtime. */
     readonly quarter: number;
-    /** Tenths of a game second left in the quarter. */
+    /** Simulation ticks of live play left in the quarter (60 per second). */
     readonly clock: number;
     /** The quarter's clock ran out during a play: it finishes, then the quarter ends. */
     readonly expired: boolean;
@@ -57,7 +56,7 @@ export interface DownState extends MatchSnapshot {
     /** The team that took the opening possession; the other team receives the second half. */
     readonly openingTeam: TeamId;
     readonly overtime: { readonly first: TeamId; readonly possessions: number };
-    readonly winner: TeamId | 'draw' | null;
+    readonly winner: TeamId | null;
     readonly kick: KickState | null;
     readonly play: Play;
     readonly playNumber: number;
@@ -122,10 +121,10 @@ interface Carry {
     readonly mode: GameMode;
     readonly openingTeam: TeamId;
     readonly overtime: { readonly first: TeamId; readonly possessions: number };
-    readonly winner: TeamId | 'draw' | null;
+    readonly winner: TeamId | null;
     readonly kick: KickState | null;
 }
-const freshGame = (score: Score = { home: 0, away: 0 }): Omit<Carry, 'down' | 'firstDownLine'> => ({ score, quarter: 1, clock: QUARTER_TENTHS, expired: false, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null });
+const freshGame = (score: Score = { home: 0, away: 0 }): Omit<Carry, 'down' | 'firstDownLine'> => ({ score, quarter: 1, clock: QUARTER_TICKS, expired: false, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null });
 function formation(team: TeamId, line: number, playNumber: number, play: Play, carry: Carry): DownState {
     const dir = direction(team), center = FIELD.width / 2;
     const players = createMatch().players.map(p => {
@@ -169,7 +168,8 @@ export function contestPass(state: DownState, team: TeamId): DownState {
 function route(state: DownState, key: PlayerId): Vector {
     const p = player(state, key), dir = direction(state.offense);
     const depth = ROUTE_DEPTH[state.play === 'go' ? 'go' : 'slants'][p.number === 3 ? 3 : 4];
-    return { x: state.line + dir * depth, y: state.play === 'slants' ? FIELD.width / 2 : FIELD.width / 2 + (p.number === 3 ? -26 / 3 : 26 / 3) };
+    // A route ends in the end zone at the deepest: near either goal line a deep route is still a catchable pass.
+    return { x: Math.max(2, Math.min(FIELD.length - 2, state.line + dir * depth)), y: state.play === 'slants' ? FIELD.width / 2 : FIELD.width / 2 + (p.number === 3 ? -26 / 3 : 26 / 3) };
 }
 export function throwPass(state: DownState, target: 1 | 2, team = state.offense): DownState {
     if (team !== state.offense || state.phase !== 'live' || state.play === 'rush' || state.ball.kind !== 'held' || state.possession.carrier !== id(state.offense, 1))
@@ -203,8 +203,8 @@ const kickSpec = (state: DownState, kind: 'xp' | 'fg'): KickState => {
 export const fieldGoalInRange = (state: DownState): boolean => kickSpec(state, 'fg').distance <= FIELD_GOAL_MAX_DISTANCE;
 /** A missed field goal gives the ball to the other team where it was snapped, but no deeper than their own 20. */
 const missedFieldGoalSpot = (team: TeamId, spot: number) => team === 'home' ? Math.min(spot, 90) : Math.max(spot, 30);
-const fullClock = { clock: QUARTER_TENTHS, expired: false };
-function final(state: DownState, winner: TeamId | 'draw'): DownState {
+const fullClock = { clock: QUARTER_TICKS, expired: false };
+function final(state: DownState, winner: TeamId): DownState {
     return { ...state, phase: 'final', mode: 'final', winner, kick: null, expired: false };
 }
 interface Next {
@@ -228,8 +228,6 @@ function proceed(state: DownState, next: Next): DownState {
             const possessions = game.overtime.possessions + 1;
             if (possessions % 2 === 0 && state.score.home !== state.score.away)
                 return final(state, state.score.home > state.score.away ? 'home' : 'away');
-            if (possessions >= 2 * OVERTIME_MAX_PAIRS && possessions % 2 === 0)
-                return final(state, 'draw');
             game = { ...game, overtime: { ...game.overtime, possessions } };
             fresh(possessions % 2 === 0 ? game.overtime.first : opposite(game.overtime.first));
         }
@@ -290,8 +288,8 @@ function resolveKick(state: DownState, lockedAt: number): DownState {
 }
 /** The meter position the kicker would lock right now. */
 export const kickMeter = (state: DownState): number => state.kick ? meterAt(state.kick.ticks) : 0;
-/** Clock text for a number of tenths of a second, e.g. 1800 -> "3:00". */
-export const clockText = (tenths: number): string => { const s = Math.ceil(tenths / 10); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+/** Clock text for a number of ticks, e.g. 10800 -> "3:00". */
+export const clockText = (ticks: number): string => { const s = Math.ceil(ticks / 60); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 /** A new game from the opening snap. */
 export const newGame = (): DownState => createDown();
 /** Two blockers per play (QB and #5 on a handoff, RB and #5 on a pass), each taking the next-closest defender to the carrier. */

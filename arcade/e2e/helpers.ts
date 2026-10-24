@@ -9,7 +9,15 @@ export const button = (page: Page, name: string) => page.getByRole('button', { n
 export const text = (page: Page, id: string) => page.getByTestId(id).innerText();
 
 /** Time is the only thing controlled: keyboard events, React, animation frames and saving are real. */
-export async function startClocked(page: Page, seed?: DownState) {
+export async function startClocked(page: Page, seed?: DownState, options: { frameMs?: number } = {}) {
+    if (options.frameMs) {
+        // A slow screen: the page draws every `frameMs` of game-clock time instead of every 16 ms. The simulation still
+        // steps at 1/60 s (the app catches up at most 100 ms per frame), so this is the same game on a slower machine.
+        await page.addInitScript(ms => {
+            window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), ms) as unknown as number;
+            window.cancelAnimationFrame = id => window.clearTimeout(id);
+        }, options.frameMs);
+    }
     await page.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5184' ? route.continue() : route.abort());
     if (seed) {
         const body = encodeSave(seed);

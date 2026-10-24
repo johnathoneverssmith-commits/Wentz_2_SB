@@ -88,6 +88,47 @@ test.describe('field goals and extra points', () => {
 });
 
 test.describe('quarters, halftime, overtime and the final score', () => {
+    test('the game clock moves only while a play is live: not when paused, between downs, during a kick or across a reload', async ({ page }) => {
+        await startClocked(page, lineUp('home', 40, { game: { clock: 6000 } }));
+        await page.keyboard.press('Enter');
+        await page.keyboard.down('KeyD');
+        await page.clock.runFor(200);
+        const running = await saved(page);
+        expect(running.clock).toBeLessThan(6000);
+        expect(running.clock).toBeGreaterThan(6000 - 20);
+        await button(page, 'Pause').click();
+        await page.keyboard.up('KeyD');
+        const paused = await saved(page);
+        await page.clock.runFor(8000);
+        expect((await saved(page)).clock).toBe(paused.clock);
+        for (let i = 0; i < 2; i++) {
+            await page.reload();
+            await page.clock.runFor(3000);
+            expect((await saved(page)).clock, 'reloading and waiting does not consume game time').toBe(paused.clock);
+        }
+        await button(page, 'Resume').click();
+        await page.keyboard.down('KeyD');
+        for (let i = 0; i < 40 && (await saved(page)).phase === 'live'; i++) await page.clock.runFor(100);
+        await page.keyboard.up('KeyD');
+        const dead = await saved(page);
+        expect(dead.phase).toBe('dead');
+        expect(dead.clock).toBeLessThan(paused.clock);
+        await page.clock.runFor(10_000);
+        expect((await saved(page)).clock, 'a finished down does not run the clock').toBe(dead.clock);
+        await nextDown(page);
+        await page.clock.runFor(10_000);
+        expect((await saved(page)).clock, 'the next snap waits for the players').toBe(dead.clock);
+    });
+    test('the kick meter does not run the clock either', async ({ page }) => {
+        await startClocked(page, lineUp('home', 100, { down: 4, game: { clock: 4000 } }));
+        await page.getByLabel('Play', { exact: true }).selectOption('fieldgoal');
+        await page.keyboard.press('Enter');
+        await page.clock.runFor(1500);
+        const k = await saved(page);
+        expect(k.phase).toBe('kick');
+        expect(k.clock).toBe(4000);
+        expect(k.kick!.ticks).toBeGreaterThan(50);
+    });
     test('a quarter ends after the play in progress finishes, then Q2 starts with a full clock and the same ball', async ({ page }) => {
         await startClocked(page, lineUp('home', 40, { game: { clock: 8 } }));
         await expect(page.getByTestId('period')).toHaveText('Q1 · 0:01');
@@ -105,11 +146,11 @@ test.describe('quarters, halftime, overtime and the final score', () => {
         expect(dead).toMatchObject({ phase: 'dead', quarter: 1, expired: true });
         expect(await text(page, 'next-situation')).toContain('Q2 begins');
         await nextDown(page);
-        expect(await saved(page)).toMatchObject({ quarter: 2, clock: 1800, expired: false, offense: 'home', down: 2 });
+        expect(await saved(page)).toMatchObject({ quarter: 2, clock: 10800, expired: false, offense: 'home', down: 2 });
         await expect(page.getByTestId('period')).toHaveText('Q2 · 3:00');
         await page.reload();
         await page.clock.runFor(128);
-        expect(await saved(page)).toMatchObject({ quarter: 2, clock: 1800 });
+        expect(await saved(page)).toMatchObject({ quarter: 2, clock: 10800 });
     });
     test('halftime gives the second-half ball to Orange, which did not open, and reloading cannot skip or repeat it', async ({ page }) => {
         await startClocked(page, lineUp('home', 60, { game: { quarter: 2, clock: 8 }, score: { home: 7, away: 3 } }));
@@ -120,7 +161,7 @@ test.describe('quarters, halftime, overtime and the final score', () => {
         expect(await saved(page)).toMatchObject({ phase: 'dead', quarter: 2, expired: true });
         await nextDown(page);
         const second = await saved(page);
-        expect(second).toMatchObject({ quarter: 3, offense: 'away', line: 82, down: 1, clock: 1800, score: { home: 7, away: 3 } });
+        expect(second).toMatchObject({ quarter: 3, offense: 'away', line: 82, down: 1, clock: 10800, score: { home: 7, away: 3 } });
         for (let i = 0; i < 2; i++) {
             await page.reload();
             await page.clock.runFor(128);
@@ -175,9 +216,35 @@ test.describe('quarters, halftime, overtime and the final score', () => {
             await expect(page.getByTestId('final')).toBeVisible();
         }
         await button(page, 'Rematch').click();
-        expect(await saved(page)).toMatchObject({ phase: 'pre-snap', quarter: 1, clock: 1800, score: { home: 0, away: 0 }, mode: 'regulation', winner: null });
+        expect(await saved(page)).toMatchObject({ phase: 'pre-snap', quarter: 1, clock: 10800, score: { home: 0, away: 0 }, mode: 'regulation', winner: null });
         await expect(page.getByTestId('final')).toHaveCount(0);
         await expect(page.getByTestId('period')).toHaveText('Q1 · 3:00');
+    });
+    test('a tied overtime has no round limit: past the old five-pair mark the game goes on, survives a reload and ends only with a winner', async ({ page }) => {
+        // Eleven possessions are done (five tied pairs and Foxes' sixth); Bluebirds have the ball for the twelfth.
+        await startClocked(page, lineUp('home', 38, { down: 4, score: { home: 9, away: 9 }, game: { mode: 'overtime', quarter: 5, clock: 0, overtime: { first: 'away', possessions: 11 } } }));
+        await play(page);
+        await nextDown(page);
+        const next = await saved(page);
+        expect(next).toMatchObject({ mode: 'overtime', phase: 'pre-snap', offense: 'away', line: 82, winner: null, overtime: { first: 'away', possessions: 12 }, score: { home: 9, away: 9 } });
+        await expect(page.getByTestId('final')).toHaveCount(0);
+        await page.reload();
+        await page.clock.runFor(128);
+        expect(await saved(page)).toEqual(next);
+    });
+    test('a tied overtime ends in a winner whenever one finally scores: the sixth pair, Bluebirds touchdown and point after', async ({ page }) => {
+        await startClocked(page, lineUp('home', 107, { score: { home: 9, away: 9 }, game: { mode: 'overtime', quarter: 5, clock: 0, overtime: { first: 'away', possessions: 11 } } }));
+        const td = await play(page, ['KeyD']);
+        expect(td.result?.touchdown).toBe(true);
+        await nextDown(page);
+        await kickCentred(page, 'KeyG');
+        expect(await text(page, 'next-situation')).toBe('Final: Bluebirds win');
+        await nextDown(page);
+        expect(await saved(page)).toMatchObject({ phase: 'final', winner: 'home', score: { home: 16, away: 9 }, overtime: { possessions: 11 } });
+        await expect(page.getByTestId('final-score')).toHaveText('Bluebirds 16 – 9 Foxes');
+        await page.reload();
+        await page.clock.runFor(128);
+        await expect(page.getByTestId('final')).toBeVisible();
     });
     test('the leader wins at the end of regulation, and the final screen appears once', async ({ page }) => {
         await startClocked(page, lineUp('home', 40, { game: { quarter: 4, clock: 8 }, score: { home: 10, away: 3 } }));

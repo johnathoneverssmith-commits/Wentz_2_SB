@@ -1,6 +1,6 @@
 import { encodeSave, decodeSave } from "../browser/save";
 import { expect, it } from "vitest";
-import { createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
+import { lineUp, createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
 import type { Inputs, PlayerId } from "../core/simulation";
 import { CENTRE, kickAtTick } from './helpers';
 const idle: Inputs = { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } };
@@ -120,11 +120,19 @@ it('checks the lower end zone for an away offense, scores it once and gives the 
     const after = nextDown(kickAtTick(kick, CENTRE));
     expect(after).toMatchObject({ line: 38, offense: 'home', score: { home: 0, away: 7 } });
 });
-it('a pass led beyond the field is actually incomplete in an unmodified route', () => {
-    let live = isolated(snap(choosePlay(createDown(), 'go')));
-    live = { ...live, line: 108, players: live.players.map(p => p.id === 'home-3' ? { ...p, x: 119.1 } : p) };
-    const dead = ticks(throwPass(live, 1), 64);
-    expect(dead.result?.reason).toBe('incomplete');
+it('near either goal line a deep route ends in the end zone: the pass is catchable and scores, never thrown out of the field', () => {
+    for (const [team, line, x] of [['home', 105, 110], ['away', 15, 10]] as const) {
+        let live = isolated(snap(choosePlay(lineUp(team, line), 'go')));
+        live = place(live, `${team}-1` as PlayerId, line, 26.66666666665);
+        const air = throwPass(live, 1);
+        if (air.ball.kind !== 'flight')
+            throw Error('flight');
+        expect(air.ball.to.x).toBeGreaterThan(0.9);
+        expect(air.ball.to.x).toBeLessThan(119.1);
+        const dead = ticks(air, 64);
+        expect(dead.result?.reason, `${team} from the ${line}`).toBe('touchdown');
+        expect(team === 'home' ? dead.players.find(p => p.id === 'home-3')!.x >= x : dead.players.find(p => p.id === 'away-3')!.x <= x).toBe(true);
+    }
 });
 it('AI decisions and contested catches do not depend on player array order', () => {
     const a = throwPass(isolated(snap(choosePlay(createDown(), 'go'))), 1);

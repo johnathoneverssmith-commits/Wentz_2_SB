@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { encodeSave, decodeSave, SAVE_KEY } from '../browser/save';
-import { QUARTER_TENTHS, choosePlay, createDown, kickBall, lineUp, nextDown, snap, stepDown } from '../core/down';
+import { QUARTER_TICKS, choosePlay, createDown, kickBall, lineUp, nextDown, snap, stepDown } from '../core/down';
 import { kickAtTick, CENTRE, touchdown } from './helpers';
 it('round trips an arcade snapshot, rejects corrupt saves and never uses a franchise key', () => {
     const state = snap(createDown());
@@ -84,7 +84,7 @@ const asVersion3 = (state: unknown) => {
 };
 it('migrates a version-3 drive into the first quarter of a new game with a full clock', () => {
     const old = decodeSave(asVersion3(snap(lineUp('home', 60, { down: 3, score: { home: 7, away: 3 } }))))!;
-    expect(old).toMatchObject({ quarter: 1, clock: QUARTER_TENTHS, expired: false, mode: 'regulation', openingTeam: 'home', winner: null, kick: null, down: 3, score: { home: 7, away: 3 }, phase: 'live' });
+    expect(old).toMatchObject({ quarter: 1, clock: QUARTER_TICKS, expired: false, mode: 'regulation', openingTeam: 'home', winner: null, kick: null, down: 3, score: { home: 7, away: 3 }, phase: 'live' });
     expect(old.overtime).toEqual({ first: 'away', possessions: 0 });
     expect(decodeSave(encodeSave(old))).toEqual(old);
     // A completed touchdown in an old save still gets its extra point, exactly once.
@@ -121,7 +121,7 @@ function stepDownToFinal() {
 it('rejects game states that contradict themselves', () => {
     const state = snap(createDown());
     const bad = [
-        { quarter: 0 }, { quarter: 6 }, { clock: -1 }, { clock: QUARTER_TENTHS + 1 }, { clock: 1.5 }, { expired: 'yes' }, { mode: 'sudden' },
+        { quarter: 0 }, { quarter: 6 }, { clock: -1 }, { clock: QUARTER_TICKS + 1 }, { clock: 1.5 }, { expired: 'yes' }, { mode: 'sudden' },
         { mode: 'overtime' }, { winner: 'home' }, { phase: 'final' }, { phase: 'kick' }, { overtime: { first: 'away', possessions: -1 } },
         { overtime: { first: 'both', possessions: 0 } }, { openingTeam: 'neither' }, { kick: { kind: 'xp', team: 'home', distance: 25, spot: 95, ticks: 0, lockedAt: null, good: null } },
     ];

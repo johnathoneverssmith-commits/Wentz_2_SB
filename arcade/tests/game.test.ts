@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { OVERTIME_MAX_PAIRS, QUARTER_TENTHS, choosePlay, clockText, createDown, fieldGoalInRange, kickBall, kickMeter, lineUp, newGame, nextDown, snap, stepDown, switchDefender, throwPass, type DownState } from '../core/down';
+import { QUARTER_TICKS, choosePlay, clockText, createDown, fieldGoalInRange, kickBall, kickMeter, lineUp, newGame, nextDown, snap, stepDown, switchDefender, throwPass, type DownState } from '../core/down';
 import { EXTRA_POINT_DISTANCE, FIELD_GOAL_MAX_DISTANCE, FIELD_GOAL_POINTS, KICK_MAX_TICKS, KICK_PERIOD_TICKS, isGood, kickTolerance, meterAt } from '../core/kick';
+import { STEP_SECONDS } from '../core/simulation';
 import { CENTRE, FAR_END, MID, farAway, idle, kickAtTick, place, tackled, throughExtraPoint, touchdown, turnedOverOnDowns, zero } from './helpers';
 
 const overtime = (first: 'home' | 'away' = 'away', possessions = 0, score = { home: 0, away: 0 }) =>
@@ -9,17 +10,21 @@ const overtime = (first: 'home' | 'away' = 'away', possessions = 0, score = { ho
 describe('the regulation clock', () => {
     it('starts every game at Q1 3:00, 0-0, home opening', () => {
         const s = newGame();
-        expect(s).toMatchObject({ quarter: 1, clock: QUARTER_TENTHS, expired: false, mode: 'regulation', openingTeam: 'home', winner: null, kick: null });
+        expect(s).toMatchObject({ quarter: 1, clock: QUARTER_TICKS, expired: false, mode: 'regulation', openingTeam: 'home', winner: null, kick: null });
         expect(clockText(s.clock)).toBe('3:00');
         expect(clockText(0)).toBe('0:00');
         expect(clockText(1)).toBe('0:01');
-        expect(clockText(601)).toBe('1:01');
+        expect(clockText(60)).toBe('0:01');
+        expect(clockText(61)).toBe('0:02');
+        expect(clockText(10799)).toBe('3:00');
+        expect(clockText(10740)).toBe('2:59');
+        expect(clockText(3601)).toBe('1:01');
     });
-    it('runs one tenth of a game second per live tick and stops between downs and during kicks', () => {
+    it('burns one clock tick per live simulation tick and stops between downs and during kicks', () => {
         let s = snap(createDown());
         for (let i = 1; i <= 5; i++) {
             s = stepDown(s, idle);
-            expect(s.clock).toBe(QUARTER_TENTHS - i);
+            expect(s.clock).toBe(QUARTER_TICKS - i);
         }
         const dead = tackled(createDown(), 4);
         expect(stepDown(dead, idle)).toBe(dead);
@@ -29,15 +34,35 @@ describe('the regulation clock', () => {
         let k = kick;
         for (let i = 0; i < 30; i++) k = stepDown(k, idle);
         expect(k.clock).toBe(before);
-        expect(stepDown(createDown(), idle).clock).toBe(QUARTER_TENTHS);
+        expect(stepDown(createDown(), idle).clock).toBe(QUARTER_TICKS);
     });
-    it('a full quarter is thirty seconds of live simulation time, independent of any frame rate', () => {
-        expect(QUARTER_TENTHS).toBe(1800);
-        let s = lineUp('home', 40);
-        s = farAway(snap(s));
+    it('a quarter is exactly three minutes of live simulation time: 10,800 ticks at 60 per second', () => {
+        expect(QUARTER_TICKS).toBe(3 * 60 * 60);
+        expect(QUARTER_TICKS * STEP_SECONDS).toBeCloseTo(180, 9);
+        // Keep every defender out of the way so nothing ends the play, and count the live ticks until the clock runs out.
+        let s = farAway(snap(lineUp('home', 40)));
         let ticks = 0;
-        while (s.clock > 0 && s.phase === 'live') { s = stepDown({ ...s, liveTicks: 0 }, idle); ticks++; }
-        expect(ticks).toBeGreaterThanOrEqual(1);
+        while (s.clock > 0) {
+            expect(ticks, 'the clock should reach zero').toBeLessThan(QUARTER_TICKS + 5);
+            s = farAway(stepDown({ ...s, liveTicks: 0 }, idle));
+            ticks++;
+            if (ticks === 60) expect(clockText(s.clock)).toBe('2:59');
+            if (ticks === 60 * 120) expect(clockText(s.clock)).toBe('1:00');
+        }
+        expect(ticks).toBe(QUARTER_TICKS);
+        expect(s).toMatchObject({ clock: 0, expired: true, phase: 'live' });
+    });
+    it('pausing, stepping a dead play and sitting through a kick do not consume game time', () => {
+        const s = lineUp('home', 40);
+        expect(stepDown(s, idle)).toBe(s);
+        const dead = tackled(createDown(), 4);
+        let d = dead;
+        for (let i = 0; i < 600; i++) d = stepDown(d, idle);
+        expect(d.clock).toBe(dead.clock);
+        let k = nextDown(touchdown(createDown()));
+        const before = k.clock;
+        for (let i = 0; i < 150; i++) k = stepDown(k, idle);
+        expect(k.clock).toBe(before);
     });
     it('when the clock reaches zero the play finishes first, then the quarter changes', () => {
         let s = farAway(snap(lineUp('home', 40, { game: { clock: 3 } })));
@@ -51,7 +76,7 @@ describe('the regulation clock', () => {
         const dead = tackled(lineUp('home', 40, { game: { clock: 1 } }), 3);
         expect(dead.expired).toBe(true);
         const next = nextDown(dead);
-        expect(next).toMatchObject({ quarter: 2, clock: QUARTER_TENTHS, expired: false, offense: 'home', down: 2, line: 43 });
+        expect(next).toMatchObject({ quarter: 2, clock: QUARTER_TICKS, expired: false, offense: 'home', down: 2, line: 43 });
     });
     it('quarters 1 and 3 continue the same possession; halftime gives the second-half ball to the team that did not open', () => {
         const q1 = nextDown(tackled(lineUp('home', 40, { game: { clock: 1 } }), 3));
@@ -59,7 +84,7 @@ describe('the regulation clock', () => {
         const q3 = nextDown(tackled(lineUp('away', 70, { game: { quarter: 3, clock: 1 } }), 4));
         expect(q3).toMatchObject({ quarter: 4, offense: 'away', line: 66, down: 2 });
         const half = nextDown(tackled(lineUp('home', 60, { game: { quarter: 2, clock: 1 } }), 4));
-        expect(half).toMatchObject({ quarter: 3, clock: QUARTER_TENTHS, expired: false, offense: 'away', line: 82, down: 1, firstDownLine: 72 });
+        expect(half).toMatchObject({ quarter: 3, clock: QUARTER_TICKS, expired: false, offense: 'away', line: 82, down: 1, firstDownLine: 72 });
         expect(half.score).toEqual({ home: 0, away: 0 });
     });
     it('the end of regulation: the leader wins, a tie goes to overtime', () => {
@@ -76,7 +101,7 @@ describe('the regulation clock', () => {
         expect(dead.expired).toBe(true);
         const afterXp = throughExtraPoint(dead);
         expect(afterXp.score.home).toBe(7);
-        expect(afterXp).toMatchObject({ quarter: 3, offense: 'away', line: 82, clock: QUARTER_TENTHS });
+        expect(afterXp).toMatchObject({ quarter: 3, offense: 'away', line: 82, clock: QUARTER_TICKS });
         // Trailing 0-7 in the last seconds of Q4, a touchdown plus the point after ties it and forces overtime.
         const tied = throughExtraPoint(touchdown(lineUp('home', 100, { score: { home: 0, away: 7 }, game: { quarter: 4, clock: 1 } })));
         expect(tied).toMatchObject({ mode: 'overtime', quarter: 5, score: { home: 7, away: 7 }, offense: 'away' });
@@ -278,12 +303,29 @@ describe('overtime', () => {
         expect(air.result?.reason).toBe('interception');
         expect(nextDown(air)).toMatchObject({ offense: 'home', line: 38, overtime: { possessions: 1 } });
     });
-    it('a tie that survives the maximum number of pairs ends as a draw', () => {
-        const last = lineUp('away', 82, { game: { ...overtime('away', 2 * OVERTIME_MAX_PAIRS - 1).game } });
-        // The home team's possession is the last of the final pair.
-        const home = turnedOverOnDowns({ ...lineUp('home', 38, overtime('away', 2 * OVERTIME_MAX_PAIRS - 1)) });
-        expect(nextDown(home)).toMatchObject({ phase: 'final', winner: 'draw' });
-        expect(last.overtime.possessions).toBe(2 * OVERTIME_MAX_PAIRS - 1);
+    it('there is no limit on tied rounds: a dozen tied pairs keep going and the next one decides the game', () => {
+        let s: DownState = lineUp('away', 82, overtime());
+        for (let pair = 1; pair <= 12; pair++) {
+            const afterAway = nextDown(turnedOverOnDowns(s));
+            expect(afterAway).toMatchObject({ mode: 'overtime', offense: 'home', winner: null, overtime: { possessions: 2 * pair - 1 } });
+            s = nextDown(turnedOverOnDowns(afterAway));
+            expect(s).toMatchObject({ phase: 'pre-snap', mode: 'overtime', offense: 'away', line: 82, down: 1, winner: null, overtime: { first: 'away', possessions: 2 * pair }, score: { home: 0, away: 0 } });
+        }
+        // Round 13: Foxes score and kick the point; Bluebirds fail on downs; Foxes win.
+        const afterFoxes = throughExtraPoint(touchdown(s));
+        expect(afterFoxes).toMatchObject({ mode: 'overtime', offense: 'home', overtime: { possessions: 25 }, score: { home: 0, away: 7 } });
+        const over = nextDown(turnedOverOnDowns(afterFoxes));
+        expect(over).toMatchObject({ phase: 'final', winner: 'away', score: { home: 0, away: 7 } });
+    });
+    it('the pair counter survives a save at any depth and the software stays responsive on a very long tie', () => {
+        const start = Date.now();
+        let s: DownState = lineUp('away', 82, overtime());
+        for (let round = 0; round < 500; round++) {
+            s = nextDown(turnedOverOnDowns(nextDown(turnedOverOnDowns(s))));
+            expect(s.phase).toBe('pre-snap');
+        }
+        expect(s.overtime.possessions).toBe(1000);
+        expect(Date.now() - start).toBeLessThan(5000);
     });
 });
 
@@ -303,7 +345,7 @@ describe('game over', () => {
     it('a rematch is a fresh game at 0-0, Q1 3:00', () => {
         const again = newGame();
         expect(again).toEqual(createDown());
-        expect(again).toMatchObject({ score: { home: 0, away: 0 }, quarter: 1, clock: QUARTER_TENTHS, phase: 'pre-snap', mode: 'regulation' });
+        expect(again).toMatchObject({ score: { home: 0, away: 0 }, quarter: 1, clock: QUARTER_TICKS, phase: 'pre-snap', mode: 'regulation' });
     });
 });
 
@@ -311,7 +353,7 @@ describe('a whole game is deterministic', () => {
     it('the same inputs always give the same final score', () => {
         const play = () => {
             let s = createDown(), plays = 0;
-            while (s.phase !== 'final' && plays < 400) {
+            while (s.phase !== 'final' && plays < 4000) {
                 if (s.phase === 'pre-snap') s = snap(s);
                 else if (s.phase === 'live') s = stepDown(s, { home: { x: 1, y: 0 }, away: zero });
                 else if (s.phase === 'kick') { s = s.kick!.good === null ? kickAtTick(s, CENTRE) : nextDown(s); plays++; }
@@ -322,7 +364,7 @@ describe('a whole game is deterministic', () => {
         const a = play(), b = play();
         expect(a).toEqual(b);
         expect(a.phase).toBe('final');
-        expect(a.winner).not.toBeNull();
+        expect(['home', 'away']).toContain(a.winner);
     });
 });
 

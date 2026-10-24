@@ -1,4 +1,4 @@
-import { OVERTIME_MAX_PAIRS, QUARTER_TENTHS, SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, type DownState } from '../core/down';
+import { QUARTER_TICKS, SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, type DownState } from '../core/down';
 import { KICK_MAX_TICKS } from '../core/kick';
 import { FIELD } from '../core/simulation';
 export const SAVE_KEY = 'wentz.arcade.down.v1';
@@ -30,23 +30,23 @@ function upgrade(version: number, old: Record<string, unknown>): Record<string, 
         s = { ...s, score, down: 1, firstDownLine: firstDownMarker(offense, Number(s.line)), result: result ? { ...result, firstDown: false, turnoverOnDowns: false } : null };
     }
     if (version <= 3)
-        s = { ...s, quarter: 1, clock: QUARTER_TENTHS, expired: false, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
+        s = { ...s, quarter: 1, clock: QUARTER_TICKS, expired: false, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
     return s;
 }
 /** The clock, quarter, mode, overtime, winner and kick must agree with each other and with the phase. */
 function gameFieldsValid(s: Record<string, unknown>): boolean {
-    if (!integer(s.quarter) || Number(s.quarter) < 1 || Number(s.quarter) > 5 || !integer(s.clock) || Number(s.clock) > QUARTER_TENTHS || typeof s.expired !== 'boolean')
+    if (!integer(s.quarter) || Number(s.quarter) < 1 || Number(s.quarter) > 5 || !integer(s.clock) || Number(s.clock) > QUARTER_TICKS || typeof s.expired !== 'boolean')
         return false;
     if (!['regulation', 'overtime', 'final'].includes(String(s.mode)) || !team(s.openingTeam))
         return false;
     const o = s.overtime;
-    if (!object(o) || !team(o.first) || !integer(o.possessions) || Number(o.possessions) > 2 * OVERTIME_MAX_PAIRS)
+    if (!object(o) || !team(o.first) || !integer(o.possessions))
         return false;
     if ((s.mode === 'overtime') !== (s.quarter === 5) && s.mode !== 'final')
         return false;
     if ((s.mode === 'final') !== (s.phase === 'final') || (s.phase === 'final') !== (s.winner !== null))
         return false;
-    if (s.winner !== null && s.winner !== 'home' && s.winner !== 'away' && s.winner !== 'draw')
+    if (s.winner !== null && s.winner !== 'home' && s.winner !== 'away')
         return false;
     if (s.mode === 'overtime' && (s.clock !== 0 || s.expired))
         return false;
