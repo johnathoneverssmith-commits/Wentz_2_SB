@@ -124,7 +124,8 @@ it('near either goal line a deep route ends in the end zone: the pass is catchab
     for (const [team, line, x] of [['home', 105, 110], ['away', 15, 10]] as const) {
         let live = isolated(snap(choosePlay(lineUp(team, line), 'go')));
         live = place(live, `${team}-1` as PlayerId, line, 26.66666666665);
-        const air = throwPass(live, 1);
+        // Wait in the pocket until the receiver has run his route to the back of the end zone, then throw.
+        const air = throwPass(ticks(live, 100), 1);
         if (air.ball.kind !== 'flight')
             throw Error('flight');
         expect(air.ball.to.x).toBeGreaterThan(0.9);

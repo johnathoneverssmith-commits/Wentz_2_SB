@@ -64,6 +64,8 @@ distance (`kickTolerance`).
 
 ## The shape of a game (browser, prepared saves, real inputs)
 
+* **Clock:** a quarter is exactly **10,800 live ticks, three minutes at 60 ticks a second** (a unit test counts
+  them). Pausing, reloading, a finished down and a kick all leave the clock where it was (browser test).
 * **Quarter end:** with 0:01 left and the ball at the 40, Blue runs; the clock hits 0:00
   mid-play, the HUD says the quarter ends after this play, the play finishes, and Next down
   opens **Q2 3:00** with the same team, spot and 2nd down.
@@ -72,22 +74,28 @@ distance (`kickTolerance`).
 * **Regulation:** leading 10-3 at the end of Q4 ends the game on the final screen
   ("Final: Bluebirds win", the score, a Rematch button). Tied 7-7 goes to **overtime**:
   Foxes first, from their 28, no clock.
+* **No limit on overtime:** with five tied pairs already played (eleven possessions), the next possession
+  ends level and the game goes on; a sixth-pair touchdown and point after finally ends it, 16-9. Unit tests tie
+  twelve and five hundred rounds in a row.
 * **Overtime to a winner:** Foxes score and kick the point (7-14), Blue's possession fails
   on downs, the screen reads **"Final: Foxes win"**. Keys and buttons do nothing at the final;
   three reloads show the same final; Rematch starts Q1 3:00, 0-0.
-* **A complete game** (`e2e/fullgame.spec.ts`): two scripted players attack and defend
-  through every quarter. Offense runs toward the goal and throws early on passing plays;
-  defense steers the selected defender to the carrier or to the landing circle and presses
-  Hands; kicks wait for the meter. It reaches the final screen: **0-7 after 140 completed
-  plays, 84 passes thrown, 84 Hands presses, 56 turnovers, one touchdown and extra point**,
-  a mid-game reload that restores the finished down exactly, a reload at the final, and a
-  Rematch. The score is low because both scripts do the same thing every play; it shows
-  that the whole loop completes, not how people will score.
+* **A complete game** (`e2e/fullgame.spec.ts`): two scripted players attack and defend through
+  all four quarters of 180 live seconds (43,200 simulation ticks). The quarterback waits 1.5 seconds in
+  the pocket and throws the go route's late window; the defender goes to the landing circle and presses
+  Hands; after a catch the carrier runs for the goal line and the defender chases; kicks wait for the
+  meter (Foxes' kicker misses every extra point and Foxes never kick field goals, so two otherwise identical
+  teams cannot tie forever). It reaches the final screen: **129-0 after 295 completed plays, 276 passes,
+  276 Hands presses, 18 touchdowns, 18 extra points, one field goal and 19 turnovers**, a mid-game reload
+  that restores the finished down exactly, a check that the clock never moved between downs, a reload at
+  the final and a Rematch, in about **a minute and a half to two minutes**. The page is drawn ten times a second (the app steps
+  the simulation six 1/60-second ticks per frame), which is the same game on a slower screen; the lopsided
+  score comes from the scripts, not from how people will play.
 
 ## Sampled evidence (not demonstrations)
 
 Scripted bots on the core, whole games: a mirror-image pair (same script both sides) ties and
-plays the five overtime pairs to a draw; a run-only offense against an idle defense scores a
+plays overtime rounds for as long as it is allowed to; a run-only offense against an idle defense scores a
 touchdown about every 15 plays; the same offense against a chasing defense stops at 4th down
 and kicks field goals; early passes against an attentive defender that goes to the landing circle
 and presses Hands are mostly intercepted. These numbers are why throwing at once is not the only
@@ -95,11 +103,11 @@ play and why the README says the game is tuned, not calibrated.
 
 ## Regression gates and negative controls
 
-`npm --prefix arcade test` (126 tests), `npm --prefix arcade run e2e` (34 browser tests),
+`npm --prefix arcade test` (128 tests), `npm --prefix arcade run e2e` (38 browser tests, about 3.6 minutes locally),
 typecheck, standalone build; `verify` runs them in order.
 
 Each defect below was applied alone to a disposable copy and failed on a relevant assertion
-(no test timeouts; the unmutated baseline passes 126 unit and 34 browser tests). Where a
+(no test timeouts; the unmutated baseline passes the unit tests and the browser tests listed above). Where a
 unit test caught it, the browser run was skipped.
 
 | Area | Defect | Caught by |
@@ -112,6 +120,10 @@ unit test caught it, the browser run was skipped.
 | Kick outcomes | a miss keeps the ball; a miss spotted unclamped | field-goal tests |
 | Overtime | ends after one possession; draws at once | overtime tests |
 | Game over | the final does not freeze the game | game-over test |
+| Corrections | a quarter of 30 seconds again; the clock six times too fast; clock text rounding down; the save limit stuck at the old clock | clock, text and save tests |
+| Overtime | ends after five pairs; the pair counter stuck or forgotten by the save | long-tie, overtime and save tests |
+| Clock | a paused game keeps running; a kick burns clock | pause, kick and browser clock tests |
+| Routes | a deep route leaves the field near the goal line | goal-line pass test |
 | Save | the clock is dropped; migration empties the clock | save tests |
 | Browser | reload resumes a kick unpaused; Rematch keeps the score; the final names the loser; Orange's kick key kicks for Blue | browser tests |
 | Balance | slants route depth; go coverage reaction time | the golden timing table |
@@ -121,4 +133,4 @@ unit test caught it, the browser run was skipped.
 
 Catches resolve at the landing point only. The AI's coverage is simple, and its interceptions
 need no timing. Blocking is two AI blockers and a speed penalty. No kickoffs, punts, two-point
-tries or penalties. A game between two perfect mirror-image players is a draw.
+tries or penalties. Two perfect mirror-image players can stay tied in overtime indefinitely, which is the specified behaviour.

@@ -23,9 +23,10 @@ tools; do not install packages inside `arcade/`.
 second half. The leader at the end of regulation wins; a tie goes to overtime; the
 game ends on a **final-score screen with a Rematch button**.
 
-* **The clock** runs only while a play is live, one tenth of a game second per
-  simulation tick, so a quarter is 30 seconds of live play. It stops between downs and
-  while a kick is lined up. When it reaches 0:00 the **play in progress finishes** (a
+* **The clock** runs only while a play is live, one clock tick per 1/60-second
+  simulation tick, so a quarter is exactly **three minutes (180 s, 10,800 ticks) of live
+  play**. It stops between downs, while a kick is lined up, when the game is paused and
+  across a reload. When it reaches 0:00 the **play in progress finishes** (a
   touchdown still gets its extra point); then the quarter ends. Q1 and Q3 end with the
   same team, spot and down; the end of Q2 is halftime, which gives **Foxes the ball at
   their own 28**. It is simulation time: it does not depend on the frame rate or the
@@ -39,8 +40,7 @@ game ends on a **final-score screen with a Rematch button**.
   own 28 (Foxes first), four-down rules and first downs apply, and the possession ends
   on a score (touchdown plus point after, or a field goal), a turnover or a failed
   fourth down. The score is compared after **both** possessions; a tie plays another
-  pair, up to five pairs, after which the game is declared a draw (this takes
-  mirror-image play to happen).
+  pair, and there is **no limit on rounds**: a game ends only when a winner is decided.
 * **Kicking.** A touchdown goes straight to the extra point (25 yards). Choose **Field
   goal** in the play menu on any down from within 57 yards of the posts, then **Kick
   field goal**. A **meter** swings by itself (a full swing is 100 ticks; after two swings
@@ -145,7 +145,8 @@ A local shared-keyboard game: no kickoffs, punts, onside kicks, two-point tries,
 penalties, injuries, substitutions, touch controls, franchise roster import or network
 play. Catches resolve at the landing point, not along the flight path. The AI covers
 simply, so the game is tuned, not calibrated: an attentive human defender who goes to
-the landing point and presses Hands intercepts most early throws, and two players who
-both play perfectly mirrored football tie (hence the draw rule). Scoring in the scripted
-full-game test is low. Keyboard rollover limits depend on the physical keyboard. Only
+the landing point and presses Hands intercepts most early throws. **A game is long**:
+plays last only a second or two of live time and the clock stops between downs, so three
+live minutes per quarter is on the order of a hundred plays per quarter. Two players who
+both play perfectly mirrored football could stay tied in overtime for as long as they like. Keyboard rollover limits depend on the physical keyboard. Only
 Chromium is exercised by current CI.
