@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, type DownState } from '../core/down';
+import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, GO_REACT_TICKS, type DownState } from '../core/down';
 import { decodeSave, encodeSave } from '../browser/save';
 import type { Inputs } from '../core/simulation';
 const zero = { x: 0, y: 0 };
@@ -9,7 +9,8 @@ function pass(defense: 'idle' | 'breakup' | 'hands', start = createDown()) {
     for (let tick = 0; s.phase === 'live' && s.ball.kind === 'flight' && tick < 100; tick++) {
         if (defense === 'hands' && tick === 40)
             s = contestPass(s, 'away');
-        s = stepDown(s, { home: zero, away: defense === 'idle' ? zero : { x: 0, y: -1 } });
+        // The landing point is up and to the left of Orange #1: hold Up+Left for 40 ticks (about 0.67 s), then stand.
+        s = stepDown(s, { home: zero, away: defense === 'idle' || tick >= 40 ? zero : { x: -1, y: -1 } });
     }
     return s;
 }
@@ -42,20 +43,22 @@ it('human pursuit stops the same rush sooner and offensive evasion gains more ya
 });
 it('an expired hands attempt cannot intercept, but a well-timed one can', () => {
     let s = contestPass(throwPass(snap(choosePlay(createDown(), 'slants')), 1), 'away');
-    while (s.phase === 'live' && s.ball.kind === 'flight')
-        s = stepDown(s, { home: zero, away: { x: 0, y: -1 } });
+    for (let tick = 0; s.phase === 'live' && s.ball.kind === 'flight'; tick++)
+        s = stepDown(s, { home: zero, away: tick >= 40 ? zero : { x: -1, y: -1 } });
     expect(s.result?.reason).toBe('incomplete');
     expect(pass('hands').result?.reason).toBe('interception');
 });
-it('AI contests an airborne ball rather than continuing pursuit of the QB', () => {
+it('AI covers the receiver, then breaks on the ball once it reacts, rather than continuing to chase the QB', () => {
     let s = snap(choosePlay(createDown(), 'go'));
-    for (let i = 0; i < 50; i++)
+    for (let i = 0; i < 12; i++)
         s = stepDown(s, idle);
     s = throwPass(s, 1);
     const point = s.ball.kind === 'flight' ? s.ball.to : zero;
-    const before = s.players.find(p => p.id === 'away-3')!;
-    const after = stepDown(s, idle).players.find(p => p.id === 'away-3')!;
-    expect(Math.hypot(after.x - point.x, after.y - point.y)).toBeLessThan(Math.hypot(before.x - point.x, before.y - point.y));
+    const gap = (state: DownState) => { const p = state.players.find(q => q.id === 'away-3')!; return Math.hypot(p.x - point.x, p.y - point.y); };
+    for (let i = 0; i < GO_REACT_TICKS; i++)
+        s = stepDown(s, idle);
+    const reacting = gap(s);
+    expect(gap(stepDown(s, idle))).toBeLessThan(reacting);
     while (s.phase === 'live' && s.ball.kind === 'flight')
         s = stepDown(s, idle);
     expect(s.result?.reason).toBe('interception');

@@ -56,3 +56,11 @@ page errors, all through specific assertions. Qualify arcade manual execution
 claims even when generic CI passes, including old arcade plans. Add only the
 separately authorized advisory arcade workflow; existing required/deploy workflows
 and command allowlist remain unchanged. No new gameplay or dependencies.
+
+## Milestone 3 (approved)
+
+Order: catch-radius boundary tests; pass contest by position and timing; four downs
+and first downs; touchdowns, scoreboard and possession after a score; version-3 save
+with migration and exactly-once scoring tests; then minimal blocking. Out of scope:
+kicking, extra points, penalties, game clock, online play, comprehensive NFL rules and
+franchise integration. All changes stay inside `arcade/`.

@@ -104,7 +104,7 @@ it('preserves the snap source and cannot throw a second forward pass after a cat
     expect(caught.possession.carrier).toBe('home-4');
     expect(throwPass(caught, 1)).toBe(caught);
 });
-it('checks the lower end zone for an away offense and resets after a score', () => {
+it('checks the lower end zone for an away offense, scores it once and gives the ball to the opponent', () => {
     const home = place(snap(createDown()), 'away-1', 38, 26.66666666665);
     const dead = stepDown(home, idle);
     const away = { ...nextDown(dead), offense: 'away' as const, possession: { team: 'away' as const, carrier: 'away-1' as const }, defender: 'home-1' as const };
@@ -113,8 +113,10 @@ it('checks the lower end zone for an away offense and resets after a score', () 
     const scored = stepDown(live, { ...idle, away: { x: -1, y: 0 } });
     expect(scored.result?.reason).toBe('touchdown');
     expect(scored.result?.touchdown).toBe(true);
-    expect(nextDown(scored).line).toBe(82);
-    expect(nextDown(scored).offense).toBe('away');
+    expect(scored.score).toEqual({ home: 0, away: 6 });
+    expect(nextDown(scored).line).toBe(38);
+    expect(nextDown(scored).offense).toBe('home');
+    expect(nextDown(scored).score).toEqual({ home: 0, away: 6 });
 });
 it('a pass led beyond the field is actually incomplete in an unmodified route', () => {
     let live = isolated(snap(choosePlay(createDown(), 'go')));

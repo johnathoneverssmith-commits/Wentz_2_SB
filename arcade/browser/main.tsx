@@ -1,12 +1,13 @@
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { advance, createClock } from '../core/clock';
-import { choosePlay, snap, nextDown, switchDefender, throwPass, contestPass, opposite, type DownState, type Play } from '../core/down';
+import { choosePlay, snap, nextDown, switchDefender, throwPass, contestPass, opposite, situation, SAFETY_POINTS, TOUCHDOWN_POINTS, type DownState, type Play } from '../core/down';
 import type { Inputs } from '../core/simulation';
 import { SAVE_KEY, encodeSave, decodeSave } from './save';
 import { drawField } from './field';
 import './style.css';
 const names = { home: 'Bluebirds', away: 'Foxes' };
+const ordinal = (n: number) => ['1st', '2nd', '3rd', '4th'][n - 1] ?? `${n}th`;
 function initialClock() {
     const fresh = createClock();
     try {
@@ -109,11 +110,12 @@ function Sandbox() {
         frame = requestAnimationFrame(animate);
         return () => { cancelAnimationFrame(frame); clearInput(); window.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', hidden); };
     }, []);
-    const state = view.match, result = state.result;
+    const state = view.match, result = state.result, sit = situation(state), preview = state.phase === 'dead' ? nextDown(state) : null;
+    const headline = !result ? 'Choose your play' : result.touchdown ? `Touchdown! ${names[state.offense]} +${TOUCHDOWN_POINTS}` : result.reason === 'safety' ? `Safety! ${names[opposite(state.offense)]} +${SAFETY_POINTS}` : result.reason === 'interception' ? 'Intercepted!' : result.turnoverOnDowns ? 'Turnover on downs' : result.firstDown ? 'First down!' : result.reason === 'incomplete' ? 'Incomplete pass' : `Play ended: ${result.reason}`;
     return <main>
   <header><div><p className="series">Wentz 2 SB / Arcade lab</p><h1>Backyard football</h1><p className="intro">Two players. One keyboard. One playable down.</p></div><div className="actions"><button onClick={togglePause}>{view.paused ? 'Resume' : 'Pause'}</button><button className="secondary" onClick={restart}>Restart</button></div></header>
   <section className="stadium" aria-label="Playable football down">
-   <div className="scoreboard"><div className="team blue"><span className="swatch"/>Bluebirds <small>Player 1 · WASD</small></div><div className="drill"><strong>Down {state.playNumber}</strong><span data-testid="phase">{view.paused ? 'Paused' : state.phase === 'pre-snap' ? 'Pre-snap' : state.phase === 'live' ? 'Live play' : 'Play complete'}</span></div><div className="team orange">Foxes <span className="swatch"/><small>Player 2 · Arrow keys</small></div></div>
+   <div className="scoreboard"><div className="team blue"><span className="swatch"/>Bluebirds <b data-testid="score-home" className="points">{state.score.home}</b> <small>Player 1 · WASD</small></div><div className="drill"><strong data-testid="situation">{ordinal(state.down)} &amp; {sit.goalToGo ? 'Goal' : sit.toGo.toFixed(1)}</strong><small>Play {state.playNumber} · {names[state.offense]} ball</small><span data-testid="phase">{view.paused ? 'Paused' : state.phase === 'pre-snap' ? 'Pre-snap' : state.phase === 'live' ? 'Live play' : 'Play complete'}</span></div><div className="team orange">Foxes <b data-testid="score-away" className="points">{state.score.away}</b> <span className="swatch"/><small>Player 2 · Arrow keys</small></div></div>
    <canvas ref={canvas} width={1200} height={560} tabIndex={0} role="img" aria-label="Football field with ten numbered players; white rings mark human players and a gold ring marks the ball carrier" onClick={() => canvas.current?.focus()}/>
    <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · #${state.possession.carrier.split('-')[1]}`}</span><span>{state.phase === 'dead' ? `Next offense: ${names[state.result?.turnover ? opposite(state.offense) : state.offense]}` : `Defense: ${names[opposite(state.offense)]} #${state.defender.split('-')[1]} · ${state.offense === 'home' ? 'Attack →' : '← Attack'}`}</span></div>
   </section>
@@ -127,7 +129,7 @@ function Sandbox() {
    <button disabled={view.paused || state.phase !== 'dead'} onClick={() => command(nextDown, true)}>Next down</button>
   </section>
   <p data-testid="terminal-count">Completed plays: {state.terminalCount}</p>
-  <section className="result" aria-live="polite"><h2>{result ? result.touchdown ? 'Touchdown!' : result.reason === 'interception' ? 'Intercepted!' : result.reason === 'incomplete' ? 'Incomplete pass' : `Play ended: ${result.reason}` : 'Choose your play'}</h2><p data-testid="result">{result ? `${names[state.offense]}: ${result.yards.toFixed(1)} offensive yards · Turnover: ${result.turnover ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`}</p></section>
+  <section className="result" aria-live="polite"><h2 data-testid="headline">{headline}</h2><p data-testid="result">{result ? `${names[state.offense]}: ${result.yards.toFixed(1)} offensive yards · Turnover: ${result.turnover || result.turnoverOnDowns ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`}</p>{preview && <p data-testid="next-situation">Next: {names[preview.offense]} ball, {ordinal(preview.down)} &amp; {situation(preview).goalToGo ? 'Goal' : situation(preview).toGo.toFixed(1)}</p>}</section>
   {storageWarning && <p role="status">Arcade saving is unavailable. You can continue playing without a save.</p>}
   <section className="instructions" aria-label="How to play"><h2>Position. Time your hands.</h2>
     <p>Blue: <kbd>WASD</kbd> move, <kbd>Q / E</kbd> pass on offense, <kbd>F</kbd> switch and <kbd>R</kbd> hands on defense. Orange: arrow keys move, <kbd>, / .</kbd> pass on offense, <kbd>/</kbd> switch and <kbd>Right Shift</kbd> hands on defense. Each player keeps their keys after a turnover. Snap / Next down: <kbd>Enter</kbd>.</p>

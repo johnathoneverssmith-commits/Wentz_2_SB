@@ -50,7 +50,8 @@ function direction(v: Vector): Vector {
     return { x: v.x / length, y: v.y / length };
 }
 /** AI reads the previous snapshot only, so array ordering never changes decisions. */
-export function step(state: MatchSnapshot, inputs: Inputs, targets?: ReadonlyMap<PlayerId, Vector>): MatchSnapshot {
+/** `slow` scales a player's speed this tick (a blocked defender), for humans and AI alike. */
+export function step(state: MatchSnapshot, inputs: Inputs, targets?: ReadonlyMap<PlayerId, Vector>, slow?: ReadonlyMap<PlayerId, number>): MatchSnapshot {
     const human = { home: direction(inputs.home), away: direction(inputs.away) };
     const carrier = state.players.find(p => p.id === state.possession.carrier)!;
     const players = state.players.map(p => {
@@ -64,7 +65,7 @@ export function step(state: MatchSnapshot, inputs: Inputs, targets?: ReadonlyMap
             const delta = { x: target.x - p.x, y: target.y - p.y };
             movement = Math.hypot(delta.x, delta.y) < 0.5 ? { x: 0, y: 0 } : direction(delta);
         }
-        const distance = (4 + p.abilities.speed / 20) * STEP_SECONDS;
+        const distance = (4 + p.abilities.speed / 20) * STEP_SECONDS * (slow?.get(p.id) ?? 1);
         return {
             ...p,
             x: Math.max(FIELD.radius, Math.min(FIELD.length - FIELD.radius, p.x + movement.x * distance)),
