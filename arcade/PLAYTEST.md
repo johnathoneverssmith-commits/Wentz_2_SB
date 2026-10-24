@@ -16,9 +16,9 @@ Same formation, same snap, only the human inputs differ.
 | Same | Same movement, then `Right Shift` at flight tick 40 | **Interception**, zero yards, ball to Foxes |
 | Same | Same movement but `Right Shift` pressed at the throw | Hands expire: **incomplete**, not intercepted |
 | Handoff | Blue holds D; Orange holds Left | tackle, tick 24, **2.5 yards** |
-| Handoff | Blue holds D; Orange idle (no pursuit) | **5.2 yards** (AI tackle, tick 50) |
+| Handoff | Blue holds D; Orange idle (no pursuit) | **5.1 yards** (AI tackle, tick 49) |
 | Handoff | Blue holds D+W | **6.2 yards**: cutting off the defenders gains more |
-| Handoff | Blue runs (1, -0.6) behind the blocker; Orange idle / chasing | **7.1** / **5.4 yards**, against 5.2 / 2.5 running straight |
+| Handoff | Blue runs (1, -0.6) behind the blocker; Orange idle / chasing | **7.1** / **5.4 yards**, against 5.1 / 2.5 running straight |
 | Four idle plays | Blue snaps and never moves | **Turnover on downs** at the 38; Foxes ball, 1st & 10 |
 | A drive | Blue holds D every play, Orange idle | 6 first downs, **touchdown on play 14**, 6-0, Foxes ball at their 28 |
 | Same drive | Orange chases left every play | the drive takes **29 plays** to score (7 first downs) |
@@ -57,11 +57,11 @@ bars that show a blocked defender.
 
 ## Regression gates and negative controls
 
-`npm --prefix arcade test` (78 tests), `npm --prefix arcade run e2e` (24 browser tests
+`npm --prefix arcade test` (81 tests), `npm --prefix arcade run e2e` (24 browser tests
 on the Ubuntu advisory job), typecheck, standalone build; `verify` runs them in order.
 
 Each defect below was applied alone to a disposable copy, and each failed on a
-relevant assertion (the unmutated baseline passes 78 unit and 24 browser tests):
+relevant assertion (the unmutated baseline passes 81 unit and 24 browser tests):
 
 | Rule | Defect | Fails |
 | --- | --- | --- |
@@ -74,6 +74,7 @@ relevant assertion (the unmutated baseline passes 78 unit and 24 browser tests):
 | Pass contest | catch radius widened / narrowed; break-up radius 0; human Hands not required | pass-boundary and agency tests |
 | Blocking | no slowdown; blockers never assigned | blocking tests |
 | Controls | home score shows away points; Orange pass key throws for Blue; interception not a turnover | browser and unit tests |
+| Review fixes | break-up radius grows with the receiver's error; any blocker slows any nearby defender; field bars show every nearby defender; the result line ignores a turnover on downs | pass-boundary test; blocking tests (assignment, bars); browser fourth-down test |
 | Carry-overs | everything from Milestones 1 and 2 | unchanged |
 
 None of these failed by test timeout (one run during the session was stalled by the
@@ -84,3 +85,12 @@ laptop sleeping and was repeated cleanly).
 Catches resolve at the landing point only. AI coverage is simple: its interceptions
 need no timing, so a late throw into coverage is usually intercepted. Blocking is
 two AI blockers and a speed penalty. There is no clock, kicking or end of game.
+
+## After the review of PR #28
+
+Three review findings were fixed: the break-up radius is the fixed 2.2 yards, a blocker
+holds only his assigned defender (and the field bars show the same pairs), and the
+result line counts a turnover on downs. Re-measured, the only demonstration that moved
+was the straight handoff against an idle defender (5.2 yards at tick 50 became 5.1 at
+tick 49, because a second defender no longer rides along with the blocked one); every
+other figure and the receiver-timing table above are unchanged.
