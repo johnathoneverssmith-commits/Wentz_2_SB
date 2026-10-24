@@ -29,7 +29,10 @@ export function touchdown(start: DownState): DownState {
 /** Runs the kick meter to `ticks` and presses Kick for `team`. */
 export function kickAtTick(state: DownState, ticks: number): DownState {
     let s = state;
-    while (s.kick!.ticks < ticks) s = stepDown(s, idle);
+    for (let i = 0; s.kick!.ticks < ticks; i++) {
+        expect(i, 'the kick meter should advance every tick').toBeLessThan(ticks + 5);
+        s = stepDown(s, idle);
+    }
     return kickBall(s, s.kick!.team);
 }
 /** A tick where the meter is centred (a quarter period in) and one where it is at the far end. */
