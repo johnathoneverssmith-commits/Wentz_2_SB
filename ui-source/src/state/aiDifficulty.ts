@@ -70,6 +70,13 @@ export interface AiDifficultyProfile {
   unitAwareness: number;
   /** Accept a trade only when it adds value — no coin-flip on a fair or losing deal. */
   strictTrades: boolean;
+  /**
+   * How much of the public draft board a CPU GM reads (0..1): at 1 the projected
+   * range places each prospect; lower, it trusts only the round and the
+   * headline college grade. Always a rating on the league's scale — a blurrier
+   * read, never a broken one (`draftBoard.ts`).
+   */
+  scoutingAccuracy: number;
 }
 
 // §5-§9, §11-§15 tables.
@@ -77,6 +84,7 @@ const BASE_PROFILES: Record<Exclude<Difficulty, "master">, AiDifficultyProfile> 
   casual: {
     unitAwareness: 0,
     strictTrades: false,
+    scoutingAccuracy: 0.5,
     evaluationNoise: 4.0,
     rookieEvaluationNoise: 2.0,
     coachEvaluationNoise: 3.0,
@@ -92,6 +100,7 @@ const BASE_PROFILES: Record<Exclude<Difficulty, "master">, AiDifficultyProfile> 
   standard: {
     unitAwareness: 0,
     strictTrades: false,
+    scoutingAccuracy: 0.7,
     evaluationNoise: 2.0,
     rookieEvaluationNoise: 1.0,
     coachEvaluationNoise: 1.5,
@@ -107,6 +116,7 @@ const BASE_PROFILES: Record<Exclude<Difficulty, "master">, AiDifficultyProfile> 
   competitive: {
     unitAwareness: 0,
     strictTrades: false,
+    scoutingAccuracy: 0.9,
     evaluationNoise: 0.8,
     rookieEvaluationNoise: 0.4,
     coachEvaluationNoise: 0.5,
@@ -122,6 +132,7 @@ const BASE_PROFILES: Record<Exclude<Difficulty, "master">, AiDifficultyProfile> 
   expert: {
     unitAwareness: 0,
     strictTrades: false,
+    scoutingAccuracy: 1,
     evaluationNoise: 0,
     rookieEvaluationNoise: 0,
     coachEvaluationNoise: 0,
@@ -193,6 +204,7 @@ export function difficultyProfileAt(at: number): AiDifficultyProfile {
     missedRebidRate: mix("missedRebidRate"),
     tradeAcceptanceThresholdVariation: mix("tradeAcceptanceThresholdVariation"),
     unitAwareness: mix("unitAwareness"),
+    scoutingAccuracy: mix("scoutingAccuracy"),
     strictTrades: t >= 0.5 ? b.strictTrades : a.strictTrades,
   };
   PROFILE_CACHE.set(x, out);
