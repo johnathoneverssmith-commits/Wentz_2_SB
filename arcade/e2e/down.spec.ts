@@ -102,9 +102,8 @@ test('wall-clock keyboard playthroughs complete, break up and intercept ordinary
         await page.getByLabel('Play', { exact: true }).selectOption('slants');
         await page.getByRole('button', { name: 'Snap', exact: true }).click();
         if (outcome !== 'complete') {
-            // The landing point is up and to the left of Orange #1.
+            // The landing point is above Orange #1.
             await page.keyboard.down('ArrowUp');
-            await page.keyboard.down('ArrowLeft');
         }
         await page.keyboard.press('KeyQ');
         if (outcome === 'interception') {
@@ -112,9 +111,8 @@ test('wall-clock keyboard playthroughs complete, break up and intercept ordinary
             await page.keyboard.press('ShiftRight');
         }
         if (outcome !== 'complete') {
-            await expect.poll(async () => (await saved(page)).players.find(p => p.id === 'away-1')!.y, { intervals: [25] }).toBeLessThanOrEqual(23.4);
+            await expect.poll(async () => (await saved(page)).players.find(p => p.id === 'away-1')!.y, { intervals: [25] }).toBeLessThanOrEqual(23.2);
             await page.keyboard.up('ArrowUp');
-            await page.keyboard.up('ArrowLeft');
         }
         await expect.poll(async () => (await saved(page)).ball.kind, { intervals: [25] }).toBe('held');
         const final = await saved(page);
