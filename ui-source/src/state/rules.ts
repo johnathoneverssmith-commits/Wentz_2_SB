@@ -66,7 +66,7 @@ import {
   strategyPositionBonus,
 } from "./aiStrategy.ts";
 import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
-import { effectiveByPosition, expectedRatings, rookieValue, strategyScaleFor } from "./draftBoard.ts";
+import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
@@ -292,27 +292,9 @@ const DRAFT_FLOOR = new Map<string, number>(
  * the elite quarterbacks at the top of the board without making the position
  * itself the whole argument.
  */
-// Premiums follow what a point is measured to be worth in this engine
-// (see `POSITION_VALUE` in MockSimulationService — about 9·ln(value/0.8)),
-// not NFL convention: a running back or safety carries a game here, a tight
-// end or an outside linebacker barely touches one.
-const POSITION_VALUE: Record<Position, number> = {
-  QB: 10,
-  RB: 7,
-  S: 4,
-  EDGE: 4,
-  WR: 4,
-  CB: 3,
-  ILB: 1,
-  OT: 1,
-  OG: 0,
-  C: 0,
-  DT: 0,
-  TE: -3,
-  OLB: -8,
-  K: -14,
-  P: -14,
-};
+// Premiums follow what a point is measured to be worth in this engine, not NFL
+// convention: the table lives in `draftBoard.ts`, where the rookie draft also
+// blends it with the market's hierarchy.
 
 /** Cross-position draft value: what he is, plus what the position is worth. */
 /**
@@ -335,7 +317,13 @@ export function readRookieBoard(
   s: LeagueState,
   teamCode: string | undefined,
   difficulty: AiDifficultyProfile,
-): { expected: Map<string, number>; carried: Map<Position, number[]>; drafted: Map<Position, number> } {
+  market: Map<string, Map<Position, number>> = readFreeAgentMarket(s),
+): {
+  expected: Map<string, number>;
+  carried: Map<Position, number[]>;
+  drafted: Map<Position, number>;
+  alternatives: Map<Position, number>;
+} {
   const expected = expectedRatings(s.draftClass, difficulty.scoutingAccuracy);
   const drafted = new Map<Position, number>();
   const incumbents: { position: Position; overall: number; age: number; yearsLeft: number }[] = [];
@@ -354,7 +342,44 @@ export function readRookieBoard(
       drafted.set(pk.position, (drafted.get(pk.position) ?? 0) + 1);
     }
   }
-  return { expected, carried, drafted };
+  return { expected, carried, drafted, alternatives: (teamCode && market.get(teamCode)) || new Map<Position, number>() };
+}
+
+/**
+ * The free agent each team could realistically sign at each position, as the market stands when the
+ * draft is held: the pool is public (free agency follows the draft), and a team is served neediest
+ * first with only what it can afford. A static read of the league's players, so the one-pick path
+ * and the whole-draft plan agree. See `freeAgentAlternatives`.
+ */
+export function readFreeAgentMarket(s: LeagueState): Map<string, Map<Position, number>> {
+  const pool: MarketPlayer[] = [];
+  const byTeam = new Map<string, { position: Position; overall: number; age: number; yearsLeft: number }[]>();
+  for (const p of Object.values(s.players)) {
+    if (p.retired) continue;
+    if (p.free_agent) {
+      pool.push({ position: p.position, overall: p.overall, age: p.age, asking: expectedSalary(p) });
+      continue;
+    }
+    // (a practice-squad player is a team's, as `PS:<team>`, and is neither a free agent nor a starter)
+    if (!s.teams[p.nfl_team]) continue;
+    const l = byTeam.get(p.nfl_team);
+    const row = { position: p.position, overall: p.overall, age: p.age, yearsLeft: p.contract?.years_remaining ?? 0 };
+    if (l) l.push(row);
+    else byTeam.set(p.nfl_team, [row]);
+  }
+  const teams: MarketTeam[] = Object.keys(s.teams).map((code) => {
+    const weakest: Partial<Record<Position, number>> = {};
+    for (const [pos, list] of effectiveByPosition(byTeam.get(code) ?? [], 1)) {
+      const slots = ROSTER_TEMPLATE.find((r) => r.pos === pos)?.starters ?? 0;
+      if (slots === 0) continue;
+      list.sort((a, b) => b - a);
+      const w = list[slots - 1];
+      if (w !== undefined) weakest[pos] = w;
+    }
+    const cap = s.teams[code]!.cap;
+    return { code, capRoom: cap.total - cap.used, weakest };
+  });
+  return freeAgentAlternatives(teams, pool);
 }
 
 export function bestAvailable(s: LeagueState): string | null {
@@ -396,6 +421,12 @@ export function bestAvailable(s: LeagueState): string | null {
   // scale and from public data only (`draftBoard.ts`); `planAutopicks` builds
   // the same thing incrementally.
   const rookieBoard = d.mode === "rookie" ? readRookieBoard(s, teamCode, difficulty) : null;
+  // the pick's place in the draft and the market's read of this team's holes (see `draftBoard.ts`)
+  const marketRead = (x: { position: Position }) => ({
+    pickIndex,
+    alternative: rookieBoard?.alternatives.get(x.position) ?? 0,
+    capPlanningWeight: difficulty.capPlanningWeight,
+  });
   // Master only: what the candidate adds to this team's units — read from
   // exactly what `planAutopicks` keeps (roster by position, plus this rookie
   // draft's own picks) so the two paths still pick identically
@@ -461,6 +492,7 @@ export function bestAvailable(s: LeagueState): string | null {
         carried: rookieBoard.carried.get(x.position) ?? [],
         needAwareness: difficulty.needAwareness,
         draftedHere: rookieBoard.drafted.get(x.position) ?? 0,
+        ...marketRead(x),
       });
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
     for (const x of shortlist) {
@@ -560,10 +592,12 @@ export function planAutopicks(s: LeagueState): string[] {
   // that GM's scouting accuracy), kept current as picks are planned. The same
   // thing `bestAvailable` builds for the one team on the clock. See `draftBoard.ts`.
   const boards = new Map<string, ReturnType<typeof readRookieBoard>>();
+  // the market as it stands at the draft: one read for every team, not one per pick
+  const market = rookie ? readFreeAgentMarket(s) : new Map<string, Map<Position, number>>();
   const boardOf = (team: string | undefined) => {
     const key = team ?? "";
     let b = boards.get(key);
-    if (!b) boards.set(key, (b = readRookieBoard(s, team, team ? difficultyFor(s, team) : difficultyProfile("expert"))));
+    if (!b) boards.set(key, (b = readRookieBoard(s, team, team ? difficultyFor(s, team) : difficultyProfile("expert"), market)));
     return b;
   };
   // A rookie pick isn't on the roster until it signs, so a team's own picks
@@ -665,6 +699,9 @@ export function planAutopicks(s: LeagueState): string[] {
             carried: board.carried.get(c.position) ?? [],
             needAwareness: difficulty.needAwareness,
             draftedHere: board.drafted.get(c.position) ?? 0,
+            pickIndex: i,
+            alternative: board.alternatives.get(c.position) ?? 0,
+            capPlanningWeight: difficulty.capPlanningWeight,
           })
         : draftValue(c.overall, c.position) + need(c.position) * difficulty.needAwareness - waste(c.position, c.overall);
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);

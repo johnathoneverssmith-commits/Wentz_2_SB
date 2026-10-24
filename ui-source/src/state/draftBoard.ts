@@ -26,6 +26,137 @@
 import type { DraftProspect, Position } from "@/domain";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { SPECIALIST_ROOKIE_OFFSET, expectedRookieOverall, projectedSlot } from "@/sim/draft-outcomes";
+import { TRADE_POSITION_VALUE } from "@/sim/MockSimulationService";
+
+/**
+ * What a point of rating is worth at each position, in rating points, as the engine measures it
+ * (about 9·ln(value/0.8) of `POSITION_VALUE` in MockSimulationService): a running back or safety
+ * carries a game here, a tight end or an outside linebacker barely touches one. The fantasy draft
+ * ranks veterans with it directly.
+ */
+export const POSITION_VALUE: Record<Position, number> = {
+  QB: 10,
+  RB: 7,
+  S: 4,
+  EDGE: 4,
+  WR: 4,
+  CB: 3,
+  ILB: 1,
+  OT: 1,
+  OG: 0,
+  C: 0,
+  DT: 0,
+  TE: -3,
+  OLB: -8,
+  K: -14,
+  P: -14,
+};
+
+/** The same scale from the market's hierarchy (`TRADE_POSITION_VALUE`: what teams actually pay for each position). */
+function marketPremium(position: Position): number {
+  return 9 * Math.log((TRADE_POSITION_VALUE[position] ?? 1) / 0.9);
+}
+
+/**
+ * What a position is worth in a rookie pick, in rating points: the NFL market's hierarchy, tempered
+ * by the engine's measure (a quarter of it). The engine alone would draft running backs and safeties
+ * the way no front office does; the market alone ignores what wins games here. The sum is
+ * compressed (PREMIUM_CAP) so that no one position, the quarterback above all, can outweigh the
+ * whole of a rookie's projection.
+ */
+/** The engine's share of the blend (the rest is the market's), and the most a position's premium can reach. */
+const ENGINE_SHARE = 0.25;
+const PREMIUM_CAP = 5;
+
+export function positionPremium(position: Position): number {
+  const raw = ENGINE_SHARE * POSITION_VALUE[position] + (1 - ENGINE_SHARE) * marketPremium(position);
+  return PREMIUM_CAP * Math.tanh(raw / PREMIUM_CAP);
+}
+
+/**
+ * How much of that premium a rookie pick carries. Rookies sit on a narrow rating band (a top-10 pick
+ * projects to 74 and a pick at 100 to 65), so the veteran-sized premium would put a fourth-round
+ * quarterback above the best player in the class.
+ */
+export const ROOKIE_PREMIUM_SCALE = 0.6;
+
+/**
+ * How much a pick's need counts, by where it falls in the draft: little at the top, where teams take the
+ * best player on the board, and more in the middle and late rounds, where holes are filled.
+ */
+export function slotNeedWeight(pickIndex: number): number {
+  return 0.5 + 0.7 * (1 - Math.exp(-Math.max(0, pickIndex) / 60));
+}
+
+/**
+ * How much of the market's fill a GM counts on, before its cap planning. Free agency is contested and
+ * uncertain: a hole a free agent could fill is a smaller need, not no need. Swept at 0, 0.4, 0.7 and 1 on
+ * identical leagues: 0.4 keeps most of the draft's own lineup gain and its starter rate and still stops early
+ * kickers and punters (9 in rounds 1-3 over four mature leagues down to 1); at 1 the draft stopped filling holes
+ * at all and gave back a quarter of that gain.
+ */
+const MARKET_RELIANCE = 0.4;
+
+/** A free agent a team might sign instead of drafting for a hole. */
+export interface MarketPlayer {
+  position: Position;
+  overall: number;
+  age: number;
+  /** what he asks, $M a year */
+  asking: number;
+}
+
+/** A team at the market: its cap room and the weakest starting slot it has at each position (effective rating). */
+export interface MarketTeam {
+  code: string;
+  capRoom: number;
+  weakest: Partial<Record<Position, number>>;
+}
+
+/** No team spends more than this share of its cap room on one free agent. */
+const AFFORD_SHARE = 0.5;
+/** A free agent has to beat the weakest starter by this much to be worth signing. */
+const SIGNING_MARGIN = 2;
+
+/**
+ * The free agent each team can realistically sign at each position, if any.
+ *
+ * Free agency follows the draft and its pool is public, so a hole is only a hole if the market
+ * cannot fill it. But the market is not unlimited: thirty-one teams cannot all sign the best tackle.
+ * Each position is served neediest team first, each taking the best remaining free agent it can
+ * afford (no more than a share of its cap room) and who actually upgrades it. Plain data in, a
+ * rating per team and position out; a team with nothing realistic gets no entry.
+ */
+export function freeAgentAlternatives(
+  teams: readonly MarketTeam[],
+  pool: readonly MarketPlayer[],
+  longTermWeight = 1,
+): Map<string, Map<Position, number>> {
+  const out = new Map<string, Map<Position, number>>();
+  const byPosition = new Map<Position, { rating: number; asking: number }[]>();
+  for (const p of pool) {
+    const rating = effectiveRating({ position: p.position, overall: p.overall, age: p.age, yearsLeft: 3 }, longTermWeight);
+    const l = byPosition.get(p.position);
+    if (l) l.push({ rating, asking: p.asking });
+    else byPosition.set(p.position, [{ rating, asking: p.asking }]);
+  }
+  for (const [position, list] of byPosition) {
+    list.sort((a, b) => b.rating - a.rating || a.asking - b.asking);
+    const order = [...teams].sort(
+      (a, b) => (a.weakest[position] ?? EMPTY_POSITION_BASE) - (b.weakest[position] ?? EMPTY_POSITION_BASE) || (a.code < b.code ? -1 : 1),
+    );
+    for (const team of order) {
+      const weakest = team.weakest[position] ?? EMPTY_POSITION_BASE;
+      const at = list.findIndex((f) => f.asking <= team.capRoom * AFFORD_SHARE && f.rating >= weakest + SIGNING_MARGIN);
+      if (at < 0) continue;
+      const m = out.get(team.code) ?? new Map<Position, number>();
+      m.set(position, list[at]!.rating);
+      out.set(team.code, m);
+      list.splice(at, 1);
+    }
+  }
+  return out;
+}
 
 /**
  * How strongly a GM's season strategy leans on positions in the rookie draft (it was 0.75, against a
@@ -35,8 +166,11 @@ import { SPECIALIST_ROOKIE_OFFSET, expectedRookieOverall, projectedSlot } from "
  * 2 is too weak on fresh leagues (offense-heavy 50% against defense-heavy 42%), 4 is too strong on mature
  * ones (a defense-heavy GM took 4% offense) and lowers the lineup gain; at 3 the strategies keep their
  * character (fresh 54% against 32%, mature 76% against 12%) at the best draft quality of the three.
+ * Lowered to 2.5 when need began to count for less at the top of the draft (slotNeedWeight), which had
+ * been the counterweight to strategy there: it keeps the fresh-league gap (62%-31% at 3, 54%-31% at 2.5,
+ * against 54%-32% before) and the draft quality, and 2 muted strategies on fresh leagues altogether (43%-40%).
  */
-export const ROOKIE_STRATEGY_SCALE = 3;
+export const ROOKIE_STRATEGY_SCALE = 2.5;
 
 /**
  * The strategy's lean on a position for the next pick there: full for the first, half for the second,
@@ -156,20 +290,30 @@ export function rookieValue(args: {
   needAwareness: number;
   /** How many players this team has already taken at the position in this draft. */
   draftedHere?: number;
+  /** Where this pick falls in the draft, from 0: need counts for less at the top (`slotNeedWeight`). */
+  pickIndex?: number;
+  /** The free agent this team could realistically sign at the position (a rating), 0 if none (`freeAgentAlternatives`). */
+  alternative?: number;
+  /** How well the GM plans around the market and its cap: scales how much of that alternative it counts on. */
+  capPlanningWeight?: number;
 }): number {
-  const { expected, position, carried, needAwareness, draftedHere = 0 } = args;
+  const { expected, position, carried, needAwareness, draftedHere = 0, pickIndex = 0, alternative = 0, capPlanningWeight = 1 } = args;
   const row = TEMPLATE.get(position);
   const starters = row?.starters ?? 0;
   const count = row?.count ?? 0;
   const sorted = [...carried].sort((a, b) => b - a);
   // the rating of the starter he would replace: the weakest starting slot (empty = nobody there)
   const weakest = starters > 0 ? (sorted[starters - 1] ?? EMPTY_POSITION_BASE) : Infinity;
-  const gain = starters > 0 ? Math.max(0, expected - weakest) : 0;
+  // A slot the market can fill is a smaller hole: free agency follows the draft and the pool is public.
+  // How much of that a GM counts on is its cap planning.
+  const marketFloor = alternative > 0 ? EMPTY_POSITION_BASE + MARKET_RELIANCE * capPlanningWeight * (alternative - EMPTY_POSITION_BASE) : -Infinity;
+  const gain = starters > 0 ? Math.max(0, expected - Math.max(weakest, marketFloor)) : 0;
   // depth: beating the player he would displace at the bottom of the position's roster spots is worth a
   // little; it shrinks as the team adds players there, which is what spreads a team's picks across positions
   const depthCut = count > starters ? (sorted.length < count ? EMPTY_POSITION_BASE : sorted[count - 1]!) : Infinity;
   const depthGain = Number.isFinite(depthCut) ? Math.max(0, expected - depthCut) : 0;
-  const need = NEED_GAIN * (NEED_WEIGHT_BY_POSITION[position] ?? 1) * needAwareness * (gain + DEPTH_WEIGHT * depthGain);
+  const need =
+    NEED_GAIN * (NEED_WEIGHT_BY_POSITION[position] ?? 1) * needAwareness * slotNeedWeight(pickIndex) * (gain + DEPTH_WEIGHT * depthGain);
   const shortfall = starters > 0 ? Math.min(SHORTFALL_CAP, Math.max(0, weakest - expected)) * SHORTFALL_WEIGHT : 0;
   // roster-spot waste: once the position holds its template count, one who would be the first cut
   const cutLine = sorted.length < count ? -Infinity : count === 0 ? Infinity : sorted[count - 1]!;
@@ -177,7 +321,9 @@ export function rookieValue(args: {
   // A specialist's rating runs on its own, higher scale (`SPECIALIST_ROOKIE_OFFSET`): that is what lets
   // him be compared with the kicker he would replace, and it does not make the slot worth more than
   // the same slot at any other position.
-  const talent = position === "K" || position === "P" ? expected - SPECIALIST_ROOKIE_OFFSET : expected;
+  // What the position is worth then adds its premium (`positionPremium`).
+  const talent =
+    (position === "K" || position === "P" ? expected - SPECIALIST_ROOKIE_OFFSET : expected) + ROOKIE_PREMIUM_SCALE * positionPremium(position);
   // Each earlier pick at the position makes another one less worth taking, and the fewer roster spots
   // the position has, the faster (a third running back, a second kicker).
   const repeat = REPEAT_STEP * draftedHere * (3 / Math.max(2, count));
