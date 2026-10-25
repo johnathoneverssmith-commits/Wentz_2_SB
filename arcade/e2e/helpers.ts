@@ -32,7 +32,8 @@ export async function startClocked(page: Page, seed?: DownState, options: { fram
         await page.addInitScript(([key, value]) => { if (!localStorage.getItem(key as string)) localStorage.setItem(key as string, value as string); }, [SAVE_KEY, body]);
     }
     await page.clock.install({ time: new Date('2026-10-25T12:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-10-25T12:00:00Z'));
+    // Clock installation starts time running; a future pause avoids a wall-time race on slow CI.
+    await page.clock.pauseAt(new Date('2026-10-25T12:01:00Z'));
     await page.goto('/');
     await page.clock.runFor(128);
 }

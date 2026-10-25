@@ -43,7 +43,7 @@ function Sandbox() {
     const publish = () => {
         setView(current());
         if (canvas.current)
-            drawField(canvas.current, current().match, current().paused);
+            drawField(canvas.current, current().match, current().paused, performance.now());
         persist();
     };
     const clearInput = () => { keys.current.clear(); previous.current = null; };
@@ -103,7 +103,7 @@ function Sandbox() {
             const before = current().match;
             clock.current = advance(current(), elapsed, inputs);
             if (canvas.current)
-                drawField(canvas.current, current().match, current().paused);
+                drawField(canvas.current, current().match, current().paused, now);
             if (now - lastPublished >= 100 || before.phase !== current().match.phase) {
                 publish();
                 lastPublished = now;
@@ -135,7 +135,7 @@ function Sandbox() {
   <header><div><p className="series">Wentz 2 SB / Arcade lab</p><h1>Backyard football</h1><p className="intro">Two players. One keyboard. Four quarters, a kicker and a winner.</p></div><div className="actions"><button onClick={togglePause} disabled={over}>{view.paused ? 'Resume' : 'Pause'}</button><button className="secondary" onClick={restart}>Restart</button></div></header>
   <section className="stadium" aria-label="Playable football game">
    <div className="scoreboard"><div className="team blue"><span className="swatch"/>Bluebirds <b data-testid="score-home" className="points">{state.score.home}</b> <small>Player 1 · WASD</small></div><div className="drill"><strong data-testid="period">{periodName(state)}{state.mode === 'regulation' ? <> · <span data-testid="clock">{clockText(state.clock)}</span></> : null}</strong><span data-testid="situation">{over ? 'Final' : kicking ? (kick!.kind === 'xp' ? 'Extra point' : 'Field goal') : down(state)}</span><small><span data-testid="phase">{view.paused ? 'Paused' : state.phase === 'pre-snap' ? 'Pre-snap' : state.phase === 'live' ? 'Live play' : state.phase === 'kick' ? 'Kicking' : state.phase === 'final' ? 'Game over' : 'Play complete'}</span> · Play {state.playNumber} · {names[state.offense]} ball</small></div><div className="team orange">Foxes <b data-testid="score-away" className="points">{state.score.away}</b> <span className="swatch"/><small>Player 2 · Arrow keys</small></div></div>
-   <canvas ref={canvas} width={1200} height={560} tabIndex={0} role="img" aria-label="Football field with ten numbered players; white rings mark human players and a gold ring marks the ball carrier" onClick={() => canvas.current?.focus()}/>
+   <canvas ref={canvas} width={480} height={270} tabIndex={0} role="img" aria-label="Football field with ten numbered players; glowing rings mark the human-controlled players and a gold marker the ball carrier" onClick={() => canvas.current?.focus()}/>
    <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · #${state.possession.carrier.split('-')[1]}`}</span><span>{state.phase === 'dead' || kickDone ? `Next offense: ${names[preview!.offense]}` : kicking || over ? clockNote : `Defense: ${names[opposite(state.offense)]} #${state.defender.split('-')[1]} · ${state.offense === 'home' ? 'Attack →' : '← Attack'}`}</span></div>
   </section>
   {over && <section className="final" data-testid="final" role="alert"><h2 data-testid="final-headline">{headline}</h2><p data-testid="final-score">{names.home} {state.score.home} – {state.score.away} {names.away}</p><button onClick={restart}>Rematch</button></section>}
