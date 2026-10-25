@@ -194,3 +194,9 @@ Measured on the scripted harness (`npm --prefix arcade run balance`), 11 against
 Known limitations: man coverage and zone drops are simple; there is no kickoff, coin toss, penalty or substitution; the defense reads
 the play call; the tight formation near the goal line is squeezed; sprites overlap a little when linemen engage; players have
 momentum, so a released key coasts to a stop in about a yard.
+
+Verification at the 5B head: typecheck, build, 183 unit tests (personnel, behavior, movement and collision, passing windows, saves,
+game flow), 22 balance tests, and 48 browser tests including a complete four-quarter game in the real page. Negative controls (each
+breaks one behavior and the suite fails): no blocks forming, defenders that never pursue, a blocked defender who can still tackle,
+receivers that stop after their routes, no collision separation, a line that keeps pass-blocking during a scramble, and pass
+rushers that do not rush.
