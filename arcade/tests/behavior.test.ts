@@ -134,6 +134,20 @@ describe('offensive line blocking', () => {
         const run1 = (dy: number) => { let best = -99; for (const n of [1, 2]) { const s = run(start('rush', n), 300, qbRun(1, dy)); best = Math.max(best, s.result?.yards ?? -99); } return best; };
         expect(run1(0)).toBeGreaterThan(-9);
     });
+    it('a human-controlled defender is slowed by a block exactly like an AI one (Codex review finding)', () => {
+        const base = farAway(start('go', 2), ['away-DE1']);
+        const lt = at(base, 'home-LT');
+        const lock = (human: boolean) => ({
+            ...base, defender: 'away-DE1' as PlayerId,
+            players: base.players.map(p => p.id === 'away-DE1' ? { ...p, human, x: lt.x + 1.3, y: lt.y, lock: { with: 'home-LT' as PlayerId, since: base.tick } } : p.id === 'home-LT' ? { ...p, lock: { with: 'away-DE1' as PlayerId, since: base.tick } } : p),
+        });
+        const speedAfter = (s: DownState, input: Vector) => { let cur = s; for (let t = 0; t < 14; t++) cur = stepDown(cur, { home: { x: 0, y: 0 }, away: input }); return speed(at(cur, 'away-DE1')); };
+        const free = speedAfter(farAway(start('go', 2), ['away-DE1']), { x: -1, y: 0 });
+        expect(free, 'an unblocked human defender reaches full speed').toBeGreaterThan(maxSpeed(at(base, 'away-DE1')) * 0.9);
+        const blockedHuman = speedAfter(lock(true), { x: -1, y: 0 }), blockedAI = speedAfter(lock(false), { x: 0, y: 0 });
+        expect(blockedHuman, 'a blocked human defender is held to the blocked fraction of his speed').toBeLessThanOrEqual(maxSpeed(at(base, 'away-DE1')) * (BLOCK_SLOW + 0.1));
+        expect(blockedAI).toBeLessThanOrEqual(maxSpeed(at(base, 'away-DE1')) * (BLOCK_SLOW + 0.1));
+    });
     it('a blocked defender cannot tackle: blocking is a different interaction from tackling', () => {
         let s = farAway(start('rush', 1), ['away-MLB']);
         const rb = at(s, 'home-RB');

@@ -280,9 +280,10 @@ export function planTick(state: DownState): Plan {
     }
     // ----- defense -----
     for (const d of defense) {
-        if (d.human) continue;
+        // A blocked defender is slowed whoever steers him: the slowdown applies to a human-controlled defender too.
         const partner = lockedPartner(d);
-        if (partner) { slow.set(d.id, BLOCK_SLOW); }
+        if (partner) slow.set(d.id, BLOCK_SLOW);
+        if (d.human) continue;
         const toQB = qb;
         if (mode === 'run') {
             // everyone pursues the ball; the secondary keeps outside leverage a beat, then closes
