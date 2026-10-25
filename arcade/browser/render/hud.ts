@@ -63,13 +63,13 @@ export function drawScoreboard(ctx: CanvasRenderingContext2D, s: DownState, now:
 interface Hint { readonly keys: string; readonly text: string }
 function hintsFor(s: DownState, team: TeamId): Hint[] {
     const home = team === 'home';
-    const move = home ? 'WASD' : 'ARROWS', passKeys = home ? 'Q/E' : ',/.', swap = home ? 'F' : '/', hands = home ? 'R' : 'SHIFT', kick = home ? 'G' : "'";
+    const move = home ? 'WASD' : 'ARROWS', passKeys = home ? 'Q/E/Z' : ',/./M', swap = home ? 'F' : '/', hands = home ? 'R' : 'SHIFT', kick = home ? 'G' : "'";
     const offense = s.offense === team;
     if (s.phase === 'final') return [];
     if (s.phase === 'kick') return s.kick!.team === team && s.kick!.good === null ? [{ keys: kick, text: 'KICK IN THE GREEN' }] : [];
     if (s.phase === 'dead') return [{ keys: 'ENTER', text: 'NEXT DOWN' }];
     if (s.phase === 'pre-snap') return offense ? [{ keys: 'ENTER', text: 'SNAP' }, { keys: move, text: 'MOVE' }] : [{ keys: swap, text: 'SWITCH' }, { keys: move, text: 'MOVE' }];
-    if (offense) return s.play === 'rush' || s.ball.kind === 'flight' || !s.possession.carrier.endsWith('-1') ? [{ keys: move, text: 'RUN' }] : [{ keys: passKeys, text: 'PASS' }, { keys: move, text: 'MOVE' }];
+    if (offense) return s.play === 'rush' || s.ball.kind === 'flight' || s.players.find(p => p.id === s.possession.carrier)?.position !== 'QB' ? [{ keys: move, text: 'RUN' }] : [{ keys: passKeys, text: 'PASS' }, { keys: move, text: 'MOVE' }];
     return [{ keys: move, text: 'MOVE' }, { keys: swap, text: 'SWITCH' }, { keys: hands, text: 'HANDS' }];
 }
 export function drawHints(ctx: CanvasRenderingContext2D, s: DownState): void {

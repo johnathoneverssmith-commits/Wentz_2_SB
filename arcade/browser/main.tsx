@@ -8,6 +8,8 @@ import { SAVE_KEY, encodeSave, decodeSave, isUnsupportedSave } from './save';
 /** Set when the stored save is an unreleased format this build will not read: the game starts fresh and says so. */
 let discardedSave = false;
 import { drawField } from './field';
+import { identityOf } from './render/roster';
+import { playerId } from '../core/personnel';
 import './style.css';
 const names = { home: 'Bluebirds', away: 'Foxes' };
 const ordinal = (n: number) => ['1st', '2nd', '3rd', '4th'][n - 1] ?? `${n}th`;
@@ -64,7 +66,7 @@ function Sandbox() {
         const movementKeys = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
         const actions: Record<string, (s: DownState) => DownState> = {
             KeyQ: s => throwPass(s, 1, 'home'), KeyE: s => throwPass(s, 2, 'home'),
-            Comma: s => throwPass(s, 1, 'away'), Period: s => throwPass(s, 2, 'away'),
+            Comma: s => throwPass(s, 1, 'away'), Period: s => throwPass(s, 2, 'away'), KeyZ: s => throwPass(s, 3, 'home'), KeyM: s => throwPass(s, 3, 'away'),
             KeyF: s => switchDefender(s, 'home'), Slash: s => switchDefender(s, 'away'),
             KeyR: s => contestPass(s, 'home'), ShiftRight: s => contestPass(s, 'away'),
             KeyG: s => kickBall(s, 'home'), Quote: s => kickBall(s, 'away'),
@@ -131,20 +133,25 @@ function Sandbox() {
     const detail = state.phase === 'kick' ? (kick!.good === null ? `${kick!.distance}-yard attempt · ${names[kick!.team]} press ${kick!.team === 'home' ? 'G' : "'"} to kick` : `${kick!.distance}-yard attempt · meter locked at ${kick!.lockedAt} of ${kick!.good ? 'a good window' : 'a missed window'}`) : state.phase === 'final' ? `${names.home} ${state.score.home} – ${state.score.away} ${names.away}` : result ? `${names[state.offense]}: ${result.yards.toFixed(1)} offensive yards · Turnover: ${result.turnover || result.turnoverOnDowns ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`;
     const nextLine = !preview ? '' : preview.phase === 'final' ? `Final: ${`${names[preview.winner as 'home' | 'away']} win`}` : preview.phase === 'kick' ? `Next: ${names[preview.kick!.team]} kick the extra point` : `Next: ${names[preview.offense]} ball, ${down(preview)}${preview.mode !== state.mode ? ' · overtime begins' : preview.quarter !== state.quarter ? ` · ${preview.quarter === 3 ? 'second half' : `Q${preview.quarter}`} begins` : ''}`;
     const kicking = state.phase === 'kick', over = state.phase === 'final';
+    const holder = state.players.find(p => p.id === state.possession.carrier)!, qbHasBall = holder.position === 'QB';
+    const labelOf = (p: DownState['players'][number]) => `${identityOf(p.id).name} ${p.position} #${p.number}`;
+    const carrierLabel = labelOf(holder), defenderLabel = labelOf(state.players.find(p => p.id === state.defender)!);
+    const targetName = (d: DownState, code: 'WR1' | 'WR2' | 'TE1') => { const t = d.players.find(p => p.id === playerId(d.offense, code)); return t ? `${identityOf(t.id).name} ${t.position}` : code; };
     return <main>
   <header><div><p className="series">Wentz 2 SB / Arcade lab</p><h1>Backyard football</h1><p className="intro">Two players. One keyboard. Four quarters, a kicker and a winner.</p></div><div className="actions"><button onClick={togglePause} disabled={over}>{view.paused ? 'Resume' : 'Pause'}</button><button className="secondary" onClick={restart}>Restart</button></div></header>
   <section className="stadium" aria-label="Playable football game">
    <div className="scoreboard"><div className="team blue"><span className="swatch"/>Bluebirds <b data-testid="score-home" className="points">{state.score.home}</b> <small>Player 1 · WASD</small></div><div className="drill"><strong data-testid="period">{periodName(state)}{state.mode === 'regulation' ? <> · <span data-testid="clock">{clockText(state.clock)}</span></> : null}</strong><span data-testid="situation">{over ? 'Final' : kicking ? (kick!.kind === 'xp' ? 'Extra point' : 'Field goal') : down(state)}</span><small><span data-testid="phase">{view.paused ? 'Paused' : state.phase === 'pre-snap' ? 'Pre-snap' : state.phase === 'live' ? 'Live play' : state.phase === 'kick' ? 'Kicking' : state.phase === 'final' ? 'Game over' : 'Play complete'}</span> · Play {state.playNumber} · {names[state.offense]} ball</small></div><div className="team orange">Foxes <b data-testid="score-away" className="points">{state.score.away}</b> <span className="swatch"/><small>Player 2 · Arrow keys</small></div></div>
-   <canvas ref={canvas} width={480} height={270} tabIndex={0} role="img" aria-label="Football field with ten numbered players; glowing rings mark the human-controlled players and a gold marker the ball carrier" onClick={() => canvas.current?.focus()}/>
-   <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · #${state.possession.carrier.split('-')[1]}`}</span><span>{state.phase === 'dead' || kickDone ? `Next offense: ${names[preview!.offense]}` : kicking || over ? clockNote : `Defense: ${names[opposite(state.offense)]} #${state.defender.split('-')[1]} · ${state.offense === 'home' ? 'Attack →' : '← Attack'}`}</span></div>
+   <canvas ref={canvas} width={480} height={270} tabIndex={0} role="img" aria-label="Football field with twenty-two numbered players; glowing rings mark the human-controlled players and a gold marker the ball carrier" onClick={() => canvas.current?.focus()}/>
+   <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · ${carrierLabel}`}</span><span>{state.phase === 'dead' || kickDone ? `Next offense: ${names[preview!.offense]}` : kicking || over ? clockNote : `Defense: ${names[opposite(state.offense)]} ${defenderLabel} · ${state.offense === 'home' ? 'Attack →' : '← Attack'}`}</span></div>
   </section>
   {over && <section className="final" data-testid="final" role="alert"><h2 data-testid="final-headline">{headline}</h2><p data-testid="final-score">{names.home} {state.score.home} – {state.score.away} {names.away}</p><button onClick={restart}>Rematch</button></section>}
   <section className="play-controls" aria-label="Play controls">
    <label>Play <select aria-label="Play" value={state.play} disabled={state.phase !== 'pre-snap' || view.paused} onChange={e => command(s => choosePlay(s, e.target.value as Play))}><option value="rush">Handoff</option><option value="slants">Slants</option><option value="go">Go routes</option><option value="fieldgoal" disabled={state.phase === 'pre-snap' && !fieldGoalInRange(state)}>Field goal</option></select></label>
    <button disabled={view.paused || state.phase !== 'pre-snap'} onClick={() => command(snap, true)}>{state.play === 'fieldgoal' ? 'Kick field goal' : 'Snap'}</button>
    <button disabled={view.paused || !kicking || kick!.good !== null} onClick={() => command(s => kickBall(s, s.kick!.team))}>Kick ({kick?.team === 'away' ? "'" : 'G'})</button>
-   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 1))}>Pass to #3 ({state.offense === 'home' ? 'Q' : ','})</button>
-   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 2))}>Pass to #4 ({state.offense === 'home' ? 'E' : '.'})</button>
+   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !qbHasBall} onClick={() => command(s => throwPass(s, 1))}>Pass to {targetName(state, 'WR1')} ({state.offense === 'home' ? 'Q' : ','})</button>
+   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !qbHasBall} onClick={() => command(s => throwPass(s, 2))}>Pass to {targetName(state, 'WR2')} ({state.offense === 'home' ? 'E' : '.'})</button>
+   <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !qbHasBall} onClick={() => command(s => throwPass(s, 3))}>Pass to {targetName(state, 'TE1')} ({state.offense === 'home' ? 'Z' : 'M'})</button>
    <button disabled={view.paused || (state.phase !== 'live' && state.phase !== 'pre-snap')} onClick={() => command(switchDefender)}>Switch defender ({state.offense === 'home' ? '/' : 'F'})</button>
    <button disabled={view.paused || state.phase !== 'live' || state.ball.kind !== 'flight'} onClick={() => command(s => contestPass(s, opposite(s.offense)))}>Hands ({state.offense === 'home' ? 'Right Shift' : 'R'})</button>
    <button disabled={view.paused || !(state.phase === 'dead' || kickDone)} onClick={() => command(nextDown, true)}>Next down</button>

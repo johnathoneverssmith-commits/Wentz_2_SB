@@ -5,6 +5,7 @@ import { fieldPosition, downText, periodText, TEAM_NAMES } from '../browser/rend
 import { identityOf, positionOf } from '../browser/render/roster';
 import { ANIMS, frameCount, frameIndex } from '../browser/render/sprites';
 import { createDown, lineUp } from '../core/down';
+import { DEFENSE_CODES, OFFENSE_CODES, playerId } from '../core/personnel';
 
 describe('render: camera', () => {
     it('never shows beyond the scenery strips, however far the target is', () => {
@@ -46,24 +47,23 @@ describe('render: sprites and animation', () => {
         expect(frameIndex('idle', 0)).toBe(0);
     });
     it('provides every animation the milestone asks for', () => {
-        expect(Object.keys(ANIMS).sort()).toEqual(['block', 'catch', 'celebrate', 'fall', 'idle', 'kick', 'run', 'tackle', 'throw']);
+        expect(Object.keys(ANIMS).sort()).toEqual(['block', 'catch', 'celebrate', 'fall', 'idle', 'kick', 'run', 'stance', 'tackle', 'throw']);
     });
 });
 describe('render: identity and labels', () => {
-    it('ids are persistent and every player has a name, a skin tone and a position on both sides of the ball', () => {
+    it('every persistent player has a unique name, a skin tone and a drawable name, and ids are position-based', () => {
         const names = new Set<string>();
         for (const team of ['home', 'away'] as const)
-            for (const n of [1, 2, 3, 4, 5] as const) {
-                const id = identityOf(`${team}-${n}`);
-                expect(id.id).toBe(`${team}-${n}`);
+            for (const code of [...OFFENSE_CODES, ...DEFENSE_CODES]) {
+                const id = identityOf(playerId(team, code));
+                expect(id.id).toBe(`${team}-${code}`);
                 expect(id.name.length).toBeGreaterThan(2);
                 expect(drawable(id.name)).toBe(true);
-                names.add(id.name);
-                expect(positionOf(n, true)).not.toBe('');
-                expect(positionOf(n, false)).not.toBe('');
+                expect([0, 1, 2]).toContain(id.skin);
+                names.add(`${team}:${id.name}`);
             }
-        expect(names.size).toBe(10);
-        expect(positionOf(1, true)).toBe('QB');
+        expect(names.size).toBe(2 * (OFFENSE_CODES.length + DEFENSE_CODES.length));
+        expect(positionOf('QB')).toBe('QB');
     });
 });
 describe('render: scoreboard text', () => {

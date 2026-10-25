@@ -5,7 +5,7 @@
  */
 import type { TeamId } from '../../core/simulation';
 
-export type Anim = 'idle' | 'run' | 'throw' | 'catch' | 'block' | 'tackle' | 'fall' | 'celebrate' | 'kick';
+export type Anim = 'stance' | 'idle' | 'run' | 'throw' | 'catch' | 'block' | 'tackle' | 'fall' | 'celebrate' | 'kick';
 type Pair = readonly [number, number];
 /** Joint offsets in sprite pixels. Feet are relative to the hip; hands are relative to the shoulder. */
 export interface Pose {
@@ -27,6 +27,7 @@ export interface AnimDef {
 }
 const stand = (a: number): Pose => ({ bob: a, nearFoot: [2, 0], farFoot: [-2, 0], nearHand: [1, 7 - a], farHand: [-1, 7 - a] });
 export const ANIMS: Record<Anim, AnimDef> = {
+    stance: { fps: 1, loop: true, poses: [{ lean: 6, crouch: 6, nearFoot: [3, 0], farFoot: [-3, 0], nearHand: [5, 9], farHand: [-2, 4] }] },
     idle: { fps: 2, loop: true, poses: [stand(0), { ...stand(1), nearHand: [1, 6], farHand: [-1, 6] }] },
     run: {
         fps: 10, loop: true, poses: [
@@ -102,7 +103,7 @@ export const TEAM_COLORS = {
 } as const;
 const COMMON: Record<'mask' | 'shoe' | 'glove' | 'ink', Tones> = { mask: ['#6d7388', '#aab1c4', '#e6e9f2'], shoe: ['#0c0d16', '#242636', '#4f5370'], glove: ['#aab1c4', '#f2f4fa', '#ffffff'], ink: ['#0c0d16', '#10121f', '#10121f'] };
 type Mat = 'jersey' | 'helmet' | 'pants' | 'sock' | 'skin' | 'mask' | 'shoe' | 'glove' | 'ink';
-const DIGITS = ['010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111'];
+const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111', '111100111101111', '111001010010010', '111101111101111', '111101111001111'];
 /** Light comes from the upper left: a surface facing it takes the light tone, one facing away the shadow tone. */
 const LIGHT = [-0.55, -0.83] as const;
 
@@ -171,11 +172,14 @@ function drawPose(look: Look, pose: Pose): HTMLCanvasElement {
     capsule(cx - 3, hipY - 0.6, cx + 3, hipY - 0.6, 1.5, 1.5, 'pants');
     leg(cx + 1.2, pose.nearFoot, false);
     // jersey number: white with a one-pixel shadow so it reads on either side of the shading
-    const glyph = DIGITS[(look.number - 1) % 5]!, nx0 = Math.round((sx - 1.5) * k), ny0 = Math.round((top + 3.6) * k);
+    const digits = String(look.number % 100).split('').map(Number), nx0 = Math.round((sx - (digits.length * 4 - 1) / 2 * 0.9) * k), ny0 = Math.round((top + 3.6) * k);
     for (const [ox, oy, white] of [[1, 1, false], [0, 0, true]] as const)
-        for (let i = 0; i < 15; i++)
-            if (glyph[i] === '1')
-                put(nx0 + (i % 3) + ox, ny0 + Math.floor(i / 3) + oy, white ? 'glove' : 'jersey', white ? 2 : 0);
+        digits.forEach((digit, at) => {
+            const glyph = DIGITS[digit]!;
+            for (let i = 0; i < 15; i++)
+                if (glyph[i] === '1')
+                    put(nx0 + at * 4 + (i % 3) + ox, ny0 + Math.floor(i / 3) + oy, white ? 'glove' : 'jersey', white ? 2 : 0);
+        });
     ell(sx - 4.2, top + 3.2, 0.8, 1.6, 'glove', 1);
     // head: round helmet, face opening, three mask bars, ear hole, stripe, chin strap
     const hx = sx + 0.6, hy = top - 4.2;

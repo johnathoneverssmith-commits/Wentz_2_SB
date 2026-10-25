@@ -10,8 +10,9 @@ import { followCamera, viewLeftPx } from './render/camera';
 import { drawText } from './render/font';
 import { Banner, drawBanner, drawHints, drawKickMeter, drawScoreboard, TEAM_NAMES } from './render/hud';
 import { identityOf, positionOf } from './render/roster';
+import { playerId } from '../core/personnel';
 import { ANIMS, drawSprite, frameFor, frameIndex, TEAM_COLORS, type Anim, type Look } from './render/sprites';
-import { BAND_TOP, COLORS, H, PPY, ROW, W, screenY, standsStrip, turfStrip, worldX } from './render/world';
+import { BAND_H, BAND_TOP, COLORS, H, PPY, ROW, W, screenY, standsStrip, turfStrip, worldX } from './render/world';
 
 const SELECT_COLOR: Record<TeamId, string> = { home: '#7ff0ff', away: '#ffd36b' };
 interface Actor { x: number; y: number; face: 1 | -1; speed: number; run: number; anim: Anim; since: number; override: number | null }
@@ -165,7 +166,7 @@ export class Renderer {
                 if (Math.abs(dx) > 0.004) a.face = dx > 0 ? 1 : -1;
             }
             a.x = p.x; a.y = p.y;
-            if (!paused) this.chooseAnim(a, p.id, p.team, p.number, s, now, engaged);
+            if (!paused) this.chooseAnim(a, p, s, now, engaged);
             if (!paused && a.speed > 4.5 && now - this.dustAt > 90 && s.phase === 'live') {
                 this.particles.push({ x: worldX(a.x) - a.face * 6, y: screenY(a.y) - 1, vx: -a.face * 6, vy: -6, born: now, life: 0.35, color: 'rgba(214,196,150,.8)', size: 2, gravity: 0 });
             }
@@ -179,7 +180,8 @@ export class Renderer {
         if (a.anim !== anim) { a.anim = anim; a.since = now; }
         a.override = override;
     }
-    private chooseAnim(a: Actor, id: PlayerId, team: TeamId, number: number, s: DownState, now: number, engaged: Set<string>): void {
+    private chooseAnim(a: Actor, p: DownState['players'][number], s: DownState, now: number, engaged: Set<string>): void {
+        const id = p.id, team = p.team, isQB = p.position === 'QB';
         const ev = this.ev, since = (t: number | null) => t === null ? Infinity : (now - t) / 1000;
         const touchdown = !!s.result?.touchdown && (s.phase === 'dead' || s.phase === 'kick' || s.phase === 'final') && team === s.offense;
         if ((touchdown || (now < this.celebrateUntil && team === this.celebrateTeam)) && s.phase !== 'live') return this.set(a, 'celebrate', now);
@@ -194,10 +196,12 @@ export class Renderer {
         if (s.phase === 'live') {
             if (ev.catchAt !== null && ev.catcher === id && since(ev.catchAt) < 0.35) return this.set(a, 'catch', now, 1);
             if (s.ball.kind === 'flight' && id === s.ball.target && s.ball.elapsed / s.ball.duration > 0.55) return this.set(a, 'catch', now, 0);
-            if (id === `${s.offense}-1` && ev.throwAt !== null && since(ev.throwAt) < 0.45) return this.set(a, 'throw', now, since(ev.throwAt) < 0.2 ? 1 : 2);
-            if (id === `${s.offense}-1` && s.ball.kind === 'held' && s.possession.carrier === id && s.play !== 'rush' && a.speed < 1.2) return this.set(a, 'throw', now, 0);
+            if (isQB && team === s.offense && ev.throwAt !== null && since(ev.throwAt) < 0.45) return this.set(a, 'throw', now, since(ev.throwAt) < 0.2 ? 1 : 2);
+            if (isQB && team === s.offense && s.ball.kind === 'held' && s.possession.carrier === id && s.play !== 'rush' && a.speed < 1.2) return this.set(a, 'throw', now, 0);
             if (engaged.has(id)) return this.set(a, 'block', now);
+            if (p.behavior === 'stumble') return this.set(a, 'tackle', now, 1);
         }
+        if (s.phase === 'pre-snap' && ['LT', 'LG', 'C', 'RG', 'RT', 'DE', 'DT'].includes(p.position)) return this.set(a, 'stance', now);
         if (a.speed > 0.9) return this.set(a, 'run', now);
         return this.set(a, 'idle', now);
     }
@@ -301,13 +305,13 @@ export class Renderer {
             drawText(ctx, f.text, sx(f.x), screenY(f.y) - 54 - age * 10, { color: f.color, scale: 1, align: 'center', shadow: '#000' });
         }
         // soft vignette keeps the eye on the action
-        const g = ctx.createLinearGradient(0, BAND_TOP + 80, 0, H);
+        const g = ctx.createLinearGradient(0, BAND_TOP + 120, 0, H);
         g.addColorStop(0, 'rgba(5,8,25,0)'); g.addColorStop(1, 'rgba(5,8,25,.28)');
-        ctx.fillStyle = g; ctx.fillRect(0, BAND_TOP + 80, W, H - BAND_TOP - 80);
+        ctx.fillStyle = g; ctx.fillRect(0, BAND_TOP + 120, W, H - BAND_TOP - 120);
     }
     private vline(ctx: CanvasRenderingContext2D, x: number, color: string, w: number, dash: number): void {
         ctx.fillStyle = color;
-        for (let y = BAND_TOP; y < BAND_TOP + 112; y += dash ? dash * 2 : 112) ctx.fillRect(Math.round(x) - 1, y, w, dash || 112);
+        for (let y = BAND_TOP; y < BAND_TOP + BAND_H; y += dash ? dash * 2 : BAND_H) ctx.fillRect(Math.round(x) - 1, y, w, dash || BAND_H);
     }
     private drawPosts(ctx: CanvasRenderingContext2D, x: number): void {
         if (x < -30 || x > W + 30) return;
@@ -372,7 +376,7 @@ export class Renderer {
     private drawLabels(ctx: CanvasRenderingContext2D, s: DownState, sx: (x: number) => number, now: number): void {
         const plates: { x: number; y: number }[] = [];
         for (const p of s.players.filter(q => q.human)) {
-            const id = identityOf(p.id), pos = positionOf(p.number, p.team === s.offense);
+            const id = identityOf(p.id), pos = positionOf(p.position);
             const text = `${id.name} ${pos}`, w = text.length * 4 + 5, a = this.actors.get(p.id);
             const hop = a && a.anim === 'celebrate' ? -2 : 0;
             let x = Math.max(2 + w / 2, Math.min(W - 2 - w / 2, sx(p.x))), y = Math.max(46, screenY(p.y) - 56 + hop);
@@ -386,11 +390,12 @@ export class Renderer {
             ctx.fillStyle = SELECT_COLOR[p.team]; ctx.fillRect(Math.round(sx(p.x)) - 1, y + 8, 3, 2); ctx.fillRect(Math.round(sx(p.x)), y + 10, 1, 1);
         }
         // pass options while the quarterback holds the ball
-        const qb = s.players.find(q => q.id === `${s.offense}-1`);
+        const qb = s.players.find(q => q.id === playerId(s.offense, 'QB'));
         if (qb && s.play !== 'rush' && s.play !== 'fieldgoal' && (s.phase === 'pre-snap' || (s.phase === 'live' && s.ball.kind === 'held' && s.possession.carrier === qb.id))) {
-            const keys = s.offense === 'home' ? ['Q', 'E'] : [',', '.'];
-            for (const [i, n] of [3, 4].entries()) {
-                const r = s.players.find(q => q.id === `${s.offense}-${n}`)!;
+            const keys = s.offense === 'home' ? ['Q', 'E', 'Z'] : [',', '.', 'M'];
+            for (const [i, n] of (['WR1', 'WR2', 'TE1'] as const).entries()) {
+                const r = s.players.find(q => q.id === playerId(s.offense, n));
+                if (!r) continue;
                 const x = Math.round(sx(r.x)), y = Math.round(screenY(r.y)) - 52 + (Math.floor(now / 300) % 2);
                 ctx.fillStyle = COLORS.ink; ctx.fillRect(x - 5, y - 1, 11, 10);
                 ctx.fillStyle = '#e6ebff'; ctx.fillRect(x - 4, y, 9, 8);

@@ -1,8 +1,9 @@
-import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, type DownState } from '../core/down';
+import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, lineUp, type DownState, type Play } from '../core/down';
+import { DEFENSE_CODES, DEFENSE_FORMATIONS, OFFENSE_CODES, OFFENSE_FORMATIONS, positionOfCode, type Code } from '../core/personnel';
 import { KICK_MAX_TICKS } from '../core/kick';
 import { FIELD } from '../core/simulation';
 export const SAVE_KEY = 'wentz.arcade.down.v1';
-export const encodeSave = (state: DownState) => JSON.stringify({ version: 5, state });
+export const encodeSave = (state: DownState) => JSON.stringify({ version: 6, state });
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const integer = (v: unknown) => finite(v) && Number.isSafeInteger(v) && v >= 0;
@@ -12,9 +13,11 @@ const reasons = ['tackle', 'out-of-bounds', 'touchdown', 'incomplete', 'intercep
 /**
  * Compatibility boundary: the last deployed save format is version 3 (Milestone 3, PR #28); versions 1-3 migrate. Version 4
  * was never released: several unreleased Milestone 4 builds wrote it with different clock units (30-second quarters, then
- * 180-second quarters), so it cannot be read safely and is rejected, never converted. Version 5 is the current format.
+ * 180-second quarters), so it cannot be read safely and is rejected, never converted. Version 5 (ten players, five a side)
+ * still migrates: the game, score, clock and situation carry over and the 22 players are lined up fresh. Version 6 (eleven
+ * a side, with formations and assignments) is the current format.
  */
-export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3, 5];
+export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3, 5, 6];
 /** True when the text is a well-formed envelope of a version this build refuses to read (an unreleased or future format). */
 export function isUnsupportedSave(text: string | null): boolean {
     try {
@@ -47,7 +50,36 @@ function upgrade(version: number, old: Record<string, unknown>): Record<string, 
     }
     if (version <= 3)
         s = { ...s, quarter: 1, clock: QUARTER_TICKS, expired: false, gap: 0, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
+    if (version <= 5)
+        s = modernize(s);
     return s;
+}
+/**
+ * Rebuilds a ten-player snapshot as an eleven-a-side one: everything about the game carries over, the players are lined up in
+ * formation. A play that was live restarts from its snap (the same down, spot and clock); a finished down stays finished.
+ */
+function modernize(old: Record<string, unknown>): Record<string, unknown> {
+    // Anything that is not a coherent old snapshot is left alone, so the validation below rejects it instead of it being repaired.
+    if (![old.line, old.down, old.firstDownLine, old.playNumber, old.terminalCount].every(finite) || !Array.isArray(old.players) || !object(old.possession))
+        return old;
+    const offense = old.offense === 'away' ? 'away' : 'home';
+    const play: Play = ['rush', 'slants', 'go', 'fieldgoal'].includes(String(old.play)) ? old.play as Play : 'rush';
+    const num = (v: unknown, d: number) => finite(v) ? Number(v) : d;
+    const base = lineUp(offense, num(old.line, 38), {
+        down: num(old.down, 1), score: old.score as { home: number; away: number }, play, playNumber: Math.max(1, num(old.playNumber, 1)),
+        game: { quarter: num(old.quarter, 1), clock: num(old.clock, QUARTER_TICKS), expired: !!old.expired, gap: num(old.gap, 0), mode: old.mode as 'regulation', openingTeam: old.openingTeam as 'home', overtime: old.overtime as { first: 'home'; possessions: number }, winner: (old.winner ?? null) as null, kick: (old.kick ?? null) as null },
+    });
+    const phase = old.phase === 'live' ? 'pre-snap' : String(old.phase);
+    let result: DownState = { ...base, phase: phase as DownState['phase'], terminalCount: num(old.terminalCount, 0), firstDownLine: num(old.firstDownLine, base.firstDownLine), result: (phase === 'pre-snap' ? null : old.result ?? null) as DownState['result'] };
+    if (phase === 'dead') {
+        // A finished down keeps the spot where it ended: the old ball carrier's position carries over to the new carrier.
+        const held = (old.players as Record<string, unknown>[]).find(q => q.id === (old.possession as Record<string, unknown>).carrier);
+        const team = (old.possession as Record<string, unknown>).team === 'away' ? 'away' : 'home';
+        const carrier = team === offense ? base.possession.carrier : `${team}-CB1` as DownState['possession']['carrier'];
+        if (held && finite(held.x) && finite(held.y))
+            result = { ...result, possession: { team, carrier }, players: result.players.map(q => q.id === carrier ? { ...q, x: Math.max(FIELD.radius, Math.min(120 - FIELD.radius, Number(held.x))), y: Math.max(FIELD.radius, Math.min(FIELD.width - FIELD.radius, Number(held.y))) } : q) };
+    }
+    return result as unknown as Record<string, unknown>;
 }
 /** The clock, quarter, mode, overtime, winner and kick must agree with each other and with the phase. */
 function gameFieldsValid(s: Record<string, unknown>): boolean {
@@ -77,10 +109,48 @@ function gameFieldsValid(s: Record<string, unknown>): boolean {
         return false;
     return k.team === s.offense;
 }
+const BEHAVIORS = ['stance', 'route', 'settle', 'passBlock', 'runBlock', 'downfieldBlock', 'carry', 'dropback', 'rush', 'runFit', 'man', 'zone', 'pursue', 'contain', 'stumble'];
+const ABILITY_KEYS = ['speed', 'accel', 'strength', 'agility', 'awareness', 'block', 'passRush', 'tackle', 'coverage', 'hands', 'throwing'];
+/** Eleven offensive and eleven defensive players, each a known roster slot with sane numbers, assignments and locks. */
+function playersValid(list: unknown): Set<string> | null {
+    if (!Array.isArray(list) || list.length !== 22)
+        return null;
+    const ids = new Set<string>();
+    for (const p of list) {
+        if (!object(p) || !team(p.team) || typeof p.id !== 'string')
+            return null;
+        const code = p.id.slice(p.id.indexOf('-') + 1) as Code;
+        const known = (OFFENSE_CODES as readonly string[]).includes(code) || (DEFENSE_CODES as readonly string[]).includes(code);
+        if (!known || p.id !== `${p.team}-${code}` || ids.has(p.id) || p.position !== positionOfCode(code) || !integer(p.number) || Number(p.number) < 1 || Number(p.number) > 99)
+            return null;
+        if (typeof p.human !== 'boolean' || !finite(p.x) || !finite(p.y) || p.x < FIELD.radius - 1e-9 || p.x > 120 - FIELD.radius + 1e-9 || p.y < FIELD.radius - 1e-9 || p.y > FIELD.width - FIELD.radius + 1e-9 || !finite(p.vx) || !finite(p.vy) || Math.abs(Number(p.vx)) > 20 || Math.abs(Number(p.vy)) > 20)
+            return null;
+        const ab = p.abilities;
+        if (!object(ab) || ABILITY_KEYS.some(k => !finite(ab[k]) || Number(ab[k]) < 0 || Number(ab[k]) > 99))
+            return null;
+        if (!BEHAVIORS.includes(String(p.behavior)) || !integer(p.stun) || Number(p.stun) > 600 || !integer(p.free) || Number(p.free) > 600)
+            return null;
+        if (p.assign !== null) {
+            const a = p.assign;
+            if (!object(a) || (a.points !== undefined && (!Array.isArray(a.points) || a.points.length > 8 || !a.points.every(point))) || (a.index !== undefined && !integer(a.index)) || (a.spot !== undefined && !point(a.spot)) || (a.target !== undefined && typeof a.target !== 'string'))
+                return null;
+        }
+        if (p.lock !== null && (!object(p.lock) || typeof p.lock.with !== 'string' || !integer(p.lock.since)))
+            return null;
+        ids.add(p.id);
+    }
+    for (const t of ['home', 'away'] as const)
+        if ([...ids].filter(i => i.startsWith(t + '-')).length !== 11)
+            return null;
+    for (const p of list as Record<string, unknown>[])
+        if (p.lock && !ids.has(String((p.lock as Record<string, unknown>).with)))
+            return null;
+    return ids;
+}
 /** Only the arcade key is read. Invalid/older snapshots start a new practice. */
 export function decodeSave(text: string | null): DownState | null {
     try {
-        if (!text || text.length > 20000)
+        if (!text || text.length > 120000)
             return null;
         const data: unknown = JSON.parse(text);
         if (!object(data) || (typeof data.version !== 'number' || !SUPPORTED_VERSIONS.includes(data.version)) || !object(data.state))
@@ -94,15 +164,12 @@ export function decodeSave(text: string | null): DownState | null {
             return null;
         if (!gameFieldsValid(s))
             return null;
-        if (!Array.isArray(s.players) || s.players.length !== 10)
+        const ids = playersValid(s.players);
+        if (!ids)
             return null;
-        const ids = new Set<string>();
-        for (const p of s.players) {
-            if (!object(p) || !team(p.team) || !integer(p.number) || Number(p.number) < 1 || Number(p.number) > 5 || p.id !== `${p.team}-${p.number}` || ids.has(String(p.id)) || typeof p.human !== 'boolean' || !finite(p.x) || !finite(p.y) || p.x < FIELD.radius || p.x > 120 - FIELD.radius || p.y < FIELD.radius || p.y > FIELD.width - FIELD.radius || !object(p.abilities) || !finite(p.abilities.speed) || p.abilities.speed < 0 || p.abilities.speed > 99)
-                return null;
-            ids.add(String(p.id));
-        }
         if (!object(s.possession) || !team(s.possession.team) || !ids.has(String(s.possession.carrier)) || !String(s.possession.carrier).startsWith(s.possession.team + '-') || !ids.has(String(s.defender)) || String(s.defender).startsWith(s.offense + '-'))
+            return null;
+        if (!object(s.formation) || !(String(s.formation.offense) in OFFENSE_FORMATIONS) || !(String(s.formation.defense) in DEFENSE_FORMATIONS))
             return null;
         if (!object(s.ball) || !['held', 'flight'].includes(String(s.ball.kind)))
             return null;
