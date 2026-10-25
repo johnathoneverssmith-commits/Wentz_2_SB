@@ -97,6 +97,26 @@ clock; a finished touchdown or safety is scored once; a finished touchdown still
 extra point). Invalid or self-contradictory saves start fresh. A storage-denied browser can
 still play. Franchise saves and other keys are untouched.
 
+## Visual design (Milestone 5A)
+
+The playfield is a **480x270 pixel canvas (16:9)** scaled up with hard pixel edges, in a modern-retro 16-bit style with an
+elevated side camera (field length runs left-right, width runs into the screen). The renderer only reads the match state; the
+simulation, saves and rules are untouched.
+
+* `browser/field.ts`: the `Renderer` (camera, per-player animation state, particles, banners, events derived from state changes).
+* `browser/render/sprites.ts`: procedural pixel-art football players. A **pose** table (joint offsets) and a **team palette** build
+  every frame once into an outlined offscreen canvas. Animations: idle, run, throw, catch, block, tackle, fall, celebrate, kick.
+  Adding a team look or animation is data, not new drawing code.
+* `browser/render/roster.ts`: display identity keyed by the persistent player id (`home-3`): last name, skin tone, role label. A
+  future franchise roster replaces this table only.
+* `browser/render/world.ts`: pre-rendered turf (mowing stripes, yard lines, hash marks, numbers, end zones), stadium, crowd.
+* `browser/render/hud.ts` and `font.ts`: scoreboard, control hints, kick meter, banners, and a 3x5 pixel font.
+* `browser/render/camera.ts`: smooth, frame-rate-independent follow with a look-ahead toward the receivers on pass plays.
+
+Only the selected player of each team shows a name plate (last name and role); other players are labelled only when relevant
+(pass targets show their key, the ball carrier gets a marker). The page still carries the scoreboard and situation as text for
+screen readers and the automated tests; `prefers-reduced-motion` turns off screen shake and cuts particles.
+
 ## Verify
 
 ```sh

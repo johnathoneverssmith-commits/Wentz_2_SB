@@ -165,3 +165,13 @@ Remaining limitations: a late go pass against a defender who never switches to t
 * **Save compatibility:** the last deployed format is version 3; it migrates. Unreleased version 4 (written by builds with 30-second and 180-second quarters) and unknown versions are rejected with a visible notice, never converted. Unit tests cover migration, rejection and the current format; a browser test checks the notice and the fresh game; negative controls: accepting version 4, removing the notice.
 * **Clock accounting:** the balance report counts live-play and between-play clock separately; the suite requires both to be non-zero and their sum to equal four quarters (43,200 ticks). Dropping either component fails five tests.
 * **Browser coverage:** the full-game test asserts its mid-game reload happened; disabling the reload condition fails it. The on-screen instructions now describe the hybrid clock.
+
+## Milestone 5A: visual overhaul (what to judge by eye)
+
+Automated tests show the scene is drawn (canvas size and aspect, turf and both team colours present, animations run without
+errors, camera maths) but not that it looks good. Please judge by playing: sprites and animation (idle, run, throw, catch, block,
+tackle and fall, celebrate, kick), the field and stadium, camera framing on deep passes, scoreboard and hints, banners
+(touchdown, interception, first down, quarters), kick presentation, and whether anything obscures play.
+
+Known visual limitations: sprites are procedurally drawn rather than hand-painted; players are 5 a side (11-on-11 is later);
+the kicker is a stand-in sprite; field goal posts are simplified; no sound.
