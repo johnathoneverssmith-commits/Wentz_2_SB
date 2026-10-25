@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
     await page.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5184' ? route.continue() : route.abort());
     // Only time is controlled: keyboard events, React, animation frames and saving are real.
     await page.clock.install({ time: new Date('2026-10-23T12:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-10-23T12:00:00Z'));
+    await page.clock.pauseAt(new Date('2026-10-23T12:01:00Z'));
     await page.goto('/');
     await page.clock.runFor(128);
 });

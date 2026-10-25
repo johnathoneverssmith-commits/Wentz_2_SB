@@ -39,7 +39,8 @@ for (const [play, key, target] of [['slants', 'KeyQ', 'home-3'], ['go', 'KeyE', 
         // Keep exact catch/reload assertions independent of wall-clock UI latency.
         // Separate wall-clock playthrough tests below prove ordinary real-time agency.
         await page.clock.install({ time: new Date('2026-10-19T12:00:00Z') });
-        await page.clock.pauseAt(new Date('2026-10-19T12:00:00Z'));
+        // install starts a running clock; pause ahead of it to avoid racing wall time on CI.
+        await page.clock.pauseAt(new Date('2026-10-19T12:01:00Z'));
         await page.reload();
         await page.clock.runFor(128);
         await page.getByLabel('Play', { exact: true }).selectOption(play);

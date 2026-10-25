@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
     } return r.continue(); });
     // Browser clock controls only time: keyboard events, React, RAF and saving are real.
     await page.clock.install({ time: new Date('2026-10-19T12:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-10-19T12:00:00Z'));
+    await page.clock.pauseAt(new Date('2026-10-19T12:01:00Z'));
     await page.goto('/');
     await page.clock.runFor(128);
 });
