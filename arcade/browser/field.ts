@@ -39,7 +39,9 @@ function pixelEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx:
 export class Renderer {
     private cam = 0;
     private camInit = false;
-    private lastNow = 0;
+    private lastNow: number | null = null;
+    private presentationNow = 0;
+    private shake = { x: 0, y: 0 };
     private prev: DownState | null = null;
     private actors = new Map<PlayerId, Actor>();
     private ev: PlayEvents = fresh();
@@ -59,12 +61,16 @@ export class Renderer {
         if (!ctx) return;
         if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
         ctx.imageSmoothingEnabled = false;
-        const dt = this.lastNow ? Math.max(0, Math.min(0.1, (now - this.lastNow) / 1000)) : 0;
-        if (!paused) this.observe(s, now);
+        const elapsed = this.lastNow === null ? 0 : Math.max(0, now - this.lastNow);
         this.lastNow = now;
+        if (!paused) this.presentationNow += elapsed;
+        now = this.presentationNow;
+        const dt = paused ? 0 : Math.min(0.1, elapsed / 1000);
+        if (!paused) this.observe(s, now);
         this.updateActors(s, now, dt, paused);
-        this.moveCamera(s, dt, paused);
-        const shake = !reduced() && now < this.shakeUntil ? { x: Math.round((this.random() - 0.5) * 3), y: Math.round((this.random() - 0.5) * 3) } : { x: 0, y: 0 };
+        this.moveCamera(s, dt, paused, now);
+        if (!paused) this.shake = !reduced() && now < this.shakeUntil ? { x: Math.round((this.random() - 0.5) * 3), y: Math.round((this.random() - 0.5) * 3) } : { x: 0, y: 0 };
+        const shake = this.shake;
         ctx.save();
         ctx.translate(shake.x, shake.y);
         this.drawScene(ctx, s, now);
@@ -158,7 +164,6 @@ export class Renderer {
                 a.run += moved;
                 if (Math.abs(dx) > 0.004) a.face = dx > 0 ? 1 : -1;
             }
-            else if (paused) a.speed = 0;
             a.x = p.x; a.y = p.y;
             if (!paused) this.chooseAnim(a, p.id, p.team, p.number, s, now, engaged);
             if (!paused && a.speed > 4.5 && now - this.dustAt > 90 && s.phase === 'live') {
@@ -204,10 +209,17 @@ export class Renderer {
     }
 
     // ---------- camera ----------
-    private moveCamera(s: DownState, dt: number, paused: boolean): void {
+    private moveCamera(s: DownState, dt: number, paused: boolean, now: number): void {
         let target = s.line;
         const dir = direction(s.offense);
-        if (s.phase === 'kick' && s.kick) target = (s.kick.spot + (s.kick.team === 'home' ? 120 : 0)) / 2;
+        if (s.phase === 'kick' && s.kick) {
+            const kdir = direction(s.kick.team), spot = this.kickSpot(s);
+            const goal = kdir > 0 ? FIELD.length : 0;
+            const t = this.ev.kickAt === null ? 0 : Math.max(0, Math.min(1, (now - this.ev.kickAt - 180) / 1000));
+            target = t === 0 ? spot - kdir * 7 + kdir * 10 : spot - kdir * 3 + (goal - (spot - kdir * 3)) * t + kdir * 4;
+            // Cut to the setup so the kicker is visible immediately, even after a distant touchdown.
+            if (this.prev?.phase !== 'kick' && !paused) { this.cam = followCamera(target, target, 0); this.camInit = true; return; }
+        }
         else if (s.phase === 'live' || s.phase === 'dead') {
             const carrier = this.actors.get(s.possession.carrier);
             target = s.ball.kind === 'flight' ? s.ball.from.x + (s.ball.to.x - s.ball.from.x) * Math.min(1, s.ball.elapsed / s.ball.duration) : carrier?.x ?? s.line;
@@ -328,7 +340,12 @@ export class Renderer {
     }
     private kickerSprite(s: DownState): { x: number; y: number; team: TeamId } {
         const k = s.kick!, dir = direction(k.team);
-        return { x: k.spot - dir * 7, y: FIELD.width / 2, team: k.team };
+        return { x: this.kickSpot(s) - dir * 7, y: FIELD.width / 2, team: k.team };
+    }
+    /** Extra points retain the previous scrimmage spot in match state; only their presentation is relocated. */
+    private kickSpot(s: DownState): number {
+        const k = s.kick!, dir = direction(k.team), goal = dir > 0 ? FIELD.length : 0;
+        return k.kind === 'xp' ? goal - dir * (k.distance - 7) : k.spot;
     }
     private drawKicker(ctx: CanvasRenderingContext2D, k: { x: number; y: number; team: TeamId }, s: DownState, now: number, sx: (x: number) => number): void {
         const face = direction(k.team) < 0;
@@ -342,7 +359,7 @@ export class Renderer {
         void s;
     }
     private drawKickBall(ctx: CanvasRenderingContext2D, s: DownState, now: number, sx: (x: number) => number): void {
-        const k = s.kick!, dir = direction(k.team), goal = dir > 0 ? 120 : 0, start = k.spot - dir * 3;
+        const k = s.kick!, dir = direction(k.team), goal = dir > 0 ? FIELD.length : 0, start = this.kickSpot(s) - dir * 3;
         const mid = screenY(FIELD.width / 2);
         if (this.ev.kickAt === null) { this.ball(ctx, Math.round(sx(start)), mid - 3, dir); return; }
         const t = Math.min(1, (now - this.ev.kickAt - 180) / 1000);
