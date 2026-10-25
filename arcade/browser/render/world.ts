@@ -8,8 +8,8 @@ import { TEAM_COLORS } from './sprites';
 
 export const W = 480, H = 270;
 /** Screen pixels per yard along the field, and the vertical band the 53.3-yard width is squashed into (elevated side view). */
-export const PPY = 10;
-export const BAND_TOP = 116, BAND_H = 112;
+export const PPY = 9;
+export const BAND_TOP = 116, BAND_H = 122;
 export const ROW = BAND_H / FIELD.width;
 /** The strips cover this many yards beyond each end line so the camera can show the back of the end zones. */
 export const MARGIN = 6;

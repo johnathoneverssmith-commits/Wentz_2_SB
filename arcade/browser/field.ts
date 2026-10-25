@@ -138,7 +138,7 @@ export class Renderer {
         const count = reduced() ? Math.ceil(n / 3) : n;
         for (let i = 0; i < count; i++) {
             const a = (i / count) * Math.PI * 2 + this.random();
-            this.particles.push({ x: worldX(x), y: screenY(y) - 14, vx: Math.cos(a) * speed * (0.5 + this.random()), vy: Math.sin(a) * speed * (0.5 + this.random()), born: now, life: 0.4, color: colors[i % colors.length]!, size: 2, gravity: 30 });
+            this.particles.push({ x: worldX(x), y: screenY(y) - 20, vx: Math.cos(a) * speed * (0.5 + this.random()), vy: Math.sin(a) * speed * (0.5 + this.random()), born: now, life: 0.4, color: colors[i % colors.length]!, size: 2, gravity: 30 });
         }
     }
 
@@ -162,7 +162,7 @@ export class Renderer {
             a.x = p.x; a.y = p.y;
             if (!paused) this.chooseAnim(a, p.id, p.team, p.number, s, now, engaged);
             if (!paused && a.speed > 4.5 && now - this.dustAt > 90 && s.phase === 'live') {
-                this.particles.push({ x: worldX(a.x) - a.face * 4, y: screenY(a.y) - 1, vx: -a.face * 6, vy: -6, born: now, life: 0.35, color: 'rgba(214,196,150,.8)', size: 2, gravity: 0 });
+                this.particles.push({ x: worldX(a.x) - a.face * 6, y: screenY(a.y) - 1, vx: -a.face * 6, vy: -6, born: now, life: 0.35, color: 'rgba(214,196,150,.8)', size: 2, gravity: 0 });
             }
         }
         if (now - this.dustAt > 90) this.dustAt = now;
@@ -247,12 +247,12 @@ export class Renderer {
         // shadows then selection circles (beneath the sprites)
         for (const p of s.players) {
             const x = sx(p.x), y = screenY(p.y);
-            pixelEllipse(ctx, x, y, 8, 3, 'rgba(0,0,0,.35)', true);
+            pixelEllipse(ctx, x, y, 10, 4, 'rgba(0,0,0,.35)', true);
         }
         for (const p of s.players.filter(q => q.human)) {
             const pulse = Math.floor(now / 250) % 2;
-            pixelEllipse(ctx, sx(p.x), screenY(p.y), 12 + pulse, 5 + pulse, SELECT_COLOR[p.team]);
-            pixelEllipse(ctx, sx(p.x), screenY(p.y), 11 + pulse, 4 + pulse, 'rgba(255,255,255,.55)');
+            pixelEllipse(ctx, sx(p.x), screenY(p.y), 15 + pulse, 6 + pulse, SELECT_COLOR[p.team]);
+            pixelEllipse(ctx, sx(p.x), screenY(p.y), 14 + pulse, 5 + pulse, 'rgba(255,255,255,.55)');
         }
         // players sorted back-to-front; the ball carrier's ball is drawn with him
         const order = [...s.players].sort((a, b) => a.y - b.y);
@@ -286,7 +286,7 @@ export class Renderer {
         this.floaters = this.floaters.filter(f => now - f.born < 900);
         for (const f of this.floaters) {
             const age = (now - f.born) / 900;
-            drawText(ctx, f.text, sx(f.x), screenY(f.y) - 36 - age * 10, { color: f.color, scale: 1, align: 'center', shadow: '#000' });
+            drawText(ctx, f.text, sx(f.x), screenY(f.y) - 54 - age * 10, { color: f.color, scale: 1, align: 'center', shadow: '#000' });
         }
         // soft vignette keeps the eye on the action
         const g = ctx.createLinearGradient(0, BAND_TOP + 80, 0, H);
@@ -307,7 +307,7 @@ export class Renderer {
         ctx.fillStyle = '#fff6b0'; ctx.fillRect(bx, a - 40, 1, 32); ctx.fillRect(bx, b - 40, 1, 32);
     }
     private drawHeldBall(ctx: CanvasRenderingContext2D, x: number, y: number, a: Actor, phase: DownState['phase']): void {
-        const hx = Math.round(x + a.face * 6), hy = Math.round(y - (a.anim === 'throw' ? 21 : 13));
+        const hx = Math.round(x + a.face * 8), hy = Math.round(y - (a.anim === 'throw' ? 30 : 19));
         this.ball(ctx, hx, hy, a.face);
         void phase;
     }
@@ -322,7 +322,7 @@ export class Renderer {
         const b = s.ball, t = Math.min(1, b.elapsed / b.duration);
         const gx = sx(b.from.x + (b.to.x - b.from.x) * t), gy = screenY(b.from.y + (b.to.y - b.from.y) * t);
         const dist = Math.hypot(b.to.x - b.from.x, b.to.y - b.from.y), peak = Math.min(40, 10 + dist * 0.9);
-        const h = 14 + Math.sin(t * Math.PI) * peak;
+        const h = 20 + Math.sin(t * Math.PI) * peak;
         pixelEllipse(ctx, gx, gy, 3, 1, 'rgba(0,0,0,.4)', true);
         this.ball(ctx, Math.round(gx), Math.round(gy - h), b.to.x >= b.from.x ? 1 : -1);
     }
@@ -336,8 +336,8 @@ export class Renderer {
         const anim: Anim = t < 0 ? 'idle' : 'kick';
         const look: Look = { team: k.team, number: 1, skin: 1 };
         const idx = anim === 'idle' ? frameIndex('idle', now / 1000) : frameIndex('kick', Math.max(0, t));
-        pixelEllipse(ctx, sx(k.x), screenY(k.y), 8, 3, 'rgba(0,0,0,.35)', true);
-        pixelEllipse(ctx, sx(k.x), screenY(k.y), 12, 5, SELECT_COLOR[k.team]);
+        pixelEllipse(ctx, sx(k.x), screenY(k.y), 10, 4, 'rgba(0,0,0,.35)', true);
+        pixelEllipse(ctx, sx(k.x), screenY(k.y), 15, 6, SELECT_COLOR[k.team]);
         drawSprite(ctx, frameFor(look, anim, idx), sx(k.x), screenY(k.y), face);
         void s;
     }
@@ -358,7 +358,7 @@ export class Renderer {
             const id = identityOf(p.id), pos = positionOf(p.number, p.team === s.offense);
             const text = `${id.name} ${pos}`, w = text.length * 4 + 5, a = this.actors.get(p.id);
             const hop = a && a.anim === 'celebrate' ? -2 : 0;
-            let x = Math.max(2 + w / 2, Math.min(W - 2 - w / 2, sx(p.x))), y = Math.max(46, screenY(p.y) - 40 + hop);
+            let x = Math.max(2 + w / 2, Math.min(W - 2 - w / 2, sx(p.x))), y = Math.max(46, screenY(p.y) - 56 + hop);
             for (const o of plates) if (Math.abs(o.x - x) < w && Math.abs(o.y - y) < 9) y = o.y - 10;
             plates.push({ x, y });
             const pal = TEAM_COLORS[p.team];
@@ -374,7 +374,7 @@ export class Renderer {
             const keys = s.offense === 'home' ? ['Q', 'E'] : [',', '.'];
             for (const [i, n] of [3, 4].entries()) {
                 const r = s.players.find(q => q.id === `${s.offense}-${n}`)!;
-                const x = Math.round(sx(r.x)), y = Math.round(screenY(r.y)) - 36 + (Math.floor(now / 300) % 2);
+                const x = Math.round(sx(r.x)), y = Math.round(screenY(r.y)) - 52 + (Math.floor(now / 300) % 2);
                 ctx.fillStyle = COLORS.ink; ctx.fillRect(x - 5, y - 1, 11, 10);
                 ctx.fillStyle = '#e6ebff'; ctx.fillRect(x - 4, y, 9, 8);
                 drawText(ctx, keys[i]!, x, y + 1, { color: COLORS.ink, scale: 1, align: 'center' });
@@ -383,7 +383,7 @@ export class Renderer {
         // a marker over the ball carrier when he is not already named
         const carrier = s.players.find(q => q.id === s.possession.carrier);
         if (carrier && !carrier.human && s.phase === 'live') {
-            const x = Math.round(sx(carrier.x)), y = Math.round(screenY(carrier.y)) - 36 + (Math.floor(now / 250) % 2);
+            const x = Math.round(sx(carrier.x)), y = Math.round(screenY(carrier.y)) - 52 + (Math.floor(now / 250) % 2);
             ctx.fillStyle = '#ffd24a'; ctx.fillRect(x - 3, y, 7, 1); ctx.fillRect(x - 2, y + 1, 5, 1); ctx.fillRect(x - 1, y + 2, 3, 1); ctx.fillRect(x, y + 3, 1, 1);
         }
     }

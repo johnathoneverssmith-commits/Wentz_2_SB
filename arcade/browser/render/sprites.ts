@@ -81,22 +81,30 @@ export const ANIMS: Record<Anim, AnimDef> = {
         ],
     },
 };
-export const FRAME_W = 24, FRAME_H = 32, ANCHOR_X = 12, ANCHOR_Y = 30;
+/** Sprites are drawn on a 1.4x version of the original 24x32 design grid: chunkier, more detailed 16-bit athletes. */
+export const SCALE = 1.4;
+export const FRAME_W = Math.round(24 * SCALE), FRAME_H = Math.round(32 * SCALE), ANCHOR_X = Math.round(12 * SCALE), ANCHOR_Y = Math.round(30 * SCALE);
 export interface Look {
     readonly team: TeamId;
     readonly number: number;
     /** 0-2: skin tone, so a roster is not 22 clones. */
     readonly skin: number;
 }
-const SKIN = ['#f1c9a0', '#c98d5f', '#7d4e32'] as const;
-const PALETTE = {
-    home: { jersey: '#2c6fe4', light: '#5b97f2', dark: '#1a47a8', pants: '#f2f0e6', pantsDark: '#bdb9a8', helmet: '#2457c8', helmetLight: '#6fa0ff', helmetDark: '#173d94', trim: '#ffffff', number: '#ffffff' },
-    away: { jersey: '#f08a1f', light: '#ffb257', dark: '#b4580c', pants: '#ecdcae', pantsDark: '#bfa978', helmet: '#d97010', helmetLight: '#ffb257', helmetDark: '#9a4c06', trim: '#fff2cc', number: '#fff6dc' },
+type Tones = readonly [string, string, string];
+const SKIN: readonly Tones[] = [['#b57c52', '#e0a878', '#f6d2ac'], ['#8a5632', '#c98d5f', '#e8b488'], ['#5a3320', '#7d4e32', '#a06a48']];
+const TEAM: Record<TeamId, Record<'jersey' | 'helmet' | 'pants' | 'sock', Tones>> = {
+    home: { jersey: ['#173f9c', '#2c6fe4', '#6aa5ff'], helmet: ['#16377f', '#2457c8', '#86b0ff'], pants: ['#9c9684', '#e9e6d6', '#ffffff'], sock: ['#173f9c', '#2c6fe4', '#6aa5ff'] },
+    away: { jersey: ['#a84e08', '#f08a1f', '#ffc070'], helmet: ['#8a4206', '#d97010', '#ffb869'], pants: ['#a89466', '#e6d6a6', '#fff3c8'], sock: ['#a84e08', '#f08a1f', '#ffc070'] },
+};
+export const TEAM_COLORS = {
+    home: { jersey: '#2c6fe4', light: '#6aa5ff', dark: '#173f9c', helmet: '#2457c8', helmetLight: '#86b0ff', trim: '#ffffff' },
+    away: { jersey: '#f08a1f', light: '#ffc070', dark: '#a84e08', helmet: '#d97010', helmetLight: '#ffb869', trim: '#fff2cc' },
 } as const;
-export const TEAM_COLORS = PALETTE;
-type Palette = { readonly [K in keyof typeof PALETTE.home]: string };
-const OUTLINE = '#10121f', MASK = '#c9ced8', SHOE = '#1a1a24';
+const COMMON: Record<'mask' | 'shoe' | 'glove' | 'ink', Tones> = { mask: ['#6d7388', '#aab1c4', '#e6e9f2'], shoe: ['#0c0d16', '#242636', '#4f5370'], glove: ['#aab1c4', '#f2f4fa', '#ffffff'], ink: ['#0c0d16', '#10121f', '#10121f'] };
+type Mat = 'jersey' | 'helmet' | 'pants' | 'sock' | 'skin' | 'mask' | 'shoe' | 'glove' | 'ink';
 const DIGITS = ['010110010010111', '111001111100111', '111001111001111', '101101111001001', '111100111001111'];
+/** Light comes from the upper left: a surface facing it takes the light tone, one facing away the shadow tone. */
+const LIGHT = [-0.55, -0.83] as const;
 
 export interface Frame {
     readonly canvas: HTMLCanvasElement;
@@ -106,91 +114,100 @@ export interface Frame {
 }
 const cache = new Map<string, Frame>();
 const make = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+interface Cell { readonly mat: Mat; readonly tone: 0 | 1 | 2 }
 
-function rect(ctx: CanvasRenderingContext2D, color: string, x: number, y: number, w: number, h: number) {
-    ctx.fillStyle = color;
-    ctx.fillRect(Math.round(x), Math.round(y), w, h);
-}
-/** A pixel line of square dots, used for limbs. */
-function limb(ctx: CanvasRenderingContext2D, color: string, x0: number, y0: number, x1: number, y1: number, w: number) {
-    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
-    for (let i = 0; i <= n; i++)
-        rect(ctx, color, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, w, w);
-}
-function leg(ctx: CanvasRenderingContext2D, pal: Palette, hipX: number, hipY: number, foot: Pair, dark: boolean) {
-    const fx = hipX + foot[0], fy = hipY + 9 + foot[1] - 1;
-    const kx = hipX + foot[0] * 0.45 + 1, ky = hipY + 4;
-    limb(ctx, dark ? pal.pantsDark : pal.pants, hipX, hipY, kx, ky, 3);
-    limb(ctx, dark ? pal.pantsDark : pal.pants, kx, ky, fx, fy - 1, 3);
-    rect(ctx, SHOE, fx - 1, fy, 5, 2);
-}
-function arm(ctx: CanvasRenderingContext2D, pal: Palette, skin: string, sx: number, sy: number, hand: Pair, dark: boolean) {
-    const hx = sx + hand[0], hy = sy + hand[1];
-    const ex = sx + hand[0] * 0.5, ey = sy + hand[1] * 0.5;
-    limb(ctx, dark ? pal.dark : pal.jersey, sx, sy, ex, ey, 3);
-    limb(ctx, skin, ex, ey, hx, hy, 2);
-    rect(ctx, pal.trim, hx, hy, 2, 2);
-}
+/**
+ * Builds one frame from soft shapes (tapered limbs, ellipses) shaded in three tones by surface direction, then inks an outline
+ * whose colour is a dark version of the neighbouring material instead of flat black, which gives it the hand-drawn feel.
+ */
 function drawPose(look: Look, pose: Pose): HTMLCanvasElement {
-    const pal = PALETTE[look.team], skin = SKIN[look.skin % SKIN.length]!;
-    const c = make(FRAME_W, FRAME_H), ctx = c.getContext('2d')!;
+    const k = SCALE, W = FRAME_W, H = FRAME_H, buf: (Cell | null)[] = new Array(W * H).fill(null);
+    const team = TEAM[look.team], skin = SKIN[look.skin % SKIN.length]!;
+    const tones = (m: Mat): Tones => m === 'skin' ? skin : m === 'mask' || m === 'shoe' || m === 'glove' || m === 'ink' ? COMMON[m] : team[m];
+    const put = (x: number, y: number, mat: Mat, tone: 0 | 1 | 2) => { if (x >= 0 && y >= 0 && x < W && y < H) buf[y * W + x] = { mat, tone }; };
+    const shade = (nx: number, ny: number, bias: number): 0 | 1 | 2 => { const d = nx * LIGHT[0] + ny * LIGHT[1] + bias; return d > 0.32 ? 2 : d < -0.28 ? 0 : 1; };
+    const capsule = (x0: number, y0: number, x1: number, y1: number, r0: number, r1: number, mat: Mat, bias = 0) => {
+        x0 *= k; y0 *= k; x1 *= k; y1 *= k; r0 *= k; r1 *= k;
+        const rm = Math.max(r0, r1);
+        for (let y = Math.floor(Math.min(y0, y1) - rm); y <= Math.ceil(Math.max(y0, y1) + rm); y++)
+            for (let x = Math.floor(Math.min(x0, x1) - rm); x <= Math.ceil(Math.max(x0, x1) + rm); x++) {
+                const px = x + 0.5, py = y + 0.5, dx = x1 - x0, dy = y1 - y0, len2 = dx * dx + dy * dy || 1;
+                const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / len2));
+                const ox = px - (x0 + dx * t), oy = py - (y0 + dy * t), r = r0 + (r1 - r0) * t;
+                if (Math.hypot(ox, oy) <= r) put(x, y, mat, shade(ox / (r || 1), oy / (r || 1), bias));
+            }
+    };
+    const ell = (cx: number, cy: number, rx: number, ry: number, mat: Mat, bias = 0) => {
+        cx *= k; cy *= k; rx *= k; ry *= k;
+        for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++)
+            for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
+                const nx = (x + 0.5 - cx) / rx, ny = (y + 0.5 - cy) / ry;
+                if (nx * nx + ny * ny <= 1) put(x, y, mat, shade(nx, ny, bias));
+            }
+    };
+    const dot = (x: number, y: number, mat: Mat, tone: 0 | 1 | 2 = 1) => put(Math.round(x * k), Math.round(y * k), mat, tone);
     const bob = pose.bob ?? 0, lean = pose.lean ?? 0, crouch = pose.crouch ?? 0;
-    const cx = ANCHOR_X, hipY = ANCHOR_Y - 9 - crouch + (bob < 0 ? bob : 0);
-    const top = hipY - 9 + (bob > 0 ? 1 : 0);
-    const sx = cx + lean, sy = top + 3, L = lean;
-    arm(ctx, pal, skin, sx, sy, pose.farHand, true);
-    leg(ctx, pal, cx - 1, hipY, pose.farFoot, true);
-    // shoulder pads, torso, number and belt
-    rect(ctx, pal.jersey, cx - 5 + L, top, 11, 3);
-    rect(ctx, pal.light, cx - 5 + L, top, 11, 1);
-    rect(ctx, pal.dark, cx - 5 + L, top + 2, 1, 1);
-    rect(ctx, pal.jersey, cx - 4 + L, top + 3, 8, 5);
-    rect(ctx, pal.dark, cx - 4 + L, top + 3, 1, 5);
-    rect(ctx, pal.dark, cx + 3 + L, top + 3, 1, 5);
-    rect(ctx, pal.trim, cx - 4 + L, top + 8, 8, 1);
-    const glyph = DIGITS[(look.number - 1) % 5]!;
-    for (let i = 0; i < 15; i++)
-        if (glyph[i] === '1')
-            rect(ctx, pal.number, cx - 1 + L + (i % 3), top + 3 + Math.floor(i / 3), 1, 1);
-    leg(ctx, pal, cx + 1, hipY, pose.nearFoot, false);
-    // helmet: team-coloured rounded shell with a white stripe, a face opening with eye, facemask bars and an ear hole
-    const hy = top - 7;
-    rect(ctx, skin, cx - 1 + L, top - 1, 3, 2);
-    rect(ctx, pal.dark, cx - 3 + L, hy, 7, 1);
-    rect(ctx, pal.helmet, cx - 4 + L, hy + 1, 9, 5);
-    rect(ctx, pal.helmet, cx - 3 + L, hy + 6, 4, 1);
-    rect(ctx, pal.helmetLight, cx - 2 + L, hy + 1, 5, 1);
-    rect(ctx, pal.trim, cx - 3 + L, hy + 2, 7, 1);
-    rect(ctx, pal.helmetDark, cx - 4 + L, hy + 4, 4, 2);
-    rect(ctx, skin, cx + 1 + L, hy + 3, 4, 3);
-    rect(ctx, '#10121f', cx + 3 + L, hy + 4, 1, 1);
-    rect(ctx, MASK, cx + 1 + L, hy + 3, 4, 1);
-    rect(ctx, MASK, cx + 4 + L, hy + 3, 1, 4);
-    rect(ctx, MASK, cx + 1 + L, hy + 6, 4, 1);
-    rect(ctx, pal.dark, cx - 1 + L, hy + 4, 1, 1);
-    arm(ctx, pal, skin, sx, sy, pose.nearHand, false);
-    return outline(c);
-}
-/** One-pixel dark outline around every opaque pixel: the 16-bit "sticker" look that keeps sprites readable on any turf. */
-function outline(src: HTMLCanvasElement): HTMLCanvasElement {
-    const out = make(src.width, src.height), ctx = out.getContext('2d')!;
-    const data = src.getContext('2d')!.getImageData(0, 0, src.width, src.height);
-    const w = src.width, h = src.height, solid = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && data.data[(y * w + x) * 4 + 3]! > 0;
-    ctx.fillStyle = OUTLINE;
-    for (let y = 0; y < h; y++)
-        for (let x = 0; x < w; x++)
-            if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1)))
-                ctx.fillRect(x, y, 1, 1);
-    ctx.drawImage(src, 0, 0);
+    const fy = 30, hipY = fy - 9 - crouch + (bob < 0 ? bob : 0), cx = 12 + lean * 0.4;
+    const top = hipY - 9 + (bob > 0 ? 1 : 0), sx = 12 + lean, sy = top + 3;
+    const arm = (hand: Pair, far: boolean) => {
+        const hx = sx + hand[0], hy = sy + hand[1], ex = sx + hand[0] * 0.5, ey = sy + hand[1] * 0.5 + 0.8;
+        capsule(sx, sy, ex, ey, 1.9, 1.6, 'jersey', far ? -0.5 : 0);
+        capsule(ex, ey, hx, hy, 1.4, 1.2, 'skin', far ? -0.5 : 0);
+        ell(hx, hy, 1.4, 1.3, 'glove', far ? -0.4 : 0);
+    };
+    const leg = (hx: number, foot: Pair, far: boolean) => {
+        const fx = hx + foot[0], fyy = hipY + 9 + foot[1] - 1, kx = hx + foot[0] * 0.45 + 1.2, ky = hipY + 4.5, b = far ? -0.45 : 0;
+        capsule(hx, hipY, kx, ky, 2.4, 2.0, 'pants', b);
+        capsule(kx, ky, fx, fyy - 2.4, 2.0, 1.6, 'pants', b);
+        capsule(fx, fyy - 3.2, fx, fyy - 1.6, 1.7, 1.7, 'sock', b);
+        ell(fx + 1.2, fyy + 0.2, 3.0, 1.5, 'shoe', b);
+    };
+    arm(pose.farHand, true);
+    leg(cx - 1.2, pose.farFoot, true);
+    // torso: broad shoulders tapering to the waist, pads on top, belt
+    capsule(sx - 0.2, top + 3.5, cx + 0.2, hipY - 1, 4.6, 3.3, 'jersey');
+    ell(sx - 0.3, top + 2.6, 5.6, 2.9, 'jersey', 0.15);
+    ell(sx + 0.2, top + 1.6, 4.4, 1.3, 'jersey', 0.5);
+    capsule(cx - 3, hipY - 0.6, cx + 3, hipY - 0.6, 1.5, 1.5, 'pants');
+    leg(cx + 1.2, pose.nearFoot, false);
+    // jersey number: white with a one-pixel shadow so it reads on either side of the shading
+    const glyph = DIGITS[(look.number - 1) % 5]!, nx0 = Math.round((sx - 1.5) * k), ny0 = Math.round((top + 3.6) * k);
+    for (const [ox, oy, white] of [[1, 1, false], [0, 0, true]] as const)
+        for (let i = 0; i < 15; i++)
+            if (glyph[i] === '1')
+                put(nx0 + (i % 3) + ox, ny0 + Math.floor(i / 3) + oy, white ? 'glove' : 'jersey', white ? 2 : 0);
+    ell(sx - 4.2, top + 3.2, 0.8, 1.6, 'glove', 1);
+    // head: round helmet, face opening, three mask bars, ear hole, stripe, chin strap
+    const hx = sx + 0.6, hy = top - 4.2;
+    capsule(sx, top + 0.2, sx, top - 1.4, 1.5, 1.3, 'skin', -0.3);
+    ell(hx, hy, 4.7, 4.3, 'helmet');
+    ell(hx + 2.6, hy + 1.3, 2.3, 2.1, 'skin', 0.1);
+    for (let i = 0; i < 3; i++) capsule(hx + 1.2 + i * 0.1, hy + 0.5 + i * 1.3, hx + 5.2, hy + 0.5 + i * 1.3, 0.45, 0.45, 'mask', 0.4);
+    capsule(hx + 5.0, hy - 0.4, hx + 4.6, hy + 4.4, 0.55, 0.55, 'mask', 0.2);
+    capsule(hx + 0.8, hy + 4.2, hx + 4.4, hy + 4.4, 0.5, 0.5, 'mask', 0);
+    dot(hx + 3.2, hy + 0.9, 'ink'); dot(hx - 1.2, hy + 1.6, 'ink');
+    capsule(hx - 3.2, hy - 1.7, hx + 3.2, hy - 2.3, 0.55, 0.55, 'glove', 2);
+    capsule(hx - 3.4, hy + 2.6, hx - 0.2, hy + 4.2, 0.5, 0.5, 'glove', 1);
+    arm(pose.nearHand, false);
+    // composite and ink
+    const out = make(W, H), o = out.getContext('2d')!;
+    const inkOf = (c: string) => { const n = parseInt(c.slice(1), 16); return `rgb(${Math.round(((n >> 16) & 255) * 0.45)},${Math.round(((n >> 8) & 255) * 0.45)},${Math.round((n & 255) * 0.45)})`; };
+    for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+            const cell = buf[y * W + x];
+            if (cell) { o.fillStyle = tones(cell.mat)[cell.tone]; o.fillRect(x, y, 1, 1); continue; }
+            const near = ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).map(([dx, dy]) => (x + dx >= 0 && y + dy >= 0 && x + dx < W && y + dy < H ? buf[(y + dy) * W + x + dx] : null)).find(Boolean);
+            if (near) { o.fillStyle = inkOf(tones(near.mat)[0]); o.fillRect(x, y, 1, 1); }
+        }
     return out;
 }
 function prone(upright: HTMLCanvasElement): Frame {
     const c = make(FRAME_H, FRAME_W), ctx = c.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
-    ctx.translate(2, 12);
+    ctx.translate(3, Math.round(FRAME_W / 2));
     ctx.rotate(Math.PI / 2);
     ctx.drawImage(upright, -ANCHOR_X, -ANCHOR_Y);
-    return { canvas: c, ax: 2, ay: 18 };
+    return { canvas: c, ax: 3, ay: Math.round(FRAME_W / 2) + 6 };
 }
 export function frameFor(look: Look, anim: Anim, index: number): Frame {
     const poses = ANIMS[anim].poses, i = Math.max(0, Math.min(poses.length - 1, Math.floor(index)));

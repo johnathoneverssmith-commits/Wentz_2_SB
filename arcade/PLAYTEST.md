@@ -173,5 +173,5 @@ errors, camera maths) but not that it looks good. Please judge by playing: sprit
 tackle and fall, celebrate, kick), the field and stadium, camera framing on deep passes, scoreboard and hints, banners
 (touchdown, interception, first down, quarters), kick presentation, and whether anything obscures play.
 
-Known visual limitations: sprites are procedurally drawn rather than hand-painted; players are 5 a side (11-on-11 is later);
+Known visual limitations: sprites are procedurally drawn in a hand-inked style rather than hand-painted; the larger players overlap in the tight five-player formation (a gameplay layout, unchanged); players are 5 a side (11-on-11 is later);
 the kicker is a stand-in sprite; field goal posts are simplified; no sound.

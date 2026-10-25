@@ -104,7 +104,7 @@ elevated side camera (field length runs left-right, width runs into the screen).
 simulation, saves and rules are untouched.
 
 * `browser/field.ts`: the `Renderer` (camera, per-player animation state, particles, banners, events derived from state changes).
-* `browser/render/sprites.ts`: procedural pixel-art football players. A **pose** table (joint offsets) and a **team palette** build
+* `browser/render/sprites.ts`: procedural, hand-inked-style pixel-art football players (1.4x design grid; soft shapes shaded in three tones with colour-matched outlines). A **pose** table (joint offsets) and a **team palette** build
   every frame once into an outlined offscreen canvas. Animations: idle, run, throw, catch, block, tackle, fall, celebrate, kick.
   Adding a team look or animation is data, not new drawing code.
 * `browser/render/roster.ts`: display identity keyed by the persistent player id (`home-3`): last name, skin tone, role label. A
