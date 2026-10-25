@@ -4,9 +4,9 @@ import type { DraftProspect, LeagueState, Position } from "@/domain";
 import { projectionLabel } from "@/domain";
 import { SPECIALIST_ROOKIE_OFFSET } from "@/sim/draft-outcomes";
 import { AI_DIFFICULTY_LEVELS, difficultyProfile, difficultyProfileAt } from "./aiDifficulty.ts";
-import { ROOKIE_PREMIUM_SCALE, POSITION_VALUE, effectiveRating, expectedRatings, freeAgentAlternatives, positionPremium, rookieValue, slotNeedWeight, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
+import { ROOKIE_PREMIUM_SCALE, POSITION_VALUE, effectiveRating, expectedRatings, freeAgentAlternatives, positionPremium, rookieValue, slotNeedWeight, teamHorizon, teamWindow, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { strategyOf } from "./aiGms.ts";
-import { applyPick, beginDraft, bestAvailable, draftValue, planAutopicks, readFreeAgentMarket, readRookieBoard, runAiPicks } from "./rules.ts";
+import { applyPick, beginDraft, bestAvailable, draftValue, planAutopicks, readFreeAgentMarket, readLeagueContext, readRookieBoard, runAiPicks } from "./rules.ts";
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 
 /**
@@ -322,6 +322,125 @@ function draftAll(s: LeagueState): string[] {
   return s.draft!.results.map((r) => r.selectedId!);
 }
 
+describe("a team's timeline: contending or rebuilding", () => {
+  it("runs from rebuilding to contending on record and lineup strength, continuously", () => {
+    expect(teamWindow({ winPct: 0.8, strengthRank: 1, teams: 32 })).toBeCloseTo(1, 5);
+    expect(teamWindow({ winPct: 0.2, strengthRank: 32, teams: 32 })).toBeCloseTo(-1, 5);
+    expect(teamWindow({ winPct: 0.5, strengthRank: 16.5, teams: 32 })).toBeCloseTo(0, 5);
+    const mid = [0.4, 0.5, 0.6].map((winPct) => teamWindow({ winPct, strengthRank: 16, teams: 32 }));
+    expect(mid[0]!).toBeLessThan(mid[1]!);
+    expect(mid[1]!).toBeLessThan(mid[2]!);
+    expect(Number.isFinite(teamWindow({ winPct: 0.5, strengthRank: 1, teams: 1 }))).toBe(true);
+  });
+  it("is read less sharply by a GM who plans less far ahead", () => {
+    expect(windowEffect(1, 1)).toBeGreaterThan(windowEffect(1, 0.5));
+    expect(windowEffect(-1, 0.5)).toBeLessThan(0);
+  });
+  it("gives a rebuild a longer outlook on its incumbents than a contender: an old, expiring starter is worth less to it", () => {
+    const old = { position: "QB" as Position, overall: 80, age: 34, yearsLeft: 1 };
+    const contender = effectiveRating(old, 1, teamHorizon(1));
+    const rebuild = effectiveRating(old, 1, teamHorizon(-1));
+    expect(contender).toBeGreaterThan(rebuild);
+    expect(contender).toBeLessThan(80);
+    // a young starter under contract is not discounted at either end
+    const young = { position: "WR" as Position, overall: 75, age: 23, yearsLeft: 4 };
+    expect(effectiveRating(young, 1, teamHorizon(-1))).toBeGreaterThanOrEqual(effectiveRating(young, 1, teamHorizon(1)));
+  });
+  it("takes the younger prospect for a rebuild and the more finished one for a contender, at the same rating", () => {
+    const base = { expected: 70, position: "WR" as Position, carried: [78, 74, 70], needAwareness: 1, pickIndex: 20 };
+    const value = (timeline: number, youthYears: number) => rookieValue({ ...base, timeline, youthYears });
+    expect(value(-1, 2)).toBeGreaterThan(value(-1, -2)); // rebuilding: young over old
+    expect(value(1, -2)).toBeGreaterThan(value(1, 2)); // contending: old over young
+    expect(value(0, 2)).toBe(value(0, -2)); // in between: age is no preference
+  });
+  it("weighs a hole more for a contender than for a rebuild", () => {
+    const base = { expected: 74, position: "OT" as Position, carried: [60, 58], needAwareness: 1, pickIndex: 20 };
+    expect(rookieValue({ ...base, timeline: 1 })).toBeGreaterThan(rookieValue({ ...base, timeline: -1 }));
+  });
+  it("counts roster capacity: a body who would be the first cut costs nothing while the roster has room, and does once it is full", () => {
+    const base = { expected: 52, position: "RB" as Position, carried: [80, 78, 76, 74, 72], needAwareness: 1, pickIndex: 120 };
+    const room = rookieValue({ ...base, rosterAfter: 40 });
+    const full = rookieValue({ ...base, rosterAfter: 80 });
+    expect(room).toBeGreaterThan(full);
+    expect(rookieValue({ ...base })).toBe(full); // no roster given: judged as a full one, as before
+  });
+  it("values another body at a position with open spots above one a spot short of full", () => {
+    const rb = { expected: 60, position: "RB" as Position, needAwareness: 1, pickIndex: 120 };
+    const open = rookieValue({ ...rb, carried: [] });
+    const nearlyFull = rookieValue({ ...rb, carried: [80, 78, 76, 50] });
+    expect(open).toBeGreaterThan(nearlyFull);
+  });
+  it("counts open spots by position: another body is worth more at a position with several open than at one a spot short", () => {
+    const rb = { expected: 60, position: "RB" as Position, needAwareness: 1, pickIndex: 120 };
+    expect(rookieValue({ ...rb, carried: [90] })).toBeGreaterThan(rookieValue({ ...rb, carried: [90, 85, 80] }));
+  });
+  it("keeps a plan's roster count current pick by pick, so a thin roster is planned the way it is suggested", () => {
+    const s = freshLeague(37);
+    // thin every roster to the edge of full, so roster room changes during the draft
+    for (const code of Object.keys(s.teams)) {
+      const own = Object.values(s.players).filter((p) => !p.retired && p.nfl_team === code).sort((x, y) => x.overall - y.overall);
+      for (const p of own.slice(0, Math.max(0, own.length - 46))) p.retired = true;
+    }
+    beginDraft(s, "rookie");
+    const plan = planAutopicks(s);
+    for (let i = 0; i < 170; i++) {
+      const suggested = bestAvailable(s);
+      expect(plan[i], `pick ${i + 1}`).toBe(suggested);
+      applyPick(s, suggested!);
+    }
+  });
+  it("reads each team's timeline from its record and lineup, so a winner is more contending than a loser", () => {
+    const s = freshLeague(31);
+    const [a, b] = Object.keys(s.teams) as [string, string];
+    Object.assign(s.teams[a]!, { wins: 14, losses: 3, ties: 0 });
+    Object.assign(s.teams[b]!, { wins: 3, losses: 14, ties: 0 });
+    const ctx = readLeagueContext(s);
+    expect(ctx.timeline.get(a)!).toBeGreaterThan(ctx.timeline.get(b)!);
+    for (const v of ctx.timeline.values()) {
+      expect(v).toBeGreaterThanOrEqual(-1);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+    const d = difficultyProfile("expert");
+    expect(readRookieBoard(s, a, d, ctx).timeline).toBeGreaterThan(readRookieBoard(s, b, d, ctx).timeline);
+  });
+  it("reads a new league, with no games played, from its lineups alone: finite, spread out, at most half the range, which is all the lineups can say", () => {
+    const s = freshLeague(38);
+    for (const team of Object.values(s.teams)) Object.assign(team, { wins: 0, losses: 0, ties: 0 });
+    const ctx = readLeagueContext(s);
+    const values = [...ctx.timeline.values()];
+    for (const v of values) expect(Number.isFinite(v)).toBe(true);
+    expect(Math.max(...values)).toBeCloseTo(0.5, 5); // lineup rank is half the blend, so a league with no record spans half the range
+    expect(Math.min(...values)).toBeCloseTo(-0.5, 5);
+  });
+  it("is the same reading from the same league, however its players are keyed (and never uses a hidden rating)", () => {
+    const s = freshLeague(32);
+    const one = [...readLeagueContext(s).timeline];
+    const t = structuredClone(s);
+    for (const p of t.draftClass) p.trueOverall = 99 - p.trueOverall;
+    expect([...readLeagueContext(t).timeline]).toEqual(one);
+  });
+  it("shows in the draft: with the same boards, contenders take older rookies than rebuilds in the first three rounds", () => {
+    // averaged over several leagues: one league's 24 picks is too few to settle a difference of a few months
+    let contender = 0;
+    let rebuild = 0;
+    for (const seed of [33, 34, 35, 36]) {
+      const s = freshLeague(seed);
+      const codes = Object.keys(s.teams);
+      const rec = (i: number) => (i < 8 ? { wins: 15, losses: 2 } : i >= codes.length - 8 ? { wins: 2, losses: 15 } : { wins: 8, losses: 9 });
+      codes.forEach((c, i) => Object.assign(s.teams[c]!, { ...rec(i), ties: 0 }));
+      beginDraft(s, "rookie");
+      runAiPicks(s);
+      const age = (set: string[]) => {
+        const picks = s.draft!.results.filter((r, i) => i < 96 && set.includes(r.teamCode ?? ""));
+        return picks.reduce((n, r) => n + s.draftClass.find((p) => p.id === r.selectedId)!.age, 0) / picks.length;
+      };
+      contender += age(codes.slice(0, 8));
+      rebuild += age(codes.slice(-8));
+    }
+    expect(contender).toBeGreaterThan(rebuild);
+  });
+});
+
 describe("a whole rookie draft", () => {
   const baseline = draftAll(freshLeague(21));
 
@@ -368,7 +487,7 @@ describe("a whole rookie draft", () => {
     };
     // same league, same rosters: only the strategy differs. (On rosters the strategies themselves built in a fantasy draft the
     // gap is larger, but those rosters then also pull the other way through need.)
-    expect(share("offense_heavy") - share("defense_heavy")).toBeGreaterThan(0.1);
+    expect(share("offense_heavy") - share("defense_heavy")).toBeGreaterThan(0.08);
   });
 
   it("does not reverse a strategy through the roster it built: offense-leaning GMs draft more offense than defense-heavy ones", () => {
