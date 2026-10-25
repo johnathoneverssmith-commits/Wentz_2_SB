@@ -82,8 +82,8 @@ export const ANIMS: Record<Anim, AnimDef> = {
         ],
     },
 };
-/** Sprites are drawn on a 1.4x version of the original 24x32 design grid: chunkier, more detailed 16-bit athletes. */
-export const SCALE = 1.4;
+/** Sprites are drawn on a 1.15x version of the original 24x32 design grid: chunkier, more detailed 16-bit athletes. */
+export const SCALE = 1.15;
 export const FRAME_W = Math.round(24 * SCALE), FRAME_H = Math.round(32 * SCALE), ANCHOR_X = Math.round(12 * SCALE), ANCHOR_Y = Math.round(30 * SCALE);
 export interface Look {
     readonly team: TeamId;

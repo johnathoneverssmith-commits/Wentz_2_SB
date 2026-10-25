@@ -30,7 +30,7 @@ const BASE: Record<Pos, Abilities> = {
     RB: { speed: 70, accel: 75, strength: 55, agility: 75, awareness: 55, block: 40, passRush: 5, tackle: 30, coverage: 20, hands: 60, throwing: 10 },
     FB: { speed: 55, accel: 55, strength: 70, agility: 50, awareness: 55, block: 68, passRush: 5, tackle: 35, coverage: 20, hands: 50, throwing: 10 },
     TE: { speed: 58, accel: 58, strength: 62, agility: 52, awareness: 55, block: 62, passRush: 5, tackle: 30, coverage: 25, hands: 65, throwing: 10 },
-    WR: { speed: 72, accel: 78, strength: 40, agility: 78, awareness: 55, block: 38, passRush: 5, tackle: 25, coverage: 30, hands: 78, throwing: 10 },
+    WR: { speed: 70, accel: 78, strength: 40, agility: 78, awareness: 55, block: 38, passRush: 5, tackle: 25, coverage: 30, hands: 78, throwing: 10 },
     LT: { speed: 40, accel: 45, strength: 80, agility: 40, awareness: 60, block: 78, passRush: 10, tackle: 30, coverage: 5, hands: 15, throwing: 5 },
     LG: { speed: 40, accel: 45, strength: 82, agility: 38, awareness: 60, block: 76, passRush: 10, tackle: 30, coverage: 5, hands: 15, throwing: 5 },
     C: { speed: 40, accel: 45, strength: 80, agility: 40, awareness: 68, block: 76, passRush: 10, tackle: 30, coverage: 5, hands: 15, throwing: 5 },
@@ -40,7 +40,7 @@ const BASE: Record<Pos, Abilities> = {
     DT: { speed: 44, accel: 55, strength: 82, agility: 40, awareness: 55, block: 30, passRush: 66, tackle: 66, coverage: 10, hands: 20, throwing: 5 },
     OLB: { speed: 60, accel: 66, strength: 62, agility: 62, awareness: 60, block: 30, passRush: 55, tackle: 72, coverage: 52, hands: 35, throwing: 5 },
     MLB: { speed: 58, accel: 64, strength: 64, agility: 58, awareness: 68, block: 30, passRush: 45, tackle: 74, coverage: 50, hands: 35, throwing: 5 },
-    CB: { speed: 72, accel: 78, strength: 40, agility: 78, awareness: 58, block: 20, passRush: 20, tackle: 60, coverage: 76, hands: 55, throwing: 5 },
+    CB: { speed: 74, accel: 78, strength: 40, agility: 78, awareness: 58, block: 20, passRush: 20, tackle: 60, coverage: 76, hands: 55, throwing: 5 },
     FS: { speed: 70, accel: 74, strength: 48, agility: 70, awareness: 66, block: 20, passRush: 15, tackle: 68, coverage: 70, hands: 55, throwing: 5 },
     SS: { speed: 68, accel: 72, strength: 55, agility: 66, awareness: 62, block: 25, passRush: 20, tackle: 72, coverage: 62, hands: 50, throwing: 5 },
 };
@@ -51,24 +51,24 @@ export type DefenseFormation = 'fourThree' | 'nickel';
 export interface Slot { readonly code: Code; readonly depth: number; readonly lane: number }
 /** The line is slightly bowed (centre forward, tackles back) and well spread, so no two sprites sit on top of each other. */
 const oline = (): Slot[] => [
-    { code: 'C', depth: 1.0, lane: 0 }, { code: 'LG', depth: 1.6, lane: -3.1 }, { code: 'RG', depth: 1.6, lane: 3.1 },
-    { code: 'LT', depth: 2.2, lane: -6.2 }, { code: 'RT', depth: 2.2, lane: 6.2 },
+    { code: 'C', depth: 1.0, lane: 0 }, { code: 'LG', depth: 1.6, lane: -3.7 }, { code: 'RG', depth: 1.6, lane: 3.7 },
+    { code: 'LT', depth: 2.2, lane: -7.4 }, { code: 'RT', depth: 2.2, lane: 7.4 },
 ];
 /** `depth` is yards behind the line of scrimmage for the offense (positive = back), `lane` yards left (-) or right (+) of the ball. */
 export const OFFENSE_FORMATIONS: Record<OffenseFormation, readonly Slot[]> = {
-    singleback: [...oline(), { code: 'QB', depth: 3.6, lane: 0 }, { code: 'RB', depth: 8.8, lane: 0 }, { code: 'TE1', depth: 2.0, lane: 9.6 }, { code: 'TE2', depth: 2.0, lane: -9.6 }, { code: 'WR1', depth: 1.2, lane: -22 }, { code: 'WR2', depth: 1.2, lane: 22 }],
-    shotgun: [...oline(), { code: 'QB', depth: 6.5, lane: 0 }, { code: 'RB', depth: 6.5, lane: 4.4 }, { code: 'TE1', depth: 2.0, lane: 9.6 }, { code: 'WR1', depth: 1.2, lane: -22 }, { code: 'WR2', depth: 1.2, lane: 22 }, { code: 'WR3', depth: 3.2, lane: -13.5 }],
-    iformation: [...oline(), { code: 'QB', depth: 3.6, lane: 0 }, { code: 'FB', depth: 6.4, lane: 0 }, { code: 'RB', depth: 9.4, lane: 0 }, { code: 'TE1', depth: 2.0, lane: 9.6 }, { code: 'WR1', depth: 1.2, lane: -22 }, { code: 'WR2', depth: 1.2, lane: 22 }],
+    singleback: [...oline(), { code: 'QB', depth: 3.6, lane: 0 }, { code: 'RB', depth: 8.8, lane: 0 }, { code: 'TE1', depth: 2.0, lane: 11.2 }, { code: 'TE2', depth: 2.0, lane: -11.2 }, { code: 'WR1', depth: 1.2, lane: -22 }, { code: 'WR2', depth: 1.2, lane: 22 }],
+    shotgun: [...oline(), { code: 'QB', depth: 6.5, lane: 0 }, { code: 'RB', depth: 6.5, lane: 4.4 }, { code: 'TE1', depth: 2.0, lane: 11.2 }, { code: 'WR1', depth: 1.2, lane: -22 }, { code: 'WR2', depth: 1.2, lane: 22 }, { code: 'WR3', depth: 3.2, lane: -13.5 }],
+    iformation: [...oline(), { code: 'QB', depth: 3.6, lane: 0 }, { code: 'FB', depth: 6.4, lane: 0 }, { code: 'RB', depth: 9.4, lane: 0 }, { code: 'TE1', depth: 2.0, lane: 11.2 }, { code: 'WR1', depth: 1.2, lane: -22 }, { code: 'WR2', depth: 1.2, lane: 22 }],
 };
 /** `depth` is yards beyond the line of scrimmage. */
 export const DEFENSE_FORMATIONS: Record<DefenseFormation, readonly Slot[]> = {
     fourThree: [
-        { code: 'DE1', depth: 3.8, lane: -8.2 }, { code: 'DT1', depth: 3.0, lane: -2.8 }, { code: 'DT2', depth: 3.0, lane: 2.8 }, { code: 'DE2', depth: 3.8, lane: 8.2 },
-        { code: 'OLB1', depth: 6.8, lane: -10.5 }, { code: 'MLB', depth: 7.2, lane: 0 }, { code: 'OLB2', depth: 6.8, lane: 10.5 },
+        { code: 'DE1', depth: 3.8, lane: -9.6 }, { code: 'DT1', depth: 3.0, lane: -3.3 }, { code: 'DT2', depth: 3.0, lane: 3.3 }, { code: 'DE2', depth: 3.8, lane: 9.6 },
+        { code: 'OLB1', depth: 6.8, lane: -12 }, { code: 'MLB', depth: 7.2, lane: 0 }, { code: 'OLB2', depth: 6.8, lane: 12 },
         { code: 'CB1', depth: 8.5, lane: -22 }, { code: 'CB2', depth: 8.5, lane: 22 }, { code: 'FS', depth: 15, lane: -6 }, { code: 'SS', depth: 11.5, lane: 7 },
     ],
     nickel: [
-        { code: 'DE1', depth: 3.8, lane: -8.2 }, { code: 'DT1', depth: 3.0, lane: -2.8 }, { code: 'DT2', depth: 3.0, lane: 2.8 }, { code: 'DE2', depth: 3.8, lane: 8.2 },
+        { code: 'DE1', depth: 3.8, lane: -9.6 }, { code: 'DT1', depth: 3.0, lane: -3.3 }, { code: 'DT2', depth: 3.0, lane: 3.3 }, { code: 'DE2', depth: 3.8, lane: 9.6 },
         { code: 'OLB1', depth: 6.8, lane: -7.5 }, { code: 'OLB2', depth: 6.8, lane: 7.5 },
         { code: 'CB1', depth: 8.5, lane: -22 }, { code: 'CB2', depth: 8.5, lane: 22 }, { code: 'CB3', depth: 7.5, lane: -13.5 }, { code: 'FS', depth: 15, lane: -6 }, { code: 'SS', depth: 12, lane: 7 },
     ],

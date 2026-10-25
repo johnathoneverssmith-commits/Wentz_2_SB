@@ -21,7 +21,7 @@ export const ROUTE_DEPTH = { slants: { WR1: 10, WR2: 18 }, go: { WR1: 31, WR2: 3
 export const PASS_LEAD = 1.2;
 /** Man coverage sits this far ahead of the receiver (go routes: trailing, close). */
 export const COVER_CUSHION = 7;
-export const GO_CUSHION = -2;
+export const GO_CUSHION = 0;
 export const GO_REACT_TICKS = 36;
 /** An offensive blocker this close to a defender has him engaged. */
 export const BLOCK_RADIUS = 1.8;
@@ -29,20 +29,38 @@ export const BLOCK_RADIUS = 1.8;
 export const BLOCK_SLOW = 0.35;
 export const BLOCK_SHIELD = 1.2;
 /** Ticks a block holds before the defender can get off it, for equally rated players. Ratings scale it. */
-export const BLOCK_HOLD_TICKS = 100;
+export const BLOCK_HOLD_TICKS = 60;
+/** Run blocks do not hold as long as pass protection: the defender sheds to find the ball. */
+export const RUN_HOLD_FACTOR = 0.9;
 /** A defender who has just beaten a block cannot be engaged again for this long. */
 export const SHED_FREE_TICKS = 50;
 /** Missed-tackle stumble, in ticks. */
 export const STUMBLE_TICKS = 24;
 /** Yards a defense reads the play before committing to the run. */
-export const READ_TICKS = 10;
+export const READ_TICKS = 2;
 /** The deep safety plays this deep, and breaks on deep balls (see Milestone 4). */
 export const SAFETY_DEPTH = 22;
 export const SAFETY_ZONE = 20;
 export const SAFETY_REACT_TICKS = 24;
-export const ZONE_BREAK_RANGE = 15;
+export const ZONE_BREAK_RANGE = 5.5;
 export const POCKET_LATERAL = 9;
 
+/** Where a covering defender stands: `cushion` yards deeper than his man; on a go route he runs with him, shaded to the outside so the two bodies do not collide. */
+/** A defender reads his man a moment late (MAN_LAG seconds behind), so a sharp cut leaves a step of separation. */
+export const MAN_LAG = 0.5;
+/** On a vertical route the defender runs stride for stride with his man and loses almost nothing. */
+export const GO_LAG = 0.1;
+const manSpot = (mine: ArcadePlayer, dir: number, cushion: number, trailing: boolean): Vector => ({ x: mine.x - mine.vx * (trailing ? GO_LAG : MAN_LAG) + dir * cushion, y: mine.y - mine.vy * (trailing ? GO_LAG : MAN_LAG) + (trailing ? (mine.y < FIELD.width / 2 ? -1 : 1) * 1.3 : 0) });
+/**
+ * Where an AI defender goes to play a thrown ball: to the side of the landing point he is coming from, close enough to break the catch up
+ * (inside the break-up circle) but, unless he is a deep safety with his eyes on the quarterback, not on the ball itself. Intercepting
+ * is for a defender who is truly on the ball: a safety, or a human who has pressed Hands.
+ */
+const contestPoint = (d: ArcadePlayer, to: Vector, covering: boolean): Vector => {
+    const away = unit({ x: d.x - to.x, y: d.y - to.y });
+    const standoff = covering || d.position === 'FS' || d.position === 'SS' ? 1.35 : 1.9;
+    return { x: to.x + away.x * standoff, y: to.y + away.y * standoff };
+};
 const dist = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
 const CENTER = FIELD.width / 2;
 export const clampField = (v: Vector): Vector => ({ x: Math.max(1.2, Math.min(FIELD.length - 1.2, v.x)), y: Math.max(1.2, Math.min(FIELD.width - 1.2, v.y)) });
@@ -155,7 +173,7 @@ function match(blockers: readonly ArcadePlayer[], threats: readonly ArcadePlayer
 export function holdTicks(blocker: ArcadePlayer, defender: ArcadePlayer, mode: Mode): number {
     const attack = (blocker.abilities.block + blocker.abilities.strength) / (defender.abilities.strength + (mode === 'pocket' ? defender.abilities.passRush : defender.abilities.tackle));
     // A human-controlled defender works free twice as fast: he should never feel pinned for a whole play.
-    return Math.max(30, Math.min(300, Math.round(BLOCK_HOLD_TICKS * attack * 1.35 * (defender.human ? 0.5 : 1))));
+    return Math.max(30, Math.min(300, Math.round(BLOCK_HOLD_TICKS * attack * 1.35 * (defender.human ? 0.5 : 1) * (mode === 'pocket' ? 1 : RUN_HOLD_FACTOR))));
 }
 /** Drops finished or broken locks and creates new ones where a blocker has reached a defender who is not free. */
 type Mut<T> = { -readonly [K in keyof T]: T[K] };
@@ -278,7 +296,7 @@ export function planTick(state: DownState): Plan {
             if (d.behavior === 'man' || d.position === 'CB') {
                 const mine = d.assign?.target ? players.find(p => p.id === d.assign!.target) : undefined;
                 const cushion = state.play === 'go' ? GO_CUSHION : COVER_CUSHION;
-                if (mine) setIntent(d, 'man', { x: mine.x + dir * cushion, y: mine.y }, 1);
+                if (mine) setIntent(d, 'man', manSpot(mine, dir, cushion, state.play === 'go'), 1);
                 else setIntent(d, 'zone', d.assign?.spot ?? d, 0.8);
                 continue;
             }
@@ -292,22 +310,22 @@ export function planTick(state: DownState): Plan {
             continue;
         }
         // the ball is in the air
-        const f = flight!, elapsed = f.elapsed * 60, to = f.to;
+        const f = flight!, elapsed = f.elapsed * 60, to = f.to, targetPlayer = players.find(q => q.id === f.target)!;
         const react = state.play === 'go' ? GO_REACT_TICKS : REACT_TICKS;
         const deepBall = Math.abs(to.x - line) >= SAFETY_ZONE;
         if (d.position === 'FS' || d.position === 'SS') {
-            if (deepBall && elapsed >= SAFETY_REACT_TICKS - 1e-9 || !deepBall && elapsed >= react - 1e-9) setIntent(d, 'pursue', to, 1);
+            if (deepBall && elapsed >= SAFETY_REACT_TICKS - 1e-9 || !deepBall && elapsed >= react - 1e-9 && dist(d, to) < 13) setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1);
             else setIntent(d, 'zone', d.assign?.spot ?? d, 0.9);
             continue;
         }
         const isTargetCover = d.assign?.target === f.target;
-        if (isTargetCover && elapsed >= react - 1e-9) { setIntent(d, 'pursue', to, 1); continue; }
-        if (d.position === 'CB' && elapsed >= react - 1e-9 && dist(d, to) < ZONE_BREAK_RANGE) { setIntent(d, 'pursue', to, 1); continue; }
-        if ((d.position === 'OLB' || d.position === 'MLB') && elapsed >= REACT_TICKS - 1e-9 && dist(d, to) < ZONE_BREAK_RANGE) { setIntent(d, 'pursue', to, 1); continue; }
+        if (isTargetCover && elapsed >= react - 1e-9) { setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1); continue; }
+        if (d.position === 'CB' && elapsed >= react - 1e-9 && dist(d, to) < ZONE_BREAK_RANGE) { setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1); continue; }
+        if ((d.position === 'OLB' || d.position === 'MLB') && elapsed >= REACT_TICKS - 1e-9 && dist(d, to) < ZONE_BREAK_RANGE) { setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1); continue; }
         if (d.position === 'DE' || d.position === 'DT') { setIntent(d, 'rush', { x: to.x, y: to.y }, 0.8); continue; }
         if (d.behavior === 'man' && d.assign?.target) {
             const mine = players.find(p => p.id === d.assign!.target);
-            if (mine) { setIntent(d, 'man', { x: mine.x + dir * (state.play === 'go' ? GO_CUSHION : COVER_CUSHION), y: mine.y }, 1); continue; }
+            if (mine) { setIntent(d, 'man', manSpot(mine, dir, state.play === 'go' ? GO_CUSHION : COVER_CUSHION, state.play === 'go'), 1); continue; }
         }
         setIntent(d, 'zone', d.assign?.spot ?? d, 0.85);
     }
@@ -335,7 +353,7 @@ export function resolveLocks(players: ArcadePlayer[], state: DownState, mode: Mo
         if (mode === 'pocket') { pushX = dir * 0.55; pushY = 0; }
         else {
             const side = def.y === carrier.y ? 1 : Math.sign(def.y - carrier.y);
-            pushX = dir * 0.7; pushY = side * 1.5;
+            pushX = dir * 0.5; pushY = side * 1.0;
         }
         const nd = clampField({ x: def.x + pushX / 60, y: def.y + pushY / 60 });
         const away = unit({ x: b.x - nd.x, y: b.y - nd.y });

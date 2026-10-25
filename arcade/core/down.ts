@@ -122,7 +122,8 @@ function layout(team: TeamId, line: number, play: Play, playNumber: number): { p
         const pos = positionOfCode(slot.code);
         return {
             id: playerId(owner, slot.code), team: owner, number: JERSEY[slot.code], position: pos, human: false, abilities: baseAbilities(pos),
-            x: Math.max(FIELD.radius, Math.min(FIELD.length - FIELD.radius, line + dir * (attacking ? -slot.depth : slot.depth))),
+            // Backs never start inside their own end zone (that would be an instant safety): near the goal line the formation is squeezed.
+            x: Math.max(attacking ? 11.2 : FIELD.radius, Math.min(attacking ? FIELD.length - 11.2 : FIELD.length - FIELD.radius, line + dir * (attacking ? -slot.depth : slot.depth))),
             y: center + slot.lane, vx: 0, vy: 0, behavior: 'stance', assign: null, lock: null, stun: 0, free: 0,
         };
     };
@@ -131,7 +132,7 @@ function layout(team: TeamId, line: number, play: Play, playNumber: number): { p
 }
 function formationState(team: TeamId, line: number, playNumber: number, play: Play, carry: Carry): DownState {
     const { players, formation } = layout(team, line, play, playNumber);
-    const defense = players.find(p => p.team !== team && (p.position === 'MLB' || p.position === 'OLB'))!;
+    const defense = players.find(p => p.team !== team && p.position === 'MLB') ?? players.find(p => p.team !== team && p.position === 'OLB')!;
     const state: DownState = { tick: 0, players, possession: { team, carrier: playerId(team, play === 'rush' ? 'RB' : 'QB') }, offense: team, phase: 'pre-snap', play, playNumber, line, liveTicks: 0, terminalCount: 0, contestUntil: 0, ...carry, defender: defense.id, formation, ball: { kind: 'held' }, result: null };
     return controls(state);
 }
@@ -148,7 +149,7 @@ export function choosePlay(state: DownState, play: Play): DownState {
         return state;
     const { players, formation } = layout(state.offense, state.line, play, state.playNumber);
     const carrier = playerId(state.offense, play === 'rush' ? 'RB' : 'QB');
-    const keep = players.find(p => p.id === state.defender) ? state.defender : players.find(p => p.team !== state.offense && (p.position === 'MLB' || p.position === 'OLB'))!.id;
+    const keep = players.find(p => p.id === state.defender) ? state.defender : (players.find(p => p.team !== state.offense && p.position === 'MLB') ?? players.find(p => p.team !== state.offense && p.position === 'OLB')!).id;
     return controls({ ...state, play, players, formation, defender: keep, possession: { team: state.offense, carrier } });
 }
 /** The human controls the ball carrier and one selected defender; everyone else follows their assignment. */

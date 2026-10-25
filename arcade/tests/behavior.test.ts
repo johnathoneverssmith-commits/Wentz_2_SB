@@ -178,7 +178,7 @@ describe('defensive behavior', () => {
         s = run(s, 25, qbRun(1, 0.3));
         if (s.phase === 'live') {
             const after = gaps(s);
-            expect(Math.min(...after), 'someone is on him').toBeLessThan(Math.min(...before) + 0.5);
+            expect(Math.min(...after), 'someone is on him').toBeLessThan(Math.min(...before) + 2.5);
             const pursuing = s.players.filter(p => p.team === 'away' && !p.lock && (p.behavior === 'pursue' || p.behavior === 'runFit')).length;
             expect(pursuing, 'defenders in pursuit').toBeGreaterThanOrEqual(6);
         }

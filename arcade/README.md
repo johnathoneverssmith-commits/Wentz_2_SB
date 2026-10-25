@@ -97,6 +97,31 @@ clock; a finished touchdown or safety is scored once; a finished touchdown still
 extra point). Invalid or self-contradictory saves start fresh. A storage-denied browser can
 still play. Franchise saves and other keys are untouched.
 
+## 11-on-11 football (Milestone 5B)
+
+Every scrimmage play has **11 offensive and 11 defensive players**, each with a persistent id (`home-QB`, `away-DE1`), a football
+position, a jersey number, a team, a formation spot, a behavior and an ability profile (`core/personnel.ts`, `core/behavior.ts`).
+
+* **Formations.** Offense: Singleback, Shotgun, I-formation. Defense: 4-3 and Nickel. They are chosen from the play and the play
+  number (a handoff is an I-formation or Singleback against a 4-3; a pass is Shotgun against Nickel or Singleback against a 4-3).
+  Spacing is wide enough that no two sprites overlap at the snap, and a team near its own goal line is squeezed, never put in the end zone.
+* **Assignments, not scripts.** Each tick every player picks a behavior from his assignment and what the play has become: a
+  pocket pass, a ball in the air, or a runner with the ball. Receivers run routes and then settle into space or turn into
+  blockers; linemen pass-block, run-block and then block downfield; defensive linemen rush, linebackers and safeties drop into zones
+  or fit the run, corners cover a man, and everyone pursues once the ball is loose. Nobody has a "finished" state.
+* **Blocking is physical.** A blocker who reaches a defender locks with him: the defender is slowed to 35%, driven back (run blocks
+  also wall him off from the runner), cannot tackle while locked, and gets off after a time set by strength and ratings (a
+  human-controlled defender works free twice as fast). A defender who has just beaten a block cannot be re-engaged for a moment.
+* **Tackling** needs a free defender in contact. A back with more agility than the tackler's wrap slips him and the defender
+  stumbles (slowed, cannot tackle for a moment). A scrambling quarterback is caught after a modest gain.
+* **Movement** has acceleration (full speed in about a fifth of a second) and soft collision, so 22 players spread out.
+* **Controls.** You control the ball carrier (the quarterback until he throws or hands off) and one defender. *F* / */* switch to the
+  next-nearest defender to the ball. Pass keys are Q/E/Z (Blue) and , . M (Orange) for the first receiver, the second receiver and the tight end.
+* **Attributes.** Every player carries a full ability record; `ATTRIBUTES.md` documents the mapping to the franchise schema and how 5C plugs in.
+
+Saves are version 6. Version 5 (ten players) saves still load: the game, score, clock and situation carry over, a play that was in
+progress restarts from its snap, and a finished down stays finished.
+
 ## Visual design (Milestone 5A)
 
 The playfield is a **480x270 pixel canvas (16:9)** scaled up with hard pixel edges, in a modern-retro 16-bit style with an

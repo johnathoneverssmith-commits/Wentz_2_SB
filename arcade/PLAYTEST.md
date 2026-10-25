@@ -175,3 +175,22 @@ tackle and fall, celebrate, kick), the field and stadium, camera framing on deep
 
 Known visual limitations: sprites are procedurally drawn in a hand-inked style rather than hand-painted; the larger players overlap in the tight five-player formation (a gameplay layout, unchanged); players are 5 a side (11-on-11 is later);
 the kicker is a stand-in sprite; field goal posts are simplified; no sound.
+
+## Milestone 5B: eleven on eleven (what to judge by playing)
+
+How to test it: snap a handoff (Enter), then run with WASD behind the line and watch the blockers lock up defenders and the
+secondary and linebackers close on you. Pick Slants or Go routes: Q / E / Z throw to the first receiver, the second receiver and the
+tight end (shown with key caps above them). Scramble with the quarterback (WASD before you throw): everybody keeps playing, the line
+turns to run blocking, and the defense converges. Press F to take control of the next-nearest defender and / for Orange.
+
+Measured on the scripted harness (`npm --prefix arcade run balance`), 11 against 11:
+
+* a straight run gains about 3.5 yards a carry; a scrambling quarterback averages about 4 and is never longer than 10 (tests assert under 22);
+* an idle quarterback is sacked after about 2.6 to 4 seconds;
+* passes into coverage right after the snap are broken up or intercepted; throws timed to a receiver getting free complete about half the time;
+* late deep passes (a go route thrown after 1.5 s) still complete about 90% of the time against a defense that does not cover the
+  receiver, and score on most drives. This is the same imbalance 5C is meant to address with attributes (corner speed, safety range), and is the main thing to judge.
+
+Known limitations: man coverage and zone drops are simple; there is no kickoff, coin toss, penalty or substitution; the defense reads
+the play call; the tight formation near the goal line is squeezed; sprites overlap a little when linemen engage; players have
+momentum, so a released key coasts to a stop in about a yard.
