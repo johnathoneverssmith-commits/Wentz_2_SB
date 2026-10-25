@@ -379,7 +379,7 @@ export function rookieValue(args: {
   /** Years younger than the class's mean age the prospect is (negative: older). */
   youthYears?: number;
   /** The team's roster once this pick is on it: while it is under the roster's spots, a pick who would be a position's first cut costs nothing. */
-  rosterAfter?: number;
+  rosterAfter?: number | undefined;
 }): number {
   const { expected, position, carried, needAwareness, draftedHere = 0, pickIndex = 0, alternative = 0, capPlanningWeight = 1, timeline = 0, youthYears = 0, rosterAfter } = args;
   const row = TEMPLATE.get(position);

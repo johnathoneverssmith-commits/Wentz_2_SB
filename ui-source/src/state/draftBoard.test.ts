@@ -403,6 +403,15 @@ describe("a team's timeline: contending or rebuilding", () => {
     const d = difficultyProfile("expert");
     expect(readRookieBoard(s, a, d, ctx).timeline).toBeGreaterThan(readRookieBoard(s, b, d, ctx).timeline);
   });
+  it("reads a new league, with no games played, from its lineups alone: finite, spread out, at most half the range, which is all the lineups can say", () => {
+    const s = freshLeague(38);
+    for (const team of Object.values(s.teams)) Object.assign(team, { wins: 0, losses: 0, ties: 0 });
+    const ctx = readLeagueContext(s);
+    const values = [...ctx.timeline.values()];
+    for (const v of values) expect(Number.isFinite(v)).toBe(true);
+    expect(Math.max(...values)).toBeCloseTo(0.5, 5); // lineup rank is half the blend, so a league with no record spans half the range
+    expect(Math.min(...values)).toBeCloseTo(-0.5, 5);
+  });
   it("is the same reading from the same league, however its players are keyed (and never uses a hidden rating)", () => {
     const s = freshLeague(32);
     const one = [...readLeagueContext(s).timeline];
