@@ -66,7 +66,7 @@ import {
   strategyPositionBonus,
 } from "./aiStrategy.ts";
 import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
-import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
+import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, teamHorizon, teamWindow, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
@@ -317,12 +317,18 @@ export function readRookieBoard(
   s: LeagueState,
   teamCode: string | undefined,
   difficulty: AiDifficultyProfile,
-  market: Map<string, Map<Position, number>> = readFreeAgentMarket(s),
+  league: LeagueContext = readLeagueContext(s),
 ): {
   expected: Map<string, number>;
   carried: Map<Position, number[]>;
   drafted: Map<Position, number>;
   alternatives: Map<Position, number>;
+  /** The team's timeline (-1 rebuilding, +1 contending) as this GM reads it. */
+  timeline: number;
+  /** Players on the team's roster now, counting its picks so far in this draft. */
+  rosterNow: number;
+  /** The class's mean age, what a prospect's youth is measured against. */
+  classMeanAge: number;
 } {
   const expected = expectedRatings(s.draftClass, difficulty.scoutingAccuracy);
   const drafted = new Map<Position, number>();
@@ -333,16 +339,68 @@ export function readRookieBoard(
       incumbents.push({ position: p.position, overall: p.overall, age: p.age, yearsLeft: p.contract?.years_remaining ?? 0 });
     }
   }
-  const carried = effectiveByPosition(incumbents, difficulty.longTermWeight);
+  // how a team reads its own situation: a contender looks a year ahead, a rebuild three
+  const timeline = windowEffect((teamCode && league.timeline.get(teamCode)) || 0, difficulty.longTermWeight);
+  const carried = effectiveByPosition(incumbents, difficulty.longTermWeight, teamHorizon(timeline));
+  let rosterNow = incumbents.length;
   if (teamCode) {
     for (const pk of draftedThisDraft(s).get(teamCode) ?? []) {
       const l = carried.get(pk.position);
       if (l) l.push(expected.get(pk.id)!);
       else carried.set(pk.position, [expected.get(pk.id)!]);
       drafted.set(pk.position, (drafted.get(pk.position) ?? 0) + 1);
+      rosterNow++;
     }
   }
-  return { expected, carried, drafted, alternatives: (teamCode && market.get(teamCode)) || new Map<Position, number>() };
+  return { expected, carried, drafted, alternatives: (teamCode && league.market.get(teamCode)) || new Map<Position, number>(), timeline, rosterNow, classMeanAge: league.classMeanAge };
+}
+
+/** What the rookie draft reads of the league as a whole, once: the free-agent market and each team's timeline. */
+export interface LeagueContext {
+  market: Map<string, Map<Position, number>>;
+  timeline: Map<string, number>;
+  classMeanAge: number;
+}
+
+/**
+ * Each team's timeline, -1 (rebuilding) to +1 (contending), from public data: last season's record (still on
+ * the books at the draft) and where its starting lineup ranks. See `teamWindow`.
+ */
+export function readLeagueContext(s: LeagueState): LeagueContext {
+  const codes = Object.keys(s.teams);
+  const byTeam = new Map<string, Map<Position, number[]>>();
+  for (const p of Object.values(s.players)) {
+    if (p.retired || p.free_agent || !s.teams[p.nfl_team]) continue;
+    const m = byTeam.get(p.nfl_team) ?? new Map<Position, number[]>();
+    const l = m.get(p.position);
+    if (l) l.push(p.overall);
+    else m.set(p.position, [p.overall]);
+    byTeam.set(p.nfl_team, m);
+  }
+  const strength = new Map<string, number>();
+  for (const code of codes) {
+    let sum = 0;
+    let n = 0;
+    for (const row of ROSTER_TEMPLATE) {
+      if (row.starters === 0) continue;
+      const l = [...(byTeam.get(code)?.get(row.pos) ?? [])].sort((a, b) => b - a).slice(0, row.starters);
+      while (l.length < row.starters) l.push(EMPTY_POSITION_BASE);
+      for (const v of l) {
+        sum += v;
+        n++;
+      }
+    }
+    strength.set(code, sum / n);
+  }
+  const ranked = [...codes].sort((a, b) => strength.get(b)! - strength.get(a)! || (a < b ? -1 : 1));
+  const timeline = new Map<string, number>();
+  ranked.forEach((code, i) => {
+    const t = s.teams[code]!;
+    const games = t.wins + t.losses + t.ties;
+    timeline.set(code, teamWindow({ winPct: games === 0 ? 0.5 : (t.wins + 0.5 * t.ties) / games, strengthRank: i + 1, teams: codes.length }));
+  });
+  const ages = s.draftClass.map((p) => p.age);
+  return { market: readFreeAgentMarket(s), timeline, classMeanAge: ages.length ? ages.reduce((a, b) => a + b, 0) / ages.length : 22 };
 }
 
 /**
@@ -422,10 +480,13 @@ export function bestAvailable(s: LeagueState): string | null {
   // the same thing incrementally.
   const rookieBoard = d.mode === "rookie" ? readRookieBoard(s, teamCode, difficulty) : null;
   // the pick's place in the draft and the market's read of this team's holes (see `draftBoard.ts`)
-  const marketRead = (x: { position: Position }) => ({
+  const marketRead = (x: { position: Position; age: number }) => ({
     pickIndex,
     alternative: rookieBoard?.alternatives.get(x.position) ?? 0,
     capPlanningWeight: difficulty.capPlanningWeight,
+    timeline: rookieBoard?.timeline ?? 0,
+    youthYears: rookieBoard ? rookieBoard.classMeanAge - x.age : 0,
+    rosterAfter: rookieBoard ? rookieBoard.rosterNow + 1 : undefined,
   });
   // Master only: what the candidate adds to this team's units — read from
   // exactly what `planAutopicks` keeps (roster by position, plus this rookie
@@ -592,12 +653,12 @@ export function planAutopicks(s: LeagueState): string[] {
   // that GM's scouting accuracy), kept current as picks are planned. The same
   // thing `bestAvailable` builds for the one team on the clock. See `draftBoard.ts`.
   const boards = new Map<string, ReturnType<typeof readRookieBoard>>();
-  // the market as it stands at the draft: one read for every team, not one per pick
-  const market = rookie ? readFreeAgentMarket(s) : new Map<string, Map<Position, number>>();
+  // the market and each team's timeline as they stand at the draft: one read for every team, not one per pick
+  const league = rookie ? readLeagueContext(s) : null;
   const boardOf = (team: string | undefined) => {
     const key = team ?? "";
     let b = boards.get(key);
-    if (!b) boards.set(key, (b = readRookieBoard(s, team, team ? difficultyFor(s, team) : difficultyProfile("expert"), market)));
+    if (!b) boards.set(key, (b = readRookieBoard(s, team, team ? difficultyFor(s, team) : difficultyProfile("expert"), league!)));
     return b;
   };
   // A rookie pick isn't on the roster until it signs, so a team's own picks
@@ -702,6 +763,9 @@ export function planAutopicks(s: LeagueState): string[] {
             pickIndex: i,
             alternative: board.alternatives.get(c.position) ?? 0,
             capPlanningWeight: difficulty.capPlanningWeight,
+            timeline: board.timeline,
+            youthYears: board.classMeanAge - c.age,
+            rosterAfter: board.rosterNow + 1,
           })
         : draftValue(c.overall, c.position) + need(c.position) * difficulty.needAwareness - waste(c.position, c.overall);
     const shortlist = shortlistByBaseScore(untaken, baseScore, difficulty.candidateDepth);
@@ -752,6 +816,7 @@ export function planAutopicks(s: LeagueState): string[] {
         if (l) l.push(rating);
         else board.carried.set(c.position, [rating]);
         board.drafted.set(c.position, (board.drafted.get(c.position) ?? 0) + 1);
+        board.rosterNow++;
       }
     }
     if (!rookie && teamCode) {

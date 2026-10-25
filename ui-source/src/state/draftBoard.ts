@@ -228,6 +228,41 @@ const NEED_WEIGHT_BY_POSITION: Partial<Record<Position, number>> = {
 
 const TEMPLATE = new Map(ROSTER_TEMPLATE.map((r) => [r.pos, r]));
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
+/** The roster a team has to field (the template's spots). */
+const ROSTER_SPOTS = ROSTER_TEMPLATE.reduce((n, r) => n + r.count, 0);
+
+/**
+ * Where a team is in its cycle, from -1 (rebuilding) to +1 (contending), from public data: last season's
+ * record and where its starting lineup ranks in the league. Continuous: most teams sit somewhere between.
+ */
+export function teamWindow(i: { winPct: number; strengthRank: number; teams: number }): number {
+  const record = clamp((i.winPct - 0.5) / 0.25, -1, 1);
+  const half = (i.teams - 1) / 2;
+  const strength = half > 0 ? clamp(((i.teams + 1) / 2 - i.strengthRank) / half, -1, 1) : 0;
+  return 0.5 * record + 0.5 * strength;
+}
+
+/**
+ * How a GM's reading of its own window moves its draft: the window, scaled by how far ahead the GM plans
+ * (its long-term weight; an easier GM reads its situation less sharply).
+ */
+export function windowEffect(window: number, longTermWeight: number): number {
+  return window * longTermWeight;
+}
+
+/** A contender looks about a year ahead, a rebuild three: how far the outlook on the incumbents reaches. */
+export function teamHorizon(windowFx: number): number {
+  return HORIZON - HORIZON_SWING * windowFx;
+}
+
+/** Years the outlook on incumbents shifts per unit of timeline: a contender looks 1 year ahead, a rebuild 3. */
+const HORIZON_SWING = 1;
+/** Need counts for more to a contender (fill the lineup now) and for less to a rebuild (take the talent). */
+const NEED_TIMELINE = 0.5;
+/** A rebuild leans to the youngest prospects, a contender to the most finished: rating points per year of age. */
+const YOUTH_POINTS = 1.2;
+/** Years of age either side of the class's mean that count. */
+const YOUTH_RANGE = 2;
 
 /**
  * The rookie rating each prospect projects to, by the public board.
@@ -259,13 +294,15 @@ export function expectedRatings(prospects: readonly DraftProspect[], accuracy: n
 export function effectiveRating(
   p: { position: Position; overall: number; age: number; yearsLeft: number },
   longTermWeight: number,
+  /** seasons ahead the outlook looks: short for a contender, long for a rebuild (`teamHorizon`) */
+  horizon: number = HORIZON,
 ): number {
   // the draft is held before the year turns: he plays next season a year older
   const age = p.age + 1;
   const start = DECLINE_START[p.position] ?? DEFAULT_DECLINE_START;
   const perYear = age <= 24 ? 0.8 : age < start ? 0 : -(1 + 0.8 * (age - start));
-  let future = p.overall + perYear * HORIZON;
-  if (p.yearsLeft < HORIZON) future -= (EXPIRY_DISCOUNT * (HORIZON - Math.max(0, p.yearsLeft))) / HORIZON;
+  let future = p.overall + perYear * horizon;
+  if (p.yearsLeft < horizon) future -= (EXPIRY_DISCOUNT * (horizon - Math.max(0, p.yearsLeft))) / horizon;
   return p.overall + longTermWeight * FUTURE_SHARE * (future - p.overall);
 }
 
@@ -273,11 +310,12 @@ export function effectiveRating(
 export function effectiveByPosition(
   incumbents: Iterable<{ position: Position; overall: number; age: number; yearsLeft: number }>,
   longTermWeight: number,
+  horizon: number = HORIZON,
 ): Map<Position, number[]> {
   const out = new Map<Position, number[]>();
   for (const p of incumbents) {
     const list = out.get(p.position);
-    const v = effectiveRating(p, longTermWeight);
+    const v = effectiveRating(p, longTermWeight, horizon);
     if (list) list.push(v);
     else out.set(p.position, [v]);
   }
@@ -308,7 +346,10 @@ function lineupGain(args: {
   const gain = starters > 0 ? Math.max(0, expected - Math.max(weakest, marketFloor)) : 0;
   const depthCut = count > starters ? (sorted.length < count ? EMPTY_POSITION_BASE : sorted[count - 1]!) : Infinity;
   const depthGain = Number.isFinite(depthCut) ? Math.max(0, expected - depthCut) : 0;
-  return gain + DEPTH_WEIGHT * depthGain;
+  // a position with several open roster spots values another body more than one a spot short of full
+  const vacancies = Math.max(0, count - sorted.length);
+  const vacancyScale = vacancies > 0 ? Math.min(1, vacancies / 2) : 1;
+  return gain + DEPTH_WEIGHT * depthGain * vacancyScale;
 }
 
 /**
@@ -333,8 +374,14 @@ export function rookieValue(args: {
   alternative?: number;
   /** How well the GM plans around the market and its cap: scales how much of that alternative it counts on. */
   capPlanningWeight?: number;
+  /** The team's window, -1 (rebuilding) to +1 (contending), already scaled by how well the GM reads it (`windowEffect`). */
+  timeline?: number;
+  /** Years younger than the class's mean age the prospect is (negative: older). */
+  youthYears?: number;
+  /** The team's roster once this pick is on it: while it is under the roster's spots, a pick who would be a position's first cut costs nothing. */
+  rosterAfter?: number;
 }): number {
-  const { expected, position, carried, needAwareness, draftedHere = 0, pickIndex = 0, alternative = 0, capPlanningWeight = 1 } = args;
+  const { expected, position, carried, needAwareness, draftedHere = 0, pickIndex = 0, alternative = 0, capPlanningWeight = 1, timeline = 0, youthYears = 0, rosterAfter } = args;
   const row = TEMPLATE.get(position);
   const starters = row?.starters ?? 0;
   const count = row?.count ?? 0;
@@ -342,11 +389,13 @@ export function rookieValue(args: {
   // the rating of the starter he would replace: the weakest starting slot (empty = nobody there)
   const weakest = starters > 0 ? (sorted[starters - 1] ?? EMPTY_POSITION_BASE) : Infinity;
   const lineup = lineupGain({ expected, position, carried, alternative, capPlanningWeight });
-  const need = NEED_GAIN * (NEED_WEIGHT_BY_POSITION[position] ?? 1) * needAwareness * slotNeedWeight(pickIndex) * lineup;
+  const need = NEED_GAIN * (NEED_WEIGHT_BY_POSITION[position] ?? 1) * needAwareness * slotNeedWeight(pickIndex) * (1 + NEED_TIMELINE * timeline) * lineup;
   const shortfall = starters > 0 ? Math.min(SHORTFALL_CAP, Math.max(0, weakest - expected)) * SHORTFALL_WEIGHT : 0;
   // roster-spot waste: once the position holds its template count, one who would be the first cut
   const cutLine = sorted.length < count ? -Infinity : count === 0 ? Infinity : sorted[count - 1]!;
-  const waste = expected <= cutLine ? SURPLUS_PENALTY : 0;
+  // ... but only a cost once the roster is full: with spots open, nobody has to be cut for him
+  const fullness = rosterAfter !== undefined ? clamp((rosterAfter - (ROSTER_SPOTS - 3)) / 3, 0, 1) : 1;
+  const waste = expected <= cutLine ? SURPLUS_PENALTY * fullness : 0;
   // A specialist's rating runs on its own, higher scale (`SPECIALIST_ROOKIE_OFFSET`): that is what lets
   // him be compared with the kicker he would replace, and it does not make the slot worth more than
   // the same slot at any other position.
@@ -356,5 +405,7 @@ export function rookieValue(args: {
   // Each earlier pick at the position makes another one less worth taking, and the fewer roster spots
   // the position has, the faster (a third running back, a second kicker).
   const repeat = REPEAT_STEP * draftedHere * (3 / Math.max(2, count));
-  return talent + need - shortfall - waste - repeat;
+  // A rebuild takes the younger prospect, a contender the more finished one.
+  const youth = YOUTH_POINTS * -timeline * clamp(youthYears, -YOUTH_RANGE, YOUTH_RANGE);
+  return talent + need - shortfall - waste - repeat + youth;
 }
