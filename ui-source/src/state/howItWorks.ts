@@ -67,6 +67,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
           `The market runs ${FA_ROUNDS_MAX} rounds. In each round every team gets one turn: make one offer (a salary and a length) or pass. The order is set from roster strength when the market opens, strongest roster first.`,
           "Nobody signs when the offer arrives. At the end of the round every player with an offer picks the best one for him at once, so waiting until late in a round costs nothing and bidding early doesn't lock a player up. Offers that didn't win stay live into the next round.",
           `The most any one deal pays in a year is $${MAX_CONTRACT_M}M, and a player's asking price follows his rating and his position.`,
+          "CPU teams bid only what their cap room covers, counting offers they have out. How long a deal they offer follows the player: a young starter gets years, a veteran past his decline or a fringe player gets few. When a CPU team has to cut a player to fit under the cap, the release costs it dead money the same way it would cost you.",
         ],
       },
       {

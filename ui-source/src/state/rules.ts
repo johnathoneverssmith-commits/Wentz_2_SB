@@ -49,10 +49,12 @@ import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { coachPriorities, playerPriorities } from "@/sim/priorities";
 
 import {
+  capUsedOf,
   clearRoomFor,
   expireContracts,
   marketDeal,
   openCapRoomForFreeAgency,
+  planRoomFor,
   recomputeTeamRatings,
   releaseToMarket,
 } from "./seed.ts";
@@ -1072,10 +1074,13 @@ export function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgen
       if (existing.length > 0 && !aiAlreadyIn) {
         const competeChance = clamp((p.overall - 65) / 40, 0.05, 0.85);
         if (rng() < competeChance) {
-          (fa.bids[p.id] ??= []).push(aiOfferForPlayer(rng, s, p));
+          const rival = aiOfferForPlayer(rng, s, p);
+          if (rival) (fa.bids[p.id] ??= []).push(rival);
         }
       }
       const winning = bestOfferFor(fa, "players", p.id, s) ?? aiOfferForPlayer(rng, s, p);
+      // nobody can afford him (and no star's team can clear the room): he stays on the market
+      if (!winning) continue;
       const team = s.teams[winning.teamCode];
       if (!team) continue;
       const hit = offerToContract(winning).cap_hit_by_year[0] ?? 0;
@@ -1087,8 +1092,13 @@ export function resolveBiddingDay(s: LeagueState, subject: Subject, fa: FreeAgen
         // goes unsigned through a whole free agency. Anyone ordinary stays on
         // the market instead, which is what a team short of money does.
         const worthIt = p.overall >= 85 && !humanTeams.has(winning.teamCode);
-        if (!worthIt || !clearRoomFor(s, winning.teamCode, hit + (spentToday[winning.teamCode] ?? 0)))
-          continue;
+        // The room is read fresh from the books, today's signings included, and the cuts are charged their
+        // release penalty like a GM's (`clearRoomFor`); a player signed in this window cannot be cut.
+        const lockedIn = new Set(fa.signed.map((x) => x.id));
+        if (!worthIt || !clearRoomFor(s, winning.teamCode, hit, lockedIn)) continue;
+        // the books now hold today's signings, so the day's own tally starts over from them
+        spentToday[winning.teamCode] = 0;
+        if (hit > team.cap.total - capUsedOf(s, winning.teamCode)) continue;
       }
       spentToday[winning.teamCode] = (spentToday[winning.teamCode] ?? 0) + hit;
       fa.signed.push({ id: p.id, toTeam: winning.teamCode, ...offerFields(winning), at: fa.day });
@@ -1383,27 +1393,30 @@ export function positionalNeed(s: LeagueState, teamCode: string, position: Posit
   return Math.max(MIN_RAW_NEED, raw);
 }
 
-/** Teams with at least `needed` ($M) of cap room — falls back to every AI
- *  team if literally none qualify, rather than deadlocking the market (a
- *  real front office would restructure/cut to create room; that maneuver
- *  isn't modeled, so this is the honest stand-in). */
+/** The AI teams with at least `needed` ($M) of cap room. Empty when none has it: a player nobody can
+ *  afford stays on the market. (This used to fall back to every team, which handed the contract to one
+ *  with no room to pay it; the one case where a team makes room, a star, is `aiOfferForPlayer`'s.) */
 export function affordableTeams(s: LeagueState, needed: number): string[] {
-  const all = aiControlledTeams(s);
-  const can = all.filter((code) => {
+  return aiControlledTeams(s).filter((code) => {
     const t = s.teams[code]!;
     return t.cap.total - t.cap.used >= needed;
   });
-  return can.length > 0 ? can : all;
 }
 
 // Free Agency + Contracts optimization pass (free_agency.standing_ai_offer):
 // a narrower market-noise band, a stronger pull toward genuine need, a
 // signing bonus that can't dwarf the base salary it rides on, and a lower
 // guaranteed-money band.
-export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): ContractOffer {
+export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): ContractOffer | null {
   // real value (overall-driven), with market noise so it isn't a single fixed number
   const base = Math.round(contractValueFor(p.overall, p.position) * (0.95 + rng() * 0.2) * 10) / 10;
-  const candidates = affordableTeams(s, base);
+  let candidates = affordableTeams(s, base);
+  // A star is worth making room for (`resolveBiddingDay`): when nobody has the room, the teams that
+  // could clear it, by cuts that really free it after their release penalties, are the bidders.
+  if (candidates.length === 0 && p.overall >= 85) {
+    candidates = aiControlledTeams(s).filter((code) => planRoomFor(s, code, base) !== null);
+  }
+  if (candidates.length === 0) return null;
   // AI GM season strategy (§7): the target-ranking score gets the same
   // bounded preference terms as the draft, folded into the need-based weight
   // as a multiplier so it can never turn a team's real need negative or hand
@@ -1429,14 +1442,40 @@ export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): 
       noise;
     return raw ** 1.4 * clamp(1 + adj / 20, 0.5, 2);
   });
-  const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0] ?? "FA";
-  const years = 1 + Math.floor(rng() * 4);
+  const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0]!;
+  const terms = contractTermsFor(p, base, [rng(), rng(), rng()], deterministicNoiseUnit(teamCode, s.season, "fa_terms", p.id));
+  return { teamCode, baseSalary: base, ...terms };
+}
+
+/**
+ * The length, signing bonus and guarantee a CPU team offers a free agent.
+ *
+ * Responsive to who he is: how long he can be expected to play at this level (the years before his own
+ * decline age, `decline_age_threshold`, and a little past it), and how good he is. A young starter gets
+ * a long deal with real money guaranteed; a veteran at or past his decline gets a short one with
+ * little guaranteed; a fringe player gets a short one either way. Soft rather than banned: a star gets
+ * the years his quality earns, and `variation` (three draws from the market's own stream) and `team`
+ * (this team's own deterministic lean on this player, in [-1, 1]) keep clubs and deals from all reading alike.
+ */
+export function contractTermsFor(
+  p: Pick<Player, "age" | "overall" | "decline_age_threshold">,
+  base: number,
+  variation: readonly [number, number, number],
+  team = 0,
+): Pick<ContractOffer, "signingBonus" | "years" | "guaranteed"> {
+  const quality = clamp((p.overall - 62) / 28, 0, 1); // 0 for a fringe player, 1 for a star
+  const runway = clamp((p.decline_age_threshold ?? 30) + 1 - p.age, -2, 6); // seasons of good play still to come
+  const youth = clamp(1 - Math.max(0, p.age - 27) / 8, 0.2, 1);
+  // past thirty a club commits fewer years whatever his position's curve says
+  const agePull = clamp(1 - Math.max(0, p.age - 29) * 0.12, 0.35, 1);
+  const wanted = 1 + (Math.max(0, runway) / 6) * (1 + 2.5 * quality) * agePull + 0.5 * quality * quality * agePull;
+  const years = clamp(Math.round(wanted + (variation[0] - 0.5) * 1.6 + 0.5 * team), 1, 5);
+  const bonusShare = clamp(0.15 + 0.6 * quality * youth, 0.1, 0.95) * (0.6 + 0.8 * variation[1]);
+  const guaranteedShare = clamp(0.2 + 0.3 * quality + 0.25 * youth, 0.15, 0.85) * (0.85 + 0.3 * variation[2]);
   return {
-    teamCode,
-    baseSalary: base,
-    signingBonus: Math.round(base * rng() * 1.0 * 10) / 10,
+    signingBonus: Math.round(base * Math.min(1, bonusShare) * 10) / 10,
     years,
-    guaranteed: Math.round(base * years * (0.4 + rng() * 0.25) * 10) / 10,
+    guaranteed: Math.round(base * years * Math.min(0.9, guaranteedShare) * 10) / 10,
   };
 }
 
