@@ -4,9 +4,9 @@ import type { DraftProspect, LeagueState, Position } from "@/domain";
 import { projectionLabel } from "@/domain";
 import { SPECIALIST_ROOKIE_OFFSET } from "@/sim/draft-outcomes";
 import { AI_DIFFICULTY_LEVELS, difficultyProfile, difficultyProfileAt } from "./aiDifficulty.ts";
-import { effectiveRating, expectedRatings, rookieValue } from "./draftBoard.ts";
+import { ROOKIE_PREMIUM_SCALE, POSITION_VALUE, effectiveRating, expectedRatings, freeAgentAlternatives, positionPremium, rookieValue, slotNeedWeight, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { strategyOf } from "./aiGms.ts";
-import { applyPick, beginDraft, bestAvailable, planAutopicks, readRookieBoard, runAiPicks } from "./rules.ts";
+import { applyPick, beginDraft, bestAvailable, draftValue, planAutopicks, readFreeAgentMarket, readRookieBoard, runAiPicks } from "./rules.ts";
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 
 /**
@@ -144,13 +144,129 @@ describe("what a prospect adds to a team", () => {
     expect(qb(0) - qb(2)).toBeGreaterThan(wr(0) - wr(2));
   });
   it("does not make a specialist worth more than the same slot at another position (his scale is only for comparing him with his own kicker)", () => {
-    const talent = (position: Position, expected: number) => value({ position, expected, carried: [], needAwareness: 0 });
-    expect(talent("K", 70 + SPECIALIST_ROOKIE_OFFSET)).toBe(talent("WR", 70));
+    // the rating scale offset is not value: take each position's own premium out and the same slot is worth the same
+    const bare = (position: Position, expected: number) => value({ position, expected, carried: [], needAwareness: 0 }) - ROOKIE_PREMIUM_SCALE * positionPremium(position);
+    expect(bare("K", 70 + SPECIALIST_ROOKIE_OFFSET)).toBeCloseTo(bare("WR", 70), 9);
   });
-  it("scales need with the GM's need-awareness (at zero it is the prospect's own rating)", () => {
+  it("scales need with the GM's need-awareness (at zero it is the prospect's rating and his position's premium)", () => {
     const hole = { position: "QB" as Position, carried: [55] };
     expect(value({ ...hole, needAwareness: 0 })).toBeLessThan(value({ ...hole, ...needy }));
-    expect(value({ ...hole, needAwareness: 0 })).toBe(72 - 0.2 * 0 - 0);
+    expect(value({ ...hole, needAwareness: 0 })).toBeCloseTo(72 + ROOKIE_PREMIUM_SCALE * positionPremium("QB"), 9);
+  });
+});
+
+describe("what a position is worth in a rookie pick", () => {
+  it("follows the market's hierarchy, tempered by the engine's: quarterback, then edge, receiver, back, tight end, outside linebacker, punter", () => {
+    const order: Position[] = ["QB", "EDGE", "WR", "RB", "TE", "OLB", "P"];
+    for (let i = 1; i < order.length; i++) expect(positionPremium(order[i - 1]!), `${order[i - 1]} above ${order[i]}`).toBeGreaterThan(positionPremium(order[i]!));
+  });
+  it("is compressed, so the quarterback cannot outweigh a whole rookie projection", () => {
+    for (const p of Object.keys(POSITION_VALUE) as Position[]) expect(Math.abs(positionPremium(p))).toBeLessThan(5);
+    // the engine alone would price a quarterback at +10 and a running back at +7 over the same slot
+    expect(positionPremium("QB") * ROOKIE_PREMIUM_SCALE).toBeLessThan(5);
+  });
+  it("blends both views: a running back is worth more to the engine than to the market, and the premium lands between them", () => {
+    const market = 9 * Math.log(0.78 / 0.9); // about -1.3: the market prices a back low
+    expect(positionPremium("RB")).toBeGreaterThan(market + 1);
+    expect(positionPremium("RB")).toBeLessThan(POSITION_VALUE.RB - 3); // and the engine's +7, tempered to under +1
+  });
+  it("orders equal prospects by position: the same slot is worth more at quarterback than at tight end", () => {
+    const talent = (position: Position) => rookieValue({ expected: 70, position, carried: [], needAwareness: 0 });
+    expect(talent("QB")).toBeGreaterThan(talent("WR"));
+    expect(talent("WR")).toBeGreaterThan(talent("TE"));
+  });
+  it("leaves the fantasy draft's own table alone", () => {
+    expect(draftValue(80, "QB")).toBe(90);
+    expect(draftValue(80, "RB")).toBe(87);
+    expect(draftValue(80, "OLB")).toBe(72);
+    expect(draftValue(80, "P")).toBe(66);
+  });
+});
+
+describe("where a pick falls in the draft", () => {
+  it("counts need for little at the top, normally in the middle rounds and more late", () => {
+    expect(slotNeedWeight(0)).toBeCloseTo(0.5, 2);
+    expect(slotNeedWeight(0)).toBeLessThan(slotNeedWeight(30));
+    expect(slotNeedWeight(30)).toBeLessThan(slotNeedWeight(100));
+    expect(slotNeedWeight(100)).toBeLessThan(slotNeedWeight(223));
+    expect(slotNeedWeight(100)).toBeGreaterThan(1);
+    expect(slotNeedWeight(223)).toBeLessThan(1.3);
+  });
+  it("makes the same hole worth more at pick 150 than at pick 3 (best player available early)", () => {
+    const hole = (pickIndex: number) => rookieValue({ expected: 72, position: "OT", carried: [60], needAwareness: 1, pickIndex });
+    const settled = (pickIndex: number) => rookieValue({ expected: 72, position: "OT", carried: [85, 84], needAwareness: 1, pickIndex });
+    expect(hole(150) - settled(150)).toBeGreaterThan(hole(3) - settled(3));
+  });
+});
+
+describe("free agents as the alternative to drafting for a hole", () => {
+  const team = (code: string, capRoom: number, weakest: Partial<Record<Position, number>> = {}): MarketTeam => ({ code, capRoom, weakest });
+  const fa = (position: Position, overall: number, asking = 2, age = 27): MarketPlayer => ({ position, overall, age, asking });
+
+  it("gives the neediest team the best free agent and nobody else the same one", () => {
+    const m = freeAgentAlternatives([team("A", 40, { K: 70 }), team("B", 40), team("C", 40, { K: 60 })], [fa("K", 85)]);
+    expect(m.get("B")?.get("K")).toBeGreaterThan(80); // no kicker at all: first served
+    expect(m.get("A")?.get("K")).toBeUndefined();
+    expect(m.get("C")?.get("K")).toBeUndefined();
+  });
+  it("cannot sign the same player for everyone: five teams without a kicker and two free agents leave three with nothing", () => {
+    const teams = ["A", "B", "C", "D", "E"].map((c) => team(c, 40));
+    const m = freeAgentAlternatives(teams, [fa("K", 85), fa("K", 80)]);
+    expect(teams.filter((t) => m.get(t.code)?.has("K")).length).toBe(2);
+  });
+  it("spends a team's cap room down across positions: one team cannot sign at every position what it could afford at one", () => {
+    // $20M of room and four $7M free agents: one signing leaves $13M, and a second $7M is more than half of that.
+    // Served position by position, each would have been judged against the full $20M and all four assumed signed ($28M).
+    const need = { K: 60, P: 60, WR: 60, OT: 60 } as const;
+    const four = [fa("K", 85, 7), fa("P", 85, 7), fa("WR", 85, 7), fa("OT", 85, 7)];
+    expect(freeAgentAlternatives([team("A", 20, need)], four).get("A")?.size).toBe(1);
+    // room that really does cover several signings is not held back: $4M each against $20M all fit
+    const cheap = [fa("K", 85, 4), fa("P", 85, 4), fa("WR", 85, 4), fa("OT", 85, 4)];
+    expect(freeAgentAlternatives([team("A", 20, need)], cheap).get("A")?.size).toBe(4);
+  });
+  it("serves the neediest slot in the league first, whatever its position", () => {
+    // one team, room for one signing, two holes: the worse hole gets the free agent
+    const m = freeAgentAlternatives([team("A", 9, { K: 70, WR: 40 })], [fa("K", 85, 4), fa("WR", 85, 4)]);
+    expect(m.get("A")?.has("WR")).toBe(true);
+    expect(m.get("A")?.has("K")).toBe(false);
+  });
+  it("counts only what a team can afford (no more than half its cap room on one player)", () => {
+    const m = freeAgentAlternatives([team("poor", 6), team("rich", 60)], [fa("OT", 88, 14)]);
+    expect(m.get("poor")?.get("OT")).toBeUndefined();
+    expect(m.get("rich")?.get("OT")).toBeGreaterThan(80);
+  });
+  it("is no alternative unless the free agent actually upgrades the weakest starter", () => {
+    const m = freeAgentAlternatives([team("A", 40, { WR: 80 })], [fa("WR", 81)]);
+    expect(m.get("A")?.get("WR")).toBeUndefined();
+  });
+  it("sees a free agent as he will be next season: an old one is worth less than his rating", () => {
+    const m = freeAgentAlternatives([team("A", 40)], [fa("WR", 80, 2, 36)]);
+    expect(m.get("A")?.get("WR")).toBeLessThan(80);
+  });
+  it("makes a hole the market can fill a smaller need, and more so for a GM who plans around the market", () => {
+    const hole = { expected: 79, position: "K" as Position, carried: [] as number[], needAwareness: 1, pickIndex: 70 };
+    const none = rookieValue({ ...hole });
+    const expert = rookieValue({ ...hole, alternative: 82, capPlanningWeight: 1 });
+    const casual = rookieValue({ ...hole, alternative: 82, capPlanningWeight: 0.5 });
+    expect(expert).toBeLessThan(casual);
+    expect(casual).toBeLessThan(none);
+  });
+  it("reads the real market from the league: a team with no kicker is offered a free agent, unless it cannot afford one", () => {
+    const s = freshLeague(41);
+    const codes = Object.keys(s.teams);
+    const t = codes[0]!;
+    const kickers = Object.values(s.players).filter((p) => p.position === "K" && !p.retired);
+    for (const k of kickers.filter((p) => p.nfl_team === t)) k.retired = true; // the team has none
+    const donor = kickers.find((p) => p.nfl_team !== t && !p.retired)!;
+    donor.free_agent = true; // one real kicker on the market
+    donor.nfl_team = "FA";
+    donor.contract = undefined as unknown as typeof donor.contract; // a free agent has no deal
+    const offered = readFreeAgentMarket(s).get(t)?.get("K");
+    expect(offered, "a kicker is available to a team that has none").toBeGreaterThan(50);
+    // ... and it is what that team's board is given to weigh the hole against
+    expect(readRookieBoard(s, t, difficultyProfile("expert")).alternatives.get("K")).toBe(offered);
+    s.teams[t]!.cap.used = s.teams[t]!.cap.total - 0.2; // no room: nobody is affordable
+    expect(readFreeAgentMarket(s).get(t)?.get("K")).toBeUndefined();
   });
 });
 
