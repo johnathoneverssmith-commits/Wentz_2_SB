@@ -1,10 +1,7 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { DownState } from '../core/down';
-
-const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse(localStorage.getItem('wentz.arcade.down.v1')!).state);
-const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
-const text = (page: Page, id: string) => page.getByTestId(id).innerText();
+import { button, kickCentred, resume, saved, text } from './helpers';
 
 test.setTimeout(120_000);
 test.beforeEach(async ({ page }) => {
@@ -66,7 +63,7 @@ test('an offense that goes nowhere hands the ball over on downs after four plays
     expect(state.score).toEqual({ home: 0, away: 0 });
 });
 
-test('a real drive scores six once, survives reloads and gives Orange the ball at its own 28', async ({ page }) => {
+test('a real drive scores six and the point after once, survives reloads and gives Orange the ball at its own 28', async ({ page }) => {
     let firstDowns = 0;
     for (let n = 0; n < 40; n++) {
         const dead = await play(page, ['KeyD']);
@@ -90,19 +87,40 @@ test('a real drive scores six once, survives reloads and gives Orange the ball a
     }
     await page.clock.runFor(3000);
     expect((await saved(page)).score).toEqual({ home: 6, away: 0 });
+    await resume(page);
+    // The touchdown goes to the extra point: Enter opens the kick, a reload keeps the meter where it was, and the kick scores once.
+    await nextDown(page);
+    const kicking = await saved(page);
+    expect(kicking).toMatchObject({ phase: 'kick', kick: { kind: 'xp', team: 'home', good: null }, score: { home: 6, away: 0 } });
+    await page.reload();
+    await page.clock.runFor(256);
+    expect((await saved(page)).kick).toMatchObject({ kind: 'xp', good: null });
+    await expect(page.getByTestId('phase')).toHaveText('Paused');
+    await button(page, 'Resume').click();
+    const kicked = await kickCentred(page, 'KeyG');
+    expect(kicked.kick).toMatchObject({ good: true });
+    expect(kicked.score).toEqual({ home: 7, away: 0 });
+    expect(await text(page, 'headline')).toBe('Extra point is good! Bluebirds +1');
+    for (let reload = 0; reload < 2; reload++) {
+        await page.reload();
+        await page.clock.runFor(256);
+        expect(await saved(page)).toEqual(kicked);
+        expect([await text(page, 'score-home'), await text(page, 'score-away')]).toEqual(['7', '0']);
+    }
     await nextDown(page);
     const next = await saved(page);
-    expect(next).toMatchObject({ offense: 'away', down: 1, line: 82, phase: 'pre-snap', score: { home: 6, away: 0 } });
+    expect(next).toMatchObject({ offense: 'away', down: 1, line: 82, phase: 'pre-snap', score: { home: 7, away: 0 } });
     expect(await text(page, 'situation')).toBe('1st & 10.0');
     await expect(page.getByText('Foxes ball', { exact: false }).first()).toBeVisible();
     await page.reload();
     await page.clock.runFor(256);
-    expect((await saved(page)).score).toEqual({ home: 6, away: 0 });
+    expect((await saved(page)).score).toEqual({ home: 7, away: 0 });
+    await resume(page);
     // Orange is now on offense: its own keys run the ball left and the scoreboard still reads 6-0.
     const orange = await play(page, ['ArrowLeft'], 1600);
     expect(orange.offense).toBe('away');
     expect(orange.result?.yards).toBeGreaterThan(0);
-    expect(orange.score).toEqual({ home: 6, away: 0 });
+    expect(orange.score).toEqual({ home: 7, away: 0 });
 });
 
 test('a touchdown by Orange scores for Orange and Restart clears the scoreboard', async ({ page }) => {

@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { DownState } from '../core/down';
+import { withoutClock } from './helpers';
 const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse(localStorage.getItem('wentz.arcade.down.v1')!).state);
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const requests = new WeakMap<Page, string[]>();
@@ -24,17 +25,13 @@ async function beginPass(page: Page, play = 'slants') {
 }
 async function humanPass(page: Page, mode: 'complete' | 'breakup' | 'intercept') {
     await beginPass(page);
-    if (mode !== 'complete') {
+    if (mode !== 'complete')
         await page.keyboard.down('ArrowUp');
-        await page.keyboard.down('ArrowLeft');
-    }
     await page.keyboard.press('KeyQ');
-    await page.clock.runFor(640);
-    if (mode !== 'complete') {
+    await page.clock.runFor(528);
+    if (mode !== 'complete')
         await page.keyboard.up('ArrowUp');
-        await page.keyboard.up('ArrowLeft');
-    }
-    await page.clock.runFor(32);
+    await page.clock.runFor(144);
     if (mode === 'intercept')
         await page.keyboard.press('ShiftRight');
     await page.clock.runFor(432);
@@ -107,7 +104,7 @@ test('reloading an unpaused airborne pass preserves flight and its eventual exac
     expect(await page.getByTestId('phase').innerText(), 'reload must pause a genuinely live flight').toBe('Paused');
     await button(page, 'Resume').click();
     await page.clock.runFor(3000);
-    expect(await saved(page), 'reload cannot duplicate or change the eventual result').toEqual(uninterrupted);
+    expect(withoutClock(await saved(page)), 'reload cannot duplicate or change the eventual result').toEqual(withoutClock(uninterrupted));
 });
 test('completed-down reload cannot alter or replay its result before Next down', async ({ page }) => {
     await button(page, 'Snap').click();
@@ -123,6 +120,7 @@ test('completed-down reload cannot alter or replay its result before Next down',
     await page.clock.runFor(2000);
     expect(await saved(page), 'completed snapshot remains unchanged after reload and time').toEqual(dead);
     expect(await page.getByTestId('terminal-count').innerText()).toBe('Completed plays: 1');
+    await button(page, 'Resume').click();
     await button(page, 'Next down').click();
     const next = await saved(page);
     expect(next.playNumber).toBe(dead.playNumber + 1);

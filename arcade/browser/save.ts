@@ -1,7 +1,8 @@
-import { SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, type DownState } from '../core/down';
+import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, SAFETY_POINTS, TOUCHDOWN_POINTS, firstDownMarker, type DownState } from '../core/down';
+import { KICK_MAX_TICKS } from '../core/kick';
 import { FIELD } from '../core/simulation';
 export const SAVE_KEY = 'wentz.arcade.down.v1';
-export const encodeSave = (state: DownState) => JSON.stringify({ version: 3, state });
+export const encodeSave = (state: DownState) => JSON.stringify({ version: 5, state });
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const integer = (v: unknown) => finite(v) && Number.isSafeInteger(v) && v >= 0;
@@ -9,8 +10,26 @@ const point = (v: unknown) => object(v) && finite(v.x) && finite(v.y);
 const team = (v: unknown) => v === 'home' || v === 'away';
 const reasons = ['tackle', 'out-of-bounds', 'touchdown', 'incomplete', 'interception', 'safety', 'timeout'];
 /**
+ * Compatibility boundary: the last deployed save format is version 3 (Milestone 3, PR #28); versions 1-3 migrate. Version 4
+ * was never released: several unreleased Milestone 4 builds wrote it with different clock units (30-second quarters, then
+ * 180-second quarters), so it cannot be read safely and is rejected, never converted. Version 5 is the current format.
+ */
+export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3, 5];
+/** True when the text is a well-formed envelope of a version this build refuses to read (an unreleased or future format). */
+export function isUnsupportedSave(text: string | null): boolean {
+    try {
+        const data: unknown = text ? JSON.parse(text) : null;
+        return object(data) && typeof data.version === 'number' && !SUPPORTED_VERSIONS.includes(data.version);
+    }
+    catch {
+        return false;
+    }
+}
+/**
  * Older envelopes gain what they lacked: v1 had no completed-play count or hands window; v1/v2 had no score,
- * down or marker. A finished touchdown or safety in an old save is scored once here so no earlier score is lost.
+ * down or marker; v1-v3 had no game clock, quarter, kick, overtime or result. A finished touchdown or safety in an
+ * old save is scored once here so no earlier score is lost. An old drive becomes the start of a new game's first
+ * quarter with a full clock.
  */
 function upgrade(version: number, old: Record<string, unknown>): Record<string, unknown> {
     let s = old;
@@ -26,7 +45,37 @@ function upgrade(version: number, old: Record<string, unknown>): Record<string, 
             score[other] += SAFETY_POINTS;
         s = { ...s, score, down: 1, firstDownLine: firstDownMarker(offense, Number(s.line)), result: result ? { ...result, firstDown: false, turnoverOnDowns: false } : null };
     }
+    if (version <= 3)
+        s = { ...s, quarter: 1, clock: QUARTER_TICKS, expired: false, gap: 0, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
     return s;
+}
+/** The clock, quarter, mode, overtime, winner and kick must agree with each other and with the phase. */
+function gameFieldsValid(s: Record<string, unknown>): boolean {
+    if (!integer(s.quarter) || Number(s.quarter) < 1 || Number(s.quarter) > 5 || !integer(s.clock) || Number(s.clock) > QUARTER_TICKS || typeof s.expired !== 'boolean' || !integer(s.gap) || Number(s.gap) > BETWEEN_PLAY_TICKS)
+        return false;
+    if (!['regulation', 'overtime', 'final'].includes(String(s.mode)) || !team(s.openingTeam))
+        return false;
+    const o = s.overtime;
+    if (!object(o) || !team(o.first) || !integer(o.possessions))
+        return false;
+    if ((s.mode === 'overtime') !== (s.quarter === 5) && s.mode !== 'final')
+        return false;
+    if ((s.mode === 'final') !== (s.phase === 'final') || (s.phase === 'final') !== (s.winner !== null))
+        return false;
+    if (s.winner !== null && s.winner !== 'home' && s.winner !== 'away')
+        return false;
+    if (s.mode === 'overtime' && (s.clock !== 0 || s.expired))
+        return false;
+    const k = s.kick;
+    if ((s.phase === 'kick') !== (k !== null))
+        return false;
+    if (k === null)
+        return true;
+    if (!object(k) || (k.kind !== 'xp' && k.kind !== 'fg') || !team(k.team) || !finite(k.distance) || k.distance < 0 || k.distance > 200 || !finite(k.spot) || !integer(k.ticks) || Number(k.ticks) > KICK_MAX_TICKS)
+        return false;
+    if ((k.lockedAt === null) !== (k.good === null) || (k.good !== null && typeof k.good !== 'boolean') || (k.lockedAt !== null && (!integer(k.lockedAt) || Number(k.lockedAt) > KICK_MAX_TICKS)))
+        return false;
+    return k.team === s.offense;
 }
 /** Only the arcade key is read. Invalid/older snapshots start a new practice. */
 export function decodeSave(text: string | null): DownState | null {
@@ -34,14 +83,16 @@ export function decodeSave(text: string | null): DownState | null {
         if (!text || text.length > 20000)
             return null;
         const data: unknown = JSON.parse(text);
-        if (!object(data) || (data.version !== 1 && data.version !== 2 && data.version !== 3) || !object(data.state))
+        if (!object(data) || (typeof data.version !== 'number' || !SUPPORTED_VERSIONS.includes(data.version)) || !object(data.state))
             return null;
         const s = upgrade(data.version, data.state);
         if (!integer(s.terminalCount) || !integer(s.contestUntil) || !integer(s.down) || Number(s.down) < 1 || Number(s.down) > 4 || !finite(s.firstDownLine) || s.firstDownLine < 10 || s.firstDownLine > 110)
             return null;
         if (!object(s.score) || !integer(s.score.home) || !integer(s.score.away) || Number(s.score.home) > 9999 || Number(s.score.away) > 9999)
             return null;
-        if (!['pre-snap', 'live', 'dead'].includes(String(s.phase)) || !['rush', 'slants', 'go'].includes(String(s.play)) || !team(s.offense) || !integer(s.tick) || !integer(s.liveTicks) || !integer(s.playNumber) || s.playNumber === 0 || !finite(s.line) || s.line < 10 || s.line > 110)
+        if (!['pre-snap', 'live', 'dead', 'kick', 'final'].includes(String(s.phase)) || !['rush', 'slants', 'go', 'fieldgoal'].includes(String(s.play)) || !team(s.offense) || !integer(s.tick) || !integer(s.liveTicks) || !integer(s.playNumber) || s.playNumber === 0 || !finite(s.line) || s.line < 10 || s.line > 110)
+            return null;
+        if (!gameFieldsValid(s))
             return null;
         if (!Array.isArray(s.players) || s.players.length !== 10)
             return null;
@@ -57,7 +108,8 @@ export function decodeSave(text: string | null): DownState | null {
             return null;
         if (s.ball.kind === 'flight' && (!point(s.ball.from) || !point(s.ball.to) || !finite(s.ball.elapsed) || s.ball.elapsed < 0 || !finite(s.ball.duration) || s.ball.duration <= 0 || s.ball.duration > 2 || !ids.has(String(s.ball.target)) || s.phase !== 'live'))
             return null;
-        if (s.phase === 'dead') {
+        // A finished down needs its result; a kick or a finished game may still carry the touchdown or play that led to it.
+        if (s.phase === 'dead' || ((s.phase === 'kick' || s.phase === 'final') && s.result !== null)) {
             if (!object(s.result) || !reasons.includes(String(s.result.reason)) || !finite(s.result.yards) || s.result.playNumber !== s.playNumber || typeof s.result.turnover !== 'boolean' || typeof s.result.touchdown !== 'boolean' || typeof s.result.firstDown !== 'boolean' || typeof s.result.turnoverOnDowns !== 'boolean')
                 return null;
         }

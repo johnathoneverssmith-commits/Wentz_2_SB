@@ -1,7 +1,8 @@
 import { encodeSave, decodeSave } from "../browser/save";
 import { expect, it } from "vitest";
-import { createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
+import { lineUp, createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
 import type { Inputs, PlayerId } from "../core/simulation";
+import { CENTRE, expectOnlyClockMoved, kickAtTick } from './helpers';
 const idle: Inputs = { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } };
 const ticks = (state: DownState, n: number, inputs = idle) => {
     for (let i = 0; i < n; i++)
@@ -73,7 +74,7 @@ it("contact tackles exactly once and terminal snapshots cannot simulate again", 
     const state = place(snap(createDown()), "away-1", 38, 26.66666666665);
     const dead = stepDown(state, idle);
     expect(dead.result).toMatchObject({ reason: "tackle", yards: 0 });
-    expect(ticks(dead, 100)).toBe(dead);
+    expectOnlyClockMoved(ticks(dead, 100), dead);
     expect(snap(dead)).toBe(dead);
     expect(throwPass(dead, 1)).toBe(dead);
     const next = nextDown(dead);
@@ -87,7 +88,7 @@ it.each([{ x: 109.99, y: 26, reason: "touchdown", td: true }, { x: 50, y: 0.91, 
     const dead = stepDown(state, { ...idle, home: { x: reason === "safety" ? -1 : 1, y: reason === "out-of-bounds" ? -1 : 0 } });
     expect(dead.result?.reason).toBe(reason);
     expect(dead.result?.touchdown).toBe(td);
-    expect(ticks(dead, 3)).toBe(dead);
+    expectOnlyClockMoved(ticks(dead, 3), dead);
 });
 it("times out an abandoned play and deterministic replay has identical results", () => {
     const a = ticks(snap(createDown()), 1000), b = ticks(snap(createDown()), 1000);
@@ -114,15 +115,25 @@ it('checks the lower end zone for an away offense, scores it once and gives the 
     expect(scored.result?.reason).toBe('touchdown');
     expect(scored.result?.touchdown).toBe(true);
     expect(scored.score).toEqual({ home: 0, away: 6 });
-    expect(nextDown(scored).line).toBe(38);
-    expect(nextDown(scored).offense).toBe('home');
-    expect(nextDown(scored).score).toEqual({ home: 0, away: 6 });
+    const kick = nextDown(scored);
+    expect(kick).toMatchObject({ phase: 'kick', kick: { kind: 'xp', team: 'away' }, score: { home: 0, away: 6 } });
+    const after = nextDown(kickAtTick(kick, CENTRE));
+    expect(after).toMatchObject({ line: 38, offense: 'home', score: { home: 0, away: 7 } });
 });
-it('a pass led beyond the field is actually incomplete in an unmodified route', () => {
-    let live = isolated(snap(choosePlay(createDown(), 'go')));
-    live = { ...live, line: 108, players: live.players.map(p => p.id === 'home-3' ? { ...p, x: 119.1 } : p) };
-    const dead = ticks(throwPass(live, 1), 64);
-    expect(dead.result?.reason).toBe('incomplete');
+it('near either goal line a deep route ends in the end zone: the pass is catchable and scores, never thrown out of the field', () => {
+    for (const [team, line, x] of [['home', 105, 110], ['away', 15, 10]] as const) {
+        let live = isolated(snap(choosePlay(lineUp(team, line), 'go')));
+        live = place(live, `${team}-1` as PlayerId, line, 26.66666666665);
+        // Wait in the pocket until the receiver has run his route to the back of the end zone, then throw.
+        const air = throwPass(ticks(live, 100), 1);
+        if (air.ball.kind !== 'flight')
+            throw Error('flight');
+        expect(air.ball.to.x).toBeGreaterThan(0.9);
+        expect(air.ball.to.x).toBeLessThan(119.1);
+        const dead = ticks(air, 64);
+        expect(dead.result?.reason, `${team} from the ${line}`).toBe('touchdown');
+        expect(team === 'home' ? dead.players.find(p => p.id === 'home-3')!.x >= x : dead.players.find(p => p.id === 'away-3')!.x <= x).toBe(true);
+    }
 });
 it('AI decisions and contested catches do not depend on player array order', () => {
     const a = throwPass(isolated(snap(choosePlay(createDown(), 'go'))), 1);

@@ -53,6 +53,8 @@ jobs:
         run: npm --prefix arcade run typecheck
       - name: Arcade unit tests
         run: npm --prefix arcade test
+      - name: Arcade gameplay-balance tests
+        run: npm --prefix arcade run test:balance
       - name: Arcade standalone build
         run: npm --prefix arcade run build
       - name: Arcade browser tests
