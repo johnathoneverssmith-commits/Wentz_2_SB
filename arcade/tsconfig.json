@@ -12,5 +12,5 @@
       "react-dom/*": ["../ui-source/node_modules/@types/react-dom/*"]
     }
   },
-  "include": ["core", "browser", "tests", "e2e", "*.config.ts"]
+  "include": ["core", "browser", "tests", "balance", "e2e", "*.config.ts"]
 }

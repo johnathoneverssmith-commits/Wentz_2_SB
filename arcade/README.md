@@ -1,6 +1,6 @@
-# Backyard football — a short two-player drive game
+# Backyard football: a complete two-player game
 
-Milestone 3 of the isolated Wentz arcade track. Bluebirds and Foxes are fictional
+Milestone 4 of the isolated Wentz arcade track. Bluebirds and Foxes are fictional
 five-player teams. This module has no franchise imports, API, database or network
 play. It does not participate in the franchise production build. No dependencies,
 shared verification rules or GitHub workflows are changed by this milestone.
@@ -19,19 +19,42 @@ Open **http://127.0.0.1:5184**. The standalone server binds to loopback and refu
 an occupied port. Stop it with Ctrl+C. The existing root/UI lockfiles supply all
 tools; do not install packages inside `arcade/`.
 
-**The game.** Blue attacks right, orange attacks left (the direction flips with
-possession). The offense has **four downs to gain ten yards**: the gold line is the
-first-down marker, the HUD shows "2nd & 6.3" (or "Goal" inside the ten). Reaching the
-marker, judged on the yardage shown for the play, gives a fresh first down. Failing on
-fourth down (a short tackle, an incomplete pass) hands the ball to the other team
-**at the spot**. A **touchdown is worth six**; a **safety is worth two** to the defense.
-After a score the *other* team gets the ball at its own 28-yard line. Interceptions
-change possession at the interceptor's spot with no yards credited. There is no game
-clock, kicking, extra point, penalty or game end: a game is a series of drives, and
-**Restart** starts a new game at 0–0.
+**A game** is four 3-minute quarters. Bluebirds open with the ball; Foxes receive the
+second half. The leader at the end of regulation wins; a tie goes to overtime; the
+game ends on a **final-score screen with a Rematch button**.
 
-**Controls.** Each player keeps the same keys all game; the actions you need are on
-your own side of the keyboard:
+* **The clock** is hybrid and deterministic (one clock tick per 1/60-second simulation
+  tick). It runs during live play and, after a play ends, for at most **six game seconds**
+  (360 ticks) while the players choose and snap; then it **waits for the snap**, however
+  long that takes. The allowance belongs to the finished play: *Next down*, choosing a
+  play, switching defenders or pressing menu buttons never refill it, and it is part of
+  the save. It does not move while the game is paused, a kick is lined up or taken, in
+  overtime or after the final. A quarter is 180 s (10,800 ticks); if it reaches 0:00 while
+  players are choosing, the next snap starts the next period without a play. When it
+  reaches 0:00 during a play, the **play in progress finishes** (a touchdown still gets
+  its extra point); then the quarter ends. Q1 and Q3 end with the same team, spot and
+  down; the end of Q2 is halftime, which gives **Foxes the ball at their own 28**.
+  Estimated real duration of a regulation game: roughly 12-17 minutes (`npm --prefix arcade run balance`).
+* **Downs.** Four downs to gain ten yards: the gold line is the marker, the HUD shows
+  "2nd & 6.3" (or "Goal"), and a failed fourth down hands the ball to the other team at
+  the spot.
+* **Scoring.** Touchdown 6, **extra point 1**, **field goal 3**, safety 2 (to the
+  defense). After any score or kick the other team gets the ball at its own 28.
+* **Overtime** after a tied fourth quarter: each team gets one possession from its
+  own 28 (Foxes first), four-down rules and first downs apply, and the possession ends
+  on a score (touchdown plus point after, or a field goal), a turnover or a failed
+  fourth down. The score is compared after **both** possessions; a tie plays another
+  pair, and there is **no limit on rounds**: a game ends only when a winner is decided.
+* **Kicking.** A touchdown goes straight to the extra point (25 yards). Choose **Field
+  goal** in the play menu on any down from within 57 yards of the posts, then **Kick
+  field goal**. A **meter** swings by itself (a full swing is 100 ticks; after two swings
+  it locks where it is): press your kick key as it crosses the centre. A kick is good
+  when the marker is inside the green zone, and the zone is **wide for short kicks and
+  narrow for long ones**. It is deterministic: the same press at the same distance
+  always gives the same result. A miss gives the other team the ball where it was
+  snapped, never deeper than its own 20.
+
+**Controls.** Each player keeps the same keys all game:
 
 | | Blue (left hand) | Orange (right hand) |
 | --- | --- | --- |
@@ -39,48 +62,40 @@ your own side of the keyboard:
 | Pass to #3 / #4 (offense) | `Q` / `E` | `,` / `.` |
 | Switch defender (defense) | `F` | `/` |
 | Hands, to intercept (defense) | `R` | Right Shift |
+| Kick (extra point, field goal) | `G` | `'` |
 | Snap / Next down | `Enter` (either player) | |
 
-1. Choose **Handoff**, **Slants** or **Go routes**, then **Snap** (button or
-   `Enter`). On a handoff the running back #2 takes the ball; on a pass the QB #1 holds
-   it and #3/#4 run routes. Your control follows the carrier (QB, RB, or the receiver
-   after a catch); a white ring marks each human, gold marks the carrier.
-2. **Passing.** The ball flies for one second to the dashed landing circle. The
-   receivers run different routes (slants: #3 short, #4 a little deeper; go: #3 deep,
-   #4 slightly less), and one defender covers each. The ball is caught cleanly only if
-   the receiver is at the circle and no defender is within **2.2 yards** of it. A
-   defender inside **1.6 yards** intercepts; a defender between 1.6 and 2.2 breaks
-   the pass up (incomplete). A human defender intercepts only with **Hands** timed so
-   the 0.6-second window overlaps the arrival; without it he can only break the pass
-   up. Switching cancels the window. The covering AI defender holds his coverage for a
-   fraction of a second after the throw, then breaks on the ball; so throwing early
-   or choosing the receiver whose defender is farther from the landing circle matters,
-   and so does where your defender stands. No outcome is rolled: it is geometry and
-   timing at 1/60-second steps.
-3. **Blocking.** Two AI blockers (the QB and #5 on a handoff, the back #2 and #5 on a
-   pass) each take one of the defenders closest to the carrier and stand between him
-   and the carrier. A defender within **1.8 yards** of a blocker, human or AI, moves at
-   **40%** speed; a gold bar on the field joins each blocker to the defender he holds.
-   A carrier who runs behind a blocker gains yards; a blocked human defender can
-   switch to a free teammate.
-4. **Tackles and the end of a down.** Touch the carrier within **1.8 yards** to
-   tackle. Tackles, sidelines, touchdowns, interceptions, safeties, incomplete
-   passes and a 15-second play limit each end the down **once**. **Next down** /
-   `Enter` lines up the next snap (incomplete passes keep the spot).
-5. **Pause / Resume** freezes the whole simulation. **Restart** resets to a fresh game.
-   Snap, Next down, Restart and Pause clear held input. Changing windows or hiding
-   the page pauses; explicitly resume and press movement again. Click the field after
-   navigating controls to restore focus.
+1. Choose **Handoff**, **Slants**, **Go routes** or **Field goal**, then **Snap**. On a
+   handoff the running back #2 takes the ball; on a pass the QB #1 holds it and #3/#4
+   run routes. Your control follows the carrier; a white ring marks each human, gold
+   marks the carrier.
+2. **Passing.** The ball flies for one second to the dashed landing circle. Each route
+   has its own depth, and one defender covers each receiver. The ball is caught cleanly
+   only if the receiver is at the circle and no defender is within **2.2 yards** of it.
+   A defender inside **1.6 yards** intercepts; between 1.6 and 2.2 he breaks it up. A
+   human defender intercepts only with **Hands**, timed so the 0.6-second window overlaps
+   the arrival. The covering AI defender holds coverage for a fraction of a second after
+   the throw, then breaks on the ball, so **when you throw and to whom decides whether
+   the pass is open**: see the timing table in [PLAYTEST.md](PLAYTEST.md). Throwing at
+   once is one window; every route has others later in the play. No outcome is rolled.
+3. **Blocking.** Two AI blockers each take one of the closest defenders and stand
+   between him and the carrier; a defender within 1.8 yards of his own blocker moves at
+   40% speed.
+4. **Tackles and the end of a down.** Touch the carrier within **1.8 yards** to tackle.
+   Tackles, sidelines, touchdowns, interceptions, safeties, incompletions and a 15-second
+   play limit end the down **once**.
+5. **Pause / Resume** freezes the whole simulation. **Restart** and **Rematch** begin a
+   new game at 0-0. Changing windows or hiding the page pauses and clears input.
 
 **Saving.** Only **`wentz.arcade.down.v1`** in localStorage is read/written. The
-version-3 envelope holds the whole snapshot including the **score, down and marker**;
-reload restores a finished down exactly (the score is recorded once, when the play
-ends, never again by reload or Next down) and a live down reloads **paused**, even
-mid-flight. Version-1 and version-2 saves migrate: the completed-play count, a fresh
-1st down and marker are derived, and a finished touchdown or safety in an old save is
-scored once. Invalid saves start fresh. A storage-denied browser can still play, with a
-visible warning. Franchise saves and other keys are untouched. Open **Player
-positions** to compare all ten identities and coordinates with the saved snapshot.
+version-5 envelope holds the whole snapshot: quarter, clock, between-play allowance, score, down, marker, any
+kick in progress, the overtime possession count and the winner. A live play or a swinging
+kick **reloads paused**; a finished down, a kick that has been taken, overtime and the
+final screen reload exactly (a finished down or a wait for the snap reloads paused so the allowance does not run unseen), and nothing is scored, kicked or advanced twice. **Compatibility boundary:** the last deployed format is version 3 (Milestone 3); versions 1-3 migrate. Version 4 was never released and several unreleased builds wrote it with different clock units, so it is refused, not converted (the game starts fresh and shows a notice), as is any unknown version. Version 5 is current. Version 1-3
+saves migrate (an old drive becomes the first quarter of a new game with a full
+clock; a finished touchdown or safety is scored once; a finished touchdown still gets its
+extra point). Invalid or self-contradictory saves start fresh. A storage-denied browser can
+still play. Franchise saves and other keys are untouched.
 
 ## Verify
 
@@ -92,7 +107,7 @@ npm --prefix arcade run verify
 Linux machines missing libraries use `install --with-deps chromium`. Installed
 Chrome can be used locally via `E2E_BROWSER_CHANNEL=chrome` (PowerShell:
 `$env:E2E_BROWSER_CHANNEL='chrome'`). `verify` explicitly runs typecheck, all arcade
-unit tests, standalone production build and all arcade browser tests, failing at
+unit tests, the gameplay-balance tests (`npm --prefix arcade run test:balance`, also run by the Arcade workflow), standalone production build and all arcade browser tests, failing at
 the first failure. Individual scripts: `typecheck`, `test`, `build`, `e2e`.
 
 Playwright owns its temporary server, blocks service workers, refuses an existing
@@ -109,33 +124,31 @@ workflow's actual steps, counts and head separately.
 
 ## Code and regression boundaries
 
-- `core/simulation.ts`: readonly IDs, teams, arcade speed abilities, immutable
-  movement and field clamps. Gameplay supplies AI targets and per-player speed
-  scales (blocked defenders). Speed is `4 + rating / 20` yards/second.
-- `core/down.ts`: formations, play commands, routes, coverage and pursuit, blocking,
-  ball flight and the catch/intercept/break-up contest, contact, terminal rules,
-  downs, marker, scoring and the completed-play counter. No React, storage, browser
-  time or random generator. Commands are one-shot; movement advances at 1/60 s.
-  Terminal steps return the exact same snapshot and cannot award a second result.
-- `core/clock.ts`: fixed-step accumulator, pause and capped 100 ms catch-up.
-  Equal per-tick input at 30/60/144 ordinary rendering FPS produces equal state.
-- `browser/`: keyboard/lifecycle adapter, Canvas view, React HUD and versioned
-  arcade-only persistence with migration. No application test-state hooks.
-- `tests/`, `e2e/`: core rules (downs, scoring, pass contest boundaries, blocking),
-  snapshot round trips and migration, and real keyboard playthroughs. Browser tests
-  that need exact timing let Playwright control the clock while keyboard events,
-  React, animation frames and saving stay real; original real-time lifecycle tests
-  and wall-clock pass/rush playthroughs are kept.
+- `core/simulation.ts`: readonly IDs, teams, arcade speed abilities, immutable movement
+  and field clamps; per-player speed scales for blocked defenders.
+- `core/kick.ts`: the meter, the distance-dependent tolerance and the kick constants.
+- `core/down.ts`: formations, routes, coverage and pursuit, blocking, the pass contest,
+  tackles, downs, scoring, the game clock, quarters, halftime, kicks, overtime and the
+  final. No React, storage, browser time or random generator. Terminal steps return the
+  exact same snapshot and cannot award a second result.
+- `core/clock.ts`: fixed-step accumulator, pause and a 100 ms catch-up cap.
+- `browser/`: keyboard/lifecycle adapter, Canvas view (including the kick meter), React
+  HUD and versioned arcade-only persistence with migration.
+- `tests/`, `e2e/`: core rules and golden timing tables, save round trips and migration,
+  boundary tests for every radius, the clock and the kick meter, real keyboard
+  playthroughs, prepared-save tests for halftime, overtime and the final, and **a
+  complete real-browser game** in which both players attack and defend through four
+  quarters to the final screen.
 
-See [PLAYTEST.md](PLAYTEST.md) for reproducible demonstrations of player agency
-and the negative-control results.
+See [PLAYTEST.md](PLAYTEST.md) for the demonstrations of player agency, the measured
+numbers and the negative controls.
 
 ## Limits
 
-A local shared-keyboard game: no kicking, extra points, penalties, returns, game
-clock, end of game, touch controls, franchise roster import or network play. Blocking
-is two AI blockers and a slowdown, not a contest of strength. Catches resolve at the
-landing point, not along the flight path. The AI covers simply, so the gameplay is
-tuned, not calibrated: late throws into coverage are usually intercepted, and the
-offense mostly decides by play, target and timing. Keyboard rollover limits depend on
-the physical keyboard. Only Chromium is exercised by current CI.
+A local shared-keyboard game: no kickoffs, punts, onside kicks, two-point tries,
+penalties, injuries, substitutions, touch controls, franchise roster import or network
+play. Catches resolve at the landing point, not along the flight path. The AI covers
+simply, so the game is tuned, not calibrated: an attentive human defender who goes to
+the landing point and presses Hands intercepts most early throws. **Late deep passes** (the go route thrown late) are still the strongest offense against a defender who does not react to the ball, but a deep safety now stops most of them after a gain and can take the ball: about 57% of those drives score a touchdown rather than nearly all (see `PLAYTEST.md`). Two players who
+both play perfectly mirrored football could stay tied in overtime for as long as they like. Keyboard rollover limits depend on the physical keyboard. Only
+Chromium is exercised by current CI.

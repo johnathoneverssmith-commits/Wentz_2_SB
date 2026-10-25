@@ -1,5 +1,6 @@
 import { FIELD } from "../core/simulation";
 import { engagements, type DownState } from "../core/down";
+import { KICK_MAX_TICKS, kickTolerance, meterAt } from "../core/kick";
 const TEAMS = { home: { color: "#60b9ff", dark: "#174a81", name: "Bluebirds" }, away: { color: "#ffa763", dark: "#8c3c22", name: "Foxes" } };
 /** Rendering only; this module never advances gameplay or owns mutable match state. */
 export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: boolean): void {
@@ -74,7 +75,7 @@ export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: b
         ctx.fillStyle = "#fff9da";
         ctx.font = "bold 20px Arial";
         ctx.fillText("CHOOSE A PLAY · SNAP TO START", canvas.width / 2, 25);
-        if (state.play !== "rush")
+        if (state.play !== "rush" && state.play !== "fieldgoal")
             for (const p of state.players.filter(p => p.team === state.offense && (p.number === 3 || p.number === 4))) {
                 ctx.fillStyle = "#ffe2a2";
                 ctx.fillText(p.number === 3 ? "Q" : "E", x(p.x), y(p.y) - 22);
@@ -147,6 +148,8 @@ export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: b
         ctx.fillStyle = "#6d351f";
         ctx.fillRect(px - 3, py - 1, 6, 2);
     }
+    if (state.phase === "kick" && state.kick)
+        drawKick(ctx, canvas, state);
     if (state.phase === 'live' && state.contestUntil >= state.tick && state.contestUntil > 0) {
         const defender = state.players.find(p => p.id === state.defender)!;
         ctx.strokeStyle = '#ffffff';
@@ -162,4 +165,36 @@ export function drawField(canvas: HTMLCanvasElement, state: DownState, paused: b
         ctx.font = "bold 44px Georgia";
         ctx.fillText("Timeout", canvas.width / 2, canvas.height / 2);
     }
+}
+
+/** The accuracy meter: a bar with the good zone in green and a marker that swings; locked kicks show where they stopped. */
+function drawKick(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, state: DownState): void {
+    const k = state.kick!, cx = canvas.width / 2, cy = 300, half = 260, tol = kickTolerance(k.distance);
+    ctx.save();
+    ctx.fillStyle = "rgba(10,22,30,.78)";
+    ctx.fillRect(cx - half - 40, cy - 90, 2 * half + 80, 190);
+    ctx.fillStyle = "#fff9e5";
+    ctx.textAlign = "center";
+    ctx.font = "bold 22px Georgia";
+    ctx.fillText(`${k.kind === "xp" ? "EXTRA POINT" : "FIELD GOAL"} · ${k.distance} YARDS`, cx, cy - 55);
+    ctx.fillStyle = "#35495c";
+    ctx.fillRect(cx - half, cy - 14, 2 * half, 28);
+    ctx.fillStyle = "#3fae6a";
+    ctx.fillRect(cx - tol * half, cy - 14, 2 * tol * half, 28);
+    ctx.fillStyle = "#e9f6ee";
+    ctx.fillRect(cx - 2, cy - 22, 4, 44);
+    const at = k.lockedAt ?? k.ticks, pos = meterAt(at);
+    ctx.fillStyle = k.good === null ? "#ffe2a2" : k.good ? "#9bf0b8" : "#ff8a7a";
+    ctx.beginPath();
+    ctx.moveTo(cx + pos * half, cy - 24);
+    ctx.lineTo(cx + pos * half - 9, cy - 42);
+    ctx.lineTo(cx + pos * half + 9, cy - 42);
+    ctx.closePath();
+    ctx.fill();
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#e9f6ee";
+    ctx.fillText(k.good === null ? `Press ${k.team === "home" ? "G" : "'"} as the marker crosses the middle` : k.good ? "GOOD" : "NO GOOD", cx, cy + 62);
+    ctx.fillStyle = "#8aa0b6";
+    ctx.fillRect(cx - half, cy + 78, (2 * half * Math.min(1, at / KICK_MAX_TICKS)), 4);
+    ctx.restore();
 }

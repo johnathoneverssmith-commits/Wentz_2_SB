@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { DownState } from '../core/down';
+import { withoutClock } from './helpers';
 const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse(localStorage.getItem('wentz.arcade.down.v1')!).state);
 const field = (page: Page) => page.getByRole('img', { name: /Football field/ });
 test.beforeEach(async ({ page }) => {
@@ -23,7 +24,7 @@ test('a real handoff lets both humans move, tackle and begin the next down', asy
     expect(dead.result?.turnover).toBe(false);
     await expect(page.getByTestId('result')).toHaveText(`Bluebirds: ${dead.result!.yards.toFixed(1)} offensive yards · Turnover: No · Touchdown: No`);
     await page.waitForTimeout(150);
-    expect(await saved(page)).toEqual(dead);
+    expect(withoutClock(await saved(page))).toEqual(withoutClock(dead));
     await page.getByRole('button', { name: 'Next down', exact: true }).click();
     await expect(page.getByText('Play 2 · Bluebirds ball', { exact: false })).toBeVisible();
     const next = await saved(page);
@@ -102,9 +103,8 @@ test('wall-clock keyboard playthroughs complete, break up and intercept ordinary
         await page.getByLabel('Play', { exact: true }).selectOption('slants');
         await page.getByRole('button', { name: 'Snap', exact: true }).click();
         if (outcome !== 'complete') {
-            // The landing point is up and to the left of Orange #1.
+            // The landing point is above Orange #1.
             await page.keyboard.down('ArrowUp');
-            await page.keyboard.down('ArrowLeft');
         }
         await page.keyboard.press('KeyQ');
         if (outcome === 'interception') {
@@ -112,9 +112,8 @@ test('wall-clock keyboard playthroughs complete, break up and intercept ordinary
             await page.keyboard.press('ShiftRight');
         }
         if (outcome !== 'complete') {
-            await expect.poll(async () => (await saved(page)).players.find(p => p.id === 'away-1')!.y, { intervals: [25] }).toBeLessThanOrEqual(23.4);
+            await expect.poll(async () => (await saved(page)).players.find(p => p.id === 'away-1')!.y, { intervals: [25] }).toBeLessThanOrEqual(23.2);
             await page.keyboard.up('ArrowUp');
-            await page.keyboard.up('ArrowLeft');
         }
         await expect.poll(async () => (await saved(page)).ball.kind, { intervals: [25] }).toBe('held');
         const final = await saved(page);

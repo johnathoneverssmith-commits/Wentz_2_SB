@@ -1,9 +1,12 @@
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { advance, createClock } from '../core/clock';
-import { choosePlay, snap, nextDown, switchDefender, throwPass, contestPass, opposite, situation, SAFETY_POINTS, TOUCHDOWN_POINTS, type DownState, type Play } from '../core/down';
+import { choosePlay, snap, nextDown, switchDefender, throwPass, contestPass, kickBall, clockText, fieldGoalInRange, opposite, situation, SAFETY_POINTS, TOUCHDOWN_POINTS, type DownState, type Play } from '../core/down';
+import { EXTRA_POINT_POINTS, FIELD_GOAL_POINTS } from '../core/kick';
 import type { Inputs } from '../core/simulation';
-import { SAVE_KEY, encodeSave, decodeSave } from './save';
+import { SAVE_KEY, encodeSave, decodeSave, isUnsupportedSave } from './save';
+/** Set when the stored save is an unreleased format this build will not read: the game starts fresh and says so. */
+let discardedSave = false;
 import { drawField } from './field';
 import './style.css';
 const names = { home: 'Bluebirds', away: 'Foxes' };
@@ -11,8 +14,10 @@ const ordinal = (n: number) => ['1st', '2nd', '3rd', '4th'][n - 1] ?? `${n}th`;
 function initialClock() {
     const fresh = createClock();
     try {
-        const saved = decodeSave(localStorage.getItem(SAVE_KEY));
-        return saved ? { ...fresh, match: saved, paused: saved.phase === 'live' } : fresh;
+        const stored = localStorage.getItem(SAVE_KEY);
+        const saved = decodeSave(stored);
+        discardedSave = !saved && isUnsupportedSave(stored);
+        return saved ? { ...fresh, match: saved, paused: saved.phase === 'live' || (saved.phase === 'kick' && saved.kick?.good === null) || ((saved.phase === 'dead' || saved.phase === 'pre-snap') && saved.mode === 'regulation' && saved.gap > 0 && saved.clock > 0) } : fresh;
     }
     catch {
         return fresh;
@@ -62,6 +67,7 @@ function Sandbox() {
             Comma: s => throwPass(s, 1, 'away'), Period: s => throwPass(s, 2, 'away'),
             KeyF: s => switchDefender(s, 'home'), Slash: s => switchDefender(s, 'away'),
             KeyR: s => contestPass(s, 'home'), ShiftRight: s => contestPass(s, 'away'),
+            KeyG: s => kickBall(s, 'home'), Quote: s => kickBall(s, 'away'),
         };
         const actionKeys = new Set(['Enter', ...Object.keys(actions)]);
         const keydown = (e: KeyboardEvent) => {
@@ -75,8 +81,11 @@ function Sandbox() {
             if (movementKeys.has(e.code))
                 keys.current.add(e.code);
             else if (e.code === 'Enter') {
-                if (current().match.phase !== 'live')
-                    command(current().match.phase === 'dead' ? nextDown : snap, true);
+                const phase = current().match.phase;
+                if (phase === 'pre-snap')
+                    command(snap, true);
+                else if (phase === 'dead' || (phase === 'kick' && current().match.kick?.good !== null))
+                    command(nextDown, true);
             }
             else
                 command(actions[e.code]!);
@@ -110,34 +119,46 @@ function Sandbox() {
         frame = requestAnimationFrame(animate);
         return () => { cancelAnimationFrame(frame); clearInput(); window.removeEventListener('keydown', keydown); window.removeEventListener('keyup', keyup); window.removeEventListener('blur', pause); document.removeEventListener('visibilitychange', hidden); };
     }, []);
-    const state = view.match, result = state.result, sit = situation(state), preview = state.phase === 'dead' ? nextDown(state) : null;
-    const headline = !result ? 'Choose your play' : result.touchdown ? `Touchdown! ${names[state.offense]} +${TOUCHDOWN_POINTS}` : result.reason === 'safety' ? `Safety! ${names[opposite(state.offense)]} +${SAFETY_POINTS}` : result.reason === 'interception' ? 'Intercepted!' : result.turnoverOnDowns ? 'Turnover on downs' : result.firstDown ? 'First down!' : result.reason === 'incomplete' ? 'Incomplete pass' : `Play ended: ${result.reason}`;
+    const state = view.match, result = state.result, sit = situation(state), kick = state.kick;
+    const kickDone = state.phase === 'kick' && kick?.good !== null;
+    const preview = state.phase === 'dead' || kickDone ? nextDown(state) : null;
+    const down = (d: DownState) => `${ordinal(d.down)} & ${situation(d).goalToGo ? 'Goal' : situation(d).toGo.toFixed(1)}`;
+    const periodName = (d: DownState) => d.mode === 'overtime' ? 'Overtime' : `Q${d.quarter}`;
+    const kickHeadline = !kick ? '' : kick.good === null ? `${kick.kind === 'xp' ? 'Extra point' : 'Field goal'} — ${names[kick.team]}: stop the meter in the green` : kick.good ? (kick.kind === 'xp' ? `Extra point is good! ${names[kick.team]} +${EXTRA_POINT_POINTS}` : `Field goal is good! ${names[kick.team]} +${FIELD_GOAL_POINTS}`) : (kick.kind === 'xp' ? 'Extra point is no good' : 'Field goal is no good');
+    const headline = state.phase === 'final' ? `Final: ${names[state.winner as 'home' | 'away']} win` : state.phase === 'kick' ? kickHeadline : !result ? 'Choose your play' : result.touchdown ? `Touchdown! ${names[state.offense]} +${TOUCHDOWN_POINTS}` : result.reason === 'safety' ? `Safety! ${names[opposite(state.offense)]} +${SAFETY_POINTS}` : result.reason === 'interception' ? 'Intercepted!' : result.turnoverOnDowns ? 'Turnover on downs' : result.firstDown ? 'First down!' : result.reason === 'incomplete' ? 'Incomplete pass' : `Play ended: ${result.reason}`;
+    const waiting = (state.phase === 'pre-snap' || state.phase === 'dead') && state.mode === 'regulation';
+    const clockNote = state.expired ? (state.phase === 'pre-snap' ? 'Time: the next snap ends the quarter' : state.quarter === 2 ? 'Time: halftime follows this play' : state.quarter === 4 ? 'Time: the game ends after this play' : 'Time: the quarter ends after this play') : waiting ? (state.gap > 0 ? `Clock running: ${Math.ceil(state.gap / 60)} s of between-play time left` : 'Clock stopped until the snap') : '';
+    const detail = state.phase === 'kick' ? (kick!.good === null ? `${kick!.distance}-yard attempt · ${names[kick!.team]} press ${kick!.team === 'home' ? 'G' : "'"} to kick` : `${kick!.distance}-yard attempt · meter locked at ${kick!.lockedAt} of ${kick!.good ? 'a good window' : 'a missed window'}`) : state.phase === 'final' ? `${names.home} ${state.score.home} – ${state.score.away} ${names.away}` : result ? `${names[state.offense]}: ${result.yards.toFixed(1)} offensive yards · Turnover: ${result.turnover || result.turnoverOnDowns ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`;
+    const nextLine = !preview ? '' : preview.phase === 'final' ? `Final: ${`${names[preview.winner as 'home' | 'away']} win`}` : preview.phase === 'kick' ? `Next: ${names[preview.kick!.team]} kick the extra point` : `Next: ${names[preview.offense]} ball, ${down(preview)}${preview.mode !== state.mode ? ' · overtime begins' : preview.quarter !== state.quarter ? ` · ${preview.quarter === 3 ? 'second half' : `Q${preview.quarter}`} begins` : ''}`;
+    const kicking = state.phase === 'kick', over = state.phase === 'final';
     return <main>
-  <header><div><p className="series">Wentz 2 SB / Arcade lab</p><h1>Backyard football</h1><p className="intro">Two players. One keyboard. One playable down.</p></div><div className="actions"><button onClick={togglePause}>{view.paused ? 'Resume' : 'Pause'}</button><button className="secondary" onClick={restart}>Restart</button></div></header>
-  <section className="stadium" aria-label="Playable football down">
-   <div className="scoreboard"><div className="team blue"><span className="swatch"/>Bluebirds <b data-testid="score-home" className="points">{state.score.home}</b> <small>Player 1 · WASD</small></div><div className="drill"><strong data-testid="situation">{ordinal(state.down)} &amp; {sit.goalToGo ? 'Goal' : sit.toGo.toFixed(1)}</strong><small>Play {state.playNumber} · {names[state.offense]} ball</small><span data-testid="phase">{view.paused ? 'Paused' : state.phase === 'pre-snap' ? 'Pre-snap' : state.phase === 'live' ? 'Live play' : 'Play complete'}</span></div><div className="team orange">Foxes <b data-testid="score-away" className="points">{state.score.away}</b> <span className="swatch"/><small>Player 2 · Arrow keys</small></div></div>
+  <header><div><p className="series">Wentz 2 SB / Arcade lab</p><h1>Backyard football</h1><p className="intro">Two players. One keyboard. Four quarters, a kicker and a winner.</p></div><div className="actions"><button onClick={togglePause} disabled={over}>{view.paused ? 'Resume' : 'Pause'}</button><button className="secondary" onClick={restart}>Restart</button></div></header>
+  <section className="stadium" aria-label="Playable football game">
+   <div className="scoreboard"><div className="team blue"><span className="swatch"/>Bluebirds <b data-testid="score-home" className="points">{state.score.home}</b> <small>Player 1 · WASD</small></div><div className="drill"><strong data-testid="period">{periodName(state)}{state.mode === 'regulation' ? <> · <span data-testid="clock">{clockText(state.clock)}</span></> : null}</strong><span data-testid="situation">{over ? 'Final' : kicking ? (kick!.kind === 'xp' ? 'Extra point' : 'Field goal') : down(state)}</span><small><span data-testid="phase">{view.paused ? 'Paused' : state.phase === 'pre-snap' ? 'Pre-snap' : state.phase === 'live' ? 'Live play' : state.phase === 'kick' ? 'Kicking' : state.phase === 'final' ? 'Game over' : 'Play complete'}</span> · Play {state.playNumber} · {names[state.offense]} ball</small></div><div className="team orange">Foxes <b data-testid="score-away" className="points">{state.score.away}</b> <span className="swatch"/><small>Player 2 · Arrow keys</small></div></div>
    <canvas ref={canvas} width={1200} height={560} tabIndex={0} role="img" aria-label="Football field with ten numbered players; white rings mark human players and a gold ring marks the ball carrier" onClick={() => canvas.current?.focus()}/>
-   <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · #${state.possession.carrier.split('-')[1]}`}</span><span>{state.phase === 'dead' ? `Next offense: ${names[state.result?.turnover ? opposite(state.offense) : state.offense]}` : `Defense: ${names[opposite(state.offense)]} #${state.defender.split('-')[1]} · ${state.offense === 'home' ? 'Attack →' : '← Attack'}`}</span></div>
+   <div className="field-footer"><span><span className="ball"/>{names[state.possession.team]} possession{state.ball.kind === 'flight' ? ' · Ball in flight' : ` · #${state.possession.carrier.split('-')[1]}`}</span><span>{state.phase === 'dead' || kickDone ? `Next offense: ${names[preview!.offense]}` : kicking || over ? clockNote : `Defense: ${names[opposite(state.offense)]} #${state.defender.split('-')[1]} · ${state.offense === 'home' ? 'Attack →' : '← Attack'}`}</span></div>
   </section>
+  {over && <section className="final" data-testid="final" role="alert"><h2 data-testid="final-headline">{headline}</h2><p data-testid="final-score">{names.home} {state.score.home} – {state.score.away} {names.away}</p><button onClick={restart}>Rematch</button></section>}
   <section className="play-controls" aria-label="Play controls">
-   <label>Play <select aria-label="Play" value={state.play} disabled={state.phase !== 'pre-snap' || view.paused} onChange={e => command(s => choosePlay(s, e.target.value as Play))}><option value="rush">Handoff</option><option value="slants">Slants</option><option value="go">Go routes</option></select></label>
-   <button disabled={view.paused || state.phase !== 'pre-snap'} onClick={() => command(snap, true)}>Snap</button>
+   <label>Play <select aria-label="Play" value={state.play} disabled={state.phase !== 'pre-snap' || view.paused} onChange={e => command(s => choosePlay(s, e.target.value as Play))}><option value="rush">Handoff</option><option value="slants">Slants</option><option value="go">Go routes</option><option value="fieldgoal" disabled={state.phase === 'pre-snap' && !fieldGoalInRange(state)}>Field goal</option></select></label>
+   <button disabled={view.paused || state.phase !== 'pre-snap'} onClick={() => command(snap, true)}>{state.play === 'fieldgoal' ? 'Kick field goal' : 'Snap'}</button>
+   <button disabled={view.paused || !kicking || kick!.good !== null} onClick={() => command(s => kickBall(s, s.kick!.team))}>Kick ({kick?.team === 'away' ? "'" : 'G'})</button>
    <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 1))}>Pass to #3 ({state.offense === 'home' ? 'Q' : ','})</button>
    <button disabled={view.paused || state.phase !== 'live' || state.play === 'rush' || state.ball.kind === 'flight' || !state.possession.carrier.endsWith('-1')} onClick={() => command(s => throwPass(s, 2))}>Pass to #4 ({state.offense === 'home' ? 'E' : '.'})</button>
-   <button disabled={view.paused || state.phase === 'dead'} onClick={() => command(switchDefender)}>Switch defender ({state.offense === 'home' ? '/' : 'F'})</button>
+   <button disabled={view.paused || (state.phase !== 'live' && state.phase !== 'pre-snap')} onClick={() => command(switchDefender)}>Switch defender ({state.offense === 'home' ? '/' : 'F'})</button>
    <button disabled={view.paused || state.phase !== 'live' || state.ball.kind !== 'flight'} onClick={() => command(s => contestPass(s, opposite(s.offense)))}>Hands ({state.offense === 'home' ? 'Right Shift' : 'R'})</button>
-   <button disabled={view.paused || state.phase !== 'dead'} onClick={() => command(nextDown, true)}>Next down</button>
+   <button disabled={view.paused || !(state.phase === 'dead' || kickDone)} onClick={() => command(nextDown, true)}>Next down</button>
   </section>
   <p data-testid="terminal-count">Completed plays: {state.terminalCount}</p>
-  <section className="result" aria-live="polite"><h2 data-testid="headline">{headline}</h2><p data-testid="result">{result ? `${names[state.offense]}: ${result.yards.toFixed(1)} offensive yards · Turnover: ${result.turnover || result.turnoverOnDowns ? 'Yes' : 'No'} · Touchdown: ${result.touchdown ? 'Yes' : 'No'}` : `Snap to begin. ${names[state.offense]} attacks ${state.offense === 'home' ? 'right' : 'left'}.`}</p>{preview && <p data-testid="next-situation">Next: {names[preview.offense]} ball, {ordinal(preview.down)} &amp; {situation(preview).goalToGo ? 'Goal' : situation(preview).toGo.toFixed(1)}</p>}</section>
+  <section className="result" aria-live="polite"><h2 data-testid="headline">{headline}</h2><p data-testid="result">{detail}</p>{discardedSave && <p data-testid="save-notice">An earlier test version of this game saved in a format this version cannot read, so a new game was started.</p>}{clockNote && !over && <p data-testid="clock-note">{clockNote}</p>}{nextLine && <p data-testid="next-situation">{nextLine}</p>}</section>
   {storageWarning && <p role="status">Arcade saving is unavailable. You can continue playing without a save.</p>}
-  <section className="instructions" aria-label="How to play"><h2>Position. Time your hands.</h2>
-    <p>Blue: <kbd>WASD</kbd> move, <kbd>Q / E</kbd> pass on offense, <kbd>F</kbd> switch and <kbd>R</kbd> hands on defense. Orange: arrow keys move, <kbd>, / .</kbd> pass on offense, <kbd>/</kbd> switch and <kbd>Right Shift</kbd> hands on defense. Each player keeps their keys after a turnover. Snap / Next down: <kbd>Enter</kbd>.</p>
-    <p>The landing circle shows where the one-second pass will arrive. Move a defender there to break it up. Press Hands near arrival (a 0.6-second window) and be within the smaller catch radius to intercept. Early hands expire; switching cancels the window. AI covers receivers before a throw, contests the landing point in flight and pursues a carrier after a catch. Touch the carrier to tackle.</p>
-    <p>White rings = human control; gold = carrier. Interceptions end immediately and award zero offensive yards; possession changes for the next down. This is a practice loop without first downs, four-down limits, blocking or a scoreboard. A play ends after 15 seconds. Losing focus pauses and clears input; click the field to restore keyboard focus.</p>
+  <section className="instructions" aria-label="How to play"><h2>Win the game.</h2>
+    <p>Four 3-minute quarters. The game clock runs during live plays and for at most six seconds after a play ends while you choose and snap; then it waits for the snap. It stops while a kick is lined up or the game is paused, and it is simulation time, not wall-clock time. A play in progress always finishes; the quarter then ends, halftime gives Orange the ball, and a tie goes to overtime: each team gets a possession from its own 28, first downs extend it, and the score is compared after both. Touchdown 6, extra point 1, field goal 3, safety 2.</p>
+    <p>Blue: <kbd>WASD</kbd> move, <kbd>Q / E</kbd> pass, <kbd>F</kbd> switch and <kbd>R</kbd> hands on defense, <kbd>G</kbd> kick. Orange: arrow keys move, <kbd>, / .</kbd> pass, <kbd>/</kbd> switch and <kbd>Right Shift</kbd> hands, <kbd>'</kbd> kick. <kbd>Enter</kbd> snaps and starts the next down. Choose <b>Field goal</b> in the play menu when the kick is in range (up to 57 yards); a touchdown goes straight to the extra point.</p>
+    <p>The kick meter swings by itself: press your kick key as it crosses the centre. The green zone is the margin that counts; it is wide for an extra point and narrow for a long field goal. The landing circle shows where a pass will arrive; break it up by standing there and intercept by pressing Hands as it lands. Blockers hold the closest defenders.</p>
   </section>
   <details><summary>Player positions <span>yards from the left end and upper sideline</span></summary><table><thead><tr><th>Player</th><th>Control</th><th>X</th><th>Y</th></tr></thead><tbody>{state.players.map(p => <tr key={p.id}><th>{names[p.team]} #{p.number}</th><td>{p.human ? 'Human' : 'AI'}</td><td data-testid={`${p.id}-x`}>{p.x.toFixed(2)}</td><td data-testid={`${p.id}-y`}>{p.y.toFixed(2)}</td></tr>)}</tbody></table></details>
-  <footer>Local practice <span>Only an arcade save. No franchise data. No server connection.</span></footer>
+  <footer>Local game <span>Only an arcade save. No franchise data. No server connection.</span></footer>
  </main>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><Sandbox /></StrictMode>);
