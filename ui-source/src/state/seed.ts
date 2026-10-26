@@ -845,9 +845,15 @@ function trimToLegalRoster(
   while (used > target() && roster.length > 0 && guard-- > 0) {
     const dearest = (pool: Player[]): Player =>
       pool.reduce((a, b) => (netFreed(b) > netFreed(a) ? b : a));
-    /** Only a contract is worth cutting for cap; minimum deals free nothing. */
+    /**
+     * Only a contract that opens real room is worth cutting for cap: a minimum deal frees nothing, and a CPU
+     * team's release that frees no more than the minimum its spot is refilled with (net of the dead money it
+     * leaves) just trades a player for dead money. Filtering each rung rather than stopping at the first
+     * unproductive best cut lets a later rung (a replaceable starter) offer an honest release. A person's
+     * team pays no dead money here, so for them this is the same "cap hit above the minimum" test as before.
+     */
     const onRealMoney = (pool: Player[]): Player[] =>
-      pool.filter((p) => capHitOf(p) > MIN_SALARY_M);
+      pool.filter((p) => netFreed(p) > MIN_SALARY_M);
 
     // Three tiers, and the order is the whole point of this pass.
     //
@@ -888,22 +894,21 @@ function trimToLegalRoster(
       if (pool.length > 0) break;
     }
     if (pool.length === 0) break; // nothing left to shed
-    const next = dearest(pool);
-    // A release opens room only if it frees more than the minimum deal its roster spot is refilled with (the
-    // budget above already holds that back): a cut that frees less just trades a player for dead money.
-    if (cpu && netFreed(next) <= MIN_SALARY_M) break;
-    used -= drop(next);
+    used -= drop(dearest(pool));
   }
 
   // Last resort, for a CPU team that is still over the hard cap after every release a GM could make (it has
   // nothing left that frees more than it costs): the rest is cut with no dead money, never its best player at a
   // position, so the league does not carry an illegal roster. It stands for the restructuring and trades a real
   // front office would use, which this game does not model, and every one is counted (`cpuEmergencyReleases`).
-  if (cpu && used > capTotal) {
+  // The target is `limit()`, not the raw cap: each cut opens a spot the fill refills at the minimum, so stopping at
+  // the cap would put the team straight back over it once the depth arrives. A cut frees its cap hit less that
+  // minimum, so only a contract above the minimum helps.
+  if (cpu && used > limit()) {
     const core = coreIds();
     let lastResort = ROSTER_SIZE;
-    while (used > capTotal && lastResort-- > 0) {
-      const pool = roster.filter((p) => !core.has(p.id) && capHitOf(p) > 0);
+    while (used > limit() && lastResort-- > 0) {
+      const pool = roster.filter((p) => !core.has(p.id) && capHitOf(p) > MIN_SALARY_M);
       if (pool.length === 0) break;
       const next = pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
       used -= capHitOf(next);

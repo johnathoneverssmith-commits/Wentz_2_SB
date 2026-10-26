@@ -220,6 +220,47 @@ describe("the reconciliation trim", () => {
     expect(cpuEmergencyReleases).toBeGreaterThan(0);
     expect(capUsedOf(s, code)).toBeLessThanOrEqual(s.teams[code]!.cap.total);
   });
+
+  /** every contract at the minimum, so nothing but what a test sets is worth a cut */
+  function minimumDeals(s: LeagueState, code: string): void {
+    for (const p of rosterOf(s, code)) {
+      p.contract!.cap_hit_by_year = [1, 1, 1, 1];
+      p.contract!.years_remaining = 1;
+      delete p.contract!.prorated_per_year;
+    }
+  }
+  const sorted = (s: LeagueState, code: string, pos: string): Player[] => rosterOf(s, code).filter((p) => p.position === pos).sort((a, b) => b.overall - a.overall);
+
+  it("tries the next tier when the paid backups free nothing: a replaceable starter whose release pays is cut, not an emergency release (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 5);
+    minimumDeals(s, code);
+    const qb3 = sorted(s, code, "QB")[2]!, wr2 = sorted(s, code, "WR")[1]!;
+    // a paid backup whose release saves only $0.4M (he is not worth the dead money), and a replaceable starter whose release saves far more
+    Object.assign(qb3.contract!, { cap_hit_by_year: [1.5, 1.5, 1.5, 1.5], years_remaining: 4 });
+    Object.assign(wr2.contract!, { cap_hit_by_year: [20], years_remaining: 1 });
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 5;
+    resetCpuEmergencyReleases();
+    trimRosters(s);
+    expect(cpuEmergencyReleases, "an honest release was available, so nobody is cut for nothing").toBe(0);
+    expect(s.players[wr2.id]!.free_agent, "the starter whose release pays is the one who goes").toBe(true);
+    expect(s.teams[code]!.cap.dead, "and he is charged like any release").toBeGreaterThan(0);
+    expect(s.players[qb3.id]!.free_agent, "the backup whose release saves nothing stays").toBe(false);
+  });
+
+  it("an emergency release leaves room for the minimum deals that refill its roster spots: the filled roster is under the cap (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 5);
+    for (const p of rosterOf(s, code)) {
+      p.contract!.cap_hit_by_year = [1.5, 1.5, 1.5, 1.5];
+      p.contract!.years_remaining = 4;
+      delete p.contract!.prorated_per_year;
+    }
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 5;
+    resetCpuEmergencyReleases();
+    fillRosterGaps(s);
+    expect(cpuEmergencyReleases).toBeGreaterThan(0);
+    expect(rosterOf(s, code).length, "the vacancies are refilled").toBe(53);
+    expect(capUsedOf(s, code), "and refilling does not put the team back over the cap").toBeLessThanOrEqual(s.teams[code]!.cap.total + 1e-6);
+  });
 });
 
 describe("a CPU team's offers in the free-agency market", () => {
