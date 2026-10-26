@@ -138,8 +138,9 @@ export interface GameRecord { readonly seed: number; readonly home: number; read
 export function runGames(spec: GameSpec): GameRecord[] {
     const opts = spec.opts ?? DEFAULTS;
     return spec.seeds.map(seed => {
-        const mk = (s: Strategy, defense: DefensePolicy, side: string): { off: OffensePolicy; def: DefensePolicy } => ({ off: s.make(driveSeed(seed, side, 0), { defense, opts }), def: defense });
-        const g = game(mk(spec.home, spec.homeDefense, 'home'), mk(spec.away, spec.awayDefense, 'away'), opts);
+        // A team's own defense is the one it plays; its offense faces the OTHER team's defense, which is what a searching strategy must be shown.
+        const mk = (s: Strategy, own: DefensePolicy, facing: DefensePolicy, side: string): { off: OffensePolicy; def: DefensePolicy } => ({ off: s.make(driveSeed(seed, side, 0), { defense: facing, opts }), def: own });
+        const g = game(mk(spec.home, spec.homeDefense, spec.awayDefense, 'home'), mk(spec.away, spec.awayDefense, spec.homeDefense, 'away'), opts);
         return { seed, home: g.score.home, away: g.score.away, points: g.score.home + g.score.away, plays: g.stats.plays, ended: g.ended };
     });
 }

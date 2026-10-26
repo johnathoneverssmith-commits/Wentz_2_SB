@@ -34,7 +34,8 @@ export interface ThrowSpec {
     readonly from?: DownState;
     /**
      * Stop when the ball arrives instead of playing the play out: the catch, break-up or interception is decided there, so this is
-     * about twice as fast. The yards are then the distance to the landing point (an estimate, marked by `exact: false`).
+     * about twice as fast. The yards are then the signed distance to the landing point (an estimate, marked by `exact: false`): a catch
+     * behind the line of scrimmage is a loss, as it is on the full play.
      */
     readonly stopAtArrival?: boolean;
 }
@@ -106,7 +107,7 @@ export function throwOnce(spec: ThrowSpec): ThrowRecord {
     const rAb = player(s, base).abilities;
     const dAb = thrown ? player(s, nearest).abilities : rAb;
     const dir = team === 'home' ? 1 : -1, exact = !spec.stopAtArrival;
-    const gain = Math.max(0, Math.round((landing.x - line) * dir * 10) / 10), inEndZone = dir === 1 ? landing.x >= 110 : landing.x <= 10;
+    const gain = Math.round((landing.x - line) * dir * 10) / 10, inEndZone = dir === 1 ? landing.x >= 110 : landing.x <= 10;
     return {
         play, target, receiver: base, team, line, playNumber, defense, throwTick, outcome, exact,
         touchdown: exact ? !!s.result?.touchdown : outcome === 'complete' && inEndZone,

@@ -36,7 +36,7 @@ ignores seeds (it makes the same choices every time) and runs once per start.
 * **short specialist**: only slants, to any receiver, at a random moment in ticks 12-110.
 * **balanced**: 30% runs, 35% slants, 35% go; any receiver; a random moment in ticks 12-140.
 * **timing-aware**: waits until a receiver is *free* (nobody downfield of him in his lane and at least 2 yd of room), then throws to the most open one; gives up at 2.5 s. This models a person reading the defense.
-* **best response**: from the real pre-snap situation, tries every pass play, receiver and throw moment (every 8 ticks, then the neighbouring ticks of the best) against the defense it will face and plays the highest-valued throw (touchdown 100, yards for a catch, -3 incomplete, -60 interception). It sees the whole deterministic engine, so it is an **upper bound**: if it finds a window that scores nearly every time, a practiced person will too.
+* **best response**: from the real pre-snap situation, tries every pass play, receiver and throw moment (every 8 ticks, then the neighbouring ticks of the best) against the defense it will face and plays the highest-valued throw (touchdown 100, the signed yards for a catch, 0 for an incompletion, -60 for an interception). It sees the whole deterministic engine, so it is an **upper bound**: if it finds a window that scores nearly every time, a practiced person will too.
 
 Defenses are the existing human-defender models: `idle`, `chase`, `attentive` (goes to the landing circle and presses Hands) and `cover` (shadows the first receiver, then ball and Hands). The ten other defenders are always the AI.
 

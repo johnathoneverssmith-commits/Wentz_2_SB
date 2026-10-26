@@ -7,9 +7,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { choosePlay, lineUp, snap, stepDown, throwPass, type DownState, type Play } from '../core/down';
 import type { Inputs, PlayerId } from '../core/simulation';
 import { KNOWN_IMBALANCES, gatherEvidence, type Evidence } from './imbalances';
-import { cells, dominance, readBenchmarks, runMatrix, summarizeCell, type DriveRecord } from './matrix';
+import { cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type DriveRecord } from './matrix';
 import { hashSeed } from './rng';
-import { BALANCED, BEST_RESPONSE, DEEP, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, throwValue } from './strategies';
+import { BALANCED, BEST_RESPONSE, DEEP, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, throwValue, type Strategy } from './strategies';
 import { byDistance, byRoute, byTiming, rates, sweep, targetCode, throwOnce, tickRange, windowMap, type Target, type ThrowRecord } from './window';
 
 const Z = { x: 0, y: 0 }, IDLE: Inputs = { home: Z, away: Z };
@@ -176,11 +176,25 @@ describe('the strategies do what they say', () => {
         expect(throwValue(throwOnce({ play: best.play, target: best.target, throwTick: best.tick, from: pre, stopAtArrival: true }))).toBe(best.value);
         expect(best.value).toBeGreaterThan(0);
     });
-    it('throw values rank a touchdown above a gain above an incompletion above an interception', () => {
+    it('throw values rank a touchdown above a gain above an incompletion above a loss above an interception', () => {
         const mk = (o: Partial<ThrowRecord>) => ({ outcome: 'complete', touchdown: false, yards: 0, ...o }) as ThrowRecord;
         expect(throwValue(mk({ touchdown: true }))).toBeGreaterThan(throwValue(mk({ yards: 40 })));
         expect(throwValue(mk({ yards: 5 }))).toBeGreaterThan(throwValue(mk({ outcome: 'incomplete' })));
-        expect(throwValue(mk({ outcome: 'incomplete' }))).toBeGreaterThan(throwValue(mk({ outcome: 'interception' })));
+        // a catch that loses ground is worse than an incompletion, which keeps the field position
+        expect(throwValue(mk({ outcome: 'incomplete' }))).toBeGreaterThan(throwValue(mk({ yards: -2 })));
+        expect(throwValue(mk({ yards: -2 }))).toBeGreaterThan(throwValue(mk({ outcome: 'interception' })));
+    });
+    it('a quick measurement keeps the sign of a catch behind the line, as the full play does', () => {
+        // the tight end's slants catch, thrown late, lands behind the line of scrimmage today
+        const quick = throwOnce({ play: 'slants', target: 3, throwTick: 200, stopAtArrival: true }), full = throwOnce({ play: 'slants', target: 3, throwTick: 200 });
+        expect(quick.outcome).toBe('complete'); expect(full.outcome).toBe('complete');
+        expect(quick.yards).toBeLessThan(0); expect(quick.yards).toBeGreaterThan(-quick.airYards);
+    });
+    it('in a game each offense is shown the defense it will face, not the one its own team plays', () => {
+        const seen: Record<string, string> = {};
+        const spy = (label: string): Strategy => ({ ...DEEP, id: label, make: (seed, c) => { seen[label] = c.defense; return DEEP.make(seed, c); } });
+        runGames({ home: spy('home'), away: spy('away'), homeDefense: 'idle', awayDefense: 'cover', seeds: [1] });
+        expect(seen).toEqual({ home: 'cover', away: 'idle' });
     });
     it('lists every strategy once, by a unique id', () => { expect(new Set(STRATEGIES.map(x => x.id)).size).toBe(STRATEGIES.length); expect(STRATEGIES.map(x => x.id)).toEqual(['deep', 'short', 'balanced', 'timing', 'best']); });
 });

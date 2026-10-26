@@ -79,8 +79,8 @@ export const TIMING_AWARE: Strategy = {
     },
 };
 
-/** What the best response is trying to maximise: touchdowns, then yards; interceptions and incompletions cost. */
-export const throwValue = (r: ThrowRecord): number => r.touchdown ? 100 : r.outcome === 'complete' ? r.yards : r.outcome === 'interception' ? -60 : -3;
+/** What the best response is trying to maximise: touchdowns, then yards (a catch that loses ground is worth less than an incompletion, which keeps the field position), and an interception is the worst. */
+export const throwValue = (r: ThrowRecord): number => r.touchdown ? 100 : r.outcome === 'complete' ? r.yards : r.outcome === 'interception' ? -60 : 0;
 
 /**
  * Every pass play, receiver and throw moment is tried from the real pre-snap situation (a coarse sweep, then the neighbouring ticks of
