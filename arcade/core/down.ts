@@ -1,8 +1,8 @@
 import { EXTRA_POINT_DISTANCE, EXTRA_POINT_POINTS, FIELD_GOAL_MAX_DISTANCE, FIELD_GOAL_POINTS, KICK_MAX_TICKS, isGood, kickDistance, meterAt } from './kick';
-import { ACCEL_SECONDS, advance, FIELD, STEP_SECONDS, maxSpeed, type ArcadePlayer, type Intent, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
-import { BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, PASS_LEAD, REACT_TICKS, STUMBLE_TICKS, assignPlay, clampField, direction, opposite, planTick, playMode, pointAlong, resolveLocks, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS } from './behavior';
+import { advance, distanceCovered, FIELD, STEP_SECONDS, maxSpeed, type ArcadePlayer, type Intent, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
+import { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, REACT_TICKS, STUMBLE_TICKS, assignPlay, clampField, direction, opposite, planTick, playMode, pointAlong, resolveLocks, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS } from './behavior';
 import { DEFENSE_FORMATIONS, OFFENSE_FORMATIONS, baseAbilities, chooseFormations, codeOf, playerId, positionOfCode, JERSEY, type Code, type DefenseFormation, type OffenseFormation, type Slot } from './personnel';
-export { BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, PASS_LEAD, REACT_TICKS, direction, opposite, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS };
+export { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, REACT_TICKS, direction, opposite, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS };
 export type Play = 'rush' | 'slants' | 'go' | 'fieldgoal';
 export type EndReason = 'tackle' | 'out-of-bounds' | 'touchdown' | 'incomplete' | 'interception' | 'safety' | 'timeout';
 export type Ball = {
@@ -191,13 +191,22 @@ export function throwPass(state: DownState, target: 1 | 2 | 3, team = state.offe
     const receiver = state.players.find(p => p.id === playerId(state.offense, TARGET_CODES[target - 1]!));
     if (!receiver)
         return state;
-    const duration = 1, top = maxSpeed(receiver), now = Math.hypot(receiver.vx, receiver.vy);
-    // What the receiver can cover in the air time, counting the seconds he needs to reach top speed from where he is now.
-    const lead = Math.max(0, top * duration - Math.max(0, top - now) * ACCEL_SECONDS / 2) * PASS_LEAD;
     const points = receiver.assign?.points ?? [], index = receiver.assign?.index ?? 0;
-    const route = index < points.length ? pointAlong(points, receiver, index, lead) : { x: receiver.x + receiver.vx * duration, y: receiver.y + receiver.vy * duration };
-    const to = clampField(route);
-    return { ...state, ball: { kind: 'flight', from: { x: qb.x, y: qb.y }, to, elapsed: 0, duration, target: receiver.id } };
+    // Where the receiver will be `seconds` from now, running his route (or carrying on as he is once it is done).
+    const spotAt = (seconds: number): Vector => clampField(index < points.length
+        ? pointAlong(points, receiver, index, distanceCovered(receiver, seconds) * PASS_LEAD)
+        : { x: receiver.x + receiver.vx * seconds, y: receiver.y + receiver.vy * seconds });
+    // The flight time depends on how far the ball goes and the distance on where the receiver will be when it lands, so settle both
+    // together. The ball is faster than any receiver, so this converges in a few passes; the time is a whole number of ticks, which is
+    // when arrival is checked, so the receiver is exactly where the ball lands on that tick.
+    const ticksFor = (to: Vector) => Math.ceil(Math.min(MAX_FLIGHT, Math.max(MIN_FLIGHT, Math.hypot(to.x - qb.x, to.y - qb.y) / BALL_SPEED)) * 60 - 1e-9);
+    let ticks = Math.ceil(MIN_FLIGHT * 60), to = spotAt(ticks / 60);
+    for (let i = 0; i < 24; i++) {
+        const next = ticksFor(to);
+        if (next === ticks) break;
+        ticks = next; to = spotAt(ticks / 60);
+    }
+    return { ...state, ball: { kind: 'flight', from: { x: qb.x, y: qb.y }, to, elapsed: 0, duration: ticks / 60, target: receiver.id } };
 }
 function finish(state: DownState, reason: EndReason): DownState {
     if (state.phase !== 'live')

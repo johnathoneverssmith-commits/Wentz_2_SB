@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { BETWEEN_PLAY_TICKS, QUARTER_TICKS } from '../core/down';
 import { DEFENSES, OFFENSES, drive, game, minutes, type Team } from './sim';
 import { STARTS, driveStats } from './report';
+import { cells, runMatrix } from './matrix';
+import { BALANCED } from './strategies';
 
 const team = (off: string, def: Team['def']): Team => ({ off: OFFENSES[off]!, def });
 
@@ -79,10 +81,16 @@ describe('mirrored scenarios', () => {
 
 describe('starting positions', () => {
     it('deep starts never score less than own-end starts for the same offense and defense', () => {
-        for (const key of ['rush', 'balanced']) for (const def of ['idle', 'chase'] as const) {
-            const near = drive('home', 98, OFFENSES[key]!, def).stats.points;
-            const far = drive('home', 28, OFFENSES[key]!, def).stats.points;
-            expect(near, `${key} vs ${def}`).toBeGreaterThanOrEqual(far);
+        // the running offense is one fixed drive per start, so the comparison is exact
+        for (const def of ['idle', 'chase'] as const) {
+            const near = drive('home', 98, OFFENSES['rush']!, def).stats.points;
+            const far = drive('home', 28, OFFENSES['rush']!, def).stats.points;
+            expect(near, `rush vs ${def}`).toBeGreaterThanOrEqual(far);
+        }
+        // a passing mix makes different choices on each drive, so a single pair of drives can go either way: compare the seeded averages
+        for (const def of ['idle', 'chase'] as const) {
+            const mean = (start: number) => cells(runMatrix({ strategies: [BALANCED], defenses: [def], seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], starts: [start] }))[0]!.points.mean;
+            expect(mean(98), `balanced vs ${def}`).toBeGreaterThanOrEqual(mean(28));
         }
     });
 });

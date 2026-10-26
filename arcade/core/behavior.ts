@@ -18,7 +18,16 @@ export const BREAKUP_RADIUS = 2.2;
 export const REACT_TICKS = 18;
 /** Route depths in yards past the line of scrimmage for the two primary targets (WR1, WR2). */
 export const ROUTE_DEPTH = { slants: { WR1: 10, WR2: 18 }, go: { WR1: 31, WR2: 34 } } as const;
-export const PASS_LEAD = 1.2;
+/**
+ * How far past the receiver's projected position the ball is thrown, as a multiple of the ground he will cover while it flies. 1 puts
+ * the ball exactly where he will be (it used to be 1.2, which left every receiver 20% short of his own pass).
+ */
+export const PASS_LEAD = 1;
+/** The ball's speed in yards per second: a pass is in the air for as long as its distance needs. */
+export const BALL_SPEED = 26;
+/** The shortest and longest time a pass is in the air, in seconds. The longest is also what a saved game may hold (see `browser/save.ts`). */
+export const MIN_FLIGHT = 0.35;
+export const MAX_FLIGHT = 2;
 /** Man coverage sits this far ahead of the receiver (go routes: trailing, close). */
 export const COVER_CUSHION = 7;
 export const GO_CUSHION = 0;

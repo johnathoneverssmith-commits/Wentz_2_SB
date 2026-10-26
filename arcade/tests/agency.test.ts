@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, GO_REACT_TICKS, type DownState } from '../core/down';
+import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, GO_REACT_TICKS, BREAKUP_RADIUS, type DownState } from '../core/down';
 import { decodeSave, encodeSave } from '../browser/save';
 import type { Inputs, PlayerId, Vector } from '../core/simulation';
 import { expectOnlyClockMoved, farAway, parkBlockers, place, quiet } from './helpers';
@@ -64,14 +64,15 @@ it('an expired hands attempt cannot intercept, but a well-timed one can', () => 
 });
 it('AI covers the receiver, then breaks on the ball once it reacts, rather than continuing to chase the QB', () => {
     let s = farAway(snap(choosePlay(createDown(), 'go')), ['away-CB1']);
-    s = quiet(s, 32, idle, ['away-CB1']);
+    // an early throw, while the corner is still on his man: he must break on the ball to contest it (a late throw to a receiver who has beaten him is a catch)
+    s = quiet(s, 4, idle, ['away-CB1']);
     s = throwPass(s, 1);
     const point = s.ball.kind === 'flight' ? s.ball.to : zero;
     const gap = (state: DownState) => { const p = at(state, 'away-CB1'); return Math.hypot(p.x - point.x, p.y - point.y); };
     for (let i = 0; i < GO_REACT_TICKS; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
-    const reacting = gap(s);
-    expect(gap(stepDown(farAway(s, ['away-CB1']), idle))).toBeLessThan(reacting);
-    while (s.phase === 'live' && s.ball.kind === 'flight') s = stepDown(farAway(s, ['away-CB1']), idle);
+    // once he reacts he is on the ball, not on the quarterback: from here to the catch he stays inside the break-up radius of the landing point
+    expect(gap(s)).toBeLessThanOrEqual(BREAKUP_RADIUS);
+    while (s.phase === 'live' && s.ball.kind === 'flight') { s = stepDown(farAway(s, ['away-CB1']), idle); expect(gap(s)).toBeLessThanOrEqual(BREAKUP_RADIUS + 1e-9); }
     expect(['incomplete', 'interception']).toContain(s.result?.reason);
 });
 it('turnover retains both teams control and rejects commands from the wrong team', () => {

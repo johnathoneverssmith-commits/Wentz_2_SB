@@ -81,14 +81,55 @@ Seeded matrix, 6 seeds x 14 drives per cell (points per drive [95% CI], touchdow
 The best response scores a touchdown on every sampled drive in 2-3 plays. A *blind* deep throw beats a bot that reads the defense.
 Two mirrored deep specialists score about 300 points in a regulation game.
 
+## Phase B1: ball physics (before and after), recorded 2026-10-26
+
+Phase B1 changed only how the ball flies and where it is thrown (`BALL_SPEED` 26 yd/s, flights of 0.35 to 2 s in whole ticks, and the
+ball led to the receiver's projected position at arrival, `PASS_LEAD` 1, solved together with the flight time). Defense, catch radii,
+clock and ratings were not touched. The sweep and matrix are the same as the baseline above.
+
+| Route | Phase A: complete / intercepted / open run | Phase B1: complete / intercepted / open run |
+| --- | --- | --- |
+| slants to WR1 | 3% / 26% / 2 | **43%** / 11% / 22 |
+| slants to WR2 | 33% / 38% / 16 | **7%** / 31% / 2 |
+| slants to TE | 61% / 13% / 33 (-0.3 yd per catch) | **80%** / 5% / 34 (+2.0 yd) |
+| go to WR1 | 69% / 11% / 41 | 69% / **28%** / 42 |
+| go to WR2 | 79% / 2% / 47 | 75% / **21%** / 46 |
+| go to TE | 0% / 62% / 0 | **30%** / 52% / 15 |
+
+* Flight times: constant 1.0 s (air distance 7-44 yd) became 0.37-1.72 s, median 0.82 s.
+* Receiver-to-ball gap on completed deep throws: 1.50 yd became 0.00 yd (an uncovered receiver on a straight route is within 0.1 yd of the ball whatever his speed).
+* The speed-80 bug: go to WR1 completes 95% at receiver speed 70 and at 80 (it was 76% and 0%). Slow receivers (speed 40 or 55) complete 10% and 22%: they cannot get free of the corner, which is realistic.
+
+Matrix (points per drive, then touchdown drives), 6 seeds x 14 drives:
+
+| Strategy | vs idle: A to B1 | vs cover: A to B1 |
+| --- | --- | --- |
+| deep specialist | 4.95 (70%) to 4.44 (62%) | 1.42 (20%) to 1.17 (17%) |
+| short specialist | 1.32 (7%) to 1.23 (5%) | 1.25 (7%) to 1.05 (1%) |
+| balanced | 2.11 (21%) to 2.71 (32%) | 0.93 (7%) to 1.11 (11%) |
+| timing-aware | 1.83 (23%) to **5.05 (58%)** | 2.49 (35%) to **5.05 (58%)** |
+| best response | 7.00 (100%) to 7.00 (100%) | not run |
+
+**What it means.** The ball physics did what they were meant to, and exposed what the old 20% overthrow had been hiding:
+
+* A player who waits for a free receiver (the timing-aware strategy) is now the best practicable strategy against every defense: 58% touchdown drives, 1% interceptions, and the *same* result against idle, attentive and cover defenders, which means the human defender cannot affect the windows it picks. It dominates the cover defense (leads the deep specialist by 3.88 points per drive [3.11, 4.65]); against idle and attentive it leads the deep specialist by 0.6 [-0.3, 1.5], not significant. Skill is now rewarded; the AI defense is too weak to answer it (the next phases).
+* Slants to WR2 fell from 33% to 7% because the corner shadows the receiver about 2 yd away, inside the 2.2 yd break-up circle. The old overthrow had put the ball past him.
+* The tight end underneath is always open (80% complete, from tick 100 on every throw): a patient dump-off drive scores every time (125 completions in 125 throws in a spot check).
+* The deep window still never closes (42-46 consecutive completions), and late throws after the route ends are intercepted.
+* A short pass (0.35-0.5 s in the air) arrives before the defenders' reaction timers (18 ticks for most) expire, so short throws cannot be contested by reaction at all.
+* Limit of the lead: it assumes straight running along the route, so a receiver who has finished his route and drifts can land up to about 4 yd from the ball on a late throw. Within the route the miss is under 0.1 yd (straight) or about 1 yd (through the slants cut).
+
+Known imbalances after B1 (`balance/imbalances.ts`): **fixed** flight-time-constant, overthrow-catch-knife-edge, faster-receiver-worse-deep-game; **improved** slants-wr1-dead-target (3% to 43%), go-tight-end-intercepted (62% to 52% intercepted, completions 0% to 30%), deep-ball-uncontested (median gap 4.1 to 2.7 yd), slants-tight-end-loses-yards (-0.3 to +2.0 yd); **unchanged** deep-window-never-closes, early-slants-intercepted (93% to 87%), pocket-never-collapses; **worsened or new** slants-wr2-always-broken-up (33% to 7%), tight-end-dump-off-always-open (61% to 80%).
+
 ## Known imbalances
 
-`balance/imbalances.ts` holds ten, each with a detector, and `balance/framework.test.ts` asserts that every `open` one **is detected today**
+`balance/imbalances.ts` holds the entries below (ten at Phase A, twelve after B1), each with a detector, and `balance/framework.test.ts` asserts that every `open` one **is detected today**
 and every `fixed` one is **not**. A pull request that fixes one changes its `status` to `fixed`, and the same test then proves the fix and
 guards against its return. Nothing was tuned to make a test pass.
 
-`deep-window-never-closes`, `slants-wr1-dead-target`, `early-slants-intercepted`, `go-tight-end-intercepted`, `flight-time-constant`,
-`overthrow-catch-knife-edge`, `faster-receiver-worse-deep-game`, `deep-ball-uncontested`, `pocket-never-collapses`, `slants-tight-end-loses-yards`.
+Open now: `deep-window-never-closes`, `early-slants-intercepted`, `go-tight-end-intercepted`, `pocket-never-collapses`, `slants-wr2-always-broken-up`,
+`tight-end-dump-off-always-open`. Fixed: `flight-time-constant`, `overthrow-catch-knife-edge`, `faster-receiver-worse-deep-game`, `slants-wr1-dead-target`,
+`deep-ball-uncontested` (partly), `slants-tight-end-loses-yards`. Each fixed entry carries a `resolution` note with the numbers.
 
 Some reported numbers came from the scripted players rather than the engine: the older "balanced" bot threw to the always-covered WR1, the
 "early" bot's tick-16 throw lies inside the always-intercepted window, the same drive from seven start spots was one measurement repeated

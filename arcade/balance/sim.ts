@@ -37,7 +37,8 @@ export const DEFENSE_TEXT: Record<DefensePolicy, string> = {
 const byDown = <T,>(table: readonly [T, T, T, T]) => (s: DownState): T => table[Math.min(3, Math.max(0, s.down - 1))]!;
 export const OFFENSES: Record<string, OffensePolicy> = {
     early: { name: 'early passes', play: byDown<Play>(['slants', 'go', 'slants', 'go']), throwAt: () => 16, fieldGoals: true, target: 2 },
-    intermediate: { name: 'intermediate passes', play: () => 'slants', throwAt: () => 44, fieldGoals: true, target: 2 },
+    // Timed to the receiver getting free: WR1 on slants is open for a moment around tick 40 (Phase B1 moved this window; it was WR2 at tick 44).
+    intermediate: { name: 'intermediate passes', play: () => 'slants', throwAt: () => 40, fieldGoals: true, target: 1 },
     late: { name: 'late deep passes', play: () => 'go', throwAt: () => 90, fieldGoals: true },
     rush: { name: 'rushing', play: () => 'rush', throwAt: () => 6, fieldGoals: true },
     balanced: { name: 'balanced', play: byDown<Play>(['rush', 'slants', 'go', 'rush']), throwAt: s => (s.play === 'go' ? 90 : 44), fieldGoals: true },
