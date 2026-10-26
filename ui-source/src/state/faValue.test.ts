@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LeagueState, Player } from "@/domain";
 import { positionValueWeight } from "./draftBoard.ts";
-import { MIN_SIGNING_VALUE, signingValue, slotGain } from "./faValue.ts";
+import { MIN_SIGNING_VALUE, MIN_SIGNING_VALUE_MIDSEASON, signingBar, signingValue, slotGain } from "./faValue.ts";
 import { beginFreeAgencyEvent, chooseFaMove, offerRoomFor } from "./freeAgencyEvent.ts";
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 
@@ -183,6 +183,20 @@ describe("a CPU team's choice in the market", () => {
     expect(withRoom(asked.salary + 1)).toBe("pass");
     // two million more than the bid: yes
     expect(withRoom(asked.salary + 2.5)).toBe("offer");
+  });
+
+  it("keeps the mid-season market alive: a modest upgrade is bid on there, where the offseason's higher bar would pass on it", () => {
+    expect(signingBar("midseasonFreeAgency")).toBe(MIN_SIGNING_VALUE_MIDSEASON);
+    expect(signingBar("freeAgency")).toBe(MIN_SIGNING_VALUE);
+    expect(MIN_SIGNING_VALUE_MIDSEASON).toBeLessThan(MIN_SIGNING_VALUE);
+    // a tackle three points over a good line: worth about four weighted points to the team, between the two bars
+    const worthOf = (stage: "freeAgency" | "midseasonFreeAgency") => {
+      const { s, code } = rigged(76, [{ position: "DT", overall: 73 }], { DT: [70, 70, 70, 70, 70] });
+      s.stage = stage;
+      return chooseFaMove(s, code).kind;
+    };
+    expect(worthOf("freeAgency")).toBe("pass");
+    expect(worthOf("midseasonFreeAgency")).toBe("offer");
   });
 
   it("is deterministic: the same market gives the same choice, whoever asks", () => {

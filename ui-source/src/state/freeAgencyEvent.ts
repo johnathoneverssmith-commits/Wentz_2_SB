@@ -5,7 +5,7 @@ import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract } from "./rules";
 import { capUsedOf } from "./seed.ts";
-import { MIN_SIGNING_VALUE, signingValue } from "./faValue.ts";
+import { signingBar, signingValue } from "./faValue.ts";
 import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
@@ -363,6 +363,7 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   // just how much better he is than the best man already there
   const units =
     difficulty.unitAwareness > 0 ? unitGainer((pos) => lists?.get(pos) ?? []) : null;
+  const bar = signingBar(s.stage);
   let target: Player | null = null;
   let bestGain = -Infinity;
   for (const p of shortlist) {
@@ -380,7 +381,7 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
     // what he is worth to the lineup, with Master's reading of the team's units where it has one
     const worth = valueOf(p) + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0);
     // not worth bidding on, whatever the GM's taste or the day's noise says (they choose among signings that are)
-    if (worth < MIN_SIGNING_VALUE) continue;
+    if (worth < bar) continue;
     const gain =
       worth + noise +
       // the GM's identity: a bounded preference among similar signings, never a reason to take a clearly worse one

@@ -26,6 +26,18 @@ export const EMPTY_SLOT_RATING = 42;
 export const DEPTH_WEIGHT = 0.1;
 /** The least a signing must be worth, in weighted rating points, for a CPU team to bid at all. */
 export const MIN_SIGNING_VALUE = 6;
+/**
+ * The same bar in the mid-season market. The pool there is what the offseason left (the best free agent in a
+ * typical league is a 76, where the offseason's is in the 90s), so almost nothing clears 6 and the market went
+ * dead: no team signed anyone in round 1. What a team does in season is cover depth and injuries, which are
+ * smaller gains; the bar's job, stopping churn when the pool is rich, does not arise.
+ */
+export const MIN_SIGNING_VALUE_MIDSEASON = 3;
+
+/** The bar for the market that is open. */
+export function signingBar(stage: string): number {
+  return stage === "midseasonFreeAgency" ? MIN_SIGNING_VALUE_MIDSEASON : MIN_SIGNING_VALUE;
+}
 
 /**
  * The rating points a player adds to a team: over its weakest starter at his position, plus a share of what
