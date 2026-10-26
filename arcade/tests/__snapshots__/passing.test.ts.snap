@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 1`] = `"IIIIIxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 2`] = `"IIIIIIxxxxxxxxxxCCCCCCCCCCCCCCC"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 3`] = `"xCxxxxxxxxxCCCCCCCCCCCCCCCCCCCC"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 4`] = `"xCxxxxxxxxxCCCCCCCCCCCCCCCCCCCC"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 5`] = `"IIIIIIIIIIIIIIIIIxxxxIIIIIIIIII"`;

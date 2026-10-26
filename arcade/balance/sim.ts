@@ -26,12 +26,12 @@ export const DEFENSE_TEXT: Record<DefensePolicy, string> = {
     idle: 'does nothing',
     chase: 'chases the carrier',
     attentive: 'chases, goes to the landing circle and presses Hands',
-    cover: 'switches to the #3 receiver\'s defender, shadows him, then ball + Hands',
+    cover: 'takes over the first receiver\'s defender, shadows him, then ball + Hands',
 };
 const byDown = <T,>(table: readonly [T, T, T, T]) => (s: DownState): T => table[Math.min(3, Math.max(0, s.down - 1))]!;
 export const OFFENSES: Record<string, OffensePolicy> = {
-    early: { name: 'early passes', play: byDown<Play>(['slants', 'go', 'slants', 'go']), throwAt: () => 6, fieldGoals: true },
-    intermediate: { name: 'intermediate passes', play: () => 'slants', throwAt: () => 44, fieldGoals: true },
+    early: { name: 'early passes', play: byDown<Play>(['slants', 'go', 'slants', 'go']), throwAt: () => 16, fieldGoals: true, target: 2 },
+    intermediate: { name: 'intermediate passes', play: () => 'slants', throwAt: () => 44, fieldGoals: true, target: 2 },
     late: { name: 'late deep passes', play: () => 'go', throwAt: () => 90, fieldGoals: true },
     rush: { name: 'rushing', play: () => 'rush', throwAt: () => 6, fieldGoals: true },
     balanced: { name: 'balanced', play: byDown<Play>(['rush', 'slants', 'go', 'rush']), throwAt: s => (s.play === 'go' ? 90 : 44), fieldGoals: true },
@@ -47,15 +47,20 @@ const fresh = (): Memory => ({ thrown: false, switched: false, throws: 0 });
 /** Both players' movement and commands for this tick. Returns the state with any command already applied. */
 function control(s: DownState, off: OffensePolicy, def: DefensePolicy, opts: Options, m: Memory): { state: DownState; inputs: Inputs } {
     const offTeam = s.offense, defTeam = offTeam === 'home' ? 'away' : 'home';
-    if (def === 'cover' && !m.switched && s.liveTicks === 0) { s = switchDefender(switchDefender(s)); m.switched = true; }
+    // the cover policy takes control of the defender who is covering the first receiver
+    if (def === 'cover' && !m.switched && s.liveTicks === 0) {
+        const cb = at(s, `${defTeam}-CB1`).id;
+        for (let i = 0; i < 11 && s.defender !== cb; i++) s = switchDefender(s);
+        m.switched = true;
+    }
     const carrier = at(s, s.possession.carrier), defender = at(s, s.defender);
-    const inPocket = s.ball.kind === 'held' && carrier.number === 1 && s.play !== 'rush';
+    const inPocket = s.ball.kind === 'held' && carrier.position === 'QB' && s.play !== 'rush';
     const offIn = inPocket ? ZERO : toward(carrier, { x: offTeam === 'home' ? 112 : 8, y: Math.abs(carrier.y - MID) > 5 ? MID : carrier.y }, 0.6);
     let defIn = ZERO;
     if (def !== 'idle') {
         if (s.ball.kind === 'flight' && (def === 'attentive' || def === 'cover')) defIn = s.ball.elapsed * 60 >= opts.reaction ? toward(defender, s.ball.to, 0.4) : ZERO;
         else if (!inPocket) defIn = toward(defender, carrier, 0.4);
-        else if (def === 'cover') { const r = at(s, `${offTeam}-3`); defIn = toward(defender, { x: r.x + direction(offTeam) * 2, y: r.y }, 0.4); }
+        else if (def === 'cover') { const r = at(s, `${offTeam}-WR1`); defIn = toward(defender, { x: r.x + direction(offTeam) * 2, y: r.y }, 0.4); }
     }
     if (inPocket && !m.thrown && s.liveTicks >= off.throwAt(s)) { s = throwPass(s, off.target ?? 1); m.thrown = true; m.throws++; }
     if ((def === 'attentive' || def === 'cover') && s.ball.kind === 'flight' && s.ball.elapsed > 0.45 && s.contestUntil < s.tick) s = contestPass(s, defTeam);

@@ -68,7 +68,7 @@ test('a complete game in a real browser: both players attack and defend through 
         }
         else if (s.phase === 'live') {
             const off = s.offense, def = other(off), carrier = at(s, s.possession.carrier), defender = at(s, s.defender);
-            if (s.ball.kind === 'held' && carrier.number === 1 && s.play !== 'rush') {
+            if (s.ball.kind === 'held' && carrier.position === 'QB' && s.play !== 'rush') {
                 // In the pocket: both humans wait, then the quarterback throws late.
                 await hold(page, held, new Set());
                 if (s.liveTicks < THROW_AT) await run(Math.max(100, Math.ceil(((THROW_AT - s.liveTicks) * 1000) / 60)));

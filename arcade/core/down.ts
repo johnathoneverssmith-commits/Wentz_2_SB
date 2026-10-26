@@ -1,5 +1,8 @@
 import { EXTRA_POINT_DISTANCE, EXTRA_POINT_POINTS, FIELD_GOAL_MAX_DISTANCE, FIELD_GOAL_POINTS, KICK_MAX_TICKS, isGood, kickDistance, meterAt } from './kick';
-import { createMatch, step, FIELD, STEP_SECONDS, type ArcadePlayer, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
+import { ACCEL_SECONDS, advance, FIELD, STEP_SECONDS, maxSpeed, type ArcadePlayer, type Intent, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
+import { BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, PASS_LEAD, REACT_TICKS, STUMBLE_TICKS, assignPlay, clampField, direction, opposite, planTick, playMode, pointAlong, resolveLocks, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS } from './behavior';
+import { DEFENSE_FORMATIONS, OFFENSE_FORMATIONS, baseAbilities, chooseFormations, codeOf, playerId, positionOfCode, JERSEY, type Code, type DefenseFormation, type OffenseFormation, type Slot } from './personnel';
+export { BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, PASS_LEAD, REACT_TICKS, direction, opposite, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS };
 export type Play = 'rush' | 'slants' | 'go' | 'fieldgoal';
 export type EndReason = 'tackle' | 'out-of-bounds' | 'touchdown' | 'incomplete' | 'interception' | 'safety' | 'timeout';
 export type Ball = {
@@ -79,41 +82,11 @@ export interface DownState extends MatchSnapshot {
     /** World x of the first-down marker (clamped to the goal line). */
     readonly firstDownLine: number;
     readonly defender: PlayerId;
+    /** The formations both teams lined up in for this snap. */
+    readonly formation: { readonly offense: OffenseFormation; readonly defense: DefenseFormation };
     readonly ball: Ball;
     readonly result: PlayResult | null;
 }
-export const opposite = (team: TeamId): TeamId => team === 'home' ? 'away' : 'home';
-export const direction = (team: TeamId) => team === 'home' ? 1 : -1;
-const id = (team: TeamId, n: number) => `${team}-${n}` as PlayerId;
-export const CONTACT_RADIUS = FIELD.radius * 2;
-export const CATCH_RADIUS = 1.6;
-export const BREAKUP_RADIUS = 2.2;
-/** A covering defender holds his coverage this many ticks into a throw before breaking on the ball. */
-export const REACT_TICKS = 18;
-/** Route depths in yards past the line of scrimmage, by play and receiver number. */
-export const ROUTE_DEPTH = { slants: { 3: 10, 4: 18 }, go: { 3: 31, 4: 34 } } as const;
-/** Receivers are a touch quicker than defenders (50 against 45), and the ball leads them a bit further than a step. */
-export const RECEIVER_SPEED = 50;
-export const PASS_LEAD = 1.2;
-/** The two covering defenders line up this many yards past the line. */
-export const COVER_DEPTH = 20;
-/** Man coverage sits this far ahead of the receiver. */
-export const COVER_CUSHION = 9;
-/** An offensive blocker this close to a defender has him engaged. */
-export const BLOCK_RADIUS = 1.8;
-/** An engaged defender, human or AI, moves at this fraction of his speed. */
-export const BLOCK_SLOW = 0.4;
-const BLOCK_SHIELD = 1.2;
-export const GO_CUSHION = -2;
-export const GO_REACT_TICKS = 36;
-/**
- * On a passing play the fifth defender does not rush the quarterback: he plays a deep safety this many yards past the
- * line, in the middle, so a receiver who beats his man still has someone ahead of him. He breaks on a pass that lands at
- * least SAFETY_ZONE yards past the line once SAFETY_REACT_TICKS of the flight have gone, and chases any ball carrier.
- */
-export const SAFETY_DEPTH = 26;
-export const SAFETY_ZONE = 20;
-export const SAFETY_REACT_TICKS = 24;
 const distance = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
 const player = (state: DownState, key: PlayerId) => state.players.find(p => p.id === key)!;
 export const firstDownMarker = (team: TeamId, line: number) => Math.max(10, Math.min(110, line + direction(team) * 10));
@@ -142,22 +115,44 @@ interface Carry {
     readonly kick: KickState | null;
 }
 const freshGame = (score: Score = { home: 0, away: 0 }): Omit<Carry, 'down' | 'firstDownLine'> => ({ score, quarter: 1, clock: QUARTER_TICKS, expired: false, gap: 0, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null });
-function formation(team: TeamId, line: number, playNumber: number, play: Play, carry: Carry): DownState {
-    const dir = direction(team), center = FIELD.width / 2;
-    const players = createMatch().players.map(p => {
-        const attacking = p.team === team;
-        const offsets = attacking ? [0, -2, 0, 0, -1] : [7, 12, COVER_DEPTH, COVER_DEPTH, 20];
-        const lanes = attacking ? [center, center, center - 26 / 3, center + 26 / 3, center + 5] : [center, center, center - 26 / 3, center + 26 / 3, center - 8];
-        return { ...p, abilities: { speed: attacking && (p.number === 3 || p.number === 4) ? RECEIVER_SPEED : p.abilities.speed }, x: Math.max(FIELD.radius, Math.min(FIELD.length - FIELD.radius, line + dir * offsets[p.number - 1]!)), y: lanes[p.number - 1]!, human: p.number === 1 };
-    });
-    return { tick: 0, players, possession: { team, carrier: id(team, 1) }, offense: team, phase: 'pre-snap', play, playNumber, line, liveTicks: 0, terminalCount: 0, contestUntil: 0, ...carry, defender: id(opposite(team), 1), ball: { kind: 'held' }, result: null };
+/** Builds the 22 players for a snap: the offense and defense in the formations chosen for this play. */
+function layout(team: TeamId, line: number, play: Play, playNumber: number): { players: ArcadePlayer[]; formation: DownState['formation'] } {
+    const formation = chooseFormations(play, playNumber), dir = direction(team), center = FIELD.width / 2;
+    const build = (owner: TeamId, slot: Slot, attacking: boolean): ArcadePlayer => {
+        const pos = positionOfCode(slot.code);
+        return {
+            id: playerId(owner, slot.code), team: owner, number: JERSEY[slot.code], position: pos, human: false, abilities: baseAbilities(pos),
+            // Backs never start inside their own end zone (that would be an instant safety): near the goal line the formation is squeezed.
+            x: Math.max(attacking ? 11.2 : FIELD.radius, Math.min(attacking ? FIELD.length - 11.2 : FIELD.length - FIELD.radius, line + dir * (attacking ? -slot.depth : slot.depth))),
+            y: center + slot.lane, vx: 0, vy: 0, behavior: 'stance', assign: null, lock: null, stun: 0, free: 0,
+        };
+    };
+    const players = [...OFFENSE_FORMATIONS[formation.offense].map(slot => build(team, slot, true)), ...DEFENSE_FORMATIONS[formation.defense].map(slot => build(opposite(team), slot, false))];
+    return { players, formation };
+}
+function formationState(team: TeamId, line: number, playNumber: number, play: Play, carry: Carry): DownState {
+    const { players, formation } = layout(team, line, play, playNumber);
+    const defense = players.find(p => p.team !== team && p.position === 'MLB') ?? players.find(p => p.team !== team && p.position === 'OLB')!;
+    const state: DownState = { tick: 0, players, possession: { team, carrier: playerId(team, play === 'rush' ? 'RB' : 'QB') }, offense: team, phase: 'pre-snap', play, playNumber, line, liveTicks: 0, terminalCount: 0, contestUntil: 0, ...carry, defender: defense.id, formation, ball: { kind: 'held' }, result: null };
+    return controls(state);
 }
 /** A pre-snap formation at an arbitrary spot: the entry point for reaching a situation without playing to it. */
 export function lineUp(team: TeamId, line: number, options: { down?: number; score?: Score; play?: Play; playNumber?: number; game?: Partial<Carry> } = {}): DownState {
-    return formation(team, line, options.playNumber ?? 1, options.play ?? 'rush', { ...freshGame(options.score), down: options.down ?? 1, firstDownLine: firstDownMarker(team, line), ...options.game });
+    return formationState(team, line, options.playNumber ?? 1, options.play ?? 'rush', { ...freshGame(options.score), down: options.down ?? 1, firstDownLine: firstDownMarker(team, line), ...options.game });
 }
 export const createDown = (): DownState => lineUp('home', 38);
-export const choosePlay = (state: DownState, play: Play): DownState => state.phase !== 'pre-snap' || (play === 'fieldgoal' && !fieldGoalInRange(state)) ? state : { ...state, play };
+/** Choosing a play changes the formation the team lines up in. */
+export function choosePlay(state: DownState, play: Play): DownState {
+    if (state.phase !== 'pre-snap' || (play === 'fieldgoal' && !fieldGoalInRange(state)))
+        return state;
+    if (play === state.play)
+        return state;
+    const { players, formation } = layout(state.offense, state.line, play, state.playNumber);
+    const carrier = playerId(state.offense, play === 'rush' ? 'RB' : 'QB');
+    const keep = players.find(p => p.id === state.defender) ? state.defender : (players.find(p => p.team !== state.offense && p.position === 'MLB') ?? players.find(p => p.team !== state.offense && p.position === 'OLB')!).id;
+    return controls({ ...state, play, players, formation, defender: keep, possession: { team: state.offense, carrier } });
+}
+/** The human controls the ball carrier and one selected defender; everyone else follows their assignment. */
 function controls(state: DownState): DownState {
     return { ...state, players: state.players.map(p => ({ ...p, human: p.id === state.possession.carrier || p.id === state.defender })) };
 }
@@ -169,14 +164,17 @@ export function snap(state: DownState): DownState {
         return proceed(state, { team: state.offense, line: state.line, down: state.down, firstDownLine: state.firstDownLine, ended: false });
     if (state.play === 'fieldgoal')
         return fieldGoalInRange(state) ? { ...state, phase: 'kick', kick: kickSpec(state, 'fg') } : state;
-    const carrier = id(state.offense, state.play === 'rush' ? 2 : 1), qb = player(state, id(state.offense, 1));
-    return controls({ ...state, phase: 'live', possession: { team: state.offense, carrier }, players: state.players.map(p => p.id === carrier ? { ...p, x: qb.x, y: qb.y } : p) });
+    const carrier = playerId(state.offense, state.play === 'rush' ? 'RB' : 'QB');
+    return controls({ ...state, phase: 'live', possession: { team: state.offense, carrier }, players: assignPlay({ ...state, possession: { team: state.offense, carrier } }) });
 }
+/** Selects the next-closest defender to the ball (deterministic: ties by id). */
 export function switchDefender(state: DownState, team = opposite(state.offense)): DownState {
     if (state.phase === 'dead' || state.phase === 'kick' || state.phase === 'final' || team !== opposite(state.offense))
         return state;
-    const n = player(state, state.defender).number % 5 + 1;
-    return controls({ ...state, defender: id(opposite(state.offense), n), contestUntil: 0 });
+    const ball = player(state, state.possession.carrier);
+    const order = state.players.filter(p => p.team === team).sort((a, b) => distance(a, ball) - distance(b, ball) || a.id.localeCompare(b.id));
+    const at = order.findIndex(p => p.id === state.defender);
+    return controls({ ...state, defender: order[(at + 1) % order.length]!.id, contestUntil: 0 });
 }
 /** A short hands window belongs to the selected human defender, not every teammate. */
 export function contestPass(state: DownState, team: TeamId): DownState {
@@ -184,21 +182,21 @@ export function contestPass(state: DownState, team: TeamId): DownState {
         return state;
     return { ...state, contestUntil: state.tick + 36 };
 }
-/** Routes are world-space destinations. AI reads only the previous tick. */
-function route(state: DownState, key: PlayerId): Vector {
-    const p = player(state, key), dir = direction(state.offense);
-    const depth = ROUTE_DEPTH[state.play === 'go' ? 'go' : 'slants'][p.number === 3 ? 3 : 4];
-    // A route ends in the end zone at the deepest: near either goal line a deep route is still a catchable pass.
-    return { x: Math.max(2, Math.min(FIELD.length - 2, state.line + dir * depth)), y: state.play === 'slants' ? FIELD.width / 2 : FIELD.width / 2 + (p.number === 3 ? -26 / 3 : 26 / 3) };
-}
-export function throwPass(state: DownState, target: 1 | 2, team = state.offense): DownState {
-    if (team !== state.offense || state.phase !== 'live' || state.play === 'rush' || state.ball.kind !== 'held' || state.possession.carrier !== id(state.offense, 1))
+/** The pass targets in key order: WR1, WR2, and the tight end. */
+export const TARGET_CODES = ['WR1', 'WR2', 'TE1'] as const;
+export function throwPass(state: DownState, target: 1 | 2 | 3, team = state.offense): DownState {
+    const qb = state.players.find(p => p.id === state.possession.carrier);
+    if (team !== state.offense || state.phase !== 'live' || state.play === 'rush' || state.ball.kind !== 'held' || !qb || qb.position !== 'QB')
         return state;
-    const receiver = player(state, id(state.offense, target + 2)), goal = route(state, receiver.id);
-    const length = Math.max(1, distance(receiver, goal)), duration = 1;
-    const lead = Math.min(length, (4 + receiver.abilities.speed / 20) * duration * PASS_LEAD);
-    const to = { x: receiver.x + (goal.x - receiver.x) / length * lead, y: receiver.y + (goal.y - receiver.y) / length * lead };
-    const qb = player(state, state.possession.carrier);
+    const receiver = state.players.find(p => p.id === playerId(state.offense, TARGET_CODES[target - 1]!));
+    if (!receiver)
+        return state;
+    const duration = 1, top = maxSpeed(receiver), now = Math.hypot(receiver.vx, receiver.vy);
+    // What the receiver can cover in the air time, counting the seconds he needs to reach top speed from where he is now.
+    const lead = Math.max(0, top * duration - Math.max(0, top - now) * ACCEL_SECONDS / 2) * PASS_LEAD;
+    const points = receiver.assign?.points ?? [], index = receiver.assign?.index ?? 0;
+    const route = index < points.length ? pointAlong(points, receiver, index, lead) : { x: receiver.x + receiver.vx * duration, y: receiver.y + receiver.vy * duration };
+    const to = clampField(route);
     return { ...state, ball: { kind: 'flight', from: { x: qb.x, y: qb.y }, to, elapsed: 0, duration, target: receiver.id } };
 }
 function finish(state: DownState, reason: EndReason): DownState {
@@ -268,7 +266,7 @@ function proceed(state: DownState, next: Next): DownState {
             game = { ...game, quarter: game.quarter + 1, ...fullClock };
     }
     const carry: Carry = { score: state.score, down, firstDownLine, ...game, openingTeam: state.openingTeam, winner: null, kick: null };
-    return { ...formation(team, line, state.playNumber + 1, state.play === 'fieldgoal' ? 'rush' : state.play, carry), terminalCount: state.terminalCount };
+    return { ...formationState(team, line, state.playNumber + 1, state.play === 'fieldgoal' ? 'rush' : state.play, carry), terminalCount: state.terminalCount };
 }
 /** Builds the next snap: after a play (a touchdown first goes to the extra point) or after a kick. */
 export function nextDown(state: DownState): DownState {
@@ -312,26 +310,9 @@ export const kickMeter = (state: DownState): number => state.kick ? meterAt(stat
 export const clockText = (ticks: number): string => { const s = Math.ceil(ticks / 60); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 /** A new game from the opening snap. */
 export const newGame = (): DownState => createDown();
-/** Two blockers per play (QB and #5 on a handoff, RB and #5 on a pass), each taking the next-closest defender to the carrier. */
-const blockerNumbers = (play: Play) => play === 'rush' ? [1, 5] : [2, 5];
-function blocking(state: DownState, carrier: ArcadePlayer): { readonly assignments: ReadonlyMap<PlayerId, ArcadePlayer>; readonly slow: ReadonlyMap<PlayerId, number> } {
-    const blockers = state.players.filter(p => p.team === state.offense && p.id !== carrier.id && !p.human && blockerNumbers(state.play).includes(p.number)).sort((a, b) => a.number - b.number);
-    const threats = state.players.filter(p => p.team !== state.offense).sort((a, b) => distance(a, carrier) - distance(b, carrier) || a.id.localeCompare(b.id));
-    const assignments = new Map<PlayerId, ArcadePlayer>();
-    blockers.forEach((b, i) => { if (threats[i]) assignments.set(b.id, threats[i]!); });
-    // Only a blocker's own assignment is held, and only while the two are within blocking range.
-    const slow = new Map<PlayerId, number>();
-    for (const b of blockers) {
-        const d = assignments.get(b.id);
-        if (d && distance(b, d) <= BLOCK_RADIUS)
-            slow.set(d.id, BLOCK_SLOW);
-    }
-    return { assignments, slow };
-}
-/** Blocker/defender pairs currently engaged (for the on-screen bars; the same test slows the defender). */
+/** Blocker/defender pairs currently locked together (for the on-screen effect; the same lock slows the defender). */
 export function engagements(state: DownState): { readonly blocker: PlayerId; readonly defender: PlayerId }[] {
-    const { assignments } = blocking(state, player(state, state.possession.carrier));
-    return [...assignments].filter(([b, d]) => distance(player(state, b), d) <= BLOCK_RADIUS).map(([blocker, d]) => ({ blocker, defender: d.id }));
+    return state.players.filter(p => p.team !== state.offense && p.lock).map(d => ({ blocker: d.lock!.with, defender: d.id }));
 }
 /** One simulation tick. Live play also burns game clock: a tenth of a second per tick, in regulation only. */
 export function stepDown(state: DownState, inputs: Inputs): DownState {
@@ -358,37 +339,32 @@ export function stepDown(state: DownState, inputs: Inputs): DownState {
     const clock = next.clock - 1;
     return { ...next, clock, expired: next.expired || clock === 0 };
 }
+/** The first eligible defender close enough to bring the carrier down, or undefined. A defender who is blocked or stumbling cannot tackle. */
+function tackler(state: DownState, runner: ArcadePlayer): { winner?: ArcadePlayer; missed: ArcadePlayer[] } {
+    const missed: ArcadePlayer[] = [];
+    const candidates = state.players.filter(p => p.team !== state.possession.team && !p.lock && p.stun === 0 && distance(p, runner) <= CONTACT_RADIUS)
+        .sort((a, b) => distance(a, runner) - distance(b, runner) || a.id.localeCompare(b.id));
+    for (const d of candidates) {
+        // Closing speed toward the runner decides the wrap: head-on beats from-behind and side-on lunges, and a quick back can slip a weaker tackler.
+        const dx = runner.x - d.x, dy = runner.y - d.y, n = Math.hypot(dx, dy) || 1;
+        const closing = (d.vx * dx + d.vy * dy) / n / Math.max(1, maxSpeed(d));
+        const wrap = d.abilities.tackle + 30 * Math.max(-0.5, Math.min(1, closing));
+        const resist = runner.abilities.agility * 0.8 + (runner.human ? 10 : 0) + (runner.position === 'QB' ? -15 : 0);
+        if (wrap >= resist)
+            return { winner: d, missed };
+        missed.push(d);
+    }
+    return { missed };
+}
 function stepPlay(state: DownState, inputs: Inputs): DownState {
     if (state.phase !== 'live')
         return state;
-    const carrier = player(state, state.possession.carrier), targets = new Map<PlayerId, Vector>();
-    const { assignments, slow } = blocking(state, carrier);
-    for (const p of state.players) {
-        let target: Vector;
-        if (p.team === state.offense) {
-            if (assignments.has(p.id)) {
-                // Stand between the defender and the carrier, a step off the defender, so he stays engaged.
-                const d = assignments.get(p.id)!, gap = distance(d, carrier);
-                target = gap < 0.5 ? p : { x: d.x + (carrier.x - d.x) / gap * BLOCK_SHIELD, y: d.y + (carrier.y - d.y) / gap * BLOCK_SHIELD };
-            }
-            else
-                target = p.number === 3 || p.number === 4 ? route(state, p.id) : { x: carrier.x + direction(state.offense) * 3, y: carrier.y + (p.number === 5 ? 5 : -5) };
-        }
-        else if (state.play !== 'rush' && p.number === 5 && carrier.number === 1 && state.ball.kind === 'held')
-            target = { x: state.line + direction(state.offense) * SAFETY_DEPTH, y: FIELD.width / 2 };
-        else if (state.play !== 'rush' && p.number === 5 && state.ball.kind === 'flight' && Math.abs(state.ball.to.x - state.line) >= SAFETY_ZONE)
-            target = state.ball.elapsed * 60 >= SAFETY_REACT_TICKS - 1e-9 ? state.ball.to : { x: state.line + direction(state.offense) * SAFETY_DEPTH, y: FIELD.width / 2 };
-        else if (state.ball.kind === 'flight' && state.ball.target.endsWith(`-${p.number}`) && state.ball.elapsed * 60 >= (state.play === 'go' ? GO_REACT_TICKS : REACT_TICKS) - 1e-9)
-            target = state.ball.to;
-        else if (state.play !== 'rush' && (state.ball.kind === 'flight' || carrier.number === 1) && (p.number === 3 || p.number === 4)) {
-            const receiver = player(state, id(state.offense, p.number));
-            target = { x: receiver.x + direction(state.offense) * (state.play === 'go' ? GO_CUSHION : COVER_CUSHION), y: receiver.y };
-        }
-        else
-            target = carrier;
-        targets.set(p.id, target);
-    }
-    let moved: DownState = { ...state, ...step(state, inputs, targets, slow), liveTicks: state.liveTicks + 1 };
+    const mode = playMode(state);
+    const plan = planTick(state);
+    const slow = new Map(plan.slow);
+    let players = advance(plan.players, inputs, plan.intents, slow, state.possession.carrier);
+    players = resolveLocks(players, state, mode);
+    let moved: DownState = { ...state, tick: state.tick + 1, players, liveTicks: state.liveTicks + 1 };
     if (state.ball.kind === 'flight') {
         const ball = { ...state.ball, elapsed: state.ball.elapsed + STEP_SECONDS };
         moved = { ...moved, ball };
@@ -419,7 +395,10 @@ function stepPlay(state: DownState, inputs: Inputs): DownState {
         return finish(moved, 'safety');
     if (runner.y <= FIELD.radius || runner.y >= FIELD.width - FIELD.radius || runner.x <= FIELD.radius || runner.x >= FIELD.length - FIELD.radius)
         return finish(moved, 'out-of-bounds');
-    if (moved.players.some(p => p.team !== state.offense && distance(p, runner) <= CONTACT_RADIUS))
+    const attempt = tackler(moved, runner);
+    if (attempt.missed.length)
+        moved = { ...moved, players: moved.players.map(p => attempt.missed.some(m => m.id === p.id) ? { ...p, stun: STUMBLE_TICKS, behavior: 'stumble' } : p) };
+    if (attempt.winner)
         return finish(moved, 'tackle');
     return moved.liveTicks >= 900 ? finish(moved, 'timeout') : moved;
 }

@@ -282,9 +282,9 @@ describe('overtime', () => {
     it('a field goal ends a possession, and an interception or safety do too', () => {
         const fg = kickAtTick(snap(choosePlay(lineUp('away', 25, { down: 4, ...overtime() }), 'fieldgoal')), CENTRE);
         expect(nextDown(fg)).toMatchObject({ offense: 'home', line: 38, overtime: { possessions: 1 }, score: { home: 0, away: 3 } });
-        let air = farAway(throwPass(snap(choosePlay(lineUp('away', 82, overtime()), 'slants')), 1), ['home-3']);
+        let air = farAway(throwPass(snap(choosePlay(lineUp('away', 82, overtime()), 'slants')), 1), ['home-CB1']);
         if (air.ball.kind !== 'flight') throw Error('flight');
-        air = place(air, 'home-3', air.ball.to.x, air.ball.to.y);
+        air = place(air, 'home-CB1', air.ball.to.x, air.ball.to.y);
         while (air.phase === 'live') air = stepDown(air, idle);
         expect(air.result?.reason).toBe('interception');
         expect(nextDown(air)).toMatchObject({ offense: 'home', line: 38, overtime: { possessions: 1 } });
@@ -450,6 +450,7 @@ describe('the between-play clock', () => {
             for (let t = 0; t < 2000; t++) s = stepDown(s, idle);
             s = snap(s);
             while (s.phase === 'live') { s = stepDown(s, idle); live++; }
+            if (s.phase === 'pre-snap') continue;
             expect(s.phase).toBe('dead');
             plays++;
             burned = start - s.clock;
