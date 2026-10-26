@@ -9,7 +9,7 @@ import { TEAM_COLORS } from './sprites';
 export const W = 480, H = 270;
 /** Screen pixels per yard along the field, and the vertical band the 53.3-yard width is squashed into (elevated side view). */
 export const PPY = 9;
-export const BAND_TOP = 116, BAND_H = 122;
+export const BAND_TOP = 78, BAND_H = 174;
 export const ROW = BAND_H / FIELD.width;
 /** The strips cover this many yards beyond each end line so the camera can show the back of the end zones. */
 export const MARGIN = 6;
@@ -89,7 +89,7 @@ export function turfStrip(): HTMLCanvasElement {
     ctx.fillStyle = '#143f20';
     ctx.fillRect(0, BAND_TOP + BAND_H + 2, STRIP_W, H);
     ctx.fillStyle = '#d9d2b0';
-    ctx.fillRect(0, BAND_TOP + BAND_H + 16, STRIP_W, 1);
+    ctx.fillRect(0, BAND_TOP + BAND_H + 8, STRIP_W, 1);
     for (let yard = -MARGIN + 3; yard < FIELD.length + MARGIN; yard += 17) {
         const x = worldX(yard), y = BAND_TOP + BAND_H + 6;
         ctx.fillStyle = COLORS.ink; ctx.fillRect(x - 1, y - 1, 22, 11);
@@ -117,7 +117,7 @@ export function standsStrip(frame: 0 | 1): HTMLCanvasElement {
         ctx.fillStyle = 'rgba(255,248,214,.08)'; ctx.fillRect(x - 12, 6, 28, 40);
     }
     const crowdColors = ['#e0455a', '#f6c445', '#7bd0ff', '#fff', '#8f6bff', '#2c6fe4', '#f08a1f', '#41d17a'];
-    const rows = [{ y: 30, h: 24, step: 4 }, { y: 62, h: 28, step: 4 }];
+    const rows = [{ y: 8, h: 20, step: 4 }, { y: 30, h: 22, step: 4 }];
     for (const r of rows) {
         ctx.fillStyle = '#12173a'; ctx.fillRect(0, r.y, STRIP_W, r.h);
         for (let row = 0; row < r.h / r.step; row++)
@@ -131,14 +131,14 @@ export function standsStrip(frame: 0 | 1): HTMLCanvasElement {
         ctx.fillStyle = COLORS.wallTrim; ctx.fillRect(0, r.y + r.h, STRIP_W, 2);
     }
     // Ad boards along the wall with team banners and sponsors (invented).
-    ctx.fillStyle = COLORS.wall; ctx.fillRect(0, 94, STRIP_W, BAND_TOP - 94);
+    ctx.fillStyle = COLORS.wall; ctx.fillRect(0, 56, STRIP_W, BAND_TOP - 56);
     const ads = ['WENTZ', 'SUPER BOWL BOUND', 'ARCADE', 'GRIDIRON', 'TURBO', 'FOXES', 'BLUEBIRDS'];
     for (let i = 0, x = 4; x < STRIP_W; i++) {
         const text = ads[i % ads.length]!, w = text.length * 8 + 10;
         const hue = [TEAM_COLORS.home.jersey, '#c0392b', TEAM_COLORS.away.jersey, '#7a35c8', '#1d9a6c'][i % 5]!;
-        ctx.fillStyle = hue; ctx.fillRect(x, 97, w, 15);
-        ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x, 97, w, 3);
-        drawText(ctx, text, x + w / 2, 102, { color: '#ffffff', scale: 2, align: 'center', shadow: 'rgba(0,0,0,.5)' });
+        ctx.fillStyle = hue; ctx.fillRect(x, 59, w, 15);
+        ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x, 59, w, 3);
+        drawText(ctx, text, x + w / 2, 64, { color: '#ffffff', scale: 2, align: 'center', shadow: 'rgba(0,0,0,.5)' });
         x += w + 4;
     }
     ctx.fillStyle = COLORS.wallTrim; ctx.fillRect(0, BAND_TOP - 4, STRIP_W, 2);
