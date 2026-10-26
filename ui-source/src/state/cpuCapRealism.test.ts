@@ -206,8 +206,10 @@ describe("the reconciliation trim", () => {
 
   it("does not cut a player whose release opens no room: the spot has to be refilled at the minimum, so it only trades him for dead money", () => {
     const { s, code } = overTheCap(46, 5);
-    // every contract here is cheap to hold and dear to leave: $1.5M a year for four more, so a release saves $0.4M
+    // every contract here is cheap to hold and dear to leave: $1.5M a year for four more, so a release saves $0.4M.
+    // (Veterans: a young player on such a deal would go to the practice squad instead, which frees $1.3M and is its own test.)
     for (const p of rosterOf(s, code)) {
+      p.years_pro = 6;
       p.contract!.cap_hit_by_year = [1.5, 1.5, 1.5, 1.5];
       p.contract!.years_remaining = 4;
       delete p.contract!.prorated_per_year;
@@ -238,6 +240,7 @@ describe("the reconciliation trim", () => {
       ["every contract dear to leave and nothing honest frees room", () => {
         const x = overTheCap(46, 5);
         for (const p of rosterOf(x.s, x.code)) {
+          p.years_pro = 6;
           p.contract!.cap_hit_by_year = [1.5, 1.5, 1.5, 1.5];
           p.contract!.years_remaining = 4;
           delete p.contract!.prorated_per_year;
@@ -284,6 +287,22 @@ describe("the reconciliation trim", () => {
     expect(s.teams[code]!.cap.dead, "so no dead money is charged").toBe(0);
     expect(young.filter((p) => s.players[p.id]!.nfl_team.startsWith("PS:")).length, "the young players went to the squad").toBeGreaterThan(10);
     expect(cpuCapShortfalls).toBe(0);
+  });
+
+  it("prices a young player's cut as the squad move it will be, not as a paid release: a four-year $1.5M third quarterback goes to the squad and the team ends legal (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 0);
+    minimumDeals(s, code);
+    const qb3 = sorted(s, code, "QB")[2]!;
+    qb3.years_pro = 1;
+    // as a paid release he would net only $0.4M (not worth the dead money); as a squad move he frees $1.3M with none
+    Object.assign(qb3.contract!, { cap_hit_by_year: [1.5, 1.5, 1.5, 1.5], years_remaining: 4 });
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 0.2;
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    expect(s.players[qb3.id]!.nfl_team, "he is moved to the practice squad").toBe(`PS:${code}`);
+    expect(cpuCapShortfalls, "and that was enough, so the team is not left over the cap").toBe(0);
+    expect(s.teams[code]!.cap.dead, "with no dead money").toBe(0);
+    expect(capUsedOf(s, code)).toBeLessThanOrEqual(s.teams[code]!.cap.total);
   });
 
   it("leaves a team that no honest release can make legal over the cap, counted, rather than freeing cap for it", () => {
