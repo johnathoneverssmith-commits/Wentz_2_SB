@@ -233,6 +233,40 @@ describe("the reconciliation trim", () => {
     }
   });
 
+  it("no release is ever free, in the situations that used to reach the emergency path: the dead money added is exactly the penalty of every player let go", () => {
+    const setups: [string, () => { s: LeagueState; code: string }][] = [
+      ["every contract dear to leave and nothing honest frees room", () => {
+        const x = overTheCap(46, 5);
+        for (const p of rosterOf(x.s, x.code)) {
+          p.contract!.cap_hit_by_year = [1.5, 1.5, 1.5, 1.5];
+          p.contract!.years_remaining = 4;
+          delete p.contract!.prorated_per_year;
+        }
+        x.s.teams[x.code]!.cap.total = capUsedOf(x.s, x.code) - 5;
+        return x;
+      }],
+      ["spots to refill and a star's contract the only honest cut", () => {
+        const x = shortRosterJustUnderTheCap(52);
+        Object.assign(sorted(x.s, x.code, "QB")[0]!.contract!, { cap_hit_by_year: [20], years_remaining: 1 });
+        x.s.teams[x.code]!.cap.total = capUsedOf(x.s, x.code) + 1;
+        return x;
+      }],
+      ["more dead money than the cap holds", () => {
+        const x = overTheCap(50, 5);
+        x.s.teams[x.code]!.cap.dead = x.s.teams[x.code]!.cap.total + 40;
+        return x;
+      }],
+    ];
+    for (const [label, build] of setups) {
+      const { s, code } = build();
+      const penalties = new Map(rosterOf(s, code).map((p) => [p.id, releasePenalty(p)]));
+      const before = s.teams[code]!.cap.dead;
+      trimRosters(s);
+      const letGo = [...penalties.keys()].filter((id) => s.players[id]!.free_agent);
+      expect(s.teams[code]!.cap.dead - before, label).toBeCloseTo(letGo.reduce((n, id) => n + penalties.get(id)!, 0), 0);
+    }
+  });
+
   it("leaves a team that no honest release can make legal over the cap, counted, rather than freeing cap for it", () => {
     const { s, code } = overTheCap(50, 5);
     s.teams[code]!.cap.dead = s.teams[code]!.cap.total + 40; // more dead money than the cap holds
