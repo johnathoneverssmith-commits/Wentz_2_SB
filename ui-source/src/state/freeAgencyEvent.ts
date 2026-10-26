@@ -5,6 +5,7 @@ import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract } from "./rules";
 import { capUsedOf } from "./seed.ts";
+import { MIN_SIGNING_VALUE, signingValue } from "./faValue.ts";
 import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
@@ -250,6 +251,14 @@ export type FaMove = { kind: "pass" } | { kind: "offer"; playerId: string; salar
 const MIN_SALARY_M = 1;
 
 /**
+ * How far a GM's identity (position, age and star preferences, in rating points) moves a CPU team's choice of
+ * signing: half the points, as before. Measured on mature markets it changes a few teams in thirty-two
+ * (the same as the old rule did) between signings that are close, and never makes a signing worth bidding
+ * on that is not (the bar in `chooseFaMove` is applied to the signing's own worth).
+ */
+const STRATEGY_SCALE = 0.5;
+
+/**
  * What a CPU team can still afford to offer, $M: its cap room on the books (dead money included), less what
  * its live offers would cost if they all won, less the minimum deals its empty roster spots will be filled with.
  *
@@ -296,19 +305,33 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const pool = idx.pool;
   if (pool.length === 0) return PASS;
 
-  // Best overall this team already has at each position. It is a map lookup
-  // rather than a roster re-scan because `shortlistByBaseScore` below asks
-  // once per player in the pool — the same mistake `bestAvailable` in
-  // rules.ts documents hitting inside the draft's sort comparator.
-  const bestByPosition = idx.bestByTeam.get(teamCode);
-  const bestAt = (position: string): number => bestByPosition?.get(position) ?? 0;
+  // What this team already holds at each position (a map lookup rather than a roster re-scan, because
+  // `shortlistByBaseScore` below asks once per player in the pool: the same mistake `bestAvailable` in
+  // rules.ts documents hitting inside the draft's sort comparator), and the players it has bid on and not
+  // yet signed, who fill a slot as far as its next bid is concerned.
+  const lists = idx.ratingsByTeam.get(teamCode);
+  const signedIds = new Set(e.signed.map((x) => x.playerId));
+  const bidOn: Player[] = [];
+  for (const [playerId, offers] of Object.entries(e.offers)) {
+    if (signedIds.has(playerId) || !offers.some((o) => o.teamCode === teamCode)) continue;
+    const bidPlayer = s.players[playerId];
+    if (bidPlayer) bidOn.push(bidPlayer);
+  }
+  /** every rating the team holds at his position, signed or bid on, leaving out the man being priced */
+  const carriedFor = (p: Player): number[] => {
+    const held = lists?.get(p.position) ?? [];
+    const others = bidOn.filter((o) => o.id !== p.id && o.position === p.position);
+    return others.length > 0 ? [...held, ...others.map((o) => o.overall)] : held;
+  };
+  /** what signing him adds to the lineup, priced by what a point at his position is worth (`faValue.ts`) */
+  const valueOf = (p: Player): number => signingValue(p.overall, p.position, carriedFor(p));
 
   // AI Difficulty (§13.1): search only the top `candidateDepth` plausible
   // targets by raw gain — Expert (Infinity) considers every legal target,
   // exactly the prior behavior.
   const difficulty = difficultyFor(s, teamCode);
   const strategy = strategyOf(s, teamCode);
-  const shortlist = shortlistByBaseScore(pool, (p) => p.overall - bestAt(p.position), difficulty.candidateDepth);
+  const shortlist = shortlistByBaseScore(pool, valueOf, difficulty.candidateDepth);
   // a CPU team bids only what its cap room covers (a person's staff plays the same evaluator, without this)
   const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) : Infinity;
 
@@ -321,7 +344,6 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const RATIONAL_CHASE_CEILING = 1.4;
   // Master only: a signing is worth what it adds to the team's units, not
   // just how much better he is than the best man already there
-  const lists = idx.ratingsByTeam.get(teamCode);
   const units =
     difficulty.unitAwareness > 0 ? unitGainer((pos) => lists?.get(pos) ?? []) : null;
   let target: Player | null = null;
@@ -338,17 +360,21 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
     // §13.1: bounded valuation noise on the target-ranking score, same as draft/coaching.
     const noise =
       difficulty.evaluationNoise === 0 ? 0 : deterministicNoiseUnit(teamCode, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
+    // what he is worth to the lineup, with Master's reading of the team's units where it has one
+    const worth = valueOf(p) + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0);
+    // not worth bidding on, whatever the GM's taste or the day's noise says (they choose among signings that are)
+    if (worth < MIN_SIGNING_VALUE) continue;
     const gain =
-      p.overall - bestAt(p.position) + noise + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0) +
+      worth + noise +
       // the GM's identity: a bounded preference among similar signings, never a reason to take a clearly worse one
-      0.5 * (strategyPositionBonus(strategy, p.position as never) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall));
+      STRATEGY_SCALE * (strategyPositionBonus(strategy, p.position as never) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall));
     if (gain > bestGain) {
       bestGain = gain;
       target = p;
     }
   }
 
-  if (!target || bestGain < 2) return PASS;
+  if (!target) return PASS;
 
   const lead = leadingOffer(s, target.id, idx.ratingsByTeam);
   // §13.3: a rebid over an existing offer can be deterministically missed
