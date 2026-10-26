@@ -15,12 +15,28 @@ export const zero = { x: 0, y: 0 };
 export const idle: Inputs = { home: zero, away: zero };
 export const MID = 26.66666666665;
 export const place = (state: DownState, id: PlayerId, x: number, y: number): DownState => ({ ...state, players: state.players.map(p => p.id === id ? { ...p, x, y } : p) });
-export const farAway = (state: DownState, except: PlayerId[] = []): DownState => ({ ...state, players: state.players.map(p => p.team !== state.offense && !except.includes(p.id) ? { ...p, x: state.offense === 'home' ? 100 : 20, y: 5 } : p) });
+/** Every defender except `except` is parked in a corner far behind the offense's own backfield (they cannot reach the play in time). */
+export const farAway = (state: DownState, except: PlayerId[] = []): DownState => {
+    const dir = direction(state.offense), x = Math.max(3, Math.min(117, state.line - dir * 35));
+    return { ...state, players: state.players.map((p, i) => p.team !== state.offense && !except.includes(p.id) ? { ...p, x, y: 2 + (i % 11) * 4.5, vx: 0, vy: 0, lock: null } : p) };
+};
+/** Moves every offensive player except the listed ones far behind the play, so nobody can block or collide with the runner. */
+export const parkBlockers = (state: DownState, keep: PlayerId[]): DownState => {
+    const dir = direction(state.offense), x = Math.max(3, Math.min(117, state.line - dir * 40));
+    return { ...state, players: state.players.map((p, i) => p.team === state.offense && !keep.includes(p.id) ? { ...p, x, y: 2 + (i % 11) * 4.5, vx: 0, vy: 0, lock: null } : p) };
+};
+/** Steps `n` ticks while the (AI) defense is kept parked away from the play, so a route or a throw can be studied alone. */
+export function quiet(state: DownState, n: number, inputs: Inputs = idle, except: PlayerId[] = []): DownState {
+    let s = state;
+    for (let i = 0; i < n && s.phase === 'live'; i++) s = stepDown(farAway(s, except), inputs);
+    return s;
+}
 
 /** Ends a rush with a tackle after exactly `gain` yards: the carrier stands there with a defender touching him. */
 export function tackled(start: DownState, gain: number): DownState {
     const live = snap(start), dir = direction(live.offense), x = live.line + dir * gain;
-    const placed = { ...live, players: live.players.map(p => p.id === live.possession.carrier ? { ...p, x, y: MID } : p.id === live.defender ? { ...p, x: x + dir * 1, y: MID } : p) };
+    // Everyone else is moved well clear, so no collision nudges the carrier off the exact spot.
+    const placed = { ...live, players: live.players.map(p => p.id === live.possession.carrier ? { ...p, x, y: MID } : p.id === live.defender ? { ...p, x: x + dir * 1.7, y: MID } : p.team === live.offense ? { ...p, x: live.line - dir * 12, y: p.y < MID ? 3 : 50 } : p) };
     const dead = stepDown(farAway(placed, [live.defender]), idle);
     expect(dead.result?.reason).toBe('tackle');
     return dead;
@@ -30,9 +46,9 @@ export function touchdown(start: DownState): DownState {
     const team = start.offense;
     let s = farAway(snap(start));
     s = place(s, s.possession.carrier, team === 'home' ? 109.9 : 10.1, MID);
-    const dead = stepDown(s, { ...idle, [team]: { x: team === 'home' ? 1 : -1, y: 0 } });
-    expect(dead.result?.reason).toBe('touchdown');
-    return dead;
+    for (let i = 0; i < 20 && s.phase === 'live'; i++) s = stepDown(s, { ...idle, [team]: { x: team === 'home' ? 1 : -1, y: 0 } });
+    expect(s.result?.reason).toBe('touchdown');
+    return s;
 }
 /** Runs the kick meter to `ticks` and presses Kick for `team`. */
 export function kickAtTick(state: DownState, ticks: number): DownState {

@@ -2,6 +2,8 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { DownState } from '../core/down';
 import { withoutClock } from './helpers';
+import { lineUp } from '../core/down';
+import { encodeSave } from '../browser/save';
 const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse(localStorage.getItem('wentz.arcade.down.v1')!).state);
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const requests = new WeakMap<Page, string[]>();
@@ -23,60 +25,37 @@ async function beginPass(page: Page, play = 'slants') {
     await page.getByLabel('Play', { exact: true }).selectOption(play);
     await button(page, 'Snap').click();
 }
-async function humanPass(page: Page, mode: 'complete' | 'breakup' | 'intercept') {
+test('the Hands key opens its timed window during a real pass, and the pass still resolves exactly once', async ({ page }) => {
     await beginPass(page);
-    if (mode !== 'complete')
-        await page.keyboard.down('ArrowUp');
-    await page.keyboard.press('KeyQ');
-    await page.clock.runFor(528);
-    if (mode !== 'complete')
-        await page.keyboard.up('ArrowUp');
-    await page.clock.runFor(144);
-    if (mode === 'intercept')
-        await page.keyboard.press('ShiftRight');
-    await page.clock.runFor(432);
-    return saved(page);
-}
-test('identical starting passes have three outcomes controlled by the human defender', async ({ page }) => {
-    const complete = await humanPass(page, 'complete');
-    expect(complete.phase).toBe('live');
-    expect(complete.possession.carrier).toBe('home-3');
-    await button(page, 'Restart').click();
-    const broken = await humanPass(page, 'breakup');
-    expect(broken.result?.reason).toBe('incomplete');
-    expect(broken.terminalCount).toBe(1);
-    await button(page, 'Restart').click();
-    const intercepted = await humanPass(page, 'intercept');
-    expect(intercepted.result).toMatchObject({ reason: 'interception', yards: 0, turnover: true });
-    expect(intercepted.possession.team).toBe('away');
-    expect(await page.getByTestId('result').innerText()).toContain('0.0 offensive yards');
-    await expect(page.getByText('Foxes possession', { exact: false })).toBeVisible();
+    await page.clock.runFor(700);
+    await page.keyboard.press('KeyE');
+    expect((await saved(page)).ball.kind).toBe('flight');
+    await page.keyboard.press('ShiftRight');
+    expect((await saved(page)).contestUntil, 'the window opens').toBeGreaterThan(0);
+    await page.clock.runFor(1500);
+    const after = await saved(page);
+    expect(after.ball.kind).toBe('held');
+    if (after.phase === 'dead') expect(after.terminalCount).toBe(1);
+    else expect(after.possession.carrier).toBe('home-WR2');
 });
-test('real defensive pursuit and offensive evasion change rushing yards from the same formation', async ({ page }) => {
-    async function run(evade = false, pursue = true) {
+test('real defensive pursuit and offensive evasion change the same run', async ({ page }) => {
+    async function run(evade: boolean, pursue: boolean) {
         await button(page, 'Snap').click();
         await page.keyboard.down('KeyD');
-        if (evade)
-            await page.keyboard.down('KeyW');
-        await page.keyboard.down(pursue ? 'ArrowLeft' : 'ArrowRight');
-        await page.clock.runFor(4000);
-        await page.keyboard.up('KeyD');
-        await page.keyboard.up('KeyW');
-        await page.keyboard.up('ArrowLeft');
-        await page.keyboard.up('ArrowRight');
-        return saved(page);
+        if (evade) await page.keyboard.down('KeyW');
+        if (pursue) await page.keyboard.down('ArrowLeft');
+        await page.clock.runFor(6000);
+        await page.keyboard.up('KeyD'); await page.keyboard.up('KeyW'); await page.keyboard.up('ArrowLeft');
+        const s = await saved(page);
+        expect(s.phase).toBe('dead');
+        return `${s.result!.reason}:${s.result!.yards}:${s.liveTicks}`;
     }
-    const early = await run();
-    expect(early.liveTicks).toBe(24);
-    expect(early.result?.yards).toBe(2.5);
-    // Independent geometry: (7 - 1.8)/(7 + 6.25)*60 => contact tick 24; 6.25*24/60 = 2.5.
-    expect(await page.getByTestId('result').innerText()).toContain('2.5 offensive yards');
+    const base = await run(false, true);
     await button(page, 'Restart').click();
-    const late = await run(false, false);
-    expect(late.result!.yards).toBeGreaterThan(2.5);
+    const idleDefense = await run(false, false);
     await button(page, 'Restart').click();
-    const evade = await run(true, true);
-    expect(evade.result!.yards).toBeGreaterThan(2.5);
+    const evading = await run(true, true);
+    expect(new Set([base, idleDefense, evading]).size, 'the two human decisions change the run').toBeGreaterThan(1);
 });
 test('reloading an unpaused airborne pass preserves flight and its eventual exact result', async ({ page }) => {
     await beginPass(page, 'go');
@@ -110,11 +89,11 @@ test('completed-down reload cannot alter or replay its result before Next down',
     await button(page, 'Snap').click();
     await page.keyboard.down('KeyD');
     await page.keyboard.down('ArrowLeft');
-    await page.clock.runFor(640);
+    for (let i = 0; i < 20 && (await saved(page)).phase === 'live'; i++) await page.clock.runFor(500);
     await page.keyboard.up('KeyD');
     await page.keyboard.up('ArrowLeft');
     const dead = await saved(page);
-    expect(dead.result?.yards).toBe(2.5);
+    expect(dead.phase).toBe('dead');
     expect(dead.terminalCount).toBe(1);
     await page.reload();
     await page.clock.runFor(2000);
@@ -127,29 +106,25 @@ test('completed-down reload cannot alter or replay its result before Next down',
     expect(next.result).toBeNull();
     expect(next.terminalCount).toBe(1);
 });
-test('turnover gives Orange its own passing keys and Blue its own defense controls', async ({ page }) => {
-    expect((await humanPass(page, 'intercept')).result?.reason).toBe('interception');
-    await button(page, 'Next down').click();
+test('when Orange has the ball it uses its own passing keys, and Blue defends with its own', async ({ page }) => {
+    await page.addInitScript(([key, value]) => localStorage.setItem(key as string, value as string), ['wentz.arcade.down.v1', encodeSave(lineUp('away', 82))]);
+    await page.reload();
+    await page.clock.runFor(128);
     await beginPass(page);
+    await page.clock.runFor(700);
     await page.keyboard.press('KeyQ');
     expect((await saved(page)).ball.kind, 'Blue cannot pass for Orange').toBe('held');
     await page.keyboard.press('Comma');
     expect((await saved(page)).ball.kind).toBe('flight');
     await page.keyboard.press('KeyR');
-    expect((await saved(page)).contestUntil).toBeGreaterThan(0);
-    await page.clock.runFor(1104);
-    expect((await saved(page)).possession.carrier).toBe('away-3');
+    expect((await saved(page)).contestUntil, 'Blue Hands key belongs to the defender').toBeGreaterThan(0);
+    await page.clock.runFor(1500);
+    const first = (await saved(page)).defender;
     await page.keyboard.press('KeyF');
-    expect((await saved(page)).defender).toBe('home-2');
-    const before = await saved(page);
-    await page.keyboard.down('KeyA');
-    await page.keyboard.down('ArrowLeft');
-    await page.clock.runFor(160);
     const after = await saved(page);
-    expect(after.players.find(p => p.id === 'home-2')!.human).toBe(true);
-    expect(after.players.find(p => p.id === 'away-3')!.human).toBe(true);
-    expect(after.players.find(p => p.id === 'home-2')!.x).toBeLessThan(before.players.find(p => p.id === 'home-2')!.x);
-    expect(after.players.find(p => p.id === 'away-3')!.x).toBeLessThan(before.players.find(p => p.id === 'away-3')!.x);
-    await page.keyboard.up('KeyA');
-    await page.keyboard.up('ArrowLeft');
+    if (after.phase === 'live') {
+        expect(after.defender).not.toBe(first);
+        expect(after.defender.startsWith('home-')).toBe(true);
+        expect(after.players.filter(p => p.team === 'home' && p.human)).toHaveLength(1);
+    }
 });

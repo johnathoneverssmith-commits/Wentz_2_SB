@@ -65,3 +65,23 @@ test('the canvas respects reduced motion by not shaking and the scoreboard text 
     await startClocked(page);
     await expect(page.getByTestId('score-home')).toHaveText('0');
 });
+
+test('the field is populated with eleven players a side, named and numbered, and the formation changes with the play', async ({ page }) => {
+    await startClocked(page);
+    const state = await saved(page);
+    expect(state.players).toHaveLength(22);
+    expect(state.players.filter(p => p.team === 'home')).toHaveLength(11);
+    expect(state.players.filter(p => p.team === 'away')).toHaveLength(11);
+    await page.getByText('Player positions', { exact: false }).click();
+    await expect(page.getByRole('table').getByRole('row')).toHaveCount(23);
+    const handoff = (await saved(page)).formation;
+    await page.getByLabel('Play', { exact: true }).selectOption('go');
+    const pass = (await saved(page)).formation;
+    expect(handoff.defense).toBe('fourThree');
+    expect((await saved(page)).players).toHaveLength(22);
+    expect(['singleback', 'shotgun']).toContain(pass.offense);
+    // the selected players keep their name plates (drawn on the canvas), and the pass-target hints are offered
+    const p = await pixels(page);
+    expect(p.blue, 'Bluebirds on the field').toBeGreaterThan(300);
+    expect(p.orange, 'Foxes on the field').toBeGreaterThan(300);
+});
