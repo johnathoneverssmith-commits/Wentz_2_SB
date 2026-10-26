@@ -206,8 +206,10 @@ describe("the reconciliation trim", () => {
 
   it("does not cut a player whose release opens no room: the spot has to be refilled at the minimum, so it only trades him for dead money", () => {
     const { s, code } = overTheCap(46, 5);
-    // every contract here is cheap to hold and dear to leave: $1.5M a year for four more, so a release saves $0.4M
+    // every contract here is cheap to hold and dear to leave: $1.5M a year for four more, so a release saves $0.4M.
+    // (Veterans: a young player on such a deal would go to the practice squad instead, which frees $1.3M and is its own test.)
     for (const p of rosterOf(s, code)) {
+      p.years_pro = 6;
       p.contract!.cap_hit_by_year = [1.5, 1.5, 1.5, 1.5];
       p.contract!.years_remaining = 4;
       delete p.contract!.prorated_per_year;
@@ -231,6 +233,76 @@ describe("the reconciliation trim", () => {
       expect(cut.length, `$${over}M over`).toBeGreaterThan(0);
       expect(s.teams[code]!.cap.dead, `$${over}M over`).toBeCloseTo(cut.reduce((n, id) => n + penalties.get(id)!, 0), 0);
     }
+  });
+
+  it("no release is ever free, in the situations that used to reach the emergency path: the dead money added is exactly the penalty of every player let go", () => {
+    const setups: [string, () => { s: LeagueState; code: string }][] = [
+      ["every contract dear to leave and nothing honest frees room", () => {
+        const x = overTheCap(46, 5);
+        for (const p of rosterOf(x.s, x.code)) {
+          p.years_pro = 6;
+          p.contract!.cap_hit_by_year = [1.5, 1.5, 1.5, 1.5];
+          p.contract!.years_remaining = 4;
+          delete p.contract!.prorated_per_year;
+        }
+        x.s.teams[x.code]!.cap.total = capUsedOf(x.s, x.code) - 5;
+        return x;
+      }],
+      ["spots to refill and a star's contract the only honest cut", () => {
+        const x = shortRosterJustUnderTheCap(52);
+        Object.assign(sorted(x.s, x.code, "QB")[0]!.contract!, { cap_hit_by_year: [20], years_remaining: 1 });
+        x.s.teams[x.code]!.cap.total = capUsedOf(x.s, x.code) + 1;
+        return x;
+      }],
+      ["more dead money than the cap holds", () => {
+        const x = overTheCap(50, 5);
+        x.s.teams[x.code]!.cap.dead = x.s.teams[x.code]!.cap.total + 40;
+        return x;
+      }],
+    ];
+    for (const [label, build] of setups) {
+      const { s, code } = build();
+      const penalties = new Map(rosterOf(s, code).map((p) => [p.id, releasePenalty(p)]));
+      const before = s.teams[code]!.cap.dead;
+      trimRosters(s);
+      const letGo = [...penalties.keys()].filter((id) => s.players[id]!.free_agent);
+      expect(s.teams[code]!.cap.dead - before, label).toBeCloseTo(letGo.reduce((n, id) => n + penalties.get(id)!, 0), 0);
+    }
+  });
+
+  it("credits a practice-squad move with what it really frees (his hit less the squad pay), so a team that can reach legality that way makes no further, paid releases (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 1);
+    minimumDeals(s, code);
+    // fifteen young players on $1.5M: each squad move frees $1.3M, so fourteen of them cover the overage and the working room
+    const young = bench(s, code).slice(0, 15);
+    for (const p of young) {
+      p.years_pro = 1;
+      Object.assign(p.contract!, { cap_hit_by_year: [1.5], years_remaining: 1 });
+    }
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 1;
+    const before = rosterOf(s, code).map((p) => p.id);
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    expect(before.filter((id) => s.players[id]!.free_agent), "nobody is let go: the squad moves were enough").toEqual([]);
+    expect(s.teams[code]!.cap.dead, "so no dead money is charged").toBe(0);
+    expect(young.filter((p) => s.players[p.id]!.nfl_team.startsWith("PS:")).length, "the young players went to the squad").toBeGreaterThan(10);
+    expect(cpuCapShortfalls).toBe(0);
+  });
+
+  it("prices a young player's cut as the squad move it will be, not as a paid release: a four-year $1.5M third quarterback goes to the squad and the team ends legal (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 0);
+    minimumDeals(s, code);
+    const qb3 = sorted(s, code, "QB")[2]!;
+    qb3.years_pro = 1;
+    // as a paid release he would net only $0.4M (not worth the dead money); as a squad move he frees $1.3M with none
+    Object.assign(qb3.contract!, { cap_hit_by_year: [1.5, 1.5, 1.5, 1.5], years_remaining: 4 });
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 0.2;
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    expect(s.players[qb3.id]!.nfl_team, "he is moved to the practice squad").toBe(`PS:${code}`);
+    expect(cpuCapShortfalls, "and that was enough, so the team is not left over the cap").toBe(0);
+    expect(s.teams[code]!.cap.dead, "with no dead money").toBe(0);
+    expect(capUsedOf(s, code)).toBeLessThanOrEqual(s.teams[code]!.cap.total);
   });
 
   it("leaves a team that no honest release can make legal over the cap, counted, rather than freeing cap for it", () => {
@@ -370,6 +442,41 @@ describe("a CPU team's offers in the free-agency market", () => {
     expect(move.kind).toBe("offer");
     s.freeAgencyEvent!.offers[(move as { playerId: string }).playerId] = [{ teamCode: code, salary: 7, years: 3, round: 1, sequence: 0 }];
     expect(offerRoomFor(s, code)).toBeCloseTo(room - 7, 1);
+  });
+
+  /** puts the team on exactly `size` rostered players, filling from the market on minimum deals */
+  function rosterOfSize(s: LeagueState, code: string, size: number): void {
+    const roster = rosterOf(s, code);
+    for (const p of roster.slice(size)) Object.assign(p, { free_agent: true, nfl_team: "FA", contract: null as never });
+    const market = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+    while (rosterOf(s, code).length < size) {
+      const p = market.pop()!;
+      Object.assign(p, {
+        free_agent: false,
+        nfl_team: code,
+        contract: { team_id: code, years_remaining: 1, total_value: 1, guaranteed: 0, cap_hit_by_year: [1], signing_bonus: 0 },
+      });
+    }
+  }
+
+  it("reserves minimum deals only for the spots that stay empty after the signing it is making: a team one player short can spend all of its room (Codex review finding)", () => {
+    const { s, code } = market(47);
+    rosterOfSize(s, code, 52);
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 5;
+    expect(offerRoomFor(s, code), "$5M of room and one spot to fill: the signing itself completes the roster at the cap").toBeCloseTo(5, 5);
+    rosterOfSize(s, code, 50);
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 5;
+    expect(offerRoomFor(s, code), "three spots short: one is the signing's, two are held back at the minimum").toBeCloseTo(3, 5);
+  });
+
+  it("an outstanding offer fills a spot too: its salary is committed, and its spot is no longer one held back (Codex review finding)", () => {
+    const { s, code } = market(47);
+    rosterOfSize(s, code, 50);
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 10;
+    const none = offerRoomFor(s, code);
+    const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+    s.freeAgencyEvent!.offers[pool[0]!.id] = [{ teamCode: code, salary: 4, years: 2, round: 1, sequence: 0 }];
+    expect(offerRoomFor(s, code), "4 committed, one of the held-back spots now filled by that offer").toBeCloseTo(none - 4 + 1, 5);
   });
 
   it("leaves a person's staff and their cap rules alone: the market suspends the cap for a GM", () => {

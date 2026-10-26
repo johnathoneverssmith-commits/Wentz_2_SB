@@ -6,7 +6,7 @@
 import { UNITS } from "./unitValue.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
-import { practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
+import { PRACTICE_SQUAD_SALARY_M, checkToPracticeSquad, practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
 import {
   type Coach,
   type Gm,
@@ -770,14 +770,24 @@ function trimToLegalRoster(
   // a CPU team's dead money is on its books, so it counts against the room the cuts are making
   let used = roster.reduce((n, p) => n + capHitOf(p), 0) + (cpu ? (state.teams[teamCode]?.cap.dead ?? 0) : 0);
   let released = 0;
-  /** What a cut really opens: his cap hit, less the dead money a CPU team's release leaves behind. */
-  const netFreed = (p: Player): number => (cpu ? capHitOf(p) - releasePenalty(p) : capHitOf(p));
+  /** Whether a CPU team's cut of him is a practice-squad move (`drop` does it whenever it can), which leaves no dead money. */
+  const squadMove = (p: Player): boolean => cpu && practiceSquadEligible(p) && checkToPracticeSquad(state, p).ok;
+  /**
+   * What a cut really opens. A CPU team's squad move frees his cap hit less the squad pay that stays on the books,
+   * with no dead money; its other releases free the hit less the dead money they leave behind. A person's team
+   * counts the whole hit.
+   */
+  const netFreed = (p: Player): number =>
+    !cpu ? capHitOf(p) : squadMove(p) ? capHitOf(p) - PRACTICE_SQUAD_SALARY_M : capHitOf(p) - releasePenalty(p);
   /** Returns the cap the cut frees; `releaseToMarket` clears the contract. */
   const drop = (p: Player): number => {
     // a CPU staff keeps a young cut on its practice squad rather than lose
     // him for nothing; a GM decides that for themselves on Roster & Cap
+    // The squad move replaces his contract with the squad salary, which stays on the books: what it frees is the
+    // hit he had less that salary, so the hit is read before the move.
+    const hitBefore = capHitOf(p);
     const toSquad = cpu && practiceSquadEligible(p) && toPracticeSquad(state, p).ok;
-    const freed = toSquad ? capHitOf(p) : cpu ? releaseWithDeadMoney(state, p) : capHitOf(p);
+    const freed = toSquad ? hitBefore - capHitOf(p) : cpu ? releaseWithDeadMoney(state, p) : capHitOf(p);
     if (!toSquad && !cpu) releaseToMarket(state, p);
     roster.splice(roster.indexOf(p), 1);
     released++;

@@ -260,7 +260,9 @@ const STRATEGY_SCALE = 0.5;
 
 /**
  * What a CPU team can still afford to offer, $M: its cap room on the books (dead money included), less what
- * its live offers would cost if they all won, less the minimum deals its empty roster spots will be filled with.
+ * its live offers would cost if they all won, less the minimum deals the roster spots that would still be empty
+ * will be filled with. That reserve leaves out the spot the offer being made would fill and the spots its live
+ * offers would fill (their salaries are already counted), so a team one player short can spend all of its room.
  *
  * The market suspends the cap, and a CPU team that ignores it signs itself into a roster it can only fix by
  * cutting, which now costs it the dead money a GM's release costs. A GM's own offers are theirs to make.
@@ -271,14 +273,19 @@ export function offerRoomFor(s: LeagueState, teamCode: string): number {
   if (!e || !team) return Infinity;
   const signed = new Set(e.signed.map((x) => x.playerId));
   let committed = 0;
+  let liveOffers = 0;
   for (const [playerId, offers] of Object.entries(e.offers)) {
     if (signed.has(playerId)) continue;
     const mine = offers.filter((o) => o.teamCode === teamCode);
-    if (mine.length > 0) committed += Math.max(...mine.map((o) => o.salary));
+    if (mine.length > 0) {
+      committed += Math.max(...mine.map((o) => o.salary));
+      liveOffers++;
+    }
   }
   let rostered = 0;
   for (const p of Object.values(s.players)) if (!p.retired && !p.free_agent && p.nfl_team === teamCode) rostered++;
-  return team.cap.total - capUsedOf(s, teamCode) - committed - Math.max(0, ROSTER_SIZE - rostered) * MIN_SALARY_M;
+  const stillEmpty = Math.max(0, ROSTER_SIZE - rostered - liveOffers - 1);
+  return team.cap.total - capUsedOf(s, teamCode) - committed - stillEmpty * MIN_SALARY_M;
 }
 
 /** A CPU team's turn: choose, then do it. */
