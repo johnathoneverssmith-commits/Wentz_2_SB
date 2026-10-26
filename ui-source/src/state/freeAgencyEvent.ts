@@ -259,6 +259,16 @@ const MIN_SALARY_M = 1;
 const STRATEGY_SCALE = 0.5;
 
 /**
+ * Cap room a CPU team leaves unspent when it bids (on top of `offerRoomFor`), $M. After the market the roster fill cuts any team that is over
+ * what it can carry (its cap less the minimum deals for empty spots) down to that limit *less* a working-room
+ * cushion, so a team that spends to the last dollar and lands $1M over sheds well over $16M of paid depth, with the
+ * dead money that costs. Measured on mature leagues, spending to the line cost 50% more dead money than the market
+ * before it priced signings by slot; keeping $2M back removes that cliff and costs no lineup (larger cushions only
+ * cost signings).
+ */
+const OFFER_CUSHION_M = 2;
+
+/**
  * What a CPU team can still afford to offer, $M: its cap room on the books (dead money included), less what
  * its live offers would cost if they all won, less the minimum deals the roster spots that would still be empty
  * will be filled with. That reserve leaves out the spot the offer being made would fill and the spots its live
@@ -340,7 +350,7 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const strategy = strategyOf(s, teamCode);
   const shortlist = shortlistByBaseScore(pool, valueOf, difficulty.candidateDepth);
   // a CPU team bids only what its cap room covers (a person's staff plays the same evaluator, without this)
-  const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) : Infinity;
+  const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) - OFFER_CUSHION_M : Infinity;
 
   // Free Agency + Contracts optimization pass (free_agency.five_round_cpu):
   // chase a bid war less far, rebid less aggressively, and require a real

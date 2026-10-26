@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LeagueState, Player } from "@/domain";
 import { positionValueWeight } from "./draftBoard.ts";
 import { MIN_SIGNING_VALUE, signingValue, slotGain } from "./faValue.ts";
-import { beginFreeAgencyEvent, chooseFaMove } from "./freeAgencyEvent.ts";
+import { beginFreeAgencyEvent, chooseFaMove, offerRoomFor } from "./freeAgencyEvent.ts";
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 
 /**
@@ -166,6 +166,23 @@ describe("a CPU team's choice in the market", () => {
       s.aiGms!.find((g) => g.teamCode === code)!.strategy = strategy;
       expect(chooseFaMove(s, code).kind, strategy).toBe("pass");
     }
+  });
+
+  it("keeps a little of its room back when it bids: a team whose room only just covers the bid passes, one with a cushion over it offers", () => {
+    const first = rigged(75, [{ position: "WR", overall: 85 }], { WR: [60, 55, 50] });
+    const asked = chooseFaMove(first.s, first.code) as { kind: "offer"; salary: number };
+    expect(asked.kind).toBe("offer");
+    const withRoom = (room: number) => {
+      const { s, code } = rigged(75, [{ position: "WR", overall: 85 }], { WR: [60, 55, 50] });
+      s.teams[code]!.cap.total += room - offerRoomFor(s, code);
+      expect(offerRoomFor(s, code)).toBeCloseTo(room, 5);
+      return chooseFaMove(s, code).kind;
+    };
+    // the bid exactly covered by the room: the cushion says no
+    expect(withRoom(asked.salary)).toBe("pass");
+    expect(withRoom(asked.salary + 1)).toBe("pass");
+    // two million more than the bid: yes
+    expect(withRoom(asked.salary + 2.5)).toBe("offer");
   });
 
   it("is deterministic: the same market gives the same choice, whoever asks", () => {
