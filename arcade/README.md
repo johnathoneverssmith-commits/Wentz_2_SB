@@ -35,6 +35,7 @@ game ends on a **final-score screen with a Rematch button**.
   its extra point); then the quarter ends. Q1 and Q3 end with the same team, spot and
   down; the end of Q2 is halftime, which gives **Foxes the ball at their own 28**.
   Estimated real duration of a regulation game: roughly 12-17 minutes (`npm --prefix arcade run balance`).
+  Passing and coverage are measured by a seeded, reproducible framework (`npm --prefix arcade run balance:passing`; see `BALANCE.md`).
 * **Downs.** Four downs to gain ten yards: the gold line is the marker, the HUD shows
   "2nd & 6.3" (or "Goal"), and a failed fourth down hands the ball to the other team at
   the spot.
