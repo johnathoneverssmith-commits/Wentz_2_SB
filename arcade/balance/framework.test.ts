@@ -119,10 +119,11 @@ describe('results are reproducible', () => {
             const t1 = p.throwAt(s), tgt = typeof p.target === 'function' ? p.target(s) : p.target;
             for (let i = 0; i < 5; i++) { expect(p.throwAt(s)).toBe(t1); expect(typeof p.target === 'function' ? p.target(s) : p.target).toBe(tgt); }
             expect(q.throwAt(s)).toBe(t1);
-            const draws = Array.from({ length: 40 }, () => { const x = other.play(s); return `${x}${other.throwAt(s)}`; });
-            const mine = Array.from({ length: 40 }, () => { const x = p.play(s); return `${x}${p.throwAt(s)}`; });
-            expect(new Set(draws).size).toBeGreaterThan(1);
-            expect(mine).not.toEqual(draws);
+            const sequence = (policy: typeof p) => Array.from({ length: 40 }, () => { const x = policy.play(s); return `${x}${policy.throwAt(s)}`; });
+            const same77 = sequence(strategy.make(77, ctx)), again77 = sequence(strategy.make(77, ctx)), seed78 = sequence(other);
+            expect(new Set(seed78).size).toBeGreaterThan(1);
+            expect(again77).toEqual(same77);
+            expect(seed78).not.toEqual(same77);
         }
     });
     it('the best response ignores its seed, so a matrix runs it once however many seeds it is given', () => {
