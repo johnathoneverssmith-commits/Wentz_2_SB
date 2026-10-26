@@ -734,10 +734,10 @@ export function expireContracts(state: LeagueState): void {
 /** Cap hit a player is currently charging his team, in $M. */
 const capHitOf = (p: Player): number => p.contract?.cap_hit_by_year[0] ?? 0;
 
-/** How many releases a CPU team has made with no dead money, because nothing honest was left to make (see `trimToLegalRoster`). */
-export let cpuEmergencyReleases = 0;
-export function resetCpuEmergencyReleases(): void {
-  cpuEmergencyReleases = 0;
+/** How many times a CPU team has been left over the hard cap because nothing honest could get it under (see `trimToLegalRoster`). */
+export let cpuCapShortfalls = 0;
+export function resetCpuCapShortfalls(): void {
+  cpuCapShortfalls = 0;
 }
 
 /**
@@ -877,42 +877,35 @@ function trimToLegalRoster(
     // `protectedIds` and `coreIds` both sort every position group, and this
     // loop runs once per cut on every team — evaluating all three eagerly
     // took a free-agency turn from 189ms to 725ms.
+    // A CPU team's release is charged like a GM's, and opens room only if it frees more than the minimum deal its
+    // roster spot is refilled with (the budget above already holds that back): a cut that frees less just trades a
+    // player for dead money. A rung with nothing worth cutting hands over to the next one.
+    const worth = (pool: Player[]): Player[] => (cpu ? pool.filter((p) => netFreed(p) > MIN_SALARY_M) : pool);
     const rungs: (() => Player[])[] = [
-      () => onRealMoney(roster.filter((p) => !protectedIds().has(p.id))), // 1. paid backups
-      () => onRealMoney(roster.filter((p) => !coreIds().has(p.id))), //     2. replaceable starters
-      () => (cpu ? [] : roster.filter((p) => capHitOf(p) > 0)), //        3. the untouchables (never a CPU team's)
+      () => worth(onRealMoney(roster.filter((p) => !protectedIds().has(p.id)))), // 1. paid backups
+      () => worth(onRealMoney(roster.filter((p) => !coreIds().has(p.id)))), //     2. replaceable starters
+      // 3. the untouchables. A person's team gives them up when nothing else is left; a CPU team does too, but only
+      // while it is still over the hard cap, and it pays for it like any release: the way a GM who cannot get legal
+      // any other way moves a star.
+      () => (cpu ? (used > capTotal ? worth(roster.filter((p) => coreIds().has(p.id))) : []) : roster.filter((p) => capHitOf(p) > 0)),
     ];
     let pool: Player[] = [];
-    for (const rung of rungs) {
-      pool = rung();
+    let rung = 0;
+    for (const build of rungs) {
+      rung++;
+      pool = build();
       if (pool.length > 0) break;
     }
     if (pool.length === 0) break; // nothing left to shed
-    const next = dearest(pool);
-    // A release opens room only if it frees more than the minimum deal its roster spot is refilled with (the
-    // budget above already holds that back): a cut that frees less just trades a player for dead money.
-    if (cpu && netFreed(next) <= MIN_SALARY_M) break;
+    // the untouchables a CPU team gives up are the least valuable of them, not the dearest
+    const next = cpu && rung === 3 ? pool.reduce((a, b) => (b.overall < a.overall ? b : a)) : dearest(pool);
     used -= drop(next);
   }
 
-  // Last resort, for a CPU team that is still over the hard cap after every release a GM could make (it has
-  // nothing left that frees more than it costs): the rest is cut with no dead money, never its best player at a
-  // position, so the league does not carry an illegal roster. It stands for the restructuring and trades a real
-  // front office would use, which this game does not model, and every one is counted (`cpuEmergencyReleases`).
-  if (cpu && used > capTotal) {
-    const core = coreIds();
-    let lastResort = ROSTER_SIZE;
-    while (used > capTotal && lastResort-- > 0) {
-      const pool = roster.filter((p) => !core.has(p.id) && capHitOf(p) > 0);
-      if (pool.length === 0) break;
-      const next = pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
-      used -= capHitOf(next);
-      releaseToMarket(state, next);
-      roster.splice(roster.indexOf(next), 1);
-      released++;
-      cpuEmergencyReleases++;
-    }
-  }
+  // Nothing honest is left and the team is still over the hard cap (its dead money and its minimum deals alone
+  // fill it): it stays over, as a real team in cap trouble does until the money clears, and is counted. No release
+  // is ever made for free to fix it.
+  if (cpu && used > capTotal) cpuCapShortfalls++;
 
   return { used, released };
 }

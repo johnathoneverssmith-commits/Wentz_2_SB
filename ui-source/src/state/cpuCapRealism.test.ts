@@ -14,9 +14,9 @@ import {
   openCapRoomForFreeAgency,
   planRoomFor,
   recomputeTeamRatings,
-  cpuEmergencyReleases,
+  cpuCapShortfalls,
   releaseWithDeadMoney,
-  resetCpuEmergencyReleases,
+  resetCpuCapShortfalls,
   trimRosters,
 } from "./seed.ts";
 
@@ -173,12 +173,12 @@ describe("the reconciliation trim", () => {
   it("charges a CPU team's cuts to its cap as dead money, and a person's team is left as it was", () => {
     const cpu = overTheCap(46, 8);
     const code = cpu.code;
-    resetCpuEmergencyReleases();
+    resetCpuCapShortfalls();
     const penalties = new Map(rosterOf(cpu.s, code).map((p) => [p.id, releasePenalty(p)]));
     trimRosters(cpu.s);
     const cut = [...penalties.keys()].filter((id) => cpu.s.players[id]!.free_agent);
     expect(cut.length).toBeGreaterThan(0);
-    expect(cpuEmergencyReleases).toBe(0); // everything here was an honest release
+    expect(cpuCapShortfalls).toBe(0);
     expect(cpu.s.teams[code]!.cap.dead).toBeCloseTo(cut.reduce((n, id) => n + penalties.get(id)!, 0), 0);
     expect(cpu.s.teams[code]!.cap.dead).toBeGreaterThan(0);
 
@@ -213,13 +213,53 @@ describe("the reconciliation trim", () => {
       delete p.contract!.prorated_per_year;
     }
     s.teams[code]!.cap.total = capUsedOf(s, code) - 5;
-    resetCpuEmergencyReleases();
+    const before = rosterOf(s, code).map((p) => p.id).sort();
+    resetCpuCapShortfalls();
     trimRosters(s);
-    // no release was made at a loss: the dead money stays at nothing, and the team is made legal by the labelled last resort
+    // nothing honest frees room, so nothing is released: not at a loss, and never for free
+    expect(rosterOf(s, code).map((p) => p.id).sort()).toEqual(before);
     expect(s.teams[code]!.cap.dead).toBe(0);
-    expect(cpuEmergencyReleases).toBeGreaterThan(0);
-    expect(capUsedOf(s, code)).toBeLessThanOrEqual(s.teams[code]!.cap.total);
+    expect(cpuCapShortfalls).toBeGreaterThan(0);
   });
+
+  it("never releases a CPU player for free: every release the trim makes is charged its penalty, at any overage", () => {
+    for (const over of [10, 25, 45]) {
+      const { s, code } = overTheCap(49, over);
+      const penalties = new Map(rosterOf(s, code).map((p) => [p.id, releasePenalty(p)]));
+      trimRosters(s);
+      const cut = [...penalties.keys()].filter((id) => s.players[id]!.free_agent);
+      expect(cut.length, `$${over}M over`).toBeGreaterThan(0);
+      expect(s.teams[code]!.cap.dead, `$${over}M over`).toBeCloseTo(cut.reduce((n, id) => n + penalties.get(id)!, 0), 0);
+    }
+  });
+
+  it("leaves a team that no honest release can make legal over the cap, counted, rather than freeing cap for it", () => {
+    const { s, code } = overTheCap(50, 5);
+    s.teams[code]!.cap.dead = s.teams[code]!.cap.total + 40; // more dead money than the cap holds
+    const penalties = new Map(rosterOf(s, code).map((p) => [p.id, releasePenalty(p)]));
+    const deadBefore = s.teams[code]!.cap.dead;
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    const cut = [...penalties.keys()].filter((id) => s.players[id]!.free_agent);
+    expect(capUsedOf(s, code)).toBeGreaterThan(s.teams[code]!.cap.total);
+    expect(cpuCapShortfalls).toBeGreaterThan(0);
+    expect(s.teams[code]!.cap.dead).toBeCloseTo(deadBefore + cut.reduce((n, id) => n + penalties.get(id)!, 0), 0);
+    // and the league carries on from there: the roster fill still runs and the team is not left empty
+    fillRosterGaps(s, { lateMarket: true });
+    expect(rosterOf(s, code).length).toBeGreaterThan(40);
+  });
+
+  it("makes a moderate overage legal without touching its best players at a position, and a large one only by paying for them", () => {
+    const moderate = overTheCap(51, 10);
+    const bestBefore = new Map<string, string>();
+    for (const pos of new Set(rosterOf(moderate.s, moderate.code).map((p) => p.position))) {
+      bestBefore.set(pos, rosterOf(moderate.s, moderate.code).filter((p) => p.position === pos).reduce((a, b) => (b.overall > a.overall ? b : a)).id);
+    }
+    trimRosters(moderate.s);
+    expect(capUsedOf(moderate.s, moderate.code)).toBeLessThanOrEqual(moderate.s.teams[moderate.code]!.cap.total);
+    for (const [pos, id] of bestBefore) expect(moderate.s.players[id]!.nfl_team, `best ${pos} kept`).toBe(moderate.code);
+  });
+
 });
 
 describe("a CPU team's offers in the free-agency market", () => {
