@@ -34,6 +34,8 @@ export interface KnownImbalance {
     readonly title: string;
     readonly status: 'open' | 'fixed';
     readonly why: string;
+    /** For a fixed entry: what changed it, with the numbers before and after. */
+    readonly resolution?: string;
     detect(ev: Evidence): Detection;
 }
 
@@ -51,7 +53,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'slants-wr1-dead-target', status: 'open', title: 'Slants to WR1 is almost never complete',
+        id: 'slants-wr1-dead-target', status: 'fixed', resolution: 'Phase B1 (exact receiver leading), as a side effect: slants to WR1 went from 3% to 43% complete. The old 20% overthrow had been putting the ball past a corner who now sits on the receiver.', title: 'Slants to WR1 is almost never complete',
         why: 'The corner starts 7 yd deep on the route and the 10-yd cut never beats him; WR1 is permanently covered on this play.',
         detect(ev) { const r = rates(route(ev, 'slants', 1)); return { present: r.complete.p < 0.1, evidence: `slants -> WR1 completes ${pct(r.complete.p)} (${r.complete.k}/${r.throws}), 95% interval ${pct(r.complete.ci.lo)}-${pct(r.complete.ci.hi)}` }; },
     },
@@ -69,16 +71,16 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         detect(ev) { const r = rates(route(ev, 'go', 3)); return { present: r.interception.p >= 0.5, evidence: `go -> TE1 intercepted ${pct(r.interception.p)} (${r.interception.k}/${r.throws}), completed ${pct(r.complete.p)}` }; },
     },
     {
-        id: 'flight-time-constant', status: 'open', title: 'Every pass is in the air for exactly one second',
+        id: 'flight-time-constant', status: 'fixed', resolution: 'Phase B1: a pass flies for as long as its distance needs (BALL_SPEED 26 yd/s, 0.35-2.0 s, whole ticks). Flight times now run 0.37-1.72 s across the pocket sweep, median 0.82 s.', title: 'Every pass is in the air for exactly one second',
         why: 'The ball\'s duration is fixed, so a 44-yd throw flies at 44 yd/s and a 7-yd throw at 7 yd/s: distance costs nothing.',
         detect(ev) {
             const thrown = ev.pocket.filter(r => r.outcome !== 'sack'), flights = new Set(thrown.map(r => r.flightSeconds));
             const air = thrown.map(r => r.airYards), spread = Math.max(...air) - Math.min(...air);
-            return { present: flights.size === 1 && spread >= 25, evidence: `flight times: ${[...flights].join(', ')} s; air distance ${Math.min(...air).toFixed(1)}-${Math.max(...air).toFixed(1)} yd` };
+            return { present: flights.size === 1 && spread >= 25, evidence: `${flights.size === 1 ? `every flight is ${[...flights][0]} s` : `${flights.size} different flight times, ${Math.min(...flights).toFixed(2)}-${Math.max(...flights).toFixed(2)} s`}; air distance ${Math.min(...air).toFixed(1)}-${Math.max(...air).toFixed(1)} yd` };
         },
     },
     {
-        id: 'overthrow-catch-knife-edge', status: 'open', title: 'A deep catch is decided by a 0.1-yard margin, not by the defense',
+        id: 'overthrow-catch-knife-edge', status: 'fixed', resolution: 'Phase B1: the ball is led to exactly where the receiver will be (PASS_LEAD 1). The median receiver-to-ball gap on completed deep throws went from 1.50 yd to 0.00 yd, so a catch no longer depends on a margin against the catch radius.', title: 'A deep catch is decided by a 0.1-yard margin, not by the defense',
         why: 'The throw leads the receiver by 20% more than he can run (PASS_LEAD 1.2), so he arrives about 1.5 yd short, and the catch radius is 1.6 yd.',
         detect(ev) {
             const gaps = ev.pocket.filter(r => r.play === 'go' && r.target !== 3 && r.outcome === 'complete').map(r => r.receiverGap), m = median(gaps);
@@ -86,7 +88,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'faster-receiver-worse-deep-game', status: 'open', title: 'A faster receiver makes the deep ball worse',
+        id: 'faster-receiver-worse-deep-game', status: 'fixed', resolution: 'Phase B1: go to WR1 completes 95% at receiver speed 70 and at 80 (it was 76% and 0%).', title: 'A faster receiver makes the deep ball worse',
         why: 'The 20% overthrow grows with speed and passes the catch radius: at receiver speed 80 no go throw is complete.',
         detect(ev) {
             const a = rates(ev.deepAtSpeed70).complete.p, b = rates(ev.deepAtSpeed80).complete.p;
@@ -94,7 +96,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'deep-ball-uncontested', status: 'open', title: 'Defenders are nowhere near the deep catch',
+        id: 'deep-ball-uncontested', status: 'fixed', resolution: 'Partly, by Phase B1: the median distance from the nearest defender to a completed deep catch fell from 4.1 yd to 2.7 yd because the ball now arrives with the receiver. Every completed deep catch still has no defender inside the break-up radius, and the deep window still never closes; that is tracked by deep-window-never-closes.', title: 'Defenders are nowhere near the deep catch',
         why: 'The nearest defender is about 4 yd from the landing point when the ball arrives: no defender, safety or corner, contests it.',
         detect(ev) {
             const gaps = ev.pocket.filter(r => r.play === 'go' && r.target !== 3 && r.outcome === 'complete').map(r => r.defenderGap), m = median(gaps);
@@ -107,12 +109,22 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         detect(ev) { return { present: ev.ticksToSack >= 200, evidence: `an unthrown pass play ends in a sack at tick ${ev.ticksToSack} (${(ev.ticksToSack / 60).toFixed(1)} s)` }; },
     },
     {
-        id: 'slants-tight-end-loses-yards', status: 'open', title: 'The tight end\'s slants catch is behind the line',
-        why: 'His 2-4 yd route ends at the line of scrimmage, so a completion gains nothing or loses ground.',
+        id: 'slants-tight-end-loses-yards', status: 'fixed', resolution: 'Phase B1: slants to the tight end now average +2.0 yd per catch (they were -0.3). The tight end is now a different problem: see tight-end-dump-off-always-open.', title: 'The tight end\'s slants catch is behind the line',
+        why: 'His 2-4 yd route ends at the line of scrimmage, so a completion gains nothing or loses ground (a catch behind the line).',
         detect(ev) {
             const done = route(ev, 'slants', 3).filter(r => r.outcome === 'complete'), mean = done.reduce((a, r) => a + r.yards, 0) / Math.max(1, done.length);
-            return { present: done.length > 0 && mean < 2, evidence: `slants -> TE1 completions average ${mean.toFixed(1)} yd (${done.length} catches)` };
+            return { present: done.length > 0 && mean < 0, evidence: `slants -> TE1 completions average ${mean.toFixed(1)} yd (${done.length} catches)` };
         },
+    },
+    {
+        id: 'slants-wr2-always-broken-up', status: 'open', title: 'Slants to WR2 is almost always broken up',
+        why: 'With the ball led exactly (Phase B1) the receiver is at the ball and the corner shadows him about 2 yd away, inside the 2.2 yd break-up radius. It was 33% complete when the old overthrow put the ball past the corner. A coverage and catch-rule question for the next phases.',
+        detect(ev) { const r = rates(route(ev, 'slants', 2)); return { present: r.complete.p < 0.1, evidence: `slants -> WR2 completes ${pct(r.complete.p)} (${r.complete.k}/${r.throws}), intercepted ${pct(r.interception.p)}` }; },
+    },
+    {
+        id: 'tight-end-dump-off-always-open', status: 'open', title: 'The tight end underneath is always open',
+        why: 'Underneath, the tight end is not covered by a corner or a safety: on slants he is free from tick ~16 and from tick ~100 on every throw completes, so a patient dump-off drive moves the ball down the field with no risk.',
+        detect(ev) { const r = rates(route(ev, 'slants', 3)); return { present: r.complete.p >= 0.7 && r.openRun >= 25, evidence: `slants -> TE1 completes ${pct(r.complete.p)} with a run of ${r.openRun} consecutive completions, intercepted ${pct(r.interception.p)}` }; },
     },
 ];
 

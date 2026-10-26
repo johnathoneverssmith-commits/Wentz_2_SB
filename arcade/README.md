@@ -70,8 +70,10 @@ game ends on a **final-score screen with a Rematch button**.
    handoff the running back #2 takes the ball; on a pass the QB #1 holds it and #3/#4
    run routes. Your control follows the carrier; a white ring marks each human, gold
    marks the carrier.
-2. **Passing.** The ball flies for one second to the dashed landing circle. Each route
-   has its own depth, and one defender covers each receiver. The ball is caught cleanly
+2. **Passing.** The ball flies to the dashed landing circle at 26 yards a second, so a short
+   throw takes about a third of a second and a deep one more than a second (never less than
+   0.35 s or more than 2 s). The circle is where the receiver will be when the ball arrives,
+   led from his own speed and acceleration. Each route has its own depth, and one defender covers each receiver. The ball is caught cleanly
    only if the receiver is at the circle and no defender is within **2.2 yards** of it.
    A defender inside **1.6 yards** intercepts; between 1.6 and 2.2 he breaks it up. A
    human defender intercepts only with **Hands**, timed so the 0.6-second window overlaps

@@ -48,19 +48,20 @@ describe('pass timing against the AI defense', () => {
         expect(count('S')).toBe(0);
     });
     it('a window that is open against the AI can be closed by a human defender who goes to the landing point', () => {
-        const openAt = (() => { for (let d = 0; d < 124; d += 4) if (outcome('slants', 2, d, 2) === 'C') return d; return -1; })();
+        // the deep route to the first receiver, once he has got free of his corner
+        const openAt = (() => { for (let d = 0; d < 124; d += 4) if (outcome('go', 1, d, 2) === 'C') return d; return -1; })();
         expect(openAt, 'an open window exists').toBeGreaterThan(0);
-        let s = snap(choosePlay(createDown(), 'slants'));
+        let s = snap(choosePlay(createDown(), 'go'));
         s = { ...s };
         for (let i = 0; i < openAt; i++) s = stepDown(s, idle);
-        s = throwPass(s, 2);
+        s = throwPass(s, 1);
         const to = (s.ball as { to: Vector }).to;
-        // the cornerback who covers the second receiver becomes the human, and stands 3 yards off the landing point
-        const cb = at(s, 'away-CB2').id;
+        // the cornerback who covers the first receiver becomes the human, and stands 3 yards off the landing point
+        const cb = at(s, 'away-CB1').id;
         for (let i = 0; i < 11 && s.defender !== cb; i++) s = switchDefender(s);
         s = place(farAway(s, [cb]), cb, to.x + 3, to.y);
         const run = (move: boolean) => { let r = s; while (r.phase === 'live' && r.ball.kind === 'flight') { const me = at(r, cb); r = stepDown(farAway(r, [cb]), { home: { x: 0, y: 0 }, away: move && Math.hypot(me.x - to.x, me.y - to.y) > 1.9 ? toward(me, to) : { x: 0, y: 0 } }); } return r; };
-        expect(run(false).possession.carrier).toBe('home-WR2');
+        expect(run(false).possession.carrier).toBe('home-WR1');
         expect(run(true).result?.reason).toBe('incomplete');
     });
     it('hands matter only to a human: the AI intercepts by position, the human needs the timed press', () => {

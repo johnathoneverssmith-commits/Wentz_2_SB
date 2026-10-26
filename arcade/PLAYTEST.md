@@ -10,21 +10,22 @@ the older lifecycle and pass cases.
 
 One letter per throw made 0, 4, 8 ... 120 ticks (two seconds) after the snap, defenders
 and receivers on their own, humans idle. `C` caught, `x` incomplete (broken up), `I`
-intercepted. This table is a golden test (`tests/passing.test.ts`).
+intercepted. These rows are golden tests (`tests/passing.test.ts`); the whole pocket is mapped
+in `balance/framework.test.ts` and `BALANCE.md`. They were re-measured for Phase B1 (the ball
+flies for as long as its distance needs and is led to exactly where the receiver will be).
 
 ```
-slants #3  CCCCCCxxxxCCCCCxxxxxCCCCCCCCCCC
-slants #4  CCCCCCCCxIIIIIIIIIIIIIIIIIIIIII
-go     #3  CCCCCxIIIIIIIIIxCCCCCCCCCCCCCCC
-go     #4  CCCCCxIIIIIIIIIxCCCCCCCCCCCCCCC
+slants to WR1  IIIIIIIxCCCCxxxxxxxxxxxxxxxxxxx
+slants to WR2  IIIIIIIIxxxxxxxxxxxxxxxxxxxxxxx
+go to WR1      IxCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+go to WR2      IxCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+go to TE       xIIIxCCCxxIIIIIIIIIxIIIIIIIIIII
 ```
 
-Each letter is one throw, four ticks apart: for slants #3 the first six are open (ticks 0-20), then ticks 24-36 are broken up, 40-56 open again, 60-76 covered, 80 onward open.
-
-Throwing early is one way to complete a pass, not the only one: slants #3 has a second
-window at 40-56 ticks and a third from 80 on; go routes are open early and again from
-64 ticks, once the receiver has beaten the coverage; slants #4 is open for about half a
-second and then covered for the rest of the play. A human defender changes the picture:
+Each letter is one throw, four ticks apart. Slants to WR1 is intercepted before about tick 28, open from tick 32 to 44 and then covered; slants to WR2 is covered for the first two seconds
+(the corner shadows him inside the 2.2 yard break-up circle); the go routes are open from tick 8 on, once the receiver has beaten the coverage, and stay open.
+The tight end on the go play is a turnover almost throughout. The human-defender table below was recorded at Milestone 4 (ten players) and has not been re-measured since the eleven-a-side
+rewrite or Phase B1. A human defender changes the picture:
 
 | Play | Human inputs | Outcome |
 | --- | --- | --- |
@@ -86,7 +87,7 @@ distance (`kickTolerance`).
   Hands; after a catch the carrier runs for the goal line and the defender chases; kicks wait for the
   meter (Foxes' kicker misses every extra point and Foxes never kick field goals, so two otherwise identical
   teams cannot tie forever). It reaches the final screen: **122-0 after 278 completed plays, 260 passes,
-  260 Hands presses, 17 touchdowns, 17 extra points, one field goal and 18 turnovers** (was 129-0 after 295 plays before the deep safety), a mid-game reload
+  260 Hands presses, 17 touchdowns, 17 extra points, one field goal and 18 turnovers** (was 129-0 after 295 plays before the deep safety; recorded at the 5B head and not re-measured for Phase B1, which changes pass timing), a mid-game reload
   that restores the finished down exactly, a check that the clock never spent more than the six-second allowance between plays, a reload at
   the final and a Rematch, in about **a minute and a half to two minutes**. The page is drawn ten times a second (the app steps
   the simulation six 1/60-second ticks per frame), which is the same game on a slower screen; the lopsided
