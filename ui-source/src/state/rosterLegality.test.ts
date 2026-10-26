@@ -258,9 +258,11 @@ describe("getting cap-compliant after a draft class", () => {
 
     trimRosters(s);
 
-    for (const [pos, id] of core) {
-      expect(s.players[id]!.nfl_team, `${code} best ${pos} kept`).toBe(code);
-    }
+    // A team this far over pays real dead money for every release (a CPU team's cuts are charged like a GM's), so
+    // depth alone can no longer always be enough and the least valuable of its best-at-a-position players can go
+    // too. What must hold is that the franchise quarterback is not among the first, and the team ends legal.
+    expect(s.players[core.get("QB")!]!.nfl_team, `${code} QB1 kept`).toBe(code);
+    expect(capUsed(s, code)).toBeLessThanOrEqual(s.teams[code]!.cap.total);
   });
 
   it("keeps free agency reachable — the roster it hands over is still a team", () => {

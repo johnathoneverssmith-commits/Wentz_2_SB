@@ -105,7 +105,7 @@ describe("aiOfferForPlayer", () => {
     const trials = 500;
     for (let i = 0; i < trials; i++) {
       const offer = aiOfferForPlayer(mulberryTest(i), s, freeAgent as Player);
-      if (offer.teamCode === needyTeam) toNeedy++;
+      if (offer?.teamCode === needyTeam) toNeedy++;
     }
     // 32 teams uniformly would give ~3%; a real need should dominate that
     expect(toNeedy / trials).toBeGreaterThan(0.15);
@@ -119,7 +119,7 @@ describe("aiOfferForPlayer", () => {
     const avg = (p: Player) => {
       let sum = 0;
       const n = 200;
-      for (let i = 0; i < n; i++) sum += aiOfferForPlayer(mulberryTest(i), s, p).baseSalary;
+      for (let i = 0; i < n; i++) sum += aiOfferForPlayer(mulberryTest(i), s, p)!.baseSalary;
       return sum / n;
     };
     expect(avg(hi)).toBeGreaterThan(avg(lo));
@@ -274,11 +274,20 @@ describe("affordableTeams / cap-space gating", () => {
     expect(pool.length).toBeGreaterThan(0); // other teams still have room
   });
 
-  it("falls back to every AI team rather than an empty pool when literally no one can afford it", () => {
+  it("is empty when literally no one can afford it: a team with no room is not handed the contract", () => {
     const s = fixtureLeague();
     for (const code of Object.keys(s.teams)) s.teams[code]!.cap.used = s.teams[code]!.cap.total;
-    const pool = affordableTeams(s, 5);
-    expect(pool.length).toBe(aiControlledTeams(s).length);
+    expect(affordableTeams(s, 5)).toEqual([]);
+  });
+
+  it("leaves a free agent nobody can afford on the market, rather than offering him to a team with no room", () => {
+    const s = fixtureLeague();
+    for (const code of Object.keys(s.teams)) {
+      s.teams[code]!.controlledBy = { kind: "ai" };
+      s.teams[code]!.cap.used = s.teams[code]!.cap.total;
+    }
+    const ordinary = { ...Object.values(s.players)[0]!, overall: 74 } as Player;
+    for (let i = 0; i < 20; i++) expect(aiOfferForPlayer(mulberryTest(i), s, ordinary)).toBeNull();
   });
 
   it("aiOfferForPlayer never lands on a cap-strapped team when another team has room, over many draws", () => {
@@ -290,7 +299,8 @@ describe("affordableTeams / cap-space gating", () => {
     const freeAgent = { ...Object.values(s.players)[0]!, overall: 90 } as Player; // a real, non-trivial ask
     for (let i = 0; i < 100; i++) {
       const offer = aiOfferForPlayer(mulberryTest(i), s, freeAgent);
-      expect(offer.teamCode).not.toBe(brokeTeam);
+      expect(offer).not.toBeNull();
+      expect(offer!.teamCode).not.toBe(brokeTeam);
     }
   });
 });

@@ -3,7 +3,9 @@ import type { LeagueState, Player } from "@/domain";
 
 import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
-import { humanFaRounds, offerToContract } from "./rules";
+import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract } from "./rules";
+import { capUsedOf } from "./seed.ts";
+import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
 import { difficultyFor, strategyOf } from "./aiGms.ts";
@@ -244,6 +246,39 @@ export function resolveRound(s: LeagueState): void {
  */
 export type FaMove = { kind: "pass" } | { kind: "offer"; playerId: string; salary: number; years: number };
 
+/** The least a roster spot costs to fill ($M). */
+const MIN_SALARY_M = 1;
+
+/**
+ * What a CPU team can still afford to offer, $M: its cap room on the books (dead money included), less what
+ * its live offers would cost if they all won, less the minimum deals the roster spots that would still be empty
+ * will be filled with. That reserve leaves out the spot the offer being made would fill and the spots its live
+ * offers would fill (their salaries are already counted), so a team one player short can spend all of its room.
+ *
+ * The market suspends the cap, and a CPU team that ignores it signs itself into a roster it can only fix by
+ * cutting, which now costs it the dead money a GM's release costs. A GM's own offers are theirs to make.
+ */
+export function offerRoomFor(s: LeagueState, teamCode: string): number {
+  const e = s.freeAgencyEvent;
+  const team = s.teams[teamCode];
+  if (!e || !team) return Infinity;
+  const signed = new Set(e.signed.map((x) => x.playerId));
+  let committed = 0;
+  let liveOffers = 0;
+  for (const [playerId, offers] of Object.entries(e.offers)) {
+    if (signed.has(playerId)) continue;
+    const mine = offers.filter((o) => o.teamCode === teamCode);
+    if (mine.length > 0) {
+      committed += Math.max(...mine.map((o) => o.salary));
+      liveOffers++;
+    }
+  }
+  let rostered = 0;
+  for (const p of Object.values(s.players)) if (!p.retired && !p.free_agent && p.nfl_team === teamCode) rostered++;
+  const stillEmpty = Math.max(0, ROSTER_SIZE - rostered - liveOffers - 1);
+  return team.cap.total - capUsedOf(s, teamCode) - committed - stillEmpty * MIN_SALARY_M;
+}
+
 /** A CPU team's turn: choose, then do it. */
 export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): void {
   const m = chooseFaMove(s, teamCode, index);
@@ -281,6 +316,8 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const difficulty = difficultyFor(s, teamCode);
   const strategy = strategyOf(s, teamCode);
   const shortlist = shortlistByBaseScore(pool, (p) => p.overall - bestAt(p.position), difficulty.candidateDepth);
+  // a CPU team bids only what its cap room covers (a person's staff plays the same evaluator, without this)
+  const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) : Infinity;
 
   // Free Agency + Contracts optimization pass (free_agency.five_round_cpu):
   // chase a bid war less far, rebid less aggressively, and require a real
@@ -303,6 +340,8 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
     const ceilingMultiplier = difficulty.chaseCeilingFloor + (1 - difficulty.chaseCeilingFloor) * ceilingUnit;
     // somebody else has already blown past this difficulty's effective chase ceiling: leave it
     if (lead && lead.salary > ask * RATIONAL_CHASE_CEILING * ceilingMultiplier) continue;
+    // what it would take to hold him, against what the team can pay
+    if (Math.min(MAX_CONTRACT_M, Math.max(ask, (lead?.salary ?? 0) * 1.04)) > room) continue;
     // §13.1: bounded valuation noise on the target-ranking score, same as draft/coaching.
     const noise =
       difficulty.evaluationNoise === 0 ? 0 : deterministicNoiseUnit(teamCode, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
@@ -332,7 +371,10 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   // to $86M a year for one player)
   const salary = Math.min(MAX_CONTRACT_M, Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10);
   if (lead && salary <= lead.salary) return PASS;
-  const years = target.age <= 26 ? 4 : target.age <= 29 ? 3 : 2;
+  // how long a deal a front office offers follows who he is, not just his age: a young starter gets years, a young
+  // reserve or a veteran past his decline gets few, and each club reads the same player a little differently
+  const lean = deterministicNoiseUnit(teamCode, s.season, "fa_years", target.id);
+  const years = contractTermsFor(target, salary, [0.5, 0.5, 0.5], lean).years;
   return { kind: "offer", playerId: target.id, salary, years };
 }
 

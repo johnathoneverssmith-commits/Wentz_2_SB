@@ -6,7 +6,7 @@
 import { UNITS } from "./unitValue.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
-import { practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
+import { PRACTICE_SQUAD_SALARY_M, checkToPracticeSquad, practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
 import {
   type Coach,
   type Gm,
@@ -249,36 +249,55 @@ function makeDepthPlayer(position: Position, season: number, rng: Rng): Player {
  * player at each position, so the cost of signing a star is depth, never the
  * rest of the starting eleven.
  */
-export function clearRoomFor(state: LeagueState, teamCode: string, needed: number): boolean {
+export function clearRoomFor(
+  state: LeagueState,
+  teamCode: string,
+  needed: number,
+  /** players who cannot be cut (signed in this window: `checkRelease`'s rule for a GM) */
+  locked: ReadonlySet<string> = new Set(),
+): boolean {
+  const plan = planRoomFor(state, teamCode, needed, locked);
+  if (!plan) return false;
+  for (const p of plan) releaseWithDeadMoney(state, p);
+  return true;
+}
+
+/**
+ * The cuts that would leave `needed` ($M) of room on a team, or `null` if none can.
+ *
+ * Priced the way a GM's release is: a cut frees his cap hit *less* the release penalty that lands on
+ * the books as dead money (`releaseWithDeadMoney`), so the cuts are ranked by what they actually
+ * free, one that frees nothing (or less) is never made, and a plan that cannot reach `needed` is
+ * not carried out at all — nobody is released for a signing that cannot happen. Nothing is changed here.
+ */
+export function planRoomFor(
+  state: LeagueState,
+  teamCode: string,
+  needed: number,
+  locked: ReadonlySet<string> = new Set(),
+): Player[] | null {
   const capTotal = state.teams[teamCode]?.cap.total ?? 255;
+  let used = capUsedOf(state, teamCode);
+  if (capTotal - used >= needed) return [];
   const roster = Object.values(state.players).filter(
     (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent,
   );
-  let used = roster.reduce((n, p) => n + capHitOf(p), 0);
-  if (capTotal - used >= needed) return true;
-
-  const core = (): Set<string> => {
-    const keep = new Set<string>();
-    for (const pos of new Set(roster.map((p) => p.position))) {
-      const best = roster
-        .filter((p) => p.position === pos)
-        .reduce((a, b) => (b.overall > a.overall ? b : a));
-      keep.add(best.id);
-    }
-    return keep;
-  };
-
+  const plan: Player[] = [];
   let guard = 10;
   while (capTotal - used < needed && guard-- > 0) {
-    const keep = core();
-    const candidates = roster.filter((p) => !keep.has(p.id) && capHitOf(p) > MIN_SALARY_M);
-    if (candidates.length === 0) return false;
-    const cut = candidates.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
-    used -= capHitOf(cut);
+    const keep = new Set<string>();
+    for (const pos of new Set(roster.map((p) => p.position))) {
+      keep.add(roster.filter((p) => p.position === pos).reduce((a, b) => (b.overall > a.overall ? b : a)).id);
+    }
+    const freed = (p: Player): number => capHitOf(p) - releasePenalty(p);
+    const candidates = roster.filter((p) => !keep.has(p.id) && !locked.has(p.id) && capHitOf(p) > MIN_SALARY_M && freed(p) > 0);
+    if (candidates.length === 0) return null;
+    const cut = candidates.reduce((a, b) => (freed(b) > freed(a) ? b : a));
+    used = Math.round((used - freed(cut)) * 10) / 10;
     roster.splice(roster.indexOf(cut), 1);
-    releaseToMarket(state, cut);
+    plan.push(cut);
   }
-  return capTotal - used >= needed;
+  return capTotal - used >= needed ? plan : null;
 }
 
 /**
@@ -287,6 +306,10 @@ export function clearRoomFor(state: LeagueState, teamCode: string, needed: numbe
  * CPU Cap Preparation optimization pass (cpu_cap_prep.free_agency_war_chest).
  */
 const FREE_AGENCY_WAR_CHEST = 0.14;
+/** The most of a contract's cap hit a cut-day release may leave behind as dead money. */
+const CUT_DAY_MAX_PENALTY_SHARE = 0.8;
+/** The least a cut-day release must really free ($M, after its penalty): a cut that frees less is not worth the roster spot. */
+const CUT_DAY_MIN_FREED = 3;
 
 /**
  * Cut day: AI teams clear room before free agency opens.
@@ -314,7 +337,8 @@ export function openCapRoomForFreeAgency(state: LeagueState): void {
     const roster = Object.values(state.players).filter(
       (p) => p.nfl_team === code && !p.retired && !p.free_agent,
     );
-    let used = roster.reduce((n, p) => n + capHitOf(p), 0);
+    // what is on the books, dead money included: a cut's penalty stays there
+    let used = capUsedOf(state, code);
     const core = (): Set<string> => {
       const keep = new Set<string>();
       for (const pos of new Set(roster.map((p) => p.position))) {
@@ -325,15 +349,20 @@ export function openCapRoomForFreeAgency(state: LeagueState): void {
       }
       return keep;
     };
+    // what a cut really frees, after the penalty a GM's release would cost (`releaseWithDeadMoney`)
+    const freed = (p: Player): number => capHitOf(p) - releasePenalty(p);
+    // A front office cutting for room cuts the deals that are cheap to leave: burning most of a
+    // contract's hit as dead money to free the little that is left is not clearing room.
+    const cheapToLeave = (p: Player): boolean => releasePenalty(p) <= CUT_DAY_MAX_PENALTY_SHARE * capHitOf(p);
     let guard = 12; // a cut day, not a teardown
     while (used > target && guard-- > 0) {
       const keep = core();
-      const candidates = roster.filter((p) => !keep.has(p.id) && capHitOf(p) > MIN_SALARY_M);
+      const candidates = roster.filter((p) => !keep.has(p.id) && capHitOf(p) > MIN_SALARY_M && freed(p) >= CUT_DAY_MIN_FREED && cheapToLeave(p));
       if (candidates.length === 0) break;
-      const cut = candidates.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
-      used -= capHitOf(cut);
+      const cut = candidates.reduce((a, b) => (freed(b) > freed(a) ? b : a));
       roster.splice(roster.indexOf(cut), 1);
-      releaseToMarket(state, cut);
+      releaseWithDeadMoney(state, cut);
+      used = capUsedOf(state, code);
     }
   }
 }
@@ -599,6 +628,66 @@ export function releaseToMarket(state: LeagueState, p: Player): void {
 }
 
 /**
+ * What releasing a player costs against this year's cap.
+ *
+ * The lesser of twenty percent of the annual value for each year left, or
+ * eighty percent of one year. The cap stops a long deal from being ruinous to
+ * escape while still making it expensive — releasing somebody in year one of
+ * five should hurt, but not more than paying him.
+ */
+export function releasePenalty(p: Player): number {
+  const c = p.contract;
+  if (!c) return 0;
+  const annual = c.cap_hit_by_year[0] ?? 0;
+  // Free Agency + Contracts optimization pass (contracts.release_penalty).
+  const byYears = annual * 0.22 * c.years_remaining;
+  const capped = annual * 0.75;
+  const base = Math.min(byYears, capped);
+  // exploit audit (contracts §3, "restructure then release"): a restructure
+  // converts base salary into bonus money prorated across the *later* years
+  // (`prorated_per_year`) — this formula otherwise only looks at this year's
+  // (now-shrunk) hit, so restructuring a contract down and releasing him
+  // right after made the deferred money vanish instead of ever coming due.
+  // `extendContract` already carries this money forward through an
+  // extension; releasing has to accelerate the same remaining amount onto
+  // the cap now, the way a real signing bonus's unamortized proration does.
+  const acceleratedProration = (c.prorated_per_year ?? 0) * c.years_remaining;
+  return Math.round(Math.max(base, acceleratedProration) * 10) / 10;
+}
+
+/**
+ * What a team's cap holds right now, in $M: every contract on its roster and practice squad, plus this
+ * year's dead money. The same sum `recomputeTeamRatings` keeps in `cap.used`, taken fresh from the
+ * players, so a decision made in the middle of a window is not made on a number the window has outdated.
+ */
+export function capUsedOf(state: LeagueState, teamCode: string): number {
+  let used = state.teams[teamCode]?.cap.dead ?? 0;
+  for (const p of Object.values(state.players)) {
+    if (!p.retired && p.nfl_team === teamCode) used += capHitOf(p);
+  }
+  for (const p of practiceSquad(state, teamCode)) used += capHitOf(p);
+  return Math.round(used * 10) / 10;
+}
+
+/**
+ * Release a player the way a GM's release does: he goes to the market, and the release penalty
+ * (`releasePenalty`) lands on this year's cap as dead money. Returns the room it actually opens —
+ * his cap hit less that penalty, which is nothing, or less, for a deal that costs as much to leave as to keep.
+ */
+export function releaseWithDeadMoney(state: LeagueState, p: Player): number {
+  const code = p.nfl_team;
+  const team = state.teams[code];
+  const hit = capHitOf(p);
+  const penalty = releasePenalty(p);
+  releaseToMarket(state, p);
+  if (team) {
+    team.cap.dead = Math.round(((team.cap.dead ?? 0) + penalty) * 10) / 10;
+    team.cap.used = capUsedOf(state, code);
+  }
+  return Math.round((hit - penalty) * 10) / 10;
+}
+
+/**
  * Ages every contract by the season just played.
  *
  * Nothing decremented `years_remaining` anywhere, so contracts were
@@ -645,6 +734,12 @@ export function expireContracts(state: LeagueState): void {
 /** Cap hit a player is currently charging his team, in $M. */
 const capHitOf = (p: Player): number => p.contract?.cap_hit_by_year[0] ?? 0;
 
+/** How many times a CPU team has been left over the hard cap because nothing honest could get it under (see `trimToLegalRoster`). */
+export let cpuCapShortfalls = 0;
+export function resetCpuCapShortfalls(): void {
+  cpuCapShortfalls = 0;
+}
+
 /**
  * Trims one team down to a legal roster: at most `ROSTER_SIZE` players, and
  * under the cap.
@@ -668,17 +763,32 @@ function trimToLegalRoster(
   sizeLimit: number = ROSTER_SIZE,
   /** also cap each position at its `ROSTER_TEMPLATE` count */
   shapeToTemplate = true,
+  /** whose roster this is: a CPU team's cuts are charged like a GM's release (`releaseWithDeadMoney`) */
+  teamCode = "",
 ): { used: number; released: number } {
-  let used = roster.reduce((n, p) => n + capHitOf(p), 0);
+  const cpu = state.teams[teamCode]?.controlledBy.kind === "ai";
+  // a CPU team's dead money is on its books, so it counts against the room the cuts are making
+  let used = roster.reduce((n, p) => n + capHitOf(p), 0) + (cpu ? (state.teams[teamCode]?.cap.dead ?? 0) : 0);
   let released = 0;
+  /** Whether a CPU team's cut of him is a practice-squad move (`drop` does it whenever it can), which leaves no dead money. */
+  const squadMove = (p: Player): boolean => cpu && practiceSquadEligible(p) && checkToPracticeSquad(state, p).ok;
+  /**
+   * What a cut really opens. A CPU team's squad move frees his cap hit less the squad pay that stays on the books,
+   * with no dead money; its other releases free the hit less the dead money they leave behind. A person's team
+   * counts the whole hit.
+   */
+  const netFreed = (p: Player): number =>
+    !cpu ? capHitOf(p) : squadMove(p) ? capHitOf(p) - PRACTICE_SQUAD_SALARY_M : capHitOf(p) - releasePenalty(p);
   /** Returns the cap the cut frees; `releaseToMarket` clears the contract. */
   const drop = (p: Player): number => {
-    const freed = capHitOf(p);
     // a CPU staff keeps a young cut on its practice squad rather than lose
     // him for nothing; a GM decides that for themselves on Roster & Cap
-    const team = p.nfl_team;
-    const cpu = state.teams[team]?.controlledBy.kind === "ai";
-    if (!(cpu && practiceSquadEligible(p) && toPracticeSquad(state, p).ok)) releaseToMarket(state, p);
+    // The squad move replaces his contract with the squad salary, which stays on the books: what it frees is the
+    // hit he had less that salary, so the hit is read before the move.
+    const hitBefore = capHitOf(p);
+    const toSquad = cpu && practiceSquadEligible(p) && toPracticeSquad(state, p).ok;
+    const freed = toSquad ? hitBefore - capHitOf(p) : cpu ? releaseWithDeadMoney(state, p) : capHitOf(p);
+    if (!toSquad && !cpu) releaseToMarket(state, p);
     roster.splice(roster.indexOf(p), 1);
     released++;
     return freed;
@@ -744,10 +854,16 @@ function trimToLegalRoster(
   let guard = ROSTER_SIZE;
   while (used > target() && roster.length > 0 && guard-- > 0) {
     const dearest = (pool: Player[]): Player =>
-      pool.reduce((a, b) => (capHitOf(b) > capHitOf(a) ? b : a));
-    /** Only a contract is worth cutting for cap; minimum deals free nothing. */
+      pool.reduce((a, b) => (netFreed(b) > netFreed(a) ? b : a));
+    /**
+     * Only a contract that opens real room is worth cutting for cap: a minimum deal frees nothing, and a CPU
+     * team's release that frees no more than the minimum its spot is refilled with (net of the dead money it
+     * leaves) just trades a player for dead money. Filtering each rung rather than stopping at the first
+     * unproductive best cut lets a later rung (a replaceable starter) offer an honest release. A person's
+     * team pays no dead money here, so for them this is the same "cap hit above the minimum" test as before.
+     */
     const onRealMoney = (pool: Player[]): Player[] =>
-      pool.filter((p) => capHitOf(p) > MIN_SALARY_M);
+      pool.filter((p) => netFreed(p) > MIN_SALARY_M);
 
     // Three tiers, and the order is the whole point of this pass.
     //
@@ -780,16 +896,28 @@ function trimToLegalRoster(
     const rungs: (() => Player[])[] = [
       () => onRealMoney(roster.filter((p) => !protectedIds().has(p.id))), // 1. paid backups
       () => onRealMoney(roster.filter((p) => !coreIds().has(p.id))), //     2. replaceable starters
-      () => roster.filter((p) => capHitOf(p) > 0), //                       3. the untouchables
+      // 3. the untouchables. A person's team gives them up when nothing else is left. A CPU team does too, but only
+      // while it is still over what it can carry once its empty spots are refilled (`limit()`), and it pays for them
+      // like any release: the way a GM who cannot get legal any other way moves a star.
+      () => (cpu ? (used > limit() ? onRealMoney(roster.filter((p) => coreIds().has(p.id))) : []) : roster.filter((p) => capHitOf(p) > 0)),
     ];
     let pool: Player[] = [];
-    for (const rung of rungs) {
-      pool = rung();
+    let rung = 0;
+    for (const build of rungs) {
+      rung++;
+      pool = build();
       if (pool.length > 0) break;
     }
     if (pool.length === 0) break; // nothing left to shed
-    used -= drop(dearest(pool));
+    // the untouchables a CPU team gives up are the least valuable of them, not the dearest
+    const next = cpu && rung === 3 ? pool.reduce((a, b) => (b.overall < a.overall ? b : a)) : dearest(pool);
+    used -= drop(next);
   }
+
+  // Nothing honest is left and the team is still over what it can carry once its empty spots are refilled at the
+  // minimum (its dead money and its minimum deals alone fill the cap): it stays over, as a real team in cap trouble
+  // does until the money clears, and is counted. No release is ever made for free to fix it.
+  if (cpu && used > limit()) cpuCapShortfalls++;
 
   return { used, released };
 }
@@ -824,6 +952,7 @@ export function trimRosters(state: LeagueState): void {
       state.teams[code]?.cap.total ?? 255,
       OFFSEASON_ROSTER_SIZE,
       false,
+      code,
     );
   }
 }
@@ -981,7 +1110,7 @@ export function fillRosterGaps(
     const trimmed =
       human && spareGm
         ? { used: roster.reduce((n, p) => n + capHitOf(p), 0), released: 0 }
-        : trimToLegalRoster(state, roster, capTotal, ROSTER_SIZE, !human);
+        : trimToLegalRoster(state, roster, capTotal, ROSTER_SIZE, !human, code);
     let used = trimmed.used;
     marketSize += trimmed.released; // the cuts are on the market now
 
