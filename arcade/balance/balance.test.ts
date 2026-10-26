@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { BETWEEN_PLAY_TICKS, QUARTER_TICKS } from '../core/down';
-import { DEFENSES, OFFENSES, drive, game, minutes, type Team } from './sim';
+import { DEFENSES, OFFENSES, drive, game, minutes, type OffensePolicy, type Team } from './sim';
 import { STARTS, driveStats } from './report';
 import { cells, runMatrix } from './matrix';
 import { BALANCED } from './strategies';
@@ -14,25 +14,24 @@ const team = (off: string, def: Team['def']): Team => ({ off: OFFENSES[off]!, de
 
 describe('passing balance', () => {
     // Milestone 5B measurements (scripted players against the 11-man AI). Documented, not tuned to a target.
-    it('a late deep pass is still strong against a defense that ignores it but it is not free: the safety and corners take some of the throws', () => {
-        for (const def of ['idle', 'chase', 'attentive'] as const) {
+    it('the deep route to a wideout is covered by the AI: a late deep pass completes under half its throws against every defense', () => {
+        // Phase B2: the corner plays off his man while he is shallow and closes as he goes deep; it used to complete 94-100% (BALANCE.md)
+        for (const def of ['idle', 'chase', 'attentive', 'cover'] as const) {
             const r = driveStats(OFFENSES['late']!, def);
-            expect(r.st.completions / r.st.passes, `late vs ${def} completions`).toBeGreaterThan(0.5);
-            expect(r.st.interceptions, `late vs ${def}: a defender can take the ball`).toBeGreaterThan(0);
-            expect(r.td, `late vs ${def}: known imbalance, documented in PLAYTEST.md`).toBeLessThan(0.95);
+            expect(r.st.completions / r.st.passes, `late vs ${def} completions`).toBeLessThan(0.5);
+            expect(r.td, `late vs ${def} touchdown drives`).toBeLessThan(0.5);
         }
     });
     it('a defender who covers the deep route stops the late pass more than one who ignores it', () => {
         const covered = driveStats(OFFENSES['late']!, 'cover').pointsPerDrive;
         expect(covered).toBeLessThan(driveStats(OFFENSES['late']!, 'idle').pointsPerDrive);
     });
-    it('throwing at once into coverage is punished, while a throw timed to the receiver getting free works about half the time', () => {
-        const early = driveStats(OFFENSES['early']!, 'idle');
-        expect(early.st.completions / early.st.passes, 'instant throws').toBeLessThan(0.3);
-        expect(early.st.interceptions + early.st.incompletions).toBeGreaterThan(0);
-        const mid = driveStats(OFFENSES['intermediate']!, 'idle');
-        expect(mid.st.completions / mid.st.passes, 'timed throws').toBeGreaterThan(0.3);
-        expect(mid.st.completions / mid.st.passes, 'timed throws').toBeLessThan(0.9);
+    it('when you throw decides it: a quick slants throw to WR1 is open, and the same throw two seconds later, after the corner has picked up the break, is covered', () => {
+        const slants = (tick: number): OffensePolicy => ({ name: `slants at ${tick}`, play: () => 'slants', throwAt: () => tick, fieldGoals: true, target: 1 });
+        const rate = (off: OffensePolicy) => { const r = driveStats(off, 'idle'); return r.st.completions / r.st.passes; };
+        expect(rate(OFFENSES['intermediate']!), 'timed to the break').toBeGreaterThan(0.5);
+        expect(rate(slants(120)), 'after the corner has closed').toBeLessThan(0.2);
+        expect(rate(OFFENSES['intermediate']!)).toBeGreaterThan(rate(slants(120)));
     });
     it('a slower defender reaction never helps the defense', () => {
         for (const style of ['early', 'intermediate', 'balanced']) {
@@ -130,9 +129,9 @@ describe('game pacing', () => {
 });
 
 describe('known imbalance (documented, not asserted away)', () => {
-    it('a late deep passer still out-scores an early passer against a defense that does not switch to the ball', () => {
+    it('the exploit moved from the deep route to the quick game: a repeated quick throw out-scores a late deep passer (BALANCE.md, quick-slants-always-open)', () => {
         const late = driveStats(OFFENSES['late']!, 'idle').pointsPerDrive;
         const early = driveStats(OFFENSES['early']!, 'idle').pointsPerDrive;
-        expect(late).toBeGreaterThan(early);
+        expect(early).toBeGreaterThan(late);
     });
 });

@@ -15,6 +15,8 @@ export interface Evidence {
     /** The deep route to WR1 with the receiver's speed at 70 (the default) and at 80, ticks 0-160. */
     readonly deepAtSpeed70: readonly ThrowRecord[];
     readonly deepAtSpeed80: readonly ThrowRecord[];
+    /** The deep route to WR1 with a receiver 25 speed points faster than the corner (99 against 74), ticks 0-240. */
+    readonly deepWithSpeedEdge: readonly ThrowRecord[];
     /** Ticks a pass play lasts when the quarterback never throws (the pocket's real length). */
     readonly ticksToSack: number;
 }
@@ -24,6 +26,7 @@ export function gatherEvidence(): Evidence {
         pocket: sweep({ ticks: tickRange(0, 240, 4) }),
         deepAtSpeed70: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), abilities: { 'home-WR1': { speed: 70 } } }),
         deepAtSpeed80: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), abilities: { 'home-WR1': { speed: 80 } } }),
+        deepWithSpeedEdge: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 240, 4), abilities: { 'home-WR1': { speed: 99 } } }),
         ticksToSack: ticksToSack('slants'),
     };
 }
@@ -45,7 +48,7 @@ const median = (xs: number[]) => percentile(xs, 0.5);
 
 export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
     {
-        id: 'deep-window-never-closes', status: 'open', title: 'Once a go route gets free, every throw completes',
+        id: 'deep-window-never-closes', status: 'fixed', resolution: 'Phase B2: the corner no longer trails a beaten route 3 yd behind for its whole length: he plays off the receiver while he is shallow and closes the cushion as he goes deep. The go routes are now covered (0% complete at baseline ratings), which is its own entry: deep-routes-closed-at-equal-speed.', title: 'Once a go route gets free, every throw completes',
         why: 'The corner trails about 3 yd behind from tick ~45 and reacts to the ball 36 ticks late, so he can never reach a ball thrown ahead of the receiver.',
         detect(ev) {
             const wr1 = rates(route(ev, 'go', 1)), wr2 = rates(route(ev, 'go', 2));
@@ -58,7 +61,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         detect(ev) { const r = rates(route(ev, 'slants', 1)); return { present: r.complete.p < 0.1, evidence: `slants -> WR1 completes ${pct(r.complete.p)} (${r.complete.k}/${r.throws}), 95% interval ${pct(r.complete.ci.lo)}-${pct(r.complete.ci.hi)}` }; },
     },
     {
-        id: 'early-slants-intercepted', status: 'open', title: 'A slants throw in the first third of a second is intercepted',
+        id: 'early-slants-intercepted', status: 'fixed', resolution: 'Phase B2: slants thrown before tick 20 are now intercepted 3/15 times (20%), down from 14/15 (93%): the corner no longer jumps forward to a 7-yd cushion at the snap, so the ball is not thrown into him.', title: 'A slants throw in the first third of a second is intercepted',
         why: 'The throw leads the receiver to a point inside the corner\'s cushion before the receiver has made his cut.',
         detect(ev) {
             const early = ev.pocket.filter(r => r.play === 'slants' && r.throwTick < 20), picked = early.filter(r => r.outcome === 'interception').length;
@@ -109,7 +112,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         detect(ev) { return { present: ev.ticksToSack >= 200, evidence: `an unthrown pass play ends in a sack at tick ${ev.ticksToSack} (${(ev.ticksToSack / 60).toFixed(1)} s)` }; },
     },
     {
-        id: 'slants-tight-end-loses-yards', status: 'fixed', resolution: 'Phase B1: slants to the tight end now average +2.0 yd per catch (they were -0.3). The tight end is now a different problem: see tight-end-dump-off-always-open.', title: 'The tight end\'s slants catch is behind the line',
+        id: 'slants-tight-end-loses-yards', status: 'open', title: "The tight end's slants catch is behind the line",
         why: 'His 2-4 yd route ends at the line of scrimmage, so a completion gains nothing or loses ground (a catch behind the line).',
         detect(ev) {
             const done = route(ev, 'slants', 3).filter(r => r.outcome === 'complete'), mean = done.reduce((a, r) => a + r.yards, 0) / Math.max(1, done.length);
@@ -117,14 +120,31 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'slants-wr2-always-broken-up', status: 'open', title: 'Slants to WR2 is almost always broken up',
+        id: 'slants-wr2-always-broken-up', status: 'fixed', resolution: 'Phase B2: slants to WR2 completes 15% (it was 7% after B1 and 33% before). The corner keeps the depth he lined up at while the receiver is shallow, so the quick window now exists; the rest of the route runs into the safeties.', title: 'Slants to WR2 is almost always broken up',
         why: 'With the ball led exactly (Phase B1) the receiver is at the ball and the corner shadows him about 2 yd away, inside the 2.2 yd break-up radius. It was 33% complete when the old overthrow put the ball past the corner. A coverage and catch-rule question for the next phases.',
         detect(ev) { const r = rates(route(ev, 'slants', 2)); return { present: r.complete.p < 0.1, evidence: `slants -> WR2 completes ${pct(r.complete.p)} (${r.complete.k}/${r.throws}), intercepted ${pct(r.interception.p)}` }; },
     },
     {
-        id: 'tight-end-dump-off-always-open', status: 'open', title: 'The tight end underneath is always open',
+        id: 'tight-end-dump-off-always-open', status: 'fixed', resolution: 'Phase B2: linebackers with the tight end assigned follow him, and slants to the tight end complete 41% (80% after B1) with a longest open run of 20 (34).', title: 'The tight end underneath is always open',
         why: 'Underneath, the tight end is not covered by a corner or a safety: on slants he is free from tick ~16 and from tick ~100 on every throw completes, so a patient dump-off drive moves the ball down the field with no risk.',
         detect(ev) { const r = rates(route(ev, 'slants', 3)); return { present: r.complete.p >= 0.7 && r.openRun >= 25, evidence: `slants -> TE1 completes ${pct(r.complete.p)} with a run of ${r.openRun} consecutive completions, intercepted ${pct(r.interception.p)}` }; },
+    },
+    {
+        id: 'quick-slants-always-open', status: 'open', title: 'A quick slants throw to either wideout completes every time',
+        why: 'The corner lines up about 10 yd off and needs a quarter of a second to see the ball: a throw in the first half-second lands before he can get to it. With no randomness, a player who repeats it wins every drive.',
+        detect(ev) {
+            const quick = (target: number) => ev.pocket.filter(r => r.play === 'slants' && r.target === target && r.throwTick < 24), done = (rs: ThrowRecord[]) => rs.filter(r => r.outcome === 'complete').length / rs.length;
+            const a = done(quick(1)), b = done(quick(2));
+            return { present: a >= 0.8 && b >= 0.8, evidence: `slants thrown before tick 24 complete ${pct(a)} to WR1 and ${pct(b)} to WR2` };
+        },
+    },
+    {
+        id: 'deep-routes-closed-at-equal-speed', status: 'open', title: 'The deep route is covered at baseline ratings, and a speed edge barely opens it',
+        why: 'The corner starts about 10 yd off, so it takes a receiver with a real speed edge more than two seconds to close the cushion, and the 31-yd route is nearly over by then; the ball also reaches a covered receiver with a defender inside the 2.2 yd break-up radius. Deep separation needs a design decision (corner alignment, route stems, ball placement), not another coverage constant.',
+        detect(ev) {
+            const base = rates(ev.pocket.filter(r => r.play === 'go' && (r.target === 1 || r.target === 2))), edge = rates(ev.deepWithSpeedEdge);
+            return { present: base.complete.p < 0.05 && edge.complete.p < 0.1, evidence: `go to a wideout completes ${pct(base.complete.p)} at baseline and ${pct(edge.complete.p)} for a receiver 25 speed points faster than the corner` };
+        },
     },
 ];
 

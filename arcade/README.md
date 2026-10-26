@@ -77,10 +77,16 @@ game ends on a **final-score screen with a Rematch button**.
    only if the receiver is at the circle and no defender is within **2.2 yards** of it.
    A defender inside **1.6 yards** intercepts; between 1.6 and 2.2 he breaks it up. A
    human defender intercepts only with **Hands**, timed so the 0.6-second window overlaps
-   the arrival. The covering AI defender holds coverage for a fraction of a second after
-   the throw, then breaks on the ball, so **when you throw and to whom decides whether
-   the pass is open**: see the timing table in [PLAYTEST.md](PLAYTEST.md). Throwing at
-   once is one window; every route has others later in the play. No outcome is rolled.
+   the arrival. The AI defense reacts to what it can see and never to the play: a corner
+   plays about ten yards off a receiver who is shallow and closes the cushion as the
+   receiver goes deep or breaks off his stem (he reads a cut a moment late, so it leaves
+   him a step behind); a linebacker follows the receiver assigned to him; the deep safety
+   stays over the top. A defender needs about a quarter of a second to see where the ball
+   is going (longer when he is behind his man) and then runs to it, going straight to the
+   spot only if he can get there first. So **when you throw and to whom decides whether
+   the pass is open**: see the timing table in [PLAYTEST.md](PLAYTEST.md). A quick throw
+   underneath is open until the corner has picked up the break; a deep route is covered
+   unless the receiver has a real speed advantage. No outcome is rolled.
 3. **Blocking.** Two AI blockers each take one of the closest defenders and stand
    between him and the carrier; a defender within 1.8 yards of his own blocker moves at
    40% speed.

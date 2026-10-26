@@ -121,15 +121,60 @@ Matrix (points per drive, then touchdown drives), 6 seeds x 14 drives:
 
 Known imbalances after B1 (`balance/imbalances.ts`): **fixed** flight-time-constant, overthrow-catch-knife-edge, faster-receiver-worse-deep-game; **improved** slants-wr1-dead-target (3% to 43%), go-tight-end-intercepted (62% to 52% intercepted, completions 0% to 30%), deep-ball-uncontested (median gap 4.1 to 2.7 yd), slants-tight-end-loses-yards (-0.3 to +2.0 yd); **unchanged** deep-window-never-closes, early-slants-intercepted (93% to 87%), pocket-never-collapses; **worsened or new** slants-wr2-always-broken-up (33% to 7%), tight-end-dump-off-always-open (61% to 80%).
 
+## Phase B2: defensive coverage (before and after), recorded 2026-10-26
+
+Phase B2 changed only how the AI defense behaves. The ball physics, catch and break-up radii, the hybrid clock, the ratings and the plays are
+untouched. The old defense read the play call (`state.play === 'go'` chose a 0-yd cushion, a 36-tick reaction and a trailing technique; a
+slant got a 7-yd cushion and an 18-tick reaction); the new one reacts to what it can see:
+
+* **Cornerbacks (man):** they hold the depth they line up at (a cushion of about 10 yd, scaled by the receiver's speed against their own: a burner gets more room) while the receiver is shallow, close the cushion as the receiver goes from 8 to 18 yd deep, and attack a receiver who breaks off the stem (up to 80% of the cushion at a full sideways break). They aim 0.15 s ahead of where they *read* the receiver to be going, and the reading follows the real velocity with a 0.15 s delay, so a cut costs them a step. They play 1.2 yd to the inside, and backpedal at 85% speed while their man is behind them.
+* **Linebackers and safeties (zone):** a linebacker with a receiver assigned (the tight end) follows him anywhere within 10 yd of his landmark; the free safety stays 5 yd over the top of the deepest receiver running vertically.
+* **The ball:** after about a quarter of a second (15 ticks; 21 if he is behind his man and has to turn) every defender who can reach the landing point before the ball lands, and the one covering the target, goes for it. One who can get there at least 0.15 s early plays it on the spot (where he intercepts); one who cannot plays it from beside (where he breaks it up). This replaces the 20-yd safety cliff and the 18/36-tick delays.
+* A mirrored play now moves identically for either team (a zone defender's idle sway used his raw x).
+
+| Route | Phase A: comp / INT | B1 | B2 |
+| --- | --- | --- | --- |
+| slants to WR1 | 3% / 26% | 43% / 11% | **30% / 3%** |
+| slants to WR2 | 33% / 38% | 7% / 31% | **15% / 0%** |
+| slants to TE | 61% / 13% | 80% / 5% | **46% / 5%** |
+| go to WR1 | 69% / 11% | 69% / 28% | **0% / 0%** |
+| go to WR2 | 79% / 2% | 75% / 21% | **0% / 0%** |
+| go to TE | 0% / 62% | 30% / 52% | **2% / 74%** |
+
+Separation (mean over throws): completions had 7.4 yd to the nearest defender at the throw and 6.2 at arrival (B1: 5.0 and 4.8); incompletions 4.4 and 2.6; interceptions 2.4 and 1.8. A completion needs about 7 yd of room at the throw because a defender who reads the ball in a quarter of a second closes about 4-5 yd during a 0.7 s flight and the break-up circle is 2.2 yd wide.
+
+Ratings (completed / intercepted over the whole pocket, receiver speed across, corner speed down; base WR 70, CB 74):
+
+| slants to WR1 | WR 60 | WR 70 | WR 80 | WR 99 |
+| --- | --- | --- | --- | --- |
+| CB 60 | 39% / 3 | 41% / 3 | 48% / 2 | 56% / 0 |
+| CB 74 | 33% / 2 | **30% / 3** | 31% / 2 | 48% / 0 |
+| CB 90 | 18% / 3 | 20% / 3 | 23% / 2 | 31% / 0 |
+
+| go to WR1 | WR 60 | WR 70 | WR 80 | WR 99 |
+| --- | --- | --- | --- | --- |
+| CB 60 | 5% / 0 | 2% / 0 | 0% / 0 | 0% / 21 |
+| CB 74 | 0% / 0 | **0% / 0** | 0% / 2 | 0% / 11 |
+| CB 90 | 0% / 0 | 0% / 0 | 0% / 8 | 0% / 2 |
+
+Matrix (points per drive and touchdown drives vs idle; B1 to B2): deep specialist 4.44 (62%) to 1.21 (0%); short specialist 1.23 (5%) to 1.77 (2%); balanced 2.71 (32%) to 0.90 (1%); **timing-aware 5.05 (58%) to 2.58 (12%)**, against every defense alike. The timing-aware offense (completion 49%, 0% interceptions) is still the best practicable strategy, now by 0.8 points per drive [0.2, 1.4] over the short specialist instead of by 3-4 over everything. The best response still scores a touchdown on every sampled drive, but needs about 9 plays instead of 2-3. Regulation games run 12.7-18.1 real minutes (unchanged).
+
+**What B2 did not fix, and why (decisions for the next phase):**
+
+* **The quick game is still open.** A throw in the first half-second to either wideout completes 100% of the time (the corner is ten yards off and needs a quarter of a second to see the ball), so a bot that repeats it wins every drive (7.0 points per drive for the scripted quick passer). The game has no randomness, so any window that exists is perfectly repeatable; this is what the hybrid seeded model and pressure are for.
+* **The deep route is closed at baseline ratings and barely opens with a speed edge** (`deep-routes-closed-at-equal-speed`): the corner starts about ten yards off, a receiver needs more than two seconds of speed advantage to close that, and the 31-yd route is nearly over by then. This needs a design decision, not another constant: corner alignment depth, route stems, or ball placement.
+* **The pocket still lasts 4.1 s**, so waiting for the one open window is free.
+* **The tight end on the go play is still a turnover** (74% intercepted by the linebacker who is on the ball), and **a slants catch by the tight end is behind the line** (-0.4 yd): route geometry.
+
 ## Known imbalances
 
-`balance/imbalances.ts` holds the entries below (ten at Phase A, twelve after B1), each with a detector, and `balance/framework.test.ts` asserts that every `open` one **is detected today**
+`balance/imbalances.ts` holds the entries below (ten at Phase A, twelve after B1, fourteen after B2), each with a detector, and `balance/framework.test.ts` asserts that every `open` one **is detected today**
 and every `fixed` one is **not**. A pull request that fixes one changes its `status` to `fixed`, and the same test then proves the fix and
 guards against its return. Nothing was tuned to make a test pass.
 
-Open now: `deep-window-never-closes`, `early-slants-intercepted`, `go-tight-end-intercepted`, `pocket-never-collapses`, `slants-wr2-always-broken-up`,
-`tight-end-dump-off-always-open`. Fixed: `flight-time-constant`, `overthrow-catch-knife-edge`, `faster-receiver-worse-deep-game`, `slants-wr1-dead-target`,
-`deep-ball-uncontested` (partly), `slants-tight-end-loses-yards`. Each fixed entry carries a `resolution` note with the numbers.
+Open now: `go-tight-end-intercepted`, `pocket-never-collapses`, `slants-tight-end-loses-yards`, `quick-slants-always-open`, `deep-routes-closed-at-equal-speed`.
+Fixed: `flight-time-constant`, `overthrow-catch-knife-edge`, `faster-receiver-worse-deep-game` (B1), `slants-wr1-dead-target`, `deep-ball-uncontested` (partly), and by B2
+`deep-window-never-closes`, `early-slants-intercepted`, `slants-wr2-always-broken-up`, `tight-end-dump-off-always-open`. Each fixed entry carries a `resolution` note with the numbers.
 
 Some reported numbers came from the scripted players rather than the engine: the older "balanced" bot threw to the always-covered WR1, the
 "early" bot's tick-16 throw lies inside the always-intercepted window, the same drive from seven start spots was one measurement repeated

@@ -42,5 +42,5 @@ declared and persisted but intentionally not yet read.
    else in `core/` changes: formations ask `baseAbilities` once when a play is lined up.
 2. Names and skin tones come from `browser/render/roster.ts`; replace the table with the franchise roster, keyed by the same id.
 3. Saves already validate and store each player's abilities (0–99, all eleven keys), so a franchise-backed game survives a reload.
-4. Wire the reserved abilities where the code has an obvious seam: man-coverage lag (`MAN_LAG`), reaction ticks, catch resolution in
+4. Wire the reserved abilities where the code has an obvious seam: man-coverage reading time (`READ_SECONDS`), ball-reaction ticks (`BALL_READ_TICKS`, `LOOK_BACK_TICKS`), a corner's respect for speed (`RESPECT`), catch resolution in
    `stepPlay`, and the throw lead in `throwPass`.

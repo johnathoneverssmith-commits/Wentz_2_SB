@@ -137,6 +137,8 @@ function playersValid(list: unknown): Set<string> | null {
         }
         if (p.lock !== null && (!object(p.lock) || typeof p.lock.with !== 'string' || !integer(p.lock.since)))
             return null;
+        if (p.read !== undefined && p.read !== null && !point(p.read))
+            return null;
         ids.add(p.id);
     }
     for (const t of ['home', 'away'] as const)
