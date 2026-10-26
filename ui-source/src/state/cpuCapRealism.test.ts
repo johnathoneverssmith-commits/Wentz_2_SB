@@ -444,6 +444,41 @@ describe("a CPU team's offers in the free-agency market", () => {
     expect(offerRoomFor(s, code)).toBeCloseTo(room - 7, 1);
   });
 
+  /** puts the team on exactly `size` rostered players, filling from the market on minimum deals */
+  function rosterOfSize(s: LeagueState, code: string, size: number): void {
+    const roster = rosterOf(s, code);
+    for (const p of roster.slice(size)) Object.assign(p, { free_agent: true, nfl_team: "FA", contract: null as never });
+    const market = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+    while (rosterOf(s, code).length < size) {
+      const p = market.pop()!;
+      Object.assign(p, {
+        free_agent: false,
+        nfl_team: code,
+        contract: { team_id: code, years_remaining: 1, total_value: 1, guaranteed: 0, cap_hit_by_year: [1], signing_bonus: 0 },
+      });
+    }
+  }
+
+  it("reserves minimum deals only for the spots that stay empty after the signing it is making: a team one player short can spend all of its room (Codex review finding)", () => {
+    const { s, code } = market(47);
+    rosterOfSize(s, code, 52);
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 5;
+    expect(offerRoomFor(s, code), "$5M of room and one spot to fill: the signing itself completes the roster at the cap").toBeCloseTo(5, 5);
+    rosterOfSize(s, code, 50);
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 5;
+    expect(offerRoomFor(s, code), "three spots short: one is the signing's, two are held back at the minimum").toBeCloseTo(3, 5);
+  });
+
+  it("an outstanding offer fills a spot too: its salary is committed, and its spot is no longer one held back (Codex review finding)", () => {
+    const { s, code } = market(47);
+    rosterOfSize(s, code, 50);
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 10;
+    const none = offerRoomFor(s, code);
+    const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+    s.freeAgencyEvent!.offers[pool[0]!.id] = [{ teamCode: code, salary: 4, years: 2, round: 1, sequence: 0 }];
+    expect(offerRoomFor(s, code), "4 committed, one of the held-back spots now filled by that offer").toBeCloseTo(none - 4 + 1, 5);
+  });
+
   it("leaves a person's staff and their cap rules alone: the market suspends the cap for a GM", () => {
     const { s, code } = market(47);
     s.gms.push({ id: "g", teamCode: code, isHuman: true } as never);
