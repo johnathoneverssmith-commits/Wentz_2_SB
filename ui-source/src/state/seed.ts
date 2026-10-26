@@ -845,9 +845,15 @@ function trimToLegalRoster(
   while (used > target() && roster.length > 0 && guard-- > 0) {
     const dearest = (pool: Player[]): Player =>
       pool.reduce((a, b) => (netFreed(b) > netFreed(a) ? b : a));
-    /** Only a contract is worth cutting for cap; minimum deals free nothing. */
+    /**
+     * Only a contract that opens real room is worth cutting for cap: a minimum deal frees nothing, and a CPU
+     * team's release that frees no more than the minimum its spot is refilled with (net of the dead money it
+     * leaves) just trades a player for dead money. Filtering each rung rather than stopping at the first
+     * unproductive best cut lets a later rung (a replaceable starter) offer an honest release. A person's
+     * team pays no dead money here, so for them this is the same "cap hit above the minimum" test as before.
+     */
     const onRealMoney = (pool: Player[]): Player[] =>
-      pool.filter((p) => capHitOf(p) > MIN_SALARY_M);
+      pool.filter((p) => netFreed(p) > MIN_SALARY_M);
 
     // Three tiers, and the order is the whole point of this pass.
     //
@@ -877,17 +883,13 @@ function trimToLegalRoster(
     // `protectedIds` and `coreIds` both sort every position group, and this
     // loop runs once per cut on every team — evaluating all three eagerly
     // took a free-agency turn from 189ms to 725ms.
-    // A CPU team's release is charged like a GM's, and opens room only if it frees more than the minimum deal its
-    // roster spot is refilled with (the budget above already holds that back): a cut that frees less just trades a
-    // player for dead money. A rung with nothing worth cutting hands over to the next one.
-    const worth = (pool: Player[]): Player[] => (cpu ? pool.filter((p) => netFreed(p) > MIN_SALARY_M) : pool);
     const rungs: (() => Player[])[] = [
-      () => worth(onRealMoney(roster.filter((p) => !protectedIds().has(p.id)))), // 1. paid backups
-      () => worth(onRealMoney(roster.filter((p) => !coreIds().has(p.id)))), //     2. replaceable starters
-      // 3. the untouchables. A person's team gives them up when nothing else is left; a CPU team does too, but only
-      // while it is still over the hard cap, and it pays for it like any release: the way a GM who cannot get legal
-      // any other way moves a star.
-      () => (cpu ? (used > capTotal ? worth(roster.filter((p) => coreIds().has(p.id))) : []) : roster.filter((p) => capHitOf(p) > 0)),
+      () => onRealMoney(roster.filter((p) => !protectedIds().has(p.id))), // 1. paid backups
+      () => onRealMoney(roster.filter((p) => !coreIds().has(p.id))), //     2. replaceable starters
+      // 3. the untouchables. A person's team gives them up when nothing else is left. A CPU team does too, but only
+      // while it is still over what it can carry once its empty spots are refilled (`limit()`), and it pays for them
+      // like any release: the way a GM who cannot get legal any other way moves a star.
+      () => (cpu ? (used > limit() ? onRealMoney(roster.filter((p) => coreIds().has(p.id))) : []) : roster.filter((p) => capHitOf(p) > 0)),
     ];
     let pool: Player[] = [];
     let rung = 0;
@@ -902,10 +904,10 @@ function trimToLegalRoster(
     used -= drop(next);
   }
 
-  // Nothing honest is left and the team is still over the hard cap (its dead money and its minimum deals alone
-  // fill it): it stays over, as a real team in cap trouble does until the money clears, and is counted. No release
-  // is ever made for free to fix it.
-  if (cpu && used > capTotal) cpuCapShortfalls++;
+  // Nothing honest is left and the team is still over what it can carry once its empty spots are refilled at the
+  // minimum (its dead money and its minimum deals alone fill the cap): it stays over, as a real team in cap trouble
+  // does until the money clears, and is counted. No release is ever made for free to fix it.
+  if (cpu && used > limit()) cpuCapShortfalls++;
 
   return { used, released };
 }

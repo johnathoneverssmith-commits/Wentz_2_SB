@@ -260,6 +260,81 @@ describe("the reconciliation trim", () => {
     for (const [pos, id] of bestBefore) expect(moderate.s.players[id]!.nfl_team, `best ${pos} kept`).toBe(moderate.code);
   });
 
+  /** every contract at the minimum, so nothing but what a test sets is worth a cut */
+  function minimumDeals(s: LeagueState, code: string): void {
+    for (const p of rosterOf(s, code)) {
+      p.contract!.cap_hit_by_year = [1, 1, 1, 1];
+      p.contract!.years_remaining = 1;
+      delete p.contract!.prorated_per_year;
+    }
+  }
+  const sorted = (s: LeagueState, code: string, pos: string): Player[] => rosterOf(s, code).filter((p) => p.position === pos).sort((a, b) => b.overall - a.overall);
+
+  it("tries the next tier when the paid backups free nothing: a replaceable starter whose release pays is cut, and nobody is cut for nothing (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 5);
+    minimumDeals(s, code);
+    const qb3 = sorted(s, code, "QB")[2]!, wr2 = sorted(s, code, "WR")[1]!;
+    // a paid backup whose release saves only $0.4M (he is not worth the dead money), and a replaceable starter whose release saves far more
+    Object.assign(qb3.contract!, { cap_hit_by_year: [1.5, 1.5, 1.5, 1.5], years_remaining: 4 });
+    Object.assign(wr2.contract!, { cap_hit_by_year: [20], years_remaining: 1 });
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 5;
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    expect(cpuCapShortfalls, "an honest release was available, so the team is made legal").toBe(0);
+    expect(s.players[wr2.id]!.free_agent, "the starter whose release pays is the one who goes").toBe(true);
+    expect(s.teams[code]!.cap.dead, "and he is charged like any release").toBeGreaterThan(0);
+    expect(s.players[qb3.id]!.free_agent, "the backup whose release saves nothing stays").toBe(false);
+  });
+
+  /** a team three bodies short of a full roster, all on minimum deals, $1M under its raw cap: legal today, over it once the three spots are refilled */
+  function shortRosterJustUnderTheCap(seed: number): { s: LeagueState; code: string } {
+    const s = freshLeague(seed);
+    const code = firstTeam(s);
+    minimumDeals(s, code);
+    const bench = rosterOf(s, code).filter((p) => p.position !== "QB").slice(-3);
+    for (const p of bench) {
+      p.free_agent = true;
+      p.nfl_team = "FA";
+      p.contract = null as never;
+    }
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 1;
+    return { s, code };
+  }
+
+  it("counts the minimum deals that refill its empty spots: a team $1M under the raw cap but three spots short is still over what it can carry (Codex review finding)", () => {
+    const { s, code } = shortRosterJustUnderTheCap(52);
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    expect(cpuCapShortfalls, "nothing honest can cure it, and it is not left looking legal").toBeGreaterThan(0);
+    expect(s.teams[code]!.cap.dead).toBe(0);
+  });
+
+  it("makes the honest release a star's contract requires when only the refill reserve puts the team over: it ends legal once the spots are refilled", () => {
+    const { s, code } = shortRosterJustUnderTheCap(52);
+    const qb = sorted(s, code, "QB")[0]!;
+    Object.assign(qb.contract!, { cap_hit_by_year: [20], years_remaining: 1 });
+    s.teams[code]!.cap.total = capUsedOf(s, code) + 1;
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    expect(s.players[qb.id]!.free_agent, "the one contract that pays is the one released, charged like any release").toBe(true);
+    expect(s.teams[code]!.cap.dead).toBeGreaterThan(0);
+    fillRosterGaps(s);
+    expect(rosterOf(s, code).length).toBe(53);
+    expect(capUsedOf(s, code)).toBeLessThanOrEqual(s.teams[code]!.cap.total + 1e-6);
+  });
+
+  it("an honest release leaves room for the minimum deals that refill its roster spots: the filled roster is under the cap (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 5);
+    minimumDeals(s, code);
+    const wr2 = sorted(s, code, "WR")[1]!;
+    Object.assign(wr2.contract!, { cap_hit_by_year: [20], years_remaining: 1 });
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 5;
+    resetCpuCapShortfalls();
+    fillRosterGaps(s);
+    expect(cpuCapShortfalls).toBe(0);
+    expect(rosterOf(s, code).length, "the vacancies are refilled").toBe(53);
+    expect(capUsedOf(s, code), "and refilling does not put the team back over the cap").toBeLessThanOrEqual(s.teams[code]!.cap.total + 1e-6);
+  });
 });
 
 describe("a CPU team's offers in the free-agency market", () => {
