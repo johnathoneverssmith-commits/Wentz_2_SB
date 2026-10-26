@@ -5,7 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import { choosePlay, createDown, engagements, lineUp, snap, stepDown, throwPass, type DownState, type Play } from '../core/down';
 import { BLOCK_RADIUS, BLOCK_SLOW, SHED_FREE_TICKS, holdTicks, playMode } from '../core/behavior';
-import { BODY, maxSpeed, type Inputs, type PlayerId, type Vector } from '../core/simulation';
+import { BODY, FIELD, maxSpeed, type Inputs, type PlayerId, type Vector } from '../core/simulation';
+import { decodeSave, encodeSave } from '../browser/save';
 import { farAway, idle, place } from './helpers';
 
 const at = (s: DownState, id: PlayerId) => s.players.find(p => p.id === id)!;
@@ -147,6 +148,41 @@ describe('offensive line blocking', () => {
         const blockedHuman = speedAfter(lock(true), { x: -1, y: 0 }), blockedAI = speedAfter(lock(false), { x: 0, y: 0 });
         expect(blockedHuman, 'a blocked human defender is held to the blocked fraction of his speed').toBeLessThanOrEqual(maxSpeed(at(base, 'away-DE1')) * (BLOCK_SLOW + 0.1));
         expect(blockedAI).toBeLessThanOrEqual(maxSpeed(at(base, 'away-DE1')) * (BLOCK_SLOW + 0.1));
+    });
+    it('a blocker dragged toward a sideline stays on the field, and the saved game still loads (Codex review finding)', () => {
+        const base = farAway(start('go', 2), ['away-DE1']);
+        const lt = at(base, 'home-LT'), top = FIELD.radius;
+        // The defender is human-steered toward the near sideline with his blocker on the outside: the blocker is beyond him.
+        let s: DownState = {
+            ...base, defender: 'away-DE1' as PlayerId,
+            players: base.players.map(p => p.id === 'away-DE1' ? { ...p, human: true, x: lt.x + 1.3, y: top + 1.3, vx: 0, vy: 0, lock: { with: 'home-LT' as PlayerId, since: base.tick } } : p.id === 'home-LT' ? { ...p, x: lt.x, y: top + 0.15, vx: 0, vy: 0, lock: { with: 'away-DE1' as PlayerId, since: base.tick } } : p),
+        };
+        expect(decodeSave(encodeSave(s)), 'the engagement starts out valid').not.toBeNull();
+        for (let t = 0; t < 40; t++) {
+            s = stepDown(s, { home: { x: 0, y: 0 }, away: { x: 0, y: -1 } });
+            for (const p of s.players) {
+                expect(p.y, `${p.id} at tick ${t}`).toBeGreaterThanOrEqual(FIELD.radius - 1e-9);
+                expect(p.y, `${p.id} at tick ${t}`).toBeLessThanOrEqual(FIELD.width - FIELD.radius + 1e-9);
+                expect(p.x).toBeGreaterThanOrEqual(FIELD.radius - 1e-9);
+                expect(p.x).toBeLessThanOrEqual(FIELD.length - FIELD.radius + 1e-9);
+            }
+        }
+        expect(decodeSave(encodeSave(s)), 'the saved game reloads after the drag').not.toBeNull();
+    });
+    it('a receiver who has finished his route (settled) becomes a downfield blocker when the play turns into a run (Codex review finding)', () => {
+        let s = farAway(start('slants', 1), []);
+        s = run(s, 220);
+        const done = s.players.filter(p => p.team === s.offense && p.behavior === 'settle' && (p.assign?.points?.length ?? 0) > 0 && (p.assign?.index ?? 0) >= (p.assign?.points?.length ?? 0) && p.id !== s.possession.carrier && !p.human);
+        expect(done.length, 'at least one receiver has finished his route and is settling').toBeGreaterThan(0);
+        // a teammate other than the quarterback now has the ball: the play is a run
+        const runner = s.players.find(p => p.team === s.offense && p.position !== 'QB' && !p.human && !done.some(d => d.id === p.id))!;
+        s = { ...s, possession: { ...s.possession, carrier: runner.id } };
+        expect(playMode(s)).toBe('run');
+        s = stepDown(s, idle); s = stepDown(s, idle);
+        for (const d of done) expect(at(s, d.id).behavior, `${d.id} has finished his route`).toBe('downfieldBlock');
+        // quarterback trailing the play is not turned into a blocker by the same change
+        const qb = s.players.find(p => p.team === s.offense && p.position === 'QB')!;
+        expect(qb.behavior).not.toBe('downfieldBlock');
     });
     it('a blocked defender cannot tackle: blocking is a different interaction from tackling', () => {
         let s = farAway(start('rush', 1), ['away-MLB']);

@@ -257,8 +257,9 @@ export function planTick(state: DownState): Plan {
         }
         if (p.behavior === 'route' || p.behavior === 'settle') {
             const pts = p.assign?.points ?? [], idx = p.assign?.index ?? 0;
-            // a receiver whose quarterback has scrambled past the line, or whose teammate has the ball, becomes a blocker
-            if (mode === 'run' && p.behavior === 'route' && idx >= pts.length) { const t = nearest(carrier, defense); setIntent(p, 'downfieldBlock', t ? { x: t.x - dir * 0.6, y: t.y } : carrier); continue; }
+            // a receiver whose quarterback has scrambled past the line, or whose teammate has the ball, becomes a blocker (one who has already settled too:
+            // a settled receiver still has his route points; the trailing quarterback, who has none, stays as he is)
+            if (mode === 'run' && idx >= pts.length && (p.behavior === 'route' || (p.behavior === 'settle' && pts.length > 0))) { const t = nearest(carrier, defense); setIntent(p, 'downfieldBlock', t ? { x: t.x - dir * 0.6, y: t.y } : carrier); continue; }
             if (idx < pts.length) {
                 const goal = pts[idx]!;
                 const reached = dist(p, goal) < 1.2;
@@ -360,7 +361,9 @@ export function resolveLocks(players: ArcadePlayer[], state: DownState, mode: Mo
         const away = unit({ x: b.x - nd.x, y: b.y - nd.y });
         out[di] = { ...def, x: nd.x, y: nd.y };
         const cap = Math.min(1, maxSpeed(b) / Math.max(1e-9, Math.hypot(def.vx, def.vy)));
-        out[bi] = { ...b, x: nd.x + (away.x || -dir) * 1.15, y: nd.y + away.y * 1.15, vx: def.vx * cap, vy: def.vy * cap };
+        // The blocker is placed beside the defender, who is already on the field; keep him on it too (a sideline drag would put him outside).
+        const bp = clampField({ x: nd.x + (away.x || -dir) * 1.15, y: nd.y + away.y * 1.15 });
+        out[bi] = { ...b, x: bp.x, y: bp.y, vx: def.vx * cap, vy: def.vy * cap };
     }
     return out;
 }
