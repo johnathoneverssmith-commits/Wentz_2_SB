@@ -776,8 +776,11 @@ function trimToLegalRoster(
   const drop = (p: Player): number => {
     // a CPU staff keeps a young cut on its practice squad rather than lose
     // him for nothing; a GM decides that for themselves on Roster & Cap
+    // The squad move replaces his contract with the squad salary, which stays on the books: what it frees is the
+    // hit he had less that salary, so the hit is read before the move.
+    const hitBefore = capHitOf(p);
     const toSquad = cpu && practiceSquadEligible(p) && toPracticeSquad(state, p).ok;
-    const freed = toSquad ? capHitOf(p) : cpu ? releaseWithDeadMoney(state, p) : capHitOf(p);
+    const freed = toSquad ? hitBefore - capHitOf(p) : cpu ? releaseWithDeadMoney(state, p) : capHitOf(p);
     if (!toSquad && !cpu) releaseToMarket(state, p);
     roster.splice(roster.indexOf(p), 1);
     released++;

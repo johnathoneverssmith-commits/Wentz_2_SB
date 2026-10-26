@@ -267,6 +267,25 @@ describe("the reconciliation trim", () => {
     }
   });
 
+  it("credits a practice-squad move with what it really frees (his hit less the squad pay), so a team that can reach legality that way makes no further, paid releases (Codex review finding)", () => {
+    const { s, code } = overTheCap(46, 1);
+    minimumDeals(s, code);
+    // fifteen young players on $1.5M: each squad move frees $1.3M, so fourteen of them cover the overage and the working room
+    const young = bench(s, code).slice(0, 15);
+    for (const p of young) {
+      p.years_pro = 1;
+      Object.assign(p.contract!, { cap_hit_by_year: [1.5], years_remaining: 1 });
+    }
+    s.teams[code]!.cap.total = capUsedOf(s, code) - 1;
+    const before = rosterOf(s, code).map((p) => p.id);
+    resetCpuCapShortfalls();
+    trimRosters(s);
+    expect(before.filter((id) => s.players[id]!.free_agent), "nobody is let go: the squad moves were enough").toEqual([]);
+    expect(s.teams[code]!.cap.dead, "so no dead money is charged").toBe(0);
+    expect(young.filter((p) => s.players[p.id]!.nfl_team.startsWith("PS:")).length, "the young players went to the squad").toBeGreaterThan(10);
+    expect(cpuCapShortfalls).toBe(0);
+  });
+
   it("leaves a team that no honest release can make legal over the cap, counted, rather than freeing cap for it", () => {
     const { s, code } = overTheCap(50, 5);
     s.teams[code]!.cap.dead = s.teams[code]!.cap.total + 40; // more dead money than the cap holds
