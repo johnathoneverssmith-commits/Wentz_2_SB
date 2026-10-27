@@ -41,6 +41,7 @@ import {
   practiceSquad,
   practiceSquadEligible,
 } from "@/state/practiceSquad";
+import { marketScale, minSalaryM } from "@/state/capEconomy";
 import { capUsed as contractsUsed, checkRelease, positionalMinimums, releasePenalty } from "@/state/reconciliation";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions, posLabel } from "@/util/format";
@@ -430,7 +431,7 @@ export function RosterCapManagement() {
                         // the local action knows exactly what it freed;
                         // the server answers with the new league instead, so
                         // online the preview's arithmetic stands in
-                        const estimate = previewRestructure(p, s.season).freed;
+                        const estimate = previewRestructure(p, s.season, minSalaryM(s)).freed;
                         // a second tap before the answer came back was refused
                         // ("already restructured"), and that note replaced
                         // the success one — the deal looked like it had failed
@@ -445,8 +446,8 @@ export function RosterCapManagement() {
                           });
                         });
                       }}
-                      disabled={restructuring === p.id || !previewRestructure(p, s.season).ok}
-                      title={previewRestructure(p, s.season).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
+                      disabled={restructuring === p.id || !previewRestructure(p, s.season, minSalaryM(s)).ok}
+                      title={previewRestructure(p, s.season, minSalaryM(s)).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
                     >
                       Restructure
                     </button>
@@ -473,7 +474,7 @@ export function RosterCapManagement() {
                         Franchise tag ({millions(previewFranchiseTag(s, p).price ?? 0)})
                       </button>
                     )}
-                    {practiceSquadEligible(p) && (
+                    {practiceSquadEligible(p, marketScale(s)) && (
                       <button
                         onClick={() => {
                           void actions.tender(p.id, "practiceSquad").then((r) => {
@@ -550,7 +551,7 @@ export function RosterCapManagement() {
                         : // why a button is grey, where a phone can read it — the
                           // reasons lived only in hover titles
                           ([
-                            previewRestructure(p, s.season).ok ? null : `Restructure: ${previewRestructure(p, s.season).reason}`,
+                            previewRestructure(p, s.season, minSalaryM(s)).ok ? null : `Restructure: ${previewRestructure(p, s.season, minSalaryM(s)).reason}`,
                             depthLocked || checkRelease(s, code, p.id).ok ? null : `Release: ${checkRelease(s, code, p.id).reason}`,
                           ]
                             .filter(Boolean)
@@ -674,7 +675,7 @@ export function RosterCapManagement() {
             ...playerPriorities(extending),
             // an extension is negotiated against what he'd get on the open
             // market a year from now, not what a free agent asks today
-            expectation: { ...extensionAsk(extending), signingBonus: 0 },
+            expectation: { ...extensionAsk(extending, marketScale(s)), signingBonus: 0 },
           }}
           error={extendError}
           noBonus

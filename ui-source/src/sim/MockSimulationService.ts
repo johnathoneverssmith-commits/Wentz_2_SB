@@ -1415,7 +1415,7 @@ export function tradeAssetValue(state: LeagueState, a: TradeAsset): number {
       (TRADE_POSITION_VALUE[p.position] ?? 1) *
       franchiseQbPremium(state, p) *
       tradeAgeFactor(p.age, p.position) *
-      tradeContractFactor(p)
+      tradeContractFactor(p, state.capScale ?? 1)
     );
   }
   const round = a.pick?.round ?? 4;
@@ -1488,10 +1488,10 @@ export function tradeAgeFactor(age: number, position: Position): number {
  * more than one expensive one: up to ±25% for pay against his market rate
  * (`contractValueFor`), and 0.9x (one year left) to 1.05x (four or more).
  */
-export function tradeContractFactor(p: Player): number {
+export function tradeContractFactor(p: Player, scale = 1): number {
   const years = p.contract?.years_remaining ?? 1;
   const pay = p.contract?.cap_hit_by_year?.[0] ?? 0;
-  const market = contractValueFor(p.overall, p.position);
+  const market = contractValueFor(p.overall, p.position, scale);
   const control = 0.85 + 0.05 * clamp(years, 1, 4);
   const surplus = market > 0 && pay > 0 ? clamp((market - pay) / market, -1, 1) : 0;
   return control * (1 + 0.25 * surplus);
@@ -1574,9 +1574,10 @@ export const POSITION_VALUE: Record<Position, number> = {
  */
 export const MAX_CONTRACT_M = 61;
 
-export function contractValueFor(overall: number, position?: Position): number {
+export function contractValueFor(overall: number, position?: Position, scale = 1): number {
   const posMult = position ? (POSITION_VALUE[position] ?? 1) : 1;
-  return Math.min(MAX_CONTRACT_M, round1((0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2)) * posMult));
+  // `scale` is how far the cap has risen (`state/capEconomy.ts`): the price of a contract issued today, and the ceiling on one
+  return Math.min(round1(MAX_CONTRACT_M * scale), round1((0.9 + Math.pow(Math.max(0, overall - 55) / 10, 2.2)) * posMult * scale));
 }
 
 /**

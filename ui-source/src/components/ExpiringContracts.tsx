@@ -7,6 +7,7 @@ import { OvrPill } from "@/components/bits";
 import { extensionAsk } from "@/state/contracts";
 import { planCoreResign } from "@/state/rules";
 import { useStore } from "@/state/store";
+import { marketScale } from "@/state/capEconomy";
 import { millions, posLabel } from "@/util/format";
 
 /**
@@ -27,6 +28,7 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
   // worked — with nothing to say it had
   const [done, setDone] = useState<string[]>([]);
   const players = useStore((s) => s.players);
+  const scale = marketScale({ capScale: useStore((s) => s.capScale) });
   const expiring = useMemo(
     () =>
       Object.values(players)
@@ -60,7 +62,7 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
         </p>
       ))}
       {holdouts.map((p) => {
-        const ask = extensionAsk(p);
+        const ask = extensionAsk(p, scale);
         return (
           <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, marginBottom: 10 }}>
             <OvrPill value={p.overall} />
@@ -103,7 +105,7 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
                 <OvrPill value={p.overall} />
                 <span style={{ fontWeight: 600 }}>{p.name}</span>
                 <span style={{ color: "var(--ink-faint)" }}>
-                  {posLabel(p.position)} · age {p.age} · asking {millions(extensionAsk(p).baseSalary)}/yr × {extensionAsk(p).years}
+                  {posLabel(p.position)} · age {p.age} · asking {millions(extensionAsk(p, scale).baseSalary)}/yr × {extensionAsk(p, scale).years}
                 </span>
                 {note[p.id] ? (
                   <span style={{ color: "var(--ink-dim)" }}>{note[p.id]}</span>
@@ -115,7 +117,7 @@ export function ExpiringContracts({ teamCode }: { teamCode: string }) {
                     // five identical "Extend at his ask" buttons, to a screen reader
                     aria-label={`Extend ${p.name} at his ask`}
                     onClick={() => {
-                      const ask = extensionAsk(p);
+                      const ask = extensionAsk(p, scale);
                       // years of money in one click: say how much first
                       if (
                         !confirm(

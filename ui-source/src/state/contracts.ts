@@ -10,10 +10,11 @@ import type { LeagueState, Player } from "@/domain";
 import { contractValueFor } from "@/sim/MockSimulationService";
 import { playerPriorities } from "@/sim/priorities";
 
+import { BASE_MIN_SALARY_M, marketScale, minSalaryM, scaledM } from "./capEconomy.ts";
+
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 /** The league minimum; a restructure can never take a salary below it. */
-const MIN_SALARY_M = 1;
 
 /**
  * The most a restructure converts, as a share of this year's hit above the
@@ -42,10 +43,11 @@ export interface ContractMoveResult {
  */
 function planRestructure(
   c: NonNullable<Player["contract"]>,
+  minSalary: number,
 ): { convertible: number; perYear: number; hits: number[] } {
   const years = c.years_remaining;
   const thisYear = c.cap_hit_by_year[0] ?? 0;
-  const convertible = round1(Math.max(0, thisYear - MIN_SALARY_M) * CONVERTIBLE_SHARE);
+  const convertible = round1(Math.max(0, thisYear - minSalary) * CONVERTIBLE_SHARE);
   const perYear = convertible / years;
 
   // Round every later year first, then let this year absorb whatever their
@@ -66,7 +68,7 @@ function planRestructure(
 }
 
 /** What a restructure would do, without doing it. */
-export function previewRestructure(p: Player, season: number): ContractMoveResult {
+export function previewRestructure(p: Player, season: number, minSalary = BASE_MIN_SALARY_M): ContractMoveResult {
   const c = p.contract;
   if (!c) return { ok: false, reason: "He isn't under contract." };
   if (c.years_remaining < 2) {
@@ -85,11 +87,11 @@ export function previewRestructure(p: Player, season: number): ContractMoveResul
     return { ok: false, reason: "Already restructured this season. One restructure a year, same as real cap rules." };
   }
   const thisYear = c.cap_hit_by_year[0] ?? 0;
-  const convertible = round1(Math.max(0, thisYear - MIN_SALARY_M) * CONVERTIBLE_SHARE);
+  const convertible = round1(Math.max(0, thisYear - minSalary) * CONVERTIBLE_SHARE);
   if (convertible < 0.5) {
     return { ok: false, reason: "He's already close enough to the minimum that there's nothing to convert." };
   }
-  const { hits } = planRestructure(c);
+  const { hits } = planRestructure(c, minSalary);
   const freed = round1(thisYear - hits[0]!);
   return { ok: true, freed };
 }
@@ -102,11 +104,11 @@ export function previewRestructure(p: Player, season: number): ContractMoveResul
  * arrives later, and it becomes guaranteed on the way — releasing him after
  * accelerates it onto this year's cap as dead money (`releasePenalty`).
  */
-export function restructureContract(p: Player, season: number): ContractMoveResult {
-  const check = previewRestructure(p, season);
+export function restructureContract(p: Player, season: number, minSalary = BASE_MIN_SALARY_M): ContractMoveResult {
+  const check = previewRestructure(p, season, minSalary);
   if (!check.ok) return check;
   const c = p.contract!;
-  const { convertible, perYear, hits } = planRestructure(c);
+  const { convertible, perYear, hits } = planRestructure(c, minSalary);
   c.cap_hit_by_year = hits;
   c.signing_bonus = round1(c.signing_bonus + convertible);
   c.guaranteed = round1(c.guaranteed + convertible);
@@ -119,15 +121,15 @@ export function restructureContract(p: Player, season: number): ContractMoveResu
 }
 
 /** What the player is asking for to sign on for more years. */
-export function extensionAsk(p: Player): { baseSalary: number; years: number; guaranteed: number } {
-  const market = contractValueFor(p.overall, p.position);
+export function extensionAsk(p: Player, scale = 1): { baseSalary: number; years: number; guaranteed: number } {
+  const market = contractValueFor(p.overall, p.position, scale);
   const want = playerPriorities(p);
   // an extension is negotiated a year early, so it is priced off what he is
   // worth now with a nod to what he'll be worth then — older players take a
   // discount, players still climbing want a premium
   // contracts.extension: young/veteran factors from the optimization pass.
   const ageFactor = p.age >= 31 ? 0.88 : p.age <= 25 ? 1.08 : 1;
-  const baseSalary = round1(Math.max(MIN_SALARY_M, market * ageFactor));
+  const baseSalary = round1(Math.max(scaledM(BASE_MIN_SALARY_M, { capScale: scale }), market * ageFactor));
   const years = Math.max(1, Math.min(5, want.expectation.years + 1));
   return { baseSalary, years, guaranteed: round1(baseSalary * years * 0.45) };
 }
@@ -150,7 +152,7 @@ export function extendContract(
   if (!c) return { ok: false, reason: "He isn't under contract." };
   if (offer.years < 1) return { ok: false, reason: "An extension has to add at least a year." };
 
-  const ask = extensionAsk(p);
+  const ask = extensionAsk(p, marketScale(state));
   const offered = offer.baseSalary * offer.years + offer.guaranteed;
   const wanted = ask.baseSalary * ask.years + ask.guaranteed;
   // contracts.extension.accept_fraction.
@@ -229,8 +231,8 @@ export function franchiseTagPrice(state: LeagueState, p: Player): number {
     .map(capHit)
     .sort((a, b) => b - a)
     .slice(0, 5);
-  const avg = top.length ? top.reduce((a, b) => a + b, 0) / top.length : contractValueFor(p.overall, p.position);
-  return round1(Math.max(avg, capHit(p) * 1.2, MIN_SALARY_M));
+  const avg = top.length ? top.reduce((a, b) => a + b, 0) / top.length : contractValueFor(p.overall, p.position, marketScale(state));
+  return round1(Math.max(avg, capHit(p) * 1.2, minSalaryM(state)));
 }
 
 /**
@@ -250,8 +252,8 @@ export function fifthYearPrice(state: LeagueState, p: Player): number {
   const lo = Math.max(0, Math.round(2 * scale));
   const hi = Math.max(lo + 1, Math.round((p.overall >= 84 ? 20 : 25) * scale));
   const band = hits.slice(lo, hi);
-  const avg = band.length ? band.reduce((a, b) => a + b, 0) / band.length : contractValueFor(p.overall, p.position);
-  return round1(Math.max(avg, capHit(p) * 1.1, MIN_SALARY_M));
+  const avg = band.length ? band.reduce((a, b) => a + b, 0) / band.length : contractValueFor(p.overall, p.position, marketScale(state));
+  return round1(Math.max(avg, capHit(p) * 1.1, minSalaryM(state)));
 }
 
 /** Next year's cap with this player's next-year hit replaced by `price`. */
@@ -369,12 +371,12 @@ function hashStr(s: string): number {
  * it, the rest grumble and report. Seeded on player and season, so it is the
  * same answer on every client and every reload.
  */
-export function wouldHoldOut(p: Player, season: number): boolean {
+export function wouldHoldOut(p: Player, season: number, scale = 1): boolean {
   const c = p.contract;
   if (!c || p.free_agent || p.retired || c.years_remaining < 1) return false;
   if (p.overall < 86 || p.age > 30) return false;
   if (c.tag_count) return false; // a tagged player has been paid the tender
-  const market = contractValueFor(p.overall, p.position);
+  const market = contractValueFor(p.overall, p.position, scale);
   if (market < 2.2 * Math.max(1, capHit(p))) return false;
   return hashStr(`${p.id}|holdout|${season}`) % 100 < 25;
 }
@@ -405,7 +407,7 @@ export function startHoldouts(state: LeagueState, humanTeams: Set<string>): Play
     return v;
   };
   const candidates = Object.values(state.players)
-    .filter((p) => !p.holdout && wouldHoldOut(p, state.season))
+    .filter((p) => !p.holdout && wouldHoldOut(p, state.season, marketScale(state)))
     .sort((a, b) => b.overall - a.overall);
   for (const p of candidates) {
     // one a team: a locker room with two stars staying away is a story, not a rule
@@ -413,9 +415,9 @@ export function startHoldouts(state: LeagueState, humanTeams: Set<string>): Play
     if (!humanTeams.has(p.nfl_team)) {
       // a CPU front office pays him if the budget allows; if it doesn't, he
       // reports unhappy rather than costing a CPU team its star for half a season
-      const ask = extensionAsk(p);
+      const ask = extensionAsk(p, marketScale(state));
       const team = state.teams[p.nfl_team];
-      const budget = (team?.cap.total ?? 0) - 12;
+      const budget = (team?.cap.total ?? 0) - 12 * marketScale(state);
       if (team && nextYear(p.nfl_team) - (p.contract?.cap_hit_by_year[1] ?? 0) + ask.baseSalary <= budget) {
         if (extendContract(state, p, ask).ok) {
           committed.set(p.nfl_team, nextYear(p.nfl_team) + ask.baseSalary);

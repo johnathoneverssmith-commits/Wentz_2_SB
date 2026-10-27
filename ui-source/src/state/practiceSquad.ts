@@ -22,11 +22,14 @@
 import type { LeagueState, Player } from "@/domain";
 import { ROSTER_SIZE } from "@/sim/roster-template";
 
+import { marketScale } from "./capEconomy.ts";
 import type { ContractMoveResult } from "./contracts";
 import { onInjuredReserve } from "./injuries";
 
 export const PRACTICE_SQUAD_SIZE = 16;
 export const PRACTICE_SQUAD_SALARY_M = 0.2;
+/** What a practice-squad deal pays today ($M, to the cent): the base price at the market's scale. */
+export const practiceSquadSalaryM = (s: { capScale?: number }): number => Math.round(PRACTICE_SQUAD_SALARY_M * marketScale(s) * 100) / 100;
 /** The most a player's current deal can pay and still go to the squad. */
 const PS_MAX_CAP_HIT_M = 1.5;
 const ACTIVE_MINIMUM_M = 1;
@@ -44,15 +47,15 @@ export function practiceSquad(s: LeagueState, team: string): Player[] {
 }
 
 /** Young enough, and cheap enough, to go to the squad. */
-export function practiceSquadEligible(p: Player): boolean {
+export function practiceSquadEligible(p: Player, scale = 1): boolean {
   if (p.retired || p.free_agent || isPracticeSquad(p)) return false;
-  return p.years_pro <= 2 && (p.contract?.cap_hit_by_year[0] ?? 0) <= PS_MAX_CAP_HIT_M;
+  return p.years_pro <= 2 && (p.contract?.cap_hit_by_year[0] ?? 0) <= PS_MAX_CAP_HIT_M * scale;
 }
 
 export function checkToPracticeSquad(s: LeagueState, p: Player): ContractMoveResult {
   if (!s.teams[p.nfl_team]) return { ok: false, reason: "He isn't on a roster." };
   if (p.years_pro > 2) return { ok: false, reason: "Only players with two seasons or fewer can go to the practice squad." };
-  if ((p.contract?.cap_hit_by_year[0] ?? 0) > PS_MAX_CAP_HIT_M) {
+  if ((p.contract?.cap_hit_by_year[0] ?? 0) > PS_MAX_CAP_HIT_M * marketScale(s)) {
     return { ok: false, reason: "His contract is too big for the practice squad." };
   }
   if (onInjuredReserve(p, s.stage)) return { ok: false, reason: "He's on injured reserve." };
@@ -70,9 +73,9 @@ export function toPracticeSquad(s: LeagueState, p: Player): ContractMoveResult {
   p.contract = {
     team_id: team,
     years_remaining: 1,
-    total_value: PRACTICE_SQUAD_SALARY_M,
+    total_value: practiceSquadSalaryM(s),
     guaranteed: 0,
-    cap_hit_by_year: [PRACTICE_SQUAD_SALARY_M],
+    cap_hit_by_year: [practiceSquadSalaryM(s)],
     signing_bonus: 0,
   };
   // the depth chart forgets him; he isn't playing
@@ -91,7 +94,7 @@ export function checkPromote(s: LeagueState, p: Player): ContractMoveResult {
   ).length;
   if (active >= ROSTER_SIZE) return { ok: false, reason: `The active roster is full (${ROSTER_SIZE}). Make room first.` };
   const t = s.teams[team]!;
-  if (t.cap.used - PRACTICE_SQUAD_SALARY_M + ACTIVE_MINIMUM_M > t.cap.total) {
+  if (t.cap.used - practiceSquadSalaryM(s) + Math.round(ACTIVE_MINIMUM_M * marketScale(s) * 10) / 10 > t.cap.total) {
     return { ok: false, reason: "There's no cap room for an active-roster deal." };
   }
   return { ok: true };
@@ -106,9 +109,9 @@ export function promoteFromPracticeSquad(s: LeagueState, p: Player): ContractMov
   p.contract = {
     team_id: team,
     years_remaining: 1,
-    total_value: ACTIVE_MINIMUM_M,
+    total_value: Math.round(ACTIVE_MINIMUM_M * marketScale(s) * 10) / 10,
     guaranteed: 0,
-    cap_hit_by_year: [ACTIVE_MINIMUM_M],
+    cap_hit_by_year: [Math.round(ACTIVE_MINIMUM_M * marketScale(s) * 10) / 10],
     signing_bonus: 0,
   };
   return { ok: true };

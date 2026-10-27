@@ -5,6 +5,7 @@ import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract, readTeamTimeline } from "./rules";
 import { capUsedOf } from "./seed.ts";
+import { marketScale, minSalaryM } from "./capEconomy.ts";
 import { marketOfStage, outlookFor, outlookRating, signingBar, signingValue, youthPreference, type FaMarket, type FaOutlook } from "./faValue.ts";
 import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
@@ -148,8 +149,9 @@ export function checkOffer(
     return { ok: false, reason: "He's already signed." };
   }
   if (!Number.isFinite(salary) || salary <= 0) return { ok: false, reason: "Enter a salary." };
-  if (salary > MAX_CONTRACT_M) {
-    return { ok: false, reason: `No deal can pay more than $${MAX_CONTRACT_M}M a year.` };
+  const maxDeal = Math.round(MAX_CONTRACT_M * marketScale(s) * 10) / 10;
+  if (salary > maxDeal) {
+    return { ok: false, reason: `No deal can pay more than $${maxDeal}M a year.` };
   }
   if (!Number.isInteger(years) || years < 1 || years > 5) {
     return { ok: false, reason: "Contracts run one to five years." };
@@ -262,7 +264,6 @@ export function resolveRound(s: LeagueState): void {
 export type FaMove = { kind: "pass" } | { kind: "offer"; playerId: string; salary: number; years: number };
 
 /** The least a roster spot costs to fill ($M). */
-const MIN_SALARY_M = 1;
 
 /**
  * How far a GM's identity (position, age and star preferences, in rating points) moves a CPU team's choice of
@@ -309,7 +310,7 @@ export function offerRoomFor(s: LeagueState, teamCode: string): number {
   let rostered = 0;
   for (const p of Object.values(s.players)) if (!p.retired && !p.free_agent && p.nfl_team === teamCode) rostered++;
   const stillEmpty = Math.max(0, ROSTER_SIZE - rostered - liveOffers - 1);
-  return team.cap.total - capUsedOf(s, teamCode) - committed - stillEmpty * MIN_SALARY_M;
+  return team.cap.total - capUsedOf(s, teamCode) - committed - stillEmpty * minSalaryM(s);
 }
 
 /** A CPU team's turn: choose, then do it. */
@@ -380,7 +381,8 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const strategy = strategyOf(s, teamCode);
   const shortlist = shortlistByBaseScore(pool, valueOf, difficulty.candidateDepth);
   // a CPU team bids only what its cap room covers (a person's staff plays the same evaluator, without this)
-  const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) - OFFER_CUSHION_M : Infinity;
+  const priceScale = marketScale(s);
+  const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) - OFFER_CUSHION_M * priceScale : Infinity;
 
   // Free Agency + Contracts optimization pass (free_agency.five_round_cpu):
   // chase a bid war less far, rebid less aggressively, and require a real
@@ -399,13 +401,13 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   let bestGain = -Infinity;
   for (const p of shortlist) {
     const lead = leadingOffer(s, p.id, idx.ratingsByTeam);
-    const ask = expectedSalary(p);
+    const ask = expectedSalary(p, priceScale);
     const ceilingUnit = (deterministicNoiseUnit(teamCode, s.season, "fa_chase_ceiling", p.id) + 1) / 2; // [0,1]
     const ceilingMultiplier = difficulty.chaseCeilingFloor + (1 - difficulty.chaseCeilingFloor) * ceilingUnit;
     // somebody else has already blown past this difficulty's effective chase ceiling: leave it
     if (lead && lead.salary > ask * RATIONAL_CHASE_CEILING * ceilingMultiplier) continue;
     // what it would take to hold him, against what the team can pay
-    if (Math.min(MAX_CONTRACT_M, Math.max(ask, (lead?.salary ?? 0) * 1.04)) > room) continue;
+    if (Math.min(MAX_CONTRACT_M * priceScale, Math.max(ask, (lead?.salary ?? 0) * 1.04)) > room) continue;
     // §13.1: bounded valuation noise on the target-ranking score, same as draft/coaching.
     const noise =
       difficulty.evaluationNoise === 0 ? 0 : deterministicNoiseUnit(teamCode, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
@@ -437,10 +439,10 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
     if (missUnit < difficulty.missedRebidRate) return PASS;
   }
 
-  const ask = expectedSalary(target);
+  const ask = expectedSalary(target, priceScale);
   // a bidding war tops out at the league's max deal (a CPU outbid its way
   // to $86M a year for one player)
-  const salary = Math.min(MAX_CONTRACT_M, Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10);
+  const salary = Math.min(Math.round(MAX_CONTRACT_M * priceScale * 10) / 10, Math.round(Math.max(ask, (lead?.salary ?? 0) * 1.04) * 10) / 10);
   if (lead && salary <= lead.salary) return PASS;
   // how long a deal a front office offers follows who he is, not just his age: a young starter gets years, a young
   // reserve or a veteran past his decline gets few, and each club reads the same player a little differently

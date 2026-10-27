@@ -3,6 +3,7 @@ import type { LeagueState, Player } from "@/domain";
 import { staffAt } from "./coachEffects";
 import { coachRoleForPosition } from "@/domain";
 import { MAX_CONTRACT_M, POSITION_VALUE } from "@/sim/MockSimulationService";
+import { marketScale } from "./capEconomy.ts";
 
 /**
  * What a free agent is actually weighing.
@@ -125,7 +126,7 @@ export function preferredRegion(p: Player): string {
 }
 
 /** What a player expects to be paid, in $M per year. */
-export function expectedSalary(p: Player): number {
+export function expectedSalary(p: Player, scale = 1): number {
   // a curve rather than a line: the top of the market is much steeper than
   // the middle, which is what makes a star genuinely expensive
   //
@@ -148,7 +149,8 @@ export function expectedSalary(p: Player): number {
   // average-value position is unchanged and the existing fit still holds
   // where it was actually calibrated.
   const posMult = POSITION_VALUE[p.position] ?? 1;
-  return Math.min(MAX_CONTRACT_M, Math.round(base * agePenalty * posMult * 10) / 10);
+  // `scale`: how far the cap has risen since the league began (`state/capEconomy.ts`), for the market's price today
+  return Math.min(Math.round(MAX_CONTRACT_M * scale * 10) / 10, Math.round(base * agePenalty * posMult * scale * 10) / 10);
 }
 
 /**
@@ -262,7 +264,7 @@ export interface Offer {
  * modest player is worth as much as a large one for a star.
  */
 export function scoreOffer(s: LeagueState, p: Player, offer: Offer, index?: RosterRatings): number {
-  const expected = expectedSalary(p);
+  const expected = expectedSalary(p, marketScale(s));
   const premium = expected <= 0 ? 1 : offer.salary / expected;
   // diminishing: doubling the money is not twice as persuasive
   const money = Math.min(2, Math.sqrt(premium));
@@ -273,8 +275,8 @@ export function scoreOffer(s: LeagueState, p: Player, offer: Offer, index?: Rost
 }
 
 /** Whether an offer is even eligible — below what he expects, nothing else matters. */
-export function offerEligible(p: Player, offer: Offer): boolean {
-  return offer.salary >= expectedSalary(p);
+export function offerEligible(p: Player, offer: Offer, scale = 1): boolean {
+  return offer.salary >= expectedSalary(p, scale);
 }
 
 /**
@@ -285,7 +287,7 @@ export function offerEligible(p: Player, offer: Offer): boolean {
  * coin toss.
  */
 export function bestOfferFor(s: LeagueState, p: Player, offers: Offer[], index?: RosterRatings): Offer | null {
-  const eligible = offers.filter((o) => offerEligible(p, o));
+  const eligible = offers.filter((o) => offerEligible(p, o, marketScale(s)));
   if (eligible.length === 0) return null;
   // each offer scored once, not once per comparison
   const scores = new Map(eligible.map((o) => [o, scoreOffer(s, p, o, index)]));

@@ -68,6 +68,7 @@ import {
   strategyPositionBonus,
 } from "./aiStrategy.ts";
 import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
+import { growCap, marketScale, minSalaryM } from "./capEconomy.ts";
 import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, teamHorizon, teamWindow, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
@@ -240,7 +241,7 @@ export function applyPick(s: LeagueState, selectedId: string): void {
       // a team's twenty deals don't all run out in the same offseason. (By
       // pick index they would: 32 teams pick per round, so every pick a team
       // owns shares the same index mod 4.)
-      if (!p.contract) p.contract = marketDeal(teamCode, p, 2 + ((round - 1) % 4));
+      if (!p.contract) p.contract = marketDeal(teamCode, p, 2 + ((round - 1) % 4), marketScale(s));
       s.standingFreeAgents = s.standingFreeAgents.filter((id) => id !== selectedId);
     }
     d.results.push({
@@ -422,7 +423,7 @@ export function readFreeAgentMarket(s: LeagueState): Map<string, Map<Position, n
   for (const p of Object.values(s.players)) {
     if (p.retired) continue;
     if (p.free_agent) {
-      pool.push({ position: p.position, overall: p.overall, age: p.age, asking: expectedSalary(p) });
+      pool.push({ position: p.position, overall: p.overall, age: p.age, asking: expectedSalary(p, marketScale(s)) });
       continue;
     }
     // (a practice-squad player is a team's, as `PS:<team>`, and is neither a free agent nor a starter)
@@ -1414,7 +1415,7 @@ export function affordableTeams(s: LeagueState, needed: number): string[] {
 // guaranteed-money band.
 export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): ContractOffer | null {
   // real value (overall-driven), with market noise so it isn't a single fixed number
-  const base = Math.round(contractValueFor(p.overall, p.position) * (0.95 + rng() * 0.2) * 10) / 10;
+  const base = Math.round(contractValueFor(p.overall, p.position, marketScale(s)) * (0.95 + rng() * 0.2) * 10) / 10;
   let candidates = affordableTeams(s, base);
   // A star is worth making room for (`resolveBiddingDay`): when nobody has the room, the teams that
   // could clear it, by cuts that really free it after their release penalties, are the bidders.
@@ -1649,7 +1650,9 @@ export function rookieSlotSalary(pick: number): number {
  */
 export function rookieSlotFor(s: LeagueState, prospectId: string, round: number): number {
   const pickNo = (s.draft?.results ?? []).find((r) => r.selectedId === prospectId)?.pickNumber;
-  if (!pickNo) return Math.max(0.9, 8 - round);
+  // the rookie scale is a price, so it rises with the cap; a deal already signed keeps the slot it was signed at
+  const scale = marketScale(s);
+  if (!pickNo) return Math.round(Math.max(0.9, 8 - round) * scale * 100) / 100;
   // The scale is the NFL's, by overall pick. A humans-only league has as few
   // as four teams, so its seventh-rounder is pick 25 — and every pick in the
   // draft was paid like a first-rounder (a class costing $60M against $35M of
@@ -1657,7 +1660,7 @@ export function rookieSlotFor(s: LeagueState, prospectId: string, round: number)
   // round, same place in it.
   const teams = Math.max(1, Object.keys(s.teams).length);
   const equivalent = Math.floor((pickNo - 1) / teams) * 32 + Math.round((((pickNo - 1) % teams) * 32) / teams) + 1;
-  return rookieSlotSalary(equivalent);
+  return Math.round(rookieSlotSalary(equivalent) * scale * 100) / 100;
 }
 
 /** Cap hits for a rookie deal: the slot, rising 5% a year for four years. */
@@ -1858,11 +1861,11 @@ export function applyCoachHire(s: LeagueState, coachId: string, teamCode: string
  * little every week he sits at home, to a third of it late in the year — a
  * veteran still unsigned in December takes what he can get.
  */
-export function standingAsk(s: Pick<LeagueState, "stage" | "week">, p: Player): number {
-  const full = expectedSalary(p);
+export function standingAsk(s: Pick<LeagueState, "stage" | "week" | "capScale">, p: Player): number {
+  const full = expectedSalary(p, marketScale(s));
   const inSeason = s.stage === "regularSeason" || s.stage === "tradeDeadline" || s.stage.startsWith("midseason");
   const factor = inSeason ? Math.max(0.35, 1 - 0.04 * Math.max(0, s.week)) : 1;
-  return Math.max(1, Math.round(full * factor * 10) / 10);
+  return Math.max(minSalaryM(s), Math.round(full * factor * 10) / 10);
 }
 
 export function checkStandingSign(
@@ -2127,6 +2130,8 @@ export function finalizeSeason(s: LeagueState): void {
   // the year has been played, so every contract is a year shorter — and the
   // ones that just ran out hit the market in time for this offseason's window
   expireContracts(s);
+  // the cap rises for the new league year; the contracts and dead money already on the books stay the dollars they were
+  growCap(s);
   recomputeTeamRatings(s);
   // Hooded Figure eligibility (§4): reads the history rows just pushed above,
   // so this has to run after them, not before.
@@ -2176,9 +2181,9 @@ export function planCoreResign(s: LeagueState, code: string): { player: Player; 
     .sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position));
   const out: { player: Player; ask: ReturnType<typeof extensionAsk> }[] = [];
   for (const p of expiring) {
-    const ask = extensionAsk(p);
+    const ask = extensionAsk(p, marketScale(s));
     // a franchise player is kept even when it squeezes the draft budget
-    const buffer = p.overall >= 88 ? ELITE_RESIGN_CAP_BUFFER : RESIGN_CAP_BUFFER;
+    const buffer = (p.overall >= 88 ? ELITE_RESIGN_CAP_BUFFER : RESIGN_CAP_BUFFER) * marketScale(s);
     if (committed + ask.baseSalary > team.cap.total - buffer) continue;
     // budgeted against next year's commitments, not this year's payroll —
     // at season's end a third of that payroll is about to expire
@@ -2212,13 +2217,13 @@ export function resignAiCore(s: LeagueState): number {
     for (const p of roster) {
       if (p.overall < 74 || !fifthYearEligible(p)) continue;
       const price = fifthYearPrice(s, p);
-      if (committed + price > team.cap.total - RESIGN_CAP_BUFFER) continue;
+      if (committed + price > team.cap.total - RESIGN_CAP_BUFFER * marketScale(s)) continue;
       if (exerciseFifthYearOption(s, p).ok) committed += price;
     }
     const star = roster
       .filter((p) => p.contract!.years_remaining === 1 && p.overall >= 86 && p.age <= 30)
       .sort((a, b) => b.overall - a.overall)[0];
-    if (star && committed + franchiseTagPrice(s, star) <= team.cap.total - ELITE_RESIGN_CAP_BUFFER) franchiseTag(s, star);
+    if (star && committed + franchiseTagPrice(s, star) <= team.cap.total - ELITE_RESIGN_CAP_BUFFER * marketScale(s)) franchiseTag(s, star);
   }
   return signed;
 }

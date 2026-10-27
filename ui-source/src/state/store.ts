@@ -9,6 +9,7 @@
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
 import { chooseGmStrategy } from "./aiGms.ts";
+import { minSalaryM } from "./capEconomy.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { setSkip as setSkipFor, type SkipKind } from "./skips.ts";
 import { create } from "zustand";
@@ -1155,7 +1156,7 @@ export const useStore = create<Store>()(
         set((s) => {
           const p = s.players[playerId];
           if (!p || p.free_agent || p.retired) return;
-          result = restructureContract(p, s.season);
+          result = restructureContract(p, s.season, minSalaryM(s));
           if (result.ok) recomputeTeamRatings(s);
         });
         return result;

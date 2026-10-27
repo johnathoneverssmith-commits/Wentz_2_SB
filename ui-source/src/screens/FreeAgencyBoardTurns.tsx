@@ -27,6 +27,7 @@ import {
 import { viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
 import { draftValue, useStore } from "@/state/store";
+import { marketScale } from "@/state/capEconomy";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { millions, posLabel } from "@/util/format";
 
@@ -325,7 +326,7 @@ export function FreeAgencyBoardTurns() {
         ) : (
           shown.slice(0, 80).map((p) => {
             const lead = leadingOffer(s, p.id);
-            const ask = expectedSalary(p);
+            const ask = expectedSalary(p, marketScale(s));
             const isOffering = offering?.id === p.id;
             return (
               <div key={p.id}>
@@ -443,7 +444,7 @@ function OfferDialog({
   onCancel: () => void;
   onSubmit: (salary: number, years: number) => void;
 }) {
-  const ask = expectedSalary(player);
+  const ask = expectedSalary(player, marketScale({ capScale: useStore((st) => st.capScale) }));
   const [salary, setSalary] = useState(String(ask));
   const [years, setYears] = useState("3");
   const value = Number(salary);
