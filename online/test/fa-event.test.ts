@@ -200,6 +200,7 @@ describe("the mid-season market opened through the server's stage change", () =>
     expect(s.stage).toBe("midseasonFreeAgency");
     const e = s.freeAgencyEvent!;
     expect(e.market).toBe("midseason");
+    expect(Object.keys(e.timeline ?? {}).sort(), "the windows are recorded for every team as the market opens").toEqual(Object.keys(s.teams).sort());
     const firstHuman = e.order.findIndex((c) => c === "KC" || c === "BUF");
     const ahead = e.order.slice(0, firstHuman);
     expect(ahead.length, "a human is not first, so some CPU teams act before them").toBeGreaterThan(0);

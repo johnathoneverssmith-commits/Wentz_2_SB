@@ -16,7 +16,7 @@
  */
 import type { Position } from "@/domain";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
-import { positionValueWeight } from "./draftBoard.ts";
+import { effectiveRating, positionValueWeight, teamHorizon, windowEffect } from "./draftBoard.ts";
 
 const TEMPLATE = new Map(ROSTER_TEMPLATE.map((r) => [r.pos, r]));
 
@@ -34,6 +34,21 @@ export const MIN_SIGNING_VALUE = 6;
  */
 export const MIN_SIGNING_VALUE_MIDSEASON = 3;
 
+/** Rating points a year of age under the reference is worth to a rebuilding team, at full rebuild and a position weighted 1. */
+export const FA_YOUTH_POINTS = 1.2;
+/** Years of age either side of the reference that count. */
+export const FA_YOUTH_RANGE = 2;
+/** The age at which a free agent is neither young nor old for a rebuild: about the age the market signs at. */
+export const FA_REFERENCE_AGE = 28;
+
+/**
+ * Seasons off the draft's horizon in this market. The draft looks two years out for a team in between, one for a
+ * contender and three for a rebuild; a free agent is bought for the season ahead (and signed to a contract of his own),
+ * so a contender reads him as he is, a team in between one season on and a rebuild two. Measured on mature leagues, at
+ * the draft's own horizon contenders came out as young as rebuilders (the age gap between them was +0.6 years, not +0.9).
+ */
+export const FA_HORIZON_SHIFT = 1;
+
 /** Which of the year's two five-round markets is open. */
 export type FaMarket = "offseason" | "midseason";
 
@@ -45,6 +60,48 @@ export function marketOfStage(stage: string): FaMarket {
 /** The bar for the market that is open. */
 export function signingBar(market: FaMarket): number {
   return market === "midseason" ? MIN_SIGNING_VALUE_MIDSEASON : MIN_SIGNING_VALUE;
+}
+
+/**
+ * How a team reads the market, from the timeline it had when the market opened: how many seasons ahead its
+ * outlook on a player reaches (the draft's `teamHorizon` less `FA_HORIZON_SHIFT`: none for a contender, two for a rebuild), the
+ * weight it puts on the future (the GM's `longTermWeight`), and how far it is rebuilding (0 for a team that is
+ * not). Without a recorded timeline (a save from before it was) there is no outlook: ratings are read as they are.
+ */
+export interface FaOutlook {
+  horizon: number;
+  longTermWeight: number;
+  rebuild: number;
+}
+
+export function outlookFor(timeline: number | undefined, longTermWeight: number): FaOutlook | null {
+  if (timeline === undefined) return null;
+  const fx = windowEffect(timeline, longTermWeight);
+  return { horizon: Math.max(0, teamHorizon(fx) - FA_HORIZON_SHIFT), longTermWeight, rebuild: Math.max(0, -fx) };
+}
+
+/**
+ * A player's rating as the team reads it over its horizon: the draft's age curve (growth to 24, decline from
+ * the position's start), halved, so a veteran a rebuild looks three seasons out on is worth less than the same
+ * rating in a young player, and a contender looking one season out barely differs. The contract is left out:
+ * a free agent signs for the years he is offered, and an incumbent's expiry is not what a market weighs.
+ */
+export function outlookRating(p: { position: Position; overall: number; age: number }, o: FaOutlook | null): number {
+  if (!o) return p.overall;
+  return effectiveRating({ position: p.position, overall: p.overall, age: p.age, yearsLeft: 99 }, o.longTermWeight, o.horizon);
+}
+
+/**
+ * What a rebuilding team adds for a young player, or takes off for an old one, in the weighted points of
+ * `signingValue`. Only a rebuild has it. A veteran on a one-year deal costs a rebuild nothing in the future, so
+ * the penalty for age does not apply to him (his decline is still in `outlookRating`); a young player keeps the
+ * preference whatever the length. Used to choose between signings that are worth making, never to make one.
+ */
+export function youthPreference(p: { position: Position; age: number }, o: FaOutlook | null, oneYear: boolean): number {
+  if (!o || o.rebuild <= 0) return 0;
+  const years = Math.max(-FA_YOUTH_RANGE, Math.min(FA_YOUTH_RANGE, FA_REFERENCE_AGE - p.age));
+  if (years < 0 && oneYear) return 0;
+  return positionValueWeight(p.position) * FA_YOUTH_POINTS * o.rebuild * years;
 }
 
 /**
