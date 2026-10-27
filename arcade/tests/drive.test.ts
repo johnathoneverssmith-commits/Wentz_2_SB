@@ -82,6 +82,9 @@ describe('four downs to gain ten yards', () => {
     it('an interception is a turnover: the interceptor spot, 1st and 10 for the new offense, no down used', () => {
         let s = farAway(throwPass(snap(choosePlay(createDown(), 'slants')), 1), ['away-CB1']);
         if (s.ball.kind !== 'flight') throw Error('flight');
+        // the interceptor is on the spot as the ball arrives (a covering defender reacts to the pass, so he is put there one tick before it lands)
+        while (s.ball.kind === 'flight' && s.ball.elapsed < s.ball.duration - STEP_SECONDS - 1e-9) s = stepDown(farAway(s, ['away-CB1']), idle);
+        if (s.ball.kind !== 'flight') throw Error('flight');
         s = place(s, 'away-CB1', s.ball.to.x, s.ball.to.y);
         while (s.phase === 'live') s = stepDown(s, idle);
         expect(s.result).toMatchObject({ reason: 'interception', turnover: true, turnoverOnDowns: false, firstDown: false, yards: 0 });

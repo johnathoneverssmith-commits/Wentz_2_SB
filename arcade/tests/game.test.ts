@@ -284,6 +284,8 @@ describe('overtime', () => {
         expect(nextDown(fg)).toMatchObject({ offense: 'home', line: 38, overtime: { possessions: 1 }, score: { home: 0, away: 3 } });
         let air = farAway(throwPass(snap(choosePlay(lineUp('away', 82, overtime()), 'slants')), 1), ['home-CB1']);
         if (air.ball.kind !== 'flight') throw Error('flight');
+        while (air.ball.kind === 'flight' && air.ball.elapsed < air.ball.duration - STEP_SECONDS - 1e-9) air = stepDown(farAway(air, ['home-CB1']), idle);
+        if (air.ball.kind !== 'flight') throw Error('flight');
         air = place(air, 'home-CB1', air.ball.to.x, air.ball.to.y);
         while (air.phase === 'live') air = stepDown(air, idle);
         expect(air.result?.reason).toBe('interception');

@@ -5,7 +5,7 @@
  * completes his route settles into open space or blocks; a lineman whose man is gone finds another; every defender pursues once
  * the ball is loose. Everything is a pure function of the snapshot, so the simulation stays deterministic.
  */
-import { FIELD, maxSpeed, unit, type ArcadePlayer, type Behavior, type Intent, type PlayerId, type TeamId, type Vector } from './simulation';
+import { FIELD, STEP_SECONDS, maxSpeed, unit, type ArcadePlayer, type Behavior, type Intent, type PlayerId, type TeamId, type Vector } from './simulation';
 import { codeOf, type Code } from './personnel';
 import type { DownState, Play } from './down';
 
@@ -14,8 +14,6 @@ export const direction = (team: TeamId) => team === 'home' ? 1 : -1;
 export const CONTACT_RADIUS = FIELD.radius * 2;
 export const CATCH_RADIUS = 1.6;
 export const BREAKUP_RADIUS = 2.2;
-/** A covering defender holds his coverage this many ticks into a throw before breaking on the ball. */
-export const REACT_TICKS = 18;
 /** Route depths in yards past the line of scrimmage for the two primary targets (WR1, WR2). */
 export const ROUTE_DEPTH = { slants: { WR1: 10, WR2: 18 }, go: { WR1: 31, WR2: 34 } } as const;
 /**
@@ -28,10 +26,6 @@ export const BALL_SPEED = 26;
 /** The shortest and longest time a pass is in the air, in seconds. The longest is also what a saved game may hold (see `browser/save.ts`). */
 export const MIN_FLIGHT = 0.35;
 export const MAX_FLIGHT = 2;
-/** Man coverage sits this far ahead of the receiver (go routes: trailing, close). */
-export const COVER_CUSHION = 7;
-export const GO_CUSHION = 0;
-export const GO_REACT_TICKS = 36;
 /** An offensive blocker this close to a defender has him engaged. */
 export const BLOCK_RADIUS = 1.8;
 /** An engaged defender, human or AI, moves at this fraction of his speed. */
@@ -47,27 +41,61 @@ export const SHED_FREE_TICKS = 50;
 export const STUMBLE_TICKS = 24;
 /** Yards a defense reads the play before committing to the run. */
 export const READ_TICKS = 2;
-/** The deep safety plays this deep, and breaks on deep balls (see Milestone 4). */
+/** The deep safety plays at least this deep, and stays `SAFETY_OVER_THE_TOP` yards over the deepest receiver who is running vertically. */
 export const SAFETY_DEPTH = 22;
-export const SAFETY_ZONE = 20;
-export const SAFETY_REACT_TICKS = 24;
-export const ZONE_BREAK_RANGE = 5.5;
+export const SAFETY_OVER_THE_TOP = 5;
 export const POCKET_LATERAL = 9;
 
-/** Where a covering defender stands: `cushion` yards deeper than his man; on a go route he runs with him, shaded to the outside so the two bodies do not collide. */
-/** A defender reads his man a moment late (MAN_LAG seconds behind), so a sharp cut leaves a step of separation. */
-export const MAN_LAG = 0.5;
-/** On a vertical route the defender runs stride for stride with his man and loses almost nothing. */
-export const GO_LAG = 0.1;
-const manSpot = (mine: ArcadePlayer, dir: number, cushion: number, trailing: boolean): Vector => ({ x: mine.x - mine.vx * (trailing ? GO_LAG : MAN_LAG) + dir * cushion, y: mine.y - mine.vy * (trailing ? GO_LAG : MAN_LAG) + (trailing ? (mine.y < FIELD.width / 2 ? -1 : 1) * 1.3 : 0) });
+// ----- what a defender can see, and how long it takes him -----
+// Coverage reacts to what is observable (where the receivers are and how they are moving, where the ball is going) and never to
+// the call: a defender cannot know whether a receiver will run a go route or a slant until the receiver does it.
+/** Seconds a defender takes to see his man change direction: his reading of the man's velocity catches up with the real one this slowly, so a cut costs him a step. */
+export const READ_SECONDS = 0.15;
+/** A defender aims where his man will be this many seconds from now, along the direction he reads. */
+export const ANTICIPATE_SECONDS = 0.15;
+/** The depth (yards past the line) a receiver must reach before his man starts to close the cushion, and the depth by which it is closed. */
+export const MAN_COMMIT_FROM = 8;
+export const MAN_COMMIT_TO = 18;
+/** A corner plays off a faster receiver by more and a slower one by less, in proportion to the speed ratio, within these bounds (he respects a burner). */
+export const RESPECT = { min: 0.85, max: 1.25 } as const;
+/** Where a man defender plays a receiver who has gone deep, in yards downfield of him: negative is behind him. A corner who started ten yards off and is beaten by the stem turns and trails at the receiver's hip rather than staying in front, where he would be nearer every ball led to the receiver than the receiver is. */
+export const MAN_STACK = -2.5;
+/** Yards a man defender plays off a receiver who is shallow, about the depth he lines up at (9.7 yd), so he does not jump forward at the snap; the cushion closes to MAN_STACK as the receiver goes from MAN_COMMIT_FROM to MAN_COMMIT_TO yards deep. */
+export const MAN_CUSHION = 10;
+/** Yards a man defender plays to the inside of his receiver (toward the middle of the field), so the two run side by side instead of one standing in the other's lane. */
+export const MAN_LEVERAGE = 1.2;
+/** How much of his cushion a man defender gives up when his man breaks off the vertical stem: at a full sideways break he closes this share of it (route recognition). */
+export const BREAK_CLOSE = 0.8;
+/** The share of his speed a man defender has while backpedaling (going downfield with his man still behind him); once he has turned and is level or beaten he runs flat out. */
+export const BACKPEDAL = 0.85;
+/** Ticks a defender needs to see which way the ball is going before he breaks on it, when he is facing the quarterback (level with his man or in front of him): a quarter of a second, about a person's reaction to a release... */
+export const BALL_READ_TICKS = 15;
+/** ...and when he is behind his man, running with his back to the ball, so he has to turn and find it first. */
+export const LOOK_BACK_TICKS = 21;
+/** A defender who can reach the ball's landing point within this many seconds of its arrival goes for it. */
+export const REACH_SLACK = 0.25;
+/** Yards of the zone around its landmark inside which a defender picks up a receiver, and how far behind that receiver he plays (linebacker, strong safety, free safety). */
+export const ZONE_RANGE = 6;
+/** ...and how far from his landmark a defender follows the receiver assigned to him (a linebacker with the tight end). */
+export const ZONE_TRACK = 10;
+export const ZONE_CUSHION = { LB: 1, SS: 2.5, FS: 4 } as const;
+/** A defender who can reach the landing point this many seconds before the ball arrives is on the ball (he can intercept it); otherwise he can only break the pass up. */
+export const ON_BALL_MARGIN = 0.15;
+/** Yards from the landing point an AI defender plays it from: on the ball (inside the interception radius), or beside it (inside the break-up circle only). */
+export const ON_BALL_STANDOFF = 0.9;
+export const BEHIND_STANDOFF = 1.9;
 /**
- * Where an AI defender goes to play a thrown ball: to the side of the landing point he is coming from, close enough to break the catch up
- * (inside the break-up circle) but, unless he is a deep safety with his eyes on the quarterback, not on the ball itself. Intercepting
- * is for a defender who is truly on the ball: a safety, or a human who has pressed Hands.
+ * Where an AI defender goes to play a thrown ball, on the side of the landing point he is coming from. One who can get there before the
+ * ball does goes right to it, where he intercepts it; one who cannot gets close enough to break the catch up (the break-up circle is
+ * wider than the interception circle) but is not on the ball. Human defenders intercept only with Hands.
  */
-const contestPoint = (d: ArcadePlayer, to: Vector, covering: boolean): Vector => {
+const contestPoint = (d: ArcadePlayer, to: Vector, secondsToArrival: number): Vector => {
     const away = unit({ x: d.x - to.x, y: d.y - to.y });
-    const standoff = covering || d.position === 'FS' || d.position === 'SS' ? 1.35 : 1.9;
+    const reach = Math.max(0, dist(d, to)) / maxSpeed(d) + 0.1;
+    // a defender already standing on the spot stays there: the margin test compares time to arrive, and one who has arrived early must not
+    // be pushed out of interception range as the ball comes down
+    const onTheSpot = dist(d, to) <= ON_BALL_STANDOFF + 0.05;
+    const standoff = onTheSpot || reach + ON_BALL_MARGIN <= secondsToArrival ? ON_BALL_STANDOFF : BEHIND_STANDOFF;
     return { x: to.x + away.x * standoff, y: to.y + away.y * standoff };
 };
 const dist = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -85,7 +113,8 @@ export function playMode(state: DownState): Mode {
     if (state.ball.kind === 'flight')
         return 'air';
     const carrier = state.players.find(p => p.id === state.possession.carrier)!;
-    if (state.play === 'rush' || carrier.position !== 'QB' || state.possession.team !== state.offense)
+    // a back with the ball (a handoff) is a run; so is a quarterback who has crossed the line or left the pocket (below)
+    if (carrier.position !== 'QB' || state.possession.team !== state.offense)
         return 'run';
     const dir = direction(state.offense), progress = (carrier.x - state.line) * dir;
     const line = state.players.filter(p => p.team === state.offense && ['LT', 'LG', 'C', 'RG', 'RT'].includes(p.position));
@@ -118,7 +147,7 @@ export function assignPlay(state: DownState): ArcadePlayer[] {
     const offense = state.players.filter(p => p.team === state.offense), defense = state.players.filter(p => p.team !== state.offense);
     const by = (list: ArcadePlayer[], code: Code) => list.find(p => codeOf(p.id) === code);
     const next = new Map<PlayerId, Partial<ArcadePlayer>>();
-    const set = (p: ArcadePlayer, behavior: Behavior, assign: ArcadePlayer['assign'] = null) => next.set(p.id, { behavior, assign, lock: null, stun: 0, free: 0, vx: 0, vy: 0 });
+    const set = (p: ArcadePlayer, behavior: Behavior, assign: ArcadePlayer['assign'] = null) => next.set(p.id, { behavior, assign, lock: null, stun: 0, free: 0, vx: 0, vy: 0, read: null });
     const receivers = offense.filter(p => passing && (CODES_ROUTE_PASS as readonly string[]).includes(codeOf(p.id)));
     for (const p of offense) {
         const code = codeOf(p.id);
@@ -289,56 +318,77 @@ export function planTick(state: DownState): Plan {
         setIntent(p, 'settle', { x: carrier.x + dir * 3, y: carrier.y }, 0.8);
     }
     // ----- defense -----
+    // Nothing below reads the play call. A defender sees where the receivers are and how they are moving (through a short reading
+    // delay, so a change of direction costs him a step), where the ball is going once it is thrown, and who has it.
+    const receivers = offense.filter(p => p.position === 'WR' || p.position === 'TE' || p.position === 'RB');
+    /** The velocity this defender believes his man has: his last reading, moved toward the real one. */
+    const reading = (d: ArcadePlayer, man: ArcadePlayer): Vector => {
+        const was = d.read ?? { x: man.vx, y: man.vy }, k = STEP_SECONDS / READ_SECONDS;
+        return { x: was.x + (man.vx - was.x) * k, y: was.y + (man.vy - was.y) * k };
+    };
+    const remember = (d: ArcadePlayer, v: Vector) => { const i = players.findIndex(q => q.id === d.id); players[i] = { ...players[i]!, read: v }; };
+    /** Receivers running downfield at pace: what a deep safety has to stay over the top of. */
+    const vertical = receivers.filter(r => (r.x - line) * dir > 4 && r.vx * dir > 0.6 * maxSpeed(r));
+    const deepest = vertical.reduce<ArcadePlayer | undefined>((a, b) => !a || (b.x - line) * dir > (a.x - line) * dir ? b : a, undefined);
+    const landmark = (d: ArcadePlayer): Vector => {
+        const base = d.assign?.spot ?? d;
+        if (d.position !== 'FS' || !deepest) return base;
+        return { x: line + dir * Math.max((base.x - line) * dir, (deepest.x - line) * dir + SAFETY_OVER_THE_TOP), y: vertical.reduce((s, r) => s + r.y, 0) / vertical.length };
+    };
+    /** Plays his man (man coverage) or the receiver in his zone, as the receiver is seen to move. */
+    const cover = (d: ArcadePlayer) => {
+        const mine = d.assign?.target ? players.find(p => p.id === d.assign!.target) : undefined;
+        if ((d.behavior === 'man' || d.position === 'CB') && mine) {
+            const v = reading(d, mine), s = Math.min(1, Math.hypot(v.x, v.y) / maxSpeed(mine));
+            remember(d, v);
+            // He keeps his cushion while the receiver is shallow and closes it as the receiver goes deep: an underneath route can beat him, a deep one cannot.
+            const committed = Math.max(0, Math.min(1, ((mine.x - line) * dir - MAN_COMMIT_FROM) / (MAN_COMMIT_TO - MAN_COMMIT_FROM)));
+            // And he attacks a receiver who breaks off the stem: the more of his velocity (as he reads it) is sideways, the more of the cushion he closes.
+            const speedRead = Math.hypot(v.x, v.y), sideways = speedRead > 1 ? Math.abs(v.y) / speedRead : 0;
+            const respect = Math.max(RESPECT.min, Math.min(RESPECT.max, maxSpeed(mine) / maxSpeed(d)));
+            const cushion = (MAN_CUSHION * respect + (MAN_STACK - MAN_CUSHION * respect) * committed) * (1 - BREAK_CLOSE * sideways);
+            const to = { x: mine.x + v.x * ANTICIPATE_SECONDS + dir * cushion, y: mine.y + v.y * ANTICIPATE_SECONDS + (mine.y < CENTER ? 1 : -1) * MAN_LEVERAGE * s * committed };
+            const backpedaling = (d.x - mine.x) * dir > 0.5 && (to.x - d.x) * dir > 0;
+            setIntent(d, 'man', to, backpedaling ? BACKPEDAL : 1);
+            return;
+        }
+        const spot = landmark(d), assigned = d.assign?.target ? receivers.find(r => r.id === d.assign!.target) : undefined;
+        // a zone defender with a receiver assigned to him follows that receiver while he is anywhere near his area; otherwise he picks up whoever enters it
+        const intruder = assigned && dist(assigned, spot) < ZONE_TRACK && (assigned.x - line) * dir > 0 ? assigned : nearest(spot, receivers.filter(r => dist(r, spot) < ZONE_RANGE && (r.x - line) * dir > 1));
+        if (intruder) {
+            const v = reading(d, intruder), cushion = d.position === 'FS' ? ZONE_CUSHION.FS : d.position === 'SS' ? ZONE_CUSHION.SS : ZONE_CUSHION.LB;
+            remember(d, v);
+            setIntent(d, 'zone', { x: intruder.x + v.x * ANTICIPATE_SECONDS + dir * cushion, y: intruder.y + v.y * ANTICIPATE_SECONDS }, 0.95);
+            return;
+        }
+        // A zone is not a statue: the defender shades toward the quarterback's side and works within his area (by depth along the play, so a mirrored play moves the same way).
+        const sway = { x: spot.x + dir * Math.sin(tickIn / 30 + d.y) * 0.9, y: spot.y + (qb.y - CENTER) * 0.25 + Math.cos(tickIn / 37 + (d.x - line) * dir) * 0.7 };
+        setIntent(d, 'zone', sway, 0.85);
+    };
     for (const d of defense) {
         // A blocked defender is slowed whoever steers him: the slowdown applies to a human-controlled defender too.
         const partner = lockedPartner(d);
         if (partner) slow.set(d.id, BLOCK_SLOW);
         if (d.human) continue;
-        const toQB = qb;
         if (mode === 'run') {
-            // everyone pursues the ball; the secondary keeps outside leverage a beat, then closes
-            const delay = state.play === 'rush' && tickIn < READ_TICKS && d.position !== 'DE' && d.position !== 'DT';
+            // everyone pursues the ball; the secondary keeps outside leverage a beat, then closes (once the ball is seen to be in a back's hands)
+            const delay = carrier.position !== 'QB' && tickIn < READ_TICKS && d.position !== 'DE' && d.position !== 'DT';
             if (delay) setIntent(d, 'runFit', { x: line + dir * 3, y: d.y + (carrier.y - d.y) * 0.3 }, 0.9);
             else setIntent(d, 'pursue', intercept(d, carrier), 1);
             continue;
         }
-        if (mode === 'pocket') {
-            if (d.behavior === 'rush' || d.position === 'DE' || d.position === 'DT') { setIntent(d, 'rush', { x: toQB.x, y: toQB.y }, 1); continue; }
-            if (d.behavior === 'man' || d.position === 'CB') {
-                const mine = d.assign?.target ? players.find(p => p.id === d.assign!.target) : undefined;
-                const cushion = state.play === 'go' ? GO_CUSHION : COVER_CUSHION;
-                if (mine) setIntent(d, 'man', manSpot(mine, dir, cushion, state.play === 'go'), 1);
-                else setIntent(d, 'zone', d.assign?.spot ?? d, 0.8);
-                continue;
-            }
-            // zone defenders drop to their landmark and play the receiver who enters it
-            const spot = d.assign?.spot ?? d;
-            const intruder = nearest(spot, offense.filter(p => (p.position === 'WR' || p.position === 'TE' || p.position === 'RB') && dist(p, spot) < 6 && (p.x - line) * dir > 2));
-            // A zone is not a statue: the defender shades toward the quarterback's side and works within his area.
-            const sway = { x: spot.x + Math.sin(tickIn / 30 + d.y) * 0.9, y: spot.y + (toQB.y - CENTER) * 0.25 + Math.cos(tickIn / 37 + d.x) * 0.7 };
-            if (d.position === 'FS' || d.position === 'SS') setIntent(d, 'zone', intruder ? { x: intruder.x + dir * 4, y: intruder.y } : sway, 0.85);
-            else setIntent(d, 'zone', intruder ? { x: intruder.x + dir * 2.5, y: intruder.y } : sway, 0.85);
-            continue;
+        if (d.behavior === 'rush' || d.position === 'DE' || d.position === 'DT') { setIntent(d, 'rush', mode === 'air' ? { x: flight!.to.x, y: flight!.to.y } : { x: qb.x, y: qb.y }, mode === 'air' ? 0.8 : 1); continue; }
+        if (mode === 'air') {
+            // The ball is in the air: whoever is covering the target goes for it, and so does anyone who can get there before it lands.
+            const f = flight!, elapsed = f.elapsed * 60, remaining = f.duration - f.elapsed;
+            const covering = d.assign?.target === f.target, contest = contestPoint(d, f.to, remaining);
+            const reach = Math.max(0, dist(d, contest) - 0.5) / maxSpeed(d) + 0.15;
+            // a defender behind the man he is covering is running with his back to the ball and takes longer to find it
+            const mine = d.assign?.target ? players.find(p => p.id === d.assign!.target) : undefined;
+            const read = mine && (d.x - mine.x) * dir < -0.25 ? LOOK_BACK_TICKS : BALL_READ_TICKS;
+            if (elapsed >= read - 1e-9 && (covering || reach <= remaining + REACH_SLACK)) { setIntent(d, 'pursue', contest, 1); continue; }
         }
-        // the ball is in the air
-        const f = flight!, elapsed = f.elapsed * 60, to = f.to, targetPlayer = players.find(q => q.id === f.target)!;
-        const react = state.play === 'go' ? GO_REACT_TICKS : REACT_TICKS;
-        const deepBall = Math.abs(to.x - line) >= SAFETY_ZONE;
-        if (d.position === 'FS' || d.position === 'SS') {
-            if (deepBall && elapsed >= SAFETY_REACT_TICKS - 1e-9 || !deepBall && elapsed >= react - 1e-9 && dist(d, to) < 13) setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1);
-            else setIntent(d, 'zone', d.assign?.spot ?? d, 0.9);
-            continue;
-        }
-        const isTargetCover = d.assign?.target === f.target;
-        if (isTargetCover && elapsed >= react - 1e-9) { setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1); continue; }
-        if (d.position === 'CB' && elapsed >= react - 1e-9 && dist(d, to) < ZONE_BREAK_RANGE) { setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1); continue; }
-        if ((d.position === 'OLB' || d.position === 'MLB') && elapsed >= REACT_TICKS - 1e-9 && dist(d, to) < ZONE_BREAK_RANGE) { setIntent(d, 'pursue', contestPoint(d, to, d.assign?.target === f.target), 1); continue; }
-        if (d.position === 'DE' || d.position === 'DT') { setIntent(d, 'rush', { x: to.x, y: to.y }, 0.8); continue; }
-        if (d.behavior === 'man' && d.assign?.target) {
-            const mine = players.find(p => p.id === d.assign!.target);
-            if (mine) { setIntent(d, 'man', manSpot(mine, dir, state.play === 'go' ? GO_CUSHION : COVER_CUSHION, state.play === 'go'), 1); continue; }
-        }
-        setIntent(d, 'zone', d.assign?.spot ?? d, 0.85);
+        cover(d);
     }
     return { players, intents, slow };
 }

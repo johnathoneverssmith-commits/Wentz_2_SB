@@ -48,20 +48,20 @@ export const BALANCED: Strategy = drawn('balanced', 'balanced offense', 'runs 30
     return { play: x < 0.3 ? 'rush' : x < 0.65 ? 'slants' : 'go', target: r.pick(TARGETS), tick: r.int(12, 140) };
 });
 
-/** Room around a receiver (yards to the nearest defender) that counts as open, once no defender is between him and the ball's destination. */
-export const OPEN_SEPARATION = 2;
-/** A defender is "in front" of a receiver when he is downfield of him, within this many yards sideways and this far ahead. */
-const IN_FRONT = { lateral: 3, ahead: 14 } as const;
-/** Whether the receiver is free: nobody is downfield of him in his lane, and the nearest defender is at least OPEN_SEPARATION away. */
+/**
+ * A receiver counts as open when no defender is within this many yards of him. A defender breaks a pass up from inside 2.2 yd of the
+ * landing point and needs a quarter of a second to see the ball, then runs about 7.7 yd/s for the rest of a flight of 0.5-0.8 s, so
+ * about 2.2 + 0.4 s x 7.7 = 5.3 yd of room is what stops him arriving in time (BREAKUP_RADIUS and the corner's top speed, rounded).
+ */
+export const OPEN_SEPARATION = 5.5;
+/** Whether the receiver is free: the nearest defender is at least OPEN_SEPARATION away (and `room` is how far). */
 export function receiverIsOpen(s: DownState, t: Target): { open: boolean; room: number } {
-    const rec = s.players.find(p => p.id === `${s.offense}-${targetCode(t)}`)!, dir = s.offense === 'home' ? 1 : -1;
-    const defenders = s.players.filter(p => p.team !== s.offense);
-    const room = Math.min(...defenders.map(p => Math.hypot(p.x - rec.x, p.y - rec.y)));
-    const blocked = defenders.some(p => (p.x - rec.x) * dir > 0 && (p.x - rec.x) * dir <= IN_FRONT.ahead && Math.abs(p.y - rec.y) < IN_FRONT.lateral);
-    return { open: !blocked && room >= OPEN_SEPARATION, room };
+    const rec = s.players.find(p => p.id === `${s.offense}-${targetCode(t)}`)!;
+    const room = Math.min(...s.players.filter(p => p.team !== s.offense).map(p => Math.hypot(p.x - rec.x, p.y - rec.y)));
+    return { open: room >= OPEN_SEPARATION, room };
 }
 export const TIMING_AWARE: Strategy = {
-    id: 'timing', name: 'timing-aware offense', description: 'waits until a receiver is free (nobody downfield of him in his lane and room around him), then throws to the most open one; gives up at 2.5 s', deterministic: false,
+    id: 'timing', name: 'timing-aware offense', description: `waits until a receiver has ${OPEN_SEPARATION} yd of room (no defender closer), then throws to the most open one; gives up at 2.5 s`, deterministic: false,
     make(seed) {
         const r = streamFor(seed, 'timing');
         let chosen: Target = 1;

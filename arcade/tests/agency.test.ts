@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
-import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, GO_REACT_TICKS, BREAKUP_RADIUS, type DownState } from '../core/down';
+import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, type DownState } from '../core/down';
 import { decodeSave, encodeSave } from '../browser/save';
+import { BALL_READ_TICKS } from '../core/behavior';
 import type { Inputs, PlayerId, Vector } from '../core/simulation';
 import { expectOnlyClockMoved, farAway, parkBlockers, place, quiet } from './helpers';
 const zero = { x: 0, y: 0 };
@@ -69,10 +70,12 @@ it('AI covers the receiver, then breaks on the ball once it reacts, rather than 
     s = throwPass(s, 1);
     const point = s.ball.kind === 'flight' ? s.ball.to : zero;
     const gap = (state: DownState) => { const p = at(state, 'away-CB1'); return Math.hypot(p.x - point.x, p.y - point.y); };
-    for (let i = 0; i < GO_REACT_TICKS; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
-    // once he reacts he is on the ball, not on the quarterback: from here to the catch he stays inside the break-up radius of the landing point
-    expect(gap(s)).toBeLessThanOrEqual(BREAKUP_RADIUS);
-    while (s.phase === 'live' && s.ball.kind === 'flight') { s = stepDown(farAway(s, ['away-CB1']), idle); expect(gap(s)).toBeLessThanOrEqual(BREAKUP_RADIUS + 1e-9); }
+    for (let i = 0; i < BALL_READ_TICKS; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
+    const reacting = gap(s);
+    // once he has seen the ball he reverses (a backpedaling corner needs a moment) and closes on its landing point, not on the quarterback
+    for (let i = 0; i < 30; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
+    expect(gap(s)).toBeLessThan(reacting);
+    while (s.phase === 'live' && s.ball.kind === 'flight') s = stepDown(farAway(s, ['away-CB1']), idle);
     expect(['incomplete', 'interception']).toContain(s.result?.reason);
 });
 it('turnover retains both teams control and rejects commands from the wrong team', () => {

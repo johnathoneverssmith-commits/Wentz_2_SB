@@ -1,8 +1,8 @@
 import { EXTRA_POINT_DISTANCE, EXTRA_POINT_POINTS, FIELD_GOAL_MAX_DISTANCE, FIELD_GOAL_POINTS, KICK_MAX_TICKS, isGood, kickDistance, meterAt } from './kick';
 import { advance, distanceCovered, FIELD, STEP_SECONDS, maxSpeed, type ArcadePlayer, type Intent, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
-import { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, REACT_TICKS, STUMBLE_TICKS, assignPlay, clampField, direction, opposite, planTick, playMode, pointAlong, resolveLocks, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS } from './behavior';
+import { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, STUMBLE_TICKS, assignPlay, clampField, direction, opposite, planTick, playMode, pointAlong, resolveLocks, ROUTE_DEPTH, BLOCK_SLOW, SAFETY_DEPTH, BLOCK_HOLD_TICKS } from './behavior';
 import { DEFENSE_FORMATIONS, OFFENSE_FORMATIONS, baseAbilities, chooseFormations, codeOf, playerId, positionOfCode, JERSEY, type Code, type DefenseFormation, type OffenseFormation, type Slot } from './personnel';
-export { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, GO_REACT_TICKS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, REACT_TICKS, direction, opposite, ROUTE_DEPTH, COVER_CUSHION, GO_CUSHION, BLOCK_SLOW, SAFETY_DEPTH, SAFETY_ZONE, SAFETY_REACT_TICKS, BLOCK_HOLD_TICKS };
+export { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, direction, opposite, ROUTE_DEPTH, BLOCK_SLOW, SAFETY_DEPTH, BLOCK_HOLD_TICKS };
 export type Play = 'rush' | 'slants' | 'go' | 'fieldgoal';
 export type EndReason = 'tackle' | 'out-of-bounds' | 'touchdown' | 'incomplete' | 'interception' | 'safety' | 'timeout';
 export type Ball = {

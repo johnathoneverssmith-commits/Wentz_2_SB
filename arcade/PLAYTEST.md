@@ -15,16 +15,16 @@ in `balance/framework.test.ts` and `BALANCE.md`. They were re-measured for Phase
 flies for as long as its distance needs and is led to exactly where the receiver will be).
 
 ```
-slants to WR1  IIIIIIIxCCCCxxxxxxxxxxxxxxxxxxx
-slants to WR2  IIIIIIIIxxxxxxxxxxxxxxxxxxxxxxx
-go to WR1      IxCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-go to WR2      IxCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-go to TE       xIIIxCCCxxIIIIIIIIIxIIIIIIIIIII
+slants to WR1  CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxx
+slants to WR2  CCCCCCCCCxxxxxxxxxxxxxxxxxxIxII
+go to WR1      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx
+go to WR2      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx
+go to TE       xIIIxCxxIIIIIIIIIIIIIIIIIIIIIII
 ```
 
-Each letter is one throw, four ticks apart. Slants to WR1 is intercepted before about tick 28, open from tick 32 to 44 and then covered; slants to WR2 is covered for the first two seconds
-(the corner shadows him inside the 2.2 yard break-up circle); the go routes are open from tick 8 on, once the receiver has beaten the coverage, and stay open.
-The tight end on the go play is a turnover almost throughout. The human-defender table below was recorded at Milestone 4 (ten players) and has not been re-measured since the eleven-a-side
+Each letter is one throw, four ticks apart (re-measured for Phase B2, when the defense stopped reading the play call). Slants to WR1 is open
+for the first second, until the corner has seen the cut and closed (tick 60), then covered; slants to WR2 is open for about half a second;
+the go routes are covered until the receiver has run past the corner, which takes a speed edge: at about 2.5 s (tick 140) a receiver close to his corner in speed has a short window (the x at the end of each row), a faster one gets it about half a second sooner; the tight end on the go play is a turnover almost throughout. The human-defender table below was recorded at Milestone 4 (ten players) and has not been re-measured since the eleven-a-side
 rewrite or Phase B1. A human defender changes the picture:
 
 | Play | Human inputs | Outcome |
@@ -82,12 +82,12 @@ distance (`kickTolerance`).
   on downs, the screen reads **"Final: Foxes win"**. Keys and buttons do nothing at the final;
   three reloads show the same final; Rematch starts Q1 3:00, 0-0.
 * **A complete game** (`e2e/fullgame.spec.ts`): two scripted players attack and defend through
-  all four quarters of 180 live seconds (43,200 simulation ticks). The quarterback waits 1.5 seconds in
-  the pocket and throws the go route's late window; the defender goes to the landing circle and presses
+  all four quarters of 180 live seconds (43,200 simulation ticks). The quarterback waits half a second in
+  the pocket and throws the quick slants window to the first receiver (Phase B2: the deep route is covered, so the old late go window no longer exists); the defender goes to the landing circle and presses
   Hands; after a catch the carrier runs for the goal line and the defender chases; kicks wait for the
   meter (Foxes' kicker misses every extra point and Foxes never kick field goals, so two otherwise identical
   teams cannot tie forever). It reaches the final screen: **122-0 after 278 completed plays, 260 passes,
-  260 Hands presses, 17 touchdowns, 17 extra points, one field goal and 18 turnovers** (was 129-0 after 295 plays before the deep safety; recorded at the 5B head and not re-measured for Phase B1, which changes pass timing), a mid-game reload
+  260 Hands presses, 17 touchdowns, 17 extra points, one field goal and 18 turnovers** (was 129-0 after 295 plays before the deep safety; recorded at the 5B head and not re-measured since: Phase B1 and B2 change pass timing and coverage), a mid-game reload
   that restores the finished down exactly, a check that the clock never spent more than the six-second allowance between plays, a reload at
   the final and a Rematch, in about **a minute and a half to two minutes**. The page is drawn ten times a second (the app steps
   the simulation six 1/60-second ticks per frame), which is the same game on a slower screen; the lopsided

@@ -1,11 +1,11 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 1`] = `"IIIIIIIxCCCCxxxxxxxxxxxxxxxxxxx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 1`] = `"CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxx"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 2`] = `"IIIIIIIIxxxxxxxxxxxxxxxxxxxxxxx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 2`] = `"CCCCCCCCCxxxxxxxxxxxxxxxxxxIIII"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 3`] = `"IxCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 3`] = `"xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 4`] = `"IxCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 4`] = `"xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 5`] = `"xIIIxCCCxxIIIIIIIIIxIIIIIIIIIII"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 5`] = `"xIIIxCxxIIIIIIIIIIIIIIIIIIIIIII"`;
