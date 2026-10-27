@@ -25,7 +25,7 @@ npm --prefix arcade run balance                               # the older whole-
 
 ### Seeds, and why the engine is not random
 
-The engine has no randomness: the same play, throw moment and receiver always give the same result. So a "seed" here varies the *scripted
+The engine has no randomness (as of Phase C1a it carries a game seed, `core/seed.ts`, that nothing reads yet; seeded catches arrive in C1b): the same play, throw moment and receiver always give the same result. So a "seed" here varies the *scripted
 player's choices* (which play, which receiver, when to throw) and nothing else. Each drive derives its own stream from
 `hashSeed(seed, team, start)`, so a seed reproduces a matrix exactly and different seeds explore different choices. The best-response strategy
 ignores seeds (it makes the same choices every time) and runs once per start.
