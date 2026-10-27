@@ -5,10 +5,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { decodeSave, encodeSave } from '../browser/save';
-import { BALL_READ_TICKS, planTick } from '../core/behavior';
+import { BALL_READ_TICKS, CATCH_RADIUS, planTick } from '../core/behavior';
 import { choosePlay, lineUp, snap, stepDown, throwPass, type DownState, type Play } from '../core/down';
 import type { PlayerId } from '../core/simulation';
-import { farAway, idle } from './helpers';
+import { farAway, idle, parkBlockers } from './helpers';
 import { throwOnce } from '../balance/window';
 
 const start = (play: Play, team: 'home' | 'away' = 'home', line = 40): DownState => snap(choosePlay(lineUp(team, line, { playNumber: 1 }), play));
@@ -130,6 +130,29 @@ describe('reactions to the ball', () => {
         };
         expect(aimFrom(1), 'with time to spare he goes to the ball').toBeLessThan(1.2);
         expect(aimFrom(14), 'too far to get there first: he plays it from beside').toBeGreaterThan(1.6);
+    });
+});
+
+describe('a defender who reached the ball early stays on it', () => {
+    it('one standing at the landing spot is still inside the interception radius when the ball arrives (he used to back out to the beside standoff)', () => {
+        let s = farAway(run(start('go'), 30), ['away-CB1']);
+        s = throwPass(s, 1);
+        if (s.ball.kind !== 'flight') throw new Error('flight');
+        const to = s.ball.to, clear = (r: DownState): DownState => parkBlockers(farAway(r, ['away-CB1']), ['home-QB1']);
+        for (let t = 0; t < BALL_READ_TICKS + 2; t++) s = stepDown(clear(s), idle);
+        s = { ...s, players: s.players.map(p => p.id === 'away-CB1' ? { ...p, x: to.x + 0.9, y: to.y, vx: 0, vy: 0 } : p) };
+        let last = 99;
+        while (s.ball.kind === 'flight') { const c = at(s, 'away-CB1'); last = Math.hypot(c.x - to.x, c.y - to.y); s = stepDown(clear(s), idle); }
+        expect(last).toBeLessThan(CATCH_RADIUS);
+    });
+    it('and a defender who cannot get there still plays it from beside, not on it', () => {
+        let s = farAway(run(start('slants'), 30), ['away-CB1']);
+        s = throwPass(s, 1);
+        const to = (s.ball as { to: { x: number; y: number } }).to;
+        s = { ...s, players: s.players.map(p => p.id === 'away-CB1' ? { ...p, x: to.x + 14, y: to.y, vx: 0, vy: 0 } : p) };
+        for (let t = 0; t < BALL_READ_TICKS + 2; t++) s = stepDown(farAway(s, ['away-CB1']), idle);
+        const spot = planTick(s).intents.get('away-CB1')!.to!;
+        expect(Math.hypot(spot.x - to.x, spot.y - to.y)).toBeGreaterThan(1.6);
     });
 });
 

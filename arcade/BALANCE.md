@@ -135,11 +135,11 @@ slant got a 7-yd cushion and an 18-tick reaction); the new one reacts to what it
 | Route | Phase A: comp / INT | B1 | B2 |
 | --- | --- | --- | --- |
 | slants to WR1 | 3% / 26% | 43% / 11% | **30% / 3%** |
-| slants to WR2 | 33% / 38% | 7% / 31% | **15% / 0%** |
-| slants to TE | 61% / 13% | 80% / 5% | **46% / 5%** |
-| go to WR1 | 69% / 11% | 69% / 28% | **0% / 0%** |
-| go to WR2 | 79% / 2% | 75% / 21% | **0% / 0%** |
-| go to TE | 0% / 62% | 30% / 52% | **2% / 74%** |
+| slants to WR2 | 33% / 38% | 7% / 31% | **15% / 21%** |
+| slants to TE | 61% / 13% | 80% / 5% | **46% / 8%** |
+| go to WR1 | 69% / 11% | 69% / 28% | **0% / 49%** |
+| go to WR2 | 79% / 2% | 75% / 21% | **0% / 39%** |
+| go to TE | 0% / 62% | 30% / 52% | **2% / 80%** |
 
 Separation (mean over throws): completions had 7.4 yd to the nearest defender at the throw and 6.2 at arrival (B1: 5.0 and 4.8); incompletions 4.4 and 2.6; interceptions 2.4 and 1.8. A completion needs about 7 yd of room at the throw because a defender who reads the ball in a quarter of a second closes about 4-5 yd during a 0.7 s flight and the break-up circle is 2.2 yd wide.
 
@@ -165,6 +165,16 @@ Matrix (points per drive and touchdown drives vs idle; B1 to B2): deep specialis
 * **The deep route is closed at baseline ratings and barely opens with a speed edge** (`deep-routes-closed-at-equal-speed`): the corner starts about ten yards off, a receiver needs more than two seconds of speed advantage to close that, and the 31-yd route is nearly over by then. This needs a design decision, not another constant: corner alignment depth, route stems, or ball placement.
 * **The pocket still lasts 4.1 s**, so waiting for the one open window is free.
 * **The tight end on the go play is still a turnover** (74% intercepted by the linebacker who is on the ball), and **a slants catch by the tight end is behind the line** (-0.4 yd): route geometry.
+
+### Codex review fix (early defender keeps his spot)
+
+A defender who reached the landing point early used to back out: the on-ball test compares the time he needs with the time left, so once the
+ball was less than ~0.4 s from landing it flipped him to the 1.9 yd "beside" spot, outside the 1.6 yd interception radius (Codex measured 0.9 yd
+at release backing out to 1.85 at arrival). A defender already within 0.95 yd of the spot now stays there. Side effect, measured: the deep
+throws that were incomplete only because the defender retreated are now intercepted when a defender (safety over the top, trailing corner,
+linebacker) is under the ball: go to WR1 0%/0% became 0%/49%, WR2 0%/39%, TE 2%/80%, slants to WR2 15%/21%. Completion rates, the matrix
+(timing-aware 2.58 points per drive, 12% touchdown drives, best response 9 plays) and the quick windows did not move. The deep game is still
+closed; a missed deep throw is now a turnover more often than an incompletion, which is a design question for the next phase.
 
 ## Known imbalances
 

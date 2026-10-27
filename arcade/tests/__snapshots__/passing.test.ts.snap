@@ -2,10 +2,10 @@
 
 exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 1`] = `"CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxx"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 2`] = `"CCCCCCCCCxxxxxxxxxxxxxxxxxxxxxx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 2`] = `"CCCCCCCCCxxxxxxxxxxxxxxxxxxIxII"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 3`] = `"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 3`] = `"xxxxxxxxxxxxxxxxIxxIIIIIIIIIIII"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 4`] = `"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 4`] = `"xxxxxxxxxxxxxxxxIxxIIIIIIIIIIII"`;
 
 exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 5`] = `"xIIIxCxxIIIIIIIIIIIIIIIIIIIIIII"`;

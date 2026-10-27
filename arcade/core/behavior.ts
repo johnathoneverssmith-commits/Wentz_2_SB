@@ -92,7 +92,10 @@ export const BEHIND_STANDOFF = 1.9;
 const contestPoint = (d: ArcadePlayer, to: Vector, secondsToArrival: number): Vector => {
     const away = unit({ x: d.x - to.x, y: d.y - to.y });
     const reach = Math.max(0, dist(d, to)) / maxSpeed(d) + 0.1;
-    const standoff = reach + ON_BALL_MARGIN <= secondsToArrival ? ON_BALL_STANDOFF : BEHIND_STANDOFF;
+    // a defender already standing on the spot stays there: the margin test compares time to arrive, and one who has arrived early must not
+    // be pushed out of interception range as the ball comes down
+    const onTheSpot = dist(d, to) <= ON_BALL_STANDOFF + 0.05;
+    const standoff = onTheSpot || reach + ON_BALL_MARGIN <= secondsToArrival ? ON_BALL_STANDOFF : BEHIND_STANDOFF;
     return { x: to.x + away.x * standoff, y: to.y + away.y * standoff };
 };
 const dist = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);

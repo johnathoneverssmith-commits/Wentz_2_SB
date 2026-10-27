@@ -316,11 +316,11 @@ describe('baseline characterization of today\'s engine (an intended change to pa
     // Updated for Phase B2 (coverage that reacts to what it sees); the Phase A and B1 maps are in BALANCE.md.
     const GOLDEN: Record<string, string> = {
         'slants-1': 'CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxxxxxIIxxxxxxxxxxxxxxCxxxxCCxxxx',
-        'slants-2': 'CCCCCCCCCxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        'slants-3': 'xIIICCCCCCxxxxxxxxxxxxxxxxxxxxxxxxxxxCCCCCCCCCCCCCCCCCCCCCCxx',
-        'go-1': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        'go-2': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-        'go-3': 'xIIIxCxxIIIIIIIIIIIIIIIIIIIIIIIIIIIxxxxxxxxxxxIIIIIIIIIIIIIII',
+        'slants-2': 'CCCCCCCCCxxxxxxxxxxxxxxxxxxIxIIIIIIIxxxxxIIxxxIIxIxxxxxxxxxxx',
+        'slants-3': 'xIIICCCCCCxxxxxxxxxxxxIIxxxxxxxxxxxxxCCCCCCCCCCCCCCCCCCCCCCxx',
+        'go-1': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIIIIIIIxxxxxxxIIIxxxxxxIIIIIIIII',
+        'go-2': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIIIIIIIxxxxxxxxxxxxIIxxxxxxxIIII',
+        'go-3': 'xIIIxCxxIIIIIIIIIIIIIIIIIIIIIIIIIIIIxxxxxxxIIIIIIIIIIIIIIIIII',
     };
     it.each(Object.entries(GOLDEN))('%s window map', (key, map) => {
         const [play, target] = key.split('-') as [Play, string];

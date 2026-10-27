@@ -16,9 +16,9 @@ flies for as long as its distance needs and is led to exactly where the receiver
 
 ```
 slants to WR1  CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxx
-slants to WR2  CCCCCCCCCxxxxxxxxxxxxxxxxxxxxxx
-go to WR1      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-go to WR2      xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+slants to WR2  CCCCCCCCCxxxxxxxxxxxxxxxxxxIxII
+go to WR1      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIII
+go to WR2      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIII
 go to TE       xIIIxCxxIIIIIIIIIIIIIIIIIIIIIII
 ```
 
