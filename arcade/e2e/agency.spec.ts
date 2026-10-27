@@ -7,6 +7,8 @@ import { encodeSave } from '../browser/save';
 const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse(localStorage.getItem('wentz.arcade.down.v1')!).state);
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const requests = new WeakMap<Page, string[]>();
+/** Restart starts a new game with a new random seed; a test that compares two games (or a game before and after Restart) plays them with one explicit seed, `?seed=N`, which Restart and a reload both keep. */
+const SEED = 2219302888;
 test.beforeEach(async ({ page }) => {
     const external: string[] = [];
     requests.set(page, external);
@@ -17,7 +19,7 @@ test.beforeEach(async ({ page }) => {
     // Browser clock controls only time: keyboard events, React, RAF and saving are real.
     await page.clock.install({ time: new Date('2026-10-19T12:00:00Z') });
     await page.clock.pauseAt(new Date('2026-10-19T12:01:00Z'));
-    await page.goto('/');
+    await page.goto(`/?seed=${SEED}`);
     await page.clock.runFor(128);
 });
 test.afterEach(async ({ page }) => { expect(requests.get(page)).toEqual([]); });
@@ -62,6 +64,7 @@ test('reloading an unpaused airborne pass preserves flight and its eventual exac
     await page.keyboard.press('KeyQ');
     await page.clock.runFor(3000);
     const uninterrupted = await saved(page);
+    expect(uninterrupted.seed, 'the game plays with the seed it was opened with').toBe(SEED);
     expect(uninterrupted.phase).toBe('dead');
     expect(uninterrupted.terminalCount).toBe(1);
     await button(page, 'Restart').click();
@@ -69,6 +72,7 @@ test('reloading an unpaused airborne pass preserves flight and its eventual exac
     await page.keyboard.press('KeyQ');
     await page.clock.runFor(240);
     const air = await saved(page);
+    expect(air.seed, 'Restart keeps the explicit seed').toBe(SEED);
     expect(air.ball.kind).toBe('flight');
     if (air.ball.kind !== 'flight')
         throw Error('airborne precondition');
@@ -79,7 +83,9 @@ test('reloading an unpaused airborne pass preserves flight and its eventual exac
     await expect(page.getByTestId('phase')).toHaveText('Live play');
     await page.reload();
     await page.clock.runFor(256);
-    expect(await saved(page), 'airborne state must survive reload exactly').toEqual(air);
+    const reloaded = await saved(page);
+    expect(reloaded.seed, 'the seed survives an airborne reload').toBe(air.seed);
+    expect(reloaded, 'airborne state must survive reload exactly').toEqual(air);
     expect(await page.getByTestId('phase').innerText(), 'reload must pause a genuinely live flight').toBe('Paused');
     await button(page, 'Resume').click();
     await page.clock.runFor(3000);
