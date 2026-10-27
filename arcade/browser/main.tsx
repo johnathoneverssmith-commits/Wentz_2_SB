@@ -5,6 +5,7 @@ import { choosePlay, snap, nextDown, switchDefender, throwPass, contestPass, kic
 import { EXTRA_POINT_POINTS, FIELD_GOAL_POINTS } from '../core/kick';
 import type { Inputs } from '../core/simulation';
 import { SAVE_KEY, encodeSave, decodeSave, isUnsupportedSave } from './save';
+import { newSeed } from './newSeed';
 /** Set when the stored save is an unreleased format this build will not read: the game starts fresh and says so. */
 let discardedSave = false;
 import { drawField } from './field';
@@ -14,7 +15,7 @@ import './style.css';
 const names = { home: 'Bluebirds', away: 'Foxes' };
 const ordinal = (n: number) => ['1st', '2nd', '3rd', '4th'][n - 1] ?? `${n}th`;
 function initialClock() {
-    const fresh = createClock();
+    const fresh = createClock(newSeed());
     try {
         const stored = localStorage.getItem(SAVE_KEY);
         const saved = decodeSave(stored);
@@ -51,7 +52,7 @@ function Sandbox() {
     const clearInput = () => { keys.current.clear(); previous.current = null; };
     const pause = () => { clearInput(); clock.current = { ...current(), paused: true, accumulator: 0 }; publish(); };
     const togglePause = () => { clearInput(); clock.current = { ...current(), paused: !current().paused, accumulator: 0 }; publish(); canvas.current?.focus(); };
-    const restart = () => { clearInput(); clock.current = createClock(); publish(); canvas.current?.focus(); };
+    const restart = () => { clearInput(); clock.current = createClock(newSeed()); publish(); canvas.current?.focus(); };
     const command = (update: (s: DownState) => DownState, clear = false) => {
         if (current().paused)
             return;

@@ -32,12 +32,15 @@ describe('pass timing against the AI defense', () => {
         expect(row('go', 2)).toMatchSnapshot();
         expect(row('go', 3)).toMatchSnapshot();
     });
-    it('throwing early into coverage is not rewarded, and every play has an open window after the receivers get free', () => {
-        const all = (['slants', 'go'] as const).flatMap(p => [1, 2, 3].map(t => ({ play: p, t, r: row(p, t as 1 | 2 | 3) })));
-        for (const play of ['slants', 'go'] as const) expect(all.filter(a => a.play === play && /C/.test(a.r)).length, `${play}: receivers with an open window`).toBeGreaterThanOrEqual(2);
-        expect(all.filter(a => /C/.test(a.r)).length).toBeGreaterThanOrEqual(4);
-        const late = all.flatMap(a => [...a.r.slice(15)]);
-        expect(late.filter(c => c === 'C').length).toBeGreaterThan(late.length * 0.25);
+    it('every underneath receiver has a window, and it closes: once the defense has picked up the break, the same throw is covered', () => {
+        // (The defense no longer knows the call: a corner plays off a receiver who is shallow and closes on him as he breaks or goes deep, so a
+        // deep route against an equal runner is covered; windows on it need a real speed advantage, which `balance/framework.test.ts` checks.)
+        for (const target of [1, 2, 3] as const) {
+            const r = row('slants', target);
+            expect(/C/.test(r), `slants to ${target}: a window`).toBe(true);
+            expect(/C+[xI]/.test(r), `slants to ${target}: it closes`).toBe(true);
+        }
+        expect(/C/.test(row('go', 1)) || /C/.test(row('go', 2)), 'a deep route against equal athletes is covered').toBe(false);
     });
     it('the covering defense, not luck, decides: contested windows contain interceptions and break-ups, not just completions', () => {
         const letters = (['slants', 'go'] as const).flatMap(p => [1, 2, 3].flatMap(t => row(p, t as 1 | 2 | 3).split('')));
@@ -48,19 +51,20 @@ describe('pass timing against the AI defense', () => {
         expect(count('S')).toBe(0);
     });
     it('a window that is open against the AI can be closed by a human defender who goes to the landing point', () => {
-        const openAt = (() => { for (let d = 0; d < 124; d += 4) if (outcome('slants', 2, d, 2) === 'C') return d; return -1; })();
-        expect(openAt, 'an open window exists').toBeGreaterThan(0);
+        // the quick route to the first receiver, while he is clear of his corner
+        const openAt = (() => { for (let d = 0; d < 124; d += 4) if (outcome('slants', 1, d, 2) === 'C') return d; return -1; })();
+        expect(openAt, 'an open window exists').toBeGreaterThanOrEqual(0);
         let s = snap(choosePlay(createDown(), 'slants'));
         s = { ...s };
         for (let i = 0; i < openAt; i++) s = stepDown(s, idle);
-        s = throwPass(s, 2);
+        s = throwPass(s, 1);
         const to = (s.ball as { to: Vector }).to;
-        // the cornerback who covers the second receiver becomes the human, and stands 3 yards off the landing point
-        const cb = at(s, 'away-CB2').id;
+        // the cornerback who covers the first receiver becomes the human, and stands 3 yards off the landing point
+        const cb = at(s, 'away-CB1').id;
         for (let i = 0; i < 11 && s.defender !== cb; i++) s = switchDefender(s);
         s = place(farAway(s, [cb]), cb, to.x + 3, to.y);
         const run = (move: boolean) => { let r = s; while (r.phase === 'live' && r.ball.kind === 'flight') { const me = at(r, cb); r = stepDown(farAway(r, [cb]), { home: { x: 0, y: 0 }, away: move && Math.hypot(me.x - to.x, me.y - to.y) > 1.9 ? toward(me, to) : { x: 0, y: 0 } }); } return r; };
-        expect(run(false).possession.carrier).toBe('home-WR2');
+        expect(run(false).possession.carrier).toBe('home-WR1');
         expect(run(true).result?.reason).toBe('incomplete');
     });
     it('hands matter only to a human: the AI intercepts by position, the human needs the timed press', () => {

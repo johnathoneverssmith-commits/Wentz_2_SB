@@ -16,9 +16,15 @@ export interface OffensePolicy {
     play(s: DownState): Play;
     /** Ticks the quarterback waits in the pocket before throwing. */
     throwAt(s: DownState): number;
+    /**
+     * Optional: decides each tick in the pocket whether to throw now, instead of waiting for `throwAt`. A policy that reads the field
+     * (a receiver who is open) uses this; `target` is asked for the receiver at the moment of the throw.
+     */
+    throwNow?(s: DownState): boolean;
     /** Kick on fourth down when it is in range and the marker is far. */
     readonly fieldGoals: boolean;
-    readonly target?: 1 | 2;
+    /** The receiver to throw to (1 = WR1, 2 = WR2, 3 = tight end): fixed, or chosen for the throw. Default 1. */
+    readonly target?: 1 | 2 | 3 | ((s: DownState) => 1 | 2 | 3);
 }
 export type DefensePolicy = 'idle' | 'chase' | 'attentive' | 'cover';
 export const DEFENSES: readonly DefensePolicy[] = ['idle', 'chase', 'attentive', 'cover'];
@@ -31,7 +37,8 @@ export const DEFENSE_TEXT: Record<DefensePolicy, string> = {
 const byDown = <T,>(table: readonly [T, T, T, T]) => (s: DownState): T => table[Math.min(3, Math.max(0, s.down - 1))]!;
 export const OFFENSES: Record<string, OffensePolicy> = {
     early: { name: 'early passes', play: byDown<Play>(['slants', 'go', 'slants', 'go']), throwAt: () => 16, fieldGoals: true, target: 2 },
-    intermediate: { name: 'intermediate passes', play: () => 'slants', throwAt: () => 44, fieldGoals: true, target: 2 },
+    // Timed to the receiver getting free: WR1 on slants is open for a moment around tick 40 (Phase B1 moved this window; it was WR2 at tick 44).
+    intermediate: { name: 'intermediate passes', play: () => 'slants', throwAt: () => 40, fieldGoals: true, target: 1 },
     late: { name: 'late deep passes', play: () => 'go', throwAt: () => 90, fieldGoals: true },
     rush: { name: 'rushing', play: () => 'rush', throwAt: () => 6, fieldGoals: true },
     balanced: { name: 'balanced', play: byDown<Play>(['rush', 'slants', 'go', 'rush']), throwAt: s => (s.play === 'go' ? 90 : 44), fieldGoals: true },
@@ -41,11 +48,11 @@ export const OFFENSES: Record<string, OffensePolicy> = {
 export interface Options { readonly reaction: number; readonly thinkTicks: number }
 export const DEFAULTS: Options = { reaction: 12, thinkTicks: 0 };
 
-interface Memory { thrown: boolean; switched: boolean; throws: number }
-const fresh = (): Memory => ({ thrown: false, switched: false, throws: 0 });
+export interface Memory { thrown: boolean; switched: boolean; throws: number }
+export const fresh = (): Memory => ({ thrown: false, switched: false, throws: 0 });
 
 /** Both players' movement and commands for this tick. Returns the state with any command already applied. */
-function control(s: DownState, off: OffensePolicy, def: DefensePolicy, opts: Options, m: Memory): { state: DownState; inputs: Inputs } {
+export function control(s: DownState, off: OffensePolicy, def: DefensePolicy, opts: Options, m: Memory): { state: DownState; inputs: Inputs } {
     const offTeam = s.offense, defTeam = offTeam === 'home' ? 'away' : 'home';
     // the cover policy takes control of the defender who is covering the first receiver
     if (def === 'cover' && !m.switched && s.liveTicks === 0) {
@@ -62,7 +69,10 @@ function control(s: DownState, off: OffensePolicy, def: DefensePolicy, opts: Opt
         else if (!inPocket) defIn = toward(defender, carrier, 0.4);
         else if (def === 'cover') { const r = at(s, `${offTeam}-WR1`); defIn = toward(defender, { x: r.x + direction(offTeam) * 2, y: r.y }, 0.4); }
     }
-    if (inPocket && !m.thrown && s.liveTicks >= off.throwAt(s)) { s = throwPass(s, off.target ?? 1); m.thrown = true; m.throws++; }
+    if (inPocket && !m.thrown && (off.throwNow ? off.throwNow(s) : s.liveTicks >= off.throwAt(s))) {
+        const target = typeof off.target === 'function' ? off.target(s) : off.target ?? 1;
+        s = throwPass(s, target); m.thrown = true; m.throws++;
+    }
     if ((def === 'attentive' || def === 'cover') && s.ball.kind === 'flight' && s.ball.elapsed > 0.45 && s.contestUntil < s.tick) s = contestPass(s, defTeam);
     return { state: s, inputs: offTeam === 'home' ? { home: offIn, away: defIn } : { home: defIn, away: offIn } };
 }

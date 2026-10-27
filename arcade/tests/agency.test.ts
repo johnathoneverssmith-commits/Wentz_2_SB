@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
-import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, GO_REACT_TICKS, type DownState } from '../core/down';
+import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, type DownState } from '../core/down';
 import { decodeSave, encodeSave } from '../browser/save';
+import { BALL_READ_TICKS } from '../core/behavior';
 import type { Inputs, PlayerId, Vector } from '../core/simulation';
 import { expectOnlyClockMoved, farAway, parkBlockers, place, quiet } from './helpers';
 const zero = { x: 0, y: 0 };
@@ -64,13 +65,16 @@ it('an expired hands attempt cannot intercept, but a well-timed one can', () => 
 });
 it('AI covers the receiver, then breaks on the ball once it reacts, rather than continuing to chase the QB', () => {
     let s = farAway(snap(choosePlay(createDown(), 'go')), ['away-CB1']);
-    s = quiet(s, 32, idle, ['away-CB1']);
+    // an early throw, while the corner is still on his man: he must break on the ball to contest it (a late throw to a receiver who has beaten him is a catch)
+    s = quiet(s, 4, idle, ['away-CB1']);
     s = throwPass(s, 1);
     const point = s.ball.kind === 'flight' ? s.ball.to : zero;
     const gap = (state: DownState) => { const p = at(state, 'away-CB1'); return Math.hypot(p.x - point.x, p.y - point.y); };
-    for (let i = 0; i < GO_REACT_TICKS; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
+    for (let i = 0; i < BALL_READ_TICKS; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
     const reacting = gap(s);
-    expect(gap(stepDown(farAway(s, ['away-CB1']), idle))).toBeLessThan(reacting);
+    // once he has seen the ball he reverses (a backpedaling corner needs a moment) and closes on its landing point, not on the quarterback
+    for (let i = 0; i < 30; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
+    expect(gap(s)).toBeLessThan(reacting);
     while (s.phase === 'live' && s.ball.kind === 'flight') s = stepDown(farAway(s, ['away-CB1']), idle);
     expect(['incomplete', 'interception']).toContain(s.result?.reason);
 });

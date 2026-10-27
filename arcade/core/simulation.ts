@@ -54,6 +54,11 @@ export interface ArcadePlayer extends Vector {
     readonly stun: number;
     /** Ticks during which a defender who has just shed a block cannot be engaged again. */
     readonly free: number;
+    /**
+     * A defender's reading of the player he is watching: the velocity he believes that player has, which follows the real one a moment
+     * late (see `READ_SECONDS` in `behavior.ts`). Absent until he starts watching, and reset at every snap.
+     */
+    readonly read?: Vector | null;
 }
 export interface Inputs {
     readonly home: Vector;
@@ -74,6 +79,18 @@ export const ACCEL_SECONDS = 0.22;
 /** Closer than this, two players push each other apart. */
 export const BODY = FIELD.radius * 2 * 0.92;
 export const maxSpeed = (p: ArcadePlayer): number => 4 + p.abilities.speed / 20;
+/** How fast a player's speed can rise, in yards per second per second (the same ramp `advance` applies each tick). */
+export const accelerationOf = (p: ArcadePlayer): number => maxSpeed(p) / ACCEL_SECONDS * (0.6 + p.abilities.accel / 150);
+/**
+ * How far a player runs in `seconds` heading in one direction at full effort, from the speed he has now: he accelerates at his own rate
+ * to his top speed and then holds it. This is the ground `advance` covers for a runner who is not blocked, so a pass led by it arrives
+ * where the receiver is.
+ */
+export function distanceCovered(p: ArcadePlayer, seconds: number): number {
+    const top = maxSpeed(p), now = Math.min(top, Math.hypot(p.vx, p.vy)), a = accelerationOf(p), toTop = (top - now) / a;
+    if (seconds <= toTop) return now * seconds + a * seconds * seconds / 2;
+    return now * toTop + a * toTop * toTop / 2 + top * (seconds - toTop);
+}
 
 export function unit(v: Vector): Vector {
     if (!Number.isFinite(v.x) || !Number.isFinite(v.y))

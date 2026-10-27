@@ -2,8 +2,9 @@ import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, SAFETY_POINTS, TOUCHDOWN_POINTS, fir
 import { DEFENSE_CODES, DEFENSE_FORMATIONS, OFFENSE_CODES, OFFENSE_FORMATIONS, positionOfCode, type Code } from '../core/personnel';
 import { KICK_MAX_TICKS } from '../core/kick';
 import { FIELD } from '../core/simulation';
+import { mix, validSeed } from '../core/seed';
 export const SAVE_KEY = 'wentz.arcade.down.v1';
-export const encodeSave = (state: DownState) => JSON.stringify({ version: 6, state });
+export const encodeSave = (state: DownState) => JSON.stringify({ version: 7, state });
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const integer = (v: unknown) => finite(v) && Number.isSafeInteger(v) && v >= 0;
@@ -15,9 +16,10 @@ const reasons = ['tackle', 'out-of-bounds', 'touchdown', 'incomplete', 'intercep
  * was never released: several unreleased Milestone 4 builds wrote it with different clock units (30-second quarters, then
  * 180-second quarters), so it cannot be read safely and is rejected, never converted. Version 5 (ten players, five a side)
  * still migrates: the game, score, clock and situation carry over and the 22 players are lined up fresh. Version 6 (eleven
- * a side, with formations and assignments) is the current format.
+ * a side, with formations and assignments) still migrates unchanged. Version 7 adds the game's random seed (`core/seed.ts`); an older save
+ * gets one derived from the game it holds, so loading the same old save always gives the same seed and nothing is re-rolled.
  */
-export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3, 5, 6];
+export const SUPPORTED_VERSIONS: readonly number[] = [1, 2, 3, 5, 6, 7];
 /** True when the text is a well-formed envelope of a version this build refuses to read (an unreleased or future format). */
 export function isUnsupportedSave(text: string | null): boolean {
     try {
@@ -52,7 +54,14 @@ function upgrade(version: number, old: Record<string, unknown>): Record<string, 
         s = { ...s, quarter: 1, clock: QUARTER_TICKS, expired: false, gap: 0, mode: 'regulation', openingTeam: 'home', overtime: { first: 'away', possessions: 0 }, winner: null, kick: null };
     if (version <= 5)
         s = modernize(s);
+    if (version <= 6)
+        s = { ...s, seed: legacySeed(s) };
     return s;
+}
+/** The seed an older save gets: a fixed function of the game it holds, so the same save always loads with the same seed. */
+function legacySeed(s: Record<string, unknown>): number {
+    const n = (v: unknown) => finite(v) ? Math.trunc(Number(v)) : 0, score = object(s.score) ? s.score : {};
+    return mix(0x5eed, n(s.playNumber), n(s.terminalCount), n(s.line), n(s.quarter), n(s.clock), n(score.home), n(score.away));
 }
 /**
  * Rebuilds a ten-player snapshot as an eleven-a-side one: everything about the game carries over, the players are lined up in
@@ -137,6 +146,8 @@ function playersValid(list: unknown): Set<string> | null {
         }
         if (p.lock !== null && (!object(p.lock) || typeof p.lock.with !== 'string' || !integer(p.lock.since)))
             return null;
+        if (p.read !== undefined && p.read !== null && !point(p.read))
+            return null;
         ids.add(p.id);
     }
     for (const t of ['home', 'away'] as const)
@@ -156,7 +167,7 @@ export function decodeSave(text: string | null): DownState | null {
         if (!object(data) || (typeof data.version !== 'number' || !SUPPORTED_VERSIONS.includes(data.version)) || !object(data.state))
             return null;
         const s = upgrade(data.version, data.state);
-        if (!integer(s.terminalCount) || !integer(s.contestUntil) || !integer(s.down) || Number(s.down) < 1 || Number(s.down) > 4 || !finite(s.firstDownLine) || s.firstDownLine < 10 || s.firstDownLine > 110)
+        if (!validSeed(s.seed) || !integer(s.terminalCount) || !integer(s.contestUntil) || !integer(s.down) || Number(s.down) < 1 || Number(s.down) > 4 || !finite(s.firstDownLine) || s.firstDownLine < 10 || s.firstDownLine > 110)
             return null;
         if (!object(s.score) || !integer(s.score.home) || !integer(s.score.away) || Number(s.score.home) > 9999 || Number(s.score.away) > 9999)
             return null;

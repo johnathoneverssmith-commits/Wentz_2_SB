@@ -13,8 +13,8 @@ const KEYS = {
     away: { left: 'ArrowLeft', right: 'ArrowRight', up: 'ArrowUp', down: 'ArrowDown', pass: 'Comma', hands: 'ShiftRight', kick: 'Quote' },
 } as const;
 const MID = 26.67;
-/** The quarterback sits in the pocket this many ticks (1.5 s), then throws: the late window of the go routes. */
-const THROW_AT = 90;
+/** The quarterback sits in the pocket this many ticks (half a second), then throws: the quick window of the slants to the first receiver (the defense covers the deep route, so the late go window no longer exists). */
+const THROW_AT = 30;
 const other = (t: 'home' | 'away') => (t === 'home' ? 'away' : 'home');
 const at = (s: DownState, id: string) => s.players.find(p => p.id === id)!;
 
@@ -61,7 +61,7 @@ test('a complete game in a real browser: both players attack and defend through 
             let choice: string;
             // Bluebirds kick on fourth down when it is in range; Foxes always go for it, so two otherwise identical teams cannot tie forever.
             if (s.offense === 'home' && s.down === 4 && yardsToGoal <= 40 && (toGo > 3 || yardsToGoal < 35)) { choice = 'fieldgoal'; seen.fgTried++; }
-            else choice = 'go';
+            else choice = 'slants';
             if (s.play !== choice) await page.getByLabel('Play', { exact: true }).selectOption(choice);
             await page.keyboard.press('Enter');
             handsFlight = -1;
@@ -69,7 +69,7 @@ test('a complete game in a real browser: both players attack and defend through 
         else if (s.phase === 'live') {
             const off = s.offense, def = other(off), carrier = at(s, s.possession.carrier), defender = at(s, s.defender);
             if (s.ball.kind === 'held' && carrier.position === 'QB' && s.play !== 'rush') {
-                // In the pocket: both humans wait, then the quarterback throws late.
+                // In the pocket: both humans wait, then the quarterback throws to the first receiver.
                 await hold(page, held, new Set());
                 if (s.liveTicks < THROW_AT) await run(Math.max(100, Math.ceil(((THROW_AT - s.liveTicks) * 1000) / 60)));
                 else { await page.keyboard.press(KEYS[off].pass); seen.passes++; await run(100); }

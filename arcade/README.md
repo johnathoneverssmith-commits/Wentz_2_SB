@@ -35,6 +35,7 @@ game ends on a **final-score screen with a Rematch button**.
   its extra point); then the quarter ends. Q1 and Q3 end with the same team, spot and
   down; the end of Q2 is halftime, which gives **Foxes the ball at their own 28**.
   Estimated real duration of a regulation game: roughly 12-17 minutes (`npm --prefix arcade run balance`).
+  Passing and coverage are measured by a seeded, reproducible framework (`npm --prefix arcade run balance:passing`; see `BALANCE.md`).
 * **Downs.** Four downs to gain ten yards: the gold line is the marker, the HUD shows
   "2nd & 6.3" (or "Goal"), and a failed fourth down hands the ball to the other team at
   the spot.
@@ -69,15 +70,23 @@ game ends on a **final-score screen with a Rematch button**.
    handoff the running back #2 takes the ball; on a pass the QB #1 holds it and #3/#4
    run routes. Your control follows the carrier; a white ring marks each human, gold
    marks the carrier.
-2. **Passing.** The ball flies for one second to the dashed landing circle. Each route
-   has its own depth, and one defender covers each receiver. The ball is caught cleanly
+2. **Passing.** The ball flies to the dashed landing circle at 26 yards a second, so a short
+   throw takes about a third of a second and a deep one more than a second (never less than
+   0.35 s or more than 2 s). The circle is where the receiver will be when the ball arrives,
+   led from his own speed and acceleration. Each route has its own depth, and one defender covers each receiver. The ball is caught cleanly
    only if the receiver is at the circle and no defender is within **2.2 yards** of it.
    A defender inside **1.6 yards** intercepts; between 1.6 and 2.2 he breaks it up. A
    human defender intercepts only with **Hands**, timed so the 0.6-second window overlaps
-   the arrival. The covering AI defender holds coverage for a fraction of a second after
-   the throw, then breaks on the ball, so **when you throw and to whom decides whether
-   the pass is open**: see the timing table in [PLAYTEST.md](PLAYTEST.md). Throwing at
-   once is one window; every route has others later in the play. No outcome is rolled.
+   the arrival. The AI defense reacts to what it can see and never to the play: a corner
+   plays about ten yards off a receiver who is shallow and closes the cushion as the
+   receiver goes deep or breaks off his stem (he reads a cut a moment late, so it leaves
+   him a step behind); a linebacker follows the receiver assigned to him; the deep safety
+   stays over the top. A defender needs about a quarter of a second to see where the ball
+   is going (longer when he is behind his man) and then runs to it, going straight to the
+   spot only if he can get there first. So **when you throw and to whom decides whether
+   the pass is open**: see the timing table in [PLAYTEST.md](PLAYTEST.md). A quick throw
+   underneath is open until the corner has picked up the break; a deep route is covered
+   until the receiver has run past the corner, which takes a real speed advantage. No outcome is rolled.
 3. **Blocking.** Two AI blockers each take one of the closest defenders and stand
    between him and the carrier; a defender within 1.8 yards of his own blocker moves at
    40% speed.
@@ -119,8 +128,13 @@ position, a jersey number, a team, a formation spot, a behavior and an ability p
   next-nearest defender to the ball. Pass keys are Q/E/Z (Blue) and , . M (Orange) for the first receiver, the second receiver and the tight end.
 * **Attributes.** Every player carries a full ability record; `ATTRIBUTES.md` documents the mapping to the franchise schema and how 5C plugs in.
 
-Saves are version 6. Version 5 (ten players) saves still load: the game, score, clock and situation carry over, a play that was in
+Saves are version 7. Version 7 added the game's random seed (see below); a version 5 or 6 save loads with a seed derived from the game it holds, so loading the same old save always gives the same seed. Version 5 (ten players) saves still load: the game, score, clock and situation carry over, a play that was in
 progress restarts from its snap, and a finished down stays finished.
+
+**The game seed (Phase C1a).** Every game carries a 32-bit `seed` in its state. Nothing reads it yet: it is the groundwork for seeded chance (catches, in Phase C1b). Chance is
+never drawn from a generator: `roll(seed, ...keys)` in `core/seed.ts` hashes the seed with what identifies the event (play number, tick, what is rolled for), so
+the same state always gives the same roll, a saved game resumes to the same outcome, and nothing has to be saved or kept in step. A new browser game takes a random
+seed; open the game with `?seed=N` to replay the same game every time (for tests and for sharing a situation).
 
 ## Visual design (Milestone 5A)
 
