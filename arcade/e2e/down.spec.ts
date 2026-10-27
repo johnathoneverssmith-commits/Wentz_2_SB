@@ -6,7 +6,7 @@ const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse
 const field = (page: Page) => page.getByRole('img', { name: /Football field/ });
 test.beforeEach(async ({ page }) => {
     await page.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5184' ? route.continue() : route.abort());
-    await page.goto('/');
+    await page.goto('/?seed=1');
 });
 test('a real handoff lets both humans move, tackle and begin the next down', async ({ page }) => {
     await expect(page.getByTestId('phase')).toHaveText('Pre-snap');

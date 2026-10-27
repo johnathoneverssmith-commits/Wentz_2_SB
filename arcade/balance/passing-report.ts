@@ -10,24 +10,25 @@
  */
 import { writeFileSync } from 'node:fs';
 import type { DefensePolicy } from './sim';
-import { KNOWN_IMBALANCES, gatherEvidence } from './imbalances';
-import { PROVISIONAL_BENCHMARKS, STARTS, cells, dominance, readBenchmarks, runGames, runMatrix, type Cell } from './matrix';
+import { EVIDENCE_SEEDS, KNOWN_IMBALANCES, gatherEvidence } from './imbalances';
+import { PROVISIONAL_BENCHMARKS, STARTS, cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type Cell, type DriveRecord } from './matrix';
 import { summarize } from './stats';
-import { BEST_RESPONSE, STRATEGIES } from './strategies';
+import { BEST_RESPONSE, ORACLE_BEST_RESPONSE, STRATEGIES, predictions } from './strategies';
 import { byDistance, byRoute, byTiming, windowMap, type Rates, type ThrowRecord } from './window';
 
 const arg = (name: string, fallback: number): number => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? fallback : Number(process.argv[i + 1]); };
 const pct = (x: number, d = 0) => `${(100 * x).toFixed(d)}%`;
 const ci = (p: { p: number; ci: { lo: number; hi: number } }) => `${pct(p.p)} [${pct(p.ci.lo)}-${pct(p.ci.hi)}]`;
 const pad = (v: string | number, n: number) => String(v).padEnd(n);
-const ratesLine = (r: Rates) => `${String(r.throws).padStart(4)} throws  complete ${ci(r.complete).padEnd(14)} intercepted ${ci(r.interception).padEnd(14)} touchdown ${pct(r.touchdown.p).padStart(4)}  yd/catch ${r.yardsPerCompletion.toFixed(1).padStart(5)}  longest open run ${r.openRun}`;
+const ratesLine = (r: Rates) => `${String(r.throws).padStart(4)} throws  complete ${ci(r.complete).padEnd(14)} contested ${pct(r.contested.p).padStart(4)} intercepted ${ci(r.interception).padEnd(14)} knocked down ${pct(r.breakup.p).padStart(4)} touchdown ${pct(r.touchdown.p).padStart(4)}  yd/catch ${r.yardsPerCompletion.toFixed(1).padStart(5)}  longest open run ${r.openRun}`;
 
 export function printWindows(pocket: readonly ThrowRecord[]): void {
     console.log('\n=== 1. Passing windows: every pass play x receiver x throw moment (ticks 0-240, every 4; AI defense, humans idle, line 40) ===');
-    console.log('Window maps, one letter per throw (C caught, T touchdown, x incomplete, I intercepted, S sacked first):');
+    console.log(`Window maps for one game (seed ${EVIDENCE_SEEDS[0]}), one letter per throw (C caught cleanly, c caught with a defender at the ball, T touchdown, x incomplete, b knocked down, I intercepted, S sacked first).`);
+    console.log(`Every number below is over ${EVIDENCE_SEEDS.length} games (seeds ${EVIDENCE_SEEDS[0]}-${EVIDENCE_SEEDS.at(-1)}), because a catch is chance:`);
     for (const [key] of byRoute(pocket)) {
         const [play, target] = key.split(' -> ') as [string, string];
-        console.log(`  ${pad(key, 14)} ${windowMap(pocket.filter(r => r.play === play && r.target === ({ WR1: 1, WR2: 2, TE1: 3 } as Record<string, number>)[target]))}`);
+        console.log(`  ${pad(key, 14)} ${windowMap(pocket.filter(r => r.seed === EVIDENCE_SEEDS[0] && r.play === play && r.target === ({ WR1: 1, WR2: 2, TE1: 3 } as Record<string, number>)[target]))}`);
     }
     console.log('\nBy route:');
     for (const [key, r] of byRoute(pocket)) console.log(`  ${pad(key, 14)} ${ratesLine(r)}`);
@@ -40,6 +41,24 @@ export function printWindows(pocket: readonly ThrowRecord[]): void {
         const rs = pocket.filter(r => r.outcome === outcome), m = (f: (r: ThrowRecord) => number) => summarize(rs.map(f)).mean.toFixed(1);
         console.log(`  ${pad(outcome, 13)} n=${String(rs.length).padStart(3)}  air ${m(r => r.airYards).padStart(5)} yd  separation at throw ${m(r => r.separationAtThrow).padStart(5)}  at arrival ${m(r => r.separationAtArrival).padStart(5)}  receiver gap ${m(r => r.receiverGap).padStart(4)}  defender gap ${m(r => r.defenderGap).padStart(4)}`);
     }
+}
+
+/**
+ * The expectation best response chooses each throw by its average over 16 imagined outcomes (seeds that are not the game's) and then lives with the real draw;
+ * its held-out games are the matrix seeds, none of which is an evaluation seed. The oracle judges each throw under the game's own seed (it has seen the dice):
+ * it is a diagnostic of the best any offense could do if chance could be foreseen, never a measure of what a player can do.
+ */
+export function printBestResponse(best: readonly DriveRecord[], oracle: readonly DriveRecord[], predicted: readonly { pComplete: number; pIntercept: number }[]): void {
+    console.log('\n=== 2b. Best response: expectation (practicable) against ORACLE (sees the dice; diagnostic only) ===');
+    const row = (label: string, rs: readonly DriveRecord[]) => {
+        const c = summarizeCell(rs.filter(r => r.defense === 'idle'));
+        console.log(`  ${pad(label, 34)} ${c.drives} drives  points/drive ${c.points.mean.toFixed(2)} [${c.points.ci.lo.toFixed(2)}, ${c.points.ci.hi.toFixed(2)}]  TD drives ${ci(c.touchdownDrives)}  completion ${ci(c.completion)}  interception ${ci(c.interception)}  plays ${c.playsPerDrive.toFixed(1)}`);
+    };
+    row('expectation best response', best);
+    row('ORACLE best response (diagnostic)', oracle);
+    const meanOf = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+    const realized = summarizeCell(best.filter(r => r.defense === 'idle'));
+    console.log(`  the expectation best response predicted ${pct(meanOf(predicted.map(p => p.pComplete)))} completion and ${pct(meanOf(predicted.map(p => p.pIntercept)))} interception over ${predicted.length} chosen throws; on held-out games it realized ${pct(realized.completion.p)} and ${pct(realized.interception.p)}`);
 }
 
 export function printMatrix(all: readonly Cell[], defenses: readonly DefensePolicy[]): void {
@@ -65,9 +84,14 @@ export function main(): void {
     printWindows(evidence.pocket);
     const practicable = STRATEGIES.filter(s => s.id !== BEST_RESPONSE.id), defenses: DefensePolicy[] = ['idle', 'attentive', 'cover'];
     const records = runMatrix({ strategies: practicable, defenses, seeds });
-    const best = runMatrix({ strategies: [BEST_RESPONSE], defenses: ['idle', 'attentive'], seeds: [1], starts: STARTS.slice(0, Math.max(1, arg('br', 4))) });
+    predictions.length = 0;
+    const bestStarts = STARTS.slice(0, Math.max(1, arg('br', 4)));
+    const best = runMatrix({ strategies: [BEST_RESPONSE], defenses: ['idle', 'attentive'], seeds: [1, 2, 3], starts: bestStarts });
+    const predicted = predictions.slice();
+    const oracle = runMatrix({ strategies: [ORACLE_BEST_RESPONSE], defenses: ['idle', 'attentive'], seeds: [1, 2, 3], starts: bestStarts });
     const all = cells([...records, ...best]);
     printMatrix(all, ['idle', 'attentive', 'cover']);
+    printBestResponse(best, oracle, predicted);
     const games = arg('games', 0);
     const gameRows: unknown[] = [];
     if (games > 0) {
@@ -83,6 +107,6 @@ export function main(): void {
     const findings = KNOWN_IMBALANCES.map(k => ({ id: k.id, status: k.status, title: k.title, ...k.detect(evidence) }));
     for (const f of findings) console.log(`  [${f.status}] ${pad(f.id, 32)} ${f.present ? 'DETECTED' : 'not detected'}  ${f.evidence}`);
     const out = process.argv.indexOf('--json');
-    if (out >= 0) writeFileSync(process.argv[out + 1]!, JSON.stringify({ seeds, cells: all, imbalances: findings, games: gameRows }, null, 2));
+    if (out >= 0) writeFileSync(process.argv[out + 1]!, JSON.stringify({ seeds, cells: all, oracle: cells(oracle), imbalances: findings, games: gameRows }, null, 2));
 }
 if (process.argv[1] && /passing-report\.ts$/.test(process.argv[1].replace(/\\/g, '/'))) main();

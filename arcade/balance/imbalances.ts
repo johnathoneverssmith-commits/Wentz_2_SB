@@ -21,12 +21,15 @@ export interface Evidence {
     readonly ticksToSack: number;
 }
 
+/** Catches are chance, so every measurement is taken over these game seeds (not one trajectory). */
+export const EVIDENCE_SEEDS: readonly number[] = [1, 2, 3, 4, 5, 6];
 export function gatherEvidence(): Evidence {
+    const seeds = EVIDENCE_SEEDS;
     return {
-        pocket: sweep({ ticks: tickRange(0, 240, 4) }),
-        deepAtSpeed70: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), abilities: { 'home-WR1': { speed: 70 } } }),
-        deepAtSpeed80: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), abilities: { 'home-WR1': { speed: 80 } } }),
-        deepWithSpeedEdge: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 240, 4), abilities: { 'home-WR1': { speed: 99 } } }),
+        pocket: sweep({ ticks: tickRange(0, 240, 4), seeds }),
+        deepAtSpeed70: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), seeds, abilities: { 'home-WR1': { speed: 70 } } }),
+        deepAtSpeed80: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), seeds, abilities: { 'home-WR1': { speed: 80 } } }),
+        deepWithSpeedEdge: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 240, 4), seeds, abilities: { 'home-WR1': { speed: 99 } } }),
         ticksToSack: ticksToSack('slants'),
     };
 }
@@ -69,7 +72,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'go-tight-end-intercepted', status: 'open', title: 'The tight end on the go play is a turnover',
+        id: 'go-tight-end-intercepted', status: 'fixed', resolution: 'Phase C1b-1: catches are a seeded sequence of decisions, not a radius: the tight end on the go play is intercepted 16% of the time (it was 80%) and completes 28% (it was 2%). Provisional until C1b-2 re-measures.', title: 'The tight end on the go play is a turnover',
         why: 'The tight end\'s 14-yd route runs into the linebackers and safety zones, which take the ball.',
         detect(ev) { const r = rates(route(ev, 'go', 3)); return { present: r.interception.p >= 0.5, evidence: `go -> TE1 intercepted ${pct(r.interception.p)} (${r.interception.k}/${r.throws}), completed ${pct(r.complete.p)}` }; },
     },
@@ -95,7 +98,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         why: 'The 20% overthrow grows with speed and passes the catch radius: at receiver speed 80 no go throw is complete.',
         detect(ev) {
             const a = rates(ev.deepAtSpeed70).complete.p, b = rates(ev.deepAtSpeed80).complete.p;
-            return { present: b < a, evidence: `go -> WR1 completes ${pct(a)} at receiver speed 70 and ${pct(b)} at speed 80` };
+            return { present: b < a - 0.05, evidence: `go -> WR1 completes ${pct(a)} at receiver speed 70 and ${pct(b)} at speed 80` };
         },
     },
     {
@@ -112,7 +115,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         detect(ev) { return { present: ev.ticksToSack >= 200, evidence: `an unthrown pass play ends in a sack at tick ${ev.ticksToSack} (${(ev.ticksToSack / 60).toFixed(1)} s)` }; },
     },
     {
-        id: 'slants-tight-end-loses-yards', status: 'open', title: "The tight end's slants catch is behind the line",
+        id: 'slants-tight-end-loses-yards', status: 'fixed', resolution: 'Phase C1b-1: a catch no longer needs the receiver to be 2.2 yd clear of every defender, so the tight end is no longer only open when he has drifted behind the line: completions average 0.0 yd (they were -0.5). Provisional until C1b-2 re-measures.', title: "The tight end's slants catch is behind the line",
         why: 'His 2-4 yd route ends at the line of scrimmage, so a completion gains nothing or loses ground (a catch behind the line).',
         detect(ev) {
             const done = route(ev, 'slants', 3).filter(r => r.outcome === 'complete'), mean = done.reduce((a, r) => a + r.yards, 0) / Math.max(1, done.length);
@@ -147,9 +150,18 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'deep-interceptions-high', status: 'open', title: 'Deep throws are intercepted about as often as they are caught',
+        id: 'deep-interceptions-high', status: 'fixed', resolution: 'Phase C1b-1: a defender inside the old interception radius no longer always takes the ball, and taking it away needs his hands: deep go throws to a wideout are intercepted 19% of the time (35%) and complete 46% (8%). Provisional until C1b-2 re-measures.', title: 'Deep throws are intercepted about as often as they are caught',
         why: 'A deep ball thrown while the corner is still in front of the receiver (before the receiver has run past him) lands where the corner is nearer than the receiver, so he intercepts it; any defender inside 1.6 yd of the landing point intercepts even when the receiver is closer to it. The first half is coverage and is right; the second is catch resolution, left for the seeded catch model (Phase C).',
         detect(ev) { const r = rates(ev.pocket.filter(x => x.play === 'go' && (x.target === 1 || x.target === 2) && isDeep(x))); return { present: r.interception.p >= 0.25, evidence: `deep go throws to a wideout are intercepted ${pct(r.interception.p)} of the time and complete ${pct(r.complete.p)}` }; },
+    },
+    {
+        id: 'offense-completes-most-passes', status: 'open', title: 'Every route completes about half of its throws or more',
+        why: 'With catches decided by chance and not by a 2.2 yd radius, a defender who is only beside the ball no longer ends the play. The defenders\' standoffs (1.9 yd beside the ball) were set for the old radii, and nothing yet makes a throw hard to make (accuracy, pressure: C2, C3), so the scripted timing-aware offense scores a touchdown on most drives. Expected, and left for C1b-2 to assess, not tuned.',
+        detect(ev) {
+            const routes: [string, number][] = [['slants', 1], ['slants', 2], ['slants', 3], ['go', 1], ['go', 2]];
+            const rs = routes.map(([play, target]) => rates(route(ev, play, target)).complete.p);
+            return { present: rs.every(p => p >= 0.45), evidence: `completion by route over the whole pocket: slants ${rs.slice(0, 3).map(pct).join('/')}, go ${rs.slice(3).map(pct).join('/')} (WR1/WR2/TE1, WR1/WR2)` };
+        },
     },
 ];
 

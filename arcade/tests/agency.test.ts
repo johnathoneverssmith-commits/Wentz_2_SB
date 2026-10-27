@@ -3,7 +3,7 @@ import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefe
 import { decodeSave, encodeSave } from '../browser/save';
 import { BALL_READ_TICKS } from '../core/behavior';
 import type { Inputs, PlayerId, Vector } from '../core/simulation';
-import { expectOnlyClockMoved, farAway, parkBlockers, place, quiet } from './helpers';
+import { expectOnlyClockMoved, farAway, parkBlockers, place, quiet, seedShare, seedWhere } from './helpers';
 const zero = { x: 0, y: 0 };
 const idle: Inputs = { home: zero, away: zero };
 const at = (s: DownState, id: PlayerId) => s.players.find(p => p.id === id)!;
@@ -11,8 +11,8 @@ const towards = (from: Vector, to: Vector): Vector => { const d = Math.hypot(to.
 const withDefender = (s: DownState, id: PlayerId): DownState => ({ ...s, defender: id, players: s.players.map(p => ({ ...p, human: p.id === s.possession.carrier || p.id === id })) });
 
 /** Home throws to WR1 on slants with only Orange's #CB1 able to react; he starts three yards off the landing point. */
-function pass(defense: 'idle' | 'breakup' | 'hands' | 'earlyHands') {
-    let s = withDefender(snap(choosePlay(createDown(), 'slants')), 'away-CB1');
+function pass(defense: 'idle' | 'breakup' | 'hands' | 'earlyHands', seed?: number) {
+    let s = withDefender(snap(choosePlay(createDown(seed), 'slants')), 'away-CB1');
     s = throwPass(s, 1);
     if (s.ball.kind !== 'flight') throw Error('flight');
     const to = s.ball.to;
@@ -37,14 +37,22 @@ function rush(home: Vector, away: Vector) {
     return s;
 }
 it('the same ordinary pass completes, breaks up or is intercepted based only on human defense', () => {
-    const complete = pass('idle'), broken = pass('breakup'), picked = pass('hands');
-    expect(complete.possession.carrier).toBe('home-WR1');
-    expect(complete.phase).toBe('live');
-    expect(broken.result?.reason).toBe('incomplete');
-    expect(picked.result).toMatchObject({ reason: 'interception', yards: 0, turnover: true });
-    expect(picked.possession.team).toBe('away');
-    expect(picked.terminalCount).toBe(1);
-    expect(pass('hands')).toEqual(picked);
+    // whether a defender who reaches the ball takes it is chance (core/catch.ts), so each human decision is judged over 100 seeds
+    const share = (mode: Parameters<typeof pass>[0], accept: (s: DownState) => boolean) => seedShare(seed => pass(mode, seed), accept, 100);
+    const caught = (s: DownState) => s.possession.carrier === 'home-WR1' && s.phase === 'live', picked = (s: DownState) => s.result?.reason === 'interception';
+    expect(share('idle', caught), 'nobody near: he catches it').toBeGreaterThan(0.85);
+    expect(share('idle', picked)).toBe(0);
+    expect(share('breakup', caught), 'a defender who only reaches the edge of the old break-up circle, with the receiver on the ball, hardly spoils it').toBeLessThanOrEqual(share('idle', caught));
+    expect(share('hands', caught), 'going right to the ball does').toBeLessThan(share('idle', caught) - 0.1);
+    expect(share('hands', picked), 'going right to the ball and pressing Hands: the receiver is usually there first, so it is a chance and not a certainty').toBeGreaterThan(0.04);
+    expect(share('hands', picked)).toBeGreaterThan(share('breakup', picked));
+    expect(share('hands', caught)).toBeLessThan(share('breakup', caught));
+    const seed = seedWhere(s => pass('hands', s), picked);
+    const done = pass('hands', seed);
+    expect(done.result).toMatchObject({ reason: 'interception', yards: 0, turnover: true });
+    expect(done.possession.team).toBe('away');
+    expect(done.terminalCount).toBe(1);
+    expect(pass('hands', seed)).toEqual(done);
 });
 it('human pursuit stops the run that an idle defender would let score, and the same pursuit is beaten by a faster angle', () => {
     const lane = { x: 1, y: -0.3 };
@@ -60,8 +68,8 @@ it('human pursuit stops the run that an idle defender would let score, and the s
     expect(head.liveTicks).toBeLessThan(chased.liveTicks);
 });
 it('an expired hands attempt cannot intercept, but a well-timed one can', () => {
-    expect(pass('earlyHands').result?.reason).toBe('incomplete');
-    expect(pass('hands').result?.reason).toBe('interception');
+    expect(seedShare(seed => pass('earlyHands', seed), s => s.result?.reason === 'interception', 150), 'a press that has run out is no press').toBe(0);
+    expect(seedShare(seed => pass('hands', seed), s => s.result?.reason === 'interception', 150)).toBeGreaterThan(0.03);
 });
 it('AI covers the receiver, then breaks on the ball once it reacts, rather than continuing to chase the QB', () => {
     let s = farAway(snap(choosePlay(createDown(), 'go')), ['away-CB1']);
@@ -76,10 +84,12 @@ it('AI covers the receiver, then breaks on the ball once it reacts, rather than 
     for (let i = 0; i < 30; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
     expect(gap(s)).toBeLessThan(reacting);
     while (s.phase === 'live' && s.ball.kind === 'flight') s = stepDown(farAway(s, ['away-CB1']), idle);
-    expect(['incomplete', 'interception']).toContain(s.result?.reason);
+    expect(gap(s), 'and he is within reach of it when it lands').toBeLessThan(2.6);
+    expect(s.catchKind, 'the pass was decided, once').toBeDefined();
 });
 it('turnover retains both teams control and rejects commands from the wrong team', () => {
-    let s = snap(choosePlay(nextDown(pass('hands')), 'slants'));
+    let s = snap(choosePlay(nextDown(pass('hands', seedWhere(seed => pass('hands', seed), e => e.result?.reason === 'interception'))), 'slants'));
+    expect(s.possession.team).toBe('away');
     expect(throwPass(s, 1, 'home')).toBe(s);
     expect(switchDefender(s, 'away')).toBe(s);
     expect(contestPass(s, 'away')).toBe(s);
@@ -109,10 +119,11 @@ it('contact has a strict radius boundary', () => {
     expect(stepDown(set(1.79), idle).result?.reason).toBe('tackle');
 });
 it.each([['slants', 1, 'WR1'], ['slants', 2, 'WR2'], ['go', 1, 'WR1'], ['go', 2, 'WR2'], ['slants', 3, 'TE1'], ['go', 3, 'TE1']] as const)('every pass target is playable: %s #%s', (play, target, code) => {
-    let s = farAway(throwPass(snap(choosePlay(createDown(), play)), target));
-    while (s.phase === 'live' && s.ball.kind === 'flight') s = stepDown(farAway(s), idle);
-    expect(s.phase).toBe('live');
-    expect(s.possession.carrier).toBe(`home-${code}`);
+    const thrown = (seed: number) => { let s = farAway(throwPass(snap(choosePlay(createDown(seed), play)), target)); while (s.phase === 'live' && s.ball.kind === 'flight') s = stepDown(farAway(s), idle); return s; };
+    // nobody is near him, so he catches it unless he drops it
+    expect(seedShare(seed => thrown(seed), s => s.phase === 'live' && s.possession.carrier === `home-${code}`, 100)).toBeGreaterThan(0.8);
+    const seed = seedWhere(thrown, s => s.phase === 'live');
+    expect(thrown(seed).possession.carrier).toBe(`home-${code}`);
 });
 it('an out-of-field landing cannot be intercepted by an in-bounds defender', () => {
     let s = throwPass(snap(choosePlay(createDown(), 'go')), 1);

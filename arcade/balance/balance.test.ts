@@ -14,24 +14,26 @@ const team = (off: string, def: Team['def']): Team => ({ off: OFFENSES[off]!, de
 
 describe('passing balance', () => {
     // Milestone 5B measurements (scripted players against the 11-man AI). Documented, not tuned to a target.
-    it('the deep route to a wideout is covered by the AI: a late deep pass completes under half its throws against every defense', () => {
-        // Phase B2: the corner plays off his man while he is shallow and closes as he goes deep; it used to complete 94-100% (BALANCE.md)
+    it('the deep route to a wideout is contested by the AI: a late deep pass completes less often than a quick one and is intercepted more often, against every defense', () => {
+        // Phase B2: the corner plays off his man while he is shallow and closes as he goes deep; it used to complete 94-100% (BALANCE.md). Phase C1b-1: a catch is chance.
         for (const def of ['idle', 'chase', 'attentive', 'cover'] as const) {
-            const r = driveStats(OFFENSES['late']!, def);
-            expect(r.st.completions / r.st.passes, `late vs ${def} completions`).toBeLessThan(0.5);
-            expect(r.td, `late vs ${def} touchdown drives`).toBeLessThan(0.5);
+            const late = driveStats(OFFENSES['late']!, def), quick = driveStats(OFFENSES['early']!, def);
+            expect(late.st.completions / late.st.passes, `late vs ${def} completions`).toBeLessThan(quick.st.completions / quick.st.passes - 0.1);
+            expect(late.st.interceptions / late.st.passes, `late vs ${def} interceptions`).toBeGreaterThan(quick.st.interceptions / quick.st.passes);
         }
     });
     it('a defender who covers the deep route never helps the late pass (it is already covered at baseline ratings)', () => {
         const covered = driveStats(OFFENSES['late']!, 'cover').pointsPerDrive;
         expect(covered).toBeLessThanOrEqual(driveStats(OFFENSES['late']!, 'idle').pointsPerDrive);
     });
-    it('when you throw decides it: a quick slants throw to WR1 is open, and the same throw two seconds later, after the corner has picked up the break, is covered', () => {
+    it('when you throw decides it: the same slants throw to WR1 completes less the longer the quarterback waits, as the corner picks up the break', () => {
         const slants = (tick: number): OffensePolicy => ({ name: `slants at ${tick}`, play: () => 'slants', throwAt: () => tick, fieldGoals: true, target: 1 });
         const rate = (off: OffensePolicy) => { const r = driveStats(off, 'idle'); return r.st.completions / r.st.passes; };
-        expect(rate(OFFENSES['intermediate']!), 'timed to the break').toBeGreaterThan(0.5);
-        expect(rate(slants(120)), 'after the corner has closed').toBeLessThan(0.2);
-        expect(rate(OFFENSES['intermediate']!)).toBeGreaterThan(rate(slants(120)));
+        const early = rate(slants(12)), middle = rate(slants(80)), late = rate(slants(120)), later = rate(slants(160));
+        expect(early, 'a quick throw is open').toBeGreaterThan(0.8);
+        expect(early).toBeGreaterThan(middle); expect(middle).toBeGreaterThan(late); expect(late).toBeGreaterThan(later);
+        expect(early - late, 'waiting costs a lot').toBeGreaterThan(0.25);
+        expect(rate(OFFENSES['intermediate']!), 'timed to the break').toBeGreaterThan(rate(slants(120)));
     });
     it('a slower defender reaction never helps the defense', () => {
         for (const style of ['early', 'intermediate', 'balanced']) {

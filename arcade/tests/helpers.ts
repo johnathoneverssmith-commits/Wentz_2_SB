@@ -70,3 +70,18 @@ export function throughExtraPoint(dead: DownState, ticks = CENTRE): DownState {
 }
 /** A fourth-down failure that ends the possession. */
 export const turnedOverOnDowns = (start: DownState): DownState => tackled({ ...start, down: 4 }, 1);
+
+/**
+ * A staged scene whose outcome is chance (a pass arriving with a defender on the ball) played under successive seeds until `accept` is true of how
+ * it ends: the first seed that gives the outcome the test is about. The scene is rebuilt for each seed, so nothing leaks between tries.
+ */
+export function seedWhere(stage: (seed: number) => DownState, accept: (end: DownState) => boolean, limit = 2000): number {
+    for (let seed = 1; seed <= limit; seed++) if (accept(stage(seed))) return seed;
+    throw new Error(`no seed under ${limit} gives the wanted outcome`);
+}
+/** The share of seeds 1..n under which `accept` holds of the staged scene's end. */
+export function seedShare(stage: (seed: number) => DownState, accept: (end: DownState) => boolean, n = 200): number {
+    let k = 0;
+    for (let seed = 1; seed <= n; seed++) if (accept(stage(seed))) k++;
+    return k / n;
+}

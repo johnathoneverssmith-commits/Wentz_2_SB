@@ -5,7 +5,6 @@ import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract } from "./rules";
 import { capUsedOf } from "./seed.ts";
-import { marketOfStage, signingBar, signingValue, type FaMarket } from "./faValue.ts";
 import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
@@ -35,12 +34,6 @@ import { strategyAgeBonus, strategyEliteBonus, strategyPositionBonus } from "./a
 export const FREE_AGENCY_ROUNDS = 5;
 
 export interface FreeAgencyEventState {
-  /**
-   * Which market this is. Recorded when the event opens, because the CPU teams ahead of the first human take
-   * their turns while the league is still entering the stage (`s.stage` is not yet the market's). Absent in a
-   * save from before it was recorded: the stage is read instead.
-   */
-  market?: FaMarket;
   round: number;
   /** Team codes, fixed for the whole event: best roster first. */
   order: string[];
@@ -77,14 +70,13 @@ export function unsignedPool(s: LeagueState): Player[] {
   );
 }
 
-export function beginFreeAgencyEvent(s: LeagueState, market: FaMarket = marketOfStage(s.stage)): void {
+export function beginFreeAgencyEvent(s: LeagueState): void {
   if (s.freeAgencyEvent) return;
   // "Skip free agency" is a choice about this market, not every market after
   // it: carried into the next one it passed a GM's turns before they had
   // seen the board, and left year two's market over before it began
   clearSkips(s, "freeAgency");
   s.freeAgencyEvent = {
-    market,
     round: 1,
     order: freeAgencyOrder(s),
     turnIndex: 0,
@@ -258,24 +250,6 @@ export type FaMove = { kind: "pass" } | { kind: "offer"; playerId: string; salar
 const MIN_SALARY_M = 1;
 
 /**
- * How far a GM's identity (position, age and star preferences, in rating points) moves a CPU team's choice of
- * signing: half the points, as before. Measured on mature markets it changes a few teams in thirty-two
- * (the same as the old rule did) between signings that are close, and never makes a signing worth bidding
- * on that is not (the bar in `chooseFaMove` is applied to the signing's own worth).
- */
-const STRATEGY_SCALE = 0.5;
-
-/**
- * Cap room a CPU team leaves unspent when it bids (on top of `offerRoomFor`), $M. After the market the roster fill cuts any team that is over
- * what it can carry (its cap less the minimum deals for empty spots) down to that limit *less* a working-room
- * cushion, so a team that spends to the last dollar and lands $1M over sheds well over $16M of paid depth, with the
- * dead money that costs. Measured on mature leagues, spending to the line cost 50% more dead money than the market
- * before it priced signings by slot; keeping $2M back removes that cliff and costs no lineup (larger cushions only
- * cost signings).
- */
-const OFFER_CUSHION_M = 2;
-
-/**
  * What a CPU team can still afford to offer, $M: its cap room on the books (dead money included), less what
  * its live offers would cost if they all won, less the minimum deals the roster spots that would still be empty
  * will be filled with. That reserve leaves out the spot the offer being made would fill and the spots its live
@@ -329,35 +303,21 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const pool = idx.pool;
   if (pool.length === 0) return PASS;
 
-  // What this team already holds at each position (a map lookup rather than a roster re-scan, because
-  // `shortlistByBaseScore` below asks once per player in the pool: the same mistake `bestAvailable` in
-  // rules.ts documents hitting inside the draft's sort comparator), and the players it has bid on and not
-  // yet signed, who fill a slot as far as its next bid is concerned.
-  const lists = idx.ratingsByTeam.get(teamCode);
-  const signedIds = new Set(e.signed.map((x) => x.playerId));
-  const bidOn: Player[] = [];
-  for (const [playerId, offers] of Object.entries(e.offers)) {
-    if (signedIds.has(playerId) || !offers.some((o) => o.teamCode === teamCode)) continue;
-    const bidPlayer = s.players[playerId];
-    if (bidPlayer) bidOn.push(bidPlayer);
-  }
-  /** every rating the team holds at his position, signed or bid on, leaving out the man being priced */
-  const carriedFor = (p: Player): number[] => {
-    const held = lists?.get(p.position) ?? [];
-    const others = bidOn.filter((o) => o.id !== p.id && o.position === p.position);
-    return others.length > 0 ? [...held, ...others.map((o) => o.overall)] : held;
-  };
-  /** what signing him adds to the lineup, priced by what a point at his position is worth (`faValue.ts`) */
-  const valueOf = (p: Player): number => signingValue(p.overall, p.position, carriedFor(p));
+  // Best overall this team already has at each position. It is a map lookup
+  // rather than a roster re-scan because `shortlistByBaseScore` below asks
+  // once per player in the pool — the same mistake `bestAvailable` in
+  // rules.ts documents hitting inside the draft's sort comparator.
+  const bestByPosition = idx.bestByTeam.get(teamCode);
+  const bestAt = (position: string): number => bestByPosition?.get(position) ?? 0;
 
   // AI Difficulty (§13.1): search only the top `candidateDepth` plausible
   // targets by raw gain — Expert (Infinity) considers every legal target,
   // exactly the prior behavior.
   const difficulty = difficultyFor(s, teamCode);
   const strategy = strategyOf(s, teamCode);
-  const shortlist = shortlistByBaseScore(pool, valueOf, difficulty.candidateDepth);
+  const shortlist = shortlistByBaseScore(pool, (p) => p.overall - bestAt(p.position), difficulty.candidateDepth);
   // a CPU team bids only what its cap room covers (a person's staff plays the same evaluator, without this)
-  const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) - OFFER_CUSHION_M : Infinity;
+  const room = isAiTeam(s, teamCode) ? offerRoomFor(s, teamCode) : Infinity;
 
   // Free Agency + Contracts optimization pass (free_agency.five_round_cpu):
   // chase a bid war less far, rebid less aggressively, and require a real
@@ -368,10 +328,9 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const RATIONAL_CHASE_CEILING = 1.4;
   // Master only: a signing is worth what it adds to the team's units, not
   // just how much better he is than the best man already there
+  const lists = idx.ratingsByTeam.get(teamCode);
   const units =
     difficulty.unitAwareness > 0 ? unitGainer((pos) => lists?.get(pos) ?? []) : null;
-  // the market the event was opened for; a save that predates the field falls back to the stage
-  const bar = signingBar(e.market ?? marketOfStage(s.stage));
   let target: Player | null = null;
   let bestGain = -Infinity;
   for (const p of shortlist) {
@@ -386,21 +345,17 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
     // §13.1: bounded valuation noise on the target-ranking score, same as draft/coaching.
     const noise =
       difficulty.evaluationNoise === 0 ? 0 : deterministicNoiseUnit(teamCode, s.season, "fa_target", p.id) * difficulty.evaluationNoise;
-    // what he is worth to the lineup, with Master's reading of the team's units where it has one
-    const worth = valueOf(p) + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0);
-    // not worth bidding on, whatever the GM's taste or the day's noise says (they choose among signings that are)
-    if (worth < bar) continue;
     const gain =
-      worth + noise +
+      p.overall - bestAt(p.position) + noise + (units ? difficulty.unitAwareness * units(p.position, p.overall) : 0) +
       // the GM's identity: a bounded preference among similar signings, never a reason to take a clearly worse one
-      STRATEGY_SCALE * (strategyPositionBonus(strategy, p.position as never) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall));
+      0.5 * (strategyPositionBonus(strategy, p.position as never) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall));
     if (gain > bestGain) {
       bestGain = gain;
       target = p;
     }
   }
 
-  if (!target) return PASS;
+  if (!target || bestGain < 2) return PASS;
 
   const lead = leadingOffer(s, target.id, idx.ratingsByTeam);
   // §13.3: a rebid over an existing offer can be deterministically missed

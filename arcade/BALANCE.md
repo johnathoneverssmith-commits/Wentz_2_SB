@@ -222,15 +222,111 @@ linebacker) is under the ball: go to WR1 0%/0% became 0%/49%, WR2 0%/39%, TE 2%/
 (timing-aware 2.58 points per drive, 12% touchdown drives, best response 9 plays) and the quick windows did not move. The deep game is still
 closed; a missed deep throw is now a turnover more often than an incompletion, which is a design question for the next phase.
 
+## Phase C1b-1: seeded catch resolution, recorded 2026-10-27
+
+Phase C1b-1 replaces the step function that decided every pass (a defender inside 1.6 yd always intercepts, inside 2.2 yd always breaks it up, otherwise a
+receiver with nobody inside 2.2 yd always catches) with a seeded sequence of decisions (`core/catch.ts`). Nothing else about the passing game changed: the ball
+physics, the coverage, the clock, the controls and the plays are the B2 ones. Everything here is measured over several games (seeds), because a catch is chance now.
+
+**The decision sequence** (every chance is an independent, named draw; `resolveCatch` explains each outcome in a list of `steps`):
+
+1. **Reach.** The receiver and every defender may get a hand on the ball. The chance falls smoothly with distance to the landing point: it is a half at 1.6 yd for the receiver
+   and at 2.2 + 0.35 yd for a defender (the approved +0.35 yd defender reach shift), and exactly zero a long way past that, so nobody takes a ball he could not reach.
+2. **Order.** Those who reached it get their chance in order of who was there first: an exponential race in which a player's rate is one over his distance plus half a yard
+   (time to the ball is distance over speed, times chance). At equal distances it is a coin flip, a player twice as near is there first two times in three.
+3. **Attempts**, in that order, until one ends it. The receiver *secures* it (his hands rating: a receiver with no hands drops 30% of the balls that reach him, one with 99 none) and it is a
+   catch, or a contested catch if a defender also reached it. A defender *gets a hand on it* (coverage rating, 0.55 to 0.95; times 0.6 if the ball is behind him, nearer the quarterback
+   than he is, and times 0.8 if he is still running flat out when it arrives); if he does not, the ball goes on to the next. If he does, he *takes it away* (his hands rating, only if the ball is inside his catch radius, and a human only
+   inside his Hands window) and it is an interception; otherwise he knocks it down: a breakup.
+4. If nobody ends it, the pass falls incomplete.
+
+Reaching the ball is not making the play: a receiver on the ball drops some, a defender on the ball misses some, and a defender who gets a hand on it intercepts only as often as his hands allow.
+
+**Random-event identity and replay.** A draw is `roll(seed, playNumber, arrivalTick, receiverRole, decisionName, subjectRole)` (core/seed.ts, the C1a hash; no generator state). A down has one pass and it arrives
+once, so the play number and the arrival tick identify it; the receiver's role keeps two receivers' draws apart. Each decision has its own name (`reach`, `order`, `secure`, `play`, `takeAway`) and each
+player his own role number (the same for either team, so a mirrored game rolls the same numbers). A player who cannot reach the ball is not drawn for, so a far-off defender changes nothing; the order the defenders are listed in changes nothing.
+The resolution happens once, on the tick the ball arrives, and the ball is then held or dead. A game saved with the ball in the air resolves exactly as the unsaved one (tested from every tick of the flight). Nothing in the engine, the
+best response included, can see how a catch will come out without playing it under the game's own seed.
+
+### Before and after
+
+Whole pocket, both routes to all three targets, line 40, AI defense, humans idle. B2 final (one trajectory per throw) against C1b-1 (six games per throw, seeds 1-6):
+
+| Route | B2: complete / intercepted | C1b-1: complete (contested) / intercepted / knocked down |
+| --- | --- | --- |
+| slants to WR1 | 28% / 3% | 57% (31%) / 7% / 23% |
+| slants to WR2 | 15% / 26% | 58% (40%) / 9% / 25% |
+| slants to TE | 46% / 8% | 65% (27%) / 4% / 15% |
+| go to WR1 | 5% / 36% | 62% (51%) / 13% / 19% |
+| go to WR2 | 5% / 28% | 66% (53%) / 10% / 20% |
+| go to TE | 2% / 80% | 33% (31%) / 14% / 38% |
+
+By throw moment (all routes): before 0.4 s 82% complete, 1% intercepted; 0.4-0.8 s 85%; 0.8-1.2 s 69%; 1.2-1.6 s 59%; 1.6-2.0 s 39% complete, 15% intercepted, 35% knocked down; later 47%.
+By distance: short 83%, medium (12-22 yd) 56% / 7%, deep (22+ yd) 57% / 12% / 24% knocked down. A completion now has 3.0 yd to the nearest defender at arrival (5.9 yd before);
+the quick game is still open (86% to WR1, 97% to WR2 before 0.4 s).
+
+Strategy matrix against an idle defense (points per drive, touchdown drives; B2 final to C1b-1; eight seeds, seven start spots, both teams):
+
+| Offense | B2 | C1b-1 |
+| --- | --- | --- |
+| deep specialist | 0.27 (2%) | 4.63 (64%) |
+| short specialist | 1.23 (1%) | 4.38 (55%) |
+| balanced | 0.60 (2%) | 3.74 (45%) |
+| timing-aware | 2.58 (12%) | 6.60 (92%) |
+| expectation best response | 7.00 (100%) | 6.13 (88%) |
+| oracle best response (diagnostic) | | 7.00 (100%) |
+
+Against the attentive and covering defenses the numbers are within a few tenths (timing-aware 6.57 and 6.39). The timing-aware offense leads every other practicable strategy by about 2 points per drive. Games stay 12.8-13.9 real minutes (the clock is untouched).
+Scripted offenses play 54-98 points a game; the strategy matrix's offenses playing themselves score 140-300 (timing-aware against itself 302, B2: 154).
+
+**This is the expected increase in offensive efficiency, and it is large.** The old rule was not neutral: 83% of throws had a defender within 2.2 yd of the ball and the step rule gave all of them to the defense. The new rule does not, so
+the defense that was only ever *beside* the ball (the AI plays a ball it cannot reach from 1.9 yd, a distance chosen for the old break-up radius) now rarely matters. C1b-2 should look at that, and at the offense's other levers (accuracy and pressure are C2 and C3 and should not be assumed to correct this).
+
+### The best response no longer sees the dice
+
+The old best response searched every throw under the game's own (deterministic) rules. With chance in the game that would have been an oracle that reads the dice. `BEST_RESPONSE` now judges every throw it considers over 16 fixed evaluation seeds
+(`EVAL_SEEDS`, none of which a matrix or report game uses), chooses the throw with the best average, and plays it under the game's real seed. `ORACLE_BEST_RESPONSE` keeps the old behavior under the game's seed and is labelled a diagnostic everywhere.
+On the eight held-out drives the expectation bot scores 6.13 points a drive [4.41, 7.84], touchdown on 88%, and the oracle 7.00, a touchdown every drive in 2.5 plays against 2.8. The expectation bot predicted 97% completion on its chosen
+throws and realized 86%: it picks the throw that looks best among a few hundred, so what it imagined is optimistic, which is the ordinary winner's curse and is why expectation and realized results are reported side by side.
+
+### Rating sensitivity (`npm --prefix arcade run balance:ratings`, eight games, both routes to both wideouts, whole pocket)
+
+| Rating | 0 | 30 | 55 | 78 | 99 |
+| --- | --- | --- | --- | --- | --- |
+| receiver hands: complete | 50% | 59% | 64% | 69% | 74% |
+| receiver hands, no defender within 3 yd | 66% | 78% | | 94% | 99% |
+| receiver hands, a defender within 2.2 yd | | 56% | | 66% | 70% |
+| defender coverage: complete | 73% | 71% | 70% | 69% | 68% |
+| defender hands: intercepted (knocked down) | 1% (23%) | 4% (21%) | 7% (18%) | 10% (15%) at 80 | 12% (13%) |
+| defender hands, defender on the ball: intercepted | 0% | 8% | 14% | 22% at 80 | 29% |
+
+Every rating moves outcomes in the right direction and nothing inverts. Receiver hands is a strong rating (24 points between 0 and 99). **The apparent saturation above 78 in the prototype was a clip, not physics:** the prototype multiplied a reach probability by a rating ratio and capped
+the product at 0.995, so a better rating could not help a ball the receiver reached. Hands now apply only after the receiver has reached the ball, so they pay all the way to 99 when the ball is in his hands (open receivers: 94% at 78, 99% at 99); what limits the overall
+rate is reaching the ball, which no rating changes. Defender hands decide whether a play on the ball is an interception or only a breakup and do not change the completion rate (69% throughout), as designed. **Defender coverage is a weak rating**
+(5 points between 0 and 99): it only sets how often a defender who has reached the ball gets a hand on it; positioning and closing speed are the AI's and the speed ratings'. That may need a second look in C1b-2.
+
+**Speed.** A receiver's speed still decides when the deep window opens (the average caught deep throw comes at least 20 ticks earlier at 99 than at 60 against every corner, which `balance/framework.test.ts` asserts, and a faster corner makes it later and smaller) but, as in B2, not how often a deep ball completes: the faster receiver reaches 20 yd sooner, while the corner is still in front of him,
+and runs out of the 31-yd route sooner, so the share of deep throws that complete is flat or slightly lower (51% at 70 against 32% at 99 over the whole pocket; at the best moment about a third either way). The corner trailing at 2.5 yd was set against the old 2.2 yd break-up radius; with a defender reach of 2.55 yd it is inside the
+reach of the ball for a receiver who is only 2.5 yd clear. Whether the trailing distance should grow is a C1b-2 question, not tuned here.
+
+### Remaining design concerns, and recommended C1b-2 work
+
+1. **Offensive efficiency is far too high** (timing-aware 92% touchdown drives, 300-point games between matrix offenses). Do not assume C2 and C3 fix it. Candidates, each to be justified before it is changed: the AI's standoffs (1.9 yd beside the ball was chosen for the old radii), the trailing distance, the defender reach shift, and how a ball the receiver is on top of is contested.
+2. **The quick throw is still open** (86-97% before 0.4 s), now by chance instead of certainty. It was always a coverage-alignment question; it is not a catch-resolution one.
+3. **Coverage is a weak rating** and speed does not turn into completions (above). The order-of-arrival race and the 0.5 yd arm's-length offset are the two constants that shape how much a defender at 1-2 yd matters; they are physical choices, not fits.
+4. **The pocket is still 4.1 s** (`pocket-never-collapses`).
+5. **Registry** (see Known imbalances): `go-tight-end-intercepted`, `slants-tight-end-loses-yards` and `deep-interceptions-high` are fixed by this change; `offense-completes-most-passes` is new and open.
+6. **The expectation best response is a search with 16 imagined outcomes**: its predictions are optimistic (97% against 86%); more evaluation seeds shrink the gap and cost time.
+
 ## Known imbalances
 
-`balance/imbalances.ts` holds the entries below (ten at Phase A, twelve after B1, fifteen after B2), each with a detector, and `balance/framework.test.ts` asserts that every `open` one **is detected today**
+`balance/imbalances.ts` holds the entries below (ten at Phase A, twelve after B1, fifteen after B2, sixteen after C1b-1), each with a detector, and `balance/framework.test.ts` asserts that every `open` one **is detected today**
 and every `fixed` one is **not**. A pull request that fixes one changes its `status` to `fixed`, and the same test then proves the fix and
 guards against its return. Nothing was tuned to make a test pass.
 
-Open now: `go-tight-end-intercepted`, `pocket-never-collapses`, `slants-tight-end-loses-yards`, `quick-slants-always-open`, `deep-interceptions-high`.
+Open now: `pocket-never-collapses`, `quick-slants-always-open`, `offense-completes-most-passes`.
 Fixed: `flight-time-constant`, `overthrow-catch-knife-edge`, `faster-receiver-worse-deep-game` (B1), `slants-wr1-dead-target`, `deep-ball-uncontested` (partly), and by B2
-`deep-window-never-closes`, `early-slants-intercepted`, `slants-wr2-always-broken-up`, `tight-end-dump-off-always-open`, `deep-routes-closed-at-equal-speed` (the trailing corner). Each fixed entry carries a `resolution` note with the numbers.
+`deep-window-never-closes`, `early-slants-intercepted`, `slants-wr2-always-broken-up`, `tight-end-dump-off-always-open`, `deep-routes-closed-at-equal-speed` (the trailing corner), and by C1b-1 (provisionally, until C1b-2 re-measures) `go-tight-end-intercepted`, `slants-tight-end-loses-yards`, `deep-interceptions-high`. Each fixed entry carries a `resolution` note with the numbers.
 
 Some reported numbers came from the scripted players rather than the engine: the older "balanced" bot threw to the always-covered WR1, the
 "early" bot's tick-16 throw lies inside the always-intercepted window, the same drive from seven start spots was one measurement repeated

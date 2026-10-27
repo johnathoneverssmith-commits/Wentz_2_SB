@@ -117,9 +117,9 @@ function record(st: Stats, s: DownState) {
 
 export interface DriveResult { stats: Stats; end: 'touchdown' | 'field goal' | 'missed field goal' | 'interception' | 'downs' | 'safety' | 'limit' }
 /** One possession by `team` from `line`, until it scores or loses the ball. Points count the touchdown and the kick. */
-export function drive(team: 'home' | 'away', line: number, off: OffensePolicy, def: DefensePolicy, opts: Options = DEFAULTS): DriveResult {
+export function drive(team: 'home' | 'away', line: number, off: OffensePolicy, def: DefensePolicy, opts: Options = DEFAULTS, seed?: number): DriveResult {
     const stats = emptyStats();
-    let s: DownState = lineUp(team, line), m = fresh(), counted = 0, end: DriveResult['end'] = 'limit';
+    let s: DownState = lineUp(team, line, { seed }), m = fresh(), counted = 0, end: DriveResult['end'] = 'limit';
     stats.possessions = 1;
     for (let guard = 0; guard < 400_000; guard++) {
         if (s.phase === 'pre-snap') {
@@ -157,8 +157,8 @@ export function drive(team: 'home' | 'away', line: number, off: OffensePolicy, d
 export interface Team { readonly off: OffensePolicy; readonly def: DefensePolicy }
 export interface GameResult { score: { home: number; away: number }; ended: 'final' | 'overtime'; stats: Stats; possessions: { home: number; away: number }; byTeam: Record<'home' | 'away', Stats>; quarterPlays: number[]; liveClockTicks: number; betweenPlayClockTicks: number; regulationClockTicks: number }
 /** Regulation only (up to the end of the fourth quarter), with identical or different scripted teams. */
-export function game(home: Team, away: Team, opts: Options = DEFAULTS): GameResult {
-    let s: DownState = createDown(), m = fresh(), counted = 0, lastEnded = true, lastOff = '';
+export function game(home: Team, away: Team, opts: Options = DEFAULTS, seed?: number): GameResult {
+    let s: DownState = createDown(seed), m = fresh(), counted = 0, lastEnded = true, lastOff = '';
     const total = emptyStats();
     const byTeam = { home: emptyStats(), away: emptyStats() };
     const possessions = { home: 0, away: 0 };

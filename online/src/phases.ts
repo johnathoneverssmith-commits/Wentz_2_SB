@@ -519,7 +519,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     // five rounds, with an order recalculated from post-draft roster strength
     // and a pool that no longer contains the rookies who just signed.
     state.freeAgencyEvent = null;
-    beginFreeAgencyEvent(state, "offseason");
+    beginFreeAgencyEvent(state);
     runCpuTurns(state, humanTeamsOf(state));
     // every human may have skipped it: nothing left to wait for
     runPendingCpuTurns(state);
@@ -531,7 +531,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // saved one would reopen the offseason's offers.
   if (state.stage === "midseasonFreeAgency" && from !== "midseasonFreeAgency") {
     state.freeAgencyEvent = null;
-    beginFreeAgencyEvent(state, "midseason");
+    beginFreeAgencyEvent(state);
     runCpuTurns(state, humanTeamsOf(state));
     runPendingCpuTurns(state);
   }

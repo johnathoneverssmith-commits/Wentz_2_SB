@@ -547,8 +547,7 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
   // moved on, and reusing the old one would reopen its offers.
   if ((to === "freeAgency" && from !== "freeAgency") || (to === "midseasonFreeAgency" && from !== "midseasonFreeAgency")) {
     s.freeAgencyEvent = null;
-    // the destination, not `s.stage`: the callers set the stage only after this returns
-    beginFreeAgencyEvent(s, to === "midseasonFreeAgency" ? "midseason" : "offseason");
+    beginFreeAgencyEvent(s);
     runFreeAgencyCpuTurns(s, humanTeamsOf(s));
   }
 }

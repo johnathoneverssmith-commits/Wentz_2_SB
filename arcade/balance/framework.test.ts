@@ -6,17 +6,18 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { choosePlay, lineUp, snap, stepDown, throwPass, type DownState, type Play } from '../core/down';
 import type { Inputs, PlayerId } from '../core/simulation';
-import { KNOWN_IMBALANCES, gatherEvidence, type Evidence } from './imbalances';
-import { cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type DriveRecord } from './matrix';
+import { EVIDENCE_SEEDS, KNOWN_IMBALANCES, gatherEvidence, type Evidence } from './imbalances';
+import { STARTS, cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type DriveRecord } from './matrix';
 import { hashSeed } from './rng';
-import { BALANCED, BEST_RESPONSE, DEEP, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, throwValue, type Strategy } from './strategies';
-import { isDeep, byDistance, byRoute, byTiming, rates, sweep, targetCode, throwOnce, tickRange, windowMap, type Target, type ThrowRecord } from './window';
+import { BALANCED, BEST_RESPONSE, DEEP, EVAL_SEEDS, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, driveSeed, gameSeedOf, throwValue, type Strategy } from './strategies';
+import { isDeep, byDistance, byRoute, byTiming, rates, sweep, targetCode, throwOnce, throwOutcomes, tickRange, windowMap, type Target, type ThrowRecord } from './window';
 
 const Z = { x: 0, y: 0 }, IDLE: Inputs = { home: Z, away: Z };
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 const ctx = { defense: 'idle', opts: { reaction: 12, thinkTicks: 0 } } as const;
 /** Letters with touchdowns counted as catches: the shape of a window, whatever happens to the ball after it is caught. */
-const shape = (records: readonly ThrowRecord[]) => windowMap(records).replace(/T/g, 'C');
+/** The window map with a touchdown or a contested catch counted as a catch and a knocked-down pass as an incompletion: what happened, not how. */
+const shape = (records: readonly ThrowRecord[]) => windowMap(records).replace(/[Tc]/g, 'C').replace(/b/g, 'x');
 const differing = (a: string, b: string) => [...a].filter((c, i) => c !== b[i]).length;
 
 let evidence: Evidence;
@@ -49,13 +50,29 @@ describe('the window sweeper records correct telemetry', () => {
         expect(r.receiverGap).toBeCloseTo(h.receiverGap, 9);
         expect(r.defenderGap).toBeCloseTo(h.defenderGap, 9);
     });
-    it('classifies each outcome from the engine\'s own result', () => {
-        expect(throwOnce({ play: 'slants', target: 1, throwTick: 4 })).toMatchObject({ outcome: 'complete', touchdown: false });
-        expect(throwOnce({ play: 'go', target: 3, throwTick: 4 }).outcome).toBe('interception');
-        expect(throwOnce({ play: 'slants', target: 1, throwTick: 100 }).outcome).toBe('incomplete');
+    it('classifies each outcome from the engine\'s own result, and every outcome is one of the catch kinds', () => {
+        const seen: Record<string, Set<string | null>> = { complete: new Set(), incomplete: new Set(), interception: new Set() };
+        for (let seed = 1; seed <= 80; seed++) for (const [play, target, tick] of [['slants', 1, 4], ['go', 3, 4], ['slants', 1, 100], ['go', 1, 90], ['go', 3, 120]] as const) {
+            const r = throwOnce({ play, target, throwTick: tick, seed });
+            expect(r.seed).toBe(seed);
+            seen[r.outcome]!.add(r.catchKind);
+        }
+        expect([...seen.complete!].sort()).toEqual(['catch', 'contested-catch']);
+        expect([...seen.incomplete!].sort()).toEqual(['breakup', 'incomplete']);
+        expect([...seen.interception!]).toEqual(['interception']);
         const sack = throwOnce({ play: 'slants', target: 2, throwTick: 9999 });
-        expect(sack.outcome).toBe('sack'); expect(sack.airYards).toBe(0); expect(sack.separationAtThrow).toBeNaN();
-        expect(throwOnce({ play: 'slants', target: 2, throwTick: 8, line: 106 })).toMatchObject({ outcome: 'complete', touchdown: true });
+        expect(sack.outcome).toBe('sack'); expect(sack.catchKind).toBeNull(); expect(sack.airYards).toBe(0); expect(sack.separationAtThrow).toBeNaN();
+        for (let seed = 1; seed <= 30; seed++) { const r = throwOnce({ play: 'slants', target: 2, throwTick: 8, line: 106, seed }); expect(r.touchdown).toBe(r.outcome === 'complete'); }
+    });
+    it('deciding a throw under many seeds from one run up to the catch gives exactly the records of playing it once per seed (nothing reads the seed before the catch)', () => {
+        const seeds = [1, 2, 3, 17, 4096];
+        for (const [play, target, tick] of [['slants', 1, 40], ['go', 2, 100], ['slants', 3, 20], ['go', 1, 9999]] as const) {
+            const forked = throwOutcomes({ play, target, throwTick: tick, stopAtArrival: true }, seeds);
+            expect(forked).toHaveLength(seeds.length);
+            forked.forEach((r, k) => expect(r, `${play} ${target} @${tick} seed ${seeds[k]}`).toEqual(throwOnce({ play, target, throwTick: tick, seed: seeds[k], stopAtArrival: true })));
+        }
+        const swept = sweep({ plays: ['go'], targets: [1], ticks: [20, 100], seeds, stopAtArrival: true });
+        expect(swept).toEqual(seeds.flatMap(seed => [20, 100].map(tick => throwOnce({ play: 'go', target: 1, throwTick: tick, seed, stopAtArrival: true }))));
     });
     it('records yards only for completions, and the incomplete and intercepted throws gain nothing', () => {
         for (const r of evidence.pocket) { if (r.outcome !== 'complete') expect(r.yards).toBe(0); else expect(Number.isFinite(r.yards)).toBe(true); }
@@ -167,14 +184,43 @@ describe('the strategies do what they say', () => {
         const rec = st.players.find(x => x.id === `home-${targetCode(chosen)}`)!;
         if (threw < 150) expect(Math.min(...st.players.filter(x => x.team === 'away').map(x => dist(x, rec)))).toBeGreaterThanOrEqual(OPEN_SEPARATION - 1e-9);
     });
-    it('the best response takes the highest-valued throw: nothing on the search grid beats it, and its value is what the throw earns', () => {
+    it('the best response takes the throw with the highest expected value: nothing on the search grid beats it, and its value is the average of what the throw earns under the evaluation seeds', () => {
         const pre = lineUp('home', 60, { playNumber: 1 });
         const best = bestCall(pre, ctx);
+        const expected = (play: Play, target: Target, tick: number) => { const rs = throwOutcomes({ play, target, throwTick: tick, from: pre }, EVAL_SEEDS); return rs.reduce((a, r) => a + throwValue(r), 0) / rs.length; };
         let bruteMax = -Infinity;
-        for (const play of ['slants', 'go'] as const) for (const target of [1, 2, 3] as const) for (const tick of tickRange(8, 160, 8)) bruteMax = Math.max(bruteMax, throwValue(throwOnce({ play, target, throwTick: tick, from: pre, stopAtArrival: true })));
-        expect(best.value).toBeGreaterThanOrEqual(bruteMax);
-        expect(throwValue(throwOnce({ play: best.play, target: best.target, throwTick: best.tick, from: pre, stopAtArrival: true }))).toBe(best.value);
+        for (const play of ['slants', 'go'] as const) for (const target of [1, 2, 3] as const) for (const tick of tickRange(8, 160, 8)) bruteMax = Math.max(bruteMax, expected(play, target, tick));
+        expect(best.value).toBeGreaterThanOrEqual(bruteMax - 1e-9);
+        expect(expected(best.play, best.target, best.tick)).toBeCloseTo(best.value, 9);
         expect(best.value).toBeGreaterThan(0);
+        expect(best.pComplete).toBeGreaterThan(0); expect(best.pComplete).toBeLessThanOrEqual(1);
+    });
+    it('the best response never looks at the seed of the game it is in: the same situation under any game seed gives the same call, and the oracle (which does) can differ', () => {
+        const calls = [1, 2, 3, 0xbeef].map(seed => { const c = bestCall(lineUp('home', 60, { playNumber: 1, seed }), ctx); return JSON.stringify([c.play, c.target, c.tick, c.value]); });
+        expect(new Set(calls).size).toBe(1);
+        const oracle = [1, 2, 3, 4, 5, 6, 7, 8].map(seed => { const c = bestCall(lineUp('home', 60, { playNumber: 1, seed }), ctx, 8, 160, [seed]); return JSON.stringify([c.play, c.target, c.tick]); });
+        expect(new Set(oracle).size, 'an oracle that sees each game\'s dice picks different throws in different games').toBeGreaterThan(1);
+    });
+    it('the evaluation seeds are fixed and distinct, and no game a matrix or a report plays uses one of them', () => {
+        expect(new Set(EVAL_SEEDS).size).toBe(EVAL_SEEDS.length); expect(EVAL_SEEDS).toHaveLength(16);
+        const used = new Set<number>();
+        for (let seed = 1; seed <= 12; seed++) for (const team of ['home', 'away']) for (const start of STARTS) used.add(gameSeedOf(driveSeed(seed, team, start)));
+        for (const e of EVAL_SEEDS) expect(used.has(e), `evaluation seed ${e}`).toBe(false);
+    });
+    it('on held-out games the expectation best response completes about as often as it predicted, and the oracle does better because it saw the dice', () => {
+        const heldOut = Array.from({ length: 24 }, (_, k) => gameSeedOf(driveSeed(100 + k, 'home', 60)));
+        const pre = (seed: number) => lineUp('home', 60, { playNumber: 1, seed });
+        const call = bestCall(pre(1), ctx);
+        const realized = throwOutcomes({ play: call.play, target: call.target, throwTick: call.tick, from: pre(1) }, heldOut);
+        const completed = realized.filter(r => r.outcome === 'complete').length / realized.length;
+        expect(Math.abs(completed - call.pComplete), `predicted ${call.pComplete.toFixed(2)}, realized ${completed.toFixed(2)}`).toBeLessThan(0.3);
+        let expectedValue = 0, oracleValue = 0;
+        for (const seed of heldOut) {
+            const mine = bestCall(pre(seed), ctx), theirs = bestCall(pre(seed), ctx, 8, 160, [seed]);
+            expectedValue += throwValue(throwOnce({ play: mine.play, target: mine.target, throwTick: mine.tick, from: pre(seed), stopAtArrival: true }));
+            oracleValue += throwValue(throwOnce({ play: theirs.play, target: theirs.target, throwTick: theirs.tick, from: pre(seed), stopAtArrival: true }));
+        }
+        expect(oracleValue, 'seeing the dice is worth something').toBeGreaterThan(expectedValue);
     });
     it('throw values rank a touchdown above a gain above an incompletion above a loss above an interception', () => {
         const mk = (o: Partial<ThrowRecord>) => ({ outcome: 'complete', touchdown: false, yards: 0, ...o }) as ThrowRecord;
@@ -245,7 +291,7 @@ describe('the statistics add up on real data', () => {
     it('the sweep covers every pass play and eligible receiver across the whole pocket', () => {
         const keys = new Set(evidence.pocket.map(r => `${r.play}-${r.target}`));
         expect(keys).toEqual(new Set(['slants-1', 'slants-2', 'slants-3', 'go-1', 'go-2', 'go-3']));
-        expect(evidence.pocket).toHaveLength(6 * 61);
+        expect(evidence.pocket).toHaveLength(6 * 61 * EVIDENCE_SEEDS.length);
         expect(Math.max(...evidence.pocket.map(r => r.throwTick))).toBe(240);
         expect(evidence.ticksToSack).toBe(245);
     });
@@ -313,18 +359,23 @@ describe('every known imbalance is documented honestly', () => {
 
 describe('baseline characterization of today\'s engine (an intended change to passing updates these on purpose)', () => {
     // Pocket ticks 0, 4, ... 240, line 40, AI defense, humans idle. Any engine change to passing or coverage shows up here first.
-    // Updated for Phase B2 (coverage that reacts to what it sees); the Phase A and B1 maps are in BALANCE.md.
-    const GOLDEN: Record<string, string> = {
-        'slants-1': 'CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxxxxxIIxxxxxxxxxxxxxxxxxxxxxxxCC',
-        'slants-2': 'CCCCCCCCCxxxxxxxxxxxxxxxxxxIIIIIIIIIIIxxxxxxxxIIxIxIIxxxxxxxx',
-        'slants-3': 'xIIICCCCCCxxxxxxxxxxxxIIxxxxxxxxxxxxxCCCCCCCCCCCCCCCCCCCCCCxx',
-        'go-1': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIxxxxxCCCxxxxxxxxxxxxxIIIIIIIIII',
-        'go-2': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIxxxxxCCCxxxxxxxxxxxxxxxxxxIIIII',
-        'go-3': 'xIIIxCxxIIIIIIIIIIIIIIIIIIIIIIIIIIIIxxxxxxxIIIIIIIIIIIIIIIIII',
+    // Updated for Phase C1b-1 (seeded catch resolution); the Phase A, B1 and B2 maps are in BALANCE.md. Each route has two maps. The first is one game, seed 1: a letter
+    // per throw (C caught cleanly, c caught with a defender at the ball, x incomplete, b knocked down, I intercepted). The second is the chance:
+    // a digit per throw, the tenths of the six evidence games (seeds 1-6) in which that throw was caught.
+    const GOLDEN: Record<string, [string, string]> = {
+        'slants-1': ['CCCCCCCCxxCcCxcbcccxccccxcccCccIcIcIcbbbbIbbIbxxbxxbIxIxxxbCC', '8998869988999895699688996896568661136310000000065100851000199'],
+        'slants-2': ['CcCCCCCxcCCCccccccCcccccxbccccCccbcxcccCccbbbbbIxbbIbbbbxbbbb', '9998999869886989899968966899688885866689551000000000000000000'],
+        'slants-3': ['xcbcCCCxCCCcbccbbbcxbcbIbxbbxIxCccccbcCCCCCCCCCCCCCCCCCxCxxCx', '8558989889586686856311000000016898686688888699899899899658530'],
+        'go-1': ['ccCcCcCcCbcccccccccccccbbccbbIcxcICxCccCCccIccIcbcIxxIbbIbbII', '9888988888968999898698961613358365866988869898685100000000000'],
+        'go-2': ['cbbccxCccccccccCccccccccIccIcIccCbbcccCCcbCccccccIcCbbIbbIbbb', '8868869999988866685589956633316166688969988699986885611000000'],
+        'go-3': ['xcbcccccccIbIxxbIxbxbbbbxbbbIbbbbxcIcbIIbbbbbIbxccbcccIbcbxcc', '8558869689110001000000000000000011538100000000039869565658589'],
     };
-    it.each(Object.entries(GOLDEN))('%s window map', (key, map) => {
+    it.each(Object.entries(GOLDEN))('%s window maps', (key, [letters, chance]) => {
         const [play, target] = key.split('-') as [Play, string];
-        expect(windowMap(evidence.pocket.filter(r => r.play === play && r.target === Number(target)))).toBe(map);
+        const route = evidence.pocket.filter(r => r.play === play && r.target === Number(target));
+        expect(windowMap(route.filter(r => r.seed === EVIDENCE_SEEDS[0]))).toBe(letters);
+        const digits = tickRange(0, 240, 4).map(tick => { const at = route.filter(r => r.throwTick === tick); return Math.min(9, Math.floor(10 * at.filter(r => r.outcome === 'complete').length / at.length)); }).join('');
+        expect(digits).toBe(chance);
     });
     it('the pocket lasts 245 ticks and a pass flies for its distance over the ball speed, between the shortest and longest flight', () => {
         expect(evidence.ticksToSack).toBe(245);
@@ -334,52 +385,60 @@ describe('baseline characterization of today\'s engine (an intended change to pa
     });
 });
 
-describe('ratings move the passing game the right way (Phase B2)', () => {
-    // Completion over the whole pocket for the quick route to WR1, by the receiver's and the corner's speed. Noise of a few per cent is the
-    // discrete throw grid; the direction is what is asserted.
-    const rate = (play: Play, wr: number, cb: number) => rates(sweep({ plays: [play], targets: [1], ticks: tickRange(0, 240, 4), abilities: { 'home-WR1': { speed: wr }, 'away-CB1': { speed: cb } } })).complete.p;
-    it('a faster receiver never completes less, and a faster corner never lets the receiver complete more', () => {
+describe('ratings move the passing game the right way (Phase B2, remeasured for the seeded catches of C1b-1)', () => {
+    // Catches are chance, so everything here is taken over four game seeds and compared with a tolerance for what is left of the noise.
+    const SEEDS = [1, 2, 3, 4];
+    const edge = (id: string, speed: number) => ({ [id]: { speed, accel: speed } });
+    // Completion over the whole pocket for the route to WR1, by the receiver's and the corner's speed.
+    const rate = (play: Play, wr: number, cb: number) => rates(sweep({ plays: [play], targets: [1], ticks: tickRange(0, 240, 8), seeds: SEEDS.slice(0, 3), stopAtArrival: true, abilities: { ...edge('home-WR1', wr), ...edge('away-CB1', cb) } })).complete.p;
+    it('a faster corner never lets the receiver complete more', () => {
         for (const play of ['slants', 'go'] as const) {
-            const wrs = [60, 70, 80, 99].map(w => rate(play, w, 74)), cbs = [60, 74, 90].map(c => rate(play, 80, c));
-            for (let i = 1; i < wrs.length; i++) expect(wrs[i]!, `${play}: receiver speed up`).toBeGreaterThanOrEqual(wrs[i - 1]! - 0.04);
+            const cbs = [60, 74, 90].map(c => rate(play, 80, c));
             for (let i = 1; i < cbs.length; i++) expect(cbs[i]!, `${play}: corner speed up`).toBeLessThanOrEqual(cbs[i - 1]! + 0.04);
-            expect(wrs[3]!, `${play}: a real speed edge helps`).toBeGreaterThan(wrs[0]! - 1e-9);
+            expect(cbs[0]! - cbs[2]!, `${play}: and a fast corner does take something away`).toBeGreaterThan(0.015);
         }
     });
-    // Deep = lands 20+ yd downfield while the receiver is still running at pace; the sweep runs both wideouts and every throw moment.
-    const deep = (wr: number, cb: number) => {
-        const edge = (id: string, speed: number) => ({ [id]: { speed, accel: speed } });
-        const records = sweep({ plays: ['go'], targets: [1, 2], ticks: tickRange(0, 240, 4), abilities: { ...edge('home-WR1', wr), ...edge('home-WR2', wr), ...edge('away-CB1', cb), ...edge('away-CB2', cb) } }).filter(isDeep);
-        const caught = records.filter(r => r.outcome === 'complete');
-        return { rate: caught.length / records.length, first: caught.length ? Math.min(...caught.map(r => r.throwTick)) : Infinity, last: caught.length ? Math.max(...caught.map(r => r.throwTick)) : -1, n: caught.length };
+    // Deep = lands 20+ yd downfield; the sweep runs both wideouts and every throw moment. `peak` is the average tick of a caught deep throw (when the window is open)
+    // and `best` is the chance of a catch at its best moment (by throw tick, smoothed over its neighbours); `first` and `last` are the first and last tick of a caught throw.
+    const DEEP_TICKS = tickRange(0, 240, 12), DEEP_SEEDS = [1, 2, 3, 4];
+    const memo = new Map<string, ReturnType<typeof measure>>();
+    const deep = (wr: number, cb: number) => { const k = `${wr}/${cb}`; if (!memo.has(k)) memo.set(k, measure(wr, cb)); return memo.get(k)!; };
+    const measure = (wr: number, cb: number) => {
+        const all = sweep({ plays: ['go'], targets: [1, 2], ticks: DEEP_TICKS, seeds: DEEP_SEEDS, stopAtArrival: true, abilities: { ...edge('home-WR1', wr), ...edge('home-WR2', wr), ...edge('away-CB1', cb), ...edge('away-CB2', cb) } }).filter(r => r.landDepth >= 20);
+        const ticks = DEEP_TICKS;
+        const byTick = ticks.map(tick => { const at = all.filter(r => r.throwTick === tick); return at.length ? at.filter(r => r.outcome === 'complete').length / at.length : 0; });
+        const smooth = byTick.map((v, i) => ((byTick[i - 1] ?? v) + v + (byTick[i + 1] ?? v)) / 3);
+        const best = Math.max(...smooth), caught = all.filter(r => r.outcome === 'complete');
+        return { rate: caught.length / all.length, best, peak: caught.reduce((a, r) => a + r.throwTick, 0) / Math.max(1, caught.length), first: Math.min(...caught.map(r => r.throwTick)), last: Math.max(...caught.map(r => r.throwTick)), intercepted: all.filter(r => r.outcome === 'interception').length / all.length };
     };
-    it('deep passing is possible: with athletes who are close in speed there is a window, and it is a small one', () => {
+    it('deep passing is possible against equal athletes: there is a window, and it is contested (not the open door of the quick game, not closed)', () => {
         const d = deep(70, 74);
-        expect(d.n, 'some deep throws complete').toBeGreaterThan(0);
-        expect(d.rate).toBeLessThan(0.2);
-        expect(deep(60, 74).rate, 'a receiver slower than his corner gets nothing').toBe(0);
+        expect(d.rate).toBeGreaterThan(0.15); expect(d.rate).toBeLessThan(0.7);
+        expect(d.best).toBeGreaterThan(0.25);
+        expect(d.intercepted).toBeGreaterThan(0.05); expect(d.intercepted).toBeLessThan(0.4);
     });
-    it('a real speed edge creates deep opportunities that opens earlier, and a faster corner takes them away', () => {
-        const equal = deep(70, 74), edge = deep(90, 74), burner = deep(99, 74), fastCorner = deep(99, 90), slowCorner = deep(70, 60);
-        expect(edge.rate).toBeGreaterThan(equal.rate + 0.1);
-        expect(burner.rate).toBeGreaterThan(equal.rate + 0.1);
-        expect(burner.first, 'the window opens sooner for the faster receiver').toBeLessThan(equal.first);
-        expect(edge.first).toBeLessThan(equal.first);
-        expect(fastCorner.rate).toBeLessThan(burner.rate);
-        expect(slowCorner.rate).toBeGreaterThan(equal.rate);
+    it('a faster receiver is open sooner, whoever covers him, and a faster corner makes him later', { timeout: 180_000 }, () => {
+        for (const cb of [60, 74, 90]) {
+            const slow = deep(60, cb), mid = deep(80, cb), fast = deep(99, cb);
+            expect(fast.peak, `corner ${cb}: the window is open sooner for a burner`).toBeLessThan(slow.peak - 20);
+            expect(mid.first).toBeLessThan(slow.first);
+            expect(fast.first).toBeLessThan(mid.first);
+            expect(fast.last).toBeLessThan(slow.last);
+        }
+        expect(deep(70, 90).best, 'a faster corner never makes the best moment better').toBeLessThanOrEqual(deep(70, 60).best + 0.04);
     });
-    it('beyond a point more speed buys an earlier window, not a wider one: the receiver runs out of route sooner', () => {
-        // Documented in BALANCE.md: the window's length stays about the same (or shrinks) because the 31-yd route ends sooner, so the share of deep throws that complete flattens.
+    it('beyond a point more speed buys an earlier window, not a bigger one: the receiver runs out of route sooner, and the chance of a catch at its best barely moves', () => {
+        // Documented in BALANCE.md: speed moves when the window opens, and how well a trailing corner can still reach the ball sets how big it is.
         const slow = deep(80, 74), fast = deep(99, 74);
         expect(fast.first).toBeLessThan(slow.first);
         expect(fast.last).toBeLessThan(slow.last);
+        expect(Math.abs(fast.best - slow.best)).toBeLessThan(0.12);
     });
-    it('the short game is not disturbed by the deep correction: the quick window is open and the early slants rate is where it was', () => {
-        const slants = sweep({ plays: ['slants'], targets: [1, 2], ticks: tickRange(0, 240, 4) });
-        const quick = slants.filter(r => r.throwTick < 24), done = quick.filter(r => r.outcome === 'complete').length / quick.length;
-        expect(done).toBeGreaterThanOrEqual(0.8);
-        const wr1 = rates(slants.filter(r => r.target === 1));
-        expect(wr1.complete.p).toBeGreaterThan(0.2); expect(wr1.complete.p).toBeLessThan(0.4);
-        expect(wr1.interception.p).toBeLessThan(0.1);
+    it('the quick game is open and the window narrows as the corner picks up the break: the first half-second beats the second, and waiting costs', () => {
+        const slants = sweep({ plays: ['slants'], targets: [1, 2], ticks: tickRange(0, 240, 4), seeds: SEEDS, stopAtArrival: true });
+        const share = (rs: ThrowRecord[]) => rs.filter(r => r.outcome === 'complete').length / rs.length;
+        expect(share(slants.filter(r => r.throwTick < 24))).toBeGreaterThanOrEqual(0.8);
+        expect(share(slants.filter(r => r.throwTick < 24)) - share(slants.filter(r => r.throwTick >= 120))).toBeGreaterThan(0.25);
+        expect(rates(slants.filter(r => r.target === 1)).interception.p).toBeLessThan(0.15);
     });
 });

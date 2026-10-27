@@ -3,6 +3,7 @@ import { DEFENSE_CODES, DEFENSE_FORMATIONS, OFFENSE_CODES, OFFENSE_FORMATIONS, p
 import { KICK_MAX_TICKS } from '../core/kick';
 import { FIELD } from '../core/simulation';
 import { mix, validSeed } from '../core/seed';
+import { CATCH_KINDS } from '../core/catch';
 export const SAVE_KEY = 'wentz.arcade.down.v1';
 export const encodeSave = (state: DownState) => JSON.stringify({ version: 7, state });
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -179,6 +180,8 @@ export function decodeSave(text: string | null): DownState | null {
         if (!ids)
             return null;
         if (!object(s.possession) || !team(s.possession.team) || !ids.has(String(s.possession.carrier)) || !String(s.possession.carrier).startsWith(s.possession.team + '-') || !ids.has(String(s.defender)) || String(s.defender).startsWith(s.offense + '-'))
+            return null;
+        if (s.catchKind !== undefined && !(CATCH_KINDS as readonly unknown[]).includes(s.catchKind))
             return null;
         if (!object(s.formation) || !(String(s.formation.offense) in OFFENSE_FORMATIONS) || !(String(s.formation.defense) in DEFENSE_FORMATIONS))
             return null;
