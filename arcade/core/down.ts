@@ -1,5 +1,6 @@
 import { EXTRA_POINT_DISTANCE, EXTRA_POINT_POINTS, FIELD_GOAL_MAX_DISTANCE, FIELD_GOAL_POINTS, KICK_MAX_TICKS, isGood, kickDistance, meterAt } from './kick';
 import { DEFAULT_SEED } from './seed';
+import { resolveCatch, type CatchKind } from './catch';
 import { advance, distanceCovered, FIELD, STEP_SECONDS, maxSpeed, type ArcadePlayer, type Intent, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
 import { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, STUMBLE_TICKS, assignPlay, clampField, direction, opposite, planTick, playMode, pointAlong, resolveLocks, ROUTE_DEPTH, BLOCK_SLOW, SAFETY_DEPTH, BLOCK_HOLD_TICKS } from './behavior';
 import { DEFENSE_FORMATIONS, OFFENSE_FORMATIONS, baseAbilities, chooseFormations, codeOf, playerId, positionOfCode, JERSEY, type Code, type DefenseFormation, type OffenseFormation, type Slot } from './personnel';
@@ -72,6 +73,8 @@ export interface DownState extends MatchSnapshot {
     readonly kick: KickState | null;
     /** The game's random seed: every chance event is a hash of it and the event's identity (`core/seed.ts`), so a game replays exactly. */
     readonly seed: number;
+    /** How the last pass of this down was decided (a catch, a contested catch, an interception, a breakup or an incompletion); absent before a pass arrives. */
+    readonly catchKind?: CatchKind;
     readonly play: Play;
     readonly playNumber: number;
     readonly line: number;
@@ -383,18 +386,19 @@ function stepPlay(state: DownState, inputs: Inputs): DownState {
         moved = { ...moved, ball };
         if (ball.elapsed + 1e-9 >= ball.duration) {
             if (ball.to.x < FIELD.radius || ball.to.x > FIELD.length - FIELD.radius || ball.to.y < FIELD.radius || ball.to.y > FIELD.width - FIELD.radius)
-                return finish(moved, 'incomplete');
-            // Position decides. A receiver wins the ball cleanly only with BREAKUP_RADIUS to spare over the nearest
-            // defender; a defender inside CATCH_RADIUS intercepts (a human defender also needs Hands), otherwise he breaks it up.
-            const receiver = player(moved, ball.target), rd = distance(receiver, ball.to);
-            const contesting = moved.players.filter(p => p.team !== state.offense && distance(p, ball.to) <= BREAKUP_RADIUS)
-                .sort((a, b) => distance(a, ball.to) - distance(b, ball.to) || a.id.localeCompare(b.id));
-            const interceptor = contesting.find(p => distance(p, ball.to) <= CATCH_RADIUS && (!p.human || state.contestUntil >= moved.tick));
-            if (interceptor)
-                return finish(controls({ ...moved, ball: { kind: 'held' }, possession: { team: interceptor.team, carrier: interceptor.id } }), 'interception');
-            if (contesting.length)
-                return finish(moved, 'incomplete');
-            if (rd > CATCH_RADIUS)
+                return finish({ ...moved, catchKind: 'incomplete' }, 'incomplete');
+            // Who gets the ball is a seeded sequence of decisions (core/catch.ts): reach, order, then each attempt. It happens here, once,
+            // on the tick the ball arrives; the ball is then held or dead, so the pass cannot be resolved again.
+            const receiver = player(moved, ball.target);
+            const out = resolveCatch({
+                seed: moved.seed, playNumber: moved.playNumber, tick: moved.tick, to: ball.to, from: ball.from, receiver,
+                defenders: moved.players.filter(p => p.team !== state.offense),
+                mayIntercept: p => !p.human || state.contestUntil >= moved.tick,
+            });
+            moved = { ...moved, catchKind: out.kind };
+            if (out.kind === 'interception' && out.interceptor)
+                return finish(controls({ ...moved, ball: { kind: 'held' }, possession: { team: out.interceptor.team, carrier: out.interceptor.id } }), 'interception');
+            if (out.kind === 'breakup' || out.kind === 'incomplete')
                 return finish(moved, 'incomplete');
             moved = controls({ ...moved, ball: { kind: 'held' }, possession: { team: state.offense, carrier: receiver.id } });
         }

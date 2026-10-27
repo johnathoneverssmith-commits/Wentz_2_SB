@@ -1,4 +1,5 @@
 /** `npm --prefix arcade run balance` prints these measurements. They describe the rules against scripted players; they assert nothing. */
+import { mix } from '../core/seed';
 import { DEFENSES, DEFENSE_TEXT, OFFENSES, drive, emptyStats, game, minutes, sum, type DefensePolicy, type OffensePolicy, type Stats, type Team } from './sim';
 
 export const STARTS = [28, 38, 50, 62, 74, 86, 98] as const;
@@ -10,7 +11,8 @@ export function driveStats(off: OffensePolicy, def: DefensePolicy, reaction = 12
     let st: Stats = emptyStats(); const ends: Record<string, number> = {}; let n = 0;
     for (const team of ['home', 'away'] as const)
         for (const l of STARTS) {
-            const r = drive(team, team === 'home' ? l : 120 - l, off, def, { reaction, thinkTicks: 0 });
+            // each drive is its own game, so each gets its own seed (catches are chance): the same drives always give the same totals
+            const r = drive(team, team === 'home' ? l : 120 - l, off, def, { reaction, thinkTicks: 0 }, mix(0xd51e, l, team === 'home' ? 0 : 1));
             st = sum(st, r.stats); ends[r.end] = (ends[r.end] ?? 0) + 1; n++;
         }
     return { st, ends, n, pointsPerDrive: st.points / n, td: (ends['touchdown'] ?? 0) / n };

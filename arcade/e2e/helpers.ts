@@ -34,7 +34,7 @@ export async function startClocked(page: Page, seed?: DownState, options: { fram
     await page.clock.install({ time: new Date('2026-10-25T12:00:00Z') });
     // Clock installation starts time running; a future pause avoids a wall-time race on slow CI.
     await page.clock.pauseAt(new Date('2026-10-25T12:01:00Z'));
-    await page.goto('/');
+    await page.goto('/?seed=1');
     await page.clock.runFor(128);
 }
 /** Snap, hold the given keys while the play runs to its end, release, and return the finished snapshot. */

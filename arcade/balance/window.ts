@@ -6,7 +6,9 @@
  * It only observes. It drives the same `stepDown`, `throwPass` and defender policies the game and the other balance tools use, so a
  * change to the engine shows up here and nothing here changes the engine.
  */
-import { maxSpeed } from '../core/simulation';
+import { DEFAULT_SEED } from '../core/seed';
+import { maxSpeed, STEP_SECONDS } from '../core/simulation';
+import type { CatchKind } from '../core/catch';
 import { choosePlay, lineUp, snap, stepDown, TARGET_CODES, type DownState, type Play } from '../core/down';
 import type { Abilities, Inputs, PlayerId, TeamId } from '../core/simulation';
 import { control, DEFAULTS, fresh, type DefensePolicy, type OffensePolicy, type Options } from './sim';
@@ -26,6 +28,8 @@ export interface ThrowSpec {
     readonly throwTick: number;
     readonly line?: number;
     readonly playNumber?: number;
+    /** The game seed the pass is played under (every chance event in it is a function of this). */
+    readonly seed?: number;
     readonly team?: TeamId;
     readonly defense?: DefensePolicy;
     readonly opts?: Options;
@@ -51,6 +55,9 @@ export interface ThrowRecord {
     readonly defense: DefensePolicy;
     readonly throwTick: number;
     readonly outcome: Outcome;
+    /** How the pass was decided at the catch point (null for a throw that never happened, a sack). */
+    readonly catchKind: CatchKind | null;
+    readonly seed: number;
     readonly touchdown: boolean;
     /** Yards gained on the play (0 for an incompletion or an interception). */
     readonly yards: number;
@@ -79,16 +86,42 @@ const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.
 const player = (s: DownState, id: PlayerId) => s.players.find(p => p.id === id)!;
 const nearestOpponent = (s: DownState, to: { x: number; y: number }) => s.players.filter(p => p.team !== s.offense).reduce((a, b) => (dist(b, to) < dist(a, to) ? b : a));
 
-/** One pass: the play is snapped, the quarterback waits `throwTick` ticks, throws to `target`, and the play is run to its end. */
-export function throwOnce(spec: ThrowSpec): ThrowRecord {
+/**
+ * One pass: the play is snapped, the quarterback waits `throwTick` ticks, throws to `target`, and the play is run to its end.
+ * With `forkSeeds` the play is run only to the tick before the ball arrives and then decided once under each of those seeds (the
+ * positions are the same, only the chance differs, because nothing reads the seed before the catch): one record per seed, for expectations.
+ */
+function throwRecords(spec: ThrowSpec, forkSeeds?: readonly number[]): ThrowRecord[] {
     const { play, target, throwTick, defense = 'idle', opts = DEFAULTS } = spec;
     const team = spec.from?.offense ?? spec.team ?? 'home', line = spec.from?.line ?? spec.line ?? 40, playNumber = spec.from?.playNumber ?? spec.playNumber ?? 1;
-    let s: DownState = snap(choosePlay(spec.from ?? lineUp(team, line, { playNumber }), play));
+    let s: DownState = snap(choosePlay(spec.from ?? lineUp(team, line, { playNumber, seed: spec.seed }), play));
     if (spec.abilities) s = { ...s, players: s.players.map(p => spec.abilities![p.id] ? { ...p, abilities: { ...p.abilities, ...spec.abilities![p.id] } } : p) };
     const policy: OffensePolicy = { name: 'sweep', play: () => play, throwAt: () => throwTick, fieldGoals: false, target };
     const memory = fresh();
     let running = 0, thrown = false, receiver = '' as PlayerId, landing = { x: 0, y: 0 }, airYards = 0, flight = 0, sepThrow = NaN, sepArrival = NaN, recGap = NaN, defGap = NaN;
     let nearest: PlayerId = '' as PlayerId;
+    const exact = !spec.stopAtArrival && !forkSeeds;
+    const build = (end: DownState): ThrowRecord => {
+        const reason = end.result?.reason;
+        const outcome: Outcome = !thrown ? 'sack' : reason === 'interception' ? 'interception' : reason === 'incomplete' ? 'incomplete' : 'complete';
+        const base = thrown ? receiver : player(end, `${team}-WR1` as PlayerId).id;
+        const rAb = player(end, base).abilities;
+        const dAb = thrown ? player(end, nearest).abilities : rAb;
+        const dir = team === 'home' ? 1 : -1;
+        const gain = Math.round((landing.x - line) * dir * 10) / 10, inEndZone = dir === 1 ? landing.x >= 110 : landing.x <= 10;
+        return {
+            play, target, receiver: base, team, line, playNumber, defense, throwTick, outcome, exact, catchKind: thrown ? end.catchKind ?? null : null, seed: end.seed,
+            touchdown: exact ? !!end.result?.touchdown : outcome === 'complete' && inEndZone,
+            yards: thrown && outcome === 'complete' ? (exact ? end.result?.yards ?? 0 : gain) : 0,
+            landDepth: gain, running, airYards, flightSeconds: flight, separationAtThrow: sepThrow, separationAtArrival: sepArrival, receiverGap: recGap, defenderGap: defGap, nearestDefender: nearest,
+            receiverAbilities: rAb, defenderAbilities: dAb,
+        };
+    };
+    const arrival = (end: DownState) => {
+        // the ball has just arrived: the players are where the catch was decided
+        const r = player(end, receiver), d = nearestOpponent(end, r), dl = nearestOpponent(end, landing);
+        sepArrival = dist(r, d); recGap = dist(r, landing); defGap = dist(dl, landing); nearest = d.id;
+    };
     for (let guard = 0; guard < 4000 && s.phase === 'live'; guard++) {
         const c = control(s, policy, defense, opts, memory);
         if (!thrown && c.state.ball.kind === 'flight') {
@@ -98,29 +131,22 @@ export function throwOnce(spec: ThrowSpec): ThrowRecord {
             sepThrow = dist(r, nearestOpponent(c.state, r)); running = Math.hypot(r.vx, r.vy) / maxSpeed(r);
         }
         const inFlight = c.state.ball.kind === 'flight';
+        if (forkSeeds && c.state.ball.kind === 'flight' && c.state.ball.elapsed + STEP_SECONDS + 1e-9 >= c.state.ball.duration) {
+            const before = c.state;
+            return forkSeeds.map(seed => { const end = stepDown({ ...before, seed }, c.inputs); arrival(end); return build(end); });
+        }
         s = stepDown(c.state, c.inputs);
         if (inFlight && s.ball.kind !== 'flight') {
-            // the ball has just arrived: the players are where the catch was decided
-            const r = player(s, receiver), d = nearestOpponent(s, r), dl = nearestOpponent(s, landing);
-            sepArrival = dist(r, d); recGap = dist(r, landing); defGap = dist(dl, landing); nearest = d.id;
+            arrival(s);
             if (spec.stopAtArrival) break;
         }
     }
-    const reason = s.result?.reason;
-    const outcome: Outcome = !thrown ? 'sack' : reason === 'interception' ? 'interception' : reason === 'incomplete' ? 'incomplete' : 'complete';
-    const base = thrown ? receiver : player(s, `${team}-WR1` as PlayerId).id;
-    const rAb = player(s, base).abilities;
-    const dAb = thrown ? player(s, nearest).abilities : rAb;
-    const dir = team === 'home' ? 1 : -1, exact = !spec.stopAtArrival;
-    const gain = Math.round((landing.x - line) * dir * 10) / 10, inEndZone = dir === 1 ? landing.x >= 110 : landing.x <= 10;
-    return {
-        play, target, receiver: base, team, line, playNumber, defense, throwTick, outcome, exact,
-        touchdown: exact ? !!s.result?.touchdown : outcome === 'complete' && inEndZone,
-        yards: thrown && outcome === 'complete' ? (exact ? s.result?.yards ?? 0 : gain) : 0,
-        landDepth: gain, running, airYards, flightSeconds: flight, separationAtThrow: sepThrow, separationAtArrival: sepArrival, receiverGap: recGap, defenderGap: defGap, nearestDefender: nearest,
-        receiverAbilities: rAb, defenderAbilities: dAb,
-    };
+    // a throw that was never made (the quarterback was sacked first) has no catch to fork: one record per seed all the same
+    return forkSeeds ? forkSeeds.map(seed => build({ ...s, seed })) : [build(s)];
 }
+export const throwOnce = (spec: ThrowSpec): ThrowRecord => throwRecords(spec)[0]!;
+/** The same throw decided under each of `seeds`: the chance of every outcome, from the real situation, without playing the game forward once per seed. */
+export const throwOutcomes = (spec: ThrowSpec, seeds: readonly number[]): ThrowRecord[] => throwRecords(spec, seeds);
 
 export interface SweepSpec {
     readonly plays?: readonly Play[];
@@ -128,6 +154,10 @@ export interface SweepSpec {
     readonly ticks?: readonly number[];
     readonly lines?: readonly number[];
     readonly playNumbers?: readonly number[];
+    /** Game seeds to play each throw under (default: one, the default seed). Records come seed by seed. */
+    readonly seeds?: readonly number[];
+    /** Stop each throw when the ball arrives (about three times faster): the outcome is the same, the yards after the catch are not played. */
+    readonly stopAtArrival?: boolean;
     readonly team?: TeamId;
     readonly defense?: DefensePolicy;
     readonly abilities?: ThrowSpec['abilities'];
@@ -135,30 +165,42 @@ export interface SweepSpec {
 /** Throw ticks from `from` to `to` inclusive, every `step` (default 4, as the existing golden tables use). */
 export const tickRange = (from = 0, to = 160, step = 4): number[] => { const out: number[] = []; for (let t = from; t <= to; t += step) out.push(t); return out; };
 
-/** Every combination, in a fixed order (plays, targets, lines, play numbers, ticks) so a sweep is repeatable. */
+/** Every combination, in a fixed order (seeds, plays, targets, lines, play numbers, ticks) so a sweep is repeatable. */
 export function sweep(spec: SweepSpec = {}): ThrowRecord[] {
+    const seeds = spec.seeds ?? [DEFAULT_SEED];
+    // Several seeds with the throw stopped at the catch: the play up to the catch does not depend on the seed (nothing reads it before then), so each throw is played
+    // once and decided under every seed, which is the same records for a fraction of the work.
+    if (spec.stopAtArrival && seeds.length > 1) {
+        const bySeed: ThrowRecord[][] = seeds.map(() => []);
+        for (const play of spec.plays ?? PASS_PLAYS) for (const target of spec.targets ?? TARGETS) for (const line of spec.lines ?? [40]) for (const playNumber of spec.playNumbers ?? [1])
+            for (const throwTick of spec.ticks ?? tickRange())
+                throwOutcomes({ play, target, throwTick, line, playNumber, team: spec.team, defense: spec.defense, abilities: spec.abilities, stopAtArrival: true }, seeds).forEach((r, k) => bySeed[k]!.push(r));
+        return bySeed.flat();
+    }
     const out: ThrowRecord[] = [];
-    for (const play of spec.plays ?? PASS_PLAYS) for (const target of spec.targets ?? TARGETS) for (const line of spec.lines ?? [40]) for (const playNumber of spec.playNumbers ?? [1])
+    for (const seed of seeds) for (const play of spec.plays ?? PASS_PLAYS) for (const target of spec.targets ?? TARGETS) for (const line of spec.lines ?? [40]) for (const playNumber of spec.playNumbers ?? [1])
         for (const throwTick of spec.ticks ?? tickRange())
-            out.push(throwOnce({ play, target, throwTick, line, playNumber, team: spec.team, defense: spec.defense, abilities: spec.abilities }));
+            out.push(throwOnce({ play, target, throwTick, line, playNumber, seed, team: spec.team, defense: spec.defense, abilities: spec.abilities, stopAtArrival: spec.stopAtArrival }));
     return out;
 }
 
 /** A deep throw: it lands at least 20 yards past the line while the receiver is still running his route at pace (not one thrown after he has finished it). */
 export const isDeep = (r: ThrowRecord): boolean => r.landDepth >= 20 && r.running >= 0.8;
 
-/** One letter per throw: C caught, T caught for a touchdown, x incomplete, I intercepted, S sacked before the throw. */
-export const letter = (r: ThrowRecord): string => r.outcome === 'sack' ? 'S' : r.outcome === 'interception' ? 'I' : r.outcome === 'incomplete' ? 'x' : r.touchdown ? 'T' : 'C';
+/** One letter per throw: C caught cleanly, c caught with a defender at the ball, T caught for a touchdown, x incomplete, b knocked down, I intercepted, S sacked before the throw. */
+export const letter = (r: ThrowRecord): string => r.outcome === 'sack' ? 'S' : r.outcome === 'interception' ? 'I' : r.outcome === 'incomplete' ? (r.catchKind === 'breakup' ? 'b' : 'x') : r.touchdown ? 'T' : r.catchKind === 'contested-catch' ? 'c' : 'C';
 export const windowMap = (records: readonly ThrowRecord[]): string => records.map(letter).join('');
 
-export interface Rates { readonly throws: number; readonly complete: Proportion; readonly interception: Proportion; readonly incomplete: Proportion; readonly touchdown: Proportion; readonly yardsPerCompletion: number; readonly openRun: number }
-/** Completion, interception and touchdown rates (with 95% intervals) over a set of throws; `openRun` is the longest unbroken run of completions in the given order. */
+export interface Rates { readonly throws: number; readonly complete: Proportion; readonly interception: Proportion; readonly incomplete: Proportion; readonly breakup: Proportion; readonly contested: Proportion; readonly touchdown: Proportion; readonly yardsPerCompletion: number; readonly openRun: number }
+/** The records grouped by the seed they were played under, in order: a run of completions never spans two games. */
+const bySeed = (records: readonly ThrowRecord[]): ThrowRecord[][] => { const g = new Map<number, ThrowRecord[]>(); for (const r of records) (g.get(r.seed) ?? g.set(r.seed, []).get(r.seed)!).push(r); return [...g.values()]; };
+/** Completion, interception and touchdown rates (with 95% intervals) over a set of throws; `openRun` is the longest unbroken run of completions in the given order within one seed. */
 export function rates(records: readonly ThrowRecord[]): Rates {
     const n = records.length, count = (f: (r: ThrowRecord) => boolean) => records.filter(f).length;
     const done = records.filter(r => r.outcome === 'complete');
     return {
-        throws: n, complete: proportion(done.length, n), interception: proportion(count(r => r.outcome === 'interception'), n), incomplete: proportion(count(r => r.outcome === 'incomplete'), n),
-        touchdown: proportion(count(r => r.touchdown), n), yardsPerCompletion: done.length ? done.reduce((a, r) => a + r.yards, 0) / done.length : 0, openRun: longestRun(records.map(r => r.outcome === 'complete')),
+        throws: n, complete: proportion(done.length, n), interception: proportion(count(r => r.outcome === 'interception'), n), incomplete: proportion(count(r => r.outcome === 'incomplete'), n), breakup: proportion(count(r => r.catchKind === 'breakup'), n), contested: proportion(count(r => r.catchKind === 'contested-catch'), n),
+        touchdown: proportion(count(r => r.touchdown), n), yardsPerCompletion: done.length ? done.reduce((a, r) => a + r.yards, 0) / done.length : 0, openRun: bySeed(records).reduce((m, g) => Math.max(m, longestRun(g.map(r => r.outcome === 'complete'))), 0),
     };
 }
 

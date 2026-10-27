@@ -14,14 +14,15 @@
 import type { DownState, Play } from '../core/down';
 import { hashSeed, streamFor, type Rng } from './rng';
 import type { DefensePolicy, OffensePolicy, Options } from './sim';
-import { PASS_PLAYS, TARGETS, targetCode, throwOnce, tickRange, type Target, type ThrowRecord } from './window';
+import { mix } from '../core/seed';
+import { PASS_PLAYS, TARGETS, targetCode, throwOutcomes, tickRange, type Target, type ThrowRecord } from './window';
 
 export interface StrategyContext { readonly defense: DefensePolicy; readonly opts: Options }
 export interface Strategy {
     readonly id: string;
     readonly name: string;
     readonly description: string;
-    /** True when the strategy ignores its seed (every seed makes the same choices), so a matrix runs it once. */
+    /** True when the strategy's choices ignore its stream seed (every seed makes the same choices). The results still differ by seed, because the game's own seed does: the matrix runs every seed. */
     readonly deterministic: boolean;
     /** A policy for one drive. Everything it will do is a function of `seed` and of the situation it is shown. */
     make(seed: number, ctx: StrategyContext): OffensePolicy;
@@ -82,26 +83,57 @@ export const TIMING_AWARE: Strategy = {
 /** What the best response is trying to maximise: touchdowns, then yards (a catch that loses ground is worth less than an incompletion, which keeps the field position), and an interception is the worst. */
 export const throwValue = (r: ThrowRecord): number => r.touchdown ? 100 : r.outcome === 'complete' ? r.yards : r.outcome === 'interception' ? -60 : 0;
 
+/** How many independent chance outcomes the best response imagines for each throw it considers. */
+export const EVAL_SAMPLES = 16;
+/**
+ * The seeds the best response evaluates a throw under. They are fixed and have nothing to do with the seed of the game it is playing, so it
+ * cannot learn how a particular catch will come out: it chooses the throw with the best expected result and then lives with the draw.
+ */
+export const EVAL_SEEDS: readonly number[] = Array.from({ length: EVAL_SAMPLES }, (_, k) => mix(0xe7a1, k));
+/** The seed a drive or game is played under, derived from its strategy stream seed (a different number, so the two never coincide). */
+export const gameSeedOf = (stream: number): number => mix(0x6a3e, stream);
+
+interface Scored extends Call { readonly value: number; readonly pComplete: number; readonly pIntercept: number }
+const mean = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
 /**
  * Every pass play, receiver and throw moment is tried from the real pre-snap situation (a coarse sweep, then the neighbouring ticks of
- * the best), against the defense it will face, and the best-scoring throw is played. Ties go to the earlier play, receiver, tick.
+ * the best), against the defense it will face, and the throw with the best value is played. Ties go to the earlier play, receiver, tick.
+ * `seeds` are the chance outcomes each throw is judged under: with the evaluation seeds it is an expectation (what a player who knows the
+ * odds but not the dice can do); with the game's own seed it is an oracle that has seen the dice.
  */
-export function bestCall(s: DownState, ctx: StrategyContext, coarse = 8, to = 160): Call & { value: number } {
-    let best: (Call & { value: number }) | null = null;
+export function bestCall(s: DownState, ctx: StrategyContext, coarse = 8, to = 160, seeds: readonly number[] = EVAL_SEEDS): Scored {
+    let best: Scored | null = null;
     const consider = (play: Play, target: Target, tick: number) => {
-        const value = throwValue(throwOnce({ play, target, throwTick: tick, from: s, defense: ctx.defense, opts: ctx.opts, stopAtArrival: true }));
-        if (!best || value > best.value) best = { play, target, tick, value };
+        const rs = throwOutcomes({ play, target, throwTick: tick, from: s, defense: ctx.defense, opts: ctx.opts }, seeds);
+        const value = mean(rs.map(throwValue));
+        if (!best || value > best.value) best = { play, target, tick, value, pComplete: mean(rs.map(r => r.outcome === 'complete' ? 1 : 0)), pIntercept: mean(rs.map(r => r.outcome === 'interception' ? 1 : 0)) };
     };
     for (const play of PASS_PLAYS) for (const target of TARGETS) for (const tick of tickRange(coarse, to, coarse)) consider(play, target, tick);
     const first = best!;
     for (const tick of [first.tick - coarse / 2, first.tick + coarse / 2]) if (tick > 0) consider(first.play, first.target, tick);
     return best!;
 }
+/** What the best response predicted for each throw it chose (its belief), kept so a report can set it beside what happened. */
+export interface Prediction { readonly defense: DefensePolicy; readonly pComplete: number; readonly pIntercept: number; readonly value: number }
+export const predictions: Prediction[] = [];
 export const BEST_RESPONSE: Strategy = {
-    id: 'best', name: 'best-response offense', description: 'searches every play, receiver and throw moment from the real situation and plays the best', deterministic: true,
+    id: 'best', name: 'expectation best-response offense', description: 'searches every play, receiver and throw moment from the real situation, judges each over 16 imagined chance outcomes (not the game\'s own), and plays the best on average', deterministic: true,
     make(_seed, ctx) {
         let call: Call = { play: 'slants', target: 1, tick: 60 };
-        return { name: 'best-response offense', play: s => { call = bestCall(s, ctx); return call.play; }, throwAt: () => call.tick, fieldGoals: true, target: () => call.target };
+        return { name: 'expectation best-response offense', play: s => { const c = bestCall(s, ctx); call = c; predictions.push({ defense: ctx.defense, pComplete: c.pComplete, pIntercept: c.pIntercept, value: c.value }); return call.play; }, throwAt: () => call.tick, fieldGoals: true, target: () => call.target };
+    },
+};
+/**
+ * DIAGNOSTIC ONLY, not a player. It judges every throw under the seed of the game it is playing, so it knows how each catch will come out
+ * (it can read the dice). It shows the best any offense could do against this defense if chance could be foreseen; it is not a measure of
+ * what a player can achieve and must never be compared with practicable strategies as if it were.
+ */
+export const ORACLE_BEST_RESPONSE: Strategy = {
+    id: 'oracle', name: 'ORACLE best-response (sees the dice)', description: 'DIAGNOSTIC: searches like the best response but judges each throw under the seed of the game it is in, so it knows the outcome of every catch', deterministic: true,
+    make(_seed, ctx) {
+        let call: Call = { play: 'slants', target: 1, tick: 60 };
+        return { name: 'ORACLE best-response (sees the dice)', play: s => { call = bestCall(s, ctx, 8, 160, [s.seed]); return call.play; }, throwAt: () => call.tick, fieldGoals: true, target: () => call.target };
     },
 };
 

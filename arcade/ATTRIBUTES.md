@@ -28,12 +28,12 @@ Kicker and punter are not on the field in 5B.
 | `block` | `pass_block` / `run_block` (OL, TE, RB), `block` aggregate | block hold time |
 | `passRush` | pass-rush ratings (EDGE, DT) | block hold time in the pocket |
 | `tackle` | tackle ratings | tackle strength against a runner's agility; run-block hold time |
-| `coverage` | man / zone coverage ratings | reserved (5C: coverage reaction and tightness) |
-| `hands` | `catching`, `catch_in_traffic` | reserved (5C: contested catches) |
+| `coverage` | man / zone coverage ratings | how often a defender who has reached a thrown ball gets a hand on it (`core/catch.ts`, `playChance`); reserved otherwise (5C: coverage reaction and tightness) |
+| `hands` | `catching`, `catch_in_traffic` | a receiver holds a ball he has reached (`secureChance`) and a defender takes a ball he has got a hand on away rather than knock it down (`takeAwayChance`) (`core/catch.ts`, Phase C1b-1) |
 | `throwing` | `throw_power`, `throw_accuracy_*` | reserved (5C: throw distance and accuracy) |
 
 `block`, `strength`, `passRush`, `tackle`, `agility`, `speed` and `accel` already change outcomes, so giving one player a different
-number already changes the game (see `holdTicks` and `tackler` in `core/`). `coverage`, `hands`, `throwing` and `awareness` are
+number already changes the game (see `holdTicks` and `tackler` in `core/`). `hands` and (a little) `coverage` now decide catches (Phase C1b-1); `throwing` and `awareness` are
 declared and persisted but intentionally not yet read.
 
 ## How 5C plugs in

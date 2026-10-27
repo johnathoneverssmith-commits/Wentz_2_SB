@@ -131,10 +131,11 @@ position, a jersey number, a team, a formation spot, a behavior and an ability p
 Saves are version 7. Version 7 added the game's random seed (see below); a version 5 or 6 save loads with a seed derived from the game it holds, so loading the same old save always gives the same seed. Version 5 (ten players) saves still load: the game, score, clock and situation carry over, a play that was in
 progress restarts from its snap, and a finished down stays finished.
 
-**The game seed (Phase C1a).** Every game carries a 32-bit `seed` in its state. Nothing reads it yet: it is the groundwork for seeded chance (catches, in Phase C1b). Chance is
-never drawn from a generator: `roll(seed, ...keys)` in `core/seed.ts` hashes the seed with what identifies the event (play number, tick, what is rolled for), so
+**The game seed (Phase C1a) and catches (Phase C1b-1).** Every game carries a 32-bit `seed` in its state. Chance is never drawn from a generator: `roll(seed, ...keys)` in `core/seed.ts` hashes the seed with what identifies the event (play number, tick, what is rolled for), so
 the same state always gives the same roll, a saved game resumes to the same outcome, and nothing has to be saved or kept in step. A new browser game takes a random
-seed; open the game with `?seed=N` to replay the same game every time (for tests and for sharing a situation).
+seed; open the game with `?seed=N` to replay the same game every time (for tests and for sharing a situation). Since C1b-1 the seed decides how a thrown pass is caught: `core/catch.ts` resolves it as a sequence of independent draws (who reaches the ball, who gets there first,
+whether the receiver holds it, whether a defender gets a hand on it and whether he takes it away or only knocks it down), each weighed by position, readiness and the players' `hands` and `coverage` ratings. The five outcomes are a catch, a contested catch, an interception, a breakup and an incompletion,
+kept in the state as `catchKind`. `BALANCE.md` explains the sequence and measures it.
 
 ## Visual design (Milestone 5A)
 

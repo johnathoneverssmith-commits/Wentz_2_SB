@@ -2,7 +2,7 @@ import { encodeSave, decodeSave } from "../browser/save";
 import { expect, it } from "vitest";
 import { lineUp, createDown, snap, choosePlay, throwPass, switchDefender, nextDown, stepDown, contestPass, type DownState } from "../core/down";
 import type { Inputs, PlayerId } from "../core/simulation";
-import { CENTRE, MID, expectOnlyClockMoved, farAway, kickAtTick, place, quiet } from './helpers';
+import { CENTRE, MID, expectOnlyClockMoved, farAway, kickAtTick, place, quiet, seedWhere } from './helpers';
 const idle: Inputs = { home: { x: 0, y: 0 }, away: { x: 0, y: 0 } };
 const ticks = (state: DownState, n: number, inputs = idle) => {
     for (let i = 0; i < n; i++)
@@ -48,15 +48,20 @@ it("an unreachable target is incomplete, with zero yards and the original spot",
     expect(nextDown(dead).line).toBe(38);
 });
 it("a defender at the arrival point intercepts and the next down changes sides", () => {
-    let air = throwPass(farAway(snap(choosePlay(createDown(), "go"))), 1);
-    if (air.ball.kind !== "flight")
-        throw Error("flight required");
-    air = ticks(air, 50);
-    if (air.ball.kind !== "flight")
-        throw Error("still in flight");
-    air = place(air, "away-CB1", air.ball.to.x, air.ball.to.y);
-    const dead = ticks(air, 14);
+    // Whether a defender on the ball takes it is chance (core/catch.ts); this is about what an interception does, so it is staged under a seed that has one.
+    const stage = (seed: number) => {
+        let air = throwPass(farAway(snap(choosePlay(createDown(seed), "go"))), 1);
+        if (air.ball.kind !== "flight")
+            throw Error("flight required");
+        air = ticks(air, 50);
+        if (air.ball.kind !== "flight")
+            throw Error("still in flight");
+        air = place(air, "away-CB1", air.ball.to.x, air.ball.to.y);
+        return ticks(air, 14);
+    };
+    const dead = stage(seedWhere(stage, s => s.result?.reason === "interception"));
     expect(dead.result?.reason).toBe("interception");
+    expect(dead.catchKind).toBe("interception");
     expect(dead.result?.turnover).toBe(true);
     expect(dead.possession).toEqual({ team: "away", carrier: "away-CB1" });
     const next = nextDown(dead);

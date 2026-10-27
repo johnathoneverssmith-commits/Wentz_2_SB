@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BREAKUP_RADIUS, CATCH_RADIUS, SAFETY_POINTS, TOUCHDOWN_POINTS, choosePlay, createDown, direction, lineUp, nextDown, situation, snap, stepDown, throwPass, type DownState } from '../core/down';
 import { STEP_SECONDS, type Inputs } from '../core/simulation';
-import { CENTRE, MID, expectOnlyClockMoved, farAway, kickAtTick, place, tackled, zero } from './helpers';
+import { CENTRE, MID, expectOnlyClockMoved, farAway, kickAtTick, place, seedShare, seedWhere, tackled, zero } from './helpers';
 
 const idle: Inputs = { home: zero, away: zero };
 
@@ -80,13 +80,18 @@ describe('four downs to gain ten yards', () => {
         expect(nextDown(tackled(s, 3))).toMatchObject({ down: 2, line: 108, firstDownLine: 110 });
     });
     it('an interception is a turnover: the interceptor spot, 1st and 10 for the new offense, no down used', () => {
-        let s = farAway(throwPass(snap(choosePlay(createDown(), 'slants')), 1), ['away-CB1']);
-        if (s.ball.kind !== 'flight') throw Error('flight');
-        // the interceptor is on the spot as the ball arrives (a covering defender reacts to the pass, so he is put there one tick before it lands)
-        while (s.ball.kind === 'flight' && s.ball.elapsed < s.ball.duration - STEP_SECONDS - 1e-9) s = stepDown(farAway(s, ['away-CB1']), idle);
-        if (s.ball.kind !== 'flight') throw Error('flight');
-        s = place(s, 'away-CB1', s.ball.to.x, s.ball.to.y);
-        while (s.phase === 'live') s = stepDown(s, idle);
+        // staged under a seed on which the defender on the spot takes the ball (whether he does is chance: core/catch.ts)
+        const stage = (seed: number) => {
+            let s = farAway(throwPass(snap(choosePlay(createDown(seed), 'slants')), 1), ['away-CB1']);
+            if (s.ball.kind !== 'flight') throw Error('flight');
+            // the interceptor is on the spot as the ball arrives (a covering defender reacts to the pass, so he is put there one tick before it lands)
+            while (s.ball.kind === 'flight' && s.ball.elapsed < s.ball.duration - STEP_SECONDS - 1e-9) s = stepDown(farAway(s, ['away-CB1']), idle);
+            if (s.ball.kind !== 'flight') throw Error('flight');
+            s = place(s, 'away-CB1', s.ball.to.x, s.ball.to.y);
+            while (s.phase === 'live') s = stepDown(s, idle);
+            return s;
+        };
+        const s = stage(seedWhere(stage, e => e.result?.reason === 'interception'));
         expect(s.result).toMatchObject({ reason: 'interception', turnover: true, turnoverOnDowns: false, firstDown: false, yards: 0 });
         const next = nextDown(s);
         expect(next).toMatchObject({ offense: 'away', down: 1 });
@@ -191,46 +196,48 @@ describe('a drive from real play', () => {
 });
 
 describe('pass boundaries', () => {
-    /** One tick before arrival; every defender but away-3 is far away and away-3 is parked, so a test places who matters. */
-    function arrival(play: 'slants' | 'go' = 'slants') {
-        let s = farAway(throwPass(snap(choosePlay(createDown(), play)), 1), ['away-CB1']);
+    // Catches are chance (core/catch.ts): these are about how the odds follow the geometry, so each scene is played under 200 seeds and the share counted.
+    /** One tick before arrival; every defender but away-CB1 is far away, and CB1 is parked, so a test places who matters. */
+    const arrival = (seed: number, play: 'slants' | 'go' = 'slants') => {
+        let s = farAway(throwPass(snap(choosePlay(createDown(seed), play)), 1), ['away-CB1']);
         if (s.ball.kind !== 'flight') throw Error('flight');
         const to = s.ball.to;
         s = { ...s, ball: { ...s.ball, elapsed: s.ball.duration - STEP_SECONDS } };
         return { base: place(s, 'away-CB1', 110, 5), to };
-    }
+    };
     const resolve = (s: DownState) => stepDown(s, idle);
-    it('a receiver inside the catch radius catches; outside it the pass is incomplete', () => {
-        const { base, to } = arrival();
-        const caught = resolve(place(base, 'home-WR1', to.x - (CATCH_RADIUS - 0.3), to.y));
-        expect(caught.phase).toBe('live');
-        expect(caught.possession.carrier).toBe('home-WR1');
-        expect(resolve(place(base, 'home-WR1', to.x - (CATCH_RADIUS + 0.4), to.y)).result?.reason).toBe('incomplete');
+    /** The share of seeds on which the scene `put` builds ends with `accept`. */
+    const share = (put: (base: DownState, to: { x: number; y: number }) => DownState, accept: (end: DownState) => boolean) =>
+        seedShare(seed => { const { base, to } = arrival(seed); return resolve(put(base, to)); }, accept);
+    const caught = (s: DownState) => s.possession.carrier === 'home-WR1' && s.phase === 'live';
+    it('a receiver on or near the ball catches it nearly always; the farther from it, the less often, and a receiver far from it never does', () => {
+        const at = (d: number) => share((base, to) => place(base, 'home-WR1', to.x - d, to.y), caught);
+        expect(at(CATCH_RADIUS - 1.3)).toBeGreaterThan(0.85);
+        expect(at(CATCH_RADIUS - 0.3)).toBeGreaterThan(0.55);
+        expect(at(CATCH_RADIUS + 0.4)).toBeLessThan(0.4);
+        expect(at(CATCH_RADIUS + 0.4)).toBeLessThan(at(CATCH_RADIUS - 0.3));
+        expect(at(4.5)).toBe(0);
     });
-    it('a covering defender inside the catch radius intercepts; just outside it can only break the pass up', () => {
-        const { base, to } = arrival();
-        const open = place(base, 'home-WR1', to.x, to.y);
-        expect(resolve(place(open, 'away-CB1', to.x + CATCH_RADIUS - 0.3, to.y)).result?.reason).toBe('interception');
-        expect(resolve(place(open, 'away-CB1', to.x + CATCH_RADIUS + 0.4, to.y)).result?.reason).toBe('incomplete');
+    it('a defender on the ball intercepts it sometimes, not always; one a long way off never does', () => {
+        const picked = (gap: number) => share((base, to) => place(place(base, 'home-WR1', to.x, to.y), 'away-CB1', to.x - gap, to.y), s => s.result?.reason === 'interception');
+        expect(picked(0.4)).toBeGreaterThan(0.05); expect(picked(0.4)).toBeLessThan(0.9);
+        expect(picked(CATCH_RADIUS - 0.3)).toBeGreaterThan(0.03);
+        expect(picked(5)).toBe(0);
     });
-    it('a defender within the break-up radius spoils a clean catch; beyond it the catch stands', () => {
-        const { base, to } = arrival();
-        const open = place(base, 'home-WR1', to.x, to.y);
-        expect(resolve(place(open, 'away-CB1', to.x + BREAKUP_RADIUS - 0.3, to.y)).phase).toBe('dead');
-        expect(resolve(place(open, 'away-CB1', to.x + BREAKUP_RADIUS + 0.4, to.y)).possession.carrier).toBe('home-WR1');
+    it('a defender near the ball spoils a clean catch more often than not, and one far from it does not', () => {
+        const spoiled = (gap: number) => share((base, to) => place(place(base, 'home-WR1', to.x, to.y), 'away-CB1', to.x - gap, to.y), s => s.phase === 'dead');
+        expect(spoiled(0.6)).toBeGreaterThan(0.3);
+        expect(spoiled(0.6)).toBeGreaterThan(spoiled(BREAKUP_RADIUS - 0.3));
+        expect(spoiled(BREAKUP_RADIUS - 0.3)).toBeGreaterThan(spoiled(BREAKUP_RADIUS + 1.5) - 0.01);
+        expect(spoiled(BREAKUP_RADIUS + 2.3), 'beyond his reach').toBeLessThan(0.15);
     });
-    it('the break-up radius is fixed: a receiver a little off the circle does not widen it', () => {
-        const { base, to } = arrival();
-        const off = place(base, 'home-WR1', to.x - (CATCH_RADIUS - 0.3), to.y);
-        // A defender 3.2 yards the other side of the circle is outside 2.2 yards and cannot spoil the catch.
-        const caught = resolve(place(off, 'away-CB1', to.x + 3.2, to.y));
-        expect(caught.phase).toBe('live');
-        expect(caught.possession.carrier).toBe('home-WR1');
-        // Inside 2.2 yards of the circle he still can.
-        expect(resolve(place(off, 'away-CB1', to.x + BREAKUP_RADIUS - 0.3, to.y)).result?.reason).toBe('incomplete');
+    it('a defender who cannot reach the ball changes nothing for a receiver a little off the catch point', () => {
+        const off = (gap?: number) => share((base, to) => { const r = place(base, 'home-WR1', to.x - (CATCH_RADIUS - 0.3), to.y); return gap === undefined ? r : place(r, 'away-CB1', to.x - gap, to.y); }, caught);
+        expect(Math.abs(off(4.5) - off())).toBeLessThan(0.03);
+        expect(off(0.6), 'a defender on the ball does').toBeLessThan(off() - 0.1);
     });
     it('nobody far from the landing point can intercept', () => {
-        const { base, to } = arrival();
+        const { base, to } = arrival(1);
         const open = place(base, 'home-WR1', to.x, to.y);
         for (const d of [5, 12, 40]) expect(resolve(place(open, 'away-CB1', to.x + d, to.y)).possession.team).toBe('home');
     });
