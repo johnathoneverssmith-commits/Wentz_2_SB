@@ -6,7 +6,7 @@ import { beginFreeAgencyEvent, chooseFaMove, cpuTurn, onTheClock, unsignedPool }
 import { beginTradeDeadline, pendingFor, staffDeadlineMove } from "./tradeDeadline";
 import { createLeague, fillRosterGaps } from "./seed";
 import { beginDraft, planAutopicks } from "./rules";
-import type { LeagueState } from "@/domain";
+import type { LeagueState, Player } from "@/domain";
 
 function leagueWithHuman(code = "KC"): LeagueState {
   const s = createLeague(5);
@@ -75,8 +75,25 @@ describe("a staff taking a GM's turn", () => {
 
   it("a different GM identity leans a different way on the same board (a preference, so across the league, not every team)", () => {
     const s = leagueWithHuman("DAL");
-    beginFreeAgencyEvent(s);
     const teams = Object.keys(s.teams).filter((c) => c !== "DAL");
+    // A board where identity has something to decide: two free agents of nearly the same worth to every team, a receiver
+    // and a tackle, and teams whose receivers and tackles are close enough that the choice is a near thing for some
+    // and not for others. (Priced by position, the market's best signing is usually well clear of the next, and
+    // identity only decides between signings that are close.)
+    const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+    pool.slice(2).forEach((p) => {
+      p.retired = true;
+    });
+    const [receiver, tackle] = pool as [Player, Player];
+    Object.assign(receiver, { position: "WR", overall: 80, age: 26 });
+    Object.assign(tackle, { position: "DT", overall: 80, age: 26 });
+    teams.forEach((c, i) => {
+      s.teams[c]!.cap.total += 300;
+      const at = (pos: string) => Object.values(s.players).filter((p) => p.nfl_team === c && p.position === pos && !p.retired && !p.free_agent);
+      at("WR").forEach((p, k) => (p.overall = k < 3 ? 70 : 50));
+      at("DT").forEach((p, k) => (p.overall = k < 2 ? 64 + (i % 6) : 50));
+    });
+    beginFreeAgencyEvent(s);
     const choose = (strategy: "pass_heavy" | "defense_heavy") =>
       teams.map((c) => {
         s.aiGms!.find((g) => g.teamCode === c)!.strategy = strategy;

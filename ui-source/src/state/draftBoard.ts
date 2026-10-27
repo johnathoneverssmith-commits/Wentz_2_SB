@@ -68,6 +68,17 @@ function marketPremium(position: Position): number {
 const ENGINE_SHARE = 0.25;
 const PREMIUM_CAP = 5;
 
+/**
+ * What a rating point at a position is worth relative to an average one: the same blend of the engine's
+ * measure and the market's hierarchy as `positionPremium`, as a multiplier rather than rating points, and
+ * bounded so no one position dwarfs the rest or vanishes (a kicker's point is worth about a third of a
+ * receiver's, a quarterback's about twice). Free agency prices a signing with it.
+ */
+export function positionValueWeight(position: Position): number {
+  const raw = ENGINE_SHARE * POSITION_VALUE[position] + (1 - ENGINE_SHARE) * marketPremium(position);
+  return clamp(Math.exp(raw / 9), 0.25, 2);
+}
+
 export function positionPremium(position: Position): number {
   const raw = ENGINE_SHARE * POSITION_VALUE[position] + (1 - ENGINE_SHARE) * marketPremium(position);
   return PREMIUM_CAP * Math.tanh(raw / PREMIUM_CAP);
