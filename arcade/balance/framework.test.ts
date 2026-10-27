@@ -10,7 +10,7 @@ import { KNOWN_IMBALANCES, gatherEvidence, type Evidence } from './imbalances';
 import { cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type DriveRecord } from './matrix';
 import { hashSeed } from './rng';
 import { BALANCED, BEST_RESPONSE, DEEP, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, throwValue, type Strategy } from './strategies';
-import { byDistance, byRoute, byTiming, rates, sweep, targetCode, throwOnce, tickRange, windowMap, type Target, type ThrowRecord } from './window';
+import { isDeep, byDistance, byRoute, byTiming, rates, sweep, targetCode, throwOnce, tickRange, windowMap, type Target, type ThrowRecord } from './window';
 
 const Z = { x: 0, y: 0 }, IDLE: Inputs = { home: Z, away: Z };
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -315,11 +315,11 @@ describe('baseline characterization of today\'s engine (an intended change to pa
     // Pocket ticks 0, 4, ... 240, line 40, AI defense, humans idle. Any engine change to passing or coverage shows up here first.
     // Updated for Phase B2 (coverage that reacts to what it sees); the Phase A and B1 maps are in BALANCE.md.
     const GOLDEN: Record<string, string> = {
-        'slants-1': 'CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxxxxxIIxxxxxxxxxxxxxxCxxxxCCxxxx',
-        'slants-2': 'CCCCCCCCCxxxxxxxxxxxxxxxxxxIxIIIIIIIxxxxxIIxxxIIxIxxxxxxxxxxx',
+        'slants-1': 'CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxxxxxIIxxxxxxxxxxxxxxxxxxxxxxxCC',
+        'slants-2': 'CCCCCCCCCxxxxxxxxxxxxxxxxxxIIIIIIIIIIIxxxxxxxxIIxIxIIxxxxxxxx',
         'slants-3': 'xIIICCCCCCxxxxxxxxxxxxIIxxxxxxxxxxxxxCCCCCCCCCCCCCCCCCCCCCCxx',
-        'go-1': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIIIIIIIxxxxxxxIIIxxxxxxIIIIIIIII',
-        'go-2': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIIIIIIIxxxxxxxxxxxxIIxxxxxxxIIII',
+        'go-1': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIxxxxxCCCxxxxxxxxxxxxxIIIIIIIIII',
+        'go-2': 'xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIxxxxxCCCxxxxxxxxxxxxxxxxxxIIIII',
         'go-3': 'xIIIxCxxIIIIIIIIIIIIIIIIIIIIIIIIIIIIxxxxxxxIIIIIIIIIIIIIIIIII',
     };
     it.each(Object.entries(GOLDEN))('%s window map', (key, map) => {
@@ -346,8 +346,40 @@ describe('ratings move the passing game the right way (Phase B2)', () => {
             expect(wrs[3]!, `${play}: a real speed edge helps`).toBeGreaterThan(wrs[0]! - 1e-9);
         }
     });
-    it('a big enough speed edge opens the deep route (a receiver 59 speed points faster than his corner), which equal athletes do not', () => {
-        expect(rate('go', 70, 74)).toBe(0);
-        expect(rate('go', 99, 40)).toBeGreaterThan(0.03);
+    // Deep = lands 20+ yd downfield while the receiver is still running at pace; the sweep runs both wideouts and every throw moment.
+    const deep = (wr: number, cb: number) => {
+        const edge = (id: string, speed: number) => ({ [id]: { speed, accel: speed } });
+        const records = sweep({ plays: ['go'], targets: [1, 2], ticks: tickRange(0, 240, 4), abilities: { ...edge('home-WR1', wr), ...edge('home-WR2', wr), ...edge('away-CB1', cb), ...edge('away-CB2', cb) } }).filter(isDeep);
+        const caught = records.filter(r => r.outcome === 'complete');
+        return { rate: caught.length / records.length, first: caught.length ? Math.min(...caught.map(r => r.throwTick)) : Infinity, last: caught.length ? Math.max(...caught.map(r => r.throwTick)) : -1, n: caught.length };
+    };
+    it('deep passing is possible: with athletes who are close in speed there is a window, and it is a small one', () => {
+        const d = deep(70, 74);
+        expect(d.n, 'some deep throws complete').toBeGreaterThan(0);
+        expect(d.rate).toBeLessThan(0.2);
+        expect(deep(60, 74).rate, 'a receiver slower than his corner gets nothing').toBe(0);
+    });
+    it('a real speed edge creates deep opportunities that opens earlier, and a faster corner takes them away', () => {
+        const equal = deep(70, 74), edge = deep(90, 74), burner = deep(99, 74), fastCorner = deep(99, 90), slowCorner = deep(70, 60);
+        expect(edge.rate).toBeGreaterThan(equal.rate + 0.1);
+        expect(burner.rate).toBeGreaterThan(equal.rate + 0.1);
+        expect(burner.first, 'the window opens sooner for the faster receiver').toBeLessThan(equal.first);
+        expect(edge.first).toBeLessThan(equal.first);
+        expect(fastCorner.rate).toBeLessThan(burner.rate);
+        expect(slowCorner.rate).toBeGreaterThan(equal.rate);
+    });
+    it('beyond a point more speed buys an earlier window, not a wider one: the receiver runs out of route sooner', () => {
+        // Documented in BALANCE.md: the window's length stays about the same (or shrinks) because the 31-yd route ends sooner, so the share of deep throws that complete flattens.
+        const slow = deep(80, 74), fast = deep(99, 74);
+        expect(fast.first).toBeLessThan(slow.first);
+        expect(fast.last).toBeLessThan(slow.last);
+    });
+    it('the short game is not disturbed by the deep correction: the quick window is open and the early slants rate is where it was', () => {
+        const slants = sweep({ plays: ['slants'], targets: [1, 2], ticks: tickRange(0, 240, 4) });
+        const quick = slants.filter(r => r.throwTick < 24), done = quick.filter(r => r.outcome === 'complete').length / quick.length;
+        expect(done).toBeGreaterThanOrEqual(0.8);
+        const wr1 = rates(slants.filter(r => r.target === 1));
+        expect(wr1.complete.p).toBeGreaterThan(0.2); expect(wr1.complete.p).toBeLessThan(0.4);
+        expect(wr1.interception.p).toBeLessThan(0.1);
     });
 });

@@ -156,6 +156,28 @@ describe('a defender who reached the ball early stays on it', () => {
     });
 });
 
+describe('a corner whose man has gone deep trails him', () => {
+    const withSpeed = (s: DownState, speed: number): DownState => ({ ...s, players: s.players.map(p => p.id === 'home-WR1' ? { ...p, abilities: { ...p.abilities, speed, accel: speed } } : p) });
+    it('is in front of a receiver he has not yet been beaten by, then 2-3 yd behind him once the receiver is past: never stacked in front for the whole route', () => {
+        let s = withSpeed(start('go'), 99);
+        let ahead = false, behind = false, gaps: number[] = [];
+        for (let t = 0; t < 230; t++) {
+            const w = at(s, 'home-WR1'), c = at(s, 'away-CB1'), dx = (c.x - w.x);
+            if (t < 30) expect(dx, `tick ${t}: lined up in front`).toBeGreaterThan(5);
+            if (dx > 1) ahead = true;
+            if (dx < -1 && (w.x - 40) < 31 - 1) { behind = true; gaps.push(-dx); }
+            s = stepDown(s, idle);
+        }
+        expect(ahead).toBe(true); expect(behind, 'the receiver does get past him').toBe(true);
+        expect(Math.min(...gaps)).toBeGreaterThan(0.5); expect(Math.max(...gaps)).toBeLessThan(6);
+    });
+    it('an equal-speed receiver is never put behind him by more than a stride: he stays level with the receiver (no free separation)', () => {
+        let s = start('go'), worst = 99;
+        for (let t = 0; t < 230; t++) { const w = at(s, 'home-WR1'), c = at(s, 'away-CB1'); worst = Math.min(worst, c.x - w.x); s = stepDown(s, idle); }
+        expect(worst).toBeGreaterThan(-4);
+    });
+});
+
 describe('mirrored plays', () => {
     const swap = (id: string) => id.startsWith('home') ? id.replace('home', 'away') : id.replace('away', 'home');
     it('every player is in the mirror-image place on every tick of a pass play, for either team (a zone defender used to sway by his raw x)', () => {

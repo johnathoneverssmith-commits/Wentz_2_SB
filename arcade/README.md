@@ -86,7 +86,7 @@ game ends on a **final-score screen with a Rematch button**.
    spot only if he can get there first. So **when you throw and to whom decides whether
    the pass is open**: see the timing table in [PLAYTEST.md](PLAYTEST.md). A quick throw
    underneath is open until the corner has picked up the break; a deep route is covered
-   unless the receiver has a real speed advantage. No outcome is rolled.
+   until the receiver has run past the corner, which takes a real speed advantage. No outcome is rolled.
 3. **Blocking.** Two AI blockers each take one of the closest defenders and stand
    between him and the carrier; a defender within 1.8 yards of his own blocker moves at
    40% speed.

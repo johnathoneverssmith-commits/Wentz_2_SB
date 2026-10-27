@@ -58,8 +58,8 @@ export const MAN_COMMIT_FROM = 8;
 export const MAN_COMMIT_TO = 18;
 /** A corner plays off a faster receiver by more and a slower one by less, in proportion to the speed ratio, within these bounds (he respects a burner). */
 export const RESPECT = { min: 0.85, max: 1.25 } as const;
-/** The yards a man defender stays off a receiver who has gone deep: nearly stride for stride. */
-export const MAN_STACK = 1.2;
+/** Where a man defender plays a receiver who has gone deep, in yards downfield of him: negative is behind him. A corner who started ten yards off and is beaten by the stem turns and trails at the receiver's hip rather than staying in front, where he would be nearer every ball led to the receiver than the receiver is. */
+export const MAN_STACK = -2.5;
 /** Yards a man defender plays off a receiver who is shallow, about the depth he lines up at (9.7 yd), so he does not jump forward at the snap; the cushion closes to MAN_STACK as the receiver goes from MAN_COMMIT_FROM to MAN_COMMIT_TO yards deep. */
 export const MAN_CUSHION = 10;
 /** Yards a man defender plays to the inside of his receiver (toward the middle of the field), so the two run side by side instead of one standing in the other's lane. */

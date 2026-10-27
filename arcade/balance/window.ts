@@ -6,6 +6,7 @@
  * It only observes. It drives the same `stepDown`, `throwPass` and defender policies the game and the other balance tools use, so a
  * change to the engine shows up here and nothing here changes the engine.
  */
+import { maxSpeed } from '../core/simulation';
 import { choosePlay, lineUp, snap, stepDown, TARGET_CODES, type DownState, type Play } from '../core/down';
 import type { Abilities, Inputs, PlayerId, TeamId } from '../core/simulation';
 import { control, DEFAULTS, fresh, type DefensePolicy, type OffensePolicy, type Options } from './sim';
@@ -58,6 +59,10 @@ export interface ThrowRecord {
     /** Seconds the ball is in the air. */
     readonly flightSeconds: number;
     /** Receiver to his nearest defender, at the throw and at the moment the ball arrives (yards). */
+    /** Yards past the line of scrimmage at which the ball lands (negative: behind the line). */
+    readonly landDepth: number;
+    /** The receiver's speed at the throw as a share of his top speed (1: still running his route flat out). */
+    readonly running: number;
     readonly separationAtThrow: number;
     readonly separationAtArrival: number;
     /** Receiver to the landing point, and the nearest defender to it, when the ball arrives. */
@@ -82,7 +87,7 @@ export function throwOnce(spec: ThrowSpec): ThrowRecord {
     if (spec.abilities) s = { ...s, players: s.players.map(p => spec.abilities![p.id] ? { ...p, abilities: { ...p.abilities, ...spec.abilities![p.id] } } : p) };
     const policy: OffensePolicy = { name: 'sweep', play: () => play, throwAt: () => throwTick, fieldGoals: false, target };
     const memory = fresh();
-    let thrown = false, receiver = '' as PlayerId, landing = { x: 0, y: 0 }, airYards = 0, flight = 0, sepThrow = NaN, sepArrival = NaN, recGap = NaN, defGap = NaN;
+    let running = 0, thrown = false, receiver = '' as PlayerId, landing = { x: 0, y: 0 }, airYards = 0, flight = 0, sepThrow = NaN, sepArrival = NaN, recGap = NaN, defGap = NaN;
     let nearest: PlayerId = '' as PlayerId;
     for (let guard = 0; guard < 4000 && s.phase === 'live'; guard++) {
         const c = control(s, policy, defense, opts, memory);
@@ -90,7 +95,7 @@ export function throwOnce(spec: ThrowSpec): ThrowRecord {
             thrown = true;
             const ball = c.state.ball, qb = player(c.state, c.state.possession.carrier), r = player(c.state, ball.target);
             receiver = r.id; landing = ball.to; airYards = dist(qb, ball.to); flight = ball.duration;
-            sepThrow = dist(r, nearestOpponent(c.state, r));
+            sepThrow = dist(r, nearestOpponent(c.state, r)); running = Math.hypot(r.vx, r.vy) / maxSpeed(r);
         }
         const inFlight = c.state.ball.kind === 'flight';
         s = stepDown(c.state, c.inputs);
@@ -112,7 +117,7 @@ export function throwOnce(spec: ThrowSpec): ThrowRecord {
         play, target, receiver: base, team, line, playNumber, defense, throwTick, outcome, exact,
         touchdown: exact ? !!s.result?.touchdown : outcome === 'complete' && inEndZone,
         yards: thrown && outcome === 'complete' ? (exact ? s.result?.yards ?? 0 : gain) : 0,
-        airYards, flightSeconds: flight, separationAtThrow: sepThrow, separationAtArrival: sepArrival, receiverGap: recGap, defenderGap: defGap, nearestDefender: nearest,
+        landDepth: gain, running, airYards, flightSeconds: flight, separationAtThrow: sepThrow, separationAtArrival: sepArrival, receiverGap: recGap, defenderGap: defGap, nearestDefender: nearest,
         receiverAbilities: rAb, defenderAbilities: dAb,
     };
 }
@@ -138,6 +143,9 @@ export function sweep(spec: SweepSpec = {}): ThrowRecord[] {
             out.push(throwOnce({ play, target, throwTick, line, playNumber, team: spec.team, defense: spec.defense, abilities: spec.abilities }));
     return out;
 }
+
+/** A deep throw: it lands at least 20 yards past the line while the receiver is still running his route at pace (not one thrown after he has finished it). */
+export const isDeep = (r: ThrowRecord): boolean => r.landDepth >= 20 && r.running >= 0.8;
 
 /** One letter per throw: C caught, T caught for a touchdown, x incomplete, I intercepted, S sacked before the throw. */
 export const letter = (r: ThrowRecord): string => r.outcome === 'sack' ? 'S' : r.outcome === 'interception' ? 'I' : r.outcome === 'incomplete' ? 'x' : r.touchdown ? 'T' : 'C';

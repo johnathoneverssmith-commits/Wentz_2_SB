@@ -6,7 +6,7 @@
  * (and the test then proves the fix); a regression that brings a fixed one back fails the same test.
  */
 import { CATCH_RADIUS } from '../core/behavior';
-import { rates, sweep, tickRange, ticksToSack, type ThrowRecord } from './window';
+import { isDeep, rates, sweep, tickRange, ticksToSack, type ThrowRecord } from './window';
 import { percentile } from './stats';
 
 export interface Evidence {
@@ -139,12 +139,17 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'deep-routes-closed-at-equal-speed', status: 'open', title: 'The deep route is covered at baseline ratings, and a speed edge barely opens it',
-        why: 'The corner starts about 10 yd off, so it takes a receiver with a real speed edge more than two seconds to close the cushion, and the 31-yd route is nearly over by then; the ball also reaches a covered receiver with a defender inside the 2.2 yd break-up radius. Deep separation needs a design decision (corner alignment, route stems, ball placement), not another coverage constant.',
+        id: 'deep-routes-closed-at-equal-speed', status: 'fixed', resolution: 'Phase B2: the committed corner trails at the hip of the receiver (2.5 yd behind) instead of staying 1.2 yd in front, so a receiver with a speed edge gets past him. Deep throws (landing 20+ yd downfield, receiver at pace) complete 0% at baseline in the old model and about 10% with equal-ish athletes now, 26% with a real edge.', title: 'The deep route is covered at baseline ratings, and a speed edge barely opens it',
+        why: 'The corner started about 10 yd off and stayed 1.2 yd in front of the receiver, so he was nearer every ball led to the receiver than the receiver was: a speed edge of 25 points gains about 1.25 yd/s on a 10 yd cushion, and the 31-yd route and the 4 s pocket run out first.',
         detect(ev) {
-            const base = rates(ev.pocket.filter(r => r.play === 'go' && (r.target === 1 || r.target === 2))), edge = rates(ev.deepWithSpeedEdge);
-            return { present: base.complete.p < 0.05 && edge.complete.p < 0.1, evidence: `go to a wideout completes ${pct(base.complete.p)} at baseline and ${pct(edge.complete.p)} for a receiver 25 speed points faster than the corner` };
+            const base = rates(ev.pocket.filter(r => r.play === 'go' && (r.target === 1 || r.target === 2) && isDeep(r))), edge = rates(ev.deepWithSpeedEdge.filter(isDeep));
+            return { present: base.complete.p < 0.05 && edge.complete.p < 0.1, evidence: `deep go throws to a wideout complete ${pct(base.complete.p)} at baseline and ${pct(edge.complete.p)} for a receiver 25 speed points faster than the corner` };
         },
+    },
+    {
+        id: 'deep-interceptions-high', status: 'open', title: 'Deep throws are intercepted about as often as they are caught',
+        why: 'A deep ball thrown while the corner is still in front of the receiver (before the receiver has run past him) lands where the corner is nearer than the receiver, so he intercepts it; any defender inside 1.6 yd of the landing point intercepts even when the receiver is closer to it. The first half is coverage and is right; the second is catch resolution, left for the seeded catch model (Phase C).',
+        detect(ev) { const r = rates(ev.pocket.filter(x => x.play === 'go' && (x.target === 1 || x.target === 2) && isDeep(x))); return { present: r.interception.p >= 0.25, evidence: `deep go throws to a wideout are intercepted ${pct(r.interception.p)} of the time and complete ${pct(r.complete.p)}` }; },
     },
 ];
 

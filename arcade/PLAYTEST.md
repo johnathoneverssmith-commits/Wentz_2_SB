@@ -17,14 +17,14 @@ flies for as long as its distance needs and is led to exactly where the receiver
 ```
 slants to WR1  CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxx
 slants to WR2  CCCCCCCCCxxxxxxxxxxxxxxxxxxIxII
-go to WR1      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIII
-go to WR2      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIII
+go to WR1      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx
+go to WR2      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx
 go to TE       xIIIxCxxIIIIIIIIIIIIIIIIIIIIIII
 ```
 
 Each letter is one throw, four ticks apart (re-measured for Phase B2, when the defense stopped reading the play call). Slants to WR1 is open
 for the first second, until the corner has seen the cut and closed (tick 60), then covered; slants to WR2 is open for about half a second;
-the go routes are covered at baseline ratings (the corner starts ten yards off and a receiver no faster than he is never gets past); the tight end on the go play is a turnover almost throughout. The human-defender table below was recorded at Milestone 4 (ten players) and has not been re-measured since the eleven-a-side
+the go routes are covered until the receiver has run past the corner, which takes a speed edge: at about 2.5 s (tick 140) a receiver close to his corner in speed has a short window (the x at the end of each row), a faster one gets it about half a second sooner; the tight end on the go play is a turnover almost throughout. The human-defender table below was recorded at Milestone 4 (ten players) and has not been re-measured since the eleven-a-side
 rewrite or Phase B1. A human defender changes the picture:
 
 | Play | Human inputs | Outcome |
