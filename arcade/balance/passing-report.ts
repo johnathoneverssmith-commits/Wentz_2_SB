@@ -48,7 +48,7 @@ export function printWindows(pocket: readonly ThrowRecord[]): void {
  * its held-out games are the matrix seeds, none of which is an evaluation seed. The oracle judges each throw under the game's own seed (it has seen the dice):
  * it is a diagnostic of the best any offense could do if chance could be foreseen, never a measure of what a player can do.
  */
-export function printBestResponse(best: readonly DriveRecord[], oracle: readonly DriveRecord[], predicted: readonly { pComplete: number; pIntercept: number }[]): void {
+export function printBestResponse(best: readonly DriveRecord[], oracle: readonly DriveRecord[], predictions: readonly { defense: DefensePolicy; pComplete: number; pIntercept: number }[]): void {
     console.log('\n=== 2b. Best response: expectation (practicable) against ORACLE (sees the dice; diagnostic only) ===');
     const row = (label: string, rs: readonly DriveRecord[]) => {
         const c = summarizeCell(rs.filter(r => r.defense === 'idle'));
@@ -57,7 +57,8 @@ export function printBestResponse(best: readonly DriveRecord[], oracle: readonly
     row('expectation best response', best);
     row('ORACLE best response (diagnostic)', oracle);
     const meanOf = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
-    const realized = summarizeCell(best.filter(r => r.defense === 'idle'));
+    // predictions and results are compared for the same defense only
+    const realized = summarizeCell(best.filter(r => r.defense === 'idle')), predicted = predictions.filter(p => p.defense === 'idle');
     console.log(`  the expectation best response predicted ${pct(meanOf(predicted.map(p => p.pComplete)))} completion and ${pct(meanOf(predicted.map(p => p.pIntercept)))} interception over ${predicted.length} chosen throws; on held-out games it realized ${pct(realized.completion.p)} and ${pct(realized.interception.p)}`);
 }
 

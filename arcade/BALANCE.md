@@ -273,7 +273,7 @@ Strategy matrix against an idle defense (points per drive, touchdown drives; B2 
 | short specialist | 1.23 (1%) | 4.38 (55%) |
 | balanced | 0.60 (2%) | 3.74 (45%) |
 | timing-aware | 2.58 (12%) | 6.60 (92%) |
-| expectation best response | 7.00 (100%) | 6.13 (88%) |
+| expectation best response | 7.00 (100%; an oracle) | 6.13 (88%) |
 | oracle best response (diagnostic) | | 7.00 (100%) |
 
 Against the attentive and covering defenses the numbers are within a few tenths (timing-aware 6.57 and 6.39). The timing-aware offense leads every other practicable strategy by about 2 points per drive. Games stay 12.8-13.9 real minutes (the clock is untouched).
@@ -286,8 +286,8 @@ the defense that was only ever *beside* the ball (the AI plays a ball it cannot 
 
 The old best response searched every throw under the game's own (deterministic) rules. With chance in the game that would have been an oracle that reads the dice. `BEST_RESPONSE` now judges every throw it considers over 16 fixed evaluation seeds
 (`EVAL_SEEDS`, none of which a matrix or report game uses), chooses the throw with the best average, and plays it under the game's real seed. `ORACLE_BEST_RESPONSE` keeps the old behavior under the game's seed and is labelled a diagnostic everywhere.
-On the eight held-out drives the expectation bot scores 6.13 points a drive [4.41, 7.84], touchdown on 88%, and the oracle 7.00, a touchdown every drive in 2.5 plays against 2.8. The expectation bot predicted 97% completion on its chosen
-throws and realized 86%: it picks the throw that looks best among a few hundred, so what it imagined is optimistic, which is the ordinary winner's curse and is why expectation and realized results are reported side by side.
+On 24 held-out drives (four start spots, both teams, three games each) the expectation bot scores 6.13 points a drive [5.18, 7.07], touchdown on 88%, and the oracle 7.00, a touchdown every drive in 2.5 plays against 3.0. The expectation bot predicted 98% completion on its chosen
+throws and realized 78%: it picks the throw that looks best among a few hundred, so what it imagined is optimistic, which is the ordinary winner's curse and is why expectation and realized results are reported side by side (for the same defense; a matrix runs every strategy under every seed, the best response included, since each game has its own dice).
 
 ### Rating sensitivity (`npm --prefix arcade run balance:ratings`, eight games, both routes to both wideouts, whole pocket)
 
@@ -315,8 +315,9 @@ reach of the ball for a receiver who is only 2.5 yd clear. Whether the trailing 
 2. **The quick throw is still open** (86-97% before 0.4 s), now by chance instead of certainty. It was always a coverage-alignment question; it is not a catch-resolution one.
 3. **Coverage is a weak rating** and speed does not turn into completions (above). The order-of-arrival race and the 0.5 yd arm's-length offset are the two constants that shape how much a defender at 1-2 yd matters; they are physical choices, not fits.
 4. **The pocket is still 4.1 s** (`pocket-never-collapses`).
-5. **Registry** (see Known imbalances): `go-tight-end-intercepted`, `slants-tight-end-loses-yards` and `deep-interceptions-high` are fixed by this change; `offense-completes-most-passes` is new and open.
-6. **The expectation best response is a search with 16 imagined outcomes**: its predictions are optimistic (97% against 86%); more evaluation seeds shrink the gap and cost time.
+5. **A catch with a defender at the ball is tackled at once.** Catches used to need 2.2 yd of clear space, so nobody could tackle the receiver on the spot. Now a catch (clean or contested) is made with defenders inside the 1.8 yd contact radius, and tackling is still certain at that distance: in a staged slants throw every contested catch (114 of 114) and every clean catch (15 of 15) ended in a tackle within 0.2 s. Yards after the catch have all but gone. Tackling after a catch should be chance and ability too; that is outside C1b-1.
+6. **Registry** (see Known imbalances): `go-tight-end-intercepted`, `slants-tight-end-loses-yards` and `deep-interceptions-high` are fixed by this change; `offense-completes-most-passes` is new and open.
+7. **The expectation best response is a search with 16 imagined outcomes**: its predictions are optimistic (98% against 78%); more evaluation seeds shrink the gap and cost time.
 
 ## Known imbalances
 

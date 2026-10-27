@@ -22,7 +22,7 @@ export interface Strategy {
     readonly id: string;
     readonly name: string;
     readonly description: string;
-    /** True when the strategy ignores its seed (every seed makes the same choices), so a matrix runs it once. */
+    /** True when the strategy's choices ignore its stream seed (every seed makes the same choices). The results still differ by seed, because the game's own seed does: the matrix runs every seed. */
     readonly deterministic: boolean;
     /** A policy for one drive. Everything it will do is a function of `seed` and of the situation it is shown. */
     make(seed: number, ctx: StrategyContext): OffensePolicy;
@@ -115,13 +115,13 @@ export function bestCall(s: DownState, ctx: StrategyContext, coarse = 8, to = 16
     return best!;
 }
 /** What the best response predicted for each throw it chose (its belief), kept so a report can set it beside what happened. */
-export interface Prediction { readonly pComplete: number; readonly pIntercept: number; readonly value: number }
+export interface Prediction { readonly defense: DefensePolicy; readonly pComplete: number; readonly pIntercept: number; readonly value: number }
 export const predictions: Prediction[] = [];
 export const BEST_RESPONSE: Strategy = {
     id: 'best', name: 'expectation best-response offense', description: 'searches every play, receiver and throw moment from the real situation, judges each over 16 imagined chance outcomes (not the game\'s own), and plays the best on average', deterministic: true,
     make(_seed, ctx) {
         let call: Call = { play: 'slants', target: 1, tick: 60 };
-        return { name: 'expectation best-response offense', play: s => { const c = bestCall(s, ctx); call = c; predictions.push({ pComplete: c.pComplete, pIntercept: c.pIntercept, value: c.value }); return call.play; }, throwAt: () => call.tick, fieldGoals: true, target: () => call.target };
+        return { name: 'expectation best-response offense', play: s => { const c = bestCall(s, ctx); call = c; predictions.push({ defense: ctx.defense, pComplete: c.pComplete, pIntercept: c.pIntercept, value: c.value }); return call.play; }, throwAt: () => call.tick, fieldGoals: true, target: () => call.target };
     },
 };
 /**

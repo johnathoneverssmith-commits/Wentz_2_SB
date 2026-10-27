@@ -38,12 +38,11 @@ export interface MatrixSpec {
     readonly opts?: Options;
 }
 
-/** Every drive of the matrix, in a fixed order. A deterministic strategy (the best response) runs once per start, not once per seed. */
+/** Every drive of the matrix, in a fixed order. Every strategy runs under every seed: a strategy whose choices ignore its stream seed (the best response) still meets different chance in each game, because the game's own seed is derived from the matrix seed. */
 export function runMatrix(spec: MatrixSpec): DriveRecord[] {
     const out: DriveRecord[] = [], opts = spec.opts ?? DEFAULTS;
     for (const strategy of spec.strategies) for (const defense of spec.defenses) {
-        const seeds = strategy.deterministic ? spec.seeds.slice(0, 1) : spec.seeds;
-        for (const seed of seeds) for (const team of ['home', 'away'] as const) for (const start of spec.starts ?? STARTS) {
+        for (const seed of spec.seeds) for (const team of ['home', 'away'] as const) for (const start of spec.starts ?? STARTS) {
             const line = team === 'home' ? start : 120 - start;
             const policy = strategy.make(driveSeed(seed, team, start), { defense, opts });
             const r = drive(team, line, policy, defense, opts, gameSeedOf(driveSeed(seed, team, start))), st = r.stats;

@@ -9,7 +9,7 @@ import type { Inputs, PlayerId } from '../core/simulation';
 import { EVIDENCE_SEEDS, KNOWN_IMBALANCES, gatherEvidence, type Evidence } from './imbalances';
 import { STARTS, cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type DriveRecord } from './matrix';
 import { hashSeed } from './rng';
-import { BALANCED, BEST_RESPONSE, DEEP, EVAL_SEEDS, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, driveSeed, gameSeedOf, throwValue, type Strategy } from './strategies';
+import { BALANCED, BEST_RESPONSE, DEEP, EVAL_SEEDS, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, driveSeed, gameSeedOf, predictions, throwValue, type Strategy } from './strategies';
 import { isDeep, byDistance, byRoute, byTiming, rates, sweep, targetCode, throwOnce, throwOutcomes, tickRange, windowMap, type Target, type ThrowRecord } from './window';
 
 const Z = { x: 0, y: 0 }, IDLE: Inputs = { home: Z, away: Z };
@@ -143,10 +143,24 @@ describe('results are reproducible', () => {
             expect(seed78).not.toEqual(same77);
         }
     });
-    it('the best response ignores its seed, so a matrix runs it once however many seeds it is given', () => {
-        const spec = { strategies: [BEST_RESPONSE], defenses: ['idle'] as const, starts: [60] };
-        const a = runMatrix({ ...spec, seeds: [1] }), many = runMatrix({ ...spec, seeds: [1, 2, 3] });
-        expect(many).toEqual(a); expect(a).toHaveLength(2);
+    it('the choices of the best response ignore its stream seed, but a matrix still runs it under every seed: each game has its own dice', () => {
+        const pre = lineUp('home', 60, { playNumber: 1 });
+        const call = (seed: number) => { const p = BEST_RESPONSE.make(seed, ctx); const play = p.play(pre); return JSON.stringify([play, typeof p.target === 'function' ? p.target(pre) : p.target, typeof p.throwAt === 'function' ? p.throwAt(pre) : p.throwAt]); };
+        expect(call(1)).toBe(call(2));
+        const records = runMatrix({ strategies: [BEST_RESPONSE], defenses: ['idle'], seeds: [1, 2, 3], starts: [60] });
+        expect(records).toHaveLength(2 * 3);
+        expect(new Set(records.map(r => r.seed))).toEqual(new Set([1, 2, 3]));
+        // a policy that ignores its seed, over the same drive under three game seeds, can end three different ways
+        const fixed = { id: 'fixed', name: 'fixed', description: '', deterministic: true, make: () => ({ name: 'fixed', play: () => 'slants' as const, throwAt: () => 40, fieldGoals: true, target: 1 as const }) };
+        const drives = runMatrix({ strategies: [fixed], defenses: ['idle'], seeds: [1, 2, 3, 4, 5, 6], starts: [50] });
+        expect(drives).toHaveLength(2 * 6);
+        expect(new Set(drives.map(d => `${d.points}/${d.plays}/${d.completions}`)).size, 'chance changes the drive').toBeGreaterThan(1);
+    });
+    it('each best-response prediction records the defense it was made against, so a report compares like with like', () => {
+        predictions.length = 0;
+        for (const defense of ['idle', 'cover'] as const) BEST_RESPONSE.make(1, { defense, opts: ctx.opts }).play(lineUp('home', 60, { playNumber: 1 }));
+        expect(predictions.map(p => p.defense)).toEqual(['idle', 'cover']);
+        predictions.length = 0;
     });
     it('every drive in a matrix gets its own derived seed', () => {
         expect(hashSeed(1, 'home', 38)).not.toBe(hashSeed(1, 'home', 50));
