@@ -16,6 +16,7 @@ import {
   unsignedPool,
 } from "@/state/freeAgencyEvent.ts";
 import { expectedSalary } from "@/state/freeAgencyValues.ts";
+import { advanceStage } from "../src/phases.js";
 
 /**
  * Change 4 — the five-round market.
@@ -165,5 +166,47 @@ describe("the CPU", () => {
     runCpuTurns(s, new Set(["KC", "BUF"]));
     const team = onTheClock(s);
     if (team) expect(["KC", "BUF"]).toContain(team);
+  }, 120_000);
+});
+
+describe("the mid-season market opened through the server's stage change", () => {
+  it("records the market, and has the CPU teams ahead of the first human bid at the mid-season bar", () => {
+    const s = createLeague(1470, { ...DEFAULT_CONFIG, humanGmCount: 2 });
+    fillRosterGaps(s);
+    s.gms[0]!.teamCode = "KC";
+    s.gms[0]!.isHuman = true;
+    s.gms[1]!.teamCode = "BUF";
+    s.gms[1]!.isHuman = true;
+    s.stage = "tradeDeadlineSummary";
+    s.week = 9;
+    // one free agent is left, a tackle three points better than a line of seventies: about four weighted points to
+    // every team, over the mid-season bar (3) and under the offseason's (6)
+    const free = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+    free.slice(1).forEach((p) => {
+      p.retired = true;
+    });
+    Object.assign(free[0]!, { position: "DT", overall: 73, age: 26 });
+    for (const code of Object.keys(s.teams)) {
+      s.teams[code]!.cap.total += 300;
+      Object.values(s.players)
+        .filter((p) => p.nfl_team === code && p.position === "DT" && !p.retired && !p.free_agent)
+        .forEach((p, i) => {
+          p.overall = i < 5 ? 70 : 40;
+        });
+    }
+
+    expect(advanceStage(s).moved).toBe(true);
+
+    expect(s.stage).toBe("midseasonFreeAgency");
+    const e = s.freeAgencyEvent!;
+    expect(e.market).toBe("midseason");
+    const firstHuman = e.order.findIndex((c) => c === "KC" || c === "BUF");
+    const ahead = e.order.slice(0, firstHuman);
+    expect(ahead.length, "a human is not first, so some CPU teams act before them").toBeGreaterThan(0);
+    // The team first in the order holds the line every team was given, so the tackle is worth about four weighted points
+    // to it: over the mid-season bar and under the offseason's. It acts before any human, while the league is entering
+    // the stage, so it bids only if the bar follows the market the event was opened for.
+    const bidders = new Set(Object.values(e.offers).flat().map((o) => o.teamCode));
+    expect(bidders.has(e.order[0]!), `the first team in the order (${e.order[0]}) bid`).toBe(true);
   }, 120_000);
 });
