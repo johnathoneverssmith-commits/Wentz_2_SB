@@ -47,7 +47,7 @@ const asVersion2 = (state: unknown) => {
 it('round trips score, down, marker and the drive flags in the current version', () => {
     const dead = scoredHome();
     expect(dead.score).toEqual({ home: 13, away: 3 });
-    expect(JSON.parse(encodeSave(dead)).version).toBe(6);
+    expect(JSON.parse(encodeSave(dead)).version).toBe(7);
     expect(decodeSave(encodeSave(dead))).toEqual(dead);
     const live = snap(lineUp('away', 70, { down: 3, score: { home: 1, away: 2 } }));
     expect(decodeSave(encodeSave(live))).toEqual(live);
@@ -189,10 +189,10 @@ it('compatibility boundary: version 4 (unreleased, with differing clock units) a
         expect(decodeSave(text), `v4 clock ${clock}`).toBeNull();
         expect(isUnsupportedSave(text)).toBe(true);
     }
-    for (const version of [0, 7, 99, '6', null]) expect(decodeSave(JSON.stringify({ version, state: dead })), String(version)).toBeNull();
-    expect(isUnsupportedSave(JSON.stringify({ version: 7, state: dead }))).toBe(true);
-    for (const text of [encodeSave(dead), JSON.stringify({ version: 3, state: {} }), 'not json', null, '{"version":6']) expect(isUnsupportedSave(text), String(text)).toBe(false);
-    expect(SUPPORTED_VERSIONS).toEqual([1, 2, 3, 5, 6]);
+    for (const version of [0, 8, 99, '7', null]) expect(decodeSave(JSON.stringify({ version, state: dead })), String(version)).toBeNull();
+    expect(isUnsupportedSave(JSON.stringify({ version: 8, state: dead }))).toBe(true);
+    for (const text of [encodeSave(dead), JSON.stringify({ version: 3, state: {} }), 'not json', null, '{"version":7']) expect(isUnsupportedSave(text), String(text)).toBe(false);
+    expect(SUPPORTED_VERSIONS).toEqual([1, 2, 3, 5, 6, 7]);
 });
 
 it('version 5 (ten players) migrates into eleven a side: the game carries over, a live play restarts from its snap, a finished down stays finished', () => {
