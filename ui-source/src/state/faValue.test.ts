@@ -4,6 +4,8 @@ import type { LeagueState, Player } from "@/domain";
 import { positionValueWeight } from "./draftBoard.ts";
 import { MIN_SIGNING_VALUE, MIN_SIGNING_VALUE_MIDSEASON, signingBar, signingValue, slotGain } from "./faValue.ts";
 import { beginFreeAgencyEvent, chooseFaMove, offerRoomFor } from "./freeAgencyEvent.ts";
+import { useStore } from "./store.ts";
+import { marketOfStage } from "./faValue.ts";
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 
 /**
@@ -186,17 +188,47 @@ describe("a CPU team's choice in the market", () => {
   });
 
   it("keeps the mid-season market alive: a modest upgrade is bid on there, where the offseason's higher bar would pass on it", () => {
-    expect(signingBar("midseasonFreeAgency")).toBe(MIN_SIGNING_VALUE_MIDSEASON);
-    expect(signingBar("freeAgency")).toBe(MIN_SIGNING_VALUE);
+    expect(signingBar("midseason")).toBe(MIN_SIGNING_VALUE_MIDSEASON);
+    expect(signingBar("offseason")).toBe(MIN_SIGNING_VALUE);
     expect(MIN_SIGNING_VALUE_MIDSEASON).toBeLessThan(MIN_SIGNING_VALUE);
+    expect(marketOfStage("midseasonFreeAgency")).toBe("midseason");
+    for (const stage of ["freeAgency", "offseasonFreeAgency", "regularSeason", "tradeDeadlineSummary"]) expect(marketOfStage(stage), stage).toBe("offseason");
     // a tackle three points over a good line: worth about four weighted points to the team, between the two bars
-    const worthOf = (stage: "freeAgency" | "midseasonFreeAgency") => {
+    const move = (market: "offseason" | "midseason", stage: string, record = true) => {
       const { s, code } = rigged(76, [{ position: "DT", overall: 73 }], { DT: [70, 70, 70, 70, 70] });
-      s.stage = stage;
+      s.stage = stage as never;
+      if (record) s.freeAgencyEvent!.market = market;
+      else delete s.freeAgencyEvent!.market;
       return chooseFaMove(s, code).kind;
     };
-    expect(worthOf("freeAgency")).toBe("pass");
-    expect(worthOf("midseasonFreeAgency")).toBe("offer");
+    expect(move("offseason", "freeAgency")).toBe("pass");
+    expect(move("midseason", "midseasonFreeAgency")).toBe("offer");
+    // the market the event was opened for decides, not the stage the league happens to report: the opening turns of the
+    // mid-season market run while the league is still entering it
+    expect(move("midseason", "tradeDeadlineSummary")).toBe("offer");
+    expect(move("offseason", "midseasonFreeAgency")).toBe("pass");
+  });
+
+  it("reads the stage when an event has no market recorded, as in a save from before the field existed", () => {
+    const move = (stage: string) => {
+      const { s, code } = rigged(76, [{ position: "DT", overall: 73 }], { DT: [70, 70, 70, 70, 70] });
+      s.stage = stage as never;
+      delete s.freeAgencyEvent!.market;
+      return chooseFaMove(s, code).kind;
+    };
+    expect(move("midseasonFreeAgency")).toBe("offer");
+    expect(move("freeAgency")).toBe("pass");
+  });
+
+  it("records the market when an event opens: the one given, or else the stage's", () => {
+    const { s } = market(77);
+    expect(s.freeAgencyEvent!.market).toBe("offseason"); // the fixture's stage is freeAgency
+    Object.assign(s, { freeAgencyEvent: null });
+    beginFreeAgencyEvent(s, "midseason");
+    expect(s.freeAgencyEvent!.market).toBe("midseason");
+    Object.assign(s, { freeAgencyEvent: null, stage: "midseasonFreeAgency" });
+    beginFreeAgencyEvent(s);
+    expect(s.freeAgencyEvent!.market).toBe("midseason");
   });
 
   it("is deterministic: the same market gives the same choice, whoever asks", () => {
@@ -204,4 +236,63 @@ describe("a CPU team's choice in the market", () => {
     const b = market(71);
     expect(chooseFaMove(a.s, a.code)).toEqual(chooseFaMove(b.s, b.code));
   });
+});
+
+describe("the mid-season market opened through the real stage change", () => {
+  it("has the CPU teams ahead of the first human bid at the mid-season bar, in the opening turns", async () => {
+    // a league with rosters (the store's own starting league has none, and a team with no tackles would bid at any bar)
+    await useStore.getState().newLeague(1470, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+    const st = useStore.getState();
+    st.pickTeam(st.viewerGmId, "GB");
+    useStore.setState((s) => {
+      fillRosterGaps(s);
+      for (const g of s.gms) if (g.id !== s.viewerGmId) g.isHuman = false;
+      s.stage = "tradeDeadlineSummary";
+      s.week = 9;
+      // only one free agent is left, a tackle three points better than a line of seventies: worth about four
+      // weighted points to every team, over the mid-season bar and under the offseason's
+      const free = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+      free.slice(1).forEach((p) => {
+        p.retired = true;
+      });
+      Object.assign(free[0]!, { position: "DT", overall: 73, age: 26 });
+      for (const code of Object.keys(s.teams)) {
+        s.teams[code]!.cap.total += 300; // room is not what this is about
+        const mine = () => Object.values(s.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent);
+        // this league is only partly rostered, and a team with fewer than five tackles would find the signing worth more
+        // than the offseason bar through its thin depth alone: every team gets the same full line of seventies
+        for (let guard = 0; guard < 60 && mine().filter((p) => p.position === "DT").length < 5; guard++) {
+          const spare = mine().filter((p) => p.position !== "DT").sort((x, y) => x.overall - y.overall)[0];
+          if (!spare) break;
+          spare.position = "DT";
+        }
+        mine()
+          .filter((p) => p.position === "DT")
+          .forEach((p, i) => {
+            p.overall = i < 5 ? 70 : 40;
+          });
+      }
+    });
+    useStore.getState().autoReadyNonViewers();
+    useStore.getState().setReady(useStore.getState().viewerGmId, true);
+    const moved = await useStore.getState().tryAdvance();
+    expect(moved.moved).toBe(true);
+
+    const s = useStore.getState();
+    expect(s.stage).toBe("midseasonFreeAgency");
+    const e = s.freeAgencyEvent!;
+    expect(e.market).toBe("midseason");
+    const lineOf = (code: string) => Object.values(s.players).filter((p) => p.nfl_team === code && p.position === "DT" && !p.retired && !p.free_agent).map((p) => p.overall);
+    expect(lineOf(e.order[0]!), "the first team holds the full line it was given").toEqual([70, 70, 70, 70, 70]);
+    const human = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
+    const ahead = e.order.slice(0, e.order.indexOf(human));
+    expect(ahead.length, "the human is not first, so some CPU teams act before them").toBeGreaterThan(0);
+    // The team first in the order holds the line every team was given, so the tackle is worth about four weighted points
+    // to it: over the mid-season bar and under the offseason's. It acts before any human, while the league is still
+    // entering the stage, so it bids only if the bar follows the market the event was opened for and not the stage.
+    // (Teams with no tackles at all would bid at any bar, so they are not the evidence; and a bid war ends after about
+    // nine bids, so only the first team is asked.)
+    const firstBidders = new Set(Object.values(e.offers).flat().map((o) => o.teamCode));
+    expect(firstBidders.has(e.order[0]!), `the first team in the order (${e.order[0]}) bid`).toBe(true);
+  }, 120_000);
 });

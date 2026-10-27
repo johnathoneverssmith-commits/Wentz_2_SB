@@ -5,7 +5,7 @@ import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract } from "./rules";
 import { capUsedOf } from "./seed.ts";
-import { signingBar, signingValue } from "./faValue.ts";
+import { marketOfStage, signingBar, signingValue, type FaMarket } from "./faValue.ts";
 import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
@@ -35,6 +35,12 @@ import { strategyAgeBonus, strategyEliteBonus, strategyPositionBonus } from "./a
 export const FREE_AGENCY_ROUNDS = 5;
 
 export interface FreeAgencyEventState {
+  /**
+   * Which market this is. Recorded when the event opens, because the CPU teams ahead of the first human take
+   * their turns while the league is still entering the stage (`s.stage` is not yet the market's). Absent in a
+   * save from before it was recorded: the stage is read instead.
+   */
+  market?: FaMarket;
   round: number;
   /** Team codes, fixed for the whole event: best roster first. */
   order: string[];
@@ -71,13 +77,14 @@ export function unsignedPool(s: LeagueState): Player[] {
   );
 }
 
-export function beginFreeAgencyEvent(s: LeagueState): void {
+export function beginFreeAgencyEvent(s: LeagueState, market: FaMarket = marketOfStage(s.stage)): void {
   if (s.freeAgencyEvent) return;
   // "Skip free agency" is a choice about this market, not every market after
   // it: carried into the next one it passed a GM's turns before they had
   // seen the board, and left year two's market over before it began
   clearSkips(s, "freeAgency");
   s.freeAgencyEvent = {
+    market,
     round: 1,
     order: freeAgencyOrder(s),
     turnIndex: 0,
@@ -363,7 +370,8 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   // just how much better he is than the best man already there
   const units =
     difficulty.unitAwareness > 0 ? unitGainer((pos) => lists?.get(pos) ?? []) : null;
-  const bar = signingBar(s.stage);
+  // the market the event was opened for; a save that predates the field falls back to the stage
+  const bar = signingBar(e.market ?? marketOfStage(s.stage));
   let target: Player | null = null;
   let bestGain = -Infinity;
   for (const p of shortlist) {

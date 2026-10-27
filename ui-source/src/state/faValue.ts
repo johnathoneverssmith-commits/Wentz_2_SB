@@ -34,9 +34,17 @@ export const MIN_SIGNING_VALUE = 6;
  */
 export const MIN_SIGNING_VALUE_MIDSEASON = 3;
 
+/** Which of the year's two five-round markets is open. */
+export type FaMarket = "offseason" | "midseason";
+
+/** The market a stage belongs to: only `midseasonFreeAgency` is the mid-season one. */
+export function marketOfStage(stage: string): FaMarket {
+  return stage === "midseasonFreeAgency" ? "midseason" : "offseason";
+}
+
 /** The bar for the market that is open. */
-export function signingBar(stage: string): number {
-  return stage === "midseasonFreeAgency" ? MIN_SIGNING_VALUE_MIDSEASON : MIN_SIGNING_VALUE;
+export function signingBar(market: FaMarket): number {
+  return market === "midseason" ? MIN_SIGNING_VALUE_MIDSEASON : MIN_SIGNING_VALUE;
 }
 
 /**
