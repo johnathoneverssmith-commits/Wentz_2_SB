@@ -8,33 +8,34 @@ the older lifecycle and pass cases.
 
 ## Passing: when, and to whom, decides it
 
-One letter per throw made 0, 4, 8 ... 120 ticks (two seconds) after the snap, defenders
-and receivers on their own, humans idle. `C` caught, `x` incomplete (broken up), `I`
-intercepted. These rows are golden tests (`tests/passing.test.ts`); the whole pocket is mapped
-in `balance/framework.test.ts` and `BALANCE.md`. They were re-measured for Phase B1 (the ball
-flies for as long as its distance needs and is led to exactly where the receiver will be).
+A catch is chance now (Phase C1b-1): the same throw against the same defense does not always end the same way, and the same game seed and the same actions always do. One digit per throw
+made 0, 4, 8 ... 120 ticks (two seconds) after the snap, defenders and receivers on their own, humans idle: the tenths of 16 games in which it was caught. These rows are golden tests
+(`tests/passing.test.ts`, the whole pocket is mapped in `balance/framework.test.ts` and `BALANCE.md`).
 
 ```
-slants to WR1  CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxx
-slants to WR2  CCCCCCCCCxxxxxxxxxxxxxxxxxxIxII
-go to WR1      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx
-go to WR2      xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx
-go to TE       xIIIxCxxIIIIIIIIIIIIIIIIIIIIIII
+slants to WR1  8998989988998896798888996686565
+slants to WR2  9988999669888888798878988888688
+go to WR1      9987989788978899886897964423326
+go to WR2      8867859998888988687568755635336
+go to TE       8568887888510000000000000000000
 ```
 
-Each letter is one throw, four ticks apart (re-measured for Phase B2, when the defense stopped reading the play call). Slants to WR1 is open
-for the first second, until the corner has seen the cut and closed (tick 60), then covered; slants to WR2 is open for about half a second;
-the go routes are covered until the receiver has run past the corner, which takes a speed edge: at about 2.5 s (tick 140) a receiver close to his corner in speed has a short window (the x at the end of each row), a faster one gets it about half a second sooner; the tight end on the go play is a turnover almost throughout. The human-defender table below was recorded at Milestone 4 (ten players) and has not been re-measured since the eleven-a-side
-rewrite or Phase B1. A human defender changes the picture:
+(They are the first 31 of the 61 throws of the pocket; the exact digits, and the chance of an interception, are in the snapshot.) The slants are caught about nine times in ten for the first second, and
+still six or seven in ten at two seconds, when the corner has picked up the break. The go routes are caught eight or nine times in ten at first and fall to four or five at two seconds as the corner closes; the tight end on the go play is
+caught eight times in ten at first and then almost never (he is the linebacker's man). Interceptions are rare: none on the slants and none on the go routes in the first 1.5 s, two or three in ten on the go routes at two seconds, and one or two in ten for the tight end from 0.7 s. A catch can now be *contested* (a defender also reached the ball), a pass can be *knocked down*, or *fall incomplete*; the game
+records which as `catchKind`.
 
-| Play | Human inputs | Outcome |
-| --- | --- | --- |
-| Slants #3, throw at once | Orange idle | **Completion** |
-| Same | Orange holds Up for 32 ticks (0.53 s) | **Incomplete** (broken up) |
-| Same | Same movement, then Right Shift at flight tick 40 | **Interception**, ball to Foxes |
-| Same | Right Shift pressed at the throw | Hands expire: **incomplete**, not intercepted |
-| Slants #3 | throw at tick 24 | **Incomplete** against the AI alone |
-| Slants #3 | throw at tick 44 | **Completion** against the AI alone |
+A human defender changes the picture. The same slants throw to the first receiver, with Orange's cornerback 3 yd from the landing point (300 games each):
+
+| Human input | Caught clean | Caught, contested | Knocked down | Intercepted | Incomplete |
+| --- | --- | --- | --- | --- | --- |
+| Orange idle | 71% | 21% | 4% | 0% | 5% |
+| walks to 1.95 yd from the ball | 3% | 80% | 15% | 0% | 2% |
+| goes right to the ball (1.0 yd), no Hands | 0% | 73% | 23% | 0% | 4% |
+| same, Right Shift pressed 5 ticks in (the window has run out) | 0% | 73% | 23% | 0% | 4% |
+| same, Right Shift pressed 40 ticks in (the window is open when the ball arrives) | 0% | 73% | 15% | **8%** | 4% |
+
+A human who is not inside the timed Hands window never intercepts, whatever he does; inside it he can, but the receiver is usually on the ball first, so it is a chance and not a certainty.
 
 ## Rushing and blocking
 

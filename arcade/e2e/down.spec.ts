@@ -6,7 +6,7 @@ const saved = (page: Page): Promise<DownState> => page.evaluate(() => JSON.parse
 const field = (page: Page) => page.getByRole('img', { name: /Football field/ });
 test.beforeEach(async ({ page }) => {
     await page.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5184' ? route.continue() : route.abort());
-    await page.goto('/');
+    await page.goto('/?seed=1');
 });
 test('a real handoff lets both humans move, tackle and begin the next down', async ({ page }) => {
     await expect(page.getByTestId('phase')).toHaveText('Pre-snap');
@@ -59,7 +59,10 @@ for (const [play, key, target, wait] of [['slants', 'KeyE', 'home-WR2', 640], ['
             await expect(page.getByText('Bluebirds possession', { exact: false })).toBeVisible();
             const x = landed.players.find(p => p.id === target)!.x;
             await page.clock.runFor(160);
-            expect((await saved(page)).players.find(p => p.id === target)!.x).toBeLessThan(x - .3);
+            const after = await saved(page);
+            // a catch with a defender at the ball (a contested catch) is tackled where he stands: then the down is over and he has not moved; otherwise he runs left
+            if (after.phase === 'live') expect(after.players.find(p => p.id === target)!.x).toBeLessThan(x - .3);
+            else expect(after.result?.reason).toBe('tackle');
         }
         else expect(['incomplete', 'interception', 'tackle']).toContain(landed.result?.reason);
         await page.keyboard.up('KeyA');

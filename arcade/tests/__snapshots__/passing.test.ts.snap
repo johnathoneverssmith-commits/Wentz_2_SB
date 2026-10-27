@@ -1,11 +1,21 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 1`] = `"CCCCCCCCCCCCCCCxxxxxxxxxxxxxxxx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > go 1 caught 1`] = `"9987989788978899886897964423326"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 2`] = `"CCCCCCCCCxxxxxxxxxxxxxxxxxxIIII"`;
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > go 1 intercepted 1`] = `"0000000000000000000000031133240"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 3`] = `"xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > go 2 caught 1`] = `"8867859998888988687568755635336"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 4`] = `"xxxxxxxxxxxxxxxxIxxIIIIIIIIIIIx"`;
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > go 2 intercepted 1`] = `"0000000000000000000000132022341"`;
 
-exports[`pass timing against the AI defense > every route has its own windows: the same throw is open, covered or contested depending on when and to whom 5`] = `"xIIIxCxxIIIIIIIIIIIIIIIIIIIIIII"`;
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > go 3 caught 1`] = `"8568887888510000000000000000000"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > go 3 intercepted 1`] = `"0000000000113122333201111211412"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > slants 1 caught 1`] = `"8998989988998896798888996686565"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > slants 1 intercepted 1`] = `"0000000000000000000000000000100"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > slants 2 caught 1`] = `"9988999669888888798878988888688"`;
+
+exports[`pass timing against the AI defense > every route has its own windows: the chance of the same throw being caught, covered or intercepted depends on when and to whom > slants 2 intercepted 1`] = `"0000000000000000000000000000000"`;

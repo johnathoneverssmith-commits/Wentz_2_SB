@@ -15,8 +15,8 @@ const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.
 
 interface Throw { readonly thrown: DownState; readonly arrived: DownState; readonly air: number; readonly flight: number; readonly gap: number; readonly receiver: PlayerId }
 /** One pass with every defender parked far away: thrown at `tick` to `target`, followed to the tick the ball arrives. */
-function uncovered(play: Play, target: 1 | 2 | 3, tick: number, speed?: number, line = 40): Throw {
-    let s: DownState = snap(choosePlay(lineUp('home', line, { playNumber: 1 }), play));
+function uncovered(play: Play, target: 1 | 2 | 3, tick: number, speed?: number, line = 40, seed?: number): Throw {
+    let s: DownState = snap(choosePlay(lineUp('home', line, { playNumber: 1, seed }), play));
     if (speed !== undefined) s = withSpeed(s, RECEIVER[target], speed);
     for (let t = 0; t < tick; t++) s = stepDown(farAway(s), idle);
     const qb = s.players.find(p => p.id === s.possession.carrier)!, thrown = throwPass(s, target);
@@ -91,11 +91,13 @@ describe('the ball is led to where the receiver will be', () => {
         const late = [0, 20, 40, 55, 70, 80, 90, 99].map(speed => uncovered('slants', 2, 200, speed).gap);
         expect(Math.max(...late)).toBeGreaterThan(1);
     });
-    it('and so he catches it, at every speed (a faster receiver used to overrun the old lead and never catch the deep ball)', () => {
+    it('and so he is at the ball and catches it, at every speed (a faster receiver used to overrun the old lead and never catch the deep ball)', () => {
         for (const speed of [0, 20, 40, 55, 70, 74, 80, 90, 99]) for (const tick of [30, 60, 90, 120]) {
             const t = uncovered('go', 1, tick, speed);
-            expect(t.arrived.possession.carrier, `speed ${speed}, tick ${tick}`).toBe(t.receiver);
-            expect(t.gap).toBeLessThan(CATCH_RADIUS);
+            expect(t.gap, `speed ${speed}, tick ${tick}`).toBeLessThan(CATCH_RADIUS);
+            // nobody covers him, so he catches it unless he drops it: with most seeds he is the carrier
+            const caught = Array.from({ length: 24 }, (_, i) => { const s = uncovered('go', 1, tick, speed, 40, i + 1); return s.arrived.possession.carrier === s.receiver; }).filter(Boolean).length;
+            expect(caught, `speed ${speed}, tick ${tick}`).toBeGreaterThanOrEqual(19);
         }
     });
     it('is the same from any spot in the interior of the field', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BETWEEN_PLAY_TICKS, QUARTER_TICKS, choosePlay, clockText, createDown, fieldGoalInRange, kickBall, kickMeter, lineUp, newGame, nextDown, snap, stepDown, switchDefender, throwPass, type DownState } from '../core/down';
 import { EXTRA_POINT_DISTANCE, FIELD_GOAL_MAX_DISTANCE, FIELD_GOAL_POINTS, KICK_MAX_TICKS, KICK_PERIOD_TICKS, isGood, kickTolerance, meterAt } from '../core/kick';
 import { STEP_SECONDS } from '../core/simulation';
-import { CENTRE, FAR_END, MID, farAway, idle, kickAtTick, place, tackled, throughExtraPoint, touchdown, turnedOverOnDowns, zero } from './helpers';
+import { CENTRE, FAR_END, MID, farAway, idle, kickAtTick, place, seedWhere, tackled, throughExtraPoint, touchdown, turnedOverOnDowns, zero } from './helpers';
 
 const overtime = (first: 'home' | 'away' = 'away', possessions = 0, score = { home: 0, away: 0 }) =>
     ({ score, game: { mode: 'overtime' as const, quarter: 5, clock: 0, overtime: { first, possessions } } });
@@ -282,12 +282,17 @@ describe('overtime', () => {
     it('a field goal ends a possession, and an interception or safety do too', () => {
         const fg = kickAtTick(snap(choosePlay(lineUp('away', 25, { down: 4, ...overtime() }), 'fieldgoal')), CENTRE);
         expect(nextDown(fg)).toMatchObject({ offense: 'home', line: 38, overtime: { possessions: 1 }, score: { home: 0, away: 3 } });
-        let air = farAway(throwPass(snap(choosePlay(lineUp('away', 82, overtime()), 'slants')), 1), ['home-CB1']);
-        if (air.ball.kind !== 'flight') throw Error('flight');
-        while (air.ball.kind === 'flight' && air.ball.elapsed < air.ball.duration - STEP_SECONDS - 1e-9) air = stepDown(farAway(air, ['home-CB1']), idle);
-        if (air.ball.kind !== 'flight') throw Error('flight');
-        air = place(air, 'home-CB1', air.ball.to.x, air.ball.to.y);
-        while (air.phase === 'live') air = stepDown(air, idle);
+        // staged under a seed on which the defender on the spot takes the ball (whether he does is chance)
+        const stage = (seed: number) => {
+            let air = farAway(throwPass(snap(choosePlay(lineUp('away', 82, { ...overtime(), seed }), 'slants')), 1), ['home-CB1']);
+            if (air.ball.kind !== 'flight') throw Error('flight');
+            while (air.ball.kind === 'flight' && air.ball.elapsed < air.ball.duration - STEP_SECONDS - 1e-9) air = stepDown(farAway(air, ['home-CB1']), idle);
+            if (air.ball.kind !== 'flight') throw Error('flight');
+            air = place(air, 'home-CB1', air.ball.to.x, air.ball.to.y);
+            while (air.phase === 'live') air = stepDown(air, idle);
+            return air;
+        };
+        const air = stage(seedWhere(stage, e => e.result?.reason === 'interception'));
         expect(air.result?.reason).toBe('interception');
         expect(nextDown(air)).toMatchObject({ offense: 'home', line: 38, overtime: { possessions: 1 } });
     });

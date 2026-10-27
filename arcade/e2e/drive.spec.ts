@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
     // Only time is controlled: keyboard events, React, animation frames and saving are real.
     await page.clock.install({ time: new Date('2026-10-23T12:00:00Z') });
     await page.clock.pauseAt(new Date('2026-10-23T12:01:00Z'));
-    await page.goto('/');
+    await page.goto('/?seed=1');
     await page.clock.runFor(128);
 });
 

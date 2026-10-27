@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }) => {
         }
         return route.continue();
     });
-    await page.goto("/");
+    await page.goto("/?seed=1");
     await expect(page.getByRole("heading", { name: "Backyard football" })).toBeVisible();
     await page.getByText("Player positions", { exact: false }).click();
     await page.getByRole("img", { name: /Football field/ }).click();

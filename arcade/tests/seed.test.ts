@@ -84,12 +84,13 @@ describe('the seed travels with the game', () => {
         const turnover = nextDown({ ...s, phase: 'dead', result: { playNumber: s.playNumber, reason: 'interception', yards: 0, turnover: true, touchdown: false, firstDown: false, turnoverOnDowns: false } as never });
         expect(turnover.seed).toBe(31337);
     });
-    it('adds no behaviour: two games that differ only in their seed play out identically, tick for tick', () => {
+    it('changes nothing until a pass arrives: two games that differ only in their seed play out identically, tick for tick, up to the catch', () => {
         const play = (seed: number) => {
             let s: DownState = snap(choosePlay(createDown(seed), 'go'));
             const trace: unknown[] = [];
             for (let t = 0; t < 400 && s.phase === 'live'; t++) {
                 if (t === 95) s = throwPass(s, 2);
+                if (s.ball.kind === 'flight' && s.ball.elapsed + 1 / 60 + 1e-9 >= s.ball.duration) break;
                 s = stepDown(s, idle);
                 const { seed: _seed, ...rest } = s;
                 trace.push(rest);
@@ -97,6 +98,8 @@ describe('the seed travels with the game', () => {
             return trace;
         };
         expect(play(1)).toEqual(play(0xcafef00d));
+        const rush = (seed: number) => { let s: DownState = snap(createDown(seed)); for (let t = 0; t < 300 && s.phase === 'live'; t++) s = stepDown(s, idle); const { seed: _s, ...rest } = s; return rest; };
+        expect(rush(1)).toEqual(rush(2));
         const ra = advance(advance(createClock(1), 0.1, idle), 0.1, idle), rb = advance(advance(createClock(2), 0.1, idle), 0.1, idle);
         const { seed: _a, ...ma } = ra.match, { seed: _b, ...mb } = rb.match;
         expect(ma).toEqual(mb);

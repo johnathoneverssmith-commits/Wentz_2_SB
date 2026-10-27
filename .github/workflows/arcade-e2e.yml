@@ -23,7 +23,11 @@ jobs:
   arcade:
     name: Arcade Chromium (advisory)
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # The Chromium step normally takes about 20 seconds, but on some runs `apt-get` fetches the font packages that
+    # `--with-deps` installs from a throttled Ubuntu mirror (21 MB at about 40 kB/s: 8 to 11 minutes, with the browser
+    # download itself taking seconds). Together with about 5 minutes of browser tests the old 15-minute limit then
+    # cancelled the job before the tests finished. 30 minutes covers that slow case twice over; nothing else changes.
+    timeout-minutes: 30
     env:
       CI: 'true'
       E2E_BROWSER_CHANNEL: ''

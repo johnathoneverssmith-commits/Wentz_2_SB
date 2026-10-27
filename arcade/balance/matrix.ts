@@ -6,7 +6,7 @@
  */
 import { drive, game, DEFAULTS, type DefensePolicy, type GameResult, type Options, type OffensePolicy } from './sim';
 import { compareMeans, distribution, proportion, summarize, type Proportion, type Summary } from './stats';
-import { driveSeed, type Strategy } from './strategies';
+import { driveSeed, gameSeedOf, type Strategy } from './strategies';
 
 /** Where drives start, in yards from the offense's own goal line (the same spots the existing balance report uses). */
 export const STARTS: readonly number[] = [28, 38, 50, 62, 74, 86, 98];
@@ -38,15 +38,14 @@ export interface MatrixSpec {
     readonly opts?: Options;
 }
 
-/** Every drive of the matrix, in a fixed order. A deterministic strategy (the best response) runs once per start, not once per seed. */
+/** Every drive of the matrix, in a fixed order. Every strategy runs under every seed: a strategy whose choices ignore its stream seed (the best response) still meets different chance in each game, because the game's own seed is derived from the matrix seed. */
 export function runMatrix(spec: MatrixSpec): DriveRecord[] {
     const out: DriveRecord[] = [], opts = spec.opts ?? DEFAULTS;
     for (const strategy of spec.strategies) for (const defense of spec.defenses) {
-        const seeds = strategy.deterministic ? spec.seeds.slice(0, 1) : spec.seeds;
-        for (const seed of seeds) for (const team of ['home', 'away'] as const) for (const start of spec.starts ?? STARTS) {
+        for (const seed of spec.seeds) for (const team of ['home', 'away'] as const) for (const start of spec.starts ?? STARTS) {
             const line = team === 'home' ? start : 120 - start;
             const policy = strategy.make(driveSeed(seed, team, start), { defense, opts });
-            const r = drive(team, line, policy, defense, opts), st = r.stats;
+            const r = drive(team, line, policy, defense, opts, gameSeedOf(driveSeed(seed, team, start))), st = r.stats;
             out.push({
                 strategy: strategy.id, defense, seed, team, start, end: r.end, points: st.points, touchdown: r.end === 'touchdown', plays: st.plays, passes: st.passes, completions: st.completions,
                 interceptions: st.interceptions, incompletions: st.incompletions, sacks: st.sacks, rushes: st.rushes, passYards: st.passYards,
@@ -140,7 +139,7 @@ export function runGames(spec: GameSpec): GameRecord[] {
     return spec.seeds.map(seed => {
         // A team's own defense is the one it plays; its offense faces the OTHER team's defense, which is what a searching strategy must be shown.
         const mk = (s: Strategy, own: DefensePolicy, facing: DefensePolicy, side: string): { off: OffensePolicy; def: DefensePolicy } => ({ off: s.make(driveSeed(seed, side, 0), { defense: facing, opts }), def: own });
-        const g = game(mk(spec.home, spec.homeDefense, spec.awayDefense, 'home'), mk(spec.away, spec.awayDefense, spec.homeDefense, 'away'), opts);
+        const g = game(mk(spec.home, spec.homeDefense, spec.awayDefense, 'home'), mk(spec.away, spec.awayDefense, spec.homeDefense, 'away'), opts, gameSeedOf(driveSeed(seed, 'game', 0)));
         return { seed, home: g.score.home, away: g.score.away, points: g.score.home + g.score.away, plays: g.stats.plays, ended: g.ended };
     });
 }

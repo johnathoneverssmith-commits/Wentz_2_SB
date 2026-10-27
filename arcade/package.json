@@ -10,6 +10,7 @@
     "test:balance": "node ../node_modules/vitest/vitest.mjs run --config vitest.balance.config.ts",
     "balance": "node ../node_modules/tsx/dist/cli.mjs balance/report.ts",
     "balance:passing": "node ../node_modules/tsx/dist/cli.mjs balance/passing-report.ts",
+    "balance:ratings": "node ../node_modules/tsx/dist/cli.mjs balance/ratings-report.ts",
     "e2e": "node ../node_modules/@playwright/test/cli.js test --config playwright.config.ts",
     "verify": "node tooling/verify.mjs"
   }
