@@ -369,6 +369,12 @@ export interface LeagueContext {
  * the books at the draft) and where its starting lineup ranks. See `teamWindow`.
  */
 export function readLeagueContext(s: LeagueState): LeagueContext {
+  const ages = s.draftClass.map((p) => p.age);
+  return { market: readFreeAgentMarket(s), timeline: readTeamTimeline(s), classMeanAge: ages.length ? ages.reduce((a, b) => a + b, 0) / ages.length : 22 };
+}
+
+/** Each team's timeline alone, -1 (rebuilding) to +1 (contending): the draft reads it, and so does free agency when its market opens. */
+export function readTeamTimeline(s: LeagueState): Map<string, number> {
   const codes = Object.keys(s.teams);
   const byTeam = new Map<string, Map<Position, number[]>>();
   for (const p of Object.values(s.players)) {
@@ -401,8 +407,7 @@ export function readLeagueContext(s: LeagueState): LeagueContext {
     const games = t.wins + t.losses + t.ties;
     timeline.set(code, teamWindow({ winPct: games === 0 ? 0.5 : (t.wins + 0.5 * t.ties) / games, strengthRank: i + 1, teams: codes.length }));
   });
-  const ages = s.draftClass.map((p) => p.age);
-  return { market: readFreeAgentMarket(s), timeline, classMeanAge: ages.length ? ages.reduce((a, b) => a + b, 0) / ages.length : 22 };
+  return timeline;
 }
 
 /**

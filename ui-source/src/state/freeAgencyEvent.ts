@@ -3,9 +3,9 @@ import type { LeagueState, Player } from "@/domain";
 
 import { unitGainer } from "./unitValue.ts";
 import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
-import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract } from "./rules";
+import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract, readTeamTimeline } from "./rules";
 import { capUsedOf } from "./seed.ts";
-import { marketOfStage, signingBar, signingValue, type FaMarket } from "./faValue.ts";
+import { marketOfStage, outlookFor, outlookRating, signingBar, signingValue, youthPreference, type FaMarket, type FaOutlook } from "./faValue.ts";
 import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
 import { deterministicNoiseUnit, shortlistByBaseScore } from "./aiDifficulty.ts";
@@ -41,6 +41,12 @@ export interface FreeAgencyEventState {
    * save from before it was recorded: the stage is read instead.
    */
   market?: FaMarket;
+  /**
+   * Each team's competitive window, -1 (rebuilding) to +1 (contending), read once when the market opens and kept
+   * for the whole event (the rosters keep changing, the window a team set out with does not). Absent in a save
+   * from before it was recorded: those teams read ratings as they are.
+   */
+  timeline?: Record<string, number>;
   round: number;
   /** Team codes, fixed for the whole event: best roster first. */
   order: string[];
@@ -85,6 +91,7 @@ export function beginFreeAgencyEvent(s: LeagueState, market: FaMarket = marketOf
   clearSkips(s, "freeAgency");
   s.freeAgencyEvent = {
     market,
+    timeline: Object.fromEntries(readTeamTimeline(s)),
     round: 1,
     order: freeAgencyOrder(s),
     turnIndex: 0,
@@ -341,19 +348,35 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
     const bidPlayer = s.players[playerId];
     if (bidPlayer) bidOn.push(bidPlayer);
   }
+  // How the team reads the market: the window it had when the market opened (fixed for the event) over the
+  // GM's reading of its own situation. The roster it compares a free agent with is the live one, with each
+  // player's rating moved by his age over the same horizon.
+  const difficulty = difficultyFor(s, teamCode);
+  const outlook: FaOutlook | null = outlookFor(e.timeline ? (e.timeline[teamCode] ?? 0) : undefined, difficulty.longTermWeight);
+  const heldByPos = new Map<string, number[]>();
+  if (outlook) {
+    for (const r of idx.rosterByTeam.get(teamCode) ?? []) {
+      const l = heldByPos.get(r.position);
+      const v = outlookRating(r, outlook);
+      if (l) l.push(v);
+      else heldByPos.set(r.position, [v]);
+    }
+  }
   /** every rating the team holds at his position, signed or bid on, leaving out the man being priced */
   const carriedFor = (p: Player): number[] => {
-    const held = lists?.get(p.position) ?? [];
+    const held = (outlook ? heldByPos.get(p.position) : lists?.get(p.position)) ?? [];
     const others = bidOn.filter((o) => o.id !== p.id && o.position === p.position);
-    return others.length > 0 ? [...held, ...others.map((o) => o.overall)] : held;
+    return others.length > 0 ? [...held, ...others.map((o) => outlookRating(o, outlook))] : held;
   };
   /** what signing him adds to the lineup, priced by what a point at his position is worth (`faValue.ts`) */
-  const valueOf = (p: Player): number => signingValue(p.overall, p.position, carriedFor(p));
+  const valueOf = (p: Player): number => signingValue(outlookRating(p, outlook), p.position, carriedFor(p));
+  /** the length of deal a front office would offer him: the same call prices his youth preference and makes the offer */
+  const yearsFor = (p: Player, salary: number): number =>
+    contractTermsFor(p, salary, [0.5, 0.5, 0.5], deterministicNoiseUnit(teamCode, s.season, "fa_years", p.id)).years;
 
   // AI Difficulty (§13.1): search only the top `candidateDepth` plausible
   // targets by raw gain — Expert (Infinity) considers every legal target,
   // exactly the prior behavior.
-  const difficulty = difficultyFor(s, teamCode);
   const strategy = strategyOf(s, teamCode);
   const shortlist = shortlistByBaseScore(pool, valueOf, difficulty.candidateDepth);
   // a CPU team bids only what its cap room covers (a person's staff plays the same evaluator, without this)
@@ -393,7 +416,10 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
     const gain =
       worth + noise +
       // the GM's identity: a bounded preference among similar signings, never a reason to take a clearly worse one
-      STRATEGY_SCALE * (strategyPositionBonus(strategy, p.position as never) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall));
+      STRATEGY_SCALE * (strategyPositionBonus(strategy, p.position as never) + strategyAgeBonus(strategy, p.age) + strategyEliteBonus(strategy, p.overall)) +
+      // a rebuilding team leans to the young, except that a veteran on a one-year deal is not a commitment (like the identity, a preference
+      // between signings that are worth making, not a reason to make one)
+      (outlook && outlook.rebuild > 0 ? youthPreference(p, outlook, yearsFor(p, ask) === 1) : 0);
     if (gain > bestGain) {
       bestGain = gain;
       target = p;
@@ -418,8 +444,7 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   if (lead && salary <= lead.salary) return PASS;
   // how long a deal a front office offers follows who he is, not just his age: a young starter gets years, a young
   // reserve or a veteran past his decline gets few, and each club reads the same player a little differently
-  const lean = deterministicNoiseUnit(teamCode, s.season, "fa_years", target.id);
-  const years = contractTermsFor(target, salary, [0.5, 0.5, 0.5], lean).years;
+  const years = yearsFor(target, salary);
   return { kind: "offer", playerId: target.id, salary, years };
 }
 
@@ -437,6 +462,8 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
 interface RoundIndex {
   round: number;
   pool: Player[];
+  /** every rostered player's position, rating and age by team, for the age-adjusted outlook */
+  rosterByTeam: Map<string, { position: Player["position"]; overall: number; age: number }[]>;
   bestByTeam: Map<string, Map<string, number>>;
   /** every rostered rating by team and position, for the Master AI's unit model */
   ratingsByTeam: Map<string, Map<string, number[]>>;
@@ -465,6 +492,7 @@ function indexRound(s: LeagueState): RoundIndex {
   const pool: Player[] = [];
   const bestByTeam = new Map<string, Map<string, number>>();
   const ratingsByTeam = new Map<string, Map<string, number[]>>();
+  const rosterByTeam = new Map<string, { position: Player["position"]; overall: number; age: number }[]>();
   // one pass for all three: who is still available, and what every roster already has
   for (const p of Object.values(s.players)) {
     if (p.retired) continue;
@@ -480,8 +508,11 @@ function indexRound(s: LeagueState): RoundIndex {
     const l = lists.get(p.position);
     if (l) l.push(p.overall);
     else lists.set(p.position, [p.overall]);
+    const r = rosterByTeam.get(p.nfl_team);
+    if (r) r.push({ position: p.position, overall: p.overall, age: p.age });
+    else rosterByTeam.set(p.nfl_team, [{ position: p.position, overall: p.overall, age: p.age }]);
   }
-  return { round: s.freeAgencyEvent?.round ?? 0, pool, bestByTeam, ratingsByTeam };
+  return { round: s.freeAgencyEvent?.round ?? 0, pool, rosterByTeam, bestByTeam, ratingsByTeam };
 }
 
 /** Run CPU turns until a human is on the clock or the event ends. */

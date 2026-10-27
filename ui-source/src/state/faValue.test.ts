@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { LeagueState, Player } from "@/domain";
 import { positionValueWeight } from "./draftBoard.ts";
-import { MIN_SIGNING_VALUE, MIN_SIGNING_VALUE_MIDSEASON, signingBar, signingValue, slotGain } from "./faValue.ts";
+import { MIN_SIGNING_VALUE, MIN_SIGNING_VALUE_MIDSEASON, outlookFor, outlookRating, signingBar, signingValue, slotGain, youthPreference } from "./faValue.ts";
+import { readTeamTimeline } from "./rules.ts";
 import { beginFreeAgencyEvent, chooseFaMove, offerRoomFor } from "./freeAgencyEvent.ts";
 import { useStore } from "./store.ts";
 import { marketOfStage } from "./faValue.ts";
@@ -81,6 +82,31 @@ function market(seed: number): { s: LeagueState; code: string } {
   return { s, code: s.freeAgencyEvent!.order[0]! };
 }
 
+/**
+ * A market with only the free agents given, and a team whose players at those positions are set to the ratings given:
+ * so exactly one choice is right, and the old rule (gain over the team's best at the position) has a different one.
+ */
+function rigged(seed: number, free: { position: Player["position"]; overall: number }[], team: Record<string, number[]>): { s: LeagueState; code: string } {
+  const { s, code } = market(seed);
+  s.teams[code]!.cap.total += 300; // room is not what this is about (PR A's cap-room rule is tested on its own)
+  const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
+  pool.slice(free.length).forEach((p) => {
+    p.retired = true;
+  });
+  pool.slice(0, free.length).forEach((p, i) => {
+    p.position = free[i]!.position;
+    p.overall = free[i]!.overall;
+    p.age = 26;
+  });
+  for (const [pos, ratings] of Object.entries(team)) {
+    const mine = Object.values(s.players).filter((p) => p.nfl_team === code && p.position === pos && !p.retired && !p.free_agent);
+    mine.forEach((p, i) => {
+      p.overall = ratings[i] ?? 40;
+    });
+  }
+  return { s, code };
+}
+
 describe("a CPU team's choice in the market", () => {
   it("does not bid twice for the same slot: a player it has already bid on fills it for the next bid", () => {
     const { s, code } = market(71);
@@ -115,31 +141,6 @@ describe("a CPU team's choice in the market", () => {
     expect(offers).toBeGreaterThan(20);
     expect(specialists / offers).toBeLessThan(0.15);
   });
-
-  /**
-   * A market with only the free agents given, and a team whose players at those positions are set to the ratings given:
-   * so exactly one choice is right, and the old rule (gain over the team's best at the position) has a different one.
-   */
-  function rigged(seed: number, free: { position: Player["position"]; overall: number }[], team: Record<string, number[]>): { s: LeagueState; code: string } {
-    const { s, code } = market(seed);
-    s.teams[code]!.cap.total += 300; // room is not what this is about (PR A's cap-room rule is tested on its own)
-    const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired);
-    pool.slice(free.length).forEach((p) => {
-      p.retired = true;
-    });
-    pool.slice(0, free.length).forEach((p, i) => {
-      p.position = free[i]!.position;
-      p.overall = free[i]!.overall;
-      p.age = 26;
-    });
-    for (const [pos, ratings] of Object.entries(team)) {
-      const mine = Object.values(s.players).filter((p) => p.nfl_team === code && p.position === pos && !p.retired && !p.free_agent);
-      mine.forEach((p, i) => {
-        p.overall = ratings[i] ?? 40;
-      });
-    }
-    return { s, code };
-  }
 
   it("takes the lineup upgrade over a bigger raw kicker upgrade", () => {
     const { s, code } = rigged(73, [{ position: "K", overall: 86 }, { position: "OG", overall: 82 }], { K: [70], OG: [80, 72, 50, 50] });
@@ -295,4 +296,125 @@ describe("the mid-season market opened through the real stage change", () => {
     const firstBidders = new Set(Object.values(e.offers).flat().map((o) => o.teamCode));
     expect(firstBidders.has(e.order[0]!), `the first team in the order (${e.order[0]}) bid`).toBe(true);
   }, 120_000);
+});
+
+describe("the team's window in the market (timeline-aware targeting)", () => {
+
+  it("reads no outlook where no timeline was recorded: ratings are taken as they are", () => {
+    expect(outlookFor(undefined, 0.7)).toBeNull();
+    expect(outlookRating({ position: "WR", overall: 80, age: 35 }, null)).toBe(80);
+  });
+
+  it("looks no seasons ahead for a contender, a few for a rebuild, and moves a veteran's rating by age only over that horizon", () => {
+    const contender = outlookFor(1, 1)!;
+    const middle = outlookFor(0, 1)!;
+    const rebuild = outlookFor(-1, 1)!;
+    expect(contender.horizon).toBeLessThan(middle.horizon);
+    expect(middle.horizon).toBeLessThan(rebuild.horizon);
+    expect(contender.rebuild).toBe(0);
+    expect(middle.rebuild).toBe(0);
+    expect(rebuild.rebuild).toBe(1);
+    const vet = { position: "CB" as const, overall: 80, age: 32 };
+    expect(outlookRating(vet, contender)).toBe(80); // a contender reads him as he is
+    expect(outlookRating(vet, rebuild)).toBeLessThan(outlookRating(vet, middle));
+    expect(outlookRating(vet, middle)).toBeLessThan(80);
+    // a young player gains with the horizon: a rebuild sees more of it
+    const kid = { position: "WR" as const, overall: 70, age: 22 };
+    expect(outlookRating(kid, rebuild)).toBeGreaterThan(outlookRating(kid, middle));
+    expect(outlookRating(kid, middle)).toBeGreaterThan(70);
+    // a GM who plans less far (a lower long-term weight) reads the same player less far ahead
+    expect(outlookRating(vet, outlookFor(-1, 0.45))!).toBeGreaterThan(outlookRating(vet, rebuild));
+  });
+
+  it("gives a youth preference to a rebuild alone, takes none away from a one-year veteran, and keeps a young player's preference on any length", () => {
+    const rebuild = outlookFor(-1, 1)!;
+    const young = { position: "WR" as const, age: 23 };
+    const old = { position: "WR" as const, age: 33 };
+    expect(youthPreference(young, rebuild, false)).toBeGreaterThan(0);
+    expect(youthPreference(young, rebuild, true)).toBe(youthPreference(young, rebuild, false));
+    expect(youthPreference(old, rebuild, false)).toBeLessThan(0);
+    expect(youthPreference(old, rebuild, true)).toBe(0);
+    for (const o of [outlookFor(1, 1), outlookFor(0, 1), null]) {
+      expect(youthPreference(young, o, false)).toBe(0);
+      expect(youthPreference(old, o, false)).toBe(0);
+    }
+    // it is priced like the rest of the value: a kicker's point is worth a fraction of a receiver's
+    expect(Math.abs(youthPreference({ position: "K", age: 23 }, rebuild, false))).toBeLessThan(youthPreference(young, rebuild, false));
+    // and it is modest: a two-year age difference does not outweigh a few points of rating
+    expect(youthPreference(young, rebuild, false)).toBeLessThan(MIN_SIGNING_VALUE);
+  });
+
+  it("records every team's window when the market opens, and keeps it as the rosters change", () => {
+    const { s } = market(81);
+    const e = s.freeAgencyEvent!;
+    const window = e.timeline!;
+    expect(Object.keys(window).sort()).toEqual(Object.keys(s.teams).sort());
+    expect(Object.fromEntries(readTeamTimeline(s))).toEqual(window);
+    const values = Object.values(window);
+    expect(Math.min(...values), "windows span rebuilding to contending").toBeLessThan(0);
+    expect(Math.max(...values)).toBeGreaterThan(0);
+    const before = structuredClone(window);
+    // the league moves under the event: a team's record and its roster both change, as a round of signings changes the roster
+    for (const t of Object.values(s.teams)) {
+      t.wins = 0;
+      t.losses = 17;
+    }
+    for (const p of Object.values(s.players)) if (!p.retired && !p.free_agent) p.overall = Math.max(40, p.overall - 15);
+    expect(chooseFaMove(s, e.order[0]!)).toBeDefined();
+    expect(s.freeAgencyEvent!.timeline).toEqual(before);
+  });
+
+  /** two receivers a team's lineup needs: the older is the better player now */
+  function twoReceivers(seed: number, timeline: number | "unrecorded"): number {
+    const { s, code } = rigged(seed, [{ position: "WR", overall: 81 }, { position: "WR", overall: 78 }], { WR: [60, 55, 50] });
+    const [older, younger] = Object.values(s.players).filter((p) => p.free_agent && !p.retired).sort((a, b) => b.overall - a.overall);
+    older!.age = 32;
+    younger!.age = 24;
+    if (timeline === "unrecorded") delete s.freeAgencyEvent!.timeline;
+    else s.freeAgencyEvent!.timeline![code] = timeline;
+    const m = chooseFaMove(s, code);
+    expect(m.kind).toBe("offer");
+    return s.players[(m as { playerId: string }).playerId]!.age;
+  }
+
+  it("has a contender sign the better player now, and a rebuilding team the younger one, between two close free agents", () => {
+    expect(twoReceivers(82, 1)).toBe(32);
+    expect(twoReceivers(82, -1)).toBe(24);
+  });
+
+  it("chooses as before for a team whose event has no window recorded, as in a save from before it was recorded", () => {
+    expect(twoReceivers(82, "unrecorded")).toBe(32);
+    const { s, code } = rigged(82, [{ position: "WR", overall: 81 }], { WR: [60, 55, 50] });
+    delete s.freeAgencyEvent!.timeline;
+    expect(() => chooseFaMove(s, code)).not.toThrow();
+  });
+
+  it("compares a free agent with the incumbents on the same footing: a lineup of aging starters is worth less to a team that looks ahead, and a save from before windows read it as it is", () => {
+    // an 87 against a room of 84s who are 36: a three-point upgrade on today's ratings, under the bar,
+    // but more than that once the veterans are read a season on (and more again by a team looking three seasons on)
+    const offered = (timeline: number | "unrecorded") => {
+      const { s, code } = rigged(85, [{ position: "WR", overall: 87 }], { WR: [84, 84, 84, 84, 84, 84, 84, 84] });
+      for (const p of Object.values(s.players)) if (p.nfl_team === code && p.position === "WR" && !p.retired && !p.free_agent && p.overall === 84) p.age = 36;
+      if (timeline === "unrecorded") delete s.freeAgencyEvent!.timeline;
+      else s.freeAgencyEvent!.timeline![code] = timeline;
+      return chooseFaMove(s, code).kind;
+    };
+    expect(offered("unrecorded")).toBe("pass");
+    expect(offered(0)).toBe("offer");
+    expect(offered(-1)).toBe("offer");
+  });
+
+  it("keeps a rebuild's youth preference from making a signing that is under the bar worth bidding on", () => {
+    // a young tackle three points over a good line: four points to every team, under the offseason's bar
+    const { s, code } = rigged(83, [{ position: "DT", overall: 73 }], { DT: [70, 70, 70, 70, 70] });
+    Object.values(s.players).find((p) => p.free_agent && !p.retired)!.age = 22;
+    s.freeAgencyEvent!.timeline![code] = -1;
+    expect(chooseFaMove(s, code).kind).toBe("pass");
+  });
+
+  it("is deterministic with windows: the same market gives the same choice for every team", () => {
+    const a = market(84).s;
+    const b = market(84).s;
+    for (const code of a.freeAgencyEvent!.order.slice(0, 8)) expect(chooseFaMove(a, code)).toEqual(chooseFaMove(b, code));
+  });
 });
