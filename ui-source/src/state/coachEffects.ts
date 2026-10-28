@@ -27,24 +27,40 @@ import { coachRoleForPosition } from "@/domain";
 export const NEUTRAL_COACH_OVERALL = 72;
 
 /**
- * Position-coach development/regression slope, per point of OVR either side
- * of neutral. The Aging + Training Camp optimization pass raised this from
- * an even 1% to 1.5%: at 1%, an already-small integer rating delta rounded
- * the coaching effect away for most players, and 1.5% is what it takes for
- * a real coach to visibly move outcomes after that rounding.
+ * How a coach's rating becomes a fraction of a player's yearly move.
+ *
+ * Inside `INNER_POINTS` of neutral every point is worth 1.5% (what the
+ * Aging + Training Camp optimization pass chose so the effect survives integer
+ * rounding). Past it a point is worth less: an elite coach is still clearly
+ * better than a good one, but a staff of eight 95s no longer adds up to more
+ * than the roster they coach. Measured in `docs/AUDIT_player_development_coaching.md`
+ * and `docs/PD1_coaching_calibration.md`.
  */
-const POSITION_COACH_SWING_PER_OVR = 0.015;
+export const COACH_TUNING = {
+  INNER_POINTS: 12,
+  INNER_SWING_PER_OVR: 0.012,
+  OUTER_SWING_PER_OVR: 0.004,
+  /** The head coach sets the program for every position group: a smaller slope than a position coach, on all of them. */
+  HEAD_COACH_SWING_PER_OVR: 0.006,
+  /** However good the staff, a player keeps at least this share of a decline and gains at most this multiple of a gain. */
+  MIN_REGRESSION: 0.55,
+  MAX_DEVELOPMENT: 1.4,
+};
 
-/** One point of OVR either side of neutral, as a plain fraction. */
-function swing(overall: number, perOvr: number): number {
-  return (overall - NEUTRAL_COACH_OVERALL) * perOvr;
+/** One point of OVR either side of neutral, as a plain fraction, with the diminishing outer slope. */
+function swing(overall: number): number {
+  const d = overall - NEUTRAL_COACH_OVERALL;
+  const t = COACH_TUNING;
+  const inner = Math.min(Math.abs(d), t.INNER_POINTS) * t.INNER_SWING_PER_OVR;
+  const outer = Math.max(0, Math.abs(d) - t.INNER_POINTS) * t.OUTER_SWING_PER_OVR;
+  return Math.sign(d) * (inner + outer);
 }
 
 /**
  * How much of a player's gain this coach delivers. Better coach, bigger gain.
  */
 export function developmentMultiplier(overall: number): number {
-  return Math.max(0, 1 + swing(overall, POSITION_COACH_SWING_PER_OVR));
+  return Math.max(0, 1 + swing(overall));
 }
 
 /**
@@ -52,7 +68,18 @@ export function developmentMultiplier(overall: number): number {
  * the multiplier moves the opposite way from development.
  */
 export function regressionMultiplier(overall: number): number {
-  return Math.max(0, 1 - swing(overall, POSITION_COACH_SWING_PER_OVR));
+  return Math.max(0, 1 - swing(overall));
+}
+
+/** The head coach's share, applied on top of the position coach to every player on the team. */
+export function programSwing(headCoachRating: number): number {
+  return (headCoachRating - NEUTRAL_COACH_OVERALL) * COACH_TUNING.HEAD_COACH_SWING_PER_OVR;
+}
+
+/** The head coach's rating as the staff screens show it: game management and discipline. */
+export function headCoachRating(c: Coach | undefined): number {
+  if (!c) return NEUTRAL_COACH_OVERALL;
+  return Math.round(((c.gameManagement ?? NEUTRAL_COACH_OVERALL) + (c.discipline ?? NEUTRAL_COACH_OVERALL)) / 2);
 }
 
 /**
@@ -77,7 +104,7 @@ const MEDICAL_SWING_PER_OVR = 0.01;
  * recovery without making an ordinary injury open-ended.
  */
 export function recoveryMultiplier(overall: number): number {
-  const raw = 1 - swing(overall, MEDICAL_SWING_PER_OVR);
+  const raw = 1 - (overall - NEUTRAL_COACH_OVERALL) * MEDICAL_SWING_PER_OVR;
   return Math.min(1.35, Math.max(0.65, raw));
 }
 
@@ -104,9 +131,10 @@ export function coachModifiersFor(
   if (!role) return { development: 1, regression: 1, coach: undefined };
   const coach = staffAt(s, teamCode, role);
   const overall = coach?.overall ?? NEUTRAL_COACH_OVERALL;
+  const program = programSwing(headCoachRating(Object.values(s.coaches).find((c) => c.team === teamCode && c.role === "HC")));
   return {
-    development: developmentMultiplier(overall),
-    regression: regressionMultiplier(overall),
+    development: Math.min(COACH_TUNING.MAX_DEVELOPMENT, Math.max(0, developmentMultiplier(overall) + program)),
+    regression: Math.max(COACH_TUNING.MIN_REGRESSION, regressionMultiplier(overall) - program),
     coach,
   };
 }
@@ -129,10 +157,24 @@ export function recoveryScaleFor(s: LeagueState, teamCode: string): number {
 export function applyCoachToDelta(
   delta: number,
   mods: { development: number; regression: number },
+  roll?: number,
 ): number {
   if (delta === 0) return 0;
   const scaled = delta > 0 ? delta * mods.development : delta * mods.regression;
+  if (roll !== undefined) return roundBy(scaled, roll);
   const rounded = Math.round(scaled);
   if (rounded !== 0) return rounded;
   return delta > 0 ? 1 : -1;
+}
+
+/**
+ * Round `x` to an integer with a uniform `roll` in [0, 1): up with probability
+ * equal to its fractional part, so the expected value is `x` itself and a whole
+ * number never moves. Plain rounding turned a 7% effect on a +2 into nothing
+ * and a 30% one into a flat +1, so small effects vanished and large ones came
+ * in steps. The roll is the player's own seeded draw, so a retry is the same camp.
+ * Never changes the sign of `x`.
+ */
+export function roundBy(x: number, roll: number): number {
+  return x >= 0 ? Math.floor(x + roll) : -Math.floor(-x + roll);
 }

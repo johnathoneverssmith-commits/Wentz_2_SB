@@ -1408,7 +1408,7 @@ export function applySeasonAging(state: LeagueState, season: number): void {
     // the improvement or the decline actually lands. A player without a team
     // has nobody coaching him and ages on the raw curve.
     const delta = p.nfl_team
-      ? applyCoachToDelta(base, coachModifiersFor(state, p.nfl_team, p.position))
+      ? applyCoachToDelta(base, coachModifiersFor(state, p.nfl_team, p.position), rng.random())
       : base;
 
     p.overall = clamp(p.overall + delta, 40, 99);
