@@ -101,6 +101,8 @@ export interface BroadcastPlay {
   passer?: string;
   targetOrRusher?: string;
   defender?: string;
+  /** who made the tackle on a run or a completed pass (cosmetic attribution). */
+  tackler?: string;
   kicker?: string;
   returner?: string;
   distance?: number;
