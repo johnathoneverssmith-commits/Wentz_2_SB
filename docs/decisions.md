@@ -1695,3 +1695,31 @@ were 57% when the buyer overpaid by 70% in a first-round pick); the distribution
 
 **Not done / limits.** The need term (up to ±0.4 of the likelihood) is as it was for assets with a positive price, scaled by the window. Dead money other
 than the release cost is not in the price. No trades outside the deadline between CPU teams.
+
+## Play-by-play correctness, PBP-1 (2026-10)
+
+**The engine now writes down what the presentation used to guess** (`Game.eventLog`, opt-in with the trace, logging only: no RNG draw, no
+read by any simulation code). Score events (kind, side, points, quarter/clock of the causing play, `playIndex`, running `scoreAfter`, and a
+scorer only where the engine knows: the interceptor on a pick-six and the punt returner), accepted penalties with the ball before and after
+(the nullified play is not traced), spikes and kneels, and the start of each overtime period. 1,200 seeded game fingerprints (score, drive
+log, full trace, injuries, box score, player lines; plain, traced and weather/talent variants) are byte-identical to master; a deliberate
+stray RNG draw in the logger changes 120 of 180, so the check can see a perturbation.
+
+**What was wrong.** The scoring summary rebuilt defensive scores from the offence's last turnover and the deepest snap, so 21 of 65 pick-sixes
+(1,000 games) were in the wrong quarter and 27 under the wrong player, 28% of games carried a running score that appeared nowhere in the
+game, and every row after a misplaced score was wrong. Now the summary and the line score are built from the log (and only fall back to the
+reconstruction when the log is absent or does not add up to the final score).
+
+**Broadcast.** Plays carry `scores` and `eventsBefore`; a pick-six reads "returned for a TOUCHDOWN" instead of "TURNOVER". All 8,485 field
+position jumps and 962 down changes inside a drive are now explained by a logged penalty, spike or kneel (none were before). A kickoff now
+splits possessions even when the same team receives it (second half, overtime): the trace has no kickoff rows, so those were glued on.
+
+**Known and not changed (simulation behaviour).**
+- *The second half's opening possession is overwritten.* `advanceClock` rolls the quarter inside the play that ended the second quarter,
+  which runs the half kickoff, and the rest of that play then writes the old yard line and down onto the new possession (or flips it back).
+  The kickoff fired mid-play in 448 of 600 games and the first second-half snap disagreed with it in 381 (a median of 25 yards of field
+  position to the receiver); with the kickoff at a play boundary it never does (0 of 120). `deferRoll` already exists for touchdowns, safeties
+  and failed fourth downs. Fixing it moves points; it belongs to the simulation-realism work.
+- *Overtime is not a quarter to the model*: `qtr` is never advanced, so traced overtime plays read Q4 0:00 then a 15:00 quarter countdown.
+  The event log and the broadcast use quarter 5+ and the overtime clock; `PlayRec.quarter`/`clock` are unchanged.
+- A fumble return names no scorer (the engine names who forced the fumble, not who recovered it); a kickoff return names none either.

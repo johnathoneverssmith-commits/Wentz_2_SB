@@ -213,6 +213,118 @@ export interface PlayRec {
   scoreBefore: [number, number];
 }
 
+/**
+ * What kind of score a `ScoreEvent` is.
+ *
+ * `interception_return_td` / `fumble_return_td` are the defence's own
+ * touchdowns, which the play trace shows only as the turnover that preceded
+ * them; the points land on the *other* side from the traced play's offence.
+ */
+export type ScoreKind =
+  | "touchdown"
+  | "field_goal"
+  | "extra_point"
+  | "two_point"
+  | "safety"
+  | "interception_return_td"
+  | "fumble_return_td"
+  | "punt_return_td"
+  | "kick_return_td";
+
+/**
+ * One scoring event, written by the engine at the moment the points are
+ * booked (opt-in with the play trace; logging only, no RNG, no effect on play).
+ *
+ * This is the authoritative scoring record. Before it existed a consumer had
+ * to reconstruct who scored, and when, from the turnover plays and the drive
+ * log, and the reconstruction guessed the quarter and the player for
+ * defensive scores (see `server/boxscore-map.ts`).
+ */
+export interface ScoreEvent {
+  type: "score";
+  /** which side got the points: 0 home, 1 away (not necessarily the offence on the traced play). */
+  side: 0 | 1;
+  points: number;
+  kind: ScoreKind;
+  /** quarter and pre-snap clock of the traced play that caused the score, or the current time for an untraced kick return. */
+  quarter: number;
+  clock: string;
+  /**
+   * Index into `playTrace` of the play that caused the score, or null when
+   * none did (a kickoff returned for a touchdown, and the extra point after it).
+   */
+  playIndex: number | null;
+  /**
+   * The player who scored, only where the engine knows: the interceptor on an
+   * interception return (the engine models no laterals) and the punt returner.
+   * Absent on a fumble return (the engine names who forced it, not who
+   * recovered it), on a kick return, and wherever ratings are off.
+   */
+  scorer?: string | undefined;
+  /** [home, away] once these points are on the board. */
+  scoreAfter: [number, number];
+}
+
+/** Down, distance and spot of the ball (yards to the offence's end zone) around a penalty. */
+export interface BallState {
+  down: number;
+  ydstogo: number;
+  yardline100: number;
+}
+
+/**
+ * An accepted penalty. The play it nullified was never traced, which is why
+ * the trace shows field-position and down jumps that nothing else explains.
+ */
+export interface PenaltyEvent {
+  type: "penalty";
+  /** the side that committed the foul. */
+  team: 0 | 1;
+  onOffense: boolean;
+  /** a dead-ball foul (false start and the like) as opposed to one on a live play. */
+  deadBall: boolean;
+  bucket: string;
+  yards: number;
+  quarter: number;
+  clock: string;
+  /** index of the next traced play, i.e. the snap this penalty came before. */
+  beforePlayIndex: number;
+  before: BallState;
+  after: BallState;
+  /** the foul gave the offence a new set of downs. */
+  automaticFirstDown: boolean;
+}
+
+/** A snap the trace does not carry: a spike or a kneel-down. */
+export interface ClockPlayEvent {
+  type: "spike" | "kneel";
+  team: 0 | 1;
+  quarter: number;
+  clock: string;
+  beforePlayIndex: number;
+  down: number;
+}
+
+/**
+ * The start of an overtime period. The traced plays do not say they are in
+ * overtime: `qtr` is never advanced for it (the model reads `qtr`, so it
+ * can't be), so the first snaps are labelled "Q4 0:00" and the rest count a
+ * fifteen-minute quarter down. This is the marker consumers use instead.
+ * Every event logged during overtime carries `quarter` 5 for the first
+ * period (6 for the next, in the playoffs) and the overtime clock.
+ */
+export interface OvertimeStartEvent {
+  type: "overtime_start";
+  /** 1 for the first overtime period. */
+  period: number;
+  /** index of the first traced play of the period. */
+  beforePlayIndex: number;
+  /** length of the period in seconds. */
+  seconds: number;
+}
+
+export type GameEvent = ScoreEvent | PenaltyEvent | ClockPlayEvent | OvertimeStartEvent;
+
 function clip(x: number, lo: number, hi: number): number {
   return Math.min(Math.max(x, lo), hi);
 }
@@ -289,6 +401,15 @@ export class Game {
   // opt-in flavour outputs (null = disabled, [] = collect). Both consume no RNG
   // when disabled, so the validation / parity paths are untouched.
   playTrace: PlayRec[] | null = null;
+  /**
+   * Opt-in, with the trace: scores, accepted penalties and spikes/kneels in
+   * the order they happened. Pure logging; see `GameEvent`.
+   */
+  eventLog: GameEvent[] | null = null;
+  /** 0 outside overtime, else the overtime period. Read only by the event log. */
+  private otPeriod = 0;
+  /** the event-log clock at the current snap, taken where the trace takes its own. Read only by the event log. */
+  private snapClock = "";
   injuryLog: InjuryEvent[] | null = null;
   /** ids of starters pulled from THIS game by an injury. */
   readonly injuredOut = new Set<string>();
@@ -975,15 +1096,62 @@ export class Game {
   }
 
   // ---- scoring / possession ---------------------------------------
-  private scorePts(pts: number, team?: number): void {
+  private scorePts(pts: number, team?: number, kind?: ScoreKind): void {
     this.score[(team ?? this.pos) as 0 | 1] += pts;
+    if (this.eventLog && kind) this.logScore(pts, (team ?? this.pos) as 0 | 1, kind);
     this.st("points", pts, team);
     // extra points, for a kicker's scoring line (the box score's special teams)
     if (pts === 1) this.st("xp_made", 1, team);
   }
 
+  /** Book a score in the event log, stamped with the play that caused it. Logging only. */
+  private logScore(points: number, side: 0 | 1, kind: ScoreKind): void {
+    const log = this.eventLog!;
+    const trace = this.playTrace!;
+    const prev = log.at(-1);
+    // an extra point or two-point try belongs to the touchdown before it
+    const follows = kind === "extra_point" || kind === "two_point";
+    const base = follows && prev?.type === "score" ? prev : undefined;
+    const playIndex = base ? base.playIndex : kind === "kick_return_td" ? null : trace.length - 1;
+    const rec = playIndex === null ? undefined : trace[playIndex];
+    let scorer: string | undefined;
+    if (rec && kind === "interception_return_td") scorer = rec.defender;
+    else if (rec && kind === "punt_return_td") scorer = rec.returner;
+    log.push({
+      type: "score",
+      side,
+      points,
+      kind,
+      quarter: this.loggedQuarter(rec?.quarter ?? base?.quarter ?? this.qtr),
+      // an extra point shares its touchdown's time; a score off a snap is stamped with the snap, not the clock after the play
+      clock: base ? base.clock : rec ? this.snapClock : this.loggedClock(this.clockText()),
+      playIndex,
+      scorer,
+      scoreAfter: [this.score[0], this.score[1]],
+    });
+  }
+
+  /** quarter and clock as the event log states them: overtime has its own, the trace's are not usable there. */
+  private loggedQuarter(traced: number): number {
+    return this.otPeriod > 0 ? 4 + this.otPeriod : traced;
+  }
+
+  private loggedClock(traced: string): string {
+    if (this.otPeriod === 0) return traced;
+    const s = Math.max(0, Math.round(this.gsr));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+
+  private ballState(): BallState {
+    return {
+      down: this.down,
+      ydstogo: Math.round(this.ydstogo * 10) / 10,
+      yardline100: Math.round(this.yardline100),
+    };
+  }
+
   private touchdown(): void {
-    this.scorePts(6);
+    this.scorePts(6, undefined, "touchdown");
     this.st("td");
     this.tryAfterTouchdown();
     this.kickoff(this.other());
@@ -1005,13 +1173,13 @@ export class Game {
         this.st("two_att");
         const odds = this.ratingsOn ? twoPointOdds(styleGrades(this.offLineup())) : 0.48;
         if (this.rng.random() < odds) {
-          this.scorePts(2);
+          this.scorePts(2, undefined, "two_point");
           this.st("two_made");
         }
         return;
       }
     }
-    if (this.rng.random() < XP_RATE) this.scorePts(1);
+    if (this.rng.random() < XP_RATE) this.scorePts(1, undefined, "extra_point");
   }
 
   private turnover(returnYards = 0, spot?: number, result = "downs"): void {
@@ -1044,10 +1212,10 @@ export class Game {
     const re = rp && rp.returns !== 0 ? returnEffect(rp.returns, this.bestReturnerZ(receiving)) : null;
     const tdRate = KICK_RETURN_TD_RATE * (ke?.tdMult ?? 1) * (re?.tdMult ?? 1);
     const returnTd = (): boolean => {
-      this.scorePts(6, receiving);
+      this.scorePts(6, receiving, "kick_return_td");
       this.st("st_td", 1, receiving);
       this.st("kr_td", 1, receiving);
-      if (this.rng.random() < XP_RATE) this.scorePts(1, receiving);
+      if (this.rng.random() < XP_RATE) this.scorePts(1, receiving, "extra_point");
       this.kickoff(1 - receiving);
       return true;
     };
@@ -1123,6 +1291,9 @@ export class Game {
     const b = samplePenaltyBucket("deadball", "ALL", this.rng);
     const onOff = this.rng.random() < b.off_share;
     const team = onOff ? this.pos : this.other();
+    const before = this.eventLog ? this.ballState() : null;
+    const clockAtFoul = this.eventLog ? this.clockText() : "";
+    let autoFirst = false;
     this.st("penalty", 1, team);
     this.st("penalty_yards", 5.0, team);
     if (onOff) {
@@ -1133,10 +1304,26 @@ export class Game {
       if (5.0 >= this.ydstogo) {
         this.st("first_down");
         this.newSeries(true);
+        autoFirst = true;
       } else {
         this.ydstogo -= 5.0;
       }
     }
+    if (this.eventLog && before)
+      this.eventLog.push({
+        type: "penalty",
+        team: team as 0 | 1,
+        onOffense: onOff,
+        deadBall: true,
+        bucket: b.bucket,
+        yards: 5,
+        quarter: this.loggedQuarter(this.qtr),
+        clock: this.loggedClock(clockAtFoul),
+        beforePlayIndex: this.playTrace!.length,
+        before,
+        after: this.ballState(),
+        automaticFirstDown: autoFirst,
+      });
     // Capped at what's left in the quarter, like every other runoff.
     //
     // Uncapped, `qsr` floors at zero while `hsr` takes the whole four
@@ -1178,6 +1365,9 @@ export class Game {
     this.teams[0].s = { ...s0[0] };
     this.teams[1].s = { ...s0[1] };
     const team = onOff ? this.pos : this.other();
+    const before = this.eventLog ? this.ballState() : null;
+    const clockAtFoul = this.eventLog ? this.clockText() : "";
+    let gaveFirst = false;
     this.st("penalty", 1, team);
     this.st("penalty_yards", yd, team);
     if (b.bucket === "defensive_pass_interference") this.st("dpi", 1, this.other());
@@ -1192,10 +1382,26 @@ export class Game {
         this.st("auto_first_pen");
         this.st("first_down"); // nflverse counts a penalty first down
         this.newSeries(true);
+        gaveFirst = true;
       } else {
         this.ydstogo -= yd;
       }
     }
+    if (this.eventLog && before)
+      this.eventLog.push({
+        type: "penalty",
+        team: team as 0 | 1,
+        onOffense: onOff,
+        deadBall: false,
+        bucket: b.bucket,
+        yards: yd,
+        quarter: this.loggedQuarter(this.qtr),
+        clock: this.loggedClock(clockAtFoul),
+        beforePlayIndex: this.playTrace!.length,
+        before,
+        after: this.ballState(),
+        automaticFirstDown: gaveFirst,
+      });
     this.advanceClock("pass_incomplete");
     return true;
   }
@@ -1208,7 +1414,19 @@ export class Game {
     return this.hsr <= burnable;
   }
 
+  private logClockPlay(type: "spike" | "kneel"): void {
+    this.eventLog?.push({
+      type,
+      team: this.pos as 0 | 1,
+      quarter: this.loggedQuarter(this.qtr),
+      clock: this.loggedClock(this.clockText()),
+      beforePlayIndex: this.playTrace!.length,
+      down: this.down,
+    });
+  }
+
   private kneelOut(): void {
+    this.logClockPlay("kneel");
     this.st("kneel_out");
     this.dPlays += 1;
     const e = this.qsr > 0 ? Math.min(this.hsr, this.qsr) : this.hsr;
@@ -1235,6 +1453,7 @@ export class Game {
   }
 
   private spike(): void {
+    this.logClockPlay("spike");
     this.st("spike");
     this.dPlays += 1;
     this.burn(1);
@@ -1249,6 +1468,7 @@ export class Game {
     const preYl = this.yardline100;
     const preQtr = this.qtr;
     const preClock = this.clockText();
+    this.snapClock = this.loggedClock(preClock);
     const ctx: Ctx = { kick_distance: this.yardline100 + 18, yardline_100: this.yardline100, ...ENV };
     const made = (predictProba("M20", ctx, this.offShift("M20")).MADE ?? 0.85) > this.rng.random();
     if (this.playTrace)
@@ -1272,7 +1492,7 @@ export class Game {
       });
     if (made) {
       this.st("fg_made");
-      this.scorePts(3);
+      this.scorePts(3, undefined, "field_goal");
     }
     if (endOfHalf) {
       // whatever is left runs out on the kickoff and the return; nobody
@@ -1354,6 +1574,7 @@ export class Game {
       const preYl = this.yardline100;
       const preQtr = this.qtr;
       const preClock = this.clockText();
+      this.snapClock = this.loggedClock(preClock);
       const punter = this.ratingsOn ? this.off().punter() : undefined;
       const dist = samplePuntDistance(this.yardline100, this.rng) + (this.ratingsOn ? puntDistanceShift(punter) : 0) + this.wx.punt;
       const landing = this.yardline100 - dist;
@@ -1400,10 +1621,10 @@ export class Game {
           // the return carries the ball to the kicking team's own goal line —
           // i.e. distance 0 from the *receiving* team's target end zone.
           tracePunt("return_td", 0, this.pickReturner());
-          this.scorePts(6, r);
+          this.scorePts(6, r, "punt_return_td");
           this.st("st_td", 1, r);
           this.st("pr_td", 1, r);
-          if (this.rng.random() < XP_RATE) this.scorePts(1, r);
+          if (this.rng.random() < XP_RATE) this.scorePts(1, r, "extra_point");
           // nflverse codes the punting team's drive as "Opp touchdown"
           this.kickoff(this.pos, "opp_touchdown");
           return;
@@ -1494,6 +1715,7 @@ export class Game {
     const preYl = this.yardline100;
     const preQtr = this.qtr;
     const preClock = this.clockText();
+    this.snapClock = this.loggedClock(preClock);
 
     if (call === "DROPBACK") {
       const term = sampleClass("M04", this.ctx(sg), this.rng, this.offShift("M04"));
@@ -1571,9 +1793,9 @@ export class Game {
           if (this.rng.random() < PICK_SIX_RATE) {
             this.advanceClock("pass_incomplete");
             const d = this.other();
-            this.scorePts(6, d);
+            this.scorePts(6, d, "interception_return_td");
             this.st("def_td", 1, d);
-            if (this.rng.random() < XP_RATE) this.scorePts(1, d);
+            if (this.rng.random() < XP_RATE) this.scorePts(1, d, "extra_point");
             this.kickoff(this.pos, "opp_touchdown");
             return;
           }
@@ -1684,9 +1906,9 @@ export class Game {
           this.advanceClock(outcomeBucket, 0, true);
           if (this.rng.random() < SCOOP_SIX_RATE) {
             const d = this.other();
-            this.scorePts(6, d);
+            this.scorePts(6, d, "fumble_return_td");
             this.st("def_td", 1, d);
-            if (this.rng.random() < XP_RATE) this.scorePts(1, d);
+            if (this.rng.random() < XP_RATE) this.scorePts(1, d, "extra_point");
             this.kickoff(this.pos, "opp_touchdown");
             return;
           }
@@ -1766,7 +1988,7 @@ export class Game {
       return;
     }
     if (isSafety) {
-      this.scorePts(2, this.other());
+      this.scorePts(2, this.other(), "safety");
       this.st("safety", 1, this.other());
       this.freeKick();
       this.rollQuarter();
@@ -1827,6 +2049,13 @@ export class Game {
     let guard = 0;
     for (let periods = 0; periods < (this.mustDecide ? 6 : 1); periods++) {
       this.gsr = period;
+      this.otPeriod = periods + 1;
+      this.eventLog?.push({
+        type: "overtime_start",
+        period: periods + 1,
+        beforePlayIndex: this.playTrace!.length,
+        seconds: period,
+      });
       if (periods === 0) {
         // each side is guaranteed one possession: play the first until the
         // ball changes hands, then the second's
@@ -2069,7 +2298,10 @@ export function simulateGame(
     g.weather = opts.weather;
     g.wx = weatherEffect(opts.weather);
   }
-  if (opts?.trace) g.playTrace = [];
+  if (opts?.trace) {
+    g.playTrace = [];
+    g.eventLog = [];
+  }
   if (opts?.injuries && rosters) g.injuryLog = [];
   return g.run();
 }

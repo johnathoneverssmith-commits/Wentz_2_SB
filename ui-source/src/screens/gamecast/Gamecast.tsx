@@ -86,7 +86,8 @@ function PlayDesc({ p }: { p: BroadcastPlay }): JSX.Element {
   const N = ({ n }: { n: string | undefined }) =>
     n ? <span className="gc-name">{n}</span> : <></>;
   const g = Math.round(p.gained);
-  const to = p.touchdown ? "the end zone" : spot(Math.max(1, p.ballOn - p.gained));
+  const to =
+    p.touchdown || p.scores?.some((e) => e.kind === "safety") ? "the end zone" : spot(Math.max(1, p.ballOn - p.gained));
 
   if (p.call === "field_goal") {
     return (
@@ -108,6 +109,8 @@ function PlayDesc({ p }: { p: BroadcastPlay }): JSX.Element {
     return (<><N n={p.kicker} /> punts {p.distance} yards, returned by <N n={p.returner} /></>);
   }
 
+  const returnedTd = p.scores?.some((e) => e.kind === "interception_return_td" || e.kind === "fumble_return_td") ?? false;
+  const safety = p.scores?.some((e) => e.kind === "safety") ?? false;
   let body: JSX.Element;
   if (p.call === "sack") body = (<><N n={p.passer} /> sacked for {g} to {to}</>);
   else if (p.call === "scramble")
@@ -126,6 +129,10 @@ function PlayDesc({ p }: { p: BroadcastPlay }): JSX.Element {
       {p.outcome === "fumble" && <> — fumble, forced by <N n={p.defender} /></>}
       {p.touchdown ? (
         <> — TOUCHDOWN</>
+      ) : returnedTd ? (
+        <> — returned for a TOUCHDOWN</>
+      ) : safety ? (
+        <> — SAFETY</>
       ) : p.firstDown ? (
         <> (1st down)</>
       ) : p.turnover && p.call !== "sack" && p.outcome !== "interception" && p.outcome !== "fumble" ? (

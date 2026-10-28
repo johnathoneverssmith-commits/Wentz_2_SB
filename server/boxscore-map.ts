@@ -22,7 +22,7 @@
  *   season leaderboards.
  */
 import type { TeamBox } from "../src/engine/boxscore.js";
-import type { DriveRecord, PlayRec } from "../src/engine/sim.js";
+import type { DriveRecord, GameEvent, PlayRec, ScoreEvent as LoggedScore } from "../src/engine/sim.js";
 import type { Player } from "../src/schema/player.js";
 
 export interface TeamGameTotals {
@@ -233,12 +233,42 @@ function reconcile(
   return { perEvent, unattached };
 }
 
+/**
+ * The engine's own scoring record, if it agrees with the final score.
+ *
+ * The final score is authoritative. When the engine logged its scores
+ * (`Game.eventLog`) and they add up to it exactly, the summary is built from
+ * them and nothing is inferred. If they don't (a Game from an older engine,
+ * or a log that wasn't collected) the caller falls back to reconstructing the
+ * summary from the trace, which is the only thing that can be done and which
+ * is known to misplace defensive scores.
+ */
+export function authoritativeScores(
+  events: readonly GameEvent[] | undefined,
+  finalScore: readonly [number, number],
+): LoggedScore[] | null {
+  if (!events) return null;
+  const scores = events.filter((e): e is LoggedScore => e.type === "score");
+  const total: [number, number] = [0, 0];
+  for (const e of scores) total[e.side] += e.points;
+  if (total[0] !== finalScore[0] || total[1] !== finalScore[1]) return null;
+  return scores;
+}
+
 /** Points per quarter for [home, away], reconciled to the engine's final score. */
 export function quarterScores(
   trace: PlayRec[],
   finalScore: [number, number],
   drives: DriveRecord[] = [],
+  log?: readonly GameEvent[],
 ): number[][] {
+  const logged = authoritativeScores(log, finalScore);
+  if (logged) {
+    const quarters = Math.max(4, ...logged.map((e) => e.quarter));
+    const out = [0, 1].map(() => Array.from({ length: quarters }, () => 0));
+    for (const e of logged) out[e.side]![e.quarter - 1]! += e.points;
+    return out;
+  }
   const events = scoreEvents(trace, drives);
   const quarters = Math.max(4, ...events.map((e) => e.quarter));
   const out: number[][] = [
@@ -309,13 +339,83 @@ function describeScore(e: ScoreEvent): string {
   return `${who(p.targetOrRusher)} ${yds}-yard touchdown run`;
 }
 
+/** One line of the scoring summary for a logged score, saying only what the trace and the event carry. */
+function describeLogged(e: LoggedScore, trace: PlayRec[]): string {
+  const p = e.playIndex === null ? undefined : trace[e.playIndex];
+  const yds = p ? Math.round(p.gained) : 0;
+  switch (e.kind) {
+    case "field_goal":
+      if (p?.distance === undefined) return "Field goal";
+      return p.kicker ? `${p.distance}-yard field goal, ${p.kicker}` : `${p.distance}-yard field goal`;
+    case "interception_return_td":
+      return e.scorer ? `${e.scorer} returns the interception for a touchdown` : "Interception returned for a touchdown";
+    case "fumble_return_td":
+      return "Fumble returned for a touchdown";
+    case "punt_return_td":
+      return e.scorer ? `${e.scorer} punt return for a touchdown` : "Punt returned for a touchdown";
+    case "kick_return_td":
+      return "Kickoff returned for a touchdown";
+    case "safety": {
+      if (p?.call === "sack" && p.defender && p.passer) return `Safety — ${p.defender} sacks ${p.passer} in the end zone`;
+      return "Safety";
+    }
+    case "touchdown":
+      if (p?.call === "pass") return `${p.passer ?? "The offense"} ${yds}-yard touchdown pass to ${p.targetOrRusher ?? "a receiver"}`;
+      return `${p?.targetOrRusher ?? "The offense"} ${yds}-yard touchdown run`;
+    default:
+      return e.points === 1 ? "Extra point" : "Two-point conversion";
+  }
+}
+
+/**
+ * The scoring summary straight from the engine's score log.
+ *
+ * One row per scoring play, in the order they happened; the extra point or
+ * two-point try is folded into its touchdown's row, and every running score is
+ * the engine's own `scoreAfter`, so the table cannot disagree with the
+ * scoreboard. A touchdown whose kick isn't logged is shown at six points: no
+ * extra point is assumed.
+ */
+function scoringPlaysFromLog(
+  logged: LoggedScore[],
+  trace: PlayRec[],
+  homeTeam: string,
+  awayTeam: string,
+): ScoringPlay[] {
+  const out: ScoringPlay[] = [];
+  let last: LoggedScore | undefined;
+  for (const e of logged) {
+    const folds = (e.kind === "extra_point" || e.kind === "two_point") && last && last.side === e.side && last.playIndex === e.playIndex;
+    if (folds) {
+      const row = out.at(-1)!;
+      row.homeScore = e.scoreAfter[0];
+      row.awayScore = e.scoreAfter[1];
+      if (e.kind === "two_point") row.description += " (two-point conversion good)";
+      last = e;
+      continue;
+    }
+    out.push({
+      quarter: e.quarter,
+      team: e.side === 0 ? homeTeam : awayTeam,
+      description: describeLogged(e, trace),
+      homeScore: e.scoreAfter[0],
+      awayScore: e.scoreAfter[1],
+    });
+    last = e;
+  }
+  return out;
+}
+
 export function scoringPlaysFrom(
   trace: PlayRec[],
   homeTeam: string,
   awayTeam: string,
   finalScore: [number, number],
   drives: DriveRecord[] = [],
+  log?: readonly GameEvent[],
 ): ScoringPlay[] {
+  const logged = authoritativeScores(log, finalScore);
+  if (logged) return scoringPlaysFromLog(logged, trace, homeTeam, awayTeam);
   const events = scoreEvents(trace, drives);
   // same reconciliation the line score uses, so the two always agree
   const { perEvent, unattached } = reconcile(events, finalScore);
