@@ -185,11 +185,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app">
+      <button type="button" className="ui-skip" onClick={() => document.getElementById("franchise-main")?.focus()}>Skip to content</button>
       <nav className="rail" aria-label="Main">
         <div className="brand">
-          <span className="mark">FS</span>
+          <span className="mark" aria-hidden="true">W2</span>
           <div>
-            <b>FRANCHISE SIM</b>
+            <b>WENTZ 2 SB</b>
             <span>{teamCode ? teamFullName(teamCode) : "No team yet"}</span>
             {session && <span style={{ display: "block", opacity: 0.7 }}>{session.leagueName}</span>}
           </div>
@@ -284,7 +285,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
         )}
       </nav>
-      <main className="app-main">
+      <main className="app-main" id="franchise-main" tabIndex={-1}>
         {saveCorrupted && (
           <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
             <strong>Your saved dynasty couldn&rsquo;t be read.</strong> What you&rsquo;re looking at

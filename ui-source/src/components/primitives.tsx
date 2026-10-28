@@ -178,14 +178,20 @@ export function Tabs({
   /** What this set of tabs is for, when the surrounding card doesn't say. */
   label?: string;
 }) {
+  const listRef = useRef<HTMLDivElement>(null);
   const open = tabs.filter((t) => !t.locked);
-  const step = (by: number): void => {
-    const i = open.findIndex((t) => t.id === active);
+  const selectAndFocus = (id: string): void => {
+    onChange(id);
+    const next = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? []).find(el => el.id === group + "-tab-" + id);
+    next?.focus();
+  };
+  const step = (from: string, by: number): void => {
+    const i = open.findIndex((t) => t.id === from);
     const next = open[(i + by + open.length) % open.length];
-    if (next) onChange(next.id);
+    if (next) selectAndFocus(next.id);
   };
   return (
-    <div className="tabs" role="tablist" aria-label={label ?? "Sections"}>
+    <div ref={listRef} className="tabs" role="tablist" aria-label={label ?? "Sections"}>
       {tabs.map((t) => {
         const selected = t.id === active;
         return (
@@ -204,17 +210,17 @@ export function Tabs({
             onKeyDown={(e) => {
               if (e.key === "ArrowRight" || e.key === "ArrowDown") {
                 e.preventDefault();
-                step(1);
+                step(t.id, 1);
               } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
                 e.preventDefault();
-                step(-1);
+                step(t.id, -1);
               } else if (e.key === "Home") {
                 e.preventDefault();
-                if (open[0]) onChange(open[0].id);
+                if (open[0]) selectAndFocus(open[0].id);
               } else if (e.key === "End") {
                 e.preventDefault();
                 const last = open[open.length - 1];
-                if (last) onChange(last.id);
+                if (last) selectAndFocus(last.id);
               }
             }}
           >

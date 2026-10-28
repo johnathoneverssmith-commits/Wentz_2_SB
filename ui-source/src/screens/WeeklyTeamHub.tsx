@@ -1,3 +1,5 @@
+import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
+import { TeamBadge } from "@/components/bits";
 import { LeagueWire } from "@/components/LeagueWire";
 import { seasonShape } from "@/state/leagueFormat";
 import { recordWatch } from "@/state/seasonAwards";
@@ -15,7 +17,7 @@ import { LeagueRoster } from "@/components/LeagueRoster";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import { record, winPct } from "@/domain";
-import { STAGE_LABEL } from "@/state/stageMachine";
+import { displaySeasonFor, STAGE_LABEL } from "@/state/stageMachine";
 import { hasMoreToReveal, revealedWeek, viewerWeek, visibleGames } from "@/state/reveal";
 import { currentBlock } from "@/state/revealBlocks";
 import { rankBy, staffCards } from "@/state/staffRatings";
@@ -183,10 +185,12 @@ export function WeeklyTeamHub() {
   const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
   return (
-    <Card maxWidth={760}>
+    <div className="hub-dashboard">
+    <Card maxWidth={1280}>
+      <div className="hub-kicker">Franchise command center <span>{displaySeasonFor(s.season, s.stage)} season</span></div>
       <CardHeader
-        badge={meta.abbr}
-        title={meta.label}
+        badge={<TeamBadge code={code} size={60} />}
+        title={teamFullName(code)}
         subtitle={
           isPreseason
             ? `Preseason · starting lineup ${team.ratings.overall} OVR`
@@ -268,17 +272,49 @@ export function WeeklyTeamHub() {
         ]}
       />
 
-      {/* on a phone the week's controls sit under every tab, the wire and the
-          unit ranks — a long scroll to the one button the hub is for */}
-      {phase && (
-        <button
-          type="button"
-          className="btnlink jump-next"
-          onClick={() => document.getElementById("hub-next")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-        >
-          Jump to what&rsquo;s next ↓
-        </button>
+      <div className="hub-command" aria-label="Next gameplay action">
+      <span id="hub-next" />
+      {phase && s.pendingGameDay && (
+        // results for this week already exist — never offer to sim it again
+        <div className="readiness">
+          <div className="readiness-top">
+            <p>This week's results are in</p>
+            <span>Continue from Game Day to move to the next week</span>
+          </div>
+          <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => nav("/game-day")}>
+            View Game Day results
+          </button>
+        </div>
       )}
+      {/*
+        Change 6: in a precomputed block there is nothing to be ready *for* —
+        the games are already played and saved. These reveal them to this GM
+        alone, at whatever pace they like, and cannot change a result or
+        anybody else's screen. The readiness gate belongs to stages where the
+        league genuinely has to move together, and this is not one.
+      */}
+      {phase && !s.pendingGameDay && online && (
+        <RevealControls />
+      )}
+      {phase && !s.pendingGameDay && !online && (
+        <ReadinessGate
+          title="Game day readiness"
+          label="Ready for Game Day"
+          action={simulateGameDay}
+          onAdvance={(route) => nav(route)}
+        />
+      )}
+      </div>
+
+      <DashboardOverview code={code} season={displaySeasonFor(s.season, s.stage)} week={headerWeek}
+        phase={phase} schedule={s.schedule} seenGames={seenGames} cap={team.cap}
+        units={[
+          { label: "Offense", value: sides[code]?.offense ?? team.ratings.offense, rank: sides[code]?.offenseRank ?? team.ratings.offenseRank },
+          { label: "Defense", value: sides[code]?.defense ?? team.ratings.defense, rank: sides[code]?.defenseRank ?? team.ratings.defenseRank },
+          { label: "Special teams", value: team.ratings.specialTeams, rank: team.ratings.specialTeamsRank },
+          { label: "Coaching", value: staffOvr, rank: staffRank },
+        ]}
+        offers={s.trades.filter(t => t.status === "offered" && t.toTeam === code).length} />
       {weekly && <GamePlanStrip />}
       <Tabs
         tabs={[
@@ -556,38 +592,8 @@ export function WeeklyTeamHub() {
         )}
       </Footer>
 
-      <span id="hub-next" />
-      {phase && s.pendingGameDay && (
-        // results for this week already exist — never offer to sim it again
-        <div className="readiness">
-          <div className="readiness-top">
-            <p>This week's results are in</p>
-            <span>Continue from Game Day to move to the next week</span>
-          </div>
-          <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => nav("/game-day")}>
-            View Game Day results
-          </button>
-        </div>
-      )}
-      {/*
-        Change 6: in a precomputed block there is nothing to be ready *for* —
-        the games are already played and saved. These reveal them to this GM
-        alone, at whatever pace they like, and cannot change a result or
-        anybody else's screen. The readiness gate belongs to stages where the
-        league genuinely has to move together, and this is not one.
-      */}
-      {phase && !s.pendingGameDay && online && (
-        <RevealControls />
-      )}
-      {phase && !s.pendingGameDay && !online && (
-        <ReadinessGate
-          title="Game day readiness"
-          label="Ready for Game Day"
-          action={simulateGameDay}
-          onAdvance={(route) => nav(route)}
-        />
-      )}
     </Card>
+    </div>
   );
 }
 
