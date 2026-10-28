@@ -51,6 +51,8 @@ export interface League {
   me: string;
   humanTeams: string[];
   teamCodes: string[];
+  /** How far the cap has risen since the league began (1 if it has not): the factor on the minimum deal and the squad salary. */
+  capScale: number;
   teams: Record<string, { w: number; l: number; t: number; pf: number; pa: number; capTotal: number; capDead: number }>;
   champions: Array<{ season: number; champion: string; runnerUp: string | null }>;
   teamSeasons: Array<{ season: number; team: string; finish: string; w: number; l: number; t: number }>;
@@ -77,6 +79,7 @@ export async function readLeague(page: Page): Promise<League> {
     const me = gms.find((g) => g.id === s.viewerGmId)!.teamCode as string;
     const teams: League["teams"] = {};
     for (const [code, t] of Object.entries(s.teams as Record<string, any>)) teams[code] = { w: t.wins, l: t.losses, t: t.ties, pf: t.pointsFor, pa: t.pointsAgainst, capTotal: t.cap.total, capDead: t.cap.dead ?? 0 };
+    const capScale = typeof s.capScale === "number" && s.capScale > 0 ? (s.capScale as number) : 1;
     const players: League["players"] = {};
     for (const [id, p] of Object.entries(s.players as Record<string, any>)) {
       players[id] = { id, storedId: p.id, holdout: p.holdout ?? null, position: p.position, yearsPro: p.years_pro, contract: p.contract ?? null, draftInfo: p.draft_info ?? null, retiredSeason: p.retired_season ?? null, age: p.age, team: p.nfl_team ?? "", fa: Boolean(p.free_agent), retired: Boolean(p.retired), years: p.contract ? p.contract.years_remaining : -1, hit: p.contract?.cap_hit_by_year?.[0] ?? 0, hits: p.contract?.cap_hit_by_year?.length ?? 0, overall: p.overall };
@@ -87,6 +90,7 @@ export async function readLeague(page: Page): Promise<League> {
       stage: s.stage as string,
       season: s.season as number,
       week: s.week as number,
+      capScale,
       me,
       humanTeams: gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode as string).sort(),
       teamCodes: Object.keys(teams).sort(),
@@ -342,6 +346,9 @@ export interface OffseasonWindow {
 }
 const owner = (p: PlayerRow) => p.team.startsWith("PS:") ? p.team.slice(3) : p.team;
 const roundMoney = (x: number) => Math.round(x * 10) / 10;
+/** The league minimum deal and the practice-squad salary at the league's prices ($M), as the game writes them. */
+export const minDealOf = (l: { capScale: number }): number => roundMoney(l.capScale);
+export const squadDealOf = (l: { capScale: number }): number => Math.round(0.2 * l.capScale * 100) / 100;
 
 /**
  * All selected rookies must remain individually identifiable. No majority threshold.
@@ -398,7 +405,7 @@ function expectOwnershipTransition(was: PlayerRow, p: PlayerRow, before: League,
   }
   if (was.team.startsWith("PS:") && p.team === owner(was) && (window.reconcile || window.fill)) {
     expect(p.contract, label + "promotion uses the one-year minimum deal").toEqual({
-      team_id: p.team, years_remaining: 1, total_value: 1, guaranteed: 0, cap_hit_by_year: [1], signing_bonus: 0 });
+      team_id: p.team, years_remaining: 1, total_value: minDealOf(after), guaranteed: 0, cap_hit_by_year: [minDealOf(after)], signing_bonus: 0 });
     return;
   }
   const signing = after.signings.find(x => x.playerId === p.id && x.teamCode === p.team &&
@@ -437,10 +444,10 @@ export function expectContractContinuity(before: League, after: League, window: 
         expect(window.fill, id + ": unrecorded signing requires an observed free agent and roster fill").toBe(true);
         const c = p.contract!, quote = window.fillQuotes?.[id];
         expect(quote, id + ": unlogged roster-fill signing needs authoritative market quotes").toBeTruthy();
-        const full = [quote!.marketBefore, quote!.marketNow].filter((n): n is number => n !== null).map(n => roundMoney(Math.max(1, n)));
-        const late = [quote!.marketBefore, quote!.marketNow].filter((n): n is number => n !== null).map(n => Math.max(1, roundMoney(n * 0.35)));
+        const full = [quote!.marketBefore, quote!.marketNow].filter((n): n is number => n !== null).map(n => roundMoney(Math.max(minDealOf(after), n)));
+        const late = [quote!.marketBefore, quote!.marketNow].filter((n): n is number => n !== null).map(n => Math.max(minDealOf(after), roundMoney(n * 0.35)));
         expect(Number.isInteger(c.years_remaining) && c.years_remaining >= 1 && c.years_remaining <= 5, id + ": documented fill term").toBe(true);
-        expect(c.years_remaining === 1 ? [1, ...late] : [1, ...full], id + ": documented fill price").toContain(c.cap_hit_by_year[0]);
+        expect(c.years_remaining === 1 ? [minDealOf(after), ...late] : [minDealOf(after), ...full], id + ": documented fill price").toContain(c.cap_hit_by_year[0]);
         expect(p.contract, id + ": complete roster-fill signing terms").toEqual({
           team_id: p.team, years_remaining: c.years_remaining,
           total_value: roundMoney(c.cap_hit_by_year[0]! * c.years_remaining),
@@ -452,7 +459,7 @@ export function expectContractContinuity(before: League, after: League, window: 
     if (was.team !== p.team) {
       // Ownership already proved above. Same-owner PS moves have fixed published terms.
       if (p.team.startsWith("PS:") && owner(p) === owner(was)) {
-        expect(p.contract, id + ": practice-squad terms").toEqual({ team_id: owner(p), years_remaining: 1, total_value: 0.2, guaranteed: 0, cap_hit_by_year: [0.2], signing_bonus: 0 });
+        expect(p.contract, id + ": practice-squad terms").toEqual({ team_id: owner(p), years_remaining: 1, total_value: squadDealOf(after), guaranteed: 0, cap_hit_by_year: [squadDealOf(after)], signing_bonus: 0 });
         continue;
       }
       if (was.team.startsWith("PS:") && p.team === owner(was)) continue;
@@ -471,7 +478,7 @@ export function expectContractContinuity(before: League, after: League, window: 
     const priorCommitments = Object.values(before.players).filter(x => x.team === p.team && !x.retired && x.contract && x.contract.years_remaining >= 2)
       .reduce((n, x) => n + (x.contract!.cap_hit_by_year[1] ?? 0), 0);
     expect(roundMoney(priorCommitments - (c.cap_hit_by_year[1] ?? 0) + offer.baseSalary),
-      id + ": CPU holdout offer preserves the documented $12M budget buffer").toBeLessThanOrEqual(after.teams[p.team]!.capTotal - 12);
+      id + ": CPU holdout offer preserves the documented $12M budget buffer (a share of the cap: $12M at the starting prices)").toBeLessThanOrEqual(after.teams[p.team]!.capTotal - 12 * after.capScale);
     const expected = { ...c, years_remaining: 1 + offer.years,
       cap_hit_by_year: [c.cap_hit_by_year[0]!, ...Array(offer.years).fill(roundMoney(offer.baseSalary + carried))],
       total_value: roundMoney(c.cap_hit_by_year[0]! + (offer.baseSalary + carried) * offer.years),

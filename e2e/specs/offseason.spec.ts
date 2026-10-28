@@ -3,6 +3,8 @@ import type { Page } from "@playwright/test";
 import {
   contractProblems,
   contractRuleQuotes,
+  minDealOf,
+  squadDealOf,
   expectContractContinuity,
   expectRookieAccounting,
   type OffseasonWindow,
@@ -286,7 +288,7 @@ test.describe("the offseason", () => {
       // transaction at a time. A signing record or an observed market snapshot is evidence;
       // an arbitrary destination is not.
       const released = structuredClone(market);
-      const chosen = picks.find(r => market.players[rookieOf(r.id!)]!.hit <= 1.5)!;
+      const chosen = picks.find(r => market.players[rookieOf(r.id!)]!.hit <= 1.5 * market.capScale)!;
       const rid = rookieOf(chosen.id!);
       Object.assign(released.players[rid]!, { team: "FA", fa: true, contract: null, years: -1, hit: 0, hits: 0 });
       expectRookieAccounting(picks, market, released, { reconcile: true });
@@ -299,11 +301,11 @@ test.describe("the offseason", () => {
       expectRookieAccounting(picks, released, signed);
       expectContractContinuity(released, signed);
       const ps = structuredClone(market);
-      Object.assign(ps.players[rid]!, { team: "PS:" + chosen.team, contract: { team_id: chosen.team, years_remaining: 1, total_value: 0.2, guaranteed: 0, cap_hit_by_year: [0.2], signing_bonus: 0 }, years: 1, hit: 0.2, hits: 1 });
+      Object.assign(ps.players[rid]!, { team: "PS:" + chosen.team, contract: { team_id: chosen.team, years_remaining: 1, total_value: squadDealOf(market), guaranteed: 0, cap_hit_by_year: [squadDealOf(market)], signing_bonus: 0 }, years: 1, hit: squadDealOf(market), hits: 1 });
       expectRookieAccounting(picks, market, ps, { reconcile: true });
       expectContractContinuity(market, ps, { reconcile: true });
       const promoted = structuredClone(ps);
-      Object.assign(promoted.players[rid]!, { team: chosen.team, contract: { team_id: chosen.team, years_remaining: 1, total_value: 1, guaranteed: 0, cap_hit_by_year: [1], signing_bonus: 0 }, hit: 1 });
+      Object.assign(promoted.players[rid]!, { team: chosen.team, contract: { team_id: chosen.team, years_remaining: 1, total_value: minDealOf(market), guaranteed: 0, cap_hit_by_year: [minDealOf(market)], signing_bonus: 0 }, hit: minDealOf(market) });
       expectRookieAccounting(picks, ps, promoted, { fill: true });
       expectContractContinuity(ps, promoted, { fill: true });
       const pruned = structuredClone(released); pruned.season++;
