@@ -9,7 +9,7 @@ import { millions } from "@/util/format";
 import "./dashboard.css";
 
 interface Props {
-  code: string; season: number; week: number; phase: "PRE" | "REG" | null;
+  code: string; scheduleSeason: number; week: number; phase: "PRE" | "REG" | null;
   schedule: ScheduledGame[]; seenGames: GameResult[];
   cap: { used: number; total: number; dead?: number };
   units: Array<{ label: string; value: number; rank: number }>;
@@ -18,7 +18,7 @@ interface Props {
 
 /** Presentation only. Results are the viewer-filtered games supplied by the hub. */
 export const DashboardOverview = memo(function DashboardOverview({
-  code, season, week, phase, schedule, seenGames, cap, units, offers,
+  code, scheduleSeason, week, phase, schedule, seenGames, cap, units, offers,
 }: Props) {
   const games = schedule.filter(g => g.phase === (phase ?? "REG") && (g.homeTeam === code || g.awayTeam === code));
   const weeks = Array.from({ length: Math.max(0, ...games.map(g => g.week)) }, (_, i) => i + 1);
@@ -27,15 +27,15 @@ export const DashboardOverview = memo(function DashboardOverview({
     <div className="dashboard-main">
       <MotionSurface className="ui-surface season-track" index={0}>
         <div className="ui-section-heading">
-          <div><h2>Season timeline</h2><p>{season} {phase === "PRE" ? "preseason" : "regular season"} · Your road ahead</p></div>
+          <div><h2>Season timeline</h2><p>{scheduleSeason} {phase === "PRE" ? "preseason" : "regular season"} · {phase ? "Your road ahead" : "Season results"}</p></div>
           <Link className="ui-text-link" to="/schedule">Full schedule <span aria-hidden="true">↗</span></Link>
         </div>
         <ol className="season-track__games" tabIndex={0} aria-label="Your season schedule">
           {weeks.map(w => {
             const g = games.find(g => g.week === w);
             if (!g) return <li key={"bye-" + w} data-week={w}
-              aria-current={w === week ? "step" : undefined}
-              className={"season-game" + (w === week ? " season-game--current" : "")}>
+              aria-current={phase && w === week ? "step" : undefined}
+              className={"season-game" + (phase && w === week ? " season-game--current" : "")}>
               <span className="season-game__week">W{w}</span><span className="season-game__bye" aria-hidden="true">—</span>
               <strong>Bye</strong><span className="season-game__score">No game</span>
             </li>;
@@ -44,8 +44,8 @@ export const DashboardOverview = memo(function DashboardOverview({
             const ours = result ? (g.homeTeam === code ? result.homeScore : result.awayScore) : null;
             const theirs = result ? (g.homeTeam === code ? result.awayScore : result.homeScore) : null;
             const outcome = ours === null || theirs === null ? null : ours > theirs ? "W" : ours < theirs ? "L" : "T";
-            return <li data-week={g.week} data-team={opponent} key={g.phase + "-" + g.week} aria-current={g.week === week ? "step" : undefined}
-              className={"season-game" + (g.week === week ? " season-game--current" : "")}>
+            return <li data-week={g.week} data-team={opponent} key={g.phase + "-" + g.week} aria-current={phase && g.week === week ? "step" : undefined}
+              className={"season-game" + (phase && g.week === week ? " season-game--current" : "")}>
               <span className="season-game__week">W{g.week}</span>
               <TeamBadge code={opponent} size={36} />
               <span className="season-game__team">{TEAMS_BY_CODE[opponent]?.abbr ?? opponent}</span>

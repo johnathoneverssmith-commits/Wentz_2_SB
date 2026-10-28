@@ -126,6 +126,10 @@ test.describe("the offseason", () => {
     await expect(page).toHaveURL(/#\/retirement$/);
     expect(retiredIds(review), "the review shows who will retire; it does not retire them").toEqual(retiredIds(base));
     expectHistoryKept(review, base);
+    await page.goto("/#/hub");
+    await expect(page.locator(".season-track .ui-section-heading p")).toHaveText(`${S} regular season · Season results`);
+    await page.goto("/");
+    await expect(page).toHaveURL(/#\/retirement$/);
     await expectChampionOnHistoryScreen(page, review, S);
     await page.goBack();
     await expect(page).toHaveURL(/#\/retirement$/);
@@ -252,6 +256,8 @@ test.describe("the offseason", () => {
     await lastRole(page, "Ready to start the season").click();
     const next = await stageWithin(page, 60_000, "preseason"); // the rollover is the heaviest step (over 10s here)
     expect(next.season, "the league year turned exactly once").toBe(S + 1);
+    await expect(page.locator(".season-track .ui-section-heading p")).toHaveText(`${S + 1} preseason · Your road ahead`);
+    await expect(page.locator(".season-track .season-game__score")).toHaveText(Array(3).fill("Upcoming"));
     expect(next.week).toBe(1);
     for (const p of Object.values(next.players)) {
       const was = preRollover.players[p.id];
@@ -345,6 +351,7 @@ test.describe("the offseason", () => {
     expect(reg, "a full new schedule").toHaveLength(272);
     for (const code of next.teamCodes) expect(reg.filter((g) => g.home === code || g.away === code), `${code} plays seventeen`).toHaveLength(17);
     const again = await reloadChangesNothing(page, /#\/hub$/, "after the season starts (the year does not turn again, nobody ages again)");
+    await expect(page.locator(".season-track .ui-section-heading p")).toHaveText(`${S + 1} preseason · Your road ahead`);
     expect(again.season).toBe(S + 1);
     await expectChampionOnHistoryScreen(page, again, S);
     await page.getByRole("link", { name: "Weekly Team Hub" }).first().click();

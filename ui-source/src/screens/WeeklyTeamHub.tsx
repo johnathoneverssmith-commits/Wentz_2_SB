@@ -306,7 +306,8 @@ export function WeeklyTeamHub() {
       )}
       </div>
 
-      <DashboardOverview code={code} season={displaySeasonFor(s.season, s.stage)} week={headerWeek}
+      {/* The stored schedule/results keep s.season until the preseason rollover. */}
+      <DashboardOverview code={code} scheduleSeason={s.season} week={headerWeek}
         phase={phase} schedule={s.schedule} seenGames={seenGames} cap={team.cap}
         units={[
           { label: "Offense", value: sides[code]?.offense ?? team.ratings.offense, rank: sides[code]?.offenseRank ?? team.ratings.offenseRank },

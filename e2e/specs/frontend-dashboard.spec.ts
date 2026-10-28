@@ -117,3 +117,31 @@ test.describe("franchise dashboard presentation", () => {
   });
 });
 
+test.describe("offseason timeline year", () => {
+  test.use({ fixtureName: "offseason-fa-skip-carried" });
+  test("labels retained results with their stored year, not the year being prepared for", async ({ page }) => {
+    await page.goto("/#/hub");
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state, SAVE_KEY);
+    expect(saved.stage).toBe("offseasonDraftSummary");
+    expect(saved.games.some((g: { phase: string; played: boolean }) => g.phase === "REG" && g.played)).toBe(true);
+    const timeline = page.locator(".season-track");
+    await expect(timeline.locator(".ui-section-heading p")).toHaveText(`${saved.season} regular season · Season results`);
+    await expect(timeline.locator('[aria-current="step"]')).toHaveCount(0);
+    await page.reload();
+    await expect(timeline.locator(".ui-section-heading p")).toHaveText(`${saved.season} regular season · Season results`);
+  });
+});
+
+test.describe("preseason timeline year", () => {
+  test.use({ fixtureName: "preseason" });
+  test("labels the new preseason schedule with the rolled-over year and no old scores", async ({ page }) => {
+    await page.goto("/");
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state, SAVE_KEY);
+    expect(saved.stage).toBe("preseason");
+    expect(saved.games).toHaveLength(0);
+    const timeline = page.locator(".season-track");
+    await expect(timeline.locator(".ui-section-heading p")).toHaveText(`${saved.season} preseason · Your road ahead`);
+    await expect(timeline.locator(".season-game__score")).toHaveText(Array(3).fill("Upcoming"));
+  });
+});
+
