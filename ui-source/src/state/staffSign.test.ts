@@ -55,7 +55,9 @@ describe("a staff taking a GM's turn", () => {
     if (a.kind === "offer") {
       expect(s.players[a.playerId]).toBeDefined();
       expect(a.salary).toBeGreaterThan(0);
-      expect(a.years).toBeGreaterThanOrEqual(2);
+      // a length the evaluator chose (`contractValue.ts`): one year for a veteran past his decline, up to five for a young starter
+      expect(a.years).toBeGreaterThanOrEqual(1);
+      expect(a.years).toBeLessThanOrEqual(5);
     }
     // choosing changes nothing
     const before = JSON.stringify(s.freeAgencyEvent);

@@ -491,7 +491,10 @@ describe("a CPU team's offers in the free-agency market", () => {
     const move = chooseFaMove(s, code) as { kind: "offer"; playerId: string; salary: number; years: number };
     const p = s.players[move.playerId]!;
     const lean = deterministicNoiseUnit(code, s.season, "fa_years", p.id);
-    expect(move.years).toBe(contractTermsFor(p, move.salary, [0.5, 0.5, 0.5], lean).years);
+    // the club's own lean sets the length it would offer (`contractTermsFor`); the contract evaluator (`contractValue.ts`) can
+    // shorten it where the player will not be worth the later years, or add the one year that clearly pays
+    const usual = contractTermsFor(p, move.salary, [0.5, 0.5, 0.5], lean).years;
+    expect(move.years).toBeLessThanOrEqual(usual + 1);
     expect(move.years).toBeGreaterThanOrEqual(1);
     expect(move.years).toBeLessThanOrEqual(5);
   });

@@ -447,7 +447,9 @@ export function expectContractContinuity(before: League, after: League, window: 
         const full = [quote!.marketBefore, quote!.marketNow].filter((n): n is number => n !== null).map(n => roundMoney(Math.max(minDealOf(after), n)));
         const late = [quote!.marketBefore, quote!.marketNow].filter((n): n is number => n !== null).map(n => Math.max(minDealOf(after), roundMoney(n * 0.35)));
         expect(Number.isInteger(c.years_remaining) && c.years_remaining >= 1 && c.years_remaining <= 5, id + ": documented fill term").toBe(true);
-        expect(c.years_remaining === 1 ? [minDealOf(after), ...late] : [minDealOf(after), ...full], id + ": documented fill price").toContain(c.cap_hit_by_year[0]);
+        // a camp deal for a veteran nobody paid is one year at 35% of his price (`lateMarketDeal`); a CPU club's fill also shortens a
+        // term the player will not be worth (B2b, `contractValue.ts`), so a one-year deal can be at the full price as well
+        expect(c.years_remaining === 1 ? [minDealOf(after), ...late, ...full] : [minDealOf(after), ...full], id + ": documented fill price").toContain(c.cap_hit_by_year[0]);
         expect(p.contract, id + ": complete roster-fill signing terms").toEqual({
           team_id: p.team, years_remaining: c.years_remaining,
           total_value: roundMoney(c.cap_hit_by_year[0]! * c.years_remaining),

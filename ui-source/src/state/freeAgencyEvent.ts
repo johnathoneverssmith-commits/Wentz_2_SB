@@ -6,6 +6,8 @@ import { MAX_CONTRACT_M } from "@/sim/MockSimulationService";
 import { contractTermsFor, humanFaRounds, isAiTeam, offerToContract, readTeamTimeline } from "./rules";
 import { capUsedOf } from "./seed.ts";
 import { marketScale, minSalaryM } from "./capEconomy.ts";
+import { cpuOfferYears } from "./cpuContracts.ts";
+import { commitmentsOf } from "./contractValue.ts";
 import { marketOfStage, outlookFor, outlookRating, signingBar, signingValue, youthPreference, type FaMarket, type FaOutlook } from "./faValue.ts";
 import { ROSTER_SIZE } from "@/sim/roster-template.ts";
 import { bestOfferFor, expectedSalary, type Offer, rosterRatings, type RosterRatings } from "./freeAgencyValues";
@@ -373,7 +375,15 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   const valueOf = (p: Player): number => signingValue(outlookRating(p, outlook), p.position, carriedFor(p));
   /** the length of deal a front office would offer him: the same call prices his youth preference and makes the offer */
   const yearsFor = (p: Player, salary: number): number =>
-    contractTermsFor(p, salary, [0.5, 0.5, 0.5], deterministicNoiseUnit(teamCode, s.season, "fa_years", p.id)).years;
+    cpuOfferYears(
+      s,
+      teamCode,
+      p,
+      salary,
+      contractTermsFor(p, salary, [0.5, 0.5, 0.5], deterministicNoiseUnit(teamCode, s.season, "fa_years", p.id)).years,
+      difficulty.longTermWeight,
+      { commitments: idx.commitments.get(teamCode), horizon: outlook?.horizon },
+    );
 
   // AI Difficulty (§13.1): search only the top `candidateDepth` plausible
   // targets by raw gain — Expert (Infinity) considers every legal target,
@@ -469,6 +479,8 @@ interface RoundIndex {
   bestByTeam: Map<string, Map<string, number>>;
   /** every rostered rating by team and position, for the Master AI's unit model */
   ratingsByTeam: Map<string, Map<string, number[]>>;
+  /** what each team owes by season from this one, for the contract evaluator (`contractValue.ts`) */
+  commitments: Map<string, number[]>;
 }
 
 /**
@@ -514,7 +526,7 @@ function indexRound(s: LeagueState): RoundIndex {
     if (r) r.push({ position: p.position, overall: p.overall, age: p.age });
     else rosterByTeam.set(p.nfl_team, [{ position: p.position, overall: p.overall, age: p.age }]);
   }
-  return { round: s.freeAgencyEvent?.round ?? 0, pool, rosterByTeam, bestByTeam, ratingsByTeam };
+  return { round: s.freeAgencyEvent?.round ?? 0, pool, rosterByTeam, bestByTeam, ratingsByTeam, commitments: commitmentsOf(Object.values(s.players)) };
 }
 
 /** Run CPU turns until a human is on the clock or the event ends. */

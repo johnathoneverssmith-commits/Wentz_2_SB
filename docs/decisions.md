@@ -1615,3 +1615,37 @@ default both to 3, solo to all, and both change at the start of each offseason o
 season screen. GM names are American with a minority carrying a nickname or epithet.
 
 **One rule book for standings and playoff seeding.** The engine's `computeStandings` (`src/engine/standings.ts`) is the documented rule: division champions are seeds 1-4 whatever their record, the three best of the rest are 5-7, and ties go through head-to-head, division / common / conference record, strength of victory and schedule, then net points. Three other orderings had grown beside it: the Mock's `seedBracket` (wins, then point difference, no divisions; it is also what the multiplayer server seeds with), `recomputeStandings`' conference and division ranks (a shorter tiebreak, no champion priority), and the hub's table (win percentage, then point difference, with the first seven rows labelled seeds). The same completed season therefore gave different seeds, byes and pairings depending on where it was asked, and on the adapter-backed path (which uses the engine) a different answer from the fallback. Now `authoritativeStandings` (`ui-source/src/state/standings.ts`) calls the engine, and the Mock's bracket, the ranks stored on each team and the order the hub table and the pre-season playoff picture list all come from it. `ConferenceSeeding` gains `order` (the seeds, then everyone else in wild-card order) so a table can list the whole conference by the same rules. A humans-only league has no divisions and keeps its own ordering. Results and records are unchanged; ranks are rewritten after every game day, so an old save corrects itself the next week, and a bracket already seeded is left as it was.
+
+## B2b: long-term CPU contract intelligence (2026-10)
+
+**What changed.** A CPU club now chooses how long a free-agent deal runs, and which of its own expiring players it extends and for how
+long, by pricing each year of the contract (`ui-source/src/state/contractValue.ts`, glue in `cpuContracts.ts`). A year is worth
+`survival x (what his projected rating would cost on the market that year - what he is paid) - a cap-flexibility penalty`,
+discounted by the club's window. His rating comes from the game's own aging model (`expectedAgingDelta`, the mean of `agingDelta`)
+read at his own `decline_age_threshold`, not the draft board's position table; the market's price is `expectedSalary` (the curve is
+unchanged) in each year's dollars, grown at C1's ~7.5% a year. The length is the longest term in which every added year earns a small
+margin over its pay (a year beyond the club's usual length must earn three times as much); the first year that does not ends the term,
+and a deal that would take a future year past the projected cap is cut short of it. Prices are projected at the cap's mean growth, but *room* is projected at the low end of what C1 draws (5.5%, `CAP_PLANNING_GROWTH`), since a team that plans to the line of the average cap is over it in every slow year. The club's own lean (`contractTermsFor`) is the
+starting point and the GM's `longTermWeight` (difficulty) sets how far toward the evaluator it moves.
+
+**Unchanged on purpose.** The price a free agent asks, bonuses and guarantees (`contractTermsFor` still draws them), release
+penalties and dead money, a human's contract rules, B1/B2a targeting (`signingValue`, `outlookRating`, `youthPreference`).
+
+**Retirement (checked first).** A retired player stays on his team's roster object but `capUsedOf`/`recomputeTeamRatings` skip him, so
+his remaining years come off the cap with no dead money. The evaluator weights each year's *value and pay* by the chance he is still
+playing (`retirementChance`, extracted from `retirementOutcomes` so there is one rule) and does *not* weight the cap-flexibility
+penalty, so a deal never looks better because he might retire. The free void itself is existing behaviour and is not changed here.
+
+**Acceptance (checked first).** A free agent's choice among offers (`scoreOffer`, `offerEligible`) ignores years, so a club can
+choose any length at the same price and a shorter deal never loses a bid (this is what lets the evaluator shorten without a cost). An
+*extension* (`extendContract`) does weigh length: it needs 96% of the ask's total, so fewer years cost more a year
+(`extensionSalaryAt`). CPU extensions are priced to pass that rule, so a person's staff can propose the same list and it is accepted.
+The free-agent side ignoring years remains a possible exploit (a long lock at today's price on a young star, in a league whose cap
+rises) and is left for a separate decision.
+
+**The re-sign cap buffer is unchanged** (`RESIGN_CAP_BUFFER` 18 / 6). A wider one (27 / 9) was tried after a first multiseason run had a club extend to 92% of the cap and cut 18 players for $86M of dead money. Replaying identical league states (four mature offseasons, each forked under five configurations) showed the same dead-money event under the *old* logic and the old buffer, so it predates B2b, and the wider buffer bought nothing (average dead money $0.84M against $0.81M, worst $77.5M against $73.7M) while skipping about one extension in twelve. A test pins the budget at 18 / 6.
+
+**Also routed through it.** The roster fill (`fillRosterGaps`) signs free agents on a random 2-5 year term whatever their age; for CPU teams it now goes through the same evaluator (the draw is still made, so the fill's stream is unchanged). It was the largest source of long deals for veterans.
+
+**Not done.** Staff proposals use the same evaluator for *whom* to extend and *how long* (`planCoreResign`), not a different rule.
+Practice-squad contracts and a club's live unresolved offers are not in its commitments.
