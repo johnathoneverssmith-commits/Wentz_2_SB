@@ -280,9 +280,9 @@ export interface LeagueState {
    * How far the salary cap has risen since the league began (`state/capEconomy.ts`): the factor on what a contract
    * issued today costs. Absent in a league that has not grown, and in a save from before the cap did: 1.
    */
-  capScale?: number;
+  capScale?: number | undefined;
   /** The season whose rollover last raised the cap, so a rollover run twice (a retried request) cannot raise it twice. */
-  capGrowthSeason?: number;
+  capGrowthSeason?: number | undefined;
   /** Each human GM's game plan, by team (`state/gamePlan.ts`); CPU teams derive theirs. */
   gamePlans?: Record<string, import("../../../src/engine/gameplan.js").GamePlan>;
   /** Drawn once per league for the fantasy draft's order (`rules.ts` `draftSalt`). */

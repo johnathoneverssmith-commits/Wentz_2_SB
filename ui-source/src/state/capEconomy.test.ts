@@ -276,3 +276,18 @@ describe("the room a front office keeps back is a share of the cap, not a number
     expect(run(8, 1.5), "$8M at 1.5x prices is a smaller deal").toBe(6);
   });
 });
+
+describe("a new league starts at the starting prices", () => {
+  it("names the cap-growth fields, so a league started in a session that has played another does not inherit its growth", async () => {
+    const fresh = createLeague(21, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+    expect("capScale" in fresh && "capGrowthSeason" in fresh, "createLeague names them, so a shallow merge over an old state clears them").toBe(true);
+    const { useStore } = await import("./store.ts");
+    useStore.setState({ capScale: 1.7, capGrowthSeason: 2033 });
+    await useStore.getState().newLeague(22, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+    const s = useStore.getState();
+    expect(s.capScale).toBeUndefined();
+    expect(s.capGrowthSeason).toBeUndefined();
+    expect(marketScale(s)).toBe(1);
+    expect(Object.values(s.teams).every((t) => t.cap.total === BASE_CAP_M)).toBe(true);
+  });
+});

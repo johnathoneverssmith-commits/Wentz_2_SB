@@ -27,7 +27,7 @@ export const BASE_MIN_SALARY_M = 1;
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
 /** How far the cap has risen since the league began (1 for a league that has not grown). */
-export function marketScale(s: { capScale?: number }): number {
+export function marketScale(s: { capScale?: number | undefined }): number {
   const k = s.capScale;
   return typeof k === "number" && Number.isFinite(k) && k > 0 ? k : 1;
 }
@@ -48,7 +48,7 @@ export function growCap(s: LeagueState): number {
 }
 
 /** A dollar amount at today's prices, to a tenth of a million. */
-export const scaledM = (baseM: number, s: { capScale?: number }): number => round1(baseM * marketScale(s));
+export const scaledM = (baseM: number, s: { capScale?: number | undefined }): number => round1(baseM * marketScale(s));
 
 /** The league minimum salary today ($M). */
-export const minSalaryM = (s: { capScale?: number }): number => scaledM(BASE_MIN_SALARY_M, s);
+export const minSalaryM = (s: { capScale?: number | undefined }): number => scaledM(BASE_MIN_SALARY_M, s);

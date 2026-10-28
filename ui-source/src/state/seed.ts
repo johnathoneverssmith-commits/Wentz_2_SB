@@ -1511,6 +1511,10 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
     returnTo: null,
     history: [],
     hoodedFigure: null,
+    // named so that starting a league in a session that has played another (`store.newLeague` merges this over the old
+    // state) does not carry the old league's cap growth into the new one
+    capScale: undefined,
+    capGrowthSeason: undefined,
   };
   recomputeTeamRatings(state);
   // draft capital exists from day one — it's tradeable before it's spent.

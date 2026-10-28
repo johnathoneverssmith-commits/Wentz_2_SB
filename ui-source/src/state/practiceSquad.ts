@@ -29,7 +29,7 @@ import { onInjuredReserve } from "./injuries";
 export const PRACTICE_SQUAD_SIZE = 16;
 export const PRACTICE_SQUAD_SALARY_M = 0.2;
 /** What a practice-squad deal pays today ($M, to the cent): the base price at the market's scale. */
-export const practiceSquadSalaryM = (s: { capScale?: number }): number => Math.round(PRACTICE_SQUAD_SALARY_M * marketScale(s) * 100) / 100;
+export const practiceSquadSalaryM = (s: { capScale?: number | undefined }): number => Math.round(PRACTICE_SQUAD_SALARY_M * marketScale(s) * 100) / 100;
 /** The most a player's current deal can pay and still go to the squad. */
 const PS_MAX_CAP_HIT_M = 1.5;
 const ACTIVE_MINIMUM_M = 1;
