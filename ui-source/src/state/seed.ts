@@ -4,7 +4,9 @@
  * data to render from the start; setup/draft stages then reassign as needed.
  */
 import { UNITS } from "./unitValue.ts";
-import { syncAiGms } from "./aiGms.ts";
+import { difficultyFor, syncAiGms } from "./aiGms.ts";
+import { commitmentsOf } from "./contractValue.ts";
+import { cpuOfferYears } from "./cpuContracts.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { checkToPracticeSquad, practiceSquad, practiceSquadEligible, practiceSquadSalaryM, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
 import {
@@ -1079,11 +1081,23 @@ export function fillRosterGaps(
   for (const list of byPos.values()) list.sort((a, b) => b.overall - a.overall);
 
   const signed = new Set<string>();
+  // what each team owes by season, kept up as the fill signs, for the length of a CPU team's deals
+  const owed = commitmentsOf(Object.values(state.players));
   const sign = (p: Player, teamCode: string, salary: number, term: readonly [number, number]): void => {
     signed.add(p.id);
     p.free_agent = false;
     p.nfl_team = teamCode;
-    p.contract = dealFor(teamCode, salary, rng.int(term[0], term[1]));
+    // the draw is always made, so the stream the rest of the fill reads does not depend on who signs whom
+    let years = rng.int(term[0], term[1]);
+    if (state.teams[teamCode]?.controlledBy.kind === "ai") {
+      // a CPU club's length follows what he will be worth over it (`contractValue.ts`), as in the market, but a fill only shortens a deal, never
+      // stretches one: it is filling a hole, not choosing a player. A GM's roster keeps the draw
+      let row = owed.get(teamCode);
+      if (!row) owed.set(teamCode, (row = []));
+      years = cpuOfferYears(state, teamCode, p, salary, years, difficultyFor(state, teamCode).longTermWeight, { commitments: row, shortenOnly: true });
+      for (let y = 0; y < years; y++) row[y] = (row[y] ?? 0) + salary;
+    }
+    p.contract = dealFor(teamCode, salary, years);
   };
 
   for (const code of Object.keys(state.teams)) {

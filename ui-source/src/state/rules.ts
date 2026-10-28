@@ -71,6 +71,9 @@ import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, sh
 import { growCap, marketScale, minSalaryM } from "./capEconomy.ts";
 import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, teamHorizon, teamWindow, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
+import { commitmentsOf } from "./contractValue.ts";
+import { outlookFor } from "./faValue.ts";
+import { cpuExtension, cpuOfferYears } from "./cpuContracts.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
 /** Which side of the market an action is about. */
@@ -1449,7 +1452,14 @@ export function aiOfferForPlayer(rng: () => number, s: LeagueState, p: Player): 
     return raw ** 1.4 * clamp(1 + adj / 20, 0.5, 2);
   });
   const teamCode = weightedPick(rng, candidates, weights) ?? candidates[0]!;
-  const terms = contractTermsFor(p, base, [rng(), rng(), rng()], deterministicNoiseUnit(teamCode, s.season, "fa_terms", p.id));
+  const usual = contractTermsFor(p, base, [rng(), rng(), rng()], deterministicNoiseUnit(teamCode, s.season, "fa_terms", p.id));
+  // the length follows what he is worth over the years, as in the turn-based market (`cpuOfferYears`); the bonus and the
+  // share of the deal guaranteed stay as they were drawn
+  const years = cpuOfferYears(s, teamCode, p, base, usual.years, difficultyFor(s, teamCode).longTermWeight, {
+    commitments: commitmentsOf(Object.values(s.players)).get(teamCode),
+  });
+  const share = usual.guaranteed / Math.max(0.1, base * usual.years);
+  const terms = { signingBonus: usual.signingBonus, years, guaranteed: Math.round(base * years * share * 10) / 10 };
   return { teamCode, baseSalary: base, ...terms };
 }
 
@@ -2160,7 +2170,12 @@ const ELITE_RESIGN_CAP_BUFFER = 6;
  * season closes (`resignAiCore`), and a person's staff proposes it (the
  * expiring-contracts notice) and does it only on a yes.
  */
-export function planCoreResign(s: LeagueState, code: string): { player: Player; ask: ReturnType<typeof extensionAsk> }[] {
+export function planCoreResign(
+  s: LeagueState,
+  code: string,
+  /** every team's window (`readTeamTimeline`), where the caller plans for many teams and has it already */
+  timeline: Map<string, number> = readTeamTimeline(s),
+): { player: Player; ask: ReturnType<typeof extensionAsk> }[] {
   const team = s.teams[code];
   if (!team) return [];
   const roster = Object.values(s.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent && p.contract);
@@ -2180,8 +2195,16 @@ export function planCoreResign(s: LeagueState, code: string): { player: Player; 
     })
     .sort((a, b) => draftValue(b.overall, b.position) - draftValue(a.overall, a.position));
   const out: { player: Player; ask: ReturnType<typeof extensionAsk> }[] = [];
+  // What the club will owe in each later season, for the contract evaluator: the deals that run past this one, and each extension as it is planned
+  const owed = [...(commitmentsOf(roster).get(code) ?? [])];
+  const difficulty = difficultyFor(s, code);
+  const outlook = outlookFor(timeline.get(code), difficulty.longTermWeight);
   for (const p of expiring) {
-    const ask = extensionAsk(p, marketScale(s));
+    const asked = extensionAsk(p, marketScale(s));
+    // the same evaluator that prices a free agent (`contractValue.ts`) reads what he will be worth over the years he asks
+    // for: fewer years where the market would not pay for the later ones, none where it would not pay for any
+    const ask = cpuExtension(s, code, p, asked, difficulty.longTermWeight, { commitments: owed, horizon: outlook?.horizon });
+    if (!ask) continue;
     // a franchise player is kept even when it squeezes the draft budget
     const buffer = (p.overall >= 88 ? ELITE_RESIGN_CAP_BUFFER : RESIGN_CAP_BUFFER) * marketScale(s);
     if (committed + ask.baseSalary > team.cap.total - buffer) continue;
@@ -2189,19 +2212,21 @@ export function planCoreResign(s: LeagueState, code: string): { player: Player; 
     // at season's end a third of that payroll is about to expire
     out.push({ player: p, ask });
     committed += ask.baseSalary;
+    for (let y = 0; y < ask.years; y++) owed[1 + y] = (owed[1 + y] ?? 0) + ask.baseSalary;
   }
   return out;
 }
 
 export function resignAiCore(s: LeagueState): number {
   let signed = 0;
+  const timeline = readTeamTimeline(s);
   for (const code of Object.keys(s.teams)) {
     if (!isAiTeam(s, code)) continue;
     const team = s.teams[code]!;
     const roster = Object.values(s.players).filter(
       (p) => p.nfl_team === code && !p.retired && !p.free_agent && p.contract,
     );
-    const plan = planCoreResign(s, code);
+    const plan = planCoreResign(s, code, timeline);
     for (const { player, ask } of plan) {
       applyExtension(player, ask);
       signed++;
