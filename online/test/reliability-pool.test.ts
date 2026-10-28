@@ -6,7 +6,7 @@ vi.hoisted(() => {
   process.env.DB_POOL_MAX = "4";
 });
 
-import { pool, withLeague } from "../src/db.js";
+import { ActionError, pool, queuedWriters, withLeague } from "../src/db.js";
 import { claimTeam, createOnlineLeague } from "../src/leagues.js";
 import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 
@@ -53,8 +53,8 @@ afterAll(async () => {
 });
 
 describe("a long league transaction", () => {
-  it.fails(
-    url ? "DEFECT blocks an unrelated league's query once the waiting writers fill the pool" : "DEFECT — SKIPPED, no DATABASE_URL",
+  it(
+    url ? "does not block an unrelated league's query once GMs queue behind it (D2, fixed)" : "D2 — SKIPPED, no DATABASE_URL",
     async () => {
       if (!reachable) throw new Error("skipped: no database");
       const HOLD_MS = 2500;
@@ -77,4 +77,79 @@ describe("a long league transaction", () => {
       expect(waited, "an unrelated read should not wait on another league's simulation").toBeLessThan(500);
     },
   );
+});
+
+describe("the per-league writer queue", () => {
+  const hold = (id: string, ms: number, log?: string[], tag?: string) =>
+    withLeague(id, async ({ state }) => {
+      await new Promise((r) => setTimeout(r, ms));
+      if (log && tag) log.push(tag);
+      return { result: tag ?? null, state, unchanged: true };
+    });
+  const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it("holds one connection for a busy league however many writers queue, and serves them in order", async () => {
+    if (!reachable) return;
+    const log: string[] = [];
+    const first = hold(busy, 600, log, "1");
+    await tick(100);
+    const rest = ["2", "3", "4", "5", "6", "7"].map((t) => hold(busy, 10, log, t));
+    await tick(100);
+    expect(queuedWriters(busy)).toBe(6);
+    // 4 pool connections, 6 queued writers: another league is still served at once
+    const t0 = Date.now();
+    await withLeague(other, async ({ state }) => ({ result: null, state, unchanged: true }));
+    expect(Date.now() - t0).toBeLessThan(400);
+    await Promise.all([first, ...rest]);
+    expect(log).toEqual(["1", "2", "3", "4", "5", "6", "7"]);
+    expect(queuedWriters(busy)).toBe(0);
+  });
+
+  it("refuses with a 503 when the queue is full, without disturbing those already waiting", async () => {
+    if (!reachable) return;
+    process.env.LEAGUE_QUEUE_MAX = "2";
+    try {
+      const running = hold(busy, 700);
+      await tick(100);
+      const waiting = [hold(busy, 5), hold(busy, 5)];
+      await tick(50);
+      const overflow = await hold(busy, 5).catch((e: unknown) => e);
+      expect(overflow).toBeInstanceOf(ActionError);
+      expect((overflow as ActionError).status).toBe(503);
+      await Promise.all([running, ...waiting]); // the queued two still complete
+    } finally {
+      delete process.env.LEAGUE_QUEUE_MAX;
+    }
+  });
+
+  it("gives up after the wait limit with a 503, leaves the queue, and never runs late", async () => {
+    if (!reachable) return;
+    process.env.LEAGUE_QUEUE_WAIT_MS = "250";
+    try {
+      const ran: string[] = [];
+      const running = hold(busy, 900);
+      await tick(100);
+      const impatient = await hold(busy, 5, ran, "late").catch((e: unknown) => e);
+      expect((impatient as ActionError).status).toBe(503);
+      expect(queuedWriters(busy)).toBe(0);
+      await running;
+      await tick(100);
+      expect(ran).toEqual([]);
+    } finally {
+      delete process.env.LEAGUE_QUEUE_WAIT_MS;
+    }
+  });
+
+  it("passes the turn on when a writer fails", async () => {
+    if (!reachable) return;
+    const boom = withLeague(busy, async () => {
+      await tick(100);
+      throw new Error("handler failed");
+    }).catch((e: unknown) => e);
+    await tick(20);
+    const next = await hold(busy, 5, undefined, "after");
+    expect(next.result).toBe("after");
+    expect(((await boom) as Error).message).toBe("handler failed");
+    expect(queuedWriters(busy)).toBe(0);
+  });
 });

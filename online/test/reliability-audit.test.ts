@@ -133,32 +133,19 @@ describe("simultaneous decisions", () => {
 });
 
 describe("stale clients", () => {
-  maybe("a ready sent for a stage the league has already left is ignored", async () => {
+  maybe("a ready sent for a stage the league has already left is refused, and changes nothing (D7, fixed)", async () => {
     const f = await makeLeague();
     await setStage(f.id, "fantasyDraftSummary");
     for (const g of [f.gm.GB, f.gm.KC, f.gm.PIT]) await readyUp(f.id, g, true, "fantasyDraftSummary");
     const after = await snapshot(f.id);
     expect(after.state.stage).not.toBe("fantasyDraftSummary");
     // a tab still on the old screen presses ready late
-    const late = await readyUp(f.id, f.gm.KC, true, "fantasyDraftSummary");
-    expect(late.moved).toBe(false);
+    const late = await readyUp(f.id, f.gm.KC, true, "fantasyDraftSummary").catch((e: unknown) => e);
+    expect(late).toBeInstanceOf(ActionError);
+    expect((late as ActionError).status).toBe(409);
     const now = await snapshot(f.id);
     expect(now.version).toBe(after.version);
     expect(now.state.readiness[f.gm.KC]).toBe(false);
-  });
-
-  knownDefect("a ready that omits `stage` commits the GM to whatever stage is current", async () => {
-    // The route takes `stage` as optional (`optional<string>(ctx, "stage")`). The
-    // shipped client always sends it, but a cached older bundle, a second
-    // client or a script does not, and gets the stale-ready bug the parameter
-    // was added to fix. Desired: refuse (or ignore) a ready that names no stage.
-    const f = await makeLeague();
-    await setStage(f.id, "fantasyDraftSummary");
-    for (const g of [f.gm.GB, f.gm.KC, f.gm.PIT]) await readyUp(f.id, g, true, "fantasyDraftSummary");
-    const after = await snapshot(f.id);
-    await readyUp(f.id, f.gm.KC, true); // no stage
-    expect((await snapshot(f.id)).state.readiness[f.gm.KC]).toBe(false);
-    void after;
   });
 
   maybe("an expectedVersion from before another GM's commit is refused with 409", async () => {
@@ -172,17 +159,21 @@ describe("stale clients", () => {
     expect((err as ActionError).status).toBe(409);
   });
 
-  knownDefect("a commissioner's force-advance carries no stage, so a double press skips a whole stage", async () => {
-    // `POST /admin/advance` sends `{}`; `forceAdvance` advances whatever stage
-    // is current. A double click, a retry after a dropped response, or a
-    // commissioner tab that is a stage behind moves the league two (or more)
-    // steps, skipping everything in between for every GM.
+  maybe("a commissioner's double press of force-advance moves one stage, not two (D4, fixed)", async () => {
+    // Both presses name the stage the commissioner was looking at; the second
+    // finds the league already moved and is refused under the lock.
     const once = await makeLeague();
     const twice = await makeLeague();
     await setStage(once.id, "fantasyDraftSummary");
     await setStage(twice.id, "fantasyDraftSummary");
-    await forceAdvance(once.id, users[0]);
-    await Promise.allSettled([forceAdvance(twice.id, users[0]), forceAdvance(twice.id, users[0])]);
+    await forceAdvance(once.id, users[0], "fantasyDraftSummary");
+    const both = await Promise.allSettled([
+      forceAdvance(twice.id, users[0], "fantasyDraftSummary"),
+      forceAdvance(twice.id, users[0], "fantasyDraftSummary"),
+    ]);
+    expect(both.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const refused = both.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect((refused.reason as ActionError).status).toBe(409);
     expect((await snapshot(twice.id)).state.stage).toBe((await snapshot(once.id)).state.stage);
   });
 });

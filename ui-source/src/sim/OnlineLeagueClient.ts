@@ -573,10 +573,14 @@ export class OnlineLeagueClient {
   takeTurnForAbsent = (leagueId: string) =>
     this.call<{ played: string[] }>(`/leagues/${leagueId}/admin/take-turn`, {});
 
-  /** Commissioner only: move the league on now. */
-  forceAdvance = (leagueId: string) =>
+  /**
+   * Commissioner only: move the league on now. `stage` is the stage on the
+   * commissioner's screen; the server refuses (409) if the league has left it,
+   * so a double press cannot skip one.
+   */
+  forceAdvance = (leagueId: string, stage: string) =>
     this.call<{ moved: boolean; stage: string; autopiloted: string[] }>(
       `/leagues/${leagueId}/admin/advance`,
-      {},
+      { stage },
     );
 }

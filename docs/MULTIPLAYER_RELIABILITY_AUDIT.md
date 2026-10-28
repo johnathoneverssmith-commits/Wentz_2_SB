@@ -199,3 +199,7 @@ checks pass, the one failure being D4. The full online suite was not run.
 - **D1, D3: fixed in MP-1** (`claude/mp1-d1-d3-sweep-and-connection`). Their tests in
   `reliability-audit.test.ts` are now plain `it`; `reliability-mp1.test.ts` adds the PostgreSQL 16
   recovery and multi-process sweep tests. D2, D4–D7 remain open.
+- **D2, D4, D7: fixed in MP-2** (`claude/mp2-d2-d4-d7`): a bounded FIFO writer queue per league ahead of
+  the pool connection (`LEAGUE_QUEUE_MAX`, default 16 waiting; `LEAGUE_QUEUE_WAIT_MS`, default 120 s;
+  503 beyond either); `POST /admin/advance` and `POST /actions/ready` require a known `stage`
+  (400 when missing or unknown) and are refused with 409 when the league has left it. D5 and D6 remain open.
