@@ -52,11 +52,15 @@ afterAll(async () => {
   await pool.end().catch(() => {});
 });
 
-const maybe = (name: string, body: () => Promise<void>) =>
-  it(url ? name : `${name} — SKIPPED, no DATABASE_URL`, async () => {
-    if (!reachable) return;
-    await body();
-  });
+const maybe = (name: string, body: () => Promise<void>, timeout?: number) =>
+  it(
+    url ? name : `${name} — SKIPPED, no DATABASE_URL`,
+    async () => {
+      if (!reachable) return;
+      await body();
+    },
+    timeout,
+  );
 
 async function league(): Promise<{ id: string; gm: Record<string, string> }> {
   const { leagueId } = await createOnlineLeague(users[0], { name: "MP1", humanSlots: 3 });
