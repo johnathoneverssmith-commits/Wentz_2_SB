@@ -219,6 +219,78 @@ function agingStep(rng: Rng, age: number, devAge: number, declineAge: number, ro
 }
 
 /**
+ * The mean of `agingDelta` for a player of this age and thresholds: the same two calibrated steps, each the clamped, rounded draw
+ * `agingStep` makes, integrated over the normal rather than sampled. Contract projection (`state/contractValue.ts`) reads this so a
+ * deal is priced on the decline the game will actually apply, and `contractValue.test.ts` pins it to a simulation of `agingDelta`.
+ */
+export function expectedAgingDelta(age: number, devAge: number, declineAge: number, room?: number): number {
+  // the same few hundred combinations come up for every player of a market, round after round
+  const key = `${age}|${devAge}|${declineAge}|${room === undefined ? "-" : Math.round(room * 10)}`;
+  const known = EXPECTED_AGING.get(key);
+  if (known !== undefined) return known;
+  let mean: number;
+  let sd: number;
+  let step: (x: number) => number;
+  if (age < devAge) {
+    const yearsToGo = Math.max(1, devAge - age);
+    mean = room === undefined ? (age <= 24 ? 0.85 : 0.5) : clamp(0.2 + room * 0.17, 0, 2.6);
+    sd = 1.4;
+    const hi = room === undefined ? 7 : Math.max(0, room);
+    step = (x) => Math.round(yearsToGo >= 3 ? clamp(x, 0, hi) : clamp(x, 0, hi) * 0.7);
+  } else if (age < declineAge) {
+    mean = 0;
+    sd = 1;
+    step = (x) => Math.round(clamp(x, -1, 1));
+  } else {
+    mean = 0.2 + (age - declineAge + 1) * 0.5;
+    sd = 1.2;
+    step = (x) => -Math.round(clamp(x, 1, 7));
+  }
+  // E[step(X)], X ~ N(mean, sd), on a fine grid of the standard normal out to four sd
+  let sum = 0;
+  let weight = 0;
+  for (let z = -4; z <= 4.0001; z += 0.05) {
+    const w = Math.exp(-0.5 * z * z);
+    sum += w * step(mean + sd * z);
+    weight += w;
+  }
+  const out = (2 * sum) / weight;
+  if (EXPECTED_AGING.size > 20000) EXPECTED_AGING.clear();
+  EXPECTED_AGING.set(key, out);
+  return out;
+}
+const EXPECTED_AGING = new Map<string, number>();
+
+/**
+ * The chance a player retires at the end of the season, and whether the review draws for him at all (a player who is neither near his
+ * position's outer age, injured twice, past his decline age nor faded never does, whatever the formula says). One place for the
+ * rule, so `retirementOutcomes` and the contract evaluator (`state/contractValue.ts`) cannot disagree about it.
+ */
+export function retirementChance(p: Pick<Player, "position" | "age" | "overall" | "decline_age_threshold" | "injury_history">): {
+  chance: number;
+  eligible: boolean;
+} {
+  const baseNorm = RETIREMENT_AGE[p.position];
+  const norm = baseNorm - injuryAgeReduction(p.injury_history);
+  const over = p.age - norm;
+  // Past his decline age a player's odds climb every year, and a veteran
+  // whose game has faded retires rather than hanging on at the bottom of
+  // a roster. Age against a position's outer limit alone let a league's
+  // 33-and-over share climb from 6% of rosters to 17% in a decade.
+  const pastDecline = Math.max(0, p.age - p.decline_age_threshold);
+  // (not kickers and punters: their ratings run lower, and a 72 punter at
+  // 32 — a good one, with ten years left — was retiring as "faded")
+  const specialist = p.position === "K" || p.position === "P";
+  const faded = specialist ? 0 : p.age >= 30 && p.overall < 68 ? 0.25 : p.age >= 31 && p.overall < 73 ? 0.12 : 0;
+  // the league's own cohort aged gracefully into its mid-thirties: the
+  // 33-and-over share doubled in a decade (NFL rosters run ~6%)
+  // (kickers and punters excepted: they really do kick into their forties)
+  const ageTerm = specialist ? 0 : Math.max(0, p.age - 32) * 0.09;
+  const chance = clamp(0.025 + Math.max(0, over) * 0.22 + pastDecline * 0.15 + ageTerm + faded, 0, 0.92);
+  return { chance, eligible: p.age >= norm - 2 || p.injury_history.length >= 2 || pastDecline > 0 || faded > 0 };
+}
+
+/**
  * Generated player ids start past every real one.
  *
  * The shipped pool numbers its people `p_00001` upward, and this counter used
@@ -1177,22 +1249,8 @@ export class MockSimulationService implements SimulationService {
       const baseNorm = RETIREMENT_AGE[p.position];
       const reduction = injuryAgeReduction(p.injury_history);
       const norm = baseNorm - reduction;
-      const over = p.age - norm;
-      // Past his decline age a player's odds climb every year, and a veteran
-      // whose game has faded retires rather than hanging on at the bottom of
-      // a roster. Age against a position's outer limit alone let a league's
-      // 33-and-over share climb from 6% of rosters to 17% in a decade.
-      const pastDecline = Math.max(0, p.age - p.decline_age_threshold);
-      // (not kickers and punters: their ratings run lower, and a 72 punter at
-      // 32 — a good one, with ten years left — was retiring as "faded")
-      const specialist = p.position === "K" || p.position === "P";
-      const faded = specialist ? 0 : p.age >= 30 && p.overall < 68 ? 0.25 : p.age >= 31 && p.overall < 73 ? 0.12 : 0;
-      // the league's own cohort aged gracefully into its mid-thirties: the
-      // 33-and-over share doubled in a decade (NFL rosters run ~6%)
-      // (kickers and punters excepted: they really do kick into their forties)
-      const ageTerm = p.position === "K" || p.position === "P" ? 0 : Math.max(0, p.age - 32) * 0.09;
-      const pRetire = clamp(0.025 + Math.max(0, over) * 0.22 + pastDecline * 0.15 + ageTerm + faded, 0, 0.92);
-      if (p.age >= norm - 2 || p.injury_history.length >= 2 || pastDecline > 0 || faded > 0) {
+      const { chance: pRetire, eligible } = retirementChance(p);
+      if (eligible) {
         const retiring = rng.bool(pRetire);
         out.push({
           playerId: p.id,
