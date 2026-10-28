@@ -17,7 +17,16 @@
  */
 
 import type { InjuryEvent } from "./injury.js";
-import { type GameStaff, type PlayRec, simulateGame } from "./sim.js";
+import {
+  type ClockPlayEvent,
+  type GameEvent,
+  type GameStaff,
+  type OvertimeStartEvent,
+  type PenaltyEvent,
+  type PlayRec,
+  type ScoreEvent,
+  simulateGame,
+} from "./sim.js";
 
 export interface BroadcastPlay {
   down: number;
@@ -46,6 +55,19 @@ export interface BroadcastPlay {
   distance?: number | undefined;
   /** injuries that happened on this exact play (almost always empty). */
   injuries: InjuryEvent[];
+  /**
+   * Scores this play caused, from the engine's own log: the touchdown and its
+   * kick, a field goal, a safety, and — the point of it — a defence's
+   * return touchdown, which the trace shows only as the turnover. Absent
+   * when the play scored nothing.
+   */
+  scores?: ScoreEvent[];
+  /**
+   * Accepted penalties, spikes and kneel-downs between the previous snap and
+   * this one. These plays are not in the trace, which is what explains a
+   * change in down, distance or field position that no traced play produced.
+   */
+  eventsBefore?: (PenaltyEvent | ClockPlayEvent)[];
   /**
    * [home, away] once this play and anything it caused is over.
    *
@@ -95,6 +117,8 @@ export interface GameBroadcast {
   scoringDrives: number[];
   /** every injury in the game, in play order (also attached to its own play). */
   injuries: InjuryEvent[];
+  /** scores no traced play caused: a kickoff returned for a touchdown, and the kick after it. */
+  returnScores?: ScoreEvent[];
 }
 
 const yardLabel = (ballOn: number): string => {
@@ -104,6 +128,7 @@ const yardLabel = (ballOn: number): string => {
 };
 
 function describe(p: {
+  scored?: readonly ScoreEvent[] | undefined;
   call: PlayRec["call"];
   depth: string;
   gained: number;
@@ -115,7 +140,9 @@ function describe(p: {
   distance?: number | undefined;
 }): string {
   const g = Math.round(p.gained);
-  const to = p.touchdown ? "end zone" : yardLabel(Math.max(1, p.ballOn - p.gained));
+  const safety = p.scored?.some((e) => e.kind === "safety") ?? false;
+  const to = p.touchdown || safety ? "end zone" : yardLabel(Math.max(1, p.ballOn - p.gained));
+  const defTd = p.scored?.some((e) => e.kind === "interception_return_td" || e.kind === "fumble_return_td") ?? false;
   if (p.call === "field_goal") {
     return p.outcome === "made" ? `${p.distance}-yard field goal is GOOD` : `${p.distance}-yard field goal attempt is NO GOOD`;
   }
@@ -134,6 +161,8 @@ function describe(p: {
   else if (g === 0 && !p.touchdown) s = `pass incomplete (${p.depth.toLowerCase().replace("_", " ")})`;
   else s = `pass complete for ${g} to the ${to}`;
   if (p.touchdown) s += " — TOUCHDOWN";
+  else if (defTd) s += " — returned for a TOUCHDOWN";
+  else if (safety) s += " — SAFETY";
   else if (p.firstDown) s += " (1st down)";
   else if (p.turnover && p.call !== "sack") s += " — TURNOVER";
   return s;
@@ -153,7 +182,22 @@ function toDrives(
   home: string,
   away: string,
   finalScore: readonly [number, number],
+  log: readonly GameEvent[] = [],
 ): BroadcastDrive[] {
+  // what the engine logged, filed under the play it belongs to
+  const scoresAt = new Map<number, ScoreEvent[]>();
+  const beforeAt = new Map<number, (PenaltyEvent | ClockPlayEvent)[]>();
+  const otStarts: OvertimeStartEvent[] = [];
+  for (const e of log) {
+    if (e.type === "overtime_start") {
+      otStarts.push(e);
+    } else if (e.type === "score") {
+      if (e.playIndex === null) continue;
+      scoresAt.set(e.playIndex, [...(scoresAt.get(e.playIndex) ?? []), e]);
+    } else {
+      beforeAt.set(e.beforePlayIndex, [...(beforeAt.get(e.beforePlayIndex) ?? []), e]);
+    }
+  }
   const byPlayIndex = new Map<number, InjuryEvent[]>();
   injuries.forEach((e) => {
     if (e.playIndex === undefined) return;
@@ -165,11 +209,23 @@ function toDrives(
   const drives: BroadcastDrive[] = [];
   let cur: BroadcastDrive | null = null;
   trace.forEach((r, i) => {
-    if (!cur || cur.side !== (r.team === 0 ? "home" : "away")) {
+    // Overtime isn't in the trace's own quarter labels (see `OvertimeStartEvent`)
+    const ot = otStarts.filter((o) => o.beforePlayIndex <= i).at(-1);
+    const quarter = ot ? 4 + ot.period : r.quarter;
+    // A kickoff separates possessions even when the same team gets the ball
+    // again: the one that opens the second half, and each overtime period. The
+    // trace has no kickoff rows — without this a team that scored at the end of
+    // a half had its next possession glued onto the last one, with a
+    // field-position jump nothing explained.
+    const prev = trace[i - 1];
+    const kickedOff =
+      prev !== undefined &&
+      ((r.quarter === 3 && prev.quarter === 2) || otStarts.some((o) => o.beforePlayIndex === i));
+    if (!cur || kickedOff || cur.side !== (r.team === 0 ? "home" : "away")) {
       cur = {
         team: r.team === 0 ? home : away,
         side: r.team === 0 ? "home" : "away",
-        quarter: r.quarter,
+        quarter,
         startClock: r.clock,
         startBallOn: r.ballOn,
         plays: [],
@@ -183,13 +239,13 @@ function toDrives(
       down: r.down,
       ydstogo: r.ydstogo,
       ballOn: r.ballOn,
-      quarter: r.quarter,
+      quarter,
       clock: r.clock,
       call: r.call,
       depth: r.depth,
       gained: r.gained,
       outcome: r.outcome,
-      desc: describe(r),
+      desc: describe({ ...r, scored: scoresAt.get(i) }),
       firstDown: r.firstDown,
       touchdown: r.touchdown,
       turnover: r.turnover,
@@ -200,6 +256,8 @@ function toDrives(
       returner: r.returner,
       distance: r.distance,
       injuries: byPlayIndex.get(i) ?? [],
+      ...(scoresAt.has(i) ? { scores: scoresAt.get(i)! } : {}),
+      ...(beforeAt.has(i) ? { eventsBefore: beforeAt.get(i)! } : {}),
       // filled in below, once we know what the next snap saw
       scoreAfter: [0, 0],
     });
@@ -250,7 +308,9 @@ export function broadcastGame(
 ): GameBroadcast {
   const g = simulateGame(seed, home, away, { ...opts, trace: true, injuries: true });
   const injuries = g.injuryLog ?? [];
-  const drives = toDrives(g.playTrace ?? [], injuries, home, away, [g.score[0], g.score[1]]);
+  const log = g.eventLog ?? [];
+  const drives = toDrives(g.playTrace ?? [], injuries, home, away, [g.score[0], g.score[1]], log);
+  const returnScores = log.filter((e): e is ScoreEvent => e.type === "score" && e.playIndex === null);
   return {
     home,
     away,
@@ -258,5 +318,6 @@ export function broadcastGame(
     drives,
     scoringDrives: drives.flatMap((d, i) => (d.points > 0 || d.pointsAgainst > 0 ? [i] : [])),
     injuries,
+    ...(returnScores.length ? { returnScores } : {}),
   };
 }

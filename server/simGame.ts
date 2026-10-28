@@ -56,13 +56,13 @@ export function presentGame(
   const trace = g.playTrace ?? [];
   const box = extractBoxScore(g, o.homeTeam, o.awayTeam, o.week);
   const finalScore: [number, number] = [g.score[0], g.score[1]];
-  const byQuarter = quarterScores(trace, finalScore, g.drivesLog);
+  const byQuarter = quarterScores(trace, finalScore, g.drivesLog, g.eventLog ?? undefined);
   return {
     totals: {
       home: toTeamTotals(box.home, byQuarter[0]!, g.drivesLog.filter((d) => d.team === 0)),
       away: toTeamTotals(box.away, byQuarter[1]!, g.drivesLog.filter((d) => d.team === 1)),
     },
-    scoringPlays: scoringPlaysFrom(trace, o.homeTeam, o.awayTeam, finalScore, g.drivesLog),
+    scoringPlays: scoringPlaysFrom(trace, o.homeTeam, o.awayTeam, finalScore, g.drivesLog, g.eventLog ?? undefined),
     playerLines: playerLinesFrom(trace, o.homeTeam, o.awayTeam, o.players),
     injuries: g.injuryLog ?? [],
     weather: describeWeather(o.weather),
