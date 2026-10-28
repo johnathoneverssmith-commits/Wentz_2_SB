@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { LeagueState } from "@/domain";
-import { MockSimulationService } from "@/sim/MockSimulationService.ts";
+import { MockSimulationService, retirementDraw } from "@/sim/MockSimulationService.ts";
 import { commitRetirements, retirementSeed } from "@/state/rules.ts";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 
@@ -112,5 +112,32 @@ describe("retirement is independent across leagues", () => {
     s.seed = 99;
     commitRetirements(s);
     expect(done.every((id) => s.players[id]!.retired)).toBe(true);
+  });
+});
+
+describe("retirementSeed keys", () => {
+  it("are distinct for every league seed and season in a wide range", () => {
+    const seen = new Set<number>();
+    let n = 0;
+    for (let seed = 0; seed < 3000; seed++) {
+      for (let season = 2026; season < 2126; season++) { seen.add(retirementSeed({ seed, season })); n++; }
+    }
+    expect(seen.size).toBe(n);
+  });
+  it("give uncorrelated draws for the same players in neighbouring leagues", () => {
+    const ids = Array.from({ length: 4000 }, (_, i) => `p_${i}`);
+    const draws = (seed: number): number[] => ids.map((id) => retirementDraw(retirementSeed({ seed, season: 2030 }), id));
+    const a = draws(11), b = draws(12);
+    const mean = (x: number[]): number => x.reduce((s, v) => s + v, 0) / x.length;
+    const ma = mean(a), mb = mean(b);
+    let cov = 0, va = 0, vb = 0;
+    for (let i = 0; i < a.length; i++) { cov += (a[i]! - ma) * (b[i]! - mb); va += (a[i]! - ma) ** 2; vb += (b[i]! - mb) ** 2; }
+    expect(Math.abs(cov / Math.sqrt(va * vb))).toBeLessThan(0.06);
+    expect(ma).toBeGreaterThan(0.47);
+    expect(ma).toBeLessThan(0.53);
+  });
+  it("a save with no league seed keeps the documented fallback: the season alone", () => {
+    expect(retirementSeed({ season: 2031 })).toBe(2031);
+    expect(retirementSeed({ season: 2031, seed: 0 })).toBe(2031);
   });
 });

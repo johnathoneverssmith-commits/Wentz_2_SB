@@ -1,5 +1,6 @@
 import type { Coach, DevelopmentRole, LeagueState } from "@/domain";
 import { coachRoleForPosition } from "@/domain";
+import { Rng } from "@/sim/rng";
 
 /**
  * What the nine development coaches actually do.
@@ -165,6 +166,23 @@ export function applyCoachToDelta(
   const rounded = Math.round(scaled);
   if (rounded !== 0) return rounded;
   return delta > 0 ? 1 : -1;
+}
+
+/**
+ * The rounding roll for one player's one adjustment in one season: a uniform in
+ * [0, 1) that depends on nothing but the season, his id and which adjustment it
+ * is. It is its own stream, never a draw from the aging model's, so it cannot
+ * shift anyone else's development, and changing how many draws the aging model
+ * takes cannot shift it.
+ */
+export function developmentRoll(season: number, playerId: string, adjustment: "coach" | "focus"): number {
+  const key = `${season}|${playerId}|${adjustment}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return new Rng(h >>> 0).random();
 }
 
 /**

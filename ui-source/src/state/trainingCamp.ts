@@ -5,7 +5,7 @@ import { Rng } from "@/sim/rng";
 import { agingDelta } from "@/sim/MockSimulationService";
 import { agingBalance } from "./draftSupply";
 
-import { applyCoachToDelta, coachModifiersFor, roundBy } from "./coachEffects";
+import { applyCoachToDelta, coachModifiersFor, developmentRoll, roundBy } from "./coachEffects";
 import { ratingOf } from "./coachingDraft";
 import { gamePlanFor, rookieDevelopment } from "./gamePlan.ts";
 import { rookieRoles } from "../../../src/engine/rookies.js";
@@ -216,7 +216,7 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
     const base = aged + extra;
 
     // 2. the position coach
-    const withCoach = applyCoachToDelta(base, coachModifiersFor(s, teamCode, p.position), rng.random());
+    const withCoach = applyCoachToDelta(base, coachModifiersFor(s, teamCode, p.position), developmentRoll(s.season, p.id, "coach"));
 
     // 3. the coordinator's focus, if this player is in the group
     let delta = withCoach;
@@ -226,7 +226,7 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
       const f = inFocus(p.position, plan.offensiveFocus) ? offStrength : defStrength;
       // more development, or less decline — never a change of direction
       const scaled = delta > 0 ? delta * (1 + f) : delta * (1 - f);
-      delta = roundBy(scaled, rng.random());
+      delta = roundBy(scaled, developmentRoll(s.season, p.id, "focus"));
     }
 
     const previous = p.overall;
