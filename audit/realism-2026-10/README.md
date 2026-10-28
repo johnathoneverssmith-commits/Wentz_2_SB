@@ -22,3 +22,19 @@ npx tsx audit/realism-2026-10/determinism_check.ts
 
 Four processes with different seed bases were used for the report (`100 + i*100000`, 8 seasons each at 1.0; `500 + i*100000`, 6 each at 1.5).
 `playoffs_injuries.py` reads the regular-season JSONs; the franchise-path playoffs come from `replay_playoffs.ts` (`*.po.json`).
+
+## Follow-up (drafted leagues, QB sensitivity, replay fidelity) — see `FOLLOWUP.md`
+
+```bash
+# 1. dump fantasy-drafted rosters (scratch vitest file; keep the _ prefix so it is never staged)
+cp audit/realism-2026-10/dump_drafted_leagues.test.ts.txt online/test/_audit_drafted.test.ts
+AUDIT_OUT=$PWD/audit/realism-2026-10/out/leagues AUDIT_SEEDS=1,2,3 npx vitest run --root online test/_audit_drafted.test.ts   # AUDIT_DIFF=master for Master CPUs
+# 2. play seasons on them (or "fixed"); QB_KAPPA=0.5 prototypes the compressed-QB what-if without touching the engine
+npx tsx audit/realism-2026-10/league_seasons.ts audit/realism-2026-10/out/leagues/league_default_1.json 2 1 1000 audit/realism-2026-10/out/dr_std_1_1.json
+#    naming read by the analysis: dr_fix_/dr_std_/dr_mst_<talent>_<n>.json, dk_* for QB_KAPPA runs
+# 3. analysis (run from the out directory; needs real/ from download_real.sh)
+(cd audit/realism-2026-10/out && python3 ../drafted_vs_fixed.py && python3 ../drafted_qb.py)
+# 4. isolated QB sensitivity and replay fidelity
+npx tsx audit/realism-2026-10/qb_sensitivity.ts SEA 3
+cp audit/realism-2026-10/replay_fidelity.test.ts.txt online/test/_audit_replay.test.ts && LG=/tmp/replay.log npx vitest run --root online test/_audit_replay.test.ts && cat /tmp/replay.log
+```

@@ -1,0 +1,30 @@
+// scratch, never committed: dumps fantasy-drafted rosters per seed for the realism audit
+import { writeFileSync, mkdirSync } from "node:fs";
+import { describe, it } from "vitest";
+import { openStandingMarketFromUndrafted } from "@/state/rules.ts";
+import { createLeague, DEFAULT_CONFIG, fillRosterGaps, fitDraftedPayrolls } from "@/state/seed.ts";
+import { onStageEntered } from "../src/phases.js";
+
+const OUT = process.env.AUDIT_OUT!;
+const SEEDS = (process.env.AUDIT_SEEDS ?? "1").split(",").map(Number);
+const DIFF = (process.env.AUDIT_DIFF ?? "") as any;
+describe("dump", () => {
+  for (const seed of SEEDS) {
+    it(`seed ${seed}`, () => {
+      const s = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1, ...(DIFF ? { difficulty: DIFF } : {}) });
+      for (const g of s.gms) g.isHuman = false;
+      s.stage = "fantasyDraft";
+      onStageEntered(s, "setup");
+      openStandingMarketFromUndrafted(s);
+      fitDraftedPayrolls(s); // the real flow (phases.ts) does this before the standing market closes; without it fillRosterGaps cuts the stars for cap
+      fillRosterGaps(s);
+      const teams: Record<string, any[]> = {};
+      for (const p of Object.values(s.players) as any[]) {
+        if (!p.nfl_team || p.retired || p.free_agent || String(p.nfl_team).startsWith("PS:")) continue;
+        (teams[p.nfl_team === "LAR" ? "LA" : p.nfl_team] ??= []).push(p);
+      }
+      mkdirSync(OUT, { recursive: true });
+      writeFileSync(`${OUT}/league_${DIFF || "default"}_${seed}.json`, JSON.stringify({ seed, config: s.config, teams }));
+    }, 300_000);
+  }
+});

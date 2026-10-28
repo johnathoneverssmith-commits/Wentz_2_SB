@@ -1,0 +1,46 @@
+import { appendFileSync } from "node:fs";
+import { describe, it } from "vitest";
+import type { LeagueState } from "@/domain";
+import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
+import { MockSimulationService } from "@/sim/MockSimulationService";
+import { regenerateBroadcast, simulateBlock } from "../src/blocks.js";
+import { emptyReveal } from "@/state/reveal.ts";
+import { setOffenseCalibration } from "../../src/engine/sim.js";
+const lg = (...a: any[]) => appendFileSync(process.env.LG!, a.map((x) => typeof x === "string" ? x : JSON.stringify(x)).join(" ") + "\n");
+function ready(): LeagueState {
+  const s = createLeague(3141, { ...DEFAULT_CONFIG, humanGmCount: 2 });
+  fillRosterGaps(s);
+  s.gms[0]!.teamCode = "KC"; s.gms[0]!.isHuman = true; s.gms[1]!.teamCode = "BUF"; s.gms[1]!.isHuman = true;
+  s.schedule = new MockSimulationService().generateSchedule(s.season, Object.keys(s.teams));
+  s.stage = "preseason"; s.week = 1; s.reveal = emptyReveal();
+  return s;
+}
+const mismatch = (s: LeagueState, ids: string[]) => {
+  let bad = 0;
+  for (const id of ids) {
+    const g = s.games.find((x) => x.id === id)!; const c = regenerateBroadcast(s, id)!;
+    if (c.finalScore[0] !== g.homeScore || c.finalScore[1] !== g.awayScore) bad++;
+  }
+  return bad;
+};
+describe("replay fidelity", () => { it("x", () => {
+  const s = ready(); simulateBlock(s, "PRE", 1, 3);
+  const all = s.games.filter((g) => g.phase === "PRE");
+  const ids = all.map((g) => g.id);
+  lg("games", ids.length, "baseline mismatches", mismatch(s, ids));
+  // (a) one starting QB re-rated by -8 (progression/injury recovery proxy) -> only games of that team
+  const qbOf = (t: string) => Object.values(s.players).filter((p: any) => p.nfl_team === t && p.position === "QB").sort((a: any, b: any) => b.overall - a.overall)[0] as any;
+  const q = qbOf("KC"); const was = q.overall; q.overall = was - 8; for (const k of Object.keys(q.attributes)) q.attributes[k] = Math.max(1, (q.attributes[k] as number) - 8);
+  const kcIds = all.filter((g) => g.homeTeam === "KC" || g.awayTeam === "KC").map((g) => g.id);
+  lg("(a) KC QB -8 across attributes: KC games", kcIds.length, "replay score != saved:", mismatch(s, kcIds), "| other games", mismatch(s, ids.filter((i) => !kcIds.includes(i))));
+  q.overall = was; for (const k of Object.keys(q.attributes)) q.attributes[k] = (q.attributes[k] as number) + 8;
+  // (b) a starter traded away after the block (deadline-style move): move KC's starting QB to BUF
+  const old = q.nfl_team; q.nfl_team = "BUF";
+  lg("(b) KC QB traded to BUF: KC+BUF games", all.filter((g) => ["KC", "BUF"].some((t) => g.homeTeam === t || g.awayTeam === t)).length, "mismatch:", mismatch(s, ids));
+  q.nfl_team = old;
+  // (c) engine tweak of the size a one-line recalibration makes (+0.03 completion logit)
+  setOffenseCalibration({ complete: -0.063 + 0.03 });
+  lg("(c) engine calibration nudged (complete +0.03 logit), all games: mismatch", mismatch(s, ids), "of", ids.length);
+  setOffenseCalibration(null);
+  lg("restored; mismatches", mismatch(s, ids));
+}, 600000); });
