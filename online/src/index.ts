@@ -82,7 +82,7 @@ import {
   commissionerAway,
   touchSeen,
 } from "./leagues.js";
-import { forceAdvance, readyUp, sweep, takeTurnForAbsent, timeLeft, waitingOn } from "./phases.js";
+import { forceAdvance, readyUp, requireStage, sweep, takeTurnForAbsent, timeLeft, waitingOn } from "./phases.js";
 import { clearAttempts, retryAfterSeconds, tooManyAttempts } from "./throttle.js";
 import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
@@ -742,7 +742,7 @@ post("/leagues/:id/actions/ready", async (ctx) => {
     a.leagueId,
     a.gmId,
     optional<boolean>(ctx, "ready") ?? true,
-    optional<string>(ctx, "stage"),
+    requireStage(optional<unknown>(ctx, "stage")),
   );
 
   // In season, "everybody is ready" means *play the week* — there is nothing
@@ -906,7 +906,7 @@ post("/leagues/:id/admin/advance", async (ctx) => {
   if (!(await isCommissioner(ctx.params.id!, user.id))) {
     throw new ActionError("Only the commissioner can do that.", 403);
   }
-  return forceAdvance(ctx.params.id!, user.id);
+  return forceAdvance(ctx.params.id!, user.id, requireStage(optional<unknown>(ctx, "stage")));
 });
 
 // The commissioner has an absent GM's staff take the turn they're holding up.

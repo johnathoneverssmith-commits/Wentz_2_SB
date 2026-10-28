@@ -480,8 +480,12 @@ export function useLeagueActions(): LeagueActions {
             return res;
           });
       },
-      forceAdvance: () =>
-        attempt(() => send((s) => s.client.forceAdvance(s.leagueId))).then(after),
+      forceAdvance: () => {
+        // captured at the press, like readyUp: a retry must still name the
+        // stage the commissioner was looking at, not the one it has become
+        const stage = useStore.getState().stage;
+        return attempt(() => send((s) => s.client.forceAdvance(s.leagueId, stage))).then(after);
+      },
       takeTurnForAbsent: () =>
         attempt(() => send((s) => s.client.takeTurnForAbsent(s.leagueId))).then(after),
       vacateSeat: (teamCode) =>

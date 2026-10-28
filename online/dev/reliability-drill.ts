@@ -230,14 +230,25 @@ try {
 
   console.log("\n5. commissioner double press on force-advance");
   const startStage = (await row()).state.stage;
+  const noStage = await call(gbA, "POST", `/leagues/${leagueId}/admin/advance`, {});
+  check(noStage.status === 400, "an advance that names no stage is refused (400)", noStage.status);
   const forced = await Promise.all([
-    call(gbA, "POST", `/leagues/${leagueId}/admin/advance`, {}),
-    call(gbA, "POST", `/leagues/${leagueId}/admin/advance`, {}),
+    call(gbA, "POST", `/leagues/${leagueId}/admin/advance`, { stage: startStage }),
+    call(gbA, "POST", `/leagues/${leagueId}/admin/advance`, { stage: startStage }),
   ]);
+  check(forced.map((f) => f.status).sort().join() === "200,409", "one press applied, the other refused (409)", forced.map((f) => f.status));
   const { state: afterForce } = await row();
   console.log(`   ${startStage} -> ${afterForce.stage}; statuses ${forced.map((f) => f.status).join(",")}`);
   const moves = await eventCount("phase.forced");
   check(moves === 1, "one press moved the league one step (two presses must not move it twice)", { forcedEvents: moves });
+
+  console.log("\n6. ready requests: missing stage, unknown stage, stale stage");
+  const r1 = await call(kcB, "POST", `/leagues/${leagueId}/actions/ready`, { ready: true });
+  check(r1.status === 400, "no stage -> 400", r1.status);
+  const r2 = await call(kcB, "POST", `/leagues/${leagueId}/actions/ready`, { ready: true, stage: "nonsense" });
+  check(r2.status === 400, "unknown stage -> 400", r2.status);
+  const r3 = await call(kcB, "POST", `/leagues/${leagueId}/actions/ready`, { ready: true, stage: startStage });
+  check(r3.status === 409, "stale stage -> 409", r3.status);
 } finally {
   await db.query(`DROP TRIGGER IF EXISTS drill_slow ON league_state; DROP FUNCTION IF EXISTS drill_slow();`).catch(() => undefined);
   if (leagueId) await db.query(`DELETE FROM leagues WHERE id = $1`, [leagueId]).catch(() => undefined);
