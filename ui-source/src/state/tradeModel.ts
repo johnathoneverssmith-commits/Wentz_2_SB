@@ -34,6 +34,31 @@ import { readTeamTimeline } from "./teamTimeline.ts";
 export const TRADE_ACCEPT_THRESHOLD = 0.5;
 export const tradeAccepts = (likelihood: number): boolean => likelihood >= TRADE_ACCEPT_THRESHOLD;
 
+/**
+ * What a trade screen says about the score. The score is not a chance: a CPU team accepts at 50% or above and declines below it, every
+ * time. So the screen says which, shows the score as "trade interest", and never rounds across the line (49.6% reads 49%, not 50%).
+ */
+export interface TradeVerdict {
+  accepts: boolean;
+  percent: number;
+  text: string;
+  /** a decline is always the bad colour; an accept is the good colour, or the notice colour when it is a close call */
+  tone: "good" | "notice" | "bad";
+  explanation: string;
+}
+export function tradeVerdict(likelihood: number): TradeVerdict {
+  const accepts = tradeAccepts(likelihood);
+  const rounded = Math.round(likelihood * 100);
+  const percent = accepts ? Math.max(50, rounded) : Math.min(49, rounded);
+  return {
+    accepts,
+    percent,
+    text: `${accepts ? "Would accept" : "Would decline"} \u2014 Trade interest: ${percent}%`,
+    tone: !accepts ? "bad" : likelihood >= 0.65 ? "good" : "notice",
+    explanation: "The CPU accepts a trade at a trade interest of 50% or above, and declines below it. It is a score, not a chance.",
+  };
+}
+
 /** Relief from shedding a liability, as a share of what taking it on costs. */
 export const LIABILITY_RELIEF = 0.5;
 

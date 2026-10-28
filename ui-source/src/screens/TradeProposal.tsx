@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { GmCard } from "@/components/GmIdentity";
 import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
 import { tradeUnitImpact } from "@/state/unitReport";
+import { tradeVerdict } from "@/state/tradeModel";
 import { useNavigate } from "react-router-dom";
 
 import { pressable } from "@/components/bits";
@@ -134,6 +135,7 @@ export function TradeProposal() {
     return sim.evaluateTrade(s, myCode, partner, toAssets(give), toAssets(get));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s, myCode, partner, give, get]);
+  const verdict = tradeVerdict(evalResult.acceptLikelihood);
 
   // what this trade does to your starting units, the way the engine reads them
   const unitImpact = useMemo(
@@ -417,25 +419,15 @@ export function TradeProposal() {
               fontWeight: 600,
               padding: "6px 12px",
               borderRadius: 20,
-              background:
-                evalResult.acceptLikelihood >= 0.65
-                  ? "rgba(111,200,150,0.14)"
-                  : evalResult.acceptLikelihood >= 0.35
-                    ? "rgba(232,179,76,0.14)"
-                    : "rgba(226,105,74,0.14)",
-              color:
-                evalResult.acceptLikelihood >= 0.65
-                  ? "var(--good)"
-                  : evalResult.acceptLikelihood >= 0.35
-                    ? "var(--notice)"
-                    : "var(--bad)",
+              background: verdict.tone === "good" ? "rgba(111,200,150,0.14)" : verdict.tone === "notice" ? "rgba(232,179,76,0.14)" : "rgba(226,105,74,0.14)",
+              color: verdict.tone === "good" ? "var(--good)" : verdict.tone === "notice" ? "var(--notice)" : "var(--bad)",
             }}
+            title={verdict.explanation}
           >
-            {/* an empty proposal came out at "48% likely to accept" — of nothing */}
+            {/* an empty proposal once read as a 48% score — of nothing */}
             {give.length + get.length === 0
               ? "Pick what each side sends"
-              : (evalResult as { refusal?: string }).refusal ??
-                `${TEAMS_BY_CODE[partner]!.label} accept likelihood: ${Math.round(evalResult.acceptLikelihood * 100)}%`}
+              : (evalResult as { refusal?: string }).refusal ?? verdict.text}
           </span>
         </div>
 
