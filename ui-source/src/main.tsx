@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 
 import "./theme.css";
+import "./design-system.css";
 import "./matchup.css";
 import { App } from "./App.tsx";
 import { MotionProvider } from "./motion/MotionProvider.tsx";

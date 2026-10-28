@@ -17,6 +17,7 @@ export type MotionLevel = "full" | "subtle" | "off";
 
 const KEY = "fs.motion";
 const LEVELS: readonly MotionLevel[] = ["full", "subtle", "off"];
+let choice: MotionLevel | null = null;
 
 function osPrefersReduced(): boolean {
   try {
@@ -27,6 +28,8 @@ function osPrefersReduced(): boolean {
 }
 
 function read(): MotionLevel {
+  if (osPrefersReduced()) return "off";
+  if (choice !== null) return choice;
   try {
     const saved = localStorage.getItem(KEY);
     if (saved && (LEVELS as readonly string[]).includes(saved)) return saved as MotionLevel;
@@ -50,15 +53,27 @@ export function getMotionLevel(): MotionLevel {
 }
 
 export function setMotionLevel(next: MotionLevel): void {
-  if (next === level) return;
-  level = next;
+  choice = next;
   try {
     localStorage.setItem(KEY, next);
-  } catch {
-    // it just won't be remembered
-  }
+  } catch { /* Device preference still works in private windows. */ }
+  refresh();
+}
+
+function refresh(): void {
+  const next = read();
+  if (next === level) return;
+  level = next;
   apply();
   for (const fn of listeners) fn();
+}
+
+/** One listener per provider, cleaned up during Strict Mode replay/unmount. */
+export function watchMotionPreference(): () => void {
+  const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+  query.addEventListener("change", refresh);
+  refresh();
+  return () => query.removeEventListener("change", refresh);
 }
 
 function subscribe(fn: () => void): () => void {

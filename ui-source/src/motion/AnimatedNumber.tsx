@@ -49,7 +49,7 @@ export function AnimatedNumber({
       return;
     }
     const controls = animate(from, value, {
-      duration: duration ?? (motion.full ? 0.9 : 0.3),
+      duration: duration ?? motion.dur * 2,
       ease: EASE,
       onUpdate: (v) => {
         shown.current = v;
@@ -61,7 +61,7 @@ export function AnimatedNumber({
       // interrupted (unmounted, or a newer value): never leave a half-counted figure
       shown.current = value;
     };
-  }, [value, motion.off, motion.full, duration]);
+  }, [value, motion.off, motion.dur, duration]);
 
   // React's text is the target; while a count is running, `onUpdate` has
   // already overwritten it with the frame in between, and it lands here
