@@ -38,3 +38,10 @@ npx tsx audit/realism-2026-10/league_seasons.ts audit/realism-2026-10/out/league
 npx tsx audit/realism-2026-10/qb_sensitivity.ts SEA 3
 cp audit/realism-2026-10/replay_fidelity.test.ts.txt online/test/_audit_replay.test.ts && LG=/tmp/replay.log npx vitest run --root online test/_audit_replay.test.ts && cat /tmp/replay.log
 ```
+
+## Third pass (QB calibration, mature leagues, halftime, replay) — see `CALIBRATION_AND_REPLAY.md`
+
+- `qb_experiment.patch` — diff of the experimental engine copy (env knobs `KRC KRI KSC KSI KY KQY`, defaults = production). Apply to a scratch copy of `src/` + `artifacts/` (with a `node_modules` symlink), not to the repo. `exp_qb.ts.txt` / `exp_league.ts.txt` are the drivers (rename to `.ts` inside the scratch copy); `qb_decomp_analysis.py`, `qb_slopes.py`, `qb_league_envelope.py` summarise their output.
+- `mature_league.test.ts.txt` — CPU-only multi-season league through the production stage machinery (copy to `online/test/_audit_mature.test.ts`; env `M_SEED M_TALENT M_YEARS AUDIT_OUT`); `mature_leagues.py` summarises it.
+- `half_kickoff_regression.test.ts.txt` — deterministic regression test for the second-half opening possession (fails on current master by design).
+- `ai_master_flow.test.ts.txt` — the `ai-master.test.ts` flow with and without `fitDraftedPayrolls`.

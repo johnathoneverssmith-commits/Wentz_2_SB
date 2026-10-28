@@ -1,0 +1,127 @@
+diff -ru src/engine/ratings.ts src/engine/ratings.ts
+--- src/engine/ratings.ts	2026-10-27 20:39:30.699175978 +0000
++++ src/engine/ratings.ts	2026-10-28 22:00:47.313745856 +0000
+@@ -25,6 +25,12 @@
+ type Unit = readonly (Player | null | undefined)[];
+ 
+ const CLIP = 3.0;
++/** EXPERIMENT knobs (scratch copy only): 1 = production behaviour */
++export const EXP = {
++  KRC: Number(process.env.KRC ?? 1), KRI: Number(process.env.KRI ?? 1),
++  KSC: Number(process.env.KSC ?? 1), KSI: Number(process.env.KSI ?? 1), QBREF: Number(process.env.QBREF ?? 80),
++  KY: Number(process.env.KY ?? 1), KQY: Number(process.env.KQY ?? 0),
++};
+ 
+ interface FamilyAttr {
+   attribute: string;
+@@ -190,7 +196,7 @@
+   qb: Player | null | undefined,
+ ): number {
+   return (
+-    centered("qb_accuracy", [qb]) +
++    EXP.KRC * centered("qb_accuracy", [qb]) +
+     centered("receiver_hands_routes", catchers) +
+     centered("coverage", defenders)
+   );
+@@ -198,7 +204,7 @@
+ 
+ /** M09 INTERCEPTION: qb ball security (−). */
+ export function interceptionLogitShift(qb: Player | null | undefined): number {
+-  return centered("qb_ball_security", [qb]);
++  return EXP.KRI * centered("qb_ball_security", [qb]);
+ }
+ 
+ /** M04 SACK: protection (−) + pass rush (+). */
+diff -ru src/engine/sim.ts src/engine/sim.ts
+--- src/engine/sim.ts	2026-10-27 20:39:30.701450799 +0000
++++ src/engine/sim.ts	2026-10-28 22:01:04.664666419 +0000
+@@ -22,6 +22,8 @@
+   sampleRzYac,
+ } from "./loaders.js";
+ import {
++  EXP,
++  attributeZ,
+   completionLogitShift,
+   fgLogitShift,
+   interceptionLogitShift,
+@@ -841,6 +843,16 @@
+     );
+   }
+ 
++  /** EXPERIMENT: yards per completion from the passer's arm (throw_power + deep accuracy), mean zero */
++  private qbYardsShift(): number {
++    if (!this.ratingsOn || EXP.KQY === 0) return 0;
++    const q = this.offLineup().QB1;
++    const z1 = attributeZ("throw_power", (q?.attributes as any)?.throw_power ?? NaN);
++    const z2 = attributeZ("throw_accuracy_deep", (q?.attributes as any)?.throw_accuracy_deep ?? NaN);
++    const z = ((z1 ?? 0) + (z2 ?? 0)) / 2;
++    return EXP.KQY * z;
++  }
++
+   private yacYdMod(): number {
+     if (!this.ratingsOn) return 0;
+     const o = this.offLineup();
+@@ -1608,7 +1620,7 @@
+           yac = Math.max(yac, -4.0);
+           yacAdded = Math.max(yac, 0);
+           this.st("yac", yacAdded);
+-          gained = ay + yac;
++          gained = ay + yac + this.qbYardsShift();
+           family = "reception";
+           outcomeBucket =
+             this.rng.random() < 0.18 ? "pass_complete_oob" : "pass_complete_inbounds";
+diff -ru src/engine/synergy.ts src/engine/synergy.ts
+--- src/engine/synergy.ts	2026-10-27 20:39:30.705450799 +0000
++++ src/engine/synergy.ts	2026-10-28 22:00:47.315386380 +0000
+@@ -68,6 +68,7 @@
+  * never reaches this file, so those stay byte-identical.
+  */
+ 
++import { EXP } from "./ratings.js";
+ import type { Player } from "../schema/player.js";
+ import { attributeZ, playerKey } from "./ratings.js";
+ import { type Lineup, roster, teamList } from "./roster.js";
+@@ -308,7 +309,7 @@
+   const runLine = meanZ(run);
+   const runner = skillZ(o.RB1, RUNNER);
+ 
+-  const qb = skillZ(o.QB1, QB_PASS);
++  const qb = skillZ(o.QB1, QB_PASS) === null ? null : (skillZ(o.QB1, QB_PASS) as number) * EXP.KY;
+   // Each target is its own quarterback–receiver pair, weighted by how often
+   // the ball goes his way. Pairing the quarterback with the receivers' *mean*
+   // diluted the one relationship that matters most: a bad WR1 next to two
+diff -ru src/engine/team-strength.ts src/engine/team-strength.ts
+--- src/engine/team-strength.ts	2026-10-27 20:39:30.705450799 +0000
++++ src/engine/team-strength.ts	2026-10-28 22:00:47.315136178 +0000
+@@ -1,4 +1,5 @@
+ import type { Player } from "../schema/player.js";
++import { EXP } from "./ratings.js";
+ import type { Roster } from "./roster.js";
+ 
+ /**
+@@ -192,12 +193,13 @@
+   }
+   const offense = offDen > 0 ? offNum / offDen : 0;
+   const defense = defDen > 0 ? defNum / defDen : 0;
+-  const blend = (shares: Record<string, number>, fallback: number): number => {
++  const blend = (shares: Record<string, number>, fallback: number, qbK = 1): number => {
+     let num = 0;
+     let den = 0;
+     for (const [pos, w] of Object.entries(shares)) {
+-      const v = byPos.get(pos);
++      let v = byPos.get(pos);
+       if (v === undefined) continue;
++      if (pos === "QB" && qbK !== 1) v = EXP.QBREF + qbK * (v - EXP.QBREF);
+       num += w * v;
+       den += w;
+     }
+@@ -205,7 +207,8 @@
+   };
+   const channels = {} as Record<Channel, { offense: number; defense: number }>;
+   for (const [ch, u] of Object.entries(CHANNEL_UNITS) as [Channel, (typeof CHANNEL_UNITS)[Channel]][]) {
+-    channels[ch] = { offense: blend(u.offense, offense), defense: blend(u.defense, defense) };
++    const qbK = ch === "complete" ? EXP.KSC : ch === "interception" ? EXP.KSI : 1;
++    channels[ch] = { offense: blend(u.offense, offense, qbK), defense: blend(u.defense, defense) };
+   }
+   const out: StrengthIndex = { offense, defense, channels };
+   _cache.set(r, out);

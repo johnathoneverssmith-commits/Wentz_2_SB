@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import { Rng } from "../src/engine/rng.js";
+import { Game } from "../src/engine/sim.js";
+
+/**
+ * Second-half opening possession (PBP-1 defect, docs/SIM_DEFECT_SECOND_HALF_KICKOFF.md).
+ *
+ * `advanceClock` rolls the quarter inside the play that spends Q2, which runs the half kickoff; the rest of that play then writes
+ * the old spot/down onto the new possession, or flips the ball back. This test builds the exact situation (a snap whose runoff
+ * ends Q2) and checks the engine state right after the play, so it needs no trace and no instrumentation inside sim.ts and stays
+ * valid however the fix is written (deferRoll, an idempotent roll, or a kickoff queued until the play resolves).
+ */
+type G = any;
+function playLastSnapOfHalf(seed: number, opener: 0 | 1, offense: 0 | 1, spot: number, down: number, toGo: number, quarterSeconds: number): G {
+  const g: G = new Game(new Rng(seed));
+  g.receivedOpening = opener;
+  g.qtr = 2; g.qsr = quarterSeconds; g.hsr = quarterSeconds; g.gsr = 1800 + quarterSeconds;
+  g.pos = offense; g.yardline100 = spot; g.down = down; g.ydstogo = toGo;
+  g.startDrive();
+  g.scrimmage(false);
+  return g;
+}
+const cases: [string, number, number, number][] = [["3rd & 8 at the opponent's 34", 34, 3, 8], ["4th & 3 at midfield (turnover on downs possible)", 50, 4, 3], ["1st & 10 own 25", 75, 1, 10], ["2nd & goal at the 4 (touchdown possible)", 4, 2, 4]];
+describe("the snap that spends the second quarter", () => {
+  for (const [label, spot, down, toGo] of cases) {
+    it(`${label}: the half kickoff stands`, () => {
+      const bad: string[] = [], badPos: string[] = [];
+      let n = 0;
+      for (let seed = 1; seed <= 300; seed++) for (const opener of [0, 1] as const) for (const offense of [0, 1] as const) {
+        const g = playLastSnapOfHalf(seed, opener, offense, spot, down, toGo, 1 + (seed % 4));
+        if (g.qtr !== 3) continue; // the runoff did not spend the quarter; not this scenario
+        n++;
+        const receiver = 1 - opener;
+        // allow a kickoff-return fumble recovered by the kicking team (the one legitimate way to open the half without the ball)
+        const fumbledAway = (g.teams[0].s.kickoff_fumble ?? 0) + (g.teams[1].s.kickoff_fumble ?? 0) > 0;
+        if (!fumbledAway && g.pos !== receiver) badPos.push(`seed ${seed} opener ${opener} offense ${offense}`);
+        if (!fumbledAway && (g.pos !== receiver || g.down !== 1 || g.yardline100 < 45)) bad.push(`seed ${seed} opener ${opener} offense ${offense}: pos ${g.pos} (want ${receiver}) ${g.down}&${g.ydstogo} at ${g.yardline100}`);
+      }
+      expect(n).toBeGreaterThan(200);
+      expect(badPos.length, `${badPos.length}/${n} second halves opened with the wrong team`).toBe(0);
+      expect(bad.slice(0, 5), `${bad.length}/${n} second halves opened off a kickoff spot or down`).toEqual([]);
+    });
+  }
+});

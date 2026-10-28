@@ -1,0 +1,35 @@
+import { appendFileSync } from "node:fs";
+import { describe, it } from "vitest";
+import type { LeagueState, Player } from "@/domain";
+import { openStandingMarketFromUndrafted } from "@/state/rules.ts";
+import { createLeague, DEFAULT_CONFIG, fillRosterGaps, fitDraftedPayrolls } from "@/state/seed.ts";
+import { onStageEntered } from "../src/phases.js";
+import { Roster } from "../../src/engine/roster.js";
+import { simulateGame } from "../../src/engine/sim.js";
+const lg = (...a: any[]) => appendFileSync(process.env.LG!, a.map((x) => typeof x === "string" ? x : JSON.stringify(x)).join(" ") + "\n");
+function drafted(difficulty: "expert" | "master", fit: boolean): LeagueState {
+  const s = createLeague(777, { ...DEFAULT_CONFIG, humanGmCount: 1, difficulty });
+  for (const g of s.gms) g.isHuman = false;
+  s.stage = "fantasyDraft"; onStageEntered(s, "setup");
+  openStandingMarketFromUndrafted(s);
+  if (fit) fitDraftedPayrolls(s);
+  fillRosterGaps(s);
+  return s;
+}
+const rosterOf = (s: LeagueState, code: string, tag: string) => new Roster(code, Object.values(s.players).filter((p: Player) => p.nfl_team === code && !p.retired && !p.free_agent).map((p) => ({ ...p, id: `${p.id}${tag}` })) as any);
+describe("ai-master flow", () => { it("x", () => {
+  for (const fit of [false, true]) {
+    const ex = drafted("expert", fit), ma = drafted("master", fit);
+    const mean = (s: LeagueState) => { const o = Object.values(s.players).filter((p: any) => p.nfl_team && p.nfl_team !== "FA" && !p.free_agent && !p.retired); return o.reduce((n, p: any) => n + p.overall, 0) / o.length; };
+    const stars = (s: LeagueState) => Object.values(s.players).filter((p: any) => p.nfl_team && p.nfl_team !== "FA" && !p.free_agent && !p.retired && p.overall >= 90).length;
+    lg(`fitDraftedPayrolls=${fit}: rostered mean overall expert ${mean(ex).toFixed(1)} master ${mean(ma).toFixed(1)}; players >=90 on rosters: expert ${stars(ex)} master ${stars(ma)}`);
+    for (const talent of [1, 1.5]) {
+      const codes = Object.keys(ex.teams); let w = 0, l = 0, m = 0, n = 0;
+      for (const code of codes) { const a = rosterOf(ma, code, "~i"), b = rosterOf(ex, code, "~e");
+        for (let k = 0; k < 10; k++) { const home = k % 2 === 0; const seed = 9000 + k * 131 + code.charCodeAt(0);
+          const g = home ? simulateGame(seed, code, code, { homeRoster: a, awayRoster: b, talentScale: talent }) : simulateGame(seed, code, code, { homeRoster: b, awayRoster: a, talentScale: talent });
+          const [mine, theirs] = home ? [g.score[0], g.score[1]] : [g.score[1], g.score[0]]; if (mine > theirs) w++; else if (mine < theirs) l++; m += mine - theirs; n++; } }
+      lg(`   talent ${talent}: Master vs Expert ${w}-${l} (${n} games) avg margin ${(m / n).toFixed(2)} (se ~${(14.5 / Math.sqrt(n)).toFixed(2)})`);
+    }
+  }
+}, 900000); });

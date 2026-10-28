@@ -1,0 +1,45 @@
+/** Plays seasons on a roster set with the patched engine copy. usage: exp_league.ts <fixed|file.json[:snapIdx]> <nSeasons> <talent> <seedBase> <out.json> */
+import { readFileSync, writeFileSync } from "node:fs";
+import { extractBoxScore } from "./src/engine/boxscore.js";
+import { NFL_TEAMS } from "./src/engine/nfl-structure.js";
+import { Roster, roster } from "./src/engine/roster.js";
+import { nflSchedule } from "./src/engine/schedule.js";
+import { simulateGame } from "./src/engine/sim.js";
+import { teamStaff } from "./src/engine/staff-data.js";
+import { weatherFor } from "./src/engine/weather.js";
+
+const [src, nSeasons, talent, base, out] = [process.argv[2]!, Number(process.argv[3]), Number(process.argv[4]), Number(process.argv[5]), process.argv[6]!];
+const rosters: Record<string, Roster> = {};
+if (src === "fixed") for (const t of NFL_TEAMS) rosters[t] = roster(t);
+else {
+  const [f, idx] = src.split(":");
+  const d = JSON.parse(readFileSync(f!, "utf8"));
+  const teams = idx ? d.snapshots[idx] : d.teams;
+  for (const t of NFL_TEAMS) rosters[t] = new Roster(t, teams[t]);
+}
+const ovrOf: Record<string, Record<string, number>> = {};
+for (const t of NFL_TEAMS) { const o: Record<string, number> = {}; for (const ps of rosters[t]!.depth.values()) for (const p of ps) o[p.name] = p.overall ?? 0; ovrOf[t] = o; }
+const sch = nflSchedule({ year: 2026 });
+const seasons: any[] = [];
+for (let s = 0; s < nSeasons; s++) {
+  const seed = base + s * 10000;
+  const games: any[] = []; const qb: Record<string, any> = {};
+  const tot = { att: 0, cmp: 0, yds: 0, int: 0, sack: 0, pts: 0, tg: 0 };
+  sch.forEach((sc, i) => {
+    const gs = seed + i;
+    const g = simulateGame(gs, sc.home, sc.away, { homeRoster: rosters[sc.home]!, awayRoster: rosters[sc.away]!, trace: true, injuries: true, talentScale: talent, overtime: "nfl", weather: weatherFor(sc.home, "REG", sc.week, gs), homeStaff: teamStaff(sc.home)!, awayStaff: teamStaff(sc.away)! });
+    const box = extractBoxScore(g, sc.home, sc.away, sc.week);
+    games.push([sc.home, sc.away, g.score[0], g.score[1]]);
+    for (const b of [box.home, box.away]) { tot.att += b.passAtt; tot.cmp += b.completions; tot.yds += b.passYards; tot.int += b.interceptionsThrown; tot.sack += b.sacksAllowed; tot.pts += b.points; tot.tg++; }
+    const teams = [sc.home, sc.away];
+    for (const p of g.playTrace ?? []) {
+      if (p.call !== "pass" || !p.passer) continue;
+      const t = teams[p.team]!; const k = `${t}|${p.passer}`;
+      const l = (qb[k] ??= { team: t, name: p.passer, ovr: ovrOf[t]![p.passer] ?? 0, att: 0, cmp: 0, yds: 0, td: 0, int: 0 });
+      l.att++;
+      if (p.outcome === "complete") { l.cmp++; l.yds += Math.round(p.gained); if (p.touchdown) l.td++; } else if (p.outcome === "interception") l.int++;
+    }
+  });
+  seasons.push({ seed, games, tot, qb: Object.values(qb).filter((l: any) => l.att >= 100) });
+}
+writeFileSync(out, JSON.stringify({ src, talent, seasons }));
