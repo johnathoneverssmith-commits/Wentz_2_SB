@@ -30,6 +30,10 @@ import { ratingOf } from "./coachingDraft";
 /**
  * Weight per job in the overall staff rating.
  *
+ * PD-1: the low end follows what the jobs measure (`docs/PD1_coaching_calibration.md`): the special-teams coach
+ * moves nothing (kickers and punters carry ~0 unit value), and the running-back, linebacker and medical jobs
+ * move a team about half as much as the line, quarterback and secondary coaches.
+ *
  * Staff summary optimization pass (MASTER_OPTIMIZED_FRANCHISE_PARAMETERS.json
  * -> staff_summary.overall_weights): the HC weight comes down and the
  * coordinators' come up, because in the frozen engine the OC and DC each
@@ -42,14 +46,14 @@ export const STAFF_WEIGHTS: Record<CoachRole, number> = {
   OC: 2.25,
   DC: 2.25,
   QB: 1.2,
-  RB: 0.9,
+  RB: 0.7,
   OL: 1.0,
   WR: 1.1,
   DL: 1.0,
-  LB: 0.9,
+  LB: 0.7,
   DB: 1.1,
-  ST: 0.7,
-  MED: 1.0,
+  ST: 0.3,
+  MED: 0.6,
 };
 
 /** The offensive composite: coordinator two fifths, position coaches the rest. */
