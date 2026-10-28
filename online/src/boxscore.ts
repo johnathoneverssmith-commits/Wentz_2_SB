@@ -24,13 +24,13 @@ export function boxScoreOf(
   const trace = sim.playTrace ?? [];
   const box = extractBoxScore(sim, home, away, week);
   const final: [number, number] = [sim.score[0], sim.score[1]];
-  const byQuarter = quarterScores(trace, final, sim.drivesLog);
+  const byQuarter = quarterScores(trace, final, sim.drivesLog, sim.eventLog ?? undefined);
   return {
     totals: {
       home: toTeamTotals(box.home, byQuarter[0]!, sim.drivesLog.filter((d) => d.team === 0)),
       away: toTeamTotals(box.away, byQuarter[1]!, sim.drivesLog.filter((d) => d.team === 1)),
     },
-    scoringPlays: scoringPlaysFrom(trace, home, away, final, sim.drivesLog),
+    scoringPlays: scoringPlaysFrom(trace, home, away, final, sim.drivesLog, sim.eventLog ?? undefined),
     // positions come off the franchise's own players, so they are the UI's
     playerLines: playerLinesFrom(trace, home, away, {
       [home]: squads.home as unknown as EnginePlayer[],
