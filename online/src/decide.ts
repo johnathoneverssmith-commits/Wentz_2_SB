@@ -38,6 +38,7 @@ import {
   runAiPicks,
   type Subject,
 } from "@/state/rules.ts";
+import { minSalaryM } from "@/state/capEconomy.ts";
 import { exerciseFifthYearOption, extendContract, franchiseTag, restructureContract } from "@/state/contracts.ts";
 import { cleanPlan, type GamePlan } from "@/state/gamePlan.ts";
 import { takeNewJob } from "@/state/hotSeat.ts";
@@ -916,7 +917,7 @@ export function decideContractMove(
   if (p.nfl_team !== actor.teamCode && practiceSquadTeam(p) !== actor.teamCode) throw new ActionError("He isn't yours.", 403);
   const out =
     move.kind === "restructure"
-      ? restructureContract(p, state.season)
+      ? restructureContract(p, state.season, minSalaryM(state))
       : move.kind === "tag"
         ? franchiseTag(state, p)
         : move.kind === "option"

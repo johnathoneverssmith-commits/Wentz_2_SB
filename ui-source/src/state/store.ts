@@ -9,6 +9,7 @@
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
 import { chooseGmStrategy } from "./aiGms.ts";
+import { minSalaryM, withLeagueCapFields } from "./capEconomy.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { setSkip as setSkipFor, type SkipKind } from "./skips.ts";
 import { create } from "zustand";
@@ -1155,7 +1156,7 @@ export const useStore = create<Store>()(
         set((s) => {
           const p = s.players[playerId];
           if (!p || p.free_agent || p.retired) return;
-          result = restructureContract(p, s.season);
+          result = restructureContract(p, s.season, minSalaryM(s));
           if (result.ok) recomputeTeamRatings(s);
         });
         return result;
@@ -1472,6 +1473,13 @@ export const useStore = create<Store>()(
     },
   ),
 );
+
+// A whole league handed to `useStore.setState` (the online client's fetch, joining a league, restoring a backup) merges over
+// the one in the store: a league that has not grown carries no cap-growth fields, so they are named as unset
+// (`withLeagueCapFields`), or the previous league's growth stays on the new one.
+const setStateOnStore = useStore.setState;
+(useStore as { setState: unknown }).setState = ((partial: unknown, replace?: boolean) =>
+  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueCapFields(partial), replace)) as typeof setStateOnStore;
 
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   (window as unknown as { __store: typeof useStore }).__store = useStore;

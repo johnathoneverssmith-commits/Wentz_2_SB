@@ -6,7 +6,7 @@
 import { UNITS } from "./unitValue.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
-import { PRACTICE_SQUAD_SALARY_M, checkToPracticeSquad, practiceSquad, practiceSquadEligible, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
+import { checkToPracticeSquad, practiceSquad, practiceSquadEligible, practiceSquadSalaryM, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
 import {
   type Coach,
   type Gm,
@@ -19,6 +19,7 @@ import {
 import { TEAMS } from "@/data/teams";
 
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
+import { BASE_MIN_SALARY_M, marketScale, minSalaryM, scaledM } from "./capEconomy.ts";
 import { fullPersonName } from "@/sim/names.ts";
 import { applyCoachToDelta, coachModifiersFor } from "./coachEffects.ts";
 import { ensureDraftPicks } from "./draftPicks.ts";
@@ -145,8 +146,6 @@ const STARTER_WEIGHT: Partial<Record<Position, number>> = (() => {
   return out;
 })();
 
-/** League-minimum depth deal — no guarantee. */
-const MIN_SALARY_M = 1;
 
 /**
  * Contract length ranges the roster fill signs to, inclusive.
@@ -174,7 +173,7 @@ const MARKET_RESERVE = 140;
  * deadline moves; this is that, and it's what keeps the market alive.
  */
 // CPU Cap Preparation optimization pass (cpu_cap_prep.cap_working_room_m).
-const CAP_WORKING_ROOM = 16;
+const BASE_CAP_WORKING_ROOM = 16;
 
 function dealFor(teamCode: string, salary: number, years: number): NonNullable<Player["contract"]> {
   return {
@@ -196,8 +195,8 @@ function dealFor(teamCode: string, salary: number, years: number): NonNullable<P
  * with the adapter running, 637 rostered players cost nothing and every team
  * sat $190M under the line. This is what the franchise layer pays them.
  */
-export function marketDeal(teamCode: string, p: Player, years: number): NonNullable<Player["contract"]> {
-  const salary = Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, p.position) * 10) / 10);
+export function marketDeal(teamCode: string, p: Player, years: number, scale = 1): NonNullable<Player["contract"]> {
+  const salary = Math.max(scaledM(BASE_MIN_SALARY_M, { capScale: scale }), Math.round(contractValueFor(p.overall, p.position, scale) * 10) / 10);
   return dealFor(teamCode, salary, Math.max(1, years));
 }
 
@@ -276,6 +275,7 @@ export function planRoomFor(
   needed: number,
   locked: ReadonlySet<string> = new Set(),
 ): Player[] | null {
+  const MIN_SALARY_M = minSalaryM(state);
   const capTotal = state.teams[teamCode]?.cap.total ?? 255;
   let used = capUsedOf(state, teamCode);
   if (capTotal - used >= needed) return [];
@@ -327,6 +327,9 @@ const CUT_DAY_MIN_FREED = 3;
  * Release button and a roster screen that tells them where they stand.
  */
 export function openCapRoomForFreeAgency(state: LeagueState): void {
+  const priceScale = marketScale(state);
+  const MIN_SALARY_M = minSalaryM(state);
+  const cutDayMinFreed = CUT_DAY_MIN_FREED * priceScale;
   const humanTeams = new Set(
     state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode),
   );
@@ -357,7 +360,7 @@ export function openCapRoomForFreeAgency(state: LeagueState): void {
     let guard = 12; // a cut day, not a teardown
     while (used > target && guard-- > 0) {
       const keep = core();
-      const candidates = roster.filter((p) => !keep.has(p.id) && capHitOf(p) > MIN_SALARY_M && freed(p) >= CUT_DAY_MIN_FREED && cheapToLeave(p));
+      const candidates = roster.filter((p) => !keep.has(p.id) && capHitOf(p) > MIN_SALARY_M && freed(p) >= cutDayMinFreed && cheapToLeave(p));
       if (candidates.length === 0) break;
       const cut = candidates.reduce((a, b) => (freed(b) > freed(a) ? b : a));
       roster.splice(roster.indexOf(cut), 1);
@@ -461,12 +464,12 @@ export function normalizePool(
   // would actually have it.
   const target = capTotal * 0.88;
   for (const [team, squad] of squads) {
-    const raw = squad.map((p) => Math.max(MIN_SALARY_M, contractValueFor(p.overall, p.position)));
+    const raw = squad.map((p) => Math.max(BASE_MIN_SALARY_M, contractValueFor(p.overall, p.position)));
     const total = raw.reduce((a, b) => a + b, 0);
     const scale = total > target ? target / total : 1;
     squad.forEach((p, i) => {
       if (p.contract) return;
-      const salary = Math.max(MIN_SALARY_M, Math.round(raw[i]! * scale * 10) / 10);
+      const salary = Math.max(BASE_MIN_SALARY_M, Math.round(raw[i]! * scale * 10) / 10);
       p.contract = dealFor(team, salary, rng.int(2, 5));
     });
   }
@@ -527,6 +530,9 @@ export function applyDraftSetting(s: LeagueState): void {
  * where the depth fill and a little working room still fit under the line.
  */
 export function fitDraftedPayrolls(state: LeagueState): void {
+  const priceScale = marketScale(state);
+  const MIN_SALARY_M = minSalaryM(state);
+  const CAP_WORKING_ROOM = BASE_CAP_WORKING_ROOM * priceScale;
   const squads = new Map<string, Player[]>();
   for (const p of Object.values(state.players)) {
     if (p.retired || p.free_agent || !p.contract || !state.teams[p.nfl_team]) continue;
@@ -767,18 +773,21 @@ function trimToLegalRoster(
   teamCode = "",
 ): { used: number; released: number } {
   const cpu = state.teams[teamCode]?.controlledBy.kind === "ai";
+  const priceScale = marketScale(state);
+  const MIN_SALARY_M = minSalaryM(state);
+  const CAP_WORKING_ROOM = BASE_CAP_WORKING_ROOM * priceScale;
   // a CPU team's dead money is on its books, so it counts against the room the cuts are making
   let used = roster.reduce((n, p) => n + capHitOf(p), 0) + (cpu ? (state.teams[teamCode]?.cap.dead ?? 0) : 0);
   let released = 0;
   /** Whether a CPU team's cut of him is a practice-squad move (`drop` does it whenever it can), which leaves no dead money. */
-  const squadMove = (p: Player): boolean => cpu && practiceSquadEligible(p) && checkToPracticeSquad(state, p).ok;
+  const squadMove = (p: Player): boolean => cpu && practiceSquadEligible(p, priceScale) && checkToPracticeSquad(state, p).ok;
   /**
    * What a cut really opens. A CPU team's squad move frees his cap hit less the squad pay that stays on the books,
    * with no dead money; its other releases free the hit less the dead money they leave behind. A person's team
    * counts the whole hit.
    */
   const netFreed = (p: Player): number =>
-    !cpu ? capHitOf(p) : squadMove(p) ? capHitOf(p) - PRACTICE_SQUAD_SALARY_M : capHitOf(p) - releasePenalty(p);
+    !cpu ? capHitOf(p) : squadMove(p) ? capHitOf(p) - practiceSquadSalaryM(state) : capHitOf(p) - releasePenalty(p);
   /** Returns the cap the cut frees; `releaseToMarket` clears the contract. */
   const drop = (p: Player): number => {
     // a CPU staff keeps a young cut on its practice squad rather than lose
@@ -786,7 +795,7 @@ function trimToLegalRoster(
     // The squad move replaces his contract with the squad salary, which stays on the books: what it frees is the
     // hit he had less that salary, so the hit is read before the move.
     const hitBefore = capHitOf(p);
-    const toSquad = cpu && practiceSquadEligible(p) && toPracticeSquad(state, p).ok;
+    const toSquad = cpu && practiceSquadEligible(p, priceScale) && toPracticeSquad(state, p).ok;
     const freed = toSquad ? hitBefore - capHitOf(p) : cpu ? releaseWithDeadMoney(state, p) : capHitOf(p);
     if (!toSquad && !cpu) releaseToMarket(state, p);
     roster.splice(roster.indexOf(p), 1);
@@ -999,6 +1008,8 @@ export function trimRosters(state: LeagueState): void {
  * fill a spot). Human rosters are left to their GMs.
  */
 export function campCuts(state: LeagueState): number {
+  const priceScale = marketScale(state);
+  const CAP_WORKING_ROOM = BASE_CAP_WORKING_ROOM * priceScale;
   let swaps = 0;
   const byPos = new Map<Position, Player[]>();
   for (const p of Object.values(state.players)) {
@@ -1020,13 +1031,13 @@ export function campCuts(state: LeagueState): number {
     for (const body of bodies) {
       const pool = byPos.get(body.position) ?? [];
       const i = pool.findIndex(
-        (x) => x.overall >= body.overall + 3 && used - capHitOf(body) + lateMarketDeal(x) <= team.cap.total - CAP_WORKING_ROOM / 2,
+        (x) => x.overall >= body.overall + 3 && used - capHitOf(body) + lateMarketDeal(x, priceScale) <= team.cap.total - CAP_WORKING_ROOM / 2,
       );
       if (i < 0) continue;
       const vet = pool.splice(i, 1)[0]!;
       used -= capHitOf(body);
       delete state.players[body.id];
-      const salary = lateMarketDeal(vet);
+      const salary = lateMarketDeal(vet, priceScale);
       vet.free_agent = false;
       vet.nfl_team = code;
       vet.contract = dealFor(code, salary, 1);
@@ -1040,8 +1051,8 @@ export function campCuts(state: LeagueState): number {
 }
 
 /** What an unsigned veteran accepts at the preseason gate: 35% of his price. */
-const lateMarketDeal = (p: Player): number =>
-  Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, p.position) * 0.35 * 10) / 10);
+const lateMarketDeal = (p: Player, scale = 1): number =>
+  Math.max(scaledM(BASE_MIN_SALARY_M, { capScale: scale }), Math.round(contractValueFor(p.overall, p.position, scale) * 0.35 * 10) / 10);
 
 export function fillRosterGaps(
   state: LeagueState,
@@ -1049,6 +1060,9 @@ export function fillRosterGaps(
 ): void {
   // the preseason gate: unsigned veterans take camp deals (see pass 2)
   const lateMarket = opts.lateMarket ?? false;
+  const priceScale = marketScale(state);
+  const MIN_SALARY_M = minSalaryM(state);
+  const CAP_WORKING_ROOM = BASE_CAP_WORKING_ROOM * priceScale;
   // at a free-agency summary, where squaring the roster is the GM's own job
   const spareGm = opts.spareGmRosters ?? false;
   const rng = new Rng(state.season * 7717 + 13);
@@ -1135,14 +1149,14 @@ export function fillRosterGaps(
       while (countAt(pos) < needed) {
         const room = spendable();
         const idx = pool.findIndex(
-          (p) => !signed.has(p.id) && contractValueFor(p.overall, p.position) <= room,
+          (p) => !signed.has(p.id) && contractValueFor(p.overall, p.position, priceScale) <= room,
         );
         const p = idx >= 0 ? pool.splice(idx, 1)[0]! : pool.pop();
         if (!p) break;
         if (signed.has(p.id)) continue;
         marketSize--;
         const salary =
-          idx >= 0 ? Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos) * 10) / 10) : MIN_SALARY_M;
+          idx >= 0 ? Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos, priceScale) * 10) / 10) : MIN_SALARY_M;
         sign(p, code, salary, STARTER_YEARS);
         used += salary;
         roster.push(p);
@@ -1173,12 +1187,12 @@ export function fillRosterGaps(
         const idx =
           room > MIN_SALARY_M && !human
             ? pool.findIndex(
-                (x) => !signed.has(x.id) && contractValueFor(x.overall, x.position) <= room,
+                (x) => !signed.has(x.id) && contractValueFor(x.overall, x.position, priceScale) <= room,
               )
             : -1;
         if (idx >= 0) {
           p = pool.splice(idx, 1)[0]!;
-          salary = Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos) * 10) / 10);
+          salary = Math.max(MIN_SALARY_M, Math.round(contractValueFor(p.overall, pos, priceScale) * 10) / 10);
           marketSize--;
         }
         // Late in camp a veteran nobody paid takes what he can get. At the
@@ -1188,11 +1202,11 @@ export function fillRosterGaps(
         // 60 free agents rated 80+ went unsigned all year.
         if (!p && lateMarket) {
           const cheapIdx = pool.findIndex(
-            (x) => !signed.has(x.id) && lateMarketDeal(x) <= room && x.overall >= 60,
+            (x) => !signed.has(x.id) && lateMarketDeal(x, priceScale) <= room && x.overall >= 60,
           );
           if (cheapIdx >= 0) {
             p = pool.splice(cheapIdx, 1)[0]!;
-            salary = lateMarketDeal(p);
+            salary = lateMarketDeal(p, priceScale);
             marketSize--;
           }
         }
@@ -1497,6 +1511,10 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
     returnTo: null,
     history: [],
     hoodedFigure: null,
+    // named so that starting a league in a session that has played another (`store.newLeague` merges this over the old
+    // state) does not carry the old league's cap growth into the new one
+    capScale: undefined,
+    capGrowthSeason: undefined,
   };
   recomputeTeamRatings(state);
   // draft capital exists from day one — it's tradeable before it's spent.

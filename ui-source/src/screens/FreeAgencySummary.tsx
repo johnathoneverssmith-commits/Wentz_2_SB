@@ -23,6 +23,7 @@ import {
 import { ROSTER_SIZE } from "@/sim/roster-template";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
+import { marketScale } from "@/state/capEconomy";
 import { recentNews } from "@/state/online";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { andList, millions, posLabel } from "@/util/format";
@@ -290,7 +291,7 @@ export function FreeAgencySummary() {
                   <span className="ppos">{posLabel(p.position)}</span>
                 </p>
                 <p className="lobby-sub">
-                  Age {p.age} · was asking {millions(expectedSalary(p))}/yr
+                  Age {p.age} · was asking {millions(expectedSalary(p, marketScale(s)))}/yr
                 </p>
               </div>
               <div className="lobby-actions">

@@ -8,6 +8,7 @@
  * rebuild that sells a veteran for a first, the contender that spends three
  * years of capital on one player — and none of it was expressible.
  */
+import { marketScale } from "./capEconomy.ts";
 import type { DraftPickAsset, LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { ROSTER_SIZE } from "@/sim/roster-template";
@@ -168,7 +169,8 @@ export function awardCompensatoryPicks(state: LeagueState): { team: string; roun
   for (const p of Object.values(state.players)) {
     if (p.expired_season !== lastOffseason || !p.expired_from) continue;
     if (p.retired || p.free_agent || !p.contract || p.nfl_team === p.expired_from) continue;
-    const value = p.contract.cap_hit_by_year[0] ?? 0;
+    // the thresholds below are dollars at the league's starting prices, so a deal is read at what it would have cost then
+    const value = (p.contract.cap_hit_by_year[0] ?? 0) / marketScale(state);
     if (value < 1.5) continue; // a minimum deal doesn't qualify
     const list = losses.get(p.expired_from) ?? [];
     list.push({ value, name: p.name });

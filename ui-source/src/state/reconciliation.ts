@@ -1,3 +1,4 @@
+import { minSalaryM } from "./capEconomy.ts";
 import type { LeagueState, Player } from "@/domain";
 import { onInjuredReserve } from "./injuries";
 import { releasePenalty, releaseToMarket } from "./seed";
@@ -187,8 +188,6 @@ export function makeEmergencyPlayer(
   } as Player;
 }
 
-/** A street free agent's deal: one year at the league minimum. */
-const MIN_SALARY_M = 1;
 
 /**
  * Fill every positional hole — from the real market first.
@@ -227,6 +226,7 @@ export function fillPositionalGaps(s: LeagueState, teamCode: string): number {
     if (need === 0) continue;
     let have = counts.get(pos) ?? 0;
     while (have < need) {
+      const MIN_SALARY_M = minSalaryM(s);
       const room = team ? team.cap.total - capUsed(s, teamCode) : 0;
       const street =
         room >= MIN_SALARY_M
