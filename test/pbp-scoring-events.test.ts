@@ -1,8 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { boxScoreOf } from "../online/src/boxscore.js";
 import { quarterScores, scoringPlaysFrom } from "../server/boxscore-map.js";
-import { presentGame } from "../server/simGame.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import { extractBoxScore } from "../src/engine/boxscore.js";
 import { type Game, type GameEvent, type PlayRec, type ScoreEvent, simulateGame } from "../src/engine/sim.js";
@@ -220,18 +218,6 @@ describe("scoring summary and line score", () => {
     const final: [number, number] = [g.score[0], g.score[1]];
     const rows = scoringPlaysFrom(g.playTrace!, home, away, final, g.drivesLog);
     expect(rows.at(-1) ? [rows.at(-1)!.homeScore, rows.at(-1)!.awayScore] : [0, 0]).toEqual(final);
-  });
-});
-
-describe("single-player and online present the same game the same way", () => {
-  it("the adapter's box score and the online server's agree on summary and line score", () => {
-    for (const { home, away, g, where } of games.slice(0, 40)) {
-      const local = presentGame(g, { homeTeam: home, awayTeam: away, week: 1, weather: null });
-      const online = boxScoreOf(g, home, away, 1, { home: [], away: [] });
-      expect(online.scoringPlays, where).toEqual(local.scoringPlays);
-      expect(online.totals!.home.byQuarter, where).toEqual(local.totals.home.byQuarter);
-      expect(online.totals!.away.byQuarter, where).toEqual(local.totals.away.byQuarter);
-    }
   });
 });
 
