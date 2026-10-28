@@ -73,6 +73,13 @@ it("a simulated week throws the ball, and every stat layer records it", () => {
  * evens things out. So the per-game bands below err on the generous side,
  * which is the right side for a check that must not cry wolf.
  *
+ * RE-MEASURED for the second-half kickoff fix (issue #53), on the same seeds. The figures
+ * above had drifted from master before this change (points 23.84 / sd 12.56 and passing
+ * yards sd 89 were from the 2026-10-12 engine; master at the time of the fix measured
+ * points 21.82 / sd 9.67, passing yards 223.0 / sd 64.3, so the old band was only passing
+ * because it was wide). The fix itself moved points 21.82 -> 21.25 (-0.57), every other
+ * statistic within noise. Sack rate 0.0686 -> 0.0705.
+ *
  * Cost: ~5 seconds a league. The default is 6 leagues; STATS_SEEDS=12 (or any
  * number up to the length of SEEDS) widens the net for a deep check.
  */
@@ -80,11 +87,11 @@ const BASELINE_SEEDS = Array.from({ length: 24 }, (_, i) => 101 + i);
 const BASELINE = {
   n: 2304,
   // per team-game: mean and standard deviation
-  passYards: { mean: 227.2, sd: 89.0 },
-  rushYards: { mean: 118.0, sd: 60.6 },
-  points: { mean: 23.84, sd: 12.56 },
-  sacksAllowed: { mean: 2.127, sd: 1.936 },
-  passAtt: { mean: 29.59, sd: 6.54 },
+  passYards: { mean: 222.96, sd: 63.82 },
+  rushYards: { mean: 120.31, sd: 59.79 },
+  points: { mean: 21.25, sd: 9.45 },
+  sacksAllowed: { mean: 2.258, sd: 1.59 },
+  passAtt: { mean: 29.79, sd: 6.62 },
 } as const;
 type Stat = keyof Omit<typeof BASELINE, "n">;
 const STATS = Object.keys(BASELINE).filter((k) => k !== "n") as Stat[];
@@ -102,7 +109,7 @@ const BANDED = STATS.filter((k) => k !== "sacksAllowed");
  * made from 24 leagues) so that a baseline that happened to be quiet cannot
  * make the band too tight.
  */
-const SACK_RATE = { mean: 0.06706, leagueSd: 0.00409, leagues: 24, inflate: 1.15 };
+const SACK_RATE = { mean: 0.07047, leagueSd: 0.00409, leagues: 24, inflate: 1.15 };
 
 /** The NFL, 2018-2025 (artifacts/validation/simulation_validation.json), as a wide envelope. */
 const NFL = { points: 22.56, passAtt: 32.82, completion: 0.647, sackRate: 0.0663, rushYards: 23.99 * 4.276 };

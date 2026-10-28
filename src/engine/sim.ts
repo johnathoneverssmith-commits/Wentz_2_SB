@@ -1091,8 +1091,10 @@ export class Game {
     this.hsr = Math.max(0, this.hsr - e);
     this.qsr = Math.max(0, this.qsr - e);
     this.st("top", e);
-    // a scoring play books its points first (see the resolve step)
-    if (!deferRoll) this.rollQuarter();
+    // a scoring play books its points first (see the resolve step), and so does
+    // every other play: inside a snap the roll waits for `play()` to finish
+    // resolving it (see `holdRoll`)
+    if (!deferRoll && !this.holdRoll) this.rollQuarter();
   }
 
   // ---- scoring / possession ---------------------------------------
@@ -1517,7 +1519,29 @@ export class Game {
     else this.turnover(0, this.yardline100, "missed_fg");
   }
 
+  /**
+   * True while a snap is being resolved. `advanceClock` spends the play's
+   * clock *before* the play's result is applied to down, distance, spot and
+   * possession, so a quarter that ended on that clock used to roll mid-play:
+   * the half kickoff set the second half's possession and the rest of the play
+   * then overwrote it with the old spot and down, or handed the ball back
+   * (issue #53). Holding the roll until the play has resolved makes the half
+   * kickoff the last word. Pre-snap runoffs (`burn`) are not held: the snap
+   * that follows them has to be played from the kickoff.
+   */
+  private holdRoll = false;
+
   private play(): void {
+    this.holdRoll = true;
+    try {
+      this.playSnap();
+    } finally {
+      this.holdRoll = false;
+    }
+    this.rollQuarter();
+  }
+
+  private playSnap(): void {
     this.st("plays");
     if (this.canKneelOut()) return this.kneelOut();
     if (this.endHalfFg()) {
