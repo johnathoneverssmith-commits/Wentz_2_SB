@@ -78,6 +78,7 @@ import { MockSimulationService } from "@/sim/MockSimulationService";
 
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
 import { noteEvent } from "./notes.js";
+import { assertSeatHeld, type Seat } from "./seat.js";
 import { endHoldouts } from "@/state/contracts.ts";
 import { ensureHotSeat, placeUnemployed } from "@/state/hotSeat.ts";
 import { syncAiGms } from "@/state/aiGms.ts";
@@ -164,8 +165,11 @@ export async function readyUp(
   ready: boolean,
   /** The stage the GM was looking at when they pressed. */
   seenStage?: string,
+  /** Who is asking, when it is a request rather than the server's own doing: re-checked under the lock. */
+  seat?: Seat,
 ): Promise<AdvanceOutcome> {
-  const { result } = await withLeague(leagueId, async ({ state, league }) => {
+  const { result } = await withLeague(leagueId, async ({ state, league }, client) => {
+    if (seat) await assertSeatHeld(client, seat, state);
     // A ready is for the stage on the GM's screen. When the league has
     // already left it (their click raced the last GM's), applying it to the
     // new stage committed them to something they had not seen — twice in a
