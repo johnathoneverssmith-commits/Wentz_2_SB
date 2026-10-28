@@ -103,6 +103,7 @@ import {
   resolveHoodedFigureEncounter,
 } from "./hoodedFigure.ts";
 import { generateAiTradeOffers } from "./aiTrades.ts";
+import { tradeAccepts } from "./tradeModel.ts";
 import { applyRelease, checkRelease, reconcileCpuTeam } from "./reconciliation.ts";
 import { draftClassTilt } from "./draftSupply.ts";
 import { compactRetired, trimStoredBoxScores } from "./saveCompaction.ts";
@@ -1355,7 +1356,7 @@ export const useStore = create<Store>()(
           // unwilling team into one — without this, any trade involving a 90+
           // player skipped the partner entirely and a star could be prised off
           // a team that wanted no part of the deal.
-          if (!partnerIsHuman && t.aiAcceptLikelihood < 0.5) {
+          if (!partnerIsHuman && !tradeAccepts(t.aiAcceptLikelihood)) {
             t.status = "rejected";
             delete t.vote;
             return;

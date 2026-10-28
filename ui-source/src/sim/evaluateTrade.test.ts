@@ -69,9 +69,11 @@ describe("evaluateTrade", () => {
     // ask for something back of comparable value: a giveaway pins acceptance
     // at the ceiling for both, and a saturated number can't show the need
     // signal at all
+    // (comparable in the chart's own terms, which a rating alone no longer is: a contract moves a player's price)
+    const worth = (id: string): number => tradeAssetValue(s, { kind: "player", playerId: id });
     const back = Object.values(s.players)
       .filter((p) => p.nfl_team === toTeam && p.position !== "QB")
-      .sort((a, b) => Math.abs(a.overall - offeredQb.overall) - Math.abs(b.overall - offeredQb.overall))[0];
+      .sort((a, b) => Math.abs(worth(a.id) - worth(offeredWr.id)) - Math.abs(worth(b.id) - worth(offeredWr.id)))[0];
     if (!back) return;
 
     const forNeed = sim.evaluateTrade(

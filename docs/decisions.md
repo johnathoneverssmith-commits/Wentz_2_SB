@@ -1649,3 +1649,40 @@ rises) and is left for a separate decision.
 
 **Not done.** Staff proposals use the same evaluator for *whom* to extend and *how long* (`planCoreResign`), not a different rule.
 Practice-squad contracts and a club's live unresolved offers are not in its commitments.
+
+## CPU trade intelligence (2026-10)
+
+Measured first (`online/test/trade-metrics.test.ts`, env-gated: all-CPU leagues so every deadline turn is played; 3 seeds × 5 seasons):
+CPU contenders paid **1.70×** what they received on the trade chart, almost always in first-round picks (**10.7 a league-season**);
+trades were accepted by a coin flip weighted by the likelihood at the deadline, at 0.5 everywhere else and at 0.55 for a person's staff;
+and **all 450** liabilities (thirty-something players rated 62–68 on three or four years at twice their market) offered to a CPU team
+for nothing were taken, because the chart paid a bonus for years of control whatever the player was going to be.
+
+**Valuation (`tradeAssetValue`).** A player's price is what he does (`playerPerformanceValue`: rating, position, franchise-QB premium,
+age, and fitness in season) plus what the rest of his contract is worth (`playerContractValue`): B2b's projection (`contractSurplusM`:
+the market price of the rating he will have each year, in that year's dollars, less his pay, weighted by the chance he is still
+playing), at 0.8 chart points per $M, never below minus what it costs to release him (`releasePenalty`, now in `releaseCost.ts`) and
+never above two and a half years of his market price. A bad contract can be worth less than nothing. The old `tradeContractFactor`
+is gone. `packageValue` no longer discounts a liability behind a better player.
+
+**One decision (`state/tradeModel.ts`).** `judgeTrade` / `judgeWith` is `evaluateTrade`, and `tradeAccepts` (likelihood ≥ 0.5) is the
+answer in the single-player store, the league server, the deadline's CPU turns and a person's staff. The model reads the chart
+through the receiving team's window (picks and the young a little up for a rebuild, veterans past their decline a little down, the
+reverse for a contender: bounded so that no asset is priced more than 10% differently by two teams), asks `TRADE_FRICTION` (5% of the
+larger side and a point) over an even trade so that buying from one team and selling to another is no business, charges salary taken on
+by a team close to the cap, counts relief from shedding a liability at half its cost (`LIABILITY_RELIEF`, which is what stops
+"absorb a bad contract for a pick, then cut him" paying), and stops need from rescuing an asset the chart prices at or below zero.
+Strategy, difficulty and the franchise-quarterback refusal are as they were. The displayed `valueDelta` is still the plain chart.
+Changed rule worth naming: an even chart trade is no longer a sure yes from a CPU team (it wants the friction), and the deadline's
+answer is no longer a weighted die.
+
+**Proposals.** `cheapestPackage` searches every combination of up to three of the payer's six best distinct picks and six best
+spare players for the cheapest one that fits under both caps, that the other team would take, and that sits in a value band (a
+first-round pick counts a little extra): the CPU-to-CPU buyer (a contender by window, not record, buying from a rebuilding team
+outside its division, passing over a player past his decline age with years left, once a deadline, one round in four it works the
+phones) and the offers made to people (the suitor must itself break even on its own reading; the 0.95–1.4× band and the quantity-for-
+quality guards are as before). The deadline may still break the roster limit; the cap is respected in what the CPU builds.
+CPU-to-CPU trading stays at the deadline.
+
+**Not done / limits.** The need term (up to ±0.4 of the likelihood) is as it was for assets with a positive price. Dead money other
+than the release cost is not in the price. No trades outside the deadline between CPU teams.

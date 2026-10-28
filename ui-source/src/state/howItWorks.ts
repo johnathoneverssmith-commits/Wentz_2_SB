@@ -94,14 +94,15 @@ export const HOW_IT_WORKS: HowTopic[] = [
         heading: "How a deal is judged",
         body: [
           "Every asset has a trade value (see Trade value). A package counts its best player in full and each one after him for 70% of the one before, so two good players for one star can work and a pile of spares never does. Draft picks add up.",
-          "The CPU accepts when it gets at least what it gives, adjusted for how much it needs the position. The more a deal favors you, the less likely it says yes.",
+          "The CPU accepts when it gets at least what it gives on its own reading, with a little to spare, adjusted for how much it needs the position. The more a deal favors you, the less likely it says yes, and from fifty-fifty up the answer is yes: the same answer to the same offer on every screen, in single-player and online, for the deadline and for your staff.",
+          "A team reads the chart through its window. A rebuilding team values picks and young players a little more and veterans past their decline a little less; a contender values this season's starters more and picks less; a team close to the cap wants more to take on salary. A bad contract can be worth less than nothing, so a team taking one on wants paying, though only up to what it would cost to release him, and a team shedding one counts only half the relief.",
           "A franchise quarterback is never sold for anything but another one. The Master CPU also refuses any deal that loses value on its own measure.",
         ],
       },
       {
         heading: "The trade deadline",
         body: [
-          "The deadline runs in three rounds, one turn at a time: propose, or answer an offer made to you. CPU contenders buy from teams that are out of it, and a GM who refuses an ask isn't asked for the same player again.",
+          "The deadline runs in three rounds, one turn at a time: propose, or answer an offer made to you. CPU contenders buy from rebuilding teams outside their division, looking for an upgrade that is not a player whose pay will outlast his play, and a contender buys once. They pay with the cheapest mix of picks and spare players the seller will take, so a first-round pick is no longer the default. A GM who refuses an ask isn't asked for the same player again.",
           "Cap, roster limit and positional minimums are allowed to break at the deadline and are enforced afterwards. Skip the Deadline passes your own turns for this deadline only; offers made to you still wait for an answer.",
         ],
       },
@@ -117,7 +118,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         body: [
           "Value starts from his overall on a steep curve, so a 90 is worth far more than two 80s and about a first-round pick. It is then multiplied by his position's market value (quarterbacks highest, then edge rushers, tackles, receivers and corners, with interior linemen only a little under; kickers and punters least).",
           "Age moves it: a young player is worth more, and the discount steepens after thirty (later for quarterbacks, earlier for running backs).",
-          "Years of control and cost move it too: more cheap years left is worth more, and a deal that pays him well above his market rate is worth less.",
+          "His contract moves it by what it is worth over the years left: the market price of the rating he is projected to have each year, less what he is paid, counting his decline and the chance he retires. A cheap deal for a player in his prime adds value, a deal that pays a veteran for years he will not play at his level takes it away, and an injured player is worth less this season.",
         ],
       },
       {

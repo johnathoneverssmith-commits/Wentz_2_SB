@@ -106,12 +106,19 @@ export function discountRateFor(horizon: number | null | undefined): number {
 }
 
 /** The rating he is expected to have in each season of the deal, from his own development and decline ages. */
-export function projectRatings(p: TermSubject, years: number): number[] {
+export function projectRatings(
+  p: TermSubject,
+  years: number,
+  /** whether the first season is one he is yet to age into (the offseason market, before camp), as opposed to the one being played */
+  agedFirst = true,
+): number[] {
   const out: number[] = [];
   let rating = p.overall;
   for (let t = 0; t < years; t++) {
-    const room = p.potential === undefined ? undefined : p.potential - rating;
-    rating = clamp(rating + expectedAgingDelta(p.age + t, p.dev_age_threshold, p.decline_age_threshold, room), 40, 99);
+    if (t > 0 || agedFirst) {
+      const room = p.potential === undefined ? undefined : p.potential - rating;
+      rating = clamp(rating + expectedAgingDelta(p.age + t, p.dev_age_threshold, p.decline_age_threshold, room), 40, 99);
+    }
     out.push(rating);
   }
   return out;
@@ -267,6 +274,46 @@ export function extensionTerms(
     if (plan.net[n - 1]! >= margin && plan.cumulative[n - 1]! >= -0.25 * salary) return { years: n, baseSalary: salary };
   }
   return null;
+}
+
+/**
+ * What the rest of a player's contract is worth to a team that holds it, $M: each remaining year, the market price of the rating
+ * he is projected to have that year (in that year's dollars, the cap rising as C1 draws it) less what he is paid, weighted by the
+ * chance he is still playing and discounted. Negative for a veteran whose pay outlasts his play. It is the same projection a
+ * contract is signed on (`planTerm`), so a deal and its trade value are judged alike.
+ */
+export function contractSurplusM(
+  p: Player,
+  o: {
+    /** how far the cap has risen since the league began */
+    scale: number;
+    /** the share of this season still to be played (1 in the offseason) */
+    firstYearShare: number;
+    /** whether he is yet to age into the first season (the offseason) or is playing it */
+    agedFirst: boolean;
+    growth?: number;
+    discountRate?: number;
+  },
+): number {
+  const c = p.contract;
+  if (!c || p.retired) return 0;
+  const years = Math.min(c.years_remaining, MAX_TERM_YEARS + 1);
+  if (years <= 0) return 0;
+  // a schedule shorter than the years left (an old save, a hand-built deal) repeats its last hit
+  const hits = c.cap_hit_by_year;
+  const payIn = (t: number): number => hits[t] ?? hits[hits.length - 1] ?? 0;
+  const sub = termSubject(p);
+  const ratings = projectRatings(sub, years, o.agedFirst);
+  const alive = survivalByYear(sub, ratings);
+  const growth = o.growth ?? CAP_GROWTH_MEAN;
+  const rate = o.discountRate ?? DISCOUNT_BASE;
+  let total = 0;
+  for (let t = 0; t < years; t++) {
+    const fair = marketPrice(ratings[t]!, p.position, o.scale * (1 + growth) ** t);
+    const share = t === 0 ? o.firstYearShare : 1;
+    total += (share * alive[t]! * (fair - payIn(t))) / (1 + rate) ** t;
+  }
+  return total;
 }
 
 /** What each team owes, by season from the current one, in $M: its rostered players' cap hits for the years they have left. */
