@@ -15,7 +15,7 @@ import { cleanConfigPatch } from "@/state/rules.ts";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 import { syncAiGms } from "@/state/aiGms.ts";
 
-import { ActionError, pool, withLeague } from "./db.js";
+import { ActionError, guardClient, isConnectionError, pool, withLeague } from "./db.js";
 import { runPendingCpuTurns } from "./decide.js";
 import { deadlineFor, readyUpLocal } from "./phases.js";
 
@@ -94,6 +94,8 @@ export async function createOnlineLeague(
   const id = randomUUID();
   const code = inviteCode();
   const client = await pool.connect();
+  const guard = guardClient(client);
+  let rollbackFailed = false;
   try {
     await client.query("BEGIN");
     await client.query(
@@ -128,10 +130,17 @@ export async function createOnlineLeague(
     );
     await client.query("COMMIT");
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(() => {
+      rollbackFailed = true;
+    });
+    if (guard.lost() || isConnectionError(err)) {
+      // eslint-disable-next-line no-console
+      console.error("createOnlineLeague: aborted by a database connection failure", err);
+      throw new ActionError("The server lost its connection to the database, so the league was not created. Try again in a moment.", 503);
+    }
     throw err;
   } finally {
-    client.release();
+    guard.release(rollbackFailed);
   }
   return { leagueId: id, inviteCode: code };
 }
