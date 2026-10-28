@@ -68,6 +68,17 @@ describe("offers the league makes you", () => {
 
   it("varies package shape across offers — not always players for a player (finding 15)", () => {
     const s = league();
+    // offers are only made that the suitor can fit (`cheapestPackage` checks `checkTrade`): a team at the cap or at 53 players can
+    // take a player only by sending one back, and room is not what this is about
+    for (const t of Object.values(s.teams)) t.cap.total += 100;
+    // ...and a roster spot: a 53-man team cannot take a player for picks
+    for (const code of Object.keys(s.teams)) {
+      const worst = Object.values(s.players).filter((p) => p.nfl_team === code && !p.retired && !p.free_agent).sort((a, b) => a.overall - b.overall)[0];
+      if (worst) {
+        worst.free_agent = true;
+        worst.nfl_team = "FA";
+      }
+    }
     let sawPicksOnly = false;
     let sawMixed = false;
     let sawPlayersOnly = false;

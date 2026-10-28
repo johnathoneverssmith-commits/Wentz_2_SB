@@ -77,10 +77,11 @@ import { AGE_BY_POSITION, POSITION_BY_ROUND } from "./draft-history.ts";
 import { expectedRookieOverall, rookieOverallSpread, SPECIALIST_ROOKIE_OFFSET } from "./draft-outcomes.ts";
 import { winChance, winProbability, type Venue } from "./win-probability.ts";
 import { futureDiscount, pickSlotFactor } from "@/state/draftPicks.ts";
-import { strategyTradeAcceptanceShift } from "@/state/aiStrategy.ts";
-import { clampTradeAcceptance, deterministicNoiseUnit } from "@/state/aiDifficulty.ts";
+import { contractSurplusM } from "@/state/contractValue.ts";
+import { releasePenalty } from "@/state/releaseCost.ts";
+import { judgeTrade } from "@/state/tradeModel.ts";
+import { marketScale } from "@/state/capEconomy.ts";
 import { authoritativeStandings } from "@/state/standings.ts";
-import { difficultyFor, strategyOf } from "@/state/aiGms.ts";
 import {
   DEFENSE_SCHEMES,
   OFFENSE_SCHEMES,
@@ -1116,122 +1117,13 @@ export class MockSimulationService implements SimulationService {
 
   evaluateTrade(
     state: LeagueState,
-    _fromTeam: string,
+    fromTeam: string,
     toTeam: string,
     fromAssets: TradeAsset[],
     toAssets: TradeAsset[],
   ): TradeEvaluation {
-    // fromAssets: what the proposer (fromTeam, usually the viewer) gives up —
-    // toTeam (the AI being asked to accept) receives these.
-    // toAssets: what toTeam gives up in return. Each side is valued as a
-    // package (`packageValue`), not a sum.
-    const out = packageValue(state, fromAssets);
-    const inn = packageValue(state, toAssets);
-    // kept as pure value math, positive = good for the proposer — this is
-    // the number the trade screen displays ("AI value delta ... for you"),
-    // so it should read as a plain value comparison, not something the need
-    // adjustment below (which only drives the AI's actual decision) muddies.
-    const delta = round1(inn - out);
-
-    // A team doesn't sell its franchise quarterback. The one exception is a swap
-    // for another quarterback of the same class, so two teams can trade
-    // starters; picks, prospects and depth never buy one.
-    const franchiseGiven = toAssets
-      .map((a) => (a.kind === "player" ? state.players[a.playerId ?? ""] : undefined))
-      .filter((p): p is Player => !!p && isFranchiseQb(state, p));
-    if (franchiseGiven.length > 0) {
-      const best = Math.max(...franchiseGiven.map((p) => p.overall));
-      const getsComparable = fromAssets.some((a) => {
-        const q = a.kind === "player" ? state.players[a.playerId ?? ""] : undefined;
-        return !!q && q.position === "QB" && q.overall >= best - 4 && q.age <= 34;
-      });
-      if (!getsComparable) {
-        return {
-          valueDelta: delta,
-          acceptLikelihood: 0,
-          refusal: `${franchiseGiven[0]!.name} is their franchise quarterback. They won't trade him for anything but another franchise quarterback.`,
-        };
-      }
-    }
-
-    // OQ-9: the AI's real interest in a trade isn't just raw value — a
-    // player who fills an actual hole on toTeam's roster is worth more to
-    // them than his overall alone says, and a player leaving a position
-    // toTeam is already thin at costs them more than his overall says.
-    const needAt = (team: string, pos: Position | undefined, exclude: ReadonlySet<string>): number => {
-      if (!pos) return 0;
-      const best = Object.values(state.players)
-        .filter((p) => p.nfl_team === team && p.position === pos && !p.retired && !exclude.has(p.id))
-        .reduce((m, p) => Math.max(m, p.overall), 0);
-      return Math.max(1, 78 - (best || 40));
-    };
-    // what toTeam is receiving: need measured on their roster as it stands now
-    const needGained = fromAssets.reduce(
-      (s, a) => s + (a.kind === "player" ? needAt(toTeam, state.players[a.playerId ?? ""]?.position, new Set()) : 0),
-      0,
-    );
-    // what toTeam is giving away: need measured on their roster *after* every
-    // departing player leaves — losing your only starter at a position should
-    // read as a real cost even if he's individually a good player.
-    const departingIds = new Set(toAssets.flatMap((a) => (a.kind === "player" && a.playerId ? [a.playerId] : [])));
-    const needLost = toAssets.reduce(
-      (s, a) => s + (a.kind === "player" ? needAt(toTeam, state.players[a.playerId ?? ""]?.position, departingIds) : 0),
-      0,
-    );
-
-    // AI GM season strategy (§8.2): a bounded ±0.05 preference shift on top
-    // of the optimized base acceptance model — never enough on its own to
-    // turn a clearly bad deal attractive, and never touching valueDelta,
-    // which is the plain-value number the trade screen shows.
-    const strategy = strategyOf(state, toTeam);
-    const incomingPlayers = fromAssets
-      .filter((a) => a.kind === "player" && a.playerId)
-      .map((a) => state.players[a.playerId!])
-      .filter((p): p is Player => !!p)
-      .map((p) => ({ position: p.position, age: p.age }));
-    const incomingHasFuturePick = fromAssets.some(
-      (a) => a.kind === "pick" && a.pick && a.pick.year > state.season,
-    );
-    const strategyShift = strategyTradeAcceptanceShift(strategy, incomingPlayers, incomingHasFuturePick);
-
-    // AI Difficulty (§15): a deterministic shift to the CPU's internal
-    // acceptance threshold, keyed on the canonical asset sets so reordering
-    // the same offer (or resubmitting it identically) can never reroll it —
-    // only the assets actually offered can move it.
-    const difficulty = difficultyFor(state, toTeam);
-    const canonicalKey = (assets: TradeAsset[]): string =>
-      [...assets]
-        .map((a) => (a.kind === "player" ? `p:${a.playerId}` : `k:${a.pick?.year}.${a.pick?.round}.${a.pick?.originalTeam}`))
-        .sort()
-        .join(",");
-    const tradeKey = `${canonicalKey(fromAssets)}|${canonicalKey(toAssets)}`;
-    const thresholdShift =
-      difficulty.tradeAcceptanceThresholdVariation === 0
-        ? 0
-        : deterministicNoiseUnit(toTeam, state.season, "trade_accept", tradeKey) *
-          difficulty.tradeAcceptanceThresholdVariation;
-
-    const raw = clamp(0.5 - delta / 36 + (needGained - needLost) / 90 + strategyShift + thresholdShift, 0.02, 0.98);
-    // Master: no coin flip. It takes a deal only when the deal helps it —
-    // its value side and its need side together, with a small margin — and
-    // turns down everything else, a fair swap included.
-    const strictGain = -delta / 36 + (needGained - needLost) / 90;
-    const acceptance = difficulty.strictTrades ? (strictGain > 0.03 ? 1 : 0) : clampTradeAcceptance(raw);
-
-    return {
-      valueDelta: delta,
-      // acceptLikelihood is the AI's (toTeam's) own willingness — falls as the
-      // deal favors the proposer more (-delta/36), rises when the incoming
-      // players address a real need, falls when the outgoing ones leave one.
-      // Coefficients from the Trade Valuation optimization pass
-      // (trade.accept_likelihood): the need term's divisor widened from 60 to
-      // 90 as the value term's (40 to 36) narrowed, so a real roster need
-      // moves the AI's willingness less relative to raw value than before.
-      // §15 hard floor/ceiling: below 0.20 always rejects, above 0.85 always
-      // accepts (legality permitting), whatever difficulty's threshold noise
-      // says — the guard against an absurd exploit at any level.
-      acceptLikelihood: acceptance,
-    };
+    // one model for every channel that answers a trade: see state/tradeModel.ts
+    return judgeTrade(state, fromTeam, toTeam, fromAssets, toAssets);
   }
 
   computeSchemeFit(player: Player, oc: Coach | null, dc: Coach | null): number {
@@ -1468,19 +1360,66 @@ export function tradeAssetValue(state: LeagueState, a: TradeAsset): number {
   if (a.kind === "player") {
     const p = state.players[a.playerId ?? ""];
     if (!p) return playerTradeBase(60);
-    return (
-      playerTradeBase(p.overall) *
-      (TRADE_POSITION_VALUE[p.position] ?? 1) *
-      franchiseQbPremium(state, p) *
-      tradeAgeFactor(p.age, p.position) *
-      tradeContractFactor(p, state.capScale ?? 1)
-    );
+    return playerPerformanceValue(state, p) + playerContractValue(state, p);
   }
   const round = a.pick?.round ?? 4;
   const raw = PICK_VALUE_BY_ROUND[round] ?? PICK_VALUE_BY_ROUND[7]!;
   // and a pick two drafts away is worth less than the same pick this year
   // discounted by distance, and scaled by where the pick projects to land
   return a.pick ? raw * futureDiscount(a.pick, state.season) * pickSlotFactor(state, a.pick) : raw;
+}
+
+/** Stages in which a season is under way, so a player's contract year is partly played and he has already aged into it. */
+const IN_SEASON_STAGES = new Set(["regularSeason", "tradeDeadline", "tradeDeadlineSummary", "midseasonFreeAgency", "midseasonFreeAgencySummary", "midseasonDepthChart", "playoffs"]);
+
+/** What a player is worth for how good he is: rating, position, age and whether he is fit to play. Nothing about his contract. */
+export function playerPerformanceValue(state: LeagueState, p: Player): number {
+  return (
+    playerTradeBase(p.overall) *
+    (TRADE_POSITION_VALUE[p.position] ?? 1) *
+    franchiseQbPremium(state, p) *
+    tradeAgeFactor(p.age, p.position) *
+    tradeAvailabilityFactor(p, IN_SEASON_STAGES.has(state.stage))
+  );
+}
+
+/**
+ * Chart points per $M of contract surplus. A starter paid his market rate has a surplus of a few $M (the cap rises, his pay does
+ * not), a rookie star paid a fraction of his worth tens of $M, and a veteran paid for years he will not play at his level a negative
+ * one; at this weight those are a few points, a quarter of a player's worth, and a real liability.
+ */
+export const TRADE_CONTRACT_WEIGHT = 0.8;
+
+/**
+ * What the rest of his contract adds to (or takes from) a player's trade value.
+ *
+ * The projected surplus (`contractSurplusM`: the market price of the rating he will have each year, in that year's dollars, less
+ * his pay, weighted by the chance he is still playing) in chart points. The old factor paid a bonus for years of control whatever the
+ * player was going to be, so a 33-year-old on four years was worth more than the same man on one. A bad contract can now cost its
+ * holder value, but only what it costs to be rid of it: a team can always release him for `releasePenalty`, so no liability is worth more
+ * than that, and a good one is capped at two and a half years of his market price so the chart stays a chart.
+ */
+export function playerContractValue(state: LeagueState, p: Player): number {
+  if (!p.contract) return 0;
+  const scale = marketScale(state);
+  const inSeason = IN_SEASON_STAGES.has(state.stage);
+  const surplus = contractSurplusM(p, {
+    scale,
+    agedFirst: !inSeason,
+    firstYearShare: inSeason ? clamp(1 - state.week / 18, 0.1, 1) : 1,
+  });
+  const floor = -releasePenalty(p);
+  const ceiling = 2.5 * contractValueFor(p.overall, p.position, scale);
+  return TRADE_CONTRACT_WEIGHT * clamp(surplus, floor, ceiling);
+}
+
+/** How much of his usual worth an injured player is, this season: a player out for the year is worth about half. */
+export function tradeAvailabilityFactor(p: Player, inSeason: boolean): number {
+  const inj = p.injury_status;
+  if (!inSeason || !inj) return 1;
+  const weeks = inj.weeks_out_est ? (inj.weeks_out_est[0] + inj.weeks_out_est[1]) / 2 : inj.status === "out" ? 6 : 1;
+  const lost = inj.status === "out" ? clamp(weeks / 12, 0.1, 1) * 0.5 : inj.status === "doubtful" ? 0.08 : 0.03;
+  return 1 - lost;
 }
 
 /**
@@ -1542,20 +1481,6 @@ export function tradeAgeFactor(age: number, position: Position): number {
 }
 
 /**
- * Years of control and what they cost. Four cheap years of a star are worth
- * more than one expensive one: up to ±25% for pay against his market rate
- * (`contractValueFor`), and 0.9x (one year left) to 1.05x (four or more).
- */
-export function tradeContractFactor(p: Player, scale = 1): number {
-  const years = p.contract?.years_remaining ?? 1;
-  const pay = p.contract?.cap_hit_by_year?.[0] ?? 0;
-  const market = contractValueFor(p.overall, p.position, scale);
-  const control = 0.85 + 0.05 * clamp(years, 1, 4);
-  const surplus = market > 0 && pay > 0 ? clamp((market - pay) / market, -1, 1) : 0;
-  return control * (1 + 0.25 * surplus);
-}
-
-/**
  * What a set of assets is worth together.
  *
  * Players do not add up: a roster has one starting quarterback, and five
@@ -1567,15 +1492,24 @@ export function tradeContractFactor(p: Player, scale = 1): number {
  * for one star still trades, a pile of spares never does. Picks stay
  * additive: two firsts for a star is a real trade.
  */
-export function packageValue(state: LeagueState, assets: TradeAsset[]): number {
-  let picks = 0;
+export function packageValue(
+  state: LeagueState,
+  assets: TradeAsset[],
+  /** how each asset is priced: the chart (`tradeAssetValue`), or a team's own reading of it */
+  valueOf: (a: TradeAsset) => number = (a) => tradeAssetValue(state, a),
+  /** how much of a liability counts: 1 for a team taking one on, less for one shedding it (relief is worth less than the cost) */
+  liabilityWeight = 1,
+): number {
+  let flat = 0;
   const players: number[] = [];
   for (const a of assets) {
-    if (a.kind === "player") players.push(tradeAssetValue(state, a));
-    else picks += tradeAssetValue(state, a);
+    const v = valueOf(a);
+    if (a.kind === "player" && v > 0) players.push(v);
+    // picks add, and so does what a bad contract costs: a liability is not a depth piece to be discounted behind a better one
+    else flat += a.kind === "player" ? v * liabilityWeight : v;
   }
   players.sort((x, y) => y - x);
-  return picks + players.reduce((sum, v, k) => sum + v * Math.pow(0.7, k), 0);
+  return flat + players.reduce((sum, v, k) => sum + v * Math.pow(0.7, k), 0);
 }
 
 const PICK_VALUE_BY_ROUND: Record<number, number> = {

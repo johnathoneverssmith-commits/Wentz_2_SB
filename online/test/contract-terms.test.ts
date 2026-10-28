@@ -51,11 +51,16 @@ function throughOffseason(s: LeagueState): void {
   }
 }
 
+/**
+ * Every contract in the league, by player. The camp bodies the roster fill invents are numbered by a counter that lives in the
+ * process, not the league, so a second league run in the same process numbers them from where the first left off: they are
+ * compared by what they are, not by the number they got.
+ */
 const contracts = (s: LeagueState) =>
   Object.values(s.players)
     .filter((p) => !p.retired)
-    .map((p) => [p.id, p.nfl_team, p.contract?.years_remaining ?? 0, p.contract?.cap_hit_by_year.join(",") ?? ""])
-    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    .map((p) => [p.id.replace(/^p_depth_\d+_\d+$/, "p_depth"), p.nfl_team, p.contract?.years_remaining ?? 0, p.contract?.cap_hit_by_year.join(",") ?? ""])
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
 
 describe("CPU contract terms through the server's offseason", () => {
   it("come out the same for a league and its saved-and-reloaded copy", () => {

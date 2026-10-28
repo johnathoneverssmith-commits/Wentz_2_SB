@@ -69,11 +69,12 @@ import {
 } from "./aiStrategy.ts";
 import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 import { growCap, marketScale, minSalaryM } from "./capEconomy.ts";
-import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, teamHorizon, teamWindow, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
+import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, teamHorizon, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { commitmentsOf } from "./contractValue.ts";
 import { outlookFor } from "./faValue.ts";
 import { cpuExtension, cpuOfferYears } from "./cpuContracts.ts";
+import { readTeamTimeline } from "./teamTimeline.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
 /** Which side of the market an action is about. */
@@ -377,42 +378,7 @@ export function readLeagueContext(s: LeagueState): LeagueContext {
   return { market: readFreeAgentMarket(s), timeline: readTeamTimeline(s), classMeanAge: ages.length ? ages.reduce((a, b) => a + b, 0) / ages.length : 22 };
 }
 
-/** Each team's timeline alone, -1 (rebuilding) to +1 (contending): the draft reads it, and so does free agency when its market opens. */
-export function readTeamTimeline(s: LeagueState): Map<string, number> {
-  const codes = Object.keys(s.teams);
-  const byTeam = new Map<string, Map<Position, number[]>>();
-  for (const p of Object.values(s.players)) {
-    if (p.retired || p.free_agent || !s.teams[p.nfl_team]) continue;
-    const m = byTeam.get(p.nfl_team) ?? new Map<Position, number[]>();
-    const l = m.get(p.position);
-    if (l) l.push(p.overall);
-    else m.set(p.position, [p.overall]);
-    byTeam.set(p.nfl_team, m);
-  }
-  const strength = new Map<string, number>();
-  for (const code of codes) {
-    let sum = 0;
-    let n = 0;
-    for (const row of ROSTER_TEMPLATE) {
-      if (row.starters === 0) continue;
-      const l = [...(byTeam.get(code)?.get(row.pos) ?? [])].sort((a, b) => b - a).slice(0, row.starters);
-      while (l.length < row.starters) l.push(EMPTY_POSITION_BASE);
-      for (const v of l) {
-        sum += v;
-        n++;
-      }
-    }
-    strength.set(code, sum / n);
-  }
-  const ranked = [...codes].sort((a, b) => strength.get(b)! - strength.get(a)! || (a < b ? -1 : 1));
-  const timeline = new Map<string, number>();
-  ranked.forEach((code, i) => {
-    const t = s.teams[code]!;
-    const games = t.wins + t.losses + t.ties;
-    timeline.set(code, teamWindow({ winPct: games === 0 ? 0.5 : (t.wins + 0.5 * t.ties) / games, strengthRank: i + 1, teams: codes.length }));
-  });
-  return timeline;
-}
+export { readTeamTimeline } from "./teamTimeline.ts";
 
 /**
  * The free agent each team could realistically sign at each position, as the market stands when the

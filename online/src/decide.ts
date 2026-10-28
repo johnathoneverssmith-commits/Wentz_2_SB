@@ -18,6 +18,7 @@
  */
 import { chooseGmStrategy } from "@/state/aiGms.ts";
 import { setSkip } from "@/state/skips.ts";
+import { tradeAccepts } from "@/state/tradeModel.ts";
 import { bracketRounds, COACH_ROLE_LABEL, ROUND_ORDER, roundLabelFor } from "@/domain";
 import type { ContractOffer, LeagueState, Position, TradeAsset } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -250,7 +251,7 @@ export function decideProposeTrade(
   if (!partnerIsHuman) {
     const read = tradeJudge.evaluateTrade(state, actor.teamCode, toTeam, proposal.fromAssets, proposal.toAssets);
     const answered = { ...proposal, aiValueDelta: read.valueDelta, aiAcceptLikelihood: read.acceptLikelihood };
-    const accepted = read.acceptLikelihood >= 0.5;
+    const accepted = tradeAccepts(read.acceptLikelihood);
     state.trades.push({ ...answered, status: accepted ? "accepted" : "rejected" });
     if (accepted) applyTrade(state, state.trades[state.trades.length - 1]!);
     recomputeTeamRatings(state);

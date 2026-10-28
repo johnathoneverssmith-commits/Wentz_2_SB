@@ -10,6 +10,7 @@ import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
 import { byTradeAssetOrder, pickKey, pickLabel, picksOwnedBy, tradedPickLabel } from "@/state/draftPicks";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
+import { tradeVerdict } from "@/state/tradeModel";
 import {
   leagueVoteBlock,
   onTheClock,
@@ -308,13 +309,16 @@ function ProposeTurn({
                 : { kind: "player" as const, playerId: id },
             );
           const ev = sim.evaluateTrade(s, code, partner, assets(give), assets(get));
-          const pct = Math.round(ev.acceptLikelihood * 100);
+          const verdict = tradeVerdict(ev.acceptLikelihood);
           return (
             <div className="panel open" style={{ borderTop: "1px solid var(--line)" }}>
               <p style={{ margin: 0, fontSize: 13, color: "var(--ink-dim)" }}>
                 {TEAMS_BY_CODE[partner]!.label}&rsquo;s read:{" "}
-                <strong style={{ color: pct >= 65 ? "var(--good)" : pct >= 35 ? "var(--notice)" : "var(--bad)" }}>
-                  {pct}% likely to accept
+                <strong
+                  style={{ color: verdict.tone === "good" ? "var(--good)" : verdict.tone === "notice" ? "var(--notice)" : "var(--bad)" }}
+                  title={verdict.explanation}
+                >
+                  {verdict.text}
                 </strong>{" "}
                 · value {ev.valueDelta >= 0 ? "+" : ""}
                 {ev.valueDelta} for you

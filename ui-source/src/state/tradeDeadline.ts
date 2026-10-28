@@ -2,6 +2,7 @@ import { clearSkips, isSkipping } from "./skips.ts";
 import type { LeagueState, TradeAsset } from "@/domain";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades";
+import { tradeAccepts } from "./tradeModel.ts";
 
 import { applyTrade } from "./rules";
 import { seasonShape } from "./leagueFormat";
@@ -451,23 +452,13 @@ function cpuRespond(s: LeagueState, sim: MockSimulationService, teamCode: string
   const forMe =
     offer.awaiting === "recipient" ? evaluation.acceptLikelihood : 1 - evaluation.acceptLikelihood;
 
-  // deterministic: same league, same round, same turn, same answer on every
-  // machine that runs it — including a retry after a failed save
-  const roll = hash(`${offer.id}|${teamCode}|${offer.modified ? 1 : 0}`) / 0xffffffff;
-  respondAtDeadline(s, teamCode, { kind: roll < forMe ? "accept" : "deny" });
+  // the same decision every other channel makes (`tradeAccepts`): deterministic, so the same league, offer and turn give the same
+  // answer on every machine, including a retry after a failed save
+  respondAtDeadline(s, teamCode, { kind: tradeAccepts(forMe) ? "accept" : "deny" });
 }
 
 function assetKey(a: TradeAsset): string {
   return a.kind === "pick" && a.pick ? `pick:${a.pick.year}:${a.pick.round}:${a.pick.originalTeam}` : `player:${a.playerId ?? ""}`;
-}
-
-function hash(key: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
 }
 
 /** What a person's staff would do with their turn at the deadline. */
@@ -502,7 +493,7 @@ export function staffDeadlineMove(s: LeagueState, teamCode: string): StaffDeadli
   const forMe = offer.awaiting === "recipient" ? ev.acceptLikelihood : 1 - ev.acceptLikelihood;
   const give = offer.awaiting === "recipient" ? offer.toAssets : offer.fromAssets;
   const get = offer.awaiting === "recipient" ? offer.fromAssets : offer.toAssets;
-  return forMe >= 0.55
+  return tradeAccepts(forMe)
     ? { kind: "accept", summary: `accept: send ${list(give)} and get ${list(get)}` }
     : { kind: "deny", summary: `turn it down: send ${list(give)} and get ${list(get)}` };
 }
