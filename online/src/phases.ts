@@ -171,12 +171,13 @@ export async function readyUp(
     // new stage committed them to something they had not seen — twice in a
     // playthrough that skipped a whole free-agency market. Leave the new
     // stage untouched and let the client catch up.
+    // Refused, not quietly ignored: the GM's screen is a stage behind and
+    // they should be told so, rather than believe they have checked in.
     if (seenStage && seenStage !== state.stage) {
-      return {
-        result: { moved: false, stage: state.stage, autopiloted: [] as string[] },
-        state,
-        unchanged: true,
-      } satisfies { result: AdvanceOutcome } & Applied;
+      throw new ActionError(
+        `The league has already moved on to ${stageName(state.stage)} — reload to catch up, then check in there.`,
+        409,
+      );
     }
     // The free-agency summaries are where a GM's roster has to be legal to
     // check in. Only the button enforced it: the server took the check-in
@@ -1062,9 +1063,41 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
   return out;
 }
 
-/** Commissioner override: move on now, whoever is or isn't ready. */
-export async function forceAdvance(leagueId: string, actorUserId?: string): Promise<AdvanceOutcome> {
+/**
+ * The stage a request says it is acting on, checked at the door.
+ *
+ * Missing is refused as well as unknown: a request that does not say which
+ * stage it was made for cannot be told apart from a stale one, and applying it
+ * to whatever stage is current is how a double click or an old tab skipped a
+ * stage (audit D4, D7).
+ */
+export function requireStage(value: unknown): string {
+  if (typeof value !== "string" || value === "") {
+    throw new ActionError("That request didn't say which stage it was for — reload the page and try again.", 400);
+  }
+  if (!Object.prototype.hasOwnProperty.call(STAGE_LABEL, value)) {
+    throw new ActionError("That request named a stage this league doesn't have — reload the page and try again.", 400);
+  }
+  return value;
+}
+
+/**
+ * Commissioner override: move on now, whoever is or isn't ready.
+ *
+ * `expectedStage` is the stage the commissioner was looking at. Under the
+ * league lock it must still be the current one: a second press of the same
+ * button (a double click, a retry after a dropped response, a tab a stage
+ * behind) finds the league already moved and is refused instead of moving it
+ * again past a stage nobody saw.
+ */
+export async function forceAdvance(leagueId: string, actorUserId?: string, expectedStage?: string): Promise<AdvanceOutcome> {
   const { result } = await withLeague(leagueId, async ({ state, league }) => {
+    if (expectedStage !== undefined && expectedStage !== state.stage) {
+      throw new ActionError(
+        `The league has already moved on to ${stageName(state.stage)}, so that advance was not applied. Reload to see where things stand.`,
+        409,
+      );
+    }
     const autopiloted = autopilotAbsent(state);
     const outcome = advanceStage(state);
     if (!outcome.moved && !outcome.playedRound && !autopiloted.length) {
