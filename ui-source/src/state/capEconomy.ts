@@ -47,6 +47,19 @@ export function growCap(s: LeagueState): number {
   return rate;
 }
 
+/**
+ * A whole league handed to `setState` (a server's league, a restored backup, another league joined) replaces the one
+ * in the store by shallow merge, so a field it does not carry survives from the league it replaces. A league that has
+ * not grown writes no `capScale`, which would leave the old league's growth on the new one. The fields are named
+ * (as unset) whenever a whole league arrives without them; an update to part of a league is left alone.
+ */
+export function withLeagueCapFields<T>(partial: T): T {
+  if (typeof partial !== "object" || partial === null) return partial;
+  const p = partial as Record<string, unknown>;
+  if (!("teams" in p) || !("players" in p)) return partial;
+  return { ...p, ...("capScale" in p ? {} : { capScale: undefined }), ...("capGrowthSeason" in p ? {} : { capGrowthSeason: undefined }) } as T;
+}
+
 /** A dollar amount at today's prices, to a tenth of a million. */
 export const scaledM = (baseM: number, s: { capScale?: number | undefined }): number => round1(baseM * marketScale(s));
 

@@ -399,7 +399,7 @@ function expectOwnershipTransition(was: PlayerRow, p: PlayerRow, before: League,
   if (!was.fa && owner(was) === owner(p) && p.team.startsWith("PS:")) {
     expect(window.reconcile, label + "practice-squad move requires reconciliation").toBe(true);
     expect(was.yearsPro).toBeLessThanOrEqual(2);
-    expect(was.hit).toBeLessThanOrEqual(1.5);
+    expect(was.hit).toBeLessThanOrEqual(1.5 * after.capScale);
     expect(Object.values(after.players).filter(x => x.team === p.team && !x.retired).length).toBeLessThanOrEqual(16);
     return;
   }

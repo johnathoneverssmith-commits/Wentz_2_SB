@@ -10,6 +10,7 @@ import {
   growCap,
   marketScale,
   minSalaryM,
+  withLeagueCapFields,
 } from "./capEconomy.ts";
 import { extensionAsk, franchiseTagPrice } from "./contracts.ts";
 import { offerEligible, expectedSalary } from "./freeAgencyValues.ts";
@@ -289,5 +290,23 @@ describe("a new league starts at the starting prices", () => {
     expect(s.capGrowthSeason).toBeUndefined();
     expect(marketScale(s)).toBe(1);
     expect(Object.values(s.teams).every((t) => t.cap.total === BASE_CAP_M)).toBe(true);
+  });
+
+  it("clears them when a whole league arrives without them (a server's league, a restored backup), and leaves other updates and grown leagues alone", async () => {
+    const { useStore } = await import("./store.ts");
+    const ungrown = JSON.parse(JSON.stringify(createLeague(23, { ...DEFAULT_CONFIG, humanGmCount: 1 }))) as LeagueState; // as a server or a backup writes it: no fields
+    expect("capScale" in ungrown).toBe(false);
+    useStore.setState({ capScale: 1.7, capGrowthSeason: 2033 });
+    useStore.setState({ stage: "freeAgency" } as never); // an update to part of a league
+    expect(useStore.getState().capScale, "a partial update does not touch the growth").toBe(1.7);
+    useStore.setState(ungrown as never);
+    expect(useStore.getState().capScale).toBeUndefined();
+    expect(useStore.getState().capGrowthSeason).toBeUndefined();
+    expect(marketScale(useStore.getState())).toBe(1);
+    // a league that has grown keeps its own
+    useStore.setState({ ...ungrown, capScale: 1.2, capGrowthSeason: 2031 } as never);
+    expect(useStore.getState().capScale).toBe(1.2);
+    expect(useStore.getState().capGrowthSeason).toBe(2031);
+    expect(withLeagueCapFields({ stage: "x" })).toEqual({ stage: "x" });
   });
 });
