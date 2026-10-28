@@ -1001,7 +1001,26 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
   const out: { leagueId: string; autopiloted: string[] }[] = [];
   for (const leagueId of await expiredLeagues()) {
     try {
-      const { result } = await withLeague(leagueId, async ({ state, league }) => {
+      const { result } = await withLeague(leagueId, async ({ state, league }, client) => {
+        // `expiredLeagues` read the deadline BEFORE this lock. By the time we
+        // hold it, another sweep (a second instance during a rolling deploy,
+        // an overlapping interval, the start-up pass) or a GM's own move may
+        // have handled that turn and started a new one with a fresh clock.
+        // Acting on the stale reading would take the next GM's turn, so ask
+        // again, under the lock, against the database's own clock (`clock_timestamp()`: `now()` is the
+        // transaction's start, which a sweep that waited on the lock would read as stale).
+        const due = await client.query<{ due: boolean }>(
+          `SELECT phase_ends_at IS NOT NULL AND phase_ends_at <= clock_timestamp() AS due
+             FROM league_state WHERE league_id = $1`,
+          [leagueId],
+        );
+        if (!due.rows[0]?.due) {
+          return {
+            result: { autopiloted: [] as string[], moved: false, inSeason: false },
+            state,
+            unchanged: true,
+          } satisfies { result: { autopiloted: string[]; moved: boolean; inSeason: boolean } } & Applied;
+        }
         const autopiloted = autopilotAbsent(state);
         // a deadline may not start a league that nobody has finished joining
         const moved =

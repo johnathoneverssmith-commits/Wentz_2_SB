@@ -26,6 +26,9 @@
     "lobby.test.ts",
     "password-reset.test.ts",
     "poll-unchanged.test.ts",
+    "reliability-audit.test.ts",
+    "reliability-mp1.test.ts",
+    "reliability-pool.test.ts",
     "result-visibility.test.ts",
     "vacate-advances.test.ts",
     "vacate-seat.test.ts"

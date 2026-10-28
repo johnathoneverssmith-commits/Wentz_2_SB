@@ -973,10 +973,20 @@ if (process.env.NODE_ENV !== "test") {
   // fire-and-forget promise, so one dropped database connection (a managed
   // Postgres restarting, a network blip) was an unhandled rejection that took
   // the whole league server down.
+  // (one pass at a time per process: a pass that plays block sims can outlast
+  // the minute. Correctness across passes and across instances does not rest
+  // on this — `sweep` re-checks each deadline under the league's row lock.)
+  let sweeping = false;
   setInterval(() => {
-    sweep().catch((err: unknown) => {
-      // eslint-disable-next-line no-console
-      console.error("deadline sweep failed; retrying next minute", err);
-    });
+    if (sweeping) return;
+    sweeping = true;
+    sweep()
+      .catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error("deadline sweep failed; retrying next minute", err);
+      })
+      .finally(() => {
+        sweeping = false;
+      });
   }, 60_000).unref();
 }
