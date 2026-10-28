@@ -36,6 +36,11 @@ const made: string[] = [];
 
 beforeAll(async () => {
   if (!url) return requireDatabaseInCi("DATABASE_URL is not set");
+  if (process.env.DB_POOL_MAX === "1") {
+    throw new Error(
+      "This suite needs real concurrent connections (a pool of 1 would deadlock it). Run it against PostgreSQL without DB_POOL_MAX=1.",
+    );
+  }
   const attempt = await prepareDatabase(pool);
   reachable = attempt.reachable;
   if (!attempt.reachable) return requireDatabaseInCi(`The database could not be reached: ${attempt.failure}`);
