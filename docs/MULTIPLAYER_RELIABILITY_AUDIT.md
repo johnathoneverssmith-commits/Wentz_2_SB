@@ -193,3 +193,9 @@ Local verification: online typecheck clean; 12 online test files (these two plus
 `vacate-*`, `lobby`, `result-visibility`, `fault-injection`, `startgate`, `commissioner-transfer`,
 `poll-unchanged`, `no-schema-in-suites`) → 134 passed, 7 expected-fail, 1 skipped; drill → 17 of 18
 checks pass, the one failure being D4. The full online suite was not run.
+
+## Status
+
+- **D1, D3: fixed in MP-1** (`claude/mp1-d1-d3-sweep-and-connection`). Their tests in
+  `reliability-audit.test.ts` are now plain `it`; `reliability-mp1.test.ts` adds the PostgreSQL 16
+  recovery and multi-process sweep tests. D2, D4–D7 remain open.

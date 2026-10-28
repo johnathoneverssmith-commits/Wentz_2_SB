@@ -113,6 +113,59 @@ export function onLeagueCommit(fn: CommitListener): () => void {
   return () => commitListeners.delete(fn);
 }
 
+/**
+ * Keeps a checked-out client's connection errors from being fatal.
+ *
+ * `pg-pool` drops its own 'error' listener when a client is checked out, so a
+ * connection that dies while a transaction holds it (database restart or
+ * failover, an idle-in-transaction kill, a network drop) is an uncaught
+ * exception that ends the whole process. This puts a listener back for the
+ * length of the checkout. It logs the error rather than swallowing it, and
+ * remembers it so the caller can tell a lost connection from an ordinary
+ * failure and discard the client instead of returning it to the pool.
+ */
+export function guardClient(client: pg.PoolClient): {
+  lost: () => Error | null;
+  release: (broken?: boolean) => void;
+} {
+  let lost: Error | null = null;
+  const onError = (err: Error) => {
+    lost ??= err;
+    // eslint-disable-next-line no-console
+    console.error("database connection lost while a client was checked out", err.message);
+  };
+  client.on("error", onError);
+  let released = false;
+  return {
+    lost: () => lost,
+    release(broken = false) {
+      if (released) return;
+      released = true;
+      // a client that errored, or could not roll back, is closed rather than reused
+      client.release(broken || lost !== null);
+      client.removeListener("error", onError);
+    },
+  };
+}
+
+/** True for the errors a dead or dying connection produces (as opposed to a bad query). */
+export function isConnectionError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  const code = e?.code ?? "";
+  return (
+    code.startsWith("08") || // connection exception
+    code === "57P01" || // admin_shutdown
+    code === "57P02" || // crash_shutdown
+    code === "57P03" || // cannot_connect_now
+    code === "ECONNRESET" ||
+    code === "EPIPE" ||
+    code === "ECONNREFUSED" ||
+    code === "ETIMEDOUT" ||
+    code === "ENOTFOUND" ||
+    /Connection terminated|not queryable|connection error|terminating connection/i.test(e?.message ?? "")
+  );
+}
+
 export class ActionError extends Error {
   constructor(
     message: string,
@@ -150,7 +203,16 @@ export async function withLeague<T>(
   apply: (loaded: LoadedLeague, client: pg.PoolClient) => Promise<{ result: T } & Applied>,
   opts: { expectedVersion?: string | undefined; actorUserId?: string | undefined } = {},
 ): Promise<{ result: T; version: string }> {
-  const client = await pool.connect();
+  // a database that is down or restarting refuses here, before there is any
+  // transaction: still "your move was not saved", not a 500
+  const client = await pool.connect().catch((err: unknown) => {
+    if (!isConnectionError(err)) throw err;
+    // eslint-disable-next-line no-console
+    console.error(`league ${leagueId}: could not reach the database`, err);
+    throw new ActionError("The server can't reach the database right now, so that move was not saved. Try again in a moment.", 503);
+  });
+  const guard = guardClient(client);
+  let rollbackFailed = false;
   try {
     await client.query("BEGIN");
     const rows = await client.query<{
@@ -279,10 +341,25 @@ export async function withLeague<T>(
     }
     return { result: out.result, version: newVersion };
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    // On a live connection this undoes everything. On a dead one it cannot
+    // run, and does not need to: the server rolls back a transaction whose
+    // connection closed before COMMIT, so nothing partial is ever visible.
+    await client.query("ROLLBACK").catch(() => {
+      rollbackFailed = true;
+    });
+    if (guard.lost() || isConnectionError(err)) {
+      // the request did not succeed, and the GM is told so (503, not a 500
+      // "something went wrong on our side"); the original error is logged
+      // eslint-disable-next-line no-console
+      console.error(`league ${leagueId}: transaction aborted by a database connection failure`, err);
+      throw new ActionError(
+        "The server lost its connection to the database, so that move was not saved. Try again in a moment.",
+        503,
+      );
+    }
     throw err;
   } finally {
-    client.release();
+    guard.release(rollbackFailed);
   }
 }
 

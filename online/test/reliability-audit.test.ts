@@ -265,7 +265,7 @@ describe("sweeps", () => {
     expect(await picksMade(f.id)).toBe(1); // GB's; KC now has a fresh clock
   });
 
-  knownDefect("two overlapping sweeps also take the NEXT GM's pick, whose clock only just restarted", async () => {
+  maybe("two overlapping sweeps do not also take the NEXT GM's pick (D3, fixed)", async () => {
     // `sweep` lists expired leagues BEFORE it takes the row lock and never
     // re-checks `phase_ends_at` inside it, so the doc comment's promise that
     // "a second sweeper finds nothing to do" is not true. Overlap happens when
@@ -295,7 +295,7 @@ describe("crash and connection loss inside a transaction", () => {
     expect(after.state.readiness[f.gm.GB]).toBeFalsy();
   });
 
-  knownDefect("a database connection lost mid-transaction takes the whole server process down", async () => {
+  maybe("a database connection lost mid-transaction does not take the server process down (D1, fixed)", async () => {
     // A client checked out of the pool has no 'error' listener (pg-pool removes
     // its idle listener on checkout, and `withLeague` adds none), so a dropped
     // connection (database restart or failover, idle-in-transaction timeout
