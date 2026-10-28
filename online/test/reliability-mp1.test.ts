@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { LeagueState } from "@/domain";
 import { beginDraft } from "@/state/rules.ts";
 
-import { ActionError, pool, withLeague } from "../src/db.js";
+import { ActionError, onLeagueCommit, pool, withLeague } from "../src/db.js";
 import { claimTeam, createOnlineLeague } from "../src/leagues.js";
 import { readyUp, sweep } from "../src/phases.js";
 import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
@@ -161,6 +161,55 @@ describe("D1 — a connection lost inside a real action", () => {
         .catch(() => false);
     }
     expect(ok).toBe(true);
+  });
+});
+
+describe("D1 — the acknowledgement of a COMMIT is lost", () => {
+  maybe("a committed move reports 503 without claiming 'not saved'; a reload reconciles and replays are harmless", async () => {
+    const a = await league();
+    await setStage(a.id, "fantasyDraftSummary");
+    const before = await snap(a.id);
+    const heard: string[] = [];
+    const off = onLeagueCommit((id, v) => id === a.id && heard.push(v));
+
+    // COMMIT reaches the database and is applied; the connection then dies
+    // before the client hears so
+    const err = await withLeague(a.id, async ({ state }, client) => {
+      state.readiness[a.gm.GB!] = true;
+      const real = client.query.bind(client) as (...x: unknown[]) => Promise<unknown>;
+      (client as unknown as { query: unknown }).query = async (...x: unknown[]) => {
+        const out = await real(...x);
+        if (x[0] === "COMMIT") {
+          const cause = new Error("Connection terminated unexpectedly");
+          (client as unknown as { connection: { stream: { destroy: (e: Error) => void } } }).connection.stream.destroy(cause);
+          throw cause;
+        }
+        return out;
+      };
+      return { result: null, state };
+    }).catch((e: unknown) => e);
+    await new Promise((r) => setTimeout(r, 500));
+    off();
+
+    expect(err).toBeInstanceOf(ActionError);
+    expect((err as ActionError).status).toBe(503);
+    expect((err as ActionError).message).not.toMatch(/was not saved/i);
+    expect((err as ActionError).message).toMatch(/reload/i);
+
+    // it did commit; a fresh read shows it, and open tabs were told to look
+    const after = await snap(a.id);
+    expect(after.version).toBe(before.version + 1);
+    expect(after.state.readiness[a.gm.GB!]).toBe(true);
+    expect(heard).toContain(String(after.version));
+
+    // replays: the same ready changes nothing; a version-checked replay is refused
+    const replay = await readyUp(a.id, a.gm.GB!, true, "fantasyDraftSummary");
+    expect(replay.moved).toBe(false);
+    expect((await snap(a.id)).version).toBe(after.version);
+    const stale = await withLeague(a.id, async ({ state }) => ({ result: null, state }), {
+      expectedVersion: String(before.version),
+    }).catch((e: unknown) => e);
+    expect((stale as ActionError).status).toBe(409);
   });
 });
 

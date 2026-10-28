@@ -142,8 +142,11 @@ export function guardClient(client: pg.PoolClient): {
       if (released) return;
       released = true;
       // a client that errored, or could not roll back, is closed rather than reused
-      client.release(broken || lost !== null);
-      client.removeListener("error", onError);
+      const discard = broken || lost !== null;
+      client.release(discard);
+      // A discarded client is being closed: an error while it closes must
+      // still have a listener. A reusable one gets the pool's own back.
+      if (!discard) client.removeListener("error", onError);
     },
   };
 }
@@ -213,6 +216,7 @@ export async function withLeague<T>(
   });
   const guard = guardClient(client);
   let rollbackFailed = false;
+  let committing = false;
   try {
     await client.query("BEGIN");
     const rows = await client.query<{
@@ -320,7 +324,9 @@ export async function withLeague<T>(
       );
     }
 
+    committing = true;
     await client.query("COMMIT");
+    committing = false;
     leagueText.delete(leagueId);
     leagueText.set(leagueId, { version: newVersion, text: nextText });
     if (leagueText.size > LEAGUE_TEXT_KEPT) leagueText.delete(leagueText.keys().next().value!);
@@ -352,6 +358,23 @@ export async function withLeague<T>(
       // "something went wrong on our side"); the original error is logged
       // eslint-disable-next-line no-console
       console.error(`league ${leagueId}: transaction aborted by a database connection failure`, err);
+      if (committing) {
+        // The connection went while COMMIT was in flight: the database may
+        // have committed and the acknowledgement been lost. Don't claim
+        // "not saved". Tell watchers to re-read (they compare versions, so a
+        // spurious nudge is harmless), and tell the GM to look.
+        void pool
+          .query<{ version: string }>(`SELECT version FROM league_state WHERE league_id = $1`, [leagueId])
+          .then((r) => {
+            const v = r.rows[0]?.version;
+            if (v) for (const fn of commitListeners) fn(leagueId, v);
+          })
+          .catch(() => undefined);
+        throw new ActionError(
+          "The connection dropped while saving, so we can't tell whether that move went through. Reload to see where things stand before trying again.",
+          503,
+        );
+      }
       throw new ActionError(
         "The server lost its connection to the database, so that move was not saved. Try again in a moment.",
         503,

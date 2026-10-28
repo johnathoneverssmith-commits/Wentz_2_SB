@@ -1007,9 +1007,10 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
         // an overlapping interval, the start-up pass) or a GM's own move may
         // have handled that turn and started a new one with a fresh clock.
         // Acting on the stale reading would take the next GM's turn, so ask
-        // again, under the lock, against the database's own clock.
+        // again, under the lock, against the database's own clock (`clock_timestamp()`: `now()` is the
+        // transaction's start, which a sweep that waited on the lock would read as stale).
         const due = await client.query<{ due: boolean }>(
-          `SELECT phase_ends_at IS NOT NULL AND phase_ends_at <= now() AS due
+          `SELECT phase_ends_at IS NOT NULL AND phase_ends_at <= clock_timestamp() AS due
              FROM league_state WHERE league_id = $1`,
           [leagueId],
         );
