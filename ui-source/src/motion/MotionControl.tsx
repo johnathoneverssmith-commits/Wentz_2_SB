@@ -1,3 +1,4 @@
+import { useReducedMotion } from "framer-motion";
 import { type MotionLevel, setMotionLevel, useMotionLevel } from "./level";
 
 const OPTIONS: { id: MotionLevel; label: string; hint: string }[] = [
@@ -12,6 +13,7 @@ const OPTIONS: { id: MotionLevel; label: string; hint: string }[] = [
  */
 export function MotionControl() {
   const level = useMotionLevel();
+  const reduced = useReducedMotion();
   return (
     <div className="motionbox" role="radiogroup" aria-label="Motion">
       <span className="motionlabel">Motion</span>
@@ -22,7 +24,8 @@ export function MotionControl() {
           role="radio"
           aria-checked={level === o.id}
           className={level === o.id ? "on" : undefined}
-          title={o.hint}
+          disabled={Boolean(reduced && o.id !== "off")}
+          title={reduced ? "Your device requests reduced motion" : o.hint}
           onClick={() => setMotionLevel(o.id)}
         >
           {o.label}

@@ -1,7 +1,7 @@
 import { m } from "framer-motion";
 import type { ReactNode } from "react";
 
-import { EASE, useMotion } from "./tokens";
+import { useMotion } from "./tokens";
 
 /**
  * Wraps the routed screen so a change of screen is a movement rather than a
@@ -17,7 +17,7 @@ export function ScreenTransition({ children }: { children: ReactNode }) {
     <m.div
       initial={{ opacity: 0, x: motion.full ? 18 : 0, y: motion.full ? 0 : 4 }}
       animate={{ opacity: 1, x: 0, y: 0 }}
-      transition={{ duration: motion.full ? 0.26 : 0.14, ease: EASE }}
+      transition={motion.enter}
     >
       {children}
     </m.div>

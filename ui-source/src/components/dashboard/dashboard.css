@@ -1,0 +1,83 @@
+.hub-dashboard { width: 100%; max-width: 1340px; }
+.hub-dashboard > .app-card-wrap > .card { background: transparent; box-shadow: none; overflow: visible; animation: none; }
+.hub-dashboard .card::before { display: none; }
+.hub-kicker { color: var(--accent-teal); display: flex; align-items: center; gap: 12px; font-size: 12px; padding: 0 4px; font-weight: 600; }
+.hub-kicker span { color: var(--ink-dim); padding-left: 12px; border-left: 1px solid var(--line-strong); font-weight: 400; }
+.hub-dashboard .header { background: transparent; border: 0; padding: 20px 4px 26px; }
+.hub-dashboard .header .badge { background: transparent; box-shadow: none; border: 0; width: 64px; height: 64px; }
+.hub-dashboard .header h1 { font-size: clamp(25px, 2.5vw, 36px); }
+.hub-dashboard .header .right { padding: 8px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: #ffffff04; }
+.hub-dashboard .ticker { gap: 14px; border: 0; background: transparent; margin-bottom: 20px; }
+.hub-dashboard .stat { position: relative; border: 1px solid var(--line-strong); border-radius: 20px; text-align: left; padding: 20px 22px; background: linear-gradient(135deg, #1c2d38, #101d26); box-shadow: var(--depth-panel); overflow: hidden; }
+.hub-dashboard .stat::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent-blue); }
+.hub-dashboard .stat:nth-child(2)::after { background: var(--accent-gold); }
+.hub-dashboard .stat:nth-child(3)::after { background: var(--accent-purple); }
+.hub-dashboard .stat:nth-child(4)::after { background: var(--accent-teal); }
+.hub-dashboard .stat-value { font-size: 34px; line-height: 1.1; margin-top: 10px; }
+.dashboard-overview { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, 1fr); gap: 18px; }
+.dashboard-main, .dashboard-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.season-track__games { display: flex; gap: 8px; margin: 0 -4px; padding: 4px 4px 14px; list-style: none; overflow-x: auto; scrollbar-color: #385764 transparent; scrollbar-width: thin; }
+.season-game { flex: 0 0 72px; min-height: 158px; display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 6px; border-radius: 13px; background: #060e1559; border: 1px solid var(--line); font-size: 12px; }
+.season-game--current { border-color: #45e6bf88; background: linear-gradient(#45e6bf1c, #45e6bf05); box-shadow: inset 0 0 18px #45e6bf08, 0 0 12px #45e6bf14; }
+.season-game__week { color: var(--ink-dim); font-size: 10px; margin-bottom: 4px; }
+.season-game__team { font-weight: 700; }
+.season-game__score, .season-game__site { font-size: 10px; color: var(--ink-dim); white-space: nowrap; }
+.season-game strong { font-size: 15px; }
+.front-office { flex: 1; }
+.front-office__links { display: grid; gap: 9px; }
+.decision-link { display: flex; align-items: center; gap: 14px; min-width: 0; color: var(--ink); text-decoration: none; padding: 15px; border-radius: var(--r-md); border: 1px solid #45e6bf35; background: linear-gradient(100deg, #45e6bf0d, #45e6bf03); transition: transform var(--dur-fast) var(--ease-interaction), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
+.decision-link > span:nth-child(2) { flex: 1; }
+.decision-link strong { display: block; font-size: 13px; }
+.decision-link small { display: block; color: var(--ink-dim); font-size: 11px; margin-top: 4px; line-height: 1.45; }
+.decision-link--purple { border-color: #c4a1ff38; background: linear-gradient(100deg, #a17aff14, #a17aff03); }
+.decision-link--blue { border-color: #8bb8ff35; background: linear-gradient(100deg, #8bb8ff10, #8bb8ff03); }
+.decision-icon { color: var(--accent-teal); font-size: 28px; width: 32px; text-align: center; flex-shrink: 0; }
+.decision-link--purple .decision-icon { color: var(--accent-purple); }
+.decision-link--blue .decision-icon { color: var(--accent-blue); }
+.ui-orbit { display: grid; place-content: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line-strong); color: var(--accent-teal); }
+.unit-pulse__row + .unit-pulse__row { margin-top: 13px; }
+.unit-pulse__row > div:first-child { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; margin-bottom: 7px; }
+.unit-pulse__row strong { font-size: 15px; }
+.unit-pulse__row small { display: block; color: var(--ink-faint); font-size: 10px; margin-top: 4px; }
+.cap-snapshot__figure { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; font-size: 12px; color: var(--ink-dim); }
+.cap-snapshot__figure strong { font: 700 30px/1.2 var(--font-display); }
+.cap-snapshot dl { margin: 18px 0 0; display: grid; gap: 10px; font-size: 12px; }
+.cap-snapshot dl > div { display: flex; justify-content: space-between; }
+.cap-snapshot dt { color: var(--ink-dim); }
+.cap-snapshot dd { margin: 0; font-variant-numeric: tabular-nums; }
+.hub-command { margin: 20px 0; padding: 4px 22px; border-radius: var(--r-lg); border: 1px solid #45e6bf45; background: linear-gradient(100deg, #143a35, #132934 70%); }
+.hub-command:empty { display: none; }
+.hub-command .readiness { background: transparent; border: 0; padding: 16px 0; }
+.hub-command .btn-primary { background: var(--accent-teal); color: #06251d; border-color: var(--accent-teal); min-height: 46px; }
+.hub-dashboard .jump-next { display: none; }
+.hub-dashboard .tabs { margin-top: 20px; background: #10212a; border-radius: 15px 15px 0 0; border: 1px solid var(--line); }
+.hub-dashboard .panel.open { background: #101d26; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 18px 18px; padding: 24px; }
+.hub-dashboard .footer { margin-top: 20px; border-radius: 18px; background: #ffffff03; border: 1px solid var(--line); }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :root:not([data-motion="off"]) .decision-link:hover { transform: translateY(-3px); border-color: #45e6bf77; box-shadow: 0 8px 22px #0003; }
+  :root:not([data-motion="off"]) .decision-link:active { transform: translateY(0) scale(.99); }
+}
+@media (max-width: 1100px) { .dashboard-overview { grid-template-columns: minmax(0, 1.35fr) minmax(270px, 1fr); } .ui-surface { padding: 18px; } }
+@media (max-width: 700px) {
+  .dashboard-overview { grid-template-columns: 1fr; }
+  .dashboard-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hub-dashboard .header { align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+  .hub-dashboard .header .right { text-align: left; width: 100%; }
+  .hub-dashboard .ticker { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .hub-dashboard .stat { padding: 16px; border: 1px solid var(--line-strong); }
+  .hub-dashboard .stat-value { font-size: 29px; }
+  .hub-dashboard .panel.open { padding: 16px 12px; }
+}
+@media (max-width: 430px) { .dashboard-side { grid-template-columns: 1fr; } .hub-kicker { font-size: 10px; } .hub-dashboard .header .badge { width: 48px; } .ui-section-heading { gap: 10px; } }
+
+.hub-dashboard .stat-value { font-family: var(--font-body); font-weight: 750; letter-spacing: -.04em; }
+.hub-dashboard .header { background: radial-gradient(ellipse at 68% 0%, #45e6bf09, transparent 55%); border-radius: 24px; }
+@media (min-width: 701px) {
+  .hub-command .readiness { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(240px, .7fr); align-items: center; gap: 10px 24px; }
+  .hub-command .readiness-top { grid-column: 1; margin: 0; }
+  .hub-command .gmchiprow { grid-column: 1; margin: 0; }
+  .hub-command .readiness > .btn-primary { grid-column: 2; grid-row: 1 / span 2; }
+  .hub-command .readiness > p, .hub-command .readiness > .notice { grid-column: 1 / -1; }
+}
+
+.season-game__bye { height: 36px; display: grid; place-items: center; font-size: 24px; color: var(--ink-faint); }
