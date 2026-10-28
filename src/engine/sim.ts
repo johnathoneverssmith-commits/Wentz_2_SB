@@ -408,6 +408,8 @@ export class Game {
   eventLog: GameEvent[] | null = null;
   /** 0 outside overtime, else the overtime period. Read only by the event log. */
   private otPeriod = 0;
+  /** the event-log clock at the current snap, taken where the trace takes its own. Read only by the event log. */
+  private snapClock = "";
   injuryLog: InjuryEvent[] | null = null;
   /** ids of starters pulled from THIS game by an injury. */
   readonly injuredOut = new Set<string>();
@@ -1121,7 +1123,8 @@ export class Game {
       points,
       kind,
       quarter: this.loggedQuarter(rec?.quarter ?? base?.quarter ?? this.qtr),
-      clock: this.loggedClock(rec?.clock ?? base?.clock ?? this.clockText()),
+      // an extra point shares its touchdown's time; a score off a snap is stamped with the snap, not the clock after the play
+      clock: base ? base.clock : rec ? this.snapClock : this.loggedClock(this.clockText()),
       playIndex,
       scorer,
       scoreAfter: [this.score[0], this.score[1]],
@@ -1465,6 +1468,7 @@ export class Game {
     const preYl = this.yardline100;
     const preQtr = this.qtr;
     const preClock = this.clockText();
+    this.snapClock = this.loggedClock(preClock);
     const ctx: Ctx = { kick_distance: this.yardline100 + 18, yardline_100: this.yardline100, ...ENV };
     const made = (predictProba("M20", ctx, this.offShift("M20")).MADE ?? 0.85) > this.rng.random();
     if (this.playTrace)
@@ -1570,6 +1574,7 @@ export class Game {
       const preYl = this.yardline100;
       const preQtr = this.qtr;
       const preClock = this.clockText();
+      this.snapClock = this.loggedClock(preClock);
       const punter = this.ratingsOn ? this.off().punter() : undefined;
       const dist = samplePuntDistance(this.yardline100, this.rng) + (this.ratingsOn ? puntDistanceShift(punter) : 0) + this.wx.punt;
       const landing = this.yardline100 - dist;
@@ -1710,6 +1715,7 @@ export class Game {
     const preYl = this.yardline100;
     const preQtr = this.qtr;
     const preClock = this.clockText();
+    this.snapClock = this.loggedClock(preClock);
 
     if (call === "DROPBACK") {
       const term = sampleClass("M04", this.ctx(sg), this.rng, this.offShift("M04"));

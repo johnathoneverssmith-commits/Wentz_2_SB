@@ -1,6 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { boxScoreOf } from "../online/src/boxscore.js";
 import { quarterScores, scoringPlaysFrom } from "../server/boxscore-map.js";
+import { presentGame } from "../server/simGame.js";
 import { broadcastGame } from "../src/engine/broadcast.js";
 import { extractBoxScore } from "../src/engine/boxscore.js";
 import { type Game, type GameEvent, type PlayRec, type ScoreEvent, simulateGame } from "../src/engine/sim.js";
@@ -218,6 +220,72 @@ describe("scoring summary and line score", () => {
     const final: [number, number] = [g.score[0], g.score[1]];
     const rows = scoringPlaysFrom(g.playTrace!, home, away, final, g.drivesLog);
     expect(rows.at(-1) ? [rows.at(-1)!.homeScore, rows.at(-1)!.awayScore] : [0, 0]).toEqual(final);
+  });
+});
+
+describe("single-player and online present the same game the same way", () => {
+  it("the adapter's box score and the online server's agree on summary and line score", () => {
+    for (const { home, away, g, where } of games.slice(0, 40)) {
+      const local = presentGame(g, { homeTeam: home, awayTeam: away, week: 1, weather: null });
+      const online = boxScoreOf(g, home, away, 1, { home: [], away: [] });
+      expect(online.scoringPlays, where).toEqual(local.scoringPlays);
+      expect(online.totals!.home.byQuarter, where).toEqual(local.totals.home.byQuarter);
+      expect(online.totals!.away.byQuarter, where).toEqual(local.totals.away.byQuarter);
+    }
+  });
+});
+
+describe("overtime score clocks", () => {
+  it("are the clock at the snap that scored, the same one a field goal gets, not the clock after the play", () => {
+    // Pinned on the committed fixture pool. Before the fix a touchdown was stamped
+    // after its play's clock had run (8:08, 8:08, 5:23 below) while a field goal
+    // was stamped before it; an extra point shares its touchdown's time.
+    const at = (seed: number, home: string, away: string): string[] =>
+      simulateGame(seed, home, away, { trace: true, injuries: true, overtime: "nfl" })
+        .eventLog!.filter((e): e is ScoreEvent => e.type === "score" && e.quarter >= 5 && e.kind === "touchdown")
+        .map((e) => e.clock);
+    expect(at(2, "GB", "CHI")).toEqual(["8:31"]);
+    expect(at(8, "KC", "BUF")).toEqual(["8:12", "5:54"]);
+  });
+
+  it("never stamp a scoring snap at 0:00, and give a conversion its touchdown's time", () => {
+    for (const { g, where } of games) {
+      const ev = g.eventLog!.filter((e): e is ScoreEvent => e.type === "score" && e.quarter >= 5);
+      ev.forEach((e, i) => {
+        if (e.playIndex !== null) expect(e.clock, `snap clock, ${where}`).not.toBe("0:00");
+        if ((e.kind === "extra_point" || e.kind === "two_point") && i > 0) expect(e.clock, where).toBe(ev[i - 1]!.clock);
+      });
+    }
+  });
+});
+
+describe("older or incomplete event logs", () => {
+  const g0 = () => games.find((x) => x.g.score[0] + x.g.score[1] > 0)!;
+
+  it("an empty or missing log uses the reconstruction, which still reaches the final score", () => {
+    const { home, away, g } = g0();
+    const final: [number, number] = [g.score[0], g.score[1]];
+    for (const log of [undefined, [] as GameEvent[]]) {
+      const rows = scoringPlaysFrom(g.playTrace!, home, away, final, g.drivesLog, log);
+      expect([rows.at(-1)!.homeScore, rows.at(-1)!.awayScore]).toEqual(final);
+      const qs = quarterScores(g.playTrace!, final, g.drivesLog, log);
+      expect([qs[0]!.reduce((a, b) => a + b, 0), qs[1]!.reduce((a, b) => a + b, 0)]).toEqual(final);
+    }
+  });
+
+  it("a log with only non-scoring events, or a truncated one, is not trusted", () => {
+    const { home, away, g } = g0();
+    const final: [number, number] = [g.score[0], g.score[1]];
+    const noScores = g.eventLog!.filter((e) => e.type !== "score");
+    const half = g.eventLog!.slice(0, Math.floor(g.eventLog!.length / 2));
+    for (const log of [noScores, half]) {
+      const rows = scoringPlaysFrom(g.playTrace!, home, away, final, g.drivesLog, log);
+      expect([rows.at(-1)!.homeScore, rows.at(-1)!.awayScore]).toEqual(final);
+    }
+  });
+
+  it("a 0-0 game with an empty log is an empty summary, not an error", () => {
+    expect(scoringPlaysFrom([], "KC", "BUF", [0, 0], [], [])).toEqual([]);
   });
 });
 
