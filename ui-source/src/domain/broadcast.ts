@@ -29,6 +29,60 @@ export interface InjuryEvent {
   playIndex?: number;
 }
 
+/** Mirrors the engine's `ScoreEvent` (`src/engine/sim.ts`). */
+export interface ScoreEvent {
+  type: "score";
+  side: 0 | 1;
+  points: number;
+  kind:
+    | "touchdown"
+    | "field_goal"
+    | "extra_point"
+    | "two_point"
+    | "safety"
+    | "interception_return_td"
+    | "fumble_return_td"
+    | "punt_return_td"
+    | "kick_return_td";
+  quarter: number;
+  clock: string;
+  playIndex: number | null;
+  scorer?: string;
+  scoreAfter: [number, number];
+}
+
+export interface BallState {
+  down: number;
+  ydstogo: number;
+  yardline100: number;
+}
+
+/** Mirrors the engine's `PenaltyEvent`: an accepted foul, whose nullified play is not in the trace. */
+export interface PenaltyEvent {
+  type: "penalty";
+  team: 0 | 1;
+  onOffense: boolean;
+  deadBall: boolean;
+  bucket: string;
+  yards: number;
+  quarter: number;
+  clock: string;
+  beforePlayIndex: number;
+  before: BallState;
+  after: BallState;
+  automaticFirstDown: boolean;
+}
+
+/** Mirrors the engine's `ClockPlayEvent`: a spike or kneel-down. */
+export interface ClockPlayEvent {
+  type: "spike" | "kneel";
+  team: 0 | 1;
+  quarter: number;
+  clock: string;
+  beforePlayIndex: number;
+  down: number;
+}
+
 export interface BroadcastPlay {
   down: number;
   ydstogo: number;
@@ -51,6 +105,10 @@ export interface BroadcastPlay {
   returner?: string;
   distance?: number;
   injuries: InjuryEvent[];
+  /** scores this play caused, from the engine's log (a return touchdown included). */
+  scores?: ScoreEvent[];
+  /** accepted penalties, spikes and kneels between the previous snap and this one. */
+  eventsBefore?: (PenaltyEvent | ClockPlayEvent)[];
   /**
    * [home, away] once this play and anything it set off is over — the score
    * a replay should be showing while this play is on screen.
@@ -88,4 +146,6 @@ export interface GameBroadcast {
   scoringDrives: number[];
   /** every injury in the game, in play order (also attached to its own play). */
   injuries: InjuryEvent[];
+  /** scores no traced play caused: a kickoff returned for a touchdown, and the kick after it. */
+  returnScores?: ScoreEvent[];
 }
