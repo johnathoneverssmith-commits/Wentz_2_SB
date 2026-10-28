@@ -8,10 +8,9 @@ import {
   playerPerformanceValue,
   tradeAssetValue,
 } from "@/sim/MockSimulationService";
-import { cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades.ts";
+import { capLegal, cheapestPackage, cpuToCpuOffer, generateAiTradeOffers } from "./aiTrades.ts";
 import { ensureDraftPicks, picksOwnedBy } from "./draftPicks.ts";
 import { releasePenalty } from "./releaseCost.ts";
-import { capLegal } from "./aiTrades.ts";
 import { DEFAULT_CONFIG, createLeague, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
 import { readTeamTimeline } from "./teamTimeline.ts";
 import { beginTradeDeadline, onTheClock, runCpuTurns as runDeadlineTurns, staffDeadlineMove } from "./tradeDeadline.ts";
@@ -366,6 +365,35 @@ describe("what the CPU teams propose to one another", () => {
       for (let salt = 1000; salt < 1010; salt++) expect(cpuToCpuOffer(s, code, salt), `${code} (${w.toFixed(2)})`).toBeNull();
     }
   }, 120_000);
+});
+
+describe("how a package is searched", () => {
+  it("offers every round, so a mid-sized price can be met in picks alone", () => {
+    const s = atTheDeadline(612);
+    const ctx = tradeContext(s);
+    s.teams.GB!.cap.total += 300; // room is not what this is about
+    s.teams.DET!.cap.total += 300;
+    // a player priced between a second-round pick and two of them
+    const target = Object.values(s.players)
+      .filter((p) => p.nfl_team === "DET" && !p.retired && !p.free_agent)
+      .find((p) => ctx.chart(asset(p.id)) > 40 && ctx.chart(asset(p.id)) < 46);
+    expect(target, "a player priced near a second plus a third").toBeDefined();
+    const picks = picksOwnedBy(s, "GB");
+    const give = cheapestPackage(s, ctx, {
+      payer: "GB",
+      payee: "DET",
+      get: [asset(target!.id)],
+      picks,
+      players: [],
+      kinds: "picks",
+      willing: () => true,
+      floor: 0.95,
+      ceiling: 1.15,
+    });
+    // a second and a third fit; with only the six biggest picks on offer (firsts and seconds) nothing lands in the band
+    expect(give, "picks alone cover it").not.toBeNull();
+    expect(give!.some((a) => a.kind === "pick" && a.pick!.round >= 3), "using a later round").toBe(true);
+  });
 });
 
 describe("what the CPU teams offer a person", () => {

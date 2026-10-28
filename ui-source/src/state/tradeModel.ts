@@ -223,9 +223,14 @@ export function judgeWith(
       ? 0
       : deterministicNoiseUnit(toTeam, state.season, "trade_accept", tradeKey) * difficulty.tradeAcceptanceThresholdVariation;
 
-  const raw = clamp(0.5 - teamDelta / 36 + (needGained - needLost) / 90 + strategyShift + thresholdShift, 0.02, 0.98);
+  // A rebuild plays for later and cares less whether a trade fills a hole this season; a contender cares more. Without this a player
+  // at a position of need was worth up to a third of the likelihood more than a pick of the same price, and a rebuilding seller took
+  // a spare player over picks nearly every time (a pick-only package in 3% of deadline trades).
+  const fxNeed = cpu ? windowEffect(ctx.windowOf(toTeam), difficulty.longTermWeight) : 0;
+  const needScale = clamp(1 - 0.5 * Math.max(0, -fxNeed) + 0.25 * Math.max(0, fxNeed), 0.5, 1.25);
+  const raw = clamp(0.5 - teamDelta / 36 + (needScale * (needGained - needLost)) / 90 + strategyShift + thresholdShift, 0.02, 0.98);
   // Master: no coin flip. It takes a deal only when the deal helps it, its value side and its need side together, with a small margin
-  const strictGain = -teamDelta / 36 + (needGained - needLost) / 90;
+  const strictGain = -teamDelta / 36 + (needScale * (needGained - needLost)) / 90;
   const acceptance = difficulty.strictTrades ? (strictGain > 0.03 ? 1 : 0) : clampTradeAcceptance(raw);
 
   return { valueDelta: delta, acceptLikelihood: acceptance };

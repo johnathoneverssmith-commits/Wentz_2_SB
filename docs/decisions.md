@@ -1684,5 +1684,14 @@ phones) and the offers made to people (the suitor must itself break even on its 
 quality guards are as before). The deadline may still break the roster limit; the cap is respected in what the CPU builds.
 CPU-to-CPU trading stays at the deadline.
 
-**Not done / limits.** The need term (up to ±0.4 of the likelihood) is as it was for assets with a positive price. Dead money other
+**Package mix (review).** The first measurement had 97% of CPU-to-CPU packages including a player, against 43% before. Two causes were
+biases and were fixed: the search drew on the six most valuable distinct picks (only firsts and seconds, steps of 83 and 30
+points) where a player gives any size, so it now offers the nearest pick in every round (and the next year's first and
+second); and a rebuilding seller gave a player at a position of need up to a third of the likelihood more than a pick of the same price,
+so the need term is now scaled by the team's window (half for a full rebuild, up to a quarter more for a contender). Player-only packages
+fell from 83 to 23 of 138 in a fixed fixture. What remains is cost-minimising on a finer currency: a second and a third (43 points) against
+two spare players and a fifth (41.6) for a 41-point target, accepted by the same model. Pick-only packages are about 3% (they
+were 57% when the buyer overpaid by 70% in a first-round pick); the distribution is the search's, not a quota.
+
+**Not done / limits.** The need term (up to ±0.4 of the likelihood) is as it was for assets with a positive price, scaled by the window. Dead money other
 than the release cost is not in the price. No trades outside the deadline between CPU teams.

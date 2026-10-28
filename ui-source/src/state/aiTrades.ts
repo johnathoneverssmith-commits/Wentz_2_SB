@@ -67,7 +67,7 @@ export function pickStrengthFor(s: LeagueState, teamCode: string): number {
 }
 
 /** How many of a team's picks and spare players a package is chosen from: every combination of up to three of them is tried. */
-const PICK_CANDIDATES = 6;
+const PICK_CANDIDATES = 9;
 const PLAYER_CANDIDATES = 6;
 /** The share of rounds a contender works the phones in. */
 const PHONE_RATE = 0.25;
@@ -142,10 +142,17 @@ export function cheapestPackage(s: LeagueState, ctx: TradeContext, q: PackageSea
   const asked = packageValue(s, q.get, chart);
   const pool: TradeAsset[] = [];
   if (q.kinds !== "players") {
-    // a spread of rounds, not the best six: the cheapest cover is often a second or a third
-    const byRound = new Map<number, DraftPickAsset>();
-    for (const pick of q.picks) if (!byRound.has(pick.round * 10 + pick.year - s.season)) byRound.set(pick.round * 10 + pick.year - s.season, pick);
-    const chosen = [...byRound.values()].sort((a, b) => chart({ kind: "pick", pick: b }) - chart({ kind: "pick", pick: a }));
+    // every round is on offer, not only the biggest picks: the nearest draft's pick in each round, and the one after it in the first
+    // two. Taking the six most valuable would leave only firsts and seconds, steps of 83 and 30 points, and a player of any size would
+    // always be the cheaper way to cover a gap (the first measurement had a pick-only package in 2% of trades)
+    const nearest = new Map<number, DraftPickAsset[]>();
+    for (const pick of q.picks) nearest.set(pick.round, [...(nearest.get(pick.round) ?? []), pick]);
+    const chosen: DraftPickAsset[] = [];
+    for (const [round, list] of nearest) {
+      const byYear = [...list].sort((a, b) => a.year - b.year || (a.originalTeam < b.originalTeam ? -1 : 1));
+      chosen.push(...byYear.slice(0, round <= 2 ? 2 : 1));
+    }
+    chosen.sort((a, b) => chart({ kind: "pick", pick: b }) - chart({ kind: "pick", pick: a }));
     for (const pick of chosen.slice(0, PICK_CANDIDATES)) pool.push({ kind: "pick", pick });
   }
   if (q.kinds !== "picks") for (const p of q.players.slice(0, PLAYER_CANDIDATES)) pool.push({ kind: "player", playerId: p.id });
