@@ -169,6 +169,75 @@ export function isConnectionError(err: unknown): boolean {
   );
 }
 
+/**
+ * One writer at a time per league, queued here BEFORE a pool connection is
+ * taken.
+ *
+ * The row lock in `withLeague` already serialises writers, but it makes them
+ * do it holding a connection each: a stage that plays a block of games keeps
+ * the lock for the whole simulation, and every GM action for that league
+ * meanwhile parks on a pooled connection. Once the parked writers equal the
+ * pool, every other league's queries wait too (audit D2). Queuing in process
+ * first means a busy league holds one connection, however many GMs press.
+ *
+ * Bounded both ways: a league with `LEAGUE_QUEUE_MAX` writers already waiting
+ * refuses the next with a 503 rather than growing without limit, and a writer
+ * that has waited `LEAGUE_QUEUE_WAIT_MS` gives up with a 503 and leaves the
+ * queue. First come, first served.
+ *
+ * This is a per-process fairness and capacity control, not a correctness
+ * mechanism: two server processes (a rolling deploy) still serialise on the
+ * row lock, which is unchanged.
+ */
+interface Gate {
+  waiters: { grant: () => void; timer: NodeJS.Timeout }[];
+}
+const gates = new Map<string, Gate>();
+const queueMax = (): number => Number(process.env.LEAGUE_QUEUE_MAX ?? 16);
+const queueWaitMs = (): number => Number(process.env.LEAGUE_QUEUE_WAIT_MS ?? 120_000);
+
+async function enterLeague(leagueId: string): Promise<() => void> {
+  let gate = gates.get(leagueId);
+  if (!gate) {
+    gate = { waiters: [] };
+    gates.set(leagueId, gate);
+    return () => leaveLeague(leagueId);
+  }
+  if (gate.waiters.length >= queueMax()) {
+    throw new ActionError("This league is handling a lot of requests right now. Try again in a moment.", 503);
+  }
+  const g = gate;
+  await new Promise<void>((resolve, reject) => {
+    const entry = {
+      grant: () => {
+        clearTimeout(entry.timer);
+        resolve();
+      },
+      timer: setTimeout(() => {
+        const at = g.waiters.indexOf(entry);
+        if (at >= 0) g.waiters.splice(at, 1);
+        reject(new ActionError("The league is busy finishing something else (a stage is being played). Try again in a moment.", 503));
+      }, queueWaitMs()),
+    };
+    g.waiters.push(entry);
+  });
+  return () => leaveLeague(leagueId);
+}
+
+/** Hands the league to the next waiting writer, or frees it. */
+function leaveLeague(leagueId: string): void {
+  const gate = gates.get(leagueId);
+  if (!gate) return;
+  const next = gate.waiters.shift();
+  if (next) next.grant();
+  else gates.delete(leagueId);
+}
+
+/** Writers queued behind the one running, for tests and diagnostics. */
+export function queuedWriters(leagueId: string): number {
+  return gates.get(leagueId)?.waiters.length ?? 0;
+}
+
 export class ActionError extends Error {
   constructor(
     message: string,
@@ -205,6 +274,19 @@ export async function withLeague<T>(
   leagueId: string,
   apply: (loaded: LoadedLeague, client: pg.PoolClient) => Promise<{ result: T } & Applied>,
   opts: { expectedVersion?: string | undefined; actorUserId?: string | undefined } = {},
+): Promise<{ result: T; version: string }> {
+  const leaveQueue = await enterLeague(leagueId);
+  try {
+    return await withLeagueLocked(leagueId, apply, opts);
+  } finally {
+    leaveQueue();
+  }
+}
+
+async function withLeagueLocked<T>(
+  leagueId: string,
+  apply: (loaded: LoadedLeague, client: pg.PoolClient) => Promise<{ result: T } & Applied>,
+  opts: { expectedVersion?: string | undefined; actorUserId?: string | undefined },
 ): Promise<{ result: T; version: string }> {
   // a database that is down or restarting refuses here, before there is any
   // transaction: still "your move was not saved", not a 500

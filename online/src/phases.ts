@@ -171,12 +171,13 @@ export async function readyUp(
     // new stage committed them to something they had not seen — twice in a
     // playthrough that skipped a whole free-agency market. Leave the new
     // stage untouched and let the client catch up.
+    // Refused, not quietly ignored: the GM's screen is a stage behind and
+    // they should be told so, rather than believe they have checked in.
     if (seenStage && seenStage !== state.stage) {
-      return {
-        result: { moved: false, stage: state.stage, autopiloted: [] as string[] },
-        state,
-        unchanged: true,
-      } satisfies { result: AdvanceOutcome } & Applied;
+      throw new ActionError(
+        `The league has already moved on to ${stageName(state.stage)} — reload to catch up, then check in there.`,
+        409,
+      );
     }
     // The free-agency summaries are where a GM's roster has to be legal to
     // check in. Only the button enforced it: the server took the check-in
@@ -521,6 +522,15 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     state.freeAgencyEvent = null;
     beginFreeAgencyEvent(state, "offseason");
     runCpuTurns(state, humanTeamsOf(state));
+    // The draft class is signed (and the undrafted sent to the market) before anything can end the market. With no
+    // human on the clock, `runPendingCpuTurns` below closes it on the spot and the league lands on the summary
+    // stage inside this very call, where the `state.stage === "freeAgency"` check this used to wait behind never held:
+    // about 320 rookies a season were never created. Both signers skip anyone already handled, so a second pass is a no-op.
+    if (from === "offseasonDraftSummary") {
+      reportStaffMoves(state, "— the draft picks left unsigned", () => signUnresolvedHumanPicks(state));
+      signAiDraftPicks(state);
+      signUndraftedAsFreeAgents(state);
+    }
     // every human may have skipped it: nothing left to wait for
     runPendingCpuTurns(state);
   }
@@ -637,11 +647,6 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // this season's draft is over: its picks are spent (see the store)
   if (from === "offseasonDraft") forgetSpentPicks(state, state.season + 1);
 
-  if (from === "offseasonDraftSummary" && state.stage === "freeAgency") {
-    reportStaffMoves(state, "— the draft picks left unsigned", () => signUnresolvedHumanPicks(state));
-    signAiDraftPicks(state);
-    signUndraftedAsFreeAgents(state);
-  }
   // see the same note in the store: the free-agency stage is gone, so the AI's
   // draft-class signings and the roster trim hang off the depth-chart gate
   if (from === "offseasonSignings" && state.stage === "offseasonDepthChart") {
@@ -1062,9 +1067,41 @@ export async function sweep(): Promise<{ leagueId: string; autopiloted: string[]
   return out;
 }
 
-/** Commissioner override: move on now, whoever is or isn't ready. */
-export async function forceAdvance(leagueId: string, actorUserId?: string): Promise<AdvanceOutcome> {
+/**
+ * The stage a request says it is acting on, checked at the door.
+ *
+ * Missing is refused as well as unknown: a request that does not say which
+ * stage it was made for cannot be told apart from a stale one, and applying it
+ * to whatever stage is current is how a double click or an old tab skipped a
+ * stage (audit D4, D7).
+ */
+export function requireStage(value: unknown): string {
+  if (typeof value !== "string" || value === "") {
+    throw new ActionError("That request didn't say which stage it was for — reload the page and try again.", 400);
+  }
+  if (!Object.prototype.hasOwnProperty.call(STAGE_LABEL, value)) {
+    throw new ActionError("That request named a stage this league doesn't have — reload the page and try again.", 400);
+  }
+  return value;
+}
+
+/**
+ * Commissioner override: move on now, whoever is or isn't ready.
+ *
+ * `expectedStage` is the stage the commissioner was looking at. Under the
+ * league lock it must still be the current one: a second press of the same
+ * button (a double click, a retry after a dropped response, a tab a stage
+ * behind) finds the league already moved and is refused instead of moving it
+ * again past a stage nobody saw.
+ */
+export async function forceAdvance(leagueId: string, actorUserId?: string, expectedStage?: string): Promise<AdvanceOutcome> {
   const { result } = await withLeague(leagueId, async ({ state, league }) => {
+    if (expectedStage !== undefined && expectedStage !== state.stage) {
+      throw new ActionError(
+        `The league has already moved on to ${stageName(state.stage)}, so that advance was not applied. Reload to see where things stand.`,
+        409,
+      );
+    }
     const autopiloted = autopilotAbsent(state);
     const outcome = advanceStage(state);
     if (!outcome.moved && !outcome.playedRound && !autopiloted.length) {
