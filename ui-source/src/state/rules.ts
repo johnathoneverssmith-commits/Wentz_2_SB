@@ -2161,12 +2161,8 @@ export function finalizeSeason(s: LeagueState): void {
  * first, while next year's payroll leaves room for the draft class and the
  * depth fill. Human teams are never touched: that is the GM's call.
  */
-// $M at the league's starting cap. The buffer a club keeps back from next year's cap when it extends someone has to cover the rookie class
-// that follows (about $19M at this scale: seven slot salaries) and the minimum deals that fill the roster after it, or the club extends
-// itself to the line and cuts the extensions in the preseason, at the dead money a four- or five-year deal costs to release (B2b measured
-// the longer, younger extensions it makes run into this at 18/6).
-const RESIGN_CAP_BUFFER = 27;
-const ELITE_RESIGN_CAP_BUFFER = 9;
+const RESIGN_CAP_BUFFER = 18;
+const ELITE_RESIGN_CAP_BUFFER = 6;
 /**
  * The extensions a front office would make for one team at season's end, best
  * first, within next year's budget: the starters and good depth, young enough

@@ -324,6 +324,26 @@ describe("the CPU free-agent market with the evaluator", () => {
   }, 300_000);
 });
 
+describe("a save from before the evaluator's inputs were recorded", () => {
+  it("still gets a market: no cap growth, no window recorded, and the same signings every time", () => {
+    const strip = (s: LeagueState): LeagueState => {
+      const old = JSON.parse(JSON.stringify(s)) as LeagueState;
+      delete (old as Partial<LeagueState>).capScale;
+      delete (old as Partial<LeagueState>).capGrowthSeason;
+      delete (old.freeAgencyEvent as { timeline?: unknown }).timeline;
+      return old;
+    };
+    const a = playMarket(strip(openMarket(4107)));
+    const b = playMarket(strip(openMarket(4107)));
+    expect(a.length).toBeGreaterThan(20);
+    expect(b).toEqual(a);
+    for (const x of a) {
+      expect(x.years).toBeGreaterThanOrEqual(1);
+      expect(x.years).toBeLessThanOrEqual(5);
+    }
+  }, 300_000);
+});
+
 describe("CPU re-signing with the evaluator", () => {
   it("offers terms the player takes, so a person's staff proposing the same list is accepted", () => {
     const s = expiring(4103);
@@ -357,6 +377,23 @@ describe("CPU re-signing with the evaluator", () => {
     expect(young.length).toBeGreaterThan(old.length);
     const years = (xs: typeof old) => xs.reduce((n, x) => n + x.ask.years, 0);
     expect(years(young) / young.length).toBeGreaterThan(old.length ? years(old) / old.length : 0);
+  }, 300_000);
+
+  it("keeps the re-sign budget where it was: a club extends a player until $18M (at the starting cap) is left of next year's cap, no sooner", () => {
+    // B2b does not move the cap buffer. A wider one was measured and bought no less dead money on identical league states, while
+    // skipping about one extension in twelve.
+    const s = expiring(4106);
+    const code = Object.keys(s.teams)[0]!;
+    const first = planCoreResign(s, code)[0];
+    expect(first).toBeDefined();
+    const scale = marketScale(s);
+    const price = first!.ask.baseSalary;
+    // a franchise player (88+) keeps a smaller buffer of his own: 6, against 18
+    const buffer = first!.player.overall >= 88 ? 6 : 18;
+    s.teams[code]!.cap.total = price + (buffer + (buffer === 6 ? 1.5 : 4)) * scale; // just inside the buffer, and well inside a 50% wider one
+    expect(planCoreResign(s, code).map((x) => x.player.id)).toContain(first!.player.id);
+    s.teams[code]!.cap.total = price + (buffer - 2) * scale; // short of it
+    expect(planCoreResign(s, code).map((x) => x.player.id)).not.toContain(first!.player.id);
   }, 300_000);
 
   it("resignAiCore applies exactly the plan and is deterministic", () => {
