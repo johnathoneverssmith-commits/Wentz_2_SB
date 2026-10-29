@@ -22,6 +22,9 @@ import {
   sampleRzYac,
 } from "./loaders.js";
 import {
+  QB_EFFECT,
+  qbEffectActive,
+  attributeZ,
   completionLogitShift,
   fgLogitShift,
   interceptionLogitShift,
@@ -434,7 +437,7 @@ export class Game {
   private _calib: OffenseCalibration | null = null;
   /** the league offsets for this game's talent setting (`offenseCalibrationFor`) */
   private get calib(): OffenseCalibration {
-    return (this._calib ??= offenseCalibrationFor(this.talent));
+    return (this._calib ??= withQbRefit(offenseCalibrationFor(this.talent), this.talent));
   }
 
   constructor(
@@ -960,6 +963,18 @@ export class Game {
       (this.yardline100 <= 20 ? this.calib.rzRush : 0) +
       this.offenseAdjust * 1.5
     );
+  }
+
+  /**
+   * Yards per completion from the passer's arm: throw power and deep accuracy, which no layer reads. Mean zero over the
+   * reference quarterbacks; exactly zero (and no arithmetic) unless `QB_EFFECT.arm` is set.
+   */
+  private qbArmYards(): number {
+    if (QB_EFFECT.arm === 0 || !this.ratingsOn) return 0;
+    const a = this.offLineup().QB1?.attributes as Record<string, number | undefined> | undefined;
+    const z1 = attributeZ("throw_power", a?.throw_power ?? Number.NaN);
+    const z2 = attributeZ("throw_accuracy_deep", a?.throw_accuracy_deep ?? Number.NaN);
+    return QB_EFFECT.arm * (((z1 ?? 0) + (z2 ?? 0)) / 2);
   }
 
   private yacYdMod(): number {
@@ -1854,7 +1869,7 @@ export class Game {
           yac = Math.max(yac, -4.0);
           yacAdded = Math.max(yac, 0);
           this.st("yac", yacAdded);
-          gained = ay + yac;
+          gained = ay + yac + this.qbArmYards();
           family = "reception";
           outcomeBucket =
             this.rng.random() < 0.18 ? "pass_complete_oob" : "pass_complete_inbounds";
@@ -2213,6 +2228,38 @@ export function offenseCalibrationFor(talent: number): OffenseCalibration {
     }
   }
   return t[t.length - 1]![1];
+}
+
+/**
+ * League offsets that put the passing means back where they were when the quarterback effect is scaled (`setQbEffect`).
+ *
+ * Shrinking the quarterback's weight is not symmetric around the league: the weak-quarterback side of a channel was
+ * lifting the league's interception rate, and the strong side was capped, so the means move (completion up, interception
+ * down) even though no average quarterback changed. These are added to `complete` and `interception` only while
+ * `qbEffectActive()`, per talent, and are zero otherwise. Fitted for the proposed setting (complete 0.5, interception
+ * 0.45, arm 0.25) by `analysis/44_qb_refit.ts` against the same games with the effect off.
+ */
+export const QB_REFIT: [number, { complete: number; interception: number }][] = [
+  [1, { complete: -0.051, interception: 0.128 }],
+  [1.5, { complete: -0.069, interception: 0.224 }],
+  [2, { complete: -0.092, interception: 0.368 }],
+];
+function withQbRefit(c: OffenseCalibration, talent: number): OffenseCalibration {
+  if (calibOverride || !qbEffectActive()) return c;
+  const t = QB_REFIT;
+  let add = t[t.length - 1]![1];
+  if (talent <= t[0]![0]) add = t[0]![1];
+  else
+    for (let i = 1; i < t.length; i++) {
+      const [t1, a1] = t[i]!;
+      const [t0, a0] = t[i - 1]!;
+      if (talent <= t1) {
+        const f = (talent - t0) / (t1 - t0);
+        add = { complete: a0.complete + f * (a1.complete - a0.complete), interception: a0.interception + f * (a1.interception - a0.interception) };
+        break;
+      }
+    }
+  return { ...c, complete: c.complete + add.complete, interception: c.interception + add.interception };
 }
 
 /** Override the calibration — for the fitting scripts only. `null` restores the table. */
