@@ -123,7 +123,7 @@ const DEPTH: Record<string, string> = {
  * What this play scored for the defence or on special teams, from the engine's
  * record where it has one and from the running score where it doesn't.
  */
-function scoredKinds(p: NarratedPlay, ctx: NarrationContext): { kinds: Set<string>; scorer: string | undefined } {
+export function playScoreKinds(p: NarratedPlay, ctx: NarrationContext = {}): { kinds: Set<string>; scorer: string | undefined } {
   const kinds = new Set<string>();
   let scorer: string | undefined;
   if (p.scores) {
@@ -155,7 +155,7 @@ function scoredKinds(p: NarratedPlay, ctx: NarrationContext): { kinds: Set<strin
  * recorded, which is the same attribution the box score is built from.
  */
 export function narratePlay(p: NarratedPlay, ctx: NarrationContext = {}): Seg[] {
-  const { kinds, scorer } = scoredKinds(p, ctx);
+  const { kinds, scorer } = playScoreKinds(p, ctx);
   const g = Math.round(p.gained);
   const ag = Math.abs(g);
   const safety = kinds.has("safety");
@@ -196,7 +196,7 @@ export function narratePlay(p: NarratedPlay, ctx: NarrationContext = {}): Seg[] 
       add(carrier, g > 0 ? ` fumbles after a gain of ${yardsWord(ag)}` : " fumbles");
       if (D) add(", forced by ", D);
     }
-    add(" — the defense recovers");
+    add(", and the defense recovers");
     if (kinds.has("fumble_return_td")) add(" and returns it for a touchdown");
     return withTail(body, p, kinds);
   }

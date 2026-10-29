@@ -234,6 +234,13 @@ export const HOW_IT_WORKS: HowTopic[] = [
         ],
       },
       {
+        heading: "Recaps and key moments",
+        body: [
+          "Every finished game has a recap on its box score, written from what was recorded: the final score, how the lead moved, each player's stat line and, for games you watched, the plays. It says nothing the record does not support, and the same game always reads the same.",
+          "The replay's key moments are ranked by how much each play moved the game, not by yardage: a late go-ahead score or a takeaway near the goal line outranks a long gain in a blowout. The list grows as you watch, so it never gives the result away.",
+        ],
+      },
+      {
         heading: "Win probability",
         body: [
           "The win chance on the matchup screen is the standard game plan against the other team's, from the gap in team overall, measured by simulating thousands of games. Home field is included. It is labelled \"with default game strategy\" because the plan you set can move it; in the preseason the Game Plan screen's lab measures exactly how much.",
