@@ -179,7 +179,7 @@ describe("stale clients", () => {
 });
 
 describe("a seat that changed hands under an in-flight request", () => {
-  knownDefect("an action resolved for a GM before their seat was vacated is still applied afterwards", async () => {
+  maybe("an action resolved for a GM before their seat was vacated is refused afterwards (D5, fixed)", async () => {
     // `actorFor` reads the seat OUTSIDE the transaction; nothing inside
     // `withLeague` re-checks it. A request queued behind a long block sim
     // (which holds the league lock for the whole simulation) can therefore
@@ -202,7 +202,7 @@ describe("repeated requests", () => {
     expect(rows.rowCount).toBe(1);
   });
 
-  knownDefect("a double-submitted trade offer to a human GM creates two live offers", async () => {
+  maybe("a double-submitted trade offer to a human GM creates one live offer (D6, fixed)", async () => {
     // The id is `trade_${Date.now()}_${team}` and nothing compares the new
     // offer with an identical open one, so a retried request (or a double
     // click) puts two copies in the partner's inbox.

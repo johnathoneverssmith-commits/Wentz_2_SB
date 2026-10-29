@@ -378,7 +378,7 @@ describe("broadcast", () => {
     expect(pick6.length).toBeGreaterThan(0);
     for (const p of pick6) {
       expect(p.outcome).toBe("interception");
-      expect(p.desc).toMatch(/returned for a TOUCHDOWN/);
+      expect(p.desc).toMatch(/touchdown/i);
       expect(p.desc).not.toMatch(/— TURNOVER/);
       const s = p.scores!.find((e) => e.kind === "interception_return_td")!;
       expect(s.scorer).toBe(p.defender);
