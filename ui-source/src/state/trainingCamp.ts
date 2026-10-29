@@ -5,6 +5,8 @@ import { Rng } from "@/sim/rng";
 import { agingDelta } from "@/sim/MockSimulationService";
 import { careerShape } from "@/sim/careerShape";
 import { agingBalance } from "./draftSupply";
+import { expectedAgingDelta } from "@/sim/MockSimulationService";
+import { UNITS } from "./unitValue";
 
 import { applyCoachToDelta, coachModifiersFor, developmentRoll, roundBy } from "./coachEffects";
 import { ratingOf } from "./coachingDraft";
@@ -52,7 +54,28 @@ export interface TrainingCampPlan {
   offensiveFocus: OffensiveFocus | null;
   defensiveFocus: DefensiveFocus | null;
   submitted: boolean;
+  /**
+   * How many camps in a row (before this one) this team has chosen this same focus, set when the camp runs.
+   * Absent on a plan from before streaks were kept, which reads as 0.
+   */
+  offensiveStreak?: number;
+  defensiveStreak?: number;
 }
+
+/**
+ * What a team did at the camp before this one: its two focuses and how long it had held each. Kept inside the camp
+ * state (no new table, no migration) because the camp is replaced every season; it is carried over at the moment
+ * the new camp opens, and only from the season immediately before. It belongs to the team, never to a GM.
+ */
+export interface CampPrior {
+  offensiveFocus: OffensiveFocus | null;
+  defensiveFocus: DefensiveFocus | null;
+  offensiveStreak: number;
+  defensiveStreak: number;
+}
+
+/** Each consecutive repeat of a focus keeps this share of the strength the one before had. */
+export const REPEAT_DECAY = 0.8;
 
 export interface TrainingCampResult {
   playerId: string;
@@ -67,6 +90,8 @@ export interface TrainingCampState {
   results: Record<string, TrainingCampResult[]>;
   /** The season these plans and results belong to. */
   season?: number;
+  /** Last season's choices, by team: the repeat history. Absent in a save from before it was kept, or after a skipped season. */
+  prior?: Record<string, CampPrior>;
 }
 
 export function emptyPlan(): TrainingCampPlan {
@@ -91,7 +116,30 @@ export function emptyPlan(): TrainingCampPlan {
  */
 export function beginTrainingCamp(s: LeagueState): void {
   if (s.trainingCamp && s.trainingCamp.season === s.season) return;
-  s.trainingCamp = { plans: {}, results: {}, season: s.season };
+  // the repeat history is read off the camp this one replaces, and only when it was last season's
+  const prev = s.trainingCamp;
+  const prior: Record<string, CampPrior> = {};
+  if (prev && prev.season === s.season - 1) {
+    for (const [team, plan] of Object.entries(prev.plans)) {
+      if (!plan.submitted) continue;
+      prior[team] = {
+        offensiveFocus: plan.offensiveFocus,
+        defensiveFocus: plan.defensiveFocus,
+        offensiveStreak: plan.offensiveStreak ?? 0,
+        defensiveStreak: plan.defensiveStreak ?? 0,
+      };
+    }
+  }
+  s.trainingCamp = { plans: {}, results: {}, season: s.season, ...(Object.keys(prior).length ? { prior } : {}) };
+}
+
+/** Consecutive earlier camps in which `team` chose `focus` (0 for a first choice, a switch, a skipped year or an old save). */
+export function focusStreak(s: LeagueState, team: string, side: "offense" | "defense", focus: string | null): number {
+  const prior = s.trainingCamp?.prior?.[team];
+  if (!prior || !focus) return 0;
+  return side === "offense"
+    ? prior.offensiveFocus === focus ? prior.offensiveStreak + 1 : 0
+    : prior.defensiveFocus === focus ? prior.defensiveStreak + 1 : 0;
 }
 
 /**
@@ -102,8 +150,7 @@ export function beginTrainingCamp(s: LeagueState): void {
  */
 export function openTrainingCamp(s: LeagueState, humanTeams: Set<string>): Player[] {
   const fresh = s.trainingCamp?.season !== s.season;
-  if (fresh) s.trainingCamp = null;
-  beginTrainingCamp(s);
+  beginTrainingCamp(s); // carries last season's choices over before it replaces the camp
   runCpuTrainingCamps(s, humanTeams);
   // the underpaid stars decide whether to report (`startHoldouts`), once a season
   return fresh ? startHoldouts(s, humanTeams) : [];
@@ -189,8 +236,12 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
   const camp = s.trainingCamp!;
   const results: TrainingCampResult[] = [];
 
-  const offStrength = focusStrength(coordinatorFor(s, teamCode, plan.offensiveFocus ?? "QB"));
-  const defStrength = focusStrength(coordinatorFor(s, teamCode, plan.defensiveFocus ?? "DL"));
+  // a focus held for several camps running is worth a little less each time; the streak comes from last
+  // season's stored choice, so running the same plan again (a retry) gives the same camp
+  const offensiveStreak = focusStreak(s, teamCode, "offense", plan.offensiveFocus);
+  const defensiveStreak = focusStreak(s, teamCode, "defense", plan.defensiveFocus);
+  const offStrength = focusStrength(coordinatorFor(s, teamCode, plan.offensiveFocus ?? "QB")) * REPEAT_DECAY ** offensiveStreak;
+  const defStrength = focusStrength(coordinatorFor(s, teamCode, plan.defensiveFocus ?? "DL")) * REPEAT_DECAY ** defensiveStreak;
 
   const balance = agingBalance(s);
   const rookiePolicy = gamePlanFor(s, teamCode).rookies;
@@ -241,11 +292,39 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
     results.push({ playerId: p.id, position: p.position, previous, delta: next - previous, next });
   }
 
-  camp.plans[teamCode] = { ...plan, submitted: true };
+  camp.plans[teamCode] = { ...plan, submitted: true, offensiveStreak, defensiveStreak };
   camp.results[teamCode] = results;
 }
 
-/** CPU camps: concentrate where the roster is thinnest, and spend nothing. */
+/**
+ * What focusing `group` is worth to `team` this camp, in the units `unitValue.ts` measures (points of margin per rating
+ * point across a unit): for each starter the unit counts, his share of the unit's weight times how far he is still
+ * expected to move this year. A prime-age starter is worth nothing to focus (nothing to speed up or slow), a young
+ * starter with room or a declining one is. Shaped by his own career (`careerShape`), as the camp will apply it.
+ */
+export function focusGroupValue(s: LeagueState, team: string, group: string): number {
+  const positions = (COACH_POSITION_GROUPS as Record<string, readonly string[]>)[group] ?? [];
+  const roster = Object.values(s.players).filter((p) => p.nfl_team === team && !p.retired && !p.free_agent);
+  let value = 0;
+  for (const unit of Object.values(UNITS)) {
+    const slotsInUnit = Object.values(unit.slots).reduce((a, b) => a + b, 0);
+    for (const [position, slots] of Object.entries(unit.slots)) {
+      if (!positions.includes(position)) continue;
+      const starters = roster.filter((p) => p.position === position).sort((a, b) => b.overall - a.overall).slice(0, slots);
+      for (const p of starters) {
+        const shape = careerShape(p);
+        const dev = p.dev_age_threshold + shape.devShift;
+        const decline = Math.max(dev + 1, p.decline_age_threshold + shape.declineShift);
+        const room = p.potential === undefined ? undefined : p.potential - p.overall;
+        const mean = expectedAgingDelta(p.age, dev, decline, room) * (p.age < dev ? shape.growth : p.age >= decline ? shape.slope : 1);
+        value += (unit.weight / slotsInUnit) * Math.abs(mean);
+      }
+    }
+  }
+  return value;
+}
+
+/** CPU camps: put the focus where a camp adds the most strength, and spend nothing. */
 export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): void {
   beginTrainingCamp(s);
   for (const teamCode of Object.keys(s.teams)) {
@@ -253,51 +332,41 @@ export function runCpuTrainingCamps(s: LeagueState, humanTeams: Set<string>): vo
     if (s.trainingCamp!.plans[teamCode]?.submitted) continue;
 
     // AI GM season strategy (§11): a bounded group preference on top of the
-    // shared weakest-group evaluator. `strategyWeaknessMultiplier` only ever
-    // amplifies the real weakness signal (high-floor), and the additive group
-    // bonus is small enough that a catastrophically weak group still wins its
-    // own focus regardless of what the strategy would otherwise prefer.
+    // value score below. `strategyWeaknessMultiplier` only ever amplifies the
+    // value signal (high-floor), and the additive group bonus stays small
+    // enough that a group with far more to gain still wins its own focus.
     const strategy = strategyOf(s, teamCode);
     // AI Difficulty (§18): focus-selection quality only — the optimized
     // development magnitudes in runTrainingCamp never change. Casual reads
-    // the roster's weakness noisily; Expert adds a small tie-break toward
-    // the group with more players still in their developing years, on top
-    // of the same exact weakness signal every other level uses.
+    // the roster's value noisily; Expert reads it exactly.
     const difficulty = difficultyFor(s, teamCode);
-    const weakest = (groups: readonly string[]): string => {
+    // PD-3: a group's worth is what a camp can actually add to the team's strength — its starters' unit weights
+    // times how much each is still expected to move (growing or declining, by his own career shape) — scaled to 0-10
+    // against the best group on that side, and cut by the repeat decay for a focus held several camps running.
+    const pickFocus = (groups: readonly string[], side: "offense" | "defense"): string => {
+      const values = groups.map((g) => focusGroupValue(s, teamCode, g));
+      const top = Math.max(...values);
       let best = groups[0]!;
       let bestScore = -Infinity;
-      for (const g of groups) {
-        const positions = COACH_POSITION_GROUPS[g as keyof typeof COACH_POSITION_GROUPS] ?? [];
-        const men = Object.values(s.players).filter(
-          (p) => p.nfl_team === teamCode && !p.retired && !p.free_agent && positions.includes(p.position),
-        );
-        const bestOvr = men.reduce((n, p) => Math.max(n, p.overall), 0);
+      groups.forEach((g, i) => {
         const noise =
           difficulty.evaluationNoise === 0
             ? 0
             : deterministicNoiseUnit(teamCode, s.season, "camp_focus", g) * difficulty.evaluationNoise;
-        const weakness = (77 - bestOvr) * strategyWeaknessMultiplier(strategy) + noise;
-        // Expert-level GMs only: up to +1.5, toward whichever group has the
-        // larger share of players still below their development-age threshold.
-        // (By the GM's own skill, so a sharp Competitive GM does a little of it
-        // and a weak Expert one less: full at no evaluation noise, none at
-        // Competitive's.)
-        const sharp = Math.max(0, 1 - difficulty.evaluationNoise / 0.8);
-        const developingShare =
-          sharp > 0 && men.length > 0 ? (sharp * men.filter((p) => p.age < p.dev_age_threshold).length) / men.length : 0;
-        const score = weakness + strategyGroupBonus(strategy, g as OffensiveFocus | DefensiveFocus) + developingShare * 1.5;
+        const repeat = REPEAT_DECAY ** focusStreak(s, teamCode, side, g);
+        const worth = top > 0 ? (10 * values[i]! * repeat) / top : 0;
+        const score = worth * strategyWeaknessMultiplier(strategy) + noise + strategyGroupBonus(strategy, g as OffensiveFocus | DefensiveFocus);
         if (score > bestScore) {
           bestScore = score;
           best = g;
         }
-      }
+      });
       return best;
     };
 
     runTrainingCamp(s, teamCode, {
-      offensiveFocus: weakest(OFFENSIVE_FOCUSES) as OffensiveFocus,
-      defensiveFocus: weakest(DEFENSIVE_FOCUSES) as DefensiveFocus,
+      offensiveFocus: pickFocus(OFFENSIVE_FOCUSES, "offense") as OffensiveFocus,
+      defensiveFocus: pickFocus(DEFENSIVE_FOCUSES, "defense") as DefensiveFocus,
       submitted: true,
     });
   }
