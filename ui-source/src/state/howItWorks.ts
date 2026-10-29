@@ -1,4 +1,6 @@
-import { NEUTRAL_COACH_OVERALL } from "./coachEffects.ts";
+import { COACH_TUNING, NEUTRAL_COACH_OVERALL } from "./coachEffects.ts";
+
+const pctOf = (x: number): string => `${Math.round(x * 1000) / 10}%`;
 import { DRAFT_ROUNDS } from "./draftPicks.ts";
 import { FIRE_BELOW } from "./hotSeat.ts";
 import { FA_ROUNDS_MAX } from "./rules.ts";
@@ -146,7 +148,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         heading: "Who grows",
         body: [
           "Players below their development age grow by an amount set by the room between their rating and their potential: high-ceiling prospects can be stars by 24 and low-ceiling ones plateau. The youngest grow fastest, and three or more years of growth left counts in full.",
-          `Coaches are neutral at ${NEUTRAL_COACH_OVERALL}; each point above speeds growth by 1.5%, each point below slows it by 1.5%.`,
+          `Coaches are neutral at ${NEUTRAL_COACH_OVERALL}; within ${COACH_TUNING.INNER_POINTS} points each point above speeds growth by ${pctOf(COACH_TUNING.INNER_SWING_PER_OVR)}, each point below slows it by as much, and past that a point is worth ${pctOf(COACH_TUNING.OUTER_SWING_PER_OVR)}, so a staff of stars helps but cannot outgrow its roster. The head coach sets the program for every group: ${pctOf(COACH_TUNING.HEAD_COACH_SWING_PER_OVR)} a point on top of the position coach.`,
         ],
       },
       {
@@ -166,7 +168,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         heading: "Decline",
         body: [
           "Between a player's development age and his decline age his rating barely moves. Past the decline age he loses points every year, more each year than the last, between one and seven a season. The ages are set per player, by position.",
-          `The same coach scale applies: a position coach above ${NEUTRAL_COACH_OVERALL} makes the decline land 1.5% lighter per point, below it 1.5% heavier. Coaching changes the size of the move, never when a career turns.`,
+          `The same coach scale applies: a position coach above ${NEUTRAL_COACH_OVERALL} makes the decline land lighter, one below it heavier, and the head coach's program counts too (never past ${Math.round((1 - COACH_TUNING.MIN_REGRESSION) * 100)}% lighter). Coaching changes the size of the move, never when a career turns.`,
         ],
       },
       {
@@ -340,7 +342,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         heading: "Between seasons",
         body: [
           "The nine position coaches never touch a play. They scale how fast their group's players grow, how fast the older ones fall off, and (the medical staff) how long injuries last.",
-          `${NEUTRAL_COACH_OVERALL} is neutral. Every point above or below moves growth and decline by 1.5% and recovery time by 1%, the same distance either way, so a bad hire costs what a good one gains. Nothing a coach does changes when a career turns.`,
+          `${NEUTRAL_COACH_OVERALL} is neutral. Within ${COACH_TUNING.INNER_POINTS} points every point above or below moves growth and decline by ${pctOf(COACH_TUNING.INNER_SWING_PER_OVR)} (less beyond that), and recovery time by 1%, the same distance either way, so a bad hire costs what a good one gains. The head coach adds a smaller ${pctOf(COACH_TUNING.HEAD_COACH_SWING_PER_OVR)} a point to every position group. Small effects are rounded by a seeded draw, so they show up over a roster even when one player's move is a whole number. Nothing a coach does changes when a career turns.`,
         ],
       },
     ],

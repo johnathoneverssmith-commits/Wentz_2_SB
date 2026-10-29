@@ -77,3 +77,44 @@ describe("retirementOutcomes", () => {
     expect(hurtRetirements).toBeGreaterThan(cleanRetirements);
   });
 });
+
+describe("retirementOutcomes is independent of list order and membership", () => {
+  const sim = new MockSimulationService();
+  const league = () => createLeague(3, { ...DEFAULT_CONFIG, fantasyDraft: false });
+  const decide = (season: number, ps: Player[]) => new Map(sim.retirementOutcomes(season, ps).map((o) => [o.playerId, o.decision]));
+
+  it("gives each player the same decision however the array is ordered", () => {
+    const ps = Object.values(league().players).filter((p) => !p.retired);
+    const a = decide(2030, ps);
+    expect(a.size).toBeGreaterThan(50);
+    expect([...decide(2030, [...ps].reverse())]).toEqual(expect.arrayContaining([...a]));
+    const shuffled = [...ps].sort((x, y) => (x.id < y.id ? 1 : -1)).sort((x, y) => x.age - y.age);
+    expect(decide(2030, shuffled)).toEqual(a);
+  });
+
+  it("does not change when other players are added or removed", () => {
+    const ps = Object.values(league().players).filter((p) => !p.retired);
+    const a = decide(2030, ps);
+    const half = decide(2030, ps.filter((_, i) => i % 2 === 0));
+    for (const [id, v] of half) expect(a.get(id)).toBe(v);
+  });
+
+  it("is the same after a save and reload (JSON round trip)", () => {
+    const s = league();
+    const before = decide(2030, Object.values(s.players));
+    const reloaded = JSON.parse(JSON.stringify(s)) as typeof s;
+    expect(decide(2030, Object.values(reloaded.players))).toEqual(before);
+  });
+
+  it("varies across seasons, and does not decide every eligible player the same way", () => {
+    const ps = Object.values(league().players);
+    const a = decide(2030, ps);
+    const b = decide(2031, ps);
+    let differ = 0;
+    for (const [id, v] of a) if (b.has(id) && b.get(id) !== v) differ++;
+    expect(differ).toBeGreaterThan(0);
+    const retiring = [...a.values()].filter((d) => d === "retiring").length;
+    expect(retiring).toBeGreaterThan(0);
+    expect(retiring).toBeLessThan(a.size);
+  });
+});
