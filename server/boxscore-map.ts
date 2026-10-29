@@ -21,6 +21,7 @@
  *   played, not a calibrated stat model — the UI says as much where it shows
  *   season leaderboards.
  */
+import { narrateScoreLine } from "../src/engine/narration.js";
 import type { TeamBox } from "../src/engine/boxscore.js";
 import type { DriveRecord, GameEvent, PlayRec, ScoreEvent as LoggedScore } from "../src/engine/sim.js";
 import type { Player } from "../src/schema/player.js";
@@ -339,34 +340,6 @@ function describeScore(e: ScoreEvent): string {
   return `${who(p.targetOrRusher)} ${yds}-yard touchdown run`;
 }
 
-/** One line of the scoring summary for a logged score, saying only what the trace and the event carry. */
-function describeLogged(e: LoggedScore, trace: PlayRec[]): string {
-  const p = e.playIndex === null ? undefined : trace[e.playIndex];
-  const yds = p ? Math.round(p.gained) : 0;
-  switch (e.kind) {
-    case "field_goal":
-      if (p?.distance === undefined) return "Field goal";
-      return p.kicker ? `${p.distance}-yard field goal, ${p.kicker}` : `${p.distance}-yard field goal`;
-    case "interception_return_td":
-      return e.scorer ? `${e.scorer} returns the interception for a touchdown` : "Interception returned for a touchdown";
-    case "fumble_return_td":
-      return "Fumble returned for a touchdown";
-    case "punt_return_td":
-      return e.scorer ? `${e.scorer} punt return for a touchdown` : "Punt returned for a touchdown";
-    case "kick_return_td":
-      return "Kickoff returned for a touchdown";
-    case "safety": {
-      if (p?.call === "sack" && p.defender && p.passer) return `Safety — ${p.defender} sacks ${p.passer} in the end zone`;
-      return "Safety";
-    }
-    case "touchdown":
-      if (p?.call === "pass") return `${p.passer ?? "The offense"} ${yds}-yard touchdown pass to ${p.targetOrRusher ?? "a receiver"}`;
-      return `${p?.targetOrRusher ?? "The offense"} ${yds}-yard touchdown run`;
-    default:
-      return e.points === 1 ? "Extra point" : "Two-point conversion";
-  }
-}
-
 /**
  * The scoring summary straight from the engine's score log.
  *
@@ -397,7 +370,7 @@ function scoringPlaysFromLog(
     out.push({
       quarter: e.quarter,
       team: e.side === 0 ? homeTeam : awayTeam,
-      description: describeLogged(e, trace),
+      description: narrateScoreLine(e, e.playIndex === null ? undefined : trace[e.playIndex]),
       homeScore: e.scoreAfter[0],
       awayScore: e.scoreAfter[1],
     });

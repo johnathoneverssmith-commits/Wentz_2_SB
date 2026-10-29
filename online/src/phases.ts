@@ -78,6 +78,7 @@ import { MockSimulationService } from "@/sim/MockSimulationService";
 
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
 import { noteEvent } from "./notes.js";
+import { assertSeatHeld, type Seat } from "./seat.js";
 import { endHoldouts } from "@/state/contracts.ts";
 import { ensureHotSeat, placeUnemployed } from "@/state/hotSeat.ts";
 import { syncAiGms } from "@/state/aiGms.ts";
@@ -164,8 +165,11 @@ export async function readyUp(
   ready: boolean,
   /** The stage the GM was looking at when they pressed. */
   seenStage?: string,
+  /** Who is asking, when it is a request rather than the server's own doing: re-checked under the lock. */
+  seat?: Seat,
 ): Promise<AdvanceOutcome> {
-  const { result } = await withLeague(leagueId, async ({ state, league }) => {
+  const { result } = await withLeague(leagueId, async ({ state, league }, client) => {
+    if (seat) await assertSeatHeld(client, seat, state);
     // A ready is for the stage on the GM's screen. When the league has
     // already left it (their click raced the last GM's), applying it to the
     // new stage committed them to something they had not seen — twice in a
@@ -522,6 +526,15 @@ export function onStageEntered(state: LeagueState, from?: string): void {
     state.freeAgencyEvent = null;
     beginFreeAgencyEvent(state, "offseason");
     runCpuTurns(state, humanTeamsOf(state));
+    // The draft class is signed (and the undrafted sent to the market) before anything can end the market. With no
+    // human on the clock, `runPendingCpuTurns` below closes it on the spot and the league lands on the summary
+    // stage inside this very call, where the `state.stage === "freeAgency"` check this used to wait behind never held:
+    // about 320 rookies a season were never created. Both signers skip anyone already handled, so a second pass is a no-op.
+    if (from === "offseasonDraftSummary") {
+      reportStaffMoves(state, "— the draft picks left unsigned", () => signUnresolvedHumanPicks(state));
+      signAiDraftPicks(state);
+      signUndraftedAsFreeAgents(state);
+    }
     // every human may have skipped it: nothing left to wait for
     runPendingCpuTurns(state);
   }
@@ -638,11 +651,6 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // this season's draft is over: its picks are spent (see the store)
   if (from === "offseasonDraft") forgetSpentPicks(state, state.season + 1);
 
-  if (from === "offseasonDraftSummary" && state.stage === "freeAgency") {
-    reportStaffMoves(state, "— the draft picks left unsigned", () => signUnresolvedHumanPicks(state));
-    signAiDraftPicks(state);
-    signUndraftedAsFreeAgents(state);
-  }
   // see the same note in the store: the free-agency stage is gone, so the AI's
   // draft-class signings and the roster trim hang off the depth-chart gate
   if (from === "offseasonSignings" && state.stage === "offseasonDepthChart") {

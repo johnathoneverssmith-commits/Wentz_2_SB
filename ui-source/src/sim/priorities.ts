@@ -34,16 +34,28 @@ export function playerPriorities(p: Player): FreePriorities {
   };
 }
 
+/**
+ * What a position or medical coach asks relative to his rating, by how much his
+ * job is worth (`docs/PD1_coaching_calibration.md`): the lines and the secondary
+ * move a team most, the special-teams coach barely at all.
+ */
+const POSITION_COACH_PAY_SCALE: Record<string, number> = {
+  QB: 0.5, OL: 0.5, DL: 0.5, DB: 0.5, WR: 0.45, LB: 0.35, RB: 0.35, MED: 0.35, ST: 0.2,
+};
+
 /** A coach's negotiation priorities + opening expectation. */
 export function coachPriorities(c: Coach): FreePriorities {
   const ranked = rankTags(c.id, ["salary", "roster talent", "control of scheme", "front-office trust", "market size"]);
-  const iq = c.playCallIq ?? c.gameManagement ?? 70;
+  // the nine development coaches carry `overall` rather than the play-calling
+  // fields; reading only those priced every one of them as a 70, so a 99 and a
+  // 40 position coach asked for the same money
+  const iq = c.playCallIq ?? c.gameManagement ?? c.overall ?? 70;
   // `(negative) ** 1.6` is NaN, and the engine's real coaches include plenty
   // below 55 — a DC rated 52 was asking for $NaNM a year on the staff screen.
   // and the job itself: a head coach out-earns his coordinators, who
   // out-earn the position coaches — the special-teams coach used to be paid
   // more than the head coach he worked for
-  const roleScale = c.role === "HC" ? 2.2 : c.role === "OC" || c.role === "DC" ? 1.2 : 0.55;
+  const roleScale = c.role === "HC" ? 2.2 : c.role === "OC" || c.role === "DC" ? 1.2 : POSITION_COACH_PAY_SCALE[c.role] ?? 0.45;
   const base = Math.max(1.5, Math.max(0, (iq - 55) / 10) ** 1.6 + seededFloat(c.id, 9) * 2) * roleScale;
   return {
     ranked,

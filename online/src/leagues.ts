@@ -364,6 +364,12 @@ export async function vacateSeat(
     const row = seat.rows[0];
     if (!row || !row.user_id) throw new ActionError("Nobody holds that team.");
     if (!leaving && row.user_id === commissionerId) throw new ActionError("That's your own team.");
+    // a GM leaving their own seat: it must still be theirs, under the lock —
+    // it was looked up before the lock, and may have been vacated and
+    // claimed by someone else since
+    if (leaving && row.user_id !== commissionerId) {
+      throw new ActionError("That seat is no longer yours, so nothing was changed.", 409);
+    }
     await client.query(`UPDATE franchises SET user_id = NULL WHERE league_id = $1 AND team_code = $2`, [
       leagueId,
       teamCode,
