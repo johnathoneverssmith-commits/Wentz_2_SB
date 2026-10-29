@@ -1,5 +1,7 @@
 # Simulation defect: the second-half kickoff is overwritten when Q2 ends mid-play
 
+**Fixed in the change that closes issue #53** (`holdRoll` in `src/engine/sim.ts`, regression tests in `test/engine-half-kickoff.test.ts`). The text below is the original diagnosis.
+
 Found during the play-by-play audit (PBP-1). **Not fixed in PBP-1**: correcting it changes who has the ball and where, so it moves
 scoring and belongs to the simulation-realism workstream, which should re-run the §22/§23 calibration after the change.
 

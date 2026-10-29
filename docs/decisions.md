@@ -1724,6 +1724,24 @@ splits possessions even when the same team receives it (second half, overtime): 
   The event log and the broadcast use quarter 5+ and the overtime clock; `PlayRec.quarter`/`clock` are unchanged.
 - A fumble return names no scorer (the engine names who forced the fumble, not who recovered it); a kickoff return names none either.
 
+## The second-half kickoff is the last word (issue #53, 2026-10)
+
+`advanceClock` spends a snap's clock before the snap's result is applied, so a play that used up the second quarter rolled the quarter
+inside the play: the half kickoff set the second half's possession and the rest of the play then overwrote it with the old spot and down,
+or handed the ball back. The roll is now held until the play has resolved (`holdRoll`, released by `play()`); pre-snap runoffs
+(`burn`: a dead-ball foul's four seconds, a spike, a kneel) still roll at once because the snap that follows has to be played from the
+kickoff. The hand-rolled end-of-half field goal and the touchdown/safety paths are unchanged.
+
+Measured on 2,906 paired games (franchise options, 32 reference rosters): the first half is byte-for-byte unchanged (21.34 vs 21.35
+points a game); the second half falls 23.94 -> 22.73, so points a team-game 22.78 -> 22.18 (-2.6%), drives 10.66 -> 10.50, the half-kickoff
+receiver's win rate 51.4% -> 50.2%, the average first second-half snap 54 -> 71 yards from the end zone it attacks. In the franchise
+block path (`online/test/passing-volume.test.ts`, 24 leagues, three weeks) points a team-game fell 21.82 -> 21.25.
+
+Not recalibrated, on purpose: points are now 1-3% under the NFL's 22.6-22.9, and the second half still outscores the first (1.065x,
+NFL 2023-24 0.97x) while the first half runs 5% light. Both are for a calibration pass that owns them. `analysis/engine/sim.py` has not
+been given the fix. The pinned pool-free hash in `test/team-strength.test.ts` and two pinned overtime games in
+`test/pbp-scoring-events.test.ts` were re-recorded, and the passing-volume baseline was re-measured on its own seeds.
+
 ## Play-by-play narration, PBP-2 (2026-10)
 
 **One narration** (`src/engine/narration.ts`, pure, no simulation imports) replaces the two that existed: `describe()` in `broadcast.ts` (no names) and

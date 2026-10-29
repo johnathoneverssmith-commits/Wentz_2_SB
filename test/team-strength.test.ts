@@ -107,7 +107,10 @@ describe("what it must not disturb", () => {
     // the hash of the first 60 pool-free games, recorded before this channel
     // existed and unchanged by it. Re-recorded once, for an engine fix that
     // is not this channel: a touchdown on the last snap of the first half was
-    // credited to the team receiving the second-half kickoff.
-    expect((h >>> 0).toString(16)).toBe("e2147581");
+    // credited to the team receiving the second-half kickoff. Re-recorded a
+    // second time (issue #53) for the fix that makes the second-half kickoff the
+    // last word when the second quarter ends mid-play, which moves the random
+    // stream of every game that reaches the half that way.
+    expect((h >>> 0).toString(16)).toBe("b9effb52");
   }, 120_000);
 });

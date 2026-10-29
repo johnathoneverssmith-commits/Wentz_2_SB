@@ -230,8 +230,11 @@ describe("overtime score clocks", () => {
       simulateGame(seed, home, away, { trace: true, injuries: true, overtime: "nfl" })
         .eventLog!.filter((e): e is ScoreEvent => e.type === "score" && e.quarter >= 5 && e.kind === "touchdown")
         .map((e) => e.clock);
-    expect(at(2, "GB", "CHI")).toEqual(["8:31"]);
-    expect(at(8, "KC", "BUF")).toEqual(["8:12", "5:54"]);
+    // Re-pinned (seeds and values) when the second-half kickoff stopped being overwritten mid-play (issue #53): that moved every
+    // game's random stream after the first half, so the old seeds no longer reach overtime. These are the clocks of the snaps that
+    // scored in the new games.
+    expect(at(16, "GB", "CHI")).toEqual(["2:37"]);
+    expect(at(2, "KC", "BUF")).toEqual(["5:59", "4:48", "4:29"]);
   });
 
   it("never stamp a scoring snap at 0:00, and give a conversion its touchdown's time", () => {
