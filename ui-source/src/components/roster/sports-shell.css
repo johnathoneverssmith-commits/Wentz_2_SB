@@ -1,0 +1,27 @@
+.sports-shell {
+  --sports-teal: #13e9bc; --sports-purple: #b68aff; --sports-gold: #f7cf6e;
+  --cap-ring-track: #476575; background: radial-gradient(ellipse at 55% -10%, #0d2832, transparent 55%), #061016;
+}
+.sports-icon { width: 24px; height: 24px; flex-shrink: 0; }
+.sports-crown { width: 32px; height: 22px; color: var(--sports-gold, #f7cf6e); }
+body .sports-shell .rail { width: 224px; padding: 16px 10px; border-right: 1px solid #28434d; background: linear-gradient(#031117e8 45%, #031117c9 78%, #031117bc), url('/art/franchise/stadium-city.webp') center bottom / cover; }
+body .sports-shell .rail .brand { position: relative; display: block; text-align: center; padding: 30px 2px 18px; }
+body .sports-shell .brand .mark { position: absolute; left: calc(50% - 16px); top: 0; width: 32px; height: 26px; border: 0; border-radius: 0; background: transparent; }
+body .sports-shell .brand b { display: block; font: italic 900 29px/1.15 Impact, "Arial Narrow", sans-serif; letter-spacing: .01em; color: #d9dcf7; text-shadow: 0 3px 0 #0007; }
+body .sports-shell .brand > div > span { color: #b3c0d0; margin-top: 7px; font-size: 10px; }
+body .sports-shell .rail a { gap: 11px; padding: 9px 12px; min-height: 38px; font-size: 13px; border-radius: 10px; color: #c4cce5; }
+body .sports-shell .rail a.active { color: #f4ffff; border-color: #17daca7a; background: linear-gradient(100deg, #05dab524, #0e5b5c55); box-shadow: inset 0 0 18px #1cd7c20b, 0 0 12px #00ffd505; }
+.sports-shell .sports-nav-icon { width: 19px; height: 19px; color: #aaaee8; }
+.sports-shell a.active .sports-nav-icon { color: var(--sports-teal); }
+body .sports-shell .railgroup { font-size: 10px; padding-top: 12px; color: #9bacbf; }
+body .sports-shell .stagechip { background: #061019b3; border-color: #55707c66; color: #b4c9d5; }
+body .sports-shell .app-main { padding: 16px 24px 32px; min-width: 0; }
+@media (max-width: 900px) {
+  body .sports-shell .rail { width: 100%; padding: 8px 10px; background: #05151de8; }
+  body .sports-shell .rail .brand { padding: 3px 0; }
+  body .sports-shell .brand .mark { display: none; }
+  body .sports-shell .brand b { font-size: 20px; }
+  body .sports-shell .sports-nav-icon { width: 17px; height: 17px; }
+  body .sports-shell .app-main { padding: 12px 12px 32px; }
+}
+

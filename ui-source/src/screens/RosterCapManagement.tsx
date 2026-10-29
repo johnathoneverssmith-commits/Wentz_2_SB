@@ -1,20 +1,26 @@
+import { SportsIcon, SportsStat, TeamCrest } from "@/components/roster/SportsPresentation";
+import { viewerWeek } from "@/state/reveal";
+import { getMotionLevel } from "@/motion/level";
 import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
 import { StaggerList } from "@/motion/Stagger";
 import { onlineSession } from "@/state/online";
 import { useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
-import { displaySeason } from "@/state/stageMachine";
-import { useNavigate } from "react-router-dom";
+import { displaySeason, STAGE_LABEL } from "@/state/stageMachine";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { OvrPill } from "@/components/bits";
+import { PlayerStatsModal } from "@/components/PlayerStatsModal";
+import { ContractFacts, RosterFinance, StaffCost } from "@/components/roster/RosterFinance";
+import { MotionMeter, MotionSurface } from "@/motion/MotionSurface";
+import { AnimatedNumber } from "@/motion/AnimatedNumber";
+import "@/components/roster/roster.css";
 import { ContractNegotiation } from "@/components/ContractNegotiation";
-import { ExpandableRow } from "@/components/ExpandableRow";
-import { RowHeader } from "@/components/ListFilter";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Card, CardHeader, Footer, Panel, Tabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { UnitGrades } from "@/components/UnitGrades";
-import { TEAMS_BY_CODE } from "@/data/teams";
+import { teamFullName } from "@/data/teams";
 import {
   POSITION_GROUPS,
   POSITION_TO_GROUP,
@@ -60,7 +66,17 @@ export function RosterCapManagement() {
   const nav = useNavigate();
   const s = useStore();
   const actions = useLeagueActions();
-  const { active, setActive } = useTabs("roster");
+  const [params, setParams] = useSearchParams();
+  const requestedTab = params.get("tab");
+  const active = requestedTab && ["cap", "units", "needs"].includes(requestedTab) ? requestedTab : "roster";
+  const setActive = (tab: string): void => {
+    const next = new URLSearchParams(params);
+    if (tab === "roster") next.delete("tab"); else next.set("tab", tab);
+    setParams(next, { replace: true });
+  };
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const dossierRef = useRef<HTMLElement>(null);
+  const [inspecting, setInspecting] = useState<string | null>(null);
   const [group, setGroup] = useState<PositionGroup>("QB");
   const [confirming, setConfirming] = useState<string | null>(null);
   const [restructuring, setRestructuring] = useState<string | null>(null);
@@ -135,6 +151,7 @@ export function RosterCapManagement() {
     const j = i + by;
     if (i < 0 || j < 0 || j >= line.length) return;
     [line[i], line[j]] = [line[j]!, line[i]!];
+    setSelectedId(p.id);
     nudgingRef.current = true;
     void actions
       .setDepthOrder(p.position, line)
@@ -174,257 +191,31 @@ export function RosterCapManagement() {
     special: roster.filter((p) => ["K", "P"].includes(p.position)).reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0),
   };
 
-  return (
-    <Card maxWidth={820}>
-      <CardHeader
-        badge={TEAMS_BY_CODE[code]!.abbr}
-        title="Roster & Cap"
-        subtitle={`${TEAMS_BY_CODE[code]!.label} · ${isDepthChartStage ? "Re-order the depth chart" : "Roster management"}`}
-        action={
-          <button
-            className="btn-ghost"
-            onClick={() => nav("/trade")}
-            // it led to a "trading is closed" notice mid-block and after the deadline
-            disabled={tradesShut}
-            title={tradesShut ? (pastTradeDeadline(s) ? PAST_DEADLINE_MESSAGE : "Trading reopens at the next break in the season.") : undefined}
-          >
-            {/* the reason was a hover title, which a phone never shows */}
-            {tradesShut ? (pastTradeDeadline(s) ? "Past the deadline" : "Trading closed") : "Propose trade"}
-          </button>
-        }
-      />
-      <Ticker
-        stats={[
-          {
-            // this league's size, not the NFL's: a humans-only league has a handful
-            label: "Roster rank",
-            value: `${team.ratings.overallRank} of ${Object.keys(s.teams).length}`,
-            className: team.ratings.overallRank <= Object.keys(s.teams).length * 0.375 ? "good" : undefined,
-          },
-          { label: "Cap space", value: millions(capSpace), className: capSpace >= 0 ? "good" : "bad" },
-          { label: "Cap used", value: millions(capUsed), className: "sm" },
-          ...(team.cap.dead > 0 ? [{ label: "Dead money", value: millions(team.cap.dead), className: "sm bad" }] : []),
-          {
-            // the 53-man target makes the gap legible — teams are topped up
-            // to their starters only, the rest is yours to sign
-            label: "Roster",
-            value: (
-              <>
-                {activeCount}
-                <span style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 400 }}>
-                  {" "}/ 53{onIr > 0 ? ` · ${onIr} on IR` : ""}
-                </span>
-              </>
-            ),
-            className: activeCount < 46 || activeCount > 53 ? "bad" : undefined,
-          },
-        ]}
-      />
-      {/* legality is the contracts — dead money shrinks the room to add
-          anyone, but it can't make this roster illegal (reconciliation.ts) */}
-      {(overContracts > 0 || activeCount > 53) && (
-        <div className="notice bad" role="status">
-          <strong>Not season-legal yet.</strong>{" "}
-          {[
-            overContracts > 0 ? `${millions(overContracts)} over the cap` : null,
-            activeCount > 53 ? `${activeCount - 53} over the 53-man limit` : null,
-          ]
-            .filter(Boolean)
-            .join(" and ")}
-          . Release players below to get compliant — otherwise your staff makes
-          the cuts for you when the league advances to the preseason.
-        </div>
-      )}
-      {/* the staff fills every roster to 53 at the preseason: a GM who left
-          the depth chart at 43 met ten minimum-salary strangers there, and
-          nothing on this screen had said it would happen */}
-      {s.stage === "offseasonDepthChart" && activeCount < 53 && overContracts <= 0 && (
-        <div className="notice" role="status">
-          {/* depth signs at the $1M minimum; when it won't fit the fill makes
-              room by releasing contracts — and "sign your own first" beside
-              $0.2M of room was advice nobody could take */}
-          {53 - activeCount > capTotalM - contractsUsed(s, code) ? (
-            <>
-              You&rsquo;re {53 - activeCount} short of 53 with{" "}
-              {millions(Math.max(0, Math.round((capTotalM - contractsUsed(s, code)) * 10) / 10))} of cap room.{" "}
-              <strong>
-                When the preseason starts your staff signs about {millions(53 - activeCount)} of
-                minimum-salary depth and releases someone to afford it
-              </strong>{" "}
-              — make the cut yourself first if you&rsquo;d rather pick who.
-            </>
-          ) : (
-            <>
-              You&rsquo;re {53 - activeCount} short of 53. When the preseason starts your staff fills the
-              rest with minimum-salary depth from free agency — sign your own on the{" "}
-              <button type="button" className="btnlink" onClick={() => nav("/free-agency")}>
-                free-agency board
-              </button>{" "}
-              first if you&rsquo;d rather choose.
-            </>
-          )}
-        </div>
-      )}
-      <Tabs
-        tabs={[
-          { id: "roster", label: "Roster" },
-          { id: "cap", label: "Cap table" },
-          { id: "units", label: "Unit grades" },
-          { id: "needs", label: "Positional needs" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
 
-      <Panel id="roster" open={active === "roster"}>
-        {depthLocked && (
-          <div className="notice" role="status" style={{ marginBottom: 12 }}>
-            The depth chart and releases are locked while this stretch of games plays out — they
-            were played with today&rsquo;s roster. Both open again at the next break.
-          </div>
-        )}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
-            <select value={group} onChange={(e) => setGroup(e.target.value as PositionGroup)}>
-              {POSITION_GROUPS.map((g) => (
-                <option key={g} value={g}>
-                  {GROUP_LABEL[g]}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/* through the league actions, not the local store: online the
-              store-only reset never reached the server and the next refresh
-              put the old order back */}
-          <button
-            disabled={reordering || depthLocked}
-            onClick={() => {
-              // one batch and one download, and a refusal (the chart locks
-              // while a block of weeks plays out) is shown, not swallowed
-              setReordering(true);
-              void actions
-                .setDepthOrders(positionsInGroup.map((position) => ({ position, playerIds: [] })))
-                .then((r) => {
-                  if (!r.ok) setMoveNote({ id: "", ok: false, text: r.reason ?? "Couldn't reorder." });
-                })
-                .finally(() => setReordering(false));
-            }}
-          >
-            {reordering ? "Reordering…" : "Auto-reorder by overall"}
-          </button>
-        </div>
-        {moveNote?.id === "" && !moveNote.ok && (
-          <p className="form-error" role="status" style={{ margin: "-6px 0 12px" }}>
-            {moveNote.text}
-          </p>
-        )}
-
-        {ordered.length === 0 && (
-          <div className="emptystate">No players in this group.</div>
-        )}
-        <StaggerList className="rowlist roster-list">
-          {ordered.length > 0 && (
-            <RowHeader
-              gridTemplate={ROSTER_GRID}
-              labels={[
-                "#",
-                { label: "Player", align: "left" },
-                "Ovr",
-                "Age",
-                "Yrs",
-                { label: "Cap hit", align: "right" },
-                "",
-              ]}
-            />
-          )}
-          {ordered.map((p) => (
-            <ExpandableRow
-              key={p.id}
-              gridTemplate={ROSTER_GRID}
-              columns={
-                <>
-                  <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}</span>
-                  <span className="pname">
-                    {p.name} <span className="ppos">{posLabel(p.position)}</span>
-                    {p.injury_status && (
-                      <span
-                        title={`${p.injury_status.description}${p.injury_status.weeks_out_est ? `, ${p.injury_status.weeks_out_est[0]}-${p.injury_status.weeks_out_est[1]} weeks` : ""}`}
-                        style={{ marginLeft: 3, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}
-                      >
-                        {/* spoken it was "OTQ": the space, and the whole word for "Q" */}{" "}
-                        <span aria-hidden="true">
-                          {onInjuredReserve(p, s.stage) ? "IR" : p.injury_status.status === "questionable" ? "Q" : p.injury_status.status === "doubtful" ? "D" : "OUT"}
-                        </span>
-                        <span className="sr-only">
-                          {onInjuredReserve(p, s.stage) ? "injured reserve" : p.injury_status.status}
-                        </span>
-                      </span>
-                    )}
-                    {p.holdout === p.nfl_team && (
-                      <span
-                        title="Holding out for a new contract: he sits until he's extended or traded, or reports at the trade deadline"
-                        style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--notice)" }}
-                      >
-                        HOLDOUT
-                      </span>
-                    )}
-                    {p.contract?.franchise_tag_season === s.season && (
-                      <span title="Franchise-tagged for next season" style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--accent)" }}>
-                        TAG
-                      </span>
-                    )}
-                  </span>
-                  <OvrPill value={p.overall} />
-                  <span className="pcell" title={arcOf(p).hint}>
-                    {p.age}
-                    <span style={{ display: "block", fontSize: 9.5, color: arcOf(p).color }}>{arcOf(p).label}</span>
-                  </span>
-                  <span className="pcell">{p.contract ? `${p.contract.years_remaining}y` : "FA"}</span>
-                  <span style={{ fontSize: 13, textAlign: "right", fontWeight: 500 }}>
-                    {p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}
-                  </span>
-                </>
-              }
-              detail={
-                <>
-                  <div className="grid4">
-                    <div>
-                      <p>{displaySeason(s)} cap hit</p>
-                      <p>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</p>
-                    </div>
-                    <div>
-                      <p>Years left</p>
-                      <p>{p.contract?.years_remaining ?? 0}</p>
-                    </div>
-                    <div>
-                      <p>Guaranteed</p>
-                      <p>{p.contract ? millions(p.contract.guaranteed) : "—"}</p>
-                    </div>
-                    <div>
-                      <p>Scheme fit</p>
-                      {/* computed against the coordinators this team has right
-                          now, not a number frozen into the player: a hiring
-                          window changes every fit on the roster, and the
-                          engine's pool carries no `scheme_fit` at all, so the
-                          stored field read "—%" for every real player. */}
-                      <p>{sim.computeSchemeFit(p, oc, dc)}%</p>
-                    </div>
-                  </div>
-                  <div className="actions">
+  const selected = ordered.find(p => p.id === selectedId) ?? ordered[0];
+  const choosePlayer = (p: Player): void => {
+    setSelectedId(p.id);
+    setConfirming(null);
+    if (window.matchMedia("(max-width: 1050px)").matches) requestAnimationFrame(() => {
+      dossierRef.current?.focus({ preventScroll: true });
+      dossierRef.current?.scrollIntoView({ behavior: getMotionLevel() === "off" ? "auto" : "smooth", block: "start" });
+    });
+  };
+  const positionNav = <div className="position-pills" role="group" aria-label="Position group">{POSITION_GROUPS.map(g => <button type="button" key={g} title={GROUP_LABEL[g]} aria-pressed={group === g} onClick={() => { setGroup(g); setSelectedId(null); setConfirming(null); }}>{g}</button>)}</div>;
+  const playerActions = (p: Player) => <>                  <div className="actions">
                     <button
                       onClick={() => nudge(p, -1)}
                       disabled={depthLocked || lineAt(p.position)[0]?.id === p.id}
                       title={`Move up the ${posLabel(p.position)} depth chart`}
                     >
-                      Move up
+                      <SportsIcon name="up"/>Move up
                     </button>
                     <button
                       onClick={() => nudge(p, 1)}
                       disabled={depthLocked || lineAt(p.position).at(-1)?.id === p.id}
                       title={`Move down the ${posLabel(p.position)} depth chart`}
                     >
-                      Move down
+                      <SportsIcon name="down"/>Move down
                     </button>
                     <button
                       onClick={() => {
@@ -449,9 +240,8 @@ export function RosterCapManagement() {
                       disabled={restructuring === p.id || !previewRestructure(p, s.season, minSalaryM(s)).ok}
                       title={previewRestructure(p, s.season, minSalaryM(s)).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
                     >
-                      Restructure
+                      <SportsIcon name="coins"/>Restructure
                     </button>
-                    <button onClick={() => setExtending(p)}>Extend</button>
                     {p.contract?.years_remaining === 1 && (
                       <button
                         onClick={() => {
@@ -532,7 +322,7 @@ export function RosterCapManagement() {
                         disabled={depthLocked || !checkRelease(s, code, p.id).ok}
                         title={depthLocked ? "Releases open again at the next break." : checkRelease(s, code, p.id).reason}
                       >
-                        Release
+                        <SportsIcon name="trash"/>Release
                       </button>
                     )}
                   </div>
@@ -558,10 +348,217 @@ export function RosterCapManagement() {
                             .join(" ") ||
                           "A restructure moves money into later years; it doesn't make it go away. Releasing a player costs dead money this year: part of what's left on his deal.")}
                   </p>
-                </>
-              }
-            />
-          ))}
+</>;
+  const playerDossier = (p: Player, compact = false) => <aside ref={dossierRef} tabIndex={-1} data-player-id={p.id} data-compact={compact} className="player-dossier sports-panel" aria-label="Selected player">
+    <h2 className="sports-panel-title">{compact ? "Contract details" : "Player details"}</h2>
+    <div className="dossier-identity"><div className="dossier-portrait" aria-hidden="true"/><div><h3>{p.name}</h3><p>{posLabel(p.position)} · age {p.age}</p><strong>{p.overall} <small>OVR</small></strong><span className="depth-badge">{lineAt(p.position).indexOf(p) === 0 ? "First on depth chart" : "Depth " + (lineAt(p.position).indexOf(p) + 1)}</span></div></div>
+    {compact ? <section className="finance-cap-schedule" aria-label="Scheduled cap hits"><h3>Cap hits · remaining years</h3>{p.contract ? <dl>{p.contract.cap_hit_by_year.map((hit, i) => <div key={i}><dt>Remaining year {i + 1}</dt><dd>{millions(hit)}</dd></div>)}</dl> : <p>No contract on record.</p>}</section> : <ContractFacts contract={p.contract}/>}
+    <div className="dossier-actions"><button type="button" className="sports-action sports-purple" onClick={() => setInspecting(p.id)}><SportsIcon name="file"/>Player card</button><button type="button" className="sports-action sports-gold" onClick={() => setExtending(p)}><SportsIcon name="coins"/>Extend contract</button></div>
+    <details className="player-extra"><summary>{compact ? "Full contract & player details" : "More player details"}</summary>
+                  {compact && <ContractFacts contract={p.contract}/>}
+                  <div className="grid4">
+                    <div>
+                      <p>{displaySeason(s)} cap hit</p>
+                      <p>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</p>
+                    </div>
+                    <div>
+                      <p>Years left</p>
+                      <p>{p.contract?.years_remaining ?? 0}</p>
+                    </div>
+                    <div>
+                      <p>Guaranteed</p>
+                      <p>{p.contract ? millions(p.contract.guaranteed) : "—"}</p>
+                    </div>
+                    <div>
+                      <p>Scheme fit</p>
+                      {/* computed against the coordinators this team has right
+                          now, not a number frozen into the player: a hiring
+                          window changes every fit on the roster, and the
+                          engine's pool carries no `scheme_fit` at all, so the
+                          stored field read "—%" for every real player. */}
+                      <p>{sim.computeSchemeFit(p, oc, dc)}%</p>
+                    </div>
+                  </div>
+                  <div className="roster-player-rating"><span>Overall · {p.overall}</span><MotionMeter value={p.overall} label={`${p.name} overall`} tone="purple" /></div>
+
+</details>
+  </aside>;
+  return (
+    <div className="roster-workspace">
+    <Card maxWidth={1440}>
+      <header className="sports-page-header" data-team={code}><TeamCrest code={code}/><div><p className="sports-mode">Franchise mode</p><h1>{active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}</h1><p>{teamFullName(code)} · {displaySeason(s)} season · {STAGE_LABEL[s.stage]}{viewerWeek(s) ? " · Week " + viewerWeek(s) : ""}</p></div><div className="sports-header-action">          <button
+            className="btn-ghost"
+            onClick={() => nav("/trade")}
+            // it led to a "trading is closed" notice mid-block and after the deadline
+            disabled={tradesShut}
+            title={tradesShut ? (pastTradeDeadline(s) ? PAST_DEADLINE_MESSAGE : "Trading reopens at the next break in the season.") : undefined}
+          >
+            {/* the reason was a hover title, which a phone never shows */}
+            {tradesShut ? (pastTradeDeadline(s) ? "Past the deadline" : "Trading closed") : "Propose trade"}
+          </button></div></header>
+      <div className="sports-stat-grid">
+        {active === "cap" ? <>
+          <SportsStat icon="coins" label="Cap space" value={millions(capSpace)} note="Available player cap" tone="teal"/>
+          <SportsStat icon="file" label="Player cap" value={millions(capTotalM)} note="Salary cap total" tone="purple"/>
+        </> : <>
+          <SportsStat icon="roster" label="Roster" value={activeCount + " / 53"} note={onIr ? onIr + " on injured reserve" : "Active roster"} tone="teal"/>
+          <SportsStat icon="star" label="Team OVR" value={team.ratings.overall} note={"Rank " + team.ratings.overallRank + " of " + Object.keys(s.teams).length} tone="gold"/>
+          <SportsStat icon="coins" label="Cap space" value={millions(capSpace)} note="Available player cap" tone="purple"/>
+        </>}
+        <SportsStat icon="coins" label="Cap used" value={millions(capUsed)} note="Player cap charges" tone="blue"/>
+        <SportsStat icon="shield" label="Dead money" value={millions(team.cap.dead)} note="Current dead money" tone="red"/>
+      </div>
+      {/* legality is the contracts — dead money shrinks the room to add
+          anyone, but it can't make this roster illegal (reconciliation.ts) */}
+      {(overContracts > 0 || activeCount > 53) && (
+        <div className="notice bad" role="status">
+          <strong>Not season-legal yet.</strong>{" "}
+          {[
+            overContracts > 0 ? `${millions(overContracts)} over the cap` : null,
+            activeCount > 53 ? `${activeCount - 53} over the 53-man limit` : null,
+          ]
+            .filter(Boolean)
+            .join(" and ")}
+          . Release players below to get compliant — otherwise your staff makes
+          the cuts for you when the league advances to the preseason.
+        </div>
+      )}
+      {/* the staff fills every roster to 53 at the preseason: a GM who left
+          the depth chart at 43 met ten minimum-salary strangers there, and
+          nothing on this screen had said it would happen */}
+      {s.stage === "offseasonDepthChart" && activeCount < 53 && overContracts <= 0 && (
+        <div className="notice" role="status">
+          {/* depth signs at the $1M minimum; when it won't fit the fill makes
+              room by releasing contracts — and "sign your own first" beside
+              $0.2M of room was advice nobody could take */}
+          {53 - activeCount > capTotalM - contractsUsed(s, code) ? (
+            <>
+              You&rsquo;re {53 - activeCount} short of 53 with{" "}
+              {millions(Math.max(0, Math.round((capTotalM - contractsUsed(s, code)) * 10) / 10))} of cap room.{" "}
+              <strong>
+                When the preseason starts your staff signs about {millions(53 - activeCount)} of
+                minimum-salary depth and releases someone to afford it
+              </strong>{" "}
+              — make the cut yourself first if you&rsquo;d rather pick who.
+            </>
+          ) : (
+            <>
+              You&rsquo;re {53 - activeCount} short of 53. When the preseason starts your staff fills the
+              rest with minimum-salary depth from free agency — sign your own on the{" "}
+              <button type="button" className="btnlink" onClick={() => nav("/free-agency")}>
+                free-agency board
+              </button>{" "}
+              first if you&rsquo;d rather choose.
+            </>
+          )}
+        </div>
+      )}
+      <Tabs
+        tabs={[
+          { id: "roster", label: "Roster" },
+          { id: "cap", label: "Cap table" },
+          { id: "units", label: "Unit grades" },
+          { id: "needs", label: "Positional needs" },
+        ]}
+        active={active}
+        onChange={setActive}
+      />
+
+      <Panel id="roster" open={active === "roster"}>
+        {active === "roster" && (
+        <div className="roster-board"><section className="depth-board sports-panel"><h2 className="sports-panel-title">Depth chart</h2>{positionNav}
+        {depthLocked && (
+          <div className="notice" role="status" style={{ marginBottom: 12 }}>
+            The depth chart and releases are locked while this stretch of games plays out — they
+            were played with today&rsquo;s roster. Both open again at the next break.
+          </div>
+        )}
+        <div className="roster-position-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <label htmlFor="roster-position" style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
+            <select id="roster-position" value={group} onChange={(e) => setGroup(e.target.value as PositionGroup)}>
+              {POSITION_GROUPS.map((g) => (
+                <option key={g} value={g}>
+                  {GROUP_LABEL[g]}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* through the league actions, not the local store: online the
+              store-only reset never reached the server and the next refresh
+              put the old order back */}
+          <button
+            disabled={reordering || depthLocked}
+            onClick={() => {
+              // one batch and one download, and a refusal (the chart locks
+              // while a block of weeks plays out) is shown, not swallowed
+              setReordering(true);
+              void actions
+                .setDepthOrders(positionsInGroup.map((position) => ({ position, playerIds: [] })))
+                .then((r) => {
+                  if (!r.ok) setMoveNote({ id: "", ok: false, text: r.reason ?? "Couldn't reorder." });
+                })
+                .finally(() => setReordering(false));
+            }}
+          >
+            {reordering ? "Reordering…" : "Auto-reorder by overall"}
+          </button>
+        </div>
+        {moveNote?.id === "" && !moveNote.ok && (
+          <p className="form-error" role="status" style={{ margin: "-6px 0 12px" }}>
+            {moveNote.text}
+          </p>
+        )}
+
+        {ordered.length === 0 && (
+          <div className="emptystate">No players in this group.</div>
+        )}
+        <StaggerList className="rowlist roster-list">
+          {ordered.map(p => <button key={p.id} type="button" data-player-id={p.id} className={"prow depth-player" + (selected?.id === p.id ? " selected" : "")} style={{ gridTemplateColumns: ROSTER_GRID }} aria-pressed={selected?.id === p.id} onClick={() => choosePlayer(p)}>
+
+                  <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}<small>{p.position}{lineAt(p.position).indexOf(p) + 1}</small></span>
+                  <span className="pname"><span className="player-thumb" aria-hidden="true" />
+                    <span className="roster-name">{p.name}</span> <span className="ppos">{posLabel(p.position)}</span>
+                    {p.injury_status && (
+                      <span
+                        title={`${p.injury_status.description}${p.injury_status.weeks_out_est ? `, ${p.injury_status.weeks_out_est[0]}-${p.injury_status.weeks_out_est[1]} weeks` : ""}`}
+                        style={{ marginLeft: 3, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}
+                      >
+                        {/* spoken it was "OTQ": the space, and the whole word for "Q" */}{" "}
+                        <span aria-hidden="true">
+                          {onInjuredReserve(p, s.stage) ? "IR" : p.injury_status.status === "questionable" ? "Q" : p.injury_status.status === "doubtful" ? "D" : "OUT"}
+                        </span>
+                        <span className="sr-only">
+                          {onInjuredReserve(p, s.stage) ? "injured reserve" : p.injury_status.status}
+                        </span>
+                      </span>
+                    )}
+                    {p.holdout === p.nfl_team && (
+                      <span
+                        title="Holding out for a new contract: he sits until he's extended or traded, or reports at the trade deadline"
+                        style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--notice)" }}
+                      >
+                        HOLDOUT
+                      </span>
+                    )}
+                    {p.contract?.franchise_tag_season === s.season && (
+                      <span title="Franchise-tagged for next season" style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--accent)" }}>
+                        TAG
+                      </span>
+                    )}
+                  </span>
+                  <span className="roster-overall"><span className="roster-mobile-label">Overall</span><OvrPill value={p.overall} /></span>
+                  <span className="pcell roster-age" data-label="Age" title={arcOf(p).hint}>
+                    <span className="roster-mobile-label">Age</span>
+                    {p.age}
+                    <span style={{ display: "block", fontSize: 9.5, color: arcOf(p).color }}>{arcOf(p).label}</span>
+                  </span>
+                  <span className="pcell roster-years" data-label="Deal"><span className="roster-mobile-label">Deal</span>{p.contract ? `${p.contract.years_remaining}y` : "FA"}</span>
+                  <span className="roster-cap-hit" data-label="Cap hit" style={{ fontSize: 13, textAlign: "right", fontWeight: 500 }}>
+                    <span className="roster-mobile-label">Cap hit</span>
+                    {p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}
+                  </span><span className="chev" aria-hidden="true">›</span>
+          </button>)}
         </StaggerList>
         {(() => {
           const squad = practiceSquad(s, code);
@@ -605,24 +602,25 @@ export function RosterCapManagement() {
             </>
           );
         })()}
+        </section>{selected && playerDossier(selected)}{selected && <section className="selection-actions sports-panel" aria-label="Selected player actions">{playerActions(selected)}</section>}</div>
+        )}
       </Panel>
 
       <Panel id="cap" open={active === "cap"}>
-        <p className="sectionlabel">Cap allocation</p>
+        {active === "cap" && (
+        <div className="roster-finance-layout">
+        <RosterFinance total={capTotalM} used={capUsed} room={capSpace} dead={team.cap.dead} />
+        <MotionSurface className="ui-surface roster-allocation" index={1}>
+        <div className="ui-section-heading"><div><h2>Cap allocation</h2><p>Current player cap hits by unit</p></div></div>
         <CapBar label="Offense" value={capByUnit.offense} max={capUsed} />
         <CapBar label="Defense" value={capByUnit.defense} max={capUsed} />
         <CapBar label="Special teams" value={capByUnit.special} max={capUsed} />
-        <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
-          Coaching staff costs {millions(staffCap)}/yr, paid outside the player cap.
-        </p>
-        <p className="sectionlabel" style={{ marginTop: 22 }}>
-          Cap summary
-        </p>
-        <div className="split-3" style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", overflow: "hidden" }}>
-          <ProjCell label="Cap total" value={millions(capTotalM)} />
-          <ProjCell label="Cap used" value={millions(capUsed)} />
-          <ProjCell label="Cap space" value={millions(capSpace)} />
+        <StaffCost value={staffCap}/>
+        <p className="ui-caption">Unit bars show each group's share of used player cap. Dead money is listed separately.</p>
+        </MotionSurface>
         </div>
+        )}
+        {active === "cap" && <div className="finance-lower"><section className="sports-panel contract-board"><h2 className="sports-panel-title">{GROUP_LABEL[group]} contracts</h2>{positionNav}<div className="contract-list-head" aria-hidden="true"><span>Player</span><span>Remaining</span><span>Cap hit</span></div><div className="contract-player-list">{ordered.map(p => <button type="button" key={p.id} data-player-id={p.id} aria-pressed={selected?.id === p.id} aria-label={`${p.name}, ${p.position}, ${p.contract ? p.contract.years_remaining + " years remaining, " + millions(p.contract.cap_hit_by_year[0] ?? 0) + " cap hit" : "no contract on record"}`} onClick={() => choosePlayer(p)}><span className="player-thumb" aria-hidden="true"/><strong>{p.name}</strong><span>{p.contract?.years_remaining ?? "—"} years</span><b>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</b><span aria-hidden="true">›</span></button>)}</div></section>{selected && playerDossier(selected, true)}{selected && <section className="selection-actions sports-panel" aria-label="Selected player actions">{playerActions(selected)}</section>}</div>}
       </Panel>
 
       <Panel id="units" open={active === "units"}>
@@ -707,7 +705,9 @@ export function RosterCapManagement() {
           }}
         />
       )}
+      {inspecting && s.players[inspecting] && <PlayerStatsModal player={s.players[inspecting]!} onClose={() => setInspecting(null)} />}
     </Card>
+    </div>
   );
 }
 
@@ -716,22 +716,9 @@ function CapBar({ label, value, max }: { label: string; value: number; max: numb
     <div className="capbar-row">
       <div className="capbar-label">
         <span>{label}</span>
-        <span>{millions(value)}</span>
+        <span><AnimatedNumber value={value} format={millions} /></span>
       </div>
-      <div className="capbar-track">
-        <div className="capbar-fill" style={{ width: `${max ? Math.round((value / max) * 100) : 0}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function ProjCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ padding: 13, textAlign: "center", borderRight: "1px solid var(--line)" }}>
-      <p style={{ margin: 0, fontSize: 10.5, color: "var(--ink-faint)" }}>{label}</p>
-      <p className="oswald" style={{ margin: "5px 0 0", fontSize: 16, fontWeight: 500 }}>
-        {value}
-      </p>
+      {max > 0 ? <MotionMeter value={value} max={max} label={`${label} cap allocation`} tone={label === "Defense" ? "purple" : label === "Special teams" ? "gold" : "teal"} /> : <p className="ui-caption">No cap allocation yet.</p>}
     </div>
   );
 }

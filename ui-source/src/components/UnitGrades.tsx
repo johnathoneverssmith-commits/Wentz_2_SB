@@ -2,6 +2,7 @@ import { posLabel } from "@/util/format";
 import { useMemo } from "react";
 
 import { OvrPill } from "@/components/bits";
+import { MotionMeter } from "@/motion/MotionSurface";
 import { useStore } from "@/state/store";
 import { unitReport, type UnitRow } from "@/state/unitReport";
 
@@ -99,6 +100,7 @@ export function UnitGrades({ teamCode }: { teamCode: string }) {
                   Weak link: {u.weakLink.id ? u.weakLink.name : `no starting ${posLabel(u.weakLink.position)}`}
                 </div>
               )}
+              <div style={{ marginTop: 8 }}><MotionMeter value={u.strength} label={`${u.label} unit strength`} tone="teal" /></div>
             </div>
             <span role="cell">
               <OvrPill value={Math.round(u.strength)} />
