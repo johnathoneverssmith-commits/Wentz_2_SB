@@ -20,6 +20,8 @@ export interface DraftProspect {
   scoutingNote: string;
   /** True overall, hidden in Draft Room / Preview, revealed at Rookie Signings. */
   trueOverall: number;
+  /** Player type, from League DNA classes (`sim/leagueDna/archetypes.ts`). Absent on classes from before it. */
+  archetype?: string;
 }
 
 export type DraftMode = "fantasy" | "rookie";

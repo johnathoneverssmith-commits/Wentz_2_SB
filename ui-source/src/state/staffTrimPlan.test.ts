@@ -9,7 +9,7 @@ import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "./seed.ts";
  */
 describe("the staff's trim plan", () => {
   it("leaves the league alone, and applied, makes the roster legal", () => {
-    const s = createLeague(44, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false });
+    const s = createLeague(44, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false, playerPool: "legacy" });
     fillRosterGaps(s);
     // six spare bodies over the limit: free agents dropped onto the roster
     const spares = Object.values(s.players)
@@ -39,7 +39,7 @@ describe("the staff's trim plan", () => {
  */
 describe("the surplus body", () => {
   it("is the veteran on a minimum deal, not the rookie just signed", () => {
-    const s = createLeague(45, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false });
+    const s = createLeague(45, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false, playerPool: "legacy" });
     fillRosterGaps(s);
     const cbs = rosterOf(s, "GB").filter((p) => p.position === "CB");
     const pool = Object.values(s.players).filter((p) => p.free_agent && !p.retired && p.position === "CB");

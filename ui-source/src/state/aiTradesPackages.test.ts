@@ -13,7 +13,7 @@ describe("what the AI offers for a star", () => {
   it("never sends a pile of lesser players for him", () => {
     let offers = 0;
     for (const seed of [51, 52, 53]) {
-      const s = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false });
+      const s = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1, fantasyDraft: false, playerPool: "legacy" });
       fillRosterGaps(s);
       s.gms[0]!.isHuman = true;
       s.gms[0]!.teamCode = "GB";

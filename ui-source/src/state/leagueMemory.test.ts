@@ -7,7 +7,7 @@ import { inductHallOfFame, recordSeason, scoringCommittee } from "./seasonAwards
 import { createLeague, DEFAULT_CONFIG } from "./seed.ts";
 import { recomputeStandings } from "./standings.ts";
 
-const league = () => createLeague(8, { ...DEFAULT_CONFIG, fantasyDraft: false });
+const league = () => createLeague(8, { ...DEFAULT_CONFIG, fantasyDraft: false, playerPool: "legacy" });
 
 describe("league memory", () => {
   it("keeps records only when they are beaten, and an All-Pro team once a season", () => {

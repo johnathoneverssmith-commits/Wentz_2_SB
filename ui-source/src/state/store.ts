@@ -106,6 +106,8 @@ import { generateAiTradeOffers } from "./aiTrades.ts";
 import { tradeAccepts } from "./tradeModel.ts";
 import { applyRelease, checkRelease, reconcileCpuTeam } from "./reconciliation.ts";
 import { draftClassTilt } from "./draftSupply.ts";
+import { classDnaForLeague } from "@/sim/leagueDna";
+import { refreshClassProfile } from "./classProfile.ts";
 import { compactRetired, trimStoredBoxScores } from "./saveCompaction.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -579,18 +581,24 @@ export const useStore = create<Store>()(
         // instant, Mock-backed skeleton — always playable, never blocks on the network
         set(() => createLeague(seed, config) as Store);
         try {
+          // a League DNA league already has its players: the adapter's real pool would replace them
+          const fictional = !!get().dna;
           const [pool, schedule, coachList] = await Promise.all([
-            sim.generateInitialPool(seed, "realRosters"),
+            fictional ? Promise.resolve(null) : sim.generateInitialPool(seed, "realRosters"),
             sim.generateSchedule(seed, TEAMS.map((t) => t.code)),
             sim.generateCoachMarket(seed),
           ]);
           set((s) => {
             // the engine pool arrives unowned and unpaid — see `normalizePool`
-            normalizePool(pool, s.config.fantasyDraft, seed);
-            const players: Record<string, Player> = {};
-            for (const p of pool) players[p.id] = p;
-            s.players = players;
-            s.standingFreeAgents = pool.filter((p) => p.free_agent).map((p) => p.id);
+            if (pool) {
+              normalizePool(pool, s.config.fantasyDraft, seed);
+              const players: Record<string, Player> = {};
+              for (const p of pool) players[p.id] = p;
+              s.players = players;
+              s.standingFreeAgents = pool.filter((p) => p.free_agent).map((p) => p.id);
+            } else {
+              s.standingFreeAgents = Object.values(s.players).filter((p) => p.free_agent).map((p) => p.id);
+            }
             // a humans-only league makes its own round robin when setup
             // closes; this NFL slate is only a placeholder until then
             if (!(isHumansOnly(s) && s.stage !== "setup")) s.schedule = schedule;
@@ -710,7 +718,8 @@ export const useStore = create<Store>()(
               forgetOldRetirees(s); // and a save file shouldn't carry them forever
               applySeasonAging(s, s.season); // OQ-4: age + overall/attribute drift for every active player
               fillRosterGaps(s); // nobody starts a season unable to field a legal lineup
-              s.draftClass = sim.generateDraftClass(s.season + leagueSalt(s), s.season, draftClassTilt(s));
+              s.draftClass = sim.generateDraftClass(s.season + leagueSalt(s), s.season, draftClassTilt(s), classDnaForLeague(s.dna, s.season));
+              refreshClassProfile(s);
               for (const code of Object.keys(s.teams)) {
                 const team = s.teams[code]!;
                 team.wins = team.losses = team.ties = 0;

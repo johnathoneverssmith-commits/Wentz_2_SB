@@ -101,6 +101,14 @@ export interface LeagueConfig {
    * (`realistic`, the validated engine).
    */
   talentImpact?: "realistic" | "amplified" | "extreme";
+  /**
+   * Where the opening players come from. Absent or "fictional": Seeded League
+   * DNA (`sim/leagueDna`), original players unique to the league's seed.
+   * "legacy": the shipped real-player pool, kept for tests and tools that
+   * need it. A league's choice is fixed at creation; loading a save never
+   * changes its players.
+   */
+  playerPool?: "fictional" | "legacy";
 }
 
 export interface Gm {
@@ -267,6 +275,26 @@ import type { TrainingCampState } from "@/state/trainingCamp";
 import type { TradeDeadlineState } from "@/state/tradeDeadline";
 import type { RevealState } from "@/state/reveal";
 
+/** What a league remembers of its DNA: the version and seed that regenerate it, and the public scouting profile. */
+export interface LeagueDnaRecord {
+  version: number;
+  dnaSeed: number;
+  profile: LeagueProfile;
+}
+
+/** Broad tendency of a position group: never a number. */
+export type TendencyBand = "exceptional" | "strong" | "average" | "limited" | "scarce";
+
+/** The public scouting read on a league or a draft class. */
+export interface LeagueProfile {
+  /** era comparison id, or null for a fictional-era description */
+  eraId: string | null;
+  /** e.g. "2011-Era NFL" or a fictional label */
+  title: string;
+  blurb: string;
+  tendencies: Record<string, TendencyBand>;
+}
+
 export interface LeagueState {
   schemaVersion: number;
   /**
@@ -352,6 +380,15 @@ export interface LeagueState {
   history: SeasonOutcome[];
   /** Each position's starter quality when the league began (`draftSupply.ts`). */
   positionBaseline?: Partial<Record<Position, number>>;
+  /**
+   * Seeded League DNA (`sim/leagueDna`). Present only on leagues created with
+   * the fictional generator; its absence means a legacy league, which keeps
+   * the real-player pool, the old rookie classes and the old position
+   * balancing exactly as they were.
+   */
+  dna?: LeagueDnaRecord;
+  /** The public scouting read on the current draft class (DNA leagues): bands only, computed where the true ratings are visible. */
+  draftClassProfile?: LeagueProfile;
   /**
    * Online only, never sent to a client: each week of the current block's
    * stat lines, so a GM is shown the season as of the week they've watched

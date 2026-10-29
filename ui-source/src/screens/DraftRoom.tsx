@@ -21,6 +21,7 @@ import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { fitFor } from "@/state/unitReport";
 import { posLabel } from "@/util/format";
 import { PickMoments } from "@/components/PickMoments";
+import { ScoutingBrief } from "@/components/ScoutingBrief";
 
 interface Available {
   id: string;
@@ -300,6 +301,7 @@ export function DraftRoom() {
         title="Draft Room"
         subtitle={`${displaySeason(s)} ${mode === "fantasy" ? "Fantasy Draft" : "Rookie Draft"} · Round ${Math.min(round, maxRounds)} · ${mode === "rookie" ? "Linear" : cap(draft.order)}`}
       />
+      <ScoutingBrief profile={mode === "fantasy" ? s.dna?.profile : s.draftClassProfile} kind={mode === "fantasy" ? "league" : "class"} />
       <Ticker
         stats={[
           {
