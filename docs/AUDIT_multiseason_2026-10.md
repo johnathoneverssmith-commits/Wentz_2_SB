@@ -39,9 +39,9 @@ All runs use existing harnesses; nothing new was added to the repository.
 |---|---|---|
 | Players rated 75+ | 637 (2028) to 84 (2038) | 701 / 768 / 794 (2027-29); 790 (2031) to 747 (2041) |
 | Rookie supply | 0 created per year | exactly 320 every offseason, all 15 (per-class count, no duplicates) |
-| Roster size at preseason | down to 46 at the low point | 53 on every team, every year |
+| Roster size at preseason | 53 (kept legal by roster fill, from a thinning pool) | 53 on every team, every year |
 | Teams over the cap | 0 | 0 |
-| Mean cap space as share of cap | 63% by 2038 | 2.5% (2027) to 4.1% (2041) |
+| Mean cap space as share of cap | 63% by 2038 | 4-6% throughout |
 | Team-overall sd / top-8 minus bottom-8 | n/a | 1.8 to 1.2 / 4.5 to 2.9 |
 | Regular-season wins sd | n/a | 2.3-2.8, flat |
 
@@ -65,8 +65,7 @@ same invariant mix. That mode flips `isHuman` off on a store that always has a h
 ## Follow-up work (none started)
 
 1. Tooling PR for `ui-source/scripts/franchise_stress_test.ts`: practice-squad owner check, `capUsedOf` ledger, signed-then-released
-   classification, working rookie/trade counters, and an online-path (not store) cpu-only mode. A draft diff covering the first three exists
-   in the session notes.
+   classification, working rookie/trade counters, and an online-path (not store) cpu-only mode. A draft diff covering the first three was prepared during the audit and is not in the repository.
 2. Isolate the dump-probe rise (scale-invariant probe first), then decide whether the model needs a floor on liability value.
 3. Make harness league creation call `recomputeTeamRatings`, so metrics stop reading the 72 placeholder.
 4. The definitive 20-season audit, after the other workstreams are integrated.
