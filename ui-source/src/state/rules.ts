@@ -56,6 +56,7 @@ import {
   openCapRoomForFreeAgency,
   planRoomFor,
   recomputeTeamRatings,
+  leagueSalt,
   releaseToMarket,
 } from "./seed.ts";
 import { DRAFT_ROUNDS, FANTASY_DRAFT_ROUNDS, awardCompensatoryPicks, draftOrderFor, ensureDraftPicks, pickKey } from "./draftPicks.ts";
@@ -1726,9 +1727,20 @@ export function upsertRookiePlayer(
  * uses, so `sim.retirementOutcomes` replays the identical decision instead
  * of drawing fresh random outcomes at commit time.
  */
+/**
+ * What a season's retirement draws are keyed on besides the player: the season
+ * and the league's own creation seed (`leagueSalt`, as the draft class uses),
+ * so two leagues with the same players do not retire the same people. A save
+ * from before the seed was recorded reads 0 and keeps the season-only key;
+ * nothing is generated at load. The review screen and the commit both read this.
+ */
+export function retirementSeed(s: Pick<LeagueState, "season" | "seed">): number {
+  return s.season + leagueSalt(s);
+}
+
 export function commitRetirements(s: LeagueState): void {
   const outcomes = sim.retirementOutcomes(
-    s.season,
+    retirementSeed(s),
     Object.values(s.players).filter((p) => !p.retired),
   );
   for (const o of outcomes) {

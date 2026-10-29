@@ -17,6 +17,7 @@
  */
 
 import type { InjuryEvent } from "./injury.js";
+import { narratePlay, narrationText } from "./narration.js";
 import {
   type ClockPlayEvent,
   type GameEvent,
@@ -47,6 +48,8 @@ export interface BroadcastPlay {
   passer?: string | undefined;
   targetOrRusher?: string | undefined;
   defender?: string | undefined;
+  /** who made the tackle on a run or a completed pass — cosmetic attribution, like the rest. */
+  tackler?: string | undefined;
   /** kicker (field_goal) or punter (punt) — cosmetic attribution. */
   kicker?: string | undefined;
   /** punt returner, when the punt is fielded and run back — cosmetic attribution. */
@@ -119,53 +122,6 @@ export interface GameBroadcast {
   injuries: InjuryEvent[];
   /** scores no traced play caused: a kickoff returned for a touchdown, and the kick after it. */
   returnScores?: ScoreEvent[];
-}
-
-const yardLabel = (ballOn: number): string => {
-  if (Math.abs(ballOn - 50) < 0.5) return "midfield";
-  const yd = Math.round(ballOn > 50 ? 100 - ballOn : ballOn);
-  return `${ballOn > 50 ? "own" : "opp"} ${yd}`;
-};
-
-function describe(p: {
-  scored?: readonly ScoreEvent[] | undefined;
-  call: PlayRec["call"];
-  depth: string;
-  gained: number;
-  ballOn: number;
-  outcome: string;
-  touchdown: boolean;
-  turnover: boolean;
-  firstDown: boolean;
-  distance?: number | undefined;
-}): string {
-  const g = Math.round(p.gained);
-  const safety = p.scored?.some((e) => e.kind === "safety") ?? false;
-  const to = p.touchdown || safety ? "end zone" : yardLabel(Math.max(1, p.ballOn - p.gained));
-  const defTd = p.scored?.some((e) => e.kind === "interception_return_td" || e.kind === "fumble_return_td") ?? false;
-  if (p.call === "field_goal") {
-    return p.outcome === "made" ? `${p.distance}-yard field goal is GOOD` : `${p.distance}-yard field goal attempt is NO GOOD`;
-  }
-  if (p.call === "punt") {
-    if (p.outcome === "touchback") return `${p.distance}-yard punt, touchback`;
-    if (p.outcome === "return_td") return `${p.distance}-yard punt, returned for a TOUCHDOWN`;
-    if (p.outcome === "downed") return `${p.distance}-yard punt, downed at the ${yardLabel(100 - p.ballOn + p.gained)}`;
-    if (p.outcome === "fumbled") return `${p.distance}-yard punt, FUMBLED on the return and recovered by the punting team`;
-    return `${p.distance}-yard punt, returned to the ${yardLabel(100 - p.ballOn + p.gained)}`;
-  }
-  let s: string;
-  if (p.call === "sack") s = `sack for ${g} to the ${to}`;
-  else if (p.call === "scramble") s = `scramble for ${g >= 0 ? "+" : ""}${g} to the ${to}`;
-  else if (p.call === "run") s = `run for ${g >= 0 ? "+" : ""}${g} to the ${to}`;
-  else if (p.turnover) s = "pass intercepted";
-  else if (g === 0 && !p.touchdown) s = `pass incomplete (${p.depth.toLowerCase().replace("_", " ")})`;
-  else s = `pass complete for ${g} to the ${to}`;
-  if (p.touchdown) s += " — TOUCHDOWN";
-  else if (defTd) s += " — returned for a TOUCHDOWN";
-  else if (safety) s += " — SAFETY";
-  else if (p.firstDown) s += " (1st down)";
-  else if (p.turnover && p.call !== "sack") s += " — TURNOVER";
-  return s;
 }
 
 /**
@@ -245,13 +201,14 @@ function toDrives(
       depth: r.depth,
       gained: r.gained,
       outcome: r.outcome,
-      desc: describe({ ...r, scored: scoresAt.get(i) }),
+      desc: narrationText(narratePlay({ ...r, quarter, scores: scoresAt.get(i) })),
       firstDown: r.firstDown,
       touchdown: r.touchdown,
       turnover: r.turnover,
       passer: r.passer,
       targetOrRusher: r.targetOrRusher,
       defender: r.defender,
+      tackler: r.tackler,
       kicker: r.kicker,
       returner: r.returner,
       distance: r.distance,

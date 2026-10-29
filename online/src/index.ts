@@ -743,6 +743,7 @@ post("/leagues/:id/actions/ready", async (ctx) => {
     a.gmId,
     optional<boolean>(ctx, "ready") ?? true,
     requireStage(optional<unknown>(ctx, "stage")),
+    { leagueId: a.leagueId, userId: a.userId, teamCode: a.teamCode, gmId: a.gmId },
   );
 
   // In season, "everybody is ready" means *play the week* — there is nothing

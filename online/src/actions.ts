@@ -20,6 +20,7 @@ import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { franchiseOf, isCommissioner } from "./auth.js";
 import { ActionError, withLeague, type Applied } from "./db.js";
+import { assertSeatHeld } from "./seat.js";
 import { deadlineFor, turnKey } from "./phases.js";
 import {
   decideChooseJob,
@@ -82,7 +83,10 @@ async function run(
 ): Promise<{ ok: true; version: string }> {
   const { version } = await withLeague(
     actor.leagueId,
-    async ({ state, league }) => {
+    async ({ state, league }, client) => {
+      // the seat as it is now, under the lock — not as it was when the
+      // request was accepted (audit D5)
+      await assertSeatHeld(client, actor, state);
       const before = turnKey(state);
       const decision = decide(state);
       // a new turn (or a new stage the move finished into) starts its own
@@ -124,10 +128,16 @@ export async function proposeTrade(
   expectedVersion?: string,
 ): Promise<{ ok: true; version: string; tradeId: string }> {
   const tradeId = `trade_${Date.now()}_${actor.teamCode}`;
-  const out = await run(actor, expectedVersion, (s) =>
-    decideProposeTrade(s, actor, tradeId, toTeam, give, get),
-  );
-  return { ...out, tradeId };
+  // A repeat of an offer that is still open (a double click, a retry after a
+  // dropped response) is answered with the offer already there, not a second
+  // copy (audit D6); the decision says which one that is.
+  let existing: string | undefined;
+  const out = await run(actor, expectedVersion, (s) => {
+    const decision = decideProposeTrade(s, actor, tradeId, toTeam, give, get);
+    existing = decision.existingTradeId;
+    return decision;
+  });
+  return { ...out, tradeId: existing ?? tradeId };
 }
 
 export const withdrawTrade = (actor: Actor, tradeId: string) =>

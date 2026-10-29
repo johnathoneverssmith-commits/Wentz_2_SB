@@ -28,6 +28,8 @@ import { cue } from "@/audio/cues";
 
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { BroadcastDrive, BroadcastPlay, GameResult, InjuryEvent } from "@/domain";
+import { narrateBroadcast } from "../../../../src/engine/narration.js";
+import { Narrated } from "./Narrated";
 
 import "./gamecast.css";
 import { posLabel, weeksOut } from "@/util/format";
@@ -80,67 +82,6 @@ function buildSteps(drives: BroadcastDrive[]): { steps: Step[]; driveStart: numb
 type Interstitial =
   | { kind: "quarter"; quarter: number }
   | { kind: "injury"; event: InjuryEvent };
-
-/* ---- narrated play description, with the player names spliced in ---- */
-function PlayDesc({ p }: { p: BroadcastPlay }): JSX.Element {
-  const N = ({ n }: { n: string | undefined }) =>
-    n ? <span className="gc-name">{n}</span> : <></>;
-  const g = Math.round(p.gained);
-  const to =
-    p.touchdown || p.scores?.some((e) => e.kind === "safety") ? "the end zone" : spot(Math.max(1, p.ballOn - p.gained));
-
-  if (p.call === "field_goal") {
-    return (
-      <>
-        <N n={p.kicker} /> {p.distance}-yard field goal{" "}
-        {p.outcome === "made" ? "is GOOD" : "attempt is NO GOOD"}
-      </>
-    );
-  }
-  if (p.call === "punt") {
-    if (p.outcome === "touchback")
-      return (<><N n={p.kicker} /> punts {p.distance} yards, touchback</>);
-    if (p.outcome === "return_td")
-      return (<><N n={p.kicker} /> punts {p.distance} yards — returned by <N n={p.returner} /> for a TOUCHDOWN</>);
-    if (p.outcome === "downed")
-      return (<><N n={p.kicker} /> punts {p.distance} yards, downed</>);
-    if (p.outcome === "fumbled")
-      return (<><N n={p.kicker} /> punts {p.distance} yards, <N n={p.returner} /> FUMBLES it away on the return</>);
-    return (<><N n={p.kicker} /> punts {p.distance} yards, returned by <N n={p.returner} /></>);
-  }
-
-  const returnedTd = p.scores?.some((e) => e.kind === "interception_return_td" || e.kind === "fumble_return_td") ?? false;
-  const safety = p.scores?.some((e) => e.kind === "safety") ?? false;
-  let body: JSX.Element;
-  if (p.call === "sack") body = (<><N n={p.passer} /> sacked for {g} to {to}</>);
-  else if (p.call === "scramble")
-    body = (<><N n={p.passer} /> scrambles for {g >= 0 ? "+" : ""}{g} to {to}</>);
-  else if (p.call === "run")
-    body = (<><N n={p.targetOrRusher} /> run for {g >= 0 ? "+" : ""}{g} to {to}</>);
-  else if (p.outcome === "interception")
-    body = (<><N n={p.passer} /> pass intercepted by <N n={p.defender} /></>);
-  else if (g === 0 && !p.touchdown)
-    body = (<><N n={p.passer} /> incomplete for <N n={p.targetOrRusher} /> ({p.depth.toLowerCase().replace(/_/g, " ")})</>);
-  else body = (<><N n={p.passer} /> complete to <N n={p.targetOrRusher} /> for {g} to {to}</>);
-
-  return (
-    <>
-      {body}
-      {p.outcome === "fumble" && <> — fumble, forced by <N n={p.defender} /></>}
-      {p.touchdown ? (
-        <> — TOUCHDOWN</>
-      ) : returnedTd ? (
-        <> — returned for a TOUCHDOWN</>
-      ) : safety ? (
-        <> — SAFETY</>
-      ) : p.firstDown ? (
-        <> (1st down)</>
-      ) : p.turnover && p.call !== "sack" && p.outcome !== "interception" && p.outcome !== "fumble" ? (
-        <> — TURNOVER</>
-      ) : null}
-    </>
-  );
-}
 
 /* ---- one play's arrow ---- */
 const DEPTH_PX: Record<string, number> = {
@@ -298,6 +239,7 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
   const bc = game.broadcast;
   const drives = useMemo(() => bc?.drives ?? [], [bc]);
   const { steps, driveStart } = useMemo(() => buildSteps(drives), [drives]);
+  const narration = useMemo(() => (bc ? narrateBroadcast(drives, { home: bc.home, away: bc.away }) : []), [bc, drives]);
   const total = steps.length;
 
   const [gi, setGi] = useState(1);
@@ -769,7 +711,7 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
                         } at ${spot(cur.ballOn)}`}
             </span>
             <span className="gc-desc">
-              {cur ? <PlayDesc p={cur} /> : `${dTeam} takes over at ${spot(next?.ballOn ?? drive.startBallOn)}`}
+              {cur && step.type === "play" && narration[step.k]?.[step.j] ? <Narrated n={narration[step.k]![step.j]!} /> : `${dTeam} takes over at ${spot(next?.ballOn ?? drive.startBallOn)}`}
             </span>
           </div>
 

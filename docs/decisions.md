@@ -1723,3 +1723,29 @@ splits possessions even when the same team receives it (second half, overtime): 
 - *Overtime is not a quarter to the model*: `qtr` is never advanced, so traced overtime plays read Q4 0:00 then a 15:00 quarter countdown.
   The event log and the broadcast use quarter 5+ and the overtime clock; `PlayRec.quarter`/`clock` are unchanged.
 - A fumble return names no scorer (the engine names who forced the fumble, not who recovered it); a kickoff return names none either.
+
+## Play-by-play narration, PBP-2 (2026-10)
+
+**One narration** (`src/engine/narration.ts`, pure, no simulation imports) replaces the two that existed: `describe()` in `broadcast.ts` (no names) and
+`PlayDesc` in `Gamecast.tsx` (names, a different vocabulary, no notion of a defensive touchdown), and `describeLogged` in the box-score mapper. The stored
+`BroadcastPlay.desc`, the Gamecast and the scoring summary all read it, so what is stored, what is shown and what an online replay rebuilds are the same
+words (a test holds `desc` equal to the screen's text for every play of every sampled game, and for single-player's `simulateOne` broadcast).
+
+**Facts only.** Every clause is read off a field of the play or off a logged score/penalty event; where the engine does not know (who recovered a fumble, how far
+an interception was returned) the text does not say it. Names come only from the play's own attribution, the same one the box score is built from. A fourth-down
+snap that did not move the chains reads "turnover on downs" (checked against who has the ball next); a 3rd/4th-down first down says which down it converted.
+
+**Variety without randomness.** Wording is chosen by a hash of the play's own numbers (quarter, clock, down, distance, spot, gain, call, outcome), never
+`Math.random`, the play's position or the machine: the same play reads the same on every device, on a replay and after a save/reload. Over the same
+25,629 plays (200 games), distinct sentence shapes went from 31 to 257 and the most common shape from 24.6% of plays to 4.5%.
+
+**Between snaps.** A flag, a spike or a kneel logged by the engine (PBP-1) is narrated as its own line ahead of the snap it preceded, with the team, the
+yards the ball actually moved, and the down, distance and spot after it; one stamped in another quarter than that snap (a kneel that ends a half) says when it
+happened.
+
+**Old saves.** A game saved before the engine logged scores has no `scores` or `eventsBefore`. Its stored `desc` is ignored (the screen narrates from the play's fields),
+and a pick-six or scoop-six is recovered from the running score (the defence's points on that play). Limit: a kickoff returned for a touchdown by the intercepting
+team right after an interception on the last snap of a half would read as a pick-six; new saves cannot do this because the engine's record wins.
+
+**Not changed.** The simulation (`sim.ts` untouched, fingerprints identical), the scoring summary's wording, the halftime possession defect (issue #53), CSS, and
+the Gamecast layout. No highlights or recaps (PBP-3, PBP-4).

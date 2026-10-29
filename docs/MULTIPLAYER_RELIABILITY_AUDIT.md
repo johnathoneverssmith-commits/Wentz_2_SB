@@ -203,3 +203,6 @@ checks pass, the one failure being D4. The full online suite was not run.
   the pool connection (`LEAGUE_QUEUE_MAX`, default 16 waiting; `LEAGUE_QUEUE_WAIT_MS`, default 120 s;
   503 beyond either); `POST /admin/advance` and `POST /actions/ready` require a known `stage`
   (400 when missing or unknown) and are refused with 409 when the league has left it. D5 and D6 remain open.
+- **D5, D6: fixed in MP-3** (`claude/mp3-d5-d6`): every action re-reads the caller's seat inside the
+  transaction, after the league lock (`online/src/seat.ts`); a repeat of a still-open trade offer returns
+  the existing offer instead of creating a second. All seven audited defects are now fixed.

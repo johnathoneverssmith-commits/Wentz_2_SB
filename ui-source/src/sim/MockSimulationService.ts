@@ -262,6 +262,16 @@ export function expectedAgingDelta(age: number, devAge: number, declineAge: numb
 }
 const EXPECTED_AGING = new Map<string, number>();
 
+/** A player's retirement roll for a season: uniform in [0, 1), a function of the season and his id alone. */
+export function retirementDraw(seed: number, playerId: string): number {
+  let h = 0x811c9dc5 ^ (seed ^ 0x5555);
+  for (let i = 0; i < playerId.length; i++) {
+    h ^= playerId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return new Rng(h >>> 0).random();
+}
+
 /**
  * The chance a player retires at the end of the season, and whether the review draws for him at all (a player who is neither near his
  * position's outer age, injured twice, past his decline age nor faded never does, whatever the formula says). One place for the
@@ -1135,7 +1145,6 @@ export class MockSimulationService implements SimulationService {
   }
 
   retirementOutcomes(seed: number, players: Player[]): RetirementOutcome[] {
-    const rng = new Rng(seed ^ 0x5555);
     const out: RetirementOutcome[] = [];
     for (const p of players) {
       const baseNorm = RETIREMENT_AGE[p.position];
@@ -1143,7 +1152,10 @@ export class MockSimulationService implements SimulationService {
       const norm = baseNorm - reduction;
       const { chance: pRetire, eligible } = retirementChance(p);
       if (eligible) {
-        const retiring = rng.bool(pRetire);
+        // one draw per player, seeded by his id and the season: a shared
+        // sequential stream made his fate depend on where he sat in the list
+        // and on how many players ahead of him were eligible
+        const retiring = retirementDraw(seed, p.id) < pRetire;
         out.push({
           playerId: p.id,
           decision: retiring ? "retiring" : "returning",
