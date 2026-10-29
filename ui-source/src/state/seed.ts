@@ -24,7 +24,7 @@ import { TEAMS } from "@/data/teams";
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { BASE_MIN_SALARY_M, marketScale, minSalaryM, scaledM } from "./capEconomy.ts";
 import { fullPersonName } from "@/sim/names.ts";
-import { applyCoachToDelta, coachModifiersFor } from "./coachEffects.ts";
+import { applyCoachToDelta, coachModifiersFor, developmentRoll } from "./coachEffects.ts";
 import { ensureDraftPicks } from "./draftPicks.ts";
 import { Rng } from "@/sim/rng.ts";
 import {
@@ -1408,7 +1408,7 @@ export function applySeasonAging(state: LeagueState, season: number): void {
     // the improvement or the decline actually lands. A player without a team
     // has nobody coaching him and ages on the raw curve.
     const delta = p.nfl_team
-      ? applyCoachToDelta(base, coachModifiersFor(state, p.nfl_team, p.position))
+      ? applyCoachToDelta(base, coachModifiersFor(state, p.nfl_team, p.position), developmentRoll(season, p.id, "coach"))
       : base;
 
     p.overall = clamp(p.overall + delta, 40, 99);
