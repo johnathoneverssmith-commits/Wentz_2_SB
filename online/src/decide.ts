@@ -105,6 +105,8 @@ export interface Decision {
   events: { teamCode?: string | undefined; kind: string; summary: string; detail?: unknown }[];
   /** Nothing changed: roll back rather than bump the version and send every GM to re-download. */
   unchanged?: boolean | undefined;
+  /** A proposal that repeated one still open: the id of the offer already there. */
+  existingTradeId?: string | undefined;
 }
 
 const city = (code: string): string => TEAMS_BY_CODE[code]?.label ?? code;
@@ -190,6 +192,16 @@ function assetsFrom(state: LeagueState, ids: string[]): TradeAsset[] {
   });
 }
 
+/** Two offers are the same when they join the same teams over the same assets, in any order. */
+function offerKey(from: string, to: string, fromAssets: TradeAsset[], toAssets: TradeAsset[]): string {
+  const one = (a: TradeAsset): string =>
+    a.kind === "pick" && a.pick
+      ? `k:${a.pick.year}|${a.pick.round}|${a.pick.originalTeam}`
+      : `p:${a.playerId ?? ""}`;
+  const side = (xs: TradeAsset[]): string => xs.map(one).sort().join(",");
+  return `${from}>${to}|${side(fromAssets)}|${side(toAssets)}`;
+}
+
 /**
  * Offer a trade. Nothing moves — that's the point of two phases.
  *
@@ -210,6 +222,14 @@ export function decideProposeTrade(
   // like the depth chart: the block's games were played with these rosters
   refuseDuringBlock(state, "Trading");
   if (pastTradeDeadline(state)) throw new ActionError(PAST_DEADLINE_MESSAGE);
+
+  // Idempotent: the same offer (same two teams, same two sets of assets,
+  // whatever the order) while it is still open is the same offer.
+  const wanted = offerKey(actor.teamCode, toTeam, assetsFrom(state, give), assetsFrom(state, get));
+  const open = state.trades.find(
+    (t) => t.status === "offered" && offerKey(t.fromTeam, t.toTeam, t.fromAssets, t.toAssets) === wanted,
+  );
+  if (open) return { events: [], unchanged: true, existingTradeId: open.id };
 
   const proposal = {
     id: tradeId,
