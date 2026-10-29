@@ -185,6 +185,22 @@ describe("highlight selection", () => {
     expect(a.story.overtime).toBe(true);
   });
 
+  it("a game that stays tied through overtime has no game-winning play, and no score in it says it won", () => {
+    const c = cast([
+      { side: "home", plays: [td(0, { quarter: 1 })] },
+      { side: "away", plays: [td(1, { quarter: 3 })] },
+      { side: "home", plays: [fg(0, { quarter: 5, clock: "8:00" })] },
+      { side: "away", plays: [fg(1, { quarter: 5, clock: "4:00" })] },
+    ]);
+    const a = analyzeGame(c);
+    expect(c.finalScore).toEqual([10, 10]);
+    expect(a.story.winner).toBeNull();
+    expect(a.story.overtime).toBe(true);
+    expect(a.candidates.some((h) => h.tags.includes("game_winning"))).toBe(false);
+    for (const h of a.candidates) expect(h.context).not.toMatch(/win it/);
+    expect(a.candidates.at(-1)!.context).toBe("AWY tie it at 10, in overtime");
+  });
+
   it("a pick-six late in a close game outranks an early touchdown, and is a defensive score", () => {
     const c = cast([
       { side: "home", plays: [td(0, { quarter: 1, clock: "10:00" })] },
@@ -503,8 +519,12 @@ describe("on simulated games", () => {
         winners++;
         expect(s.a.highlights.some((h) => h.id === winner.id), `${s.where}: the winning play is on the list`).toBe(true);
       }
-      // a game decided in overtime has exactly its last score as the winner
+      // a game decided in overtime has exactly its last score as the winner; one still tied has no winner at all
       if (s.a.story.overtime && s.b.finalScore[0] !== s.b.finalScore[1]) expect(winner?.quarter, s.where).toBeGreaterThanOrEqual(5);
+      if (s.b.finalScore[0] === s.b.finalScore[1]) {
+        expect(winner, `${s.where}: a tie has no game-winning play`).toBeUndefined();
+        for (const h of s.a.candidates) expect(h.context, s.where).not.toMatch(/win it/);
+      }
     }
     expect(winners).toBeGreaterThan(20);
   });

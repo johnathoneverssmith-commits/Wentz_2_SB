@@ -449,7 +449,8 @@ export function stepContext(steps: readonly ScoreStep[], i: number, team: (side:
   const mineScore = s.side === "home" ? s.home : s.away;
   const theirScore = s.side === "home" ? s.away : s.home;
   const when = clockWord(s.quarter, s.clock);
-  const walkoff = story.overtime && i === steps.length - 1;
+  // only a game with a winner is won in overtime: the last score of a tie is a tying score, not a winning one
+  const walkoff = story.overtime && story.winner !== null && s.side === story.winner && i === steps.length - 1;
   if (walkoff) return `${who} win it in overtime, ${mineScore}–${theirScore}`;
   if (tags.includes("lead_change")) return `${who} take the lead, ${mineScore}–${theirScore}, ${when}`;
   if (tags.includes("tying")) return `${who} tie it at ${mineScore}, ${when}`;
@@ -523,8 +524,13 @@ export function analyzeGame(cast: GameCast, opts: { max?: number } = {}): GameAn
   const tagsByStep = steps.map((_, i) => stepTags(steps, i));
 
   // which step is the one that won it, and which put it away
+  const lastStep = steps.length - 1;
   const winnerStep: number | null =
-    story.overtime && steps.length ? steps.length - 1 : story.finalLeadStep !== null && steps[story.finalLeadStep]!.quarter >= 4 ? story.finalLeadStep : null;
+    story.overtime && story.winner !== null && steps[lastStep]?.side === story.winner
+      ? lastStep
+      : story.finalLeadStep !== null && steps[story.finalLeadStep]!.quarter >= 4
+        ? story.finalLeadStep
+        : null;
 
   // steps anchored to a play (those a play caused), and those before one (a kickoff returned)
   const byPlay = new Map<string, number[]>();
