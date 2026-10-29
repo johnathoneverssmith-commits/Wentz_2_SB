@@ -1,5 +1,6 @@
 import type { Player } from "../schema/player.js";
-import type { Roster } from "./roster.js";
+import { QB_EFFECT, onQbEffectChange } from "./ratings.js";
+import { type Roster, roster, teamList } from "./roster.js";
 
 /**
  * The part of team quality the modelled families cannot see (§23 residual).
@@ -98,7 +99,21 @@ const DEFENSE = new Set(["EDGE", "DT", "DL", "ILB", "OLB", "LB", "CB", "S", "DB"
  * change inside a game, so the index is computed once and kept on a WeakMap
  * that lets the roster be collected with it.
  */
-const _cache = new WeakMap<Roster, StrengthIndex>();
+let _cache = new WeakMap<Roster, StrengthIndex>();
+onQbEffectChange(() => {
+  _cache = new WeakMap();
+  _qbReference = null;
+});
+
+/** The league's starting-quarterback overall on the reference rosters: what "an average quarterback" is for the QB scale. */
+let _qbReference: number | null = null;
+function qbReference(): number {
+  if (_qbReference === null) {
+    const v = teamList().map((t) => roster(t).depth.get("QB")?.[0]?.overall ?? 0).filter((x) => x > 0);
+    _qbReference = v.length ? v.reduce((a, b) => a + b, 0) / v.length : 80;
+  }
+  return _qbReference;
+}
 
 export interface StrengthIndex {
   /** Snap-weighted mean of the offense, 0–99. */
@@ -192,12 +207,14 @@ export function strengthIndex(r: Roster): StrengthIndex {
   }
   const offense = offDen > 0 ? offNum / offDen : 0;
   const defense = defDen > 0 ? defNum / defDen : 0;
-  const blend = (shares: Record<string, number>, fallback: number): number => {
+  const blend = (shares: Record<string, number>, fallback: number, qbScale = 1): number => {
     let num = 0;
     let den = 0;
     for (const [pos, w] of Object.entries(shares)) {
-      const v = byPos.get(pos);
+      let v = byPos.get(pos);
       if (v === undefined) continue;
+      // the quarterback's distance from an average one, scaled (1 leaves the engine as it was)
+      if (pos === "QB" && qbScale !== 1) v = qbReference() + qbScale * (v - qbReference());
       num += w * v;
       den += w;
     }
@@ -205,7 +222,8 @@ export function strengthIndex(r: Roster): StrengthIndex {
   };
   const channels = {} as Record<Channel, { offense: number; defense: number }>;
   for (const [ch, u] of Object.entries(CHANNEL_UNITS) as [Channel, (typeof CHANNEL_UNITS)[Channel]][]) {
-    channels[ch] = { offense: blend(u.offense, offense), defense: blend(u.defense, defense) };
+    const qbScale = ch === "complete" ? QB_EFFECT.complete : ch === "interception" ? QB_EFFECT.interception : 1;
+    channels[ch] = { offense: blend(u.offense, offense, qbScale), defense: blend(u.defense, defense) };
   }
   const out: StrengthIndex = { offense, defense, channels };
   _cache.set(r, out);

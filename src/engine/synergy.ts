@@ -69,7 +69,7 @@
  */
 
 import type { Player } from "../schema/player.js";
-import { attributeZ, playerKey } from "./ratings.js";
+import { QB_EFFECT, attributeZ, onQbEffectChange, playerKey } from "./ratings.js";
 import { type Lineup, roster, teamList } from "./roster.js";
 
 // ---- per-player skill scores -------------------------------------------------
@@ -308,7 +308,8 @@ function offenseScores(o: Lineup): Pick<UnitScores, "passPro" | "runBlock" | "ru
   const runLine = meanZ(run);
   const runner = skillZ(o.RB1, RUNNER);
 
-  const qb = skillZ(o.QB1, QB_PASS);
+  const qbRaw = skillZ(o.QB1, QB_PASS);
+  const qb = qbRaw === null ? null : qbRaw * QB_EFFECT.complete;
   // Each target is its own quarterback–receiver pair, weighted by how often
   // the ball goes his way. Pairing the quarterback with the receivers' *mean*
   // diluted the one relationship that matters most: a bad WR1 next to two
@@ -492,6 +493,12 @@ const keyOf = (l: Lineup): string =>
   Object.entries(l)
     .map(([slot, p]) => `${slot}:${playerKey(p)}`)
     .join(",");
+
+// the quarterback setting is part of every cached score that involves him
+onQbEffectChange(() => {
+  _reference = null;
+  _offCache.clear();
+});
 
 function cachedOffense(o: Lineup): ReturnType<typeof offenseScores> {
   const k = keyOf(o);

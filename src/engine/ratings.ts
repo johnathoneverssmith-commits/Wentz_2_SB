@@ -26,6 +26,31 @@ type Unit = readonly (Player | null | undefined)[];
 
 const CLIP = 3.0;
 
+/**
+ * The quarterback's own weight in the completion and interception channels, and an arm term.
+ *
+ * EXPERIMENTAL, off by default (`complete` and `interception` 1, `arm` 0 is the engine exactly as it was).
+ * A quarterback reaches those two channels three times over: the rating layer reads his accuracy and
+ * ball-security families, the team-strength index gives him 40% / 72% of the passing / interception
+ * indices, and synergy pairs him with each receiver. Scaling all three by the same factor shrinks how far
+ * his rating moves completion and interception rates without touching sacks, scrambles or the run game.
+ * `arm` is yards per completion per z of throw power and deep accuracy (neither feeds any layer today),
+ * which keeps his value in yards and touchdowns while the other two shrink. Measured in
+ * `audit/realism-2026-10/CALIBRATION_AND_REPLAY.md` and `docs/decisions.md`.
+ */
+export const QB_EFFECT = { complete: 1, interception: 1, arm: 0 };
+const _qbListeners: (() => void)[] = [];
+/** Modules that cache anything derived from the quarterback register here, so a change of setting cannot be served stale. */
+export function onQbEffectChange(fn: () => void): void {
+  _qbListeners.push(fn);
+}
+/** Analysis and tests only. `null` restores the engine as it was. */
+export function setQbEffect(v: Partial<typeof QB_EFFECT> | null): void {
+  Object.assign(QB_EFFECT, { complete: 1, interception: 1, arm: 0 }, v ?? {});
+  for (const f of _qbListeners) f();
+}
+export const qbEffectActive = (): boolean => QB_EFFECT.complete !== 1 || QB_EFFECT.interception !== 1 || QB_EFFECT.arm !== 0;
+
 interface FamilyAttr {
   attribute: string;
   beta_per_z: number;
@@ -190,7 +215,7 @@ export function completionLogitShift(
   qb: Player | null | undefined,
 ): number {
   return (
-    centered("qb_accuracy", [qb]) +
+    QB_EFFECT.complete * centered("qb_accuracy", [qb]) +
     centered("receiver_hands_routes", catchers) +
     centered("coverage", defenders)
   );
@@ -198,7 +223,7 @@ export function completionLogitShift(
 
 /** M09 INTERCEPTION: qb ball security (−). */
 export function interceptionLogitShift(qb: Player | null | undefined): number {
-  return centered("qb_ball_security", [qb]);
+  return QB_EFFECT.interception * centered("qb_ball_security", [qb]);
 }
 
 /** M04 SACK: protection (−) + pass rush (+). */
