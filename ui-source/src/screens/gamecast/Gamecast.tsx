@@ -28,7 +28,9 @@ import { cue } from "@/audio/cues";
 
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { BroadcastDrive, BroadcastPlay, GameResult, InjuryEvent } from "@/domain";
+import { analyzeGame, type Highlight } from "../../../../src/engine/highlights.js";
 import { narrateBroadcast } from "../../../../src/engine/narration.js";
+import { HighlightBadge, KeyMoments } from "./KeyMoments";
 import { Narrated } from "./Narrated";
 
 import "./gamecast.css";
@@ -240,6 +242,9 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
   const drives = useMemo(() => bc?.drives ?? [], [bc]);
   const { steps, driveStart } = useMemo(() => buildSteps(drives), [drives]);
   const narration = useMemo(() => (bc ? narrateBroadcast(drives, { home: bc.home, away: bc.away }) : []), [bc, drives]);
+  // the game's big moments and each drive's summary; a game saved without the running score (the oldest saves) has neither
+  const analysis = useMemo(() => (bc && drives.every((d) => d.plays.every((p) => p.scoreAfter)) ? analyzeGame(bc) : null), [bc, drives]);
+  const highlightAt = useMemo(() => new Map<string, Highlight>((analysis?.highlights ?? []).map((h) => [`${h.drive}:${h.play}`, h])), [analysis]);
   const total = steps.length;
 
   const [gi, setGi] = useState(1);
@@ -527,6 +532,13 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
               {shownDrives < drives.length ? " so far" : ""}
             </span>
           </div>
+          <KeyMoments
+            moments={(analysis?.highlights ?? [])
+              // a moment is shown once the replay has reached its play, as the drive chart does for a drive
+              .map((h) => ({ h, gi: (driveStart[h.drive] ?? 0) + h.play + 2 }))
+              .filter(({ gi: at }) => at <= gi)}
+            onJump={jumpTo}
+          />
           <div className="gc-drives">
             {/* Only the drives the replay has reached. The whole chart —
                 every TD, turnover and punt — used to sit beside the pre-game
@@ -588,7 +600,15 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
                     · from {spot(dr.startBallOn)}
                     {tag && <span className={`gc-dtag ${tag.cls}`}>{tag.label}</span>}
                     {conceded && <span className="gc-dtag against">{conceded}</span>}
+                    {!live && analysis?.drives[k]?.key && <span className="gc-dkey" aria-label="key drive" title="A key drive">★</span>}
                   </span>
+                  {/* net yards and what it scored, once the drive is over: a drive still being watched has no result to give away */}
+                  {!live && analysis?.drives[k] && (
+                    <span className="gc-dsum">
+                      {analysis.drives[k]!.yards} net yds
+                      {analysis.drives[k]!.scoreLines.length > 0 ? ` · ${analysis.drives[k]!.scoreLines.join("; ")}` : ""}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -711,7 +731,12 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
                         } at ${spot(cur.ballOn)}`}
             </span>
             <span className="gc-desc">
-              {cur && step.type === "play" && narration[step.k]?.[step.j] ? <Narrated n={narration[step.k]![step.j]!} /> : `${dTeam} takes over at ${spot(next?.ballOn ?? drive.startBallOn)}`}
+              {cur && step.type === "play" && narration[step.k]?.[step.j] ? (
+                <>
+                  <HighlightBadge h={highlightAt.get(`${step.k}:${step.j}`)} />
+                  <Narrated n={narration[step.k]![step.j]!} />
+                </>
+              ) : `${dTeam} takes over at ${spot(next?.ballOn ?? drive.startBallOn)}`}
             </span>
           </div>
 

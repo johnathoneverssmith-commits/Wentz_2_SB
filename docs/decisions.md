@@ -1749,3 +1749,28 @@ team right after an interception on the last snap of a half would read as a pick
 
 **Not changed.** The simulation (`sim.ts` untouched, fingerprints identical), the scoring summary's wording, the halftime possession defect (issue #53), CSS, and
 the Gamecast layout. No highlights or recaps (PBP-3, PBP-4).
+
+## Highlights, drive summaries and recaps, PBP-3 + PBP-4 (2026-10)
+
+**Three pure modules over the PBP-1 event log and the PBP-2 narration** (`src/engine/highlights.ts`, `recap.ts`; no simulation imports, no RNG, no clock):
+`analyzeGame(broadcast)` gives the score timeline, the lead story, every scored moment, a short list and one summary per drive; `buildRecap(record)` gives a
+headline, paragraphs, standouts and key moments. A game saved without the engine's score log is read off the running score; one saved without even that gets
+drive summaries and no highlights; a record without its plays gets a recap from its scoring summary, and one with only a final score gets the result line.
+
+**What ranks a moment.** How much it moved the game, not how far it went. A score is weighted by the change in the chance of winning (a normal approximation on the
+margin and the regulation time left; a ranking device, never shown to a player); a takeaway, a fourth-down snap or a miss by how close and late the game was and
+where on the field it happened; yardage counts only for a gain of 30 or more, and for little. Overtime scores and the play that won the game get large bonuses and the
+game-winning play is always on the list. The list is at most eight, at most two per drive, at most three long gains; `rank` 1 is the biggest and the top three (or any 75+)
+are "major". Verified on hand-built games with exact answers (a comeback from 14 down, an overtime field goal, a late pick-six, a goal-line stand) and 120 simulated games.
+
+**Drive yards are the field covered** (where the drive started to where it ended, penalties included), not the sum of the trace's per-play `gained`. The engine's recorded
+yardage on a long touchdown can run past the end zone (467 of 1,142 touchdowns in 200 games, e.g. a 91-yard score from the 46), and a drive cannot out-run the field.
+The per-play numbers are left as recorded because they are the box score's statistics; fixing them is a statistics change for the realism workstream.
+
+**Recaps quote the record.** Every number is a recorded figure or plain arithmetic on one (checked by an audit over 56 simulated games that fails if a statistic is made
+up); every name is on the record; standouts are each team's top passer, rusher and receiver when the numbers are worth a mention, and a defender with 2+ sacks, a takeaway
+or 2+ forced fumbles, quoted as recorded. Game types (blowout 21+, shootout 65+ points, defensive struggle 24 or fewer, comeback after trailing by 10+, overtime,
+tie, defensive and special-teams scores) are decided by the record's numbers. Wording varies with a hash of the game's own score, teams and week, never randomness.
+
+**Gamecast** gains a key-moments list (only moments the replay has reached, as the drive chart does for drives), a badge on the live play when it is one, and a net-yards/scoring
+line under each finished drive. The box score gains a Recap tab (now first). Both are additive components with their own stylesheet; `gamecast.css` and the grid are untouched.

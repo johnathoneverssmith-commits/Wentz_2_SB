@@ -1,0 +1,106 @@
+/* Key moments and drive details for the Gamecast. Additive: a separate file,
+   using the Gamecast's own variables, so the redesign of gamecast.css and this
+   do not touch the same lines. */
+.gc-hl-panel {
+  border-bottom: 1px solid var(--line);
+}
+.gc-hl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.gc-hl-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 13px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 0;
+}
+.gc-hl-item:hover {
+  background: var(--panel-raised);
+}
+.gc-hl-item.major {
+  border-left-color: var(--gc-chalk);
+}
+.gc-hl-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gc-hl-when {
+  font-family: var(--gc-mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+.gc-hl-text {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+.gc-hl-why {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--ink-dim);
+}
+.gc-hl-badge {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--panel-raised);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.gc-hl-badge.major {
+  background: color-mix(in srgb, var(--gc-chalk) 24%, var(--panel-raised));
+  color: var(--gc-chalk);
+}
+.gc-hl-badge.inline {
+  margin-right: 8px;
+  vertical-align: middle;
+}
+/* a drive's second line: net yards and what it scored */
+.gc-dsum {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--ink-faint);
+}
+.gc-dkey {
+  color: var(--gc-chalk);
+  margin-left: 4px;
+}
+@media (max-width: 480px) {
+  .gc-hl-list {
+    max-height: 220px;
+  }
+  .gc-hl-item {
+    padding: 11px 13px;
+  }
+  .gc-hl-text {
+    font-size: 13px;
+  }
+}
+@media (pointer: coarse) {
+  .gc-hl-item {
+    min-height: 44px;
+  }
+}
