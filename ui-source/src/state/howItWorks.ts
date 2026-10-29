@@ -1,4 +1,5 @@
 import { COACH_TUNING, NEUTRAL_COACH_OVERALL } from "./coachEffects.ts";
+import { REPEAT_DECAY } from "./trainingCamp.ts";
 
 const pctOf = (x: number): string => `${Math.round(x * 1000) / 10}%`;
 import { DRAFT_ROUNDS } from "./draftPicks.ts";
@@ -142,6 +143,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         body: [
           "Three things stack. The aging model decides whether a player improves, holds or declines. His position coach scales that. If his group was one of the two the coordinators focused on, the focus scales it again.",
           "Nothing after the first step can change its direction: a focus makes a developing player develop more and a declining one decline less, but it never keeps a 34-year-old improving.",
+          `Picking the same focus camp after camp pays less each time: every consecutive repeat keeps ${Math.round(REPEAT_DECAY * 100)}% of the strength the last one had, and switching or skipping a year starts it over. The CPU picks the group where a camp adds the most strength, not simply the weakest one.`,
         ],
       },
       {
