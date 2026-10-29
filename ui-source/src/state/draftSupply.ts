@@ -21,16 +21,17 @@ import { neutralStarterMeans } from "@/sim/leagueDna/targets";
  * saved so later seasons measure against it.
  */
 /** DNA leagues: how hard a position's shortfall pulls its next class (legacy leagues use 0.12 and ~1 with an integral term). */
-export const DNA_SUPPLY_GAIN = 0.05;
-export const DNA_QUALITY_GAIN = 0.35;
-/** DNA leagues: the aging restoring force per point a position runs hot (legacy: 0.2, plus an integral). */
-export const DNA_AGING_GAIN = 0.05;
+export const DNA_BALANCE = { supply: 0.12, quality: 0.7, aging: 0.15, /** points taken off the neutral target: where steady-state stars settle */ offset: 5 };
+
+function dnaBaseline(): Partial<Record<Position, number>> {
+  return Object.fromEntries(Object.entries(neutralStarterMeans()).map(([k, v]) => [k, v - DNA_BALANCE.offset]));
+}
 
 export function draftClassTilt(s: LeagueState): DraftClassTilt {
   const now = starterMeans(s);
   // A DNA league steers towards a neutral long-run target, never towards how
   // it happened to open: a quarterback-rich start must not make quarterback-rich classes.
-  s.positionBaseline ??= s.dna ? neutralStarterMeans() : now;
+  s.positionBaseline ??= s.dna ? dnaBaseline() : now;
   // once a season (this runs at each rollover): bank every position's offset
   // from its baseline for the aging controller's integral term (legacy leagues only)
   if (!s.dna && s.agingIntegralSeason !== s.season) {
@@ -63,8 +64,8 @@ export function draftClassTilt(s: LeagueState): DraftClassTilt {
     if (s.dna) {
       // a measured, weaker restoring force: the class's own character does the work
       tilt[pos] = {
-        supply: Math.min(3, Math.max(0.6, (1 + DNA_SUPPLY_GAIN * gap) * (short.get(pos) ?? 1))),
-        quality: Math.round(Math.min(4, Math.max(-4, DNA_QUALITY_GAIN * gap))),
+        supply: Math.min(3, Math.max(0.6, (1 + DNA_BALANCE.supply * gap) * (short.get(pos) ?? 1))),
+        quality: Math.round(Math.min(5, Math.max(-5, DNA_BALANCE.quality * gap))),
       };
       continue;
     }
@@ -157,7 +158,7 @@ export function agingBalance(s: LeagueState): (position: Position, delta: number
     // gone.
     const integral = s.agingIntegral?.[position] ?? 0;
     const m = s.dna
-      ? Math.min(1.4, Math.max(0.6, 1 - DNA_AGING_GAIN * hot))
+      ? Math.min(1.4, Math.max(0.6, 1 - DNA_BALANCE.aging * hot))
       : Math.min(1.7, Math.max(0.3, 1 - 0.2 * hot - 0.08 * integral));
     const scaled = delta > 0 ? delta * m : delta * (2 - m);
     const r = Math.round(scaled);

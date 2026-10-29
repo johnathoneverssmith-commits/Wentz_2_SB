@@ -5,7 +5,7 @@ import type { LeagueState, Position } from "@/domain";
 import { POSITIONS } from "@/domain";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "@/state/seed.ts";
 import { beginDraft, completeDraft } from "@/state/rules.ts";
-import { starterMeans } from "@/state/draftSupply.ts";
+import { DNA_BALANCE, starterMeans } from "@/state/draftSupply.ts";
 import { neutralStarterMeans } from "@/sim/leagueDna/targets";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 
@@ -24,6 +24,8 @@ const SEEDS = (process.env.LONGRUN_SEEDS ?? "9101,9102,9103,9104").split(",").ma
 const SEASONS = Number(process.env.LONGRUN_SEASONS ?? 15);
 const MODES = (process.env.LONGRUN_MODES ?? "fictional,legacy").split(",") as ("fictional" | "legacy")[];
 const sim = new MockSimulationService();
+// analysis only: LONGRUN_TUNE='{"supply":0.1,"quality":0.5,"aging":0.1}' tries other DNA balancing gains
+if (process.env.LONGRUN_TUNE) Object.assign(DNA_BALANCE, JSON.parse(process.env.LONGRUN_TUNE));
 const mean = (x: number[]) => (x.length ? x.reduce((a, b) => a + b, 0) / x.length : 0);
 
 function league(seed: number, playerPool: "fictional" | "legacy"): LeagueState {

@@ -79,6 +79,43 @@ export const TUNING = {
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
+/**
+ * Points per team-game moved by one rating point of league-wide talent at a
+ * position (fitted over 140 generated leagues on the real engine; offence
+ * raises scoring, defence lowers it). A league deep everywhere on offence and
+ * thin on defence played 30+ points a game and the reverse 17, far outside any
+ * NFL era (about 20.5-25). Keeping a league's *net* scoring pull inside
+ * `SCORING_LIMIT` keeps the football believable while leaving which positions
+ * are deep or thin free: it moves talent between sides of the ball, it does
+ * not hand any team anything.
+ */
+export const SCORING_WEIGHT: Partial<Record<Position, number>> = {
+  QB: 0.4, WR: 0.16, TE: 0.1, RB: 0.13, OT: 0.25, OG: 0.22, C: 0.23,
+  EDGE: -0.2, DT: -0.29, ILB: -0.3, CB: -0.2, S: -0.3,
+};
+export const SCORING_LIMIT = 1.0;
+/**
+ * Where the net pull is centred: a league with no character plays about 0.9 points a game above the validated engine
+ * (24.3 against 23.5 on the real rosters, 100 games x 10 leagues), so leagues are centred that far below neutral.
+ */
+export const SCORING_CENTRE = -0.9;
+
+/** Move position shifts, minimally, until their net scoring pull is within the limit. */
+export function neutralizeScoring(shifts: Record<Position, number>): void {
+  let effect = 0;
+  let norm = 0;
+  for (const [pos, w] of Object.entries(SCORING_WEIGHT) as [Position, number][]) {
+    effect += w * shifts[pos];
+    norm += w * w;
+  }
+  const off = effect - SCORING_CENTRE;
+  if (Math.abs(off) <= SCORING_LIMIT) return;
+  const excess = off - Math.sign(off) * SCORING_LIMIT;
+  for (const [pos, w] of Object.entries(SCORING_WEIGHT) as [Position, number][]) {
+    shifts[pos] = clamp(shifts[pos] - (w * excess) / norm, -TUNING.shiftLimit, TUNING.shiftLimit);
+  }
+}
+
 const NEUTRAL_POS = (pos: Position): PositionDna => ({
   shift: 0,
   spread: 1,
@@ -142,5 +179,8 @@ export function drawLeagueDna(dnaSeed: number): LeagueDna {
       archetypes,
     };
   }
+  const shifts = Object.fromEntries(POSITIONS.map((p) => [p, positions[p].shift])) as Record<Position, number>;
+  neutralizeScoring(shifts);
+  for (const pos of POSITIONS) positions[pos].shift = shifts[pos];
   return { version: GEN_VERSION, dnaSeed, level, tail, ageTilt, upside, positions };
 }

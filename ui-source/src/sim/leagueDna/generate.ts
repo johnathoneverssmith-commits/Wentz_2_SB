@@ -18,6 +18,9 @@ const NOT_A_SPECIALTY = new Set(["injury", "stamina", "toughness"]);
 /** The tail of the rating curve above one sd, as extra sds. Calibrated so a neutral league has the reference number of 85+ players. */
 export const TAIL_K = 0.45;
 
+/** Analysis only: scales on how much a type and a personal strength/weakness move attributes (1 = as shipped). */
+export const ATTRIBUTE_TUNING = { archetype: 1, specialty: 1 };
+
 export function playersAt(pos: Position, dna: LeagueDna): number {
   const slot = ROSTER_TEMPLATE.find((r) => r.pos === pos);
   if (!slot || slot.count === 0) return 0;
@@ -41,14 +44,15 @@ export function attributesFor(pos: Position, overall: number, arch: Archetype | 
   for (const [key, [a, b, sd]] of Object.entries(fit)) {
     out[key] = clamp(Math.round(a + b * overall + rng.normal() * sd * 1.15), 20, 99);
   }
-  if (arch) applyArchetype(out, arch, strength);
+  if (arch && ATTRIBUTE_TUNING.archetype > 0) applyArchetype(out, arch, strength * ATTRIBUTE_TUNING.archetype);
   const keys = Object.keys(out).filter((k) => !NOT_A_SPECIALTY.has(k));
   if (keys.length > 3) {
     const up = rng.pick(keys);
     let down = rng.pick(keys);
     if (down === up) down = keys[(keys.indexOf(up) + 1) % keys.length]!;
-    out[up] = clamp(out[up]! + rng.int(3, 6), 20, 99);
-    out[down] = clamp(out[down]! - rng.int(3, 6), 20, 99);
+    const k = ATTRIBUTE_TUNING.specialty;
+    out[up] = clamp(out[up]! + Math.round(rng.int(3, 6) * k), 20, 99);
+    out[down] = clamp(out[down]! - Math.round(rng.int(3, 6) * k), 20, 99);
   }
   return out;
 }

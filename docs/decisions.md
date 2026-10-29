@@ -1819,3 +1819,21 @@ tie, defensive and special-teams scores) are decided by the record's numbers. Wo
 
 **Gamecast** gains a key-moments list (only moments the replay has reached, as the drive chart does for drives), a badge on the live play when it is one, and a net-yards/scoring
 line under each finished drive. The box score gains a Recap tab (now first). Both are additive components with their own stylesheet; `gamecast.css` and the grid are untouched.
+
+## Seeded League DNA: fictional players, class DNA, era analogies (2026-10)
+
+Approved architecture in `docs/SEEDED_LEAGUE_DNA_PROPOSAL.md`; as-built reference and measurements in `docs/SEEDED_LEAGUE_DNA.md`; era catalogue and its limits in `docs/LEAGUE_DNA_ERAS.md`.
+
+**Decision.** New leagues play original fictional players generated from a versioned, seed-derived League DNA (`ui-source/src/sim/leagueDna/`); each draft class has its own DNA keyed by (dnaSeed, year); the opening league and each class get a qualitative scouting profile (an NFL-era *analogy* or a fictional-era title for the league). `LeagueState.dna` absent = a legacy league, which keeps the real-player pool, the old rookie classes and the old balancing byte for byte.
+
+**Measured, not assumed.** The pool alone does not change post-draft parity (team-strength sd 0.313 legacy vs 0.325 fictional over 24 seeds each): thirty-two CPU teams drafting on one evaluator equalise by construction. It does change which draft strategies work (Spearman agreement of the strategy ranking between two seeds 0.78 -> 0.32), makes stars non-repeating (shared 90+ players between leagues 100% -> 0.1%), and holds talent steady over 15-20 seasons (starter means within -2.4/+1.8 of the neutral target, rosters 53). No drafting, simulation, archetype-synergy or positional-weight change was made; if more post-draft spread is wanted it needs its own decision.
+
+**Deviations from the proposal, and why.**
+* Overall is drawn and attributes follow it (an archetype moves attributes, not overall) rather than overall being derived from attributes. A regression-derived overall would have re-scaled every position against the engine's team-strength index, which reads `overall`; keeping overall as the primary latent keeps the validated scale.
+* A scoring guard (`neutralizeScoring`) was added after measurement: unconstrained DNA produced leagues scoring 17-32 points a game. Net offence-minus-defence pull is now projected into a band (sd 1.8, floor ~1.4 from sampling). It reassigns talent between sides of the ball, not between teams.
+* `DNA_BALANCE` gains (supply 0.12, quality 0.7, aging 0.15, offset 5) were set by sweeping them over 12-season leagues; the offset is what sets where 85+ players plateau (legacy deflates to about 0.45x of the opening count, an unregulated DNA league rises to 2.5x, the shipped setting holds about 1.5-2x).
+* The era catalogue is qualitative: Pro Football Reference was unreachable from the build environment, so the placements lean on the public figures that could be read. The brief's illustrative "2013 = defensive strength" did not hold (2013 was a record-scoring season) and is catalogued accordingly.
+
+**Compatibility.** Additive optional fields only (`Player.archetype`, `DraftProspect.archetype`, `LeagueState.dna`, `LeagueState.draftClassProfile`, `LeagueConfig.playerPool`). No migration, no save-version bump. Seven tests whose scenarios depend on one real pool are pinned to `playerPool: "legacy"`.
+
+**Known limits.** `potential` is in the state a client receives for every player (as it already was for rookies); `dnaSeed` is derivable from the league seed. Neutral DNA plays ~0.9 points a game above the validated engine.

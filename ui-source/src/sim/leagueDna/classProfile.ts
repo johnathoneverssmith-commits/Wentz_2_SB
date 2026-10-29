@@ -60,6 +60,6 @@ export function classProfile(c: readonly DraftProspect[], year: number): LeagueP
     eraId: null,
     title: `${year} Draft Class`,
     blurb: `The ${year} draft is ${overall}${standouts}. ${lean}`,
-    tendencies: { ...tendenciesOf(g), overall: bandOf(q) },
+    tendencies: { ...tendenciesOf(g), classStrength: bandOf(q) },
   };
 }

@@ -11,7 +11,7 @@ import { decideRespondToTrade } from "../src/decide.js";
  * could hand a 90-plus player over for nothing.
  */
 function league(): LeagueState {
-  const s = createLeague(515, { ...DEFAULT_CONFIG, humanGmCount: 2, fantasyDraft: false });
+  const s = createLeague(515, { ...DEFAULT_CONFIG, humanGmCount: 2, fantasyDraft: false, playerPool: "legacy" });
   fillRosterGaps(s);
   s.gms[0]!.teamCode = "KC";
   s.gms[0]!.isHuman = true;
