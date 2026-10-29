@@ -277,21 +277,21 @@ describe("§14 Training Camp", () => {
     expect(strategyGroupBonus("pass_heavy", "QB")).toBeGreaterThan(strategyGroupBonus("pass_heavy", "RB"));
   });
 
-  it("25. a catastrophically weak group still receives focus despite strategy", () => {
+  it("25. a strategy's bonus cannot make the CPU focus a group it has nobody to develop in", () => {
     const s = fixtureLeague();
     beginDraft(s, "fantasy");
     beginCoachingDraft(s);
     runAiCoachingPicks(s, new Set());
-    const team = teamWithStrategy(s, "pass_heavy"); // biased away from RB
-    // wipe out RB entirely — an empty position is a bigger weakness signal
-    // than any strategy's group bonus (bonuses cap at 4; the weakness score
-    // for an empty position is ~77, an order of magnitude larger)
+    const team = teamWithStrategy(s, "run_heavy"); // biased toward RB (+4)
+    // wipe out RB entirely: a focus on an empty group is worth nothing, and the bonus
+    // (capped at 4 on a 0-10 scale) cannot outweigh the group with the most to gain
     for (const p of Object.values(s.players)) {
       if (p.nfl_team === team && p.position === "RB") p.nfl_team = "FA";
     }
     runCpuTrainingCamps(s, new Set());
     const plan = s.trainingCamp?.plans[team];
-    expect(plan?.offensiveFocus).toBe("RB");
+    expect(plan?.offensiveFocus).not.toBe("RB");
+    expect(plan?.offensiveFocus).not.toBeNull();
     void sim;
   });
 });

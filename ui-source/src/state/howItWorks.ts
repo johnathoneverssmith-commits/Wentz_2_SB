@@ -1,4 +1,5 @@
 import { COACH_TUNING, NEUTRAL_COACH_OVERALL } from "./coachEffects.ts";
+import { REPEAT_DECAY } from "./trainingCamp.ts";
 
 const pctOf = (x: number): string => `${Math.round(x * 1000) / 10}%`;
 import { DRAFT_ROUNDS } from "./draftPicks.ts";
@@ -142,12 +143,13 @@ export const HOW_IT_WORKS: HowTopic[] = [
         body: [
           "Three things stack. The aging model decides whether a player improves, holds or declines. His position coach scales that. If his group was one of the two the coordinators focused on, the focus scales it again.",
           "Nothing after the first step can change its direction: a focus makes a developing player develop more and a declining one decline less, but it never keeps a 34-year-old improving.",
+          `Picking the same focus camp after camp pays less each time: every consecutive repeat keeps ${Math.round(REPEAT_DECAY * 100)}% of the strength the last one had, and switching or skipping a year starts it over. The CPU picks the group where a camp adds the most strength, not simply the weakest one.`,
         ],
       },
       {
         heading: "Who grows",
         body: [
-          "Players below their development age grow by an amount set by the room between their rating and their potential: high-ceiling prospects can be stars by 24 and low-ceiling ones plateau. The youngest grow fastest, and three or more years of growth left counts in full.",
+          "Players below their development age grow by an amount set by the room between their rating and their potential: high-ceiling prospects can be stars by 24 and low-ceiling ones plateau. The youngest grow fastest, and three or more years of growth left counts in full. Every player also has a career of his own: some bloom early, some late, some top out at a ceiling and some keep climbing, and a position decides when its players peak (backs and corners early, quarterbacks and linemen late). Once in a while a player has a breakout year or a bad one.",
           `Coaches are neutral at ${NEUTRAL_COACH_OVERALL}; within ${COACH_TUNING.INNER_POINTS} points each point above speeds growth by ${pctOf(COACH_TUNING.INNER_SWING_PER_OVR)}, each point below slows it by as much, and past that a point is worth ${pctOf(COACH_TUNING.OUTER_SWING_PER_OVR)}, so a staff of stars helps but cannot outgrow its roster. The head coach sets the program for every group: ${pctOf(COACH_TUNING.HEAD_COACH_SWING_PER_OVR)} a point on top of the position coach.`,
         ],
       },
@@ -167,7 +169,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
       {
         heading: "Decline",
         body: [
-          "Between a player's development age and his decline age his rating barely moves. Past the decline age he loses points every year, more each year than the last, between one and seven a season. The ages are set per player, by position.",
+          "Between a player's development age and his decline age his rating barely moves. Past the decline age he loses points every year, more each year than the last, between one and seven a season. The ages are set per player, by position, and a position decides how steeply its players fall: a back's decline lands harder than a quarterback's or a lineman's, and a kicker's barely at all.",
           `The same coach scale applies: a position coach above ${NEUTRAL_COACH_OVERALL} makes the decline land lighter, one below it heavier, and the head coach's program counts too (never past ${Math.round((1 - COACH_TUNING.MIN_REGRESSION) * 100)}% lighter). Coaching changes the size of the move, never when a career turns.`,
         ],
       },
@@ -231,6 +233,13 @@ export const HOW_IT_WORKS: HowTopic[] = [
           "Players act by the unit they play in. A great unit with one weak starter plays closer to that starter, two units that work together (a quarterback and his receivers, a line and its back) are worth more than their ratings add up to, and the pass rush against the protection decides sacks.",
           "Home field is worth about a 54% win rate to the home team (none at the Super Bowl), weather changes throws, kicks and fumbles, and coaching nudges a few decisions.",
           "The last two minutes of each half run on the clock: game plans never apply there. Overtime follows the NFL rule, and playoff games always finish with a winner.",
+        ],
+      },
+      {
+        heading: "Recaps and key moments",
+        body: [
+          "Every finished game has a recap on its box score, written from what was recorded: the final score, how the lead moved, each player's stat line and, for games you watched, the plays. It says nothing the record does not support, and the same game always reads the same.",
+          "The replay's key moments are ranked by how much each play moved the game, not by yardage: a late go-ahead score or a takeaway near the goal line outranks a long gain in a blowout. The list grows as you watch, so it never gives the result away.",
         ],
       },
       {
