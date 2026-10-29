@@ -19,7 +19,7 @@ import {
 } from "../src/engine/gameplan.js";
 import { Roster, roster, withRookiePlaytime } from "../src/engine/roster.js";
 import { rookieRoles } from "../src/engine/rookies.js";
-import { simulateGame } from "../src/engine/sim.js";
+import { Game, simulateGame } from "../src/engine/sim.js";
 import { qbMobilityZ } from "../src/engine/synergy.js";
 import type { Player } from "../src/schema/player.js";
 
@@ -312,16 +312,29 @@ describe("kickoffs, returns and rookies in the games", () => {
     return { start: start / drives, returnTds };
   };
   it("a team that brings everything back fumbles it away sometimes, and the standard plan never does on a return", () => {
+    // Counted at the source: a kickoff return fumbled away (the engine's own hook) and a punt return the trace marks "fumbled".
+    // Comparing every fumble the team lost, scrimmage ones included, buried a handful of return fumbles in noise a few times their
+    // size, so any change to the random stream could flip the comparison.
     const lost = (r: number) => {
       let n = 0;
-      for (let i = 0; i < 300; i++) {
-        const g = simulateGame(8100 + SHIFT + i, "DAL", "PHI", { awayPlan: plan({ returns: r }), talentScale: 1.5 });
-        // a fumble lost on a return is the receiving team's with no scrimmage play: compare totals with and without
-        n += g.teams[1].s["fumble_lost"] ?? 0;
+      const proto = Game.prototype as unknown as { kickoffFumble: (...a: unknown[]) => unknown };
+      const original = proto.kickoffFumble;
+      proto.kickoffFumble = function (this: unknown, ...a: unknown[]) {
+        n++;
+        return original.apply(this, a);
+      };
+      try {
+        for (let i = 0; i < 300; i++) {
+          const g = simulateGame(8100 + SHIFT + i, "DAL", "PHI", { awayPlan: plan({ returns: r }), talentScale: 1.5, trace: true });
+          n += (g.playTrace ?? []).filter((p) => p.call === "punt" && p.outcome === "fumbled").length;
+        }
+      } finally {
+        proto.kickoffFumble = original;
       }
       return n;
     };
-    expect(lost(100)).toBeGreaterThan(lost(0));
+    expect(lost(0), "the standard plan never fumbles a return away").toBe(0);
+    expect(lost(100)).toBeGreaterThan(0);
   }, 300000);
   it("a team that fair catches takes the big play off the table", () => {
     const base = specials({ kickoff: 1 }, { returns: 1 }, 300);
