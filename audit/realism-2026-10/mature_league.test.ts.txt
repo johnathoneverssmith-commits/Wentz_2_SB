@@ -33,7 +33,10 @@ describe("mature", () => { it("run", () => {
       lastKey = key;
       if (s.stage === "preseason" && s.week === 1 && !snapped.has(s.season)) {
         snapped.add(s.season); idx++;
-        out.seasons.push({ idx, season: s.season, quality: quality() });
+        const all = Object.values(s.players as Record<string, any>).filter((p) => !p.retired);
+        const ros = rostered();
+        const sup = { rostered: ros.length, fa: all.filter((p) => p.free_agent).length, meanAge: ros.reduce((n, p) => n + p.age, 0) / ros.length, n80: ros.filter((p) => p.overall >= 80).length, n70: ros.filter((p) => p.overall >= 70).length, rookies: ros.filter((p) => (p.years_pro ?? 99) <= 0).length, under24: ros.filter((p) => p.age <= 23).length, totalPlayers: all.length, qb80: ros.filter((p) => p.position === "QB" && p.overall >= 80).length };
+        out.seasons.push({ idx, season: s.season, quality: quality(), supply: sup });
         if (snapAt.has(idx)) {
           const teams: Record<string, any[]> = {};
           for (const p of rostered()) (teams[p.nfl_team === "LAR" ? "LA" : p.nfl_team] ??= []).push(p);
