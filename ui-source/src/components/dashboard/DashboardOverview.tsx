@@ -75,7 +75,7 @@ export const DashboardOverview = memo(function DashboardOverview({
         </div>)}
       </MotionSurface>
       <MotionSurface className="ui-surface cap-snapshot" index={3}>
-        <div className="ui-section-heading"><div><h2>Finances &amp; cap</h2><p>Your current salary-cap position</p></div><Link className="ui-text-link" to="/roster">Details ↗</Link></div>
+        <div className="ui-section-heading"><div><h2>Finances &amp; cap</h2><p>Your current salary-cap position</p></div><Link className="ui-text-link" to="/roster?tab=cap">Details ↗</Link></div>
         <div className="cap-snapshot__figure"><span>Cap room</span><strong className={room < 0 ? "bad" : "good"}><AnimatedNumber value={room} format={millions} /></strong></div>
         <MotionMeter value={cap.used} max={cap.total} label="Salary cap used" tone="blue" />
         <dl><div><dt>Used</dt><dd>{millions(cap.used)}</dd></div><div><dt>Salary cap</dt><dd>{millions(cap.total)}</dd></div><div><dt>Dead money</dt><dd>{millions(cap.dead ?? 0)}</dd></div></dl>
