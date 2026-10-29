@@ -100,7 +100,7 @@ describe("repeat streaks", () => {
     nextSeason(s);
     expect(focusStreak(s, "KC", "offense", "OL")).toBe(1); // the old plan counts as streak 0, this is its first repeat
     const old = fresh();
-    old.trainingCamp = { plans: { KC: { offensiveFocus: "OL", defensiveFocus: "DB", submitted: true } }, results: {} } as never; // no season key
+    old.trainingCamp = { plans: { KC: { offensiveFocus: "OL", defensiveFocus: "DB", submitted: true } }, results: {} } as unknown as LeagueState["trainingCamp"]; // no season key
     old.season += 1;
     beginTrainingCamp(old);
     expect(old.trainingCamp!.prior).toBeUndefined();
