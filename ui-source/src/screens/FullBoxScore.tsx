@@ -9,6 +9,8 @@ import { useStore } from "@/state/store";
 import { teamInfoFor } from "@/state/teamInfo";
 import { posLabel, seconds, weeksOut } from "@/util/format";
 
+import { RecapPanel } from "./RecapPanel";
+
 export function FullBoxScore() {
   const { gameId } = useParams();
   const nav = useNavigate();
@@ -19,7 +21,7 @@ export function FullBoxScore() {
   const bracket = useStore((s) => s.bracket);
   const league = useStore();
   const badge = useStore(leagueBadge);
-  const { active, setActive } = useTabs("team");
+  const { active, setActive } = useTabs("recap");
 
   if (!game || !game.totals) {
     return (
@@ -100,6 +102,7 @@ export function FullBoxScore() {
 
       <Tabs
         tabs={[
+          { id: "recap", label: "Recap" },
           { id: "team", label: "Team Stats" },
           { id: "scoring", label: "Scoring Summary" },
           { id: "home", label: TEAMS_BY_CODE[game.homeTeam]!.label },
@@ -110,6 +113,10 @@ export function FullBoxScore() {
         active={active}
         onChange={setActive}
       />
+
+      <Panel id="recap" open={active === "recap"}>
+        <RecapPanel game={game} />
+      </Panel>
 
       <Panel id="team" open={active === "team"}>
         <table className="mtable">
