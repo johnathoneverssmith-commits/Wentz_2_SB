@@ -3,6 +3,7 @@ import { startHoldouts } from "./contracts";
 import { COACH_POSITION_GROUPS } from "@/domain";
 import { Rng } from "@/sim/rng";
 import { agingDelta } from "@/sim/MockSimulationService";
+import { careerShape } from "@/sim/careerShape";
 import { agingBalance } from "./draftSupply";
 
 import { applyCoachToDelta, coachModifiersFor, developmentRoll, roundBy } from "./coachEffects";
@@ -208,7 +209,7 @@ export function runTrainingCamp(s: LeagueState, teamCode: string, plan: Training
     //    balance (`agingBalance`)
     const rng = new Rng((s.season * 9151) ^ hash(p.id));
     const room = p.potential === undefined ? undefined : p.potential - p.overall;
-    const aged = balance(p.position, agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold, room));
+    const aged = balance(p.position, agingDelta(rng, p.age, p.dev_age_threshold, p.decline_age_threshold, room, careerShape(p)));
     // the rookie policy: young players who got the snaps grow, those who sat on the bench grow less
     // (a whole point, rolled with the player's own seeded stream so a retry is the same camp)
     const grow = rookiePolicy === 0 ? 0 : rookieDevelopment(rookiePolicy, p, roles.get(p.id));

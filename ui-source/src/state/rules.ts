@@ -32,7 +32,8 @@ import {
 } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
-import { ROSTER_TEMPLATE } from "@/sim/roster-template";
+import { RETIREMENT_AGE, ROSTER_TEMPLATE } from "@/sim/roster-template";
+import { ROOKIE_DECLINE_BACKOFF } from "@/sim/careerShape";
 import {
   applyExtension,
   endHoldouts,
@@ -1696,7 +1697,10 @@ export function upsertRookiePlayer(
     // four developing years, not three: a first-rounder drafted at 22 stopped
     // growing at 25 and the league's young stars dried up
     dev_age_threshold: pr.age + 4,
-    decline_age_threshold: pr.age + 10,
+    // a position's outer age less a few years (the shipped pool does the same, a little earlier)
+    // (the flat ten years after the draft retired a back at 32 on paper and a
+    // quarterback at 32 too); never before he has had three years of prime
+    decline_age_threshold: Math.max(pr.age + 7, RETIREMENT_AGE[pr.position] - rng.int(...ROOKIE_DECLINE_BACKOFF)),
     injury_history: [],
     contract: released
       ? null

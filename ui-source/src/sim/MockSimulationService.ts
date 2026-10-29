@@ -68,6 +68,7 @@ function realPool(): Player[] {
 import { distinctNames, fullPersonName, personName, school } from "./names.ts";
 import { DEVELOPMENT_ROLES } from "@/domain";
 import { Rng } from "./rng.ts";
+import { NEUTRAL_SHAPE, type CareerShape } from "./careerShape.ts";
 import {
   POSITION_PRIOR,
   RETIREMENT_AGE,
@@ -190,15 +191,33 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
  * single-mean/SD pair implied, not a distribution meant to look right on
  * its own if only called once.
  */
-export function agingDelta(rng: Rng, age: number, devAge: number, declineAge: number, room?: number): number {
+export function agingDelta(
+  rng: Rng,
+  age: number,
+  devAge: number,
+  declineAge: number,
+  room?: number,
+  shape?: CareerShape,
+): number {
   // A player is now aged exactly once a season (camp for a rostered player,
   // rollover for a free agent), so the one call takes both calibrated steps.
   // Taking one step halved every young player's growth and every veteran's
   // decline — a ten-season league slid from 56 players rated 90+ to 16.
-  return agingStep(rng, age, devAge, declineAge, room) + agingStep(rng, age, devAge, declineAge, room);
+  const s = shape ?? NEUTRAL_SHAPE;
+  const dev = devAge + s.devShift;
+  const decline = shape ? Math.max(dev + 1, declineAge + s.declineShift) : declineAge;
+  let total = agingStep(rng, age, dev, decline, room, s) + agingStep(rng, age, dev, decline, room, s);
+  if (shape && age >= dev - 1 && age < decline) {
+    // a breakout or a slump, once a year, rarer for a steady player
+    const u = rng.random();
+    const p = 0.05 * shape.volatility;
+    if (u < p) total += room === undefined ? 3 : Math.min(3, Math.max(1, Math.round(room / 2)));
+    else if (u > 1 - p) total -= 2;
+  }
+  return total;
 }
 
-function agingStep(rng: Rng, age: number, devAge: number, declineAge: number, room?: number): number {
+function agingStep(rng: Rng, age: number, devAge: number, declineAge: number, room: number | undefined, s: CareerShape): number {
   if (age < devAge) {
     const yearsToGo = Math.max(1, devAge - age);
     // With a known ceiling (`room` = potential - overall), growth follows the
@@ -208,14 +227,15 @@ function agingStep(rng: Rng, age: number, devAge: number, declineAge: number, ro
     // from seventeen players rated 90+ at 25 or under to about six.
     const mean =
       room === undefined ? (age <= 24 ? 0.85 : 0.5) : clamp(0.2 + room * 0.17, 0, 2.6);
-    const growth = clamp(rng.normal(mean, 1.4), 0, room === undefined ? 7 : Math.max(0, room));
+    const growth = clamp(rng.normal(mean * s.growth, 1.4 * s.volatility), 0, room === undefined ? 7 : Math.max(0, room));
     return Math.round(yearsToGo >= 3 ? growth : growth * 0.7);
   }
   if (age < declineAge) {
-    return Math.round(clamp(rng.normal(0, 1.0), -1, 1));
+    const lim = s === NEUTRAL_SHAPE ? 1 : 2;
+    return Math.round(clamp(rng.normal(0, (s === NEUTRAL_SHAPE ? 1.0 : 0.85) * s.volatility), -lim, lim));
   }
   const yearsPast = age - declineAge + 1;
-  const loss = clamp(rng.normal(0.2 + yearsPast * 0.5, 1.2), 1, 7);
+  const loss = clamp(rng.normal((0.2 + yearsPast * 0.5) * s.slope, 1.2 * s.volatility), 1, 7);
   return -Math.round(loss);
 }
 

@@ -24,6 +24,7 @@ import { TEAMS } from "@/data/teams";
 import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
 import { BASE_MIN_SALARY_M, marketScale, minSalaryM, scaledM } from "./capEconomy.ts";
 import { fullPersonName } from "@/sim/names.ts";
+import { careerShape } from "@/sim/careerShape.ts";
 import { applyCoachToDelta, coachModifiersFor, developmentRoll } from "./coachEffects.ts";
 import { ensureDraftPicks } from "./draftPicks.ts";
 import { Rng } from "@/sim/rng.ts";
@@ -1399,6 +1400,7 @@ export function applySeasonAging(state: LeagueState, season: number): void {
       p.dev_age_threshold,
       p.decline_age_threshold,
       p.potential === undefined ? undefined : p.potential - p.overall,
+      careerShape(p),
     );
     if (base === 0) continue;
 
