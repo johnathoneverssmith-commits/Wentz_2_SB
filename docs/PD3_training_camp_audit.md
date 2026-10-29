@@ -63,7 +63,7 @@ Same harness and seeds as the audit above (3 leagues, 6 consecutive camps, no re
 | **New CPU rule** | n/a | **1.42 / 2.82** |
 | Informed best per team, each year | 2.05 / 4.38 | 1.83 / 4.03 |
 | Rated 90+ after 6 camps (fixed OL+DB, coordinator 95) | 84.7 | 78.7 |
-- No strategy is best for every roster: the best fixed plan is OL+DB for 44-51% of teams, QB+DL 28-30%, WR+DB 15-21%, RB+LB 4-7%, and the informed per-team choice beats every fixed plan by 0.6-1.5.
+- No strategy is best for every roster: the best fixed plan is OL+DB for 44-51% of teams, QB+DL 28-30%, WR+DB 15-21%, RB+LB 4-7%, and the informed per-team choice beats every fixed plan by 0.6-1.2.
 - Repeating stays useful (OL+DB 2.53 at a 95 coordinator against 0.53 for the worst plan) but no longer wins: it trails rotating (2.85) with an elite coordinator and ties it (1.27 vs 1.23) with an average one.
 - The new CPU rule roughly doubles the old rule's gain (1.42 vs 0.66; 2.82 vs 1.61) and reaches 70-78% of the informed best without exceeding it, and it is level with rotating rather than a new dominant plan.
 - Elite coordinators: the 95/72 ratio of gains is 2.0 (OL+DB) and 2.2 (informed), essentially the strength ratio 0.43/0.20 = 2.15, so there is no disproportionate amplification and no reason to change the multipliers.
