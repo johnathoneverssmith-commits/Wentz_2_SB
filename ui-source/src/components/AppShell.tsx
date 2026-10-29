@@ -27,6 +27,8 @@ import { HowItWorksDock } from "./HowItWorksDock";
 import { UnitGradesDock } from "./UnitGradesDock";
 import "./app-shell.css";
 import { useTeamTheme } from "./useTeamTheme.ts";
+import { Crown, SportsIcon, type SportsIconName } from "./roster/SportsPresentation";
+import "./roster/sports-shell.css";
 
 /** The viewer's team, for the counts the rail badges show. */
 function teamCodeOf(s: { gms: { id: string; teamCode: string }[]; viewerGmId: string }): string {
@@ -44,6 +46,7 @@ const IN_SEASON_NAV: NavItem[] = [
   { to: "/game-plan", label: "Game Plan" },
   { to: "/bracket", label: "Playoff Bracket" },
   { to: "/roster", label: "Roster & Cap", group: "Front office" },
+  { to: "/roster?tab=cap", label: "Finances & Cap" },
   { to: "/league-rosters", label: "League Rosters" },
   { to: "/coaching", label: "Coaching Staff" },
   { to: "/trade", label: "Trade Proposal" },
@@ -63,6 +66,7 @@ const IN_SEASON_NAV: NavItem[] = [
  */
 const OFFSEASON_REFERENCE_NAV: NavItem[] = [
   { to: "/roster", label: "Roster & Cap" },
+  { to: "/roster?tab=cap", label: "Finances & Cap" },
   { to: "/league-rosters", label: "League Rosters" },
   { to: "/trade", label: "Trade Proposal" },
   // Signing is asynchronous now — there is no free-agency stage to visit, so
@@ -109,6 +113,7 @@ function useGameDayArrival(): void {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   useTeamTheme();
+  const location = useLocation();
   useGameDayArrival();
   // in an online league, take the server's copy whenever it says the league
   // moved; inert (and it costs nothing) in a single-player game
@@ -184,11 +189,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const inSetup = stage === "setup";
 
   return (
-    <div className="app">
+    <div className="app sports-shell">
       <button type="button" className="ui-skip" onClick={() => document.getElementById("franchise-main")?.focus()}>Skip to content</button>
       <nav className="rail" aria-label="Main">
         <div className="brand">
-          <span className="mark" aria-hidden="true">W2</span>
+          <span className="mark" aria-hidden="true"><Crown/></span>
           <div>
             <b>WENTZ 2 SB</b>
             <span>{teamCode ? teamFullName(teamCode) : "No team yet"}</span>
@@ -210,7 +215,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </>
         )}
 
-        {!inSetup && seasonScreens && renderGroupedNav(IN_SEASON_NAV, navBadges)}
+        {!inSetup && seasonScreens && renderGroupedNav(IN_SEASON_NAV, navBadges, location.search)}
 
         {!inSetup && !seasonScreens && (
           <>
@@ -224,7 +229,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
             </NavLink>
             <div className="railgroup">Reference</div>
-            {renderGroupedNav(OFFSEASON_REFERENCE_NAV, navBadges)}
+            {renderGroupedNav(OFFSEASON_REFERENCE_NAV, navBadges, location.search)}
           </>
         )}
 
@@ -310,7 +315,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 }
 
 /** Count of things waiting on the GM at a route, shown as a rail badge. */
-function renderGroupedNav(items: NavItem[], badges: Record<string, number> = {}) {
+function renderGroupedNav(items: NavItem[], badges: Record<string, number> = {}, search = "") {
   const out: React.ReactNode[] = [];
   let lastGroup: string | undefined;
   for (const item of items) {
@@ -323,8 +328,10 @@ function renderGroupedNav(items: NavItem[], badges: Record<string, number> = {})
       lastGroup = item.group;
     }
     const badge = badges[item.to] ?? 0;
+    const rosterQueryMatches = (new URLSearchParams(search).get("tab") === "cap") === item.to.includes("?tab=cap");
     out.push(
-      <NavLink key={item.to} to={item.to} className={active}>
+      <NavLink key={item.to} to={item.to} aria-current={item.to.startsWith("/roster") ? rosterQueryMatches ? "page" : false : undefined} className={({ isActive }) => isActive && (item.to.startsWith("/roster") ? rosterQueryMatches : true) ? "active" : ""}>
+        <SportsIcon name={navIconFor(item.to)} className="sports-nav-icon"/>
         {item.label}
         {badge > 0 && (
           <span className="railbadge" aria-label={`${badge} waiting`}>
@@ -335,4 +342,14 @@ function renderGroupedNav(items: NavItem[], badges: Record<string, number> = {})
     );
   }
   return out;
+}
+
+function navIconFor(to: string): SportsIconName {
+  if (to.includes("tab=cap")) return "coins";
+  if (to === "/hub") return "home";
+  if (to.includes("schedule") || to.includes("game-plan")) return "calendar";
+  if (to.includes("trade")) return "trade";
+  if (to.includes("roster") || to.includes("coaching")) return "roster";
+  if (to.includes("history") || to.includes("bracket")) return "star";
+  return "file";
 }
