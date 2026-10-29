@@ -29,11 +29,13 @@ describe("coach effect scale", () => {
     expect(NEUTRAL_COACH_OVERALL).toBe(72);
   });
 
-  it("moves one and a half percent per point", () => {
-    expect(developmentMultiplier(82)).toBeCloseTo(1.15, 10);
-    expect(developmentMultiplier(62)).toBeCloseTo(0.85, 10);
-    expect(regressionMultiplier(82)).toBeCloseTo(0.85, 10);
-    expect(regressionMultiplier(62)).toBeCloseTo(1.15, 10);
+  it("moves 1.2% per point inside the inner band, and less beyond it", () => {
+    expect(developmentMultiplier(82)).toBeCloseTo(1.12, 10);
+    expect(developmentMultiplier(62)).toBeCloseTo(0.88, 10);
+    expect(regressionMultiplier(82)).toBeCloseTo(0.88, 10);
+    expect(regressionMultiplier(62)).toBeCloseTo(1.12, 10);
+    // 12 points of 1.2%, then 15 of 0.4%: a 99 is 14.4% + 6.0% = 20.4%
+    expect(developmentMultiplier(99)).toBeCloseTo(1.204, 10);
   });
 
   it("is symmetric — a bad hire costs what a good one gains", () => {

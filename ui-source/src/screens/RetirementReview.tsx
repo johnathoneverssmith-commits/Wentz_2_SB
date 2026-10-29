@@ -10,6 +10,7 @@ import { TEAMS_BY_CODE } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { RETIREMENT_AGE, ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { onlineSession } from "@/state/online";
+import { retirementSeed } from "@/state/rules";
 import { useStore } from "@/state/store";
 import { viewerTeamCode } from "@/state/selectors";
 import { millions, posLabel } from "@/util/format";
@@ -40,9 +41,9 @@ export function RetirementReview() {
       );
       return new Set(committed.map((p) => p.id));
     }
-    const preview = sim.retirementOutcomes(s.season, Object.values(s.players).filter((p) => !p.retired));
+    const preview = sim.retirementOutcomes(retirementSeed(s), Object.values(s.players).filter((p) => !p.retired));
     return new Set(preview.filter((o) => o.decision === "retiring").map((o) => o.playerId));
-  }, [s.season, s.players]);
+  }, [s.season, s.seed, s.players]);
   const retiring = [...retiringIds];
 
   const yours = Object.values(s.players).filter((p) => p.nfl_team === code && retiringIds.has(p.id));
