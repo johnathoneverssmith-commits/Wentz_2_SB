@@ -733,7 +733,7 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
             <span className="gc-desc">
               {cur && step.type === "play" && narration[step.k]?.[step.j] ? (
                 <>
-                  <HighlightBadge h={highlightAt.get(`${step.k}:${step.j}`)} />
+                  <HighlightBadge h={highlightAt.get(`${step.k}:${step.j}`)} />{" "}
                   <Narrated n={narration[step.k]![step.j]!} />
                 </>
               ) : `${dTeam} takes over at ${spot(next?.ballOn ?? drive.startBallOn)}`}
