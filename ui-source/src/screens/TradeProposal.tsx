@@ -1,3 +1,7 @@
+import { DecisionFrame, DecisionHeading, DecisionError } from "@/components/decisions/DecisionWorkspace";
+import { AssetNavigation, AssetSummary, type AssetStep } from "@/components/decisions/TradeAssets";
+import { RosterNeeds } from "@/components/RosterNeeds";
+import { millions } from "@/util/format";
 import { useMemo, useRef, useState } from "react";
 import { GmCard } from "@/components/GmIdentity";
 import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
@@ -5,7 +9,6 @@ import { tradeUnitImpact } from "@/state/unitReport";
 import { tradeVerdict } from "@/state/tradeModel";
 import { useNavigate } from "react-router-dom";
 
-import { pressable } from "@/components/bits";
 import { useListFilter } from "@/components/ListFilter";
 import { Card, Footer } from "@/components/primitives";
 import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
@@ -35,6 +38,7 @@ export function TradeProposal() {
   const resolveTrade = useStore((st) => st.resolveTrade);
 
   const [partner, setPartner] = useState(() => TEAMS.find((t) => t.code !== myCode && s.teams[t.code])!.code);
+  const [assetStep,setAssetStep] = useState<AssetStep>("you");
   const [give, setGive] = useState<string[]>([]);
   const [get, setGet] = useState<string[]>([]);
   const [tradeId, setTradeId] = useState<string | null>(null);
@@ -208,23 +212,8 @@ export function TradeProposal() {
   }
 
   return (
-    <Card maxWidth={880} twoTeam>
-      <div className="header two-team">
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div className="badge" style={{ background: "var(--team)" }}>
-            {TEAMS_BY_CODE[myCode]!.abbr}
-          </div>
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>⇄</span>
-          <div className="badge" style={{ background: "var(--partner)" }}>
-            {TEAMS_BY_CODE[partner]!.abbr}
-          </div>
-          <div style={{ marginLeft: 6 }}>
-            <h1 style={{ fontSize: 12, letterSpacing: "0.08em", color: "rgba(255,255,255,0.55)" }}>Trade Proposal</h1>
-            <p style={{ fontSize: 17, fontWeight: 600, margin: "3px 0 0" }}>
-              {TEAMS_BY_CODE[myCode]!.label} ↔ {TEAMS_BY_CODE[partner]!.label}
-            </p>
-          </div>
-        </div>
+    <DecisionFrame kind="trade" code={myCode}><Card maxWidth={1440} twoTeam>
+      <DecisionHeading code={myCode} title="Trade workbench" subtitle={`${TEAMS_BY_CODE[myCode]!.label} ↔ ${TEAMS_BY_CODE[partner]!.label}`}>
         <select
           aria-label="Trade partner"
           value={partner}
@@ -244,7 +233,7 @@ export function TradeProposal() {
             </option>
           ))}
         </select>
-      </div>
+      </DecisionHeading><DecisionError message={onlineError}/>
 
       <div style={{ padding: "10px 26px 0" }}>
         <GmCard code={partner} />
@@ -382,12 +371,15 @@ export function TradeProposal() {
         </div>
       )}
 
-      <div className="split-2">
+      <div className="decision-trade-workspace" data-step={assetStep}>
+      <AssetNavigation step={assetStep} onChange={setAssetStep} give={give.length} get={get.length}/>
+      <div className="decision-trade-assets" data-step={assetStep}>
         <TradeColumn
           title={`${TEAMS_BY_CODE[myCode]!.label} sends`}
           role="you"
           roster={myRoster}
           selected={give}
+          disabled={proposing||responding!==null}
           onToggle={(id) => setGive((g) => (g.includes(id) ? g.filter((x) => x !== id) : [...g, id]))}
         />
         <TradeColumn
@@ -395,15 +387,22 @@ export function TradeProposal() {
           role="them"
           roster={theirRoster}
           selected={get}
+          disabled={proposing||responding!==null}
           onToggle={(id) => setGet((g) => (g.includes(id) ? g.filter((x) => x !== id) : [...g, id]))}
         />
       </div>
 
-      <div style={{ padding: "22px 26px", borderTop: "1px solid var(--line)" }}>
+      <div className="decision-trade-review">
+        <h2>Proposal review</h2>
+        <AssetSummary give={give.map(id=>({id,name:myRoster.find(p=>p.id===id)?.name??"Unavailable asset — remove this selection"}))} get={get.map(id=>({id,name:theirRoster.find(p=>p.id===id)?.name??"Unavailable asset — remove this selection"}))}/>
+        <p className="decision-muted">Current cap room: {TEAMS_BY_CODE[myCode]!.label} {millions(Math.round((s.teams[myCode]!.cap.total-s.teams[myCode]!.cap.used)*10)/10)} · {TEAMS_BY_CODE[partner]!.label} {millions(Math.round((s.teams[partner]!.cap.total-s.teams[partner]!.cap.used)*10)/10)}. The cap and roster checks below apply to this proposal. These balances describe the teams before the trade.</p>
+        <details><summary>Your roster needs</summary><RosterNeeds roster={teamRoster(s,myCode)}/></details>
+        <p className="decision-muted">Asset overview — a simplified display, separate from the CPU's full assessment.</p>
         <div style={{ marginBottom: 16 }}>
           <ValueBar label={TEAMS_BY_CODE[myCode]!.label} pct={(giveVal / total) * 100} value={Math.round(giveVal)} kind="you" />
           <ValueBar label={TEAMS_BY_CODE[partner]!.label} pct={(getVal / total) * 100} value={Math.round(getVal)} kind="them" />
         </div>
+        {!partnerIsHuman ? (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
           <p style={{ margin: 0, fontSize: 13, color: "var(--ink-dim)" }}>
             AI value delta:{" "}
@@ -430,6 +429,7 @@ export function TradeProposal() {
               : (evalResult as { refusal?: string }).refusal ?? verdict.text}
           </span>
         </div>
+        ) : <p className="decision-muted">A human GM decides whether to accept. No AI forecast predicts their decision.</p>}
 
         {/* online: the other GM decides, then the league blocks it only if it's
             lopsided (the server's collusion guard) — there is no ballot */}
@@ -488,11 +488,7 @@ export function TradeProposal() {
         {/* Online the same check runs again at commit time, against a league
             that may have moved since this page loaded — the offer the other
             GM accepted a minute ago spends the cap room this one needed. */}
-        {onlineError && (
-          <p className="form-error" style={{ marginTop: 12 }}>
-            {onlineError}
-          </p>
-        )}
+
 
         {unitImpact.length > 0 && (
           <div style={{ marginTop: 14 }}>
@@ -605,10 +601,11 @@ export function TradeProposal() {
         )}
       </Footer>
 
+      </div>
       <p style={{ margin: 0, padding: "0 26px 18px", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
         Overall/offense/defense — {TEAMS_BY_CODE[myCode]!.label} {ordinal(s.teams[myCode]!.ratings.overallRank)} · {TEAMS_BY_CODE[partner]!.label} {ordinal(s.teams[partner]!.ratings.overallRank)}
       </p>
-    </Card>
+    </Card></DecisionFrame>
   );
 }
 
@@ -620,71 +617,14 @@ export function TradeProposal() {
  * second one, and two pickers that had to agree about what a pick id looks
  * like would eventually stop agreeing.
  */
-export function TradeColumn({
-  title,
-  role,
-  roster,
-  selected,
-  onToggle,
-}: {
-  title: string;
-  role: "you" | "them";
-  roster: { id: string; name: string; position: string; overall: number; badge?: string }[];
-  selected: string[];
-  onToggle: (id: string) => void;
+export function TradeColumn({title,role,roster,selected,onToggle,disabled=false}:{
+ title:string;role:"you"|"them";roster:{id:string;name:string;position:string;overall:number;badge?:string}[];selected:string[];onToggle:(id:string)=>void;disabled?:boolean;
 }) {
-  // "PICK" sorts to the front of the filter so draft capital is one click
-  // away; in the list itself players come first — 21 picks used to stand
-  // between a GM and the first player they could offer
-  const market = useListFilter(roster, 150, title);
-  return (
-    <div style={{ padding: "22px 24px", borderRight: role === "you" ? "1px solid var(--line)" : undefined }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", background: role === "you" ? "var(--team)" : "var(--partner)" }} />
-        <span className="oswald" style={{ fontSize: 15, fontWeight: 600 }}>
-          {title}
-        </span>
-      </div>
-      {market.controls}
-      <div className="scroll-list short">
-        {market.shown.map((p) => {
-          const on = selected.includes(p.id);
-          return (
-            <div
-              key={p.id}
-              {...pressable(() => onToggle(p.id))}
-              aria-pressed={on}
-              // the row's text ran together as "96Xander JenningsWR+"
-              aria-label={`${on ? "Remove" : "Add"} ${p.name}${p.position !== "PICK" ? `, ${posLabel(p.position)} ${p.overall}` : ""}`}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "9px 10px",
-                marginBottom: 6,
-                background: on ? "var(--panel-sunken)" : "transparent",
-                border: `1px ${on ? "solid" : "dashed"} var(--line-strong)`,
-                borderRadius: "var(--r-sm)",
-                // at half opacity every row read as disabled until picked
-                opacity: on ? 1 : 0.8,
-                cursor: "pointer",
-              }}
-            >
-              <span className="oswald" style={{ fontSize: 13, fontWeight: 600, color: p.overall >= 85 ? "var(--good)" : "var(--ink-dim)", minWidth: 26, textAlign: "center" }}>
-                {p.badge ?? p.overall}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>
-                {p.name}
-                {/* a pick's "position" is only there to drive the filter */}
-                {p.position !== "PICK" && <span className="ppos"> {posLabel(p.position)}</span>}
-              </span>
-              <span style={{ fontSize: 13, color: on ? "var(--bad)" : "var(--good)" }}>{on ? "×" : "+"}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+ const [limit,setLimit]=useState(150);
+ const market=useListFilter(roster,limit,title);
+ return <section className="decision-trade-column" data-side={role==='you'?'you':'them'} aria-label={title}>
+  <h2>{title}</h2>{market.controls}<div className="scroll-list short">{market.shown.map(p=>{const on=selected.includes(p.id);return <button type="button" key={p.id} className="decision-asset" data-asset-id={p.id} aria-pressed={on} disabled={disabled} aria-label={`${on?'Remove':'Add'} ${p.name}${p.position!=='PICK'?`, ${posLabel(p.position)} ${p.overall}`:''}`} onClick={()=>onToggle(p.id)}><span className="decision-asset-rating">{p.badge??p.overall}</span><strong>{p.name}<small>{p.position!=='PICK'?' · '+posLabel(p.position):' · Draft pick'}</small></strong><span aria-hidden="true">{on?'✓':'+'}</span></button>;})}</div>{market.matched>limit&&<button type="button" onClick={()=>setLimit(n=>n+150)}>Show more assets</button>}
+ </section>;
 }
 
 function ValueBar({ label, pct, value, kind }: { label: string; pct: number; value: number; kind: "you" | "them" }) {

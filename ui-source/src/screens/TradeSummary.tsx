@@ -1,3 +1,4 @@
+import { DecisionFrame } from "@/components/decisions/DecisionWorkspace";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -46,7 +47,7 @@ export function TradeSummary() {
   const room = Math.round((team.cap.total - team.cap.used) * 10) / 10;
 
   return (
-    <Card maxWidth={900}>
+    <DecisionFrame kind="trade" code={code}><Card maxWidth={1440}>
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title="Trade Summary"
@@ -116,7 +117,7 @@ export function TradeSummary() {
         label="Advance to Mid-Season Free Agency"
         onAdvance={(r) => nav(r)}
       />
-    </Card>
+    </Card></DecisionFrame>
   );
 }
 

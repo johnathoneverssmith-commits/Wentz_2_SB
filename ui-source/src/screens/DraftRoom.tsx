@@ -1,3 +1,8 @@
+import { pruneComparison } from "@/components/decisions/decision-view";
+import { DecisionFrame, DecisionHeading, DecisionSortControl, DecisionComparison, CompareToggle, ConfirmDecision, toggleComparison } from "@/components/decisions/DecisionWorkspace";
+import { DraftContext } from "@/components/decisions/DraftContext";
+import { sortDecisionRows, resolveDecision, type DecisionSort } from "@/components/decisions/decision-view";
+import { unitReport } from "@/state/unitReport";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { projectedRookieRange } from "@/sim/draft-outcomes";
@@ -37,6 +42,10 @@ export function DraftRoom() {
   const s = useStore();
   const nav = useNavigate();
   const { active, setActive } = useTabs("available");
+  const [sort, setSort] = useState<DecisionSort>("board");
+  const [compared, setCompared] = useState<string[]>([]);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [boardLimit, setBoardLimit] = useState(100);
   const [overlayDismissed, setOverlayDismissed] = useState(false);
   const [inspect, setInspect] = useState<Player | null>(null);
   // one pick in flight at a time: on a slow connection a second click used
@@ -208,7 +217,12 @@ export function DraftRoom() {
   // One control set for the board: a name search as well as a position, and
   // the same `position` drives the league draft board tab below.
   // the board is in draft-board order; search and position are the controls
-  const market = useListFilter<Available>(available, 100);
+  const sortedAvailable = useMemo(() => sortDecisionRows(available.map(p => ({...p, rating:p.ovr})), sort), [available, sort]);
+  const market = useListFilter<Available>(sortedAvailable, boardLimit);
+  const publicRows = available.map(p => ({id:p.id,name:p.name,position:p.position,rating:p.ovr,ratingLabel:mode === "rookie" ? "College grade" : "OVR",age:p.age,context:[p.sub,p.scout].filter(Boolean).join(" · ")}));
+  useEffect(()=>setCompared(ids=>pruneComparison(ids,available)),[available]);
+  useEffect(() => setConfirming(null), [draft?.currentPickIndex]);
+  useEffect(() => { if (!yourPick || !available.some(p => p.id === confirming)) setConfirming(null); }, [yourPick, available, confirming]);
   const filtered = market.shown;
   const posFilter = market.position;
 
@@ -234,6 +248,12 @@ export function DraftRoom() {
   useEffect(() => {
     if (yourPick) setOverlayDismissed(false);
   }, [yourPick, draft?.currentPickIndex]);
+
+  const contextUnits = useMemo(() => {
+    if (!draft || !code) return [];
+    const view = mode === "fantasy" ? {...s,players:Object.fromEntries(draft.results.flatMap(r=>r.selectedId&&s.players[r.selectedId]?[[r.selectedId,s.players[r.selectedId]!]]:[]))} : s;
+    return unitReport(view,code).units;
+  }, [s,code,draft,mode]);
 
   if (!draft) {
     return (
@@ -276,7 +296,7 @@ export function DraftRoom() {
   const suggested = suggestedId ? available.find((a) => a.id === suggestedId) : undefined;
 
   return (
-    <Card maxWidth={860}>
+    <DecisionFrame kind="draft" code={code}><Card maxWidth={1440}>
       <PickMoments />
       {yourPick && !complete && !overlayDismissed && (
         <FullScreenOverlay
@@ -295,11 +315,7 @@ export function DraftRoom() {
         />
       )}
 
-      <CardHeader
-        badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
-        title="Draft Room"
-        subtitle={`${displaySeason(s)} ${mode === "fantasy" ? "Fantasy Draft" : "Rookie Draft"} · Round ${Math.min(round, maxRounds)} · ${mode === "rookie" ? "Linear" : cap(draft.order)}`}
-      />
+      <DecisionHeading code={code} title="Draft Room" subtitle={`${displaySeason(s)} ${mode === "fantasy" ? "Fantasy Draft" : "Rookie Draft"} · Round ${Math.min(round,maxRounds)} · ${mode === "rookie" ? "Linear" : cap(draft.order)}`} />
       <Ticker
         stats={[
           {
@@ -328,6 +344,7 @@ export function DraftRoom() {
           { label: "Roster", value: myRoster.length },
         ]}
       />
+      <div className="decision-layout"><div className="decision-main">
       {/* nothing said the board finishes itself: a GM drafting along found
           the draft over and fifteen players they never chose */}
       {handPicks != null && !complete && (
@@ -350,7 +367,7 @@ export function DraftRoom() {
 
       {active !== "needs" && (
         <div style={{ padding: "12px 26px 0", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          {market.controls}
+          {market.controls}<DecisionSortControl value={sort} onChange={setSort}/>
         </div>
       )}
 
@@ -385,7 +402,7 @@ export function DraftRoom() {
                 className="btn-primary"
                 style={{ fontSize: 11.5, padding: "7px 12px" }}
                 disabled={picking}
-                onClick={() => pick(suggested.id)}
+                onClick={() => setConfirming(suggested.id)}
               >
                 {picking ? "Drafting…" : `Draft ${suggested.name}`}
               </button>
@@ -415,7 +432,7 @@ export function DraftRoom() {
           </div>
         )}
         <div className="scroll-list" style={{ overflowX: "auto" }}>
-          <table className="stbl draft-avail">
+          <table className="stbl draft-avail" aria-label="Available draft players">
             <thead>
               <tr>
                 <th>Player</th>
@@ -428,7 +445,7 @@ export function DraftRoom() {
             </thead>
             <tbody>
               {filtered.map((p) => (
-                <tr key={p.id}>
+                <tr key={p.id} data-player-id={p.id}>
                   <td className="name">
                     {mode === "fantasy" ? (
                       <span
@@ -471,11 +488,11 @@ export function DraftRoom() {
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
                     {p.scout && <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-dim)", marginTop: 2 }}>{p.scout}</span>}
                   </td>
-                  <td className="c">{posLabel(p.position)}</td>
-                  <td className="c">
+                  <td className="c" data-label="Position">{posLabel(p.position)}</td>
+                  <td className="c" data-label={mode === "rookie" ? "College grade" : "OVR"}>
                     {mode === "rookie" ? <GradePill value={p.ovr} short /> : <OvrPill value={p.ovr} />}
                   </td>
-                  <td className="c">{p.age}</td>
+                  <td className="c" data-label="Age">{p.age}</td>
                   <td className="r">
                     {/* a finished draft left a hundred greyed-out Draft buttons */}
                     {complete ? (
@@ -487,17 +504,19 @@ export function DraftRoom() {
                       disabled={!yourPick || picking}
                       // a hundred identical "Draft" buttons, to a screen reader
                       aria-label={`Draft ${p.name}`}
-                      onClick={() => pick(p.id)}
+                      onClick={() => setConfirming(p.id)}
                     >
                       Draft
                     </button>
                     )}
+                    <CompareToggle row={publicRows.find(row=>row.id===p.id)!} selected={compared} onToggle={id=>setCompared(ids=>toggleComparison(ids,id))}/>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {market.matched > boardLimit && <button type="button" onClick={()=>setBoardLimit(n=>n+100)}>Show more players</button>}
       </Panel>
 
       <Panel id="mine" open={active === "mine"}>
@@ -596,8 +615,13 @@ export function DraftRoom() {
         </span>
       </Footer>
 
+      </div><aside className="decision-sidebar" aria-label="Draft context">
+        <DecisionComparison rows={publicRows} ids={compared} onClear={()=>setCompared([])}/>
+        <DraftContext pickOrder={draft.pickOrder} current={draft.currentPickIndex} recent={draft.results} roster={myRoster} units={contextUnits} mode={mode}/>
+      </aside></div>
+      {(() => { const candidate=resolveDecision(available,confirming,yourPick&&!complete&&!picking); return candidate ? <ConfirmDecision title={`Draft ${candidate.name}?`} onCancel={()=>setConfirming(null)} onConfirm={()=>{const current=resolveDecision(available,confirming,yourPick&&!complete&&!picking);if(current){setConfirming(null);pick(current.id);}}}><p><strong>{candidate.name}</strong> · {posLabel(candidate.position)} · {candidate.ovr} {mode === "rookie" ? "college grade" : "OVR"} · Age {candidate.age}</p><p>Pick {draft.currentPickIndex+1} for {code&&TEAMS_BY_CODE[code]?.label}. Confirming uses this selection; other teams may then take their turns.</p></ConfirmDecision> : null; })()}
       {inspect && <PlayerStatsModal player={inspect} onClose={() => setInspect(null)} />}
-    </Card>
+    </Card></DecisionFrame>
   );
 }
 

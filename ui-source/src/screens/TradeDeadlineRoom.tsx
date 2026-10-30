@@ -1,3 +1,7 @@
+import { counterSelectionForViewer } from "@/components/decisions/decision-view";
+import { DecisionFrame, DecisionHeading, DecisionError } from "@/components/decisions/DecisionWorkspace";
+import { AssetNavigation, AssetSummary, type AssetStep } from "@/components/decisions/TradeAssets";
+import { tradeUnitImpact } from "@/state/unitReport";
 import { SkipToggle } from "@/components/SkipToggle";
 import { useStaffPlan } from "@/components/StaffPlan";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
@@ -92,12 +96,8 @@ export function TradeDeadlineRoom() {
   }
 
   return (
-    <Card maxWidth={920}>
-      <CardHeader
-        badge={TEAMS_BY_CODE[code]!.abbr}
-        title="Trade Deadline"
-        subtitle={`Round ${Math.min(d.round, TRADE_DEADLINE_ROUNDS)} of ${TRADE_DEADLINE_ROUNDS}`}
-      />
+    <DecisionFrame kind="trade" code={code}><Card maxWidth={1440}>
+      <DecisionHeading code={code} title="Trade Deadline" subtitle={`Round ${Math.min(d.round,TRADE_DEADLINE_ROUNDS)} of ${TRADE_DEADLINE_ROUNDS}`}/>
       <Ticker
         stats={[
           { label: "Round", value: `${Math.min(d.round, TRADE_DEADLINE_ROUNDS)}/${TRADE_DEADLINE_ROUNDS}` },
@@ -107,11 +107,7 @@ export function TradeDeadlineRoom() {
         ]}
       />
 
-      {error && (
-        <div className="notice bad" role="status">
-          {error}
-        </div>
-      )}
+      <DecisionError message={error}/>
 
       {/* an answered offer just vanished into "Recent activity" below, among
           everyone else's; the GM who made it is owed a sentence */}
@@ -192,7 +188,7 @@ export function TradeDeadlineRoom() {
       )}
 
       <RecentActivity resolved={d.resolved} />
-    </Card>
+    </Card></DecisionFrame>
   );
 }
 
@@ -207,6 +203,7 @@ function ProposeTurn({
 }) {
   const s = useStore();
   const [partner, setPartner] = useState(() => TEAMS.find((t) => t.code !== code && s.teams[t.code])!.code);
+  const [assetStep,setAssetStep] = useState<AssetStep>("you");
   const [give, setGive] = useState<string[]>([]);
   const [get, setGet] = useState<string[]>([]);
 
@@ -234,7 +231,7 @@ function ProposeTurn({
     set((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
 
   return (
-    <>
+    <div className="decision-trade-workspace" data-step={assetStep}>
       <div className="panel open">
         <div className="notice" role="status">
           <strong>You&rsquo;re on the clock.</strong> One offer, or pass — either way the turn is
@@ -280,11 +277,13 @@ function ProposeTurn({
         </select>
       </div>
 
-      <div className="split-2" style={{ borderTop: "1px solid var(--line)" }}>
+      <AssetNavigation step={assetStep} onChange={setAssetStep} give={give.length} get={get.length}/>
+      <div className="decision-trade-assets" data-step={assetStep}>
         <TradeColumn
           title="You send"
           role="you"
           roster={mine}
+          disabled={busy}
           selected={give}
           onToggle={toggle(setGive)}
         />
@@ -292,11 +291,13 @@ function ProposeTurn({
           title={`${TEAMS_BY_CODE[partner]!.label} sends`}
           role="them"
           roster={theirs}
+          disabled={busy}
           selected={get}
           onToggle={toggle(setGet)}
         />
       </div>
 
+      <section className="decision-trade-review"><h2>Review deadline offer</h2><AssetSummary give={give.map(id=>({id,name:mine.find(p=>p.id===id)?.name??"Unavailable asset"}))} get={get.map(id=>({id,name:theirs.find(p=>p.id===id)?.name??"Unavailable asset"}))}/><p className="decision-muted">Cap and roster limits are suspended at this checkpoint. You must reconcile afterwards.</p>{tradeUnitImpact(s,code,give.filter(id=>!id.startsWith('pick:')),get.filter(id=>!id.startsWith('pick:'))).map(u=><p key={u.key}>{u.label}: {Math.round(u.before)} → {Math.round(u.after)}</p>)}</section>
       {/* The Trade Proposal screen shows how a CPU team will read an offer;
           the deadline, where the turn is spent either way, didn't — every
           offer went out blind. A human partner decides for themselves. */}
@@ -357,7 +358,7 @@ function ProposeTurn({
           {busy ? "Sending…" : "Send Offer"}
         </button>
       </Footer>
-    </>
+    </div>
   );
 }
 
@@ -380,6 +381,7 @@ function RespondTurn({
   ) => void;
 }) {
   const s = useStore();
+  const [assetStep,setAssetStep] = useState<AssetStep>("you");
   const [countering, setCountering] = useState(false);
   // a counter is always stated in the original orientation, so the picker
   // edits the proposer's package and the recipient's package by name rather
@@ -400,8 +402,10 @@ function RespondTurn({
   const toggle = (set: (fn: (xs: string[]) => string[]) => void) => (id: string) =>
     set((xs) => (xs.includes(id) ? xs.filter((x) => x !== id) : [...xs, id]));
 
+  const oriented=counterSelectionForViewer(offer.fromTeam,code,proposerGives,proposerGets);
+  const assetName=(id:string,team:string)=>[...teamRoster(s,team),...pickRows(team)].find(p=>p.id===id)?.name??"Unavailable asset";
   return (
-    <>
+    <div className="decision-trade-workspace" data-step={countering?assetStep:'review'}>
       <div className="panel open">
         <div className="notice" role="status">
           <strong>
@@ -439,29 +443,31 @@ function RespondTurn({
           );
         })()}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
+        <div className="decision-incoming-packages">
           <Package title={`${TEAMS_BY_CODE[offer.fromTeam]!.label} sends`} assets={offer.fromAssets} />
           <Package title={`${TEAMS_BY_CODE[offer.toTeam]!.label} sends`} assets={offer.toAssets} />
         </div>
       </div>
 
       {countering && (
-        <div className="split-2" style={{ borderTop: "1px solid var(--line)" }}>
+        <><AssetNavigation step={assetStep} onChange={setAssetStep} give={oriented.give.length} get={oriented.get.length}/><div className="decision-trade-assets" data-step={assetStep}>
           <TradeColumn
             title={`${TEAMS_BY_CODE[offer.fromTeam]!.label} sends`}
-            role="you"
+            role={offer.fromTeam===code?"you":"them"}
+            disabled={busy}
             roster={[...teamRoster(s, offer.fromTeam), ...pickRows(offer.fromTeam)]}
             selected={proposerGives}
             onToggle={toggle(setProposerGives)}
           />
           <TradeColumn
             title={`${TEAMS_BY_CODE[offer.toTeam]!.label} sends`}
-            role="them"
+            role={offer.toTeam===code?"you":"them"}
+            disabled={busy}
             roster={[...teamRoster(s, offer.toTeam), ...pickRows(offer.toTeam)]}
             selected={proposerGets}
             onToggle={toggle(setProposerGets)}
           />
-        </div>
+        </div><section className="decision-trade-review"><h2>Review counteroffer</h2><AssetSummary give={oriented.give.map(id=>({id,name:assetName(id,code)}))} get={oriented.get.map(id=>({id,name:assetName(id,other)}))}/><p className="decision-muted">Review what you send and receive before making your one counter-offer.</p></section></>
       )}
 
       <Footer>
@@ -496,7 +502,7 @@ function RespondTurn({
               Turn It Down
             </button>
             {duty === "respond" && !offer.modified && (
-              <button type="button" className="btnlink" disabled={busy} onClick={() => setCountering(true)}>
+              <button type="button" className="btnlink" disabled={busy} onClick={() => {setCountering(true);setAssetStep("you");}}>
                 Counter
               </button>
             )}
@@ -514,7 +520,7 @@ function RespondTurn({
           </>
         )}
       </Footer>
-    </>
+    </div>
   );
 }
 

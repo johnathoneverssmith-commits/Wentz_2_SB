@@ -77,6 +77,7 @@ const FIXTURES: Array<{ name: string; stage: Stage; /** keep the first arrival a
   { name: "playoffs-wild-card", stage: "playoffs" },
   // the first arrival after the Super Bowl: the season is over and scored (champion, awards, history recorded), the offseason not begun
   { name: "end-of-season", stage: "endOfSeasonAnnounce" },
+  { name: "trade-deadline", stage: "tradeDeadline" },
   { name: "midseason-fa", stage: "midseasonFreeAgency" },
   { name: "offseason-fa-skip-carried", stage: "offseasonDraftSummary" },
 ];
