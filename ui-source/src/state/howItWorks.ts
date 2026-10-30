@@ -279,6 +279,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
       {
         heading: "The preseason lab",
         body: [
+          "The Franchise Command Center automatically compares unsaved pass and blitz preferences against your saved plan during preseason. Save explicitly to use the plan; changing the preview never saves it. Other playbook settings stay intact. The lab requires the engine adapter in solo mode or the league server online. The standalone offline model does not simulate game-plan effects.",
           "In the preseason, \"Test this plan\" plays your next game 160 times with the standard plan and 160 with yours, on the same random streams, and reports both win chances, the points per game it moves, and how sure that is. A difference inside the noise reads \"too close to call\". From Week 1 on there is no answer key.",
         ],
       },

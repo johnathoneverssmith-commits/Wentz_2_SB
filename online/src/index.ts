@@ -524,7 +524,7 @@ post("/leagues/:id/plan-preview", async (ctx) => {
   );
   if (!built) throw new ActionError("No game to preview against.");
   const preview = await runPreviewJob(built.input);
-  return { preview: { ...preview, opponent: built.opponent, game: built.label } };
+  return { preview: { ...preview, opponent: built.opponent, game: built.label, snapshot: loaded.version } };
 });
 
 get("/leagues/:id/feed", async (ctx) => {

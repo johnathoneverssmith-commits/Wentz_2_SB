@@ -2,6 +2,8 @@ import type { LeagueState } from "@/domain";
 
 /** A plan preview's answer (`src/engine/plan-preview.ts`), with the game it was measured on. */
 export interface PlanPreviewAnswer {
+  /** Online server snapshot used for this read-only measurement. */
+  snapshot?: string;
   standard: number;
   withPlan: number;
   marginDelta: number;

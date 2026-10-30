@@ -1,0 +1,21 @@
+import { afterEach, it, expect, vi } from 'vitest';
+import { useStore } from '@/state/store';
+import { createLeague, DEFAULT_CONFIG } from '@/state/seed';
+import { HybridSimulationService } from './HybridSimulationService';
+const before = useStore.getState();
+afterEach(() => { useStore.setState(before, true); vi.unstubAllGlobals(); });
+it('the human saved plan reaches the actual subsequent simulation request', async () => {
+    const league = createLeague(92, { ...DEFAULT_CONFIG, fantasyDraft: false, playerPool: 'legacy' });
+    const gm = league.gms.find(g => g.id === league.viewerGmId)!;
+    const code = 'KC';
+    const opponent = 'BUF';
+    league.schedule = [{ phase: 'PRE', week: 1, homeTeam: code, awayTeam: opponent }];
+    useStore.setState(league);
+    useStore.getState().pickTeam(gm.id, code);
+    expect(useStore.getState().saveGamePlan({ passRate: 12, blitz: 50, qbRun: 37 })).toEqual({ ok: true });
+    let seen: any;
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => { expect(String(url)).toContain('/simulate-week'); seen = JSON.parse(init.body); return { ok: true, json: async () => [] }; }));
+    await new HybridSimulationService().simulateWeek(useStore.getState(), 1, 'PRE');
+    expect(seen.plans[code]).toMatchObject({ passRate: 12, blitz: 50, qbRun: 37 });
+    expect(seen.games).toHaveLength(1);
+});
