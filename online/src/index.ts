@@ -10,6 +10,7 @@
  * Run it with `npm run online` (and `npm run online:migrate` once).
  */
 import { redactTrainingCamp } from "./campView.js";
+import { stripPrivatePlayerFields } from "./privacyView.js";
 import { deferBlockJobs } from "./blockJobs.js";
 import { createServer } from "node:http";
 
@@ -437,6 +438,8 @@ get("/leagues/:id", async (ctx) => {
     p.injury_history = [];
     p.contract = null;
   }
+  // A player's hidden ceiling never leaves the server (`privacyView.ts`)
+  stripPrivatePlayerFields(state);
   // Another person's GM identity and game plan are theirs: a CPU GM's identity
   // is public (the app shows it) and a person's is not.
   for (const g of state.gms) if (g.isHuman && g.id !== franchise?.gmId) delete g.strategy;

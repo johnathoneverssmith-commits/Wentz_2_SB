@@ -94,9 +94,11 @@ than 2.5x.
 
 ## Known limits
 
-* `potential` (every player now has one, as rookies already did) is in the league state a client receives. The UI
-  never shows it, but a developer-tools reader could. Redacting it would break client-side contract valuation
-  (`contractValue.ts` reads the room to a ceiling); moving valuation server-side is out of scope.
+* `potential` is **server-private**. The saved league keeps it (aging, camp, contracts and trades run on the server);
+  the league route removes it from every player before sending (`online/src/privacyView.ts`), with no rounded or
+  noisy stand-in. A client prices a player on the league development curve for his age, which is what
+  `contractValue.ts` already does for a player with no ceiling. Single-player keeps everything locally, as before.
+  Tests: `online/test/potential-privacy.test.ts` (unit, and the real route against the saved league).
 * `dnaSeed` is derivable from the league seed by anyone with the source, so a determined cheater could regenerate
   future classes. Draft prospects were already generated from the league seed, so this is the same exposure as before.
 * The era catalogue is qualitative (`docs/LEAGUE_DNA_ERAS.md`).

@@ -1836,4 +1836,4 @@ Approved architecture in `docs/SEEDED_LEAGUE_DNA_PROPOSAL.md`; as-built referenc
 
 **Compatibility.** Additive optional fields only (`Player.archetype`, `DraftProspect.archetype`, `LeagueState.dna`, `LeagueState.draftClassProfile`, `LeagueConfig.playerPool`). No migration, no save-version bump. Seven tests whose scenarios depend on one real pool are pinned to `playerPool: "legacy"`.
 
-**Known limits.** `potential` is in the state a client receives for every player (as it already was for rookies); `dnaSeed` is derivable from the league seed. Neutral DNA plays ~0.9 points a game above the validated engine.
+**Hidden potential.** The online league route strips `potential` from every player (`privacyView.ts`); the stored league keeps it, and clients price on the age curve. **Known limits.** `dnaSeed` is derivable from the league seed. Neutral DNA plays ~0.9 points a game above the validated engine.
