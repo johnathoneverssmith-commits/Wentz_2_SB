@@ -1742,6 +1742,33 @@ NFL 2023-24 0.97x) while the first half runs 5% light. Both are for a calibratio
 been given the fix. The pinned pool-free hash in `test/team-strength.test.ts` and two pinned overtime games in
 `test/pbp-scoring-events.test.ts` were re-recorded, and the passing-volume baseline was re-measured on its own seeds.
 
+## A scaled quarterback effect, experimental and off by default (2026-10)
+
+`setQbEffect({ complete, interception, arm })` (`src/engine/ratings.ts`) scales the quarterback's *own* term in the completion and
+interception channels in all three places that read him (rating layer, team-strength index, synergy QB x receiver pair) and adds `arm`
+yards per completion per z of throw power and deep accuracy, which no layer reads. `{1, 1, 0}` is the engine exactly as it was
+(`test/engine-qb-effect.test.ts` pins a franchise-options fingerprint and checks that switching on and off leaves nothing cached).
+The league offsets that keep the passing means in place while it is on are `QB_REFIT` in `sim.ts`, fitted by `analysis/44_qb_refit.ts`
+(talent 1 / 1.5 / 2: complete -0.051 / -0.069 / -0.092, interception +0.128 / +0.224 / +0.368). Nothing turns it on; nothing in the
+franchise game, the server or the CPU logic calls it.
+
+Proposed setting 0.5 / 0.45 / 0.25, measured with `analysis/45_qb_envelope.ts` (starters with 300+ attempts, franchise options, three
+seasons) and `analysis/46_qb_value.ts` (one team's quarterback swapped, paired seeds):
+
+| | NFL 2023-25 | fixed rosters, off | on | mature rosters (season 3), off | on |
+|---|---:|---:|---:|---:|---:|
+| completion % sd (range) | 3.09 (58.1-72.9) | 5.66 (52.4-77.5) | 3.95 (57.5-74.8) | 4.46 (56.0-77.0) | 3.19 (60.4-74.1) |
+| interception % sd (range) | 0.71 (0.60-3.99) | 1.18 (0.39-5.01) | 0.74 (0.87-4.01) | 0.99 (0.54-5.25) | 0.74 (0.37-4.47) |
+| yards / attempt sd | 0.76 | 0.80 | 0.72 | 0.66 | 0.56 |
+| interceptions per 560 attempts, max | 21 | 28.1 | 22.5 | 29.4 | 25.0 |
+
+At talent 1 the quarterback's slope per +10 overall goes completion 8.17 -> 5.08, interception -1.33 -> -0.82, yards/attempt 1.10 -> 1.02,
+touchdown rate 1.39 -> 1.57, margin 4.62 -> 4.32 points: 3.14 -> 2.94 points per quarterback standard deviation (target about 2.5; arm 0
+gives 2.25, arm 0.1 gives 2.79). At talent 1.5: completion 11.5 -> 7.0, interception -1.79 -> -1.21, margin 7.11 -> 5.62 (4.83 -> 3.82
+per standard deviation). League means with the refit: completion, interception and yards/attempt within 0.4 points, 0.1 points and 0.1
+yards of off; points -0.3 at talent 1 on the fixed rosters (inside the noise). Competitive balance is unchanged (margin sd 14.9 -> 14.3 on
+the fixed rosters, 13.4 -> 13.1 on mature ones).
+
 ## Play-by-play narration, PBP-2 (2026-10)
 
 **One narration** (`src/engine/narration.ts`, pure, no simulation imports) replaces the two that existed: `describe()` in `broadcast.ts` (no names) and

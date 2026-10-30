@@ -1,0 +1,43 @@
+/**
+ * QB value: a baseline team's QB replaced by copies shifted by a fixed number of attribute points, paired seeds.
+ * usage: 46_qb_value.ts <TEAM> <reps> <talent> <label> [off|on|'{"complete":..}']   -> prints one JSON line per QB level
+ * Seeds depend only on (rep, opponent, venue), so every level and every knob setting plays the same schedule of seeds.
+ */
+import { NFL_TEAMS } from "../src/engine/nfl-structure.js";
+import { Roster, roster } from "../src/engine/roster.js";
+import { simulateGame } from "../src/engine/sim.js";
+import { setQbEffect } from "../src/engine/ratings.js";
+import { teamStaff } from "../src/engine/staff-data.js";
+import { weatherFor } from "../src/engine/weather.js";
+import type { Player } from "../src/schema/player.js";
+
+const [TEAM, REP, TALENT, LABEL] = [process.argv[2]!, Number(process.argv[3]), Number(process.argv[4]), process.argv[5]!];
+const QBARG = process.argv[6] ?? "off";
+setQbEffect(QBARG === "off" ? null : QBARG === "on" ? { complete: 0.5, interception: 0.45, arm: 0.25 } : JSON.parse(QBARG));
+const DELTAS = (process.env.DELTAS ?? "-26,-14,-6,0,6,14,20").split(",").map(Number);
+const base = roster(TEAM);
+const qb0 = base.depth.get("QB")![0]!;
+const mk = (delta: number): Roster => {
+  const attrs: Record<string, number> = {};
+  for (const [k, v] of Object.entries(qb0.attributes ?? {})) attrs[k] = typeof v === "number" ? Math.max(1, Math.min(99, v + delta)) : (v as any);
+  const q = { ...qb0, id: `${qb0.id}~${delta}`, overall: Math.max(1, Math.min(99, (qb0.overall ?? 0) + delta)), attributes: attrs } as Player;
+  const players: Player[] = [q];
+  for (const [pos, ps] of base.depth) for (const p of ps) if (pos !== "QB") players.push(p);
+  return new Roster(TEAM, players);
+};
+const opp = NFL_TEAMS.filter((t) => t !== TEAM);
+for (const d of DELTAS) {
+  const r = mk(d);
+  const t = { att: 0, cmp: 0, yds: 0, td: 0, int: 0, sack: 0, m: 0, w: 0, gm: 0, pf: 0 };
+  let k = 0;
+  for (let rep = 0; rep < REP; rep++) for (const o of opp) for (const home of [true, false]) {
+    const seed = 880000 + rep * 997 + k++;
+    const h = home ? TEAM : o, a = home ? o : TEAM;
+    const g = simulateGame(seed, h, a, { homeRoster: home ? r : roster(o), awayRoster: home ? roster(o) : r, trace: true, injuries: true, talentScale: TALENT, overtime: "nfl", weather: weatherFor(h, "REG", 1 + (k % 17), seed), homeStaff: teamStaff(h)!, awayStaff: teamStaff(a)! });
+    const me = home ? 0 : 1; const s = g.teams[me]!.s as Record<string, number>;
+    t.att += s.pass_att ?? 0; t.cmp += s.completion ?? 0; t.yds += s.pass_yards ?? 0; t.int += s.int_thrown ?? 0; t.sack += s.sack ?? 0;
+    for (const p of g.playTrace!) if (p.team === me && p.call === "pass" && p.touchdown) t.td++;
+    t.m += g.score[me]! - g.score[1 - me]!; t.pf += g.score[me]!; t.w += g.score[me]! > g.score[1 - me]! ? 1 : 0; t.gm++;
+  }
+  console.log(JSON.stringify({ label: LABEL, talent: TALENT, ovr: r.depth.get("QB")![0]!.overall, n: t.gm, cmp: 100 * t.cmp / t.att, ypa: t.yds / t.att, td: 100 * t.td / t.att, int: 100 * t.int / t.att, sack: 100 * t.sack / (t.att + t.sack), margin: t.m / t.gm, win: 100 * t.w / t.gm, pf: t.pf / t.gm, att: t.att / t.gm, tdPer17: 17 * t.td / t.gm, intPer17: 17 * t.int / t.gm, ydsPer17: 17 * t.yds / t.gm }));
+}
