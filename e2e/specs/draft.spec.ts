@@ -37,6 +37,11 @@ test.describe("fantasy draft", () => {
     await expect(onTheClock).toBeVisible();
     await dismissOnTheClock(page);
 
+    // a League DNA league opens its fantasy draft with a broad, number-free scouting read of the league
+    const brief = page.getByTestId("scouting-brief");
+    await expect(brief).toContainText("League Profile:");
+    await expect(brief).not.toContainText(/\d{2,}\s*(OVR|overall)|optimal|best strateg/i);
+
     // the draft the browser built is the draft the Node build derived: same order, from the same seed and salt
     const opening = (await readSave(page))!;
     const nodeOrder = readSummary(process.env.E2E_FIXTURE_DIR!).draftPickOrder;
