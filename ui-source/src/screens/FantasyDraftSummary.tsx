@@ -1,3 +1,4 @@
+import { DecisionFrame } from "@/components/decisions/DecisionWorkspace";
 import { useMemo, useState } from "react";
 import { IdentityMap } from "@/components/IdentityMap";
 import { displaySeason } from "@/state/stageMachine";
@@ -104,7 +105,7 @@ export function FantasyDraftSummary({
   }, [classes, s.teams]);
 
   return (
-    <Card maxWidth={840}>
+    <DecisionFrame kind="draft" code={code}><Card maxWidth={1440}>
       <CardHeader
         badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
         title={title}
@@ -304,7 +305,7 @@ export function FantasyDraftSummary({
       {!onAdvance && (
         <ReadinessGate title="Draft summary readiness" label={advanceLabel} onAdvance={(r) => nav(r)} />
       )}
-    </Card>
+    </Card></DecisionFrame>
   );
 }
 

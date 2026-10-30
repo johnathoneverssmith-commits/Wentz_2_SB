@@ -1,3 +1,4 @@
+import { DecisionFrame } from "@/components/decisions/DecisionWorkspace";
 import { StageLoading } from "@/components/StageLoading";
 import { useStaffPlan } from "@/components/StaffPlan";
 import { useMemo, useState } from "react";
@@ -119,7 +120,7 @@ export function FreeAgencySummary() {
   };
 
   return (
-    <Card maxWidth={920}>
+    <DecisionFrame kind="market" code={code}><Card maxWidth={1440}>
       <CardHeader
         badge={TEAMS_BY_CODE[code]!.abbr}
         title={s.stage === "midseasonFreeAgencySummary" ? "Mid-Season Free Agency Summary" : "Free Agency Summary"}
@@ -460,6 +461,6 @@ export function FreeAgencySummary() {
         disabled={!legal}
         disabledHint="Roster not legal"
       />
-    </Card>
+    </Card></DecisionFrame>
   );
 }

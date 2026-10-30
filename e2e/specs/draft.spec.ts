@@ -60,6 +60,7 @@ test.describe("fantasy draft", () => {
     const playerName = label.replace(/^Draft /, "");
     await expect(target).toBeEnabled();
     await target.click();
+    await page.getByRole("dialog").getByRole("button", {name:"Confirm pick",exact:true}).click();
 
     // the saved league now has that pick for my team, and the draft has moved on to my next turn
     await expect
@@ -96,6 +97,7 @@ test.describe("fantasy draft", () => {
     await dismissOnTheClock(page);
     const buttons = page.getByRole("table").getByRole("button", { name: /^Draft / });
     await buttons.first().click();
+    await page.getByRole("dialog").getByRole("button", {name:"Confirm pick",exact:true}).click();
     await expect.poll(async () => (await readSave(page))!.draft!.results.length).toBeGreaterThan(2);
     const once = (await readSave(page))!;
     // the board has moved on to my next pick, 59 picks later in a snake draft; the players taken are gone from it
