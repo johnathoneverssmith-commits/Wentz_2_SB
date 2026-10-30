@@ -160,6 +160,7 @@ test.describe("the offseason", () => {
       const name = (await button.evaluate((el) => el.getAttribute("aria-label") ?? el.textContent ?? "")).trim().replace(/^Draft /, "");
       const before = now.draft!.results.length;
       await button.click();
+      await page.getByRole("dialog").getByRole("button", {name:"Confirm pick",exact:true}).click();
       await expect.poll(async () => { const x = await readLeague(page); return x.stage !== "offseasonDraft" || x.draft!.results.length > before; }, { message: `pick ${before + 1} was made` }).toBe(true);
       const after = await readLeague(page);
       const pick = after.draft!.results[before]!;

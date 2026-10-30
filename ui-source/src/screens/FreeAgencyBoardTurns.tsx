@@ -1,3 +1,9 @@
+import { pruneComparison } from "@/components/decisions/decision-view";
+import { DecisionFrame, DecisionHeading, DecisionError, DecisionComparison, CompareToggle, DecisionSortControl, toggleComparison } from "@/components/decisions/DecisionWorkspace";
+import { publicDecisionRow, sortDecisionRows, type DecisionSort } from "@/components/decisions/decision-view";
+import { RosterFinance } from "@/components/roster/RosterFinance";
+import { PlayerStatsModal } from "@/components/PlayerStatsModal";
+import { getMotionLevel } from "@/motion/level";
 import { SkipToggle } from "@/components/SkipToggle";
 import { useStaffPlan } from "@/components/StaffPlan";
 import { CommissionerTakeTurn } from "@/components/CommissionerTakeTurn";
@@ -60,6 +66,11 @@ export function FreeAgencyBoardTurns() {
   const acting = useRef(false);
   // ~400 players and only the first 80 on screen: a GM hunting a kicker
   // couldn't reach one
+  const [search, setSearch] = useState("");
+  const [displaySort,setDisplaySort] = useState<DecisionSort>("board");
+  const [compared,setCompared] = useState<string[]>([]);
+  const [inspecting,setInspecting] = useState<string|null>(null);
+  const [limit,setLimit] = useState(80);
   const [posFilter, setPosFilter] = useState<string>("all");
 
   // The fifth round resolving ends the market and moves the stage on from
@@ -110,6 +121,9 @@ export function FreeAgencyBoardTurns() {
     [s.players, s.freeAgencyEvent, sortBy, fit], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  useEffect(() => { if (!yourTurn || !pool.some(p=>p.id===offering?.id)) setOffering(null); }, [yourTurn,pool,offering?.id]);
+  useEffect(() => setOffering(null), [e?.round,e?.turnIndex]);
+  useEffect(()=>setCompared(ids=>pruneComparison(ids,pool)),[pool]);
   if (!e || !code) {
     return (
       <Card>
@@ -139,7 +153,10 @@ export function FreeAgencyBoardTurns() {
   };
   const team = s.teams[code];
   const capRoom = team ? Math.round((team.cap.total - team.cap.used) * 10) / 10 : 0;
-  const shown = posFilter === "all" ? pool : pool.filter((p) => p.position === posFilter);
+  const shown = sortDecisionRows(pool.map(p=>({...p,rating:p.overall})),displaySort).filter(p=>(posFilter === "all" || p.position === posFilter)&&p.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const publicRows = pool.map(p=>publicDecisionRow(p,`${careerArc(p).label} · asks ${millions(expectedSalary(p,marketScale(s)))}/yr · ${PRIMARY_VALUE_LABEL[primaryValueOf(p)]}`));
+  const selectedOffer = pool.find(p=>p.id===offering?.id);
+
 
   // still live: an offer stays on file after its player signs (with you or
   // anyone), and counting those said "1 offer out" beside a man you'd won
@@ -157,18 +174,8 @@ export function FreeAgencyBoardTurns() {
       : [];
 
   return (
-    <Card maxWidth={920}>
-      <CardHeader
-        badge={TEAMS_BY_CODE[code]!.abbr}
-        title={s.stage === "midseasonFreeAgency" ? "Mid-Season Free Agency" : "Free Agency"}
-        subtitle={`Round ${e.round} of ${FREE_AGENCY_ROUNDS} · one offer or pass per round`}
-        right={
-          <>
-            <p>{yourTurn ? "Your turn" : "On the clock"}</p>
-            <p>{clock ? TEAMS_BY_CODE[clock]?.label ?? clock : "Resolving"}</p>
-          </>
-        }
-      />
+    <DecisionFrame kind="market" code={code} focused={!!offering}><Card maxWidth={1440}>
+      <DecisionHeading code={code} title={s.stage === "midseasonFreeAgency" ? "Mid-Season Free Agency" : "Free Agency"} subtitle={`Round ${e.round} of ${FREE_AGENCY_ROUNDS} · one offer or pass per round`}><p>{yourTurn ? "Your turn" : "On the clock"}</p><p>{clock ? TEAMS_BY_CODE[clock]?.label ?? clock : "Resolving"}</p></DecisionHeading>
       <Ticker
         stats={[
           { label: "Round", value: `${e.round} / ${FREE_AGENCY_ROUNDS}` },
@@ -178,11 +185,7 @@ export function FreeAgencyBoardTurns() {
         ]}
       />
 
-      {error && (
-        <div className="notice bad" role="status">
-          {error}
-        </div>
-      )}
+      <DecisionError message={error}/><div className="decision-layout"><div className="decision-main">
 
       {lastResults.length > 0 && (
         <div className="panel open" style={{ paddingBottom: 4 }}>
@@ -301,7 +304,7 @@ export function FreeAgencyBoardTurns() {
       />
 
       <Panel id="unsigned" open={active === "unsigned"}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12 }}>
+        <div className="decision-toolbar"><label>Search players <input type="search" value={search} onChange={ev=>setSearch(ev.target.value)} placeholder="Find a player"/></label><DecisionSortControl value={displaySort} onChange={setDisplaySort}/>
           <label htmlFor="fa-sort" style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
             Sort
           </label>
@@ -318,18 +321,18 @@ export function FreeAgencyBoardTurns() {
             ))}
           </select>
           <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>
-            {shown.length > 80 ? `Top 80 of ${shown.length}` : `${shown.length} shown`}
+            {shown.length > limit ? `Showing ${limit} of ${shown.length}` : `${shown.length} shown`}
           </span>
         </div>
         {shown.length === 0 ? (
           <div className="emptystate">{pool.length === 0 ? "Everybody has signed." : "Nobody left at that position."}</div>
         ) : (
-          shown.slice(0, 80).map((p) => {
+          shown.slice(0, limit).map((p) => {
             const lead = leadingOffer(s, p.id);
             const ask = expectedSalary(p, marketScale(s));
             const isOffering = offering?.id === p.id;
             return (
-              <div key={p.id}>
+              <div key={p.id} data-player-id={p.id}>
                 <div className="lobby-row">
                   <div>
                     <p className="pname">
@@ -353,7 +356,7 @@ export function FreeAgencyBoardTurns() {
                     )}
                   </div>
                   <div className="lobby-actions">
-                    <OvrPill value={p.overall} />
+                    <OvrPill value={p.overall} /><button type="button" className="btnlink" aria-label={`Player details ${p.name}`} onClick={()=>setInspecting(p.id)}>Details</button><CompareToggle row={publicRows.find(row=>row.id===p.id)!} selected={compared} onToggle={id=>setCompared(ids=>toggleComparison(ids,id))}/>
                     <button
                       type="button"
                       className="btn-primary"
@@ -365,20 +368,11 @@ export function FreeAgencyBoardTurns() {
                     </button>
                   </div>
                 </div>
-                {isOffering && (
-                  <OfferDialog
-                    player={p}
-                    lead={lead && lead.teamCode !== code ? lead : null}
-                    capRoom={capRoom}
-                    busy={busy}
-                    onCancel={() => setOffering(null)}
-                    onSubmit={(salary, years) => act({ playerId: p.id, salary, years })}
-                  />
-                )}
               </div>
             );
           })
         )}
+        {shown.length>limit&&<button type="button" onClick={()=>setLimit(n=>n+80)}>Show more players</button>}
       </Panel>
 
       <Panel id="needs" open={active === "needs"}>
@@ -416,7 +410,14 @@ export function FreeAgencyBoardTurns() {
           Nothing signs until every team has acted this round.
         </span>
       </Footer>
-    </Card>
+      </div><aside className="decision-sidebar" aria-label="Free agency player workspace">
+
+        {selectedOffer&&yourTurn ? <OfferDialog key={selectedOffer.id} player={selectedOffer} lead={(()=>{const lead=leadingOffer(s,selectedOffer.id);return lead&&lead.teamCode!==code?lead:null;})()} capRoom={capRoom} busy={busy} onCancel={()=>setOffering(null)} onSubmit={(salary,years)=>act({playerId:selectedOffer.id,salary,years})}/> : <section className="decision-context"><h2>Build your next offer</h2><p>Select Offer on a player to review their asking price, preferences and the current leading offer.</p><p>Offers stay pending until the round resolves. Cap and roster limits return at reconciliation.</p></section>}
+        <DecisionComparison rows={publicRows} ids={compared} onClear={()=>setCompared([])}/>
+        {team&&<RosterFinance total={team.cap.total} used={team.cap.used} room={capRoom} dead={team.cap.dead}/>}
+      </aside></div>
+      {inspecting&&s.players[inspecting]&&<PlayerStatsModal player={s.players[inspecting]!} onClose={()=>setInspecting(null)}/>}
+    </Card></DecisionFrame>
   );
 }
 
@@ -453,8 +454,10 @@ function OfferDialog({
   // clicked — "Offer" looked like it did nothing
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    box.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const previous=document.activeElement as HTMLElement|null;
+    box.current?.scrollIntoView({ block: "nearest", behavior: getMotionLevel()==="off" ? "auto" : "smooth" });
     box.current?.querySelector("input")?.focus({ preventScroll: true });
+    return ()=>{if(previous?.isConnected) previous.focus({preventScroll:true});};
   }, [player.id]);
 
   return (

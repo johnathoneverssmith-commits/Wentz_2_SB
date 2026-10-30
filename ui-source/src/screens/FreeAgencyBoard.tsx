@@ -1,3 +1,7 @@
+import { pruneComparison } from "@/components/decisions/decision-view";
+import { DecisionFrame, DecisionHeading, DecisionComparison, CompareToggle, DecisionSortControl, toggleComparison, FocusedOfferPanel } from "@/components/decisions/DecisionWorkspace";
+import { publicDecisionRow, sortDecisionRows, type DecisionSort } from "@/components/decisions/decision-view";
+import { RosterFinance } from "@/components/roster/RosterFinance";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StaggerList } from "@/motion/Stagger";
 import { careerArc } from "@/state/careerArc";
@@ -11,7 +15,7 @@ import { InlineNegotiation } from "@/components/ContractNegotiation";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader, useListFilter } from "@/components/ListFilter";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Card, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { ContractOffer, Player } from "@/domain";
@@ -48,6 +52,9 @@ export function FreeAgencyBoard() {
   }, [marketRunning, nav]);
 
   const isWindowStage = s.stage === "offseasonFreeAgency";
+  const [displaySort,setDisplaySort] = useState<DecisionSort>("board");
+  const [compared,setCompared] = useState<string[]>([]);
+  const [boardLimit,setBoardLimit] = useState(120);
   const [negotiating, setNegotiating] = useState<Player | null>(null);
   const [signError, setSignError] = useState<string | null>(null);
   // the guard itself: state lags a render, so two quick clicks both passed it
@@ -93,7 +100,10 @@ export function FreeAgencyBoard() {
   // 560 players go on the market in a fantasy offseason. Sorting by overall
   // and showing the top 50 meant the punters, and every depth signing a
   // rebuilding team actually wants, were simply unreachable.
-  const market = useListFilter(freeAgents);
+  const sorted = useMemo(()=>sortDecisionRows(freeAgents.map(p=>({...p,rating:p.overall})),displaySort),[freeAgents,displaySort]);
+  const market = useListFilter(sorted,boardLimit);
+  const publicRows = freeAgents.map(p=>publicDecisionRow(p,`${careerArc(p).label} · asks ${millions(isWindowStage ? playerPriorities(p).expectation.baseSalary : standingAsk(s,p))}/yr`));
+  useEffect(()=>setCompared(ids=>pruneComparison(ids,freeAgents)),[freeAgents]);
 
   // the store's own figure (players + staff) — identical to what the signing
   // check enforces, so the number here is the number that decides a signing
@@ -111,8 +121,69 @@ export function FreeAgencyBoard() {
     ? { to: s.returnTo, label: "Return to retirements" }
     : { to: "/hub", label: "Return to team hub" };
 
+  useEffect(()=>{if(signingsClosed||!freeAgents.some(p=>p.id===negotiating?.id))setNegotiating(null);},[signingsClosed,freeAgents,negotiating?.id]);
+
+  const negotiationFor = (p:Player) => (
+                    <InlineNegotiation
+                      priorities={
+                        isWindowStage
+                          ? playerPriorities(p)
+                          : // in season his price falls week by week (`standingAsk`) —
+                            // and the bonus and guarantee fall with it: kept at
+                            // his opening price, a $3.9M-a-year ask "expected"
+                            // $19.1M guaranteed, more than the whole deal paid
+                            (() => {
+                              const opening = playerPriorities(p);
+                              const ask = standingAsk(s, p);
+                              const scale = opening.expectation.baseSalary > 0 ? ask / opening.expectation.baseSalary : 1;
+                              const r1 = (n: number) => Math.round(n * 10) / 10;
+                              return {
+                                ...opening,
+                                expectation: {
+                                  ...opening.expectation,
+                                  baseSalary: ask,
+                                  signingBonus: r1(opening.expectation.signingBonus * scale),
+                                  guaranteed: r1(opening.expectation.guaranteed * scale),
+                                },
+                              };
+                            })()
+                      }
+                      prior={myOffer(p.id)}
+                      error={signError}
+                      onClose={() => {
+                        setSignError(null);
+                        setNegotiating(null);
+                      }}
+                      onSubmit={(offer) => {
+                        // one in flight: a double click signed him and then
+                        // reported that he'd "just signed" with your own team
+                        if (submittingRef.current) return;
+                        submittingRef.current = true;
+                        const full: ContractOffer = { ...offer, teamCode: code! };
+                        const run = isWindowStage
+                          ? actions.placeBid("players", p.id, full)
+                          : actions.signFreeAgent(p.id, full);
+                        void run
+                          .finally(() => {
+                            submittingRef.current = false;
+                          })
+                          .then((result) => {
+                          if (result.ok) {
+                            setSignError(null);
+                            setNegotiating(null);
+                          } else {
+                            setSignError(
+                              result.reason ??
+                                (isWindowStage ? "Unable to bid on this player." : "Unable to sign this player."),
+                            );
+                          }
+                        });
+                      }}
+                    />
+  );
+
   return (
-    <Card maxWidth={860}>
+    <DecisionFrame kind="market" code={code} focused={!!negotiating}><Card maxWidth={1440}>
       {isWindowStage && fa?.interstitialVisible && (
         <FullScreenOverlay
           kicker="Free agency"
@@ -122,20 +193,7 @@ export function FreeAgencyBoard() {
         />
       )}
 
-      <CardHeader
-        badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
-        title="Free Agency"
-        // The window closing doesn't end the stage — bidding is over but the
-        // market stays open, and the header used to keep saying "Live window ·
-        // Day 5 of 5" while a signing was a straight purchase.
-        subtitle={
-          inWindow
-            ? `Live window · Day ${fa?.day ?? 1} of 5`
-            : isWindowStage
-              ? "Window closed · open market until the season starts"
-              : "Standing market · open through the season"
-        }
-      />
+      <DecisionHeading code={code} title="Free Agency" subtitle={inWindow ? `Live window · Day ${fa?.day ?? 1} of 5` : isWindowStage ? "Window closed · open market until the season starts" : "Standing market · open through the season"}/>
       {/* online the block's weeks are already played: the server refuses a
           signing that would read as help for them */}
       {signingsClosed && (
@@ -155,6 +213,7 @@ export function FreeAgencyBoard() {
         ]}
       />
 
+      <div className="decision-layout"><div className="decision-main">
       <Tabs
         tabs={[
           { id: "unsigned", label: "Unsigned" },
@@ -169,7 +228,7 @@ export function FreeAgencyBoard() {
         {freeAgents.length === 0 && (
           <div className="emptystate">Nobody is on the market right now.</div>
         )}
-        {market.controls}
+        <div className="decision-toolbar">{market.controls}<DecisionSortControl value={displaySort} onChange={setDisplaySort}/></div>
         {freeAgents.length > 0 && market.matched === 0 && (
           <div className="emptystate">
             Nobody on the market matches that. Clear the search or pick another position.
@@ -212,7 +271,7 @@ export function FreeAgencyBoard() {
                         · wants ~{millions(isWindowStage ? exp.baseSalary : standingAsk(s, p))}/yr
                       </p>
                     </div>
-                    <OvrPill value={p.overall} />
+                    <span><OvrPill value={p.overall}/><CompareToggle row={publicRows.find(row=>row.id===p.id)!} selected={compared} onToggle={id=>setCompared(ids=>toggleComparison(ids,id))}/></span>
                     <span className="pcell">{p.age}</span>
                     <span style={{ fontSize: 12.5, textAlign: "center", color: mine && lead?.teamCode === code ? "var(--good)" : "var(--ink-dim)" }}>
                       {isWindowStage
@@ -239,62 +298,7 @@ export function FreeAgencyBoard() {
                 }
                 detail={
                   negotiating?.id === p.id && code ? (
-                    <InlineNegotiation
-                      priorities={
-                        isWindowStage
-                          ? playerPriorities(p)
-                          : // in season his price falls week by week (`standingAsk`) —
-                            // and the bonus and guarantee fall with it: kept at
-                            // his opening price, a $3.9M-a-year ask "expected"
-                            // $19.1M guaranteed, more than the whole deal paid
-                            (() => {
-                              const opening = playerPriorities(p);
-                              const ask = standingAsk(s, p);
-                              const scale = opening.expectation.baseSalary > 0 ? ask / opening.expectation.baseSalary : 1;
-                              const r1 = (n: number) => Math.round(n * 10) / 10;
-                              return {
-                                ...opening,
-                                expectation: {
-                                  ...opening.expectation,
-                                  baseSalary: ask,
-                                  signingBonus: r1(opening.expectation.signingBonus * scale),
-                                  guaranteed: r1(opening.expectation.guaranteed * scale),
-                                },
-                              };
-                            })()
-                      }
-                      prior={myOffer(p.id)}
-                      error={signError}
-                      onClose={() => {
-                        setSignError(null);
-                        setNegotiating(null);
-                      }}
-                      onSubmit={(offer) => {
-                        // one in flight: a double click signed him and then
-                        // reported that he'd "just signed" with your own team
-                        if (submittingRef.current) return;
-                        submittingRef.current = true;
-                        const full: ContractOffer = { ...offer, teamCode: code };
-                        const run = isWindowStage
-                          ? actions.placeBid("players", p.id, full)
-                          : actions.signFreeAgent(p.id, full);
-                        void run
-                          .finally(() => {
-                            submittingRef.current = false;
-                          })
-                          .then((result) => {
-                          if (result.ok) {
-                            setSignError(null);
-                            setNegotiating(null);
-                          } else {
-                            setSignError(
-                              result.reason ??
-                                (isWindowStage ? "Unable to bid on this player." : "Unable to sign this player."),
-                            );
-                          }
-                        });
-                      }}
-                    />
+                    <p className="decision-muted">Offer controls are open in the player workspace.</p>
                   ) : (
                     <>
                       {isWindowStage &&
@@ -321,6 +325,7 @@ export function FreeAgencyBoard() {
             );
           })}
         </StaggerList>
+        {market.matched>boardLimit&&<button type="button" onClick={()=>setBoardLimit(n=>n+120)}>Show more players</button>}
         {isWindowStage && (
           <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
             Free agents can be signed at any time; there is no window and no deadline.
@@ -394,7 +399,12 @@ export function FreeAgencyBoard() {
         />
       )}
 
-    </Card>
+      </div><aside className="decision-sidebar" aria-label="Standing market player workspace">
+        {negotiating&&code&&freeAgents.some(p=>p.id===negotiating.id) ? <FocusedOfferPanel key={negotiating.id} title={negotiating.name}><p>{negotiating.position} · {negotiating.overall} OVR · Age {negotiating.age}</p>{negotiationFor(freeAgents.find(p=>p.id===negotiating.id)!)}</FocusedOfferPanel> : <section className="decision-context"><h2>Build your roster</h2><p>{inWindow ? "Bids settle as this free-agency window advances. Review the leading offer before committing." : "Negotiate salary, years and guarantees. Standing-market signings are immediate; cap and roster limits still apply."}</p></section>}
+        <DecisionComparison rows={publicRows} ids={compared} onClear={()=>setCompared([])}/>
+        {code&&s.teams[code]&&<RosterFinance total={s.teams[code]!.cap.total} used={s.teams[code]!.cap.used} room={capSpace} dead={s.teams[code]!.cap.dead}/>}
+      </aside></div>
+    </Card></DecisionFrame>
   );
 }
 
