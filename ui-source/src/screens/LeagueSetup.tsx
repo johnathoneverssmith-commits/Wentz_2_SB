@@ -1,13 +1,16 @@
+import { useSetupCreating } from "@/components/journey/SetupCreationNotice";
+import { ScoutingBrief } from "@/components/ScoutingBrief";
+import { SetupSeed } from "@/components/journey/SetupSeed";
 import { ManualPicksInput } from "@/components/ManualPicksInput";
 import { GmIdentityPicker } from "@/components/GmIdentity";
 import { CopyButton, inviteLink } from "@/components/CopyButton";
-import { useId, useState } from "react";
+import { cloneElement, isValidElement, useId, useState, type ReactElement } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
-import { isOnline, onlineSession } from "@/state/online";
+import { isOnline, lastLeagueId, onlineSession } from "@/state/online";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { DIVISIONS, TEAMS_BY_CODE, teamFullName } from "@/data/teams";
 import type { Difficulty, LeagueConfig, TeamMeta } from "@/domain";
@@ -31,6 +34,9 @@ export function LeagueSetup() {
   const stage = useStore((s) => s.stage);
   const step = useStore((s) => stepOf(s, s.viewerGmId));
   const config = useStore((s) => s.config);
+  const seed = useStore((s) => s.seed);
+  const profile = useStore((s) => s.dna?.profile);
+  const seedBusy = useSetupCreating();
   const humansOnly = formatOf(config) === "humansOnly";
   const leagueSize = humansOnlyLeagueSize(config.humanGmCount);
   const seasonGames = seasonShapeFor("humansOnly", leagueSize).regularSeasonWeeks;
@@ -56,7 +62,7 @@ export function LeagueSetup() {
   const online = isOnline();
   const commissioner = onlineSession()?.isCommissioner ?? false;
   // everyone sees the settings; only the commissioner changes them online
-  const settingsLocked = locked || (online && !commissioner);
+  const settingsLocked = locked || seedBusy || (online && !commissioner);
 
   const viewer = gms.find((g) => g.id === viewerGmId)!;
   /**
@@ -150,12 +156,13 @@ export function LeagueSetup() {
             )}
           </div>
         )}
+        <ScoutingBrief profile={profile} kind="league"/>
         <FranchiseBanner meta={myMeta} locked={locked} humansOnly={formatOf(config) === "humansOnly"} />
 
         {viewer && (
           <GmIdentityPicker
             value={viewer.strategy ?? "balanced"}
-            disabled={locked}
+            disabled={locked || seedBusy}
             onChange={(k) => void actions.setStrategy(k)}
           />
         )}
@@ -237,7 +244,7 @@ export function LeagueSetup() {
                               key={t.code}
                               type="button"
                               className={`team-tile${mine ? " mine" : ""}`}
-                              disabled={otherTaken}
+                              disabled={otherTaken || seedBusy}
                               aria-pressed={mine}
                               // the badge, name and status ran together as "BALBaltimore RavensAvailable"
                               aria-label={`${t.city} ${t.name} — ${mine ? "your team" : otherTaken ? `taken by ${gmName(gms, owner)}` : "available"}`}
@@ -266,6 +273,8 @@ export function LeagueSetup() {
       </Panel>
 
       <Panel id="settings" open={active === "settings"}>
+        {online && !commissioner && <p className="notice">Only the commissioner can change these league settings. Your team and check-in remain yours.</p>}
+        <SetupSeed seed={seed} config={config} canRestart={!locked && !online && lastLeagueId()===null}/>
         {online && !locked && !commissioner && (
           <div className="notice" role="status" style={{ marginBottom: 14 }}>
             Only the commissioner can change these. They&rsquo;re shown so everyone knows the rules.
@@ -342,7 +351,7 @@ export function LeagueSetup() {
           hint={
             humansOnly
               ? "Always on in a humans-only league — there are no NFL rosters to inherit, so every team is drafted from the full player pool."
-              : "When off, every team starts with its real current NFL roster instead of drafting the full player pool."
+              : profile ? "When off, every team keeps its generated starting roster instead of drafting the full player pool. The league profile describes this seed’s player pool." : "When off, every team keeps its starting roster instead of drafting the full player pool."
           }
         >
           <select
@@ -480,13 +489,13 @@ export function LeagueSetup() {
             <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
               {config.fantasyDraft
                 ? "The fantasy draft begins once every GM is ready."
-                : "Teams keep their real roster. The season begins once every GM is ready."}
+                : "Teams keep their starting roster. The coaching draft begins once every GM is ready."}
             </span>
           </Footer>
           <ReadinessGate
-            title={config.fantasyDraft ? "Fantasy draft readiness" : "Season start readiness"}
-            disabled={!viewer.teamCode}
-            disabledHint="Select a team to continue"
+            title={config.fantasyDraft ? "Fantasy draft readiness" : "Coaching draft readiness"}
+            disabled={!viewer.teamCode || seedBusy}
+            disabledHint={seedBusy?"Creating the league — please wait":"Select a team to continue"}
             onAdvance={() => nav("/")}
           />
         </>
@@ -600,6 +609,7 @@ function SettingRow({
   return (
     <div
       role="group"
+      className="setup-settings-row"
       aria-labelledby={`${id}-l`}
       style={{
         display: "flex",
@@ -613,6 +623,7 @@ function SettingRow({
       <div>
         <p id={`${id}-l`} style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
         <p
+          id={`${id}-h`}
           style={{
             margin: "3px 0 0",
             fontSize: 11.5,
@@ -624,7 +635,9 @@ function SettingRow({
           {hint}
         </p>
       </div>
-      {children}
+      {isValidElement(children) && (children.type === "select" || children.type === "input")
+        ? cloneElement(children as ReactElement<React.HTMLAttributes<HTMLElement>>, {"aria-labelledby": `${id}-l`, "aria-describedby": `${id}-h`})
+        : children}
     </div>
   );
 }

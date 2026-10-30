@@ -10,7 +10,7 @@ import { FIRE_BELOW } from "./hotSeat.ts";
  * pinned: every topic the app promises exists with text, every screen's topics
  * resolve, and the figures that are constants are the ones the text states.
  */
-const ALL = ["drafts", "freeAgency", "trades", "tradeValue", "development", "regression", "injuries", "recovery", "gameSim", "strategyEffects", "awards", "unitGrades", "playoffOdds", "gmFiring", "coachingEffects"];
+const ALL = ["journey","drafts", "freeAgency", "trades", "tradeValue", "development", "regression", "injuries", "recovery", "gameSim", "strategyEffects", "awards", "unitGrades", "playoffOdds", "gmFiring", "coachingEffects"];
 
 describe("how it works", () => {
   it("covers every system the app explains", () => {
@@ -37,4 +37,8 @@ describe("how it works", () => {
     expect(text("freeAgency")).toContain(`${FA_ROUNDS_MAX} rounds`);
     expect(text("gmFiring")).toContain(`below ${FIRE_BELOW} is fired`);
   });
+});
+
+it('opens rules on the real parameterized recap, results and broadcast routes',()=>{
+ for(const route of ['/box/saved-game','/results/REG/1/9/2','/results/round/WC','/watch/saved-game'])expect(topicsFor(route).map(t=>t.id),route).toContain('gameSim');
 });

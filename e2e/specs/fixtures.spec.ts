@@ -13,10 +13,11 @@ import { REPO_ROOT } from "../support/stack.ts";
  */
 // the first three are reached early and rebuilt cheaply (`only`); the other two need a whole year played, and are built in full once
 const EARLY = ["fantasy-draft", "coaching-draft", "preseason"] as const;
-const NAMES = [...EARLY, "season-week-1", "season-week-9", "season-week-17", "playoffs-wild-card", "end-of-season", "trade-deadline", "midseason-fa", "offseason-fa-skip-carried"] as const;
+const NAMES = [...EARLY, "training-camp", "season-week-1", "season-week-9", "season-week-17", "playoffs-wild-card", "end-of-season", "trade-deadline", "midseason-fa", "offseason-fa-skip-carried"] as const;
 const STAGES: Record<(typeof NAMES)[number], string> = {
   "fantasy-draft": "fantasyDraft",
   "coaching-draft": "coachingDraft",
+  "training-camp": "trainingCamp",
   preseason: "preseason",
   "season-week-1": "regularSeason",
   "season-week-9": "regularSeason",

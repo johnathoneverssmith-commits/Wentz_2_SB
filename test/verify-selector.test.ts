@@ -340,7 +340,8 @@ describe("choosing the tests that import a changed file", () => {
     const p = run([change("ui-source/src/state/reveal.ts")]);
     const ui = p.required.find((c) => c.id === "direct:ui");
     const online = p.required.find((c) => c.id === "direct:online");
-    expect(ui?.commands[0]).toContain("npm --prefix ui-source run test -- src/state/");
+    expect(ui?.commands[0]).toMatch(/^npm --prefix ui-source run test -- /);
+    expect(ui?.commands[0]?.split(" ")).toContain("src/state/reveal.test.ts");
     expect(ui?.files).toContain("ui-source/src/state/reveal.test.ts");
     expect(online?.files).toContain("online/test/preseason-block.test.ts");
     expect(online?.commands[0]).toContain("npx vitest run --root online --no-file-parallelism test/"); // result-visibility needs a database

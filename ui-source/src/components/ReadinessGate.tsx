@@ -14,7 +14,7 @@
  * for them. So the local transition is skipped entirely, and the new stage
  * arrives the same way any other change does: pushed.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { openSlots as countOpenSlots, rosterGate } from "@/state/rules";
@@ -49,6 +49,7 @@ export function ReadinessGate({
   disabledHint?: string;
 }) {
   const actions = useLeagueActions();
+  const hintId = useId();
   const online = actions.online;
   // An online league is remembered but not connected (the resume failed, or
   // is still trying): pressing this would move a private copy of the league
@@ -308,6 +309,7 @@ export function ReadinessGate({
         // player clicks, nothing visibly happens for a second or two, and
         // clicks again.
         disabled={disabled || busy}
+        aria-describedby={disabled && disabledHint ? hintId : undefined}
         aria-busy={busy || undefined}
         aria-pressed={viewerReady}
         onClick={() => {
@@ -355,6 +357,7 @@ export function ReadinessGate({
                   : "You're ready — waiting on the league"
               : (label ?? STAGE_READY_LABEL[stage])}
       </button>
+      {disabled && disabledHint && <p id={hintId} className="readiness-held">{disabledHint}</p>}
       {/* the button is a toggle, but once pressed it read as a status line —
           nobody guessed a second press takes the check-in back */}
       {online && viewerReady && !busy && !disabled && (

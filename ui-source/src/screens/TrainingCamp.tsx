@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { stepOf } from "@/state/reveal";
+import { DecisionError } from "@/components/decisions/DecisionWorkspace";
+import { useRef, useState } from "react";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
@@ -40,6 +42,23 @@ export function TrainingCamp() {
   const [defensiveFocus, setDefensive] = useState<DefensiveFocus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const acting = useRef(false);
+  const visitResults = async (): Promise<void> => {
+    const current = useStore.getState();
+    // Reopening an old camp is read-only. Never overwrite a later personal step.
+    if (current.stage === "trainingCamp" && stepOf(current,current.viewerGmId) !== "trainingCampResults") {
+      const res = await actions.stepForward("trainingCampResults");
+      if (!res.ok) { setError(res.reason ?? "Camp ran, but the results step could not be saved. Try opening your results again."); return; }
+    }
+    nav("/training-camp-results");
+  };
+  const openResults = async (): Promise<void> => {
+    if (acting.current) return;
+    acting.current = true; setBusy(true); setError(null);
+    try { await visitResults(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Results could not be opened. Try again."); }
+    finally { acting.current = false; setBusy(false); }
+  };
 
   if (!code) {
     return (
@@ -62,10 +81,11 @@ export function TrainingCamp() {
       <Card>
         <CardHeader badge="TC" title="Training Camp" subtitle="Already run" />
         <div className="panel open">
-          <div className="emptystate">You already ran camp this season.</div>
+          <div className="emptystate">You already ran camp this season. Opening results will not run it again.</div>
+          <DecisionError message={error}/>
         </div>
         <Footer>
-          <button type="button" className="btn-primary" onClick={() => nav("/training-camp-results")}>
+          <button type="button" className="btn-primary" disabled={busy} onClick={() => void openResults()}>
             See Your Results
           </button>
         </Footer>
@@ -97,26 +117,17 @@ export function TrainingCamp() {
     return `${count(inGroup.length, "player")} · ${young} young · ${vets} vet${vets === 1 ? "" : "s"}`;
   };
 
-  const submit = (): void => {
-    setBusy(true);
-    setError(null);
-    void actions
-      .submitTrainingCamp(plan)
-      .then((res) => {
-        if (!res.ok) {
-          setError(res.reason ?? "Camp didn't run.");
-          return;
-        }
-        // Camp is single-player and the league keeps waiting on the other
-        // GMs, so nothing here moves the shared stage — only this GM's own
-        // marker, the same way the retirement review hands off to the draft
-        // preview. Without it this screen has no way to leave: `check.ok`
-        // still reads true after a submit that already succeeded, so a
-        // second click here would hit the server's "You've already run
-        // camp" and strand the GM looking at a form they can't resubmit.
-        void actions.stepForward("trainingCampResults").then(() => nav("/training-camp-results"));
-      })
-      .finally(() => setBusy(false));
+  const submit = async (): Promise<void> => {
+    if (acting.current) return;
+    acting.current = true; setBusy(true); setError(null);
+    try {
+      const res = await actions.submitTrainingCamp(plan);
+      if (!res.ok) { setError(res.reason ?? "Camp didn't run."); return; }
+      // A saved camp and a saved personal step are separate acknowledgements.
+      // Keep the recoverable already-run screen if opening results is refused.
+      await visitResults();
+    } catch (err) { setError(err instanceof Error ? err.message : "Camp could not be completed. Check your connection and try again."); }
+    finally { acting.current = false; setBusy(false); }
   };
 
   return (
@@ -128,23 +139,20 @@ export function TrainingCamp() {
       />
       <Ticker
         stats={[
-          { label: "OC focus worth", value: `+${Math.round(offStrength * 100)}%` },
-          { label: "DC focus worth", value: `+${Math.round(defStrength * 100)}%`, className: "sm" },
+          { label: "OC base focus", value: `+${Math.round(offStrength * 100)}%` },
+          { label: "DC base focus", value: `+${Math.round(defStrength * 100)}%`, className: "sm" },
         ]}
       />
 
-      {error && (
-        <div className="notice bad" role="status">
-          {error}
-        </div>
-      )}
+      <DecisionError message={error}/>
 
-      <div className="panel open">
+      <div className="panel open camp-focus">
+        <p className="notice">Coordinator numbers below are base strengths. Repeating the same focus in consecutive seasons reduces its effect; choosing a different group avoids that repeat reduction.</p>
         <p className="subhead" style={{ marginTop: 0 }}>
           Offensive focus
         </p>
         <p style={{ margin: "0 0 10px", fontSize: 11.5, color: "var(--ink-faint)" }}>
-          Your coordinator concentrates on one group all camp. They develop{" "}
+          Before repeat reductions, your coordinator concentrates on one group all camp. They develop{" "}
           {Math.round(offStrength * 100)}% harder and decline {Math.round(offStrength * 100)}% less
           this season.
         </p>
@@ -170,7 +178,7 @@ export function TrainingCamp() {
 
         <p className="subhead">Defensive focus</p>
         <p style={{ margin: "0 0 10px", fontSize: 11.5, color: "var(--ink-faint)" }}>
-          Your defensive coordinator does the same for one group: {Math.round(defStrength * 100)}% harder
+          Before repeat reductions, your defensive coordinator does the same for one group: {Math.round(defStrength * 100)}% harder
           development and {Math.round(defStrength * 100)}% less decline.
         </p>
         <div className="rolefilter">
