@@ -7,7 +7,7 @@ import { beginTradeDeadline, onTheClock, pendingFor, runCpuTurns as deadlineTurn
 import type { LeagueState } from "@/domain";
 
 function twoHumans(): LeagueState {
-  const s = createLeague(61, { ...DEFAULT_CONFIG, humanGmCount: 2, fantasyDraft: false });
+  const s = createLeague(61, { ...DEFAULT_CONFIG, humanGmCount: 2, fantasyDraft: false, playerPool: "legacy" });
   fillRosterGaps(s);
   s.gms[0]!.isHuman = true;
   s.gms[0]!.teamCode = "GB";

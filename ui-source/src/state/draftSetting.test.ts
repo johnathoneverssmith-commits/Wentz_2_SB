@@ -55,7 +55,8 @@ describe("switching the fantasy draft off", () => {
   });
 
   it("restores a league saved before players remembered their team", () => {
-    const s = createLeague(7, DEFAULT_CONFIG);
+    // only a legacy league can predate home_team; League DNA leagues record it at creation
+    const s = createLeague(7, { ...DEFAULT_CONFIG, playerPool: "legacy" });
     for (const p of Object.values(s.players)) delete p.home_team;
     s.config = { ...s.config, fantasyDraft: false };
     applyDraftSetting(s);

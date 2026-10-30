@@ -61,7 +61,7 @@ const built = new Map<number, LeagueState>();
 function market(seed: number): { s: LeagueState; code: string } {
   let base = built.get(seed);
   if (!base) {
-    base = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+    base = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1, playerPool: "legacy" });
     fillRosterGaps(base);
     for (const g of base.gms) g.isHuman = false;
     for (const t of Object.values(base.teams)) t.controlledBy = { kind: "ai" };

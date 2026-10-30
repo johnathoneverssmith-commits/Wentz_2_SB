@@ -15,6 +15,7 @@
 import { onInjuredReserve } from "./injuries";
 import { expectedSalary } from "./freeAgencyValues";
 import { fittedAttributes } from "@/sim/attributeFit";
+import { applyArchetype, archetypeById } from "@/sim/leagueDna/archetypes";
 import { Rng } from "@/sim/rng";
 import { replacementLevels, unitGainer } from "./unitValue.ts";
 import {
@@ -1666,6 +1667,9 @@ export function upsertRookiePlayer(
   // Seeded by the prospect, so every machine builds the same rookie.
   const rng = new Rng(fnv(prospectId));
   const attributes = fittedAttributes(pr.position, pr.trueOverall, () => rng.normal(0, 1));
+  // a League DNA prospect arrives with a type, which leans his attributes the way it does a veteran's
+  const arch = archetypeById(pr.archetype);
+  if (arch) applyArchetype(attributes, arch, 0.75 + rng.float(0, 0.5));
   // generated names can repeat across classes; nobody in the league shares one
   let name = pr.name;
   if (!s.players[id]) {
@@ -1688,6 +1692,7 @@ export function upsertRookiePlayer(
         Math.max(2, Math.round(rng.normal(9 + Math.max(0, 3 - round) - Math.max(0, pr.age - 21) * 1.5, round <= 2 ? 6 : 4.5))),
     ),
     position: pr.position,
+    ...(arch ? { archetype: arch.id } : {}),
     age: pr.age,
     nfl_team: released ? "FA" : teamCode,
     years_pro: 0,

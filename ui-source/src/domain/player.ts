@@ -202,6 +202,8 @@ export interface Player {
    * from the source pool have none and develop on the league curve.
    */
   potential?: number;
+  /** Player type (`sim/leagueDna/archetypes.ts`): a visible label for the attributes he leans on. Absent on players from before League DNA. */
+  archetype?: string;
   /** Career totals, folded in at each season's end (`seasonAwards.ts`). */
   career?: PlayerStatLine & { seasons: number; lastSeason?: number; peak?: number };
   /** Scheme fit 0–99 vs the team's current OC/DC (spec §6.3). */

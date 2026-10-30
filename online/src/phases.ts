@@ -73,6 +73,8 @@ import { ensureDraftPicks, forgetSpentPicks } from "@/state/draftPicks.ts";
 import { applySeasonAging, forgetOldRetirees, pruneFreeAgentMarket } from "@/state/seed.ts";
 import { resetSeasonStats } from "@/state/standings.ts";
 import { draftClassTilt } from "@/state/draftSupply.ts";
+import { classDnaForLeague } from "@/sim/leagueDna";
+import { refreshClassProfile } from "@/state/classProfile.ts";
 import { compactRetired } from "@/state/saveCompaction.ts";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 
@@ -399,7 +401,8 @@ function rollOverSeason(state: LeagueState): void {
   forgetOldRetirees(state); // and a save shouldn't carry them forever
   applySeasonAging(state, state.season);
   reportStaffMoves(state, "for the new season", () => fillRosterGaps(state));
-  state.draftClass = sim.generateDraftClass(state.season + leagueSalt(state), state.season, draftClassTilt(state));
+  state.draftClass = sim.generateDraftClass(state.season + leagueSalt(state), state.season, draftClassTilt(state), classDnaForLeague(state.dna, state.season));
+  refreshClassProfile(state);
   for (const code of Object.keys(state.teams)) {
     const team = state.teams[code]!;
     team.wins = team.losses = team.ties = 0;
@@ -664,7 +667,8 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // computed when the first one leaves the screen.
   if (state.stage === "offseasonRetirement" && from !== "offseasonRetirement") {
     commitRetirements(state);
-    state.draftClass ??= sim.generateDraftClass(state.season + 1 + leagueSalt(state), state.season, draftClassTilt(state));
+    state.draftClass ??= sim.generateDraftClass(state.season + 1 + leagueSalt(state), state.season, draftClassTilt(state), classDnaForLeague(state.dna, state.season));
+    refreshClassProfile(state);
   }
   // nobody takes the field short — free agency is optional, so a team can
   // arrive here still missing a position entirely

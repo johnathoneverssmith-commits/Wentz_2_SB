@@ -21,7 +21,9 @@ import {
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
 
-import { agingDelta, contractValueFor, MockSimulationService } from "@/sim/MockSimulationService";
+import { agingDelta, contractValueFor, MockSimulationService, realPlayerNames } from "@/sim/MockSimulationService";
+import { classDnaForLeague, makeDnaLeague } from "@/sim/leagueDna";
+import { refreshClassProfile } from "./classProfile.ts";
 import { BASE_MIN_SALARY_M, marketScale, minSalaryM, scaledM } from "./capEconomy.ts";
 import { fullPersonName } from "@/sim/names.ts";
 import { careerShape } from "@/sim/careerShape.ts";
@@ -498,7 +500,7 @@ export function applyDraftSetting(s: LeagueState): void {
     normalizePool(players, true, s.seed ?? 0);
     return;
   }
-  if (players.some((p) => !p.home_team)) {
+  if (!s.dna && players.some((p) => !p.home_team)) {
     const real = new Map(
       new MockSimulationService()
         .generateInitialPool(s.seed ?? 0, "realRosters")
@@ -1440,7 +1442,12 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
     }
   }
 
-  const pool = sim.generateInitialPool(seed, "realRosters");
+  // New leagues play original fictional players (Seeded League DNA); `playerPool: "legacy"` keeps the shipped real pool
+  const dnaLeague =
+    config.playerPool === "legacy"
+      ? null
+      : makeDnaLeague(seed, TEAMS.map((t) => t.code), realPlayerNames());
+  const pool = dnaLeague ? dnaLeague.pool : sim.generateInitialPool(seed, "realRosters");
   // The pool arrives unowned and unpaid — real players carry their team but
   // no contract, because nflverse knows who is on a roster and not what the
   // game should charge for them. `store.newLeague` has always normalised the
@@ -1465,7 +1472,10 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
   // the season, not the seed: the year drives the division-pairing rotations,
   // and a random number there would rotate the league arbitrarily
   const schedule = sim.generateSchedule(2026, TEAMS.map((t) => t.code));
-  const draftClass = sim.generateDraftClass(seed, 2026);
+  const dnaRecord = dnaLeague
+    ? { version: dnaLeague.dna.version, dnaSeed: dnaLeague.dna.dnaSeed, profile: dnaLeague.profile }
+    : undefined;
+  const draftClass = sim.generateDraftClass(seed, 2026, undefined, classDnaForLeague(dnaRecord, 2026));
 
   const state: LeagueState = {
     seed,
@@ -1506,8 +1516,10 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
     // state) does not carry the old league's cap growth into the new one
     capScale: undefined,
     capGrowthSeason: undefined,
+    ...(dnaRecord ? { dna: dnaRecord } : {}),
   };
   recomputeTeamRatings(state);
+  refreshClassProfile(state);
   // draft capital exists from day one — it's tradeable before it's spent.
   // From next season's draft: the first season is played after this
   // offseason, so there is no draft for this one and its picks would be

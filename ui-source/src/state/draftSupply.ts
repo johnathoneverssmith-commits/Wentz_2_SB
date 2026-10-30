@@ -2,6 +2,7 @@ import type { LeagueState, Position } from "@/domain";
 import { POSITIONS } from "@/domain";
 import type { DraftClassTilt } from "@/sim/MockSimulationService";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
+import { neutralStarterMeans } from "@/sim/leagueDna/targets";
 
 /**
  * Keeps each position's talent where the league started it.
@@ -19,12 +20,21 @@ import { ROSTER_TEMPLATE } from "@/sim/roster-template";
  * The baseline is the league's own starters the first time a class is made,
  * saved so later seasons measure against it.
  */
+/** DNA leagues: how hard a position's shortfall pulls its next class (legacy leagues use 0.12 and ~1 with an integral term). */
+export const DNA_BALANCE = { supply: 0.12, quality: 0.7, aging: 0.15, /** points taken off the neutral target: where steady-state stars settle */ offset: 5 };
+
+function dnaBaseline(): Partial<Record<Position, number>> {
+  return Object.fromEntries(Object.entries(neutralStarterMeans()).map(([k, v]) => [k, v - DNA_BALANCE.offset]));
+}
+
 export function draftClassTilt(s: LeagueState): DraftClassTilt {
   const now = starterMeans(s);
-  s.positionBaseline ??= now;
+  // A DNA league steers towards a neutral long-run target, never towards how
+  // it happened to open: a quarterback-rich start must not make quarterback-rich classes.
+  s.positionBaseline ??= s.dna ? dnaBaseline() : now;
   // once a season (this runs at each rollover): bank every position's offset
-  // from its baseline for the aging controller's integral term
-  if (s.agingIntegralSeason !== s.season) {
+  // from its baseline for the aging controller's integral term (legacy leagues only)
+  if (!s.dna && s.agingIntegralSeason !== s.season) {
     s.agingIntegralSeason = s.season;
     const acc: Partial<Record<Position, number>> = { ...(s.agingIntegral ?? {}) };
     for (const pos of POSITIONS) {
@@ -51,6 +61,14 @@ export function draftClassTilt(s: LeagueState): DraftClassTilt {
     // this season's offset is small — quarterbacks sat ~3 points high while
     // a proportional-only tilt called them nearly balanced
     const integral = s.agingIntegral?.[pos] ?? 0;
+    if (s.dna) {
+      // a measured, weaker restoring force: the class's own character does the work
+      tilt[pos] = {
+        supply: Math.min(3, Math.max(0.6, (1 + DNA_BALANCE.supply * gap) * (short.get(pos) ?? 1))),
+        quality: Math.round(Math.min(5, Math.max(-5, DNA_BALANCE.quality * gap))),
+      };
+      continue;
+    }
     tilt[pos] = {
       supply: Math.min(3, Math.max(0.5, (1 + 0.12 * gap) * (short.get(pos) ?? 1))),
       // ±8: tight ends sat at the old ±6 cap for years and still slid
@@ -139,7 +157,9 @@ export function agingBalance(s: LeagueState): (position: Position, delta: number
     // season's offset, banked at rollover) keeps pushing until the offset is
     // gone.
     const integral = s.agingIntegral?.[position] ?? 0;
-    const m = Math.min(1.7, Math.max(0.3, 1 - 0.2 * hot - 0.08 * integral));
+    const m = s.dna
+      ? Math.min(1.4, Math.max(0.6, 1 - DNA_BALANCE.aging * hot))
+      : Math.min(1.7, Math.max(0.3, 1 - 0.2 * hot - 0.08 * integral));
     const scaled = delta > 0 ? delta * m : delta * (2 - m);
     const r = Math.round(scaled);
     return r === 0 ? Math.sign(delta) : r;

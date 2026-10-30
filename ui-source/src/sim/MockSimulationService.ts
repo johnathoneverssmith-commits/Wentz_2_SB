@@ -48,6 +48,11 @@ const fromEngineCode = (code: string): string => (code === "LA" ? "LAR" : code);
  * Parsed once — it is a megabyte and a half, and every new league would
  * otherwise pay for it again.
  */
+/** Names of the shipped real players, which a fictional league must never reuse. */
+export function realPlayerNames(): string[] {
+  return realPool().map((p) => p.name);
+}
+
 let cachedPool: Player[] | null = null;
 function realPool(): Player[] {
   if (cachedPool) return cachedPool.map((p) => ({ ...p }));
@@ -68,6 +73,10 @@ function realPool(): Player[] {
 import { distinctNames, fullPersonName, personName, school } from "./names.ts";
 import { DEVELOPMENT_ROLES } from "@/domain";
 import { Rng } from "./rng.ts";
+import type { ClassDna } from "./leagueDna/classDna.ts";
+import { pickArchetype } from "./leagueDna/generate.ts";
+import { UniqueNames, composeName } from "./leagueDna/identity.ts";
+import { stream } from "./leagueDna/streams.ts";
 import { NEUTRAL_SHAPE, type CareerShape } from "./careerShape.ts";
 import {
   POSITION_PRIOR,
@@ -348,6 +357,12 @@ function highestRealPid(): number {
 
 /** Per-position nudges to a draft class (`state/draftSupply.ts`). */
 export type DraftClassTilt = Partial<Record<Position, { supply: number; quality: number }>>;
+
+/** A League DNA league's draft class: its own character (`classDna.ts`) and the seed its names come from. */
+export interface DnaClassInput {
+  dnaSeed: number;
+  cls: ClassDna;
+}
 
 // (SPECIALIST_ROOKIE_OFFSET, draft-outcomes.ts: +12 overshot, and a decade
 // lifted league kicking four points)
@@ -732,7 +747,7 @@ export class MockSimulationService implements SimulationService {
     return games;
   }
 
-  generateDraftClass(seed: number, year: number, tilt?: DraftClassTilt): DraftProspect[] {
+  generateDraftClass(seed: number, year: number, tilt?: DraftClassTilt, dna?: DnaClassInput): DraftProspect[] {
     // `seed ^ (0x4444 + year)` with both set to the season (as every caller
     // passes) collapsed to two values across a decade: 2028 through 2031 got
     // the identical class, so last year's first-rounders — names, schools,
@@ -757,7 +772,13 @@ export class MockSimulationService implements SimulationService {
     // like placeholders beside the real league, and a forty-name surname
     // list gave one league two different "D. Fentress" rookies of the year
     const usedNames = new Set<string>();
+    const dnaNames = dna ? new UniqueNames() : null;
+    let prospectIndex = 0;
     const uniqueName = (): string => {
+      if (dna && dnaNames) {
+        const i = prospectIndex;
+        return dnaNames.take((attempt) => composeName(stream(dna.dnaSeed, "classname", year, i, attempt)));
+      }
       for (let k = 0; k < 20; k++) {
         const nm = fullPersonName(rng);
         if (!usedNames.has(nm)) {
@@ -775,7 +796,10 @@ export class MockSimulationService implements SimulationService {
       // draft-history.ts), e.g. almost no kickers/punters in rounds 1-2.
       const slotRound = clamp(Math.ceil((i + 1) / 32), 1, 7);
       const roundDist = BALANCED_POSITION_BY_ROUND[slotRound]!;
-      const pos: Position = rng.weighted(POSITIONS, POSITIONS.map((p) => roundDist[p] * (tilt?.[p]?.supply ?? 1)));
+      const pos: Position = rng.weighted(
+        POSITIONS,
+        POSITIONS.map((p) => roundDist[p] * (tilt?.[p]?.supply ?? 1) * (dna?.cls.positions[p].supply ?? 1)),
+      );
       // a prospect's *projected* slot wobbles around its board position
       const projPick = clamp(Math.round(i + 1 + rng.normal(0, 8)), 1, 260);
       const projectedRound = clamp(Math.ceil(projPick / 32), 1, 7);
@@ -794,17 +818,24 @@ export class MockSimulationService implements SimulationService {
       // near 60, so every retiring kicker was replaced by a worse one and a
       // league's kicking fell fourteen points in a decade.
       const specialist = pos === "K" || pos === "P" ? SPECIALIST_ROOKIE_OFFSET : 0;
+      // League DNA classes: the class's own quality and this position's strength, and now and then an
+      // exceptional prospect, more often in a class that is deep at the position
+      const cd = dna?.cls.positions[pos];
+      const exceptional = dna && cd ? (rng.random() < 0.012 * cd.tail * dna.cls.tail ? rng.int(4, 9) : 0) : 0;
+      const dnaShift = dna && cd ? Math.round(dna.cls.quality + cd.quality) + exceptional : 0;
       const trueOverall = clamp(
         Math.round(
           expectedRookieOverall(boardSlot) + rng.normal(0, rookieOverallSpread(boardSlot)),
         ) +
           specialist +
-          (tilt?.[pos]?.quality ?? 0),
+          (tilt?.[pos]?.quality ?? 0) +
+          dnaShift,
         40,
         // a rookie tops out below the league's stars; camp and a first year
         // take the best of them the rest of the way (a 95 rookie was possible)
-        pos === "K" || pos === "P" ? 90 : 88,
+        pos === "K" || pos === "P" ? 90 : exceptional > 0 ? 92 : 88,
       );
+      const arch = dna && cd ? pickArchetype(pos, cd.archetypes, stream(dna.dnaSeed, "classarch", year, i)) : undefined;
       const ageDist = AGE_BY_POSITION[pos];
       out.push({
         id: `d${year}_${i + 1}`,
@@ -821,7 +852,9 @@ export class MockSimulationService implements SimulationService {
         projectedRange: projectionLabel(projPick),
         scoutingNote: rng.pick(notes),
         trueOverall,
+        ...(arch ? { archetype: arch.id } : {}),
       });
+      prospectIndex++;
     }
     return out;
   }
