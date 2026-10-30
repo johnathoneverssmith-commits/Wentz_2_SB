@@ -1,3 +1,4 @@
+import { beginSetupCreation } from "./setupCreationStatus";
 /**
  * The one league store: LeagueState + actions. immer-backed.
  *
@@ -578,6 +579,9 @@ export const useStore = create<Store>()(
       ...createLeague(Date.now() % 100_000),
 
       newLeague: async (seed = Date.now() % 100000, config) => {
+        // Observe initialization for the UI without changing generation or saved state.
+        const finishCreating = beginSetupCreation();
+        try {
         // instant, Mock-backed skeleton — always playable, never blocks on the network
         set(() => createLeague(seed, config) as Store);
         try {
@@ -618,6 +622,7 @@ export const useStore = create<Store>()(
           // eslint-disable-next-line no-console
           console.error("newLeague: real-data upgrade failed", err);
         }
+        } finally { finishCreating(); }
       },
 
       setConfig: (partial) =>

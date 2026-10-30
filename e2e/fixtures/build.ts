@@ -60,6 +60,7 @@ type Stage = ReturnType<typeof useStore.getState>["stage"];
 const FIXTURES: Array<{ name: string; stage: Stage; /** keep the first arrival at this week of the stage, not the first at the stage */ week?: number }> = [
   { name: "fantasy-draft", stage: "fantasyDraft" },
   { name: "coaching-draft", stage: "coachingDraft" },
+  { name: "training-camp", stage: "trainingCamp" },
   { name: "preseason", stage: "preseason" },
   // The free-agency skip regression (commit b757e8d). Both are saves from one and the same playthrough:
   //   midseason-fa: the first arrival at the mid-season market, nothing chosen yet;

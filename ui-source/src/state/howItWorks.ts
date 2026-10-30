@@ -363,10 +363,30 @@ export const HOW_IT_WORKS: HowTopic[] = [
       },
     ],
   },
+  {
+    id: "journey",
+    title: "Your franchise journey",
+    summary: "One franchise, many seasons. Review, decide, then continue with the screen’s own controls.",
+    sections: [
+      {heading:"Start a franchise",body:["A solo dynasty is saved in this browser; its rivals run on this device. An online league has accounts, real GM seats and a shared server. Choose the mode before creating your league.","Setup leads into the fantasy player draft if enabled, then the coaching draft. Without a fantasy draft you keep the starting player rosters and begin with coaches. Fantasy rosters proceed from coaching to camp; other rosters go through free agency first."]},
+      {heading:"Review, decide, commit",body:["The phase guide names your current personal step and the next decision. Browsing rosters, finances or history does not advance the league; use the return link to get back.","Draft picks and submitted bids commit when accepted by the game. A readiness check-in tells the league you are done with a stage. Online, you wait for the other GMs; you may take the check-in back while the stage is still open. The turn clock can let staff act during a draft, market or deadline; checkpoint readiness has no automatic turn clock."]},
+      {heading:"Play and continue",body:["Set camp focuses and review their results before finalizing your depth chart. Follow preseason and regular-season results, with a trading and free-agency checkpoint at the league’s deadline. Completed games have results, recaps and play-by-play; opening them never plays a second game.","Online results are revealed at your own pace. Other GMs can be ahead without changing your view; wait for your own revealed scores before judging standings. The game supports different league sizes, so use the dates and rounds shown for your league."]},
+      {heading:"Another season",body:["After the playoffs, review awards, history, job security and retirements. Scout the new rookie class, draft and sign your selections, use annual free agency and training camp, then prepare the next preseason.","Keep using Continue and readiness inside this franchise. New solo dynasty creates a different league; it is not the way to begin the next season. Use backups for a browser-saved dynasty, and reconnect to an online league instead of playing its disconnected copy."]},
+    ],
+  },
 ];
 
 /** Which topics each screen shows, by route. */
 export const HOW_BY_ROUTE: Record<string, string[]> = {
+  "/setup": ["journey", "drafts"],
+  "/online": ["journey"],
+  "/schedule": ["journey", "gameSim"],
+  "/history": ["journey", "awards"],
+  "/results": ["journey", "gameSim"],
+  "/box": ["gameSim"],
+  "/watch": ["gameSim"],
+  "/fantasy-draft-summary": ["journey", "drafts"],
+  "/coaching-draft-summary": ["journey", "coachingEffects"],
   "/draft": ["drafts", "unitGrades"],
   "/coaching-draft": ["coachingEffects"],
   "/coaching": ["coachingEffects", "development"],
@@ -394,7 +414,8 @@ export const HOW_BY_ROUTE: Record<string, string[]> = {
 };
 
 export function topicsFor(route: string): HowTopic[] {
-  return (HOW_BY_ROUTE[route] ?? [])
+  const key = route.startsWith("/box/") ? "/box" : route.startsWith("/results/") ? "/results" : route.startsWith("/watch/") ? "/watch" : route;
+  return (HOW_BY_ROUTE[key] ?? [])
     .map((id) => HOW_IT_WORKS.find((t) => t.id === id))
     .filter((t): t is HowTopic => !!t);
 }

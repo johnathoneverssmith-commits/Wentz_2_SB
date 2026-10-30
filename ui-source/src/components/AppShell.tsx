@@ -1,3 +1,5 @@
+import { SetupCreationNotice } from "./journey/SetupCreationNotice";
+import { JourneyGuide } from "./journey/JourneyGuide";
 import { leaveForDynasty } from "@/state/leagueOrigin";
 import { useEffect, useRef, useState } from "react";
 import { goLocal, lastLeagueId, onlineSession } from "@/state/online";
@@ -306,6 +308,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             continues, but closing this tab will lose everything since the last successful save.
           </div>
         )}
+        <SetupCreationNotice />
+        <JourneyGuide />
         {children}
         <UnitGradesDock teamCode={teamCode} />
         <HowItWorksDock />

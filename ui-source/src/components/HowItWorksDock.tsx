@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { createPortal } from "react-dom";
+import { Tabs } from "./primitives";
+import { quickGuide } from "./journey/guidance";
+import { useStore } from "@/state/store";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { useDialog } from "@/components/useDialog";
@@ -14,6 +18,7 @@ export function HowItWorksDock() {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const topics = topicsFor(pathname);
+  useEffect(() => setOpen(false), [pathname]);
   if (topics.length === 0) return null;
   return (
     <>
@@ -33,9 +38,12 @@ export function HowItWorksDock() {
 
 function Drawer({ topics, onClose }: { topics: HowTopic[]; onClose: () => void }) {
   const ref = useDialog(onClose);
+  const s = useStore();
+  const {pathname} = useLocation();
+  const tips = quickGuide(pathname,s);
   const [id, setId] = useState(topics[0]!.id);
   const topic = topics.find((t) => t.id === id) ?? topics[0]!;
-  return (
+  return createPortal(
     <div className="how-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="how-drawer" role="dialog" aria-modal="true" aria-label="How it works" ref={ref}>
         <div className="how-head">
@@ -45,22 +53,11 @@ function Drawer({ topics, onClose }: { topics: HowTopic[]; onClose: () => void }
           </button>
         </div>
         {topics.length > 1 && (
-          <div className="how-tabs" role="tablist">
-            {topics.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={t.id === topic.id}
-                className={t.id === topic.id ? "on" : ""}
-                onClick={() => setId(t.id)}
-              >
-                {t.title}
-              </button>
-            ))}
-          </div>
+          <Tabs tabs={topics.map(t=>({id:t.id,label:t.title}))} active={topic.id} onChange={setId} group="how" label="Rules topics" />
         )}
-        <div className="how-body" role="tabpanel">
+        {topics.filter(t=>t.id!==topic.id).map(t=><div key={t.id} id={`how-panel-${t.id}`} role="tabpanel" aria-labelledby={`how-tab-${t.id}`} hidden/>)}
+        <div className="how-body" role="tabpanel" id={`how-panel-${topic.id}`} aria-labelledby={topics.length>1?`how-tab-${topic.id}`:undefined} aria-label={topics.length===1?topic.title:undefined}>
+          <section className="how-quick" aria-label="Quick guidance"><h2>Start here</h2><ul>{tips.map(t=><li key={t}>{t}</li>)}</ul></section>
           <h2 className="oswald" style={{ margin: "0 0 4px", fontSize: 24 }}>
             {topic.title}
           </h2>
@@ -77,6 +74,7 @@ function Drawer({ topics, onClose }: { topics: HowTopic[]; onClose: () => void }
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
