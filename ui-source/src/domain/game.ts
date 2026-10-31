@@ -111,3 +111,6 @@ export interface ScheduledGame {
   homeTeam: string;
   awayTeam: string;
 }
+
+/** A finished season's game, kept in `LeagueState.gameArchive`. */
+export type ArchivedGame = GameResult & { season: number };

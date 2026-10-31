@@ -110,6 +110,7 @@ import { draftClassTilt } from "./draftSupply.ts";
 import { classDnaForLeague } from "@/sim/leagueDna";
 import { refreshClassProfile } from "./classProfile.ts";
 import { compactRetired, trimStoredBoxScores } from "./saveCompaction.ts";
+import { archiveSeasonGames } from "./gameHistory.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -707,6 +708,7 @@ export const useStore = create<Store>()(
               // every season after the first skipped the trade deadline and the
               // midseason market entirely.
               s.tradeDeadline = null;
+              archiveSeasonGames(s); // last season's games stay reachable
               s.games = [];
               s.draft = null;
               s.draftTargets = {};

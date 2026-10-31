@@ -54,6 +54,7 @@ const IN_SEASON_NAV: NavItem[] = [
   { to: "/trade", label: "Trade Proposal" },
   { to: "/free-agency", label: "Free Agency" },
   { to: "/schedule", label: "Full Schedule", group: "League" },
+  { to: "/games", label: "Game History", group: "League" },
   { to: "/league-stats", label: "League Stats" },
   { to: "/player-stats", label: "Player Statistics" },
   { to: "/history", label: "League History" },

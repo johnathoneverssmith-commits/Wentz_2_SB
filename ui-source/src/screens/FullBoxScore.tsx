@@ -5,6 +5,7 @@ import { TeamBadge } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayerGameLine, type PlayoffRound, type TeamGameTotals } from "@/domain";
+import { findGame } from "@/state/gameHistory";
 import { useStore } from "@/state/store";
 import { teamInfoFor } from "@/state/teamInfo";
 import { posLabel, seconds, weeksOut } from "@/util/format";
@@ -17,7 +18,7 @@ export function FullBoxScore() {
   // A results screen passes its own URL in `back`, so the one way out of this
   // screen is the week the GM left — see SeasonResults.
   const back = useSearchParams()[0].get("back");
-  const game = useStore((s) => s.games.find((g) => g.id === gameId));
+  const game = useStore((s) => findGame(s, gameId));
   const bracket = useStore((s) => s.bracket);
   const league = useStore();
   const badge = useStore(leagueBadge);

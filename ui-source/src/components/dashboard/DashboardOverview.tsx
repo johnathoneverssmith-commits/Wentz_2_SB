@@ -28,7 +28,7 @@ export const DashboardOverview = memo(function DashboardOverview({
       <MotionSurface className="ui-surface season-track" index={0}>
         <div className="ui-section-heading">
           <div><h2>Season timeline</h2><p>{scheduleSeason} {phase === "PRE" ? "preseason" : "regular season"} · {phase ? "Your road ahead" : "Season results"}</p></div>
-          <Link className="ui-text-link" to="/schedule">Full schedule <span aria-hidden="true">↗</span></Link>
+          <span style={{ display: "inline-flex", gap: 14 }}><Link className="ui-text-link" to="/games">Game history <span aria-hidden="true">↗</span></Link><Link className="ui-text-link" to="/schedule">Full schedule <span aria-hidden="true">↗</span></Link></span>
         </div>
         <ol className="season-track__games" tabIndex={0} aria-label="Your season schedule">
           {weeks.map(w => {

@@ -37,6 +37,7 @@ import { RookieDraftSummary } from "./screens/RookieDraftSummary.tsx";
 import { TradeDeadlineRoom } from "./screens/TradeDeadlineRoom.tsx";
 import { TradeSummary } from "./screens/TradeSummary.tsx";
 import { WatchGame } from "./screens/WatchGame.tsx";
+import { GameHistory } from "./screens/GameHistory.tsx";
 import { FullSchedule } from "./screens/FullSchedule.tsx";
 import { GameDay } from "./screens/GameDay.tsx";
 import { LeagueHistory } from "./screens/LeagueHistory.tsx";
@@ -471,6 +472,7 @@ export function App() {
           <Route path="/player-stats" element={<PlayerStatistics />} />
           <Route path="/box/:gameId" element={<FullBoxScore />} />
           <Route path="/watch/:gameId" element={<WatchGame />} />
+          <Route path="/games" element={<GameHistory />} />
           <Route path="/results/round/:round" element={<PlayoffRoundResults />} />
           <Route path="/results/:phase/:from/:to" element={<SeasonResults />} />
           <Route path="/results/:phase/:from/:to/:week" element={<SeasonResults />} />

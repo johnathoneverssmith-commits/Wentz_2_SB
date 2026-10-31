@@ -1,3 +1,4 @@
+import { PlayerPortrait } from "@/components/PlayerPortrait";
 import { pruneComparison } from "@/components/decisions/decision-view";
 import { DecisionFrame, DecisionHeading, DecisionSortControl, DecisionComparison, CompareToggle, ConfirmDecision, toggleComparison } from "@/components/decisions/DecisionWorkspace";
 import { DraftContext } from "@/components/decisions/DraftContext";
@@ -449,6 +450,7 @@ export function DraftRoom() {
               {filtered.map((p) => (
                 <tr key={p.id} data-player-id={p.id}>
                   <td className="name">
+                    <span style={{ display: "inline-flex", verticalAlign: "middle", marginRight: 8 }}><PlayerPortrait playerId={p.id} size={26} /></span>
                     {mode === "fantasy" ? (
                       <span
                         role="button"

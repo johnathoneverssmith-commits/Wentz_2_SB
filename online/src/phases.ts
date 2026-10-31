@@ -76,6 +76,7 @@ import { draftClassTilt } from "@/state/draftSupply.ts";
 import { classDnaForLeague } from "@/sim/leagueDna";
 import { refreshClassProfile } from "@/state/classProfile.ts";
 import { compactRetired } from "@/state/saveCompaction.ts";
+import { archiveSeasonGames } from "@/state/gameHistory.ts";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 
 import { ActionError, pool, withLeague, type Applied, type LoadedLeague } from "./db.js";
@@ -385,6 +386,7 @@ function rollOverSeason(state: LeagueState): void {
   // the deadline only opens when there isn't one — keep last year's and no
   // season after the first ever has a deadline or a midseason market
   state.tradeDeadline = null;
+  archiveSeasonGames(state); // last season's games stay reachable
   state.games = [];
   state.draft = null;
   state.draftTargets = {};
