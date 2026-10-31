@@ -20,11 +20,12 @@ const BASE_URL = "http://localhost:8787";
 const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
 const toUi = (code: string): string => (code === "LA" ? "LAR" : code);
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) throw new Error(`adapter ${path} -> ${res.status}`);
   return (await res.json()) as T;
@@ -152,7 +153,7 @@ export class HttpSimulationService {
       awayStaff: staffs[a],
       homePlan: b.plans[b.homeTeam],
       awayPlan: b.plans[b.awayTeam],
-    });
+    }, AbortSignal.timeout(45_000));
   }
 
   /** game plans keyed by the engine's team codes */

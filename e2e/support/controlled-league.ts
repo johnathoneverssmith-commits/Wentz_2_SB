@@ -13,6 +13,9 @@ export async function controlledLeague(page:Page,origin:string,initial:any,you:{
   }
   if(path.endsWith('/stream')){await route.fulfill({status:200,headers:{...headers,'content-type':'text/event-stream'},body:': controlled UI stream\n\n'});return;}
   if(path.endsWith('/feed')){await route.fulfill({headers,json:{events:[]}});return;}
+  // Read-only automatic preview is intentionally unavailable in this UI-only transport.
+  // Tests of engine evidence use their own seeded-engine responder, never fabricated odds here.
+  if(path.endsWith('/plan-preview')){await route.fulfill({headers,status:503,json:{error:'No engine in the controlled UI transport.'}});return;}
   if(path==='/leagues/ui4-controlled'){
    loads++;await route.fulfill({headers,json:{league:{id:'ui4-controlled',name:'Controlled UI league'},state,version:'ui4-version',you,isCommissioner:false,inviteCode:null,msLeft:null,waitingOn:[],canClaimCommissioner:false}});return;
   }
