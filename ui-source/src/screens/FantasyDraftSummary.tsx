@@ -1,10 +1,10 @@
 import { DecisionFrame } from "@/components/decisions/DecisionWorkspace";
 import { useMemo, useState } from "react";
-import { IdentityMap } from "@/components/IdentityMap";
+import { DraftSummaryOverview } from "@/components/DraftSummaryOverview";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
-import { GradePill, TeamBadge } from "@/components/bits";
+import { GradePill } from "@/components/bits";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -59,7 +59,7 @@ export function FantasyDraftSummary({
   const s = useStore();
   const code = viewerTeamCode(s);
   const humanTeams = s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode);
-  const { active, setActive } = useTabs(code ?? "league");
+  const { active, setActive } = useTabs("league");
   const [nflTeam, setNflTeam] = useState<string>(code ?? Object.keys(s.teams)[0] ?? "KC");
 
   const rows = useMemo(
@@ -132,6 +132,7 @@ export function FantasyDraftSummary({
 
       <Tabs
         tabs={[
+          { id: "league", label: "Overview & rankings" },
           // your own team's tab first, then the other GMs'
           ...[...humanTeams].sort((a, b) => Number(b === code) - Number(a === code)).map((t) => ({
             id: t,
@@ -141,7 +142,7 @@ export function FantasyDraftSummary({
                 ? "Your Team"
                 : `${s.gms.find((g) => g.teamCode === t)?.name ?? "GM"} · ${TEAMS_BY_CODE[t]?.abbr ?? t}`,
           })),
-          { id: "league", label: "Every Team" },
+          
           { id: "nfl", label: isHumansOnly(s) ? "Any Team" : "NFL" },
         ]}
         active={active}
@@ -206,64 +207,7 @@ export function FantasyDraftSummary({
       </Panel>
 
       <Panel id="league" open={active === "league"}>
-        {mine && (
-          <>
-            <p className="subhead" style={{ marginTop: 0 }}>
-              Your team — the numbers that matter
-            </p>
-            <div className="split-3" style={{ gap: 10, marginBottom: 8 }}>
-              <UnitStat label="Starting offense" value={mine.offense} rank={mine.offenseRank} />
-              <UnitStat label="Starting defense" value={mine.defense} rank={mine.defenseRank} />
-              <UnitStat label="Starting special teams" value={mine.specialTeams} rank={mine.specialTeamsRank} />
-            </div>
-
-            <p className="subhead">How every team was built</p>
-            <p style={{ margin: "-6px 0 10px", fontSize: 11.5, color: "var(--ink-faint)" }}>
-              Each dot is a team, coloured by what its GM prioritizes. Below, each identity&rsquo;s teams ranked against each other, with the
-              units that group built stronger than the league. People sit in one group; their identity is private.
-            </p>
-            <IdentityMap code={code} />
-          </>
-        )}
-
-        <p className="subhead">Every team</p>
-        <div className="scroll-list short" style={{ overflowX: "auto" }}>
-          <table className="stbl">
-            <thead>
-              <tr>
-                <th style={{ width: 22 }} />
-                <th>Team</th>
-                <th className="c">Start OVR</th>
-                <th className="c">Off</th>
-                <th className="c">Def</th>
-                <th className="c">ST</th>
-                <th className="c">Roster</th>
-                <th className="c">Grade</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={row.code} className={row.code === code ? "highlight" : ""}>
-                  <td style={{ color: "var(--ink-faint)" }}>{i + 1}</td>
-                  <td>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                      <TeamBadge code={row.code} size={20} />
-                      {TEAMS_BY_CODE[row.code]!.label}
-                    </span>
-                  </td>
-                  <td className="c" style={{ fontWeight: 600, color: "var(--ink)" }}>{row.r.overall}</td>
-                  <td className="c">{ordinal(row.r.offenseRank)}</td>
-                  <td className="c">{ordinal(row.r.defenseRank)}</td>
-                  <td className="c">{ordinal(row.r.specialTeamsRank)}</td>
-                  <td className="c">{row.r.rosterOverall}</td>
-                  <td className="c" style={{ fontWeight: 700, color: i < total * 0.3 ? "var(--good)" : i < total * 0.75 ? "var(--ink)" : "var(--ink-faint)" }}>
-                    {grade(row.r.overallRank, total)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DraftSummaryOverview rows={rows} code={code} humanTeams={humanTeams} grade={grade} rookie={rookie} />
       </Panel>
 
       <Footer bordered={false}>
@@ -306,16 +250,5 @@ export function FantasyDraftSummary({
         <ReadinessGate title="Draft summary readiness" label={advanceLabel} onAdvance={(r) => nav(r)} />
       )}
     </Card></DecisionFrame>
-  );
-}
-
-function UnitStat({ label, value, rank }: { label: string; value: number; rank: number }) {
-  return (
-    <div style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: "12px 14px" }}>
-      <p style={{ margin: 0, fontSize: 10.5, color: "var(--ink-faint)" }}>{label}</p>
-      <p className="oswald" style={{ margin: "4px 0 0", fontSize: 18, fontWeight: 600 }}>
-        {value} <span style={{ fontSize: 12, color: "var(--ink-dim)", fontWeight: 400 }}>· {ordinal(rank)}</span>
-      </p>
-    </div>
   );
 }

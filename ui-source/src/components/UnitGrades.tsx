@@ -1,8 +1,8 @@
 import { posLabel } from "@/util/format";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import type { Position } from "@/domain";
+import "./unit-cards.css";
 
-import { OvrPill } from "@/components/bits";
-import { MotionMeter } from "@/motion/MotionSurface";
 import { useStore } from "@/state/store";
 import { unitReport, type UnitRow } from "@/state/unitReport";
 
@@ -24,9 +24,6 @@ const ORDER = [
   "safeties",
 ];
 
-const gradeColor = (g: string): string =>
-  g.startsWith("A") ? "var(--good)" : g === "D" || g === "F" ? "var(--bad)" : "var(--ink)";
-
 /**
  * The roster as the game engine reads it: unit by unit. A great unit with
  * one weak starter plays closer to that starter than its average says, and
@@ -43,97 +40,98 @@ export function UnitGrades({ teamCode }: { teamCode: string }) {
   );
   const rows = ORDER.map((k) => report.units.find((u) => u.key === k)).filter((u): u is UnitRow => !!u);
   const top = report.priorities.slice(0, 3);
+  const [open, setOpen] = useState<string | null>(null);
+  /** Reserves behind the starters at the unit's positions, straight from the depth chart. */
+  const depthFor = (u: UnitRow): { id: string; name: string; position: string; overall: number }[] => {
+    const starterIds = new Set(u.starters.map((p) => p.id).filter(Boolean));
+    const seen = new Set<string>();
+    const out: { id: string; name: string; position: string; overall: number }[] = [];
+    for (const pos of new Set(u.starters.map((p) => p.position))) {
+      for (const id of depthChart?.[teamCode]?.[pos as Position] ?? []) {
+        const p = players[id];
+        if (!p || starterIds.has(id) || seen.has(id) || p.nfl_team !== teamCode) continue;
+        seen.add(id);
+        out.push({ id, name: p.name, position: p.position, overall: p.overall });
+      }
+    }
+    return out.slice(0, 6);
+  };
 
   return (
-    <div>
+    <div className="unit-cards">
       <p className="sectionlabel" style={{ marginBottom: 4 }}>
-        Unit grades
+        Unit scorecards
       </p>
-      <p style={{ margin: "0 0 14px", fontSize: 11, color: "var(--ink-faint)" }}>
-        Games are decided unit against unit. Each grade ranks your starters as a group against the
+      <p className="unit-cards-note">
+        Games are decided unit against unit. Each card ranks your starters as a group against the
         league, and a group plays closer to its weakest starter than its average.
       </p>
 
-      <div role="table" aria-label="Unit grades">
-        {rows.map((u) => (
-          <div
-            key={u.key}
-            role="row"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "34px 1fr auto",
-              alignItems: "center",
-              gap: 12,
-              padding: "9px 4px",
-              borderBottom: "1px solid var(--line)",
-              opacity: u.weight < 0.05 ? 0.6 : 1,
-            }}
-          >
-            <span
-              className="oswald"
-              role="cell"
-              aria-label={`Grade ${u.grade}`}
-              style={{ fontSize: 18, fontWeight: 600, color: gradeColor(u.grade), textAlign: "center" }}
-            >
-              {u.grade}
-            </span>
-            <div role="cell" style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>
-                {u.label}
-                <span style={{ fontWeight: 400, fontSize: 11, color: "var(--ink-faint)", marginLeft: 8 }}>
-                  {ordinal(u.rank)} of {u.teams}
-                  {u.weight < 0.05 ? " · little effect on games" : ""}
-                </span>
+      <ul className="unit-grid" aria-label="Unit scorecards">
+        {rows.map((u) => {
+          const expanded = open === u.key;
+          const depth = expanded ? depthFor(u) : [];
+          return (
+            <li key={u.key} className={`unit-card${u.weight < 0.05 ? " minor" : ""}${expanded ? " open" : ""}`}>
+              <div className="unit-card-top">
+                <span className="unit-name">{u.label}</span>
+                <span className={`unit-grade g-${u.grade.charAt(0)}`} aria-label={`Grade ${u.grade}`}>{u.grade}</span>
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 3, display: "flex", flexWrap: "wrap", gap: "2px 10px" }}>
-                {u.starters.map((p, i) => (
-                  <span
-                    key={`${p.id ?? "v"}-${i}`}
-                    style={u.weakLink && p === u.weakLink ? { color: "var(--bad)", fontWeight: 600 } : undefined}
-                  >
-                    {p.name} {p.overall}
-                  </span>
-                ))}
+              <div className="unit-card-num">
+                <b>{Math.round(u.strength)}</b>
+                <span>rating</span>
+              </div>
+              <div className="unit-card-rank">
+                <b>{ordinal(u.rank)}</b> of {u.teams} teams
+                {u.weight < 0.05 ? <em> · little effect on games</em> : null}
               </div>
               {u.weakLink && (
-                <div style={{ fontSize: 11, color: "var(--bad)", marginTop: 2 }}>
-                  Weak link: {u.weakLink.id ? u.weakLink.name : `no starting ${posLabel(u.weakLink.position)}`}
+                <div className="unit-card-weak">
+                  Weak link: {u.weakLink.id ? `${u.weakLink.name} (${u.weakLink.overall})` : `no starting ${posLabel(u.weakLink.position)}`}
                 </div>
               )}
-              <div style={{ marginTop: 8 }}><MotionMeter value={u.strength} label={`${u.label} unit strength`} tone="teal" /></div>
-            </div>
-            <span role="cell">
-              <OvrPill value={Math.round(u.strength)} />
-            </span>
+              <button
+                type="button"
+                className="unit-card-toggle"
+                aria-expanded={expanded}
+                aria-controls={`unit-detail-${u.key}`}
+                onClick={() => setOpen(expanded ? null : u.key)}
+              >
+                {expanded ? "Hide starters & depth" : "Starters & depth"}
+              </button>
+              {expanded && (
+                <div id={`unit-detail-${u.key}`} className="unit-card-detail">
+                  <table>
+                    <caption className="sr-only">{u.label} starters and depth</caption>
+                    <thead><tr><th scope="col">Player</th><th scope="col">Pos</th><th scope="col">OVR</th><th scope="col">Role</th></tr></thead>
+                    <tbody>
+                      {u.starters.map((p, i) => (
+                        <tr key={`${p.id ?? "v"}-${i}`} className={u.weakLink && p === u.weakLink ? "weak" : undefined}>
+                          <td>{p.id ? p.name : "Vacant"}</td><td>{posLabel(p.position)}</td><td>{p.id ? p.overall : "—"}</td><td>Starter</td>
+                        </tr>
+                      ))}
+                      {depth.map((p) => (
+                        <tr key={p.id}><td>{p.name}</td><td>{posLabel(p.position)}</td><td>{p.overall}</td><td>Depth</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </li>
+          );
+        })}
+        <li className="unit-card pair">
+          <div className="unit-card-top">
+            <span className="unit-name">QB–WR1 connection</span>
+            <span className={`unit-grade g-${report.pairing.grade.charAt(0)}`} aria-label={`Grade ${report.pairing.grade}`}>{report.pairing.grade}</span>
           </div>
-        ))}
-        <div
-          role="row"
-          style={{ display: "grid", gridTemplateColumns: "34px 1fr auto", alignItems: "center", gap: 12, padding: "9px 4px" }}
-        >
-          <span
-            className="oswald"
-            role="cell"
-            style={{ fontSize: 18, fontWeight: 600, color: gradeColor(report.pairing.grade), textAlign: "center" }}
-          >
-            {report.pairing.grade}
-          </span>
-          <div role="cell">
-            <div style={{ fontSize: 13, fontWeight: 600 }}>
-              QB–WR1 connection
-              <span style={{ fontWeight: 400, fontSize: 11, color: "var(--ink-faint)", marginLeft: 8 }}>
-                {ordinal(report.pairing.rank)} of {rows[0]?.teams ?? 32}
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 3 }}>
-              {report.pairing.qb?.name ?? "No QB"} → {report.pairing.wr?.name ?? "no WR"} · each caps the other
-            </div>
+          <div className="unit-card-num"><b>{report.pairing.value}</b><span>rating</span></div>
+          <div className="unit-card-rank"><b>{ordinal(report.pairing.rank)}</b> of {rows[0]?.teams ?? 32} teams</div>
+          <div className="unit-card-weak" style={{ color: "var(--ink-dim)" }}>
+            {report.pairing.qb?.name ?? "No QB"} → {report.pairing.wr?.name ?? "no WR"} · each caps the other
           </div>
-          <span role="cell">
-            <OvrPill value={report.pairing.value} />
-          </span>
-        </div>
-      </div>
+        </li>
+      </ul>
 
       {top.length > 0 && (
         <>

@@ -1,0 +1,26 @@
+.dso { display:grid; gap:20px; }
+.dso h3 { margin:0 0 8px; font-size:13px; text-transform:uppercase; letter-spacing:.1em; color:#9fc3d6; }
+.dso-hero { display:grid; grid-template-columns:auto 1fr; gap:10px 28px; align-items:center; padding:18px 20px; border-radius:16px; border:1px solid #2f4d5e; background:linear-gradient(120deg,#0e2632f2,#07151df2); }
+.dso-grade { display:grid; justify-items:center; min-width:120px; }
+.dso-grade small { font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:#9fc3d6; }
+.dso-grade b { font-family:var(--font-display,inherit); font-size:76px; line-height:1; color:var(--team,#37cfce); text-shadow:0 0 28px color-mix(in srgb,var(--team,#37cfce) 40%,transparent); }
+.dso-facts { display:flex; flex-wrap:wrap; gap:10px 32px; margin:0; }
+.dso-facts div { display:grid; } .dso-facts dt { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#8fb0c1; } .dso-facts dd { margin:0; font-size:22px; font-weight:700; color:#fff; }
+.dso-explain { grid-column:1 / -1; margin:0; font-size:13px; line-height:1.5; color:#b9cfdb; max-width:80ch; }
+.dso-cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+.dso-cols section { padding:14px 16px; border-radius:12px; background:#0a1b26e6; border:1px solid #28434d; }
+.dso ul { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.dso li b { color:#fff; } .dso li span { display:block; font-size:13px; color:#a9c1cf; }
+.dso li.weak b { color:#ffb4bf; }
+.dso-muted { font-size:13px; color:#a9c1cf; margin:0; }
+.dso-ranks { list-style:none; margin:0; padding:0; display:grid; gap:4px; }
+.dso-ranks li { border-radius:10px; border:1px solid #1d3441; background:#08161fcc; }
+.dso-ranks li.me { border-color:var(--team,#37cfce); background:#0d2430; }
+.dso-ranks button { display:grid; grid-template-columns:34px 24px 1fr auto 52px; gap:10px; align-items:center; width:100%; min-height:44px; padding:6px 12px; background:none; border:0; color:#eaf4fa; font:inherit; text-align:left; cursor:pointer; }
+.dso-ranks button:focus-visible { outline:2px solid #fff; outline-offset:-2px; border-radius:10px; }
+.dso-ranks .n { color:#8fb0c1; font-variant-numeric:tabular-nums; } .dso-ranks .g { font-weight:800; min-width:30px; text-align:center; } .dso-ranks .o { text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+.dso-ranks em { font-style:normal; color:var(--team,#37cfce); font-size:12px; }
+.dso-detail { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px 16px; margin:0; padding:6px 14px 12px 46px; }
+.dso-detail dt { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:#8fb0c1; } .dso-detail dd { margin:0; font-weight:600; }
+.dso-method { border:1px solid #28434d; border-radius:12px; padding:10px 14px; background:#08161fcc; } .dso-method summary { cursor:pointer; font-weight:600; min-height:32px; }
+@media (max-width:600px) { .dso-hero { grid-template-columns:1fr; justify-items:start; } .dso-grade b { font-size:60px; } .dso-ranks button { grid-template-columns:28px 22px 1fr auto 40px; gap:6px; padding:6px 8px; } .dso-detail { padding-left:14px; } }
