@@ -108,3 +108,30 @@ See Evidence for the printed schedule and release cost by structure.
 - Contract structure is a pure field on the offer/move (`structure?: "even"|"backloaded"|"frontloaded"`); phase checks do not need to know it.
   Cap checks for a shaped signing use year-one hit, which can be lower (backloaded) or higher (frontloaded) than the flat salary.
 - I did not change FA phase ordering, trade windows or GM ownership checks.
+
+## Evidence (measured; fantasy draft, 12 leagues: seeds 1-6, fictional and legacy pools)
+
+Old rule (weighted mean of existing starters, rounded, ranked) vs the new projected strength:
+
+| | old | new |
+|---|---|---|
+| distinct team overalls out of 32 | 4-5 | 19-25 (tenths) |
+| adjacent rank pairs decided by a tie | 27-28 of 31 | ~0 |
+| sd across teams | 0.74-1.07 | 0.83-1.15 |
+| Spearman rank agreement old vs new | | 0.74-0.94 |
+| teams that change letter-grade band (4-team bands) | | 16-25 of 32 |
+
+Spread of projected strength, seed 1 (sd): AI draft 0.83 (fictional) / 1.15 (legacy); position-blind best-available snake
+1.30; random redistribution of the same players 1.57 / 1.82. So the CPU draft is *tighter* than a plain snake draft, by
+roughly a third in the fictional pool, which points at the AI's need-balancing on top of the snake format. The old
+display exaggerated it (4 values for 32 teams). Retuning the AI is a balance change and is left for approval.
+
+Contract example, 4 years at $20M a year (cap hits by year; release cost if cut before year one):
+
+| structure | year 1 / 2 / 3 / 4 | total | bonus | dead money on release |
+|---|---|---|---|---|
+| even | 20 / 20 / 20 / 20 | 80 | 12 | 15 |
+| backloaded | 15.8 / 18.6 / 21.4 / 24.2 | 80 | 12 | 15 |
+| frontloaded | 24.3 / 21.4 / 18.6 / 15.7 | 80 | 12 | 15 |
+
+Backloading saves $4.2M of year-one cap but cutting him costs the same as the flat deal, and year four costs $4.2M more.
