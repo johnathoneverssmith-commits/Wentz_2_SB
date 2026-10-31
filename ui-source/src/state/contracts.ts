@@ -183,6 +183,13 @@ export function extendContract(
     const plan = planExtension(c, { ...offer, structure: structured }, minSalaryM(state));
     const capNextYear =
       nextYearCommitments(state, p.nfl_team) - (c.years_remaining >= 2 ? (c.cap_hit_by_year[1] ?? 0) : 0) + (plan.hits[0] ?? offer.baseSalary);
+    if (capNextYear > team.cap.total) {
+      const over = round1(capNextYear - team.cap.total);
+      return {
+        ok: false,
+        reason: `That deal puts next year's cap $${over.toFixed(1)}M over. Lower the salary, or clear room first.`,
+      };
+    }
     // a shape must fit in every season it spans, not just the first: pushing the bill to a year
     // the club cannot pay is not a way to sign him
     const future = commitmentsBySeason(state, p.nfl_team);
@@ -191,13 +198,6 @@ export function extendContract(
       if (later > team.cap.total) {
         return { ok: false, reason: `That deal puts the cap $${round1(later - team.cap.total).toFixed(1)}M over in a later year. Lower the salary, or flatten the structure.` };
       }
-    }
-    if (capNextYear > team.cap.total) {
-      const over = round1(capNextYear - team.cap.total);
-      return {
-        ok: false,
-        reason: `That deal puts next year's cap $${over.toFixed(1)}M over. Lower the salary, or clear room first.`,
-      };
     }
   }
 
