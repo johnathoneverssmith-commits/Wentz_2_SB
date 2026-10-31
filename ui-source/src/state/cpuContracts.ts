@@ -5,8 +5,9 @@
  */
 import type { LeagueState, Player } from "@/domain";
 
-import { marketScale } from "./capEconomy.ts";
-import { type TermContext, discountRateFor, extensionSalaryAt, extensionTerms, offerYears, termSubject } from "./contractValue.ts";
+import { marketScale, minSalaryM } from "./capEconomy.ts";
+import { type ContractStructure, MIN_STRUCTURE_YEARS, buildSchedule } from "./contractStructure.ts";
+import { type TermContext, commitmentsOf, discountRateFor, extensionSalaryAt, extensionTerms, offerYears, termSubject } from "./contractValue.ts";
 import { contractValueFor } from "@/sim/MockSimulationService";
 
 export interface CpuTermOptions {
@@ -74,4 +75,58 @@ export function cpuExtension(
   // guaranteed money keeps the share of the deal's total he asked for
   const share = ask.guaranteed / Math.max(0.1, ask.baseSalary * ask.years);
   return { baseSalary, years, guaranteed: Math.round(baseSalary * years * share * 10) / 10 };
+}
+
+/**
+ * How a CPU club shapes a deal it is about to offer.
+ *
+ * A rule, not a roll, so it is the same on every client and every reload:
+ *
+ *  - **Never reaches past the cap.** A shape is only considered if, in every
+ *    season of the deal, what the club already owes plus the shaped hit stays
+ *    inside 97% of the cap. A club cannot choose a structure that only fits
+ *    because the bill is pushed to a year it cannot pay.
+ *  - **Backloaded** when the club is tight now and clear later, for a player
+ *    young enough that the late years are still good ones (29 or under).
+ *  - **Frontloaded** for a veteran (31+), whose late years are the risk, or
+ *    when next season is already crowded and this one has room to spare.
+ *  - Otherwise **even**.
+ *
+ * Returns undefined for a one-year deal (nothing to shape).
+ */
+export function chooseStructure(
+  s: LeagueState,
+  teamCode: string,
+  p: Player,
+  salary: number,
+  years: number,
+  /** seasons from now the deal starts: 0 for a signing, 1 for an extension (which begins next season) */
+  startsIn = 0,
+): ContractStructure | undefined {
+  if (years < MIN_STRUCTURE_YEARS) return undefined;
+  const team = s.teams[teamCode];
+  if (!team) return "even";
+  const cap = team.cap.total;
+  const owed = commitmentsOf(Object.values(s.players).filter((x) => x.nfl_team === teamCode)).get(teamCode) ?? [];
+  const minSalary = minSalaryM(s);
+  const fits = (structure: ContractStructure): boolean => {
+    const hits = buildSchedule({ salary, years, structure, minSalary }).cap_hit_by_year;
+    // every later season has to fit under the cap; this season only has to be no worse than the flat deal
+    // (the signing's own room check already priced that), so a frontloaded year one cannot overrun the room
+    return hits.every((h, t) =>
+      t + startsIn === 0 ? h <= Math.max(cap - team.cap.used, salary) : (owed[t + startsIn] ?? 0) + h <= cap * 0.97,
+    );
+  };
+  const room = cap - team.cap.used;
+  const firstHit = salary;
+  // an extension does not touch this year's cap, so only a signing can be "tight now"
+  const tightNow = startsIn === 0 && room < firstHit * 1.6;
+  const laterOwed = Math.max(owed[1] ?? 0, owed[2] ?? 0);
+  const clearLater = laterOwed + salary * 1.3 < cap * 0.85;
+  const crowdedLater = (owed[1] ?? 0) > cap * 0.88;
+  let want: ContractStructure = "even";
+  if (p.age >= 31) want = "frontloaded";
+  else if (crowdedLater && room >= firstHit * 2) want = "frontloaded";
+  else if (tightNow && clearLater && p.age <= 29) want = "backloaded";
+  return fits(want) ? want : "even";
 }

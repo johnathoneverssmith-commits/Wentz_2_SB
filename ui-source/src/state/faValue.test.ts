@@ -152,6 +152,8 @@ describe("a CPU team's choice in the market", () => {
 
   it("does not move on to a second player at a one-starter position once it has bid on the first: the bid fills the slot", () => {
     const { s, code } = rigged(73, [{ position: "QB", overall: 95 }, { position: "QB", overall: 94 }], { QB: [60, 55, 50] });
+    // this is about the bid logic, not a GM's evaluation noise: use the best-skilled GM, whichever team is first in the order
+    s.aiGms!.find((g) => g.teamCode === code)!.skill = 3;
     const qbs = Object.values(s.players).filter((p) => p.free_agent && !p.retired).sort((x, y) => x.overall - y.overall);
     const bidOn = qbs[0]!; // the 94
     const better = qbs[1]!; // the 95, who would be the pick on a clean slate

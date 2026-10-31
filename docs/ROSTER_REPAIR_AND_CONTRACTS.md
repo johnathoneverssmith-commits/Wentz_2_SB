@@ -1,0 +1,110 @@
+# Draft assessment, contract structures and emergency roster repair
+
+Agent 1 scope: UI-PT-09A, UI-PT-15, UI-PT-18. Numbers marked **(measured)** come from
+`ui-source/src/state/_evidence` runs described under "Evidence" and are reproducible with the seeds named.
+
+## 1. Fantasy draft assessment (UI-PT-09A)
+
+### What the audit found
+
+The draft summary grades a team by `ratings.overallRank` (`FantasyDraftSummary.tsx`), which came from
+`recomputeTeamRatings` (`seed.ts`). That function:
+
+1. **Ignored holes.** It averaged the starters a team *has*. A missing quarterback was left out of both the
+   numerator and the denominator, so an empty starting spot never lowered a rating and could raise it.
+2. **Had no weak-link term.** Unit grades, the hub and the Master evaluator all pull a unit toward its weakest
+   starter (the engine's synergy layer does the same); the draft grade did not, so two screens answered "how good
+   is this offense" differently.
+3. **Rounded before ranking.** Overall, offense and defense were integers. After a fantasy draft all 32 teams
+   fell on 3-5 distinct integers, so ranks inside a tie were decided by team-code order, and the letter grade
+   (a function of rank) was partly alphabetical.
+4. Used a different starter count/weighting table (`STARTER_WEIGHT`) from the one in `unitValue.ts` that the
+   simulation-facing screens use.
+
+It did use the same player `overall` as the downstream sim; the problem was how it was aggregated, not which
+attribute.
+
+### What changed
+
+- `unitReport.ts` gains `projectedStrengths(state)`: one unrounded reading (units, weak links, replacement-level
+  vacancies, measured unit weights, OLB excluded as in the engine). `recomputeTeamRatings` now writes
+  `overall/offense/defense` from it (to a tenth) and **ranks on the unrounded value**. `sideRatings` (the hub) and
+  the draft summary now agree by construction (`draftAssessment.test.ts`).
+- Depth does not enter projected strength; it remains `rosterOverall`. An excellent starting group with no depth is
+  graded on its starters.
+- `draftValue.ts` (`draftValueByTeam`) is the separate *draft value* measure: pick *n* vs the *n*-th best overall
+  taken in the draft. It is intentionally position-blind. A team can have the best value and the weaker
+  lineup; the two are never blended (test: "can disagree with strength"). The summary UI is Agent 3's; this module
+  is the data it can show.
+
+Not changed: the CPU drafting AI (see below) and the engine. The mock sim reads `ratings.overall` differences for
+win probability; the rating's scale shifts by about one point (weak links), a uniform shift that cancels in
+differences. The full UI suite is the check on that.
+
+### Is the "similar rosters" observation an evaluation or an AI problem?
+
+Both, in different proportions. **(measured)** See Evidence. In short: the *evaluation* made it look worse than it is
+(integer ties), and the *drafting* is genuinely compressed, but mostly because a snake draft of one shared pool
+is a compressing mechanism — the AI adds a little on top via need-weighting. I did not retune the AI: that moves
+simulation balance, which needs explicit approval (CLAUDE.md). Recommendation recorded under "Remaining".
+
+## 2. Contract structures (UI-PT-15)
+
+### Model
+
+`ui-source/src/state/contractStructure.ts`, documented at the top of the file. In brief:
+
+- Three structures: `even`, `backloaded`, `frontloaded`. **Same total for the same yearly salary** — shaping never
+  creates money.
+- Year weights run linearly from `1 − 0.25` to `1 + 0.25` (reverse for frontloaded). 15% of the total is a signing bonus,
+  prorated evenly. Persisted per contract: `structure`, `salary_by_year`, `guaranteed_by_year`
+  (the bonus proration in each year) alongside the existing `cap_hit_by_year`.
+- **Anti-exploit.** Release cost for a shaped deal is `max(unamortized bonus, 22% × years left × average remaining hit)`.
+  The average (not year one) is what makes a backloaded first year *not* a cheap exit. A shape must also fit the cap
+  in every season of the deal (CPU choice and `extendContract`).
+- **Where it applies.** Free-agency offers (`Offer.structure`, human and CPU), extensions (human and CPU re-signs),
+  and `restructureContract` (keeps the split valid). The league wire accepts `structure` on the free-agency turn and the
+  `extend` contract move. Rookie scale deals, tags, fifth-year options and camp bodies are unchanged (options drop the split).
+- **CPU rule** (`chooseStructure`, deterministic): frontload a veteran (31+) or when next season is crowded and this one has
+  room; backload a young player (≤29) when this year is tight and later years are clear; otherwise even; never a shape that
+  would overrun the cap in a later season.
+- **Compatibility.** All three fields are optional; `scheduleOf` returns null unless the split still adds up to the hits,
+  and then everything reads the contract as the flat legacy deal. `releasePenalty` is byte-identical for legacy contracts
+  (pinned by a test). `expireContracts` steps the split forward with the hits.
+- **Player choice** between rival offers still compares average annual salary; structure does not change who wins a bid.
+
+### Example (4 years, $20M a year, `ui-source/src/state/contractStructure.test.ts`)
+
+See Evidence for the printed schedule and release cost by structure.
+
+## 3. Emergency roster repair (UI-PT-18)
+
+`ui-source/src/state/rosterRepair.ts`.
+
+- **When:** entering `preseason`, `regularSeason` and `midseasonDepthChart`, for every team, human or CPU
+  (single-player: `applyStageEntry`; online: `onStageEntered`). It never runs while a free-agency window or
+  event is open, so scheduled simultaneous rounds are untouched; a player with a live offer is excluded.
+- **What:** for each position below its minimum, the staff signs the best affordable player from the unsigned pool
+  (score = overall + a small strategy age term; ties by id), highest-value positions first, **exactly the shortfall**.
+  Teams act weakest-first (waiver order). No randomness.
+- **Money:** one-year deal at half the player's market ask, never below the league minimum, through
+  `offerToContract`. A player the team cannot afford is skipped for the best one it can; if none, the hole is reported
+  (`unresolved`) and the game plays its placeholder as before. A full roster releases its cheapest surplus
+  player (existing `nextReconcileCut`/`applyRelease`, which charge dead money) and says so.
+- **Human cannot choose:** no exported function takes a player id (pinned by a test); the human team gets the same result as a CPU
+  team in the same position. The GM is told afterwards: `state.rosterRepairs` (shown by `RosterRepairNotice` on the hub) and, online,
+  a `roster.repair` note to that GM only.
+- **Not an FA loophole:** price is half the ask (a star is not a bargain), only a below-minimum position is filled, only
+  unsigned players, only at checkpoints, never in a market.
+- Existing behavior kept: CPU reconciliation at FA summaries, the preseason roster fill, and the GM's "let my staff fix it" button.
+
+## Integration notes for Agent 2 (transaction phases)
+
+- One call site per environment: `runRepairCheckpoint(state, enteringStage)` — `ui-source/src/state/store.ts` (`applyStageEntry`)
+  and `online/src/phases.ts` (`onStageEntered`). It decides itself whether `enteringStage` is a checkpoint and whether a market is
+  open; it needs no phase table from you. If you add or rename stages, only `REPAIR_CHECKPOINTS` and `MARKET_STAGES` in
+  `rosterRepair.ts` need to follow.
+- It is not an endpoint and takes no player. If you add an authorization layer, there is nothing to authorize.
+- Contract structure is a pure field on the offer/move (`structure?: "even"|"backloaded"|"frontloaded"`); phase checks do not need to know it.
+  Cap checks for a shaped signing use year-one hit, which can be lower (backloaded) or higher (frontloaded) than the flat salary.
+- I did not change FA phase ordering, trade windows or GM ownership checks.

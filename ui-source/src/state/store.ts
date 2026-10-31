@@ -106,6 +106,7 @@ import {
 import { generateAiTradeOffers } from "./aiTrades.ts";
 import { tradeAccepts } from "./tradeModel.ts";
 import { applyRelease, checkRelease, reconcileCpuTeam } from "./reconciliation.ts";
+import { runRepairCheckpoint } from "./rosterRepair.ts";
 import { draftClassTilt } from "./draftSupply.ts";
 import { classDnaForLeague } from "@/sim/leagueDna";
 import { refreshClassProfile } from "./classProfile.ts";
@@ -210,6 +211,8 @@ export interface StoreActions {
     playerId?: string;
     salary?: number;
     years?: number;
+    /** how the money is spread over the years (contractStructure.ts); absent = flat */
+    structure?: "even" | "backloaded" | "frontloaded";
     pass?: boolean;
   }) => { ok: boolean; reason?: string };
   /** Take a coach in the coaching fantasy draft. */
@@ -228,7 +231,7 @@ export interface StoreActions {
   /** Add years to a deal at a newly negotiated rate. */
   extendPlayer: (
     playerId: string,
-    offer: { baseSalary: number; years: number; guaranteed: number },
+    offer: { baseSalary: number; years: number; guaranteed: number; structure?: "even" | "backloaded" | "frontloaded" },
   ) => ContractMoveResult;
   /** Franchise-tag a player in his final year, or pick up a first-rounder's fifth-year option. */
   /** A fired GM takes a new team (`hotSeat.takeNewJob`). */
@@ -527,6 +530,9 @@ function applyStageEntry(s: LeagueState, from: string, to: string): void {
       if (!humans.has(code)) reconcileCpuTeam(s, code);
     }
   }
+  // the staff fills any positional hole before a block of games is played, for every team
+  // (state/rosterRepair.ts; a no-op unless `to` is a checkpoint and no market is open)
+  runRepairCheckpoint(s, to as LeagueState["stage"]);
 
   // the twelve-round coaching board opens with the stage; without this
   // `s.coachingDraft` stayed null and the screen sat on "One moment."
@@ -1080,7 +1086,7 @@ export const useStore = create<Store>()(
         set((s) => {
           const mine = s.gms.find((g) => g.id === s.viewerGmId)!.teamCode;
           if (move.pass || !move.playerId) applyPass(s, mine);
-          else applyOffer(s, mine, move.playerId, Number(move.salary), Number(move.years));
+          else applyOffer(s, mine, move.playerId, Number(move.salary), Number(move.years), move.structure);
           const humans = new Set(s.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
           runFreeAgencyCpuTurns(s, humans);
 

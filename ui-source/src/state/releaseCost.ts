@@ -4,6 +4,8 @@
  */
 import type { Player } from "@/domain";
 
+import { averageHit, remainingBonus, scheduleOf } from "./contractStructure.ts";
+
 /**
  * What releasing a player costs against this year's cap.
  *
@@ -15,7 +17,11 @@ import type { Player } from "@/domain";
 export function releasePenalty(p: Player): number {
   const c = p.contract;
   if (!c) return 0;
-  const annual = c.cap_hit_by_year[0] ?? 0;
+  // A deal with a persisted schedule is priced off its *average* hit and its unamortized
+  // bonus: its first year no longer says what the whole deal is worth, and a backloaded
+  // year one must not double as a cheap way out of the expensive years (contractStructure.ts).
+  const structured = scheduleOf(c) !== null;
+  const annual = structured ? averageHit(c) : (c.cap_hit_by_year[0] ?? 0);
   // Free Agency + Contracts optimization pass (contracts.release_penalty).
   const byYears = annual * 0.22 * c.years_remaining;
   const capped = annual * 0.75;
@@ -28,6 +34,6 @@ export function releasePenalty(p: Player): number {
   // `extendContract` already carries this money forward through an
   // extension; releasing has to accelerate the same remaining amount onto
   // the cap now, the way a real signing bonus's unamortized proration does.
-  const acceleratedProration = (c.prorated_per_year ?? 0) * c.years_remaining;
+  const acceleratedProration = Math.max((c.prorated_per_year ?? 0) * c.years_remaining, remainingBonus(c));
   return Math.round(Math.max(base, acceleratedProration) * 10) / 10;
 }

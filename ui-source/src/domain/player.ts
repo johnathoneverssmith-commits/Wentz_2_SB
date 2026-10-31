@@ -102,6 +102,24 @@ export interface Contract {
   rookie_deal?: boolean;
   /** The fifth-year option has been picked up. */
   option_exercised?: boolean;
+  /**
+   * How the deal was shaped when it was signed (`state/contractStructure.ts`).
+   * Absent on a deal that predates structures — a save from before them, a
+   * rookie scale deal, a camp body — which is read as a flat schedule with no
+   * persisted split, exactly as it always was.
+   */
+  structure?: "even" | "backloaded" | "frontloaded";
+  /**
+   * Cash base salary per remaining year, index 0 === upcoming season. With
+   * `guaranteed_by_year` it adds up to `cap_hit_by_year` in every year; if it
+   * does not (a rescaled or hand-edited deal) the pair is ignored.
+   */
+  salary_by_year?: number[];
+  /**
+   * The bonus proration in each remaining year's hit: money already paid and
+   * guaranteed, which a release accelerates onto the cap as dead money.
+   */
+  guaranteed_by_year?: number[];
 }
 
 export interface InjuryStatus {

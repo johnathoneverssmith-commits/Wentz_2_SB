@@ -13,6 +13,7 @@
  * which is what lets one set of rules govern both.
  */
 import { onInjuredReserve } from "./injuries";
+import { buildSchedule } from "./contractStructure.ts";
 import { expectedSalary } from "./freeAgencyValues";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { applyArchetype, archetypeById } from "@/sim/leagueDna/archetypes";
@@ -76,7 +77,7 @@ import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternat
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { commitmentsOf } from "./contractValue.ts";
 import { outlookFor } from "./faValue.ts";
-import { cpuExtension, cpuOfferYears } from "./cpuContracts.ts";
+import { chooseStructure, cpuExtension, cpuOfferYears } from "./cpuContracts.ts";
 import { readTeamTimeline } from "./teamTimeline.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
 
@@ -1001,7 +1002,23 @@ export function runAiPicks(s: LeagueState): string[] {
   return played;
 }
 
-export function offerToContract(o: ContractOffer) {
+export function offerToContract(o: ContractOffer, minSalary = 0) {
+  // a deal signed with a structure carries its year-by-year split (contractStructure.ts); one without
+  // is the flat deal it has always been
+  if (o.structure) {
+    const s = buildSchedule({ salary: o.baseSalary, years: o.years, structure: o.structure, bonus: o.signingBonus > 0 ? o.signingBonus : undefined, minSalary });
+    return {
+      team_id: o.teamCode,
+      years_remaining: o.years,
+      total_value: s.total_value,
+      guaranteed: Math.max(o.guaranteed, s.guaranteed),
+      cap_hit_by_year: s.cap_hit_by_year,
+      signing_bonus: s.signing_bonus,
+      structure: s.structure,
+      salary_by_year: s.salary_by_year,
+      guaranteed_by_year: s.guaranteed_by_year,
+    };
+  }
   return {
     team_id: o.teamCode,
     years_remaining: o.years,
@@ -2215,7 +2232,8 @@ export function resignAiCore(s: LeagueState): number {
     );
     const plan = planCoreResign(s, code, timeline);
     for (const { player, ask } of plan) {
-      applyExtension(player, ask);
+      const structure = chooseStructure(s, code, player, ask.baseSalary, ask.years, 1);
+      applyExtension(player, { ...ask, ...(structure ? { structure } : {}) }, minSalaryM(s));
       signed++;
     }
     // next year's commitments after the extensions, for the options and the tag below

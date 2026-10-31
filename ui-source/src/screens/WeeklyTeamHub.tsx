@@ -1,5 +1,6 @@
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { TeamBadge } from "@/components/bits";
+import { RosterRepairNotice } from "@/components/RosterRepairNotice";
 import { LeagueWire } from "@/components/LeagueWire";
 import { seasonShape } from "@/state/leagueFormat";
 import { recordWatch } from "@/state/seasonAwards";
@@ -187,6 +188,7 @@ export function WeeklyTeamHub() {
   return (
     <div className="hub-dashboard">
     <Card maxWidth={1280}>
+      <RosterRepairNotice state={s} team={code} />
       <div className="hub-kicker">Franchise command center <span>{displaySeasonFor(s.season, s.stage)} season</span></div>
       <CardHeader
         badge={<TeamBadge code={code} size={60} />}

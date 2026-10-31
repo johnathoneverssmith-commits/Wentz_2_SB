@@ -29,8 +29,9 @@ describe("skipping a stage", () => {
   it("passes a skipping GM's free-agency turns and stops at the one who isn't", () => {
     const s = twoHumans();
     s.stage = "freeAgency";
-    setSkip(s, "GB", "freeAgency", true);
     beginFreeAgencyEvent(s);
+    // a GM skips once the market is open: opening it clears everyone's skip
+    setSkip(s, "GB", "freeAgency", true);
     faTurns(s, new Set(["GB", "KC"]));
     // the market is waiting on KC (who didn't skip), never on GB
     expect(faClock(s)).toBe("KC");
