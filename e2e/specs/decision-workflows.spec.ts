@@ -58,7 +58,7 @@ for(const [device,width] of [['desktop',1600],['mobile',390]] as const){
  });
  test.describe(`UI-4 trade ${device}`,()=>{
   test.use({fixtureName:'season-week-9'});
-  test('reviews an exact owned pick and sends one proposal that persists',async({page})=>{
+  test('reviews an exact owned pick but cannot send a proposal outside the deadline',async({page})=>{
    await page.setViewportSize({width,height:device==='desktop'?1100:844});await page.goto('/#/trade');
    const before=await saved(page);const mine=page.locator('.decision-trade-column[data-side="you"]');
    await mine.getByRole('combobox').selectOption('PICK');const asset=mine.locator('[data-asset-id]').first();
@@ -69,24 +69,20 @@ for(const [device,width] of [['desktop',1600],['mobile',390]] as const){
    await expect(summary.locator('[data-asset-id]')).toHaveAttribute('data-asset-id',id);
    expect((await saved(page)).trades).toEqual(before.trades);
    await capture(page,`trade-${device}.png`);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-   const submit=page.getByRole('button',{name:'Propose trade',exact:true});await expect(submit).toBeEnabled();await submit.click();
-   await expect.poll(async()=>(await saved(page)).trades.length).toBe(before.trades.length+1);
-   const after=await saved(page);const sent=after.trades[after.trades.length-1];expect(sent.fromAssets).toHaveLength(1);expect(sent.fromAssets[0].kind).toBe('pick');
-   const expected=before.draftPicks[id.slice(5)];expect(sent.fromAssets[0].pick).toMatchObject({year:expected.year,round:expected.round,originalTeam:expected.originalTeam});
-   await page.reload();expect((await saved(page)).trades).toEqual(after.trades);
+   // proposals exist only in the Trade Deadline window: outside it the review is read-only
+   const submit=page.getByRole('button',{name:'Proposals closed',exact:true});await expect(submit).toBeDisabled();
+   await page.reload();expect((await saved(page)).trades).toEqual(before.trades);
   });
  });
 }
 test.describe('UI-4 standing market',()=>{
  test.use({fixtureName:'season-week-9'});
- test('negotiation edits cancel without altering player contracts at phone and tablet widths',async({page})=>{
+ test('the market is browse-only: no negotiation opens and no contract changes at phone and tablet widths',async({page})=>{
   for(const width of [390,768]){
    await page.setViewportSize({width,height:1000});await page.goto('/#/free-agency');const before=await saved(page);
-   await page.getByRole('button',{name:'Negotiate',exact:true}).first().click();
-   const form=page.getByRole('region',{name:/^Offer to /});await expect(form).toBeVisible();
-   await expect(form.getByRole('spinbutton').first()).toBeFocused();await form.getByRole('spinbutton').first().fill('5');
+   const rounds=page.getByRole('button',{name:'Rounds only',exact:true}).first();await expect(rounds).toBeDisabled();
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-   await form.getByRole('button',{name:'Cancel',exact:true}).click();expect((await saved(page)).players).toEqual(before.players);
+   expect((await saved(page)).players).toEqual(before.players);
   }
  });
 });
