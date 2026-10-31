@@ -1837,3 +1837,59 @@ Approved architecture in `docs/SEEDED_LEAGUE_DNA_PROPOSAL.md`; as-built referenc
 **Compatibility.** Additive optional fields only (`Player.archetype`, `DraftProspect.archetype`, `LeagueState.dna`, `LeagueState.draftClassProfile`, `LeagueConfig.playerPool`). No migration, no save-version bump. Seven tests whose scenarios depend on one real pool are pinned to `playerPool: "legacy"`.
 
 **Hidden potential.** The online league route strips `potential` from every player (`privacyView.ts`); the stored league keeps it, and clients price on the age curve. **Known limits.** `dnaSeed` is derivable from the league seed. Neutral DNA plays ~0.9 points a game above the validated engine.
+
+## Transaction windows and season shortcuts (UI-PT-11/16/17/22/23/24)
+
+**Windows (single source: `ui-source/src/state/transactionWindows.ts`).**
+A human GM acquires players and trades only inside a designated simultaneous
+window. Free agents are signed only in the five-round free-agency event
+(`fa-turn`: turn order, cap checks and resolution unchanged). Trades are
+proposed only in the Trade Deadline event (`deadline`: turn order, rounds, one
+accepted trade per team per round, league-vote guard unchanged). No new window
+was invented.
+
+**What closed.** Server: `POST /actions/sign`, `/actions/bid` (players),
+`/actions/trade/propose` and the *accept* half of `/actions/trade/respond` now
+refuse with a 409 and a message naming the window, in every stage (declining a
+leftover offer and withdrawing one still work). They stay routed so an old
+client gets a reason, not a 404. Local (single-player): the same refusals in
+`useLeagueActions`, `store.signStandingFreeAgent` and the Trade screen. UI: the
+Franchise Command Center's "Trade proposals" shortcut is gone; Trade Proposal
+and Free Agency screens are read-only ("Trade History", "Free Agent Market",
+"Proposals closed", "Rounds only"); the Roster screen's button is history only.
+
+**CPU roster repair boundary (for Agent 1).** Repair does not go through these
+routes. `reconciliation.ts` is untouched. If a repair needs to *sign* a free
+agent for a CPU team through the online decision layer, call
+`decideCpuRepairSigning(state, { kind: "cpu-roster-repair", teamCode }, playerId, offer)`
+(`online/src/decide.ts`). It has no HTTP route, throws for any team with a human
+GM seated, and uses the normal cap / roster-limit checks. Repair *policy*
+(who, how much, when) stays Agent 1's.
+
+**Coaching draft delegation.** `CoachingDraftState.delegated` (saved, optional)
+lists teams that handed their remaining picks to staff; `results[].byStaff`
+marks those picks. `runAiCoachingPicks` treats a delegated human team as CPU
+for its own turns only, so every caller (the pick that follows, the deadline
+sweep, stage entry, a reload) behaves the same. `POST
+/actions/coach-draft/delegate`; idempotent; refuses outside the draft or with a
+complete staff. If the delegate is on the clock the picks happen immediately up
+to the next undelegated human; otherwise they happen as each turn arrives.
+
+**Simulate Preseason / Simulate Regular Season.** Single-player:
+`store.fastForwardSeason` repeats `simulateGameDay` then `finishGameDay` — the
+same two operations the normal flow runs — until the stage changes, so it stops
+at the trade-deadline checkpoint, the League Developments reveal and the
+playoffs, and refuses anywhere else. One run at a time (a double click returns
+the run already going). Then it opens the existing results screen
+(`/results/PRE|REG/from/to`), whose Continue goes to the next actionable stage.
+Online: the block is already simulated at its checkpoint, so these are the
+existing per-GM reveals (relabelled); they move only the pressing GM's own
+marker and never check in for anyone.
+
+**Limitations.** (1) Online "Simulate …" is a reveal, so it cannot start the
+next block: the GM still presses the stage's readiness button, and the league
+moves only when every human has. (2) The single-player shortcut plays every GM
+the local store knows about (other humans there are auto-ready), which is how
+"Ready for Game Day" already behaves; it is not offered online. (3) Draft-pick
+trades that used the ad-hoc route are now only possible at the deadline.
+(4) Database-backed online suites are skipped locally (no Postgres); CI runs them.

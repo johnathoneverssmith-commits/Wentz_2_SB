@@ -52,7 +52,7 @@ test.describe("franchise dashboard presentation", () => {
           video = demo.video()!;
           await demo.goto(origin);
           await expect(demo.getByRole("heading", { name: "Season timeline" })).toBeVisible();
-          await demo.getByRole("region", { name: "Franchise dashboard" }).getByRole("link", { name: /Trade proposals/ }).hover();
+          await demo.getByRole("region", { name: "Franchise dashboard" }).getByRole("link", { name: /Roster/ }).hover();
           await demo.waitForTimeout(350);
           await demo.getByRole("tab", { name: "Overview", exact: true }).click();
           await demo.waitForTimeout(450);
