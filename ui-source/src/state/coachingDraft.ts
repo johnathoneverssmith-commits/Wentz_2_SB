@@ -32,7 +32,14 @@ export interface CoachingDraftState {
   /** Team codes in pick order, the whole board, snaked. */
   pickOrder: string[];
   currentPickIndex: number;
-  results: { teamCode: string; coachId: string; role: CoachRole; round: number }[];
+  results: { teamCode: string; coachId: string; role: CoachRole; round: number; byStaff?: boolean }[];
+  /**
+   * Teams whose GM handed the rest of their picks to the staff ("Delegate
+   * Remaining Picks to Staff"). Saved with the board so a reload keeps it.
+   * Only that team's own turns are taken for it, in the normal order, by the
+   * same logic the CPU teams use; nobody else's turn is touched.
+   */
+  delegated?: string[];
 }
 
 /**
@@ -155,6 +162,7 @@ export function applyCoachingPick(s: LeagueState, teamCode: string, coachId: str
     coachId,
     role: coach.role,
     round: Math.floor(d.currentPickIndex / Object.keys(s.teams).length) + 1,
+    ...(d.delegated?.includes(teamCode) ? { byStaff: true } : {}),
   });
   d.currentPickIndex += 1;
 }
@@ -256,12 +264,48 @@ export function ratingOf(c: Coach): number {
   return c.playCallIq ?? 60;
 }
 
+export interface DelegationCheck {
+  ok: boolean;
+  reason?: string;
+}
+
+/** Whether this team's remaining picks are in the staff's hands. */
+export function isDelegated(s: LeagueState, teamCode: string): boolean {
+  return !!s.coachingDraft?.delegated?.includes(teamCode);
+}
+
+/** May this team hand its remaining picks to staff right now? */
+export function checkDelegation(s: LeagueState, teamCode: string): DelegationCheck {
+  const d = s.coachingDraft;
+  if (!d || s.stage !== "coachingDraft") return { ok: false, reason: "The coaching draft isn't running." };
+  if (coachingDraftComplete(s)) return { ok: false, reason: "The coaching draft is over." };
+  if (!d.pickOrder.includes(teamCode)) return { ok: false, reason: "Your team isn't in this draft." };
+  if (vacantRoles(s, teamCode).length === 0) return { ok: false, reason: "Your staff is already complete." };
+  return { ok: true };
+}
+
+/**
+ * Hand this team's remaining coaching picks to the staff.
+ *
+ * It only marks the team; the picks themselves are made by
+ * `runAiCoachingPicks` — the CPU logic, in draft order, when each of this
+ * team's turns comes up. Idempotent. Call `checkDelegation` first.
+ */
+export function delegateRemainingPicks(s: LeagueState, teamCode: string): boolean {
+  const d = s.coachingDraft;
+  if (!d) return false;
+  const list = (d.delegated ??= []);
+  if (list.includes(teamCode)) return false;
+  list.push(teamCode);
+  return true;
+}
+
 /** Run AI picks until a human team is on the clock, or the board is done. */
 export function runAiCoachingPicks(s: LeagueState, humanTeams: Set<string>): number {
   let made = 0;
   while (!coachingDraftComplete(s)) {
     const onClock = coachingOnTheClock(s);
-    if (!onClock || humanTeams.has(onClock)) break;
+    if (!onClock || (humanTeams.has(onClock) && !isDelegated(s, onClock))) break;
     const pick = bestCoachingPick(s, onClock);
     if (!pick) break;
     applyCoachingPick(s, onClock, pick);

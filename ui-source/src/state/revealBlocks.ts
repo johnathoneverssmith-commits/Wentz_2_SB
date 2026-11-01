@@ -42,7 +42,7 @@ const preseasonBlock = (shape: SeasonShape): Block => ({
   phase: "PRE",
   firstWeek: 1,
   lastWeek: shape.preseasonWeeks,
-  watchAllLabel: "Simulate the preseason",
+  watchAllLabel: "Simulate Preseason",
   advanceLabel: "Advance to Regular Season",
   checkpoint: { from: "Preseason", to: "Regular Season" },
   resultsOpenOn: "first",
@@ -54,7 +54,7 @@ const firstHalf = (shape: SeasonShape): Block => ({
   lastWeek: shape.deadlineWeek,
   // through the deadline week, which is the last one this block plays —
   // "to Week 10" read as though week 10 would be played too
-  watchAllLabel: "Simulate to the trade deadline",
+  watchAllLabel: "Simulate Regular Season",
   advanceLabel: "Advance to Trade Deadline",
   checkpoint: { from: `Regular Season Weeks 1–${shape.deadlineWeek}`, to: "Trade Deadline" },
   // a half-season is read from the start, week by week, like the second half
@@ -65,7 +65,7 @@ const secondHalf = (shape: SeasonShape): Block => ({
   phase: "REG",
   firstWeek: shape.deadlineWeek + 1,
   lastWeek: shape.regularSeasonWeeks,
-  watchAllLabel: "Simulate to the playoffs",
+  watchAllLabel: "Simulate Regular Season",
   advanceLabel: "Advance to Playoffs",
   checkpoint: { from: "Regular Season", to: "Playoffs" },
   resultsOpenOn: "first",

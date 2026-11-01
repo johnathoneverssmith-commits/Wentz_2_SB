@@ -65,7 +65,8 @@ import {
   runPendingCpuTurns,
 } from "./decide.js";
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
-import { reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
+import { reconciliationIssues } from "@/state/reconciliation.ts";
+import { applyRosterRepair, authorizeRosterRepair, type RepairCheckpoint } from "./rosterRepair.js";
 import { openTrainingCamp, runCpuTrainingCamps } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
 import { ensureHoodedFigureEncounters, hoodedFigureEncounterFor } from "@/state/hoodedFigure.ts";
@@ -628,14 +629,16 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   if (from === "freeAgencySummary" || from === "midseasonFreeAgencySummary") {
     for (const team of humanTeamsOf(state)) {
       if (reconciliationIssues(state, team).length === 0) continue;
-      reportStaffMoves(state, "to make the roster legal", () => reconcileCpuTeam(state, team));
+      reportStaffMoves(state, "to make the roster legal", () =>
+        applyRosterRepair(state, authorizeRosterRepair(state, team, from as RepairCheckpoint)),
+      );
     }
   }
   if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
     const humans = humanTeamsOf(state);
     for (const teamCode of Object.keys(state.teams)) {
       if (humans.has(teamCode)) continue;
-      reconcileCpuTeam(state, teamCode);
+      applyRosterRepair(state, authorizeRosterRepair(state, teamCode, state.stage as RepairCheckpoint));
     }
   }
 

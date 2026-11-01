@@ -23,6 +23,7 @@ import {
 } from "@/state/draftPicks";
 import { pickTradeValue } from "@/sim/MockSimulationService";
 import { checkTrade, useStore } from "@/state/store";
+import { TRADE_WINDOW_MESSAGE } from "@/state/transactionWindows";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { ordinal, posLabel } from "@/util/format";
@@ -53,7 +54,10 @@ export function TradeProposal() {
   const [onlineResult, setOnlineResult] = useState<{ ok: boolean; text: string } | null>(null);
   // online the season's weeks are played ahead of time, so rosters are
   // frozen through them — the server refuses a trade; say so before one is built
-  const tradingClosed = actions.online && (s.stage === "preseason" || s.stage === "regularSeason");
+  // This screen is trade history and values, read-only in every stage. Proposals exist only inside the Trade Deadline
+  // event, which has its own room (/trade-deadline) with turn ownership and per-round bookkeeping; the form here
+  // never submits, so it can neither fail at the server nor bypass the deadline's turns locally.
+  const tradingClosed = true;
   const pastDeadline = pastTradeDeadline(s);
   // the guard itself: state lags a render, so two quick clicks both passed it
   const inFlight = useRef(false);
@@ -491,6 +495,20 @@ export function TradeProposal() {
             GM accepted a minute ago spends the cap room this one needed. */}
 
 
+        {tradingClosed && (
+          <p className="notice" role="status" style={{ marginTop: 12 }}>
+            {TRADE_WINDOW_MESSAGE}
+            {s.stage === "tradeDeadline" && (
+              <>
+                {" "}
+                <button type="button" className="btnlink" onClick={() => nav("/trade-deadline")}>
+                  Go to the Trade Deadline room
+                </button>
+              </>
+            )}
+          </p>
+        )}
+
         {unitImpact.length > 0 && (
           <div style={{ marginTop: 14 }}>
             <p className="sectionlabel" style={{ marginBottom: 6 }}>
@@ -577,6 +595,7 @@ export function TradeProposal() {
                   });
                 return;
               }
+              if (tradingClosed) return;
               const id = proposeTrade(partner, give, get);
               setTradeId(id);
               // resolveTrade decides: an AI partner can refuse outright, and
@@ -584,7 +603,7 @@ export function TradeProposal() {
               resolveTrade(id);
             }}
           >
-            Propose trade
+            {tradingClosed ? "Proposals closed" : "Propose trade"}
           </button>
         ) : trade.vote && trade.vote.outcome === "pending" ? (
           <>

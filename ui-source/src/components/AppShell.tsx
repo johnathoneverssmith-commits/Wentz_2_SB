@@ -51,8 +51,8 @@ const IN_SEASON_NAV: NavItem[] = [
   { to: "/roster?tab=cap", label: "Finances & Cap" },
   { to: "/league-rosters", label: "League Rosters" },
   { to: "/coaching", label: "Coaching Staff" },
-  { to: "/trade", label: "Trade Proposal" },
-  { to: "/free-agency", label: "Free Agency" },
+  { to: "/trade", label: "Trade History" },
+  { to: "/free-agency", label: "Free Agent Market" },
   { to: "/schedule", label: "Full Schedule", group: "League" },
   { to: "/games", label: "Game History", group: "League" },
   { to: "/league-stats", label: "League Stats" },
@@ -71,10 +71,10 @@ const OFFSEASON_REFERENCE_NAV: NavItem[] = [
   { to: "/roster", label: "Roster & Cap" },
   { to: "/roster?tab=cap", label: "Finances & Cap" },
   { to: "/league-rosters", label: "League Rosters" },
-  { to: "/trade", label: "Trade Proposal" },
+  { to: "/trade", label: "Trade History" },
   // Signing is asynchronous now — there is no free-agency stage to visit, so
   // the market has to be reachable from wherever you happen to be.
-  { to: "/free-agency", label: "Free Agency" },
+  { to: "/free-agency", label: "Free Agent Market" },
   { to: "/coaching", label: "Coaching Staff" },
   { to: "/history", label: "League History" },
 ];

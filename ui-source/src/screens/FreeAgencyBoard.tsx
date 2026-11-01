@@ -36,8 +36,10 @@ export function FreeAgencyBoard() {
   // shapes, and the only difference a screen sees is that online a refusal
   // arrives after a round trip against the league as it is *now*
   const actions = useLeagueActions();
-  // online, a block of weeks is already played (the server's `refuseDuringBlock`)
-  const signingsClosed = actions.online && (s.stage === "preseason" || s.stage === "regularSeason");
+  // This board is a read-only market. Free agents are signed only in the
+  // scheduled simultaneous rounds (the Free Agency board); the server and the
+  // local action layer both refuse a signing from anywhere else.
+  const signingsClosed = true;
 
   const advanceDay = useStore((st) => st.advanceBiddingDay);
   const dismiss = useStore((st) => st.dismissInterstitial);
@@ -199,8 +201,8 @@ export function FreeAgencyBoard() {
           signing that would read as help for them */}
       {signingsClosed && (
         <div className="notice" role="status">
-          Signings are closed while this stretch of the season plays out — its games are already
-          decided. The market opens again at the next break.
+          Browsing only. Free agents are signed during the scheduled free-agency rounds — you make
+          your offers there, on your turn, alongside every other GM.
         </div>
       )}
       <Ticker
@@ -286,14 +288,14 @@ export function FreeAgencyBoard() {
                       style={{ fontSize: 11.5, padding: "7px 8px" }}
                       // every row offered a negotiation the server would refuse
                       disabled={signingsClosed}
-                      title={signingsClosed ? "Signings open again at the next break." : undefined}
+                      title={signingsClosed ? "Offers are made during the scheduled free-agency rounds." : undefined}
                       onClick={(e) => {
                         e.stopPropagation();
                         setSignError(null);
                         setNegotiating(p);
                       }}
                     >
-                      {mine ? "Revise" : "Negotiate"}
+                      {signingsClosed ? "Rounds only" : mine ? "Revise" : "Negotiate"}
                     </button>
                   </>
                 }
@@ -401,7 +403,7 @@ export function FreeAgencyBoard() {
       )}
 
       </div><aside className="decision-sidebar" aria-label="Standing market player workspace">
-        {negotiating&&code&&freeAgents.some(p=>p.id===negotiating.id) ? <FocusedOfferPanel key={negotiating.id} title={negotiating.name}><p>{negotiating.position} · {negotiating.overall} OVR · Age {negotiating.age}</p>{negotiationFor(freeAgents.find(p=>p.id===negotiating.id)!)}</FocusedOfferPanel> : <section className="decision-context"><h2>Build your roster</h2><p>{inWindow ? "Bids settle as this free-agency window advances. Review the leading offer before committing." : "Negotiate salary, years and guarantees. Standing-market signings are immediate; cap and roster limits still apply."}</p></section>}
+        {negotiating&&code&&freeAgents.some(p=>p.id===negotiating.id) ? <FocusedOfferPanel key={negotiating.id} title={negotiating.name}><p>{negotiating.position} · {negotiating.overall} OVR · Age {negotiating.age}</p>{negotiationFor(freeAgents.find(p=>p.id===negotiating.id)!)}</FocusedOfferPanel> : <section className="decision-context"><h2>Build your roster</h2><p>{inWindow ? "Bids settle as this free-agency window advances. Review the leading offer before committing." : "Negotiate salary, years and guarantees. Offers are made in the scheduled free-agency rounds; cap and roster limits still apply."}</p></section>}
         <DecisionComparison rows={publicRows} ids={compared} onClear={()=>setCompared([])}/>
         {code&&s.teams[code]&&<RosterFinance total={s.teams[code]!.cap.total} used={s.teams[code]!.cap.used} room={capSpace} dead={s.teams[code]!.cap.dead}/>}
       </aside></div>

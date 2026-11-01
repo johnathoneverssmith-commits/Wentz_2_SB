@@ -65,6 +65,7 @@ import { ensureHotSeat, placeUnemployed, takeNewJob } from "./hotSeat.ts";
 import { cleanPlan, type GamePlan } from "./gamePlan.ts";
 import { ensureDraftPicks, forgetSpentPicks } from "./draftPicks.ts";
 import { formHumansOnlyLeague, humansOnlySchedule, isHumansOnly } from "./leagueFormat.ts";
+import { FREE_AGENCY_WINDOW_MESSAGE } from "./transactionWindows.ts";
 import { CURRENT_SAVE_VERSION, migrateLeagueSave, upgradeLeagueState } from "./saveMigration.ts";
 import {
   applyCoachingPick,
@@ -72,6 +73,9 @@ import {
   checkCoachingPick,
   coachingDraftComplete,
   runAiCoachingPicks,
+  checkDelegation,
+  delegateRemainingPicks,
+  isDelegated,
 } from "./coachingDraft.ts";
 import {
   applyOffer,
@@ -121,7 +125,6 @@ import {
   applyPick,
   applyTrade,
   checkBid,
-  checkStandingSign,
   checkCoachHire,
   checkRookieOutcome,
   applyRookieOutcome,
@@ -136,7 +139,6 @@ import {
   finishDraftBoard,
   humanGate,
   toggleDraftTargetFor,
-  offerToContract,
   openStandingMarketFromUndrafted,
   planAutopicks,
   runAiPicks,
@@ -169,6 +171,15 @@ export interface StoreActions {
 
   /** in-season: sim this week / round and stage the Game Day screen. */
   simulateGameDay: () => Promise<{ route: string }>;
+  /**
+   * Single-player shortcut: play the remaining weeks of the current in-season
+   * stage by calling `simulateGameDay` then `finishGameDay` — the very same
+   * operations "Ready for Game Day" and Game Day's Continue run, one week at a
+   * time — and stop the moment the stage changes (the trade-deadline
+   * checkpoint, the League Developments reveal, the playoffs). No second
+   * simulation model: it only repeats the normal one.
+   */
+  fastForwardSeason: () => Promise<FastForwardResult>;
   /** Game Day "continue": step the week or advance the stage. */
   finishGameDay: () => Promise<{ route: string }>;
 
@@ -215,6 +226,7 @@ export interface StoreActions {
   }) => { ok: boolean; reason?: string };
   /** Take a coach in the coaching fantasy draft. */
   draftCoach: (coachId: string) => { ok: boolean; reason?: string };
+  delegateCoaching: () => { ok: boolean; reason?: string };
   /** Hire an out-of-work coach into his role, replacing whoever holds it. */
   hireCoach: (coachId: string) => { ok: boolean; reason?: string };
   signRookie: (prospectId: string, teamCode: string) => void;
@@ -250,6 +262,42 @@ export interface StoreActions {
   respondToOffer: (tradeId: string, accept: boolean) => { ok: boolean; reason?: string };
   castTradeVote: (tradeId: string, gmId: string, vote: "for" | "against") => void;
   resolveTrade: (tradeId: string) => void;
+}
+
+export interface FastForwardResult {
+  ok: boolean;
+  reason?: string;
+  phase?: "PRE" | "REG";
+  /** first / last week actually played by this press */
+  from?: number;
+  to?: number;
+  weeksPlayed: number;
+  /** the stage the league stopped in, for "what's next" */
+  stoppedIn: LeagueState["stage"];
+  route: string;
+}
+
+/** one fast-forward at a time: a double click returns the run already going */
+let fastForwardInFlight: Promise<FastForwardResult> | null = null;
+/**
+ * One game day is played at a time, whoever asks: "Ready for Game Day", Game Day's Continue and the season shortcut all
+ * simulate or step the same week, so two of them overlapping (the second pressed while the first request is still pending)
+ * would play and record that week twice. The shortcut holds the lock for its whole run and hands it to the two operations it
+ * repeats by setting `shortcutGrant` immediately before calling them (they read it on entry, before their first await).
+ */
+let gameDayLock: Promise<unknown> | null = null;
+let shortcutGrant = false;
+function withGameDayLock<T>(busy: T, work: () => Promise<T>): Promise<T> {
+  const granted = shortcutGrant;
+  shortcutGrant = false;
+  if (granted) return work();
+  if (gameDayLock) return Promise.resolve(busy);
+  const run = work();
+  const tracked: Promise<unknown> = run.then(() => undefined, () => undefined).finally(() => {
+    if (gameDayLock === tracked) gameDayLock = null;
+  });
+  gameDayLock = tracked;
+  return run;
 }
 
 export type Store = LeagueState & StoreActions;
@@ -768,7 +816,7 @@ export const useStore = create<Store>()(
         return advanceInFlight;
       },
 
-      simulateGameDay: async () => {
+      simulateGameDay: () => withGameDayLock({ route: "/hub" }, async () => {
         const before = get();
         // the async pieces (real game sim / real playoff round over HTTP)
         // resolved ahead of the producer, same reasoning as tryAdvance —
@@ -825,9 +873,71 @@ export const useStore = create<Store>()(
           recomputeTeamRatings(s);
         });
         return { route: "/game-day" };
+      }),
+
+      fastForwardSeason: () => {
+        if (fastForwardInFlight) return fastForwardInFlight;
+        if (gameDayLock) {
+          const stage = get().stage;
+          return Promise.resolve({ ok: false, reason: "A game day is already being played. Wait for it to finish.", weeksPlayed: 0, stoppedIn: stage, route: STAGE_HOME[stage] });
+        }
+        const run = async (): Promise<FastForwardResult> => {
+          const startStage = get().stage;
+          if (startStage !== "preseason" && startStage !== "regularSeason") {
+            return {
+              ok: false,
+              reason: "There is nothing to fast-forward here.",
+              weeksPlayed: 0,
+              stoppedIn: startStage,
+              route: STAGE_HOME[startStage],
+            };
+          }
+          const phase = startStage === "preseason" ? "PRE" : "REG";
+          let from: number | undefined;
+          let to: number | undefined;
+          let weeksPlayed = 0;
+          let failure: string | undefined;
+          try {
+            // 40 is far past the longest block; it only bounds a bug
+            for (let i = 0; i < 40 && get().stage === startStage; i++) {
+              if (!get().pendingGameDay) {
+                const week = get().week;
+                shortcutGrant = true;
+                await get().simulateGameDay();
+                from ??= week;
+                to = week;
+                weeksPlayed++;
+              }
+              shortcutGrant = true;
+              await get().finishGameDay();
+            }
+          } catch (e) {
+            failure = e instanceof Error ? e.message : "The simulation stopped unexpectedly.";
+          }
+          const stoppedIn = get().stage;
+          return {
+            ok: !failure,
+            ...(failure ? { reason: failure } : {}),
+            phase,
+            ...(from !== undefined ? { from } : {}),
+            ...(to !== undefined ? { to } : {}),
+            weeksPlayed,
+            stoppedIn,
+            route: STAGE_HOME[stoppedIn],
+          };
+        };
+        const started = run();
+        const tracked: Promise<unknown> = started.then(() => undefined, () => undefined).finally(() => {
+          if (gameDayLock === tracked) gameDayLock = null;
+        });
+        gameDayLock = tracked;
+        fastForwardInFlight = started.finally(() => {
+          fastForwardInFlight = null;
+        });
+        return fastForwardInFlight;
       },
 
-      finishGameDay: async () => {
+      finishGameDay: () => withGameDayLock({ route: STAGE_HOME[get().stage] }, async () => {
         const before = get();
         const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
         const newBracket =
@@ -853,7 +963,7 @@ export const useStore = create<Store>()(
         // arriving at the deadline with every human skipping it leaves nothing to wait for
         set((s) => settleTurnEvents(s));
         return { route: STAGE_HOME[get().stage] };
-      },
+      }),
 
       // Whoever opens the board, the league plays its own teams up to the
       // first pick a person owes — the same rule online's onStageEntered
@@ -1105,6 +1215,27 @@ export const useStore = create<Store>()(
         return { ok: true };
       },
 
+      delegateCoaching: () => {
+        const st = get();
+        const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
+        if (!code) return { ok: false, reason: "You don't have a team." };
+        if (isDelegated(st, code)) return { ok: true };
+        const check = checkDelegation(st, code);
+        if (!check.ok) return check;
+        set((s) => {
+          delegateRemainingPicks(s, code);
+          runAiCoachingPicks(s, humanTeamsOf(s));
+          if (coachingDraftComplete(s)) {
+            const t = resolveTransition(s, {});
+            applyStageEntry(s, s.stage, t.stage);
+            s.stage = t.stage;
+            s.week = t.week;
+            clearReadiness(s);
+          }
+        });
+        return { ok: true };
+      },
+
       draftCoach: (coachId) => {
         const st = get();
         const code = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode;
@@ -1144,20 +1275,7 @@ export const useStore = create<Store>()(
         return { ok: true };
       },
 
-      signStandingFreeAgent: (playerId, offer) => {
-        const check = checkStandingSign(get(), playerId, offer);
-        if (!check.ok) return check;
-        set((s) => {
-          const pp = s.players[playerId];
-          if (!pp || !pp.free_agent) return;
-          pp.free_agent = false;
-          pp.nfl_team = offer.teamCode;
-          pp.contract = offerToContract(offer);
-          s.standingFreeAgents = s.standingFreeAgents.filter((x) => x !== playerId);
-          recomputeTeamRatings(s);
-        });
-        return { ok: true };
-      },
+      signStandingFreeAgent: () => ({ ok: false, reason: FREE_AGENCY_WINDOW_MESSAGE }),
 
       setDepthOrder: (teamCode, position, playerIds) =>
         set((s) => {

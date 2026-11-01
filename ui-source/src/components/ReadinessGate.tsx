@@ -14,7 +14,7 @@
  * for them. So the local transition is skipped entirely, and the new stage
  * arrives the same way any other change does: pushed.
  */
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { openSlots as countOpenSlots, rosterGate } from "@/state/rules";
@@ -35,6 +35,7 @@ export function ReadinessGate({
   action,
   disabled: disabledProp = false,
   disabledHint: hintProp,
+  secondary,
 }: {
   title?: string;
   onAdvance: (route: string) => void;
@@ -47,6 +48,8 @@ export function ReadinessGate({
     | Promise<{ route: string } | { moved: boolean; route: string }>;
   disabled?: boolean;
   disabledHint?: string;
+  /** a related control shown beside the main button (stacked below on a phone) */
+  secondary?: ReactNode;
 }) {
   const actions = useLeagueActions();
   const hintId = useId();
@@ -302,9 +305,10 @@ export function ReadinessGate({
             : " Your commissioner can start without them if they aren't coming."}
         </p>
       )}
+      <div className="readiness-actions" style={secondary ? { display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-start" } : undefined}>
       <button
         className="btn-primary"
-        style={{ width: "100%" }}
+        style={secondary ? { flex: "1 1 200px" } : { width: "100%" }}
         // Simulating a week is sixteen games over HTTP; without this the
         // player clicks, nothing visibly happens for a second or two, and
         // clicks again.
@@ -357,6 +361,8 @@ export function ReadinessGate({
                   : "You're ready — waiting on the league"
               : (label ?? STAGE_READY_LABEL[stage])}
       </button>
+      {secondary}
+      </div>
       {disabled && disabledHint && <p id={hintId} className="readiness-held">{disabledHint}</p>}
       {/* the button is a toggle, but once pressed it read as a status line —
           nobody guessed a second press takes the check-in back */}

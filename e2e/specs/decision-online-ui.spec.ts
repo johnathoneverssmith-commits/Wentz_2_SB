@@ -53,10 +53,10 @@ test.describe('UI-4 controlled multiplayer transport — UI guards, not server E
   test('online standing-market signing and ordinary trade submission stay closed during the played block',async({page,origin})=>{
    await page.goto('/');const state=await saved(page);const gm=state.gms.find((g:any)=>g.id===state.viewerGmId);
    const transport=await controlledLeague(page,origin,state,{teamCode:gm.teamCode,gmId:gm.id});await page.goto('/#/free-agency');await page.reload();
-   await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Negotiate',exact:true}).first()).toBeDisabled();
-   await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Trade Proposal',exact:true}).click();
+   await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Rounds only',exact:true}).first()).toBeDisabled();
+   await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Trade History',exact:true}).click();
    const mine=page.locator('.decision-trade-column[data-side="you"]');await mine.getByRole('combobox').selectOption('PICK');await mine.locator('[data-asset-id]').first().click();
-   await expect(page.getByRole('button',{name:'Propose trade',exact:true})).toBeDisabled();expect(transport.requests).toEqual([]);expect(transport.unexpected).toEqual([]);expect((await saved(page)).trades).toEqual(state.trades);
+   await expect(page.getByRole('button',{name:'Proposals closed',exact:true})).toBeDisabled();expect(transport.requests).toEqual([]);expect(transport.unexpected).toEqual([]);expect((await saved(page)).trades).toEqual(state.trades);
   });
  });
 });
