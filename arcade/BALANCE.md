@@ -510,11 +510,11 @@ All of the increase is **after the route ends**, where a receiver used to drift 
 | Timing-aware, idle defense | 5.06 | 5.58 |
 | Deep / short / balanced specialist | 4.05 / 4.14 / 3.04 | 5.29 / 4.73 / 4.35 |
 | Completion, whole pocket, go to WR1 / WR2 | 59 / 64% | 77 / 76% |
-| Game length, balanced vs attentive | 13.4 min | 13.7 min |
-| Points a game (both teams) | 144 | 201 |
+| Game length, balanced vs attentive (3 games, noisy) | 13.4 min | 13.7 min |
+| Points a game, balanced vs attentive (24 held-out games) | 129 | 159 |
 | Best-response optimism (own vs held-out) | 4.6 | 6.9 (46 chosen throws) |
 
-**Scoring rises by about a third and was not capped.** It comes from throws that used to be lost to a receiver drifting off the ball, not from easier coverage during the route.
+**Scoring rises, by 4% to 28% depending on the offense (see "Review: where the scoring comes from"), and was not capped.** (The 144 to 201 points a game first reported here came from the three-game pacing section of `balance:coverage`, which is too noisy to compare; the 24-game held-out figures are the ones to use.) It comes from throws that used to be lost to a receiver drifting off the ball, not from easier coverage during the route.
 The timing premium over a random deep thrower shrinks (timing-aware 5.58 against deep 5.29; master 5.06 against 4.05): a covered receiver who reaches the ball is caught about
 three times in four, because the catch is a race to the ball and the ball lands exactly on the receiver. What would make a covered receiver hard to throw to is not receiver
 movement but where the quarterback puts the ball, which is Phase C2.
@@ -536,8 +536,89 @@ inside the noise of six games). Window goldens and the `passing` snapshot regene
 ### Limitations for the next phases
 
 * Pass difficulty has to come from placement (C2) and pressure (C3); receiver movement can no longer supply it by accident. Covered throws are caught about 75% of the time.
-* Corner speed barely matters underneath (0.4 point on slants) and, on go routes, half of what it was.
-* **A residual inversion in the early windows.** Thrown by the moment, the fastest receivers still lose some completions to contact with the corner at the stem: go throws before tick 48
-  complete 84% at speed 50 and 66% at 99, and ticks 48 to 95 complete 74% and 65% (gap at arrival 0.61 and 0.77 yd at 99). They gain it back later in the route (ticks 96 to 143:
-  65% at speed 50, 85% at 99), and in yards. A rule that lets the moving receiver win contact removes it, but at the cost of every window (see "Tried and not kept").
+* Corner speed barely matters underneath (0.4 point on slants) and, on go routes, costs the offense 8 points instead of 10.
+* **The early-window dip is not new and not caused by contact** (see the review below): go throws before tick 48 complete 63% at speed 99 on master and 65% here (78% at speed 50 on both).
+  The fast receiver is thrown to 26 yd out on a flight of a second, and a defender is within about 1.3 yd of the landing point.
 * The easing radius (`EASE_YARDS`) is shared with every other mover; a different value would change the run-through distance.
+
+## Review of C1b-2b: where the scoring comes from, and what receiver movement can no longer supply
+
+Measured on head `861c9be` against master `fc20945` with identical conditions. Seeds are the first 24 (games) or 5 (drives) of `HELD_OUT_SEEDS`, which no earlier probe in this phase used.
+Nothing in this section changed the engine; the diagnostics ran in a scratch worktree that was discarded.
+
+### 1. Does the scoring rise against competent defenses? (24 regulation games a cell, both teams use the same offense and defense; points a game, both teams)
+
+| offense | defense | master | C1b-2b | change |
+| --- | --- | --- | --- | --- |
+| balanced | idle / chase / attentive / cover | 135 / 139 / 129 / 126 | 156 / 161 / 159 / 145 | +16% / +16% / +23% / +15% |
+| timing-aware | idle / chase / attentive / cover | 230 / 230 / 206 / 238 | 242 / 239 / 242 / 255 | +5% / +4% / +17% / +7% |
+| deep specialist | idle / chase / attentive / cover | 223 / 224 / 226 / 180 | 283 / 285 / 290 / 227 | +27% / +27% / +28% / +26% |
+| short specialist | idle / chase / attentive / cover | 160 / 160 / 161 / 157 | 173 / 173 / 168 / 179 | +8% / +8% / +4% / +14% |
+
+* The rise is **not** confined to weak defenses: `attentive` and `cover` (the strongest scripted responses) show the same or a larger rise than `idle`. What `cover` takes away is preserved
+  (deep specialist: -19% against idle on master, -20% here; balanced -7% and -7%).
+* It depends on the **offense**. It is largest for the offenses that throw at moments chosen without regard to coverage (deep +26-28%, balanced +15-23%) and small for the one that waits for room
+  (timing-aware +4-7%, except +17% against `attentive`). It is the post-route throws, which used to be lost to a drifting receiver.
+
+### 2. The strongest offense against the strongest defenses (best response, 5 held-out seeds, 70 drives a cell, points per drive)
+
+| offense, defense | master | C1b-2b |
+| --- | --- | --- |
+| best response, attentive | 6.10 [5.55, 6.65] | 6.40 [5.94, 6.86] |
+| best response, cover | 6.00 [5.42, 6.58] | 6.30 [5.80, 6.80] |
+| timing-aware, attentive | 4.53 [3.80, 5.25] | 5.20 [4.53, 5.87] |
+| timing-aware, cover | 5.63 [5.00, 6.26] | 5.57 [4.94, 6.21] |
+| balanced, attentive | 2.23 [1.63, 2.83] | 3.20 [2.51, 3.89] |
+| balanced, cover | 2.31 [1.66, 2.96] | 3.03 [2.32, 3.74] |
+
+The intervals for the competent offenses overlap: against the strongest defensive response a searching offense gains nothing measurable (+0.3), the timing-aware one gains nothing against `cover`,
+and the weak balanced offense gains the most (+0.7 to +1.0). **The best response already scores a touchdown on 87% of drives in 2.2 plays on master** (91% here); that ceiling is a property of
+the engine before this change, not of it.
+
+### 3. What the high completion of covered passes is made of
+
+Completion by the nearest defender's distance at the throw (go and slants to both wideouts, every throw moment, 12 held-out seeds):
+
+| nearest defender at the throw | <2 yd | 2-4 | 4-6 | 6+ |
+| --- | --- | --- | --- | --- |
+| master: completion / receiver-to-ball gap | 47% / 1.84 yd | 52% / 1.40 | 75% / 0.37 | 84% / 0.17 |
+| C1b-2b | 82% / 0.19 | 78% / 0.25 | 79% / 0.28 | 82% / 0.18 |
+
+On master a covered receiver was off the ball (contact, drift) and an open one was on it; that, not the catch rule, is what made covering matter. Now every receiver reaches the ball, so
+the split is gone. Two diagnostics (scratch tree, not in the PR) test what could replace it:
+
+* **Ball-placement error** (random direction, mean size 0 / 1 / 2 / 3 yd, the receiver tracking the real landing point): completion 79 / 74 / 63 / 56%, receiver-to-ball gap 0.24 / 0.47 / 0.76 / 1.09 yd.
+  Master's level (60%, gap 1.13) is what a mean error of about 2.5 yd gives here, so **the missing placement error explains the level of completion**. It lowers every band alike (at 2 yd: 66 / 66 / 55 / 70%), so
+  it does **not** restore the difference between covered and open.
+* **A contested-catch penalty** (the receiver's secure chance falls by a fixed share when a defender also reached the ball; today `contested-catch` only relabels a catch): completion 79 / 59 / 44% at 0 / 30 / 50%.
+  Also uniform (61 vs 65% covered vs open at 30%), because after the throw every defender converges on the ball.
+
+Neither a uniform error nor a uniform contest penalty makes a covered receiver harder to throw to. A placement or contest model that depends on the coverage (the quarterback shading the ball away
+from a defender; a tight window costing more than an open one) was **not** tested here. Leverage is not the cause: with the old 1.2 yd leverage the split is just as flat (80 / 75 / 75 / 83%).
+
+### 4. The early-window receiver-speed inversion
+
+Go to WR1, throws before tick 48, 12 held-out seeds:
+
+| | master | C1b-2b |
+| --- | --- | --- |
+| speed 50 / 70 / 99: completion | 78 / 80 / 63% | 78 / 78 / 65% |
+| speed 50 / 70 / 99: yards per throw | 5.2 / 6.3 / 6.1 | 5.2 / 6.3 / 6.4 |
+| speed 50 vs 99: air yards, flight time | 24.4 vs 26.1 yd, 0.94 vs 1.01 s | the same |
+| speed 99: gap to the ball, defender-to-ball | 0.71 yd, 1.18 yd | 0.61 yd, 1.34 yd |
+
+It is unchanged by this PR, so it is not a regression. The fast receiver is thrown to a point 26 yd out and a defender is already about 1.3 yd from it, so he is contested (interceptions 12-15% against 7%).
+The earlier explanation here (contact with the corner at the stem) was wrong. It does not reach gameplay: yards per throw still rise with speed in this window, and over the whole pocket they rise from
+14.7 to 20.5 yd per throw (speed 50 to 99; master 12.3 / 10.8 / 11.2 at 50 / 70 / 99). It is a coverage effect and not a defect.
+
+### Blockers and follow-ups
+
+**Nothing here blocks merging PR #76 on its own.** What it fixes (a faster receiver being worse; a receiver left off the ball) is independent of C2, and C2 needs it: a placement error calibrated while
+receivers cannot reach the ball would conflate two errors.
+
+Follow-up, in this order:
+1. **C2: coverage-aware ball placement and contest.** Restores the difference between a covered and an open receiver and supplies the difficulty receiver movement used to supply by accident
+   (about 2.5 yd of mean error reproduces master's overall completion level). It needs a design that depends on the defender, as a uniform error or contest penalty does not do it.
+2. **The offense ceiling** (best response: touchdown on 87% of drives in 2.2 plays, both before and after this PR).
+3. **The scripted `cover` defender** is weaker than the AI it replaces.
+4. Re-measure `quick-slants-always-open` (borderline, reopened) after C2.
