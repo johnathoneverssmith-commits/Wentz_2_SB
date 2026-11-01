@@ -5,7 +5,7 @@
  * completes his route settles into open space or blocks; a lineman whose man is gone finds another; every defender pursues once
  * the ball is loose. Everything is a pure function of the snapshot, so the simulation stays deterministic.
  */
-import { FIELD, STEP_SECONDS, maxSpeed, unit, type ArcadePlayer, type Behavior, type Intent, type PlayerId, type TeamId, type Vector } from './simulation';
+import { BODY, EASE_YARDS, FIELD, distanceCovered, STEP_SECONDS, maxSpeed, unit, type ArcadePlayer, type Behavior, type Intent, type PlayerId, type TeamId, type Vector } from './simulation';
 import { codeOf, type Code } from './personnel';
 import { BACKPEDAL_SHARE, REACTION_SECONDS, anticipationSeconds, manRoom, reactionSeconds } from './coverage';
 import type { DownState, Play } from './down';
@@ -55,8 +55,8 @@ export const MAN_COMMIT_FROM = 8;
 export const MAN_COMMIT_TO = 18;
 /** Where a man defender plays a receiver who has gone deep, in yards downfield of him: negative is behind him. A corner who started ten yards off and is beaten by the stem turns and trails at the receiver's hip rather than staying in front, where he would be nearer every ball led to the receiver than the receiver is. */
 export const MAN_STACK = -2.5;
-/** Yards a man defender plays to the inside of his receiver (toward the middle of the field), so the two run side by side instead of one standing in the other's lane. */
-export const MAN_LEVERAGE = 1.2;
+/** Yards a man defender plays to the inside of his receiver (toward the middle of the field), so the two run side by side instead of one standing in the other's lane. It has to be wider than a body (the soft collision pushes any two closer than `BODY` apart): at 1.2 yd, against a body of 1.66, the two collided every tick they were level, and the faster receiver, who gets level sooner, was the one pushed off his route. */
+export const MAN_LEVERAGE = BODY * 1.1;
 /** How much of his cushion a man defender gives up when his man breaks off the vertical stem: at a full sideways break he closes this share of it (route recognition). */
 export const BREAK_CLOSE = 0.8;
 /** Ticks a defender needs to see which way the ball is going before he breaks on it, when he is facing the quarterback (level with his man or in front of him): a quarter of a second, about a person's reaction to a release... */
@@ -295,6 +295,18 @@ export function planTick(state: DownState): Plan {
             // a receiver whose quarterback has scrambled past the line, or whose teammate has the ball, becomes a blocker (one who has already settled too:
             // a settled receiver still has his route points; the trailing quarterback, who has none, stays as he is)
             if (mode === 'run' && idx >= pts.length && (p.behavior === 'route' || (p.behavior === 'settle' && pts.length > 0))) { const t = nearest(carrier, defense); setIntent(p, 'downfieldBlock', t ? { x: t.x - dir * 0.6, y: t.y } : carrier); continue; }
+            // The receiver the ball has been thrown to goes to where it is coming down. The throw was led along his route as an ideal runner would run it, but he turns
+            // corners on an arc, may be nudged by a defender, and has often finished his route; whatever he has become, he reads the ball and closes the difference at his own
+            // speed. So a faster receiver gets to more of the passes thrown to him instead of losing the ones his own pace has put out of step with the lead.
+            // He runs through the catch point instead of to it: aimed at the point itself he would ease off just short of it (core/simulation.ts), where the throw, led along
+            // his route at full speed, expects him to be at speed. Only a receiver who could not otherwise be there by the time the ball is: one who would arrive early aims at
+            // the point itself and settles on it (aimed through it he would cross it, the aim would flip behind him and he would turn back and forth).
+            if (flight && flight.target === p.id) {
+                const d = dist(p, flight.to), left = Math.max(0, flight.duration - flight.elapsed);
+                const early = d < 1e-6 || distanceCovered(p, left) > d + EASE_YARDS;
+                setIntent(p, 'route', early ? flight.to : { x: flight.to.x + (flight.to.x - p.x) / d * EASE_YARDS, y: flight.to.y + (flight.to.y - p.y) / d * EASE_YARDS }, 1);
+                continue;
+            }
             if (idx < pts.length) {
                 const goal = pts[idx]!;
                 const reached = dist(p, goal) < 1.2;

@@ -11,7 +11,7 @@ const towards = (from: Vector, to: Vector): Vector => { const d = Math.hypot(to.
 const withDefender = (s: DownState, id: PlayerId): DownState => ({ ...s, defender: id, players: s.players.map(p => ({ ...p, human: p.id === s.possession.carrier || p.id === id })) });
 
 /** Home throws to WR1 on slants with only Orange's #CB1 able to react; he starts three yards off the landing point. */
-function pass(defense: 'idle' | 'breakup' | 'hands' | 'earlyHands', seed?: number) {
+function pass(defense: 'idle' | 'breakup' | 'hands' | 'earlyHands' | 'standoff', seed?: number) {
     let s = withDefender(snap(choosePlay(createDown(seed), 'slants')), 'away-CB1');
     s = throwPass(s, 1);
     if (s.ball.kind !== 'flight') throw Error('flight');
@@ -21,8 +21,8 @@ function pass(defense: 'idle' | 'breakup' | 'hands' | 'earlyHands', seed?: numbe
         if (defense === 'hands' && tick === 40) s = contestPass(s, 'away');
         if (defense === 'earlyHands' && tick === 5) s = contestPass(s, 'away');
         const me = at(s, 'away-CB1'), gap = Math.hypot(me.x - to.x, me.y - to.y);
-        // breakup: step in until he is inside the break-up circle but outside the catch circle, then stand; hands: go right to the ball.
-        const target = defense === 'idle' ? -1 : defense === 'breakup' ? 1.95 : 1.0;
+        // breakup: step in until he is inside the break-up circle but outside the catch circle, then stand; hands: go right to the ball (to within a hand's reach of the landing point); standoff: stop a yard short of it.
+        const target = defense === 'idle' ? -1 : defense === 'breakup' ? 1.95 : defense === 'standoff' ? 1.0 : 0.3;
         const move = defense !== 'idle' && gap > target ? towards(me, to) : zero;
         s = stepDown(farAway(s, ['away-CB1']), { home: zero, away: move });
     }
@@ -37,9 +37,11 @@ function rush(home: Vector, away: Vector) {
     return s;
 }
 it('the same ordinary pass completes, breaks up or is intercepted based only on human defense', () => {
-    // whether a defender who reaches the ball takes it is chance (core/catch.ts), so each human decision is judged over 100 seeds
-    const share = (mode: Parameters<typeof pass>[0], accept: (s: DownState) => boolean) => seedShare(seed => pass(mode, seed), accept, 100);
-    const caught = (s: DownState) => s.possession.carrier === 'home-WR1' && s.phase === 'live', picked = (s: DownState) => s.result?.reason === 'interception';
+    // whether a defender who reaches the ball takes it is chance (core/catch.ts), so each human decision is judged over 600 seeds (a few percent is
+    // below what 100 seeds can tell from zero)
+    const share = (mode: Parameters<typeof pass>[0], accept: (s: DownState) => boolean) => seedShare(seed => pass(mode, seed), accept, 600);
+    // caught: the receiver has the ball, still running or tackled where he caught it (a defender standing at the spot tackles him on the catch)
+    const caught = (s: DownState) => s.possession.carrier === 'home-WR1', picked = (s: DownState) => s.result?.reason === 'interception';
     expect(share('idle', caught), 'nobody near: he catches it').toBeGreaterThan(0.85);
     expect(share('idle', picked)).toBe(0);
     expect(share('breakup', caught), 'a defender who only reaches the edge of the old break-up circle, with the receiver on the ball, hardly spoils it').toBeLessThanOrEqual(share('idle', caught));
@@ -47,6 +49,9 @@ it('the same ordinary pass completes, breaks up or is intercepted based only on 
     expect(share('hands', picked), 'going right to the ball and pressing Hands: the receiver is usually there first, so it is a chance and not a certainty').toBeGreaterThan(0.04);
     expect(share('hands', picked)).toBeGreaterThan(share('breakup', picked));
     expect(share('hands', caught)).toBeLessThan(share('breakup', caught));
+    // Being at the ball is what counts, not being near it: a receiver who arrives on the ball is nearer to it than a defender a yard away, and the nearer goes first
+    // (core/catch.ts). A defender who only stands off picks it off far less often than one who plays it.
+    expect(share('standoff', picked), 'a yard off the ball').toBeLessThan(share('hands', picked) / 2);
     const seed = seedWhere(s => pass('hands', s), picked);
     const done = pass('hands', seed);
     expect(done.result).toMatchObject({ reason: 'interception', yards: 0, turnover: true });
@@ -68,8 +73,8 @@ it('human pursuit stops the run that an idle defender would let score, and the s
     expect(head.liveTicks).toBeLessThan(chased.liveTicks);
 });
 it('an expired hands attempt cannot intercept, but a well-timed one can', () => {
-    expect(seedShare(seed => pass('earlyHands', seed), s => s.result?.reason === 'interception', 150), 'a press that has run out is no press').toBe(0);
-    expect(seedShare(seed => pass('hands', seed), s => s.result?.reason === 'interception', 150)).toBeGreaterThan(0.03);
+    expect(seedShare(seed => pass('earlyHands', seed), s => s.result?.reason === 'interception', 600), 'a press that has run out is no press').toBe(0);
+    expect(seedShare(seed => pass('hands', seed), s => s.result?.reason === 'interception', 600), 'a well-timed press can intercept').toBeGreaterThan(0.03);
 });
 it('AI covers the receiver, then breaks on the ball once it reacts, rather than continuing to chase the QB', () => {
     let s = farAway(snap(choosePlay(createDown(), 'go')), ['away-CB1']);

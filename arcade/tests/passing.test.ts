@@ -84,10 +84,11 @@ describe('pass timing against the AI defense', () => {
             const to = (s.ball as { to: Vector }).to, cb = at(s, 'away-CB1').id;
             for (let i = 0; i < 11 && s.defender !== cb; i++) s = switchDefender(s);
             s = place(farAway(s, [cb]), cb, to.x + 3, to.y);
+            // right to the ball (within a hand's reach of the spot), not a yard short of it: a receiver who now arrives on the ball is nearer to it than a defender a yard off (C1b-2b)
             for (let t = 0; s.phase === 'live' && s.ball.kind === 'flight' && t < 120; t++) {
                 if (t === press) s = contestPass(s, 'away');
                 const me = at(s, cb);
-                s = stepDown(farAway(s, [cb]), { home: { x: 0, y: 0 }, away: Math.hypot(me.x - to.x, me.y - to.y) > 1.0 ? toward(me, to) : { x: 0, y: 0 } });
+                s = stepDown(farAway(s, [cb]), { home: { x: 0, y: 0 }, away: Math.hypot(me.x - to.x, me.y - to.y) > 0.3 ? toward(me, to) : { x: 0, y: 0 } });
             }
             return s.result?.reason ?? 'caught';
         };

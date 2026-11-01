@@ -61,8 +61,10 @@ describe('cornerbacks', () => {
         expect(Math.abs(d.read!.y)).toBeLessThan(Math.abs(r.vy) + 1e-9);
     });
     it('a receiver with a speed edge gets separation that grows with it, and a much slower corner gives it up', () => {
-        const sep = (wr: number, cb: number) => throwOnce({ play: 'go', target: 1, throwTick: 200, abilities: { 'home-WR1': { speed: wr }, 'away-CB1': { speed: cb } } }).separationAtArrival;
-        expect(sep(60, 74)).toBeLessThan(sep(70, 74)); expect(sep(70, 74)).toBeLessThan(sep(80, 74)); expect(sep(80, 74)).toBeLessThan(sep(99, 74));
+        // Thrown as the route ends (tick 120), when the speed gap has opened. Later the receiver has settled and stays with the ball while the corner closes (he used to
+        // drift on after his route, away from the ball: separation from where the ball was not going). Against a corner of 74, speed buys nothing below it.
+        const sep = (wr: number, cb: number) => throwOnce({ play: 'go', target: 1, throwTick: 120, abilities: { 'home-WR1': { speed: wr }, 'away-CB1': { speed: cb } } }).separationAtArrival;
+        expect(sep(70, 74)).toBeLessThan(sep(80, 74)); expect(sep(80, 74)).toBeLessThan(sep(90, 74)); expect(sep(90, 74)).toBeLessThan(sep(99, 74));
         expect(sep(99, 40)).toBeGreaterThan(sep(99, 74));
     });
 });
