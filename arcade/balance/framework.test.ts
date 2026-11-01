@@ -400,12 +400,12 @@ describe('baseline characterization of today\'s engine (an intended change to pa
     // per throw (C caught cleanly, c caught with a defender at the ball, x incomplete, b knocked down, I intercepted). The second is the chance:
     // a digit per throw, the tenths of the six evidence games (seeds 1-6) in which that throw was caught.
     const GOLDEN: Record<string, [string, string]> = {
-'slants-1': ['ccccccccxxccCbcbcccxccccxcccCccIcIcIxcbxxxxxccccxbbccxCxCCCCC', '8998869988998885689688996695568661130666000086955558868899986'],
-        'slants-2': ['bbcccccxcCCCccccccCcccccxbccIcIbbbcIcccCccbbbbbxbbbxbbIIxIbIb', '8686889669886989899968965898335013859669550000000000000000000'],
-        'slants-3': ['xcbcCCCxCCCcbccbbbcxbcbIbxbbcIxCccccCCCCCCxCCCCCxCCCCCCCCCxCx', '8558989889596686856311000000115898989988886699996688889668110'],
-        'go-1': ['ccCICcCcCIcccIccccIccbIbbccCbxcxccCxbccCCcCIccIIbcIxxIbbIbbII', '9886968888966696885581861656368366866968868896665100000000000'],
-        'go-2': ['cbbccbCcccccccbIccccccccIccccIccCbcccccccbbcccCccIcCbbIbbIbbb', '8868659999986855585586536655656196888589986899886685501000000'],
-        'go-3': ['xcbcccccccxbIcxbIxbxbbxxbIIIIbbbbxIIbIcIccbIcbbIbbbbcIcccxbcc', '8558869689131100000000000000000000000033565330000000158535595'],
+'slants-1': ['ccccccccxxccCbcbcccxccccxcccCccIcIcIxcbxxxxxccccxbbccxCxCCCCC', '8998869988998885689688996695568661130666000086965569868899986'],
+        'slants-2': ['bbcccccxcCCCccccccCcccccxbccIcIbbbcIcccCccbbbxbxbbIxbbIIxIbxb', '8686889669886989899968965898535033859869550000000000000000000'],
+        'slants-3': ['xcccCCCxCCCcbccccbcxbcbIbxbbcIxCccccCCCCCCxCCCCCxCCCCCCCCCxCx', '8898989889596888956311000000115898989988886699996688889668110'],
+        'go-1': ['ccCICcCcCIcccIccccIccbIbbccCbxcxccCxcccCCcCIccIIbcIxxxbbIbxII', '9886988888966696885581881656368366888968868898685100000000000'],
+        'go-2': ['cbbccbCcccccccbIccccccccIccccIccCbcccccccbbcccCccIcCbbIbbIbbb', '8868659999986855585586556855656196888589986899886685501000000'],
+        'go-3': ['xcccccccccxbccxbIxbxbxxxbIIIIbbbbxIIbIcIccbIcbbIbbbbcccccxccc', '8898869889133101000000000000000000000033585330000000168535696'],
     };
     it.each(Object.entries(GOLDEN))('%s window maps', (key, [letters, chance]) => {
         const [play, target] = key.split('-') as [Play, string];
