@@ -62,7 +62,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         body: [
           "The grade and the rank on the draft summary are your projected strength: each unit's starters averaged and pulled toward the weakest, weighted by what the unit is worth on the field, exactly as Unit grades read it. A starting spot you have not filled counts as a replacement-level player, so a missing quarterback costs you what it would cost in a game. Depth behind the starters does not raise the grade; it shows in Full roster overall.",
           "That is a different question from draft value, which asks only whether a pick beat the player the board would normally offer at that slot. A team can take the best player available at every pick and still grade low, because it never filled a position that matters.",
-          "Strength is shown to a tenth and ranked on the exact figure, so two close teams are not tied.",
+          "Strength is shown as a whole-number OVR but ranked on the exact figure, so two teams that show the same OVR are still ranked apart.",
         ],
       },
       {
@@ -98,7 +98,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         heading: "How a contract is shaped",
         body: [
           "An offer of more than one year can be even, backloaded or frontloaded. All three pay the same total for the same yearly salary; they differ in when the cap is charged. A backloaded deal costs up to a quarter less than an even one in its first year and as much more in its last; a frontloaded deal the reverse. About 15% of a shaped deal is a signing bonus, paid up front and spread evenly over the years.",
-          "Cutting a player costs the bonus still unspent, or the usual 22% of his average yearly hit for each year left, whichever is more. Backloading therefore lowers this year's bill but does not make a player cheaper to cut, and a deal has to fit under the cap in every season it runs, not just the first. CPU teams backload for a young player when this year is tight and later years are clear, frontload for a veteran or when next year is already crowded, and otherwise keep it even.",
+          "Cutting a player costs the bonus still unspent, or the usual 22% of his average yearly hit for each year left, whichever is more. Backloading therefore lowers this year's bill but does not make a player cheaper to cut, and a deal has to fit under the cap in every season it runs, not just the first. CPU teams backload a young player's deal when this year is tight or the deal is a big one and later years are clear, frontload for a veteran (30 and up) or when next year is already crowded, and otherwise keep it even (a plain flat deal).",
           "Extensions carry the bonus left on the years they replace, and deals signed before structures existed keep their flat schedule.",
         ],
       },

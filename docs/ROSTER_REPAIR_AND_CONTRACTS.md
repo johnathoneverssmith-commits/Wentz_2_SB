@@ -28,7 +28,7 @@ attribute.
 
 - `unitReport.ts` gains `projectedStrengths(state)`: one unrounded reading (units, weak links, replacement-level
   vacancies, measured unit weights, OLB excluded as in the engine). `recomputeTeamRatings` now writes
-  `overall/offense/defense` from it (to a tenth) and **ranks on the unrounded value**. `sideRatings` (the hub) and
+  `overall/offense/defense` from it (rounded to whole OVR, as before, so every screen and the e2e specs that read OVR are unchanged; the unrounded values are kept in `ratings.exact`) and **ranks on the unrounded value**. `sideRatings` (the hub) and
   the draft summary now agree by construction (`draftAssessment.test.ts`).
 - Depth does not enter projected strength; it remains `rosterOverall`. An excellent starting group with no depth is
   graded on its starters.

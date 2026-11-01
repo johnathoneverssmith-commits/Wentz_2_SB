@@ -85,7 +85,9 @@ export function buildSchedule(o: {
 }): Schedule {
   const years = Math.max(1, Math.floor(o.years));
   const total = r1(o.salary * years);
-  const bonus = r1(Math.min(total, Math.max(0, o.bonus ?? total * STRUCTURE_BONUS_SHARE)));
+  // a bonus that splits into whole tenths per year, so an even deal's hits are exactly flat
+  const rawBonus = Math.min(total, Math.max(0, o.bonus ?? total * STRUCTURE_BONUS_SHARE));
+  const bonus = r1(Math.round((rawBonus / years) * 10) / 10 * years);
   const cashTotal = total - bonus;
   const floor = o.minSalary ?? 0;
   let tilt = o.structure === "even" || years < MIN_STRUCTURE_YEARS ? 0 : STRUCTURE_TILT;

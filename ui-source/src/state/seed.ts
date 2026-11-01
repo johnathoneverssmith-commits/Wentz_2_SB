@@ -1330,9 +1330,10 @@ export function recomputeTeamRatings(state: LeagueState): void {
   const rr = rank("roster");
   for (const code of codes) {
     state.teams[code]!.ratings = {
-      overall: Math.round(raw[code]!.o * 10) / 10,
-      offense: Math.round(raw[code]!.off * 10) / 10,
-      defense: Math.round(raw[code]!.def * 10) / 10,
+      overall: Math.round(raw[code]!.o),
+      offense: Math.round(raw[code]!.off),
+      defense: Math.round(raw[code]!.def),
+      exact: { overall: Math.round(raw[code]!.o * 10) / 10, offense: Math.round(raw[code]!.off * 10) / 10, defense: Math.round(raw[code]!.def * 10) / 10 },
       specialTeams: raw[code]!.st,
       overallRank: ro.get(code)!,
       offenseRank: roff.get(code)!,

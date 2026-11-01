@@ -435,7 +435,21 @@ export function expectContractContinuity(before: League, after: League, window: 
     const recorded = after.signings.find(x => x.playerId === id && x.teamCode === p.team && !before.signings.some(old => JSON.stringify(old) === JSON.stringify(x)));
     if (was.fa || recorded) {
       const signing = recorded;
-      if (signing) {
+      if (signing && p.contract?.structure) {
+        // a deal the club shaped (backloaded/frontloaded): same total as the offer's salary x years, a split that adds up to the
+        // hits every year, the right direction of travel, and the bonus is the whole of what is guaranteed
+        const c = p.contract, n = signing.years, sal = c.salary_by_year!, bon = c.guaranteed_by_year!, hits = c.cap_hit_by_year;
+        expect(c.team_id, id + ": shaped signing team").toBe(p.team);
+        expect(c.years_remaining, id + ": shaped signing years").toBe(n);
+        expect([hits.length, sal.length, bon.length], id + ": shaped schedule lengths").toEqual([n, n, n]);
+        expect(Math.abs(hits.reduce((a, b) => a + b, 0) - signing.salary * n), id + ": shaped deal pays the offered total").toBeLessThan(0.11);
+        expect(c.total_value, id + ": shaped total").toBeCloseTo(hits.reduce((a, b) => a + b, 0), 1);
+        hits.forEach((h, i) => expect(Math.abs(sal[i]! + bon[i]! - h), id + ": split adds up in year " + (i + 1)).toBeLessThan(0.06));
+        expect(c.signing_bonus, id + ": bonus is what the split says").toBeCloseTo(bon.reduce((a, b) => a + b, 0), 1);
+        expect(c.guaranteed, id + ": guaranteed is the bonus").toBeCloseTo(c.signing_bonus, 1);
+        const dir = c.structure === "backloaded" ? 1 : -1;
+        for (let i = 1; i < n; i++) expect((hits[i]! - hits[i - 1]!) * dir, id + ": shape direction").toBeGreaterThanOrEqual(-0.06);
+      } else if (signing) {
         expect(p.contract, id + ": free-agency signing terms").toEqual({
           team_id: p.team, years_remaining: signing.years, total_value: roundMoney(signing.salary * signing.years),
           guaranteed: 0, cap_hit_by_year: Array(signing.years).fill(signing.salary), signing_bonus: 0,

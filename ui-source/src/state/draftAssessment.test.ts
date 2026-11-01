@@ -119,9 +119,10 @@ describe("after a real fantasy draft", () => {
       for (let i = 1; i < byRank.length; i++) {
         expect(proj[byRank[i - 1]!]!.overall).toBeGreaterThanOrEqual(proj[byRank[i]!]!.overall - 1e-9);
       }
-      // the displayed value carries a decimal, so 32 teams are not squeezed into 3-4 integers
-      const shown = new Set(codes.map((c) => s.teams[c]!.ratings.overall));
-      expect(shown.size).toBeGreaterThan(8);
+      // the exact value is kept beside the rounded OVR, so 32 teams are not squeezed into 3-4 integers
+      const exact = new Set(codes.map((c) => s.teams[c]!.ratings.exact!.overall));
+      expect(exact.size).toBeGreaterThan(8);
+      for (const c of codes) expect(s.teams[c]!.ratings.overall).toBe(Math.round(proj[c]!.overall));
     }, 120_000);
   }
 });

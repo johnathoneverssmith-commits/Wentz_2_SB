@@ -86,13 +86,16 @@ export function cpuExtension(
  *    season of the deal, what the club already owes plus the shaped hit stays
  *    inside 97% of the cap. A club cannot choose a structure that only fits
  *    because the bill is pushed to a year it cannot pay.
- *  - **Backloaded** when the club is tight now and clear later, for a player
- *    young enough that the late years are still good ones (29 or under).
- *  - **Frontloaded** for a veteran (31+), whose late years are the risk, or
+ *  - **Backloaded** when the club is tight now, or the deal is a big one (5% of the cap or
+ *    more), and later years are clear, for a player young enough that the late years are
+ *    still good ones (29 or under).
+ *  - **Frontloaded** for a veteran (30+), whose late years are the risk, or
  *    when next season is already crowded and this one has room to spare.
  *  - Otherwise **even**.
  *
- * Returns undefined for a one-year deal (nothing to shape).
+ * Returns undefined for a one-year deal (nothing to shape) and when the right shape is
+ * an even one: an even deal is the flat contract the game has always written (no bonus,
+ * no split), so only a deal that is actually shaped carries a schedule.
  */
 export function chooseStructure(
   s: LeagueState,
@@ -105,7 +108,7 @@ export function chooseStructure(
 ): ContractStructure | undefined {
   if (years < MIN_STRUCTURE_YEARS) return undefined;
   const team = s.teams[teamCode];
-  if (!team) return "even";
+  if (!team) return undefined;
   const cap = team.cap.total;
   const owed = commitmentsOf(Object.values(s.players).filter((x) => x.nfl_team === teamCode)).get(teamCode) ?? [];
   const minSalary = minSalaryM(s);
@@ -125,8 +128,10 @@ export function chooseStructure(
   const clearLater = laterOwed + salary * 1.3 < cap * 0.85;
   const crowdedLater = (owed[1] ?? 0) > cap * 0.88;
   let want: ContractStructure = "even";
-  if (p.age >= 31) want = "frontloaded";
+  // a big deal is a real share of the cap: stars' deals are the ones clubs shape
+  const bigDeal = salary >= cap * 0.05;
+  if (p.age >= 30) want = "frontloaded";
   else if (crowdedLater && room >= firstHit * 2) want = "frontloaded";
-  else if (tightNow && clearLater && p.age <= 29) want = "backloaded";
-  return fits(want) ? want : "even";
+  else if ((tightNow || bigDeal) && clearLater && p.age <= 29) want = "backloaded";
+  return want !== "even" && fits(want) ? want : undefined;
 }

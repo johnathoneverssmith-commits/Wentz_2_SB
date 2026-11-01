@@ -62,6 +62,12 @@ export interface TeamState {
     specialTeamsRank: number;
     rosterOverall: number;
     rosterOverallRank: number;
+    /**
+     * The unrounded projected strength the integer fields above are rounded
+     * from (`projectedStrengths`). Ranks are decided on these, so two teams
+     * that round to the same OVR still rank apart. Absent on an older save.
+     */
+    exact?: { overall: number; offense: number; defense: number };
   };
   /** $M, matching Contract/Coach contract fields (contractValueFor's "$M/year"
    *  convention) — not CLAUDE.md's general "whole dollars" rule, which this

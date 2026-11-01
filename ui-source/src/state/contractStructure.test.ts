@@ -198,6 +198,8 @@ describe("free agency", () => {
   it("CPU free agency produces structured deals that fit the cap in every year, deterministically", () => {
     const run = () => {
       const s = market();
+      // young stars (backloaded) and veterans (frontloaded), so the run has shaped deals to check
+      for (const p of Object.values(s.players)) if (p.free_agent && !p.retired && p.overall >= 60) p.age = p.overall >= 72 ? 26 : 33;
       beginFreeAgencyEvent(s);
       runCpuTurns(s, new Set());
       return s;
@@ -205,9 +207,9 @@ describe("free agency", () => {
     const a = run();
     const b = run();
     const deals = Object.values(a.players).filter((p) => p.contract?.structure && !p.free_agent);
-    expect(deals.length).toBeGreaterThan(10);
+    expect(deals.length).toBeGreaterThan(3);
+    expect(deals.every((p) => p.contract!.structure !== 'even')).toBe(true); // flat deals carry no schedule
     const kinds = new Set(deals.map((p) => p.contract!.structure));
-    expect(kinds.has("even")).toBe(true);
     for (const p of deals) {
       expect(scheduleOf(p.contract), p.name).not.toBeNull();
       expect(p.contract!.years_remaining).toBe(p.contract!.cap_hit_by_year.length);
@@ -245,7 +247,7 @@ describe("free agency", () => {
     expect(chooseStructure(s, team, vet, 6, 3)).toBe("frontloaded");
     // the same deal on a club with no room anywhere falls back to the flat shape
     s.teams[team]!.cap.total = 1;
-    expect(chooseStructure(s, team, vet, 6, 3)).toBe("even");
+    expect(chooseStructure(s, team, vet, 6, 3)).toBeUndefined(); // flat
     expect(chooseStructure(s, team, vet, 6, 1)).toBeUndefined();
   });
 });
