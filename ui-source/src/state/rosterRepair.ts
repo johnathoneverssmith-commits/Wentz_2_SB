@@ -100,6 +100,22 @@ export function rosterMinimumViolations(s: LeagueState, teamCode: string): Repai
   return out;
 }
 
+/**
+ * Players this franchise itself let go this season, whom the staff never sign back: a GM's release (recorded by the
+ * league server in `recentReleases`), a cut an earlier repair made, and a player whose contract this club let run out.
+ * Re-signing any of them at the emergency price would turn giving a player up into buying him back below his ask.
+ */
+export function ownDepartures(s: LeagueState, teamCode: string): Set<string> {
+  const out = new Set<string>();
+  const recent = (s as unknown as { recentReleases?: { season: number; byTeam: Record<string, string[]> } }).recentReleases;
+  if (recent && recent.season === s.season) for (const id of recent.byTeam[teamCode] ?? []) out.add(id);
+  for (const r of s.rosterRepairs ?? []) if (r.team === teamCode && r.season === s.season) for (const x of r.released) out.add(x.playerId);
+  for (const p of Object.values(s.players)) {
+    if (p.free_agent && p.expired_from === teamCode && p.expired_season === s.season) out.add(p.id);
+  }
+  return out;
+}
+
 /** Why repair must not run right now, or null. A scheduled market always goes first. */
 export function repairBlockedBy(s: LeagueState): string | null {
   if (MARKET_STAGES.includes(s.stage)) return "A free-agency window is the scheduled way to add players.";
@@ -174,6 +190,7 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
   // offers only matter while their event runs, and repair never runs then (`repairBlockedBy`); a finished
   // event's unmatched offers are stale and must not disqualify anyone
   const live = new Set<string>(s.freeAgencyEvent && !s.freeAgencyEvent.complete ? Object.keys(s.freeAgencyEvent.offers) : []);
+  const barred = ownDepartures(s, teamCode);
   const signed: RepairSigning[] = [];
   const released: RepairRecord["released"] = [];
   const unresolved: RepairShortfall[] = [];
@@ -193,6 +210,7 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
             p.nfl_team === "FA" &&
             p.position === hole.position &&
             !live.has(p.id) &&
+            !barred.has(p.id) &&
             p.injury_status?.status !== "out" &&
             // a full roster must cut first, and the cut can free room: leave that to the post-cut check
             (mustCut || emergencyPrice(s, p) <= room + 1e-9),

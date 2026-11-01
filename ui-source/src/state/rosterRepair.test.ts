@@ -270,6 +270,31 @@ describe("repairRoster", () => {
     expect(rec.unresolved).toEqual([]);
   });
 
+  it("never signs back a player this franchise released, let expire, or cut in an earlier repair (PR #77 interplay)", () => {
+    const s = season();
+    strip(s, "KC", "K");
+    const ks = Object.values(s.players).filter((p) => p.free_agent && !p.retired && p.nfl_team === "FA" && p.position === "K").sort((a, b) => b.overall - a.overall);
+    expect(ks.length).toBeGreaterThan(3);
+    // the best three kickers: one KC released (recorded by the league server), one KC let expire, one an earlier repair cut
+    (s as unknown as { recentReleases: unknown }).recentReleases = { season: s.season, byTeam: { KC: [ks[0]!.id] } };
+    ks[1]!.expired_from = "KC";
+    ks[1]!.expired_season = s.season;
+    s.rosterRepairs = [{ id: "x", season: s.season, stage: "regularSeason", team: "KC", human: true, signed: [], released: [{ playerId: ks[2]!.id, name: "x", position: "K", overall: 1 }], unresolved: [] }];
+    const rec = repairRoster(s, "KC")!;
+    expect([ks[0]!.id, ks[1]!.id, ks[2]!.id]).not.toContain(rec.signed[0]!.playerId);
+    expect(rec.signed[0]!.playerId).toBe(ks[3]!.id);
+    // another club may still sign any of them
+    const s2 = season();
+    strip(s2, "GB", "K");
+    (s2 as unknown as { recentReleases: unknown }).recentReleases = { season: s2.season, byTeam: { KC: [ks[0]!.id] } };
+    expect(repairRoster(s2, "GB")!.signed[0]!.playerId).toBe(ks[0]!.id);
+    // and last season's release does not bar him
+    const s3 = season();
+    strip(s3, "KC", "K");
+    (s3 as unknown as { recentReleases: unknown }).recentReleases = { season: s3.season - 1, byTeam: { KC: [ks[0]!.id] } };
+    expect(repairRoster(s3, "KC")!.signed[0]!.playerId).toBe(ks[0]!.id);
+  });
+
   it("is deterministic: the same league repairs the same way", () => {
     const run = () => {
       const s = season();
@@ -289,7 +314,7 @@ describe("a person cannot choose or exploit it", () => {
     expect(runRepairCheckpoint.length).toBe(1);
     const mutating = Object.entries(repair).filter(([, v]) => typeof v === "function").map(([k]) => k).sort();
     expect(mutating).toEqual(
-      ["describeRepair", "emergencyPrice", "repairAllRosters", "repairBlockedBy", "repairCutCandidate", "repairRoster", "repairsFor", "rosterMinimumViolations", "runRepairCheckpoint"].sort(),
+      ["describeRepair", "emergencyPrice", "ownDepartures", "repairAllRosters", "repairBlockedBy", "repairCutCandidate", "repairRoster", "repairsFor", "rosterMinimumViolations", "runRepairCheckpoint"].sort(),
     );
   });
 
