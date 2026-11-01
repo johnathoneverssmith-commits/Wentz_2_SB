@@ -66,8 +66,14 @@ describe('coverage is positioning and contest, hands is taking the ball away', (
         expect(none.map(r => r.separationAtArrival)).toEqual(great.map(r => r.separationAtArrival));
     });
     it('a faster corner covers a deep route better, and a faster receiver makes the corner give him more room before the throw', () => {
-        const goes = (a: Record<string, Partial<Abilities>>) => run(a, { plays: ['go'], targets: [1] });
-        expect(rate(goes({ 'away-CB1': { speed: 55 } }), r => r.outcome === 'complete') - rate(goes({ 'away-CB1': { speed: 95 } }), r => r.outcome === 'complete')).toBeGreaterThan(0.05);
+        // 12 seeds: with the receiver reaching the ball the corner's speed buys about half of what it did when contact knocked the receiver off it (C1b-2b), so the
+        // effect is a few points and needs the sample (252 throws a cell)
+        const goes = (a: Record<string, Partial<Abilities>>) => run(a, { plays: ['go'], targets: [1], seeds: Array.from({ length: 12 }, (_, k) => k + 1) });
+        const slow = goes({ 'away-CB1': { speed: 55 } }), fast = goes({ 'away-CB1': { speed: 95 } });
+        expect(rate(slow, r => r.outcome === 'complete') - rate(fast, r => r.outcome === 'complete'), 'completion').toBeGreaterThan(0.03);
+        expect(rate(fast, r => r.outcome === 'interception') - rate(slow, r => r.outcome === 'interception'), 'interceptions').toBeGreaterThan(0.01);
+        const sep = (rs: ThrowRecord[]) => rs.reduce((a, r) => a + r.separationAtArrival, 0) / rs.length;
+        expect(sep(slow) - sep(fast), 'yards of separation at arrival').toBeGreaterThan(0.15);
         const room = (speed: number) => { let s = start('go'); s = { ...s, players: s.players.map(p => p.id === 'home-WR1' ? { ...p, abilities: { ...p.abilities, speed } } : p) }; for (let i = 0; i < 20; i++) s = stepDown(s, idle); return Math.hypot(at(s, 'away-CB1').x - at(s, 'home-WR1').x, at(s, 'away-CB1').y - at(s, 'home-WR1').y); };
         expect(room(95)).toBeGreaterThan(room(50));
     });

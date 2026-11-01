@@ -98,6 +98,8 @@ export function unit(v: Vector): Vector {
     const length = Math.hypot(v.x, v.y);
     return length < 1e-9 ? { x: 0, y: 0 } : { x: v.x / length, y: v.y / length };
 }
+/** Within this many yards of his destination a player eases off (speed scales with the distance left); a runner who is to arrive at speed has to be aimed past it. */
+export const EASE_YARDS = 0.8;
 /** What a player is trying to do this tick: head for `to` at `speed` times his top speed, or follow a human's direction. */
 export interface Intent {
     readonly to: Vector | null;
@@ -123,7 +125,7 @@ export function advance(players: readonly ArcadePlayer[], human: Inputs, intents
             else {
                 const dx = intent.to.x - p.x, dy = intent.to.y - p.y, d = Math.hypot(dx, dy);
                 // Ease into the destination instead of vibrating around it.
-                factor = intent.speed * Math.min(1, d / 0.8);
+                factor = intent.speed * Math.min(1, d / EASE_YARDS);
                 wish = d < 0.05 ? { x: 0, y: 0 } : { x: dx / d, y: dy / d };
             }
         }
