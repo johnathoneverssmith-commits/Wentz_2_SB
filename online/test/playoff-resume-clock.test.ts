@@ -6,7 +6,7 @@ import { emptyReveal } from "@/state/reveal.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 
 import { simulateBlock } from "../src/blocks.js";
-import { readyUpLocal } from "../src/phases.js";
+import { advanceIfReadyLocal, readyUpLocal } from "../src/phases.js";
 
 /**
  * The postseason is a round at a time, each round a checkpoint: a GM still
@@ -44,14 +44,15 @@ function playoffs(): { s: LeagueState; mine: string; other: string } {
  * through `readyUpLocal`. The stage stays `playoffs`, so "progress" has to include a round played, or the caller keeps the old
  * checkpoint's nearly expired clock for the next one.
  */
-it("readyUpLocal reports progress when it plays a playoff round (stage unchanged)", () => {
+it("advanceIfReadyLocal reports progress when it plays a playoff round (stage unchanged); readyUpLocal keeps its contract", () => {
   const { s } = playoffs();
   for (const g of s.gms.filter((x) => x.isHuman)) s.readiness[g.id] = true;
   const gamesBefore = s.games.length;
-  const progressed = readyUpLocal(s);
+  const progressed = advanceIfReadyLocal(s);
   expect(s.stage).toBe("playoffs");
   expect(s.games.length, "the round was played").toBeGreaterThan(gamesBefore);
-  expect(progressed, "and the caller is told, so the next checkpoint gets its own clock").toBe(true);
+  expect(progressed, "and the caller is told, so the next checkpoint gets its own clock").toEqual({ stageMoved: false, progressed: true });
+  expect(readyUpLocal(s), "readyUpLocal still means the stage moved").toBe(false);
 });
 
 it("readyUpLocal reports nothing when someone is still unready", () => {
@@ -60,6 +61,6 @@ it("readyUpLocal reports nothing when someone is still unready", () => {
   s.readiness[humans[0]!.id] = true;
   s.readiness[humans[1]!.id] = false;
   const gamesBefore = s.games.length;
-  expect(readyUpLocal(s)).toBe(false);
+  expect(advanceIfReadyLocal(s).progressed).toBe(false);
   expect(s.games.length, "no round was played").toBe(gamesBefore);
 });

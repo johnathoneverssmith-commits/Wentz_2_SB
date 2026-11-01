@@ -295,12 +295,20 @@ function advanceOrTurnDay(state: LeagueState): { moved: boolean; autopiloted: st
  * Returns whether the *stage* moved (a bidding day turning is not that).
  */
 export function readyUpLocal(state: LeagueState): boolean {
-  if (!humanGate(state) || !rosterGate(state)) return false;
+  return advanceIfReadyLocal(state).stageMoved;
+}
+
+/**
+ * `readyUpLocal`, saying more: whether the league *progressed* so the next checkpoint needs its own clock. That is a
+ * stage change, or a playoff round played (the stage stays `playoffs`; `readyUp` resets the deadline for the same
+ * outcome). `readyUpLocal` keeps answering "did the stage move" for the callers and tests that rely on that.
+ */
+export function advanceIfReadyLocal(state: LeagueState): { stageMoved: boolean; progressed: boolean } {
+  if (!humanGate(state) || !rosterGate(state)) return { stageMoved: false, progressed: false };
   const before = state.stage;
   const out = advanceOrTurnDay(state);
-  // "the league progressed, so the next checkpoint starts its own clock": a stage change, or a playoff round played
-  // (the stage stays `playoffs`; `readyUp` resets the deadline for the same outcome)
-  return state.stage !== before || out.playedRound === true;
+  const stageMoved = state.stage !== before;
+  return { stageMoved, progressed: stageMoved || out.playedRound === true };
 }
 
 /**

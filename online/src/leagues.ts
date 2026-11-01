@@ -18,7 +18,7 @@ import { syncAiGms } from "@/state/aiGms.ts";
 
 import { ActionError, guardClient, isConnectionError, pool, withLeague } from "./db.js";
 import { runPendingCpuTurns } from "./decide.js";
-import { deadlineFor, readyUpLocal, turnKey } from "./phases.js";
+import { advanceIfReadyLocal, deadlineFor, turnKey } from "./phases.js";
 
 /** Short, unambiguous, sayable down a phone. No O/0 or I/1. */
 function inviteCode(): string {
@@ -389,7 +389,7 @@ export async function vacateSeat(
     if (!state.pause) runPendingCpuTurns(state);
     // everyone else may have checked in already, waiting only on this GM:
     // nothing would ever press "ready" again to move the league on
-    const moved = state.pause ? false : readyUpLocal(state);
+    const moved = state.pause ? false : advanceIfReadyLocal(state).progressed;
     return {
       result: null,
       state,
@@ -634,7 +634,7 @@ export async function resumeLeague(leagueId: string, commissionerId: string): Pr
     const stageBefore = state.stage;
     const turnBefore = turnKey(state);
     runPendingCpuTurns(state);
-    const moved = readyUpLocal(state);
+    const moved = advanceIfReadyLocal(state).progressed;
     const sameTurn = !moved && state.stage === stageBefore && turnKey(state) === turnBefore;
     const phaseEndsAt =
       sameTurn && pause.remainingMs != null ? new Date(Date.now() + pause.remainingMs) : deadlineFor(state, league);
