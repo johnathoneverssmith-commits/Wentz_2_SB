@@ -111,7 +111,7 @@ export function ownDepartures(s: LeagueState, teamCode: string): Set<string> {
   if (recent && recent.season === s.season) for (const id of recent.byTeam[teamCode] ?? []) out.add(id);
   for (const r of s.rosterRepairs ?? []) if (r.team === teamCode && r.season === s.season) for (const x of r.released) out.add(x.playerId);
   for (const p of Object.values(s.players)) {
-    if (p.free_agent && p.expired_from === teamCode && p.expired_season === s.season) out.add(p.id);
+    if (p.free_agent && p.expired_from === teamCode && p.expired_season !== undefined && p.expired_season >= s.season - 1) out.add(p.id);
   }
   return out;
 }

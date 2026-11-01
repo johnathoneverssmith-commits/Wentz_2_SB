@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LeagueState, Player } from "@/domain";
 import { ROSTER_SIZE } from "@/sim/roster-template";
 import { beginFreeAgencyEvent } from "./freeAgencyEvent.ts";
-import { rosterOf } from "./reconciliation.ts";
+import { applyRelease, rosterOf } from "./reconciliation.ts";
 import * as repair from "./rosterRepair.ts";
 import { emergencyPrice, repairAllRosters, repairBlockedBy, repairRoster, repairsFor, rosterMinimumViolations, runRepairCheckpoint } from "./rosterRepair.ts";
 import { createLeague, DEFAULT_CONFIG, fillRosterGaps, recomputeTeamRatings } from "./seed.ts";
@@ -278,7 +278,7 @@ describe("repairRoster", () => {
     // the best three kickers: one KC released (recorded by the league server), one KC let expire, one an earlier repair cut
     (s as unknown as { recentReleases: unknown }).recentReleases = { season: s.season, byTeam: { KC: [ks[0]!.id] } };
     ks[1]!.expired_from = "KC";
-    ks[1]!.expired_season = s.season;
+    ks[1]!.expired_season = s.season - 1; // contracts expire at the end of the previous season, before the year turns
     s.rosterRepairs = [{ id: "x", season: s.season, stage: "regularSeason", team: "KC", human: true, signed: [], released: [{ playerId: ks[2]!.id, name: "x", position: "K", overall: 1 }], unresolved: [] }];
     const rec = repairRoster(s, "KC")!;
     expect([ks[0]!.id, ks[1]!.id, ks[2]!.id]).not.toContain(rec.signed[0]!.playerId);
@@ -293,6 +293,21 @@ describe("repairRoster", () => {
     strip(s3, "KC", "K");
     (s3 as unknown as { recentReleases: unknown }).recentReleases = { season: s3.season - 1, byTeam: { KC: [ks[0]!.id] } };
     expect(repairRoster(s3, "KC")!.signed[0]!.playerId).toBe(ks[0]!.id);
+  });
+
+  it("records every release on the real release paths, so the bar works without the league server (review finding)", () => {
+    const s = season();
+    const k = rosterOf(s, "KC").find((p) => p.position === "K")!;
+    applyRelease(s, "KC", k.id); // the path a GM's release, the store and the staff cuts all use
+    expect(repair.ownDepartures(s, "KC").has(k.id)).toBe(true);
+    expect(repair.ownDepartures(s, "GB").has(k.id)).toBe(false);
+    const rec = repairRoster(s, "KC")!;
+    expect(rec.signed[0]!.playerId).not.toBe(k.id);
+    // a player who expired two seasons ago is no longer barred
+    const old = Object.values(s.players).find((p) => p.free_agent && !p.retired && p.position === "P")!;
+    old.expired_from = "KC";
+    old.expired_season = s.season - 2;
+    expect(repair.ownDepartures(s, "KC").has(old.id)).toBe(false);
   });
 
   it("is deterministic: the same league repairs the same way", () => {
