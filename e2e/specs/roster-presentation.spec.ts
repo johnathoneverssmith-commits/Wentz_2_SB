@@ -146,8 +146,18 @@ test.describe("roster and finance presentation", () => {
 
   test("unit meters respect reduced motion and a guarded motion demo uses real controls", async ({ page, browser, origin, fixture }) => {
     await page.goto("/#/roster?tab=units");
-    await expect(page.getByRole("meter").first()).toBeVisible();
-    expect(await page.getByRole("meter").first().locator("span").evaluate(el => getComputedStyle(el).transitionDuration)).toBe("0s");
+    // unit grades are numeric scorecards now (no progress bars): numbers, a grade, a rank, and an expandable detail
+    const card = page.getByRole("list", { name: "Unit scorecards" }).getByRole("listitem").first();
+    await expect(card).toBeVisible();
+    await expect(card.getByLabel(/^Grade /)).toBeVisible();
+    await expect(page.getByRole("meter")).toHaveCount(0);
+    const toggle = card.getByRole("button", { name: "Starters & depth" });
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(card.getByRole("table")).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
     const out = process.env.UI3_ARTIFACTS;
     if (!out || process.env.UI3_VIDEO !== "1") return;
     const context = await browser.newContext({ baseURL: origin, viewport: { width: 1280, height: 900 }, reducedMotion: "no-preference", serviceWorkers: "block", recordVideo: { dir: out, size: { width: 1280, height: 900 } }, storageState: { cookies: [], origins: [{ origin, localStorage: [{ name: SAVE_KEY, value: fixture!.save }] }] } });

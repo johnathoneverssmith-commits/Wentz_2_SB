@@ -1,7 +1,7 @@
 import type { BracketState } from "./bracket.ts";
 import type { Coach } from "./coach.ts";
 import type { DraftProspect, DraftState, DraftPickAsset } from "./draft.ts";
-import type { GameResult, ScheduledGame } from "./game.ts";
+import type { ArchivedGame, GameResult, ScheduledGame } from "./game.ts";
 import type { HoodedFigureLeagueState } from "./hoodedFigure.ts";
 import type { Player } from "./player.ts";
 import type { PlayerStatLine, Position } from "./player.ts";
@@ -109,6 +109,13 @@ export interface LeagueConfig {
    * changes its players.
    */
   playerPool?: "fictional" | "legacy";
+  /**
+   * Fictional leagues only: lean the seeded League DNA toward one of the
+   * documented eras in `sim/leagueDna/eras.ts` ("2011", ...). An emphasis
+   * on position-group strength, not a reproduction of that season's players.
+   * Absent: an unconditioned seeded league. Fixed at creation.
+   */
+  leagueEra?: string;
 }
 
 export interface Gm {
@@ -282,6 +289,8 @@ export interface LeagueDnaRecord {
   version: number;
   dnaSeed: number;
   profile: LeagueProfile;
+  /** The era this league's DNA was conditioned on at creation, if the GM chose one. */
+  eraTarget?: string;
 }
 
 /** Broad tendency of a position group: never a number. */
@@ -335,6 +344,12 @@ export interface LeagueState {
 
   schedule: ScheduledGame[];
   games: GameResult[];
+  /**
+   * Finished seasons' games that a human GM's team played, kept so a past
+   * game can still be opened after `games` is cleared at the rollover. Newest
+   * last. Optional: older saves simply have none. See `state/gameHistory.ts`.
+   */
+  gameArchive?: ArchivedGame[] | undefined;
 
   draftClass: DraftProspect[];
   draft: DraftState | null;

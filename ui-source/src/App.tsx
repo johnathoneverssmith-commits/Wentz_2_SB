@@ -37,6 +37,7 @@ import { RookieDraftSummary } from "./screens/RookieDraftSummary.tsx";
 import { TradeDeadlineRoom } from "./screens/TradeDeadlineRoom.tsx";
 import { TradeSummary } from "./screens/TradeSummary.tsx";
 import { WatchGame } from "./screens/WatchGame.tsx";
+import { GameHistory } from "./screens/GameHistory.tsx";
 import { FullSchedule } from "./screens/FullSchedule.tsx";
 import { GameDay } from "./screens/GameDay.tsx";
 import { LeagueHistory } from "./screens/LeagueHistory.tsx";
@@ -49,6 +50,7 @@ import { PostseasonBracket } from "./screens/PostseasonBracket.tsx";
 import { RetirementReview } from "./screens/RetirementReview.tsx";
 import { RookieSignings } from "./screens/RookieSignings.tsx";
 import { RosterCapManagement } from "./screens/RosterCapManagement.tsx";
+import { VisualLab } from "@/screens/VisualLab";
 import { ScreenGallery } from "./screens/ScreenGallery.tsx";
 import { TradeProposal } from "./screens/TradeProposal.tsx";
 import { WeeklyTeamHub } from "./screens/WeeklyTeamHub.tsx";
@@ -471,6 +473,7 @@ export function App() {
           <Route path="/player-stats" element={<PlayerStatistics />} />
           <Route path="/box/:gameId" element={<FullBoxScore />} />
           <Route path="/watch/:gameId" element={<WatchGame />} />
+          <Route path="/games" element={<GameHistory />} />
           <Route path="/results/round/:round" element={<PlayoffRoundResults />} />
           <Route path="/results/:phase/:from/:to" element={<SeasonResults />} />
           <Route path="/results/:phase/:from/:to/:week" element={<SeasonResults />} />
@@ -486,6 +489,7 @@ export function App() {
           <Route path="/online" element={<OnlineLobby />} />
           {/* dev-only, like its link: a typed-in URL reached it in production */}
           {import.meta.env.DEV && <Route path="/gallery" element={<ScreenGallery />} />}
+          {import.meta.env.DEV && <Route path="/visual-lab" element={<VisualLab />} />}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </ScreenTransition>

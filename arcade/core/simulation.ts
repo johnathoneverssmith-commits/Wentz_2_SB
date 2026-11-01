@@ -56,7 +56,7 @@ export interface ArcadePlayer extends Vector {
     readonly free: number;
     /**
      * A defender's reading of the player he is watching: the velocity he believes that player has, which follows the real one a moment
-     * late (see `READ_SECONDS` in `behavior.ts`). Absent until he starts watching, and reset at every snap.
+     * late (see `reactionSeconds` in `coverage.ts`). Absent until he starts watching, and reset at every snap.
      */
     readonly read?: Vector | null;
 }

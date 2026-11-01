@@ -49,8 +49,9 @@ describe('cornerbacks', () => {
     it('close on a receiver who breaks off the stem, and not on one who keeps running deep (route recognition)', () => {
         const slants = run(start('slants'), 90), go = run(start('go'), 90);
         expect(gap(slants, 'away-CB1', 'home-WR1'), 'after the cut').toBeLessThan(5);
-        expect(gap(go, 'away-CB1', 'home-WR1'), 'receiver still running the stem').toBeGreaterThan(7);
-        expect(gap(go, 'away-CB1', 'home-WR1')).toBeGreaterThan(gap(slants, 'away-CB1', 'home-WR1') + 3);
+        expect(gap(go, 'away-CB1', 'home-WR1'), 'receiver still running the stem: the corner keeps his room').toBeGreaterThan(4);
+        // the cut closes the gap by about three yards with the room a corner keeps now (it was more with the old ten-yard cushion): the property is the difference, not its size
+        expect(gap(go, 'away-CB1', 'home-WR1')).toBeGreaterThan(gap(slants, 'away-CB1', 'home-WR1') + 2);
     });
     it('a defender who sees his man cut keeps running the old way for a moment: his reading follows the real velocity late', () => {
         const s = run(start('slants'), 50), d = at(s, 'away-CB1'), r = at(s, 'home-WR1');

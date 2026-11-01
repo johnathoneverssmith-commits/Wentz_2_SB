@@ -26,6 +26,8 @@ import { coachingOnTheClock } from "@/state/coachingDraft";
 import { onTheClock as deadlineOnTheClock, pendingFor } from "@/state/tradeDeadline";
 
 import { HowItWorksDock } from "./HowItWorksDock";
+import { RankChip } from "@/visual/RankChip";
+import { AtmosphereBackdrop } from "@/visual/AtmosphereBackdrop";
 import { UnitGradesDock } from "./UnitGradesDock";
 import "./app-shell.css";
 import { useTeamTheme } from "./useTeamTheme.ts";
@@ -54,6 +56,7 @@ const IN_SEASON_NAV: NavItem[] = [
   { to: "/trade", label: "Trade History" },
   { to: "/free-agency", label: "Free Agent Market" },
   { to: "/schedule", label: "Full Schedule", group: "League" },
+  { to: "/games", label: "Game History", group: "League" },
   { to: "/league-stats", label: "League Stats" },
   { to: "/player-stats", label: "Player Statistics" },
   { to: "/history", label: "League History" },
@@ -202,6 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {session && <span style={{ display: "block", opacity: 0.7 }}>{session.leagueName}</span>}
           </div>
         </div>
+        {teamCode && <div className="rail-rank"><RankChip team={teamCode} /></div>}
         <div className="stagechip">
           {screen.label} · {displaySeasonFor(season, stage)}
           {week ? ` · Wk ${week}` : ""}
@@ -293,6 +297,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </nav>
       <main className="app-main" id="franchise-main" tabIndex={-1}>
+        <AtmosphereBackdrop />
         {saveCorrupted && (
           <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
             <strong>Your saved dynasty couldn&rsquo;t be read.</strong> What you&rsquo;re looking at

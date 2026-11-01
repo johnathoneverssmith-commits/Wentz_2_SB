@@ -7,12 +7,13 @@ const pad = (v: string | number, n: number) => String(v).padEnd(n);
 const num = (v: number, d = 1) => v.toFixed(d);
 const pct = (a: number, b: number) => (b ? `${Math.round((100 * a) / b)}%` : '-');
 
-export function driveStats(off: OffensePolicy, def: DefensePolicy, reaction = 12) {
+/** `salt` selects an independent set of game seeds for the same 14 drives (default: the documented set), so a measurement can be repeated to average chance out. */
+export function driveStats(off: OffensePolicy, def: DefensePolicy, reaction = 12, salt = 0xd51e) {
     let st: Stats = emptyStats(); const ends: Record<string, number> = {}; let n = 0;
     for (const team of ['home', 'away'] as const)
         for (const l of STARTS) {
             // each drive is its own game, so each gets its own seed (catches are chance): the same drives always give the same totals
-            const r = drive(team, team === 'home' ? l : 120 - l, off, def, { reaction, thinkTicks: 0 }, mix(0xd51e, l, team === 'home' ? 0 : 1));
+            const r = drive(team, team === 'home' ? l : 120 - l, off, def, { reaction, thinkTicks: 0 }, mix(salt, l, team === 'home' ? 0 : 1));
             st = sum(st, r.stats); ends[r.end] = (ends[r.end] ?? 0) + 1; n++;
         }
     return { st, ends, n, pointsPerDrive: st.points / n, td: (ends['touchdown'] ?? 0) / n };

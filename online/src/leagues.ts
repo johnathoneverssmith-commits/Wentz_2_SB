@@ -52,7 +52,7 @@ export async function createOnlineLeague(
   // The rules pass the same check the commissioner's later changes do; they
   // used to be spread in as sent, any key and any value.
   const { gameDayDeadlineHours, offseasonStageDeadlineHours, ...rules } = (input.config ?? {}) as Partial<LeagueConfig>;
-  const clean = cleanConfigPatch({ stage: "setup", config: DEFAULT_CONFIG } as LeagueState, rules as Record<string, unknown>);
+  const clean = cleanConfigPatch({ stage: "setup", config: DEFAULT_CONFIG } as LeagueState, rules as Record<string, unknown>, { creating: true });
   if (!clean.ok) throw new ActionError(clean.reason);
   const deadline = (v: unknown): DeadlineChoice | undefined =>
     ([2, 6, 12, 24, 48] as const).find((c) => c === v);

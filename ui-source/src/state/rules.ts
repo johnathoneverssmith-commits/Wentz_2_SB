@@ -1,3 +1,4 @@
+import { ERAS } from "@/sim/leagueDna";
 /**
  * Every rule the league runs on, as pure functions over `LeagueState`.
  *
@@ -2401,6 +2402,8 @@ export function toggleDraftTargetFor(s: LeagueState, gmId: string, prospectId: s
 export function cleanConfigPatch(
   s: LeagueState,
   patch: Record<string, unknown>,
+  /** `creating`: a league being made, where the player universe may still be chosen. */
+  opts: { creating?: boolean } = {},
 ): { ok: true; patch: Partial<LeagueConfig> } | { ok: false; reason: string } {
   const out: Partial<LeagueConfig> = {};
   const oneOf = <T,>(v: unknown, allowed: readonly T[]): v is T => allowed.includes(v as T);
@@ -2417,6 +2420,15 @@ export function cleanConfigPatch(
       continue;
     }
     if (s.stage !== "setup") return { ok: false, reason: "Settings lock once the league starts." };
+    if (k === "playerPool" || k === "leagueEra") {
+      // the players are generated when the league is made; changing the universe afterwards would not regenerate them
+      if (!opts.creating) return { ok: false, reason: "The player universe is chosen when the league is created and can't be changed afterwards." };
+      if (k === "playerPool" && oneOf(v, ["legacy", "fictional"] as const)) out.playerPool = v;
+      else if (k === "leagueEra" && (v === undefined || v === null || (typeof v === "string" && ERAS.some((e) => e.id === v)))) {
+        if (typeof v === "string") out.leagueEra = v;
+      } else return { ok: false, reason: `"${k}" can't be set to that.` };
+      continue;
+    }
     if (k === "fantasyDraft" && typeof v === "boolean") out.fantasyDraft = v;
     else if (k === "draftOrder" && oneOf(v, ["randomized", "inOrder"] as const)) out.draftOrder = v;
     else if (k === "draftType" && oneOf(v, ["snake", "linear"] as const)) out.draftType = v;
@@ -2427,6 +2439,8 @@ export function cleanConfigPatch(
     else if (k === "leagueFormat" && oneOf(v, ["nfl", "humansOnly"] as const)) out.leagueFormat = v;
     else return { ok: false, reason: `"${k}" can't be set to that.` };
   }
+  // an era only shapes a fictional league
+  if (out.leagueEra && (out.playerPool ?? "fictional") === "legacy") return { ok: false, reason: "A historical era applies to fictional leagues only." };
   // a humans-only league always drafts: it has no NFL rosters to inherit
   if ((out.leagueFormat ?? s.config.leagueFormat) === "humansOnly") out.fantasyDraft = true;
   return { ok: true, patch: out };

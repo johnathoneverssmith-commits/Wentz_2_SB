@@ -55,22 +55,27 @@ export const BALANCED: Strategy = drawn('balanced', 'balanced offense', 'runs 30
  * about 2.2 + 0.4 s x 7.7 = 5.3 yd of room is what stops him arriving in time (BREAKUP_RADIUS and the corner's top speed, rounded).
  */
 export const OPEN_SEPARATION = 5.5;
-/** Whether the receiver is free: the nearest defender is at least OPEN_SEPARATION away (and `room` is how far). */
-export function receiverIsOpen(s: DownState, t: Target): { open: boolean; room: number } {
+/** Whether the receiver is free: the nearest defender is at least `threshold` away (and `room` is how far). */
+export function receiverIsOpen(s: DownState, t: Target, threshold = OPEN_SEPARATION): { open: boolean; room: number } {
     const rec = s.players.find(p => p.id === `${s.offense}-${targetCode(t)}`)!;
     const room = Math.min(...s.players.filter(p => p.team !== s.offense).map(p => Math.hypot(p.x - rec.x, p.y - rec.y)));
-    return { open: room >= OPEN_SEPARATION, room };
+    return { open: room >= threshold, room };
 }
-export const TIMING_AWARE: Strategy = {
-    id: 'timing', name: 'timing-aware offense', description: `waits until a receiver has ${OPEN_SEPARATION} yd of room (no defender closer), then throws to the most open one; gives up at 2.5 s`, deterministic: false,
+/**
+ * The timing-aware offense: it waits until a receiver has `threshold` yd of room (no defender closer), throws to the most open one, and gives up at 2.5 s.
+ * Nothing about the defense is a rule here, only a standard of "open", so the result is read at several standards: a single line (5.5 yd) is what the
+ * defense used to be tuned against, and an offense that asks for less room is the same offense against a tighter defense.
+ */
+export const timingAware = (threshold: number): Strategy => ({
+    id: threshold === OPEN_SEPARATION ? 'timing' : `timing-${threshold}`, name: `timing-aware offense (${threshold} yd)`, description: `waits until a receiver has ${threshold} yd of room (no defender closer), then throws to the most open one; gives up at 2.5 s`, deterministic: false,
     make(seed) {
         const r = streamFor(seed, 'timing');
         let chosen: Target = 1;
         return {
-            name: 'timing-aware offense', play: () => r.pick(PASS_PLAYS), throwAt: () => 150, fieldGoals: true, target: () => chosen,
+            name: `timing-aware offense (${threshold} yd)`, play: () => r.pick(PASS_PLAYS), throwAt: () => 150, fieldGoals: true, target: () => chosen,
             throwNow(s) {
                 if (s.liveTicks < 12) return false;
-                const view = TARGETS.map(t => ({ t, ...receiverIsOpen(s, t) }));
+                const view = TARGETS.map(t => ({ t, ...receiverIsOpen(s, t, threshold) }));
                 const open = view.filter(v => v.open).sort((x, y) => y.room - x.room)[0];
                 if (open) { chosen = open.t; return true; }
                 if (s.liveTicks >= 150) { chosen = view.sort((x, y) => y.room - x.room)[0]!.t; return true; }
@@ -78,18 +83,26 @@ export const TIMING_AWARE: Strategy = {
             },
         };
     },
-};
+});
+export const TIMING_AWARE: Strategy = timingAware(OPEN_SEPARATION);
 
 /** What the best response is trying to maximise: touchdowns, then yards (a catch that loses ground is worth less than an incompletion, which keeps the field position), and an interception is the worst. */
 export const throwValue = (r: ThrowRecord): number => r.touchdown ? 100 : r.outcome === 'complete' ? r.yards : r.outcome === 'interception' ? -60 : 0;
 
 /** How many independent chance outcomes the best response imagines for each throw it considers. */
-export const EVAL_SAMPLES = 16;
+export const EVAL_SAMPLES = 64;
 /**
  * The seeds the best response evaluates a throw under. They are fixed and have nothing to do with the seed of the game it is playing, so it
  * cannot learn how a particular catch will come out: it chooses the throw with the best expected result and then lives with the draw.
  */
 export const EVAL_SEEDS: readonly number[] = Array.from({ length: EVAL_SAMPLES }, (_, k) => mix(0xe7a1, k));
+/**
+ * Seeds the chosen throw is judged on *after* it has been chosen: a second, larger, disjoint set. The throw was picked as the best of about a hundred
+ * candidates, each estimated from a few draws, so its own estimate is optimistic (it is the maximum of noisy numbers); this set has played no part in the
+ * choice and so gives an unbiased value for the same throw, from the same position, without any access to the game's own seed.
+ */
+export const HELD_OUT_SAMPLES = 256;
+export const HELD_OUT_SEEDS: readonly number[] = Array.from({ length: HELD_OUT_SAMPLES }, (_, k) => mix(0xfeed, k));
 /** The seed a drive or game is played under, derived from its strategy stream seed (a different number, so the two never coincide). */
 export const gameSeedOf = (stream: number): number => mix(0x6a3e, stream);
 
@@ -115,13 +128,22 @@ export function bestCall(s: DownState, ctx: StrategyContext, coarse = 8, to = 16
     return best!;
 }
 /** What the best response predicted for each throw it chose (its belief), kept so a report can set it beside what happened. */
-export interface Prediction { readonly defense: DefensePolicy; readonly pComplete: number; readonly pIntercept: number; readonly value: number }
+export interface Prediction {
+    readonly defense: DefensePolicy; readonly pComplete: number; readonly pIntercept: number; readonly value: number;
+    /** The same throw judged on the held-out seeds, which took no part in choosing it: what it is really worth. */
+    readonly pCompleteHeldOut: number; readonly pInterceptHeldOut: number;
+}
 export const predictions: Prediction[] = [];
+/** Judge the chosen throw again on seeds that were not used to choose it. */
+function withHeldOut(s: DownState, ctx: StrategyContext, c: Scored): Prediction {
+    const rs = throwOutcomes({ play: c.play, target: c.target, throwTick: c.tick, from: s, defense: ctx.defense, opts: ctx.opts }, HELD_OUT_SEEDS);
+    return { defense: ctx.defense, pComplete: c.pComplete, pIntercept: c.pIntercept, value: c.value, pCompleteHeldOut: mean(rs.map(r => r.outcome === 'complete' ? 1 : 0)), pInterceptHeldOut: mean(rs.map(r => r.outcome === 'interception' ? 1 : 0)) };
+}
 export const BEST_RESPONSE: Strategy = {
     id: 'best', name: 'expectation best-response offense', description: 'searches every play, receiver and throw moment from the real situation, judges each over 16 imagined chance outcomes (not the game\'s own), and plays the best on average', deterministic: true,
     make(_seed, ctx) {
         let call: Call = { play: 'slants', target: 1, tick: 60 };
-        return { name: 'expectation best-response offense', play: s => { const c = bestCall(s, ctx); call = c; predictions.push({ defense: ctx.defense, pComplete: c.pComplete, pIntercept: c.pIntercept, value: c.value }); return call.play; }, throwAt: () => call.tick, fieldGoals: true, target: () => call.target };
+        return { name: 'expectation best-response offense', play: s => { const c = bestCall(s, ctx); call = c; predictions.push(withHeldOut(s, ctx, c)); return call.play; }, throwAt: () => call.tick, fieldGoals: true, target: () => call.target };
     },
 };
 /**

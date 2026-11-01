@@ -6,7 +6,7 @@
 .hub-dashboard .header { background: transparent; border: 0; padding: 20px 4px 26px; }
 .hub-dashboard .header .badge { background: transparent; box-shadow: none; border: 0; width: 64px; height: 64px; }
 .hub-dashboard .header h1 { font-size: clamp(25px, 2.5vw, 36px); }
-.hub-dashboard .header .right { padding: 8px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: #ffffff04; }
+.hub-dashboard .header .right { padding: 8px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: #07151de6; }
 .hub-dashboard .ticker { gap: 14px; border: 0; background: transparent; margin-bottom: 20px; }
 .hub-dashboard .stat { position: relative; border: 1px solid var(--line-strong); border-radius: 20px; text-align: left; padding: 20px 22px; background: linear-gradient(135deg, #1c2d38, #101d26); box-shadow: var(--depth-panel); overflow: hidden; }
 .hub-dashboard .stat::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent-blue); }

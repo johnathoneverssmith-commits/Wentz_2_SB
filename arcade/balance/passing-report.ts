@@ -13,7 +13,7 @@ import type { DefensePolicy } from './sim';
 import { EVIDENCE_SEEDS, KNOWN_IMBALANCES, gatherEvidence } from './imbalances';
 import { PROVISIONAL_BENCHMARKS, STARTS, cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type Cell, type DriveRecord } from './matrix';
 import { summarize } from './stats';
-import { BEST_RESPONSE, ORACLE_BEST_RESPONSE, STRATEGIES, predictions } from './strategies';
+import { BEST_RESPONSE, EVAL_SAMPLES, HELD_OUT_SAMPLES, ORACLE_BEST_RESPONSE, STRATEGIES, predictions, type Prediction } from './strategies';
 import { byDistance, byRoute, byTiming, windowMap, type Rates, type ThrowRecord } from './window';
 
 const arg = (name: string, fallback: number): number => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? fallback : Number(process.argv[i + 1]); };
@@ -48,7 +48,7 @@ export function printWindows(pocket: readonly ThrowRecord[]): void {
  * its held-out games are the matrix seeds, none of which is an evaluation seed. The oracle judges each throw under the game's own seed (it has seen the dice):
  * it is a diagnostic of the best any offense could do if chance could be foreseen, never a measure of what a player can do.
  */
-export function printBestResponse(best: readonly DriveRecord[], oracle: readonly DriveRecord[], predictions: readonly { defense: DefensePolicy; pComplete: number; pIntercept: number }[]): void {
+export function printBestResponse(best: readonly DriveRecord[], oracle: readonly DriveRecord[], predictions: readonly Prediction[]): void {
     console.log('\n=== 2b. Best response: expectation (practicable) against ORACLE (sees the dice; diagnostic only) ===');
     const row = (label: string, rs: readonly DriveRecord[]) => {
         const c = summarizeCell(rs.filter(r => r.defense === 'idle'));
@@ -59,7 +59,13 @@ export function printBestResponse(best: readonly DriveRecord[], oracle: readonly
     const meanOf = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
     // predictions and results are compared for the same defense only
     const realized = summarizeCell(best.filter(r => r.defense === 'idle')), predicted = predictions.filter(p => p.defense === 'idle');
-    console.log(`  the expectation best response predicted ${pct(meanOf(predicted.map(p => p.pComplete)))} completion and ${pct(meanOf(predicted.map(p => p.pIntercept)))} interception over ${predicted.length} chosen throws; on held-out games it realized ${pct(realized.completion.p)} and ${pct(realized.interception.p)}`);
+    const optimism = predicted.map(p => p.pComplete - p.pCompleteHeldOut), interceptOptimism = predicted.map(p => p.pIntercept - p.pInterceptHeldOut);
+    const se = (xs: number[]) => { const m = meanOf(xs); return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / Math.max(1, xs.length - 1) / Math.max(1, xs.length)); };
+    const pm = (xs: number[], d = 1) => `${(100 * meanOf(xs)).toFixed(d)}% +/- ${(196 * se(xs)).toFixed(d)}`;
+    console.log(`  calibration over ${predicted.length} chosen throws (the expectation best response judges each of ~120 candidates on ${EVAL_SAMPLES} seeds and plays the best):`);
+    console.log(`    completion   own estimate ${pct(meanOf(predicted.map(p => p.pComplete)), 1)}   same throws on ${HELD_OUT_SAMPLES} held-out seeds ${pct(meanOf(predicted.map(p => p.pCompleteHeldOut)), 1)}   optimism ${pm(optimism)} points (95%)   realized in game ${ci(realized.completion)}`);
+    console.log(`    interception own estimate ${pct(meanOf(predicted.map(p => p.pIntercept)), 1)}   held-out ${pct(meanOf(predicted.map(p => p.pInterceptHeldOut)), 1)}   optimism ${pm(interceptOptimism)} points   realized in game ${ci(realized.interception)}`);
+    console.log('    (held-out seeds are disjoint from the evaluation seeds and from every game seed; the bot never sees the seed of the game it plays. A positive optimism is the winner\'s curse of picking the best of many noisy estimates, not a rule change.)');
 }
 
 export function printMatrix(all: readonly Cell[], defenses: readonly DefensePolicy[]): void {
