@@ -54,6 +54,19 @@ describe("schedules", () => {
     expect(sum(s.cap_hit_by_year)).toBe(4.8);
   });
 
+  it("an offered signing bonus is on top of the salary total, as in the flat model (review finding)", () => {
+    const flat = offerToContract({ teamCode: "KC", baseSalary: 20, years: 4, signingBonus: 12, guaranteed: 12 });
+    const even = offerToContract({ teamCode: "KC", baseSalary: 20, years: 4, signingBonus: 12, guaranteed: 12, structure: "even" });
+    const back = offerToContract({ teamCode: "KC", baseSalary: 20, years: 4, signingBonus: 12, guaranteed: 12, structure: "backloaded" });
+    expect(sum(flat.cap_hit_by_year)).toBe(92);
+    expect(sum(even.cap_hit_by_year)).toBe(92);
+    expect(sum(back.cap_hit_by_year)).toBe(92);
+    expect(even.total_value).toBe(flat.total_value);
+    expect(back.signing_bonus).toBe(12);
+    // a plain structured offer (no bonus given) still pays salary x years, the bonus carved out of it
+    expect(sum(offerToContract({ teamCode: "KC", baseSalary: 20, years: 4, signingBonus: 0, guaranteed: 0, structure: "backloaded" }).cap_hit_by_year)).toBe(80);
+  });
+
   it("a one-year deal has nothing to shape", () => {
     expect(structureWeights(1, "backloaded")).toEqual([1]);
     expect(buildSchedule({ salary: 5, years: 1, structure: "backloaded" }).cap_hit_by_year).toEqual([5]);

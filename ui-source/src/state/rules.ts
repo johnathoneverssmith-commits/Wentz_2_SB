@@ -1006,7 +1006,16 @@ export function offerToContract(o: ContractOffer, minSalary = 0) {
   // a deal signed with a structure carries its year-by-year split (contractStructure.ts); one without
   // is the flat deal it has always been
   if (o.structure) {
-    const s = buildSchedule({ salary: o.baseSalary, years: o.years, structure: o.structure, bonus: o.signingBonus > 0 ? o.signingBonus : undefined, minSalary });
+    // an offered bonus is on top of the salary, as in the flat model (total = salary x years + bonus); the
+    // default bonus is carved out of the salary total instead, so a plain structured offer pays salary x years
+    const extra = o.signingBonus > 0 ? o.signingBonus : 0;
+    const s = buildSchedule({
+      salary: o.baseSalary + extra / Math.max(1, o.years),
+      years: o.years,
+      structure: o.structure,
+      bonus: extra > 0 ? extra : undefined,
+      minSalary,
+    });
     return {
       team_id: o.teamCode,
       years_remaining: o.years,

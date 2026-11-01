@@ -38,7 +38,9 @@ import { expectedSalary } from "./freeAgencyValues.ts";
 import { onInjuredReserve } from "./injuries";
 import { strategyOf } from "./aiGms.ts";
 import { strategyAgeBonus } from "./aiStrategy.ts";
-import { applyRelease, nextReconcileCut, positionalMinimums, rosterOf } from "./reconciliation.ts";
+import { applyRelease, positionalMinimums, rosterOf } from "./reconciliation.ts";
+import { releasePenalty } from "./releaseCost.ts";
+import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { rosterLimitFor, rosterCountOf, offerToContract } from "./rules.ts";
 import { capUsedOf, recomputeTeamRatings } from "./seed.ts";
 import { UNITS } from "./unitValue.ts";
@@ -117,6 +119,31 @@ export function emergencyPrice(s: LeagueState, p: Player): number {
   return Math.max(min, r1(expectedSalary(p, marketScale(s)) * EMERGENCY_ASK_SHARE));
 }
 
+/**
+ * Who the staff would release to make roster room: never someone the lineup needs.
+ *
+ * Counts only ACTIVE players (injured reserve fills no position and holds no roster spot), so cutting
+ * one cannot open a new hole. Prefers a position carrying more than its template count, then the lowest
+ * rated, then the cheapest to leave. Never at the position being filled.
+ */
+export function repairCutCandidate(s: LeagueState, teamCode: string, fillingPosition: string): Player | null {
+  const mins = positionalMinimums();
+  const active = rosterOf(s, teamCode).filter((p) => !onInjuredReserve(p, s.stage));
+  const countAt = (pos: string): number => active.filter((p) => p.position === pos).length;
+  const template = (pos: string): number => ROSTER_TEMPLATE.find((r) => r.pos === pos)?.count ?? 0;
+  const cuttable = active.filter(
+    (p) => p.position !== fillingPosition && !p.id.startsWith("emg_") && countAt(p.position) > (mins[p.position] ?? 0),
+  );
+  cuttable.sort(
+    (a, b) =>
+      countAt(b.position) - template(b.position) - (countAt(a.position) - template(a.position)) ||
+      a.overall - b.overall ||
+      releasePenalty(a) - releasePenalty(b) ||
+      (a.id < b.id ? -1 : 1),
+  );
+  return cuttable[0] ?? null;
+}
+
 /** Template positions by how much a hole there costs, so the biggest gets first call on the pool. */
 function importance(position: string): number {
   for (const u of Object.values(UNITS)) if (position in u.slots) return u.weight / Object.values(u.slots).reduce((a, b) => a + b, 0);
@@ -165,8 +192,8 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
 
       // roster limit: a full roster gives up its cheapest surplus man to make the room
       if (rosterCountOf(s, teamCode) >= rosterLimitFor(s.stage)) {
-        const victim = nextReconcileCut(s, teamCode, false, true);
-        if (!victim || victim.position === hole.position) break;
+        const victim = repairCutCandidate(s, teamCode, hole.position);
+        if (!victim) break;
         released.push({ playerId: victim.id, name: victim.name, position: victim.position, overall: victim.overall });
         applyRelease(s, teamCode, victim.id);
         continue; // re-read the room: the cut's dead money counts

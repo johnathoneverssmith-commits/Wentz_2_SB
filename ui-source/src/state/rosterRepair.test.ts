@@ -161,6 +161,25 @@ describe("repairRoster", () => {
     expect(repair.describeRepair(rec)).toMatch(/released/);
   });
 
+  it("never cuts a player the lineup needs to make room, even when injured-reserve teammates outrank him (review finding)", () => {
+    const s = season();
+    // KC's two guards: one on injured reserve, one active and the only active guard besides the starters needed
+    const guards = rosterOf(s, "KC").filter((p) => p.position === "OG").sort((a, b) => b.overall - a.overall);
+    expect(guards.length).toBeGreaterThanOrEqual(2);
+    // leave exactly the minimum of active guards, with the rest of the position on IR and better rated
+    const need = 2;
+    guards.slice(need).forEach((p) => { p.injury_status = { status: "out", weeks_out_est: [10, 12] } as never; });
+    guards.slice(0, need).forEach((p, i) => { p.overall = 40 + i; }); // the active ones rate below the IR players
+    const cut = repair.repairCutCandidate(s, "KC", "K");
+    expect(cut).not.toBeNull();
+    expect(cut!.position).not.toBe("OG");
+    // and no position is left below its minimum by the choice
+    if (cut) {
+      const left = rosterOf(s, "KC").filter((p) => p.id !== cut.id);
+      expect(rosterMinimumViolations({ ...s, players: Object.fromEntries(left.map((p) => [p.id, p])) } as LeagueState, "KC")).toEqual(rosterMinimumViolations(s, "KC"));
+    }
+  });
+
   it("is deterministic: the same league repairs the same way", () => {
     const run = () => {
       const s = season();
@@ -180,7 +199,7 @@ describe("a person cannot choose or exploit it", () => {
     expect(runRepairCheckpoint.length).toBe(1);
     const mutating = Object.entries(repair).filter(([, v]) => typeof v === "function").map(([k]) => k).sort();
     expect(mutating).toEqual(
-      ["describeRepair", "emergencyPrice", "repairAllRosters", "repairBlockedBy", "repairRoster", "repairsFor", "rosterMinimumViolations", "runRepairCheckpoint"].sort(),
+      ["describeRepair", "emergencyPrice", "repairAllRosters", "repairBlockedBy", "repairCutCandidate", "repairRoster", "repairsFor", "rosterMinimumViolations", "runRepairCheckpoint"].sort(),
     );
   });
 
