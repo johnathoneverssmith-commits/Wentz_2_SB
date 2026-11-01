@@ -742,16 +742,8 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   const before = new Set(
     Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent).map((p) => p.id),
   );
-  // the staff never re-sign a player this franchise itself released this season: held off the street for the repair
-  const held = (state.recentReleases?.season === state.season ? state.recentReleases.byTeam[actor.teamCode] ?? [] : [])
-    .map((id) => state.players[id])
-    .filter((x): x is NonNullable<typeof x> => !!x && x.free_agent && x.nfl_team === "FA");
-  for (const x of held) x.nfl_team = "HELD:" + actor.teamCode;
-  try {
-    applyRosterRepair(state, authorizeRosterRepair(state, actor.teamCode, state.stage as RepairCheckpoint));
-  } finally {
-    for (const x of held) if (x.nfl_team === "HELD:" + actor.teamCode) x.nfl_team = "FA";
-  }
+  // (the repair itself never re-signs a player this franchise released this season: see `applyRosterRepair`)
+  applyRosterRepair(state, authorizeRosterRepair(state, actor.teamCode, state.stage as RepairCheckpoint));
   recomputeTeamRatings(state);
   const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
   const named = (ps: { name: string; position: string }[]) => ps.map((p) => `${p.name} (${posLabel(p.position)})`).join(", ");

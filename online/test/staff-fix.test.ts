@@ -4,6 +4,7 @@ import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "@/state/seed.ts";
 import { reconciliationIssues } from "@/state/reconciliation.ts";
 
 import { decideRelease, decideStaffFix } from "../src/decide.js";
+import { applyRosterRepair, authorizeRosterRepair } from "../src/rosterRepair.js";
 
 /**
  * A GM a guard short at the free-agency summary had no way to fill the hole
@@ -192,5 +193,23 @@ describe("the staff cannot be turned into an acquisition mechanism", () => {
     }
     decideStaffFix(s, a);
     expect(reconciliationIssues(s, "KC").some((i) => i.kind === "position")).toBe(true);
+  });
+
+  it("the automatic repair (commissioner force / absent GM, not the button) honours the same exclusion — Codex P2", () => {
+    const { s, a } = league("freeAgencySummary");
+    const qbs = mine(s, "QB").sort((x, y) => y.overall - x.overall);
+    const star = qbs[0]!;
+    decideRelease(s, a, star.id); // surplus depth: allowed
+    // the rest of the position is traded away / expires: the hole opens by itself
+    for (const q of mine(s, "QB")) {
+      q.nfl_team = "FA";
+      q.free_agent = true;
+      q.contract = null;
+      q.id === star.id || (q.overall = Math.min(q.overall, 40));
+    }
+    // repair through the shared path directly, as phases.ts does when leaving a summary
+    applyRosterRepair(s, authorizeRosterRepair(s, "GB", "freeAgencySummary"));
+    expect(star.nfl_team, "the released star is not re-signed").toBe("FA");
+    expect(reconciliationIssues(s, "GB")).toEqual([]);
   });
 });
