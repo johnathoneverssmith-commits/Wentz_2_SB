@@ -334,7 +334,11 @@ describe('the statistics add up on real data', () => {
     });
     it('the longest open run counts consecutive completions in throw order', () => {
         const row = evidence.pocket.filter(r => r.play === 'go' && r.target === 1);
-        expect(rates(row).openRun).toBe(row.map(r => r.outcome === 'complete' ? 'C' : '.').join('').split('.').reduce((m, run) => Math.max(m, run.length), 0));
+        // a run never spans two games (window.ts: bySeed): the last throws of one game and the first of the next are not consecutive. Before C1b-2b the late throws of every
+        // game failed, so the runs happened not to meet and joining the games gave the same answer.
+        const longest = (rs: typeof row) => rs.map(r => r.outcome === 'complete' ? 'C' : '.').join('').split('.').reduce((m, run) => Math.max(m, run.length), 0);
+        const seeds = [...new Set(row.map(r => r.seed))];
+        expect(rates(row).openRun).toBe(Math.max(...seeds.map(sd => longest(row.filter(r => r.seed === sd)))));
     });
 });
 
@@ -396,16 +400,16 @@ describe('every known imbalance is documented honestly', () => {
 
 describe('baseline characterization of today\'s engine (an intended change to passing updates these on purpose)', () => {
     // Pocket ticks 0, 4, ... 240, line 40, AI defense, humans idle. Any engine change to passing or coverage shows up here first.
-    // Updated for Phase C1b-2a (coverage that follows the matchup: room, reading and contest); the earlier maps are in BALANCE.md (C1b-1: seeded catch resolution). Each route has two maps. The first is one game, seed 1: a letter
+    // Updated for Phase C1b-2b (the receiver reads the ball and runs to it) after C1b-2a (coverage that follows the matchup: room, reading and contest); the earlier maps are in BALANCE.md (C1b-1: seeded catch resolution). Each route has two maps. The first is one game, seed 1: a letter
     // per throw (C caught cleanly, c caught with a defender at the ball, x incomplete, b knocked down, I intercepted). The second is the chance:
     // a digit per throw, the tenths of the six evidence games (seeds 1-6) in which that throw was caught.
     const GOLDEN: Record<string, [string, string]> = {
-'slants-1': ['ccccccccxxccCbcbcccxccccxcccCccIcIcIxcbxxxxxccccxbbccxCxCCCCC', '8998869988998885689688996695568661130666000086965569868899986'],
-        'slants-2': ['bbcccccxcCCCccccccCcccccxbccIcIbbbcIcccCccbbbxbxbbIxbbIIxIbxb', '8686889669886989899968965898535033859869550000000000000000000'],
-        'slants-3': ['xcccCCCxCCCcbccccbcxbcbIbxbbcIxCccccCCCCCCxCCCCCxCCCCCCCCCxCx', '8898989889596888956311000000115898989988886699996688889668110'],
-        'go-1': ['ccCICcCcCIcccIccccIccbIbbccCbxcxccCxcccCCcCIccIIbcIxxxbbIbxII', '9886988888966696885581881656368366888968868898685100000000000'],
-        'go-2': ['cbbccbCcccccccbIccccccccIccccIccCbcccccccbbcccCccIcCbbIbbIbbb', '8868659999986855585586556855656196888589986899886685501000000'],
-        'go-3': ['xcccccccccxbccxbIxbxbxxxbIIIIbbbbxIIbIcIccbIcbbIbbbbcccccxccc', '8898869889133101000000000000000000000033585330000000168535696'],
+        'slants-1': ['ccccccccxxccCbcbcccxccccxccccccIcccIbcbbbbxcCcccbbcIxIxcCcCCC', '8988869988998865689688996695668663868556866999983663666899888'],
+        'slants-2': ['cbcccccxcCCCccccccccccccxbcIccCccbcccccCccbccbcbbcbcCcbccIcCc', '9686889669886989889966963031588698969899683685656656586866899'],
+        'slants-3': ['xcccCCCxCCCcbccccbcCbccccCccccxCccccCCCCCCxCCCCCxCCCCCCCCCCCC', '8898988889596888966566995898866696869988886699996688689689898'],
+        'go-1': ['cbCICcCcCIcccIcccccccbIcbccCbxcxccCxcccCCbCIbcIccccccxCcxccCC', '9686988888866696888585893856368588988968868688698698886658589'],
+        'go-2': ['cbbccbCcccccccbbccccccccIccccIccCbccccccccbcCcCccIcCcbcccccbC', '6868659999988855583589666855656196988589996999885688969665868'],
+        'go-3': ['xcccccccccxbccxbIxbxbxxxbIIIIbbbbxIIbIcIccbccbcIbbbccccccxccc', '8898869889133101000000000000000000000036596993506666966635696'],
     };
     it.each(Object.entries(GOLDEN))('%s window maps', (key, [letters, chance]) => {
         const [play, target] = key.split('-') as [Play, string];
@@ -433,8 +437,8 @@ describe('ratings move the passing game the right way (Phase B2, remeasured for 
         for (const play of ['slants', 'go'] as const) {
             const cbs = [60, 74, 90].map(c => rate(play, 80, c));
             for (let i = 1; i < cbs.length; i++) expect(cbs[i]!, `${play}: corner speed up`).toBeLessThanOrEqual(cbs[i - 1]! + 0.04);
-            // On the slant an underneath throw is decided at the break, where every corner ends at the same standoff from the ball, so corner speed buys little there (about a point; recorded in BALANCE.md).
-            expect(cbs[0]! - cbs[2]!, `${play}: and a fast corner does take something away`).toBeGreaterThan(play === 'slants' ? 0.005 : 0.015);
+            // On the slant an underneath throw is decided at the break, where every corner ends at the same standoff from the ball, so corner speed buys little there (about a point, and about a third of a point once the receiver reaches every ball, C1b-2b; recorded in BALANCE.md).
+            expect(cbs[0]! - cbs[2]!, `${play}: and a fast corner does take something away`).toBeGreaterThan(play === 'slants' ? 0.002 : 0.015);
         }
     });
     // Deep = lands 20+ yd downfield; the sweep runs both wideouts and every throw moment. `peak` is the average tick of a caught deep throw (when the window is open)
@@ -452,11 +456,15 @@ describe('ratings move the passing game the right way (Phase B2, remeasured for 
         const byTick = ticks.map(tick => { const at = all.filter(r => r.throwTick === tick); return at.length ? at.filter(r => r.outcome === 'complete').length / at.length : 0; });
         const smooth = byTick.map((v, i) => ((byTick[i - 1] ?? v) + v + (byTick[i + 1] ?? v)) / 3);
         const best = Math.max(...smooth), caught = all.filter(r => r.outcome === 'complete');
-        return { rate: caught.length / all.length, best, peak: caught.reduce((a, r) => a + r.throwTick, 0) / Math.max(1, caught.length), first: Math.min(...ticks.filter((tk, i) => tk <= ROUTE_END && byTick[i]! >= WINDOW_SHARE)), last: Math.max(...ticks.filter((tk, i) => tk <= ROUTE_END && byTick[i]! >= WINDOW_SHARE)), intercepted: all.filter(r => r.outcome === 'interception').length / all.length };
+        const onRoute = all.filter(r => r.throwTick <= ROUTE_END);
+        return { rate: caught.length / all.length, routeRate: onRoute.filter(r => r.outcome === 'complete').length / Math.max(1, onRoute.length), best, peak: caught.reduce((a, r) => a + r.throwTick, 0) / Math.max(1, caught.length), first: Math.min(...ticks.filter((tk, i) => tk <= ROUTE_END && byTick[i]! >= WINDOW_SHARE)), last: Math.max(...ticks.filter((tk, i) => tk <= ROUTE_END && byTick[i]! >= WINDOW_SHARE)), intercepted: all.filter(r => r.outcome === 'interception').length / all.length };
     };
     it('deep passing is possible against equal athletes: there is a window, and it is contested (not the open door of the quick game, not closed)', () => {
         const d = deep(70, 74);
-        expect(d.rate).toBeGreaterThan(0.15); expect(d.rate).toBeLessThan(0.7);
+        // While the route runs, deep passing is as contested as it was (about 75% of throws, the same as before C1b-2b). The overall rate rose from 52% to 77% because a throw after
+        // the route ends is no longer lost to a receiver drifting off the ball (that was 31% caught, now 84%), so it is read on the route and the whole sweep separately.
+        expect(d.routeRate).toBeGreaterThan(0.15); expect(d.routeRate).toBeLessThan(0.85);
+        expect(d.rate).toBeGreaterThan(0.15); expect(d.rate).toBeLessThan(0.85);
         expect(d.best).toBeGreaterThan(0.25);
         expect(d.intercepted).toBeGreaterThan(0.05); expect(d.intercepted).toBeLessThan(0.4);
     });
@@ -466,7 +474,8 @@ describe('ratings move the passing game the right way (Phase B2, remeasured for 
             expect(fast.peak, `corner ${cb}: the window is open sooner for a burner`).toBeLessThan(slow.peak - 20);
             expect(mid.first).toBeLessThan(slow.first);
             expect(fast.first).toBeLessThan(mid.first);
-            expect(fast.last).toBeLessThan(slow.last);
+            // the window no longer closes when the route runs out: the receiver stays with the ball (C1b-2b), so a burner's window is not shorter than a slow receiver's
+            expect(fast.last).toBeGreaterThanOrEqual(slow.last);
         }
         expect(deep(70, 90).best, 'a faster corner never makes the best moment better').toBeLessThanOrEqual(deep(70, 60).best + 0.04);
     });
@@ -474,14 +483,15 @@ describe('ratings move the passing game the right way (Phase B2, remeasured for 
         // Documented in BALANCE.md: speed moves when the window opens, and how well a trailing corner can still reach the ball sets how big it is.
         const slow = deep(80, 74), fast = deep(99, 74);
         expect(fast.first).toBeLessThan(slow.first);
-        expect(fast.last).toBeLessThan(slow.last);
+        expect(fast.last).toBeGreaterThanOrEqual(slow.last);
         expect(Math.abs(fast.best - slow.best)).toBeLessThan(0.12);
     });
     it('the quick game is open and the window narrows as the corner picks up the break: the first half-second beats the second, and waiting costs', () => {
         const slants = sweep({ plays: ['slants'], targets: [1, 2], ticks: tickRange(0, 240, 4), seeds: SEEDS, stopAtArrival: true });
         const share = (rs: ThrowRecord[]) => rs.filter(r => r.outcome === 'complete').length / rs.length;
         expect(share(slants.filter(r => r.throwTick < 24))).toBeGreaterThanOrEqual(0.8);
-        expect(share(slants.filter(r => r.throwTick < 24)) - share(slants.filter(r => r.throwTick >= 120))).toBeGreaterThan(0.25);
+        // waiting through the break costs (about 15 points); waiting until the route is over no longer costs the pass, because the receiver reads the ball (C1b-2b)
+        expect(share(slants.filter(r => r.throwTick < 24)) - share(slants.filter(r => r.throwTick >= 96 && r.throwTick < 132))).toBeGreaterThan(0.1);
         expect(rates(slants.filter(r => r.target === 1)).interception.p).toBeLessThan(0.15);
     });
 });
