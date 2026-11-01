@@ -200,7 +200,12 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
 
       // roster limit: a full roster gives up its cheapest surplus man to make the room
       if (rosterCountOf(s, teamCode) >= rosterLimitFor(s.stage)) {
-        const victim = repairCutCandidate(s, teamCode, hole.position, { room, price: emergencyPrice(s, pick) });
+        // the best player this cut leaves room for: try each candidate in turn, a cheaper one may fit where the best does not
+        let victim: Player | null = null;
+        for (const c of candidates) {
+          victim = repairCutCandidate(s, teamCode, hole.position, { room, price: emergencyPrice(s, c.p) });
+          if (victim) break;
+        }
         if (!victim) break;
         released.push({ playerId: victim.id, name: victim.name, position: victim.position, overall: victim.overall });
         applyRelease(s, teamCode, victim.id);

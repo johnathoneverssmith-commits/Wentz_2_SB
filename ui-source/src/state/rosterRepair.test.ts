@@ -216,6 +216,37 @@ describe("repairRoster", () => {
     expect(rec.unresolved).toEqual([{ position: "K", have: 0, need: 1 }]);
   });
 
+  it("on a full roster tries cheaper replacements when the best one does not fit after the cut (review finding)", () => {
+    const s = season();
+    strip(s, "KC", "OT", 1);
+    const extra = Object.values(s.players).filter((p) => p.free_agent && p.position === "WR" && !p.retired);
+    let i = 0;
+    while (rosterOf(s, "KC").length < ROSTER_SIZE && i < extra.length) {
+      const p = extra[i++]!;
+      p.free_agent = false;
+      p.nfl_team = "KC";
+      p.contract = { team_id: "KC", years_remaining: 1, total_value: 1, guaranteed: 0, cap_hit_by_year: [1], signing_bonus: 0 };
+    }
+    const market = Object.values(s.players).filter((p) => p.free_agent && !p.retired && p.nfl_team === "FA" && p.position === "OT");
+    const prices = market.map((p) => emergencyPrice(s, p)).sort((a, b) => a - b);
+    expect(prices[prices.length - 1]!).toBeGreaterThan(prices[0]!);
+    // every surplus player's release eats 1M net (hit 1, penalty 2): room just covers the cheapest player only after the cut
+    for (const p of rosterOf(s, "KC")) {
+      p.contract = { team_id: "KC", years_remaining: 3, total_value: 3, guaranteed: 0, cap_hit_by_year: [1, 1, 1], signing_bonus: 0, prorated_per_year: 1 } as never;
+    }
+    const used = rosterOf(s, "KC").reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    // releasing any of them frees -2 (hit 1, penalty 3), so room must cover the price PLUS 2 before the cut
+    s.teams["KC"]!.cap.total = used + (s.teams["KC"]!.cap.dead ?? 0) + prices[0]! + 2 + 0.01;
+    const affordableBefore = market.filter((p) => emergencyPrice(s, p) <= prices[0]! + 2 + 0.01).sort((a, b) => b.overall - a.overall);
+    expect(emergencyPrice(s, affordableBefore[0]!)).toBeGreaterThan(prices[0]! + 0.01); // the best player cannot fit after the cut
+    const rec = repairRoster(s, "KC")!;
+    expect(rec.released).toHaveLength(1);
+    expect(rec.signed).toHaveLength(1);
+    expect(rec.signed[0]!.salary).toBeLessThanOrEqual(prices[0]! + 0.01 + 1e-9);
+    const after = Object.values(s.players).filter((p) => p.nfl_team === "KC" && !p.retired).reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    expect(after + (s.teams["KC"]!.cap.dead ?? 0)).toBeLessThanOrEqual(s.teams["KC"]!.cap.total + 1e-6);
+  });
+
   it("is deterministic: the same league repairs the same way", () => {
     const run = () => {
       const s = season();
