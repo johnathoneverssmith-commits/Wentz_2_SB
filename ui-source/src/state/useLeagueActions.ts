@@ -14,7 +14,7 @@
  * working game at risk for no gain today. Screens migrate to this hook one
  * at a time, and the ones that haven't go on calling the store directly.
  */
-import { FREE_AGENCY_WINDOW_MESSAGE, TRADE_WINDOW_MESSAGE, tradeWindowOpen } from "./transactionWindows";
+import { FREE_AGENCY_WINDOW_MESSAGE, TRADE_WINDOW_MESSAGE } from "./transactionWindows";
 import type { GamePlan } from "./gamePlan.ts";
 import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -260,16 +260,11 @@ export function useLeagueActions(): LeagueActions {
           subject === "players"
             ? { ok: false, reason: FREE_AGENCY_WINDOW_MESSAGE }
             : store.placeOffer(subject, targetId, offer),
-        proposeTrade: async (toTeam, give, get) => {
-          if (!tradeWindowOpen(useStore.getState())) return { ok: false, reason: TRADE_WINDOW_MESSAGE };
-          const id = store.proposeTrade(toTeam, give, get);
-          store.resolveTrade(id);
-          return { ok: true };
-        },
+        // Trades are proposed and answered only through the Trade Deadline event's own turns (`deadlineTurn`);
+        // the instant path stays closed in every stage, the deadline's included, as it does on the server.
+        proposeTrade: async () => ({ ok: false, reason: TRADE_WINDOW_MESSAGE }),
         respondToTrade: async (tradeId, accept) =>
-          accept && !tradeWindowOpen(useStore.getState())
-            ? { ok: false, reason: TRADE_WINDOW_MESSAGE }
-            : store.respondToOffer(tradeId, accept),
+          accept ? { ok: false, reason: TRADE_WINDOW_MESSAGE } : store.respondToOffer(tradeId, accept),
         withdrawTrade: async (tradeId) => {
           useStore.setState((st) => {
             const t = st.trades.find((x) => x.id === tradeId);

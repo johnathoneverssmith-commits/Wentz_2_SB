@@ -1905,3 +1905,18 @@ the local store knows about (other humans there are auto-ready), which is how
 "Ready for Game Day" already behaves; it is not offered online. (3) Draft-pick
 trades that used the ad-hoc route are now only possible at the deadline.
 (4) Database-backed online suites are skipped locally (no Postgres); CI runs them.
+
+**Review follow-ups (Codex + CI on `ebbcef8`).** (1) One game day at a time:
+`withGameDayLock` (store.ts) serialises "Ready for Game Day", Game Day's Continue
+and the season shortcut; the shortcut holds the lock for its run and grants it
+to the two operations it repeats, and a press that finds the lock held is refused
+instead of playing the week twice (a test with the lock removed plays 32 games
+where 16 are scheduled). (2) The legacy trade form is read-only in *every* stage,
+the deadline's included, and the local action layer refuses instant proposals and
+accepts everywhere: the Trade Deadline room is the only way to trade. (3) CI's
+PostgreSQL 16 caught two reliability suites (`reliability-audit`, `reliability-mp3`)
+that drove the removed instant-proposal route; their double-submit and concurrency
+guarantees now run on the deadline turn (one negotiation from two simultaneous
+submissions, a retry refused with no write), and a new test pins the old route
+closed with no write. These suites need real concurrent connections: PGlite
+cannot run them (and its failures in them hid these two real ones).

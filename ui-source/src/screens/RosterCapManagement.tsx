@@ -1,4 +1,3 @@
-import { tradeWindowOpen } from "@/state/transactionWindows";
 import { SportsIcon, SportsStat, TeamCrest } from "@/components/roster/SportsPresentation";
 import { viewerWeek } from "@/state/reveal";
 import { getMotionLevel } from "@/motion/level";
@@ -382,8 +381,8 @@ export function RosterCapManagement() {
   return (
     <div className="roster-workspace">
     <Card maxWidth={1440}>
-      <header className="sports-page-header" data-team={code}><TeamCrest code={code}/><div><p className="sports-mode">Franchise mode</p><h1>{active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}</h1><p>{teamFullName(code)} · {displaySeason(s)} season · {STAGE_LABEL[s.stage]}{viewerWeek(s) ? " · Week " + viewerWeek(s) : ""}</p></div><div className="sports-header-action">          <button className="btn-ghost" onClick={() => nav("/trade")} title="Proposals open during the Trade Deadline window">
-            {tradeWindowOpen(s) ? "Trades" : "Trade history"}
+      <header className="sports-page-header" data-team={code}><TeamCrest code={code}/><div><p className="sports-mode">Franchise mode</p><h1>{active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}</h1><p>{teamFullName(code)} · {displaySeason(s)} season · {STAGE_LABEL[s.stage]}{viewerWeek(s) ? " · Week " + viewerWeek(s) : ""}</p></div><div className="sports-header-action">          <button className="btn-ghost" onClick={() => nav("/trade")} title="Proposals are made in the Trade Deadline room">
+            Trade history
           </button></div></header>
       <div className="sports-stat-grid">
         {active === "cap" ? <>

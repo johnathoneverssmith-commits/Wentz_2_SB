@@ -278,6 +278,26 @@ export interface FastForwardResult {
 
 /** one fast-forward at a time: a double click returns the run already going */
 let fastForwardInFlight: Promise<FastForwardResult> | null = null;
+/**
+ * One game day is played at a time, whoever asks: "Ready for Game Day", Game Day's Continue and the season shortcut all
+ * simulate or step the same week, so two of them overlapping (the second pressed while the first request is still pending)
+ * would play and record that week twice. The shortcut holds the lock for its whole run and hands it to the two operations it
+ * repeats by setting `shortcutGrant` immediately before calling them (they read it on entry, before their first await).
+ */
+let gameDayLock: Promise<unknown> | null = null;
+let shortcutGrant = false;
+function withGameDayLock<T>(busy: T, work: () => Promise<T>): Promise<T> {
+  const granted = shortcutGrant;
+  shortcutGrant = false;
+  if (granted) return work();
+  if (gameDayLock) return Promise.resolve(busy);
+  const run = work();
+  const tracked: Promise<unknown> = run.then(() => undefined, () => undefined).finally(() => {
+    if (gameDayLock === tracked) gameDayLock = null;
+  });
+  gameDayLock = tracked;
+  return run;
+}
 
 export type Store = LeagueState & StoreActions;
 
@@ -794,7 +814,7 @@ export const useStore = create<Store>()(
         return advanceInFlight;
       },
 
-      simulateGameDay: async () => {
+      simulateGameDay: () => withGameDayLock({ route: "/hub" }, async () => {
         const before = get();
         // the async pieces (real game sim / real playoff round over HTTP)
         // resolved ahead of the producer, same reasoning as tryAdvance —
@@ -851,10 +871,14 @@ export const useStore = create<Store>()(
           recomputeTeamRatings(s);
         });
         return { route: "/game-day" };
-      },
+      }),
 
       fastForwardSeason: () => {
         if (fastForwardInFlight) return fastForwardInFlight;
+        if (gameDayLock) {
+          const stage = get().stage;
+          return Promise.resolve({ ok: false, reason: "A game day is already being played. Wait for it to finish.", weeksPlayed: 0, stoppedIn: stage, route: STAGE_HOME[stage] });
+        }
         const run = async (): Promise<FastForwardResult> => {
           const startStage = get().stage;
           if (startStage !== "preseason" && startStage !== "regularSeason") {
@@ -876,11 +900,13 @@ export const useStore = create<Store>()(
             for (let i = 0; i < 40 && get().stage === startStage; i++) {
               if (!get().pendingGameDay) {
                 const week = get().week;
+                shortcutGrant = true;
                 await get().simulateGameDay();
                 from ??= week;
                 to = week;
                 weeksPlayed++;
               }
+              shortcutGrant = true;
               await get().finishGameDay();
             }
           } catch (e) {
@@ -898,13 +924,18 @@ export const useStore = create<Store>()(
             route: STAGE_HOME[stoppedIn],
           };
         };
-        fastForwardInFlight = run().finally(() => {
+        const started = run();
+        const tracked: Promise<unknown> = started.then(() => undefined, () => undefined).finally(() => {
+          if (gameDayLock === tracked) gameDayLock = null;
+        });
+        gameDayLock = tracked;
+        fastForwardInFlight = started.finally(() => {
           fastForwardInFlight = null;
         });
         return fastForwardInFlight;
       },
 
-      finishGameDay: async () => {
+      finishGameDay: () => withGameDayLock({ route: STAGE_HOME[get().stage] }, async () => {
         const before = get();
         const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
         const newBracket =
@@ -930,7 +961,7 @@ export const useStore = create<Store>()(
         // arriving at the deadline with every human skipping it leaves nothing to wait for
         set((s) => settleTurnEvents(s));
         return { route: STAGE_HOME[get().stage] };
-      },
+      }),
 
       // Whoever opens the board, the league plays its own teams up to the
       // first pick a person owes — the same rule online's onStageEntered

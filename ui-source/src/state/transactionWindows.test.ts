@@ -172,6 +172,23 @@ describe("transaction windows and season shortcuts (single player)", () => {
       // --- preseason shortcut ------------------------------------------------
       await playUntil("preseason");
       const planBefore = JSON.stringify(s().gamePlans ?? null);
+      // two Game Day presses that overlap play one week, not two (Codex finding on the shared simulation lock)
+      const weekBefore = s().week;
+      const gamesBefore = s().games.length;
+      await Promise.all([useStore.getState().simulateGameDay(), useStore.getState().simulateGameDay()]);
+      const slate = s().games.length - gamesBefore;
+      expect(slate).toBe(s().schedule.filter(g => g.phase === "PRE" && g.week === weekBefore).length);
+      expect(s().pendingGameDay?.week).toBe(weekBefore);
+      await Promise.all([useStore.getState().finishGameDay(), useStore.getState().finishGameDay()]);
+      expect(s().week).toBe(weekBefore + 1);
+      expect(s().pendingGameDay).toBeNull();
+      // the shortcut pressed while a normal press is still pending is refused rather than doubling the week
+      const racing = useStore.getState().simulateGameDay();
+      const refused = await useStore.getState().fastForwardSeason();
+      await racing;
+      expect(refused.ok).toBe(false);
+      expect(refused.weeksPlayed).toBe(0);
+      await useStore.getState().finishGameDay();
       const [a, b] = await Promise.all([
         useStore.getState().fastForwardSeason(),
         useStore.getState().fastForwardSeason(),
