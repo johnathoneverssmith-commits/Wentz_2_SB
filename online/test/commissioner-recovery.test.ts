@@ -47,11 +47,11 @@ afterAll(async () => {
   await pool.end().catch(() => {});
 });
 
-const maybe = (name: string, fn: () => Promise<void>) =>
+const maybe = (name: string, fn: () => Promise<void>, timeoutMs?: number) =>
   it(url ? name : `${name} — SKIPPED, no DATABASE_URL`, async () => {
     if (!reachable) return;
     await fn();
-  });
+  }, timeoutMs);
 
 const row = async () =>
   (await pool.query<{ state: LeagueState; version: string; phase_ends_at: Date | null }>(
