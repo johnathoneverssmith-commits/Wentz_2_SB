@@ -23,16 +23,23 @@ describe('passing balance', () => {
         }
     });
     it('a defender who covers the deep route never helps the late pass (it is already covered at baseline ratings)', () => {
-        const covered = driveStats(OFFENSES['late']!, 'cover').pointsPerDrive;
-        expect(covered).toBeLessThanOrEqual(driveStats(OFFENSES['late']!, 'idle').pointsPerDrive);
+        // Catches are chance and fourteen drives are few, so this is twelve independent sets of them: the covering defender must not do worse than an idle one by more than two standard errors of the difference.
+        const sets = (def: 'idle' | 'cover') => Array.from({ length: 12 }, (_, k) => driveStats(OFFENSES['late']!, def, 12, 0xd51e + k).pointsPerDrive);
+        const stats = (xs: number[]) => { const m = xs.reduce((a, b) => a + b, 0) / xs.length; return { m, v: xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1) / xs.length }; };
+        const idle = stats(sets('idle')), covered = stats(sets('cover'));
+        expect(covered.m, `covered ${covered.m.toFixed(2)} against idle ${idle.m.toFixed(2)}`).toBeLessThanOrEqual(idle.m + 2 * Math.sqrt(idle.v + covered.v));
     });
     it('when you throw decides it: the same slants throw to WR1 completes less the longer the quarterback waits, as the corner picks up the break', () => {
         const slants = (tick: number): OffensePolicy => ({ name: `slants at ${tick}`, play: () => 'slants', throwAt: () => tick, fieldGoals: true, target: 1 });
-        const rate = (off: OffensePolicy) => { const r = driveStats(off, 'idle'); return r.st.completions / r.st.passes; };
+        // averaged over six independent sets of the same fourteen drives: one set is a few dozen throws, and the ordering below needs the chance averaged out
+        const rate = (off: OffensePolicy) => { let c = 0, p = 0; for (let k = 0; k < 6; k++) { const r = driveStats(off, 'idle', 12, 0xd51e + k); c += r.st.completions; p += r.st.passes; } return c / p; };
         const early = rate(slants(12)), middle = rate(slants(80)), late = rate(slants(120)), later = rate(slants(160));
         expect(early, 'a quick throw is open').toBeGreaterThan(0.8);
         expect(early).toBeGreaterThan(middle); expect(middle).toBeGreaterThan(late); expect(late).toBeGreaterThan(later);
-        expect(early - late, 'waiting costs a lot').toBeGreaterThan(0.25);
+        // Phase C1b-2a: the corner no longer starts ten yards off, so the quick throw is less automatic (about 83%, not 91%) and the cost of waiting until the break is
+        // picked up is smaller (about 15 points, not 26); waiting until the corner has the break covered still costs most of the pass (about 60 points).
+        expect(early - late, 'waiting costs').toBeGreaterThan(0.1);
+        expect(early - later, 'waiting until he has it covered costs most of the pass').toBeGreaterThan(0.45);
         expect(rate(OFFENSES['intermediate']!), 'timed to the break').toBeGreaterThan(rate(slants(120)));
     });
     it('a slower defender reaction never helps the defense', () => {

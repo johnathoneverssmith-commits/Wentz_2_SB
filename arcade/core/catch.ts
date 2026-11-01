@@ -25,6 +25,7 @@
  */
 import { BREAKUP_RADIUS, CATCH_RADIUS } from './behavior';
 import { DEFENSE_CODES, OFFENSE_CODES, codeOf } from './personnel';
+import { contestSkill } from './coverage';
 import { maxSpeed, type ArcadePlayer, type Vector } from './simulation';
 import { roll } from './seed';
 
@@ -42,9 +43,6 @@ const REACH_CUTOFF = 4;
 /** A player's closest approach to the ball, in yards (an arm's length): his arrival rate is one over his distance plus this, so a player right on the ball is not infinitely fast. */
 export const ARRIVAL_OFFSET = 0.5;
 export const DROP_AT_ZERO_HANDS = 0.3;
-/** A defender's chance to get a hand on a ball he reached: this much even with no coverage skill, plus up to this much more at 99. */
-export const PLAY_FLOOR = 0.55;
-export const PLAY_SPAN = 0.4;
 /** A defender who has to turn and find the ball (it is behind him, nearer the quarterback than he is) and one still running flat out when it arrives are less able to play it. */
 export const NOT_FACING = 0.6;
 export const STILL_RUNNING = 0.8;
@@ -95,7 +93,7 @@ const facing = (d: ArcadePlayer, i: Pick<CatchInput, 'to' | 'from'>) => dist(d, 
 const settled = (d: ArcadePlayer) => Math.hypot(d.vx, d.vy) < 0.5 * maxSpeed(d) ? 1 : STILL_RUNNING;
 /** A defender who has reached the ball gets a hand on it: coverage skill, facing it, and set when it arrives. */
 export const playChance = (d: ArcadePlayer, i: Pick<CatchInput, 'to' | 'from'>): number =>
-    Math.min(1, (PLAY_FLOOR + PLAY_SPAN * Math.min(99, Math.max(0, d.abilities.coverage)) / 99) * facing(d, i) * settled(d));
+    Math.min(1, contestSkill(d) * facing(d, i) * settled(d));
 /** Having got a hand on it, a defender takes it away if the ball is inside his catch radius, he is facing it, and his hands hold it. */
 export const takeAwayChance = (d: ArcadePlayer, i: Pick<CatchInput, 'to' | 'from'>): number => {
     const x = dist(d, i.to), c = BREAKUP_RADIUS + DEFENDER_REACH_SHIFT - x, k = CATCH_RADIUS + DEFENDER_REACH_SHIFT - x;

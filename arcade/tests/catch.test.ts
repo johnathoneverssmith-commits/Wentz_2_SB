@@ -9,6 +9,7 @@ import {
     CATCH_KINDS, DECISION, DEFENDER_REACH_SHIFT, defenderReach, playChance, receiverReach, resolveCatch, roleOf, secureChance, takeAwayChance, type CatchInput, type CatchKind,
 } from '../core/catch';
 import { BREAKUP_RADIUS, CATCH_RADIUS } from '../core/behavior';
+import { contestSkill } from '../core/coverage';
 import { choosePlay, contestPass, createDown, lineUp, snap, stepDown, throwPass, type DownState } from '../core/down';
 import type { ArcadePlayer, PlayerId } from '../core/simulation';
 import { roll } from '../core/seed';
@@ -180,7 +181,8 @@ describe('ratings', () => {
         expect(completed(worst)).toBeLessThan(0.45);
         const unskilled = tally(setup(0.2, [{ gap: 0.2, abilities: { coverage: 0, hands: 0 } }], { hands: 99 }), 3000);
         expect(completed(unskilled)).toBeGreaterThan(completed(worst) + 0.3);
-        expect(playChance({ ...find('away-CB1'), abilities: { ...find('away-CB1').abilities, coverage: 0 }, x: TO.x, y: TO.y }, { to: TO, from: FROM })).toBeGreaterThan(0.5);
+        // (Phase C1b-2a) no coverage skill no longer gets a hand on the ball more than half the time: the contest follows the rating
+        expect(playChance({ ...find('away-CB1'), abilities: { ...find('away-CB1').abilities, coverage: 0 }, x: TO.x, y: TO.y }, { to: TO, from: FROM })).toBeLessThan(0.2);
         expect(takeAwayChance({ ...find('away-CB1'), abilities: { ...find('away-CB1').abilities, hands: 99 }, x: TO.x, y: TO.y }, { to: TO, from: FROM })).toBeGreaterThan(0.95);
     });
 });
@@ -358,5 +360,36 @@ describe('inside the game', () => {
             return arrive(s).catchKind;
         };
         for (let seed = 1; seed <= 60; seed++) expect(run('away', seed), `seed ${seed}`).toBe(run('home', seed));
+    });
+});
+
+describe('coverage decides the contest, hands decide what comes of it (Phase C1b-2a, through the production catch resolution)', () => {
+    const at = (coverage: number, hands = 55) => setup(0.4, [{ gap: 0.8, abilities: { coverage, hands } }]);
+    const handOnBall = (t: Record<CatchKind, number>) => t.interception + t.breakup;
+    it('the same defender at the same spot gets a hand on the ball far more often with a better coverage rating, so the pass is completed less and is knocked down or intercepted more', () => {
+        const poor = tally(at(10), 4000), good = tally(at(95), 4000);
+        expect(handOnBall(good), 'good coverage makes a play on it').toBeGreaterThan(handOnBall(poor) + 0.25);
+        expect(completed(good), 'and so completes less').toBeLessThan(completed(poor) - 0.2);
+        for (let c = 0; c < 99; c += 11) expect(handOnBall(tally(at(c + 11), 1500)) + 0.03, `coverage ${c} to ${c + 11}`).toBeGreaterThan(handOnBall(tally(at(c), 1500)));
+    });
+    it('the decisions recorded by the real resolution carry the contest chance: it is contestSkill, scaled by facing the ball and being set (so a change in the production path shows here)', () => {
+        for (const coverage of [0, 30, 60, 99]) {
+            const s = at(coverage);
+            let step; for (let seed = 1; seed <= 400 && !step; seed++) step = resolveCatch(make(s, seed)).steps.find(x => x.action === 'play');
+            expect(step, `a contest was drawn for coverage ${coverage}`).toBeDefined();
+            const d = s.defenders[0]!;
+            expect(step!.chance).toBeCloseTo(contestSkill(d) * (Math.hypot(d.x - FROM.x, d.y - FROM.y) <= Math.hypot(TO.x - FROM.x, TO.y - FROM.y) ? 1 : 0.6), 9);
+        }
+    });
+    it('hands are separate: with the same coverage, better hands turn the same plays from knock-downs into interceptions and do not change how often he gets a hand on it', () => {
+        const none = tally(at(76, 0), 5000), great = tally(at(76, 99), 5000);
+        expect(Math.abs(handOnBall(great) - handOnBall(none)), 'hands do not change the contest').toBeLessThan(0.03);
+        expect(great.interception).toBeGreaterThan(none.interception + 0.3);
+        expect(completed(great)).toBeCloseTo(completed(none), 1);
+    });
+    it('NEGATIVE CONTROL: a defender with no coverage rating is not given a free half-chance at the ball (the removed 55% floor)', () => {
+        const t = tally(at(0), 4000);
+        expect(handOnBall(t)).toBeLessThan(0.15);
+        expect(completed(t)).toBeGreaterThan(0.8);
     });
 });

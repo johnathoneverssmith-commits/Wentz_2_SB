@@ -9,7 +9,7 @@ import type { Inputs, PlayerId } from '../core/simulation';
 import { EVIDENCE_SEEDS, KNOWN_IMBALANCES, gatherEvidence, type Evidence } from './imbalances';
 import { STARTS, cells, dominance, readBenchmarks, runGames, runMatrix, summarizeCell, type DriveRecord } from './matrix';
 import { hashSeed } from './rng';
-import { BALANCED, BEST_RESPONSE, DEEP, EVAL_SEEDS, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, driveSeed, gameSeedOf, predictions, throwValue, type Strategy } from './strategies';
+import { BALANCED, BEST_RESPONSE, DEEP, EVAL_SAMPLES, EVAL_SEEDS, HELD_OUT_SAMPLES, HELD_OUT_SEEDS, OPEN_SEPARATION, SHORT, STRATEGIES, TIMING_AWARE, bestCall, driveSeed, gameSeedOf, predictions, throwValue, type Strategy } from './strategies';
 import { isDeep, byDistance, byRoute, byTiming, rates, sweep, targetCode, throwOnce, throwOutcomes, tickRange, windowMap, type Target, type ThrowRecord } from './window';
 
 const Z = { x: 0, y: 0 }, IDLE: Inputs = { home: Z, away: Z };
@@ -216,10 +216,33 @@ describe('the strategies do what they say', () => {
         expect(new Set(oracle).size, 'an oracle that sees each game\'s dice picks different throws in different games').toBeGreaterThan(1);
     });
     it('the evaluation seeds are fixed and distinct, and no game a matrix or a report plays uses one of them', () => {
-        expect(new Set(EVAL_SEEDS).size).toBe(EVAL_SEEDS.length); expect(EVAL_SEEDS).toHaveLength(16);
+        expect(new Set(EVAL_SEEDS).size).toBe(EVAL_SEEDS.length); expect(EVAL_SEEDS).toHaveLength(EVAL_SAMPLES); expect(EVAL_SAMPLES).toBeGreaterThanOrEqual(64);
         const used = new Set<number>();
         for (let seed = 1; seed <= 12; seed++) for (const team of ['home', 'away']) for (const start of STARTS) used.add(gameSeedOf(driveSeed(seed, team, start)));
         for (const e of EVAL_SEEDS) expect(used.has(e), `evaluation seed ${e}`).toBe(false);
+    });
+    it('the held-out seeds are distinct, more numerous, and disjoint from both the evaluation seeds and every game seed: a chosen throw judged on them took no part in choosing itself', () => {
+        expect(new Set(HELD_OUT_SEEDS).size).toBe(HELD_OUT_SEEDS.length); expect(HELD_OUT_SEEDS).toHaveLength(HELD_OUT_SAMPLES); expect(HELD_OUT_SAMPLES).toBeGreaterThan(EVAL_SAMPLES);
+        const evaluation = new Set(EVAL_SEEDS), used = new Set<number>();
+        for (let seed = 1; seed <= 12; seed++) for (const team of ['home', 'away']) for (const start of STARTS) used.add(gameSeedOf(driveSeed(seed, team, start)));
+        for (const h of HELD_OUT_SEEDS) { expect(evaluation.has(h), `held-out ${h} is an evaluation seed`).toBe(false); expect(used.has(h), `held-out ${h} is a game seed`).toBe(false); }
+    });
+    it('the optimism of the best response is the winner\'s curse and shrinks with the evaluation seeds: the same throws judged on held-out seeds are worth less than the bot believed, by less the more it samples', { timeout: 240_000 }, () => {
+        const seedsOf = (n: number) => EVAL_SEEDS.length >= n ? EVAL_SEEDS.slice(0, n) : EVAL_SEEDS;
+        const optimism = (n: number) => {
+            const gaps = [28, 50, 74].map(start => {
+                const pre = lineUp('home', start, { playNumber: 1 });
+                const c = bestCall(pre, ctx, 8, 160, seedsOf(n));
+                const fresh = throwOutcomes({ play: c.play, target: c.target, throwTick: c.tick, from: pre }, HELD_OUT_SEEDS);
+                return c.pComplete - fresh.filter(r => r.outcome === 'complete').length / fresh.length;
+            });
+            return gaps.reduce((a, b) => a + b, 0) / gaps.length;
+        };
+        const few = optimism(4), many = optimism(EVAL_SAMPLES);
+        expect(few, `4 evaluation seeds: optimism ${few.toFixed(3)}`).toBeGreaterThan(0.03);
+        expect(many, `${EVAL_SAMPLES} evaluation seeds: optimism ${many.toFixed(3)}`).toBeLessThan(few);
+        // the oracle, which reads the game's own dice, is never presented as a calibrated bot: it is the one strategy that is not in the practicable set
+        expect(STRATEGIES.map(s => s.id)).not.toContain('oracle');
     });
     it('on held-out games the expectation best response completes about as often as it predicted, and the oracle does better because it saw the dice', () => {
         const heldOut = Array.from({ length: 24 }, (_, k) => gameSeedOf(driveSeed(100 + k, 'home', 60)));
@@ -373,16 +396,16 @@ describe('every known imbalance is documented honestly', () => {
 
 describe('baseline characterization of today\'s engine (an intended change to passing updates these on purpose)', () => {
     // Pocket ticks 0, 4, ... 240, line 40, AI defense, humans idle. Any engine change to passing or coverage shows up here first.
-    // Updated for Phase C1b-1 (seeded catch resolution); the Phase A, B1 and B2 maps are in BALANCE.md. Each route has two maps. The first is one game, seed 1: a letter
+    // Updated for Phase C1b-2a (coverage that follows the matchup: room, reading and contest); the earlier maps are in BALANCE.md (C1b-1: seeded catch resolution). Each route has two maps. The first is one game, seed 1: a letter
     // per throw (C caught cleanly, c caught with a defender at the ball, x incomplete, b knocked down, I intercepted). The second is the chance:
     // a digit per throw, the tenths of the six evidence games (seeds 1-6) in which that throw was caught.
     const GOLDEN: Record<string, [string, string]> = {
-        'slants-1': ['CCCCCCCCxxCcCxcbcccxccccxcccCccIcIcIcbbbbIbbIbxxbxxbIxIxxxbCC', '8998869988999895699688996896568661136310000000065100851000199'],
-        'slants-2': ['CcCCCCCxcCCCccccccCcccccxbccccCccbcxcccCccbbbbbIxbbIbbbbxbbbb', '9998999869886989899968966899688885866689551000000000000000000'],
-        'slants-3': ['xcbcCCCxCCCcbccbbbcxbcbIbxbbxIxCccccbcCCCCCCCCCCCCCCCCCxCxxCx', '8558989889586686856311000000016898686688888699899899899658530'],
-        'go-1': ['ccCcCcCcCbcccccccccccccbbccbbIcxcICxCccCCccIccIcbcIxxIbbIbbII', '9888988888968999898698961613358365866988869898685100000000000'],
-        'go-2': ['cbbccxCccccccccCccccccccIccIcIccCbbcccCCcbCccccccIcCbbIbbIbbb', '8868869999988866685589956633316166688969988699986885611000000'],
-        'go-3': ['xcbcccccccIbIxxbIxbxbbbbxbbbIbbbbxcIcbIIbbbbbIbxccbcccIbcbxcc', '8558869689110001000000000000000011538100000000039869565658589'],
+'slants-1': ['ccccccccxxccCbcbcccxccccxcccCccIcIcIxcbxxxxxccccxbbccxCxCCCCC', '8998869988998885689688996695568661130666000086965569868899986'],
+        'slants-2': ['bbcccccxcCCCccccccCcccccxbccIcIbbbcIcccCccbbbxbxbbIxbbIIxIbxb', '8686889669886989899968965898535033859869550000000000000000000'],
+        'slants-3': ['xcccCCCxCCCcbccccbcxbcbIbxbbcIxCccccCCCCCCxCCCCCxCCCCCCCCCxCx', '8898989889596888956311000000115898989988886699996688889668110'],
+        'go-1': ['ccCICcCcCIcccIccccIccbIbbccCbxcxccCxcccCCcCIccIIbcIxxxbbIbxII', '9886988888966696885581881656368366888968868898685100000000000'],
+        'go-2': ['cbbccbCcccccccbIccccccccIccccIccCbcccccccbbcccCccIcCbbIbbIbbb', '8868659999986855585586556855656196888589986899886685501000000'],
+        'go-3': ['xcccccccccxbccxbIxbxbxxxbIIIIbbbbxIIbIcIccbIcbbIbbbbcccccxccc', '8898869889133101000000000000000000000033585330000000168535696'],
     };
     it.each(Object.entries(GOLDEN))('%s window maps', (key, [letters, chance]) => {
         const [play, target] = key.split('-') as [Play, string];
@@ -403,18 +426,24 @@ describe('ratings move the passing game the right way (Phase B2, remeasured for 
     // Catches are chance, so everything here is taken over four game seeds and compared with a tolerance for what is left of the noise.
     const SEEDS = [1, 2, 3, 4];
     const edge = (id: string, speed: number) => ({ [id]: { speed, accel: speed } });
-    // Completion over the whole pocket for the route to WR1, by the receiver's and the corner's speed.
-    const rate = (play: Play, wr: number, cb: number) => rates(sweep({ plays: [play], targets: [1], ticks: tickRange(0, 240, 8), seeds: SEEDS.slice(0, 3), stopAtArrival: true, abilities: { ...edge('home-WR1', wr), ...edge('away-CB1', cb) } })).complete.p;
+    // Completion over the pocket for the route to WR1, by the receiver's and the corner's speed. Throws are taken while the receiver is still running his route (ticks 0-112 for the slant, which ends its route around tick 120, and 96-160 for the go: before tick 96 the corner is still in front of the receiver, where giving more room puts him nearer a ball that is placed exactly on the receiver, so a slower corner intercepts more of the early deep throws; that comes from the placement of the pass, which is Phase C2, and recorded in BALANCE.md):
+    // what a receiver does after his route ends (he settles, and where he settles depends on the corner) is Phase C1b-2b's question, and mixing it in made this ordering depend on it.
+    const rate = (play: Play, wr: number, cb: number) => rates(sweep({ plays: [play], targets: [1], ticks: tickRange(play === 'slants' ? 0 : 96, play === 'slants' ? 112 : 160, 4), seeds: Array.from({ length: 48 }, (_, k) => k + 1), stopAtArrival: true, abilities: { ...edge('home-WR1', wr), ...edge('away-CB1', cb) } })).complete.p;
     it('a faster corner never lets the receiver complete more', () => {
         for (const play of ['slants', 'go'] as const) {
             const cbs = [60, 74, 90].map(c => rate(play, 80, c));
             for (let i = 1; i < cbs.length; i++) expect(cbs[i]!, `${play}: corner speed up`).toBeLessThanOrEqual(cbs[i - 1]! + 0.04);
-            expect(cbs[0]! - cbs[2]!, `${play}: and a fast corner does take something away`).toBeGreaterThan(0.015);
+            // On the slant an underneath throw is decided at the break, where every corner ends at the same standoff from the ball, so corner speed buys little there (about a point; recorded in BALANCE.md).
+            expect(cbs[0]! - cbs[2]!, `${play}: and a fast corner does take something away`).toBeGreaterThan(play === 'slants' ? 0.005 : 0.015);
         }
     });
     // Deep = lands 20+ yd downfield; the sweep runs both wideouts and every throw moment. `peak` is the average tick of a caught deep throw (when the window is open)
     // and `best` is the chance of a catch at its best moment (by throw tick, smoothed over its neighbours); `first` and `last` are the first and last tick of a caught throw.
-    const DEEP_TICKS = tickRange(0, 240, 12), DEEP_SEEDS = [1, 2, 3, 4];
+    const DEEP_TICKS = tickRange(0, 240, 12), DEEP_SEEDS = Array.from({ length: 12 }, (_, k) => k + 1);
+    // The window is the throw moments at which at least this share of deep throws are caught: a single lucky catch at the far end of a sweep is not a window.
+    const WINDOW_SHARE = 0.25;
+    // ...and throws after the receiver has run out of route (about tick 180 for the burner) are Phase C1b-2b's, so the window's edges are read from the throws before it.
+    const ROUTE_END = 180;
     const memo = new Map<string, ReturnType<typeof measure>>();
     const deep = (wr: number, cb: number) => { const k = `${wr}/${cb}`; if (!memo.has(k)) memo.set(k, measure(wr, cb)); return memo.get(k)!; };
     const measure = (wr: number, cb: number) => {
@@ -423,7 +452,7 @@ describe('ratings move the passing game the right way (Phase B2, remeasured for 
         const byTick = ticks.map(tick => { const at = all.filter(r => r.throwTick === tick); return at.length ? at.filter(r => r.outcome === 'complete').length / at.length : 0; });
         const smooth = byTick.map((v, i) => ((byTick[i - 1] ?? v) + v + (byTick[i + 1] ?? v)) / 3);
         const best = Math.max(...smooth), caught = all.filter(r => r.outcome === 'complete');
-        return { rate: caught.length / all.length, best, peak: caught.reduce((a, r) => a + r.throwTick, 0) / Math.max(1, caught.length), first: Math.min(...caught.map(r => r.throwTick)), last: Math.max(...caught.map(r => r.throwTick)), intercepted: all.filter(r => r.outcome === 'interception').length / all.length };
+        return { rate: caught.length / all.length, best, peak: caught.reduce((a, r) => a + r.throwTick, 0) / Math.max(1, caught.length), first: Math.min(...ticks.filter((tk, i) => tk <= ROUTE_END && byTick[i]! >= WINDOW_SHARE)), last: Math.max(...ticks.filter((tk, i) => tk <= ROUTE_END && byTick[i]! >= WINDOW_SHARE)), intercepted: all.filter(r => r.outcome === 'interception').length / all.length };
     };
     it('deep passing is possible against equal athletes: there is a window, and it is contested (not the open door of the quick game, not closed)', () => {
         const d = deep(70, 74);
