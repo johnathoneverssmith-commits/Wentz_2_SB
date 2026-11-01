@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpiringContracts } from "@/components/ExpiringContracts";
+import { FanReactions } from "@/components/fans/FanReactions";
 import { CommandCenterGamePlan } from "@/components/gamePlanning/CommandCenterGamePlan";
 import { MatchupBoard, type SubMetric } from "@/components/MatchupBoard";
 import { WaitingStakes } from "@/components/WaitingStakes";
@@ -318,6 +319,7 @@ export function WeeklyTeamHub() {
         ]}
         offers={s.trades.filter(t => t.status === "offered" && t.toTeam === code).length} />
       <CommandCenterGamePlan />
+      <FanReactions />
       <Tabs
         tabs={[
           // the game is what this screen is for in a season; the league's
@@ -572,17 +574,22 @@ export function WeeklyTeamHub() {
           // locked until this GM has revealed a game of their own — there is
           // no box score to open for a week they have not watched
           const last = lastRevealedResult(s, code);
-          return last && phase && hasBoxScore(last) ? (
+          return last && phase ? (
             <>
-              <button type="button" className="btnlink" onClick={() => nav(`/box/${last.id}`)}>
-                Latest Box Score
-              </button>
+              {hasBoxScore(last) && (
+                <button type="button" className="btnlink" onClick={() => nav(`/box/${last.id}`)}>
+                  Latest Box Score
+                </button>
+              )}
               <button
                 type="button"
                 className="btnlink btn-primary"
                 onClick={() => nav(`/watch/${last.id}`)}
               >
                 Watch Play-by-Play
+              </button>
+              <button type="button" className="btnlink" onClick={() => nav("/games")}>
+                Game History
               </button>
             </>
           ) : null;

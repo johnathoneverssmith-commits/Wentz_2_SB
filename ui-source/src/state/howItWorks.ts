@@ -249,6 +249,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         body: [
           "Every finished game has a recap on its box score, written from what was recorded: the final score, how the lead moved, each player's stat line and, for games you watched, the plays. It says nothing the record does not support, and the same game always reads the same.",
           "The replay's key moments are ranked by how much each play moved the game, not by yardage: a late go-ahead score or a takeaway near the goal line outranks a long gain in a blowout. The list grows as you watch, so it never gives the result away.",
+          "Game History lists every game your team has played, this season and the seasons before it, each with its box score and play-by-play. Play-by-play is the full recorded drive-by-drive transcript, browsable a quarter at a time. Preseason games are kept too, for the last two seasons, without play-by-play. Seasons older than the last one keep their scores, scoring plays and box scores but not the play-by-play, to keep saves small; a game with no recorded plays says so and shows only what was kept. Games you have not watched yet never appear, and in an online league a past game appears only if you had watched it before the year turned over.",
         ],
       },
       {
@@ -388,6 +389,7 @@ export const HOW_BY_ROUTE: Record<string, string[]> = {
   "/results": ["journey", "gameSim"],
   "/box": ["gameSim"],
   "/watch": ["gameSim"],
+  "/games": ["gameSim"],
   "/fantasy-draft-summary": ["journey", "drafts"],
   "/coaching-draft-summary": ["journey", "coachingEffects"],
   "/draft": ["drafts", "unitGrades"],

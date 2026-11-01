@@ -1,3 +1,4 @@
+import { PlayerThumb } from "@/components/PlayerPortrait";
 import { SportsIcon, SportsStat, TeamCrest } from "@/components/roster/SportsPresentation";
 import { viewerWeek } from "@/state/reveal";
 import { getMotionLevel } from "@/motion/level";
@@ -505,7 +506,7 @@ export function RosterCapManagement() {
           {ordered.map(p => <button key={p.id} type="button" data-player-id={p.id} className={"prow depth-player" + (selected?.id === p.id ? " selected" : "")} style={{ gridTemplateColumns: ROSTER_GRID }} aria-pressed={selected?.id === p.id} onClick={() => choosePlayer(p)}>
 
                   <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}<small>{p.position}{lineAt(p.position).indexOf(p) + 1}</small></span>
-                  <span className="pname"><span className="player-thumb" aria-hidden="true" />
+                  <span className="pname"><PlayerThumb player={p} className="player-thumb" />
                     <span className="roster-name">{p.name}</span> <span className="ppos">{posLabel(p.position)}</span>
                     {p.injury_status && (
                       <span
@@ -608,7 +609,7 @@ export function RosterCapManagement() {
         </MotionSurface>
         </div>
         )}
-        {active === "cap" && <div className="finance-lower"><section className="sports-panel contract-board"><h2 className="sports-panel-title">{GROUP_LABEL[group]} contracts</h2>{positionNav}<div className="contract-list-head" aria-hidden="true"><span>Player</span><span>Remaining</span><span>Cap hit</span></div><div className="contract-player-list">{ordered.map(p => <button type="button" key={p.id} data-player-id={p.id} aria-pressed={selected?.id === p.id} aria-label={`${p.name}, ${p.position}, ${p.contract ? p.contract.years_remaining + " years remaining, " + millions(p.contract.cap_hit_by_year[0] ?? 0) + " cap hit" : "no contract on record"}`} onClick={() => choosePlayer(p)}><span className="player-thumb" aria-hidden="true"/><strong>{p.name}</strong><span>{p.contract?.years_remaining ?? "—"} years</span><b>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</b><span aria-hidden="true">›</span></button>)}</div></section>{selected && playerDossier(selected, true)}{selected && <section className="selection-actions sports-panel" aria-label="Selected player actions">{playerActions(selected)}</section>}</div>}
+        {active === "cap" && <div className="finance-lower"><section className="sports-panel contract-board"><h2 className="sports-panel-title">{GROUP_LABEL[group]} contracts</h2>{positionNav}<div className="contract-list-head" aria-hidden="true"><span>Player</span><span>Remaining</span><span>Cap hit</span></div><div className="contract-player-list">{ordered.map(p => <button type="button" key={p.id} data-player-id={p.id} aria-pressed={selected?.id === p.id} aria-label={`${p.name}, ${p.position}, ${p.contract ? p.contract.years_remaining + " years remaining, " + millions(p.contract.cap_hit_by_year[0] ?? 0) + " cap hit" : "no contract on record"}`} onClick={() => choosePlayer(p)}><PlayerThumb player={p} className="player-thumb" /><strong>{p.name}</strong><span>{p.contract?.years_remaining ?? "—"} years</span><b>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</b><span aria-hidden="true">›</span></button>)}</div></section>{selected && playerDossier(selected, true)}{selected && <section className="selection-actions sports-panel" aria-label="Selected player actions">{playerActions(selected)}</section>}</div>}
       </Panel>
 
       <Panel id="units" open={active === "units"}>

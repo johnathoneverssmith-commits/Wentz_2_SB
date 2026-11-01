@@ -1,3 +1,4 @@
+import { PlayerThumb } from "@/components/PlayerPortrait";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { passerRating } from "@/state/leagueStats";
 import type { Player } from "@/domain";
@@ -45,7 +46,8 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <div>
+          <PlayerThumb player={player} size={52} />
+          <div style={{ flex: 1, minWidth: 0, marginLeft: 12 }}>
             <p className="modal-title" id="player-card-title">
               {player.name} · {posLabel(player.position)}
               {archetypeById(player.archetype) ? ` · ${archetypeById(player.archetype)!.label}` : ""}
