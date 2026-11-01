@@ -138,3 +138,37 @@ describe("pausing a league", () => {
     expect(await events("league.resumed")).toEqual([expect.objectContaining({ actor_user: users[0] })]);
   });
 });
+
+describe("resuming after the turn changed while paused (Codex P2)", () => {
+  maybe("the next GM gets a fresh turn clock, not the old turn's leftovers", async () => {
+    let exercised = false;
+    for (let attempt = 0; attempt < 10 && !exercised; attempt++) {
+      // a fresh league each time, brought to the fantasy draft with both GMs checked in, until the other GM is on the clock
+      const a = (await createOnlineLeague(users[0], { name: `Resume Turn ${attempt}`, humanSlots: 2 })).leagueId;
+      const u2 = `rec_two_${stamp}_${attempt}`;
+      try {
+        await pool.query(`INSERT INTO users (id, name, name_folded, password_hash, password_salt) VALUES ($1,$1,$1,'x','y') ON CONFLICT DO NOTHING`, [u2]);
+        await claimTeam(a, users[0], "GB");
+        await claimTeam(a, u2, "KC");
+        const get = async () => (await pool.query<{ state: LeagueState; phase_ends_at: Date | null }>(`SELECT state, phase_ends_at FROM league_state WHERE league_id = $1`, [a])).rows[0]!;
+        let s = (await get()).state;
+        for (const gm of s.gms.filter((g) => g.isHuman)) await readyUp(a, gm.id, true, s.stage);
+        s = (await get()).state;
+        if (s.stage !== "fantasyDraft" || !s.draft) continue;
+        if (s.draft.pickOrder[s.draft.currentPickIndex] !== "KC") continue; // need the non-commissioner on the clock
+        exercised = true;
+        await pool.query(`UPDATE league_state SET phase_ends_at = now() + interval '30 seconds' WHERE league_id = $1`, [a]);
+        await pauseLeague(a, users[0]);
+        await vacateSeat(a, users[0], "KC");
+        await resumeLeague(a, users[0]);
+        const after = await get();
+        expect(after.phase_ends_at, "a clock is running").not.toBeNull();
+        expect(after.phase_ends_at!.getTime() - Date.now(), "fresh window, not the ~30 s left").toBeGreaterThan(5 * 60_000);
+      } finally {
+        await pool.query(`DELETE FROM leagues WHERE id = $1`, [a]).catch(() => {});
+        await pool.query(`DELETE FROM users WHERE id = $1`, [u2]).catch(() => {});
+      }
+    }
+    expect(exercised, "reached a draft with the other GM on the clock within 10 leagues").toBe(true);
+  }, 120_000);
+});

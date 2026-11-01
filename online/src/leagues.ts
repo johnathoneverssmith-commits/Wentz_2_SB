@@ -18,7 +18,7 @@ import { syncAiGms } from "@/state/aiGms.ts";
 
 import { ActionError, guardClient, isConnectionError, pool, withLeague } from "./db.js";
 import { runPendingCpuTurns } from "./decide.js";
-import { deadlineFor, readyUpLocal } from "./phases.js";
+import { deadlineFor, readyUpLocal, turnKey } from "./phases.js";
 
 /** Short, unambiguous, sayable down a phone. No O/0 or I/1. */
 function inviteCode(): string {
@@ -629,10 +629,15 @@ export async function resumeLeague(leagueId: string, commissionerId: string): Pr
     const pause = state.pause;
     if (!pause) throw new ActionError("The league isn't paused.", 409);
     delete state.pause;
+    // work the pause deferred (a seat vacated while paused puts a CPU team on the clock, a check-in only waited on that
+    // seat) may change the turn or the stage: then the next one starts its own full clock, not the old turn's leftovers
+    const stageBefore = state.stage;
+    const turnBefore = turnKey(state);
     runPendingCpuTurns(state);
     const moved = readyUpLocal(state);
+    const sameTurn = !moved && state.stage === stageBefore && turnKey(state) === turnBefore;
     const phaseEndsAt =
-      !moved && pause.remainingMs != null ? new Date(Date.now() + pause.remainingMs) : deadlineFor(state, league);
+      sameTurn && pause.remainingMs != null ? new Date(Date.now() + pause.remainingMs) : deadlineFor(state, league);
     return {
       result: null,
       state,
