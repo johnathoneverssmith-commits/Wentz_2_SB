@@ -51,3 +51,31 @@ fixed 3:4 box, so nothing shifts when an image loads.
 
 ## Dev tools
 `/#/visual-lab` (dev only) shows any team at the three atmosphere extremes: `/#/visual-lab?team=SEA`.
+
+## Online universe selection
+A commissioner picks legacy / fictional / era when creating an online league (`OnlineLobby` form).
+`cleanConfigPatch(state, patch, { creating: true })` validates it server-side (`online/src/leagues.ts`): unknown pool or
+era is refused, an era on a legacy league is refused, and the later `/admin/config` route refuses to change the universe
+(the players are generated at creation). Old leagues have neither field and play as before. Seeds stay server-chosen.
+Test: `online/test/universe.test.ts` (needs a database; passes on local PGlite), and `state/universe.test.ts`.
+
+## Verification results (local; CI is the authority)
+Head at the time of the runs: `d8c7047` (plus docs/screenshots). Exact results:
+- UI `tsc -b`, engine and online typecheck: pass. UI build: pass. Full UI suite: 900 passed, 1 skipped.
+- wentz-verify required plan: how-it-works test, direct:ui (686), related-ui (800), full-ui (900): pass.
+  `direct:online`: 3 failures in `reliability-audit` / `reliability-mp1` (a connection-queue suite). Both files fail
+  identically on untouched `origin/master` here (checked in a worktree), so they are local-PGlite limitations, not this
+  PR; CI's PostgreSQL is the authority.
+- Browser suite (`npm run e2e`, Chromium): before the spec updates, 80 passed / 11 failed / 5 did not run in 23 min — the
+  failures were specs asserting UI this PR replaced (see below) plus `cleanup.spec` (a sandbox process-tree test that also
+  fails on master here). After the updates the affected specs and the new `visual-accessibility.spec.ts` pass (33 + 6).
+  The workflow's 15-minute limit was exceeded because each stale spec waited out a 90 s timeout.
+- Keyboard/a11y: universe radio group (roving tabindex, arrows), team select + announced title, dossier (Space/Enter,
+  focus trap, Escape returns focus), summary disclosures, unit-card disclosures, contrast >= 4.5 on scorecard text.
+  Not done: a screen-reader run or an automated axe audit.
+
+## Remaining limitations
+- Stadium art is procedural, not original illustration. Era conditioning is an emphasis, not historical reproduction.
+- Online seeds are server-chosen (no manual seed online).
+- Portraits are not wired in (see `PORTRAIT_INTEGRATION.md`).
+- Local runs: `verify-safety` / `cleanup.spec` / `reliability-*` fail on master too in this sandbox.
