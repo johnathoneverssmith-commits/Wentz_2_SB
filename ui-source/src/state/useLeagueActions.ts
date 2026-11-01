@@ -14,6 +14,7 @@
  * working game at risk for no gain today. Screens migrate to this hook one
  * at a time, and the ones that haven't go on calling the store directly.
  */
+import { FREE_AGENCY_WINDOW_MESSAGE, TRADE_WINDOW_MESSAGE } from "./transactionWindows";
 import type { GamePlan } from "./gamePlan.ts";
 import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -121,6 +122,8 @@ export interface LeagueActions {
   setSkip: (kind: "freeAgency" | "tradeDeadline", on: boolean) => Promise<ActionResult>;
   /** Take a coach in the coaching fantasy draft. */
   draftCoach: (coachId: string) => Promise<ActionResult>;
+  /** Hand this team's remaining coaching-draft picks to the staff. */
+  delegateCoaching: () => Promise<ActionResult>;
   hireCoach: (coachId: string) => Promise<ActionResult>;
   readyUp: (ready: boolean) => Promise<ActionResult>;
   /**
@@ -251,14 +254,18 @@ export function useLeagueActions(): LeagueActions {
     if (!online) {
       return {
         online: false,
-        signFreeAgent: async (playerId, offer) => store.signStandingFreeAgent(playerId, offer),
-        placeBid: async (subject, targetId, offer) => store.placeOffer(subject, targetId, offer),
-        proposeTrade: async (toTeam, give, get) => {
-          const id = store.proposeTrade(toTeam, give, get);
-          store.resolveTrade(id);
-          return { ok: true };
-        },
-        respondToTrade: async (tradeId, accept) => store.respondToOffer(tradeId, accept),
+        // Same rule as the server: a voluntary signing or trade is never
+        // instant. The windows are checked against the live state at click time.
+        signFreeAgent: async () => ({ ok: false, reason: FREE_AGENCY_WINDOW_MESSAGE }),
+        placeBid: async (subject, targetId, offer) =>
+          subject === "players"
+            ? { ok: false, reason: FREE_AGENCY_WINDOW_MESSAGE }
+            : store.placeOffer(subject, targetId, offer),
+        // Trades are proposed and answered only through the Trade Deadline event's own turns (`deadlineTurn`);
+        // the instant path stays closed in every stage, the deadline's included, as it does on the server.
+        proposeTrade: async () => ({ ok: false, reason: TRADE_WINDOW_MESSAGE }),
+        respondToTrade: async (tradeId, accept) =>
+          accept ? { ok: false, reason: TRADE_WINDOW_MESSAGE } : store.respondToOffer(tradeId, accept),
         withdrawTrade: async (tradeId) => {
           useStore.setState((st) => {
             const t = st.trades.find((x) => x.id === tradeId);
@@ -332,6 +339,7 @@ export function useLeagueActions(): LeagueActions {
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         setSkip: async (kind, on) => store.setSkip(kind, on),
         draftCoach: async (coachId) => store.draftCoach(coachId),
+        delegateCoaching: async () => store.delegateCoaching(),
         hireCoach: async (coachId) => store.hireCoach(coachId),
         readyUp: async (ready) => {
           store.setReady(store.viewerGmId, ready);
@@ -458,6 +466,8 @@ export function useLeagueActions(): LeagueActions {
         attempt(() => send((s) => s.client.setSkip(s.leagueId, kind, on, s.version))).then(after),
       draftCoach: (coachId) =>
         attempt(() => send((s) => s.client.draftCoach(s.leagueId, coachId, s.version))).then(after),
+      delegateCoaching: () =>
+        attempt(() => send((s) => s.client.delegateCoaching(s.leagueId))).then(after),
       hireCoach: (coachId) =>
         attempt(() => send((s) => s.client.hireCoach(s.leagueId, coachId, s.version))).then(after),
       readyUp: (ready) => {

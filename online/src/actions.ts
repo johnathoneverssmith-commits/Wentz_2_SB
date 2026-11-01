@@ -29,6 +29,7 @@ import {
   decideContractMove,
   decideCoachHire,
   decideCoachingPick,
+  decideDelegateCoaching,
   decideFreeAgencyTurn,
   decideHoodedFigurePayment,
   decideTrainingCamp,
@@ -196,6 +197,9 @@ export const setSkipPreference = (
 
 export const draftCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
   run(actor, undefined, (s) => decideCoachingPick(s, actor, coachId));
+
+export const delegateCoaching = (actor: Actor) =>
+  run(actor, undefined, (s) => decideDelegateCoaching(s, actor));
 
 export const hireCoach = (actor: Actor, coachId: string, expectedVersion?: string) =>
   run(actor, undefined, (s) => decideCoachHire(s, actor, coachId));

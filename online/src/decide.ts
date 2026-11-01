@@ -18,13 +18,11 @@
  */
 import { chooseGmStrategy } from "@/state/aiGms.ts";
 import { setSkip } from "@/state/skips.ts";
-import { tradeAccepts } from "@/state/tradeModel.ts";
 import { bracketRounds, COACH_ROLE_LABEL, ROUND_ORDER, roundLabelFor } from "@/domain";
 import type { ContractOffer, LeagueState, Position, TradeAsset } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import {
   applyPick,
-  applyTrade,
   checkBid,
   checkStandingSign,
   checkCoachHire,
@@ -34,7 +32,6 @@ import {
   draftThresholdMet,
   applyRookieOutcome,
   applyCoachHire,
-  checkTrade,
   offerToContract,
   runAiPicks,
   type Subject,
@@ -54,9 +51,15 @@ import {
 import {
   applyCoachingPick,
   checkCoachingPick,
+  checkDelegation,
   coachingDraftComplete,
+  delegateRemainingPicks,
   runAiCoachingPicks,
 } from "@/state/coachingDraft.ts";
+import {
+  FREE_AGENCY_WINDOW_MESSAGE,
+  TRADE_WINDOW_MESSAGE,
+} from "@/state/transactionWindows.ts";
 import {
   checkCampSubmission,
   runTrainingCamp,
@@ -74,6 +77,7 @@ import {
   revealedRounds,
   revealedWeek,
 } from "@/state/reveal.ts";
+import { currentBlock } from "@/state/revealBlocks.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
 import {
   proposeAtDeadline,
@@ -83,15 +87,12 @@ import {
 } from "@/state/tradeDeadline.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
-import { applyRelease, checkRelease, reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
-import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline.ts";
+import { applyRosterRepair, authorizeRosterRepair, type RepairCheckpoint } from "./rosterRepair.js";
+import { applyRelease, checkRelease, reconciliationIssues } from "@/state/reconciliation.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
-import { MockSimulationService } from "@/sim/MockSimulationService";
 import { posLabel } from "@/util/format";
-
-const tradeJudge = new MockSimulationService();
 
 /** Who is asking. Resolved from the database, never from the request body. */
 export interface Actor {
@@ -120,34 +121,18 @@ const city = (code: string): string => TEAMS_BY_CODE[code]?.label ?? code;
  */
 export function decideSignFreeAgent(
   state: LeagueState,
-  actor: Actor,
-  playerId: string,
-  offer: Omit<ContractOffer, "teamCode">,
+  _actor: Actor,
+  _playerId: string,
+  _offer: Omit<ContractOffer, "teamCode">,
 ): Decision {
-  // a signing mid-block reads as help for next week — which is already played
-  refuseDuringBlock(state, "Signing free agents");
-  const full: ContractOffer = { ...offer, teamCode: actor.teamCode };
-  const check = checkStandingSign(state, playerId, full);
-  if (!check.ok) throw new ActionError(check.reason ?? "That signing isn't allowed.");
-
-  const p = state.players[playerId];
-  if (!p) throw new ActionError("No such player.", 404);
-  p.free_agent = false;
-  p.nfl_team = actor.teamCode;
-  p.contract = offerToContract(full);
-  state.standingFreeAgents = state.standingFreeAgents.filter((x) => x !== playerId);
-  recomputeTeamRatings(state);
-
-  return {
-    events: [
-      {
-        teamCode: actor.teamCode,
-        kind: "fa.signed",
-        summary: `${city(actor.teamCode)} signed ${p.name} (${posLabel(p.position)}) for $${offer.baseSalary.toFixed(1)}M a year.`,
-        detail: { playerId },
-      },
-    ],
-  };
+  // There is no voluntary, instant signing any more. A human GM signs free
+  // agents only through the simultaneous rounds (`decideFreeAgencyTurn`),
+  // which keeps the round order, turn ownership and offer resolution. This
+  // endpoint stays so an old client gets a clear refusal instead of a 404.
+  // The one narrow exception — a CPU team's roster repair — is
+  // `decideCpuRepairSigning`, which has no route.
+  void state;
+  throw new ActionError(FREE_AGENCY_WINDOW_MESSAGE, 409);
 }
 
 /** Place or replace a bid in the live window. */
@@ -158,12 +143,15 @@ export function decidePlaceBid(
   targetId: string,
   offer: Omit<ContractOffer, "teamCode">,
 ): Decision {
+  // The old open-bid window is gone (nothing opens it); offers are made on the
+  // GM's own turn in the rounds. Refuse by name rather than by accident.
+  if (subject === "players") throw new ActionError(FREE_AGENCY_WINDOW_MESSAGE, 409);
   const full: ContractOffer = { ...offer, teamCode: actor.teamCode };
   const check = checkBid(state, subject, targetId, full);
   if (!check.ok) throw new ActionError(check.reason ?? "That bid isn't allowed.");
 
-  const fa = subject === "players" ? state.freeAgency : state.coachingHire;
-  if (!fa) throw new ActionError(subject === "players" ? "The free-agent bidding window has closed." : "The coaching hiring window has closed.");
+  const fa = state.coachingHire;
+  if (!fa) throw new ActionError("The coaching hiring window has closed.");
   const list = (fa.bids[targetId] ??= []);
   const mine = list.findIndex((o) => o.teamCode === actor.teamCode);
   if (mine >= 0) list[mine] = full;
@@ -192,114 +180,26 @@ function assetsFrom(state: LeagueState, ids: string[]): TradeAsset[] {
   });
 }
 
-/** Two offers are the same when they join the same teams over the same assets, in any order. */
-function offerKey(from: string, to: string, fromAssets: TradeAsset[], toAssets: TradeAsset[]): string {
-  const one = (a: TradeAsset): string =>
-    a.kind === "pick" && a.pick
-      ? `k:${a.pick.year}|${a.pick.round}|${a.pick.originalTeam}`
-      : `p:${a.playerId ?? ""}`;
-  const side = (xs: TradeAsset[]): string => xs.map(one).sort().join(",");
-  return `${from}>${to}|${side(fromAssets)}|${side(toAssets)}`;
-}
-
 /**
- * Offer a trade. Nothing moves — that's the point of two phases.
+ * Ad-hoc trade proposals are closed.
  *
- * It still has to be legal *now*, so that nobody is asked to decide on a
- * deal that couldn't be honoured; it will be checked again on acceptance,
- * because by then it may not be.
+ * The only designated trading window is the Trade Deadline event, whose
+ * turns, counters, league-vote guard and one-trade-per-team-per-round
+ * bookkeeping live in `decideDeadlineTurn`. This route used to let a GM build
+ * an instant offer at any time outside the games; that was exactly the
+ * unrestricted, unsynchronised trading the multiplayer structure exists to
+ * prevent, and it also bypassed the deadline's turn order. It stays so an old
+ * client gets a clear refusal rather than a 404.
  */
 export function decideProposeTrade(
-  state: LeagueState,
-  actor: Actor,
-  tradeId: string,
-  toTeam: string,
-  give: string[],
-  get: string[],
+  _state: LeagueState,
+  _actor: Actor,
+  _tradeId: string,
+  _toTeam: string,
+  _give: string[],
+  _get: string[],
 ): Decision {
-  if (toTeam === actor.teamCode) throw new ActionError("You can't trade with yourself.");
-  if (!state.teams[toTeam]) throw new ActionError("No such team.", 404);
-  // like the depth chart: the block's games were played with these rosters
-  refuseDuringBlock(state, "Trading");
-  if (pastTradeDeadline(state)) throw new ActionError(PAST_DEADLINE_MESSAGE);
-
-  // Idempotent: the same offer (same two teams, same two sets of assets,
-  // whatever the order) while it is still open is the same offer.
-  const wanted = offerKey(actor.teamCode, toTeam, assetsFrom(state, give), assetsFrom(state, get));
-  const open = state.trades.find(
-    (t) => t.status === "offered" && offerKey(t.fromTeam, t.toTeam, t.fromAssets, t.toAssets) === wanted,
-  );
-  if (open) return { events: [], unchanged: true, existingTradeId: open.id };
-
-  const proposal = {
-    id: tradeId,
-    fromTeam: actor.teamCode,
-    toTeam,
-    fromAssets: assetsFrom(state, give),
-    toAssets: assetsFrom(state, get),
-    aiValueDelta: 0,
-    aiAcceptLikelihood: 0.5,
-    status: "offered" as const,
-  };
-  // You can only offer what's yours and only ask for what's theirs. Without
-  // this a crafted request could move a third team's player, or one that was
-  // traded away an hour ago.
-  const ownedBy = (a: TradeAsset, team: string): boolean =>
-    a.kind === "pick"
-      ? a.pick?.ownedBy === team
-      : state.players[a.playerId ?? ""]?.nfl_team === team;
-
-  for (const a of proposal.fromAssets) {
-    if (!ownedBy(a, actor.teamCode)) {
-      throw new ActionError("You can only offer what you own.", 403);
-    }
-  }
-  for (const a of proposal.toAssets) {
-    if (!ownedBy(a, toTeam)) {
-      throw new ActionError(`You can only ask for what ${city(toTeam)} owns.`, 400);
-    }
-  }
-
-  const legal = checkTrade(state, proposal);
-  if (!legal.ok) throw new ActionError(legal.reason ?? "That trade isn't allowed.");
-
-  // A CPU team answers on the spot, the way it does in the single-player
-  // game. Online nothing answered for it: an offer to a CPU team sat as
-  // "offered" for ever, and the screen had told the GM to wait for "the
-  // other GM", who didn't exist.
-  const partnerIsHuman = state.gms.some((g) => g.isHuman && g.teamCode === toTeam);
-  if (!partnerIsHuman) {
-    const read = tradeJudge.evaluateTrade(state, actor.teamCode, toTeam, proposal.fromAssets, proposal.toAssets);
-    const answered = { ...proposal, aiValueDelta: read.valueDelta, aiAcceptLikelihood: read.acceptLikelihood };
-    const accepted = tradeAccepts(read.acceptLikelihood);
-    state.trades.push({ ...answered, status: accepted ? "accepted" : "rejected" });
-    if (accepted) applyTrade(state, state.trades[state.trades.length - 1]!);
-    recomputeTeamRatings(state);
-    return {
-      events: [
-        {
-          teamCode: actor.teamCode,
-          kind: accepted ? "trade.accepted" : "trade.rejected",
-          summary: accepted
-            ? `${city(actor.teamCode)} and ${city(toTeam)} made a trade.`
-            : `${city(toTeam)} turned down a trade from ${city(actor.teamCode)}.`,
-          detail: { tradeId },
-        },
-      ],
-    };
-  }
-
-  state.trades.push(proposal);
-  return {
-    events: [
-      {
-        teamCode: actor.teamCode,
-        kind: "trade.offered",
-        summary: `${city(actor.teamCode)} offered ${city(toTeam)} a trade.`,
-        detail: { tradeId },
-      },
-    ],
-  };
+  throw new ActionError(TRADE_WINDOW_MESSAGE, 409);
 }
 
 /** Answer a trade offered to you. Acceptance re-checks both sides. */
@@ -327,56 +227,9 @@ export function decideRespondToTrade(
       ],
     };
   }
-  // declining is always allowed; accepting moves players mid-block
-  refuseDuringBlock(state, "Completing a trade");
-  if (pastTradeDeadline(state)) throw new ActionError(PAST_DEADLINE_MESSAGE);
-
-  // Between the offer and this moment either side may have signed someone,
-  // gone over the cap, or traded the very player being discussed.
-  const legal = checkTrade(state, t);
-  if (!legal.ok) {
-    if (legal.reason) t.blockedReason = legal.reason;
-    throw new ActionError(legal.reason ?? "That trade is no longer legal.", 409);
-  }
-  // The league vote, online. Single-player simulates the other GMs' ballots;
-  // online there were none, so a blockbuster between two GMs went through
-  // however lopsided it was. The same guard the simulated vote applies: a
-  // deal involving a 90-plus player that the league's own chart reads as a
-  // fleecing either way is blocked.
-  const involves90 = [...t.fromAssets, ...t.toAssets].some(
-    (a) => a.kind === "player" && (state.players[a.playerId ?? ""]?.overall ?? 0) >= 90,
-  );
-  const bothHuman = [t.fromTeam, t.toTeam].every((c) => state.gms.some((g) => g.isHuman && g.teamCode === c));
-  if (involves90 && bothHuman) {
-    const read = tradeJudge.evaluateTrade(state, t.fromTeam, t.toTeam, t.fromAssets, t.toAssets);
-    if (read.acceptLikelihood >= 0.82 || read.acceptLikelihood <= 0.18) {
-      t.status = "blocked";
-      t.blockedReason = "The league blocked it: a trade this one-sided, with a 90-plus player in it, reads as collusion.";
-      return {
-        events: [
-          {
-            teamCode: actor.teamCode,
-            kind: "trade.blocked",
-            summary: `The league blocked a trade between ${city(t.fromTeam)} and ${city(t.toTeam)}.`,
-            detail: { tradeId },
-          },
-        ],
-      };
-    }
-  }
-
-  t.status = "accepted";
-  applyTrade(state, t);
-  return {
-    events: [
-      {
-        teamCode: actor.teamCode,
-        kind: "trade.accepted",
-        summary: `${city(t.fromTeam)} and ${city(t.toTeam)} agreed a trade.`,
-        detail: { tradeId },
-      },
-    ],
-  };
+  // Declining a stale offer is always allowed. Accepting is a trade, and
+  // trades happen only in the Trade Deadline window, on its own turns.
+  throw new ActionError(TRADE_WINDOW_MESSAGE, 409);
 }
 
 /** Settling a drafted rookie, online: sign him or let him go. */
@@ -450,6 +303,46 @@ export function decideCoachingPick(
       ...(finished
         ? [{ kind: "coach.draft.done", summary: "Every staff is complete." }]
         : []),
+    ],
+  };
+}
+
+/**
+ * "Delegate Remaining Picks to Staff".
+ *
+ * Marks only the actor's team; the staff then picks for it with the CPU logic
+ * as each of its turns comes up, in the normal order. If the team is on the
+ * clock the delegation is carried out right now, up to the next human who
+ * has not delegated — other GMs' turns are never taken for them.
+ */
+export function decideDelegateCoaching(state: LeagueState, actor: Actor): Decision {
+  if (state.coachingDraft?.delegated?.includes(actor.teamCode)) {
+    return { events: [], unchanged: true }; // a repeated click
+  }
+  const check = checkDelegation(state, actor.teamCode);
+  if (!check.ok) throw new ActionError(check.reason ?? "You can't delegate right now.");
+  delegateRemainingPicks(state, actor.teamCode);
+  const humans = new Set(state.gms.filter((g) => g.isHuman && g.teamCode).map((g) => g.teamCode));
+  const made = runAiCoachingPicks(state, humans);
+  const finished = coachingDraftComplete(state);
+  if (finished) {
+    const t = resolveTransition(state, {});
+    state.stage = t.stage;
+    state.week = t.week;
+    onStageEntered(state, "coachingDraft");
+    clearReadinessOnline(state);
+  }
+  return {
+    events: [
+      {
+        teamCode: actor.teamCode,
+        kind: "coach.delegated",
+        summary: `${city(actor.teamCode)} handed the rest of its staff picks to the staff.`,
+      },
+      ...(made > 0 && !finished
+        ? [{ kind: "coach.ai", summary: `${made} staff pick${made === 1 ? " was" : "s were"} made around the league.` }]
+        : []),
+      ...(finished ? [{ kind: "coach.draft.done", summary: "Every staff is complete." }] : []),
     ],
   };
 }
@@ -677,6 +570,13 @@ export function decideReveal(
   if (state.stage !== "preseason" && state.stage !== "regularSeason") {
     throw new ActionError("There's nothing to reveal right now.");
   }
+  // A reveal moves this GM's own marker through weeks that are already played.
+  // It may not go past the end of the block being played: a marker set beyond
+  // it would show the next block's results as already watched.
+  const block = currentBlock(state);
+  if (!Number.isInteger(through) || through < 1 || !block || through > block.lastWeek) {
+    throw new ActionError("That week isn't part of this stretch of the season.");
+  }
   const already = revealedWeek(state, actor.gmId, phase);
   if (through <= already) throw new ActionError("You've already seen that week.");
 
@@ -843,7 +743,7 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   const before = new Set(
     Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent).map((p) => p.id),
   );
-  reconcileCpuTeam(state, actor.teamCode);
+  applyRosterRepair(state, authorizeRosterRepair(state, actor.teamCode, state.stage as RepairCheckpoint));
   recomputeTeamRatings(state);
   const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
   const named = (ps: { name: string; position: string }[]) => ps.map((p) => `${p.name} (${posLabel(p.position)})`).join(", ");

@@ -2,8 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { LeagueState } from "@/domain";
 import { fillRosterGaps } from "@/state/seed.ts";
+import { emptyReveal } from "@/state/reveal.ts";
+import { beginTradeDeadline } from "@/state/tradeDeadline.ts";
 
-import { actorFor, proposeTrade, saveGamePlan, withdrawTrade } from "../src/actions.js";
+import { actorFor, deadlineTurn, proposeTrade, saveGamePlan } from "../src/actions.js";
 import { ActionError, pool, withLeague } from "../src/db.js";
 import { claimTeam, createOnlineLeague, leaveLeague, vacateSeat } from "../src/leagues.js";
 import { readyUp } from "../src/phases.js";
@@ -140,13 +142,21 @@ describe("D5 — a request outlives the seat it was made for", () => {
   });
 });
 
-describe("D6 — the same trade offer, submitted again", () => {
-  /** A league with rosters, in a stage where trading is open, and two tradeable players. */
-  async function tradeLeague() {
+describe("D6 — the same deadline offer, submitted again", () => {
+  /**
+   * Ad-hoc proposals are closed (the Trade Deadline is the one trading window), so the double-submit and concurrency guarantees this
+   * block used to pin on `proposeTrade` are pinned here on the deadline turn, which is the path that can still be double-clicked.
+   */
+  async function deadlineLeague() {
     const f = await league();
     const { state } = await snap(f.id);
     fillRosterGaps(state);
-    state.stage = "offseasonDepthChart";
+    state.stage = "regularSeason";
+    state.week = 9;
+    state.reveal = emptyReveal();
+    beginTradeDeadline(state);
+    state.stage = "tradeDeadline";
+    state.tradeDeadline!.index = state.tradeDeadline!.order.indexOf("GB"); // GB is on the clock
     await pool.query(
       `UPDATE league_state SET state = $2, stage = $3, version = version + 1 WHERE league_id = $1`,
       [f.id, JSON.stringify(state), state.stage],
@@ -155,52 +165,54 @@ describe("D6 — the same trade offer, submitted again", () => {
       Object.values(state.players)
         .filter((p) => p.nfl_team === team && !p.retired && !p.free_agent && p.position === "WR")
         .sort((a, b) => a.overall - b.overall)[n]!.id;
-    return { f, a: await actorFor(f.id, users[0]), mine: [pick("GB", 0), pick("GB", 1)], theirs: [pick("KC", 0), pick("KC", 1)] };
+    const move = (g: string, w: string) => ({ kind: "propose" as const, toTeam: "KC", give: [g], get: [w] });
+    return { f, a: await actorFor(f.id, users[0]), mine: [pick("GB", 0), pick("GB", 1)], theirs: [pick("KC", 0), pick("KC", 1)], move };
   }
-  const offered = async (id: string) =>
-    (await snap(id)).state.trades.filter((t) => t.status === "offered" && t.fromTeam === "GB" && t.toTeam === "KC");
+  const active = async (id: string) => (await snap(id)).state.tradeDeadline?.active ?? null;
 
-  maybe("two simultaneous submissions leave one open offer, and both callers get its id", async () => {
-    const { f, a, mine, theirs } = await tradeLeague();
-    const [x, y] = await Promise.all([
-      proposeTrade(a, "KC", [mine[0]!], [theirs[0]!]),
-      proposeTrade(a, "KC", [mine[0]!], [theirs[0]!]),
+  maybe("two simultaneous submissions open one negotiation; the other is refused", async () => {
+    const { f, a, mine, theirs, move } = await deadlineLeague();
+    const results = await Promise.allSettled([
+      deadlineTurn(a, move(mine[0]!, theirs[0]!)),
+      deadlineTurn(a, move(mine[0]!, theirs[0]!)),
     ]);
-    const open = await offered(f.id);
-    expect(open).toHaveLength(1);
-    expect(x.tradeId).toBe(open[0]!.id);
-    expect(y.tradeId).toBe(open[0]!.id);
+    expect(results.filter((r) => r.status === "fulfilled"), JSON.stringify(results)).toHaveLength(1);
+    const open = await active(f.id);
+    expect(open?.fromTeam).toBe("GB");
+    expect(open?.toTeam).toBe("KC");
+    expect(open?.awaiting).toBe("recipient");
   });
 
-  maybe("a retry later, or with the assets in another order, is the same offer and changes nothing", async () => {
-    const { f, a, mine, theirs } = await tradeLeague();
-    const first = await proposeTrade(a, "KC", [mine[0]!, mine[1]!], [theirs[0]!]);
+  maybe("a retry later, or with the assets in another order, is refused and changes nothing", async () => {
+    const { f, a, mine, theirs, move } = await deadlineLeague();
+    await deadlineTurn(a, { kind: "propose", toTeam: "KC", give: [mine[0]!, mine[1]!], get: [theirs[0]!] });
     const before = await snap(f.id);
-    const again = await proposeTrade(a, "KC", [mine[1]!, mine[0]!], [theirs[0]!]);
-    expect(again.tradeId).toBe(first.tradeId);
-    expect((await snap(f.id)).version).toBe(before.version); // no write, so no re-download for anyone
-    expect(await offered(f.id)).toHaveLength(1);
+    const err = await deadlineTurn(a, { kind: "propose", toTeam: "KC", give: [mine[1]!, mine[0]!], get: [theirs[0]!] }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ActionError);
+    expect((await snap(f.id)).version).toBe(before.version); // refused, so no write and no re-download for anyone
+    void move;
   });
 
-  maybe("a genuinely different offer is still its own offer", async () => {
-    const { f, a, mine, theirs } = await tradeLeague();
-    await proposeTrade(a, "KC", [mine[0]!], [theirs[0]!]);
-    await proposeTrade(a, "KC", [mine[0]!], [theirs[1]!]);
-    expect(await offered(f.id)).toHaveLength(2);
+  maybe("a different offer cannot start while one is open", async () => {
+    const { f, a, mine, theirs, move } = await deadlineLeague();
+    await deadlineTurn(a, move(mine[0]!, theirs[0]!));
+    const first = await active(f.id);
+    const err = await deadlineTurn(a, move(mine[0]!, theirs[1]!)).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ActionError);
+    expect((await active(f.id))?.id).toBe(first?.id);
   });
 
-  maybe("once an offer is withdrawn, the same offer can be made afresh", async () => {
-    const { f, a, mine, theirs } = await tradeLeague();
-    const first = await proposeTrade(a, "KC", [mine[0]!], [theirs[0]!]);
-    await withdrawTrade(a, first.tradeId);
-    const second = await proposeTrade(a, "KC", [mine[0]!], [theirs[0]!]);
-    expect(second.tradeId).not.toBe(first.tradeId);
-    expect(await offered(f.id)).toHaveLength(1);
-  });
-
-  maybe("a stale tab's retry carrying an old version is still refused with 409, as before", async () => {
-    const { a, mine, theirs } = await tradeLeague();
-    const err = await proposeTrade(a, "KC", [mine[0]!], [theirs[0]!], "1").catch((e: unknown) => e);
-    expect((err as ActionError).status).toBe(409);
+  maybe("the old instant-proposal route is closed in every stage and writes nothing", async () => {
+    const { f, a, mine, theirs } = await deadlineLeague();
+    for (const stage of ["tradeDeadline", "offseasonDepthChart"] as const) {
+      const { state } = await snap(f.id);
+      state.stage = stage;
+      await pool.query(`UPDATE league_state SET state = $2, stage = $3, version = version + 1 WHERE league_id = $1`, [f.id, JSON.stringify(state), stage]);
+      const before = await snap(f.id);
+      const err = await proposeTrade(a, "KC", [mine[0]!], [theirs[0]!]).catch((e: unknown) => e);
+      expect((err as ActionError).status, stage).toBe(409);
+      expect((await snap(f.id)).version).toBe(before.version);
+      expect((await snap(f.id)).state.trades).toHaveLength(0);
+    }
   });
 });
