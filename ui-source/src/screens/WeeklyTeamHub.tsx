@@ -302,9 +302,9 @@ export function WeeklyTeamHub() {
           label="Ready for Game Day"
           action={simulateGameDay}
           onAdvance={(route) => nav(route)}
+          secondary={<SimulateShortcut />}
         />
       )}
-      {phase && !s.pendingGameDay && !online && <SimulateShortcut />}
       </div>
 
       {/* The stored schedule/results keep s.season until the preseason rollover. */}
@@ -638,8 +638,8 @@ function SimulateShortcut() {
       });
   };
   return (
-    <div className="readiness sim-shortcut" data-testid="sim-shortcut">
-      <button type="button" className="btnlink" style={{ width: "100%" }} disabled={busy} onClick={go}>
+    <div className="sim-shortcut" data-testid="sim-shortcut" style={{ flex: "1 1 200px" }}>
+      <button type="button" className="btnlink" style={{ width: "100%", minHeight: 46 }} disabled={busy} onClick={go}>
         {busy ? "Simulating…" : label}
       </button>
       <p className="readiness-held" style={{ margin: "6px 0 0" }}>
@@ -768,8 +768,10 @@ function RevealControls() {
         </span>
       </div>
       <p className="readiness-held">
-        Watch at your own pace — catching up here won&rsquo;t rush anyone else in the league.
-        {block.phase === "REG" && " Simulating the regular season stops at this block\u2019s end (the trade-deadline checkpoint, then the playoffs); it never checks in for you."}
+        Online, this stretch of games is already played on the league server. These buttons only reveal results to
+        you, at your own pace; they never check you in or move anyone else. Simulating stops at the end of this
+        stretch{block.phase === "REG" ? " (the trade-deadline checkpoint, then the playoffs)" : ""}, and the league moves on only when
+        every GM has pressed the stage button.
       </p>
       <div style={{ display: "flex", gap: 8 }}>
         <button

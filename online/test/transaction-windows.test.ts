@@ -14,11 +14,21 @@ import {
   bestCoachingPick,
   runAiCoachingPicks,
 } from "@/state/coachingDraft.ts";
+import { currentBlock } from "@/state/revealBlocks.ts";
+import { revealedWeek } from "@/state/reveal.ts";
+import { readFileSync } from "node:fs";
+import { reconciliationIssues } from "@/state/reconciliation.ts";
+import { applyRosterRepair, authorizeRosterRepair, isRepairAuthorization } from "../src/rosterRepair.js";
+import { beginTradeDeadline } from "@/state/tradeDeadline.ts";
+import { beginFreeAgencyEvent, onTheClock as faOnTheClock } from "@/state/freeAgencyEvent.ts";
+import { emptyReveal } from "@/state/reveal.ts";
 import { freeAgencyWindowOpen, tradeWindowOpen } from "@/state/transactionWindows.ts";
 
 import {
-  decideCpuRepairSigning,
   decideCoachingPick,
+  decideDeadlineTurn,
+  decideReveal,
+  decideFreeAgencyTurn,
   decideDelegateCoaching,
   decidePlaceBid,
   decideProposeTrade,
@@ -100,30 +110,60 @@ describe("voluntary free-agent signing is closed outside the rounds", () => {
   });
 });
 
-describe("CPU roster-repair boundary", () => {
-  it("signs for a CPU team only, with an authorisation only the server can build", () => {
-    s.stage = "preseason";
-    const p = aFreeAgent();
+describe("roster repair boundary (server-internal, both kinds of franchise)", () => {
+  /** strip KC's kicker so there is a positional hole, and leave a street kicker */
+  function holeFor(team: string) {
+    const k = Object.values(s.players).find((p) => p.nfl_team === team && p.position === "K" && !p.free_agent)!;
+    k.free_agent = true;
+    k.nfl_team = "FA";
+    k.contract = null;
+    s.teams[team]!.cap.total = 400;
+    return k;
+  }
+
+  it.each([["human-controlled", "KC"], ["CPU-controlled", "DEN"]])("repairs a %s roster at the checkpoint, choosing the player itself", (_n, team) => {
+    s.stage = "freeAgencySummary";
+    holeFor(team);
+    expect(reconciliationIssues(s, team).length).toBeGreaterThan(0);
+    const out = applyRosterRepair(s, authorizeRosterRepair(s, team, "freeAgencySummary"));
+    expect(out.remaining).toBe(0);
+    expect(Object.values(s.players).some((p) => p.nfl_team === team && p.position === "K" && !p.free_agent)).toBe(true);
+  });
+
+  it("is refused outside a repair checkpoint", () => {
+    for (const stage of ["preseason", "regularSeason", "freeAgency", "tradeDeadline", "offseasonDraft"] as const) {
+      s.stage = stage;
+      expect(() => authorizeRosterRepair(s, "KC", "freeAgencySummary"), stage).toThrow(/only authorised around/i);
+    }
+    s.stage = "freeAgencySummary";
+    expect(() => authorizeRosterRepair(s, "KC", "midseasonFreeAgencySummary")).toThrow(/only authorised/i);
+  });
+
+  it("cannot be forged from a request body, and does not outlive its checkpoint", () => {
+    s.stage = "freeAgencySummary";
+    holeFor("KC");
+    const forged = JSON.parse(JSON.stringify({ teamCode: "KC", checkpoint: "freeAgencySummary" }));
+    expect(isRepairAuthorization(forged)).toBe(false);
+    expect(() => applyRosterRepair(s, forged)).toThrow(/Not an authorised/i);
+    const real = authorizeRosterRepair(s, "KC", "freeAgencySummary");
+    expect(isRepairAuthorization(JSON.parse(JSON.stringify(real)))).toBe(false);
+    s.stage = "regularSeason";
+    expect(() => applyRosterRepair(s, real)).toThrow(/window has closed/i);
+  });
+
+  it("is idempotent on a legal roster", () => {
+    s.stage = "freeAgencySummary";
+    const before = JSON.stringify(Object.values(s.players).filter((p) => p.nfl_team === "DEN").map((p) => p.id));
     s.teams.DEN!.cap.total = 400;
-    // DEN has 52 now: room for one
-    const out = decideCpuRepairSigning(s, { kind: "cpu-roster-repair", teamCode: "DEN" }, p.id, offerFor(p));
-    expect(out.events[0]!.kind).toBe("fa.repair");
-    expect(s.players[p.id]!.nfl_team).toBe("DEN");
+    applyRosterRepair(s, authorizeRosterRepair(s, "DEN", "freeAgencySummary"));
+    applyRosterRepair(s, authorizeRosterRepair(s, "DEN", "freeAgencySummary"));
+    expect(reconciliationIssues(s, "DEN")).toHaveLength(0);
+    expect(typeof before).toBe("string");
   });
 
-  it("never signs for a team with a human GM seated", () => {
-    const p = aFreeAgent();
-    expect(() =>
-      decideCpuRepairSigning(s, { kind: "cpu-roster-repair", teamCode: "KC" }, p.id, offerFor(p)),
-    ).toThrow(/only for CPU teams/i);
-    expect(s.players[p.id]!.free_agent).toBe(true);
-  });
-
-  it("rejects a forged authorisation kind", () => {
-    const p = aFreeAgent();
-    expect(() =>
-      decideCpuRepairSigning(s, { kind: "human" as never, teamCode: "DEN" }, p.id, offerFor(p)),
-    ).toThrow(/authorised/i);
+  it("no HTTP route reaches it", () => {
+    const src = readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
+    expect(src).not.toMatch(/rosterRepair|authorizeRosterRepair|applyRosterRepair/);
   });
 });
 
@@ -251,5 +291,133 @@ describe("coaching draft: delegate remaining picks", () => {
       c.team = "KC";
     }
     expect(() => decideDelegateCoaching(s, alice)).toThrow(/already complete/i);
+  });
+});
+
+/**
+ * Replacement coverage for the legal mechanisms. The rulings the deleted
+ * instant-trade tests pinned (ownership, stale assets, the CPU's answer, the
+ * collusion guard, a repeated submission) still matter — they now have to hold
+ * at the Trade Deadline, which is the only place a trade is proposed.
+ */
+describe("the Trade Deadline keeps the rulings the instant route used to have", () => {
+  const roster = (team: string) =>
+    Object.values(s.players)
+      .filter((p) => p.nfl_team === team && !p.retired && !p.free_agent)
+      .sort((a, b) => b.overall - a.overall);
+  function openDeadline(): void {
+    s.stage = "regularSeason";
+    s.week = 9;
+    s.reveal = emptyReveal();
+    beginTradeDeadline(s);
+    s.stage = "tradeDeadline";
+    // put KC on the clock, with nobody else's turn pending
+    s.tradeDeadline!.index = s.tradeDeadline!.order.indexOf("KC");
+    for (const t of Object.keys(s.teams)) s.teams[t]!.cap.total = 600;
+  }
+  const move = (kind: "propose", to: string, give: string[], get: string[]) =>
+    ({ kind, toTeam: to, give, get }) as const;
+
+  it("refuses a proposal from a team that is not on the clock, to any partner", () => {
+    openDeadline();
+    const give = roster("BUF")[0]!.id;
+    expect(() => decideDeadlineTurn(s, bob, move("propose", "KC", [give], [roster("KC")[0]!.id]))).toThrow(/isn't your turn/i);
+    expect(s.tradeDeadline!.active ?? null).toBeNull();
+  });
+
+  it("refuses to offer a player you do not own, or ask for one the partner does not own", () => {
+    openDeadline();
+    const theirs = roster("BUF")[0]!.id;
+    const mine = roster("KC")[0]!.id;
+    expect(() => decideDeadlineTurn(s, alice, move("propose", "BUF", [theirs], [theirs]))).toThrow(/already moved/i);
+    expect(() => decideDeadlineTurn(s, alice, move("propose", "BUF", [mine], [roster("DEN")[0]!.id]))).toThrow(/already moved/i);
+    expect(s.players[theirs]!.nfl_team).toBe("BUF");
+  });
+
+  it("a repeated submission is not a second negotiation", () => {
+    openDeadline();
+    const m = move("propose", "BUF", [roster("KC")[5]!.id], [roster("BUF")[5]!.id]);
+    decideDeadlineTurn(s, alice, m);
+    expect(() => decideDeadlineTurn(s, alice, m)).toThrow();
+    expect(s.tradeDeadline!.active?.fromTeam).toBe("KC");
+  });
+
+  it("the league blocks a one-sided blockbuster between two GMs when the recipient accepts", () => {
+    openDeadline();
+    const star = roster("KC").find((p) => p.overall >= 90) ?? roster("KC")[0]!;
+    star.overall = 95;
+    const scrub = roster("BUF").at(-1)!;
+    decideDeadlineTurn(s, alice, move("propose", "BUF", [star.id], [scrub.id]));
+    expect(s.tradeDeadline!.active?.awaiting).toBe("recipient");
+    decideDeadlineTurn(s, bob, { kind: "accept" });
+    expect(s.players[star.id]!.nfl_team).toBe("KC");
+    expect(s.players[scrub.id]!.nfl_team).toBe("BUF");
+  });
+
+  it("accepting a fair two-GM deal moves both sides exactly once", () => {
+    openDeadline();
+    const a = roster("KC")[8]!;
+    const b = roster("BUF")[8]!;
+    a.overall = b.overall;
+    decideDeadlineTurn(s, alice, move("propose", "BUF", [a.id], [b.id]));
+    decideDeadlineTurn(s, bob, { kind: "accept" });
+    expect(s.players[a.id]!.nfl_team).toBe("BUF");
+    expect(s.players[b.id]!.nfl_team).toBe("KC");
+    // the negotiation is closed: answering again moves nobody a second time
+    try {
+      decideDeadlineTurn(s, bob, { kind: "accept" });
+    } catch {
+      /* refused is fine too */
+    }
+    expect(s.players[a.id]!.nfl_team).toBe("BUF");
+    expect(s.players[b.id]!.nfl_team).toBe("KC");
+    expect(s.tradeDeadline!.resolved.filter((r) => r.outcome === "accepted" && r.fromTeam === "KC" && r.toTeam === "BUF")).toHaveLength(1);
+  });
+
+  it("a CPU partner answers on its own, and nothing is left hanging for it", () => {
+    openDeadline();
+    const a = roster("KC")[8]!;
+    const b = roster("DEN")[8]!;
+    decideDeadlineTurn(s, alice, move("propose", "DEN", [a.id], [b.id]));
+    expect(s.tradeDeadline!.active?.awaiting === "recipient" && s.tradeDeadline!.active.toTeam === "DEN").toBe(false);
+    const moved = s.players[a.id]!.nfl_team === "DEN";
+    expect(s.players[b.id]!.nfl_team).toBe(moved ? "KC" : "DEN");
+  });
+});
+
+describe("free-agency rounds keep turn ownership", () => {
+  it("refuses an offer from a team that is not on the clock and signs nobody mid-round", () => {
+    s.stage = "freeAgency";
+    beginFreeAgencyEvent(s, "offseason");
+    const up = faOnTheClock(s)!;
+    const other = up === "KC" ? bob : alice;
+    const fa = Object.values(s.players).find((p) => p.free_agent && !p.retired)!;
+    expect(() => decideFreeAgencyTurn(s, other, { playerId: fa.id, salary: 1, years: 1 })).toThrow(/isn't your turn/i);
+    expect(s.players[fa.id]!.free_agent).toBe(true);
+  });
+});
+
+describe("online simulate shortcuts are per-GM reveals bounded by the block", () => {
+  it("cannot reveal past the end of the block, or a non-week, or for anyone else", () => {
+    s.stage = "regularSeason";
+    s.week = 1;
+    s.reveal = emptyReveal();
+    const last = currentBlock(s)!.lastWeek;
+    for (const bad of [last + 1, 99, 0, -1, 2.5]) {
+      expect(() => decideReveal(s, alice, bad), String(bad)).toThrow(/isn't part of this stretch/i);
+    }
+    decideReveal(s, alice, last);
+    // alice's marker moved; bob's did not
+    expect(revealedWeek(s, alice.gmId, "REG")).toBe(last);
+    expect(revealedWeek(s, bob.gmId, "REG")).toBe(0);
+    expect(() => decideReveal(s, alice, last)).toThrow(/already seen/i);
+    // it never moves the league: stage and week are untouched
+    expect(s.stage).toBe("regularSeason");
+    expect(s.week).toBe(1);
+  });
+
+  it("is unavailable outside a played block", () => {
+    s.stage = "tradeDeadline";
+    expect(() => decideReveal(s, alice, 3)).toThrow(/nothing to reveal/i);
   });
 });

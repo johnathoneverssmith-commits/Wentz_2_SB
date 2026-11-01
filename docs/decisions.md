@@ -1858,13 +1858,25 @@ Franchise Command Center's "Trade proposals" shortcut is gone; Trade Proposal
 and Free Agency screens are read-only ("Trade History", "Free Agent Market",
 "Proposals closed", "Rounds only"); the Roster screen's button is history only.
 
-**CPU roster repair boundary (for Agent 1).** Repair does not go through these
-routes. `reconciliation.ts` is untouched. If a repair needs to *sign* a free
-agent for a CPU team through the online decision layer, call
-`decideCpuRepairSigning(state, { kind: "cpu-roster-repair", teamCode }, playerId, offer)`
-(`online/src/decide.ts`). It has no HTTP route, throws for any team with a human
-GM seated, and uses the normal cap / roster-limit checks. Repair *policy*
-(who, how much, when) stays Agent 1's.
+**Roster repair boundary (for Agent 1).** The agreed design is that staff
+repair incomplete rosters automatically, for human-controlled and CPU-controlled
+franchises alike, and that no human GM initiates or chooses those signings. The
+interface is `online/src/rosterRepair.ts` and nothing else:
+`authorizeRosterRepair(state, teamCode, checkpoint)` mints an opaque capability
+(private-symbol brand, so JSON cannot forge it) and throws unless the league is
+at, or just past, a repair checkpoint (`freeAgencySummary` ->
+`trainingCamp`; `midseasonFreeAgencySummary` -> `midseasonDepthChart`);
+`applyRosterRepair(state, auth)` then runs the existing policy
+(`reconcileCpuTeam`) and takes no player, salary or position, so there is
+nothing for a caller to choose. It works for any franchise, expires when the
+league leaves the window, is idempotent, and is imported by `phases.ts` (the
+automatic checkpoint passes) and `decideStaffFix`. It must never be imported by
+`index.ts` (a test enforces that). Open point for Agent 1: `decideStaffFix`
+(the summary screen's "let staff fix it" button) is a human-pressed trigger. It
+chooses no player and is limited to the summary stage, so it is unchanged, but
+if the design is "no human trigger at all" Agent 1 can drop that route; the
+automatic pass already repairs forced and absent GMs. New repair checkpoints
+are added to `WINDOW` in `rosterRepair.ts`.
 
 **Coaching draft delegation.** `CoachingDraftState.delegated` (saved, optional)
 lists teams that handed their remaining picks to staff; `results[].byStaff`
@@ -1884,7 +1896,7 @@ the run already going). Then it opens the existing results screen
 (`/results/PRE|REG/from/to`), whose Continue goes to the next actionable stage.
 Online: the block is already simulated at its checkpoint, so these are the
 existing per-GM reveals (relabelled); they move only the pressing GM's own
-marker and never check in for anyone.
+marker and never check in for anyone. `decideReveal` now refuses a week beyond the current block (a hand-built `through: 99` used to push the marker into the next block, showing its results as already watched).
 
 **Limitations.** (1) Online "Simulate …" is a reveal, so it cannot start the
 next block: the GM still presses the stage's readiness button, and the league

@@ -77,6 +77,7 @@ import {
   revealedRounds,
   revealedWeek,
 } from "@/state/reveal.ts";
+import { currentBlock } from "@/state/revealBlocks.ts";
 import { resolveTransition } from "@/state/stageMachine.ts";
 import {
   proposeAtDeadline,
@@ -86,7 +87,8 @@ import {
 } from "@/state/tradeDeadline.ts";
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
-import { applyRelease, checkRelease, reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
+import { applyRosterRepair, authorizeRosterRepair, type RepairCheckpoint } from "./rosterRepair.js";
+import { applyRelease, checkRelease, reconciliationIssues } from "@/state/reconciliation.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
@@ -131,50 +133,6 @@ export function decideSignFreeAgent(
   // `decideCpuRepairSigning`, which has no route.
   void state;
   throw new ActionError(FREE_AGENCY_WINDOW_MESSAGE, 409);
-}
-
-/**
- * Authorisation for the one non-round signing path: repairing a roster that
- * belongs to a CPU team. Server code constructs this; no request can. A team
- * with a human GM seated is never eligible, so this cannot become a way for a
- * person to sign players on demand. (Agent 1 owns the repair *policy*; this is
- * only the boundary it signs through.)
- */
-export interface CpuRepairAuthorization {
-  readonly kind: "cpu-roster-repair";
-  readonly teamCode: string;
-}
-
-export function decideCpuRepairSigning(
-  state: LeagueState,
-  auth: CpuRepairAuthorization,
-  playerId: string,
-  offer: Omit<ContractOffer, "teamCode">,
-): Decision {
-  if (auth.kind !== "cpu-roster-repair") throw new ActionError("Not an authorised roster repair.", 403);
-  if (state.gms.some((g) => g.isHuman && g.teamCode === auth.teamCode)) {
-    throw new ActionError("Roster repair signing is only for CPU teams.", 403);
-  }
-  const full: ContractOffer = { ...offer, teamCode: auth.teamCode };
-  const check = checkStandingSign(state, playerId, full);
-  if (!check.ok) throw new ActionError(check.reason ?? "That signing isn't allowed.");
-  const p = state.players[playerId];
-  if (!p) throw new ActionError("No such player.", 404);
-  p.free_agent = false;
-  p.nfl_team = auth.teamCode;
-  p.contract = offerToContract(full);
-  state.standingFreeAgents = state.standingFreeAgents.filter((x) => x !== playerId);
-  recomputeTeamRatings(state);
-  return {
-    events: [
-      {
-        teamCode: auth.teamCode,
-        kind: "fa.repair",
-        summary: `${city(auth.teamCode)} filled a roster spot with ${p.name} (${posLabel(p.position)}).`,
-        detail: { playerId },
-      },
-    ],
-  };
 }
 
 /** Place or replace a bid in the live window. */
@@ -610,6 +568,13 @@ export function decideReveal(
   if (state.stage !== "preseason" && state.stage !== "regularSeason") {
     throw new ActionError("There's nothing to reveal right now.");
   }
+  // A reveal moves this GM's own marker through weeks that are already played.
+  // It may not go past the end of the block being played: a marker set beyond
+  // it would show the next block's results as already watched.
+  const block = currentBlock(state);
+  if (!Number.isInteger(through) || through < 1 || !block || through > block.lastWeek) {
+    throw new ActionError("That week isn't part of this stretch of the season.");
+  }
   const already = revealedWeek(state, actor.gmId, phase);
   if (through <= already) throw new ActionError("You've already seen that week.");
 
@@ -776,7 +741,7 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   const before = new Set(
     Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent).map((p) => p.id),
   );
-  reconcileCpuTeam(state, actor.teamCode);
+  applyRosterRepair(state, authorizeRosterRepair(state, actor.teamCode, state.stage as RepairCheckpoint));
   recomputeTeamRatings(state);
   const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
   const named = (ps: { name: string; position: string }[]) => ps.map((p) => `${p.name} (${posLabel(p.position)})`).join(", ");

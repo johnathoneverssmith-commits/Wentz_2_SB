@@ -124,16 +124,6 @@ async function step(): Promise<Stage> {
   return s().stage;
 }
 
-/** A stage that owns state has to have built it by the time you arrive. */
-function expectOpened(stage: Stage): void {
-  if (stage === "coachingDraft") expect(s().coachingDraft, "coaching draft never opened").toBeTruthy();
-  if (stage === "tradeDeadline") expect(s().tradeDeadline, "trade deadline never opened").toBeTruthy();
-  if (stage === "freeAgency" || stage === "midseasonFreeAgency") {
-    expect(s().freeAgencyEvent, `${stage} never opened`).toBeTruthy();
-  }
-}
-
-
 async function playUntil(stage: Stage, guard = 200): Promise<void> {
   while (s().stage !== stage && guard-- > 0) await step();
   expect(s().stage).toBe(stage);
