@@ -456,7 +456,7 @@ export function DraftRoom() {
                         tabIndex={0}
                         onClick={() => setInspect(s.players[p.id] ?? null)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") setInspect(s.players[p.id] ?? null);
+                          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setInspect(s.players[p.id] ?? null); }
                         }}
                         style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
                       >

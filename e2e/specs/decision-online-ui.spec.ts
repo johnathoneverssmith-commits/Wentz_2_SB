@@ -14,7 +14,7 @@ test.describe('UI-4 controlled multiplayer transport — UI guards, not server E
    const transport=await controlledLeague(page,origin,state,{teamCode:other.teamCode,gmId:other.id});await page.reload();
    await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();
    const buttons=page.getByRole('table').getByRole('button',{name:/^Draft /});await expect(buttons.first()).toBeDisabled();
-   const target=page.locator(`.draft-avail tr[data-player-id="${targetId}"]`);await expect(target).toBeVisible();await target.getByRole('button',{name:/^Compare /}).click();await expect(page.locator('body')).not.toContainText('98765432');expect(transport.requests).toEqual([]);
+   const target=page.locator(`.draft-avail tr[data-player-id="${targetId}"]`);await expect(target).toBeVisible();await target.locator('[role=button]').first().click();await expect(page.getByRole('dialog').getByRole('table')).toBeVisible();await expect(page.locator('body')).not.toContainText('98765432');await page.keyboard.press('Escape');expect(transport.requests).toEqual([]);
    expect((await saved(page)).draft.results).toEqual(state.draft.results);expect(transport.unexpected).toEqual([]);
    await page.reload();await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();expect((await onlineSaved(page)).draft.results).toEqual(state.draft.results);
   });

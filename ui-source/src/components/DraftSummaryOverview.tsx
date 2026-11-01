@@ -87,7 +87,7 @@ export function DraftSummaryOverview({
             const t = TEAMS_BY_CODE[row.code];
             return (
               <li key={row.code} className={`${row.code === code ? "me " : ""}${humanTeams.includes(row.code) ? "human" : ""}`}>
-                <button type="button" aria-expanded={open} aria-controls={`dso-${row.code}`} onClick={() => setOpenTeam(open ? null : row.code)}>
+                <button type="button" aria-expanded={open} aria-controls={open ? `dso-${row.code}` : undefined} onClick={() => setOpenTeam(open ? null : row.code)}>
                   <span className="n">{i + 1}</span>
                   <TeamBadge code={row.code} size={22} />
                   <span className="t">{t?.label ?? row.code}{humanTeams.includes(row.code) && <em> · GM</em>}</span>

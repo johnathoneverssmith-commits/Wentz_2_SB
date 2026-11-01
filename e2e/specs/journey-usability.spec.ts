@@ -16,10 +16,10 @@ test.describe('UI-5 setup orientation',()=>{
   await page.getByRole('group',{name:'Fantasy draft',exact:true}).getByRole('combobox').selectOption('off');
   await expect(guide).toContainText('coaching draft');
   await expect(page.getByText('Teams keep their starting roster. The coaching draft begins once every GM is ready.',{exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'How it works',exact:true}).click();
-  const help=page.getByRole('dialog',{name:'How it works',exact:true});await expect(help).toContainText('Start here');
-  await expect(help.getByRole('button',{name:'Close how it works'})).toBeFocused();
-  await page.keyboard.press('Escape');await expect(help).toHaveCount(0);await expect(page.getByRole('button',{name:'How it works',exact:true})).toBeFocused();
+  await page.getByRole('button',{name:'Methodology',exact:true}).click();
+  const help=page.getByRole('dialog',{name:'Methodology',exact:true});await expect(help).toContainText('Start here');
+  await expect(help.getByRole('button',{name:'Close methodology'})).toBeFocused();
+  await page.keyboard.press('Escape');await expect(help).toHaveCount(0);await expect(page.getByRole('button',{name:'Methodology',exact:true})).toBeFocused();
   await capture(page,'setup-mobile.png');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  });
 });
@@ -45,10 +45,10 @@ test.describe('UI-5 truthful camp feedback',()=>{
 test.describe('UI-5 first franchise through real controls',()=>{
  test('seeded solo setup completes player and coaching drafts into camp',async({page})=>{
   test.setTimeout(180_000);await page.setViewportSize({width:1440,height:1000});await page.goto('/#/setup');
-  await page.getByRole('tab',{name:'League Settings',exact:true}).click();await page.getByText('League seed and replayability',{exact:true}).click();
-  await page.getByRole('textbox',{name:'New solo setup seed',exact:true}).fill('8724');
-  page.once('dialog',async d=>{expect(d.message()).toContain('Restart this solo setup');await d.accept();});
-  await page.getByRole('button',{name:'Restart setup with seed',exact:true}).click();await expect.poll(async()=>(await saved(page)).seed).toBe(8724);
+  await page.getByRole('tab',{name:'League Settings',exact:true}).click();
+  await page.getByRole('textbox',{name:'Seed',exact:true}).fill('8724');
+  page.once('dialog',async d=>{expect(d.message()).toContain('Create a new solo setup');await d.accept();});
+  await page.getByRole('button',{name:'Create league with this universe',exact:true}).click();await expect.poll(async()=>(await saved(page)).seed).toBe(8724);
   await page.getByRole('textbox',{name:/^Manual picks each/}).fill('1');
   await page.getByRole('tab',{name:'Lobby',exact:true}).click();await expect(page.getByRole('region',{name:'League profile',exact:true})).toBeVisible();await page.getByRole('button',{name:/^Baltimore Ravens.*available$/}).click();
   await capture(page,'setup-desktop.png');await page.getByRole('button',{name:"I'm ready to begin",exact:true}).click();
@@ -77,8 +77,8 @@ for(const [device,width] of [['desktop',1440],['mobile',390]] as const){
    await page.setViewportSize({width,height:device==='desktop'?1000:844});await page.goto('/');const before=await saved(page);
    const guide=page.getByRole('region',{name:'Franchise guidance'});await guide.getByText('Why this step matters',{exact:true}).click();expect((await saved(page)).trainingCamp).toEqual(before.trainingCamp);
    await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Finances & Cap',exact:true}).click();await guide.getByRole('link',{name:'Return to Training Camp',exact:true}).click();await expect(page).toHaveURL(/#\/training-camp$/);
-   await page.getByRole('button',{name:'How it works',exact:true}).click();const help=page.getByRole('dialog',{name:'How it works',exact:true});await expect(help).toContainText('repeated focuses');
-   if(device==='mobile'){const rect=(await help.getByRole('button',{name:'Close how it works'}).boundingBox())!;expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('[role=dialog]')?.getAttribute('aria-label'),{x:rect.x+rect.width/2,y:rect.y+rect.height/2}),'The help close control must be above mobile navigation').toBe('How it works');}
+   await page.getByRole('button',{name:'Methodology',exact:true}).click();const help=page.getByRole('dialog',{name:'Methodology',exact:true});await expect(help).toContainText('repeated focuses');
+   if(device==='mobile'){const rect=(await help.getByRole('button',{name:'Close methodology'}).boundingBox())!;expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('[role=dialog]')?.getAttribute('aria-label'),{x:rect.x+rect.width/2,y:rect.y+rect.height/2}),'The help close control must be above mobile navigation').toBe('Methodology');}
    const tabs=help.getByRole('tab');await tabs.first().focus();await page.keyboard.press('ArrowRight');await expect(tabs.nth(1)).toBeFocused();await expect(tabs.nth(1)).toHaveAttribute('aria-selected','true');await capture(page,`help-${device}.png`);await page.keyboard.press('Escape');
    await page.getByRole('button',{name:/^Quarterbacks/}).click();await page.getByRole('button',{name:/^Defensive line/}).click();if(device==='mobile'){const target=(await page.getByRole('button',{name:/^Quarterbacks/}).boundingBox())!;expect(target.height).toBeGreaterThanOrEqual(44);}
    await capture(page,`camp-${device}.png`);
@@ -117,8 +117,8 @@ test.describe('UI-5 review regressions',()=>{
   await page.clock.install();await page.clock.fastForward(31_000);
   let release!:()=>void;const gate=new Promise<void>(r=>{release=r;});let pending=0;
   await page.route('http://localhost:8787/**',async route=>{pending++;await gate;try{await route.abort('blockedbyclient');}catch{}});
-  await page.getByRole('tab',{name:'League Settings',exact:true}).click();await page.getByText('League seed and replayability',{exact:true}).click();await page.getByRole('textbox',{name:'New solo setup seed',exact:true}).fill('9357');
-  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Restart setup with seed',exact:true}).click();
+  await page.getByRole('tab',{name:'League Settings',exact:true}).click();await page.getByRole('textbox',{name:'Seed',exact:true}).fill('9357');
+  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Create league with this universe',exact:true}).click();
   try{
    await expect.poll(()=>pending).toBeGreaterThan(0);
    await expect(page.getByRole('dialog',{name:'Creating solo league',exact:true})).toBeVisible();
@@ -131,7 +131,7 @@ test.describe('UI-5 review regressions',()=>{
   await expect(page.getByRole('dialog',{name:'Creating solo league',exact:true})).toHaveCount(0);expect((await saved(page)).seed).toBe(9357);expect((await saved(page)).stage).toBe('setup');
  });
  test('help tabs reference real labelled panels',async({page})=>{
-  await page.goto('/#/setup');await page.getByRole('button',{name:'How it works',exact:true}).click();const help=page.getByRole('dialog',{name:'How it works',exact:true});
+  await page.goto('/#/setup');await page.getByRole('button',{name:'Methodology',exact:true}).click();const help=page.getByRole('dialog',{name:'Methodology',exact:true});
   for(const tab of await help.getByRole('tab').all()){const id=(await tab.getAttribute('aria-controls'))!;expect(await help.locator(`[id="${id}"]`).count()).toBe(1);}
  });
 });

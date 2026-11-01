@@ -94,7 +94,7 @@ export function UnitGrades({ teamCode }: { teamCode: string }) {
                 type="button"
                 className="unit-card-toggle"
                 aria-expanded={expanded}
-                aria-controls={`unit-detail-${u.key}`}
+                aria-controls={expanded ? `unit-detail-${u.key}` : undefined}
                 onClick={() => setOpen(expanded ? null : u.key)}
               >
                 {expanded ? "Hide starters & depth" : "Starters & depth"}

@@ -54,9 +54,23 @@ export function UniversePicker({ seed, config, canRestart }: { seed: number | nu
             }
           }}
         >
-          <div role="radiogroup" aria-label="Universe" className="universe-opts">
+          <div
+            role="radiogroup"
+            aria-label="Universe"
+            className="universe-opts"
+            onKeyDown={(e) => {
+              // a radio group is one tab stop; arrows move the choice and focus together
+              const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+              if (!step || busy) return;
+              e.preventDefault();
+              const next = KINDS[(KINDS.indexOf(kind) + step + KINDS.length) % KINDS.length]!;
+              setKind(next);
+              const group = e.currentTarget; // React clears currentTarget once the handler returns
+              requestAnimationFrame(() => group.querySelector<HTMLElement>(`[data-kind="${next}"]`)?.focus());
+            }}
+          >
             {KINDS.map((k) => (
-              <button key={k} type="button" role="radio" aria-checked={kind === k} className="universe-opt" onClick={() => setKind(k)} disabled={busy}>
+              <button key={k} type="button" role="radio" data-kind={k} tabIndex={kind === k ? 0 : -1} aria-checked={kind === k} className="universe-opt" onClick={() => setKind(k)} disabled={busy}>
                 <b>{UNIVERSE_LABEL[k]}</b>
                 <span>{UNIVERSE_HINT[k]}</span>
               </button>

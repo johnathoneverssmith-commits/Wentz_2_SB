@@ -23,6 +23,8 @@ export function GameTitle({ team, eyebrow }: { team?: string; eyebrow?: string }
   return (
     <div className={`title-wrap${swap ? " swap" : ""}`}>
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+      {/* the visible title is replaced when a team is chosen; this says so to a screen reader */}
+      <p className="sr-only" role="status">{name ? `You are the ${name}. ${gameTitle(name)}.` : ""}</p>
       <h1 className="game-title" key={team ?? "none"} aria-label={gameTitle(name)}>
         {name ? (
           <>
