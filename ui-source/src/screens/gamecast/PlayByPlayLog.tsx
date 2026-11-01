@@ -23,6 +23,25 @@ function isNotable(p: BroadcastPlay): boolean {
   return p.touchdown || p.turnover || p.gained >= 25 || p.call === "sack" || (p.scores?.length ?? 0) > 0;
 }
 
+/** The quarters that have recorded plays, by each play's own quarter (a drive can cross a quarter break). */
+export function quartersOf(drives: readonly { quarter: number; plays: readonly { quarter: number }[] }[]): number[] {
+  const qs = new Set<number>();
+  for (const d of drives) {
+    if (d.plays.length === 0) qs.add(d.quarter);
+    for (const p of d.plays) qs.add(p.quarter);
+  }
+  return [...qs].sort((a, b) => a - b);
+}
+
+/** The indices of a drive's plays that belong to `quarter` ("all" = every play). */
+export function playIndicesIn(drive: { plays: readonly { quarter: number }[] }, quarter: number | "all"): number[] {
+  const out: number[] = [];
+  drive.plays.forEach((p, i) => {
+    if (quarter === "all" || p.quarter === quarter) out.push(i);
+  });
+  return out;
+}
+
 /**
  * The whole recorded game as a page you can scroll, one quarter at a time.
  *
@@ -31,7 +50,7 @@ function isNotable(p: BroadcastPlay): boolean {
  * Gamecast above it is the replay; this is the transcript.
  */
 export function PlayByPlayLog({ broadcast }: { broadcast: GameBroadcast }): JSX.Element {
-  const quarters = useMemo(() => [...new Set(broadcast.drives.map((d) => d.quarter))].sort((a, b) => a - b), [broadcast]);
+  const quarters = useMemo(() => quartersOf(broadcast.drives), [broadcast]);
   const [quarter, setQuarter] = useState<number | "all">(quarters[0] ?? 1);
   const [only, setOnly] = useState<"all" | "notable">("all");
   const narration = useMemo(
@@ -64,16 +83,19 @@ export function PlayByPlayLog({ broadcast }: { broadcast: GameBroadcast }): JSX.
         </label>
       </div>
       {broadcast.drives.map((d, di) => {
-        if (quarter !== "all" && d.quarter !== quarter) return null;
+        const inQuarter = new Set(playIndicesIn(d, quarter));
+        // a drive with no plays belongs to the quarter it started in
+        if (d.plays.length === 0 ? quarter !== "all" && d.quarter !== quarter : inQuarter.size === 0) return null;
         const plays = d.plays
           .map((p, pi) => ({ p, pi }))
-          .filter(({ p }) => only === "all" || isNotable(p));
+          .filter(({ p, pi }) => inQuarter.has(pi) && (only === "all" || isNotable(p)));
         if (only === "notable" && plays.length === 0) return null;
         const last = d.plays[d.plays.length - 1];
         return (
           <div key={di} className="neg-row" style={{ display: "block" }} data-testid="pbp-drive">
             <p style={{ margin: "0 0 4px", fontSize: 12.5, fontWeight: 600 }}>
-              {qLabel(d.quarter)} · {teamName(d.team)} · {d.plays.length} {d.plays.length === 1 ? "play" : "plays"} ·{" "}
+              {qLabel(quarter === "all" ? d.quarter : quarter)} · {teamName(d.team)} · {d.plays.length} {d.plays.length === 1 ? "play" : "plays"}
+              {quarter !== "all" && inQuarter.size < d.plays.length ? ` (${inQuarter.size} this quarter)` : ""} ·{" "}
               {OUTCOME[d.ended] ?? d.ended}
               {d.points > 0 ? ` (+${d.points})` : ""}
               {d.pointsAgainst > 0 ? ` (${teamName(d.side === "home" ? broadcast.away : broadcast.home)} +${d.pointsAgainst})` : ""}
