@@ -381,12 +381,12 @@ function finalizeSeasonNoting(state: LeagueState): void {
 
 function rollOverSeason(state: LeagueState): void {
   finalizeSeasonNoting(state);
+  archiveSeasonGames(state, { gated: true }); // tagged with the season they were played in
   state.season += 1;
   state.bracket = null;
   // the deadline only opens when there isn't one — keep last year's and no
   // season after the first ever has a deadline or a midseason market
   state.tradeDeadline = null;
-  archiveSeasonGames(state); // last season's games stay reachable
   state.games = [];
   state.draft = null;
   state.draftTargets = {};
@@ -703,6 +703,7 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // both have to trigger this, since a league with nobody eligible for an
   // encounter still passes straight through that stage in one plain click.
   if (state.stage === "regularSeason" && (from === "preseason" || from === "leagueDevelopments")) {
+    archiveSeasonGames(state, { gated: true, only: "PRE" }); // the wipe is deliberate; the games stay reachable, to those who watched them
     wipePreseason(state);
     const alreadyPlayed = state.games.some((g) => g.phase === "REG" && g.played);
     if (!alreadyPlayed) runOrDefer(state, { kind: "block", phase: "REG", from: 1, to: seasonShape(state).deadlineWeek });

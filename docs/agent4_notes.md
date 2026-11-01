@@ -26,3 +26,28 @@ Integrated: roster depth chart + contract list, player card modal, free agency r
 
 ## Verification
 UI typecheck/build, engine + online typecheck, UI vitest (new: gameHistory, fanReactions, portrait, PlayerPortrait), e2e `play-by-play.spec.ts` (+ regular-season, save-reload). Screenshots in `docs/screenshots/agent4/`.
+
+## Follow-up round (review of PR #70)
+
+### Season tag bug found and fixed
+`archiveSeasonGames` was first called *after* `season += 1`, so every archived game was labelled with the next year. It now runs before the increment (local `store.ts`, online `phases.ts`); `gameHistoryRollover.test.ts` drives the real stage machine across the rollover and checks the tag.
+
+### Preseason history
+Preseason games are archived too (they were excluded). Limits: last 2 preseasons (`ARCHIVE_PRESEASONS_KEPT`), never with a play trace; regular season/playoffs keep 5 seasons, traces only for the most recent. Online wipes the preseason when the regular season starts (a deliberate product rule), so the games are archived immediately before the wipe, then the wipe proceeds unchanged.
+
+### Multiplayer visibility of history
+Archived games carry `seenBy`: the GMs who had revealed that game at archive time (computed with `visibleGames`). The server's outbound league view (`online/src/index.ts`) passes the archive through `visibleArchive(archive, gmId)`, so a GM who had not watched a game never receives it, not even a stub; a commissioner with no franchise gets none. Solo archives have no `seenBy` (open to their one GM). Tests: `gameHistory.test.ts` (reveal rules, caps, tags), `online/test/result-visibility.test.ts` (real route, two GMs, DB-backed).
+
+### `draftOrder.test.ts` flake: pre-existing, not this PR
+The failing assertion is "the humans do not occupy exactly the first N slots of a randomized first round". The order is a seeded shuffle; the store's starting league seed is `Date.now() % 100000`, so each run draws a different shuffle. Measured over 300,000 shuffles: 56 put the 3 human teams in the top 3 (expected 1 in 4,960). The PR touches no draft or seed code; the test passed on 3 more full runs, and on exact-head CI. It was nondeterministic by construction, not order-dependent. Fixed in the test only by pinning `draftSalt`.
+
+### Real engine for solo play without `localhost:8787`: not done; scoped follow-up
+Spike results (scratch, nothing committed):
+- Engine speed is fine for a browser worker: ~35 ms per game, ~38 ms with a trace (a 16-game week is ~0.6 s).
+- Bundling `src/engine` with the Node `fs`/`url`/`path` reads shimmed produced a 6.6 MB bundle (1.3 MB gzipped), mostly the 3.9 MB of portable model JSON plus the pool.
+- It does **not** just work: `roster.ts` -> `loadPlayerPool()` loads the *reference pool* (`data/players.local.json`, else the 8-player sample) at run time to centre synergy/team-strength offsets. Results therefore depend on which pool file the host has. A browser engine must ship exactly the pool the server and online use, or solo and online games diverge. That is a gameplay-consistency decision and an engine-loader change (CLAUDE.md requires explicit approval for each), so it was not attempted here.
+- `server/simPool.ts` uses `worker_threads`; the browser needs a Web Worker replacement.
+Proposed follow-up (own PR): (1) make the reference pool an explicit input to the engine (default unchanged, byte-identical tests); (2) replace `readFileSync` loaders with an injectable artifact source (Node: fs; browser: lazily imported JSON chunks); (3) move `server/index.ts`'s `handleSimulateWeek`/`presentGame` into a shared module used by both the adapter and a Web Worker; (4) `HybridSimulationService` prefers the worker over `localhost:8787`, with the mock only as a last resort; (5) parity test: same seed/rosters give identical scores in Node and in the worker bundle (Math.* determinism across engines); (6) e2e allowlist for the worker. Until then solo games without the adapter carry a scoring summary, labelled as such. Game history (this PR) stores whatever trace the sim produced.
+
+### Verification (local, exact-head CI recorded in the PR)
+Typechecks (engine/online/UI), UI build, UI full suite, UI "direct" and "related" suites, online suites one at a time on PGlite (all pass except the `reliability-*` suites, which require real concurrent PostgreSQL connections and are authoritative only in CI), engine `npm test`: 2 failures that fail identically on a clean `origin/master` checkout here (`verify-replay` needs full git history; this clone is shallow; `verify-safety` process-tree test), browser e2e `play-by-play`, `regular-season`, `save-reload`.

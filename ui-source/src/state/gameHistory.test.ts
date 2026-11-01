@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { GameResult, LeagueState } from "@/domain";
-import { archiveSeasonGames, ARCHIVE_SEASONS_KEPT, describeTrace, findGame } from "./gameHistory";
+import { archiveSeasonGames, ARCHIVE_PRESEASONS_KEPT, ARCHIVE_SEASONS_KEPT, describeTrace, findGame, visibleArchive } from "./gameHistory";
+import { markRevealed, markRoundRevealed } from "./reveal";
 
 const bc = { home: "BUF", away: "KC", finalScore: [24, 20] as [number, number], drives: [{ team: "BUF", side: "home", quarter: 1, startClock: "15:00", startBallOn: 75, plays: [], ended: "touchdown", points: 7, pointsAgainst: 0 }], scoringDrives: [0], injuries: [] } as unknown as GameResult["broadcast"];
 const game = (id: string, over: Partial<GameResult> = {}): GameResult => ({ id, week: 1, phase: "REG", homeTeam: "BUF", awayTeam: "KC", played: true, homeScore: 24, awayScore: 20, ...over });
@@ -15,7 +16,7 @@ describe("game history", () => {
     s.games = [];
     expect(findGame(s, "a")?.broadcast).toBeTruthy();
     expect(findGame(s, "b")).toBeUndefined(); // CPU-only games are not archived
-    expect(findGame(s, "pre")).toBeUndefined(); // preseason is wiped by design
+    expect(findGame(s, "pre")).toBeDefined(); // preseason is kept too, without its trace
   });
 
   it("drops older seasons' traces but keeps their scores and scoring plays", () => {
@@ -49,5 +50,60 @@ describe("game history", () => {
     expect(describeTrace(findGame(s, "old"))).toBe("none");
     expect(describeTrace(findGame(s, "missing"))).toBe("none");
     expect(describeTrace(game("u", { played: false }))).toBe("none");
+  });
+
+  it("keeps preseason games without traces, for only the last few seasons", () => {
+    const s = league([game("pre1", { phase: "PRE", broadcast: bc })]);
+    archiveSeasonGames(s);
+    s.games = []; // as the rollover does; lookups now come from the archive
+    expect(findGame(s, "pre1")?.broadcast).toBeUndefined();
+    expect(findGame(s, "pre1")?.phase).toBe("PRE");
+    for (let y = 1; y <= ARCHIVE_PRESEASONS_KEPT + 1; y++) {
+      s.season = 2026 + y;
+      s.games = [game(`pre-y${y}`, { phase: "PRE" }), game(`reg-y${y}`)];
+      archiveSeasonGames(s);
+    }
+    const preSeasons = new Set(s.gameArchive!.filter((g) => g.phase === "PRE").map((g) => g.season));
+    expect(preSeasons.size).toBe(ARCHIVE_PRESEASONS_KEPT);
+    expect(findGame(s, "reg-y1")).toBeDefined(); // real games outlive the preseason cap
+    expect(findGame(s, "pre1")).toBeUndefined();
+  });
+
+  it("tags games with the season they were played in (archive before the year turns)", () => {
+    const s = league([game("g")]);
+    archiveSeasonGames(s);
+    s.season += 1;
+    expect(s.gameArchive![0]!.season).toBe(2026);
+  });
+
+  it("online, an archived game goes only to the GMs who had revealed it", () => {
+    const s = league([
+      game("pre-seen", { phase: "PRE", week: 1 }),
+      game("pre-unseen", { phase: "PRE", week: 3 }),
+      game("reg-seen", { week: 2 }),
+      game("sb", { phase: "SB", week: 0 }),
+    ]);
+    s.gms = [
+      { id: "a", isHuman: true, teamCode: "BUF" },
+      { id: "b", isHuman: true, teamCode: "NYJ" },
+    ] as never;
+    markRevealed(s, "a", "PRE", 2);
+    markRevealed(s, "a", "REG", 2);
+    markRoundRevealed(s, "a", "SB");
+    markRevealed(s, "b", "PRE", 3);
+    archiveSeasonGames(s, { gated: true, only: "PRE" });
+    s.games = [];
+    s.games = [game("reg-seen", { week: 2 }), game("sb", { phase: "SB", week: 0 })];
+    archiveSeasonGames(s, { gated: true });
+    const ids = (gm: string) => visibleArchive(s.gameArchive, gm).map((g) => g.id).sort();
+    expect(ids("a")).toEqual(["pre-seen", "reg-seen", "sb"]);
+    // b watched all of preseason but nothing of the regular season or playoffs
+    expect(ids("b")).toEqual(["pre-seen", "pre-unseen"]);
+    // a commissioner with no franchise sees none of a gated archive
+    expect(ids("")).toEqual([]);
+    // and a solo archive (no `seenBy`) is open to its one GM
+    const solo = league([game("x")]);
+    archiveSeasonGames(solo);
+    expect(visibleArchive(solo.gameArchive, "anyone")).toHaveLength(1);
   });
 });

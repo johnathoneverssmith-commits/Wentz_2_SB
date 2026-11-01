@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { LeagueState } from "@/domain";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { emptyReveal, markRevealed, markRoundRevealed } from "@/state/reveal.ts";
+import { archiveSeasonGames } from "@/state/gameHistory.ts";
 import { fillRosterGaps } from "@/state/seed.ts";
 
 import { signSession } from "../src/auth.js";
@@ -258,4 +259,22 @@ describe("the postseason", () => {
     const theirs = (await league(users.sleeper)).bracket!;
     expect(theirs.matchups.every((m) => m.winner == null)).toBe(true);
   });
+});
+
+// A finished season's games are archived when the year turns. Who may read an archived game is fixed at that moment
+// by what each GM had revealed, and the server hands each GM only their own entries.
+maybe("an archived game reaches only the GMs who had revealed it", async () => {
+  await setup((s) => {
+    archiveSeasonGames(s, { gated: true });
+    s.games = []; // as the rollover does
+  });
+  const watcher = await league(users.watcher);
+  const sleeper = await league(users.sleeper);
+  const watcherIds = (watcher.gameArchive ?? []).map((g) => g.id);
+  expect(watcherIds.length, "the watcher revealed week 1").toBeGreaterThan(0);
+  for (const g of watcher.gameArchive ?? []) expect(g.week, "nothing past what they watched").toBe(1);
+  expect(sleeper.gameArchive ?? [], "the sleeper had revealed nothing").toEqual([]);
+  expect((watcher.gameArchive ?? []).some((g) => g.id === week2Game)).toBe(false);
+  // the raw document never leaves the server with `seenBy` pointing at someone else's list
+  expect(JSON.stringify(sleeper)).not.toContain(week2Game);
 });

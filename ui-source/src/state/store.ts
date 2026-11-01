@@ -701,6 +701,7 @@ export const useStore = create<Store>()(
 
             if (t.seasonRollover) {
               finalizeSeason(s);
+              archiveSeasonGames(s); // last season's games stay reachable (tagged with the season they were played in)
               s.season += 1;
               s.bracket = null;
               // Last season's deadline has to go with it: the stage machine only
@@ -708,7 +709,6 @@ export const useStore = create<Store>()(
               // every season after the first skipped the trade deadline and the
               // midseason market entirely.
               s.tradeDeadline = null;
-              archiveSeasonGames(s); // last season's games stay reachable
               s.games = [];
               s.draft = null;
               s.draftTargets = {};

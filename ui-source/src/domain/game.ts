@@ -113,4 +113,12 @@ export interface ScheduledGame {
 }
 
 /** A finished season's game, kept in `LeagueState.gameArchive`. */
-export type ArchivedGame = GameResult & { season: number };
+export type ArchivedGame = GameResult & {
+  season: number;
+  /**
+   * Online only: the GMs who had revealed this game when it was archived. Absent
+   * means everyone (a solo league has no one to hide a result from). A GM not
+   * listed never receives the entry — see `visibleArchive`.
+   */
+  seenBy?: string[];
+};

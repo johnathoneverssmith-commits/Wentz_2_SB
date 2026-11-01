@@ -1,4 +1,5 @@
 import type { ArchivedGame, GameResult, LeagueState } from "@/domain";
+import { visibleGames } from "./reveal";
 import { humanTeamsOf } from "./saveCompaction";
 
 /**
@@ -17,27 +18,67 @@ import { humanTeamsOf } from "./saveCompaction";
  */
 export const ARCHIVE_SEASONS_KEPT = 5;
 
-/** Copy this season's human-team games into the archive. Call just before `games` is cleared. */
-export function archiveSeasonGames(s: LeagueState): void {
+/** Preseason games are kept for this many seasons, without traces: they matter far less than real ones. */
+export const ARCHIVE_PRESEASONS_KEPT = 2;
+
+export interface ArchiveOptions {
+  /**
+   * Online: record which GMs had revealed each game, so `visibleArchive` can
+   * keep it from anyone who had not. Solo leagues leave this off.
+   */
+  gated?: boolean;
+  /** Archive only this phase group (the preseason wipe runs mid-season; the rollover runs the rest). */
+  only?: "PRE";
+}
+
+/**
+ * Copy this season's human-team games into the archive. Call it *before*
+ * `games` is cleared and before the season number moves (the games are tagged
+ * with `s.season`). Idempotent by game id.
+ */
+export function archiveSeasonGames(s: LeagueState, opts: ArchiveOptions = {}): void {
   const humans = humanTeamsOf(s);
   const mine = s.games.filter(
-    (g) => g.played && g.phase !== "PRE" && (humans.has(g.homeTeam) || humans.has(g.awayTeam)),
+    (g) =>
+      g.played &&
+      (opts.only ? g.phase === opts.only : true) &&
+      (humans.has(g.homeTeam) || humans.has(g.awayTeam)),
   );
+  const gmIds = s.gms.filter((g) => g.isHuman).map((g) => g.id);
   const archive = [...(s.gameArchive ?? [])];
   // the previous season's traces were the last ones worth their size
-  for (let i = 0; i < archive.length; i++) {
-    if (archive[i]!.broadcast) {
-      const { broadcast: _dropped, ...rest } = archive[i]!;
-      archive[i] = rest;
+  if (!opts.only) {
+    for (let i = 0; i < archive.length; i++) {
+      if (archive[i]!.broadcast) {
+        const { broadcast: _dropped, ...rest } = archive[i]!;
+        archive[i] = rest;
+      }
     }
   }
   for (const g of mine) {
     if (archive.some((a) => a.id === g.id)) continue;
-    archive.push({ ...g, season: s.season });
+    const { broadcast: trace, ...rest } = g;
+    // a preseason trace is never worth keeping; the others keep theirs until the next rollover
+    const entry: ArchivedGame = { ...(g.phase === "PRE" ? rest : { ...rest, ...(trace ? { broadcast: trace } : {}) }), season: s.season };
+    if (opts.gated) {
+      entry.seenBy = gmIds.filter((id) => visibleGames(s, id).some((x) => x.id === g.id));
+    }
+    archive.push(entry);
   }
   const seasons = [...new Set(archive.map((g) => g.season))].sort((a, b) => a - b);
   const keep = new Set(seasons.slice(-ARCHIVE_SEASONS_KEPT));
-  s.gameArchive = archive.filter((g) => keep.has(g.season));
+  const preSeasons = [...new Set(archive.filter((g) => g.phase === "PRE").map((g) => g.season))].sort((a, b) => a - b);
+  const keepPre = new Set(preSeasons.slice(-ARCHIVE_PRESEASONS_KEPT));
+  s.gameArchive = archive.filter((g) => keep.has(g.season) && (g.phase !== "PRE" || keepPre.has(g.season)));
+}
+
+/**
+ * The archive as one GM may see it. Online, an entry is only for the GMs who
+ * had revealed it; everyone else gets no trace of it (not a redacted stub: a
+ * stub would still say the game exists, who played, and that it is archived).
+ */
+export function visibleArchive(archive: readonly ArchivedGame[] | undefined, gmId: string): ArchivedGame[] {
+  return (archive ?? []).filter((g) => g.seenBy === undefined || g.seenBy.includes(gmId));
 }
 
 /** A game by id: this season's first, then the archive. */
