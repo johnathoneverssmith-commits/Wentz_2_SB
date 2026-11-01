@@ -1,9 +1,9 @@
 import { posLabel } from "@/util/format";
 import { useMemo, useState } from "react";
-import type { Position } from "@/domain";
 import "./unit-cards.css";
 
 import { useStore } from "@/state/store";
+import { reservesFor } from "@/state/unitReserves";
 import { unitReport, type UnitRow } from "@/state/unitReport";
 
 /**
@@ -42,20 +42,10 @@ export function UnitGrades({ teamCode }: { teamCode: string }) {
   const top = report.priorities.slice(0, 3);
   const [open, setOpen] = useState<string | null>(null);
   /** Reserves behind the starters at the unit's positions, straight from the depth chart. */
-  const depthFor = (u: UnitRow): { id: string; name: string; position: string; overall: number }[] => {
-    const starterIds = new Set(u.starters.map((p) => p.id).filter(Boolean));
-    const seen = new Set<string>();
-    const out: { id: string; name: string; position: string; overall: number }[] = [];
-    for (const pos of new Set(u.starters.map((p) => p.position))) {
-      for (const id of depthChart?.[teamCode]?.[pos as Position] ?? []) {
-        const p = players[id];
-        if (!p || starterIds.has(id) || seen.has(id) || p.nfl_team !== teamCode) continue;
-        seen.add(id);
-        out.push({ id, name: p.name, position: p.position, overall: p.overall });
-      }
-    }
-    return out.slice(0, 6);
-  };
+  const depthFor = (u: UnitRow): { id: string; name: string; position: string; overall: number }[] =>
+    reservesFor(players, depthChart, teamCode, u.starters.map((p) => p.position), new Set(u.starters.map((p) => p.id))).map((p) => ({
+      id: p.id, name: p.name, position: p.position, overall: p.overall,
+    }));
 
   return (
     <div className="unit-cards">

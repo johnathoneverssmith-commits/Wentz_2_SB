@@ -207,7 +207,15 @@ export function FantasyDraftSummary({
       </Panel>
 
       <Panel id="league" open={active === "league"}>
-        <DraftSummaryOverview rows={rows} code={code} humanTeams={humanTeams} grade={grade} rookie={rookie} />
+        <DraftSummaryOverview
+          rows={rows}
+          code={code}
+          humanTeams={humanTeams}
+          grade={grade}
+          rookie={rookie}
+          // the same letter the ticker shows: the class grade for a rookie draft, the lineup-rank grade otherwise
+          headlineGrade={rookie ? (code && classes.size ? grade(classRank.indexOf(code) + 1, total) : "—") : mine ? grade(mine.overallRank, total) : "—"}
+        />
       </Panel>
 
       <Footer bordered={false}>

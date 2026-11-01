@@ -19,13 +19,15 @@ interface Row { code: string; r: Ratings }
  * the finished roster is) are shown as two separate things on purpose.
  */
 export function DraftSummaryOverview({
-  rows, code, humanTeams, grade, rookie,
+  rows, code, humanTeams, grade, rookie, headlineGrade,
 }: {
   rows: Row[];
   code: string | undefined;
   humanTeams: string[];
   grade: (rank: number, total: number) => string;
   rookie: boolean;
+  /** the letter shown as the headline: the screen's own draft grade, or the class grade for a rookie draft */
+  headlineGrade: string;
 }) {
   const s = useStore();
   const total = rows.length;
@@ -43,9 +45,9 @@ export function DraftSummaryOverview({
     <div className="dso">
       {mine && (
         <section className="dso-hero" aria-label="Your draft result">
-          <div className="dso-grade" aria-label={`Draft grade ${grade(mine.overallRank, total)}`}>
+          <div className="dso-grade" aria-label={`${rookie ? "Class" : "Draft"} grade ${headlineGrade}`}>
             <small>{rookie ? "Class grade" : "Draft grade"}</small>
-            <b>{grade(mine.overallRank, total)}</b>
+            <b>{headlineGrade}</b>
           </div>
           <dl className="dso-facts">
             <div><dt>Starting lineup rank</dt><dd>{ordinal(mine.overallRank)}{small}</dd></div>
