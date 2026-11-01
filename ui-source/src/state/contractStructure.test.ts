@@ -207,6 +207,21 @@ describe("restructure and extension keep the books straight", () => {
     expect(releasePenalty(p)).toBeGreaterThanOrEqual(p.contract.signing_bonus - 0.11);
   });
 
+  it("extending a restructured legacy deal into a structure keeps its current-year proration (review finding)", () => {
+    const s = league();
+    s.teams["KC"]!.cap.total = 10_000;
+    const p = roster(s, "KC")[0]!;
+    p.contract = { team_id: "KC", years_remaining: 4, total_value: 80, guaranteed: 0, cap_hit_by_year: [20, 20, 20, 20], signing_bonus: 0 };
+    expect(restructureContract(p, s.season, 1).ok).toBe(true);
+    const perYear = p.contract!.prorated_per_year!;
+    expect(perYear).toBeGreaterThan(2);
+    expect(scheduleOf(p.contract)).toBeNull(); // legacy: no split yet
+    const r = extendContract(s, p, { baseSalary: 20, years: 3, guaranteed: 500, structure: "even" });
+    expect(r.ok, r.reason).toBe(true);
+    expect(scheduleOf(p.contract)).not.toBeNull();
+    expect(p.contract!.guaranteed_by_year![0]!).toBeCloseTo(perYear, 1);
+  });
+
   it("refuses an extension whose later years do not fit under the cap", () => {
     const s = league();
     const team = "KC";

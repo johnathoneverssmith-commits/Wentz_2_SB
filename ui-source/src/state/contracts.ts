@@ -243,7 +243,8 @@ export function applyExtension(p: Player, offer: { baseSalary: number; years: nu
   c.guaranteed = round1(offer.guaranteed);
   if (plan.schedule || old) {
     // this year's split stands; the new years carry the schedule (or a flat base) plus what was rolled in
-    const yearZeroBonus = old ? old.bonus[0]! : 0;
+    // a legacy deal that was restructured already owes this year's share of that conversion: keep it when the split is created
+    const yearZeroBonus = old ? old.bonus[0]! : Math.min(thisYear, round1(c.prorated_per_year ?? 0));
     const baseHits = plan.schedule ? plan.schedule.salary_by_year : Array.from({ length: offer.years }, () => round1(offer.baseSalary));
     const bonusHits = plan.hits.map((h, i) => round1(h - baseHits[i]!));
     c.guaranteed_by_year = [yearZeroBonus, ...bonusHits];
