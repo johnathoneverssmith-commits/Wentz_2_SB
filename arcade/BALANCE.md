@@ -353,3 +353,87 @@ an offense may supply `throwNow` to throw when its own rule says so. The existin
 Each fix should come with the sweep and matrix run before and after, the imbalances it fixes flipped to `fixed`, and the golden window maps
 updated deliberately. Monotonicity checks for the Milestone 5C ratings (a faster or more skilled receiver never lowers completion; a better
 defender never raises it) belong beside the sweeper's `abilities` overrides once the rating seams exist.
+
+## Phase C1b-2a: coverage that follows the matchup, recorded 2026-11-01
+
+C1b-1 made catches chance; the measurements after it (see above) pointed at the defense: a corner lined up ten yards off every receiver and kept that cushion
+whoever the receiver was, the coverage rating changed only how often a defender who had already reached the ball got a hand on it, and after the throw every
+defender went to the same standoff from the ball. This phase changes the *positioning and contest* side, and nothing else: the catch architecture, the hybrid clock,
+the controls, save compatibility, the Phase B2 behaviours (reaction to what is seen, committing as the receiver goes deep, closing on a break) and the hands rating
+are as they were. Every number below is from `npm --prefix arcade run balance:coverage`, which runs unchanged on the previous commit (the "before" column).
+
+### What changed (`core/coverage.ts`, `core/behavior.ts`, `core/down.ts`)
+
+Everything is a smooth function of a rating or a speed, in seconds and yards, with no thresholds and no cap on any outcome.
+
+| Quantity | Before | Now |
+| --- | --- | --- |
+| Room a corner keeps off a receiver on his stem | 10 yd, scaled 0.85-1.25 by speed ratio | `receiver speed x reading time + (receiver speed - 0.85 x corner speed) x flip time + 4.5 yd`, with reading and flip time scaling with coverage |
+| Reading time (seeing the man change direction) | 0.15 s for everyone | 0.15 s at coverage 76; 60 rating points double it |
+| How far ahead he aims | 0.15 s | 0.15 s at 76; 80 points double it (better coverage reads the route sooner) |
+| Reaction to the ball in the air | 15 or 21 ticks | the same, on the reading-time scale |
+| Getting a hand on the ball after reaching it | `0.55 + 0.40 x coverage/99` (0 still got 55%) | a logistic of coverage, centred at 45 (0 gets about 12%, 99 about 92%) |
+| Where a defender stands once the ball is thrown | on the ball or beside it, by a switch at 0.15 s to spare | blends between the two with time to spare (same endpoints) |
+| Where a corner lines up | 8.5 yd | where the formula puts the average corner against the average wideout (about 5 yd), so he does not jump at the snap |
+
+Two defects the first version exposed, both fixed and both pinned by negative controls in `tests/coverage-ratings.test.ts`: with a realistic cushion a corner stood
+directly in the receiver's lane and the soft collision pushed the receiver back (the inside leverage now applies whenever the receiver is moving, as the comment
+always said it should), and the commit trigger (depth 8-18 yd) was tuned for a ten-yard cushion. A trigger based on how much of the room the receiver had actually closed
+was tried and rejected: deep interceptions rose to 25% and late slants were over-covered. The flip time (1 s) and the quick-throw window (4.5 yd) are the two constants of
+the formula; they were chosen as plausible physical values (a corner's hip turn; the gain he will concede to a quick throw), not fitted to a score, and both are in `core/coverage.ts`.
+
+### Before and after (six seeds; drives are 84 per cell; `balance:coverage`)
+
+| | before | after |
+| --- | --- | --- |
+| Receiver separation at the throw, first second (ticks 0-59) | 7.6 yd | 5.5 yd |
+| ...second second | 4.7 yd | 3.2 yd |
+| ...all pocket throws (at arrival) | 4.5 yd (3.1) | 3.5 yd (3.0) |
+| Short / medium / deep completion (air distance) | 83% / 56% / 57% | 82% / 57% / 52% |
+| Deep interceptions | 12% | 14% |
+| Quick slants (ticks 0-23 / 24-47) complete | 86% / 88% | 80% / 88% |
+| Quick go (ticks 0-23 / 24-47) complete, intercepted | 79% 2% / 81% 5% | 75% 6% / 82% 7% |
+| Timing-aware offense, points/drive (TD drives), idle defense | 6.69 (94%) | 4.89 (64%) |
+| Same offense asking 7 yd of room | n/a | 3.74 (49%) |
+| Deep-pass specialist | 4.73 (65%) | 3.93 (54%) |
+| Short-pass specialist | 4.42 (56%) | 3.94 (48%) |
+| Balanced offense | 3.60 (42%) | 2.95 (31%) |
+| Game length, balanced vs balanced | 13.6 min | 13.4 min (3 games) |
+
+The timing-aware offense is the most affected because it was the one that exploited the ten-yard cushion; it now falls off smoothly with the standard of "open" it
+asks for (4.89 at 5.5 yd and below, 3.74 at 7 yd) instead of dropping off a cliff, which is why the offense is now a factory (`timingAware(threshold)`). Thresholds
+of 3, 4 and 5.5 yd give the same drives because a receiver is that open at the first moment it can throw. The deep and short specialists, which do not read the defense, lose
+10-17%. Quick throws remain the safest pass; waiting for the slant break costs 15 points (it cost 26) and waiting until the corner has it covered still costs about 60.
+
+### Ratings (every defender changed together; throws while the receiver runs his route; twelve seeds)
+
+| | before | after |
+| --- | --- | --- |
+| Coverage 20 / 45 / 76 / 90 / 99: completion | 68 / 66 / 64 / 63 / 63% | 68 / 64 / 61 / 59 / 56% |
+| ...interception | 5 / 6 / 7 / 8 / 8% | 5 / 7 / 9 / 11 / 13% |
+| ...separation at the throw | 5.5 yd for all | 4.2 / 4.1 / 4.0 / 3.8 / 3.7 yd |
+| Hands 0 / 55 / 99: interception, knocked down, completion | 0 / 9 / 17%, 27 / 19 / 11%, 65% for all | 0 / 11 / 21%, 31 / 20 / 9%, 61% for all |
+
+Coverage now moves positioning (separation) and the contest; hands move only interception against knock-down, change completion by nothing, and move nobody (a test
+asserts the separation lists are identical). Go to WR1 while the receiver runs with his corner, completion by corner speed 55 / 74 / 90: 69 / 61 / 52% (WR 70) before and
+75 / 67 / 62% after: the ordering is the same and every cell is higher, because the receiver now starts closer to the ball's landing spot and the corner is nearer it too.
+
+### Best-response calibration
+
+The expectation best response judges each of about 120 candidate throws and plays the best, so its own estimate is the maximum of noisy numbers. It now uses 64 evaluation
+seeds (it used 16) and every chosen throw is judged again on 256 held-out seeds that played no part in the choice, are disjoint from the evaluation seeds and from every game seed
+(tests enforce it), and are never the game's seed. Over 47 chosen throws it believed 88.1% completion and the same throws are worth 84.0% on the held-out seeds: an optimism of
+4.1 points (it was 12.6 with 16 seeds, 3.6 with 64 and 2.8 with 256 in the investigation). The remainder is the winner's curse and is not corrected for; no gameplay
+probability was adjusted for it. The oracle is unchanged and is still not in the practicable set.
+
+### Limitations recorded for the next phases
+
+* **Receiver tracking (C1b-2b).** The ball is led along the route as an ideal runner would run it. A faster receiver deviates from that path more (a corner now stays within
+  1.5 yd, so contact nudges him: his gap to the ball at tick 56 is 0.7 yd at speed 80 and 0.2 at 70), and after his route ends the ball is led to its last point while he drifts
+  (the gap grows from 1.2 yd at speed 60 to 5.4 yd at 90). This is why a faster receiver completes fewer throws after the route ends, and `faster-receiver-worse-deep-game` is
+  open again with these numbers. The ordering tests that sweep a route now stop at the route's end for the same reason.
+* **Underneath routes barely reward corner speed** (about one point between speed 60 and 90 on slants): after the throw every corner ends at the same standoff from the ball.
+* **Early deep throws favour the slower corner:** giving more room puts him deeper and nearer a ball placed exactly on the receiver (interceptions 20% at speed 60 against 11% at 90
+  for throws before tick 64). That is the placement of the pass, which is Phase C2.
+* The scripted `cover` defender is cruder than the AI it replaces (it is worse than `idle` against the balanced offense), so conclusions about human defense should wait for a
+  better script or a person.
