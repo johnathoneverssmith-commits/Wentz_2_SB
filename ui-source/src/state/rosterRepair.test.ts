@@ -180,6 +180,17 @@ describe("repairRoster", () => {
     }
   });
 
+  it("never cuts a player signed in the free-agency that just ended: that release lock holds (review finding)", () => {
+    const s = season();
+    const target = repair.repairCutCandidate(s, "KC", "K")!;
+    expect(target).not.toBeNull();
+    // the player the staff would cut was just signed in the event: he is locked, so someone else goes
+    s.freeAgencyEvent = { signed: [{ playerId: target.id, teamCode: "KC", salary: 1, years: 1, round: 1 }] } as never;
+    const next = repair.repairCutCandidate(s, "KC", "K");
+    expect(next).not.toBeNull();
+    expect(next!.id).not.toBe(target.id);
+  });
+
   it("is deterministic: the same league repairs the same way", () => {
     const run = () => {
       const s = season();

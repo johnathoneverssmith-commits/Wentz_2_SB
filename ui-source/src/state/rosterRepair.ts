@@ -38,7 +38,7 @@ import { expectedSalary } from "./freeAgencyValues.ts";
 import { onInjuredReserve } from "./injuries";
 import { strategyOf } from "./aiGms.ts";
 import { strategyAgeBonus } from "./aiStrategy.ts";
-import { applyRelease, positionalMinimums, rosterOf } from "./reconciliation.ts";
+import { applyRelease, checkRelease, positionalMinimums, rosterOf } from "./reconciliation.ts";
 import { releasePenalty } from "./releaseCost.ts";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { rosterLimitFor, rosterCountOf, offerToContract } from "./rules.ts";
@@ -132,7 +132,7 @@ export function repairCutCandidate(s: LeagueState, teamCode: string, fillingPosi
   const countAt = (pos: string): number => active.filter((p) => p.position === pos).length;
   const template = (pos: string): number => ROSTER_TEMPLATE.find((r) => r.pos === pos)?.count ?? 0;
   const cuttable = active.filter(
-    (p) => p.position !== fillingPosition && !p.id.startsWith("emg_") && countAt(p.position) > (mins[p.position] ?? 0),
+    (p) => p.position !== fillingPosition && !p.id.startsWith("emg_") && countAt(p.position) > (mins[p.position] ?? 0) && checkRelease(s, teamCode, p.id).ok,
   );
   cuttable.sort(
     (a, b) =>
