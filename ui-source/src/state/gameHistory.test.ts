@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GameResult, LeagueState } from "@/domain";
-import { archiveSeasonGames, ARCHIVE_PRESEASONS_KEPT, ARCHIVE_SEASONS_KEPT, describeTrace, findGame, visibleArchive } from "./gameHistory";
+import { archiveSeasonGames, ARCHIVE_PRESEASONS_KEPT, ARCHIVE_SEASONS_KEPT, describeTrace, findGame, visibleArchive, withLeagueArchive } from "./gameHistory";
 import { emptyReveal, markRevealed, markRoundRevealed } from "./reveal";
 
 const bc = { home: "BUF", away: "KC", finalScore: [24, 20] as [number, number], drives: [{ team: "BUF", side: "home", quarter: 1, startClock: "15:00", startBallOn: 75, plays: [], ended: "touchdown", points: 7, pointsAgainst: 0 }], scoringDrives: [0], injuries: [] } as unknown as GameResult["broadcast"];
@@ -141,5 +141,32 @@ describe("game history", () => {
     markRevealed(reloaded, "a", "REG", 9);
     archiveSeasonGames(reloaded, { gated: true });
     expect(ids("a")).not.toContain("y1-unseen");
+  });
+
+  it("archiving a new preseason does not push a completed season out of the five-season window", () => {
+    const s = league([]);
+    for (let y = 0; y < ARCHIVE_SEASONS_KEPT; y++) {
+      s.season = 2026 + y;
+      s.games = [game(`reg${y}`)];
+      archiveSeasonGames(s);
+    }
+    const before = new Set(s.gameArchive!.map((g) => g.season));
+    expect(before.size).toBe(ARCHIVE_SEASONS_KEPT);
+    // next year's preseason is archived at the wipe, before any of its regular season exists
+    s.season = 2026 + ARCHIVE_SEASONS_KEPT;
+    s.games = [game("pre-next", { phase: "PRE" })];
+    archiveSeasonGames(s, { only: "PRE" });
+    expect(new Set(s.gameArchive!.filter((g) => g.phase !== "PRE").map((g) => g.season))).toEqual(before);
+    expect(findGame(s, "reg0")).toBeDefined();
+  });
+
+  it("a whole league that has no archive clears the previous league's", () => {
+    const incoming = { teams: {}, players: {}, games: [] };
+    expect(withLeagueArchive(incoming)).toHaveProperty("gameArchive", undefined);
+    expect("gameArchive" in (withLeagueArchive(incoming) as object)).toBe(true);
+    const withOne = { ...incoming, gameArchive: [] };
+    expect(withLeagueArchive(withOne)).toBe(withOne);
+    const patch = { week: 3 };
+    expect(withLeagueArchive(patch)).toBe(patch); // an ordinary partial update is left alone
   });
 });

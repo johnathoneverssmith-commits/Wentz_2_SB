@@ -338,7 +338,7 @@ export interface LeagueState {
    * game can still be opened after `games` is cleared at the rollover. Newest
    * last. Optional: older saves simply have none. See `state/gameHistory.ts`.
    */
-  gameArchive?: ArchivedGame[];
+  gameArchive?: ArchivedGame[] | undefined;
 
   draftClass: DraftProspect[];
   draft: DraftState | null;

@@ -65,11 +65,13 @@ export function archiveSeasonGames(s: LeagueState, opts: ArchiveOptions = {}): v
     }
     archive.push(entry);
   }
-  const seasons = [...new Set(archive.map((g) => g.season))].sort((a, b) => a - b);
-  const keep = new Set(seasons.slice(-ARCHIVE_SEASONS_KEPT));
-  const preSeasons = [...new Set(archive.filter((g) => g.phase === "PRE").map((g) => g.season))].sort((a, b) => a - b);
-  const keepPre = new Set(preSeasons.slice(-ARCHIVE_PRESEASONS_KEPT));
-  s.gameArchive = archive.filter((g) => keep.has(g.season) && (g.phase !== "PRE" || keepPre.has(g.season)));
+  // two windows, each counted over its own games: archiving a new preseason must not push a completed
+  // season out of the regular-season window
+  const lastN = (games: ArchivedGame[], n: number): Set<number> =>
+    new Set([...new Set(games.map((g) => g.season))].sort((a, b) => a - b).slice(-n));
+  const keep = lastN(archive.filter((g) => g.phase !== "PRE"), ARCHIVE_SEASONS_KEPT);
+  const keepPre = lastN(archive.filter((g) => g.phase === "PRE"), ARCHIVE_PRESEASONS_KEPT);
+  s.gameArchive = archive.filter((g) => (g.phase === "PRE" ? keepPre : keep).has(g.season));
 }
 
 /**
@@ -105,3 +107,14 @@ export function describeTrace(g: GameResult | undefined): TraceKind {
 }
 
 export type { ArchivedGame };
+
+/**
+ * A whole league handed to `useStore.setState` (an online fetch, joining, restoring a backup) merges over the
+ * one in the store, so a league without an archive must say so or it inherits the previous league's.
+ */
+export function withLeagueArchive<T>(partial: T): T {
+  if (typeof partial !== "object" || partial === null) return partial;
+  const p = partial as Record<string, unknown>;
+  if (!("teams" in p) || !("players" in p)) return partial;
+  return ("gameArchive" in p ? p : { ...p, gameArchive: undefined }) as T;
+}

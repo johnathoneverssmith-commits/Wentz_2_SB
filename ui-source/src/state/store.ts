@@ -110,7 +110,7 @@ import { draftClassTilt } from "./draftSupply.ts";
 import { classDnaForLeague } from "@/sim/leagueDna";
 import { refreshClassProfile } from "./classProfile.ts";
 import { compactRetired, trimStoredBoxScores } from "./saveCompaction.ts";
-import { archiveSeasonGames } from "./gameHistory.ts";
+import { archiveSeasonGames, withLeagueArchive } from "./gameHistory.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
   accrueSeasonStats,
@@ -1496,7 +1496,7 @@ export const useStore = create<Store>()(
 // (`withLeagueCapFields`), or the previous league's growth stays on the new one.
 const setStateOnStore = useStore.setState;
 (useStore as { setState: unknown }).setState = ((partial: unknown, replace?: boolean) =>
-  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueCapFields(partial), replace)) as typeof setStateOnStore;
+  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueArchive(withLeagueCapFields(partial)), replace)) as typeof setStateOnStore;
 
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   (window as unknown as { __store: typeof useStore }).__store = useStore;

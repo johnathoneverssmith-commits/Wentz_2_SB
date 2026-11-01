@@ -1515,6 +1515,8 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
     // named so that starting a league in a session that has played another (`store.newLeague` merges this over the old
     // state) does not carry the old league's cap growth into the new one
     capScale: undefined,
+    // a new league has no history; without this the merge into the store kept the previous league's archive
+    gameArchive: undefined,
     capGrowthSeason: undefined,
     ...(dnaRecord ? { dna: dnaRecord } : {}),
   };
