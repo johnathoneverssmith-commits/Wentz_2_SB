@@ -247,6 +247,29 @@ describe("repairRoster", () => {
     expect(after + (s.teams["KC"]!.cap.dead ?? 0)).toBeLessThanOrEqual(s.teams["KC"]!.cap.total + 1e-6);
   });
 
+  it("on a full roster counts the room a cut frees before ruling a replacement out (review finding)", () => {
+    const s = season();
+    strip(s, "KC", "K");
+    const extra = Object.values(s.players).filter((p) => p.free_agent && p.position === "WR" && !p.retired);
+    let i = 0;
+    while (rosterOf(s, "KC").length < ROSTER_SIZE && i < extra.length) {
+      const p = extra[i++]!;
+      p.free_agent = false;
+      p.nfl_team = "KC";
+      p.contract = { team_id: "KC", years_remaining: 1, total_value: 4, guaranteed: 0, cap_hit_by_year: [4], signing_bonus: 0 };
+    }
+    for (const p of rosterOf(s, "KC")) p.contract = { team_id: "KC", years_remaining: 1, total_value: 4, guaranteed: 0, cap_hit_by_year: [4], signing_bonus: 0 };
+    const used = rosterOf(s, "KC").reduce((n, p) => n + p.contract!.cap_hit_by_year[0]!, 0);
+    s.teams["KC"]!.cap.dead = 0;
+    s.teams["KC"]!.cap.total = used + 0.5; // half a million of room: the cheapest kicker costs more, a $4M cut frees 3.1
+    const cheapest = Math.min(...Object.values(s.players).filter((p) => p.free_agent && !p.retired && p.nfl_team === "FA" && p.position === "K").map((p) => emergencyPrice(s, p)));
+    expect(cheapest).toBeGreaterThan(0.5);
+    const rec = repairRoster(s, "KC")!;
+    expect(rec.released).toHaveLength(1);
+    expect(rec.signed).toHaveLength(1);
+    expect(rec.unresolved).toEqual([]);
+  });
+
   it("is deterministic: the same league repairs the same way", () => {
     const run = () => {
       const s = season();

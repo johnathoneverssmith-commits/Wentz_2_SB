@@ -114,7 +114,10 @@ export function restructureContract(p: Player, season: number, minSalary = BASE_
   const split = scheduleOf(c);
   c.cap_hit_by_year = hits;
   if (split) {
-    c.guaranteed_by_year = split.bonus.map((b, i) => (i === 0 ? b : round1(b + perYear)));
+    // every converted dollar is bonus: the later years carry their prorations and this year carries the rest,
+    // so the split accounts for the whole conversion (a release accelerates all of it, as the legacy rule does)
+    const laterAdded = hits.slice(1).reduce((a, _h, i) => a + (round1(split.bonus[i + 1]! + perYear) - split.bonus[i + 1]!), 0);
+    c.guaranteed_by_year = split.bonus.map((b, i) => (i === 0 ? round1(b + (convertible - laterAdded)) : round1(b + perYear)));
     c.salary_by_year = hits.map((h, i) => round1(h - c.guaranteed_by_year![i]!));
   }
   c.signing_bonus = round1(c.signing_bonus + convertible);

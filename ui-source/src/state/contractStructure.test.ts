@@ -193,6 +193,20 @@ describe("restructure and extension keep the books straight", () => {
     expect(scheduleOf(p.contract)).not.toBeNull();
   });
 
+  it("a restructure puts the whole conversion into the persisted bonus, so a release accelerates all of it (review finding)", () => {
+    const s = league();
+    const p = roster(s, "KC")[0]!;
+    p.contract = { ...offerToContract({ teamCode: "KC", baseSalary: 20, years: 4, signingBonus: 0, guaranteed: 0, structure: "even" }) };
+    const before = p.contract.signing_bonus;
+    expect(restructureContract(p, s.season, 1).ok).toBe(true);
+    const converted = p.contract.signing_bonus - before;
+    expect(converted).toBeGreaterThan(10);
+    const split = p.contract.guaranteed_by_year!.reduce((a, b) => a + b, 0);
+    expect(Math.abs(split - p.contract.signing_bonus)).toBeLessThan(0.11);
+    expect(scheduleOf(p.contract)).not.toBeNull();
+    expect(releasePenalty(p)).toBeGreaterThanOrEqual(p.contract.signing_bonus - 0.11);
+  });
+
   it("refuses an extension whose later years do not fit under the cap", () => {
     const s = league();
     const team = "KC";

@@ -182,6 +182,7 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
     while (have < hole.need) {
       // the canonical books: active contracts, the practice squad and dead money
       const room = team.cap.total - capUsedOf(s, teamCode);
+      const mustCut = rosterCountOf(s, teamCode) >= rosterLimitFor(s.stage);
       const candidates = Object.values(s.players)
         .filter(
           (p) =>
@@ -191,7 +192,8 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
             p.position === hole.position &&
             !live.has(p.id) &&
             p.injury_status?.status !== "out" &&
-            emergencyPrice(s, p) <= room + 1e-9,
+            // a full roster must cut first, and the cut can free room: leave that to the post-cut check
+            (mustCut || emergencyPrice(s, p) <= room + 1e-9),
         )
         .map((p) => ({ p, score: p.overall + 0.1 * strategyAgeBonus(strategy, p.age) }))
         .sort((a, b) => b.score - a.score || (a.p.id < b.p.id ? -1 : 1));
@@ -199,7 +201,7 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
       if (!pick) break;
 
       // roster limit: a full roster gives up its cheapest surplus man to make the room
-      if (rosterCountOf(s, teamCode) >= rosterLimitFor(s.stage)) {
+      if (mustCut) {
         // the best player this cut leaves room for: try each candidate in turn, a cheaper one may fit where the best does not
         let victim: Player | null = null;
         for (const c of candidates) {
