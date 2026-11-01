@@ -18,7 +18,7 @@ interface Props {
 
 /** Presentation only. Results are the viewer-filtered games supplied by the hub. */
 export const DashboardOverview = memo(function DashboardOverview({
-  code, scheduleSeason, week, phase, schedule, seenGames, cap, units, offers,
+  code, scheduleSeason, week, phase, schedule, seenGames, cap, units,
 }: Props) {
   const games = schedule.filter(g => g.phase === (phase ?? "REG") && (g.homeTeam === code || g.awayTeam === code));
   const weeks = Array.from({ length: Math.max(0, ...games.map(g => g.week)) }, (_, i) => i + 1);
@@ -60,7 +60,6 @@ export const DashboardOverview = memo(function DashboardOverview({
         <div className="ui-section-heading"><div><h2>Your front office</h2><p>Build the team. Make your next move.</p></div><span className="ui-orbit" aria-hidden="true">↗</span></div>
         <div className="front-office__links">
           <Link to="/roster" className="decision-link decision-link--teal"><span className="decision-icon" aria-hidden="true">◎</span><span><strong>Roster &amp; cap</strong><small>Depth chart, contracts and roster decisions</small></span><span aria-hidden="true">→</span></Link>
-          <Link to="/trade" className="decision-link decision-link--purple"><span className="decision-icon" aria-hidden="true">⇄</span><span><strong>Trade proposals</strong><small>{offers ? offers + " offer" + (offers === 1 ? "" : "s") + " waiting for you" : "Explore deals and review proposals"}</small></span><span aria-hidden="true">→</span></Link>
           <Link to="/coaching" className="decision-link decision-link--blue"><span className="decision-icon" aria-hidden="true">⌁</span><span><strong>Coaching staff</strong><small>The people behind the playbook</small></span><span aria-hidden="true">→</span></Link>
         </div>
       </MotionSurface>

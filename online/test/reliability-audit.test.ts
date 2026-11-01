@@ -5,8 +5,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { LeagueState } from "@/domain";
 import { beginDraft } from "@/state/rules.ts";
 import { fillRosterGaps } from "@/state/seed.ts";
+import { emptyReveal } from "@/state/reveal.ts";
+import { beginTradeDeadline } from "@/state/tradeDeadline.ts";
 
-import { saveGamePlan, actorFor, proposeTrade } from "../src/actions.js";
+import { saveGamePlan, actorFor, deadlineTurn } from "../src/actions.js";
 import { ActionError, pool, withLeague } from "../src/db.js";
 import { claimTeam, createOnlineLeague, vacateSeat } from "../src/leagues.js";
 import { forceAdvance, readyUp, sweep } from "../src/phases.js";
@@ -202,15 +204,17 @@ describe("repeated requests", () => {
     expect(rows.rowCount).toBe(1);
   });
 
-  maybe("a double-submitted trade offer to a human GM creates one live offer (D6, fixed)", async () => {
-    // The id is `trade_${Date.now()}_${team}` and nothing compares the new
-    // offer with an identical open one, so a retried request (or a double
-    // click) puts two copies in the partner's inbox.
+  maybe("a double-submitted deadline offer to a human GM opens one negotiation (D6, fixed)", async () => {
+    // Ad-hoc proposals are closed; the Trade Deadline turn is the path that can still be double-clicked.
     const f = await makeLeague();
-    // a new league has no rosters until its draft: give every team one
     const { state } = await snapshot(f.id);
     fillRosterGaps(state);
-    state.stage = "offseasonDepthChart";
+    state.stage = "regularSeason";
+    state.week = 9;
+    state.reveal = emptyReveal();
+    beginTradeDeadline(state);
+    state.stage = "tradeDeadline";
+    state.tradeDeadline!.index = state.tradeDeadline!.order.indexOf("GB");
     await pool.query(
       `UPDATE league_state SET state = $2, stage = $3, version = version + 1 WHERE league_id = $1`,
       [f.id, JSON.stringify(state), state.stage],
@@ -219,19 +223,13 @@ describe("repeated requests", () => {
       Object.values(state.players)
         .filter((p) => p.nfl_team === team && !p.retired && !p.free_agent && p.position === "WR")
         .sort((a, b) => a.overall - b.overall)[0]!;
-    const mine = pick("GB");
-    const theirs = pick("KC");
     const a = await actorFor(f.id, users[0]);
-    const results = await Promise.allSettled([
-      proposeTrade(a, "KC", [mine.id], [theirs.id]),
-      proposeTrade(a, "KC", [mine.id], [theirs.id]),
-    ]);
-    // if the stage refused trading outright this scenario proves nothing
-    expect(results.some((r) => r.status === "fulfilled"), JSON.stringify(results)).toBe(true);
-    const offered = (await snapshot(f.id)).state.trades.filter(
-      (t) => t.status === "offered" && t.fromTeam === "GB" && t.toTeam === "KC",
-    );
-    expect(offered).toHaveLength(1);
+    const move = { kind: "propose" as const, toTeam: "KC", give: [pick("GB").id], get: [pick("KC").id] };
+    const results = await Promise.allSettled([deadlineTurn(a, move), deadlineTurn(a, move)]);
+    expect(results.filter((r) => r.status === "fulfilled"), JSON.stringify(results)).toHaveLength(1);
+    const open = (await snapshot(f.id)).state.tradeDeadline?.active;
+    expect(open?.fromTeam).toBe("GB");
+    expect(open?.toTeam).toBe("KC");
   });
 });
 
