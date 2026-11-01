@@ -310,6 +310,21 @@ describe("repairRoster", () => {
     expect(repair.ownDepartures(s, "KC").has(old.id)).toBe(false);
   });
 
+  it("planning a trim does not touch (or choke on) a frozen departure history (review finding)", () => {
+    const s = season();
+    const k = rosterOf(s, "KC").find((p) => p.position === "K")!;
+    applyRelease(s, "KC", k.id);
+    // the single-player UI plans on the frozen store snapshot
+    const frozen = (s as unknown as { recentReleases: { byTeam: Record<string, string[]> } }).recentReleases;
+    Object.freeze(frozen);
+    Object.freeze(frozen.byTeam);
+    for (const list of Object.values(frozen.byTeam)) Object.freeze(list);
+    const before = JSON.stringify(frozen);
+    const spare = rosterOf(s, "KC").filter((p) => p.position === "WR").sort((a, b) => a.overall - b.overall)[0]!;
+    expect(() => applyRelease({ ...s } as LeagueState, "KC", spare.id)).not.toThrow();
+    expect(JSON.stringify(frozen)).toBe(before);
+  });
+
   it("is deterministic: the same league repairs the same way", () => {
     const run = () => {
       const s = season();

@@ -142,10 +142,14 @@ export function checkRelease(s: LeagueState, teamCode: string, playerId: string)
  */
 export function recordDeparture(s: LeagueState, teamCode: string, playerId: string): void {
   const holder = s as unknown as { recentReleases?: { season: number; byTeam: Record<string, string[]> } };
-  const recent = holder.recentReleases?.season === s.season ? holder.recentReleases : { season: s.season, byTeam: {} };
-  const list = recent.byTeam[teamCode] ?? [];
-  if (!list.includes(playerId)) recent.byTeam[teamCode] = [...list, playerId];
-  holder.recentReleases = recent;
+  // copy on write: a trim plan runs on a shallow copy of a (possibly frozen) league, and must not touch the original's history
+  const prev = holder.recentReleases?.season === s.season ? holder.recentReleases : { season: s.season, byTeam: {} as Record<string, string[]> };
+  const list = prev.byTeam[teamCode] ?? [];
+  if (list.includes(playerId)) {
+    holder.recentReleases = prev;
+    return;
+  }
+  holder.recentReleases = { season: s.season, byTeam: { ...prev.byTeam, [teamCode]: [...list, playerId] } };
 }
 
 export function applyRelease(s: LeagueState, teamCode: string, playerId: string): void {
