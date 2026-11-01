@@ -2241,8 +2241,11 @@ export function resignAiCore(s: LeagueState): number {
       (p) => p.nfl_team === code && !p.retired && !p.free_agent && p.contract,
     );
     const plan = planCoreResign(s, code, timeline);
-    for (const { player, ask } of plan) {
-      const structure = chooseStructure(s, code, player, ask.baseSalary, ask.years, 1);
+    for (const [i, { player, ask }] of plan.entries()) {
+      // the rest of the plan was budgeted flat: a shape here must leave room for those deals as planned
+      const reserve: number[] = [];
+      for (const later of plan.slice(i + 1)) for (let y = 0; y < later.ask.years; y++) reserve[y] = (reserve[y] ?? 0) + later.ask.baseSalary;
+      const structure = chooseStructure(s, code, player, ask.baseSalary, ask.years, 1, reserve);
       applyExtension(player, { ...ask, ...(structure ? { structure } : {}) }, minSalaryM(s));
       signed++;
     }

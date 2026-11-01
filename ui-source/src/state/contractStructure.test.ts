@@ -313,6 +313,23 @@ describe("free agency", () => {
     expect(chooseStructure(s, team, kid, 10, 3)).toBe("frontloaded");
   });
 
+  it("an extension shape leaves room for the rest of the plan, which was budgeted flat (review finding)", () => {
+    const s = market();
+    beginFreeAgencyEvent(s);
+    const team = Object.keys(s.teams)[0]!;
+    const vet = Object.values(s.players).find((p) => p.free_agent && !p.retired)!;
+    vet.age = 33;
+    for (const p of Object.values(s.players)) if (p.nfl_team === team && p.contract) p.contract.years_remaining = 1;
+    const mate = Object.values(s.players).find((p) => p.nfl_team === team && p.contract)!;
+    mate.contract!.years_remaining = 3;
+    mate.contract!.cap_hit_by_year = [5, 150, 150];
+    s.teams[team]!.cap.total = 200;
+    s.teams[team]!.cap.used = 100;
+    expect(chooseStructure(s, team, vet, 20, 4, 1)).toBe("frontloaded");
+    // two more extensions of $25M a year still to come: frontloading this one would push next year past the cap
+    expect(chooseStructure(s, team, vet, 20, 4, 1, [25, 25, 25, 25])).toBeUndefined();
+  });
+
   it("a veteran gets a frontloaded deal, and a shape that would overrun a later season is never chosen", () => {
     const s = market();
     beginFreeAgencyEvent(s);

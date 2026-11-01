@@ -105,6 +105,11 @@ export function chooseStructure(
   years: number,
   /** seasons from now the deal starts: 0 for a signing, 1 for an extension (which begins next season) */
   startsIn = 0,
+  /**
+   * Money already promised to deals still to be signed in this pass, by season from the start of THIS deal
+   * (the plan budgeted them flat, so a shape here must leave their room).
+   */
+  reserve: readonly number[] = [],
 ): ContractStructure | undefined {
   if (years < MIN_STRUCTURE_YEARS) return undefined;
   const team = s.teams[teamCode];
@@ -117,7 +122,7 @@ export function chooseStructure(
     // every later season has to fit under the cap; this season only has to be no worse than the flat deal
     // (the signing's own room check already priced that), so a frontloaded year one cannot overrun the room
     return hits.every((h, t) =>
-      t + startsIn === 0 ? h <= Math.max(cap - team.cap.used, salary) : (owed[t + startsIn] ?? 0) + h <= cap * 0.97,
+      t + startsIn === 0 ? h <= Math.max(cap - team.cap.used, salary) : (owed[t + startsIn] ?? 0) + (reserve[t] ?? 0) + h <= cap * 0.97,
     );
   };
   const room = cap - team.cap.used;
