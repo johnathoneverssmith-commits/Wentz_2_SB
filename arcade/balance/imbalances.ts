@@ -27,8 +27,8 @@ export function gatherEvidence(): Evidence {
     const seeds = EVIDENCE_SEEDS;
     return {
         pocket: sweep({ ticks: tickRange(0, 240, 4), seeds }),
-        deepAtSpeed70: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), seeds, abilities: { 'home-WR1': { speed: 70 } } }),
-        deepAtSpeed80: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 160, 4), seeds, abilities: { 'home-WR1': { speed: 80 } } }),
+        deepAtSpeed70: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 240, 4), seeds, abilities: { 'home-WR1': { speed: 70 } } }),
+        deepAtSpeed80: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 240, 4), seeds, abilities: { 'home-WR1': { speed: 80 } } }),
         deepWithSpeedEdge: sweep({ plays: ['go'], targets: [1], ticks: tickRange(0, 240, 4), seeds, abilities: { 'home-WR1': { speed: 99 } } }),
         ticksToSack: ticksToSack('slants'),
     };

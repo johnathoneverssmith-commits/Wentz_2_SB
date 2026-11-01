@@ -372,7 +372,7 @@ Everything is a smooth function of a rating or a speed, in seconds and yards, wi
 | Reading time (seeing the man change direction) | 0.15 s for everyone | 0.15 s at coverage 76; 60 rating points double it |
 | How far ahead he aims | 0.15 s | 0.15 s at 76; 80 points double it (better coverage reads the route sooner) |
 | Reaction to the ball in the air | 15 or 21 ticks | the same, on the reading-time scale |
-| Getting a hand on the ball after reaching it | `0.55 + 0.40 x coverage/99` (0 still got 55%) | a logistic of coverage, centred at 45 (0 gets about 12%, 99 about 92%) |
+| Getting a hand on the ball after reaching it (`playChance` in `core/catch.ts`, which now *is* `contestSkill` x facing the ball x being set) | `0.55 + 0.40 x coverage/99` (0 still got 55%) | a logistic of coverage, centred at 45 (0 gets about 11%, 76 about 80%, 99 about 92%) |
 | Where a defender stands once the ball is thrown | on the ball or beside it, by a switch at 0.15 s to spare | blends between the two with time to spare (same endpoints) |
 | Where a corner lines up | 8.5 yd | where the formula puts the average corner against the average wideout (about 5 yd), so he does not jump at the snap |
 
@@ -389,41 +389,44 @@ the formula; they were chosen as plausible physical values (a corner's hip turn;
 | Receiver separation at the throw, first second (ticks 0-59) | 7.6 yd | 5.5 yd |
 | ...second second | 4.7 yd | 3.2 yd |
 | ...all pocket throws (at arrival) | 4.5 yd (3.1) | 3.5 yd (3.0) |
-| Short / medium / deep completion (air distance) | 83% / 56% / 57% | 82% / 57% / 52% |
-| Deep interceptions | 12% | 14% |
-| Quick slants (ticks 0-23 / 24-47) complete | 86% / 88% | 80% / 88% |
-| Quick go (ticks 0-23 / 24-47) complete, intercepted | 79% 2% / 81% 5% | 75% 6% / 82% 7% |
-| Timing-aware offense, points/drive (TD drives), idle defense | 6.69 (94%) | 4.89 (64%) |
-| Same offense asking 7 yd of room | n/a | 3.74 (49%) |
-| Deep-pass specialist | 4.73 (65%) | 3.93 (54%) |
-| Short-pass specialist | 4.42 (56%) | 3.94 (48%) |
-| Balanced offense | 3.60 (42%) | 2.95 (31%) |
+| Short / medium / deep completion (air distance) | 83% / 56% / 57% | 85% / 58% / 53% |
+| Deep interceptions | 12% | 13% |
+| Quick slants (ticks 0-23 / 24-47) complete | 86% / 88% | 84% / 88% |
+| Quick go (ticks 0-23 / 24-47) complete, intercepted | 79% 2% / 81% 5% | 81% 4% / 83% 7% |
+| Timing-aware offense, points/drive (TD drives), idle defense | 6.69 (94%) | 5.06 (67%) |
+| Same offense asking 7 yd of room | n/a | 3.75 (50%) |
+| Deep-pass specialist | 4.73 (65%) | 4.05 (55%) |
+| Short-pass specialist | 4.42 (56%) | 4.14 (50%) |
+| Balanced offense | 3.60 (42%) | 3.04 (32%) |
 | Game length, balanced vs balanced | 13.6 min | 13.4 min (3 games) |
 
 The timing-aware offense is the most affected because it was the one that exploited the ten-yard cushion; it now falls off smoothly with the standard of "open" it
-asks for (4.89 at 5.5 yd and below, 3.74 at 7 yd) instead of dropping off a cliff, which is why the offense is now a factory (`timingAware(threshold)`). Thresholds
+asks for (5.06 at 5.5 yd and below, 3.75 at 7 yd) instead of dropping off a cliff, which is why the offense is now a factory (`timingAware(threshold)`). Thresholds
 of 3, 4 and 5.5 yd give the same drives because a receiver is that open at the first moment it can throw. The deep and short specialists, which do not read the defense, lose
-10-17%. Quick throws remain the safest pass; waiting for the slant break costs 15 points (it cost 26) and waiting until the corner has it covered still costs about 60.
+6-15%. Quick throws remain the safest pass; waiting for the slant break costs 15 points (it cost 26) and waiting until the corner has it covered still costs about 60.
 
 ### Ratings (every defender changed together; throws while the receiver runs his route; twelve seeds)
 
 | | before | after |
 | --- | --- | --- |
-| Coverage 20 / 45 / 76 / 90 / 99: completion | 68 / 66 / 64 / 63 / 63% | 68 / 64 / 61 / 59 / 56% |
-| ...interception | 5 / 6 / 7 / 8 / 8% | 5 / 7 / 9 / 11 / 13% |
+| Coverage 20 / 45 / 76 / 90 / 99: completion | 68 / 66 / 64 / 63 / 63% | 73 / 67 / 62 / 59 / 57% |
+| ...interception | 5 / 6 / 7 / 8 / 8% | 2 / 5 / 9 / 10 / 12% |
+| ...knocked down | 16 / 19 / 22 / 23 / 24% | 6 / 13 / 23 / 25 / 26% |
 | ...separation at the throw | 5.5 yd for all | 4.2 / 4.1 / 4.0 / 3.8 / 3.7 yd |
-| Hands 0 / 55 / 99: interception, knocked down, completion | 0 / 9 / 17%, 27 / 19 / 11%, 65% for all | 0 / 11 / 21%, 31 / 20 / 9%, 61% for all |
+| Hands 0 / 55 / 99: interception, knocked down, completion | 0 / 9 / 17%, 27 / 19 / 11%, 65% for all | 0 / 9 / 18%, 26 / 17 / 8%, 63% for all |
+
+(An earlier revision of this section reported the contest rating as changed when `playChance` still used the old formula: a Codex review found it, and every contest-related figure here was re-measured after `playChance` was connected to `contestSkill`. Removing that connection fails four tests in `tests/catch.test.ts`.)
 
 Coverage now moves positioning (separation) and the contest; hands move only interception against knock-down, change completion by nothing, and move nobody (a test
 asserts the separation lists are identical). Go to WR1 while the receiver runs with his corner, completion by corner speed 55 / 74 / 90: 69 / 61 / 52% (WR 70) before and
-75 / 67 / 62% after: the ordering is the same and every cell is higher, because the receiver now starts closer to the ball's landing spot and the corner is nearer it too.
+75 / 69 / 63% after: the ordering is the same and every cell is higher, because the receiver now starts closer to the ball's landing spot and the corner is nearer it too.
 
 ### Best-response calibration
 
 The expectation best response judges each of about 120 candidate throws and plays the best, so its own estimate is the maximum of noisy numbers. It now uses 64 evaluation
 seeds (it used 16) and every chosen throw is judged again on 256 held-out seeds that played no part in the choice, are disjoint from the evaluation seeds and from every game seed
-(tests enforce it), and are never the game's seed. Over 47 chosen throws it believed 88.1% completion and the same throws are worth 84.0% on the held-out seeds: an optimism of
-4.1 points (it was 12.6 with 16 seeds, 3.6 with 64 and 2.8 with 256 in the investigation). The remainder is the winner's curse and is not corrected for; no gameplay
+(tests enforce it), and are never the game's seed. Over 45 chosen throws it believed 88.5% completion and the same throws are worth 83.9% on the held-out seeds: an optimism of
+4.6 points (it was 12.6 with 16 seeds, 3.6 with 64 and 2.8 with 256 in the investigation). The remainder is the winner's curse and is not corrected for; no gameplay
 probability was adjusted for it. The oracle is unchanged and is still not in the practicable set.
 
 ### Limitations recorded for the next phases
@@ -431,7 +434,7 @@ probability was adjusted for it. The oracle is unchanged and is still not in the
 * **Receiver tracking (C1b-2b).** The ball is led along the route as an ideal runner would run it. A faster receiver deviates from that path more (a corner now stays within
   1.5 yd, so contact nudges him: his gap to the ball at tick 56 is 0.7 yd at speed 80 and 0.2 at 70), and after his route ends the ball is led to its last point while he drifts
   (the gap grows from 1.2 yd at speed 60 to 5.4 yd at 90). This is why a faster receiver completes fewer throws after the route ends, and `faster-receiver-worse-deep-game` is
-  open again with these numbers. The ordering tests that sweep a route now stop at the route's end for the same reason.
+  open again with these numbers (its detector now sweeps the whole pocket: go to WR1 completes 59% at receiver speed 70 and 49% at speed 80). The ordering tests that sweep a route now stop at the route's end for the same reason.
 * **Underneath routes barely reward corner speed** (about one point between speed 60 and 90 on slants): after the throw every corner ends at the same standoff from the ball.
 * **Early deep throws favour the slower corner:** giving more room puts him deeper and nearer a ball placed exactly on the receiver (interceptions 20% at speed 60 against 11% at 90
   for throws before tick 64). That is the placement of the pass, which is Phase C2.
