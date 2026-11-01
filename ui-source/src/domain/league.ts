@@ -1,7 +1,7 @@
 import type { BracketState } from "./bracket.ts";
 import type { Coach } from "./coach.ts";
 import type { DraftProspect, DraftState, DraftPickAsset } from "./draft.ts";
-import type { GameResult, ScheduledGame } from "./game.ts";
+import type { ArchivedGame, GameResult, ScheduledGame } from "./game.ts";
 import type { HoodedFigureLeagueState } from "./hoodedFigure.ts";
 import type { Player } from "./player.ts";
 import type { PlayerStatLine, Position } from "./player.ts";
@@ -342,6 +342,12 @@ export interface LeagueState {
 
   schedule: ScheduledGame[];
   games: GameResult[];
+  /**
+   * Finished seasons' games that a human GM's team played, kept so a past
+   * game can still be opened after `games` is cleared at the rollover. Newest
+   * last. Optional: older saves simply have none. See `state/gameHistory.ts`.
+   */
+  gameArchive?: ArchivedGame[] | undefined;
 
   draftClass: DraftProspect[];
   draft: DraftState | null;

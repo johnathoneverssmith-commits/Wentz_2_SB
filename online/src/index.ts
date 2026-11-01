@@ -91,6 +91,7 @@ import { simulateWeekForLeague } from "./simulate.js";
 import type { LeagueState } from "@/domain";
 import { cleanConfigPatch, isInSeason } from "@/state/rules.ts";
 import { applyDraftSetting } from "@/state/seed.ts";
+import { visibleArchive } from "@/state/gameHistory.ts";
 import { redactedGames, revealedWeek, visibleBracket, visibleGames } from "@/state/reveal.ts";
 import { redactHoodedFigureFor } from "@/state/hoodedFigure.ts";
 import { recomputeStandings, rewindSeasonStats } from "@/state/standings.ts";
@@ -401,6 +402,8 @@ get("/leagues/:id", async (ctx) => {
   }
   delete state.injuryLedger;
   state.games = redactedGames(state, franchise?.gmId ?? "");
+  // past seasons' games, only the ones this GM had revealed (`visibleArchive`)
+  if (state.gameArchive) state.gameArchive = visibleArchive(state.gameArchive, franchise?.gmId ?? "");
   if (state.bracket) state.bracket = visibleBracket(state.bracket, state, franchise?.gmId ?? "");
   // Standings and stats as of what this GM has watched. Team records and
   // season stats are written when a block is simulated, whole, before anyone

@@ -1,3 +1,4 @@
+import { PlayerPortrait } from "@/components/PlayerPortrait";
 import { DecisionFrame, DecisionHeading, DecisionError } from "@/components/decisions/DecisionWorkspace";
 import { AssetNavigation, AssetSummary, type AssetStep } from "@/components/decisions/TradeAssets";
 import { RosterNeeds } from "@/components/RosterNeeds";
@@ -642,7 +643,7 @@ export function TradeColumn({title,role,roster,selected,onToggle,disabled=false}
  const [limit,setLimit]=useState(150);
  const market=useListFilter(roster,limit,title);
  return <section className="decision-trade-column" data-side={role==='you'?'you':'them'} aria-label={title}>
-  <h2>{title}</h2>{market.controls}<div className="scroll-list short">{market.shown.map(p=>{const on=selected.includes(p.id);return <button type="button" key={p.id} className="decision-asset" data-asset-id={p.id} aria-pressed={on} disabled={disabled} aria-label={`${on?'Remove':'Add'} ${p.name}${p.position!=='PICK'?`, ${posLabel(p.position)} ${p.overall}`:''}`} onClick={()=>onToggle(p.id)}><span className="decision-asset-rating">{p.badge??p.overall}</span><strong>{p.name}<small>{p.position!=='PICK'?' · '+posLabel(p.position):' · Draft pick'}</small></strong><span aria-hidden="true">{on?'✓':'+'}</span></button>;})}</div>{market.matched>limit&&<button type="button" onClick={()=>setLimit(n=>n+150)}>Show more assets</button>}
+  <h2>{title}</h2>{market.controls}<div className="scroll-list short">{market.shown.map(p=>{const on=selected.includes(p.id);return <button type="button" key={p.id} className="decision-asset" data-asset-id={p.id} aria-pressed={on} disabled={disabled} aria-label={`${on?'Remove':'Add'} ${p.name}${p.position!=='PICK'?`, ${posLabel(p.position)} ${p.overall}`:''}`} onClick={()=>onToggle(p.id)}>{p.position!=='PICK'&&<PlayerPortrait playerId={p.id} size={26}/>}<span className="decision-asset-rating">{p.badge??p.overall}</span><strong>{p.name}<small>{p.position!=='PICK'?' · '+posLabel(p.position):' · Draft pick'}</small></strong><span aria-hidden="true">{on?'✓':'+'}</span></button>;})}</div>{market.matched>limit&&<button type="button" onClick={()=>setLimit(n=>n+150)}>Show more assets</button>}
  </section>;
 }
 

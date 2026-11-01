@@ -48,6 +48,12 @@ describe("draft order", () => {
       s.config.draftType = "linear";
     });
     makeMultiHuman();
+    // The order is a seeded shuffle and the store's starting league is seeded from the clock,
+    // so a random salt lands all three humans in the top three slots about 1 run in 5,000
+    // (measured: 56 of 300,000). Pin the salt so the guard checks the rule, not the luck.
+    useStore.setState((s) => {
+      s.draftSalt = 424_242;
+    });
     const humans = new Set(humanCodes());
     const order = orderFor("fantasy");
     const teams = Object.keys(useStore.getState().teams).length;

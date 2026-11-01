@@ -6,7 +6,9 @@ import { roundLabelFor, type GameBroadcast, type PlayoffRound } from "@/domain";
 import { fetchBroadcast, onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
 
+import { findGame, archivedSeasonOf, describeTrace } from "@/state/gameHistory";
 import { Gamecast } from "./gamecast/Gamecast";
+import { PlayByPlayLog, ScoringSummary } from "./gamecast/PlayByPlayLog";
 
 /**
  * Watch a game that has already been played.
@@ -29,18 +31,20 @@ export function WatchGame() {
   // all, so "Return to Game Results" lands on the tab they left rather than
   // on the default one.
   const back = params.get("back");
-  const game = useStore((s) => s.games.find((g) => g.id === gameId));
+  const game = useStore((s) => findGame(s, gameId));
+  const archivedSeason = useStore((s) => (gameId ? archivedSeasonOf(s, gameId) : null));
   const bracket = useStore((s) => s.bracket);
 
   const [fetched, setFetched] = useState<GameBroadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showLog, setShowLog] = useState(false);
 
   const saved = game?.broadcast ?? null;
   const online = onlineSession() !== null;
 
   useEffect(() => {
-    if (!gameId || saved || !online) return;
+    if (!gameId || saved || !online || archivedSeason !== null) return;
     let live = true;
     setLoading(true);
     setError(null);
@@ -57,7 +61,7 @@ export function WatchGame() {
     return () => {
       live = false;
     };
-  }, [gameId, saved, online]);
+  }, [gameId, saved, online, archivedSeason]);
 
   const broadcast = saved ?? fetched;
 
@@ -121,10 +125,23 @@ export function WatchGame() {
             {error}
           </div>
         )}
-        {broadcast && <Gamecast game={{ ...game, broadcast }} />}
-        {!loading && !error && !broadcast && (
+        {archivedSeason !== null && (
+          <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--ink-faint)" }}>{archivedSeason} season</p>
+        )}
+        {broadcast && (
+          <>
+            <Gamecast game={{ ...game, broadcast }} />
+            <button type="button" className="btnlink" aria-expanded={showLog} onClick={() => setShowLog((v) => !v)} style={{ margin: "10px 0" }}>
+              {showLog ? "Hide full transcript" : "Show full transcript (shows the result)"}
+            </button>
+            {showLog && <PlayByPlayLog broadcast={broadcast} />}
+          </>
+        )}
+        {!loading && !error && !broadcast && describeTrace(game) === "summary" && <ScoringSummary game={game} />}
+        {!loading && !error && !broadcast && describeTrace(game) === "none" && (
           <div className="emptystate">
-            No play-by-play was kept for this game — the final score is all there is.
+            No play-by-play or scoring summary was kept for this game — the final score is all there is.
+            {archivedSeason !== null ? " Plays from seasons before the last one are not kept, to keep saves small." : ""}
           </div>
         )}
       </div>

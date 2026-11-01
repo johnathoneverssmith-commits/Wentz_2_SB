@@ -10,6 +10,7 @@ import { useStore } from "@/state/store";
 import { currentPhase, statsThroughWeek, viewerTeamCode } from "@/state/selectors";
 import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
+import { describeTrace } from "@/state/gameHistory";
 
 export function FullSchedule() {
   const nav = useNavigate();
@@ -136,6 +137,19 @@ export function FullSchedule() {
                   <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[g.awayTeam]!.label}</span>
                   <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{record(s.teams[g.awayTeam]!)}</span>
                 </span>
+              </div>
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", marginTop: 6 }}>
+                {r && describeTrace(r) !== "none" && (
+                  <button
+                    type="button"
+                    className="btnlink"
+                    style={{ fontSize: 10.5, padding: "2px 8px" }}
+                    aria-label={`Play-by-play, ${g.awayTeam} at ${g.homeTeam}`}
+                    onClick={() => nav(`/watch/${r.id}?back=${encodeURIComponent("/schedule")}`)}
+                  >
+                    Play-by-play
+                  </button>
+                )}
               </div>
             </div>
           );
