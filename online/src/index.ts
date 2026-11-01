@@ -40,6 +40,7 @@ import {
   setDepthOrder,
   setDepthOrders,
   signFreeAgent,
+  delegateCoaching,
   deadlineTurn,
   revealRound,
   stepForward,
@@ -683,6 +684,8 @@ post("/leagues/:id/actions/skip", async (ctx) => {
 post("/leagues/:id/actions/coach-draft", async (ctx) =>
   draftCoach(await actor(ctx), field(ctx, "coachId", "string"), version(ctx)),
 );
+
+post("/leagues/:id/actions/coach-draft/delegate", async (ctx) => delegateCoaching(await actor(ctx)));
 
 post("/leagues/:id/actions/coach", async (ctx) =>
   hireCoach(await actor(ctx), field(ctx, "coachId", "string"), version(ctx)),

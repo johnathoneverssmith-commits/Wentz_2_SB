@@ -17,6 +17,7 @@ import {
   ratingOf,
   vacantRoles,
 } from "@/state/coachingDraft";
+import { isDelegated } from "@/state/coachingDraft";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -149,6 +150,30 @@ export function CoachingDraftRoom() {
           {error}
         </div>
       )}
+
+      <DelegationPanel
+        code={code}
+        remaining={mine.length}
+        delegated={isDelegated(s, code)}
+        staffPicks={draft.results.filter((r) => r.teamCode === code && r.byStaff)}
+        coaches={s.coaches}
+        busy={busy}
+        onDelegate={() => {
+          if (taking.current) return;
+          taking.current = true;
+          setBusy(true);
+          setError(null);
+          void actions
+            .delegateCoaching()
+            .then((res) => {
+              if (!res.ok) setError(res.reason ?? "That didn't go through.");
+            })
+            .finally(() => {
+              taking.current = false;
+              setBusy(false);
+            });
+        }}
+      />
 
       <Tabs
         tabs={[
@@ -376,5 +401,82 @@ function CoachRow({
         </button>
       </div>
     </div>
+  );
+}
+
+
+/**
+ * "Delegate Remaining Picks to Staff": hand this team's open staff jobs to the
+ * same logic the CPU teams use. It takes only this team's own turns, in draft
+ * order; every other GM's picks are untouched. Two clicks, because it cannot be
+ * taken back once a pick has been made for you.
+ */
+function DelegationPanel({
+  code,
+  remaining,
+  delegated,
+  staffPicks,
+  coaches,
+  busy,
+  onDelegate,
+}: {
+  code: string;
+  remaining: number;
+  delegated: boolean;
+  staffPicks: { coachId: string; role: CoachRole; round: number }[];
+  coaches: Record<string, Coach>;
+  busy: boolean;
+  onDelegate: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  if (remaining === 0 && staffPicks.length === 0) return null;
+  return (
+    <section className="team-callout" data-testid="coach-delegation" data-team={code} style={{ margin: "12px 0" }} aria-label="Delegate remaining picks">
+      {delegated ? (
+        <>
+          <p style={{ margin: 0 }} role="status">
+            <strong>Your staff is making your remaining picks.</strong>{" "}
+            {remaining > 0
+              ? `${remaining} job${remaining === 1 ? "" : "s"} still to fill — each is taken when your turn comes up.`
+              : "Every job is filled."}
+          </p>
+          {staffPicks.length > 0 && (
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }} data-testid="staff-picks">
+              {staffPicks.map((r) => (
+                <li key={r.coachId}>
+                  Round {r.round} · {COACH_ROLE_LABEL[r.role]} — <strong>{coaches[r.coachId]?.name ?? r.coachId}</strong>{" "}
+                  <span style={{ color: "var(--ink-dim)" }}>({coaches[r.coachId] ? ratingOf(coaches[r.coachId]!) : "?"})</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <>
+          <p style={{ margin: "0 0 8px", color: "var(--ink-dim)", fontSize: 12.5 }}>
+            Let your staff finish the draft for you. They pick for your open jobs only, in the normal order, with
+            the same judgement as the computer-run teams; other GMs&rsquo; picks are never touched, and you can
+            still watch every pick. Picks already made stay yours.
+          </p>
+          {confirming ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 12.5 }}>
+                Delegate your remaining {remaining} pick{remaining === 1 ? "" : "s"}?
+              </span>
+              <button type="button" className="btn-primary" disabled={busy} onClick={onDelegate}>
+                {busy ? "Delegating…" : "Yes, delegate"}
+              </button>
+              <button type="button" className="btnlink" disabled={busy} onClick={() => setConfirming(false)}>
+                Keep picking
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="btnlink" disabled={busy} onClick={() => setConfirming(true)}>
+              Delegate Remaining Picks to Staff
+            </button>
+          )}
+        </>
+      )}
+    </section>
   );
 }

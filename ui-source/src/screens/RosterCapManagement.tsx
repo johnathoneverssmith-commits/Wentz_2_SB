@@ -1,7 +1,6 @@
 import { SportsIcon, SportsStat, TeamCrest } from "@/components/roster/SportsPresentation";
 import { viewerWeek } from "@/state/reveal";
 import { getMotionLevel } from "@/motion/level";
-import { PAST_DEADLINE_MESSAGE, pastTradeDeadline } from "@/state/tradeDeadline";
 import { StaggerList } from "@/motion/Stagger";
 import { onlineSession } from "@/state/online";
 import { useMemo, useRef, useState } from "react";
@@ -87,10 +86,6 @@ export function RosterCapManagement() {
   const nudgingRef = useRef(false);
   const [reordering, setReordering] = useState(false);
   const code = viewerTeamCode(s);
-  // Change 9 reuses this screen at midseason, so the flag is about what the
-  // stage is for rather than about one stage's name
-  const tradesShut =
-    pastTradeDeadline(s) || (onlineSession() !== null && (s.stage === "preseason" || s.stage === "regularSeason"));
   // the server locks the chart while a block of weeks is being revealed
   // (`refuseDuringBlock`); every move button used to find that out by being
   // refused one click at a time
@@ -386,15 +381,8 @@ export function RosterCapManagement() {
   return (
     <div className="roster-workspace">
     <Card maxWidth={1440}>
-      <header className="sports-page-header" data-team={code}><TeamCrest code={code}/><div><p className="sports-mode">Franchise mode</p><h1>{active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}</h1><p>{teamFullName(code)} · {displaySeason(s)} season · {STAGE_LABEL[s.stage]}{viewerWeek(s) ? " · Week " + viewerWeek(s) : ""}</p></div><div className="sports-header-action">          <button
-            className="btn-ghost"
-            onClick={() => nav("/trade")}
-            // it led to a "trading is closed" notice mid-block and after the deadline
-            disabled={tradesShut}
-            title={tradesShut ? (pastTradeDeadline(s) ? PAST_DEADLINE_MESSAGE : "Trading reopens at the next break in the season.") : undefined}
-          >
-            {/* the reason was a hover title, which a phone never shows */}
-            {tradesShut ? (pastTradeDeadline(s) ? "Past the deadline" : "Trading closed") : "Propose trade"}
+      <header className="sports-page-header" data-team={code}><TeamCrest code={code}/><div><p className="sports-mode">Franchise mode</p><h1>{active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}</h1><p>{teamFullName(code)} · {displaySeason(s)} season · {STAGE_LABEL[s.stage]}{viewerWeek(s) ? " · Week " + viewerWeek(s) : ""}</p></div><div className="sports-header-action">          <button className="btn-ghost" onClick={() => nav("/trade")} title="Proposals are made in the Trade Deadline room">
+            Trade history
           </button></div></header>
       <div className="sports-stat-grid">
         {active === "cap" ? <>

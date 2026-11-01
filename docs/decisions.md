@@ -1837,3 +1837,86 @@ Approved architecture in `docs/SEEDED_LEAGUE_DNA_PROPOSAL.md`; as-built referenc
 **Compatibility.** Additive optional fields only (`Player.archetype`, `DraftProspect.archetype`, `LeagueState.dna`, `LeagueState.draftClassProfile`, `LeagueConfig.playerPool`). No migration, no save-version bump. Seven tests whose scenarios depend on one real pool are pinned to `playerPool: "legacy"`.
 
 **Hidden potential.** The online league route strips `potential` from every player (`privacyView.ts`); the stored league keeps it, and clients price on the age curve. **Known limits.** `dnaSeed` is derivable from the league seed. Neutral DNA plays ~0.9 points a game above the validated engine.
+
+## Transaction windows and season shortcuts (UI-PT-11/16/17/22/23/24)
+
+**Windows (single source: `ui-source/src/state/transactionWindows.ts`).**
+A human GM acquires players and trades only inside a designated simultaneous
+window. Free agents are signed only in the five-round free-agency event
+(`fa-turn`: turn order, cap checks and resolution unchanged). Trades are
+proposed only in the Trade Deadline event (`deadline`: turn order, rounds, one
+accepted trade per team per round, league-vote guard unchanged). No new window
+was invented.
+
+**What closed.** Server: `POST /actions/sign`, `/actions/bid` (players),
+`/actions/trade/propose` and the *accept* half of `/actions/trade/respond` now
+refuse with a 409 and a message naming the window, in every stage (declining a
+leftover offer and withdrawing one still work). They stay routed so an old
+client gets a reason, not a 404. Local (single-player): the same refusals in
+`useLeagueActions`, `store.signStandingFreeAgent` and the Trade screen. UI: the
+Franchise Command Center's "Trade proposals" shortcut is gone; Trade Proposal
+and Free Agency screens are read-only ("Trade History", "Free Agent Market",
+"Proposals closed", "Rounds only"); the Roster screen's button is history only.
+
+**Roster repair boundary (for Agent 1).** The agreed design is that staff
+repair incomplete rosters automatically, for human-controlled and CPU-controlled
+franchises alike, and that no human GM initiates or chooses those signings. The
+interface is `online/src/rosterRepair.ts` and nothing else:
+`authorizeRosterRepair(state, teamCode, checkpoint)` mints an opaque capability
+(private-symbol brand, so JSON cannot forge it) and throws unless the league is
+at, or just past, a repair checkpoint (`freeAgencySummary` ->
+`trainingCamp`; `midseasonFreeAgencySummary` -> `midseasonDepthChart`);
+`applyRosterRepair(state, auth)` then runs the existing policy
+(`reconcileCpuTeam`) and takes no player, salary or position, so there is
+nothing for a caller to choose. It works for any franchise, expires when the
+league leaves the window, is idempotent, and is imported by `phases.ts` (the
+automatic checkpoint passes) and `decideStaffFix`. It must never be imported by
+`index.ts` (a test enforces that). Open point for Agent 1: `decideStaffFix`
+(the summary screen's "let staff fix it" button) is a human-pressed trigger. It
+chooses no player and is limited to the summary stage, so it is unchanged, but
+if the design is "no human trigger at all" Agent 1 can drop that route; the
+automatic pass already repairs forced and absent GMs. New repair checkpoints
+are added to `WINDOW` in `rosterRepair.ts`.
+
+**Coaching draft delegation.** `CoachingDraftState.delegated` (saved, optional)
+lists teams that handed their remaining picks to staff; `results[].byStaff`
+marks those picks. `runAiCoachingPicks` treats a delegated human team as CPU
+for its own turns only, so every caller (the pick that follows, the deadline
+sweep, stage entry, a reload) behaves the same. `POST
+/actions/coach-draft/delegate`; idempotent; refuses outside the draft or with a
+complete staff. If the delegate is on the clock the picks happen immediately up
+to the next undelegated human; otherwise they happen as each turn arrives.
+
+**Simulate Preseason / Simulate Regular Season.** Single-player:
+`store.fastForwardSeason` repeats `simulateGameDay` then `finishGameDay` — the
+same two operations the normal flow runs — until the stage changes, so it stops
+at the trade-deadline checkpoint, the League Developments reveal and the
+playoffs, and refuses anywhere else. One run at a time (a double click returns
+the run already going). Then it opens the existing results screen
+(`/results/PRE|REG/from/to`), whose Continue goes to the next actionable stage.
+Online: the block is already simulated at its checkpoint, so these are the
+existing per-GM reveals (relabelled); they move only the pressing GM's own
+marker and never check in for anyone. `decideReveal` now refuses a week beyond the current block (a hand-built `through: 99` used to push the marker into the next block, showing its results as already watched).
+
+**Limitations.** (1) Online "Simulate …" is a reveal, so it cannot start the
+next block: the GM still presses the stage's readiness button, and the league
+moves only when every human has. (2) The single-player shortcut plays every GM
+the local store knows about (other humans there are auto-ready), which is how
+"Ready for Game Day" already behaves; it is not offered online. (3) Draft-pick
+trades that used the ad-hoc route are now only possible at the deadline.
+(4) Database-backed online suites are skipped locally (no Postgres); CI runs them.
+
+**Review follow-ups (Codex + CI on `ebbcef8`).** (1) One game day at a time:
+`withGameDayLock` (store.ts) serialises "Ready for Game Day", Game Day's Continue
+and the season shortcut; the shortcut holds the lock for its run and grants it
+to the two operations it repeats, and a press that finds the lock held is refused
+instead of playing the week twice (a test with the lock removed plays 32 games
+where 16 are scheduled). (2) The legacy trade form is read-only in *every* stage,
+the deadline's included, and the local action layer refuses instant proposals and
+accepts everywhere: the Trade Deadline room is the only way to trade. (3) CI's
+PostgreSQL 16 caught two reliability suites (`reliability-audit`, `reliability-mp3`)
+that drove the removed instant-proposal route; their double-submit and concurrency
+guarantees now run on the deadline turn (one negotiation from two simultaneous
+submissions, a retry refused with no write), and a new test pins the old route
+closed with no write. These suites need real concurrent connections: PGlite
+cannot run them (and its failures in them hid these two real ones).

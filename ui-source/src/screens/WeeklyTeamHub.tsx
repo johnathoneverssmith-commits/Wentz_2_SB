@@ -3,7 +3,7 @@ import { TeamBadge } from "@/components/bits";
 import { LeagueWire } from "@/components/LeagueWire";
 import { seasonShape } from "@/state/leagueFormat";
 import { recordWatch } from "@/state/seasonAwards";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -302,6 +302,7 @@ export function WeeklyTeamHub() {
           label="Ready for Game Day"
           action={simulateGameDay}
           onAdvance={(route) => nav(route)}
+          secondary={<SimulateShortcut />}
         />
       )}
       </div>
@@ -599,6 +600,63 @@ export function WeeklyTeamHub() {
 }
 
 /**
+ * "Simulate Preseason" / "Simulate Regular Season" (single-player).
+ *
+ * Not a second simulator: the store repeats the same two operations the
+ * Ready for Game Day button and Game Day's Continue run, week after week, and
+ * stops as soon as the league changes stage — the trade-deadline checkpoint,
+ * the League Developments reveal, the playoffs — so it can never walk past a
+ * decision the normal flow would have put in front of the GM.
+ */
+function SimulateShortcut() {
+  const stage = useStore((st) => st.stage);
+  const fastForward = useStore((st) => st.fastForwardSeason);
+  const nav = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  if (stage !== "preseason" && stage !== "regularSeason") return null;
+  const pre = stage === "preseason";
+  const label = pre ? "Simulate Preseason" : "Simulate Regular Season";
+  const go = (): void => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError(null);
+    void fastForward()
+      .then((res) => {
+        if (res.weeksPlayed > 0 && res.phase && res.from !== undefined && res.to !== undefined) {
+          nav(`/results/${res.phase}/${res.from}/${res.to}`);
+        } else if (!res.ok) setError(res.reason ?? "Couldn't simulate. Try again.");
+        else nav(res.route);
+        if (res.weeksPlayed > 0 && !res.ok) setError(res.reason ?? null);
+      })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Couldn't simulate. Try again."))
+      .finally(() => {
+        inFlight.current = false;
+        setBusy(false);
+      });
+  };
+  return (
+    <div className="sim-shortcut" data-testid="sim-shortcut" style={{ flex: "1 1 200px" }}>
+      <button type="button" className="btnlink" style={{ width: "100%", minHeight: 46 }} disabled={busy} onClick={go}>
+        {busy ? "Simulating…" : label}
+      </button>
+      <p className="readiness-held" style={{ margin: "6px 0 0" }}>
+        {pre
+          ? "Plays every remaining preseason game with the normal engine, then stops at the next decision."
+          : "Plays the regular season with the normal engine. It stops at the Week 9 trade-deadline checkpoint and at any decision that needs you."}
+      </p>
+      {error && (
+        <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Simulate Game / Simulate Season, which are reveals despite the word.
  *
  * The label keeps "Simulate" because that is what a GM expects the button to
@@ -710,7 +768,10 @@ function RevealControls() {
         </span>
       </div>
       <p className="readiness-held">
-        Watch at your own pace — catching up here won&rsquo;t rush anyone else in the league.
+        Online, this stretch of games is already played on the league server. These buttons only reveal results to
+        you, at your own pace; they never check you in or move anyone else. Simulating stops at the end of this
+        stretch{block.phase === "REG" ? " (the trade-deadline checkpoint, then the playoffs)" : ""}, and the league moves on only when
+        every GM has pressed the stage button.
       </p>
       <div style={{ display: "flex", gap: 8 }}>
         <button
