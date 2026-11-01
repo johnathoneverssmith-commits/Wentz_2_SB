@@ -1,0 +1,75 @@
+/* Shared stadium identity + standings atmosphere (see docs/VISUAL_IDENTITY.md) */
+.stadium-scene { display:block; width:100%; height:100%; }
+
+.atmo-backdrop { position:absolute; inset:0 0 auto 0; height:400px; z-index:-1; pointer-events:none; overflow:hidden;
+  -webkit-mask-image:linear-gradient(#000 55%, transparent); mask-image:linear-gradient(#000 55%, transparent); }
+.atmo-backdrop .atmo-layer { position:absolute; inset:0; transition:opacity .9s ease; }
+.atmo-backdrop .atmo-layer.out { opacity:0; }
+/* legibility: a dark wash under the page heading, strongest at the left where titles sit */
+.atmo-backdrop::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(5,12,20,.86) 0%,rgba(5,12,20,var(--scrim-left,.55)) 30%,rgba(5,12,20,var(--scrim-mid,.4)) 62%,rgba(5,12,20,var(--scrim-end,.4)) 100%); }
+.app-main { position:relative; isolation:isolate; }
+
+/* motion — everything is switched off by the app's motion setting and by the OS preference */
+@keyframes sv-ember { 0% { transform:translateY(0) translateX(0); opacity:0; } 15% { opacity:.95; } 100% { transform:translateY(-240px) translateX(34px); opacity:0; } }
+@keyframes sv-mote { 0% { transform:translateY(0); opacity:0; } 30% { opacity:.9; } 100% { transform:translateY(-70px); opacity:0; } }
+@keyframes sv-flame { 0%,100% { transform:scaleY(1) translateY(0); } 50% { transform:scaleY(1.18) translateY(-6px); } }
+@keyframes sv-flicker { 0%,100% { opacity:.85; } 50% { opacity:1; } }
+@keyframes sv-ray { 0%,100% { opacity:.28; } 50% { opacity:.5; } }
+@keyframes sv-smoke { 0%,100% { transform:translateX(0); } 50% { transform:translateX(40px); } }
+.sv-ember { animation:sv-ember 6s linear infinite; }
+.sv-mote { animation:sv-mote 8s ease-in-out infinite; }
+.sv-flame { transform-box:fill-box; transform-origin:50% 100%; animation:sv-flame 2.4s ease-in-out infinite; }
+.sv-flicker { animation:sv-flicker 3s ease-in-out infinite; }
+.sv-ray { animation:sv-ray 7s ease-in-out infinite; }
+.sv-smoke { animation:sv-smoke 18s ease-in-out infinite; }
+.sv-smoke.b { animation-duration:26s; animation-direction:reverse; }
+@media (prefers-reduced-motion: reduce) {
+  .sv-ember,.sv-mote,.sv-flame,.sv-flicker,.sv-ray,.sv-smoke { animation:none !important; }
+  .sv-ember { opacity:.6; }
+  .atmo-backdrop .atmo-layer { transition:none; }
+}
+:root[data-motion="off"] .sv-ember,:root[data-motion="off"] .sv-mote,:root[data-motion="off"] .sv-flame,
+:root[data-motion="off"] .sv-flicker,:root[data-motion="off"] .sv-ray,:root[data-motion="off"] .sv-smoke { animation:none !important; }
+:root[data-motion="off"] .sv-ember { opacity:.6; }
+
+/* rank chip */
+.rank-chip { display:inline-flex; align-items:center; gap:8px; padding:5px 11px 5px 6px; border-radius:999px; background:#071521f2; border:1px solid #2f4d5e; color:#eaf4fa; font-size:13px; line-height:1.2; white-space:nowrap; }
+.rank-chip .rk { display:inline-grid; place-items:center; min-width:30px; height:26px; padding:0 7px; border-radius:999px; font-weight:800; font-family:var(--font-display,inherit); background:var(--team,#37cfce); color:var(--team-on,#04151c); }
+.rank-chip .mood { opacity:.85; }
+.rank-chip.heaven { border-color:#e9cf7a; box-shadow:0 0 14px #ffe9a055; }
+.rank-chip.hell { border-color:#d2542c; box-shadow:0 0 14px #ff5a1a44; }
+.rank-chip small { color:#a9c1cf; }
+.rank-chip-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 10px; }
+
+/* game title + team-select transition */
+.game-title { margin:0; font-family:var(--font-display,inherit); font-size:clamp(26px,5.2vw,46px); line-height:1.05; letter-spacing:.01em; text-wrap:balance; color:#f6fbff; text-shadow:0 2px 18px #000a; }
+.game-title .t-team { color:var(--team,#37cfce); }
+.title-wrap { position:relative; padding:6px 0 10px; }
+.title-wrap .eyebrow { font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:#9fc3d6; margin:0 0 4px; }
+@keyframes title-in { 0% { opacity:0; transform:translateY(14px) scale(.98); filter:blur(6px); } 100% { opacity:1; transform:none; filter:none; } }
+@keyframes title-sweep { 0% { transform:translateX(-110%); opacity:.9; } 100% { transform:translateX(110%); opacity:0; } }
+.title-wrap.swap .game-title { animation:title-in .7s cubic-bezier(.16,.84,.28,1) both; }
+.title-wrap.swap::after { content:""; position:absolute; inset:0; background:linear-gradient(100deg,transparent 30%,var(--team,#37cfce) 50%,transparent 70%); mix-blend-mode:screen; opacity:0; animation:title-sweep .9s ease-out both; pointer-events:none; }
+@media (prefers-reduced-motion: reduce) { .title-wrap.swap .game-title,.title-wrap.swap::after { animation:none !important; } }
+:root[data-motion="off"] .title-wrap.swap .game-title,:root[data-motion="off"] .title-wrap.swap::after { animation:none !important; }
+
+/* universe picker */
+.universe-picker { display:grid; gap:12px; }
+.universe-opts { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
+.universe-opt { text-align:left; padding:12px 14px; border-radius:12px; border:1px solid #2b4756; background:#0a1b26e6; color:#e6f1f7; cursor:pointer; display:grid; gap:4px; }
+.universe-opt[aria-checked="true"] { border-color:var(--team,#37cfce); box-shadow:inset 0 0 0 1px var(--team,#37cfce); background:#0e2531; }
+.universe-opt:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+.universe-opt b { font-size:15px; } .universe-opt span { font-size:13px; color:#a9c1cf; line-height:1.35; }
+.universe-row { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
+.universe-row label { display:grid; gap:4px; font-size:13px; color:#c4d8e3; }
+.universe-row input,.universe-row select { min-height:40px; padding:6px 10px; border-radius:8px; border:1px solid #35566a; background:#08141d; color:#f2f8fb; }
+
+@media (max-width:760px) { .atmo-backdrop { height:300px; } .rank-chip { white-space:normal; } }
+
+.setup-hero { max-width:940px; margin:12px auto 14px; padding:0 4px; min-height:112px; display:flex; flex-direction:column; justify-content:flex-end; }
+.universe-picker p,.universe-picker output { font-size:14px; line-height:1.5; color:#c4d8e3; }
+.universe-picker h3 { font-size:16px; color:#fff; }
+.universe-picker p output { color:#fff; font-weight:700; }
+.rail-rank { padding:0 6px 8px; }
+.rail-rank .rank-chip { white-space:normal; font-size:12px; width:100%; box-sizing:border-box; }
+.rank-chip .rk { font-size:14px; flex:none; }

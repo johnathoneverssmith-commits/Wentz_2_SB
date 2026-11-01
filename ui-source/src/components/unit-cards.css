@@ -1,0 +1,21 @@
+.unit-cards-note { margin:0 0 14px; font-size:12px; color:var(--ink-faint); max-width:70ch; }
+.unit-grid { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; }
+.unit-card { display:grid; gap:6px; align-content:start; padding:12px 14px; border-radius:12px; background:linear-gradient(#0b1c26ee,#07151df0); border:1px solid #28434d; }
+.unit-card.minor { opacity:.82; }
+.unit-card.open { grid-column:1 / -1; border-color:var(--team,#37cfce); }
+.unit-card-top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.unit-name { font-weight:700; font-size:14px; color:#eef7fb; }
+.unit-grade { min-width:34px; text-align:center; padding:2px 8px; border-radius:8px; font-family:var(--font-display,inherit); font-weight:800; font-size:17px; background:#13303c; color:#eaf4fa; border:1px solid #35566a; }
+.unit-grade.g-A { background:#0f3a2c; color:#8ef0c6; border-color:#2a8a68; }
+.unit-grade.g-D,.unit-grade.g-F { background:#3f1620; color:#ffb4bf; border-color:#a23c4d; }
+.unit-card-num { display:flex; align-items:baseline; gap:6px; }
+.unit-card-num b { font-family:var(--font-display,inherit); font-size:34px; line-height:1; color:#fff; }
+.unit-card-num span { font-size:12px; color:#9fb8c6; text-transform:uppercase; letter-spacing:.08em; }
+.unit-card-rank { font-size:13px; color:#c8dbe5; } .unit-card-rank b { color:#fff; } .unit-card-rank em { color:#9fb8c6; font-style:normal; }
+.unit-card-weak { font-size:12px; color:#ffb4bf; }
+.unit-card-toggle { justify-self:start; margin-top:2px; background:none; border:0; padding:6px 0; min-height:32px; color:var(--team,#37cfce); cursor:pointer; font-weight:600; font-size:13px; text-decoration:underline; text-underline-offset:3px; }
+.unit-card-toggle:focus-visible { outline:2px solid #fff; outline-offset:2px; border-radius:4px; }
+.unit-card-detail table { width:100%; border-collapse:collapse; font-size:13px; }
+.unit-card-detail th { text-align:left; font-weight:600; color:#9fb8c6; padding:4px 8px 4px 0; border-bottom:1px solid #28434d; }
+.unit-card-detail td { padding:5px 8px 5px 0; border-bottom:1px solid #1a2e38; color:#e3eff5; }
+.unit-card-detail tr.weak td { color:#ffb4bf; font-weight:600; }

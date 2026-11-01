@@ -13,7 +13,7 @@ for(const [device,width] of [['desktop',1600],['mobile',390]] as const){
    const before=await saved(page); const row=page.locator('.draft-avail tbody tr').nth(2);
    const button=row.getByRole('button',{name:/^Draft /});const name=(await button.getAttribute('aria-label'))!.replace(/^Draft /,'');
    const candidate=before.players[(await row.getAttribute('data-player-id'))!];
-   await row.getByRole('button',{name:`Compare ${name}`,exact:true}).click();expect((await saved(page)).draft).toEqual(before.draft);
+   await row.getByRole('button',{name}).first().click();const dossier=page.getByRole('dialog',{name,exact:true});await expect(dossier).toBeVisible();await expect(dossier.getByRole('table')).toContainText('League avg');await page.keyboard.press('Escape');await expect(dossier).toHaveCount(0);expect((await saved(page)).draft).toEqual(before.draft);
    if(device==='mobile'){const search=(await page.getByRole('searchbox').boundingBox())!;const filter=(await page.getByRole('combobox',{name:'Filter by position',exact:true}).boundingBox())!;expect(filter.y).toBeGreaterThanOrEqual(search.y+search.height);}
    await capture(page,`draft-${device}.png`);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
    await button.click();const dialog=page.getByRole('dialog',{name:`Draft ${name}?`,exact:true});
