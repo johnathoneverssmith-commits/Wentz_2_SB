@@ -52,4 +52,36 @@ describe("emergency roster repair on the wire", () => {
     expect((s.rosterRepairs ?? []).length).toBe(0);
     expect(takeNotes(s).filter((n) => n.kind === "roster.repair")).toEqual([]);
   });
+
+  it("the summary-stage repair and the checkpoint repair never both sign for one hole", async () => {
+    const { fillRosterGaps } = await import("@/state/seed.ts");
+    for (const [stage, from] of [
+      ["midseasonDepthChart", "midseasonFreeAgencySummary"],
+      ["trainingCamp", "freeAgencySummary"],
+      ["regularSeason", "leagueDevelopments"],
+    ] as const) {
+      const s = await league();
+      fillRosterGaps(s);
+      dropKickers(s, "GB"); // the human team
+      dropKickers(s, "KC"); // a CPU team
+      s.stage = stage;
+      takeNotes(s);
+      onStageEntered(s, from);
+      for (const team of ["GB", "KC"]) {
+        const ks = Object.values(s.players).filter((p) => p.nfl_team === team && p.position === "K" && !p.retired);
+        // never two for one hole. The human team is always repaired on this transition; a CPU team is repaired
+        // when the summary opens (not when it is left), so entering training camp alone leaves its hole to the earlier entry
+        expect(ks.length, `${stage}: ${team}`).toBeLessThanOrEqual(1);
+        if (team === "GB" || stage !== "trainingCamp") expect(ks, `${stage}: ${team} has its kicker`).toHaveLength(1);
+      }
+      // entering the same checkpoint again changes nothing
+      const roster = (team: string) => Object.values(s.players).filter((p) => p.nfl_team === team && !p.retired).map((p) => p.id).sort().join();
+      const before = [roster("GB"), roster("KC")];
+      onStageEntered(s, from);
+      expect([roster("GB"), roster("KC")], `${stage}: second entry`).toEqual(before);
+      // at most one repair record per team per checkpoint
+      const ids = (s.rosterRepairs ?? []).map((r) => r.id);
+      expect(new Set(ids).size, `${stage}: record ids`).toBe(ids.length);
+    }
+  });
 });
