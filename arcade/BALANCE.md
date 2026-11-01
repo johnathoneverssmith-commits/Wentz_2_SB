@@ -456,7 +456,7 @@ Measured with `npm --prefix arcade run balance:coverage` and the probes quoted b
 
 ### What changed (`core/behavior.ts`, `core/simulation.ts`; nothing else in `core/`)
 
-* **The receiver the ball is thrown to reads it and runs to where it lands, at his own speed.** He is aimed *through* the landing point, not at it: a player eases off within
+* **The receiver the ball is thrown to reads it and runs to where it lands, at his own speed.** If he could not otherwise be there by the time the ball is, he is aimed *through* the landing point, not at it (one who would arrive early aims at the point and settles on it): a player eases off within
   `EASE_YARDS` (0.8 yd) of his destination (`advance`), so a runner aimed at the point arrives a fifth of a yard short, where the throw (led at full speed) expects him at speed.
   Uncovered, a straight route still lands exactly on the ball (gap 0.00, as before); a shoved or drifting receiver is brought back to it.
 * **`MAN_LEVERAGE` is 1.1 body widths** (1.82 yd, was 1.2), so the corner and the receiver run side by side without being inside each other.
@@ -469,18 +469,18 @@ two changes above remove the defect without it. Also not kept: shifting the corn
 
 | | master | C1b-2b |
 | --- | --- | --- |
-| Go: completion at speed 50 / 70 / 90 / 99 | 66 / 59 / 47 / 45% | 75 / 78 / 79 / 74% |
-| Go: yards per throw at 50 / 70 / 90 / 99 | 9.0 / 12.1 / 13.6 / 12.3 | 10.1 / 13.0 / 15.4 / 15.4 |
-| Go: receiver-to-ball gap at arrival, speed 50 / 70 / 90 / 99 | 0.51 / 1.17 / 2.72 / 2.51 yd | 0.25 / 0.25 / 0.37 / 0.44 yd |
-| Slants: completion at 50 / 70 / 99 | 65 / 71 / 57% | 78 / 79 / 79% |
-| Slants: gap at arrival at 50 / 99 | 0.83 / 1.26 yd | 0.35 / 0.56 yd |
-| Slants: yards per throw at 50 / 99 | 5.8 / 4.7 | 5.7 / 6.0 |
+| Go: completion at speed 50 / 70 / 90 / 99 | 66 / 59 / 47 / 45% | 76 / 79 / 80 / 76% |
+| Go: yards per throw at 50 / 70 / 90 / 99 | 9.0 / 12.1 / 13.6 / 12.3 | 10.1 / 13.0 / 15.7 / 16.0 |
+| Go: receiver-to-ball gap at arrival, speed 50 / 70 / 90 / 99 | 0.51 / 1.17 / 2.72 / 2.51 yd | 0.22 / 0.19 / 0.28 / 0.35 yd |
+| Slants: completion at 50 / 70 / 99 | 65 / 71 / 57% | 80 / 80 / 85% |
+| Slants: gap at arrival at 50 / 99 | 0.83 / 1.26 yd | 0.26 / 0.21 yd |
+| Slants: yards per throw at 50 / 99 | 5.8 / 4.7 | 5.8 / 6.6 |
 
 Speed now pays in **yards** (a faster receiver is thrown to deeper and catches there) and in completion against a given corner (next table); over all throws at random moments the
 completion rate is flat, no longer falling.
 
-Receiver speed x corner speed, go to WR1 while the receiver runs with the corner (`balance:coverage`): at corner 55, receiver 55 / 70 / 85 / 99 completes **76 / 81 / 85 / 90%**
-(master 68 / 75 / 78 / 65%: the burner was worse than an 85). The same receiver against corners 55 / 74 / 90 at speed 99: **90 / 82 / 79%**.
+Receiver speed x corner speed, go to WR1 while the receiver runs with the corner (`balance:coverage`): at corner 55, receiver 55 / 70 / 85 / 99 completes **76 / 81 / 85 / 91%**
+(master 68 / 75 / 78 / 65%: the burner was worse than an 85). The same receiver against corners 55 / 74 / 90 at speed 99: **91 / 84 / 81%**.
 
 ### Where the extra completions are (this is the important part)
 
@@ -492,11 +492,11 @@ Deep go throws (landing 20+ yd) by when they are thrown, 12 seeds:
 | after the route has ended (180+) | 31% (25% intercepted) | 84% (5%) |
 
 All of the increase is **after the route ends**, where a receiver used to drift past the ball. During the route, coverage is as contested as it was (route-only deep completion
-75%, master 74%). The same is true of slants (waiting through the break still costs: 82% at tick 12, 77% at 80, 62% at 120; at tick 160 the throw is now caught 76%, it was 20%).
+75%, master 74%). The same is true of slants (waiting through the break still costs: 82% at tick 12, 77% at 80, 62% at 120; at tick 160 the throw is now caught about 76%, it was 20%).
 
 ### Coverage and ratings
 
-* Coverage rating 20 to 99 (every defender): completion 78 to 63% (master 73 to 57%), interceptions 2 to 10% (2 to 12%). Hands 0 to 99: completion 67% for all, interceptions 0 to 15%.
+* Coverage rating 20 to 99 (every defender): completion 79 to 64% (master 73 to 57%), interceptions 2 to 10% (2 to 12%). Hands 0 to 99: completion 67% for all, interceptions 0 to 15%.
 * Corner speed 55 / 75 / 95 on go routes (252 throws a cell): completion 84 / 79 / 76% (master 81 / 77 / 70%), interceptions 4 / 6 / 10% (master 7 / 8 / 12%), separation at arrival
   2.07 / 1.84 / 1.79 yd (master 2.04 / 1.84 / 1.84). The corner's speed still costs the offense; the drop is 8 points, master 10.
 * A human defender who goes right to the ball (0.3 yd off, 400 seeds): receiver has it 52%, incomplete 26.5%, intercepted 21.5% (master 47.5 / 29 / 23%). One a yard off:
@@ -508,11 +508,11 @@ All of the increase is **after the route ends**, where a receiver used to drift 
 | | master | C1b-2b |
 | --- | --- | --- |
 | Timing-aware, idle defense | 5.06 | 5.58 |
-| Deep / short / balanced specialist | 4.05 / 4.14 / 3.04 | 5.29 / 4.64 / 4.39 |
+| Deep / short / balanced specialist | 4.05 / 4.14 / 3.04 | 5.29 / 4.73 / 4.35 |
 | Completion, whole pocket, go to WR1 / WR2 | 59 / 64% | 77 / 76% |
 | Game length, balanced vs attentive | 13.4 min | 13.7 min |
-| Points a game (both teams) | 144 | 194 |
-| Best-response optimism (own vs held-out) | 4.6 | 7.5 (46 chosen throws) |
+| Points a game (both teams) | 144 | 201 |
+| Best-response optimism (own vs held-out) | 4.6 | 6.9 (46 chosen throws) |
 
 **Scoring rises by about a third and was not capped.** It comes from throws that used to be lost to a receiver drifting off the ball, not from easier coverage during the route.
 The timing premium over a random deep thrower shrinks (timing-aware 5.58 against deep 5.29; master 5.06 against 4.05): a covered receiver who reaches the ball is caught about
@@ -523,7 +523,8 @@ movement but where the quarterback puts the ball, which is Phase C2.
 
 New `tests/tracking.test.ts` (shoved receiver, non-target control, run-through, post-route, save and replay mid-flight, leverage beyond a body, contact cost not growing with speed,
 no completion inversion, gap at arrival, yards gaining with speed). Removing each change fails them: no tracking fails 6 tests, leverage back at 1.2 fails 2, aiming at the point
-instead of through it fails 3.
+instead of through it fails 3, and running through the point even when he would arrive early fails 2 (Codex review: he crossed the point, the aim flipped behind him and he
+turned back; a receiver who can be there in time now aims at the point and settles on it).
 
 Existing tests restated, none removed (reasons in the pull request): the agency/passing hands tests now put the defender right at the ball (0.3 yd) and run 600 seeds, with a new
 check that a defender a yard off picks it off less than half as often; the "known limit" ball test now asserts the receiver is brought to the ball; corner-speed completion is read over 12 seeds
@@ -538,5 +539,5 @@ inside the noise of six games). Window goldens and the `passing` snapshot regene
 * Corner speed barely matters underneath (0.4 point on slants) and, on go routes, half of what it was.
 * **A residual inversion in the early windows.** Thrown by the moment, the fastest receivers still lose some completions to contact with the corner at the stem: go throws before tick 48
   complete 84% at speed 50 and 66% at 99, and ticks 48 to 95 complete 74% and 65% (gap at arrival 0.61 and 0.77 yd at 99). They gain it back later in the route (ticks 96 to 143:
-  65% at speed 50, 81% at 99), and in yards. A rule that lets the moving receiver win contact removes it, but at the cost of every window (see "Tried and not kept").
+  65% at speed 50, 85% at 99), and in yards. A rule that lets the moving receiver win contact removes it, but at the cost of every window (see "Tried and not kept").
 * The easing radius (`EASE_YARDS`) is shared with every other mover; a different value would change the run-through distance.

@@ -71,6 +71,39 @@ describe('the receiver reads the ball and goes to it', () => {
     });
 });
 
+describe('a receiver who gets to the landing point early settles on it', () => {
+    /** The target followed through the flight: how far from the ball he is at arrival, and how many times he went from one side of the point to the other. */
+    function early(play: Play, tick: number, patch: { speed?: number; accel?: number }) {
+        let s = start(play);
+        s = { ...s, players: s.players.map(p => p.id === 'home-WR1' ? { ...p, abilities: { ...p.abilities, ...patch } } : p) };
+        for (let i = 0; i < tick; i++) s = stepDown(farAway(s), idle);
+        s = throwPass(s, 1);
+        if (s.ball.kind !== 'flight') throw new Error('no throw');
+        const to = s.ball.to;
+        let turns = 0, last = 0;
+        while (s.phase === 'live' && s.ball.kind === 'flight') {
+            s = stepDown(farAway(s), idle);
+            // a side only counts when he is a quarter yard past or short of the point: the ease-in jitters within a few hundredths of it
+            const r = at(s, 'home-WR1'), side = Math.abs(r.x - to.x) > 0.25 ? Math.sign(r.x - to.x) : 0;
+            if (side !== 0 && last !== 0 && side !== last) turns++;
+            if (side !== 0) last = side;
+        }
+        return { gap: dist(at(s, 'home-WR1'), to), turns };
+    }
+    it('a go route thrown after it has ended does not cross the point and turn back (it crossed twice and finished 0.65 yd short)', () => {
+        const r = early('go', 200, {});
+        expect(r.gap).toBeLessThan(0.4);
+        expect(r.turns, 'sides of the point he was on').toBe(0);
+    });
+    it('a quick receiver with no acceleration who reaches the point 22 ticks early stays on it (he overshot to 1.7 yd)', () => {
+        const r = early('slants', 240, { speed: 99, accel: 0 });
+        expect(r.gap).toBeLessThan(0.75);
+    });
+    it('and one who could not otherwise be there in time still runs through the point at speed', () => {
+        for (const speed of [40, 99]) expect(early('go', 90, { speed }).gap, `speed ${speed}`).toBeLessThan(0.1);
+    });
+});
+
 describe('a corner does not stand in the receiver\'s lane', () => {
     it('he plays the inside by more than a body width: at 1.2 yd against a body of 1.66 the two collided on every step they were level', () => {
         expect(MAN_LEVERAGE).toBeGreaterThan(BODY);

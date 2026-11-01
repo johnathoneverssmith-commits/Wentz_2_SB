@@ -5,7 +5,7 @@
  * completes his route settles into open space or blocks; a lineman whose man is gone finds another; every defender pursues once
  * the ball is loose. Everything is a pure function of the snapshot, so the simulation stays deterministic.
  */
-import { BODY, EASE_YARDS, FIELD, STEP_SECONDS, maxSpeed, unit, type ArcadePlayer, type Behavior, type Intent, type PlayerId, type TeamId, type Vector } from './simulation';
+import { BODY, EASE_YARDS, FIELD, distanceCovered, STEP_SECONDS, maxSpeed, unit, type ArcadePlayer, type Behavior, type Intent, type PlayerId, type TeamId, type Vector } from './simulation';
 import { codeOf, type Code } from './personnel';
 import { BACKPEDAL_SHARE, REACTION_SECONDS, anticipationSeconds, manRoom, reactionSeconds } from './coverage';
 import type { DownState, Play } from './down';
@@ -299,10 +299,12 @@ export function planTick(state: DownState): Plan {
             // corners on an arc, may be nudged by a defender, and has often finished his route; whatever he has become, he reads the ball and closes the difference at his own
             // speed. So a faster receiver gets to more of the passes thrown to him instead of losing the ones his own pace has put out of step with the lead.
             // He runs through the catch point instead of to it: aimed at the point itself he would ease off just short of it (core/simulation.ts), where the throw, led along
-            // his route at full speed, expects him to be at speed.
+            // his route at full speed, expects him to be at speed. Only a receiver who could not otherwise be there by the time the ball is: one who would arrive early aims at
+            // the point itself and settles on it (aimed through it he would cross it, the aim would flip behind him and he would turn back and forth).
             if (flight && flight.target === p.id) {
-                const d = dist(p, flight.to);
-                setIntent(p, 'route', d < 1e-6 ? flight.to : { x: flight.to.x + (flight.to.x - p.x) / d * EASE_YARDS, y: flight.to.y + (flight.to.y - p.y) / d * EASE_YARDS }, 1);
+                const d = dist(p, flight.to), left = Math.max(0, flight.duration - flight.elapsed);
+                const early = d < 1e-6 || distanceCovered(p, left) > d + EASE_YARDS;
+                setIntent(p, 'route', early ? flight.to : { x: flight.to.x + (flight.to.x - p.x) / d * EASE_YARDS, y: flight.to.y + (flight.to.y - p.y) / d * EASE_YARDS }, 1);
                 continue;
             }
             if (idx < pts.length) {
