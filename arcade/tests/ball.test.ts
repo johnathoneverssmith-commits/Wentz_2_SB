@@ -87,9 +87,10 @@ describe('the ball is led to where the receiver will be', () => {
             expect(t.gap, `slants -> ${target} at tick ${tick}, speed ${speed}`).toBeLessThan(1);
         }
     });
-    it('the lead assumes straight running, so a receiver who has finished his route and drifts can still land away from the ball (a known limit, not tuned away)', () => {
+    it('a receiver who has finished his route and would drift on is brought to the ball (the lead assumes straight running, so he used to be left up to 3 yd from it)', () => {
+        // Phase C1b-2b: the receiver the ball is thrown to reads it and runs to where it lands, whatever he has become since the throw was led.
         const late = [0, 20, 40, 55, 70, 80, 90, 99].map(speed => uncovered('slants', 2, 200, speed).gap);
-        expect(Math.max(...late)).toBeGreaterThan(1);
+        expect(Math.max(...late)).toBeLessThan(0.75);
     });
     it('and so he is at the ball and catches it, at every speed (a faster receiver used to overrun the old lead and never catch the deep ball)', () => {
         for (const speed of [0, 20, 40, 55, 70, 74, 80, 90, 99]) for (const tick of [30, 60, 90, 120]) {

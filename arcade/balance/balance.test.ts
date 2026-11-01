@@ -35,11 +35,13 @@ describe('passing balance', () => {
         const rate = (off: OffensePolicy) => { let c = 0, p = 0; for (let k = 0; k < 6; k++) { const r = driveStats(off, 'idle', 12, 0xd51e + k); c += r.st.completions; p += r.st.passes; } return c / p; };
         const early = rate(slants(12)), middle = rate(slants(80)), late = rate(slants(120)), later = rate(slants(160));
         expect(early, 'a quick throw is open').toBeGreaterThan(0.8);
-        expect(early).toBeGreaterThan(middle); expect(middle).toBeGreaterThan(late); expect(late).toBeGreaterThan(later);
+        expect(early).toBeGreaterThan(middle); expect(middle).toBeGreaterThan(late);
         // Phase C1b-2a: the corner no longer starts ten yards off, so the quick throw is less automatic (about 83%, not 91%) and the cost of waiting until the break is
-        // picked up is smaller (about 15 points, not 26); waiting until the corner has the break covered still costs most of the pass (about 60 points).
-        expect(early - late, 'waiting costs').toBeGreaterThan(0.1);
-        expect(early - later, 'waiting until he has it covered costs most of the pass').toBeGreaterThan(0.45);
+        // picked up is smaller (about 15 points, not 26).
+        expect(early - late, 'waiting through the break costs').toBeGreaterThan(0.1);
+        // Phase C1b-2b: the cost is the corner picking up the break, not the receiver being lost. Once his route is over the receiver reads the ball and goes to it, so a throw
+        // to him at tick 160 is caught about three times in four (it was one in five: he drifted on past the ball, and the old test read that as "covered").
+        expect(later, 'a receiver who has finished his route is still a target').toBeGreaterThan(0.5);
         expect(rate(OFFENSES['intermediate']!), 'timed to the break').toBeGreaterThan(rate(slants(120)));
     });
     it('a slower defender reaction never helps the defense', () => {
@@ -139,8 +141,8 @@ describe('game pacing', () => {
 
 describe('known imbalance (documented, not asserted away)', () => {
     it('the exploit moved from the deep route to the quick game: a repeated quick throw out-scores a late deep passer (BALANCE.md, quick-slants-always-open)', () => {
-        const late = driveStats(OFFENSES['late']!, 'idle').pointsPerDrive;
-        const early = driveStats(OFFENSES['early']!, 'idle').pointsPerDrive;
-        expect(early).toBeGreaterThan(late);
+        // six independent sets of the same drives: the two are within a point of each other now that a late throw is not lost to a receiver drifting off the ball (C1b-2b)
+        const points = (name: string) => { let s = 0; for (let k = 0; k < 6; k++) s += driveStats(OFFENSES[name]!, 'idle', 12, 0xd51e + k).pointsPerDrive; return s / 6; };
+        expect(points('early')).toBeGreaterThan(points('late'));
     });
 });
