@@ -94,6 +94,13 @@ const before = await read(a);
 
 check((await post(b, "/admin/pause", {})).status === 403, "a non-commissioner cannot pause (403)");
 check((await post(a, "/admin/pause", {})).status === 200, "the commissioner pauses the league");
+// the banner reaches every connected GM (a poll or a reload), with the status role for screen readers
+for (const g of [a, b, c]) {
+  await g.page.reload();
+  const banner = g.page.locator(".league-paused");
+  await banner.waitFor({ timeout: 15000 }).catch(() => {});
+  check((await banner.count()) === 1 && (await banner.getAttribute("role")) === "status", `${g.name}: paused banner shown (role=status)`);
+}
 const paused = await read(b);
 check(paused.state.pause?.by !== undefined, "every GM sees the league as paused");
 const r1 = await post(b, "/actions/ready", { ready: true, stage: before.state.stage });
@@ -103,6 +110,10 @@ check((await read(c)).version === paused.version, "refused requests wrote nothin
 check((await post(b, "/admin/resume", {})).status === 403, "a non-commissioner cannot resume (403)");
 const [res1, res2] = await Promise.all([post(a, "/admin/resume", {}), post(a, "/admin/resume", {})]);
 check([res1.status, res2.status].sort().join() === "200,409", `two simultaneous resumes apply once (${res1.status}, ${res2.status})`);
+
+await b.page.reload();
+await b.page.waitForTimeout(1500);
+check((await b.page.locator(".league-paused").count()) === 0, "the banner is gone after resume");
 
 // a stale client (wrong stage) and a double click
 check((await post(b, "/actions/ready", { ready: true, stage: "fantasyDraft" })).status === 409, "a stale client's check-in for a different stage is refused (409)");
@@ -122,7 +133,10 @@ const started = await read(a);
 check(started.state.stage !== before.state.stage, `all three checked in: the league moved on (${before.state.stage} -> ${started.state.stage})`);
 const stage2 = await read(c);
 check(stage2.version === started.version && stage2.state.stage === started.state.stage, "every GM sees the same version and stage after the transition");
-writeFileSync(process.env.JOURNEY_STATE ?? "/tmp/journey-state.json", JSON.stringify({ L, version: started.version, stage: started.state.stage, users: [a, b, c].map((g) => g.name) }));
+// leave it PAUSED across the server restart (checked by multiplayer-restart-check.mjs)
+check((await post(a, "/admin/pause", {})).status === 200, "paused again, to prove the pause survives a restart");
+const pausedFinal = await read(a);
+writeFileSync(process.env.JOURNEY_STATE ?? "/tmp/journey-state.json", JSON.stringify({ L, version: pausedFinal.version, stage: started.state.stage, users: [a, b, c].map((g) => g.name) }));
 
 for (const g of [a, b, c]) check(g.errors.length === 0, `${g.name}: no uncaught page errors${g.errors.length ? " " + g.errors[0] : ""}`);
 await browser.close();

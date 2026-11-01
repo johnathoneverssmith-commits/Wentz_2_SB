@@ -96,6 +96,19 @@ describe("pausing a league", () => {
     expect(after.state.stage).toBe(before.state.stage);
   });
 
+  maybe("an overdue clock cannot advance a paused league (sweep, as a restart would run it)", async () => {
+    const before = await row();
+    // even a deadline left in the past (a clock row written before the pause, a restart) must do nothing
+    await pool.query(`UPDATE league_state SET phase_ends_at = now() - interval '1 hour' WHERE league_id = $1`, [leagueId]);
+    const done = await sweep();
+    const after = await row();
+    expect(done.find((d) => d.leagueId === leagueId)?.autopiloted ?? []).toEqual([]);
+    expect(after.version, "the sweep wrote nothing").toBe(before.version);
+    expect(after.state.stage).toBe(before.state.stage);
+    expect(Object.keys(after.state.readiness ?? {})).toEqual(Object.keys(before.state.readiness ?? {}));
+    await pool.query(`UPDATE league_state SET phase_ends_at = NULL WHERE league_id = $1`, [leagueId]);
+  });
+
   maybe("recovery still works while paused, and a vacate does not advance the league", async () => {
     const before = await row();
     await vacateSeat(leagueId, users[0], "KC");
@@ -122,6 +135,6 @@ describe("pausing a league", () => {
     const left = r.phase_ends_at!.getTime() - Date.now();
     expect(left).toBeGreaterThan(2.5 * 3600_000);
     expect(left).toBeLessThanOrEqual(3 * 3600_000);
-    expect(await events("league.resumed")).toHaveLength(1);
+    expect(await events("league.resumed")).toEqual([expect.objectContaining({ actor_user: users[0] })]);
   });
 });

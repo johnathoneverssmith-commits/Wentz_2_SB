@@ -360,6 +360,8 @@ get("/leagues/:id", async (ctx) => {
   // CPU — and the only thing it protected is read here, first.
   const waiting = waitingOn(loaded.state);
   const state = loaded.state;
+  // clients merge what they receive into their copy: say "running" explicitly or a lifted pause lingers on screen
+  state.pause = state.pause ?? null;
   // A live window's bids are sealed until the day resolves; showing another
   // team's offer would turn an auction into a staring contest.
   for (const fa of [state.freeAgency, state.coachingHire]) {

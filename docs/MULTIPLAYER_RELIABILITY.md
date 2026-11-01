@@ -99,6 +99,27 @@ data**, so write count, not read count, is the cost driver. Not measured: multi-
 soak (the `league-dna-longrun` test was excluded for time); RSS near 400 MB under a read storm is worth checking
 against the hosting plan's memory limit.
 
+## Follow-up (final integration)
+
+- **Paused banner**: `AppShell` shows a `role="status"` / `aria-live="polite"` notice ("The league is paused …") to every connected
+  GM while `state.pause` is set. The server's league view sends `pause: null` when running, because clients *merge* a received
+  league into their copy and a missing key would leave a lifted pause on screen (found by the browser journey).
+  Commissioner-only authorisation is unchanged (checked under the row lock).
+- **Pause blocks everything that moves the league**, including background work: GM decisions, check-ins, week sims, forced
+  advance, staff-takes-turn and the clock sweep all pass through `withLeague`, which is default-deny. New test: an *overdue*
+  deadline left in the table (what a restart finds) cannot make the sweep write anything while paused.
+- **Persistence**: the pause is in the league document; after a real server restart it is still on, still refuses (423), only
+  the commissioner can lift it, two simultaneous resumes apply once (200 + 409), the audit rows are intact.
+- **Audit**: `league.paused` / `league.resumed` rows carry `actor_user` (asserted in the tests).
+- **`staff-fix` loophole (confirmed, fixed)**: release a star, press staff-fix, and the staff re-signed the best street player
+  at that position — himself — on a one-year minimum (probe: an 89 QB on $27.1M x 5 came back at $1M x 1). That is both a
+  contract/cap rewrite and a free-agent acquisition outside the bidding rounds, started by a human. Fix, in online-side code
+  only: at the two free-agency summary stages `decideRelease` refuses a cut that would leave a position below its minimum, so
+  a GM cannot dig the hole the staff fill. Surplus depth can still be cut. **Still for Agent 1 / PR #73's owner:** the route
+  itself remains human-callable (also in #73's branch); the fully CPU-only design means removing the route and relying on
+  the automatic entry-to-preseason repair, which needs the check-in gate (`reconciliationIssues` at the summaries) reconsidered
+  so no GM is soft-locked. I did not change shared policy files (`reconciliation.ts`).
+
 ## Task 6 — roster repair (master only)
 
 `POST /leagues/:id/actions/staff-fix` is a **human-invoked** route on master: own team only, no player id, only at the two

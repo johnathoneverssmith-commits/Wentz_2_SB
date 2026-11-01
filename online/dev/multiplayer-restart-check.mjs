@@ -47,8 +47,20 @@ const after = await call(gms[0], "GET", "");
 check(after.body.version === saved.version, `league version survived the restart (${saved.version})`);
 check(after.body.state.stage === saved.stage, `league stage survived the restart (${saved.stage})`);
 
+// the pause survived the restart: still paused, still refusing, then the commissioner (only) lifts it
+check(after.body.state.pause?.by !== undefined, "the pause survived the restart");
+const stillRefused = await call(gms[1], "POST", "/actions/ready", { ready: true, stage: saved.stage });
+check(stillRefused.status === 423, `a paused league still refuses after a restart (${stillRefused.status})`);
+check((await call(gms[1], "POST", "/admin/resume", {})).status === 403, "a non-commissioner cannot resume after the restart");
+const feedRows = (await call(gms[0], "GET", "/feed")).body.events.map((e) => e.kind);
+check(feedRows.includes("league.paused"), "the pause is in the league feed after the restart");
+const resumes = await Promise.all([call(gms[0], "POST", "/admin/resume", {}), call(gms[0], "POST", "/admin/resume", {})]);
+check(resumes.map((r) => r.status).sort().join() === "200,409", `two simultaneous resumes after a restart apply once (${resumes.map((r) => r.status)})`);
+const running = (await call(gms[0], "GET", "")).body;
+check(!running.state.pause && running.state.stage === saved.stage, "resumed: running again, same stage");
+const st = running.state;
+
 // who is on the clock?
-const st = after.body.state;
 if (st.draft) {
   const onClock = st.draft.pickOrder[st.draft.currentPickIndex];
   const clockGm = gms.find((_, i) => true);

@@ -88,7 +88,8 @@ import {
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
 import { applyRosterRepair, authorizeRosterRepair, type RepairCheckpoint } from "./rosterRepair.js";
-import { applyRelease, checkRelease, reconciliationIssues } from "@/state/reconciliation.ts";
+import { applyRelease, checkRelease, positionalMinimums, reconciliationIssues, rosterOf } from "@/state/reconciliation.ts";
+import { onInjuredReserve } from "@/state/injuries.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
@@ -772,6 +773,18 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
   // nothing
   const check = checkRelease(state, actor.teamCode, playerId);
   if (!check.ok) throw new ActionError(check.reason ?? "You can't release him.");
+  // At a free-agency summary the staff fill any positional hole from the street at the minimum
+  // (`decideStaffFix`). A GM must not be able to dig that hole on purpose: releasing a star and letting the staff
+  // re-sign him on a one-year minimum rewrites his contract, outside the bidding rounds and the cap rules.
+  if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
+    const need = positionalMinimums()[p.position] ?? 0;
+    const have = rosterOf(state, actor.teamCode).filter((x) => x.position === p.position && !onInjuredReserve(x, state.stage)).length;
+    if (!onInjuredReserve(p, state.stage) && have - 1 < need) {
+      throw new ActionError(
+        `Releasing him would leave you below the ${need}-player minimum at ${posLabel(p.position)}, and your staff only fills a gap that opens by itself.`,
+      );
+    }
+  }
   applyRelease(state, actor.teamCode, playerId);
   recomputeTeamRatings(state);
   return {
