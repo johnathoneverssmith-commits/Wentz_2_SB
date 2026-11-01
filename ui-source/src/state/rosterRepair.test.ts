@@ -313,7 +313,7 @@ describe("a person cannot choose or exploit it", () => {
     expect(repairRoster(s, "KC")!.human).toBe(true);
   });
 
-  it("never runs during a scheduled free-agency window, and never touches a player with a live offer", () => {
+  it("never runs during a scheduled free-agency window or an unfinished event", () => {
     const s = season();
     strip(s, "KC", "K");
     s.stage = "freeAgency";
@@ -329,12 +329,12 @@ describe("a person cannot choose or exploit it", () => {
     expect(repairAllRosters(s)).toEqual([]);
     expect(rosterMinimumViolations(s, "KC")).toHaveLength(1);
 
-    // once it is over, a player who still carries an offer is left alone
+    // once it is over, its unmatched offers are stale: a player who still carries one is an ordinary free agent (review finding)
     const best = Object.values(s.players).filter((p) => p.free_agent && p.position === "K").sort((a, b) => b.overall - a.overall)[0]!;
     s.freeAgencyEvent!.complete = true;
     s.freeAgencyEvent!.offers[best.id] = [{ teamCode: "GB", salary: 1, years: 1, round: 1, sequence: 0 }];
     const rec = repairRoster(s, "KC")!;
-    expect(rec.signed[0]!.playerId).not.toBe(best.id);
+    expect(rec.signed[0]!.playerId).toBe(best.id);
   });
 
   it("only acts at a checkpoint stage", () => {

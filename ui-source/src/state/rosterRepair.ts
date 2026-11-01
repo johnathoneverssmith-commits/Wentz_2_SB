@@ -171,7 +171,9 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
 
   const human = s.gms.some((g) => g.isHuman && g.teamCode === teamCode);
   const strategy = strategyOf(s, teamCode);
-  const live = new Set<string>(Object.keys(s.freeAgencyEvent?.offers ?? {}));
+  // offers only matter while their event runs, and repair never runs then (`repairBlockedBy`); a finished
+  // event's unmatched offers are stale and must not disqualify anyone
+  const live = new Set<string>(s.freeAgencyEvent && !s.freeAgencyEvent.complete ? Object.keys(s.freeAgencyEvent.offers) : []);
   const signed: RepairSigning[] = [];
   const released: RepairRecord["released"] = [];
   const unresolved: RepairShortfall[] = [];
