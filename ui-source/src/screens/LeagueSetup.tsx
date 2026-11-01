@@ -1,6 +1,8 @@
 import { useSetupCreating } from "@/components/journey/SetupCreationNotice";
 import { ScoutingBrief } from "@/components/ScoutingBrief";
-import { SetupSeed } from "@/components/journey/SetupSeed";
+import { UniversePicker } from "@/components/journey/UniversePicker";
+import { GameTitle } from "@/components/GameTitle";
+import { RankChip } from "@/visual/RankChip";
 import { ManualPicksInput } from "@/components/ManualPicksInput";
 import { GmIdentityPicker } from "@/components/GmIdentity";
 import { CopyButton, inviteLink } from "@/components/CopyButton";
@@ -85,6 +87,11 @@ export function LeagueSetup() {
   const myMeta = viewer.teamCode ? TEAMS_BY_CODE[viewer.teamCode] : undefined;
 
   return (
+    <>
+    <div className="setup-hero">
+      <GameTitle team={viewer.teamCode || undefined} eyebrow="Franchise Sim" />
+      {viewer.teamCode && <div className="rank-chip-row"><RankChip team={viewer.teamCode} /></div>}
+    </div>
     <Card maxWidth={940}>
       <CardHeader
         badge={myMeta ? myMeta.abbr : "GM"}
@@ -274,7 +281,7 @@ export function LeagueSetup() {
 
       <Panel id="settings" open={active === "settings"}>
         {online && !commissioner && <p className="notice">Only the commissioner can change these league settings. Your team and check-in remain yours.</p>}
-        <SetupSeed seed={seed} config={config} canRestart={!locked && !online && lastLeagueId()===null}/>
+        <UniversePicker seed={seed} config={config} canRestart={!locked && !online && lastLeagueId()===null}/>
         {online && !locked && !commissioner && (
           <div className="notice" role="status" style={{ marginBottom: 14 }}>
             Only the commissioner can change these. They&rsquo;re shown so everyone knows the rules.
@@ -501,6 +508,7 @@ export function LeagueSetup() {
         </>
       )}
     </Card>
+    </>
   );
 }
 

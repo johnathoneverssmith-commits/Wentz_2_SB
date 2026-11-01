@@ -77,6 +77,9 @@ export const TUNING = {
   archSd: 0.55,
 };
 
+/** Group-draw units an era axis of 1.0 adds. Chosen so a 2011 league's passing group sits clearly above a 2024 league's on average (see leagueDna.test.ts). */
+export const ERA_PULL = 1.4;
+
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
 /**
@@ -145,7 +148,7 @@ export function neutralDna(): LeagueDna {
  * with good receivers and a weak line is likelier next to a strong front.
  * Each position then gets its own wobble on top.
  */
-export function drawLeagueDna(dnaSeed: number): LeagueDna {
+export function drawLeagueDna(dnaSeed: number, eraAxes?: Readonly<Record<"passing" | "ground" | "front" | "coverage", number>>): LeagueDna {
   const r = stream(dnaSeed, "league");
   const off = r.normal();
   const def = r.normal();
@@ -161,6 +164,16 @@ export function drawLeagueDna(dnaSeed: number): LeagueDna {
   };
   // QB and receivers share a passing-game factor
   group.receivers = 0.5 * group.passing! + 0.85 * group.receivers!;
+  // An era leans the draw, it does not replace it: the seed still decides the rest of the league's character.
+  if (eraAxes) {
+    const pull = ERA_PULL;
+    group.passing! += pull * eraAxes.passing;
+    group.receivers! += pull * eraAxes.passing * 0.8;
+    group.backfield! += pull * eraAxes.ground;
+    group.line! += pull * eraAxes.ground * 0.5;
+    group.front! += pull * eraAxes.front;
+    group.secondary! += pull * eraAxes.coverage;
+  }
   const level = clamp(r.normal(0, TUNING.levelSd), -2, 2);
   const tail = clamp(Math.exp(r.normal(0, TUNING.tailSd)), TUNING.tailLimit[0], TUNING.tailLimit[1]);
   const ageTilt = clamp(r.normal(0, TUNING.ageTiltSd), -1, 1);

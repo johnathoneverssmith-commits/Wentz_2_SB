@@ -109,6 +109,13 @@ export interface LeagueConfig {
    * changes its players.
    */
   playerPool?: "fictional" | "legacy";
+  /**
+   * Fictional leagues only: lean the seeded League DNA toward one of the
+   * documented eras in `sim/leagueDna/eras.ts` ("2011", ...). An emphasis
+   * on position-group strength, not a reproduction of that season's players.
+   * Absent: an unconditioned seeded league. Fixed at creation.
+   */
+  leagueEra?: string;
 }
 
 export interface Gm {
@@ -280,6 +287,8 @@ export interface LeagueDnaRecord {
   version: number;
   dnaSeed: number;
   profile: LeagueProfile;
+  /** The era this league's DNA was conditioned on at creation, if the GM chose one. */
+  eraTarget?: string;
 }
 
 /** Broad tendency of a position group: never a number. */

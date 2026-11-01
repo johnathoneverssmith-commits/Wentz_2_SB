@@ -176,7 +176,7 @@ export function HotSeat() {
         tabs={[
           { id: "yours", label: "Your job" },
           { id: "league", label: "Around the league" },
-          { id: "how", label: "How it works" },
+          { id: "how", label: "Methodology" },
         ]}
         active={active}
         onChange={setActive}

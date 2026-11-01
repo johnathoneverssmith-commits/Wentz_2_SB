@@ -219,3 +219,50 @@ describe("league creation helper", () => {
     expect(POSITIONS.length).toBe(15);
   });
 });
+
+
+describe("era-conditioned leagues", () => {
+  const teams = TEAMS.map((t) => t.code);
+  const seeds12 = Array.from({ length: 12 }, (_, i) => 900 + i * 53);
+  const passingScore = (seed: number, era?: string) => {
+    const { pool } = makeDnaLeague(seed, teams, [], era);
+    return groupScores(pool, neutralTop()).passing;
+  };
+  const frontScore = (seed: number, era?: string) => groupScores(makeDnaLeague(seed, teams, [], era).pool, neutralTop()).front;
+
+  it("is reproducible: the same seed and era make the same league", () => {
+    const a = makeDnaLeague(77, teams, [], "2011");
+    const b = makeDnaLeague(77, teams, [], "2011");
+    expect(a.pool).toEqual(b.pool);
+  });
+
+  it("no era is exactly the unconditioned league", () => {
+    expect(makeDnaLeague(77, teams).pool).toEqual(makeDnaLeague(77, teams, [], undefined).pool);
+  });
+
+  it("the era changes the league for the same seed", () => {
+    const base = makeDnaLeague(77, teams);
+    const era = makeDnaLeague(77, teams, [], "2011");
+    expect(era.pool).not.toEqual(base.pool);
+  });
+
+  it("a 2011 league is stronger at passing than a 2024 league from the same seeds", () => {
+    const m2011 = mean(seeds12.map((s) => passingScore(s, "2011")));
+    const m2024 = mean(seeds12.map((s) => passingScore(s, "2024")));
+    expect(m2011 - m2024).toBeGreaterThan(0.5);
+  });
+
+  it("a 2024 league is stronger on the defensive front than a 2011 league", () => {
+    const m2024 = mean(seeds12.map((s) => frontScore(s, "2024")));
+    const m2011 = mean(seeds12.map((s) => frontScore(s, "2011")));
+    expect(m2024).toBeGreaterThan(m2011);
+  });
+
+  it("rejects an unknown era instead of silently ignoring it", () => {
+    expect(() => makeDnaLeague(1, teams, [], "1066")).toThrow(/Unknown league era/);
+  });
+
+  it("every documented era can be selected", () => {
+    for (const era of ERAS) expect(() => makeDnaLeague(5, teams, [], era.id)).not.toThrow();
+  });
+});

@@ -12,7 +12,8 @@ import { useNavigate } from "react-router-dom";
 import { GradePill, OvrPill, TeamBadge } from "@/components/bits";
 import { FullScreenOverlay } from "@/components/FullScreenOverlay";
 import { positionFilterLabel, positionMatches, useListFilter } from "@/components/ListFilter";
-import { PlayerStatsModal } from "@/components/PlayerStatsModal";
+import { PlayerDossier } from "@/components/PlayerDossier";
+import "@/components/player-dossier.css";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { lastLeagueId } from "@/state/online";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -455,7 +456,7 @@ export function DraftRoom() {
                         tabIndex={0}
                         onClick={() => setInspect(s.players[p.id] ?? null)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") setInspect(s.players[p.id] ?? null);
+                          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setInspect(s.players[p.id] ?? null); }
                         }}
                         style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
                       >
@@ -511,7 +512,7 @@ export function DraftRoom() {
                       Draft
                     </button>
                     )}
-                    <CompareToggle row={publicRows.find(row=>row.id===p.id)!} selected={compared} onToggle={id=>setCompared(ids=>toggleComparison(ids,id))}/>
+                    {mode === "rookie" && <CompareToggle row={publicRows.find(row=>row.id===p.id)!} selected={compared} onToggle={id=>setCompared(ids=>toggleComparison(ids,id))}/>}
                   </td>
                 </tr>
               ))}
@@ -578,16 +579,14 @@ export function DraftRoom() {
             .filter((r) => positionMatches(posFilter, r.selectedPosition))
             .slice(0, 60)
             .map((r) => (
-              <div key={r.pickNumber} style={{ display: "grid", gridTemplateColumns: "44px 1fr 1fr", alignItems: "center", gap: 12, padding: "10px 6px", borderBottom: "1px solid var(--line)" }}>
+              <div key={r.pickNumber} className="board-pick" style={{ display: "grid", gridTemplateColumns: "44px 1fr 1.3fr", alignItems: "center", gap: 12, padding: "10px 6px", borderBottom: "1px solid var(--line)" }}>
                 <span style={{ fontSize: 13, color: "var(--ink-dim)" }}>#{r.pickNumber}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 500 }}>
                   <TeamBadge code={r.teamCode} size={18} />
                   {TEAMS_BY_CODE[r.teamCode]?.label ?? r.teamCode}
                   {gmOf(r.teamCode) && <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 400 }}> {gmOf(r.teamCode)}</span>}
                 </span>
-                <span style={{ fontSize: 12.5, textAlign: "right", color: "var(--ink)" }}>
-                  {r.selectedName} · {posLabel(r.selectedPosition)}
-                </span>
+                <PickLine r={r} mode={mode} players={s.players} draftClass={s.draftClass} onInspect={setInspect} />
               </div>
             ))}
           {draft.results.length === 0 && <div className="emptystate">No picks yet.</div>}
@@ -618,12 +617,35 @@ export function DraftRoom() {
       </Footer>
 
       </div><aside className="decision-sidebar" aria-label="Draft context">
-        <DecisionComparison rows={publicRows} ids={compared} onClear={()=>setCompared([])}/>
-        <DraftContext pickOrder={draft.pickOrder} current={draft.currentPickIndex} recent={draft.results} roster={myRoster} units={contextUnits} mode={mode}/>
+        {mode === "rookie" ? <DecisionComparison rows={publicRows} ids={compared} onClear={()=>setCompared([])}/> : (
+          <section className="decision-context" aria-label="Scouting dossier">
+            <h2>Scouting dossier</h2>
+            <p className="decision-muted">Click any player's name — on the board, in Recent Picks or on the League Draft Board — to open a full dossier: every skill against the league's positional average, age, OVR and contract details.</p>
+          </section>
+        )}
+        <DraftContext players={s.players} onInspect={mode === "fantasy" ? setInspect : undefined} pickOrder={draft.pickOrder} current={draft.currentPickIndex} recent={draft.results} roster={myRoster} units={contextUnits} mode={mode}/>
       </aside></div>
       {(() => { const candidate=resolveDecision(available,confirming,yourPick&&!complete&&!picking); return candidate ? <ConfirmDecision title={`Draft ${candidate.name}?`} onCancel={()=>setConfirming(null)} onConfirm={()=>{const current=resolveDecision(available,confirming,yourPick&&!complete&&!picking);if(current){setConfirming(null);pick(current.id);}}}><p><strong>{candidate.name}</strong> · {posLabel(candidate.position)} · {candidate.ovr} {mode === "rookie" ? "college grade" : "OVR"} · Age {candidate.age}</p><p>Pick {draft.currentPickIndex+1} for {code&&TEAMS_BY_CODE[code]?.label}. Confirming uses this selection; other teams may then take their turns.</p></ConfirmDecision> : null; })()}
-      {inspect && <PlayerStatsModal player={inspect} onClose={() => setInspect(null)} />}
+      {inspect && <PlayerDossier player={inspect} onClose={() => setInspect(null)} />}
     </Card></DecisionFrame>
+  );
+}
+
+/** One made pick: name (opens the dossier in a fantasy draft), position, OVR and age. */
+function PickLine({ r, mode, players, draftClass, onInspect }: { r: { selectedId?: string | null; selectedName?: string | null; selectedPosition?: string | null }; mode: "fantasy" | "rookie"; players: Record<string, Player>; draftClass: { id: string; collegeOverall: number; age: number }[]; onInspect: (p: Player) => void }) {
+  const pl = mode === "fantasy" && r.selectedId ? players[r.selectedId] : undefined;
+  const pr = mode === "rookie" && r.selectedId ? draftClass.find((d) => d.id === r.selectedId) : undefined;
+  const ovr = pl?.overall ?? pr?.collegeOverall;
+  const age = pl?.age ?? pr?.age;
+  return (
+    <span className="pick-line">
+      {pl ? <button type="button" className="pick-name" onClick={() => onInspect(pl)} aria-label={`Open scouting dossier for ${pl.name}`}>{r.selectedName}</button> : <span className="pick-name">{r.selectedName}</span>}
+      <span className="pick-meta">
+        {r.selectedPosition ? <span>{posLabel(r.selectedPosition as Position)}</span> : null}
+        {ovr !== undefined && <span>{mode === "rookie" ? "Grade" : "OVR"} {ovr}</span>}
+        {age !== undefined && <span>Age {age}</span>}
+      </span>
+    </span>
   );
 }
 

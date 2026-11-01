@@ -32,6 +32,7 @@
     "reliability-mp3.test.ts",
     "reliability-pool.test.ts",
     "result-visibility.test.ts",
+    "universe.test.ts",
     "vacate-advances.test.ts",
     "vacate-seat.test.ts"
   ],
@@ -71,7 +72,7 @@
     "engine-realism": { "kind": "command", "tier": 1, "label": "Engine realism guard (league rates against the NFL)", "commands": ["npx vitest run test/engine-realism.test.ts"], "seconds": { "local": 15, "ci": 10 } },
     "stat-guard": { "kind": "command", "tier": 1, "label": "Passing, rushing, scoring and sack statistics across 6 leagues", "commands": ["npx vitest run --root online test/passing-volume.test.ts"], "seconds": { "local": 40, "ci": 25 }, "note": "Compares with a baseline measured on seeds 101-124; if a deliberate change moves the averages, re-measure the baseline in the same commit." },
     "circuits": { "kind": "command", "tier": 1, "label": "Whole-season walkthroughs through the stage wiring", "commands": ["npx vitest run --root online test/full-circuit.test.ts test/annual-circuit.test.ts test/humans-only-circuit.test.ts"], "seconds": { "local": 60, "ci": 30 } },
-    "visibility": { "kind": "command", "tier": 1, "label": "Unrevealed results are never sent to a GM who has not watched them", "commands": ["npx vitest run --root online --no-file-parallelism test/result-visibility.test.ts"], "needsDatabase": true, "seconds": { "local": 20, "ci": 15 },
+    "visibility": { "kind": "command", "tier": 1, "label": "Unrevealed results are never sent to a GM who has not watched them", "commands": ["npx vitest run --root online --no-file-parallelism test/result-visibility.test.ts test/universe.test.ts"], "needsDatabase": true, "seconds": { "local": 20, "ci": 15 },
       "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
       "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },
       "note": "Run one file at a time on PGlite. Without a database this suite skips, and a skip is not a pass." },

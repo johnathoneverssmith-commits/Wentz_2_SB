@@ -16,6 +16,8 @@ import { goLocal, isOnline, joinLeague, lastLeagueId, onlineSession } from "@/st
 import { leaveForDynasty } from "@/state/leagueOrigin";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { timeLeft } from "@/util/format";
+import { ERAS } from "@/sim/leagueDna";
+import { DEFAULT_ERA_ID, UNIVERSE_HINT, UNIVERSE_LABEL, universePatch, type UniverseKind } from "@/state/universe";
 import { useStore } from "@/state/store";
 import type { DeadlineChoice, Difficulty, Stage } from "@/domain";
 
@@ -928,6 +930,8 @@ function CreateLeague({
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
   const [talentImpact, setTalentImpact] = useState<TalentImpact>("amplified");
   const gameDayHours: DeadlineChoice = 24;
+  const [universe, setUniverse] = useState<UniverseKind>("fictional");
+  const [eraId, setEraId] = useState<string>(DEFAULT_ERA_ID);
 
   return (
     <>
@@ -952,6 +956,7 @@ function CreateLeague({
                 faHumanRounds: faRounds === "all" ? null : Number(faRounds),
                 difficulty,
                 talentImpact,
+                ...universePatch({ kind: universe, eraId }),
                 gameDayDeadlineHours: gameDayHours,
                 offseasonStageDeadlineHours: hours > 48 ? 48 : (hours as DeadlineChoice),
               },
@@ -965,6 +970,25 @@ function CreateLeague({
           <span>League name</span>
           <input type="text" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
         </label>
+        <label>
+          <span>Player universe</span>
+          <select value={universe} onChange={(e) => setUniverse(e.target.value as UniverseKind)} aria-describedby="online-universe-hint">
+            {(["fictional", "era", "legacy"] as UniverseKind[]).map((k) => (
+              <option key={k} value={k}>{UNIVERSE_LABEL[k]}</option>
+            ))}
+          </select>
+        </label>
+        {universe === "era" && (
+          <label>
+            <span>Historical era</span>
+            <select value={eraId} onChange={(e) => setEraId(e.target.value)}>
+              {ERAS.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+            </select>
+          </label>
+        )}
+        <p id="online-universe-hint" style={{ margin: "-4px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+          {UNIVERSE_HINT[universe]} Fixed once the league is created.
+        </p>
         <label>
           <span>League format</span>
           <select
