@@ -91,7 +91,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         heading: "By hand or by staff",
         body: [
           "Your league sets how many of the rounds you take your own turn in (the setting \"Free agency rounds by hand\"). After them your staff takes your turns. Skip Free Agency passes every turn of this market only; it switches itself off when the next market opens.",
-          "Cap space, roster size and positional minimums are allowed to break during the market and are enforced when you check in at the summary.",
+          "Cap space, roster size and positional minimums are allowed to break during the market and are enforced when you check in at the summary. A gap that opens by itself (a contract running out, a retirement, a trade) is filled by your staff on request; you cannot open one by releasing a player, and the staff never sign back someone you released this season.",
         ],
       },
     ],
