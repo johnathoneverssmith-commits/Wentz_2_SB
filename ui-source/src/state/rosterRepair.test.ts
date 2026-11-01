@@ -191,6 +191,31 @@ describe("repairRoster", () => {
     expect(next!.id).not.toBe(target.id);
   });
 
+  it("does not cut a player whose release costs more cap than it frees (review finding)", () => {
+    const s = season();
+    strip(s, "KC", "K");
+    // a full roster, room of 1, and every surplus player carries a big accelerated bonus: no cut helps
+    const extra = Object.values(s.players).filter((p) => p.free_agent && p.position === "WR" && !p.retired);
+    let i = 0;
+    while (rosterOf(s, "KC").length < ROSTER_SIZE && i < extra.length) {
+      const p = extra[i++]!;
+      p.free_agent = false;
+      p.nfl_team = "KC";
+      p.contract = { team_id: "KC", years_remaining: 1, total_value: 1, guaranteed: 0, cap_hit_by_year: [1], signing_bonus: 0 };
+    }
+    for (const p of rosterOf(s, "KC")) {
+      p.contract = { team_id: "KC", years_remaining: 3, total_value: 30, guaranteed: 0, cap_hit_by_year: [1, 10, 10], signing_bonus: 0, prorated_per_year: 6 } as never; // releasing costs far more than the hit
+    }
+    const used = rosterOf(s, "KC").reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    s.teams["KC"]!.cap.total = used + s.teams["KC"]!.cap.dead! + 2; // room of two
+    const before = rosterOf(s, "KC").length;
+    const rec = repairRoster(s, "KC")!;
+    expect(rec.released).toEqual([]);
+    expect(rec.signed).toEqual([]);
+    expect(rosterOf(s, "KC").length).toBe(before); // nothing was cut for nothing
+    expect(rec.unresolved).toEqual([{ position: "K", have: 0, need: 1 }]);
+  });
+
   it("is deterministic: the same league repairs the same way", () => {
     const run = () => {
       const s = season();

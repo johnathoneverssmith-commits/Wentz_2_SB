@@ -126,13 +126,21 @@ export function emergencyPrice(s: LeagueState, p: Player): number {
  * one cannot open a new hole. Prefers a position carrying more than its template count, then the lowest
  * rated, then the cheapest to leave. Never at the position being filled.
  */
-export function repairCutCandidate(s: LeagueState, teamCode: string, fillingPosition: string): Player | null {
+export function repairCutCandidate(
+  s: LeagueState,
+  teamCode: string,
+  fillingPosition: string,
+  /** when given, the cut must leave `price` of room: cutting can cost more (dead money) than it frees */
+  afford?: { room: number; price: number },
+): Player | null {
   const mins = positionalMinimums();
   const active = rosterOf(s, teamCode).filter((p) => !onInjuredReserve(p, s.stage));
   const countAt = (pos: string): number => active.filter((p) => p.position === pos).length;
   const template = (pos: string): number => ROSTER_TEMPLATE.find((r) => r.pos === pos)?.count ?? 0;
   const cuttable = active.filter(
-    (p) => p.position !== fillingPosition && !p.id.startsWith("emg_") && countAt(p.position) > (mins[p.position] ?? 0) && checkRelease(s, teamCode, p.id).ok,
+    (p) => p.position !== fillingPosition && !p.id.startsWith("emg_") && countAt(p.position) > (mins[p.position] ?? 0) &&
+      checkRelease(s, teamCode, p.id).ok &&
+      (!afford || afford.room + (p.contract?.cap_hit_by_year[0] ?? 0) - releasePenalty(p) >= afford.price - 1e-9),
   );
   cuttable.sort(
     (a, b) =>
@@ -192,7 +200,7 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
 
       // roster limit: a full roster gives up its cheapest surplus man to make the room
       if (rosterCountOf(s, teamCode) >= rosterLimitFor(s.stage)) {
-        const victim = repairCutCandidate(s, teamCode, hole.position);
+        const victim = repairCutCandidate(s, teamCode, hole.position, { room, price: emergencyPrice(s, pick) });
         if (!victim) break;
         released.push({ playerId: victim.id, name: victim.name, position: victim.position, overall: victim.overall });
         applyRelease(s, teamCode, victim.id);
