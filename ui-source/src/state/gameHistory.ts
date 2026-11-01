@@ -78,7 +78,10 @@ export function archiveSeasonGames(s: LeagueState, opts: ArchiveOptions = {}): v
  * stub would still say the game exists, who played, and that it is archived).
  */
 export function visibleArchive(archive: readonly ArchivedGame[] | undefined, gmId: string): ArchivedGame[] {
-  return (archive ?? []).filter((g) => g.seenBy === undefined || g.seenBy.includes(gmId));
+  // `seenBy` is who watched what: metadata about the other GMs, and not the viewer's to read
+  return (archive ?? [])
+    .filter((g) => g.seenBy === undefined || g.seenBy.includes(gmId))
+    .map(({ seenBy: _who, ...rest }) => rest);
 }
 
 /** A game by id: this season's first, then the archive. */

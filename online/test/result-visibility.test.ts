@@ -278,3 +278,40 @@ maybe("an archived game reaches only the GMs who had revealed it", async () => {
   // the raw document never leaves the server with `seenBy` pointing at someone else's list
   expect(JSON.stringify(sleeper)).not.toContain(week2Game);
 });
+
+// Negative controls: the archive must not leak a hidden game through the response body, its metadata, query
+// parameters, or the broadcast route.
+maybe("an archived game cannot be pulled by naming it, a GM id, or a query parameter", async () => {
+  await setup((s) => {
+    archiveSeasonGames(s, { gated: true });
+    s.games = [];
+  });
+  const hidden = (await league(users.watcher)).gameArchive!.map((g) => g.id);
+  expect(hidden.length).toBeGreaterThan(0);
+
+  // the sleeper revealed nothing; asking as the watcher by parameter changes nothing
+  for (const q of [`?gmId=${watcherGm}`, `?gm=${watcherGm}`, `?as=${watcherGm}`, `?viewer=${watcherGm}&have=0`]) {
+    const res = await call(users.sleeper, `/leagues/${leagueId}${q}`);
+    const body = await res.text();
+    expect(res.status).toBe(200);
+    expect((JSON.parse(body) as { state: LeagueState }).state.gameArchive ?? []).toEqual([]);
+    for (const id of hidden) expect(body, `${id} via ${q}`).not.toContain(id);
+  }
+
+  // the broadcast route refuses the archived games (not in the live list, so not revealed to anyone)
+  for (const id of hidden) {
+    for (const u of [users.sleeper, users.watcher]) {
+      const res = await call(u, `/leagues/${leagueId}/games/${encodeURIComponent(id)}/broadcast`);
+      expect([403, 404], `${u} -> ${id}`).toContain(res.status);
+    }
+  }
+
+  // a stranger gets nothing at all
+  expect((await call(users.stranger, `/leagues/${leagueId}`)).status).toBeGreaterThanOrEqual(401);
+  expect((await call(null, `/leagues/${leagueId}`)).status).toBeGreaterThanOrEqual(401);
+
+  // the watcher's own copy carries no record of other GMs' viewing, and no entry beyond what they revealed
+  const mine = await league(users.watcher);
+  expect(JSON.stringify(mine.gameArchive)).not.toContain("seenBy");
+  expect(JSON.stringify(mine.gameArchive)).not.toContain(sleeperGm);
+});

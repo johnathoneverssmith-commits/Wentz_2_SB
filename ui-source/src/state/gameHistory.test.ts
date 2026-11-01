@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { GameResult, LeagueState } from "@/domain";
 import { archiveSeasonGames, ARCHIVE_PRESEASONS_KEPT, ARCHIVE_SEASONS_KEPT, describeTrace, findGame, visibleArchive } from "./gameHistory";
-import { markRevealed, markRoundRevealed } from "./reveal";
+import { emptyReveal, markRevealed, markRoundRevealed } from "./reveal";
 
 const bc = { home: "BUF", away: "KC", finalScore: [24, 20] as [number, number], drives: [{ team: "BUF", side: "home", quarter: 1, startClock: "15:00", startBallOn: 75, plays: [], ended: "touchdown", points: 7, pointsAgainst: 0 }], scoringDrives: [0], injuries: [] } as unknown as GameResult["broadcast"];
 const game = (id: string, over: Partial<GameResult> = {}): GameResult => ({ id, week: 1, phase: "REG", homeTeam: "BUF", awayTeam: "KC", played: true, homeScore: 24, awayScore: 20, ...over });
@@ -105,5 +105,41 @@ describe("game history", () => {
     const solo = league([game("x")]);
     archiveSeasonGames(solo);
     expect(visibleArchive(solo.gameArchive, "anyone")).toHaveLength(1);
+  });
+
+  it("never hands a GM another GM's viewing record", () => {
+    const s = league([game("g1", { week: 1 })]);
+    s.gms = [{ id: "a", isHuman: true, teamCode: "BUF" }, { id: "b", isHuman: true, teamCode: "NYJ" }] as never;
+    markRevealed(s, "a", "REG", 1);
+    archiveSeasonGames(s, { gated: true });
+    expect(s.gameArchive![0]!.seenBy).toEqual(["a"]);
+    const out = visibleArchive(s.gameArchive, "a");
+    expect(out).toHaveLength(1);
+    expect("seenBy" in out[0]!).toBe(false);
+    expect(JSON.stringify(out)).not.toContain("seenBy");
+    expect(s.gameArchive![0]!.seenBy).toEqual(["a"]); // the stored entry is untouched
+  });
+
+  it("keeps who-saw-what across save/reload and later seasons", () => {
+    const s = league([game("y1-seen", { week: 1 }), game("y1-unseen", { week: 5 })]);
+    s.gms = [{ id: "a", isHuman: true, teamCode: "BUF" }, { id: "b", isHuman: true, teamCode: "NYJ" }] as never;
+    markRevealed(s, "a", "REG", 2);
+    archiveSeasonGames(s, { gated: true });
+    // save and reload, then play another season and roll over again
+    const reloaded = JSON.parse(JSON.stringify(s)) as LeagueState;
+    reloaded.season = 2027;
+    reloaded.games = [game("y2", { week: 1 })];
+    reloaded.reveal = emptyReveal();
+    markRevealed(reloaded, "b", "REG", 1);
+    archiveSeasonGames(reloaded, { gated: true });
+    const ids = (gm: string) => visibleArchive(reloaded.gameArchive, gm).map((g) => g.id).sort();
+    expect(ids("a")).toEqual(["y1-seen"]); // year two's game was only revealed by b
+    expect(ids("b")).toEqual(["y2"]);
+    expect(ids("a")).not.toContain("y1-unseen");
+    // re-archiving the same year later cannot widen who may see a game
+    reloaded.games = [game("y1-unseen", { week: 5 })];
+    markRevealed(reloaded, "a", "REG", 9);
+    archiveSeasonGames(reloaded, { gated: true });
+    expect(ids("a")).not.toContain("y1-unseen");
   });
 });
