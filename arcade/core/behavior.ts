@@ -7,6 +7,7 @@
  */
 import { FIELD, STEP_SECONDS, maxSpeed, unit, type ArcadePlayer, type Behavior, type Intent, type PlayerId, type TeamId, type Vector } from './simulation';
 import { codeOf, type Code } from './personnel';
+import { BACKPEDAL_SHARE, REACTION_SECONDS, anticipationSeconds, manRoom, reactionSeconds } from './coverage';
 import type { DownState, Play } from './down';
 
 export const opposite = (team: TeamId): TeamId => team === 'home' ? 'away' : 'home';
@@ -49,25 +50,15 @@ export const POCKET_LATERAL = 9;
 // ----- what a defender can see, and how long it takes him -----
 // Coverage reacts to what is observable (where the receivers are and how they are moving, where the ball is going) and never to
 // the call: a defender cannot know whether a receiver will run a go route or a slant until the receiver does it.
-/** Seconds a defender takes to see his man change direction: his reading of the man's velocity catches up with the real one this slowly, so a cut costs him a step. */
-export const READ_SECONDS = 0.15;
-/** A defender aims where his man will be this many seconds from now, along the direction he reads. */
-export const ANTICIPATE_SECONDS = 0.15;
 /** The depth (yards past the line) a receiver must reach before his man starts to close the cushion, and the depth by which it is closed. */
 export const MAN_COMMIT_FROM = 8;
 export const MAN_COMMIT_TO = 18;
-/** A corner plays off a faster receiver by more and a slower one by less, in proportion to the speed ratio, within these bounds (he respects a burner). */
-export const RESPECT = { min: 0.85, max: 1.25 } as const;
 /** Where a man defender plays a receiver who has gone deep, in yards downfield of him: negative is behind him. A corner who started ten yards off and is beaten by the stem turns and trails at the receiver's hip rather than staying in front, where he would be nearer every ball led to the receiver than the receiver is. */
 export const MAN_STACK = -2.5;
-/** Yards a man defender plays off a receiver who is shallow, about the depth he lines up at (9.7 yd), so he does not jump forward at the snap; the cushion closes to MAN_STACK as the receiver goes from MAN_COMMIT_FROM to MAN_COMMIT_TO yards deep. */
-export const MAN_CUSHION = 10;
 /** Yards a man defender plays to the inside of his receiver (toward the middle of the field), so the two run side by side instead of one standing in the other's lane. */
 export const MAN_LEVERAGE = 1.2;
 /** How much of his cushion a man defender gives up when his man breaks off the vertical stem: at a full sideways break he closes this share of it (route recognition). */
 export const BREAK_CLOSE = 0.8;
-/** The share of his speed a man defender has while backpedaling (going downfield with his man still behind him); once he has turned and is level or beaten he runs flat out. */
-export const BACKPEDAL = 0.85;
 /** Ticks a defender needs to see which way the ball is going before he breaks on it, when he is facing the quarterback (level with his man or in front of him): a quarter of a second, about a person's reaction to a release... */
 export const BALL_READ_TICKS = 15;
 /** ...and when he is behind his man, running with his back to the ball, so he has to turn and find it first. */
@@ -81,6 +72,8 @@ export const ZONE_TRACK = 10;
 export const ZONE_CUSHION = { LB: 1, SS: 2.5, FS: 4 } as const;
 /** A defender who can reach the landing point this many seconds before the ball arrives is on the ball (he can intercept it); otherwise he can only break the pass up. */
 export const ON_BALL_MARGIN = 0.15;
+/** Seconds over which a defender goes from playing the ball from beside it to being on it (centred on ON_BALL_MARGIN of time to spare). */
+export const ON_BALL_BLEND = 0.3;
 /** Yards from the landing point an AI defender plays it from: on the ball (inside the interception radius), or beside it (inside the break-up circle only). */
 export const ON_BALL_STANDOFF = 0.9;
 export const BEHIND_STANDOFF = 1.9;
@@ -95,7 +88,11 @@ const contestPoint = (d: ArcadePlayer, to: Vector, secondsToArrival: number): Ve
     // a defender already standing on the spot stays there: the margin test compares time to arrive, and one who has arrived early must not
     // be pushed out of interception range as the ball comes down
     const onTheSpot = dist(d, to) <= ON_BALL_STANDOFF + 0.05;
-    const standoff = onTheSpot || reach + ON_BALL_MARGIN <= secondsToArrival ? ON_BALL_STANDOFF : BEHIND_STANDOFF;
+    // How close he plays it is a matter of how much time he has to spare, not a switch: with ON_BALL_MARGIN seconds to spare he is half way between the two
+    // distances, with a clear ON_BALL_BLEND to spare he is on the ball, and one who barely gets there plays it from beside. Faster and quicker-reading defenders
+    // therefore play the ball closer, with the same two endpoints as before.
+    const spare = (secondsToArrival - reach - ON_BALL_MARGIN) / ON_BALL_BLEND;
+    const standoff = onTheSpot ? ON_BALL_STANDOFF : BEHIND_STANDOFF - (BEHIND_STANDOFF - ON_BALL_STANDOFF) * Math.max(0, Math.min(1, 0.5 + spare));
     return { x: to.x + away.x * standoff, y: to.y + away.y * standoff };
 };
 const dist = (a: Vector, b: Vector) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -323,7 +320,7 @@ export function planTick(state: DownState): Plan {
     const receivers = offense.filter(p => p.position === 'WR' || p.position === 'TE' || p.position === 'RB');
     /** The velocity this defender believes his man has: his last reading, moved toward the real one. */
     const reading = (d: ArcadePlayer, man: ArcadePlayer): Vector => {
-        const was = d.read ?? { x: man.vx, y: man.vy }, k = STEP_SECONDS / READ_SECONDS;
+        const was = d.read ?? { x: man.vx, y: man.vy }, k = Math.min(1, STEP_SECONDS / reactionSeconds(d));
         return { x: was.x + (man.vx - was.x) * k, y: was.y + (man.vy - was.y) * k };
     };
     const remember = (d: ArcadePlayer, v: Vector) => { const i = players.findIndex(q => q.id === d.id); players[i] = { ...players[i]!, read: v }; };
@@ -341,15 +338,15 @@ export function planTick(state: DownState): Plan {
         if ((d.behavior === 'man' || d.position === 'CB') && mine) {
             const v = reading(d, mine), s = Math.min(1, Math.hypot(v.x, v.y) / maxSpeed(mine));
             remember(d, v);
-            // He keeps his cushion while the receiver is shallow and closes it as the receiver goes deep: an underneath route can beat him, a deep one cannot.
-            const committed = Math.max(0, Math.min(1, ((mine.x - line) * dir - MAN_COMMIT_FROM) / (MAN_COMMIT_TO - MAN_COMMIT_FROM)));
+            // He keeps his room while the receiver is shallow and closes it as the receiver goes deep: an underneath route can beat him, a deep one cannot.
+            const committed = Math.max(0, Math.min(1, ((mine.x - line) * dir - MAN_COMMIT_FROM) / (MAN_COMMIT_TO - MAN_COMMIT_FROM))), room = manRoom(d, mine);
             // And he attacks a receiver who breaks off the stem: the more of his velocity (as he reads it) is sideways, the more of the cushion he closes.
             const speedRead = Math.hypot(v.x, v.y), sideways = speedRead > 1 ? Math.abs(v.y) / speedRead : 0;
-            const respect = Math.max(RESPECT.min, Math.min(RESPECT.max, maxSpeed(mine) / maxSpeed(d)));
-            const cushion = (MAN_CUSHION * respect + (MAN_STACK - MAN_CUSHION * respect) * committed) * (1 - BREAK_CLOSE * sideways);
-            const to = { x: mine.x + v.x * ANTICIPATE_SECONDS + dir * cushion, y: mine.y + v.y * ANTICIPATE_SECONDS + (mine.y < CENTER ? 1 : -1) * MAN_LEVERAGE * s * committed };
+            // How much room he keeps is what he needs against this receiver (core/coverage.ts): speed, his own reading and flip time, and the window he plays quick throws inside.
+            const cushion = (room + (MAN_STACK - room) * committed) * (1 - BREAK_CLOSE * sideways), ahead = anticipationSeconds(d);
+            const to = { x: mine.x + v.x * ahead + dir * cushion, y: mine.y + v.y * ahead + (mine.y < CENTER ? 1 : -1) * MAN_LEVERAGE * s };
             const backpedaling = (d.x - mine.x) * dir > 0.5 && (to.x - d.x) * dir > 0;
-            setIntent(d, 'man', to, backpedaling ? BACKPEDAL : 1);
+            setIntent(d, 'man', to, backpedaling ? BACKPEDAL_SHARE : 1);
             return;
         }
         const spot = landmark(d), assigned = d.assign?.target ? receivers.find(r => r.id === d.assign!.target) : undefined;
@@ -358,7 +355,7 @@ export function planTick(state: DownState): Plan {
         if (intruder) {
             const v = reading(d, intruder), cushion = d.position === 'FS' ? ZONE_CUSHION.FS : d.position === 'SS' ? ZONE_CUSHION.SS : ZONE_CUSHION.LB;
             remember(d, v);
-            setIntent(d, 'zone', { x: intruder.x + v.x * ANTICIPATE_SECONDS + dir * cushion, y: intruder.y + v.y * ANTICIPATE_SECONDS }, 0.95);
+            setIntent(d, 'zone', { x: intruder.x + v.x * anticipationSeconds(d) + dir * cushion, y: intruder.y + v.y * anticipationSeconds(d) }, 0.95);
             return;
         }
         // A zone is not a statue: the defender shades toward the quarterback's side and works within his area (by depth along the play, so a mirrored play moves the same way).
@@ -385,7 +382,8 @@ export function planTick(state: DownState): Plan {
             const reach = Math.max(0, dist(d, contest) - 0.5) / maxSpeed(d) + 0.15;
             // a defender behind the man he is covering is running with his back to the ball and takes longer to find it
             const mine = d.assign?.target ? players.find(p => p.id === d.assign!.target) : undefined;
-            const read = mine && (d.x - mine.x) * dir < -0.25 ? LOOK_BACK_TICKS : BALL_READ_TICKS;
+            // ...and a better reader of the play sees where it is going sooner: the same time scale as everything else he reads (core/coverage.ts), 1 for the average corner
+            const read = (mine && (d.x - mine.x) * dir < -0.25 ? LOOK_BACK_TICKS : BALL_READ_TICKS) * reactionSeconds(d) / REACTION_SECONDS;
             if (elapsed >= read - 1e-9 && (covering || reach <= remaining + REACH_SLACK)) { setIntent(d, 'pursue', contest, 1); continue; }
         }
         cover(d);

@@ -2,6 +2,7 @@ import { EXTRA_POINT_DISTANCE, EXTRA_POINT_POINTS, FIELD_GOAL_MAX_DISTANCE, FIEL
 import { DEFAULT_SEED } from './seed';
 import { resolveCatch, type CatchKind } from './catch';
 import { advance, distanceCovered, FIELD, STEP_SECONDS, maxSpeed, type ArcadePlayer, type Intent, type MatchSnapshot, type TeamId, type PlayerId, type Inputs, type Vector } from './simulation';
+import { manRoom } from './coverage';
 import { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, STUMBLE_TICKS, assignPlay, clampField, direction, opposite, planTick, playMode, pointAlong, resolveLocks, ROUTE_DEPTH, BLOCK_SLOW, SAFETY_DEPTH, BLOCK_HOLD_TICKS } from './behavior';
 import { DEFENSE_FORMATIONS, OFFENSE_FORMATIONS, baseAbilities, chooseFormations, codeOf, playerId, positionOfCode, JERSEY, type Code, type DefenseFormation, type OffenseFormation, type Slot } from './personnel';
 export { BALL_SPEED, BLOCK_RADIUS, CATCH_RADIUS, BREAKUP_RADIUS, CONTACT_RADIUS, MAX_FLIGHT, MIN_FLIGHT, PASS_LEAD, direction, opposite, ROUTE_DEPTH, BLOCK_SLOW, SAFETY_DEPTH, BLOCK_HOLD_TICKS };
@@ -125,8 +126,12 @@ const freshGame = (score: Score = { home: 0, away: 0 }, seed = DEFAULT_SEED): Om
 /** Builds the 22 players for a snap: the offense and defense in the formations chosen for this play. */
 function layout(team: TeamId, line: number, play: Play, playNumber: number): { players: ArcadePlayer[]; formation: DownState['formation'] } {
     const formation = chooseFormations(play, playNumber), dir = direction(team), center = FIELD.width / 2;
+    // A corner lines up where his own coverage logic would keep him against an average wideout (core/coverage.ts), so he does not jump to a new
+    // cushion at the snap; the wideout he covers lines up `1.2` yd (`3.2` for the third receiver) behind the line.
+    const alignCornerDepth = (code: Slot['code']) => Math.max(1, manRoom({ abilities: baseAbilities('CB') }, { abilities: baseAbilities('WR') }) - (code === 'CB3' ? 3.2 : 1.2));
     const build = (owner: TeamId, slot: Slot, attacking: boolean): ArcadePlayer => {
         const pos = positionOfCode(slot.code);
+        if (!attacking && pos === 'CB') slot = { ...slot, depth: alignCornerDepth(slot.code) };
         return {
             id: playerId(owner, slot.code), team: owner, number: JERSEY[slot.code], position: pos, human: false, abilities: baseAbilities(pos),
             // Backs never start inside their own end zone (that would be an instant safety): near the goal line the formation is squeezed.

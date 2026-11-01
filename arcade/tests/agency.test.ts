@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { createDown, snap, choosePlay, throwPass, stepDown, nextDown, switchDefender, contestPass, type DownState } from '../core/down';
 import { decodeSave, encodeSave } from '../browser/save';
-import { BALL_READ_TICKS } from '../core/behavior';
+import { BALL_READ_TICKS, BEHIND_STANDOFF } from '../core/behavior';
 import type { Inputs, PlayerId, Vector } from '../core/simulation';
 import { expectOnlyClockMoved, farAway, parkBlockers, place, quiet, seedShare, seedWhere } from './helpers';
 const zero = { x: 0, y: 0 };
@@ -80,9 +80,12 @@ it('AI covers the receiver, then breaks on the ball once it reacts, rather than 
     const gap = (state: DownState) => { const p = at(state, 'away-CB1'); return Math.hypot(p.x - point.x, p.y - point.y); };
     for (let i = 0; i < BALL_READ_TICKS; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
     const reacting = gap(s);
-    // once he has seen the ball he reverses (a backpedaling corner needs a moment) and closes on its landing point, not on the quarterback
+    // once he has seen the ball he reverses (a backpedaling corner needs a moment) and goes to its landing point, not to the quarterback. How far that is
+    // depends on where he started (a corner already at the spot has nothing to close), so what is checked is that he is pursuing it and settles inside the
+    // break-up circle's standoff, never farther away than he was when he reacted.
     for (let i = 0; i < 30; i++) s = stepDown(farAway(s, ['away-CB1']), idle);
-    expect(gap(s)).toBeLessThan(reacting);
+    expect(at(s, 'away-CB1').behavior).toBe('pursue');
+    expect(gap(s)).toBeLessThanOrEqual(Math.max(reacting, BEHIND_STANDOFF) + 1e-6);
     while (s.phase === 'live' && s.ball.kind === 'flight') s = stepDown(farAway(s, ['away-CB1']), idle);
     expect(gap(s), 'and he is within reach of it when it lands').toBeLessThan(2.6);
     expect(s.catchKind, 'the pass was decided, once').toBeDefined();

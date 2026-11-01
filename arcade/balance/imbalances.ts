@@ -94,8 +94,8 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         },
     },
     {
-        id: 'faster-receiver-worse-deep-game', status: 'fixed', resolution: 'Phase B1: go to WR1 completes 95% at receiver speed 70 and at 80 (it was 76% and 0%).', title: 'A faster receiver makes the deep ball worse',
-        why: 'The 20% overthrow grows with speed and passes the catch radius: at receiver speed 80 no go throw is complete.',
+        id: 'faster-receiver-worse-deep-game', status: 'open', title: 'A faster receiver makes the deep ball worse',
+        why: 'Fixed by Phase B1, reopened by Phase C1b-2a, which is not its cause: a corner now stays within about 1.5 yd of the stem, so the contact between the two nudges a faster receiver off the path the throw was led along (his gap to the ball at tick 56 is 0.7 yd at speed 80, 0.2 at speed 70), and after his route ends the ball is led to its last point while he drifts (the gap grows from 1.2 to 5.4 yd with speed). The lead and the post-route movement are Phase C1b-2b.',
         detect(ev) {
             const a = rates(ev.deepAtSpeed70).complete.p, b = rates(ev.deepAtSpeed80).complete.p;
             return { present: b < a - 0.05, evidence: `go -> WR1 completes ${pct(a)} at receiver speed 70 and ${pct(b)} at speed 80` };
@@ -133,7 +133,7 @@ export const KNOWN_IMBALANCES: readonly KnownImbalance[] = [
         detect(ev) { const r = rates(route(ev, 'slants', 3)); return { present: r.complete.p >= 0.7 && r.openRun >= 25, evidence: `slants -> TE1 completes ${pct(r.complete.p)} with a run of ${r.openRun} consecutive completions, intercepted ${pct(r.interception.p)}` }; },
     },
     {
-        id: 'quick-slants-always-open', status: 'open', title: 'A quick slants throw to either wideout completes every time',
+        id: 'quick-slants-always-open', status: 'fixed', resolution: 'Phase C1b-2a: the corner lines up where his own coverage needs him against this receiver (about 5 yd off, not 10), so a slants throw before tick 24 completes 86% to WR1 and 78% to WR2 (it was 86% and 97%). The quick throw is still the safest pass in the game, by design: it is the price of playing off.', title: 'A quick slants throw to either wideout completes every time',
         why: 'The corner lines up about 10 yd off and needs a quarter of a second to see the ball: a throw in the first half-second lands before he can get to it. With no randomness, a player who repeats it wins every drive.',
         detect(ev) {
             const quick = (target: number) => ev.pocket.filter(r => r.play === 'slants' && r.target === target && r.throwTick < 24), done = (rs: ThrowRecord[]) => rs.filter(r => r.outcome === 'complete').length / rs.length;

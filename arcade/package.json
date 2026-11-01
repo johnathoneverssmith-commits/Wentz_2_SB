@@ -11,6 +11,7 @@
     "balance": "node ../node_modules/tsx/dist/cli.mjs balance/report.ts",
     "balance:passing": "node ../node_modules/tsx/dist/cli.mjs balance/passing-report.ts",
     "balance:ratings": "node ../node_modules/tsx/dist/cli.mjs balance/ratings-report.ts",
+    "balance:coverage": "node ../node_modules/tsx/dist/cli.mjs balance/coverage-report.ts",
     "e2e": "node ../node_modules/@playwright/test/cli.js test --config playwright.config.ts",
     "verify": "node tooling/verify.mjs"
   }
