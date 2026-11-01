@@ -135,3 +135,32 @@ Contract example, 4 years at $20M a year (cap hits by year; release cost if cut 
 | frontloaded | 24.3 / 21.4 / 18.6 / 15.7 | 80 | 12 | 15 |
 
 Backloading saves $4.2M of year-one cap but cutting him costs the same as the flat deal, and year four costs $4.2M more.
+
+## Integration with PR #71 (Agent 2): the repair authorization
+
+PR #71 adds `decideCpuRepairSigning(state, { kind: "cpu-roster-repair", teamCode }, playerId, offer)` in `online/src/decide.ts`,
+which **rejects any team with a human GM seated**, and removes voluntary instant signing (`decideSignFreeAgent` now refuses).
+The agreed requirement is the opposite for repair: the *staff* repairs human franchises too; what is forbidden is a person
+choosing or signing a player outside the rounds.
+
+How the two fit, without merging either into the other (trial merge of #71 into this branch: no conflicts; engine, online and
+UI typechecks pass except one unused variable in #71's own `transactionWindows.test.ts`, line 128; this branch's repair tests and
+#71's `transaction-windows.test.ts` pass together, 30 tests):
+
+- **Roster repair here does not call `decideCpuRepairSigning` or `decideSignFreeAgent`.** `rosterRepair.ts` is server-side
+  state code run by the stage-entry hook; there is no request, route or player id for a person to supply. So #71's refusal of
+  the voluntary endpoint does not affect it, and it keeps repairing human franchises.
+- **What Agent 2 should do with `decideCpuRepairSigning`:** either leave it unused (nothing here needs it), or, if it is meant to be
+  the one audited signing boundary, change its guard from "no human GM seated" to "the *caller* is staff code": add a
+  `kind: "staff-roster-repair"` authorization that is constructed only by server code (as the existing one is) and is allowed for
+  human and CPU teams alike. The guard that matters is *who chooses the player* (the staff rule in `rosterRepair.ts`), not *whose team it
+  is*. Do not route any request-supplied player id through it.
+- **What stays forbidden for people:** voluntary signings outside the rounds (#71), and choosing a repair player (here: no
+  exported function takes a player id; pinned by `rosterRepair.test.ts`).
+- **Phase boundary:** `repairBlockedBy` already refuses while a free-agency event or window is open or in a market stage, so a
+  repair cannot interleave with simultaneous rounds. If #71 introduces new market stage names, add them to `MARKET_STAGES`.
+- Both PRs edit `online/src/decide.ts`, `store.ts`, `WeeklyTeamHub.tsx`, `howItWorks.ts`; git merges them cleanly today.
+
+## Verification run (this branch, head noted in the PR)
+
+See the PR description for the exact head and results.
