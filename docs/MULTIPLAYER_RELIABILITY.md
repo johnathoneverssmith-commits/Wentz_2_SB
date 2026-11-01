@@ -111,14 +111,23 @@ against the hosting plan's memory limit.
 - **Persistence**: the pause is in the league document; after a real server restart it is still on, still refuses (423), only
   the commissioner can lift it, two simultaneous resumes apply once (200 + 409), the audit rows are intact.
 - **Audit**: `league.paused` / `league.resumed` rows carry `actor_user` (asserted in the tests).
-- **`staff-fix` loophole (confirmed, fixed)**: release a star, press staff-fix, and the staff re-signed the best street player
-  at that position — himself — on a one-year minimum (probe: an 89 QB on $27.1M x 5 came back at $1M x 1). That is both a
-  contract/cap rewrite and a free-agent acquisition outside the bidding rounds, started by a human. Fix, in online-side code
-  only: at the two free-agency summary stages `decideRelease` refuses a cut that would leave a position below its minimum, so
-  a GM cannot dig the hole the staff fill. Surplus depth can still be cut. **Still for Agent 1 / PR #73's owner:** the route
-  itself remains human-callable (also in #73's branch); the fully CPU-only design means removing the route and relying on
-  the automatic entry-to-preseason repair, which needs the check-in gate (`reconciliationIssues` at the summaries) reconsidered
-  so no GM is soft-locked. I did not change shared policy files (`reconciliation.ts`).
+- **`staff-fix` loophole (confirmed, fixed in two rounds)**: release a star, press staff-fix, and the staff re-signed the best
+  street player at that position — himself — on a one-year minimum (probe: an 89 QB on $27.1M x 5 came back at $1M x 1): a
+  contract/cap rewrite and a free-agent acquisition outside the bidding rounds, started by a human.
+  *Round 1* (head `07baf92`) refused the release only at the two free-agency summaries. The exploit audit showed that was a patch,
+  not a fix: the hole could be dug at any other stage (free agency, training camp, mid-season FA, draft) and the staff fill it
+  at the next summary — 5 of the audit's paths failed against that head.
+  *Round 2* closes the mechanism:
+  1. a human release that would leave a position (IR players excluded) below its minimum is refused **at every stage**;
+  2. the staff **never re-sign a player this franchise released this season** (`state.recentReleases`; those players are held off the
+     street for the repair), so even a hole that later opens by itself cannot return the released star;
+  3. repair stays own-team-only, takes no player/position, and is idempotent (repeat requests are `unchanged`).
+  Holes that open by themselves (contract expiry, retirement, injury, a trade) are still filled — legitimate readiness is kept.
+  **Residual, for Agent 1 / PR #73's owner (policy, not changed here):** (a) the route itself is still human-callable (also in
+  #73's branch); the fully CPU-only design means removing it and relying on the automatic repair, which needs the check-in gate
+  at the summaries (`reconciliationIssues`) reconsidered so no GM is soft-locked; (b) a hole opened by a *trade* or by letting a
+  contract expire is the GM's choice, and the staff then sign the best leftover street player at the minimum — that is the
+  shared repair policy (`reconciliation.ts`, which I did not touch). It cannot return a player the GM released.
 
 ## Task 6 — roster repair (master only)
 

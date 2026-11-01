@@ -312,6 +312,11 @@ export interface LeagueState {
    * is frozen; `remainingMs` is what was left on it, restored on resume. Absent = running; the server's league view sends `null` when running,
    * because clients merge a received league into their copy and a missing key would leave a stale pause behind.
    */
+  /**
+   * Online only: players a human GM released this season, by team. The staff's roster repair never signs one of these back
+   * (`decideStaffFix`), so a release cannot be turned into a re-signing on the minimum.
+   */
+  recentReleases?: { season: number; byTeam: Record<string, string[]> } | undefined;
   pause?: { at: string; by: string; remainingMs: number | null } | null | undefined;
   /**
    * The seed the league was created with, kept so that what's generated

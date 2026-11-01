@@ -742,7 +742,16 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   const before = new Set(
     Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent).map((p) => p.id),
   );
-  applyRosterRepair(state, authorizeRosterRepair(state, actor.teamCode, state.stage as RepairCheckpoint));
+  // the staff never re-sign a player this franchise itself released this season: held off the street for the repair
+  const held = (state.recentReleases?.season === state.season ? state.recentReleases.byTeam[actor.teamCode] ?? [] : [])
+    .map((id) => state.players[id])
+    .filter((x): x is NonNullable<typeof x> => !!x && x.free_agent && x.nfl_team === "FA");
+  for (const x of held) x.nfl_team = "HELD:" + actor.teamCode;
+  try {
+    applyRosterRepair(state, authorizeRosterRepair(state, actor.teamCode, state.stage as RepairCheckpoint));
+  } finally {
+    for (const x of held) if (x.nfl_team === "HELD:" + actor.teamCode) x.nfl_team = "FA";
+  }
   recomputeTeamRatings(state);
   const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
   const named = (ps: { name: string; position: string }[]) => ps.map((p) => `${p.name} (${posLabel(p.position)})`).join(", ");
@@ -773,18 +782,23 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
   // nothing
   const check = checkRelease(state, actor.teamCode, playerId);
   if (!check.ok) throw new ActionError(check.reason ?? "You can't release him.");
-  // At a free-agency summary the staff fill any positional hole from the street at the minimum
-  // (`decideStaffFix`). A GM must not be able to dig that hole on purpose: releasing a star and letting the staff
-  // re-sign him on a one-year minimum rewrites his contract, outside the bidding rounds and the cap rules.
-  if (state.stage === "freeAgencySummary" || state.stage === "midseasonFreeAgencySummary") {
-    const need = positionalMinimums()[p.position] ?? 0;
+  // The staff fill any positional hole from the street at the minimum (`decideStaffFix`, and the automatic repair).
+  // A GM must not be able to dig that hole on purpose, at any stage: releasing a star and letting the staff re-sign him
+  // on a one-year minimum rewrites his contract outside the bidding rounds and the cap rules. A hole that opens by
+  // itself (a contract running out, a retirement, a trade) is the staff's to fill; a cut that would open one is not.
+  const need = positionalMinimums()[p.position] ?? 0;
+  if (need > 0 && !onInjuredReserve(p, state.stage)) {
     const have = rosterOf(state, actor.teamCode).filter((x) => x.position === p.position && !onInjuredReserve(x, state.stage)).length;
-    if (!onInjuredReserve(p, state.stage) && have - 1 < need) {
+    if (have - 1 < need) {
       throw new ActionError(
         `Releasing him would leave you below the ${need}-player minimum at ${posLabel(p.position)}, and your staff only fills a gap that opens by itself.`,
       );
     }
   }
+  // and whoever a GM does release is not one the staff will sign back for them this season
+  const recent = state.recentReleases?.season === state.season ? state.recentReleases : { season: state.season, byTeam: {} };
+  recent.byTeam[actor.teamCode] = [...new Set([...(recent.byTeam[actor.teamCode] ?? []), playerId])];
+  state.recentReleases = recent;
   applyRelease(state, actor.teamCode, playerId);
   recomputeTeamRatings(state);
   return {
