@@ -114,6 +114,7 @@ export interface LeagueActions {
     playerId?: string;
     salary?: number;
     years?: number;
+    structure?: "even" | "backloaded" | "frontloaded";
     pass?: boolean;
   }) => Promise<ActionResult>;
   /** Sit out free agency or the deadline: your own turns in it are passed for you. */

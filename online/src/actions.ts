@@ -181,6 +181,7 @@ export const freeAgencyTurn = (
     playerId?: string | undefined;
     salary?: number | undefined;
     years?: number | undefined;
+    structure?: "even" | "backloaded" | "frontloaded" | undefined;
     pass?: boolean | undefined;
   },
   expectedVersion?: string,

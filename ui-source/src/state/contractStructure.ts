@@ -174,7 +174,9 @@ export function planExtension(
   const old = scheduleOf(c);
   const rolled = old ? old.bonus.slice(1).reduce((a, b) => a + b, 0) : 0;
   const rolledPerYear = r1(rolled / Math.max(1, offer.years));
-  const carriedPerYear = r1((c.prorated_per_year ?? 0) + rolledPerYear);
+  // The persisted split already holds any restructure money (`restructureContract` adds it to both the split and
+  // `prorated_per_year`), so with a split it is the one authority; without one, the legacy proration is.
+  const carriedPerYear = old ? rolledPerYear : r1(c.prorated_per_year ?? 0);
   if (!offer.structure) {
     return { hits: Array.from({ length: offer.years }, () => r1(offer.baseSalary + carriedPerYear)), schedule: null, rolledPerYear, carriedPerYear };
   }

@@ -247,6 +247,8 @@ export function applyExtension(p: Player, offer: { baseSalary: number; years: nu
     c.salary_by_year = [round1(thisYear - yearZeroBonus), ...baseHits];
     c.structure = structure ?? "even";
     c.signing_bonus = round1(c.guaranteed_by_year.reduce((a, b) => a + b, 0));
+    // what is still owed per year, once: the split above is the authority from here on
+    c.prorated_per_year = plan.carriedPerYear;
   } else {
     dropSchedule(c);
   }

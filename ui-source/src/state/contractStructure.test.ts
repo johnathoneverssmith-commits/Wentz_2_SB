@@ -146,6 +146,26 @@ describe("restructure and extension keep the books straight", () => {
     expect(hits[1]!).toBeGreaterThan(hits[2]!); // frontloaded extension years
   });
 
+  it("counts restructured bonus money once when extending a deal (review finding)", () => {
+    const s = league();
+    const team = "KC";
+    const p = roster(s, team).sort((a, b) => b.overall - a.overall)[0]!;
+    s.teams[team]!.cap.total = 10_000;
+    p.contract = { ...offerToContract({ teamCode: team, baseSalary: 20, years: 4, signingBonus: 0, guaranteed: 0, structure: "even" }) };
+    expect(restructureContract(p, s.season, 1).ok).toBe(true);
+    const owedBonus = p.contract.guaranteed_by_year!.slice(1).reduce((a, b) => a + b, 0);
+    const r = extendContract(s, p, { baseSalary: 20, years: 3, guaranteed: 500, structure: "even" });
+    expect(r.ok, r.reason).toBe(true);
+    const ext = p.contract!.cap_hit_by_year.slice(1);
+    // each new year is the 20 salary plus the old bonus spread over the three new years, and nothing more
+    const expected = 20 + owedBonus / 3;
+    for (const h of ext) expect(Math.abs(h - expected)).toBeLessThan(0.3);
+    // the bonus still owed equals what was owed (plus the extension's own), not double
+    const after = p.contract!.guaranteed_by_year!.slice(1).reduce((a, b) => a + b, 0);
+    expect(after).toBeLessThan(owedBonus + 20 * 3 * 0.15 + 0.5);
+    expect(scheduleOf(p.contract)).not.toBeNull();
+  });
+
   it("refuses an extension whose later years do not fit under the cap", () => {
     const s = league();
     const team = "KC";
