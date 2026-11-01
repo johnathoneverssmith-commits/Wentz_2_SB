@@ -297,8 +297,10 @@ function advanceOrTurnDay(state: LeagueState): { moved: boolean; autopiloted: st
 export function readyUpLocal(state: LeagueState): boolean {
   if (!humanGate(state) || !rosterGate(state)) return false;
   const before = state.stage;
-  advanceOrTurnDay(state);
-  return state.stage !== before;
+  const out = advanceOrTurnDay(state);
+  // "the league progressed, so the next checkpoint starts its own clock": a stage change, or a playoff round played
+  // (the stage stays `playoffs`; `readyUp` resets the deadline for the same outcome)
+  return state.stage !== before || out.playedRound === true;
 }
 
 /**
