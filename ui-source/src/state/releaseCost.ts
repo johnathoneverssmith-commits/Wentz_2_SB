@@ -34,6 +34,8 @@ export function releasePenalty(p: Player): number {
   // `extendContract` already carries this money forward through an
   // extension; releasing has to accelerate the same remaining amount onto
   // the cap now, the way a real signing bonus's unamortized proration does.
-  const acceleratedProration = Math.max((c.prorated_per_year ?? 0) * c.years_remaining, remainingBonus(c));
+  // with a persisted split the split is the whole truth about unamortized bonus (it already holds any restructure
+  // money, and `prorated_per_year` x years left can overshoot it after a shortening extension)
+  const acceleratedProration = structured ? remainingBonus(c) : (c.prorated_per_year ?? 0) * c.years_remaining;
   return Math.round(Math.max(base, acceleratedProration) * 10) / 10;
 }

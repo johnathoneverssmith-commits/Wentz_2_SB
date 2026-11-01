@@ -106,6 +106,21 @@ describe("repairRoster", () => {
     expect(rosterMinimumViolations(s, "KC")).toHaveLength(1);
   });
 
+  it("counts practice-squad salaries and dead money in the room (review finding)", () => {
+    const s = season();
+    strip(s, "KC", "K");
+    const active = rosterOf(s, "KC").reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    const ps = Object.values(s.players).find((p) => p.free_agent && !p.retired && p.position === "WR")!;
+    ps.free_agent = false;
+    ps.nfl_team = "PS:KC";
+    ps.contract = { team_id: "KC", years_remaining: 1, total_value: 3.2, guaranteed: 0, cap_hit_by_year: [3.2], signing_bonus: 0 };
+    s.teams["KC"]!.cap.dead = 0;
+    s.teams["KC"]!.cap.total = active + 3.2 + 0.5; // active contracts alone leave room; with the squad there is half a million
+    const rec = repairRoster(s, "KC")!;
+    expect(rec.signed).toEqual([]);
+    expect(rec.unresolved).toEqual([{ position: "K", have: 0, need: 1 }]);
+  });
+
   it("steps down to the best player it CAN afford", () => {
     const s = season();
     strip(s, "KC", "OT", 1); // a market with a spread of prices

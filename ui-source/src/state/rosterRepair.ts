@@ -38,9 +38,9 @@ import { expectedSalary } from "./freeAgencyValues.ts";
 import { onInjuredReserve } from "./injuries";
 import { strategyOf } from "./aiGms.ts";
 import { strategyAgeBonus } from "./aiStrategy.ts";
-import { applyRelease, capUsed, nextReconcileCut, positionalMinimums, rosterOf } from "./reconciliation.ts";
+import { applyRelease, nextReconcileCut, positionalMinimums, rosterOf } from "./reconciliation.ts";
 import { rosterLimitFor, rosterCountOf, offerToContract } from "./rules.ts";
-import { recomputeTeamRatings } from "./seed.ts";
+import { capUsedOf, recomputeTeamRatings } from "./seed.ts";
 import { UNITS } from "./unitValue.ts";
 
 /** Entering one of these stages is a checkpoint: rosters are about to be played. */
@@ -145,7 +145,8 @@ export function repairRoster(s: LeagueState, teamCode: string): RepairRecord | n
   for (const hole of ordered) {
     let have = hole.have;
     while (have < hole.need) {
-      const room = team.cap.total - capUsed(s, teamCode) - (team.cap.dead ?? 0);
+      // the canonical books: active contracts, the practice squad and dead money
+      const room = team.cap.total - capUsedOf(s, teamCode);
       const candidates = Object.values(s.players)
         .filter(
           (p) =>

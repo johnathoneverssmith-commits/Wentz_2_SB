@@ -94,6 +94,20 @@ describe("release (dead money)", () => {
     expect(back).toBeGreaterThan(backHit * 0.5);
   });
 
+  it("after a shortening extension the release liability is the persisted bonus, not proration x years (review finding)", () => {
+    const s = league();
+    s.teams["KC"]!.cap.total = 10_000;
+    const p = roster(s, "KC")[0]!;
+    p.contract = { ...offerToContract({ teamCode: "KC", baseSalary: 20, years: 5, signingBonus: 0, guaranteed: 0, structure: "backloaded" }) };
+    expect(extendContract(s, p, { baseSalary: 20, years: 1, guaranteed: 500, structure: "even" }).ok).toBe(true);
+    const bonusLeft = p.contract!.guaranteed_by_year!.reduce((a, b) => a + b, 0);
+    const owed = p.contract!.cap_hit_by_year.reduce((a, b) => a + b, 0);
+    const mean = owed / p.contract!.years_remaining;
+    const penalty = releasePenalty(p);
+    expect(penalty).toBeLessThanOrEqual(Math.max(bonusLeft, Math.min(mean * 0.22 * p.contract!.years_remaining, mean * 0.75)) + 0.11);
+    expect(penalty).toBeLessThanOrEqual(owed + 0.11);
+  });
+
   it("the unamortized bonus accelerates: cutting after a bonus-heavy signing costs the remaining proration", () => {
     const c = offerToContract({ teamCode: "KC", baseSalary: 20, years: 5, signingBonus: 60, guaranteed: 60, structure: "even" });
     const p = { contract: { ...c } } as unknown as Player;
