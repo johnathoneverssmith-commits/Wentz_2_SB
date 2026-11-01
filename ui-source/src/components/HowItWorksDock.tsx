@@ -9,7 +9,7 @@ import { useDialog } from "@/components/useDialog";
 import { type HowTopic, topicsFor } from "@/state/howItWorks";
 
 /**
- * "How it works" on every screen that has a system behind it: a tab on the
+ * "Methodology" on every screen that has a system behind it: a tab on the
  * edge of the screen that opens the rules in plain language over whatever you
  * are doing, without leaving it. The text lives in `state/howItWorks.ts`, and
  * changes in the same commit as the mechanic it describes.
@@ -29,7 +29,7 @@ export function HowItWorksDock() {
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >
-        How it works
+        Methodology
       </button>
       {open && <Drawer topics={topics} onClose={() => setOpen(false)} />}
     </>
@@ -45,10 +45,10 @@ function Drawer({ topics, onClose }: { topics: HowTopic[]; onClose: () => void }
   const topic = topics.find((t) => t.id === id) ?? topics[0]!;
   return createPortal(
     <div className="how-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="how-drawer" role="dialog" aria-modal="true" aria-label="How it works" ref={ref}>
+      <div className="how-drawer" role="dialog" aria-modal="true" aria-label="Methodology" ref={ref}>
         <div className="how-head">
-          <strong>How it works</strong>
-          <button type="button" onClick={onClose} aria-label="Close how it works">
+          <strong>Methodology</strong>
+          <button type="button" onClick={onClose} aria-label="Close methodology">
             Close
           </button>
         </div>

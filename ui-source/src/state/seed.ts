@@ -1446,7 +1446,7 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
   const dnaLeague =
     config.playerPool === "legacy"
       ? null
-      : makeDnaLeague(seed, TEAMS.map((t) => t.code), realPlayerNames());
+      : makeDnaLeague(seed, TEAMS.map((t) => t.code), realPlayerNames(), config.leagueEra);
   const pool = dnaLeague ? dnaLeague.pool : sim.generateInitialPool(seed, "realRosters");
   // The pool arrives unowned and unpaid — real players carry their team but
   // no contract, because nflverse knows who is on a roster and not what the
@@ -1473,7 +1473,7 @@ export function createLeague(seed = 1, configIn: LeagueConfig = DEFAULT_CONFIG):
   // and a random number there would rotate the league arbitrarily
   const schedule = sim.generateSchedule(2026, TEAMS.map((t) => t.code));
   const dnaRecord = dnaLeague
-    ? { version: dnaLeague.dna.version, dnaSeed: dnaLeague.dna.dnaSeed, profile: dnaLeague.profile }
+    ? { version: dnaLeague.dna.version, dnaSeed: dnaLeague.dna.dnaSeed, profile: dnaLeague.profile, ...(config.leagueEra ? { eraTarget: config.leagueEra } : {}) }
     : undefined;
   const draftClass = sim.generateDraftClass(seed, 2026, undefined, classDnaForLeague(dnaRecord, 2026));
 

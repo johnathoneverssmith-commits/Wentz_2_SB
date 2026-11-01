@@ -2,10 +2,11 @@ import type { LeagueProfile, Player, TendencyBand } from "@/domain";
 import { classDnaFor, type ClassDna } from "./classDna.ts";
 import { GEN_VERSION, drawLeagueDna, type GroupId, type LeagueDna } from "./dna.ts";
 import { dealToTeams, generateFictionalPool } from "./generate.ts";
-import { profileForPool } from "./eras.ts";
+import { ERAS, profileForPool } from "./eras.ts";
 import { dnaSeedFor } from "./streams.ts";
 
 export { GEN_VERSION } from "./dna.ts";
+export { ERAS } from "./eras.ts";
 export type { ClassDna } from "./classDna.ts";
 
 export interface DnaLeague {
@@ -19,8 +20,10 @@ export interface DnaLeague {
  * onto `teams` (the league's home teams, kept in `home_team` so switching
  * the fantasy draft off restores them), and the public profile.
  */
-export function makeDnaLeague(seed: number, teams: readonly string[], reserved: Iterable<string> = []): DnaLeague {
-  const dna = drawLeagueDna(dnaSeedFor(seed, GEN_VERSION));
+export function makeDnaLeague(seed: number, teams: readonly string[], reserved: Iterable<string> = [], eraId?: string): DnaLeague {
+  const era = eraId ? ERAS.find((e) => e.id === eraId) : undefined;
+  if (eraId && !era) throw new Error(`Unknown league era "${eraId}"`);
+  const dna = drawLeagueDna(dnaSeedFor(seed, GEN_VERSION), era?.axes);
   const pool = generateFictionalPool(dna, reserved);
   dealToTeams(pool, teams, dna.dnaSeed);
   for (const p of pool) if (p.nfl_team !== "FA") p.home_team = p.nfl_team;

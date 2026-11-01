@@ -60,7 +60,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
       {
         heading: "Every league has its own players",
         body: [
-          "A new league's players are original and made from the league's seed: no two leagues share a player, and each has its own mix of deep and thin positions, standout talents and player types (a pocket passer and a dual-threat quarterback of the same rating play differently). The League Profile on the draft room compares the league to an NFL era as an analogy only; it is not a rule and it does not tell you how to draft.",
+          "A new league's players are original and made from the league's seed: no two leagues share a player, and each has its own mix of deep and thin positions, standout talents and player types (a pocket passer and a dual-threat quarterback of the same rating play differently). When you create a league you can choose its universe: the original real-player pool, a fully fictional league from a seed, or a fictional league leaned toward a historical NFL era's emphasis (for example a passing boom). The era only tilts which position groups are deep or thin; nobody in it is a real player and no historical rating is reproduced, and later draft classes are generated on their own. The League Profile on the draft room compares the league to an NFL era as an analogy only; it is not a rule and it does not tell you how to draft.",
           "Every year's draft class is generated on its own. A league that started deep at quarterback does not get quarterback-rich classes because of it, and the class scouting report describes only that year's class. Leagues made before this existed keep the players they have.",
         ],
       },
