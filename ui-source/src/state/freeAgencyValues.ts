@@ -253,6 +253,8 @@ export interface Offer {
   round: number;
   /** Order within the round, so the earliest offer wins a dead heat. */
   sequence: number;
+  /** How the offered money is spread over the years (contractStructure.ts). Absent = flat. */
+  structure?: "even" | "backloaded" | "frontloaded";
 }
 
 /**

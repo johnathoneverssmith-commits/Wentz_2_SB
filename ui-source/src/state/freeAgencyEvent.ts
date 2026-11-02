@@ -1,4 +1,6 @@
 import { clearSkips, isSkipping } from "./skips.ts";
+import { type ContractStructure, MIN_STRUCTURE_YEARS, isStructure } from "./contractStructure.ts";
+import { chooseStructure } from "./cpuContracts.ts";
 import type { LeagueState, Player } from "@/domain";
 
 import { unitGainer } from "./unitValue.ts";
@@ -168,6 +170,7 @@ export function applyOffer(
   playerId: string,
   salary: number,
   years: number,
+  structure?: ContractStructure,
 ): void {
   const e = s.freeAgencyEvent;
   if (!e) return;
@@ -178,6 +181,8 @@ export function applyOffer(
     years,
     round: e.round,
     sequence: list.length,
+    // a one-year deal has nothing to shape; an unrecognised value is no structure rather than a bad deal
+    ...(structure && isStructure(structure) && years >= MIN_STRUCTURE_YEARS ? { structure } : {}),
   });
   endTurn(s, teamCode);
 }
@@ -232,7 +237,8 @@ export function resolveRound(s: LeagueState): void {
       years: win.years,
       signingBonus: 0,
       guaranteed: 0,
-    });
+      ...(win.structure ? { structure: win.structure } : {}),
+    }, minSalaryM(s));
 
     e.signed.push({
       playerId,
@@ -263,7 +269,7 @@ export function resolveRound(s: LeagueState): void {
  * not chase a player another team has already bid far more for, which keeps
  * the AI from burning every round on the same name.
  */
-export type FaMove = { kind: "pass" } | { kind: "offer"; playerId: string; salary: number; years: number };
+export type FaMove = { kind: "pass" } | { kind: "offer"; playerId: string; salary: number; years: number; structure?: ContractStructure };
 
 /** The least a roster spot costs to fill ($M). */
 
@@ -318,7 +324,7 @@ export function offerRoomFor(s: LeagueState, teamCode: string): number {
 /** A CPU team's turn: choose, then do it. */
 export function cpuTurn(s: LeagueState, teamCode: string, index?: RoundIndex): void {
   const m = chooseFaMove(s, teamCode, index);
-  if (m.kind === "offer") applyOffer(s, teamCode, m.playerId, m.salary, m.years);
+  if (m.kind === "offer") applyOffer(s, teamCode, m.playerId, m.salary, m.years, m.structure);
   else applyPass(s, teamCode);
 }
 
@@ -457,7 +463,8 @@ export function chooseFaMove(s: LeagueState, teamCode: string, index?: RoundInde
   // how long a deal a front office offers follows who he is, not just his age: a young starter gets years, a young
   // reserve or a veteran past his decline gets few, and each club reads the same player a little differently
   const years = yearsFor(target, salary);
-  return { kind: "offer", playerId: target.id, salary, years };
+  const structure = chooseStructure(s, teamCode, target, salary, years);
+  return { kind: "offer", playerId: target.id, salary, years, ...(structure ? { structure } : {}) };
 }
 
 /**

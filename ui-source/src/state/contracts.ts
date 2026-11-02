@@ -11,6 +11,7 @@ import { contractValueFor } from "@/sim/MockSimulationService";
 import { playerPriorities } from "@/sim/priorities";
 
 import { BASE_MIN_SALARY_M, marketScale, minSalaryM, scaledM } from "./capEconomy.ts";
+import { type ContractStructure, dropSchedule, isStructure, planExtension, scheduleOf } from "./contractStructure.ts";
 
 const round1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -109,7 +110,16 @@ export function restructureContract(p: Player, season: number, minSalary = BASE_
   if (!check.ok) return check;
   const c = p.contract!;
   const { convertible, perYear, hits } = planRestructure(c, minSalary);
+  // a deal with a persisted split keeps it: the converted money is bonus, prorated onto the later years
+  const split = scheduleOf(c);
   c.cap_hit_by_year = hits;
+  if (split) {
+    // every converted dollar is bonus: the later years carry their prorations and this year carries the rest,
+    // so the split accounts for the whole conversion (a release accelerates all of it, as the legacy rule does)
+    const laterAdded = hits.slice(1).reduce((a, _h, i) => a + (round1(split.bonus[i + 1]! + perYear) - split.bonus[i + 1]!), 0);
+    c.guaranteed_by_year = split.bonus.map((b, i) => (i === 0 ? round1(b + (convertible - laterAdded)) : round1(b + perYear)));
+    c.salary_by_year = hits.map((h, i) => round1(h - c.guaranteed_by_year![i]!));
+  }
   c.signing_bonus = round1(c.signing_bonus + convertible);
   c.guaranteed = round1(c.guaranteed + convertible);
   // the converted money now sits on every year of the deal, and follows him
@@ -121,7 +131,7 @@ export function restructureContract(p: Player, season: number, minSalary = BASE_
 }
 
 /** What the player is asking for to sign on for more years. */
-export function extensionAsk(p: Player, scale = 1): { baseSalary: number; years: number; guaranteed: number } {
+export function extensionAsk(p: Player, scale = 1): { baseSalary: number; years: number; guaranteed: number; structure?: ContractStructure } {
   const market = contractValueFor(p.overall, p.position, scale);
   const want = playerPriorities(p);
   // an extension is negotiated a year early, so it is priced off what he is
@@ -146,11 +156,12 @@ export function extensionAsk(p: Player, scale = 1): { baseSalary: number; years:
 export function extendContract(
   state: LeagueState,
   p: Player,
-  offer: { baseSalary: number; years: number; guaranteed: number },
+  offer: { baseSalary: number; years: number; guaranteed: number; structure?: ContractStructure },
 ): ContractMoveResult {
   const c = p.contract;
   if (!c) return { ok: false, reason: "He isn't under contract." };
   if (offer.years < 1) return { ok: false, reason: "An extension has to add at least a year." };
+  if (offer.structure !== undefined && !isStructure(offer.structure)) return { ok: false, reason: "Unknown contract structure." };
 
   const ask = extensionAsk(p, marketScale(state));
   const offered = offer.baseSalary * offer.years + offer.guaranteed;
@@ -171,8 +182,10 @@ export function extendContract(
     // year's payroll, which in season sits a few million under the cap, so a
     // person could almost never extend a star while the CPU teams, budgeting
     // against next year as here (`planCoreResign`), always could.
+    const structured = offer.structure && offer.years >= 2 ? offer.structure : undefined;
+    const plan = planExtension(c, { ...offer, structure: structured }, minSalaryM(state));
     const capNextYear =
-      nextYearCommitments(state, p.nfl_team) - (c.years_remaining >= 2 ? (c.cap_hit_by_year[1] ?? 0) : 0) + offer.baseSalary + (c.prorated_per_year ?? 0);
+      nextYearCommitments(state, p.nfl_team) - (c.years_remaining >= 2 ? (c.cap_hit_by_year[1] ?? 0) : 0) + (plan.hits[0] ?? offer.baseSalary);
     if (capNextYear > team.cap.total) {
       const over = round1(capNextYear - team.cap.total);
       return {
@@ -180,10 +193,29 @@ export function extendContract(
         reason: `That deal puts next year's cap $${over.toFixed(1)}M over. Lower the salary, or clear room first.`,
       };
     }
+    // a shape must fit in every season it spans, not just the first: pushing the bill to a year
+    // the club cannot pay is not a way to sign him
+    const future = commitmentsBySeason(state, p.nfl_team);
+    for (let t = 1; t < plan.hits.length; t++) {
+      const later = (future[t + 1] ?? 0) - (c.years_remaining > t + 1 ? (c.cap_hit_by_year[t + 1] ?? 0) : 0) + (plan.hits[t] ?? 0);
+      if (later > team.cap.total) {
+        return { ok: false, reason: `That deal puts the cap $${round1(later - team.cap.total).toFixed(1)}M over in a later year. Lower the salary, or flatten the structure.` };
+      }
+    }
   }
 
-  applyExtension(p, offer);
+  applyExtension(p, offer, minSalaryM(state));
   return { ok: true };
+}
+
+/** What a team owes in each season from this one: index 0 is this year. */
+export function commitmentsBySeason(state: LeagueState, teamCode: string): number[] {
+  const out: number[] = [];
+  for (const x of Object.values(state.players)) {
+    if (x.nfl_team !== teamCode || x.retired || x.free_agent || !x.contract) continue;
+    for (let t = 0; t < x.contract.years_remaining; t++) out[t] = (out[t] ?? 0) + (x.contract.cap_hit_by_year[t] ?? 0);
+  }
+  return out;
 }
 
 /** What a team already owes next season: every contract that runs past this one. */
@@ -197,18 +229,33 @@ export function nextYearCommitments(state: LeagueState, teamCode: string): numbe
 }
 
 /** Rewrite a deal as extended — the part of `extendContract` after the checks. */
-export function applyExtension(p: Player, offer: { baseSalary: number; years: number; guaranteed: number }): void {
+export function applyExtension(p: Player, offer: { baseSalary: number; years: number; guaranteed: number; structure?: ContractStructure }, minSalary = 0): void {
   const c = p.contract;
   if (!c) return;
   const thisYear = c.cap_hit_by_year[0] ?? 0;
-  const carried = c.prorated_per_year ?? 0; // old restructure money, still owed
+  const old = scheduleOf(c);
+  const structure = offer.structure && offer.years >= 2 ? offer.structure : undefined;
+  // old restructure money and any unamortized bonus on the years being replaced are still owed
+  const plan = planExtension(c, { ...offer, structure }, minSalary);
   c.years_remaining = 1 + offer.years;
-  c.cap_hit_by_year = [
-    thisYear,
-    ...Array.from({ length: offer.years }, () => round1(offer.baseSalary + carried)),
-  ];
-  c.total_value = round1(thisYear + (offer.baseSalary + carried) * offer.years);
+  c.cap_hit_by_year = [thisYear, ...plan.hits];
+  c.total_value = round1(c.cap_hit_by_year.reduce((a, b) => a + b, 0));
   c.guaranteed = round1(offer.guaranteed);
+  if (plan.schedule || old) {
+    // this year's split stands; the new years carry the schedule (or a flat base) plus what was rolled in
+    // a legacy deal that was restructured already owes this year's share of that conversion: keep it when the split is created
+    const yearZeroBonus = old ? old.bonus[0]! : Math.min(thisYear, round1(c.prorated_per_year ?? 0));
+    const baseHits = plan.schedule ? plan.schedule.salary_by_year : Array.from({ length: offer.years }, () => round1(offer.baseSalary));
+    const bonusHits = plan.hits.map((h, i) => round1(h - baseHits[i]!));
+    c.guaranteed_by_year = [yearZeroBonus, ...bonusHits];
+    c.salary_by_year = [round1(thisYear - yearZeroBonus), ...baseHits];
+    c.structure = structure ?? "even";
+    c.signing_bonus = round1(c.guaranteed_by_year.reduce((a, b) => a + b, 0));
+    // what is still owed per year, once: the split above is the authority from here on
+    c.prorated_per_year = plan.carriedPerYear;
+  } else {
+    dropSchedule(c);
+  }
   // paid: a new deal ends a holdout, and replaces any tag or option
   delete p.holdout;
   delete c.franchise_tag_season;
@@ -345,6 +392,7 @@ export function exerciseFifthYearOption(state: LeagueState, p: Player): Contract
   const c = p.contract!;
   const price = check.price!;
   c.years_remaining += 1;
+  dropSchedule(c); // the option rewrites the hits wholesale
   c.cap_hit_by_year = [...c.cap_hit_by_year.slice(0, 1), price];
   c.total_value = round1(c.total_value + price);
   c.guaranteed = round1(c.guaranteed + price);
