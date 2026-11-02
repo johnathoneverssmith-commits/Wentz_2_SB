@@ -1,5 +1,6 @@
 import { SetupCreationNotice } from "./journey/SetupCreationNotice";
-import { JourneyGuide } from "./journey/JourneyGuide";
+// shell-wide: setup, the how-it-works drawer and the 44px phone tap targets live here
+import "./journey/journey.css";
 import { leaveForDynasty } from "@/state/leagueOrigin";
 import { useEffect, useRef, useState } from "react";
 import { goLocal, lastLeagueId, onlineSession } from "@/state/online";
@@ -314,7 +315,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
         <SetupCreationNotice />
-        <JourneyGuide />
         {children}
         <UnitGradesDock teamCode={teamCode} />
         <HowItWorksDock />

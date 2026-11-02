@@ -11,10 +11,10 @@ test.describe('UI-5 setup orientation',()=>{
  test('solo setup explains the real next step and exposes optional keyboard help',async({page})=>{
   await page.setViewportSize({width:390,height:844});await page.goto('/#/setup');
   await expect(page.getByRole('heading',{name:'League Setup',exact:true})).toBeVisible();
-  const guide=page.getByRole('region',{name:'Franchise guidance'});await expect(guide).toContainText('fantasy draft');
+  // the guidance card that used to sit on every screen is gone; the screen's own copy carries the next step
+  await expect(page.getByRole('region',{name:'Franchise guidance'})).toHaveCount(0);
   await page.getByRole('tab',{name:'League Settings',exact:true}).click();
   await page.getByRole('group',{name:'Fantasy draft',exact:true}).getByRole('combobox').selectOption('off');
-  await expect(guide).toContainText('coaching draft');
   await expect(page.getByText('Teams keep their starting roster. The coaching draft begins once every GM is ready.',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Methodology',exact:true}).click();
   const help=page.getByRole('dialog',{name:'Methodology',exact:true});await expect(help).toContainText('Start here');
@@ -62,9 +62,8 @@ test.describe('UI-5 first franchise through real controls',()=>{
    const before=(await saved(page)).coachingDraft.currentPickIndex;await page.getByRole('button',{name:/^Hire /}).first().click();await expect.poll(async()=>(await saved(page)).coachingDraft.currentPickIndex).toBeGreaterThan(before);
   }
   await expect.poll(async()=>(await saved(page)).stage).toBe('coachingDraftSummary');
-  const back=page.getByRole('region',{name:'Franchise guidance'}).getByRole('link',{name:'Return to Coaching Draft Summary',exact:true});if(await back.isVisible())await back.click();
+  const back=page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:/^Coaching Draft Summary/});if(await back.isVisible())await back.click();
   await expect(page.getByRole('heading',{name:'Coaching Draft Summary',exact:true})).toBeVisible();
-  await expect(page.getByRole('region',{name:'Franchise guidance'})).toContainText('training camp');
   await page.getByRole('button',{name:'Advance to Training Camp',exact:true}).click();await expect(page).toHaveURL(/#\/training-camp$/);
   const state=await saved(page);const me=state.gms.find((g:any)=>g.id===state.viewerGmId).teamCode;expect(Object.values(state.coaches).filter((c:any)=>c.team===me)).toHaveLength(12);await page.reload();await expect(page.getByRole('heading',{name:'Training Camp',exact:true})).toBeVisible();
  });
@@ -75,8 +74,9 @@ for(const [device,width] of [['desktop',1440],['mobile',390]] as const){
   test.use({fixtureName:'training-camp'});
   test('optional guidance does not change state and camp advances through results and depth chart',async({page,consoleErrors})=>{
    await page.setViewportSize({width,height:device==='desktop'?1000:844});await page.goto('/');const before=await saved(page);
-   const guide=page.getByRole('region',{name:'Franchise guidance'});await guide.getByText('Why this step matters',{exact:true}).click();expect((await saved(page)).trainingCamp).toEqual(before.trainingCamp);
-   await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:'Finances & Cap',exact:true}).click();await guide.getByRole('link',{name:'Return to Training Camp',exact:true}).click();await expect(page).toHaveURL(/#\/training-camp$/);
+   // away and back through the rail's current-stage link, which replaced the guidance card's "Return to" link
+   const main=page.getByRole('navigation',{name:'Main'});
+   await main.getByRole('link',{name:'Finances & Cap',exact:true}).click();await main.getByRole('link',{name:/^Training Camp(?! Results)/}).click();await expect(page).toHaveURL(/#\/training-camp$/);expect((await saved(page)).trainingCamp).toEqual(before.trainingCamp);
    await page.getByRole('button',{name:'Methodology',exact:true}).click();const help=page.getByRole('dialog',{name:'Methodology',exact:true});await expect(help).toContainText('repeated focuses');
    if(device==='mobile'){const rect=(await help.getByRole('button',{name:'Close methodology'}).boundingBox())!;expect(await page.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('[role=dialog]')?.getAttribute('aria-label'),{x:rect.x+rect.width/2,y:rect.y+rect.height/2}),'The help close control must be above mobile navigation').toBe('Methodology');}
    const tabs=help.getByRole('tab');await tabs.first().focus();await page.keyboard.press('ArrowRight');await expect(tabs.nth(1)).toBeFocused();await expect(tabs.nth(1)).toHaveAttribute('aria-selected','true');await capture(page,`help-${device}.png`);await page.keyboard.press('Escape');
@@ -87,7 +87,7 @@ for(const [device,width] of [['desktop',1440],['mobile',390]] as const){
    const after=await saved(page);expect(after.season).toBe(before.season);const me=before.gms.find((g:any)=>g.id===before.viewerGmId).teamCode;expect(after.trainingCamp.plans[me].submitted).toBe(true);expect(after.trainingCamp.results[me].length).toBeGreaterThan(0);
    await page.reload();expect((await saved(page)).trainingCamp.results[me]).toEqual(after.trainingCamp.results[me]);
    await page.getByRole('button',{name:'Advance to Re-order Depth Chart',exact:true}).click();await expect(page).toHaveURL(/#\/roster$/);
-   await expect(guide).toContainText('preseason');await page.getByRole('button',{name:'Ready to start the season',exact:true}).click();await expect.poll(async()=>(await saved(page)).stage).toBe('preseason');await expect(page).toHaveURL(/#\/hub$/);expect(consoleErrors).toEqual([]);
+   await page.getByRole('button',{name:'Ready to start the season',exact:true}).click();await expect.poll(async()=>(await saved(page)).stage).toBe('preseason');await expect(page).toHaveURL(/#\/hub$/);expect(consoleErrors).toEqual([]);
   });
  });
 }
@@ -99,13 +99,13 @@ test.describe('UI-5 controlled online session UX',()=>{
   const transport=await controlledLeague(page,origin,state,{teamCode:gm.teamCode,gmId:gm.id});await page.reload();await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();
   const url='http://127.0.0.1:9/leagues/ui4-controlled';const unavailable=async(route:any)=>route.fulfill({status:503,json:{error:'Controlled offline test'},headers:{'access-control-allow-origin':origin,'access-control-allow-credentials':'true'}});
   await page.route(url,unavailable);await page.reload();await expect(page.getByText('Couldn’t reach your online league.',{exact:true})).toBeVisible();
-  await expect(page.getByRole('region',{name:'Franchise guidance'})).toContainText('Reconnect');expect(transport.requests).toEqual([]);
+  expect(transport.requests).toEqual([]);
   await page.unroute(url,unavailable);await page.reload();await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();await expect(page.getByText('Couldn’t reach your online league.',{exact:true})).toHaveCount(0);expect(transport.requests).toEqual([]);
  });
  test('checked-in waiting state and a refused withdrawal remain truthful',async({page,origin})=>{
   await page.goto('/');const state=await saved(page);const gm=state.gms.find((g:any)=>g.id===state.viewerGmId);const other={...gm,id:'ui5_other',name:'Waiting GM',teamCode:Object.keys(state.teams).find(c=>c!==gm.teamCode),isHuman:true};state.gms.push(other);state.readiness[gm.id]=true;state.readiness[other.id]=false;
   state.reveal??={preseasonWeek:{},regularWeek:{},playoffRounds:{},step:{}};state.reveal.step[gm.id]='trainingCampResults';
-  const transport=await controlledLeague(page,origin,state,{teamCode:gm.teamCode,gmId:gm.id},async()=>({status:403,body:{error:'Check-in could not be withdrawn.'}}));await page.reload();await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();await page.getByRole('region',{name:'Franchise guidance'}).getByRole('link',{name:'Return to Training Camp Results',exact:true}).click();await expect(page.getByRole('heading',{name:'Waiting for other players',exact:true})).toBeVisible();await expect(page.getByText(/Waiting on Waiting GM/)).toBeVisible();
+  const transport=await controlledLeague(page,origin,state,{teamCode:gm.teamCode,gmId:gm.id},async()=>({status:403,body:{error:'Check-in could not be withdrawn.'}}));await page.reload();await expect(page.getByText('Controlled UI league',{exact:true})).toBeVisible();await page.getByRole('navigation',{name:'Main'}).getByRole('link',{name:/^Training Camp Results/}).click();await expect(page.getByRole('heading',{name:'Waiting for other players',exact:true})).toBeVisible();await expect(page.getByText(/Waiting on Waiting GM/)).toBeVisible();
   await page.getByRole('button',{name:'Take back my check-in',exact:true}).click();await expect(page.getByRole('status').filter({hasText:'Check-in could not be withdrawn.'})).toBeVisible();await expect(page.getByRole('heading',{name:'Waiting for other players',exact:true})).toBeVisible();expect(transport.requests).toHaveLength(1);
  });
 });
