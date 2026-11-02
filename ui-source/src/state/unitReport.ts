@@ -242,6 +242,46 @@ export interface SideRatings {
  * the starters, so it could call an offense twentieth while Unit grades had
  * its quarterback first and its line thirtieth: two screens, two answers.
  */
+/**
+ * Every team's projected strength, unrounded: the one reading of "how good
+ * is this roster as the engine will play it" that the hub, Unit grades and
+ * the draft summary all share.
+ *
+ * - Each unit's strength is its starters' average pulled toward the weakest
+ *   (`strengthOf`), weighted by what the unit is measured to be worth.
+ * - An empty starting spot plays at replacement level (`REPLACEMENT_RATING`),
+ *   so a hole costs a team what it costs in a game. The old lineup average
+ *   simply left the hole out of the sum, which *raised* a team's average
+ *   whenever its worst starter was missing.
+ * - Depth beyond the starters does not count here by design. Depth is its
+ *   own number (`rosterOverall`), and injuries — the thing depth is for — are
+ *   not part of a projection.
+ *
+ * Draft *value* (did a team get good players for where it picked) is a
+ * different question, answered in `draftValue.ts`.
+ */
+export function projectedStrengths(
+  s: Pick<LeagueState, "players" | "teams" | "depthChart">,
+): Record<string, { overall: number; offense: number; defense: number }> {
+  const lines = depthLines(s as LeagueState);
+  const keys = Object.keys(UNITS).filter((k) => k !== "outsideLinebackers");
+  const side = (code: string, list: string[]): number => {
+    let num = 0;
+    let den = 0;
+    for (const key of list) {
+      const unit = UNITS[key]!;
+      num += strengthOf(unit, startersFor(lines.get(code), key).map((x) => x.overall)) * unit.weight;
+      den += unit.weight;
+    }
+    return num / den;
+  };
+  const out: Record<string, { overall: number; offense: number; defense: number }> = {};
+  for (const code of lines.keys()) {
+    out[code] = { overall: side(code, keys), offense: side(code, OFFENSE_UNITS), defense: side(code, DEFENSE_UNITS) };
+  }
+  return out;
+}
+
 export function sideRatings(s: Pick<LeagueState, "players" | "teams" | "depthChart">): Record<string, SideRatings> {
   const lines = depthLines(s as LeagueState);
   const codes = [...lines.keys()];

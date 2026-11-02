@@ -260,7 +260,7 @@ export class OnlineLeagueClient {
 
   freeAgencyTurn = (
     leagueId: string,
-    move: { playerId?: string; salary?: number; years?: number; pass?: boolean },
+    move: { playerId?: string; salary?: number; years?: number; structure?: "even" | "backloaded" | "frontloaded"; pass?: boolean },
     version: string,
   ) => this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/fa-turn`, {
     ...move,
@@ -416,7 +416,7 @@ export class OnlineLeagueClient {
       | { kind: "option" }
       | { kind: "practiceSquad" }
       | { kind: "promote" }
-      | { kind: "extend"; baseSalary: number; years: number; guaranteed: number },
+      | { kind: "extend"; baseSalary: number; years: number; guaranteed: number; structure?: "even" | "backloaded" | "frontloaded" },
     version: string,
   ) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/contract`, {

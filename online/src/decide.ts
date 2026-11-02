@@ -363,6 +363,8 @@ export function decideFreeAgencyTurn(
     playerId?: string | undefined;
     salary?: number | undefined;
     years?: number | undefined;
+    /** how the money is spread over the years; absent = flat (state/contractStructure.ts) */
+    structure?: "even" | "backloaded" | "frontloaded" | undefined;
     pass?: boolean | undefined;
   },
 ): Decision {
@@ -382,7 +384,7 @@ export function decideFreeAgencyTurn(
     const check = checkOffer(state, actor.teamCode, move.playerId, salary, years);
     if (!check.ok) throw new ActionError(check.reason ?? "That offer isn't valid.");
     const name = state.players[move.playerId]?.name ?? "a free agent";
-    applyOffer(state, actor.teamCode, move.playerId, salary, years);
+    applyOffer(state, actor.teamCode, move.playerId, salary, years, move.structure);
     summary = `${city(actor.teamCode)} offered ${name} $${salary.toFixed(1)}M a year for ${years} year${years === 1 ? "" : "s"}.`;
   }
 
@@ -824,7 +826,7 @@ export type ContractMove =
   | { kind: "option" }
   | { kind: "practiceSquad" }
   | { kind: "promote" }
-  | { kind: "extend"; baseSalary: number; years: number; guaranteed: number };
+  | { kind: "extend"; baseSalary: number; years: number; guaranteed: number; structure?: "even" | "backloaded" | "frontloaded" };
 
 /** Restructure or extend one of your contracts. */
 export function decideContractMove(

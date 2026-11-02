@@ -671,6 +671,7 @@ post("/leagues/:id/actions/fa-turn", async (ctx) => {
       playerId: optional<string>(ctx, "playerId"),
       salary: optional<number>(ctx, "salary"),
       years: optional<number>(ctx, "years"),
+      structure: optional<"even" | "backloaded" | "frontloaded">(ctx, "structure"),
       pass: optional<boolean>(ctx, "pass"),
     },
     version(ctx),

@@ -67,6 +67,7 @@ import {
 import { beginFreeAgencyEvent, runCpuTurns } from "@/state/freeAgencyEvent.ts";
 import { reconciliationIssues } from "@/state/reconciliation.ts";
 import { applyRosterRepair, authorizeRosterRepair, type RepairCheckpoint } from "./rosterRepair.js";
+import { describeRepair, runRepairCheckpoint } from "@/state/rosterRepair.ts";
 import { openTrainingCamp, runCpuTrainingCamps } from "@/state/trainingCamp.ts";
 import { clearInjuries, healOneWeek } from "@/state/injuries.ts";
 import { ensureHoodedFigureEncounters, hoodedFigureEncounterFor } from "@/state/hoodedFigure.ts";
@@ -640,6 +641,18 @@ export function onStageEntered(state: LeagueState, from?: string): void {
       if (humans.has(teamCode)) continue;
       applyRosterRepair(state, authorizeRosterRepair(state, teamCode, state.stage as RepairCheckpoint));
     }
+  }
+
+  // before a block of games is played the staff fills any positional hole, for every team, human or
+  // CPU (state/rosterRepair.ts). A GM is told afterwards; there is nothing for them to choose.
+  for (const record of runRepairCheckpoint(state)) {
+    if (!record.human) continue;
+    noteEvent(state, {
+      teamCode: record.team,
+      kind: "roster.repair",
+      summary: describeRepair(record),
+      detail: record,
+    });
   }
 
   // The rest mirrors the single-player `tryAdvance`, which does this work in

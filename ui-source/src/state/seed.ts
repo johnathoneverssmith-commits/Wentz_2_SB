@@ -3,11 +3,12 @@
  * coach market + first draft class are generated up front so every screen has
  * data to render from the start; setup/draft stages then reassign as needed.
  */
-import { UNITS } from "./unitValue.ts";
+import { projectedStrengths } from "./unitReport.ts";
 import { difficultyFor, syncAiGms } from "./aiGms.ts";
 import { commitmentsOf } from "./contractValue.ts";
 import { cpuOfferYears } from "./cpuContracts.ts";
 import { releasePenalty } from "./releaseCost.ts";
+import { advanceSchedule } from "./contractStructure.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { checkToPracticeSquad, practiceSquad, practiceSquadEligible, practiceSquadSalaryM, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
 import {
@@ -128,30 +129,11 @@ function blankTeam(code: string): TeamState {
   };
 }
 
-const OFF = new Set<Position>(["QB", "RB", "WR", "TE", "OT", "OG", "C"]);
-const DEF = new Set<Position>(["EDGE", "DT", "ILB", "OLB", "CB", "S"]);
-
 /** How many of each position count as "starters" for the starting-lineup rating. */
 const STARTER_COUNTS: Partial<Record<Position, number>> = {
   QB: 1, RB: 1, WR: 3, TE: 1, OT: 2, OG: 2, C: 1,
   EDGE: 2, DT: 2, ILB: 2, CB: 2, S: 2, K: 1, P: 1,
 };
-
-/**
- * What one starter at each position counts for in the team's starting-lineup
- * rating: his unit's measured worth (`UNITS` in unitValue.ts) shared among the
- * unit's starters. A quarterback is about three and a half times an average
- * starter; a kicker or punter, nearly nothing (special teams has its own rating).
- */
-const STARTER_WEIGHT: Partial<Record<Position, number>> = (() => {
-  const out: Partial<Record<Position, number>> = { K: 0.01, P: 0.01 };
-  for (const u of Object.values(UNITS)) {
-    const n = Object.values(u.slots).reduce((a, b) => a + b, 0);
-    for (const pos of Object.keys(u.slots)) out[pos as Position] = u.weight / n;
-  }
-  return out;
-})();
-
 
 /**
  * Contract length ranges the roster fill signs to, inclusive.
@@ -694,7 +676,10 @@ export function expireContracts(state: LeagueState): void {
     const c = p.contract;
     if (!c || p.retired || p.free_agent) continue;
     c.years_remaining -= 1;
-    if (c.cap_hit_by_year.length > 1) c.cap_hit_by_year.shift();
+    if (c.cap_hit_by_year.length > 1) {
+      c.cap_hit_by_year.shift();
+      advanceSchedule(c, true);
+    }
     if (c.years_remaining > 0) continue;
     // a franchise tag (`contracts.ts`) turns into next year's one-year tender
     if (c.franchise_tag_season === state.season && c.franchise_tag_price) {
@@ -1296,28 +1281,20 @@ export function recomputeTeamRatings(state: LeagueState): void {
     if (l) l.push(p);
     else byTeam.set(p.nfl_team, [p]);
   }
-  // The starting-lineup ratings weight each starter by what his position is
-  // measured to be worth on the field (`unitValue.ts`, per player): a plain
-  // average counted a 73 quarterback the same as a 73 guard, and a team the
-  // screens called third-best went 4-13 with one. Same 0-99 scale.
-  const weighted = (arr: Player[], fallback = 72) => {
-    let n = 0;
-    let w = 0;
-    for (const p of arr) {
-      const k = STARTER_WEIGHT[p.position] ?? 0.05;
-      n += k * p.overall;
-      w += k;
-    }
-    return w > 0 ? Math.round(n / w) : fallback;
-  };
+  // Overall / offense / defense are the unit-based projection (`projectedStrengths`):
+  // vacancies play at replacement level, weak links pull a unit down, and the
+  // value stays unrounded for ranking. Rounding first and ranking after left
+  // a 32-team league with three or four distinct "overalls", so a rank (and
+  // the draft grade built on it) was decided by team-code order.
+  const proj = projectedStrengths(state);
   const raw: Record<string, { o: number; off: number; def: number; st: number; roster: number }> = {};
   for (const code of codes) {
     const fullRoster = byTeam.get(code) ?? [];
     const starters = lineupFrom(state, code, fullRoster);
     raw[code] = {
-      o: weighted(starters),
-      off: weighted(starters.filter((p) => OFF.has(p.position))),
-      def: weighted(starters.filter((p) => DEF.has(p.position))),
+      o: proj[code]!.overall,
+      off: proj[code]!.offense,
+      def: proj[code]!.defense,
       st: mean(starters.filter((p) => p.position === "K" || p.position === "P"), 68),
       roster: mean(fullRoster),
     };
@@ -1353,9 +1330,10 @@ export function recomputeTeamRatings(state: LeagueState): void {
   const rr = rank("roster");
   for (const code of codes) {
     state.teams[code]!.ratings = {
-      overall: raw[code]!.o,
-      offense: raw[code]!.off,
-      defense: raw[code]!.def,
+      overall: Math.round(raw[code]!.o),
+      offense: Math.round(raw[code]!.off),
+      defense: Math.round(raw[code]!.def),
+      exact: { overall: Math.round(raw[code]!.o * 10) / 10, offense: Math.round(raw[code]!.off * 10) / 10, defense: Math.round(raw[code]!.def * 10) / 10 },
       specialTeams: raw[code]!.st,
       overallRank: ro.get(code)!,
       offenseRank: roff.get(code)!,

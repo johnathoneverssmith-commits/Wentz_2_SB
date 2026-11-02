@@ -191,6 +191,8 @@ export interface ContractOffer {
   years: number;
   /** $M of the total that is guaranteed. */
   guaranteed: number;
+  /** How the money is spread over the years. Absent = the flat deal it has always been. */
+  structure?: "even" | "backloaded" | "frontloaded";
 }
 
 /** What a free agent cares about, surfaced in the negotiation popup. */
@@ -424,6 +426,12 @@ export interface LeagueState {
    * wire, so 33 signings landed on the roster without a word.
    */
   staffFill?: { season: number; byTeam: Record<string, string[]> } | null;
+  /**
+   * Emergency roster repairs the staff made at progression checkpoints
+   * (`state/rosterRepair.ts`), newest last. Read-only to the UI: it tells a GM what
+   * happened; there is nothing for them to choose.
+   */
+  rosterRepairs?: import("@/state/rosterRepair").RepairRecord[];
   /**
    * Each GM's starred prospects for the coming draft, private to that GM.
    * League-level, not on `draft`: the preview happens before the draft

@@ -134,11 +134,30 @@ export function checkRelease(s: LeagueState, teamCode: string, playerId: string)
 }
 
 /** Release a player: he goes to the pool and his penalty lands on the cap. */
+/**
+ * Remember that this franchise let this player go this season, so the staff never sign him back at the emergency
+ * price (`ownDepartures` in rosterRepair.ts). Same field and shape as the league server's `recentReleases`, which a
+ * GM's release also writes (a union, so recording twice is harmless); kept off the typed state so the two writers
+ * cannot disagree about the declaration.
+ */
+export function recordDeparture(s: LeagueState, teamCode: string, playerId: string): void {
+  const holder = s as unknown as { recentReleases?: { season: number; byTeam: Record<string, string[]> } };
+  // copy on write: a trim plan runs on a shallow copy of a (possibly frozen) league, and must not touch the original's history
+  const prev = holder.recentReleases?.season === s.season ? holder.recentReleases : { season: s.season, byTeam: {} as Record<string, string[]> };
+  const list = prev.byTeam[teamCode] ?? [];
+  if (list.includes(playerId)) {
+    holder.recentReleases = prev;
+    return;
+  }
+  holder.recentReleases = { season: s.season, byTeam: { ...prev.byTeam, [teamCode]: [...list, playerId] } };
+}
+
 export function applyRelease(s: LeagueState, teamCode: string, playerId: string): void {
   const p = s.players[playerId];
   const team = s.teams[teamCode];
   if (!p || !team) return;
   const penalty = releasePenalty(p);
+  recordDeparture(s, teamCode, playerId);
   // onto the open market (a cut used to vanish from it)
   releaseToMarket(s, p);
   // dead money: the cost of the release stays on this year's books
