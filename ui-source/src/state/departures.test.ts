@@ -62,4 +62,16 @@ describe("departure history ages per player, not per league (Codex P2)", () => {
     recordDeparture(snap, "GB", "b");
     expect(s.recentReleases).toEqual(frozen);
   });
+
+  it("another club releasing the same player does not renew the first club's bar (Codex P2)", () => {
+    const s = at(2025);
+    recordDeparture(s, "GB", "star"); // GB lets him go in 2025
+    s.season = 2026;
+    recordDeparture(s, "KC", "star"); // KC signs and releases the same player in 2026
+    expect(recentReleasesOf(s, "GB")).toEqual(["star"]);
+    expect(recentReleasesOf(s, "KC")).toEqual(["star"]);
+    s.season = 2027;
+    expect(recentReleasesOf(s, "GB"), "GB's own 2025 release has aged out").toEqual([]);
+    expect(recentReleasesOf(s, "KC"), "KC's 2026 release still counts").toEqual(["star"]);
+  });
 });

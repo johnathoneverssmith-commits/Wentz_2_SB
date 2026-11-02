@@ -23,16 +23,16 @@ export function recordDeparture(s: LeagueState, teamCode: string, playerId: stri
   if (prev) {
     for (const [team, ids] of Object.entries(prev.byTeam)) {
       for (const id of ids) {
-        const when = prev.at?.[id] ?? prev.season; // a save from before per-player stamps: its whole list is that season's
+        const when = prev.at?.[stamp(team, id)] ?? prev.season; // a save from before per-player stamps: its whole list is that season's
         if (when < s.season - 1) continue; // aged out
         (byTeam[team] ??= []).push(id);
-        at[id] = when;
+        at[stamp(team, id)] = when;
       }
     }
   }
   const list = byTeam[teamCode] ?? [];
   if (!list.includes(playerId)) byTeam[teamCode] = [...list, playerId];
-  at[playerId] = s.season; // released (again) now: his bar starts from this season
+  at[stamp(teamCode, playerId)] = s.season; // released (again) by THIS club now: only this club's bar starts from this season
   // copy on write: a trim plan runs on a shallow copy of a (possibly frozen) league, and must not touch the original's history
   holder.recentReleases = { season: s.season, byTeam, at };
 }
@@ -41,10 +41,13 @@ export function recordDeparture(s: LeagueState, teamCode: string, playerId: stri
 export function recentReleasesOf(s: LeagueState, teamCode: string): string[] {
   const r = (s as unknown as { recentReleases?: Departures }).recentReleases;
   if (!r) return [];
-  return (r.byTeam[teamCode] ?? []).filter((id) => (r.at?.[id] ?? r.season) >= s.season - 1);
+  return (r.byTeam[teamCode] ?? []).filter((id) => (r.at?.[stamp(teamCode, id)] ?? r.season) >= s.season - 1);
 }
 
-/** The saved shape. `at` (player -> the season he was let go) is absent in saves from before departures aged per player. */
+/** One departure's key: the same player can be let go by two clubs in different seasons, each with its own age. */
+const stamp = (teamCode: string, playerId: string): string => `${teamCode}|${playerId}`;
+
+/** The saved shape. `at` ("team|player" -> the season that club let him go) is absent in saves from before departures aged per player. */
 interface Departures {
   season: number;
   byTeam: Record<string, string[]>;
