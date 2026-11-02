@@ -288,11 +288,16 @@ describe("repairRoster", () => {
     strip(s2, "GB", "K");
     (s2 as unknown as { recentReleases: unknown }).recentReleases = { season: s2.season, byTeam: { KC: [ks[0]!.id] } };
     expect(repairRoster(s2, "GB")!.signed[0]!.playerId).toBe(ks[0]!.id);
-    // and last season's release does not bar him
+    // last season's release still bars him (the year turns between a release and the next checkpoint)...
     const s3 = season();
     strip(s3, "KC", "K");
     (s3 as unknown as { recentReleases: unknown }).recentReleases = { season: s3.season - 1, byTeam: { KC: [ks[0]!.id] } };
-    expect(repairRoster(s3, "KC")!.signed[0]!.playerId).toBe(ks[0]!.id);
+    expect(repairRoster(s3, "KC")!.signed[0]!.playerId).not.toBe(ks[0]!.id);
+    // ...but one from two seasons ago does not
+    const s4 = season();
+    strip(s4, "KC", "K");
+    (s4 as unknown as { recentReleases: unknown }).recentReleases = { season: s4.season - 2, byTeam: { KC: [ks[0]!.id] } };
+    expect(repairRoster(s4, "KC")!.signed[0]!.playerId).toBe(ks[0]!.id);
   });
 
   it("records every release on the real release paths, so the bar works without the league server (review finding)", () => {

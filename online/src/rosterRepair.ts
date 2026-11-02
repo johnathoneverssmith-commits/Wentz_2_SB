@@ -20,7 +20,7 @@
  * decides when the staff may act and for whom.
  */
 import type { LeagueState } from "@/domain";
-import { reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
+import { reconcileCpuTeam, reconciliationIssues, recentReleasesOf } from "@/state/reconciliation.ts";
 
 /** The checkpoints at which the staff square rosters up. */
 export type RepairCheckpoint = "freeAgencySummary" | "midseasonFreeAgencySummary";
@@ -72,7 +72,7 @@ export function applyRosterRepair(state: LeagueState, auth: RosterRepairAuthoriz
     // however the repair was started — a GM's button, a commissioner's force, an absent GM's autopilot. Held off the
     // street for the repair only, so releasing a star cannot become re-signing him on the minimum.
     const tag = `HELD:${auth.teamCode}`;
-    const held = (state.recentReleases?.season === state.season ? state.recentReleases.byTeam[auth.teamCode] ?? [] : [])
+    const held = recentReleasesOf(state, auth.teamCode)
       .map((id) => state.players[id])
       .filter((x): x is NonNullable<typeof x> => !!x && x.free_agent && x.nfl_team === "FA");
     for (const x of held) x.nfl_team = tag;

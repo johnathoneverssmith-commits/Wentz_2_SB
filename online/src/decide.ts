@@ -88,7 +88,7 @@ import {
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
 import { applyRosterRepair, authorizeRosterRepair, type RepairCheckpoint } from "./rosterRepair.js";
-import { applyRelease, checkRelease, positionalMinimums, reconciliationIssues, rosterOf } from "@/state/reconciliation.ts";
+import { applyRelease, checkRelease, positionalMinimums, reconciliationIssues, recordDeparture, rosterOf } from "@/state/reconciliation.ts";
 import { onInjuredReserve } from "@/state/injuries.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
@@ -776,23 +776,9 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
   // nothing
   const check = checkRelease(state, actor.teamCode, playerId);
   if (!check.ok) throw new ActionError(check.reason ?? "You can't release him.");
-  // The staff fill any positional hole from the street at the minimum (`decideStaffFix`, and the automatic repair).
-  // A GM must not be able to dig that hole on purpose, at any stage: releasing a star and letting the staff re-sign him
-  // on a one-year minimum rewrites his contract outside the bidding rounds and the cap rules. A hole that opens by
-  // itself (a contract running out, a retirement, a trade) is the staff's to fill; a cut that would open one is not.
-  const need = positionalMinimums()[p.position] ?? 0;
-  if (need > 0 && !onInjuredReserve(p, state.stage)) {
-    const have = rosterOf(state, actor.teamCode).filter((x) => x.position === p.position && !onInjuredReserve(x, state.stage)).length;
-    if (have - 1 < need) {
-      throw new ActionError(
-        `Releasing him would leave you below the ${need}-player minimum at ${posLabel(p.position)}, and your staff only fills a gap that opens by itself.`,
-      );
-    }
-  }
+  // (a release that would open a positional hole is refused inside `checkRelease`, shared with single-player)
   // and whoever a GM does release is not one the staff will sign back for them this season
-  const recent = state.recentReleases?.season === state.season ? state.recentReleases : { season: state.season, byTeam: {} };
-  recent.byTeam[actor.teamCode] = [...new Set([...(recent.byTeam[actor.teamCode] ?? []), playerId])];
-  state.recentReleases = recent;
+  recordDeparture(state, actor.teamCode, playerId);
   applyRelease(state, actor.teamCode, playerId);
   recomputeTeamRatings(state);
   return {
