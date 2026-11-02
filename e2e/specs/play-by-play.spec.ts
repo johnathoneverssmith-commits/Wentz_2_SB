@@ -64,14 +64,17 @@ test("play two weeks, then reach every game's play-by-play, history, fans and po
   await page.locator("main select").selectOption({ label: "Week 2" });
   await expect(page.getByRole("button", { name: /^Play-by-play, / }).first()).toBeVisible();
 
-  // portraits: roster shows a unique face per player
+  // portraits: the roster screen shows none, by design; the free-agent market shows a unique face per player
   await page.goto("/#/roster");
+  await expect(page.locator(".roster-list .prow").first()).toBeVisible();
+  await expect(page.locator("svg.player-portrait")).toHaveCount(0);
+  await page.goto("/#/free-agency");
   const faces = page.locator("svg.player-portrait");
   await expect(faces.first()).toBeVisible();
   const ids = await faces.evaluateAll((els) => els.map((e) => e.getAttribute("data-portrait")));
   expect(ids.length).toBeGreaterThanOrEqual(3);
   expect(new Set(ids).size, "one face per player").toBe(ids.length);
-  await shot(page, "roster-portraits-desktop");
+  await shot(page, "market-portraits-desktop");
 
   // mobile
   await page.setViewportSize({ width: 390, height: 844 });

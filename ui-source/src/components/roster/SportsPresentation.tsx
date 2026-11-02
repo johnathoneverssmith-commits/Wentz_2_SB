@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import "./shared-presentation.css";
 import { AnimatedNumber } from "@/motion/AnimatedNumber";
 
 export type SportsIconName = "home" | "roster" | "calendar" | "trade" | "coins" | "star" | "shield" | "settings" | "file" | "up" | "down" | "trash";

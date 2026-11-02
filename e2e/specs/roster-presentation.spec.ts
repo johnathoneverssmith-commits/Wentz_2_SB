@@ -90,10 +90,12 @@ test.describe("roster and finance presentation", () => {
   test("player and extension dialogs support keyboard focus, Escape and cancellation", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/#/roster");
-    for (const stat of await page.locator(".sports-stat").all()) {
-      const card = (await stat.boundingBox())!;
-      const value = (await stat.locator("strong").boundingBox())!;
-      expect(value.x + value.width).toBeLessThanOrEqual(card.x + card.width);
+    const figures = page.locator(".gd-cap-figure");
+    await expect(figures).toHaveCount(3);
+    const field = (await page.getByRole("region", { name: "Salary cap", exact: true }).boundingBox())!;
+    for (const figure of await figures.all()) {
+      const value = (await figure.locator("dd").boundingBox())!;
+      expect(value.x + value.width).toBeLessThanOrEqual(field.x + field.width);
     }
     await page.locator(".roster-list .prow").first().click();
     const before = await read(page);
