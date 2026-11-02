@@ -273,7 +273,7 @@ export class ActionError extends Error {
 export async function withLeague<T>(
   leagueId: string,
   apply: (loaded: LoadedLeague, client: pg.PoolClient) => Promise<{ result: T } & Applied>,
-  opts: { expectedVersion?: string | undefined; actorUserId?: string | undefined } = {},
+  opts: { expectedVersion?: string | undefined; actorUserId?: string | undefined; allowWhilePaused?: boolean | undefined } = {},
 ): Promise<{ result: T; version: string }> {
   const leaveQueue = await enterLeague(leagueId);
   try {
@@ -286,7 +286,7 @@ export async function withLeague<T>(
 async function withLeagueLocked<T>(
   leagueId: string,
   apply: (loaded: LoadedLeague, client: pg.PoolClient) => Promise<{ result: T } & Applied>,
-  opts: { expectedVersion?: string | undefined; actorUserId?: string | undefined },
+  opts: { expectedVersion?: string | undefined; actorUserId?: string | undefined; allowWhilePaused?: boolean | undefined },
 ): Promise<{ result: T; version: string }> {
   // a database that is down or restarting refuses here, before there is any
   // transaction: still "your move was not saved", not a 500
@@ -341,6 +341,12 @@ async function withLeagueLocked<T>(
       version: row.version,
       phaseEndsAt: row.phase_ends_at,
     };
+
+    // A paused league moves for nobody but the recovery controls that say so
+    // (`allowWhilePaused`): default-deny, so a new action cannot forget the check.
+    if (loaded.state.pause && !opts.allowWhilePaused) {
+      throw new ActionError("The commissioner has paused this league, so nothing was changed. It resumes when they do.", 423);
+    }
 
     // who was being asked for what, before this change — so a GM it puts on
     // the clock gets a push (`push.ts`)

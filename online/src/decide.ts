@@ -88,7 +88,8 @@ import {
 
 import { clearReadinessOnline, onStageEntered } from "./phases.js";
 import { applyRosterRepair, authorizeRosterRepair, type RepairCheckpoint } from "./rosterRepair.js";
-import { applyRelease, checkRelease, reconciliationIssues } from "@/state/reconciliation.ts";
+import { applyRelease, checkRelease, positionalMinimums, reconciliationIssues, recordDeparture, rosterOf } from "@/state/reconciliation.ts";
+import { onInjuredReserve } from "@/state/injuries.ts";
 import { recomputeTeamRatings, releaseToMarket } from "@/state/seed.ts";
 
 import { ActionError } from "./db.js";
@@ -743,6 +744,7 @@ export function decideStaffFix(state: LeagueState, actor: Actor): Decision {
   const before = new Set(
     Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent).map((p) => p.id),
   );
+  // (the repair itself never re-signs a player this franchise released this season: see `applyRosterRepair`)
   applyRosterRepair(state, authorizeRosterRepair(state, actor.teamCode, state.stage as RepairCheckpoint));
   recomputeTeamRatings(state);
   const after = Object.values(state.players).filter((p) => p.nfl_team === actor.teamCode && !p.retired && !p.free_agent);
@@ -774,6 +776,9 @@ export function decideRelease(state: LeagueState, actor: Actor, playerId: string
   // nothing
   const check = checkRelease(state, actor.teamCode, playerId);
   if (!check.ok) throw new ActionError(check.reason ?? "You can't release him.");
+  // (a release that would open a positional hole is refused inside `checkRelease`, shared with single-player)
+  // and whoever a GM does release is not one the staff will sign back for them this season
+  recordDeparture(state, actor.teamCode, playerId);
   applyRelease(state, actor.teamCode, playerId);
   recomputeTeamRatings(state);
   return {

@@ -19,6 +19,7 @@
 
   "databaseSuites": [
     "commissioner-away.test.ts",
+    "commissioner-recovery.test.ts",
     "commissioner-transfer.test.ts",
     "concurrency.test.ts",
     "hot-seat.test.ts",
@@ -78,7 +79,7 @@
       "note": "Run one file at a time on PGlite. Without a database this suite skips, and a skip is not a pass." },
     "db-suites": {
       "kind": "command", "tier": 1, "label": "Database-backed suites",
-      "commands": ["npx vitest run --root online --no-file-parallelism test/concurrency.test.ts test/commissioner-away.test.ts test/commissioner-transfer.test.ts test/hot-seat.test.ts test/inbox-facts.test.ts test/lobby.test.ts test/password-reset.test.ts test/poll-unchanged.test.ts test/potential-privacy.test.ts test/vacate-advances.test.ts test/vacate-seat.test.ts test/result-visibility.test.ts"],
+      "commands": ["npx vitest run --root online --no-file-parallelism test/concurrency.test.ts test/commissioner-away.test.ts test/commissioner-recovery.test.ts test/commissioner-transfer.test.ts test/hot-seat.test.ts test/inbox-facts.test.ts test/lobby.test.ts test/password-reset.test.ts test/poll-unchanged.test.ts test/potential-privacy.test.ts test/vacate-advances.test.ts test/vacate-seat.test.ts test/result-visibility.test.ts"],
       "needsDatabase": true, "seconds": { "local": 60, "ci": 40 },
       "prerequisite": "A PostgreSQL on :5433 (`npm run online:db`, leave it running).",
       "env": { "DATABASE_URL": "postgres://postgres@localhost:5433/postgres", "DB_POOL_MAX": "1", "CI": "true" },

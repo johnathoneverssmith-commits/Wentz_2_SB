@@ -143,6 +143,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
   const navBadges = { "/trade": offers };
   const stage = useStore((s) => s.stage);
+  const paused = useStore((s) => !!s.pause);
   const season = useStore((s) => s.season);
   const week = useStore(viewerWeek);
   const gms = useStore((s) => s.gms);
@@ -298,6 +299,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </nav>
       <main className="app-main" id="franchise-main" tabIndex={-1}>
         <AtmosphereBackdrop />
+        {session && paused && (
+          // the commissioner paused the league (online): shown to every connected GM, announced to screen readers
+          <div className="notice bad league-paused" role="status" aria-live="polite" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>The league is paused.</strong> The commissioner has stopped the clock; nothing advances and
+            moves are held until they resume. Your decisions so far are safe.
+          </div>
+        )}
         {saveCorrupted && (
           <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
             <strong>Your saved dynasty couldn&rsquo;t be read.</strong> What you&rsquo;re looking at

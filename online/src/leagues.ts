@@ -8,6 +8,7 @@
  * are what this is for.
  */
 import { randomUUID } from "node:crypto";
+import type pg from "pg";
 
 import type { DeadlineChoice, LeagueConfig, LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -17,7 +18,7 @@ import { syncAiGms } from "@/state/aiGms.ts";
 
 import { ActionError, guardClient, isConnectionError, pool, withLeague } from "./db.js";
 import { runPendingCpuTurns } from "./decide.js";
-import { deadlineFor, readyUpLocal } from "./phases.js";
+import { advanceIfReadyLocal, deadlineFor, turnKey } from "./phases.js";
 
 /** Short, unambiguous, sayable down a phone. No O/0 or I/1. */
 function inviteCode(): string {
@@ -249,7 +250,7 @@ export async function claimTeam(
           events: [{ teamCode, kind: "league.claimed", summary: name ? `${name} took over ${label}.` : `${label} was claimed.` }],
         };
       },
-      { actorUserId: userId },
+      { actorUserId: userId, allowWhilePaused: true },
     );
     return result;
   } catch (err) {
@@ -383,11 +384,12 @@ export async function vacateSeat(
     }
     if (state.teams[teamCode]) state.teams[teamCode]!.controlledBy = { kind: "ai" };
     syncAiGms(state);
-    // if that team was on the clock, its turn is the CPU's now — take it
-    runPendingCpuTurns(state);
+    // if that team was on the clock, its turn is the CPU's now — take it.
+    // (A paused league does not move at all: resuming does both of these.)
+    if (!state.pause) runPendingCpuTurns(state);
     // everyone else may have checked in already, waiting only on this GM:
     // nothing would ever press "ready" again to move the league on
-    const moved = readyUpLocal(state);
+    const moved = state.pause ? false : advanceIfReadyLocal(state).progressed;
     return {
       result: null,
       state,
@@ -402,7 +404,7 @@ export async function vacateSeat(
         },
       ],
     };
-  });
+  }, { actorUserId: commissionerId, allowWhilePaused: true });
   return { ok: true };
 }
 
@@ -436,7 +438,7 @@ export async function setTurnHours(leagueId: string, commissionerId: string, hou
       state,
       events: [{ kind: "league.settings", summary: `Turns now run on a ${hours}-hour clock, from the next one.` }],
     };
-  });
+  }, { actorUserId: commissionerId, allowWhilePaused: true });
   return { ok: true };
 }
 
@@ -467,7 +469,7 @@ export async function transferCommissioner(
       state,
       events: [{ teamCode, kind: "league.commissioner", summary: `${name} is now the commissioner.` }],
     };
-  });
+  }, { actorUserId: commissionerId, allowWhilePaused: true });
   return { ok: true };
 }
 
@@ -586,6 +588,67 @@ export async function claimCommissioner(leagueId: string, userId: string): Promi
         },
       ],
     };
-  }, { actorUserId: userId });
+  }, { actorUserId: userId, allowWhilePaused: true });
   return { ok: true };
+}
+
+/**
+ * The commissioner pauses the league: the phase clock stops, and the server
+ * refuses every request that would move the league (see `withLeague`) until
+ * they resume. For a GM who is away, a holiday, a stuck decision being sorted
+ * out — the league waits instead of the staff acting for everyone.
+ *
+ * Changes nothing about play: no decision, result or roster is touched, and
+ * hidden choices are not shown to the commissioner. Recorded in the league
+ * feed with who did it.
+ */
+export async function pauseLeague(leagueId: string, commissionerId: string): Promise<{ ok: true }> {
+  await withLeague(leagueId, async ({ state, phaseEndsAt }, client) => {
+    await assertCommissionerLocked(client, leagueId, commissionerId);
+    if (state.pause) throw new ActionError("The league is already paused.", 409);
+    const remainingMs = phaseEndsAt ? Math.max(0, phaseEndsAt.getTime() - Date.now()) : null;
+    state.pause = { at: new Date().toISOString(), by: commissionerId, remainingMs };
+    return {
+      result: null,
+      state,
+      phaseEndsAt: null,
+      events: [{ kind: "league.paused", summary: "The commissioner paused the league. Nothing advances and the clock is stopped until they resume." }],
+    };
+  }, { actorUserId: commissionerId, allowWhilePaused: true });
+  return { ok: true };
+}
+
+/**
+ * Resume: the clock restarts with what was left on it when the league was
+ * paused, then the work a pause deferred (a CPU team that came on the clock,
+ * a check-in that was only waiting on a seat vacated meanwhile) is done once.
+ */
+export async function resumeLeague(leagueId: string, commissionerId: string): Promise<{ ok: true }> {
+  await withLeague(leagueId, async ({ state, league }, client) => {
+    await assertCommissionerLocked(client, leagueId, commissionerId);
+    const pause = state.pause;
+    if (!pause) throw new ActionError("The league isn't paused.", 409);
+    delete state.pause;
+    // work the pause deferred (a seat vacated while paused puts a CPU team on the clock, a check-in only waited on that
+    // seat) may change the turn or the stage: then the next one starts its own full clock, not the old turn's leftovers
+    const stageBefore = state.stage;
+    const turnBefore = turnKey(state);
+    runPendingCpuTurns(state);
+    const moved = advanceIfReadyLocal(state).progressed;
+    const sameTurn = !moved && state.stage === stageBefore && turnKey(state) === turnBefore;
+    const phaseEndsAt =
+      sameTurn && pause.remainingMs != null ? new Date(Date.now() + pause.remainingMs) : deadlineFor(state, league);
+    return {
+      result: null,
+      state,
+      phaseEndsAt,
+      events: [{ kind: "league.resumed", summary: "The commissioner resumed the league." }],
+    };
+  }, { actorUserId: commissionerId, allowWhilePaused: true });
+  return { ok: true };
+}
+
+async function assertCommissionerLocked(client: pg.PoolClient, leagueId: string, userId: string): Promise<void> {
+  const current = await client.query<{ commissioner: string }>(`SELECT commissioner FROM leagues WHERE id = $1 FOR UPDATE`, [leagueId]);
+  if (current.rows[0]?.commissioner !== userId) throw new ActionError("Only the commissioner can do that.", 403);
 }

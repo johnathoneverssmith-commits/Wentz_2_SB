@@ -572,6 +572,11 @@ export class OnlineLeagueClient {
   vacateSeat = (leagueId: string, teamCode: string) =>
     this.call<{ ok: true }>(`/leagues/${leagueId}/admin/vacate`, { teamCode });
 
+  /** Commissioner only: stop the clock and every league-moving request until `resumeLeague`. */
+  pauseLeague = (leagueId: string) => this.call<{ ok: true }>(`/leagues/${leagueId}/admin/pause`, {});
+  /** Commissioner only: lift a pause; the clock restarts with what was left on it. */
+  resumeLeague = (leagueId: string) => this.call<{ ok: true }>(`/leagues/${leagueId}/admin/resume`, {});
+
   /** Commissioner only: the absent GM on the clock has their staff take the turn. */
   takeTurnForAbsent = (leagueId: string) =>
     this.call<{ played: string[] }>(`/leagues/${leagueId}/admin/take-turn`, {});
