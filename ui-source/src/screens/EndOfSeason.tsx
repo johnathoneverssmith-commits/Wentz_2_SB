@@ -206,7 +206,7 @@ export function SeasonComplete() {
         {/* the headline is one GM; in a league of several, how the others
             finished is the first thing anyone asks */}
         {s.gms.filter((g) => g.isHuman && g.teamCode).length > 1 && (
-          <div className="se-card">
+          <div className="se-card gd-tablewrap">
             <table className="stbl">
               <thead>
                 <tr>
@@ -256,7 +256,9 @@ export function SeasonComplete() {
         )}
         <div className="se-card">
           <p className="subhead">Cross-season score</p>
-          <ScoreTrackerTable />
+          <div className="gd-tablewrap">
+            <ScoreTrackerTable />
+          </div>
         </div>
         <OffseasonRounds />
       </Panel>

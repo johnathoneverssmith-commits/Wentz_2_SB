@@ -206,6 +206,10 @@
   text-transform: uppercase;
   transform-origin: left center;
   overflow-wrap: anywhere;
+  /* the stamp scales up on arrival: from the word's own width, not the page's,
+     so it cannot push the page sideways while it lands */
+  width: fit-content;
+  max-width: 100%;
 }
 .se-meter {
   position: relative;

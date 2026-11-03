@@ -132,6 +132,22 @@ export function HotSeat() {
   const me = s.gms.find((g) => g.id === s.viewerGmId);
   const mine = hot?.entries.find((e) => e.gmId === s.viewerGmId);
   const others = (hot?.entries ?? []).filter((e) => e.gmId !== s.viewerGmId);
+  // hooks come before the early return: `hot` can appear while this is mounted
+  // (a league frame arriving), and a hook after a return changes the count
+
+  // taking a new job is an occasion: the new team's colours take over
+  const [moment, setMoment] = useState<Moment | null>(null);
+  const hadJob = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const now = mine?.chosen ?? null;
+    if (hadJob.current !== undefined && now && now !== hadJob.current) {
+      const t = TEAMS_BY_CODE[now];
+      setMoment({ key: now, color: t?.color ?? "#444", label: t?.city ?? now, sub: "Your new team", from: "right" });
+      cue("newJob");
+    }
+    hadJob.current = now;
+  }, [mine?.chosen]);
+
   if (!hot) {
     return (
       <GdPage code={me?.teamCode}>
@@ -148,19 +164,6 @@ export function HotSeat() {
   }
 
   const waiting = mine?.level === "fired" && !mine.chosen;
-
-  // taking a new job is an occasion: the new team's colours take over
-  const [moment, setMoment] = useState<Moment | null>(null);
-  const hadJob = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    const now = mine?.chosen ?? null;
-    if (hadJob.current !== undefined && now && now !== hadJob.current) {
-      const t = TEAMS_BY_CODE[now];
-      setMoment({ key: now, color: t?.color ?? "#444", label: t?.city ?? now, sub: "Your new team", from: "right" });
-      cue("newJob");
-    }
-    hadJob.current = now;
-  }, [mine?.chosen]);
 
   return (
     <GdPage code={me?.teamCode} className="gd-tabbed se">
