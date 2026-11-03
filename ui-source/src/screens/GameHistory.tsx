@@ -1,16 +1,20 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer } from "@/components/primitives";
+import { Footer } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type GameResult } from "@/domain";
 import { describeTrace } from "@/state/gameHistory";
-import { leagueBadge } from "@/state/leagueFormat";
 import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
+
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./game-days-gameday.css";
 
 type Row = GameResult & { season: number };
 
@@ -26,7 +30,6 @@ export function GameHistory(): JSX.Element {
   const nav = useNavigate();
   const s = useStore();
   const code = viewerTeamCode(s);
-  const badge = leagueBadge(s);
 
   const rows = useMemo<Row[]>(() => {
     const current = (onlineSession() ? visibleGames(s, s.viewerGmId) : s.games).map((g) => ({ ...g, season: s.season }));
@@ -40,9 +43,15 @@ export function GameHistory(): JSX.Element {
     g.phase === "PRE" ? `Preseason week ${g.week}` : g.phase === "REG" ? `Week ${g.week}` : roundLabelFor(s.bracket, g.phase);
 
   return (
-    <Card maxWidth={860}>
-      <CardHeader badge={badge} title="Game History" subtitle={`${rows.length} ${rows.length === 1 ? "game" : "games"} played`} />
-      <div className="panel open">
+    <GdPage code={code} className="gdy">
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={`${rows.length} ${rows.length === 1 ? "game" : "games"} played`}
+        heading="Game history"
+        sub="Your games, newest first, each with its box score and play-by-play."
+      />
+      <div className="gdy-section gdy-history">
         {rows.length === 0 && <div className="emptystate">No games played yet. Results appear here after your first game.</div>}
         {rows.map((g) => {
           const home = g.homeTeam === code;
@@ -50,20 +59,19 @@ export function GameHistory(): JSX.Element {
           const them = home ? g.awayScore : g.homeScore;
           const opp = home ? g.awayTeam : g.homeTeam;
           const trace = describeTrace(g);
+          const result = us > them ? "W" : us < them ? "L" : "T";
           return (
-            <div key={g.id} className="neg-row" data-testid="history-row">
-              <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <TeamBadge code={opp} />
-                <span>
-                  <span className="pname">
-                    {us > them ? "W" : us < them ? "L" : "T"} {us}–{them} {home ? "vs" : "@"} {TEAMS_BY_CODE[opp]?.label ?? opp}
-                  </span>
-                  <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-dim)" }}>
-                    {g.season} · {phaseLabel(g)}
-                  </span>
+            <div key={g.id} className="neg-row gdy-hrow" data-testid="history-row">
+              <span className={"gdy-hres" + (result === "W" ? " gdy-won" : result === "L" ? " gdy-lost" : "")}>{result}</span>
+              <span className="gdy-hmain">
+                <span className="pname">
+                  {result} {us}–{them} {home ? "vs" : "@"} {TEAMS_BY_CODE[opp]?.label ?? opp}
+                </span>
+                <span className="gdy-sub">
+                  {g.season} · {phaseLabel(g)}
                 </span>
               </span>
-              <span style={{ display: "flex", gap: 6 }}>
+              <span className="gdy-hactions">
                 {g.totals && (
                   <button type="button" className="btnlink" onClick={() => nav(`/box/${g.id}?back=/games`)}>
                     Box score
@@ -82,6 +90,6 @@ export function GameHistory(): JSX.Element {
           Back to team hub
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }

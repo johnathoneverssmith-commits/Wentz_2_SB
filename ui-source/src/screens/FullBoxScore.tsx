@@ -1,16 +1,22 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { leagueBadge } from "@/state/leagueFormat";
 
 import { TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayerGameLine, type PlayoffRound, type TeamGameTotals } from "@/domain";
 import { findGame } from "@/state/gameHistory";
+import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { teamInfoFor } from "@/state/teamInfo";
 import { posLabel, seconds, weeksOut } from "@/util/format";
 
 import { RecapPanel } from "./RecapPanel";
+
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./game-days-gameday.css";
 
 export function FullBoxScore() {
   const { gameId } = useParams();
@@ -21,19 +27,17 @@ export function FullBoxScore() {
   const game = useStore((s) => findGame(s, gameId));
   const bracket = useStore((s) => s.bracket);
   const league = useStore();
-  const badge = useStore(leagueBadge);
+  const mine = useStore((s) => viewerTeamCode(s));
   const { active, setActive } = useTabs("recap");
 
   if (!game || !game.totals) {
     return (
-      <Card maxWidth={860}>
-        <CardHeader badge={badge} title="Box Score" subtitle={game ? "Not available for this game" : "Unknown game"} />
-        <div className="panel open">
-          <div className="emptystate">
-            {game
-              ? "No box score was recorded for this game — the final score is all that was kept. Games played from here on carry the full detail."
-              : "That game isn't in this league's history — it may have been from a previous save."}
-          </div>
+      <GdPage code={mine} className="gdy">
+        <GameDayMasthead code={mine ?? ""} compact title="Box score" heading="Box score" sub={game ? "Not available for this game." : "Unknown game."} />
+        <div className="emptystate">
+          {game
+            ? "No box score was recorded for this game — the final score is all that was kept. Games played from here on carry the full detail."
+            : "That game isn't in this league's history — it may have been from a previous save."}
         </div>
         <Footer>
           <button type="button" className="btnlink" onClick={() => nav("/schedule")}>
@@ -43,7 +47,7 @@ export function FullBoxScore() {
             Back to team hub
           </button>
         </Footer>
-      </Card>
+      </GdPage>
     );
   }
 
@@ -60,36 +64,33 @@ export function FullBoxScore() {
   const awayMeta = TEAMS_BY_CODE[game.awayTeam]!;
 
   return (
-    <Card maxWidth={860} twoTeam>
-      <div className="header two-team">
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <TeamSide meta={homeMeta} score={game.homeScore} won={homeWin} info={info(game.homeTeam)} />
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.4)" }}>–</span>
-          <TeamSide meta={awayMeta} score={game.awayScore} won={!homeWin && !tie} right info={info(game.awayTeam)} />
+    <GdPage code={mine ?? game.homeTeam} className="gdy gd-tabbed">
+      <GameDayMasthead
+        code={mine ?? game.homeTeam}
+        compact
+        title={`Final · ${
+          game.phase === "PRE"
+            ? `Preseason Wk ${game.week}`
+            : game.phase === "REG"
+              ? `Week ${game.week}`
+              : roundLabelFor(bracket, game.phase as PlayoffRound)
+        }`}
+        heading="Box score"
+        sub={game.weather ?? `${homeMeta.label} and ${awayMeta.label}`}
+      />
+      <div className="gdy-final gdy-final--box">
+        <TeamSide meta={homeMeta} score={game.homeScore} won={homeWin} info={info(game.homeTeam)} />
+        <div className="gdy-final-tag">
+          {tie ? (
+            "Tie"
+          ) : (
+            <>
+              <span className="gdy-won">{(homeWin ? homeMeta : awayMeta).abbr} W</span>
+              <span>{(homeWin ? awayMeta : homeMeta).abbr} L</span>
+            </>
+          )}
         </div>
-        <div className="right">
-          <p>
-            Final ·{" "}
-            {game.phase === "PRE"
-              ? `Preseason Wk ${game.week}`
-              : game.phase === "REG"
-                ? `Week ${game.week}`
-                : roundLabelFor(bracket, game.phase as PlayoffRound)}
-          </p>
-          {game.weather && <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>{game.weather}</p>}
-          <p style={{ fontSize: 16, fontWeight: 700 }}>
-            {tie ? (
-              <span style={{ color: "var(--ink-dim)" }}>Tie</span>
-            ) : (
-              <>
-                <span style={{ color: "var(--good)" }}>{(homeWin ? homeMeta : awayMeta).abbr} W</span>{" "}
-                <span style={{ color: "var(--ink-faint)", marginLeft: 6 }}>
-                  {(homeWin ? awayMeta : homeMeta).abbr} L
-                </span>
-              </>
-            )}
-          </p>
-        </div>
+        <TeamSide meta={awayMeta} score={game.awayScore} won={!homeWin && !tie} right info={info(game.awayTeam)} />
       </div>
 
       <Ticker
@@ -101,6 +102,7 @@ export function FullBoxScore() {
         ]}
       />
 
+      <div className="gd-hub">
       <Tabs
         tabs={[
           { id: "recap", label: "Recap" },
@@ -114,19 +116,20 @@ export function FullBoxScore() {
         active={active}
         onChange={setActive}
       />
+      </div>
 
       <Panel id="recap" open={active === "recap"}>
         <RecapPanel game={game} />
       </Panel>
 
       <Panel id="team" open={active === "team"}>
-        <table className="mtable">
+        <table className="mtable gdy-teamstats">
           <thead>
             <tr>
-              <th style={{ textAlign: "left", fontSize: 11, color: "var(--ink-faint)", fontWeight: 500, padding: "4px" }}>Team stat</th>
-              <th style={{ textAlign: "center", fontSize: 12, color: "var(--ink)", fontWeight: 600 }}>{homeMeta.abbr}</th>
-              <th style={{ width: 16 }} />
-              <th style={{ textAlign: "center", fontSize: 12, color: "var(--ink)", fontWeight: 600 }}>{awayMeta.abbr}</th>
+              <th className="gdy-stat-h">Team stat</th>
+              <th className="gdy-stat-c">{homeMeta.abbr}</th>
+              <th className="gdy-stat-gap" />
+              <th className="gdy-stat-c">{awayMeta.abbr}</th>
             </tr>
           </thead>
           <tbody>
@@ -153,7 +156,7 @@ export function FullBoxScore() {
 
       <Panel id="scoring" open={active === "scoring"}>
         <p className="subhead">By quarter</p>
-        <table className="stbl" style={{ marginBottom: 18 }}>
+        <table className="stbl gdy-quarters">
           <thead>
             <tr>
               <th />
@@ -172,13 +175,13 @@ export function FullBoxScore() {
         </table>
         <p className="subhead">Scoring plays</p>
         {(game.scoringPlays ?? []).map((p, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
-            <span style={{ width: 26, fontSize: 11, color: "var(--ink-faint)" }}>Q{p.quarter}</span>
-            <span style={{ width: 40 }}>
+          <div key={i} className="gdy-play">
+            <span className="gdy-play-q">Q{p.quarter}</span>
+            <span className="gdy-play-team">
               <TeamBadge code={p.team} size={22} />
             </span>
-            <span style={{ flex: 1, fontSize: 12.5, color: "var(--ink-dim)" }}>{p.description}</span>
-            <span className="oswald" style={{ fontSize: 12.5, fontWeight: 600 }}>
+            <span className="gdy-play-text">{p.description}</span>
+            <span className="gdy-play-score">
               {p.homeScore}–{p.awayScore}
             </span>
           </div>
@@ -187,7 +190,7 @@ export function FullBoxScore() {
 
       <Panel id="home" open={active === "home"}>
         {!game.playerLines && (
-          <p style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "0 0 8px" }}>
+          <p className="gdy-note gdy-note--left">
             Player lines are kept for your own games; this one keeps its team totals and scoring.
           </p>
         )}
@@ -205,21 +208,19 @@ export function FullBoxScore() {
               <span className="pname">
                 {e.player} <span className="ppos">{posLabel(e.position)}</span>
               </span>
-              <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
+              <p className="gdy-sub">
                 {TEAMS_BY_CODE[e.team]?.abbr ?? e.team} · Q{e.quarter} {e.clock} · {e.bodyPart}
               </p>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, textTransform: "capitalize" }}>
-                {e.severity}
-              </span>
-              <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+            <div className="gdy-right">
+              <span className="gdy-severity">{e.severity}</span>
+              <p className="gdy-sub">
                 {weeksOut(e.projectedWeeks)}
               </p>
             </div>
           </div>
         ))}
-        <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+        <p className="gdy-note gdy-note--left">
           An injury keeps a player out of the roster sheet until he's back, so these are the
           weeks his team plays without him.
         </p>
@@ -241,7 +242,7 @@ export function FullBoxScore() {
           </>
         )}
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
 
@@ -259,14 +260,12 @@ function TeamSide({
   info?: string;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 10 }}>
+    <div className={"gdy-score-side" + (right ? " gdy-score-side--away" : "") + (won ? " gdy-won" : "")}>
       <TeamBadge code={meta.code} size={36} />
-      <div style={{ textAlign: right ? "right" : "left" }}>
-        <span className="oswald" style={{ display: "block", fontSize: 26, fontWeight: 700, color: won ? "var(--good)" : "#fff" }}>
-          {score}
-        </span>
-        <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.6)" }}>{meta.label}</span>
-        {info && <span style={{ display: "block", fontSize: 10, color: "rgba(255,255,255,0.45)" }}>{info}</span>}
+      <div>
+        <span className="gdy-big">{score}</span>
+        <span className="gdy-team">{meta.label}</span>
+        {info && <span className="gdy-info">{info}</span>}
       </div>
     </div>
   );
@@ -277,7 +276,7 @@ function TeamStatRow({ label, h, a }: { label: string; h: number | string; a: nu
     <tr>
       <td>{label}</td>
       <td className="val">{h}</td>
-      <td style={{ width: 16 }} />
+      <td className="gdy-stat-gap" />
       <td className="val">{a}</td>
     </tr>
   );
