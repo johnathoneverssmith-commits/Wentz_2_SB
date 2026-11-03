@@ -38,6 +38,7 @@ import { expectedSalary } from "./freeAgencyValues.ts";
 import { onInjuredReserve } from "./injuries";
 import { strategyOf } from "./aiGms.ts";
 import { strategyAgeBonus } from "./aiStrategy.ts";
+import { departedFrom } from "./departures.ts";
 import { applyRelease, checkRelease, positionalMinimums, rosterOf } from "./reconciliation.ts";
 import { releasePenalty } from "./releaseCost.ts";
 import { ROSTER_TEMPLATE } from "@/sim/roster-template";
@@ -106,13 +107,8 @@ export function rosterMinimumViolations(s: LeagueState, teamCode: string): Repai
  * Re-signing any of them at the emergency price would turn giving a player up into buying him back below his ask.
  */
 export function ownDepartures(s: LeagueState, teamCode: string): Set<string> {
-  const out = new Set<string>();
-  const recent = (s as unknown as { recentReleases?: { season: number; byTeam: Record<string, string[]> } }).recentReleases;
-  if (recent && recent.season === s.season) for (const id of recent.byTeam[teamCode] ?? []) out.add(id);
+  const out = departedFrom(s, teamCode);
   for (const r of s.rosterRepairs ?? []) if (r.team === teamCode && r.season === s.season) for (const x of r.released) out.add(x.playerId);
-  for (const p of Object.values(s.players)) {
-    if (p.free_agent && p.expired_from === teamCode && p.expired_season !== undefined && p.expired_season >= s.season - 1) out.add(p.id);
-  }
   return out;
 }
 

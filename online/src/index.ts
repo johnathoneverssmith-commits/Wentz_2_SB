@@ -81,6 +81,8 @@ import {
   transferCommissioner,
   setTurnHours,
   vacateSeat,
+  pauseLeague,
+  resumeLeague,
   claimCommissioner,
   commissionerAway,
   touchSeen,
@@ -358,6 +360,8 @@ get("/leagues/:id", async (ctx) => {
   // CPU — and the only thing it protected is read here, first.
   const waiting = waitingOn(loaded.state);
   const state = loaded.state;
+  // clients merge what they receive into their copy: say "running" explicitly or a lifted pause lingers on screen
+  state.pause = state.pause ?? null;
   // A live window's bids are sealed until the day resolves; showing another
   // team's offer would turn an auction into a staring contest.
   for (const fa of [state.freeAgency, state.coachingHire]) {
@@ -825,7 +829,7 @@ post("/leagues/:id/admin/config", async (ctx) => {
       // say what changed — the other GMs are agreeing to play under it
       events: [{ kind: "config.changed", summary: describeConfigChange(clean.patch) }],
     };
-  });
+  }, { actorUserId: user.id });
   return result;
 });
 
@@ -907,6 +911,10 @@ post("/leagues/:id/admin/vacate", async (ctx) => {
   await pruneWatchers(ctx.params.id!).catch(() => 0);
   return out;
 });
+
+// Pause / resume: the commissioner stops the clock and every league-moving request.
+post("/leagues/:id/admin/pause", async (ctx) => pauseLeague(ctx.params.id!, requireUser(ctx).id));
+post("/leagues/:id/admin/resume", async (ctx) => resumeLeague(ctx.params.id!, requireUser(ctx).id));
 
 post("/leagues/:id/admin/advance", async (ctx) => {
   const user = requireUser(ctx);

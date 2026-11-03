@@ -21,6 +21,7 @@
  */
 import type { LeagueState } from "@/domain";
 import { reconcileCpuTeam, reconciliationIssues } from "@/state/reconciliation.ts";
+import { ownDepartures } from "@/state/rosterRepair.ts";
 
 /** The checkpoints at which the staff square rosters up. */
 export type RepairCheckpoint = "freeAgencySummary" | "midseasonFreeAgencySummary";
@@ -67,6 +68,22 @@ export function applyRosterRepair(state: LeagueState, auth: RosterRepairAuthoriz
   if (!WINDOW[auth.checkpoint].includes(state.stage)) {
     throw new Error(`The ${auth.checkpoint} repair window has closed.`);
   }
-  if (reconciliationIssues(state, auth.teamCode).length > 0) reconcileCpuTeam(state, auth.teamCode);
+  if (reconciliationIssues(state, auth.teamCode).length > 0) {
+    // The staff never re-sign a player this franchise let go (`ownDepartures`: a GM's release, an earlier repair's cut, a contract left to run out),
+    // however the repair was started — a GM's button, a commissioner's force, an absent GM's autopilot. Held off the
+    // street for the repair only, so releasing a star cannot become re-signing him on the minimum.
+    const tag = `HELD:${auth.teamCode}`;
+    // one exclusion for every repair path (the checkpoint repair, `repairRoster`, reads the same `ownDepartures`): a GM's
+    // release, a cut an earlier repair made, and a player this club let run out
+    const held = [...ownDepartures(state, auth.teamCode)]
+      .map((id) => state.players[id])
+      .filter((x): x is NonNullable<typeof x> => !!x && x.free_agent && x.nfl_team === "FA");
+    for (const x of held) x.nfl_team = tag;
+    try {
+      reconcileCpuTeam(state, auth.teamCode);
+    } finally {
+      for (const x of held) if (x.nfl_team === tag) x.nfl_team = "FA";
+    }
+  }
   return { remaining: reconciliationIssues(state, auth.teamCode).length };
 }

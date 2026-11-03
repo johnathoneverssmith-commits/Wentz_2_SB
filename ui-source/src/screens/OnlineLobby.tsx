@@ -1297,6 +1297,28 @@ function ManageGms({
           </select>
         </label>
       )}
+      {/* a pause stops the clock and every request that would move the league; nobody's choices are touched */}
+      <div className="neg-row" style={{ fontSize: 12.5 }}>
+        <span>Pause the league (stops the clock; nothing advances)</span>
+        <span style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="btnlink sm"
+            disabled={busy}
+            onClick={() => run(async () => { await client.pauseLeague(leagueId); return "The league is paused."; })}
+          >
+            pause
+          </button>
+          <button
+            type="button"
+            className="btnlink sm"
+            disabled={busy}
+            onClick={() => run(async () => { await client.resumeLeague(leagueId); return "The league is running again."; })}
+          >
+            resume
+          </button>
+        </span>
+      </div>
       {gms.map((g) => (
         <div key={g.teamCode} className="neg-row">
           <span style={{ fontSize: 12.5 }}>

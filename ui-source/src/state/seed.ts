@@ -8,6 +8,7 @@ import { difficultyFor, syncAiGms } from "./aiGms.ts";
 import { commitmentsOf } from "./contractValue.ts";
 import { cpuOfferYears } from "./cpuContracts.ts";
 import { releasePenalty } from "./releaseCost.ts";
+import { departedFrom } from "./departures.ts";
 import { advanceSchedule } from "./contractStructure.ts";
 import { fittedAttributes } from "@/sim/attributeFit";
 import { checkToPracticeSquad, practiceSquad, practiceSquadEligible, practiceSquadSalaryM, promoteFromPracticeSquad, toPracticeSquad } from "./practiceSquad";
@@ -1019,6 +1020,12 @@ export function campCuts(state: LeagueState): number {
 const lateMarketDeal = (p: Player, scale = 1): number =>
   Math.max(scaledM(BASE_MIN_SALARY_M, { capScale: scale }), Math.round(contractValueFor(p.overall, p.position, scale) * 0.35 * 10) / 10);
 
+/** Index of the last element satisfying `pred`, or -1. With nothing barred this is `pool.length - 1`, i.e. exactly `pop()`. */
+function lastIndexWhere<T>(list: readonly T[], pred: (x: T) => boolean): number {
+  for (let i = list.length - 1; i >= 0; i--) if (pred(list[i]!)) return i;
+  return -1;
+}
+
 export function fillRosterGaps(
   state: LeagueState,
   opts: { lateMarket?: boolean; spareGmRosters?: boolean } = {},
@@ -1090,6 +1097,9 @@ export function fillRosterGaps(
     // on multi-year deals — one-year ones all expired at once and left the
     // team at 33 the next spring.)
     const human = state.teams[code]?.controlledBy.kind !== "ai";
+    // A GM's own departures (released, or let run out) are never the staff's pick: signing one back at the fill's
+    // price would be a discounted reacquisition outside the bidding rounds. CPU clubs keep the fill exactly as it was.
+    const barred = human ? departedFrom(state, code) : new Set<string>();
     // At a free-agency summary a GM's roster isn't cut to make room for
     // depth. Trimming "to a budget" for the 33 empty spots after a fantasy
     // draft released four of the five free agents a GM had just signed — and
@@ -1126,9 +1136,10 @@ export function fillRosterGaps(
       while (countAt(pos) < needed) {
         const room = spendable();
         const idx = pool.findIndex(
-          (p) => !signed.has(p.id) && contractValueFor(p.overall, p.position, priceScale) <= room,
+          (p) => !signed.has(p.id) && !barred.has(p.id) && contractValueFor(p.overall, p.position, priceScale) <= room,
         );
-        const p = idx >= 0 ? pool.splice(idx, 1)[0]! : pool.pop();
+        const last = idx >= 0 ? -1 : lastIndexWhere(pool, (x) => !barred.has(x.id));
+        const p = idx >= 0 ? pool.splice(idx, 1)[0]! : last >= 0 ? pool.splice(last, 1)[0] : undefined;
         if (!p) break;
         if (signed.has(p.id)) continue;
         marketSize--;
@@ -1164,7 +1175,7 @@ export function fillRosterGaps(
         const idx =
           room > MIN_SALARY_M && !human
             ? pool.findIndex(
-                (x) => !signed.has(x.id) && contractValueFor(x.overall, x.position, priceScale) <= room,
+                (x) => !signed.has(x.id) && !barred.has(x.id) && contractValueFor(x.overall, x.position, priceScale) <= room,
               )
             : -1;
         if (idx >= 0) {
@@ -1179,7 +1190,7 @@ export function fillRosterGaps(
         // 60 free agents rated 80+ went unsigned all year.
         if (!p && lateMarket) {
           const cheapIdx = pool.findIndex(
-            (x) => !signed.has(x.id) && lateMarketDeal(x, priceScale) <= room && x.overall >= 60,
+            (x) => !signed.has(x.id) && !barred.has(x.id) && lateMarketDeal(x, priceScale) <= room && x.overall >= 60,
           );
           if (cheapIdx >= 0) {
             p = pool.splice(cheapIdx, 1)[0]!;
@@ -1188,7 +1199,9 @@ export function fillRosterGaps(
           }
         }
         while (!p && marketSize > MARKET_RESERVE && pool.length > 0) {
-          const candidate = pool.pop()!;
+          const at = lastIndexWhere(pool, (x) => !barred.has(x.id));
+          if (at < 0) break;
+          const candidate = pool.splice(at, 1)[0]!;
           if (signed.has(candidate.id)) continue;
           p = candidate;
           marketSize--;

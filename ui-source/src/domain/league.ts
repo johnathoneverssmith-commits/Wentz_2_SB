@@ -309,6 +309,18 @@ export interface LeagueProfile {
 export interface LeagueState {
   schemaVersion: number;
   /**
+   * Online only: the commissioner has paused the league. While set, the server refuses every request that
+   * would move the league (decisions, check-ins, week sims, forced advances, the clock sweep) and the phase clock
+   * is frozen; `remainingMs` is what was left on it, restored on resume. Absent = running; the server's league view sends `null` when running,
+   * because clients merge a received league into their copy and a missing key would leave a stale pause behind.
+   */
+  /**
+   * Online only: players a human GM released this season, by team. The staff's roster repair never signs one of these back
+   * (`decideStaffFix`), so a release cannot be turned into a re-signing on the minimum.
+   */
+  recentReleases?: { season: number; byTeam: Record<string, string[]>; at?: Record<string, number> | undefined } | undefined;
+  pause?: { at: string; by: string; remainingMs: number | null } | null | undefined;
+  /**
    * The seed the league was created with, kept so that what's generated
    * later (each year's draft class) is this league's own. Without it every
    * league drew the same prospects in the same year. Older saves have none

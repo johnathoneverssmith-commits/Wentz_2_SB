@@ -2,6 +2,8 @@ import { minSalaryM } from "./capEconomy.ts";
 import type { LeagueState, Player } from "@/domain";
 import { onInjuredReserve } from "./injuries";
 import { releasePenalty, releaseToMarket } from "./seed";
+import { recordDeparture } from "./departures.ts";
+export { recordDeparture, recentReleasesOf } from "./departures.ts";
 import { POSITIONS } from "@/domain";
 import { ROSTER_TEMPLATE, ROSTER_SIZE } from "@/sim/roster-template";
 
@@ -124,6 +126,20 @@ export function checkRelease(s: LeagueState, teamCode: string, playerId: string)
   const p = s.players[playerId];
   if (!p) return { ok: false, reason: "No such player." };
   if (p.nfl_team !== teamCode) return { ok: false, reason: "He isn't on your roster." };
+  // The staff fill any positional hole from the street at the minimum (the summary staff-fix, the checkpoint repair).
+  // A GM must not dig that hole on purpose, in single-player or online, at any stage: releasing a star and letting the
+  // staff re-sign someone rewrites a contract outside the bidding rounds and the cap rules. A hole that opens by
+  // itself (a contract running out, a retirement, a trade) is the staff's to fill; a cut that would open one is not.
+  const need = positionalMinimums()[p.position] ?? 0;
+  if (need > 0 && !onInjuredReserve(p, s.stage)) {
+    const have = rosterOf(s, teamCode).filter((x) => x.position === p.position && !onInjuredReserve(x, s.stage)).length;
+    if (have - 1 < need) {
+      return {
+        ok: false,
+        reason: `Releasing him would leave you below the ${need}-player minimum at ${p.position}, and your staff only fills a gap that opens by itself.`,
+      };
+    }
+  }
   const justSigned = (s.freeAgencyEvent?.signed ?? []).some((x) => x.playerId === playerId);
   if (justSigned) {
     // mid-season free agency runs through here too, where "this off-season" was wrong
@@ -134,24 +150,6 @@ export function checkRelease(s: LeagueState, teamCode: string, playerId: string)
 }
 
 /** Release a player: he goes to the pool and his penalty lands on the cap. */
-/**
- * Remember that this franchise let this player go this season, so the staff never sign him back at the emergency
- * price (`ownDepartures` in rosterRepair.ts). Same field and shape as the league server's `recentReleases`, which a
- * GM's release also writes (a union, so recording twice is harmless); kept off the typed state so the two writers
- * cannot disagree about the declaration.
- */
-export function recordDeparture(s: LeagueState, teamCode: string, playerId: string): void {
-  const holder = s as unknown as { recentReleases?: { season: number; byTeam: Record<string, string[]> } };
-  // copy on write: a trim plan runs on a shallow copy of a (possibly frozen) league, and must not touch the original's history
-  const prev = holder.recentReleases?.season === s.season ? holder.recentReleases : { season: s.season, byTeam: {} as Record<string, string[]> };
-  const list = prev.byTeam[teamCode] ?? [];
-  if (list.includes(playerId)) {
-    holder.recentReleases = prev;
-    return;
-  }
-  holder.recentReleases = { season: s.season, byTeam: { ...prev.byTeam, [teamCode]: [...list, playerId] } };
-}
-
 export function applyRelease(s: LeagueState, teamCode: string, playerId: string): void {
   const p = s.players[playerId];
   const team = s.teams[teamCode];
