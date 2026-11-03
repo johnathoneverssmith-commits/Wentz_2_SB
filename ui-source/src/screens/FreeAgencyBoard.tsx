@@ -1,4 +1,3 @@
-import { PlayerThumb } from "@/components/PlayerPortrait";
 import { pruneComparison } from "@/components/decisions/decision-view";
 import { DecisionFrame, DecisionHeading, DecisionComparison, CompareToggle, DecisionSortControl, toggleComparison, FocusedOfferPanel } from "@/components/decisions/DecisionWorkspace";
 import { publicDecisionRow, sortDecisionRows, type DecisionSort } from "@/components/decisions/decision-view";
@@ -261,7 +260,7 @@ export function FreeAgencyBoard() {
                 }}
                 columns={
                   <>
-                    <div style={{ display: "flex", flexDirection: "row", gap: 10, alignItems: "center" }}><PlayerThumb player={p} size={34} /><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div style={{ display: "flex", flexDirection: "row", gap: 10, alignItems: "center" }}><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       <p className="pname">
                         {p.name} <span className="ppos">{posLabel(p.position)}</span>
                         {fit && <FitTag fit={fit(p.position, p.overall)} />}

@@ -2280,3 +2280,36 @@ tbody > tr:nth-child(24) { animation-delay: calc(var(--row-step) * 23); }
   font-weight: 600;
   color: var(--ink);
 }
+
+/* RatingBar: a labelled bar, as it has always looked (its styles were inline) */
+.rb {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.rb__label {
+  width: 130px;
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+.rb__track {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--panel-raised);
+}
+.rb__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--team);
+}
+.rb__value {
+  width: 30px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 12.5px;
+  font-weight: 600;
+}
