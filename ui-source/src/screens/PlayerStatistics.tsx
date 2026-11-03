@@ -1,11 +1,15 @@
 import { useMemo } from "react";
-import { leagueBadge } from "@/state/leagueFormat";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./office-gameday.css";
 import { leaders, mvpTracker } from "@/state/leagueStats";
 import { useStore } from "@/state/store";
-import { anyBoxScores, playedGames, regularSeasonUnderway, statsThroughWeek } from "@/state/selectors";
+import { anyBoxScores, playedGames, regularSeasonUnderway, statsThroughWeek, viewerTeamCode } from "@/state/selectors";
 import { onlineSession } from "@/state/online";
 import { visibleGames } from "@/state/reveal";
 import { commas, posLabel } from "@/util/format";
@@ -18,27 +22,32 @@ const CATS = ["passing", "rushing", "receiving", "defense", "kicking", "returns"
  * count. A finished season is described as finished.
  */
 function asOf(week: number, season: number): string {
-  return week > 0 ? `through Week ${week}` : `${season} final`;
+  return week > 0 ? `through week ${week}` : `${season} final`;
 }
 
 export function PlayerStatistics() {
   const nav = useNavigate();
   const s = useStore();
   const { active, setActive } = useTabs("passing");
+  const code = viewerTeamCode(s);
   const played = playedGames(s, "REG").length;
   const mvp = useMemo(() => mvpTracker(s), [s]);
   const rows = useMemo(() => leaders(s, active as (typeof CATS)[number]), [s, active]);
 
   if (played === 0 || !anyBoxScores(s)) {
     return (
-      <Card maxWidth={800}>
-        <CardHeader badge={leagueBadge(s)} title="Player Statistics" subtitle={`${s.season} season`} />
-        <div className="panel open">
-          <div className="emptystate">
-            {played === 0
-              ? "Leaderboards populate once you’ve seen the first regular-season week."
-              : "Leaderboards are built from per-game player lines, and none of this season's games recorded any. Weeks played from here on will fill them in."}
-          </div>
+      <GdPage code={code}>
+        <GameDayMasthead
+          code={code ?? ""}
+          compact
+          title={`${s.season} season`}
+          heading="Player statistics"
+          sub="League leaders in every category."
+        />
+        <div className="emptystate">
+          {played === 0
+            ? "Leaderboards populate once you’ve seen the first regular-season week."
+            : "Leaderboards are built from per-game player lines, and none of this season's games recorded any. Weeks played from here on will fill them in."}
         </div>
         <Footer>
           {/* between seasons this page is empty; last year's records,
@@ -52,7 +61,7 @@ export function PlayerStatistics() {
             Return to team hub
           </button>
         </Footer>
-      </Card>
+      </GdPage>
     );
   }
 
@@ -60,16 +69,18 @@ export function PlayerStatistics() {
     (s.awards ?? []).find((a) => a.season === s.season && a.award === award)?.name;
 
   return (
-    <Card maxWidth={800}>
-      <CardHeader
-        badge={leagueBadge(s)}
-        title="Player Statistics"
-        subtitle={`League leaders · ${asOf(
+    <GdPage code={code} className="gd-tabbed">
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={`League leaders, ${asOf(
           regularSeasonUnderway(s.stage)
             ? statsThroughWeek(onlineSession() ? visibleGames(s, s.viewerGmId) : s.games)
             : 0,
           s.season,
         )}`}
+        heading="Player statistics"
+        sub="League leaders in every category."
       />
       <Ticker
         stats={
@@ -89,54 +100,49 @@ export function PlayerStatistics() {
               ]
         }
       />
-      <Tabs
-        tabs={CATS.map((c) => ({ id: c, label: c[0]!.toUpperCase() + c.slice(1) }))}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={CATS.map((c) => ({ id: c, label: c[0]!.toUpperCase() + c.slice(1) }))}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
       {CATS.map((c) => (
         <Panel key={c} open={active === c}>
-          <table className="stbl">
-            <thead>
-              <tr>
-                <th style={{ width: 22 }} />
-                <th>Player</th>
-                <th className="c">Team</th>
-                <th className="r">{c === "defense" ? "Impact" : c === "kicking" ? "FGM" : "Yds"}</th>
-                <th>Line</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.playerId}>
-                  <td style={{ color: "var(--ink-faint)" }}>{i + 1}</td>
-                  <td className="name">
-                    {r.name} <span className="pos">{posLabel(r.position)}</span>
-                  </td>
-                  <td className="c">{r.team}</td>
-                  <td className="r">
-                    {c === "passing" || c === "rushing" || c === "receiving" || c === "returns"
-                      ? commas(r.value)
-                      : r.value}
-                  </td>
-                  <td style={{ fontSize: 11.5 }}>{r.line}</td>
+          <div className="gd-tablewrap">
+            <table className="stbl">
+              <thead>
+                <tr>
+                  <th style={{ width: 40 }} />
+                  <th>Player</th>
+                  <th className="c">Team</th>
+                  <th className="r">{c === "defense" ? "Impact" : c === "kicking" ? "FGM" : "Yds"}</th>
+                  <th>Line</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.playerId}>
+                    <td className="rank">{i + 1}</td>
+                    <td className="name">
+                      {r.name} <span className="pos">{posLabel(r.position)}</span>
+                    </td>
+                    <td className="c">{r.team}</td>
+                    <td className="r">
+                      {c === "passing" || c === "rushing" || c === "receiving" || c === "returns"
+                        ? commas(r.value)
+                        : r.value}
+                    </td>
+                    <td className="sub">{r.line}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Panel>
       ))}
-      <p
-        style={{
-          margin: 0,
-          padding: "0 26px 16px",
-          fontSize: 11,
-          color: "var(--ink-faint)",
-          textAlign: "center",
-          lineHeight: 1.5,
-        }}
-      >
-        Individual lines are credited from each game's play-by-play. The simulation models team
+      <p className="gd-foot">
+        Individual lines are credited from each game&rsquo;s play-by-play. The simulation models team
         outcomes, so who gets the carry or the target is an accounting of the game that was played
         rather than a per-player usage forecast.
       </p>
@@ -146,6 +152,6 @@ export function PlayerStatistics() {
           Return to team hub
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
