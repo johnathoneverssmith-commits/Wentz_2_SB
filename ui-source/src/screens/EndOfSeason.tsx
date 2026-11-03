@@ -1,17 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { type Moment, ScoreMoment } from "@/motion/ScoreMoment";
-import { leagueBadge } from "@/state/leagueFormat";
 import { SeasonAwardsList } from "@/components/LeagueMemory";
 import { useNavigate } from "react-router-dom";
 
 import { pressable } from "@/components/bits";
 import { OffseasonRounds } from "@/components/OffseasonRounds";
 import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
-import { Card, CardHeader, Footer, Panel } from "@/components/primitives";
+import { Footer, Panel } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE, teamFullName } from "@/data/teams";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./season-end-gameday.css";
 import { roundLabelFor, winPct, type PlayoffRound } from "@/domain";
+import { visibleBracket } from "@/state/reveal";
+import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 import { isOnline } from "@/state/online";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -45,40 +51,37 @@ export function EndOfSeasonAnnounce() {
     if (moved) nav(route);
   };
 
+  // the champion's colours, once this GM has watched the title game; their own
+  // team's until then
+  const mine = viewerTeamCode(s);
+  const champ = s.bracket ? visibleBracket(s.bracket, s, s.viewerGmId).champion : null;
+  const awards = (s.awards ?? []).filter((a) => a.season === s.season);
+
   return (
-    <Card maxWidth={720}>
-      <CardHeader badge={leagueBadge(s)} title={`End of ${s.season} Season`} />
-      <div
-        className="panel open"
-        style={{ textAlign: "center", padding: "56px 26px", cursor: "pointer" }}
-        {...pressable(() => void goOn())}
-      >
-        <p className="oswald" style={{ margin: 0, fontSize: 13, letterSpacing: "0.2em", color: "var(--ink-faint)" }}>
-          THAT'S A WRAP ON
-        </p>
-        <p className="oswald" style={{ margin: "12px 0 0", fontSize: 46, fontWeight: 700, color: "var(--team)" }}>
-          {s.season}
-        </p>
-        {(s.awards ?? []).some((a) => a.season === s.season) && (
-          <div style={{ marginTop: 22 }}>
+    <GdPage code={champ ?? mine}>
+      <GameDayMasthead
+        code={champ ?? mine ?? ""}
+        title="End of season"
+        heading={s.season}
+        sub={champ ? `That's a wrap on ${s.season}. ${teamFullName(champ)} took the title.` : `That's a wrap on ${s.season}.`}
+      />
+      <div className="se-stage" {...pressable(() => void goOn())}>
+        {awards.length > 0 && (
+          <div className="se-stage__awards">
             {/* no stopPropagation: the awards fill most of the card, and "click
                 anywhere" did nothing on them — there is nothing in them to click */}
-            <p className="oswald" style={{ margin: "0 0 10px", fontSize: 12, letterSpacing: "0.2em", color: "var(--ink-faint)" }}>
-              SEASON AWARDS
-            </p>
-            <SeasonAwardsList awards={(s.awards ?? []).filter((a) => a.season === s.season)} />
+            <p className="se-stage__label">Season awards</p>
+            <SeasonAwardsList awards={awards} />
           </div>
         )}
-        <p style={{ margin: "16px 0 0", fontSize: 12.5, color: "var(--ink-dim)" }}>
-          Tap or click anywhere to see how the season graded out.
-        </p>
+        <p className="se-stage__hint">Tap or click anywhere to see how the season graded out.</p>
       </div>
       <Footer>
         <button className="btn-primary" onClick={goOn}>
           Continue
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
 
@@ -162,20 +165,24 @@ export function SeasonComplete() {
         ? `${winnerTeam.wins}-${winnerTeam.losses}${winnerTeam.ties ? `-${winnerTeam.ties}` : ""}`
         : "";
 
+  // the page wears the champion's colours; the viewer's own team when there is none
+  const pageCode = champ ?? viewerGm?.teamCode ?? winnerCode ?? "";
+
   return (
-    <Card maxWidth={760}>
+    <GdPage code={pageCode} className="se se-complete">
       <ScoreMoment moment={crown} onDone={() => setCrown(null)} />
-      {/* the badge is the viewer's own team: the headline below can be somebody
-          else's, and a header showing their team over your season confused */}
-      <CardHeader
-        badge={viewerGm?.teamCode ? TEAMS_BY_CODE[viewerGm.teamCode]!.abbr : winnerCode ? TEAMS_BY_CODE[winnerCode]!.abbr : leagueBadge(s)}
-        title={`End of ${s.season} Season`}
+      <GameDayMasthead
+        code={pageCode}
+        compact
+        title={`End of ${s.season} season`}
+        heading="Season complete"
+        sub="The season's result, and what it did to the score tracker."
       />
       {/* the season's result and the running score tracker are one story: the
           season on top, what it did to the standings underneath */}
       <Panel id="season" open>
-        <div style={{ textAlign: "center", padding: "28px 8px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: 170 }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "var(--ink)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        <div className="se-result">
+          <p className="se-result__kicker">
             {humanChampGm
               ? // "Final Champions" in a humans-only league
                 s.bracket?.format === "single"
@@ -187,73 +194,70 @@ export function SeasonComplete() {
                   "Your season"
                 : "Furthest advanced"}
           </p>
-          <p className="oswald" style={{ margin: "10px 0 0", fontSize: 32, fontWeight: 700, color: humanChampGm ? "var(--team)" : "var(--ink)" }}>
+          <p className="se-result__name">
             {winnerGm && winnerCode ? `${gmPossessive(winnerGm)} ${teamFullName(winnerCode)}` : winnerCode ? teamFullName(winnerCode) : "—"}
           </p>
-          <p style={{ margin: "10px 0 0", fontSize: 13, color: "var(--ink-dim)" }}>
-            {roundText.replace(roundBoldPart, "").trim()}{" "}
-            <strong style={{ color: "var(--ink)" }}>{roundBoldPart}</strong>
+          <p className="se-result__line">
+            {roundText.replace(roundBoldPart, "").trim()} <strong>{roundBoldPart}</strong>
             {humanChampGm ? "." : furthest?.round !== "none" ? " — as far as any GM in the league got this year." : "."}
           </p>
-          {champ && !humanChampGm && (
-            <p style={{ margin: "14px 0 0", fontSize: 12, color: "var(--ink-faint)" }}>
-              {teamFullName(champ)} took the title.
-            </p>
-          )}
+          {champ && !humanChampGm && <p className="se-result__champ">{teamFullName(champ)} took the title.</p>}
         </div>
         {/* the headline is one GM; in a league of several, how the others
             finished is the first thing anyone asks */}
         {s.gms.filter((g) => g.isHuman && g.teamCode).length > 1 && (
-          <table className="stbl" style={{ marginTop: 18 }}>
-            <thead>
-              <tr>
-                <th>GM</th>
-                <th>Team</th>
-                <th className="c">Record</th>
-                <th>Postseason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {s.gms
-                .filter((g) => g.isHuman && g.teamCode)
-                // the order GMs joined in put the champion anywhere; this is
-                // the season's table, so it reads as one — furthest first
-                .map((g) => {
-                  const games = s.bracket?.matchups.filter(
-                    (m) => m.highSeed?.code === g.teamCode || m.lowSeed?.code === g.teamCode,
-                  ) ?? [];
-                  const depth = champ === g.teamCode ? 99 : games.length;
-                  return { g, depth, pct: winPct(s.teams[g.teamCode]!) };
-                })
-                .sort((a, b) => b.depth - a.depth || b.pct - a.pct)
-                .map(({ g }) => {
-                  const t = s.teams[g.teamCode]!;
-                  const games = s.bracket?.matchups.filter(
-                    (m) => m.highSeed?.code === g.teamCode || m.lowSeed?.code === g.teamCode,
-                  ) ?? [];
-                  const last = games.at(-1);
-                  const result =
-                    champ === g.teamCode
-                      ? `Won the ${title}`
-                      : !last
-                        ? "Missed the playoffs"
-                        : `Lost in the ${roundLabelFor(s.bracket, last.round as PlayoffRound)}`;
-                  return (
-                    <tr key={g.id}>
-                      <td>{g.id === s.viewerGmId ? "You" : g.name}</td>
-                      <td>{TEAMS_BY_CODE[g.teamCode]?.label ?? g.teamCode}</td>
-                      <td className="c">{`${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`}</td>
-                      <td>{result}</td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
+          <div className="se-card">
+            <table className="stbl">
+              <thead>
+                <tr>
+                  <th>GM</th>
+                  <th>Team</th>
+                  <th className="c">Record</th>
+                  <th>Postseason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {s.gms
+                  .filter((g) => g.isHuman && g.teamCode)
+                  // the order GMs joined in put the champion anywhere; this is
+                  // the season's table, so it reads as one — furthest first
+                  .map((g) => {
+                    const games = s.bracket?.matchups.filter(
+                      (m) => m.highSeed?.code === g.teamCode || m.lowSeed?.code === g.teamCode,
+                    ) ?? [];
+                    const depth = champ === g.teamCode ? 99 : games.length;
+                    return { g, depth, pct: winPct(s.teams[g.teamCode]!) };
+                  })
+                  .sort((a, b) => b.depth - a.depth || b.pct - a.pct)
+                  .map(({ g }) => {
+                    const t = s.teams[g.teamCode]!;
+                    const games = s.bracket?.matchups.filter(
+                      (m) => m.highSeed?.code === g.teamCode || m.lowSeed?.code === g.teamCode,
+                    ) ?? [];
+                    const last = games.at(-1);
+                    const result =
+                      champ === g.teamCode
+                        ? `Won the ${title}`
+                        : !last
+                          ? "Missed the playoffs"
+                          : `Lost in the ${roundLabelFor(s.bracket, last.round as PlayoffRound)}`;
+                    return (
+                      <tr key={g.id}>
+                        <td>{g.id === s.viewerGmId ? "You" : g.name}</td>
+                        <td>{TEAMS_BY_CODE[g.teamCode]?.label ?? g.teamCode}</td>
+                        <td className="c">{`${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ""}`}</td>
+                        <td>{result}</td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
         )}
-        <p className="subhead" style={{ marginTop: 24 }}>
-          Cross-season score
-        </p>
-        <ScoreTrackerTable />
+        <div className="se-card">
+          <p className="subhead">Cross-season score</p>
+          <ScoreTrackerTable />
+        </div>
         <OffseasonRounds />
       </Panel>
 
@@ -267,6 +271,6 @@ export function SeasonComplete() {
       </Footer>
 
       <ReadinessGate title="End of season readiness" onAdvance={(r) => nav(r)} />
-    </Card>
+    </GdPage>
   );
 }

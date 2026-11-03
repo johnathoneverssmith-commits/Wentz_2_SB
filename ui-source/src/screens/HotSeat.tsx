@@ -6,10 +6,15 @@ import { type Moment, ScoreMoment } from "@/motion/ScoreMoment";
 import { EASE, useMotion } from "@/motion/tokens";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { GmIdentityPicker } from "@/components/GmIdentity";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./season-end-gameday.css";
 import { aiMovesOf, aiSecurity } from "@/state/aiGms";
 import { AI_STRATEGY_IDENTITY } from "@/state/aiStrategy";
 import { FIRE_BELOW, type HotSeatEntry, type SecurityLevel } from "@/state/hotSeat";
@@ -40,18 +45,16 @@ function CpuGmMoves() {
     .filter((x) => x.sec && x.sec.level === "hot")
     .sort((a, b) => a.sec!.score - b.sec!.score);
   return (
-    <div style={{ marginBottom: 14 }}>
-      <p className="sectionlabel" style={{ margin: "0 0 6px" }}>
-        CPU GMs
-      </p>
+    <div className="se-moves">
+      <p className="sectionlabel">CPU GMs</p>
       {fired.length === 0 ? (
-        <p style={{ margin: "0 0 6px", fontSize: 12.5, color: "var(--ink-dim)" }}>No CPU GM was let go this offseason.</p>
+        <p className="se-note">No CPU GM was let go this offseason.</p>
       ) : (
-        <div style={{ display: "grid", gap: 6, marginBottom: 8 }}>
+        <div>
           {fired.map((f) => {
             const h = hired.find((x) => x.teamCode === f.teamCode);
             return (
-              <div key={f.gmId} style={{ fontSize: 12.5, padding: "6px 0", borderBottom: "1px solid var(--line)" }}>
+              <div key={f.gmId} className="se-move">
                 <strong>{label(f.teamCode)}</strong> let <strong>{f.name}</strong> ({AI_STRATEGY_IDENTITY[f.strategy].label}) go
                 {h ? (
                   <>
@@ -66,7 +69,7 @@ function CpuGmMoves() {
         </div>
       )}
       {warm.length > 0 && (
-        <p style={{ margin: 0, fontSize: 12, color: "var(--ink-faint)" }}>
+        <p className="se-note se-warm">
           On the hot seat: {warm.map((x) => `${x.g.name} (${TEAMS_BY_CODE[x.g.teamCode!]?.abbr ?? x.g.teamCode}, ${x.sec!.score})`).join(", ")}.
         </p>
       )}
@@ -78,36 +81,33 @@ function CpuGmMoves() {
 function Meter({ score, color }: { score: number; color: string }) {
   const motion = useMotion();
   return (
-    <div
-      role="img"
-      aria-label={`Job security ${score} out of 100`}
-      style={{ position: "relative", height: 10, borderRadius: 5, background: "var(--panel-sunken)", border: "1px solid var(--line)" }}
-    >
+    <div role="img" aria-label={`Job security ${score} out of 100`} className="se-meter">
       <m.div
         initial={{ width: motion.off ? `${score}%` : "0%" }}
         animate={{ width: `${score}%` }}
         transition={{ duration: motion.full ? 0.9 : 0.25, ease: EASE, delay: motion.full ? 0.15 : 0 }}
-        style={{ height: "100%", borderRadius: 5, background: color }}
+        className="se-meter__fill"
+        style={{ background: color }}
       />
-      <div title={`Fired below ${FIRE_BELOW}`} style={{ position: "absolute", left: `${FIRE_BELOW}%`, top: -3, bottom: -3, width: 2, background: "var(--ink-faint)" }} />
+      <div title={`Fired below ${FIRE_BELOW}`} className="se-meter__line" style={{ left: `${FIRE_BELOW}%` }} />
     </div>
   );
 }
 
 function Seasons({ e }: { e: HotSeatEntry }) {
   return (
-    <div style={{ display: "grid", gap: 2, marginTop: 10 }}>
+    <div className="se-seasons">
       {e.seasons.map((x) => (
-        <div key={x.season} style={{ display: "flex", gap: 10, fontSize: 12.5 }}>
-          <strong style={{ minWidth: 44 }}>{x.season}</strong>
-          <span style={{ minWidth: 64 }}>
+        <div key={x.season} className="se-season">
+          <strong>{x.season}</strong>
+          <span className="se-season__rec">
             {x.wins}-{x.losses}
             {x.ties ? `-${x.ties}` : ""}
           </span>
-          <span style={{ flex: 1, color: "var(--ink-dim)" }}>
+          <span>
             {x.champion ? "Champions" : x.playoffs ? (x.roundsWon > 0 ? `Playoffs, won ${x.roundsWon} round${x.roundsWon === 1 ? "" : "s"}` : "Playoffs") : "Missed the playoffs"}
           </span>
-          <span style={{ color: x.delta >= 0 ? "var(--good)" : "var(--bad)", fontVariantNumeric: "tabular-nums" }}>
+          <span className="se-season__delta" style={{ color: x.delta >= 0 ? "var(--good)" : "var(--bad)" }}>
             {x.delta >= 0 ? "+" : ""}
             {x.delta.toFixed(0)}
           </span>
@@ -134,10 +134,16 @@ export function HotSeat() {
   const others = (hot?.entries ?? []).filter((e) => e.gmId !== s.viewerGmId);
   if (!hot) {
     return (
-      <Card maxWidth={800}>
-        <CardHeader badge="FS" title="Hot Seat" subtitle="Offseason" />
+      <GdPage code={me?.teamCode}>
+        <GameDayMasthead
+          code={me?.teamCode ?? ""}
+          compact
+          title="Offseason"
+          heading="Hot seat"
+          sub="The owners review each GM's seasons."
+        />
         <div className="emptystate">The owners are still reviewing the season.</div>
-      </Card>
+      </GdPage>
     );
   }
 
@@ -157,12 +163,14 @@ export function HotSeat() {
   }, [mine?.chosen]);
 
   return (
-    <Card maxWidth={800}>
+    <GdPage code={me?.teamCode} className="gd-tabbed se">
       <ScoreMoment moment={moment} onDone={() => setMoment(null)} />
-      <CardHeader
-        badge={me?.teamCode ? TEAMS_BY_CODE[me.teamCode]?.abbr ?? "FS" : "FS"}
-        title="Hot Seat"
-        subtitle={`Offseason · ${s.season} season review`}
+      <GameDayMasthead
+        code={me?.teamCode ?? ""}
+        compact
+        title={`Offseason · ${s.season} season review`}
+        heading="Hot seat"
+        sub="The owners' verdict on the season, for you and for every GM in the league."
       />
       <Ticker
         stats={[
@@ -172,15 +180,17 @@ export function HotSeat() {
           { label: "GMs on the hot seat", value: (hot?.entries ?? []).filter((e) => e.level === "hot" || e.level === "fired").length },
         ]}
       />
-      <Tabs
-        tabs={[
-          { id: "yours", label: "Your job" },
-          { id: "league", label: "Around the league" },
-          { id: "how", label: "Methodology" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={[
+            { id: "yours", label: "Your job" },
+            { id: "league", label: "Around the league" },
+            { id: "how", label: "Methodology" },
+          ]}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
 
       <Panel id="yours" open={active === "yours"}>
         {!mine ? (
@@ -190,14 +200,15 @@ export function HotSeat() {
             {/* the verdict lands like a stamp: big, then home */}
             <m.p
               key={mine.level}
+              className="se-verdict"
               initial={motion.off ? false : { opacity: 0, scale: motion.full ? 2.2 : 1, rotate: motion.full ? -6 : 0 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               transition={{ duration: motion.full ? 0.5 : 0.15, ease: [0.2, 1.2, 0.3, 1] }}
-              style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 700, color: LEVEL[mine.level].color, transformOrigin: "left center" }}
+              style={{ color: LEVEL[mine.level].color }}
             >
               {LEVEL[mine.level].label}
             </m.p>
-            <p style={{ margin: "0 0 12px", fontSize: 12.5, color: "var(--ink-dim)" }}>
+            <p className="se-note se-lede">
               {mine.level === "fired"
                 ? `After ${mine.tenure} seasons running ${label(mine.teamCode)}, the owner is going in a different direction.`
                 : `${LEVEL[mine.level].blurb} ${mine.tenure < 3 ? "You have less than three seasons with this team, so you can't be fired yet." : ""}`}
@@ -205,41 +216,37 @@ export function HotSeat() {
             <Meter score={mine.score} color={LEVEL[mine.level].color} />
             <Seasons e={mine} />
             {mine.droughtPenalty > 0 && (
-              <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--bad)" }}>
+              <p className="se-note bad se-gap">
                 {mine.drought} seasons without winning a playoff game: −{mine.droughtPenalty}. It gets worse every
                 year it continues.
               </p>
             )}
             {mine.drought === 2 && mine.tenure >= 2 && (
-              <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--ink-faint)" }}>
-                Two seasons without a playoff win. A third starts to cost you.
-              </p>
+              <p className="se-note se-gap">Two seasons without a playoff win. A third starts to cost you.</p>
             )}
 
             {mine.level === "fired" && (
-              <div style={{ marginTop: 18 }}>
-                <p className="sectionlabel" style={{ margin: "0 0 8px" }}>
-                  {mine.chosen ? "Your new job" : "Teams that want you"}
-                </p>
+              <div className="se-gap">
+                <p className="sectionlabel">{mine.chosen ? "Your new job" : "Teams that want you"}</p>
                 {mine.chosen ? (
-                  <p style={{ fontSize: 13 }}>
+                  <p className="se-note">
                     You&rsquo;re the new GM of <strong>{label(mine.chosen)}</strong>. Your clock starts over.
                   </p>
                 ) : (
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div className="se-jobs">
                     {mine.options.map((code) => {
                       const t = s.teams[code]!;
                       const taken = t.controlledBy.kind !== "ai";
                       return (
-                        <div key={code} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: "var(--r-md)" }}>
-                          <strong style={{ flex: 1 }}>{label(code)}</strong>
-                          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                        <div key={code} className="se-job">
+                          <strong>{label(code)}</strong>
+                          <span>
                             {t.wins}-{t.losses}
                             {t.ties ? `-${t.ties}` : ""} · roster #{t.ratings.overallRank} of {Object.keys(s.teams).length}
                           </span>
                           <button
                             type="button"
-                            className="btn-primary"
+                            className="gd-btn gd-go"
                             disabled={busy !== null || taken}
                             onClick={() => {
                               setBusy(code);
@@ -259,17 +266,13 @@ export function HotSeat() {
                     })}
                   </div>
                 )}
-                {error && (
-                  <p className="form-error" style={{ margin: "8px 0 0", fontSize: 11.5 }}>
-                    {error}
-                  </p>
-                )}
+                {error && <p className="form-error se-note bad">{error}</p>}
               </div>
             )}
           </>
         )}
         {me && (
-          <div style={{ marginTop: 18, paddingTop: 6, borderTop: "1px solid var(--line)" }}>
+          <div className="se-gmidentity">
             <GmIdentityPicker value={me.strategy ?? "balanced"} onChange={(k) => void actions.setStrategy(k)} />
           </div>
         )}
@@ -281,42 +284,40 @@ export function HotSeat() {
           <div className="emptystate">You&rsquo;re the only person running a team here.</div>
         ) : (
           others.map((e) => (
-            <div key={e.gmId} style={{ padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                <strong>{s.gms.find((g) => g.id === e.gmId)?.name ?? e.gmId}</strong>
-                <span style={{ color: "var(--ink-faint)", fontSize: 12 }}>
+            <div key={e.gmId} className="se-gm">
+              <span className="se-gm__name">
+                {s.gms.find((g) => g.id === e.gmId)?.name ?? e.gmId}
+                <span className="se-gm__team">
                   {label(e.chosen ? e.teamCode : e.teamCode)}
                   {e.chosen ? ` (was ${label(e.teamCode)})` : ""}
                 </span>
-                <span style={{ marginLeft: "auto", color: LEVEL[e.level].color, fontWeight: 700, fontSize: 12.5 }}>
-                  {e.chosen ? `Fired, now at ${label(e.chosen)}` : LEVEL[e.level].label}
-                </span>
-              </div>
-              <div style={{ marginTop: 6 }}>
-                <Meter score={e.score} color={LEVEL[e.level].color} />
-              </div>
+              </span>
+              <span className="se-gm__level" style={{ color: LEVEL[e.level].color }}>
+                {e.chosen ? `Fired, now at ${label(e.chosen)}` : LEVEL[e.level].label}
+              </span>
+              <Meter score={e.score} color={LEVEL[e.level].color} />
             </div>
           ))
         )}
       </Panel>
 
       <Panel id="how" open={active === "how"}>
-        <div style={{ fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.6, display: "grid", gap: 8 }}>
-          <p style={{ margin: 0 }}>
+        <div className="se-how">
+          <p>
             Your job security is a score out of 100, built from your last five seasons with your current team:
             wins above or below .500, making or missing the playoffs, and playoff rounds won, with a bonus for a title.
             You start at 60.
           </p>
-          <p style={{ margin: 0 }}>
+          <p>
             Secure is 55 or more, warm is 40–54, and the hot seat is 20–39. Below 20 you&rsquo;re fired, but never before
             your third season with a team. A long run of good years is a cushion.
           </p>
-          <p style={{ margin: 0 }}>
+          <p>
             From your third season, a stretch with no playoff win costs more every year (−10 for the third winless
             season, −20 for the fourth, −30 for the fifth). Making the playoffs and losing the first game doesn&rsquo;t
             end the drought; winning one does.
           </p>
-          <p style={{ margin: 0 }}>
+          <p>
             A fired GM takes over one of the five worst teams in the league that no one else is running, and starts again:
             the old team goes to the CPU.
           </p>
@@ -329,6 +330,6 @@ export function HotSeat() {
         disabled={waiting}
         disabledHint="Choose a new team first."
       />
-    </Card>
+    </GdPage>
   );
 }
