@@ -1,9 +1,14 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { RatingBar } from "@/components/ExpandableRow";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { gdStyle } from "@/design/teamArt";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./people-gameday.css";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Coach, CoachRole, DefenseScheme, OffenseScheme } from "@/domain";
 import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, DEVELOPMENT_ROLES, SCHEME_LABEL } from "@/domain";
@@ -87,11 +92,12 @@ function NormalHub({ code }: { code: string | undefined }) {
   }
 
   return (
-    <Card maxWidth={820}>
-      <CardHeader
-        badge={TEAMS_BY_CODE[code]!.abbr}
-        title="Coaching Staff"
-        subtitle={`${TEAMS_BY_CODE[code]!.label} · Front office`}
+    <div className="roster-workspace gd people-gd" style={gdStyle(code) as CSSProperties}>
+    <div className="gd-page">
+      <GameDayMasthead
+        code={code}
+        title="Coaching staff"
+        sub={`${TEAMS_BY_CODE[code]!.label} front office. Your coaches, how well your players fit their schemes, and who you could hire instead.`}
       />
       <Ticker
         stats={[
@@ -101,6 +107,7 @@ function NormalHub({ code }: { code: string | undefined }) {
           { label: "Staff", value: `${COACH_ROLES.filter((r) => staff[r]).length} / ${COACH_ROLES.length}` },
         ]}
       />
+      <div className="gd-hub">
       <Tabs
         tabs={[
           { id: "current", label: "Current Staff" },
@@ -110,17 +117,16 @@ function NormalHub({ code }: { code: string | undefined }) {
         active={active}
         onChange={setActive}
       />
+      </div>
       <Panel id="current" open={active === "current"}>
         {(["HC", "OC", "DC"] as CoachRole[]).map((role) => {
           const c = staff[role];
           return (
-            <div key={role} style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: 18, marginBottom: 16 }}>
-              <div style={{ marginBottom: 14 }}>
-                <p style={{ margin: 0, fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.03em", fontWeight: 600 }}>
-                  {ROLE_LABEL[role]}
-                </p>
-                <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 600 }}>{c?.name ?? "Vacant"}</p>
-                <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
+            <div key={role} className="cs-card">
+              <div className="cs-card__head">
+                <p className="cs-card__role">{ROLE_LABEL[role]}</p>
+                <p className="cs-card__name">{c?.name ?? "Vacant"}</p>
+                <p className="cs-card__sub">
                   {c?.contract ? `${c.contract.yearsRemaining} yrs · ${millions(c.contract.annualValue)}/yr` : "Open position"}
                 </p>
               </div>
@@ -133,7 +139,7 @@ function NormalHub({ code }: { code: string | undefined }) {
               )}
               {c && role !== "HC" && (
                 <>
-                  <span className="prio-chip" style={{ display: "inline-block", marginBottom: 12 }}>{schemeLabel(c.scheme)}</span>
+                  <span className="prio-chip cs-card__chip">{schemeLabel(c.scheme)}</span>
                   <RatingBar label="Play-calling IQ" /* the same number the rest of the game calls play-calling; "Coverage IQ" read as a second rating */ value={c.playCallIq ?? 0} />
                   <RatingBar
                     label={role === "OC" ? "Pass tendency" : "Blitz rate"}
@@ -148,7 +154,7 @@ function NormalHub({ code }: { code: string | undefined }) {
         {/* The nine development coaches a GM drafts alongside the big three
             used to appear nowhere after the coaching draft — the staff read
             "3 / 3" with nine hires missing from it. */}
-        <p className="subhead" style={{ margin: "4px 0 10px" }}>
+        <p className="subhead">
           Development staff
         </p>
         <table className="stbl">
@@ -168,11 +174,11 @@ function NormalHub({ code }: { code: string | undefined }) {
                 <tr key={role}>
                   <td>{COACH_ROLE_LABEL[role]}</td>
                   <td>{c?.name ?? "Vacant"}</td>
-                  <td style={{ color: "var(--ink-dim)" }}>
+                  <td className="cs-dim">
                     {role === "MED" ? "Injury recovery" : (COACH_POSITION_GROUPS[role] ?? []).join(", ")}
                   </td>
                   <td className="c">{c?.overall ?? "—"}</td>
-                  <td className="r" style={{ color: "var(--ink-dim)" }}>
+                  <td className="r cs-dim">
                     {c?.contract ? `${c.contract.yearsRemaining}y · ${millions(c.contract.annualValue)}` : "—"}
                   </td>
                 </tr>
@@ -182,7 +188,7 @@ function NormalHub({ code }: { code: string | undefined }) {
         </table>
       </Panel>
       <Panel id="fit" open={active === "fit"}>
-        <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+        <p className="cs-note">
           Against current schemes: {oc ? schemeLabel(oc.scheme) : "no OC"} (offense), {dc ? schemeLabel(dc.scheme) : "no DC"} (defense)
         </p>
         <table className="stbl">
@@ -208,12 +214,12 @@ function NormalHub({ code }: { code: string | undefined }) {
       </Panel>
       <Panel id="market" open={active === "market"}>
         {hiringClosed && (
-          <div className="notice" role="status" style={{ marginBottom: 12 }}>
+          <div className="notice" role="status">
             Hiring is closed while this stretch of the season plays out — its games are already
             decided with today&rsquo;s staff. It opens again at the next break.
           </div>
         )}
-        <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+        <p className="cs-note">
           Coaches without a job. Hiring one replaces whoever holds that role on your staff, and
           sends him back to this list.{" "}
           {/* it said "do it whenever" directly under "hiring is closed" */}
@@ -294,6 +300,7 @@ function NormalHub({ code }: { code: string | undefined }) {
           Return to team hub
         </button>
       </Footer>
-    </Card>
+    </div>
+    </div>
   );
 }
