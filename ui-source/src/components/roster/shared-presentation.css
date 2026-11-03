@@ -1,0 +1,44 @@
+/*
+ * Presentation shared outside the roster screen: the team crest (decision
+ * screens) and the cap overview ring (both free-agency boards). Moved here from
+ * the roster screen's stylesheet when that screen got its own design, so these
+ * screens keep the look they had.
+ */
+.sports-crest { position:relative; flex:0 0 68px; width:68px; height:76px; display:grid; place-items:center; padding-top:6px; color:#d3dcff; font:italic 800 24px/1 var(--font-body); background:linear-gradient(125deg,#1b1736,#071c24); border:2px solid #d2ad54; border-radius:12px 12px 30px 30px; box-shadow:inset 0 0 0 4px #061017,0 5px 18px #0006; }
+.sports-crest .sports-crown { position:absolute; top:-14px; left:16px; }
+.sports-panel { min-width:0; border:1px solid #647b9950; border-radius:15px; background:linear-gradient(145deg,#11212cdd,#07151bed); box-shadow:inset 0 1px 0 #ffffff04,0 10px 24px #0002; }
+.sports-panel-title { font-size:17px; font-weight:700; margin:0; padding:14px 16px; letter-spacing:-.025em; }
+.roster-finance-summary { height:100%; padding:16px; background:linear-gradient(#0b1c26d9,#07151de6),url('/art/franchise/stadium-city.webp') center bottom/cover; }
+.roster-finance-summary .ui-section-heading { margin-bottom:16px; }
+.roster-finance-summary h2 { font-size:18px; }
+.cap-overview-body { display:grid; grid-template-columns:minmax(150px,.95fr) minmax(190px,1fr); align-items:center; gap:20px; }
+.cap-ring { position:relative; width:100%; max-width:252px; aspect-ratio:1; }
+.cap-ring svg { display:block; width:100%; height:100%; filter:drop-shadow(0 0 10px #00eeb517); }
+.cap-ring > div { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+.cap-ring strong { font-size:clamp(32px,3vw,48px); line-height:1.15; }
+.cap-ring b { font-size:22px; margin-top:5px; }
+.cap-ring small { font-size:13px; color:#c2d4e3; margin-top:4px; }
+.roster-money-facts { margin:0; padding:12px; border:1px solid #54728c55; border-radius:12px; background:#081820ba; }
+.roster-money-facts > div { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 0; font-size:13px; border-bottom:1px solid #516a7a33; }
+.roster-money-facts > div:last-child { border:0; padding-bottom:4px; color:#bccde1; font-size:11px; }
+.roster-money-facts dd { margin:0; font-weight:650; }
+.roster-money-facts dt { display:flex; align-items:center; gap:9px; }
+.legend-dot { display:inline-block; width:12px; height:12px; border-radius:50%; background:#91a8bd; }
+.legend-dot.teal { background:#13e9bc; box-shadow:0 0 10px #0cdeb333; }
+.legend-dot.red { background:#fa758e; }
+.roster-staff-cost { display:flex; align-items:center; gap:12px; padding:13px; border:1px solid #b4943a9c; border-radius:10px; background:linear-gradient(110deg,#5e481d77,#18212ba6); color:#ffe4a5; }
+.roster-staff-cost > span { flex:1; font-size:13px; font-weight:650; }
+.roster-staff-cost small { display:block; font-size:11px; font-weight:400; margin-top:4px; }
+.roster-staff-cost strong { font-size:20px; text-align:right; }
+@media (max-width:1400px) and (min-width:901px) {
+  .cap-overview-body { grid-template-columns:1fr; }
+  .cap-ring { max-width:190px; margin:auto; }
+}
+@media (max-width:600px) {
+  .sports-crest { flex-basis:52px; width:52px; height:64px; font-size:19px; }
+  .sports-crest .sports-crown { left:9px; }
+  .cap-overview-body { grid-template-columns:1fr; gap:10px; }
+  .cap-ring { width:220px; margin:auto; }
+  .roster-finance-summary { padding:14px; }
+}
+.roster-staff-cost { padding:10px 12px; }

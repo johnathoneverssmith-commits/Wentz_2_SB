@@ -1,26 +1,25 @@
-import { PlayerThumb } from "@/components/PlayerPortrait";
-import { SportsIcon, SportsStat, TeamCrest } from "@/components/roster/SportsPresentation";
 import { viewerWeek } from "@/state/reveal";
 import { getMotionLevel } from "@/motion/level";
 import { StaggerList } from "@/motion/Stagger";
 import { onlineSession } from "@/state/online";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { careerArc } from "@/state/careerArc";
 import { displaySeason, STAGE_LABEL } from "@/state/stageMachine";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { OvrPill } from "@/components/bits";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { ContractFacts, RosterFinance, StaffCost } from "@/components/roster/RosterFinance";
+import { CapField } from "@/components/roster/CapField";
+import { GameDayMasthead } from "@/components/roster/GameDayMasthead";
+import { mastheadPalette } from "@/components/roster/teamArt";
 import { MotionMeter, MotionSurface } from "@/motion/MotionSurface";
 import { AnimatedNumber } from "@/motion/AnimatedNumber";
-import "@/components/roster/roster.css";
+import "@/components/roster/gameday.css";
 import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { useLeagueActions } from "@/state/useLeagueActions";
-import { Card, CardHeader, Footer, Panel, Tabs } from "@/components/primitives";
+import { Footer, Panel, Tabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { UnitGrades } from "@/components/UnitGrades";
-import { teamFullName } from "@/data/teams";
 import {
   POSITION_GROUPS,
   POSITION_TO_GROUP,
@@ -49,6 +48,8 @@ import {
 } from "@/state/practiceSquad";
 import { marketScale, minSalaryM } from "@/state/capEconomy";
 import { capUsed as contractsUsed, checkRelease, positionalMinimums, releasePenalty } from "@/state/reconciliation";
+import { leagueStarterOverall } from "@/state/leagueStarters";
+import { unitReport, type UnitRow } from "@/state/unitReport";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
 import { millions, posLabel } from "@/util/format";
 
@@ -60,7 +61,30 @@ const GROUP_LABEL: Record<PositionGroup, string> = {
   CB: "Cornerback", S: "Safety", K: "Kicker", P: "Punter",
 };
 
-const ROSTER_GRID = "28px 1.5fr 0.5fr 0.5fr 0.7fr 0.9fr 16px";
+/** The heading over each group's depth chart. */
+const GROUP_TITLE: Record<PositionGroup, string> = {
+  QB: "Quarterbacks", RB: "Running backs", WR: "Receivers", TE: "Tight ends",
+  OL: "Offensive line", DL: "Defensive line", EDGE: "Edge rushers", LB: "Linebackers",
+  CB: "Cornerbacks", S: "Safeties", K: "Kickers", P: "Punters",
+};
+
+/**
+ * The engine unit each position group plays in (`unitReport`), for the grade
+ * on its tab. Kickers and punters aren't graded as a unit.
+ */
+const GROUP_UNIT: Partial<Record<PositionGroup, string>> = {
+  QB: "quarterback", RB: "runningBack", WR: "receivers", TE: "tightEnd", OL: "offensiveLine",
+  DL: "interior", EDGE: "passRush", LB: "linebackers", CB: "corners", S: "safeties",
+};
+
+const ARC_CLASS = { Rising: "rise", Prime: "prime", Declining: "decline" } as const;
+
+function ordinal(n: number): string {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${s}`;
+}
+
+const ovrTier = (overall: number): string => (overall >= 85 ? "elite" : overall >= 75 ? "mid" : "low");
 
 export function RosterCapManagement() {
   const nav = useNavigate();
@@ -98,6 +122,16 @@ export function RosterCapManagement() {
     : { to: "/hub", label: "Return to team hub" };
 
   const roster = useMemo(() => (code ? teamRoster(s, code) : []), [s, code]);
+  // ratings and depth charts only: the league's typical starter at each position
+  const leagueStarters = useMemo(
+    () => leagueStarterOverall({ players: s.players, teams: s.teams, depthChart: s.depthChart }),
+    [s.players, s.teams, s.depthChart],
+  );
+  const units = useMemo(
+    () => (code && s.teams[code] ? unitReport(s, code).units : []),
+    [s, code],
+  );
+  const palette = useMemo(() => mastheadPalette(code ?? ""), [code]);
   // players on injured reserve don't hold one of the 53 spots
   const onIr = roster.filter((p) => onInjuredReserve(p, s.stage)).length;
   const activeCount = roster.length - onIr;
@@ -108,12 +142,11 @@ export function RosterCapManagement() {
 
   if (!code || !team) {
     return (
-      <Card>
-        <CardHeader badge="FS" title="Roster & Cap" subtitle="No team selected" />
-        <div className="panel open">
+      <div className="roster-workspace gd">
+        <div className="gd-page">
           <div className="emptystate">Pick a team in League Setup first.</div>
         </div>
-      </Card>
+      </div>
     );
   }
 
@@ -133,6 +166,7 @@ export function RosterCapManagement() {
     (pos) => POSITION_TO_GROUP[pos] === group,
   );
   const ordered = positionsInGroup.flatMap((pos) => depthAt(s, code, pos));
+  const starters = positionalMinimums();
 
   /**
    * Move a player one place up or down the chart at his own position.
@@ -159,12 +193,13 @@ export function RosterCapManagement() {
       });
   };
   const lineAt = (pos: Position) => ordered.filter((x) => x.position === pos);
+  const slotOf = (p: Player): number => lineAt(p.position).indexOf(p) + 1;
 
   const needs = POSITION_GROUPS.map((g) => {
     const players = roster.filter((p) => POSITION_TO_GROUP[p.position] === g);
     const top = players[0]?.overall ?? 0;
     const depth = players.length;
-    if (depth === 0) return { g, reason: "No players on the roster" };
+    if (depth === 0) return { g, level: "urgent" as const, reason: "No players on the roster" };
     // a group can look full and still leave a starting spot empty: five
     // linemen with one guard started a "Vacant" at guard, and this tab
     // listed nothing
@@ -174,12 +209,12 @@ export function RosterCapManagement() {
       .find((pos) => players.filter((p) => p.position === pos).length < (mins[pos] ?? 0));
     if (shortAt) {
       const have = players.filter((p) => p.position === shortAt).length;
-      return { g, reason: `${shortAt}: ${have} of ${mins[shortAt]} starters — a starting spot is empty` };
+      return { g, level: "urgent" as const, reason: `${shortAt}: ${have} of ${mins[shortAt]} starters — a starting spot is empty` };
     }
-    if (top < 72) return { g, reason: `Weak starter (${top} OVR), no upgrade in house` };
-    if (depth < 2 && g !== "K" && g !== "P") return { g, reason: "Starter only, no depth" };
+    if (top < 72) return { g, level: "upgrade" as const, reason: `Weak starter (${top} OVR), no upgrade in house` };
+    if (depth < 2 && g !== "K" && g !== "P") return { g, level: "depth" as const, reason: "Starter only, no depth" };
     return null;
-  }).filter(Boolean) as Array<{ g: PositionGroup; reason: string }>;
+  }).filter(Boolean) as Array<{ g: PositionGroup; level: "urgent" | "upgrade" | "depth"; reason: string }>;
 
   const capByUnit = {
     offense: roster.filter((p) => ["QB", "RB", "WR", "TE", "OT", "OG", "C"].includes(p.position)).reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0),
@@ -187,6 +222,11 @@ export function RosterCapManagement() {
     special: roster.filter((p) => ["K", "P"].includes(p.position)).reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0),
   };
 
+  const unitFor = (g: PositionGroup): UnitRow | undefined => {
+    const key = GROUP_UNIT[g];
+    return key ? units.find((u) => u.key === key) : undefined;
+  };
+  const groupUnit = unitFor(group);
 
   const selected = ordered.find(p => p.id === selectedId) ?? ordered[0];
   const choosePlayer = (p: Player): void => {
@@ -197,210 +237,302 @@ export function RosterCapManagement() {
       dossierRef.current?.scrollIntoView({ behavior: getMotionLevel() === "off" ? "auto" : "smooth", block: "start" });
     });
   };
-  const positionNav = <div className="position-pills" role="group" aria-label="Position group">{POSITION_GROUPS.map(g => <button type="button" key={g} title={GROUP_LABEL[g]} aria-pressed={group === g} onClick={() => { setGroup(g); setSelectedId(null); setConfirming(null); }}>{g}</button>)}</div>;
-  const playerActions = (p: Player) => <>                  <div className="actions">
-                    <button
-                      onClick={() => nudge(p, -1)}
-                      disabled={depthLocked || lineAt(p.position)[0]?.id === p.id}
-                      title={`Move up the ${posLabel(p.position)} depth chart`}
-                    >
-                      <SportsIcon name="up"/>Move up
-                    </button>
-                    <button
-                      onClick={() => nudge(p, 1)}
-                      disabled={depthLocked || lineAt(p.position).at(-1)?.id === p.id}
-                      title={`Move down the ${posLabel(p.position)} depth chart`}
-                    >
-                      <SportsIcon name="down"/>Move down
-                    </button>
-                    <button
-                      onClick={() => {
-                        // the local action knows exactly what it freed;
-                        // the server answers with the new league instead, so
-                        // online the preview's arithmetic stands in
-                        const estimate = previewRestructure(p, s.season, minSalaryM(s)).freed;
-                        // a second tap before the answer came back was refused
-                        // ("already restructured"), and that note replaced
-                        // the success one — the deal looked like it had failed
-                        setRestructuring(p.id);
-                        void actions.restructure(p.id).finally(() => setRestructuring(null)).then((r) => {
-                          setMoveNote({
-                            id: p.id,
-                            ok: r.ok,
-                            text: r.ok
-                              ? `Restructured — ${millions(r.freed ?? estimate ?? 0)} off this year's cap, moved into the rest of the deal.`
-                              : (r.reason ?? "Couldn't restructure that deal."),
-                          });
-                        });
-                      }}
-                      disabled={restructuring === p.id || !previewRestructure(p, s.season, minSalaryM(s)).ok}
-                      title={previewRestructure(p, s.season, minSalaryM(s)).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
-                    >
-                      <SportsIcon name="coins"/>Restructure
-                    </button>
-                    {p.contract?.years_remaining === 1 && (
-                      <button
-                        onClick={() => {
-                          void actions.tender(p.id, "tag").then((r) =>
-                            setMoveNote({
-                              id: p.id,
-                              ok: r.ok,
-                              text: r.ok
-                                ? `Tagged. ${p.name} plays next season on a one-year tender of ${millions(previewFranchiseTag(s, p).price ?? 0)}.`
-                                : (r.reason ?? "Couldn't tag him."),
-                            }),
-                          );
-                        }}
-                        disabled={!previewFranchiseTag(s, p).ok}
-                        title={
-                          previewFranchiseTag(s, p).reason ??
-                          `Keep him off the market one more year at ${millions(previewFranchiseTag(s, p).price ?? 0)}, fully guaranteed`
-                        }
-                      >
-                        Franchise tag ({millions(previewFranchiseTag(s, p).price ?? 0)})
-                      </button>
-                    )}
-                    {practiceSquadEligible(p, marketScale(s)) && (
-                      <button
-                        onClick={() => {
-                          void actions.tender(p.id, "practiceSquad").then((r) => {
-                            if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't move him." });
-                          });
-                        }}
-                        disabled={depthLocked || !checkToPracticeSquad(s, p).ok}
-                        title={
-                          checkToPracticeSquad(s, p).reason ??
-                          "Keep him and develop him without a roster spot: off the 53, out of games, on a $0.2M deal"
-                        }
-                      >
-                        To practice squad
-                      </button>
-                    )}
-                    {fifthYearEligible(p) && (
-                      <button
-                        onClick={() => {
-                          void actions.tender(p.id, "option").then((r) =>
-                            setMoveNote({
-                              id: p.id,
-                              ok: r.ok,
-                              text: r.ok
-                                ? `Option picked up: one more year at ${millions(previewFifthYearOption(s, p).price ?? 0)}, fully guaranteed.`
-                                : (r.reason ?? "Couldn't pick up the option."),
-                            }),
-                          );
-                        }}
-                        disabled={!previewFifthYearOption(s, p).ok}
-                        title={previewFifthYearOption(s, p).reason ?? "Add a fifth year to his rookie deal at a fixed tender"}
-                      >
-                        5th-year option ({millions(previewFifthYearOption(s, p).price ?? 0)})
-                      </button>
-                    )}
-                    {confirming === p.id ? (
-                      <>
-                        <button
-                          className="btn-danger"
-                          onClick={() => {
-                            void actions.releasePlayer(p.id).then((r) => {
-                              if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't release him." });
-                            });
-                            setConfirming(null);
-                          }}
-                        >
-                          Confirm release
-                        </button>
-                        <button onClick={() => setConfirming(null)}>Keep him</button>
-                      </>
-                    ) : (
-                      <button
-                        className="btn-danger"
-                        onClick={() => setConfirming(p.id)}
-                        // the server won't release anyone mid-block either (`refuseDuringBlock`)
-                        disabled={depthLocked || !checkRelease(s, code, p.id).ok}
-                        title={depthLocked ? "Releases open again at the next break." : checkRelease(s, code, p.id).reason}
-                      >
-                        <SportsIcon name="trash"/>Release
-                      </button>
-                    )}
-                  </div>
-                  <p
-                    className={moveNote?.id === p.id && !moveNote.ok ? "form-error" : undefined}
-                    style={
-                      moveNote?.id === p.id && !moveNote.ok
-                        ? { margin: "8px 0 0", fontSize: 11.5 }
-                        : { margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }
-                    }
-                  >
-                    {moveNote?.id === p.id
-                      ? moveNote.text
-                      : confirming === p.id
-                        ? `Releasing ${p.name} takes his ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} off the books and leaves ${millions(releasePenalty(p))} of dead money this year. He goes to the free agent market. This can't be undone.`
-                        : // why a button is grey, where a phone can read it — the
-                          // reasons lived only in hover titles
-                          ([
-                            previewRestructure(p, s.season, minSalaryM(s)).ok ? null : `Restructure: ${previewRestructure(p, s.season, minSalaryM(s)).reason}`,
-                            depthLocked || checkRelease(s, code, p.id).ok ? null : `Release: ${checkRelease(s, code, p.id).reason}`,
-                          ]
-                            .filter(Boolean)
-                            .join(" ") ||
-                          "A restructure moves money into later years; it doesn't make it go away. Releasing a player costs dead money this year: part of what's left on his deal.")}
-                  </p>
-</>;
-  const playerDossier = (p: Player, compact = false) => <aside ref={dossierRef} tabIndex={-1} data-player-id={p.id} data-compact={compact} className="player-dossier sports-panel" aria-label="Selected player">
-    <h2 className="sports-panel-title">{compact ? "Contract details" : "Player details"}</h2>
-    <div className="dossier-identity"><div className="dossier-portrait" aria-hidden="true"/><div><h3>{p.name}</h3><p>{posLabel(p.position)} · age {p.age}</p><strong>{p.overall} <small>OVR</small></strong><span className="depth-badge">{lineAt(p.position).indexOf(p) === 0 ? "First on depth chart" : "Depth " + (lineAt(p.position).indexOf(p) + 1)}</span></div></div>
-    {compact ? <section className="finance-cap-schedule" aria-label="Scheduled cap hits"><h3>Cap hits · remaining years</h3>{p.contract ? <dl>{p.contract.cap_hit_by_year.map((hit, i) => <div key={i}><dt>Remaining year {i + 1}</dt><dd>{millions(hit)}</dd></div>)}</dl> : <p>No contract on record.</p>}</section> : <ContractFacts contract={p.contract}/>}
-    <div className="dossier-actions"><button type="button" className="sports-action sports-purple" onClick={() => setInspecting(p.id)}><SportsIcon name="file"/>Player card</button><button type="button" className="sports-action sports-gold" onClick={() => setExtending(p)}><SportsIcon name="coins"/>Extend contract</button></div>
-    <details className="player-extra"><summary>{compact ? "Full contract & player details" : "More player details"}</summary>
-                  {compact && <ContractFacts contract={p.contract}/>}
-                  <div className="grid4">
-                    <div>
-                      <p>{displaySeason(s)} cap hit</p>
-                      <p>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</p>
-                    </div>
-                    <div>
-                      <p>Years left</p>
-                      <p>{p.contract?.years_remaining ?? 0}</p>
-                    </div>
-                    <div>
-                      <p>Guaranteed</p>
-                      <p>{p.contract ? millions(p.contract.guaranteed) : "—"}</p>
-                    </div>
-                    <div>
-                      <p>Scheme fit</p>
-                      {/* computed against the coordinators this team has right
-                          now, not a number frozen into the player: a hiring
-                          window changes every fit on the roster, and the
-                          engine's pool carries no `scheme_fit` at all, so the
-                          stored field read "—%" for every real player. */}
-                      <p>{sim.computeSchemeFit(p, oc, dc)}%</p>
-                    </div>
-                  </div>
-                  <div className="roster-player-rating"><span>Overall · {p.overall}</span><MotionMeter value={p.overall} label={`${p.name} overall`} tone="purple" /></div>
+  const positionNav = (
+    <div className="position-pills gd-positions" role="group" aria-label="Position group">
+      {POSITION_GROUPS.map((g) => {
+        const u = unitFor(g);
+        return (
+          <button
+            type="button"
+            key={g}
+            // the grade is visible beside the code; the name stays the code itself
+            aria-label={g}
+            title={u ? `${GROUP_LABEL[g]}: unit grade ${u.grade}, ${ordinal(u.rank)} of ${u.teams}` : GROUP_LABEL[g]}
+            aria-pressed={group === g}
+            onClick={() => { setGroup(g); setSelectedId(null); setConfirming(null); }}
+          >
+            <b>{g}</b>
+            <i aria-hidden="true" className={u ? `gd-grade g-${u.grade.charAt(0)}` : "gd-grade"}>{u?.grade ?? "–"}</i>
+          </button>
+        );
+      })}
+    </div>
+  );
 
-</details>
-  </aside>;
-  return (
-    <div className="roster-workspace">
-    <Card maxWidth={1440}>
-      <header className="sports-page-header" data-team={code}><TeamCrest code={code}/><div><p className="sports-mode">Franchise mode</p><h1>{active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}</h1><p>{teamFullName(code)} · {displaySeason(s)} season · {STAGE_LABEL[s.stage]}{viewerWeek(s) ? " · Week " + viewerWeek(s) : ""}</p></div><div className="sports-header-action">          <button className="btn-ghost" onClick={() => nav("/trade")} title="Proposals are made in the Trade Deadline room">
-            Trade history
-          </button></div></header>
-      <div className="sports-stat-grid">
-        {active === "cap" ? <>
-          <SportsStat icon="coins" label="Cap space" value={millions(capSpace)} note="Available player cap" tone="teal"/>
-          <SportsStat icon="file" label="Player cap" value={millions(capTotalM)} note="Salary cap total" tone="purple"/>
-        </> : <>
-          <SportsStat icon="roster" label="Roster" value={activeCount + " / 53"} note={onIr ? onIr + " on injured reserve" : "Active roster"} tone="teal"/>
-          <SportsStat icon="star" label="Team OVR" value={team.ratings.overall} note={"Rank " + team.ratings.overallRank + " of " + Object.keys(s.teams).length} tone="gold"/>
-          <SportsStat icon="coins" label="Cap space" value={millions(capSpace)} note="Available player cap" tone="purple"/>
-        </>}
-        <SportsStat icon="coins" label="Cap used" value={millions(capUsed)} note="Player cap charges" tone="blue"/>
-        <SportsStat icon="shield" label="Dead money" value={millions(team.cap.dead)} note="Current dead money" tone="red"/>
+  const playerActions = (p: Player) => (
+    <div className="gd-actions">
+      <button type="button" className="gd-btn gd-go" onClick={() => setExtending(p)}>Extend contract</button>
+      <p className="gd-actions-label">Lineup</p>
+      <div className="gd-two">
+        <button
+          type="button"
+          className="gd-btn"
+          onClick={() => nudge(p, -1)}
+          disabled={depthLocked || lineAt(p.position)[0]?.id === p.id}
+          title={`Move up the ${posLabel(p.position)} depth chart`}
+        >
+          Move up
+        </button>
+        <button
+          type="button"
+          className="gd-btn"
+          onClick={() => nudge(p, 1)}
+          disabled={depthLocked || lineAt(p.position).at(-1)?.id === p.id}
+          title={`Move down the ${posLabel(p.position)} depth chart`}
+        >
+          Move down
+        </button>
       </div>
+      <p className="gd-actions-label">Contract</p>
+      <div className="gd-two">
+        <button
+          type="button"
+          className="gd-btn"
+          onClick={() => {
+            // the local action knows exactly what it freed;
+            // the server answers with the new league instead, so
+            // online the preview's arithmetic stands in
+            const estimate = previewRestructure(p, s.season, minSalaryM(s)).freed;
+            // a second tap before the answer came back was refused
+            // ("already restructured"), and that note replaced
+            // the success one — the deal looked like it had failed
+            setRestructuring(p.id);
+            void actions.restructure(p.id).finally(() => setRestructuring(null)).then((r) => {
+              setMoveNote({
+                id: p.id,
+                ok: r.ok,
+                text: r.ok
+                  ? `Restructured — ${millions(r.freed ?? estimate ?? 0)} off this year's cap, moved into the rest of the deal.`
+                  : (r.reason ?? "Couldn't restructure that deal."),
+              });
+            });
+          }}
+          disabled={restructuring === p.id || !previewRestructure(p, s.season, minSalaryM(s)).ok}
+          title={previewRestructure(p, s.season, minSalaryM(s)).reason ?? "Convert salary to bonus: cheaper now, dearer later"}
+        >
+          Restructure
+        </button>
+        <button type="button" className="gd-btn" onClick={() => setInspecting(p.id)}>Player card</button>
+        {p.contract?.years_remaining === 1 && (
+          <button
+            type="button"
+            className="gd-btn"
+            onClick={() => {
+              void actions.tender(p.id, "tag").then((r) =>
+                setMoveNote({
+                  id: p.id,
+                  ok: r.ok,
+                  text: r.ok
+                    ? `Tagged. ${p.name} plays next season on a one-year tender of ${millions(previewFranchiseTag(s, p).price ?? 0)}.`
+                    : (r.reason ?? "Couldn't tag him."),
+                }),
+              );
+            }}
+            disabled={!previewFranchiseTag(s, p).ok}
+            title={
+              previewFranchiseTag(s, p).reason ??
+              `Keep him off the market one more year at ${millions(previewFranchiseTag(s, p).price ?? 0)}, fully guaranteed`
+            }
+          >
+            Franchise tag ({millions(previewFranchiseTag(s, p).price ?? 0)})
+          </button>
+        )}
+        {practiceSquadEligible(p, marketScale(s)) && (
+          <button
+            type="button"
+            className="gd-btn"
+            onClick={() => {
+              void actions.tender(p.id, "practiceSquad").then((r) => {
+                if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't move him." });
+              });
+            }}
+            disabled={depthLocked || !checkToPracticeSquad(s, p).ok}
+            title={
+              checkToPracticeSquad(s, p).reason ??
+              "Keep him and develop him without a roster spot: off the 53, out of games, on a $0.2M deal"
+            }
+          >
+            To practice squad
+          </button>
+        )}
+        {fifthYearEligible(p) && (
+          <button
+            type="button"
+            className="gd-btn"
+            onClick={() => {
+              void actions.tender(p.id, "option").then((r) =>
+                setMoveNote({
+                  id: p.id,
+                  ok: r.ok,
+                  text: r.ok
+                    ? `Option picked up: one more year at ${millions(previewFifthYearOption(s, p).price ?? 0)}, fully guaranteed.`
+                    : (r.reason ?? "Couldn't pick up the option."),
+                }),
+              );
+            }}
+            disabled={!previewFifthYearOption(s, p).ok}
+            title={previewFifthYearOption(s, p).reason ?? "Add a fifth year to his rookie deal at a fixed tender"}
+          >
+            5th-year option ({millions(previewFifthYearOption(s, p).price ?? 0)})
+          </button>
+        )}
+      </div>
+      {confirming === p.id ? (
+        <div className="gd-two">
+          <button
+            type="button"
+            className="gd-btn gd-cut btn-danger"
+            onClick={() => {
+              void actions.releasePlayer(p.id).then((r) => {
+                if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't release him." });
+              });
+              setConfirming(null);
+            }}
+          >
+            Confirm release
+          </button>
+          <button type="button" className="gd-btn" onClick={() => setConfirming(null)}>Keep him</button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="gd-btn gd-cut btn-danger"
+          onClick={() => setConfirming(p.id)}
+          // the server won't release anyone mid-block either (`refuseDuringBlock`)
+          disabled={depthLocked || !checkRelease(s, code, p.id).ok}
+          title={depthLocked ? "Releases open again at the next break." : checkRelease(s, code, p.id).reason}
+        >
+          Release
+        </button>
+      )}
+      <p className={"gd-note" + (moveNote?.id === p.id && !moveNote.ok ? " form-error" : "")}>
+        {moveNote?.id === p.id
+          ? moveNote.text
+          : confirming === p.id
+            ? `Releasing ${p.name} takes his ${millions(p.contract?.cap_hit_by_year[0] ?? 0)} off the books and leaves ${millions(releasePenalty(p))} of dead money this year. He goes to the free agent market. This can't be undone.`
+            : // why a button is grey, where a phone can read it — the
+              // reasons lived only in hover titles
+              ([
+                previewRestructure(p, s.season, minSalaryM(s)).ok ? null : `Restructure: ${previewRestructure(p, s.season, minSalaryM(s)).reason}`,
+                depthLocked || checkRelease(s, code, p.id).ok ? null : `Release: ${checkRelease(s, code, p.id).reason}`,
+              ]
+                .filter(Boolean)
+                .join(" ") ||
+              "A restructure moves money into later years; it doesn't make it go away. Releasing a player costs dead money this year: part of what's left on his deal.")}
+      </p>
+    </div>
+  );
+
+  const playerDossier = (p: Player, compact = false) => {
+    const slot = slotOf(p);
+    const starting = slot > 0 && slot <= (starters[p.position] ?? 0);
+    return (
+      <aside ref={dossierRef} tabIndex={-1} data-player-id={p.id} data-compact={compact} className="player-dossier gd-card" aria-label="Selected player">
+        <div className="gd-card-head">
+          <div>
+            <h3>{p.name}</h3>
+            <p>
+              {posLabel(p.position)}, age {p.age}, {starting ? "starter" : slot > 0 ? `depth ${slot}` : "not on the chart"}
+            </p>
+          </div>
+          <b className="gd-card-ovr" aria-label={`Overall ${p.overall}`}>{p.overall}</b>
+        </div>
+        {compact ? (
+          <section className="finance-cap-schedule gd-sec" aria-label="Scheduled cap hits">
+            <h4>Cap hits by remaining year</h4>
+            {p.contract ? (
+              <dl className="gd-ledger">
+                {p.contract.cap_hit_by_year.map((hit, i) => <div key={i}><dt>Remaining year {i + 1}</dt><dd>{millions(hit)}</dd></div>)}
+              </dl>
+            ) : <p>No contract on record.</p>}
+          </section>
+        ) : (
+          <div className="gd-sec"><ContractFacts contract={p.contract} /></div>
+        )}
+        {playerActions(p)}
+        <details className="player-extra gd-extra">
+          <summary>{compact ? "Full contract and player details" : "More player details"}</summary>
+          {compact && <ContractFacts contract={p.contract} />}
+          <dl className="gd-ledger">
+            <div><dt>{displaySeason(s)} cap hit</dt><dd>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</dd></div>
+            <div><dt>Years left</dt><dd>{p.contract?.years_remaining ?? 0}</dd></div>
+            <div><dt>Guaranteed</dt><dd>{p.contract ? millions(p.contract.guaranteed) : "—"}</dd></div>
+            {/* computed against the coordinators this team has right
+                now, not a number frozen into the player: a hiring
+                window changes every fit on the roster, and the
+                engine's pool carries no `scheme_fit` at all, so the
+                stored field read "—%" for every real player. */}
+            <div><dt>Scheme fit</dt><dd>{sim.computeSchemeFit(p, oc, dc)}%</dd></div>
+          </dl>
+          <div className="roster-player-rating"><span>Overall {p.overall}</span><MotionMeter value={p.overall} label={`${p.name} overall`} tone="purple" /></div>
+        </details>
+      </aside>
+    );
+  };
+
+  const markers = (p: Player) => (
+    <>
+      {p.injury_status && (
+        <span
+          className="gd-marker bad"
+          title={`${p.injury_status.description}${p.injury_status.weeks_out_est ? `, ${p.injury_status.weeks_out_est[0]}-${p.injury_status.weeks_out_est[1]} weeks` : ""}`}
+        >
+          {/* spoken it was "OTQ": the space, and the whole word for "Q" */}{" "}
+          <span aria-hidden="true">
+            {onInjuredReserve(p, s.stage) ? "IR" : p.injury_status.status === "questionable" ? "Q" : p.injury_status.status === "doubtful" ? "D" : "OUT"}
+          </span>
+          <span className="sr-only">
+            {onInjuredReserve(p, s.stage) ? "injured reserve" : p.injury_status.status}
+          </span>
+        </span>
+      )}
+      {p.holdout === p.nfl_team && (
+        <span
+          className="gd-marker notice"
+          title="Holding out for a new contract: he sits until he's extended or traded, or reports at the trade deadline"
+        >
+          Holdout
+        </span>
+      )}
+      {p.contract?.franchise_tag_season === s.season && (
+        <span className="gd-marker" title="Franchise-tagged for next season">Tag</span>
+      )}
+    </>
+  );
+
+  const week = viewerWeek(s);
+  const style = {
+    "--gd-team": palette.bg,
+    "--gd-team-ink": palette.ink,
+    "--gd-accent": palette.accent,
+    "--gd-on-accent": palette.onAccent,
+    "--gd-accent-text": palette.accentText,
+  } as CSSProperties;
+
+  return (
+    <div className="roster-workspace gd" style={style}>
+    <div className="gd-page">
+      <GameDayMasthead
+        code={code}
+        title={active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}
+        sub={
+          <>
+            {displaySeason(s)} season, {STAGE_LABEL[s.stage]}{week ? `, week ${week}` : ""}.{" "}
+            Team overall {team.ratings.overall}, {ordinal(team.ratings.overallRank)} of {Object.keys(s.teams).length}.{" "}
+            {activeCount} of 53 on the active roster{onIr ? `, ${onIr} on injured reserve` : ""}.
+          </>
+        }
+        actions={
+          <button type="button" className="gd-flat" onClick={() => nav("/trade")} title="Proposals are made in the Trade Deadline room">
+            Trade history
+          </button>
+        }
+      />
+      <CapField total={capTotalM} used={capUsed} room={capSpace} dead={team.cap.dead} />
       {/* legality is the contracts — dead money shrinks the room to add
           anyone, but it can't make this roster illegal (reconciliation.ts) */}
       {(overContracts > 0 || activeCount > 53) && (
-        <div className="notice bad" role="status">
+        <div className="notice bad gd-notice" role="status">
           <strong>Not season-legal yet.</strong>{" "}
           {[
             overContracts > 0 ? `${millions(overContracts)} over the cap` : null,
@@ -416,7 +548,7 @@ export function RosterCapManagement() {
           the depth chart at 43 met ten minimum-salary strangers there, and
           nothing on this screen had said it would happen */}
       {s.stage === "offseasonDepthChart" && activeCount < 53 && overContracts <= 0 && (
-        <div className="notice" role="status">
+        <div className="notice gd-notice" role="status">
           {/* depth signs at the $1M minimum; when it won't fit the fill makes
               room by releasing contracts — and "sign your own first" beside
               $0.2M of room was advice nobody could take */}
@@ -442,41 +574,39 @@ export function RosterCapManagement() {
           )}
         </div>
       )}
-      <Tabs
-        tabs={[
-          { id: "roster", label: "Roster" },
-          { id: "cap", label: "Cap table" },
-          { id: "units", label: "Unit grades" },
-          { id: "needs", label: "Positional needs" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={[
+            { id: "roster", label: "Depth chart" },
+            { id: "cap", label: "Cap table" },
+            { id: "units", label: "Unit grades" },
+            { id: "needs", label: "Positional needs" },
+          ]}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
 
       <Panel id="roster" open={active === "roster"}>
         {active === "roster" && (
-        <div className="roster-board"><section className="depth-board sports-panel"><h2 className="sports-panel-title">Depth chart</h2>{positionNav}
-        {depthLocked && (
-          <div className="notice" role="status" style={{ marginBottom: 12 }}>
-            The depth chart and releases are locked while this stretch of games plays out — they
-            were played with today&rsquo;s roster. Both open again at the next break.
-          </div>
-        )}
-        <div className="roster-position-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <label htmlFor="roster-position" style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Position</label>
-            <select id="roster-position" value={group} onChange={(e) => setGroup(e.target.value as PositionGroup)}>
-              {POSITION_GROUPS.map((g) => (
-                <option key={g} value={g}>
-                  {GROUP_LABEL[g]}
-                </option>
-              ))}
-            </select>
+        <div className="gd-board">
+        <section className="gd-depth" aria-label="Depth chart">
+        {positionNav}
+        <div className="gd-unit">
+          <div>
+            <h2>{GROUP_TITLE[group]}</h2>
+            <p>
+              {groupUnit
+                ? `Unit grade ${groupUnit.grade}, ${ordinal(groupUnit.rank)} of ${groupUnit.teams} in the league`
+                : "Not graded as a unit"}
+            </p>
           </div>
           {/* through the league actions, not the local store: online the
               store-only reset never reached the server and the next refresh
               put the old order back */}
           <button
+            type="button"
+            className="gd-btn gd-small"
             disabled={reordering || depthLocked}
             onClick={() => {
               // one batch and one download, and a refusal (the chart locks
@@ -493,8 +623,14 @@ export function RosterCapManagement() {
             {reordering ? "Reordering…" : "Auto-reorder by overall"}
           </button>
         </div>
+        {depthLocked && (
+          <div className="notice gd-notice" role="status">
+            The depth chart and releases are locked while this stretch of games plays out — they
+            were played with today&rsquo;s roster. Both open again at the next break.
+          </div>
+        )}
         {moveNote?.id === "" && !moveNote.ok && (
-          <p className="form-error" role="status" style={{ margin: "-6px 0 12px" }}>
+          <p className="form-error" role="status">
             {moveNote.text}
           </p>
         )}
@@ -502,104 +638,95 @@ export function RosterCapManagement() {
         {ordered.length === 0 && (
           <div className="emptystate">No players in this group.</div>
         )}
-        <StaggerList className="rowlist roster-list">
-          {ordered.map(p => <button key={p.id} type="button" data-player-id={p.id} className={"prow depth-player" + (selected?.id === p.id ? " selected" : "")} style={{ gridTemplateColumns: ROSTER_GRID }} aria-pressed={selected?.id === p.id} onClick={() => choosePlayer(p)}>
-
-                  <span className="rank-num">{lineAt(p.position).indexOf(p) + 1}<small>{p.position}{lineAt(p.position).indexOf(p) + 1}</small></span>
-                  <span className="pname"><PlayerThumb player={p} className="player-thumb" />
-                    <span className="roster-name">{p.name}</span> <span className="ppos">{posLabel(p.position)}</span>
-                    {p.injury_status && (
-                      <span
-                        title={`${p.injury_status.description}${p.injury_status.weeks_out_est ? `, ${p.injury_status.weeks_out_est[0]}-${p.injury_status.weeks_out_est[1]} weeks` : ""}`}
-                        style={{ marginLeft: 3, fontSize: 10, fontWeight: 700, color: "var(--bad)" }}
-                      >
-                        {/* spoken it was "OTQ": the space, and the whole word for "Q" */}{" "}
-                        <span aria-hidden="true">
-                          {onInjuredReserve(p, s.stage) ? "IR" : p.injury_status.status === "questionable" ? "Q" : p.injury_status.status === "doubtful" ? "D" : "OUT"}
-                        </span>
-                        <span className="sr-only">
-                          {onInjuredReserve(p, s.stage) ? "injured reserve" : p.injury_status.status}
-                        </span>
-                      </span>
-                    )}
-                    {p.holdout === p.nfl_team && (
-                      <span
-                        title="Holding out for a new contract: he sits until he's extended or traded, or reports at the trade deadline"
-                        style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--notice)" }}
-                      >
-                        HOLDOUT
-                      </span>
-                    )}
-                    {p.contract?.franchise_tag_season === s.season && (
-                      <span title="Franchise-tagged for next season" style={{ marginLeft: 4, fontSize: 10, fontWeight: 700, color: "var(--accent)" }}>
-                        TAG
-                      </span>
-                    )}
+        <StaggerList className="rowlist roster-list gd-strips">
+          {ordered.map((p) => {
+            const slot = slotOf(p);
+            const starting = slot <= (starters[p.position] ?? 0);
+            const typical = leagueStarters[p.position];
+            const delta = typical === undefined ? null : p.overall - typical;
+            const arc = careerArc(p);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                data-player-id={p.id}
+                className={"prow gd-strip" + (selected?.id === p.id ? " selected" : "")}
+                aria-pressed={selected?.id === p.id}
+                onClick={() => choosePlayer(p)}
+              >
+                <span className="gd-slot">{slot}</span>
+                <span className="gd-who">
+                  <span className="gd-name-line"><span className="roster-name">{p.name}</span>{markers(p)}</span>
+                  <span className="gd-meta">
+                    {p.position}{slot}{starting ? ", starter" : ""}
+                    {delta !== null && <>, {delta >= 0 ? "+" : "−"}{Math.abs(delta)} vs league starter</>}
                   </span>
-                  <span className="roster-overall"><span className="roster-mobile-label">Overall</span><OvrPill value={p.overall} /></span>
-                  <span className="pcell roster-age" data-label="Age" title={arcOf(p).hint}>
-                    <span className="roster-mobile-label">Age</span>
-                    {p.age}
-                    <span style={{ display: "block", fontSize: 9.5, color: arcOf(p).color }}>{arcOf(p).label}</span>
-                  </span>
-                  <span className="pcell roster-years" data-label="Deal"><span className="roster-mobile-label">Deal</span>{p.contract ? `${p.contract.years_remaining}y` : "FA"}</span>
-                  <span className="roster-cap-hit" data-label="Cap hit" style={{ fontSize: 13, textAlign: "right", fontWeight: 500 }}>
-                    <span className="roster-mobile-label">Cap hit</span>
-                    {p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}
-                  </span><span className="chev" aria-hidden="true">›</span>
-          </button>)}
+                </span>
+                <span className="gd-fact gd-age" title={arc.hint}>
+                  <small>Age</small>
+                  <b>{p.age}</b>
+                  <span className={`gd-arc ${ARC_CLASS[arc.label]}`}>{arc.label}</span>
+                </span>
+                <span className="gd-fact"><small>Deal</small><b>{p.contract ? `${p.contract.years_remaining} yr` : "FA"}</b></span>
+                <span className="gd-fact gd-cap"><small>Cap hit</small><b>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</b></span>
+                <span className={`gd-ovr ${ovrTier(p.overall)}`}><b>{p.overall}</b><small>Overall</small></span>
+              </button>
+            );
+          })}
         </StaggerList>
         {(() => {
           const squad = practiceSquad(s, code);
           return (
-            <>
-              <p className="sectionlabel" style={{ marginTop: 18 }}>
-                Practice squad · {squad.length} / {PRACTICE_SQUAD_SIZE}
-              </p>
+            <div className="gd-ps">
+              <h3>Practice squad: {squad.length} of {PRACTICE_SQUAD_SIZE}</h3>
               {squad.length === 0 ? (
-                <p style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "4px 0 0" }}>
-                  Nobody yet. A player with two seasons or fewer on a minimum-level deal can be moved here from
-                  his row above: he stays yours and keeps developing, without a roster spot, and doesn't play.
+                <p>
+                  Nobody here yet. A player with two seasons or fewer on a minimum-level deal can be moved
+                  here from his row above: he stays yours and keeps developing, without a roster spot, and
+                  doesn&rsquo;t play.
                 </p>
               ) : (
-                squad.map((p) => (
-                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", fontSize: 13 }}>
-                    <span style={{ flex: 1 }}>
-                      {p.name} <span className="ppos">{posLabel(p.position)}</span>
-                      <span style={{ color: "var(--ink-faint)", marginLeft: 6, fontSize: 11.5 }}>age {p.age}</span>
-                    </span>
-                    <OvrPill value={p.overall} />
-                    <button
-                      onClick={() => {
-                        void actions.tender(p.id, "promote").then((r) => {
-                          if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't promote him." });
-                        });
-                      }}
-                      disabled={depthLocked || !checkPromote(s, p).ok}
-                      title={checkPromote(s, p).reason ?? "Promote to the 53 on a one-year minimum deal"}
-                    >
-                      Promote
-                    </button>
-                  </div>
-                ))
+                <ul>
+                  {squad.map((p) => (
+                    <li key={p.id}>
+                      <span className="gd-ps-name">
+                        <b>{p.name}</b> {posLabel(p.position)}, age {p.age}
+                      </span>
+                      <span className={`gd-ps-ovr ${ovrTier(p.overall)}`} aria-label={`Overall ${p.overall}`}>{p.overall}</span>
+                      <button
+                        type="button"
+                        className="gd-btn gd-small"
+                        onClick={() => {
+                          void actions.tender(p.id, "promote").then((r) => {
+                            if (!r.ok) setMoveNote({ id: p.id, ok: false, text: r.reason ?? "Couldn't promote him." });
+                          });
+                        }}
+                        disabled={depthLocked || !checkPromote(s, p).ok}
+                        title={checkPromote(s, p).reason ?? "Promote to the 53 on a one-year minimum deal"}
+                      >
+                        Promote
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
               {moveNote && squad.some((p) => p.id === moveNote.id) && (
-                <p className="form-error" style={{ margin: "6px 0 0", fontSize: 11.5 }}>
-                  {moveNote.text}
-                </p>
+                <p className="form-error">{moveNote.text}</p>
               )}
-            </>
+            </div>
           );
         })()}
-        </section>{selected && playerDossier(selected)}{selected && <section className="selection-actions sports-panel" aria-label="Selected player actions">{playerActions(selected)}</section>}</div>
+        </section>
+        {selected && playerDossier(selected)}
+        </div>
         )}
       </Panel>
 
       <Panel id="cap" open={active === "cap"}>
         {active === "cap" && (
-        <div className="roster-finance-layout">
+        <div className="roster-finance-layout gd-finance">
         <RosterFinance total={capTotalM} used={capUsed} room={capSpace} dead={team.cap.dead} />
-        <MotionSurface className="ui-surface roster-allocation" index={1}>
+        <MotionSurface className="ui-surface roster-allocation gd-panel" index={1}>
         <div className="ui-section-heading"><div><h2>Cap allocation</h2><p>Current player cap hits by unit</p></div></div>
         <CapBar label="Offense" value={capByUnit.offense} max={capUsed} />
         <CapBar label="Defense" value={capByUnit.defense} max={capUsed} />
@@ -609,42 +736,67 @@ export function RosterCapManagement() {
         </MotionSurface>
         </div>
         )}
-        {active === "cap" && <div className="finance-lower"><section className="sports-panel contract-board"><h2 className="sports-panel-title">{GROUP_LABEL[group]} contracts</h2>{positionNav}<div className="contract-list-head" aria-hidden="true"><span>Player</span><span>Remaining</span><span>Cap hit</span></div><div className="contract-player-list">{ordered.map(p => <button type="button" key={p.id} data-player-id={p.id} aria-pressed={selected?.id === p.id} aria-label={`${p.name}, ${p.position}, ${p.contract ? p.contract.years_remaining + " years remaining, " + millions(p.contract.cap_hit_by_year[0] ?? 0) + " cap hit" : "no contract on record"}`} onClick={() => choosePlayer(p)}><PlayerThumb player={p} className="player-thumb" /><strong>{p.name}</strong><span>{p.contract?.years_remaining ?? "—"} years</span><b>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</b><span aria-hidden="true">›</span></button>)}</div></section>{selected && playerDossier(selected, true)}{selected && <section className="selection-actions sports-panel" aria-label="Selected player actions">{playerActions(selected)}</section>}</div>}
-      </Panel>
-
-      <Panel id="units" open={active === "units"}>
-        {active === "units" && <UnitGrades teamCode={code} />}
-      </Panel>
-
-      <Panel id="needs" open={active === "needs"}>
-        <p className="sectionlabel" style={{ marginBottom: 4 }}>
-          Positions needing attention
-        </p>
-        <p style={{ margin: "0 0 16px", fontSize: 11, color: "var(--ink-faint)" }}>
-          Only spots below roster-health thresholds are listed.
-        </p>
-        {needs.length === 0 ? (
-          <div className="emptystate">No positional needs flagged.</div>
-        ) : (
-          needs.map((n) => (
-            <div
-              key={n.g}
-              style={{ display: "flex", gap: 12, padding: "12px 4px 12px 14px", borderLeft: "2px solid var(--bad)", marginBottom: 8, background: "var(--panel-sunken)", borderRadius: "0 var(--r-sm) var(--r-sm) 0" }}
-            >
-              <span style={{ fontSize: 13, fontWeight: 600, minWidth: 120 }}>{GROUP_LABEL[n.g]}</span>
-              <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>{n.reason}</span>
-            </div>
-          ))
+        {active === "cap" && (
+          <div className="gd-board gd-finance-lower">
+            <section className="gd-depth contract-board" aria-label={`${GROUP_LABEL[group]} contracts`}>
+              {positionNav}
+              <div className="gd-unit"><div><h2>{GROUP_TITLE[group]}</h2><p>Contracts, in depth-chart order</p></div></div>
+              <div className="contract-list-head" aria-hidden="true"><span>Player</span><span>Remaining</span><span>Cap hit</span></div>
+              <div className="contract-player-list">
+                {ordered.map((p) => (
+                  <button
+                    type="button"
+                    key={p.id}
+                    data-player-id={p.id}
+                    aria-pressed={selected?.id === p.id}
+                    aria-label={`${p.name}, ${p.position}, ${p.contract ? p.contract.years_remaining + " years remaining, " + millions(p.contract.cap_hit_by_year[0] ?? 0) + " cap hit" : "no contract on record"}`}
+                    onClick={() => choosePlayer(p)}
+                  >
+                    <strong>{p.name}</strong>
+                    <span>{p.contract?.years_remaining ?? "—"} years</span>
+                    <b>{p.contract ? millions(p.contract.cap_hit_by_year[0] ?? 0) : "—"}</b>
+                  </button>
+                ))}
+              </div>
+            </section>
+            {selected && playerDossier(selected, true)}
+          </div>
         )}
       </Panel>
 
+      <Panel id="units" open={active === "units"}>
+        {active === "units" && <div className="gd-units"><UnitGrades teamCode={code} /></div>}
+      </Panel>
+
+      <Panel id="needs" open={active === "needs"}>
+        <div className="gd-needs">
+          <h2>Positions needing attention</h2>
+          <p>Only spots below roster-health thresholds are listed.</p>
+          {needs.length === 0 ? (
+            <div className="emptystate">No positional needs flagged.</div>
+          ) : (
+            <ul>
+              {needs.map((n) => (
+                <li key={n.g} className="gd-need">
+                  <b>{n.g}</b>
+                  <span><strong>{GROUP_LABEL[n.g]}</strong> {n.reason}</span>
+                  <span className={`gd-level ${n.level}`}>
+                    {n.level === "urgent" ? "Starting spot open" : n.level === "upgrade" ? "Upgrade" : "No depth"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Panel>
+
       <Footer>
-        <button onClick={() => nav("/league-rosters")}>League Rosters</button>
-        <button onClick={() => nav("/free-agency")}>Free agency board</button>
+        <button type="button" className="gd-btn" onClick={() => nav("/league-rosters")}>League Rosters</button>
+        <button type="button" className="gd-btn" onClick={() => nav("/free-agency")}>Free agency board</button>
         {/* on the depth-chart stage this screen *is* the stage: "back to
             stage" went round to itself */}
         {!(isDepthChartStage && !s.returnTo) && (
-          <button className="btn-primary" onClick={() => nav(back.to)}>
+          <button type="button" className="gd-btn gd-go btn-primary" onClick={() => nav(back.to)}>
             {back.label}
           </button>
         )}
@@ -694,8 +846,8 @@ export function RosterCapManagement() {
           }}
         />
       )}
-      {inspecting && s.players[inspecting] && <PlayerStatsModal player={s.players[inspecting]!} onClose={() => setInspecting(null)} />}
-    </Card>
+      {inspecting && s.players[inspecting] && <PlayerStatsModal player={s.players[inspecting]!} portrait={false} onClose={() => setInspecting(null)} />}
+    </div>
     </div>
   );
 }
@@ -712,4 +864,3 @@ function CapBar({ label, value, max }: { label: string; value: number; max: numb
   );
 }
 
-const arcOf = careerArc;

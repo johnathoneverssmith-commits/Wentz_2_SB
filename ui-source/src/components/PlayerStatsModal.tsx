@@ -14,7 +14,11 @@ import { useStore } from "@/state/store";
  */
 const NONE: never[] = [];
 
-export function PlayerStatsModal({ player, onClose }: { player: Player; onClose: () => void }) {
+/**
+ * `portrait` is off where a screen shows no faces at all (the roster screen);
+ * everywhere else the card opens with the player's portrait.
+ */
+export function PlayerStatsModal({ player, onClose, portrait = true }: { player: Player; onClose: () => void; portrait?: boolean }) {
   const st = player.season_stats;
   // stable fallbacks: a fresh `[]` per render would re-render forever
   const awards = (useStore((s) => s.awards) ?? NONE).filter((a) => a.playerId === player.id);
@@ -46,7 +50,7 @@ export function PlayerStatsModal({ player, onClose }: { player: Player; onClose:
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <PlayerThumb player={player} size={52} />
+          {portrait && <PlayerThumb player={player} size={52} />}
           <div style={{ flex: 1, minWidth: 0, marginLeft: 12 }}>
             <p className="modal-title" id="player-card-title">
               {player.name} · {posLabel(player.position)}

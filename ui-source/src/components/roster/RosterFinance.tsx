@@ -5,6 +5,7 @@ import { millions } from "@/util/format";
 import { m } from "framer-motion";
 import { useMotion } from "@/motion/tokens";
 import { SportsIcon } from "./SportsPresentation";
+import "./shared-presentation.css";
 
 /** Passive display: these are the roster screen's existing reported values. */
 export function RosterFinance({ total, used, room, dead }: {
@@ -49,7 +50,11 @@ export function ContractFacts({ contract }: { contract: Contract | null | undefi
     </dl>
     <p className="roster-money-label">Scheduled cap hits</p>
     {contract.cap_hit_by_year.length ? <dl className="roster-deal-years">
-      {contract.cap_hit_by_year.map((hit, i) => <div key={i}><dt>Remaining year {i + 1}</dt><dd>{millions(hit)}</dd></div>)}
+      {contract.cap_hit_by_year.map((hit, i) => {
+        const top = Math.max(0, ...contract.cap_hit_by_year);
+        // drawn by the roster screen's stylesheet as a bar chart; a plain list elsewhere
+        return <div key={i}><dt>Remaining year {i + 1}</dt><dd>{millions(hit)}</dd><span className="deal-bar" aria-hidden="true" style={{ height: `${top > 0 ? Math.max(4, Math.round((hit / top) * 100)) : 4}%` }}/></div>;
+      })}
     </dl> : <p className="ui-caption">No cap schedule on record.</p>}
   </section>;
 }
