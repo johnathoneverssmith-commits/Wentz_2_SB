@@ -59,25 +59,25 @@ export function PlayByPlayLog({ broadcast }: { broadcast: GameBroadcast }): JSX.
   );
 
   return (
-    <section aria-label="Play-by-play log" data-testid="pbp-log">
+    <section className="pbp" aria-label="Play-by-play log" data-testid="pbp-log">
       <p className="sectionlabel">Play-by-play log</p>
-      <div role="tablist" aria-label="Quarter" style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0 10px" }}>
+      <div role="tablist" aria-label="Quarter" className="pbp-tabs">
         {quarters.map((q) => (
           <button
             key={q}
             type="button"
             role="tab"
             aria-selected={quarter === q}
-            className={`btnlink ${quarter === q ? "btn-primary" : ""}`}
+            className={`btnlink pbp-tab ${quarter === q ? "btn-primary" : ""}`}
             onClick={() => setQuarter(q)}
           >
             {qLabel(q)}
           </button>
         ))}
-        <button type="button" role="tab" aria-selected={quarter === "all"} className={`btnlink ${quarter === "all" ? "btn-primary" : ""}`} onClick={() => setQuarter("all")}>
+        <button type="button" role="tab" aria-selected={quarter === "all"} className={`btnlink pbp-tab ${quarter === "all" ? "btn-primary" : ""}`} onClick={() => setQuarter("all")}>
           Full game
         </button>
-        <label style={{ marginLeft: "auto", fontSize: 12, color: "var(--ink-dim)", display: "flex", gap: 6, alignItems: "center" }}>
+        <label className="pbp-only">
           <input type="checkbox" checked={only === "notable"} onChange={(e) => setOnly(e.target.checked ? "notable" : "all")} />
           Scoring, turnovers &amp; big plays only
         </label>
@@ -92,24 +92,24 @@ export function PlayByPlayLog({ broadcast }: { broadcast: GameBroadcast }): JSX.
         if (only === "notable" && plays.length === 0) return null;
         const last = d.plays[d.plays.length - 1];
         return (
-          <div key={di} className="neg-row" style={{ display: "block" }} data-testid="pbp-drive">
-            <p style={{ margin: "0 0 4px", fontSize: 12.5, fontWeight: 600 }}>
+          <div key={di} className="pbp-drive" data-testid="pbp-drive">
+            <p className="pbp-drive__head">
               {qLabel(quarter === "all" ? d.quarter : quarter)} · {teamName(d.team)} · {d.plays.length} {d.plays.length === 1 ? "play" : "plays"}
               {quarter !== "all" && inQuarter.size < d.plays.length ? ` (${inQuarter.size} this quarter)` : ""} ·{" "}
               {OUTCOME[d.ended] ?? d.ended}
               {d.points > 0 ? ` (+${d.points})` : ""}
               {d.pointsAgainst > 0 ? ` (${teamName(d.side === "home" ? broadcast.away : broadcast.home)} +${d.pointsAgainst})` : ""}
               {last?.scoreAfter ? (
-                <span style={{ color: "var(--ink-faint)", fontWeight: 400 }}>
+                <span className="pbp-drive__score">
                   {" "}
                   · {teamName(broadcast.away)} {last.scoreAfter[1]}, {teamName(broadcast.home)} {last.scoreAfter[0]}
                 </span>
               ) : null}
             </p>
-            <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.5, color: "var(--ink-dim)" }}>
+            <ol className="pbp-plays">
               {plays.map(({ p, pi }) => (
-                <li key={pi} style={{ fontWeight: isNotable(p) ? 600 : 400, color: isNotable(p) ? "var(--ink)" : undefined }}>
-                  <span style={{ color: "var(--ink-faint)" }}>{p.clock} </span>
+                <li key={pi} className={isNotable(p) ? "is-notable" : undefined}>
+                  <span className="pbp-clock">{p.clock} </span>
                   {(narration[di]?.[pi]?.before ?? []).map((b, bi) => (
                     <em key={bi}>{segText(b)} </em>
                   ))}
@@ -134,8 +134,8 @@ export function PlayByPlayLog({ broadcast }: { broadcast: GameBroadcast }): JSX.
 export function ScoringSummary({ game }: { game: GameResult }): JSX.Element {
   const plays: ScoringPlay[] = game.scoringPlays ?? [];
   return (
-    <section aria-label="Scoring summary" data-testid="pbp-summary">
-      <div className="notice" role="status" style={{ marginBottom: 10 }}>
+    <section className="pbp" aria-label="Scoring summary" data-testid="pbp-summary">
+      <div className="notice" role="status">
         The play-by-play for this game wasn't recorded, so this is the scoring summary — every scoring play the game kept,
         and nothing else.
       </div>
@@ -146,12 +146,12 @@ export function ScoringSummary({ game }: { game: GameResult }): JSX.Element {
         </div>
       ) : (
         plays.map((p, i) => (
-          <div key={i} className="neg-row">
+          <div key={i} className="pbp-drive pbp-score">
             <span>
               <span className="pname">{p.description}</span>
-              <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-dim)" }}>{teamName(p.team)}</span>
+              <span className="pbp-score__team">{teamName(p.team)}</span>
             </span>
-            <span style={{ fontSize: 11.5, color: "var(--ink-faint)", whiteSpace: "nowrap" }}>
+            <span className="pbp-score__when">
               {qLabel(p.quarter)} · {game.awayTeam} {p.awayScore}–{p.homeScore} {game.homeTeam}
             </span>
           </div>
