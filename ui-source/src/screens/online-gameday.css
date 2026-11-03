@@ -1,0 +1,90 @@
+/*
+ * The online lobby on the gameday system (design/gameday.css and
+ * design/gameday-blocks.css). Section 1: the "looking for the server",
+ * "no server answered" and sign-in / create-account / reset views.
+ */
+
+/* ---- one ruled card per view ------------------------------------------------- */
+.online-gd .online-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  max-width: 560px;
+  padding: 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  box-shadow: 6px 6px 0 var(--gd-rule);
+}
+.online-gd .online-card > * {
+  margin: 0;
+  min-width: 0;
+}
+.online-gd .online-note {
+  color: var(--gd-mute);
+  font: 500 14px/1.55 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.online-gd .online-note code {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* ---- the form ------------------------------------------------------------------ */
+.online-gd .lobby-form {
+  max-width: none;
+  gap: 14px;
+}
+.online-gd .lobby-form label {
+  gap: 6px;
+  min-width: 0;
+}
+/* sentence case, not a tracked all-caps eyebrow */
+.online-gd .lobby-form label > span {
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.online-gd .lobby-form input[type="text"],
+.online-gd .lobby-form input[type="password"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: #fff;
+  color: var(--gd-ink);
+  font: 500 16px/1.2 var(--gd-body);
+}
+.online-gd .lobby-form button[type="submit"] {
+  justify-self: start;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+  font: 800 15px/1.2 var(--gd-body);
+  box-shadow: 4px 4px 0 var(--gd-rule);
+}
+.online-gd .lobby-form button[type="submit"]:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.online-gd .lobby-form button[type="submit"]:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .online-gd .online-card {
+    padding: 14px 12px;
+    box-shadow: 4px 4px 0 var(--gd-rule);
+    margin-right: 4px;
+  }
+}

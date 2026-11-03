@@ -1,6 +1,6 @@
 import { ManualPicksInput } from "@/components/ManualPicksInput";
 import { CopyButton, inviteLink } from "@/components/CopyButton";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { humansOnlyLeagueSize, playoffFieldSize, seasonShapeFor } from "@/state/leagueFormat";
@@ -19,6 +19,12 @@ import { timeLeft } from "@/util/format";
 import { ERAS } from "@/sim/leagueDna";
 import { DEFAULT_ERA_ID, UNIVERSE_HINT, UNIVERSE_LABEL, universePatch, type UniverseKind } from "@/state/universe";
 import { useStore } from "@/state/store";
+import { viewerTeamCode } from "@/state/selectors";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./online-gameday.css";
 import type { DeadlineChoice, Difficulty, Stage } from "@/domain";
 
 /**
@@ -59,6 +65,20 @@ interface LeagueRow {
 /** The server hands back the raw stage key; the app has a name for it. */
 const stageName = (stage: string): string => STAGE_LABEL[stage as Stage] ?? stage;
 /** Stages played a turn at a time — the only ones with a running clock. */
+
+/**
+ * The gameday page the lobby's views sit in: a compact masthead in the viewer's
+ * team colours (neutral when they have no team yet), then the view itself.
+ */
+function OnlineFrame({ heading, sub, children }: { heading: string; sub: string; children: ReactNode }) {
+  const code = useStore((s) => viewerTeamCode(s));
+  return (
+    <GdPage code={code} className="online-gd">
+      <GameDayMasthead code={code ?? ""} compact title="Online leagues" heading={heading} sub={sub} />
+      {children}
+    </GdPage>
+  );
+}
 
 export function OnlineLobby() {
   const nav = useNavigate();
@@ -181,30 +201,26 @@ export function OnlineLobby() {
 
   if (checking) {
     return (
-      <Card maxWidth={720}>
-        <CardHeader badge="ON" title="Online Leagues" subtitle="Looking for the league server…" />
-        <div className="panel open">
-          <div className="emptystate">
-            {wakeTries === 0
-              ? "One moment."
-              : "Waking the league server — it sleeps when nobody has played for a while. This can take up to a minute."}
-          </div>
+      <OnlineFrame heading="Online leagues" sub="Looking for the league server…">
+        <div className="emptystate" role="status">
+          {wakeTries === 0
+            ? "One moment."
+            : "Waking the league server — it sleeps when nobody has played for a while. This can take up to a minute."}
         </div>
-      </Card>
+      </OnlineFrame>
     );
   }
 
   if (offline) {
     return (
-      <Card maxWidth={720}>
-        <CardHeader badge="ON" title="Online Leagues" subtitle="No league server answered" />
-        <div className="panel open">
+      <OnlineFrame heading="Online leagues" sub="No league server answered">
+        <div className="online-card">
           <div className="notice bad" role="status">
             <strong>The league server didn't answer.</strong> It sleeps when nobody has used it
             for a while and takes up to a minute to wake — if that's all this is, waiting a moment
             and trying again will fix it.
           </div>
-          <p style={{ fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.6 }}>
+          <p className="online-note">
             If it keeps failing, the server is down — try again later. Your single-player dynasty
             is untouched either way.
             {/* setup instructions are for whoever runs the server, not for players */}
@@ -225,7 +241,7 @@ export function OnlineLobby() {
             Back to your dynasty
           </button>
         </Footer>
-      </Card>
+      </OnlineFrame>
     );
   }
 
@@ -583,13 +599,11 @@ function SignIn({
     });
 
   return (
-    <Card maxWidth={520}>
-      <CardHeader
-        badge="ON"
-        title={mode === "register" ? "Create an Account" : mode === "reset" ? "Reset Your Password" : "Sign In"}
-        subtitle="One league, one team, played over months"
-      />
-      <div className="panel open">
+    <OnlineFrame
+      heading={mode === "register" ? "Create an Account" : mode === "reset" ? "Reset Your Password" : "Sign In"}
+      sub="One league, one team, played over months"
+    >
+      <div className="online-card">
         {invited && (
           <div className="notice" role="status">
             You&rsquo;ve been invited to a league. Sign in — or create an account if you&rsquo;re new — and
@@ -656,7 +670,7 @@ function SignIn({
             {mode === "register" ? "Create account" : mode === "reset" ? "Set new password" : "Sign in"}
           </button>
         </form>
-        <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+        <p className="online-note">
           {mode === "register"
             ? "Your name is how other GMs in the league will see you. Passwords need at least 8 characters."
             : mode === "reset"
@@ -683,7 +697,7 @@ function SignIn({
           Back to your dynasty
         </button>
       </Footer>
-    </Card>
+    </OnlineFrame>
   );
 }
 
