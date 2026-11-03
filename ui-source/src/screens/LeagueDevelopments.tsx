@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
+import { StagePage } from "@/components/stages/StagePage";
+import { viewerTeamCode } from "@/state/selectors";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { leagueDevelopmentsFor, swindleLineFor, type LeagueDevelopmentEntry } from "@/state/hoodedFigure";
 import type { CoachingChange } from "@/state/coachingCarousel";
@@ -24,11 +25,11 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
   const coaches = useStore((st) => st.coaches);
   if (e.kind === "swindle") {
     return (
-      <div className="panel open" style={{ borderColor: "var(--bad)" }}>
-        <p style={{ margin: 0, fontWeight: 700 }}>
+      <div className="stage-entry stage-entry--swindle">
+        <p className="stage-entry-lead">
           ***{e.swindleGmName} gave {millions(e.swindlePayment ?? 0)} to a hooded figure.
         </p>
-        <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--ink-faint)" }}>
+        <p className="stage-text">
           {swindleLineFor(e.teamCode, season)}
         </p>
       </div>
@@ -39,16 +40,14 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
   if (!o) return null;
 
   return (
-    <div className="panel open">
-      <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: 1 }}>
-        {teamName(e.teamCode)}
-      </p>
-      <p style={{ margin: "4px 0 0" }}>{o.publicText}</p>
+    <div className="stage-entry">
+      <h3 className="stage-entry-team">{teamName(e.teamCode)}</h3>
+      <p className="stage-entry-lead">{o.publicText}</p>
 
       {o.playerChanges && o.playerChanges.length > 0 && (
-        <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+        <div className="stage-lines">
           {o.playerChanges.map((c) => (
-            <div key={c.playerId} style={{ fontSize: 12.5 }}>
+            <div key={c.playerId}>
               <strong>{c.name}</strong> — {posLabel(c.position)} — OVR {c.before} → <strong>{c.after}</strong>
             </div>
           ))}
@@ -56,12 +55,12 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
       )}
 
       {o.negativePlayers && o.negativePlayers.length > 0 && (
-        <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+        <div className="stage-lines">
           {o.negativePlayers.map((p) => (
-            <div key={p.playerId} style={{ fontSize: 12.5 }}>
+            <div key={p.playerId}>
               <strong>{p.name}</strong> — {posLabel(p.position)} — OVR {p.overall}
               <br />
-              <span style={{ color: "var(--ink-faint)" }}>
+              <span className="stage-mute">
                 Unavailable: {o.absenceWeeks == null ? "rest of season" : `${o.absenceWeeks} week${o.absenceWeeks === 1 ? "" : "s"}`}
               </span>
             </div>
@@ -70,7 +69,7 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
       )}
 
       {o.coachFired && (
-        <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--ink-faint)" }}>
+        <p className="stage-text">
           {(() => {
             const next = Object.values(coaches).find((c) => c.team === e.teamCode && c.role === "HC");
             return next ? `${next.name} takes over as head coach.` : "The team is looking for a new head coach.";
@@ -78,7 +77,7 @@ function EntryCard({ e, season }: { e: LeagueDevelopmentEntry; season: number })
         </p>
       )}
       {o.wholeRosterOut && (
-        <p style={{ marginTop: 8, fontSize: 12.5, color: "var(--ink-faint)" }}>
+        <p className="stage-text">
           Kicker and punter excepted — everyone else is out for the season.
         </p>
       )}
@@ -94,9 +93,13 @@ export function LeagueDevelopments() {
   const hallOfFame = (s.hallOfFame ?? []).some((h) => h.inducted === s.season - 1);
 
   return (
-    <Card maxWidth={760}>
-      <CardHeader badge="NEWS" title="League Developments" subtitle={`${s.season} preseason wrap-up`} />
-      <div className="panel open" style={{ display: "grid", gap: 12 }}>
+    <StagePage
+      code={viewerTeamCode(s)}
+      kicker="League developments"
+      heading="League news"
+      sub={`${s.season} preseason wrap-up`}
+    >
+      <div className="stage-feed">
         {entries.length === 0 ? (
           // quiet only if nothing below says otherwise
           carousel.length === 0 && !hallOfFame ? (
@@ -108,28 +111,26 @@ export function LeagueDevelopments() {
       </div>
       <CoachingCarousel changes={carousel} />
       {hallOfFame && (
-        <div className="panel open" style={{ display: "grid", gap: 6, marginTop: 12 }}>
-          <p className="sectionlabel" style={{ margin: 0 }}>
-            Hall of Fame class of {s.season - 1}
-          </p>
+        <section className="stage-entry stage-lines">
+          <h2 className="stage-h">Hall of Fame class of {s.season - 1}</h2>
           {(s.hallOfFame ?? [])
             .filter((h) => h.inducted === s.season - 1)
             .map((h) => (
-              <div key={h.playerId} style={{ fontSize: 12.5 }}>
+              <div key={h.playerId}>
                 <strong>{h.name}</strong>{" "}
-                <span style={{ color: "var(--ink-dim)" }}>
+                <span className="stage-mute">
                   {posLabel(h.position)} · {h.seasons} seasons · {h.why}
                 </span>
               </div>
             ))}
-        </div>
+        </section>
       )}
       <ReadinessGate
         title="League developments readiness"
         label="Continue to the Regular Season"
         onAdvance={(r) => nav(r)}
       />
-    </Card>
+    </StagePage>
   );
 }
 
@@ -139,12 +140,10 @@ const ROLE_LABEL: Record<string, string> = { HC: "head coach", OC: "offensive co
 function CoachingCarousel({ changes }: { changes: CoachingChange[] }) {
   if (changes.length === 0) return null;
   return (
-    <div className="panel open" style={{ display: "grid", gap: 8, marginTop: 12 }}>
-      <p className="sectionlabel" style={{ margin: 0 }}>
-        Coaching carousel
-      </p>
+    <section className="stage-entry stage-lines">
+      <h2 className="stage-h">Coaching carousel</h2>
       {changes.map((c, i) => (
-        <div key={`${c.team}-${c.role}-${i}`} style={{ fontSize: 12.5 }}>
+        <div key={`${c.team}-${c.role}-${i}`}>
           <strong>{teamName(c.team)}</strong>{" "}
           {c.departed ? (
             <>
@@ -156,6 +155,6 @@ function CoachingCarousel({ changes }: { changes: CoachingChange[] }) {
           {c.hired ? <> · hired {c.hired}</> : <> · the job is open</>}
         </div>
       ))}
-    </div>
+    </section>
   );
 }

@@ -1,8 +1,9 @@
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer } from "@/components/primitives";
+import { Footer } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
+import { StagePage } from "@/components/stages/StagePage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import {
   checkHoodedFigurePayment,
@@ -43,33 +44,30 @@ export function HoodedFigureEncounter() {
 
   if (!code || done) {
     return (
-      <Card>
-        <CardHeader
-          badge={code ? TEAMS_BY_CODE[code]?.abbr ?? "—" : "—"}
-          title="Training Camp Complete"
-          subtitle={
-            paid
-              ? `The figure took ${millions(encounter!.payment)} and was gone`
-              : encounter?.resolved
-                ? "You sent the figure away"
-                : "Nothing unusual this year"
-          }
-        />
-        <div className="panel open">
-          <div className="emptystate">
-            {paid
-              ? "Nobody saw where it went. Whatever it bought, the league finds out after the preseason."
-              : encounter?.resolved
-                ? "It's gone, and your cap space is where you left it. Advance when you're ready."
-                : "Nothing to see here. Advance when you're ready."}
-          </div>
+      <StagePage
+        code={code}
+        kicker="Training camp complete"
+        sub={
+          paid
+            ? `The figure took ${millions(encounter!.payment)} and was gone`
+            : encounter?.resolved
+              ? "You sent the figure away"
+              : "Nothing unusual this year"
+        }
+      >
+        <div className="emptystate">
+          {paid
+            ? "Nobody saw where it went. Whatever it bought, the league finds out after the preseason."
+            : encounter?.resolved
+              ? "It's gone, and your cap space is where you left it. Advance when you're ready."
+              : "Nothing to see here. Advance when you're ready."}
         </div>
         <ReadinessGate
           title="Readiness"
           label="Advance to Re-order Depth Chart"
           onAdvance={(r) => nav(r)}
         />
-      </Card>
+      </StagePage>
     );
   }
 
@@ -103,32 +101,17 @@ export function HoodedFigureEncounter() {
   };
 
   return (
-    <Card maxWidth={640}>
-      <div
-        style={{
-          background: "linear-gradient(180deg, #05050a 0%, #0d0d16 100%)",
-          borderRadius: 8,
-          padding: "28px 24px",
-          marginBottom: 16,
-          color: "#d8d4e6",
-          border: "1px solid #2a2438",
-        }}
-      >
-        <div style={{ fontSize: 40, textAlign: "center", marginBottom: 8, filter: "grayscale(1)" }}>
-          🖤🔪
-        </div>
-        <p style={{ textAlign: "center", fontSize: 12, letterSpacing: 2, textTransform: "uppercase", color: "#8b7fae", margin: "0 0 16px" }}>
-          {TEAMS_BY_CODE[code]?.name ?? code} — after training camp
-        </p>
-        <p style={{ fontStyle: "italic", lineHeight: 1.7, fontSize: 14.5, margin: 0 }}>
+    <StagePage code={code} kicker="After training camp" sub={`${TEAMS_BY_CODE[code]?.name ?? code} — a visitor is waiting`} className="stage-hooded">
+      <section className="stage-scene">
+        <p>
           A hooded figure is waiting outside the facility, leaning on a scythe that definitely
           wasn&rsquo;t there this morning.
         </p>
-        <p style={{ fontStyle: "italic", lineHeight: 1.7, fontSize: 14.5, margin: "12px 0 0" }}>
+        <p>
           &ldquo;Your team is struggling,&rdquo; the figure says. &ldquo;Pay me at least $1 million
           from your cap space and I can help. How much would you like to pay this figure?&rdquo;
         </p>
-      </div>
+      </section>
 
       {error && (
         <div className="notice bad" role="status">
@@ -136,61 +119,44 @@ export function HoodedFigureEncounter() {
         </div>
       )}
 
-      <div className="panel open">
+      <div className="stage-body">
         {max <= 0 ? (
-          <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
+          <p className="stage-text">
             You don&rsquo;t have enough cap space to make an offer this figure would take seriously.
             Declining is the only real option.
           </p>
         ) : (
-          <>
-            <p className="subhead" style={{ marginTop: 0 }}>
-              Your offer
-            </p>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "center", margin: "16px 0" }}>
-              <button type="button" aria-label="Offer less" onClick={() => nudge(-1)} disabled={payment === 0} style={stepperBtn}>
+          <section className="stage-offer">
+            <h2 className="stage-h">Your offer</h2>
+            <div className="stage-stepper">
+              <button type="button" aria-label="Offer less" onClick={() => nudge(-1)} disabled={payment === 0}>
                 −
               </button>
-              <div style={{ minWidth: 120, textAlign: "center", fontSize: 28, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-                {millions(payment)}
-              </div>
-              <button type="button" aria-label="Offer more" onClick={() => nudge(1)} disabled={payment >= max} style={stepperBtn}>
+              <div className="stage-amount">{millions(payment)}</div>
+              <button type="button" aria-label="Offer more" onClick={() => nudge(1)} disabled={payment >= max}>
                 +
               </button>
             </div>
-            <p style={{ textAlign: "center", fontSize: 11, color: "var(--ink-faint)", margin: "0 0 4px" }}>
+            <p className="stage-note">
               $0.0M declines. $1.0M minimum, then $0.5M steps, up to {millions(max)} of cap space.
             </p>
-          </>
+          </section>
         )}
 
-        {!check.ok && (
-          <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--bad)", textAlign: "center" }}>{check.reason}</p>
-        )}
+        {!check.ok && <p className="stage-note stage-note--bad">{check.reason}</p>}
       </div>
 
       <Footer>
-        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
+        <span className="stage-foot-note">
           Submitting is final. There is no undo, and no preview of what it buys.
         </span>
         <button type="button" className="btn-primary" disabled={!check.ok || busy} onClick={submit}>
           {busy ? "…" : payment === 0 ? "Decline" : `Pay ${millions(payment)}`}
         </button>
       </Footer>
-    </Card>
+    </StagePage>
   );
 }
-
-const stepperBtn: CSSProperties = {
-  width: 40,
-  height: 40,
-  borderRadius: "50%",
-  fontSize: 20,
-  lineHeight: 1,
-  border: "1px solid var(--line)",
-  background: "var(--panel-bg, transparent)",
-  cursor: "pointer",
-};
 
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
