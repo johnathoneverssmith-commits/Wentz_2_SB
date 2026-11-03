@@ -153,7 +153,132 @@
     min-height: 44px;
   }
   .gd-credit a {
-    padding: 14px 0;
-    margin: -14px 0;
+    padding: 16px 0;
+    margin: -16px 0;
   }
+}
+
+/* ---- compact masthead ------------------------------------------------------
+ * For screens that are not the team's own front page: the same colour, the
+ * same stadium, a shorter band, and the screen's own name as the big type. */
+.gd-mast--compact {
+  min-height: clamp(190px, 17vw, 240px);
+  padding-top: 20px;
+  /* room for the photo credit under the sub-line, which sits in the corner */
+  padding-bottom: 48px;
+}
+.gd-mast--compact .gd-team {
+  font-size: clamp(44px, 5.6vw, 84px);
+}
+@media (max-width: 760px) {
+  .gd-mast--compact {
+    min-height: 0;
+    padding-bottom: 0;
+  }
+  .gd-mast--compact .gd-team {
+    font-size: clamp(40px, 13vw, 60px);
+  }
+}
+
+/* ---- tabs and their open panel as one ruled block (opt in with .gd-tabbed) -- */
+.gd-tabbed .gd-hub ~ .panel.open {
+  margin-top: -2px;
+  padding: 18px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+@media (max-width: 760px) {
+  .gd-tabbed .gd-hub ~ .panel.open {
+    padding: 14px 12px;
+  }
+}
+
+/* ---- native controls --------------------------------------------------------- */
+.gd select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 15px/1.2 var(--gd-body);
+}
+.gd-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 14px;
+}
+.gd-toolbar label {
+  color: var(--gd-mute);
+  font: 600 14px/1.2 var(--gd-body);
+}
+
+/* ---- a table where one row is the viewer's own team ------------------------- */
+.gd table.stbl tr.highlight td {
+  background: color-mix(in srgb, var(--gd-accent) 22%, #fff);
+  font-weight: 700;
+}
+.gd table.stbl tr.highlight td:first-child {
+  box-shadow: inset 6px 0 0 var(--gd-accent);
+}
+.gd table.stbl td.rank {
+  color: var(--gd-mute);
+  font: 800 18px/1 var(--gd-display);
+}
+.gd table.stbl td .pos {
+  color: var(--gd-mute);
+  font-weight: 600;
+}
+.gd table.stbl td .sub {
+  color: var(--gd-mute);
+  font-weight: 600;
+  font-size: 13px;
+}
+.gd-tablewrap {
+  overflow-x: auto;
+}
+.gd-foot {
+  margin: 0;
+  color: var(--gd-mute);
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 70ch;
+}
+
+/* ---- the overall-rating pill (OvrPill) as a square block --------------------- */
+.gd .povr {
+  display: inline-block;
+  min-width: 48px;
+  padding: 4px 6px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: #d6dee6;
+  color: var(--gd-ink);
+  font: 900 24px/1 var(--gd-display);
+  text-align: center;
+  box-shadow: none;
+}
+.gd .povr.mid {
+  background: var(--gd-team);
+  color: var(--gd-team-ink);
+}
+.gd .povr.elite {
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+}
+.gd .gd-pick select {
+  min-height: 44px;
+}
+
+/* the small position tag beside a name: plain text, not a chip */
+.gd .ppos {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--gd-mute);
+  font-weight: 600;
 }

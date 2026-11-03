@@ -1,12 +1,18 @@
 import { useNavigate } from "react-router-dom";
 
 import { ScoreTrackerTable } from "@/components/ScoreTrackerTable";
-import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
+import { Footer, Ticker } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./office-gameday.css";
 import { LeagueMemory } from "@/components/LeagueMemory";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { AWARD_LABEL, type SeasonAward } from "@/state/seasonAwards";
 import { useStore } from "@/state/store";
 import { buildScoreTracker } from "@/state/scoreTracker";
+import { viewerTeamCode } from "@/state/selectors";
 import { points, posLabel } from "@/util/format";
 
 export function LeagueHistory() {
@@ -23,8 +29,14 @@ export function LeagueHistory() {
     leaders.length === 0 ? "—" : leaders.length === 1 ? nameOf(leaders[0]!) : `Tied: ${leaders.map(nameOf).join(", ")}`;
 
   return (
-    <Card maxWidth={860}>
-      <CardHeader badge="FS" title="League History" subtitle="Cross-season score tracker" />
+    <GdPage code={viewerTeamCode(s)} className="gd-hist">
+      <GameDayMasthead
+        code={viewerTeamCode(s) ?? ""}
+        compact
+        title="Every season so far"
+        heading="League history"
+        sub="The cross-season score tracker, past champions, records and awards."
+      />
       <Ticker
         stats={[
           { label: "Seasons played", value: tracker.seasons.length },
@@ -47,7 +59,7 @@ export function LeagueHistory() {
           Back
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
 
@@ -56,23 +68,21 @@ function AwardsHistory({ awards }: { awards: SeasonAward[] }) {
   if (awards.length === 0) return null;
   const seasons = [...new Set(awards.map((a) => a.season))].sort((a, b) => b - a);
   return (
-    <div className="panel open" style={{ display: "grid", gap: 14 }}>
-      <p className="sectionlabel" style={{ margin: 0 }}>
-        Season awards
-      </p>
+    <div className="panel open gd-awards">
+      <p className="sectionlabel">Season awards</p>
       {seasons.map((season) => (
         <div key={season}>
-          <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 13 }}>{season}</p>
-          <div style={{ display: "grid", gap: 4 }}>
+          <p className="gd-awards__year">{season}</p>
+          <div className="gd-awards__list">
             {awards
               .filter((a) => a.season === season)
               .map((a) => (
-                <div key={a.award} style={{ fontSize: 12.5, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ color: "var(--ink-faint)", minWidth: 210 }}>{AWARD_LABEL[a.award]}</span>
+                <div key={a.award} className="gd-awards__row">
+                  <span>{AWARD_LABEL[a.award]}</span>
                   <strong>{a.name}</strong>
-                  <span style={{ color: "var(--ink-dim)" }}>
+                  <small>
                     {posLabel(a.position)} · {TEAMS_BY_CODE[a.team]?.abbr ?? a.team} · {a.line}
-                  </span>
+                  </small>
                 </div>
               ))}
           </div>

@@ -10,22 +10,29 @@ import { SKYLINE_VIEWBOX, skylineSvg, STADIUM_PHOTO_CREDITS, stadiumPhotoFocus, 
  * has actually loaded, so a team with no photo (or a build opened without the
  * art folder) never shows a broken image or jumps.
  */
-export function GameDayMasthead({ code, title, sub, actions }: {
+export interface GameDayMastheadProps {
   code: string;
+  /** the small line above the big type: what this screen is, and when */
   title: string;
   sub: ReactNode;
   actions?: ReactNode;
-}) {
-  // keyed on the code so a new team starts from the skyline again
-  return <Masthead key={code} code={code} title={title} sub={sub} actions={actions} />;
+  /** a shorter masthead for screens that are not the team's own front page */
+  compact?: boolean;
+  /** the big type, in place of the team's name: a league-wide screen's own name */
+  heading?: ReactNode;
 }
 
-function Masthead({ code, title, sub, actions }: { code: string; title: string; sub: ReactNode; actions?: ReactNode }) {
+export function GameDayMasthead(props: GameDayMastheadProps) {
+  // keyed on the code so a new team starts from the skyline again
+  return <Masthead key={props.code} {...props} />;
+}
+
+function Masthead({ code, title, sub, actions, compact, heading }: GameDayMastheadProps) {
   const [photo, setPhoto] = useState<"loading" | "shown" | "missing">("loading");
   const meta = TEAMS_BY_CODE[code];
   const credit = STADIUM_PHOTO_CREDITS[code];
   return (
-    <header className="gd-mast" data-team={code} data-photo={photo}>
+    <header className={"gd-mast" + (compact ? " gd-mast--compact" : "")} data-team={code} data-photo={photo}>
       <svg
         className="gd-mast-sky"
         viewBox={SKYLINE_VIEWBOX}
@@ -51,7 +58,11 @@ function Masthead({ code, title, sub, actions }: { code: string; title: string; 
           <span className="gd-kicker">{title}</span>
           <span className="sr-only">, </span>
           <span className="gd-team">
-            <span>{meta?.city ?? code}</span> <span>{meta?.name ?? ""}</span>
+            {heading ?? (
+              <>
+                <span>{meta?.city ?? code}</span> <span>{meta?.name ?? ""}</span>
+              </>
+            )}
           </span>
         </h1>
         <p className="gd-mast-sub">{sub}</p>

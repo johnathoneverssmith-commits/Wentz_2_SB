@@ -1,10 +1,15 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { OvrPill, pressable, TeamBadge } from "@/components/bits";
+import { OvrPill, pressable } from "@/components/bits";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
-import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
-import { TEAMS, TEAMS_BY_CODE } from "@/data/teams";
+import { Footer, Ticker } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./office-gameday.css";
+import { TEAMS } from "@/data/teams";
 import { POSITION_GROUPS, POSITION_TO_GROUP, type Player } from "@/domain";
 import { useStore } from "@/state/store";
 import { teamRoster, viewerTeamCode } from "@/state/selectors";
@@ -17,6 +22,7 @@ export function LeagueRosters() {
   const myCode = viewerTeamCode(s);
   const [teamCode, setTeamCode] = useState(() => myCode ?? TEAMS.find((t) => s.teams[t.code])!.code);
   const [inspect, setInspect] = useState<Player | null>(null);
+  const pickId = useId();
 
   const roster = useMemo(() => teamRoster(s, teamCode), [s, teamCode]);
   const team = s.teams[teamCode]!;
@@ -29,23 +35,29 @@ export function LeagueRosters() {
   const gm = s.gms.find((g) => g.isHuman && g.teamCode === teamCode);
 
   return (
-    <Card maxWidth={820}>
-      <CardHeader
-        badge={TEAMS_BY_CODE[teamCode]!.abbr}
-        title="League Rosters"
-        subtitle={
+    // the page wears the team being looked at, not only the viewer's own
+    <GdPage code={teamCode}>
+      <GameDayMasthead
+        code={teamCode}
+        compact
+        title={
           gm
-            ? `${gm.id === s.viewerGmId ? "Your team" : `Run by ${gm.name}`} · tap a name for full stats`
-            : "Read-only depth chart for any team — tap a name for full stats"
+            ? `${gm.id === s.viewerGmId ? "Your team" : `Run by ${gm.name}`}. Tap a name for full stats.`
+            : "Read-only depth chart for any team. Tap a name for full stats."
         }
-        action={
-          <select value={teamCode} onChange={(e) => setTeamCode(e.target.value)}>
-            {TEAMS.filter((t) => s.teams[t.code]).map((t) => (
-              <option key={t.code} value={t.code}>
-                {t.city} {t.name}
-              </option>
-            ))}
-          </select>
+        heading="League rosters"
+        sub="Every team's players, by position group."
+        actions={
+          <div className="gd-pick">
+            <label htmlFor={pickId}>Team</label>
+            <select id={pickId} value={teamCode} onChange={(e) => setTeamCode(e.target.value)}>
+              {TEAMS.filter((t) => s.teams[t.code]).map((t) => (
+                <option key={t.code} value={t.code}>
+                  {t.city} {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
         }
       />
       <Ticker
@@ -56,41 +68,29 @@ export function LeagueRosters() {
           { label: "Players", value: roster.length },
         ]}
       />
-      <div className="panel open">
+      <div className="gd-lr">
         {POSITION_GROUPS.map((g) => {
           const players = roster.filter((p) => POSITION_TO_GROUP[p.position] === g);
           if (players.length === 0) return null;
           return (
-            <div key={g} style={{ marginBottom: 14 }}>
-              <p className="subhead" style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <TeamBadge code={teamCode} size={16} /> {g}
-              </p>
-              <div
-                style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", gap: 10, padding: "0 6px 4px", fontSize: 10, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.04em" }}
-              >
+            <section key={g} className="gd-lr__group" aria-label={g}>
+              <p className="subhead gd-lr__head">{g}</p>
+              <div className="gd-lr__cols" aria-hidden="true">
                 <span>#</span>
                 <span>Player</span>
-                <span style={{ textAlign: "center" }}>OVR</span>
-                <span style={{ textAlign: "center" }}>Age</span>
+                <span>OVR</span>
+                <span>Age</span>
               </div>
               {players.map((p, i) => (
-                <div
-                  key={p.id}
-                  {...pressable(() => setInspect(p))}
-                  style={{ display: "grid", gridTemplateColumns: "24px 1fr 46px 40px", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--line)", cursor: "pointer", borderRadius: "var(--r-sm)" }}
-                >
+                <div key={p.id} {...pressable(() => setInspect(p))} className="gd-lr__row">
                   <span className="rank-num">{i + 1}</span>
-                  <span className="pname" style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)" }}>
-                    {p.name} <span className="ppos">{posLabel(p.position)}</span>
+                  <span className="pname">
+                    <b>{p.name}</b> <span className="ppos">{posLabel(p.position)}</span>
                     {/* scouting a trade partner: who's hurt, and what they cost */}
-                    {p.injury_status && (
-                      <span style={{ marginLeft: 6, fontSize: 10, color: "var(--bad)", textDecoration: "none" }}>
-                        {p.injury_status.status.toUpperCase()}
-                      </span>
-                    )}
+                    {p.injury_status && <span className="gd-lr__hurt"> {p.injury_status.status.toUpperCase()}</span>}
                     {/* under the name, not a column: a fifth column left names
                         sixty pixels wide on a phone */}
-                    <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)", textDecoration: "none" }}>
+                    <span className="gd-lr__deal">
                       {p.contract
                         ? `${p.contract.years_remaining}y · $${(p.contract.cap_hit_by_year[0] ?? 0).toFixed(1)}M`
                         : "No contract"}
@@ -100,7 +100,7 @@ export function LeagueRosters() {
                   <span className="pcell">{p.age}</span>
                 </div>
               ))}
-            </div>
+            </section>
           );
         })}
       </div>
@@ -110,7 +110,7 @@ export function LeagueRosters() {
         </button>
       </Footer>
 
-      {inspect && <PlayerStatsModal player={inspect} onClose={() => setInspect(null)} />}
-    </Card>
+      {inspect && <PlayerStatsModal player={inspect} portrait={false} onClose={() => setInspect(null)} />}
+    </GdPage>
   );
 }

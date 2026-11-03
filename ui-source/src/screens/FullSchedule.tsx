@@ -2,10 +2,15 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
+import { Footer, Ticker } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./office-gameday.css";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { record } from "@/domain";
-import { isHumansOnly, seasonShape, leagueBadge } from "@/state/leagueFormat";
+import { isHumansOnly, seasonShape } from "@/state/leagueFormat";
 import { useStore } from "@/state/store";
 import { currentPhase, statsThroughWeek, viewerTeamCode } from "@/state/selectors";
 import { onlineSession } from "@/state/online";
@@ -46,42 +51,43 @@ export function FullSchedule() {
   const yourOpp = yourGame ? (yourGame.homeTeam === code ? yourGame.awayTeam : yourGame.homeTeam) : null;
   const yourResult = yourGame ? resultFor(yourGame.homeTeam, yourGame.awayTeam) : undefined;
 
+  const matchup = yourOpp
+    ? `${yourGame!.homeTeam === code ? "vs" : "@"} ${yourOpp}${
+        yourResult
+          ? (() => {
+              // "(30-38)" beside a record read as another record; say how it went
+              const home = yourGame!.homeTeam === code;
+              const us = home ? yourResult.homeScore : yourResult.awayScore;
+              const them = home ? yourResult.awayScore : yourResult.homeScore;
+              return ` · ${us > them ? "W" : us < them ? "L" : "T"} ${us}-${them}`;
+            })()
+          : ""
+      }`
+    : "Bye";
+
   return (
-    <Card maxWidth={800}>
-      <CardHeader
-        badge={leagueBadge(s)}
-        title="Full Schedule"
-        subtitle={`${s.season} season · ${Object.keys(s.teams).length} teams`}
+    <GdPage code={code}>
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={`${s.season} season, ${Object.keys(s.teams).length} teams`}
+        heading="Full schedule"
+        sub={`Week ${viewWeek} of ${weeks}. ${phase === "PRE" ? "The league is in preseason." : `The league is in week ${currentWeek}.`}`}
       />
       <Ticker
         stats={[
           { label: "Viewing", value: `Week ${viewWeek}` },
           { label: "Current week", value: phase === "PRE" ? "Preseason" : `Week ${currentWeek}` },
-          {
-            label: "Your matchup",
-            // your score first, and @ when you're the visitor
-            value: yourOpp
-              ? `${yourGame!.homeTeam === code ? "vs" : "@"} ${yourOpp}${
-                  yourResult
-                    ? (() => {
-                        // "(30-38)" beside a record read as another record; say how it went
-                        const home = yourGame!.homeTeam === code;
-                        const us = home ? yourResult.homeScore : yourResult.awayScore;
-                        const them = home ? yourResult.awayScore : yourResult.homeScore;
-                        return ` · ${us > them ? "W" : us < them ? "L" : "T"} ${us}-${them}`;
-                      })()
-                    : ""
-                }`
-              : "Bye",
-            className: "accent sm",
-          },
+          // your score first, and @ when you're the visitor
+          { label: "Your matchup", value: matchup, className: "accent sm" },
           { label: "Games", value: weekGames.length, className: "sm" },
         ]}
       />
 
-      <div style={{ display: "flex", justifyContent: "center", padding: "16px 26px", borderBottom: "1px solid var(--line)" }}>
-        <select value={viewWeek} onChange={(e) => setViewWeek(Number(e.target.value))}>
-          {Array.from({ length: seasonShape(s).regularSeasonWeeks }, (_, i) => i + 1).map((w) => (
+      <div className="gd-toolbar">
+        <label htmlFor="schedule-week">Week</label>
+        <select id="schedule-week" value={viewWeek} onChange={(e) => setViewWeek(Number(e.target.value))}>
+          {Array.from({ length: weeks }, (_, i) => i + 1).map((w) => (
             <option key={w} value={w}>
               Week {w}
             </option>
@@ -89,98 +95,74 @@ export function FullSchedule() {
         </select>
       </div>
 
-      <div className="scroll-list" style={{ padding: "14px 20px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div className="scroll-list gd-sched">
         {weekGames.map((g, i) => {
           const r = resultFor(g.homeTeam, g.awayTeam);
           const mine = g.homeTeam === code || g.awayTeam === code;
           const homeWin = r ? r.homeScore > r.awayScore : false;
           return (
-            <div
-              key={i}
-              className="gamerow"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 76px 1fr",
-                alignItems: "center",
-                padding: "13px 14px",
-                borderRadius: "var(--r-md)",
-                background: mine ? "color-mix(in srgb, var(--team) 7%, transparent)" : "var(--panel-sunken)",
-                border: `1px solid ${mine ? "color-mix(in srgb, var(--team) 38%, transparent)" : "var(--line)"}`,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div key={i} className={"gamerow gd-game" + (mine ? " gd-game--mine" : "")}>
+              <div className="gd-game__team">
                 <TeamBadge code={g.homeTeam} />
-                <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[g.homeTeam]!.label}</span>
-                  <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{record(s.teams[g.homeTeam]!)}</span>
+                <span>
+                  <b>{TEAMS_BY_CODE[g.homeTeam]!.label}</b>
+                  <small>{record(s.teams[g.homeTeam]!)}</small>
                 </span>
               </div>
-              <div style={{ textAlign: "center" }}>
+              <div className="gd-game__score">
                 {r ? (
                   <>
-                    <div className="oswald" style={{ fontSize: 15, fontWeight: 600, lineHeight: 1 }}>
-                      <span style={{ color: homeWin ? "var(--good)" : undefined }}>{r.homeScore}</span> –{" "}
-                      <span style={{ color: !homeWin ? "var(--good)" : undefined }}>{r.awayScore}</span>
+                    <div>
+                      <span className={homeWin ? "win" : undefined}>{r.homeScore}</span> –{" "}
+                      <span className={!homeWin ? "win" : undefined}>{r.awayScore}</span>
                     </div>
-                    <div style={{ marginTop: 4, fontSize: 10, color: "var(--ink-faint)" }}>Final</div>
+                    <small>Final</small>
                   </>
                 ) : (
                   <>
-                    <div style={{ fontSize: 12, color: "var(--ink-faint)", fontWeight: 500 }}>–</div>
-                    <div style={{ marginTop: 4, fontSize: 10, color: "var(--ink-faint)" }}>Scheduled</div>
+                    <div className="none">–</div>
+                    <small>Scheduled</small>
                   </>
                 )}
               </div>
-              <div style={{ display: "flex", flexDirection: "row-reverse", alignItems: "center", gap: 10, minWidth: 0, textAlign: "right" }}>
+              <div className="gd-game__team gd-game__team--away">
                 <TeamBadge code={g.awayTeam} />
-                <span style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end", minWidth: 0 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[g.awayTeam]!.label}</span>
-                  <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{record(s.teams[g.awayTeam]!)}</span>
+                <span>
+                  <b>{TEAMS_BY_CODE[g.awayTeam]!.label}</b>
+                  <small>{record(s.teams[g.awayTeam]!)}</small>
                 </span>
               </div>
-              <div style={{ gridColumn: "1 / -1", textAlign: "center", marginTop: 6 }}>
-                {r && describeTrace(r) !== "none" && (
+              {r && describeTrace(r) !== "none" && (
+                <div className="gd-game__actions">
                   <button
                     type="button"
-                    className="btnlink"
-                    style={{ fontSize: 10.5, padding: "2px 8px" }}
+                    className="gd-btn gd-small"
                     aria-label={`Play-by-play, ${g.awayTeam} at ${g.homeTeam}`}
                     onClick={() => nav(`/watch/${r.id}?back=${encodeURIComponent("/schedule")}`)}
                   >
                     Play-by-play
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           );
         })}
         {byeTeams.map((c) => (
-          <div
-            key={c}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "13px 14px",
-              borderRadius: "var(--r-md)",
-              background: c === code ? "color-mix(in srgb, var(--team) 7%, transparent)" : "var(--panel-sunken)",
-              border: `1px dashed ${c === code ? "color-mix(in srgb, var(--team) 42%, transparent)" : "var(--line-strong)"}`,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div key={c} className={"gd-bye" + (c === code ? " gd-bye--mine" : "")}>
+            <div className="gd-game__team">
               <TeamBadge code={c} />
-              <span style={{ fontSize: 12.5, fontWeight: 500 }}>{TEAMS_BY_CODE[c]!.label}</span>
-              <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>{record(s.teams[c]!)}</span>
+              <span>
+                <b>{TEAMS_BY_CODE[c]!.label}</b>
+                <small>{record(s.teams[c]!)}</small>
+              </span>
             </div>
-            <span style={{ fontSize: 11.5, color: "var(--ink-faint)", fontWeight: 600, letterSpacing: "0.03em", textTransform: "uppercase" }}>
-              Bye week
-            </span>
+            <span className="gd-bye__tag">Bye week</span>
           </div>
         ))}
       </div>
 
-      <p style={{ margin: 0, padding: "12px 26px", fontSize: 11, color: "var(--ink-faint)", textAlign: "center", borderTop: "1px solid var(--line)" }}>
-        Completed weeks show final scores; upcoming weeks show each team's current record.
+      <p className="gd-foot">
+        Completed weeks show final scores; upcoming weeks show each team&rsquo;s current record.
         {single ? "" : " Every team gets one bye."}
       </p>
 
@@ -189,6 +171,6 @@ export function FullSchedule() {
           Return to team hub
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }

@@ -1,8 +1,12 @@
-import { useMemo, useState } from "react";
-import { leagueBadge } from "@/state/leagueFormat";
+import { useId, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./office-gameday.css";
 
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { teamStatRows, type TeamStatRow } from "@/state/leagueStats";
@@ -39,14 +43,18 @@ export function LeagueStatsRankings() {
 
   if (played === 0 || !anyBoxScores(s)) {
     return (
-      <Card maxWidth={800}>
-        <CardHeader badge={leagueBadge(s)} title="League Stats & Rankings" subtitle={`${s.season} season`} />
-        <div className="panel open">
-          <div className="emptystate">
-            {played === 0
-              ? "Rankings populate once you’ve seen the first regular-season week."
-              : "These rankings are built from per-game team stats, and none of this season's games recorded any. Weeks played from here on will fill them in."}
-          </div>
+      <GdPage code={code}>
+        <GameDayMasthead
+          code={code ?? ""}
+          compact
+          title={`${s.season} season`}
+          heading="League stats and rankings"
+          sub="How every team ranks on offense, defense, scoring and special teams."
+        />
+        <div className="emptystate">
+          {played === 0
+            ? "Rankings populate once you’ve seen the first regular-season week."
+            : "These rankings are built from per-game team stats, and none of this season's games recorded any. Weeks played from here on will fill them in."}
         </div>
         <Footer>
           {/* same as player stats: last season is in the history */}
@@ -57,7 +65,7 @@ export function LeagueStatsRankings() {
             Return to team hub
           </button>
         </Footer>
-      </Card>
+      </GdPage>
     );
   }
 
@@ -71,16 +79,18 @@ export function LeagueStatsRankings() {
   const teamCount = Object.keys(s.teams).length;
   const rankOf = (r: number) => (teamCount < 32 ? `${ordinal(r)} of ${teamCount}` : ordinal(r));
   return (
-    <Card maxWidth={800}>
-      <CardHeader
-        badge={leagueBadge(s)}
-        title="League Stats & Rankings"
-        subtitle={
+    <GdPage code={code} className="gd-tabbed">
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={
           // what this GM has watched, not `s.week` (reveals don't move it)
           regularSeasonUnderway(s.stage)
-            ? `Through Week ${statsThroughWeek(onlineSession() ? visibleGames(s, s.viewerGmId) : s.games)} · ${s.season} season`
-            : `${s.season} season · final`
+            ? `Through week ${statsThroughWeek(onlineSession() ? visibleGames(s, s.viewerGmId) : s.games)}, ${s.season} season`
+            : `${s.season} season, final`
         }
+        heading="League stats and rankings"
+        sub="How every team ranks on offense, defense, scoring and special teams."
       />
       <Ticker
         stats={[
@@ -91,16 +101,18 @@ export function LeagueStatsRankings() {
           { label: "Scoring leader", value: scoringLeader ? TEAMS_BY_CODE[scoringLeader.code]!.label : "—", className: "sm" },
         ]}
       />
-      <Tabs
-        tabs={[
-          { id: "offense", label: "Offense" },
-          { id: "defense", label: "Defense" },
-          { id: "scoring", label: "Scoring" },
-          { id: "special", label: "Special Teams" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={[
+            { id: "offense", label: "Offense" },
+            { id: "defense", label: "Defense" },
+            { id: "scoring", label: "Scoring" },
+            { id: "special", label: "Special Teams" },
+          ]}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
 
       <Panel id="offense" open={active === "offense"}>
         <RankedBy
@@ -190,7 +202,7 @@ export function LeagueStatsRankings() {
           Return to team hub
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
 
@@ -203,10 +215,11 @@ function RankedBy({
   onChange: (k: SortKey) => void;
   options: Array<[SortKey, string]>;
 }) {
+  const id = useId();
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
-      <label style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>Ranked by</label>
-      <select value={value} onChange={(e) => onChange(e.target.value as SortKey)}>
+    <div className="gd-toolbar">
+      <label htmlFor={id}>Ranked by</label>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value as SortKey)}>
         {options.map(([k, label]) => (
           <option key={k} value={k}>
             {label}
@@ -229,11 +242,11 @@ function RankTable({
   cols: Array<[string, (r: TeamStatRow) => string]>;
 }) {
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className="gd-tablewrap">
       <table className="stbl">
         <thead>
           <tr>
-            <th style={{ width: 24 }} />
+            <th style={{ width: 40 }} />
             <th>Team</th>
             {cols.map(([h]) => (
               <th className="c" key={h}>
@@ -245,12 +258,12 @@ function RankTable({
         <tbody>
           {rows.map((r, i) => (
             <tr key={r.code} className={r.code === me ? "highlight" : ""}>
-              <td style={{ color: "var(--ink-faint)" }}>{i + 1}</td>
+              <td className="rank">{i + 1}</td>
               <td className="name">
                 {TEAMS_BY_CODE[r.code]!.label}
                 {r.code !== me && gmOf(r.code) && (
                   // a real space as well as the margin: read aloud it was "Pittsburghnewgm"
-                  <span style={{ marginLeft: 3, fontSize: 10.5, color: "var(--ink-faint)" }}> {gmOf(r.code)}</span>
+                  <span className="sub"> {gmOf(r.code)}</span>
                 )}
               </td>
               {cols.map(([h, fn]) => (
