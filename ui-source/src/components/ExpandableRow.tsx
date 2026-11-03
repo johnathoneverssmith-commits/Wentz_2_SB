@@ -91,12 +91,12 @@ export function ExpandableRow({
 
 export function RatingBar({ label, value, suffix = "" }: { label: string; value: number; suffix?: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 9 }}>
-      <span style={{ width: 130, fontSize: 12.5, color: "var(--ink-dim)", flexShrink: 0 }}>{label}</span>
-      <div style={{ flex: 1, height: 6, background: "var(--panel-raised)", borderRadius: 3, overflow: "hidden" }}>
-        <div style={{ height: "100%", background: "var(--team)", borderRadius: 3, width: `${Math.min(100, value)}%` }} />
+    <div className="rb">
+      <span className="rb__label">{label}</span>
+      <div className="rb__track">
+        <div className="rb__fill" style={{ width: `${Math.min(100, value)}%` }} />
       </div>
-      <span className="oswald" style={{ width: 30, textAlign: "right", fontSize: 12.5, fontWeight: 600, flexShrink: 0 }}>
+      <span className="rb__value oswald">
         {value}
         {suffix}
       </span>
