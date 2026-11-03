@@ -1,4 +1,25 @@
-import { contrastRatio, mixToward, onColorFor, relativeLuminance, TEAMS_BY_CODE } from "@/data/teams";
+import { contrastRatio, onColorFor, TEAMS_BY_CODE } from "@/data/teams";
+
+// kept here rather than exported from data/teams.ts: that file is a pinned
+// input to the e2e fixture leagues, and editing it changes every fixture's hash
+function relativeLuminance(hex: string): number {
+  const n = parseInt(hex.replace("#", ""), 16);
+  const ch = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255);
+}
+
+function mixToward(hex: string, target: string, amount: number): string {
+  const a = parseInt(hex.replace("#", ""), 16);
+  const b = parseInt(target.replace("#", ""), 16);
+  const mix = (x: number, y: number) => Math.round(x + (y - x) * amount);
+  const r = mix((a >> 16) & 255, (b >> 16) & 255);
+  const g = mix((a >> 8) & 255, (b >> 8) & 255);
+  const bl = mix(a & 255, b & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
+}
 
 /**
  * The roster masthead's team identity: its colours, its stadium photo, and

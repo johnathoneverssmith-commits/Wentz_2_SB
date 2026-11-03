@@ -1485,3 +1485,33 @@
     margin-left: 0;
   }
 }
+
+/* ---- dialogs on this screen ------------------------------------------------
+ * The player card and the extension offer keep the dark theme, but their
+ * controls keep the 44px touch targets and fit a phone screen, as they did
+ * before this screen's redesign. */
+.gd .modal-card button {
+  min-height: 44px;
+}
+.gd .modal-x,
+.gd .neg-ctrl button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.gd .neg-row {
+  padding: 12px 0;
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .gd .modal-scrim {
+    padding: 10px;
+  }
+  .gd .modal-card {
+    max-height: calc(100dvh - 20px);
+  }
+  .gd .modal-head,
+  .gd .modal-body,
+  .gd .modal-foot {
+    padding: 16px;
+  }
+}

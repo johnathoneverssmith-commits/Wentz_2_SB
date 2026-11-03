@@ -61,7 +61,7 @@ export const DIVISIONS: Array<{ conference: "AFC" | "NFC"; division: string; tea
   return out;
 })();
 
-export function relativeLuminance(hex: string): number {
+function relativeLuminance(hex: string): number {
   const n = parseInt(hex.replace("#", ""), 16);
   const ch = (v: number) => {
     const c = v / 255;
@@ -70,7 +70,7 @@ export function relativeLuminance(hex: string): number {
   return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255);
 }
 
-export function mixToward(hex: string, target: string, amount: number): string {
+function mixToward(hex: string, target: string, amount: number): string {
   const a = parseInt(hex.replace("#", ""), 16);
   const b = parseInt(target.replace("#", ""), 16);
   const mix = (x: number, y: number) => Math.round(x + (y - x) * amount);
