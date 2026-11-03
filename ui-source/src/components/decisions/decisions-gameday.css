@@ -300,8 +300,8 @@
   background: #f1f6f9;
 }
 .decision-gd .draft-avail .name > span:first-child {
-  font: 800 20px/1.1 var(--gd-display);
-  text-transform: uppercase;
+  font: 800 21px/1.1 var(--gd-display);
+  /* no text-transform: a name's innerText must stay its accessible name */
 }
 
 /* trade assets */

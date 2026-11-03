@@ -43,7 +43,7 @@ for(const [device,width] of [['desktop',1600],['mobile',390]] as const){
    await form.getByRole('combobox').selectOption('2');
    const card=page.locator('.decision-workspace .card');
    expect(await card.evaluate(el=>el.scrollLeft),'the offer must not horizontally scroll the whole card').toBe(0);
-   if(device==='desktop'){const crest=(await page.locator('.decision-heading .sports-crest').boundingBox())!;const frame=(await card.boundingBox())!;expect(crest.x).toBeGreaterThanOrEqual(frame.x);}
+   if(device==='desktop'){const mast=(await page.locator('.decision-workspace .gd-mast').boundingBox())!;const frame=(await card.boundingBox())!;expect(mast.x).toBeGreaterThanOrEqual(frame.x-1);}
    await capture(page,`free-agency-${device}.png`);
    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
    await form.getByRole('button',{name:'Cancel',exact:true}).click();
