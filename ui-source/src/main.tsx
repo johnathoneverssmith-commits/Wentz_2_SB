@@ -5,6 +5,7 @@ import { HashRouter } from "react-router-dom";
 import "./theme.css";
 import "./design-system.css";
 import "./matchup.css";
+import "./design/overlays.css";
 import { App } from "./App.tsx";
 import { MotionProvider } from "./motion/MotionProvider.tsx";
 import { moveOnlinePlayToLeagueOrigin } from "./state/leagueOrigin";
