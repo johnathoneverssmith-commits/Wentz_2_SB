@@ -3,11 +3,16 @@ import { projectedRookieRange } from "@/sim/draft-outcomes";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./season-end-gameday.css";
 import { useStore } from "@/state/store";
 import { rookieCapHits, rookieSlotFor } from "@/state/rules";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -78,11 +83,13 @@ export function RookieSignings() {
   const capAfter = team ? team.cap.total - team.cap.used : 0;
 
   return (
-    <Card maxWidth={820}>
-      <CardHeader
-        badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
-        title="Rookie Signings"
-        subtitle={`${displaySeason(s)} Draft Class · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
+    <GdPage code={code} className="gd-tabbed se">
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={`${displaySeason(s)} draft class · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
+        heading="Rookie signings"
+        sub="Sign or release each of your picks. A release goes to the free-agent market for good."
       />
       <Ticker
         stats={[
@@ -92,27 +99,29 @@ export function RookieSignings() {
           { label: "Cap space", value: millions(capAfter), className: capAfter >= 0 ? "good" : "bad" },
         ]}
       />
-      <Tabs
-        tabs={[
-          { id: "signings", label: "Signings" },
-          { id: "summary", label: "Draft Summary 🔒", locked: !allResolved },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={[
+            { id: "signings", label: "Signings" },
+            { id: "summary", label: allResolved ? "Draft Summary" : "Draft Summary (locked)", locked: !allResolved },
+          ]}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
 
       <Panel id="signings" open={active === "signings"}>
         {/* online a refusal arrives after a round trip, so it has to be shown
             rather than assumed away */}
         {error && (
-          <div className="notice bad" role="status">
+          <div className="notice bad se-gap-b" role="status">
             {error}
           </div>
         )}
         {myPicks.length === 0 ? (
           <div className="emptystate">Your team didn't draft anyone this year — nothing to sign. You can advance whenever you're ready.</div>
         ) : null}
-        <div className="rowlist rookie-list">
+        <div className="se-list se-rookies">
           {myPicks.length > 0 && (
             <RowHeader
               gridTemplate={ROOKIE_GRID}
@@ -131,35 +140,25 @@ export function RookieSignings() {
                 gridTemplate={ROOKIE_GRID}
                 columns={
                   <>
-                    <span style={{ fontSize: 11, color: "var(--ink-faint)" }}>R{pick.round}</span>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span className="se-pick">R{pick.round}</span>
+                    <div>
                       <p className="pname">
                         {p.name} <span className="ppos">{posLabel(p.position)}</span>
                       </p>
-                      <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{p.school}</p>
+                      <p className="se-sub">{p.school}</p>
                     </div>
-                    <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>4yr / {millions(total)}</span>
-                    <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Y1 {millions(hits[0]!)}</span>
+                    <span className="se-money">4yr / {millions(total)}</span>
+                    <span className="se-money">Y1 {millions(hits[0]!)}</span>
                     {outcome ? (
-                      <span
-                        className="oswald"
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 700,
-                          textAlign: "right",
-                          color: outcome === "signed" ? "var(--good)" : "var(--bad)",
-                        }}
-                      >
+                      <span className={`se-outcome ${outcome}`}>
                         {p.trueOverall} OVR
-                        <span style={{ display: "block", fontSize: 9.5, fontWeight: 600, color: "var(--ink-faint)" }}>
-                          {outcome === "signed" ? "SIGNED" : "RELEASED"}
-                        </span>
+                        <small>{outcome === "signed" ? "SIGNED" : "RELEASED"}</small>
                       </span>
                     ) : (
-                      <span style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                      <span className="se-acts">
                         <button
-                          className="btn-primary"
-                          style={{ fontSize: 11, padding: "6px 10px" }}
+                          type="button"
+                          className="se-act"
                           disabled={busy}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -169,8 +168,8 @@ export function RookieSignings() {
                           Sign
                         </button>
                         <button
-                          className="btn-danger"
-                          style={{ fontSize: 11, padding: "6px 10px" }}
+                          type="button"
+                          className="se-act cut"
                           disabled={busy}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -187,7 +186,7 @@ export function RookieSignings() {
                 }
                 detail={
                   <>
-                    <div className="grid4" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+                    <div className="grid4">
                       <div>
                         <p>Contract</p>
                         {/* year one is its own column on desktop, hidden on phones */}
@@ -205,24 +204,18 @@ export function RookieSignings() {
                         <p>College Grade</p>
                         <p>
                           {p.collegeOverall}
-                          <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>
-                            projects {projectedRookieRange(p).join("–")}
-                          </span>
+                          <small>projects {projectedRookieRange(p).join("–")}</small>
                         </p>
                       </div>
                       <div>
                         <p>True overall</p>
-                        <p style={outcome ? { color: outcome === "signed" ? "var(--good)" : "var(--bad)" } : { color: "var(--ink-faint)", fontStyle: "italic", fontFamily: "Inter, sans-serif", fontSize: 11 }}>
+                        <p className={outcome ? (outcome === "signed" ? "se-ok" : "se-no") : "se-unknown"}>
                           {outcome ? `${p.trueOverall} OVR` : "Resolve to reveal"}
                         </p>
                       </div>
                     </div>
                     <p className="blurb">{p.scoutingNote}</p>
-                    {outcome === "released" && (
-                      <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
-                        {p.name} is now on the free-agent market.
-                      </p>
-                    )}
+                    {outcome === "released" && <p className="se-detail-line">{p.name} is now on the free-agent market.</p>}
                   </>
                 }
               />
@@ -232,38 +225,40 @@ export function RookieSignings() {
       </Panel>
 
       <Panel id="summary" open={active === "summary"}>
-        <p className="subhead" style={{ marginTop: 0 }}>
-          Your class
-        </p>
-        <table className="stbl">
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th className="c">Pos</th>
-              <th className="c">Round</th>
-              <th className="c">True OVR</th>
-              <th className="c">Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {myPicks.map(({ pick, prospect }) => {
-              const p = prospect!;
-              const outcome = outcomes[p.id];
-              return (
-                <tr key={p.id}>
-                  <td className="name">{p.name}</td>
-                  <td className="c">{posLabel(p.position)}</td>
-                  <td className="c">R{pick.round}</td>
-                  <td className="c" style={{ fontWeight: 600 }}>{p.trueOverall}</td>
-                  <td className="c" style={{ color: outcome === "signed" ? "var(--good)" : "var(--bad)", fontWeight: 600 }}>
-                    {outcome === "signed" ? "Signed" : "Released"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        <p style={{ margin: "12px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
+        <p className="subhead">Your class</p>
+        <div className="gd-tablewrap">
+          <table className="stbl">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th className="c">Pos</th>
+                <th className="c">Round</th>
+                <th className="c">True OVR</th>
+                <th className="c">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {myPicks.map(({ pick, prospect }) => {
+                const p = prospect!;
+                const outcome = outcomes[p.id];
+                return (
+                  <tr key={p.id}>
+                    <td className="name">{p.name}</td>
+                    <td className="c">{posLabel(p.position)}</td>
+                    <td className="c">R{pick.round}</td>
+                    <td className="c">
+                      <strong>{p.trueOverall}</strong>
+                    </td>
+                    <td className={`c se-result-cell ${outcome === "signed" ? "signed" : "released"}`}>
+                      {outcome === "signed" ? "Signed" : "Released"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="se-class-note">
           Signed {signedCount} of {myPicks.length}. Average true overall of the class:{" "}
           {myPicks.length
             ? Math.round(myPicks.reduce((n, x) => n + x.prospect!.trueOverall, 0) / myPicks.length)
@@ -280,7 +275,7 @@ export function RookieSignings() {
         same work twice.
       */}
       <Footer>
-        <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
+        <span className="se-foot">
           {myPicks.length === 0
             ? "No picks this year."
             : allResolved
@@ -320,6 +315,6 @@ export function RookieSignings() {
         disabled={!allResolved}
         disabledHint="Sign or release every pick first"
       />
-    </Card>
+    </GdPage>
   );
 }

@@ -2,11 +2,16 @@ import { useMemo } from "react";
 import type { LeagueState, Player } from "@/domain";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ExpandableRow } from "@/components/ExpandableRow";
 import { RowHeader } from "@/components/ListFilter";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./season-end-gameday.css";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { RETIREMENT_AGE, ROSTER_TEMPLATE } from "@/sim/roster-template";
 import { onlineSession } from "@/state/online";
@@ -74,11 +79,13 @@ export function RetirementReview() {
   const capFreed = yours.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
 
   return (
-    <Card maxWidth={800}>
-      <CardHeader
-        badge={code ? TEAMS_BY_CODE[code]!.abbr : "FS"}
-        title="Retirement Review"
-        subtitle={`Offseason · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
+    <GdPage code={code} className="gd-tabbed se">
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={`Offseason · ${code ? TEAMS_BY_CODE[code]!.label : ""}`}
+        heading="Retirement review"
+        sub="Who is hanging it up this offseason, on your roster and around the league."
       />
       <Ticker
         stats={[
@@ -98,30 +105,32 @@ export function RetirementReview() {
           { label: "Cap freed up", value: millions(capFreed), className: "good" },
         ]}
       />
-      <Tabs
-        tabs={[
-          { id: "yours", label: "Your Team" },
-          { id: "league", label: "League-wide" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={[
+            { id: "yours", label: "Your Team" },
+            { id: "league", label: "League-wide" },
+          ]}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
 
       <Panel id="yours" open={active === "yours"}>
-        <div className="infonote" style={{ padding: "11px 14px", marginBottom: 16, background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
+        <p className="se-note se-lede">
           Retirement odds rise with age relative to the position-typical retirement age and with prior significant injuries.
-        </div>
+        </p>
         {yours.length === 0 ? (
           <div className="emptystate">No players on your team are retiring this offseason.</div>
         ) : null}
         {starting.size > 0 && (
-          <div className="notice" role="status">
+          <div className="notice se-gap-b" role="status">
             You&rsquo;re losing {starting.size === 1 ? "a starter" : `${starting.size} starters`} (
             {[...new Set(yours.filter((p) => starting.has(p.id)).map((p) => p.position))].join(", ")}) — the draft and
             free agency are where to replace {starting.size === 1 ? "him" : "them"}.
           </div>
         )}
-        <div className="rowlist">
+        <div className="se-list se-retirees">
           {yours.length > 0 && (
             <RowHeader gridTemplate={RETIREE_GRID} labels={["Player", "Ovr", "Status", ""]} />
           )}
@@ -131,20 +140,18 @@ export function RetirementReview() {
               gridTemplate={RETIREE_GRID}
               columns={
                 <>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <div>
                     <p className="pname">
                       {p.name} <span className="ppos">{posLabel(p.position)}</span>
                     </p>
-                    <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>
-                      {starting.has(p.id) && <strong style={{ color: "var(--bad)" }}>Starter · </strong>}
+                    <p className="se-sub">
+                      {starting.has(p.id) && <strong>Starter · </strong>}
                       Age {p.age} · typical {posLabel(p.position)} retirement {RETIREMENT_AGE[p.position]}
                     </p>
                   </div>
                   {/* the column says Ovr; it showed his age */}
                   <span className="pcell">{p.overall}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 600, padding: "4px 10px", borderRadius: 20, textAlign: "center", background: "rgba(226,105,74,0.14)", color: "var(--bad)" }}>
-                    Retiring
-                  </span>
+                  <span className="se-status">Retiring</span>
                 </>
               }
               detail={
@@ -167,11 +174,9 @@ export function RetirementReview() {
                       <p>{p.injury_history.length}</p>
                     </div>
                   </div>
-                  {careerSummary(s, p) && (
-                    <p style={{ margin: "12px 0 0", fontSize: 12.5, color: "var(--ink-dim)" }}>{careerSummary(s, p)}</p>
-                  )}
-                  <p style={{ margin: "12px 0 0", paddingTop: 12, borderTop: "1px solid var(--line)", fontSize: 12.5, color: "var(--ink-dim)" }}>
-                    Frees <strong style={{ color: "var(--good)" }}>{millions(p.contract?.cap_hit_by_year[0] ?? 0)}</strong> in cap space once the contract clears.
+                  {careerSummary(s, p) && <p className="blurb">{careerSummary(s, p)}</p>}
+                  <p className="se-detail-line">
+                    Frees <strong className="se-good">{millions(p.contract?.cap_hit_by_year[0] ?? 0)}</strong> in cap space once the contract clears.
                   </p>
                 </>
               }
@@ -181,30 +186,32 @@ export function RetirementReview() {
       </Panel>
 
       <Panel id="league" open={active === "league"}>
-        <table className="stbl">
-          <thead>
-            <tr>
-              <th>Player</th>
-              <th className="c">Team</th>
-              <th className="c">OVR</th>
-              <th className="c">Age</th>
-            </tr>
-          </thead>
-          <tbody>
-            {league.map((p) => (
-              <tr key={p.id}>
-                <td className="name">
-                  {p.name} <span className="pos">{posLabel(p.position)}</span>
-                </td>
-                <td className="c">{p.nfl_team}</td>
-                <td className="c" style={{ color: "var(--ink)", fontWeight: 600 }}>
-                  {p.overall}
-                </td>
-                <td className="c">{p.age}</td>
+        <div className="gd-tablewrap">
+          <table className="stbl">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th className="c">Team</th>
+                <th className="c">OVR</th>
+                <th className="c">Age</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {league.map((p) => (
+                <tr key={p.id}>
+                  <td className="name">
+                    {p.name} <span className="pos">{posLabel(p.position)}</span>
+                  </td>
+                  <td className="c">{p.nfl_team}</td>
+                  <td className="c">
+                    <strong>{p.overall}</strong>
+                  </td>
+                  <td className="c">{p.age}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Panel>
 
       {/*
@@ -214,7 +221,7 @@ export function RetirementReview() {
         is about — and free agency does not open for two more stages.
       */}
       <ReadinessGate title="Draft readiness" label="Advance to the Draft" onAdvance={(r) => nav(r)} />
-    </Card>
+    </GdPage>
   );
 }
 
