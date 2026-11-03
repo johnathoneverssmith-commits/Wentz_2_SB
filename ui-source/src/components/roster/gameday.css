@@ -70,7 +70,13 @@
   max-width: 1440px;
   margin: 0 auto;
   display: grid;
+  /* one column exactly as wide as the screen, never as wide as its widest
+     content: a wider fallback font must wrap, not stretch the page */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gd-gap);
+}
+.gd-page > * {
+  min-width: 0;
 }
 :where(.gd-page > :not(.modal-scrim)) :focus-visible {
   outline: 3px solid var(--gd-ink);
@@ -234,6 +240,8 @@
 }
 .gd-team > span {
   display: block;
+  /* a very long name wraps rather than being clipped by the masthead */
+  overflow-wrap: anywhere;
 }
 .gd-mast-sub {
   margin: 14px 0 0;
@@ -452,6 +460,7 @@
 .gd-depth {
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-content: start;
 }
@@ -520,7 +529,11 @@
   gap: 10px 16px;
   margin-top: 6px;
 }
+.gd-unit > div {
+  min-width: 0;
+}
 .gd-unit h2 {
+  overflow-wrap: anywhere;
   margin: 0;
   font: 900 clamp(40px, 5vw, 64px)/0.9 var(--gd-display);
   text-transform: uppercase;
@@ -780,12 +793,21 @@
   }
 }
 @container gd-depth (max-width: 700px) {
-  /* twelve positions in two even rows of six */
+  /* twelve positions in two even rows of six: a grid, so a wide fallback
+     font can never push a cell past its sixth of the width */
+  .gd-positions {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    overflow: hidden;
+  }
   .gd-positions button {
-    flex: 0 0 calc(100% / 6);
     min-width: 0;
+    overflow: hidden;
     border-bottom: 2px solid var(--gd-rule);
     margin-bottom: -2px;
+  }
+  .gd-positions button b {
+    font-size: clamp(17px, 6vw, 24px);
   }
   .gd-positions button:nth-child(6n) {
     border-right: 0;
@@ -1574,8 +1596,13 @@
   .gd-hub .tab {
     padding: 8px 4px 5px;
     font-size: 20px;
+    line-height: 1.05;
     text-align: left;
     border-bottom-width: 5px;
+    /* a wider fallback font wraps the label instead of spilling the page sideways */
+    white-space: normal;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .gd-board {
     gap: 14px;
