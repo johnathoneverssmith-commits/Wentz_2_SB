@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import { deepen, readableAccent, TEAMS_BY_CODE } from "@/data/teams";
+import { mastheadPalette } from "@/components/roster/teamArt";
 import { useStore } from "@/state/store";
 
 /**
@@ -24,10 +25,17 @@ export function useTeamTheme(): void {
       root.style.setProperty("--team", accent.color);
       root.style.setProperty("--team-on", accent.onColor);
       root.style.setProperty("--team-deep", deepen(meta.color, 0.72));
+      // the screen accent the sidebar and the roster share (orange, or yellow
+      // on a red or orange team) — one palette, so the two always agree
+      const palette = mastheadPalette(code!);
+      root.style.setProperty("--accent-ui", palette.accent);
+      root.style.setProperty("--accent-ui-on", palette.onAccent);
     } else {
       root.style.removeProperty("--team");
       root.style.removeProperty("--team-on");
       root.style.removeProperty("--team-deep");
+      root.style.removeProperty("--accent-ui");
+      root.style.removeProperty("--accent-ui-on");
     }
   }, [code]);
 }

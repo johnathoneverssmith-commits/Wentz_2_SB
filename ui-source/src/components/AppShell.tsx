@@ -120,6 +120,15 @@ function useGameDayArrival(): void {
 export function AppShell({ children }: { children: React.ReactNode }) {
   useTeamTheme();
   const location = useLocation();
+  const railRef = useRef<HTMLElement>(null);
+  // on a phone the rail is a strip that scrolls sideways: bring the current
+  // screen's link into view, so a GM never has to hunt for where they are
+  useEffect(() => {
+    const rail = railRef.current;
+    const here = rail?.querySelector<HTMLElement>("a.active");
+    if (!rail || !here || rail.scrollWidth <= rail.clientWidth) return;
+    rail.scrollLeft = Math.max(0, here.offsetLeft - (rail.clientWidth - here.offsetWidth) / 2);
+  }, [location.pathname, location.search]);
   useGameDayArrival();
   // in an online league, take the server's copy whenever it says the league
   // moved; inert (and it costs nothing) in a single-player game
@@ -197,7 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="app sports-shell">
       <button type="button" className="ui-skip" onClick={() => document.getElementById("franchise-main")?.focus()}>Skip to content</button>
-      <nav className="rail" aria-label="Main">
+      <nav ref={railRef} className="rail" aria-label="Main">
         <div className="brand">
           <span className="mark" aria-hidden="true"><Crown/></span>
           <div>

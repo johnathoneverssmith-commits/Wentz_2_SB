@@ -4,24 +4,68 @@
 }
 .sports-icon { width: 24px; height: 24px; flex-shrink: 0; }
 .sports-crown { width: 32px; height: 22px; color: var(--sports-gold, #f7cf6e); }
-body .sports-shell .rail { width: 224px; padding: 16px 10px; border-right: 1px solid #28434d; background: linear-gradient(#031117e8 45%, #031117c9 78%, #031117bc), url('/art/franchise/stadium-city.webp') center bottom / cover; }
-body .sports-shell .rail .brand { position: relative; display: block; text-align: center; padding: 30px 2px 18px; }
-body .sports-shell .brand .mark { position: absolute; left: calc(50% - 16px); top: 0; width: 32px; height: 26px; border: 0; border-radius: 0; background: transparent; }
-body .sports-shell .brand b { display: block; font: italic 900 29px/1.15 Impact, "Arial Narrow", sans-serif; letter-spacing: .01em; color: #d9dcf7; text-shadow: 0 3px 0 #0007; }
-body .sports-shell .brand > div > span { color: #b3c0d0; margin-top: 7px; font-size: 10px; }
-body .sports-shell .rail a { gap: 11px; padding: 9px 12px; min-height: 38px; font-size: 13px; border-radius: 10px; color: #c4cce5; }
-body .sports-shell .rail a.active { color: #f4ffff; border-color: #17daca7a; background: linear-gradient(100deg, #05dab524, #0e5b5c55); box-shadow: inset 0 0 18px #1cd7c20b, 0 0 12px #00ffd505; }
-.sports-shell .sports-nav-icon { width: 19px; height: 19px; color: #aaaee8; }
-.sports-shell a.active .sports-nav-icon { color: var(--sports-teal); }
-body .sports-shell .railgroup { font-size: 10px; padding-top: 12px; color: #9bacbf; }
-body .sports-shell .stagechip { background: #061019b3; border-color: #55707c66; color: #b4c9d5; }
-body .sports-shell .app-main { padding: 16px 24px 32px; min-width: 0; }
-@media (max-width: 900px) {
-  body .sports-shell .rail { width: 100%; padding: 8px 10px; background: #05151de8; }
-  body .sports-shell .rail .brand { padding: 3px 0; }
-  body .sports-shell .brand .mark { display: none; }
-  body .sports-shell .brand b { font-size: 20px; }
-  body .sports-shell .sports-nav-icon { width: 17px; height: 17px; }
-  body .sports-shell .app-main { padding: 12px 12px 32px; }
+/*
+ * The sidebar, in the roster's language: ink-navy ground, white type, square
+ * corners, and the screen accent (--accent-ui, set from the team by
+ * useTeamTheme: orange, or yellow on a red or orange team) for what is
+ * selected. Shared by every screen, so the whole app's navigation reads as
+ * one thing. Pages stay dark or light as they were; only this chrome moved.
+ */
+.sports-shell {
+  --rail-ink: #0b1b2e;
+  --rail-text: #d3deea;
+  --rail-dim: #9db0c3;
+  --rail-line: rgba(255, 255, 255, 0.22);
+  --rail-accent: var(--accent-ui, #ff5b1f);
+  --rail-on-accent: var(--accent-ui-on, #1a0a00);
 }
-
+body .sports-shell .rail { width: 224px; padding: 16px 0; border-right: 0; background: var(--rail-ink); gap: 2px; }
+body .sports-shell .rail .brand { position: relative; display: block; text-align: center; padding: 30px 10px 16px; }
+body .sports-shell .brand .mark { position: absolute; left: calc(50% - 16px); top: 0; width: 32px; height: 26px; border: 0; border-radius: 0; background: transparent; }
+body .sports-shell .brand b { display: block; font: 900 30px/1 "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; text-transform: uppercase; letter-spacing: .01em; color: #fff; text-shadow: none; }
+body .sports-shell .brand > div > span { color: var(--rail-dim); margin-top: 6px; font-size: 12px; font-weight: 600; }
+body .sports-shell .rail a { gap: 0; padding: 9px 14px 9px 16px; min-height: 40px; font: 700 14px/1.25 "Hanken Grotesk", var(--font-body); border-radius: 0; color: var(--rail-text); background: none; border: 0; box-shadow: none; }
+body .sports-shell .rail a:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+body .sports-shell .rail a.active { color: #fff; font-weight: 800; background: rgba(255, 255, 255, 0.13); box-shadow: none; }
+/* the marker is a plain 4px block of accent, there from the first paint */
+body .sports-shell .rail a::before { left: 0; top: 0; bottom: 0; width: 4px; height: 100%; border-radius: 0; background: var(--rail-accent); transform: none; transition: none; opacity: 0; }
+body .sports-shell .rail a.active::before { opacity: 1; height: 100%; }
+body .sports-shell .rail a:focus-visible, body .sports-shell .rail button:focus-visible { outline: 3px solid #fff; outline-offset: -3px; box-shadow: inset 0 0 0 6px var(--rail-accent); }
+/* type only, like the screen beside it */
+.sports-shell .sports-nav-icon { display: none; }
+body .sports-shell .railgroup { margin: 14px 16px 4px; padding-top: 4px; font: 800 14px/1.2 "Big Shoulders Display", "Arial Narrow", Impact, sans-serif; letter-spacing: .06em; color: var(--rail-dim); }
+body .sports-shell .railnote { margin: 4px 16px 0; font-size: 12px; color: var(--rail-dim); }
+body .sports-shell .stagechip { margin: 0 14px 10px; padding: 5px 10px; border: 2px solid var(--rail-accent); border-radius: 0; background: none; color: #fff; font: 700 12px/1.3 "Hanken Grotesk", var(--font-body); }
+body .sports-shell .rail a .railbadge { height: 20px; min-width: 20px; border-radius: 0; background: var(--rail-accent); color: var(--rail-on-accent); font: 800 12px/20px "Hanken Grotesk", var(--font-body); }
+body .sports-shell .rail-rank .rank-chip { border-radius: 0; background: rgba(255, 255, 255, 0.08); border: 2px solid var(--rail-line); color: #fff; }
+body .sports-shell .rail-rank .rank-chip .rk { border-radius: 0; }
+body .sports-shell .soundbox { margin: 0 14px 6px; border-top: 1px solid var(--rail-line); }
+body .sports-shell .soundtoggle { border-radius: 0; color: var(--rail-text); font-weight: 600; font-size: 13px; }
+body .sports-shell .soundtoggle:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+body .sports-shell .soundbox.on .soundtoggle { color: #fff; }
+body .sports-shell .motionbox { padding: 4px 14px 8px; font-size: 12px; }
+body .sports-shell .motionbox .motionlabel { color: var(--rail-dim); }
+body .sports-shell .motionbox button { border: 2px solid var(--rail-line); border-radius: 0; color: var(--rail-text); font-weight: 700; padding: 4px 0; }
+body .sports-shell .motionbox button.on { background: var(--rail-accent); border-color: var(--rail-accent); color: var(--rail-on-accent); }
+body .sports-shell .rail button.reset { margin: 4px 14px; border: 2px solid var(--rail-line); border-radius: 0; background: none; color: var(--rail-text); font: 700 13px/1.2 "Hanken Grotesk", var(--font-body); }
+body .sports-shell .rail button.reset:hover { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: #fff; }
+/* the Methodology tab sits on the right edge: keep it off the page's own edge */
+body .sports-shell .app-main { padding: 16px 40px 32px 24px; min-width: 0; }
+body .sports-shell .how-tab { border: 2px solid var(--rail-accent); border-right: 0; border-radius: 0; background: var(--rail-ink); color: #fff; font: 700 13px/1 "Hanken Grotesk", var(--font-body); letter-spacing: .06em; box-shadow: none; }
+body .sports-shell .how-tab:hover { background: #fff; color: var(--rail-ink); border-color: var(--rail-accent); }
+body .sports-shell .how-tab:focus-visible { outline: 3px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 6px var(--rail-accent); }
+@media (max-width: 900px) {
+  body .sports-shell .rail { width: 100%; padding: 0 8px; gap: 2px; border-bottom: 3px solid var(--rail-accent); box-shadow: none; min-height: 52px; }
+  body .sports-shell .rail .brand { padding: 0 8px 0 4px; }
+  body .sports-shell .brand .mark { display: none; }
+  body .sports-shell .brand b { font-size: 22px; }
+  body .sports-shell .rail a { min-height: 52px; padding: 0 12px; font-size: 14px; }
+  body .sports-shell .rail a::before { display: none; }
+  body .sports-shell .rail a.active { box-shadow: inset 0 -4px 0 var(--rail-accent); background: rgba(255, 255, 255, 0.1); }
+  body .sports-shell .stagechip { margin: 0 6px 0 0; padding: 3px 8px; font-size: 11.5px; }
+  body .sports-shell .motionbox button, body .sports-shell .soundtoggle { min-width: 44px; min-height: 44px; }
+  body .sports-shell .app-main { padding: 12px 12px 76px; }
+  /* on a phone the tab is a small label in the bottom-left corner (the Unit Grades button owns the right), and the page
+     keeps its bottom padding clear of it, so nothing is ever left under it */
+  body .sports-shell .how-tab { top: auto; bottom: 12px; left: 12px; right: auto; writing-mode: horizontal-tb; padding: 11px 14px; border: 2px solid var(--rail-accent); }
+}

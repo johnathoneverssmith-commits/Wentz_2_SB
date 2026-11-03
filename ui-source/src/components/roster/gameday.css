@@ -1515,3 +1515,125 @@
     padding: 16px;
   }
 }
+
+/* ---- phone spacing ----------------------------------------------------------
+ * Same header scale, same field, same type: only the gaps between and inside
+ * the sections are tightened, and the repeated outer framing is thinned. */
+@media (max-width: 760px) {
+  .gd {
+    --gd-gap: 12px;
+  }
+  .gd-mast {
+    padding: 18px 16px 0;
+  }
+  .gd-mast-body {
+    padding-top: 0;
+  }
+  .gd-kicker {
+    margin-bottom: 8px;
+  }
+  .gd-mast-sub {
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .gd-mast-actions {
+    margin: 14px 0 16px;
+  }
+  .gd-credit {
+    margin: 0 -16px;
+    padding: 6px 16px;
+  }
+  .gd-field-top {
+    padding: 14px 14px 10px;
+    gap: 10px 20px;
+  }
+  .gd-field-top p {
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .gd-pitch,
+  .gd-yards {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+  .gd-pitch {
+    height: 76px;
+  }
+  .gd-field-foot {
+    padding: 10px 14px 12px;
+    gap: 2px 18px;
+    font-size: 13px;
+  }
+  /* the four tabs as an even two-by-two, not a ragged wrap */
+  .gd-hub .tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0;
+    column-gap: 0;
+  }
+  .gd-hub .tab {
+    padding: 8px 4px 5px;
+    font-size: 20px;
+    text-align: left;
+    border-bottom-width: 5px;
+  }
+  .gd-board {
+    gap: 14px;
+  }
+  .gd-depth {
+    gap: 8px;
+  }
+  .gd-unit {
+    margin-top: 2px;
+  }
+  .gd-unit p {
+    margin-top: 2px;
+  }
+  .gd-strips {
+    gap: 8px;
+  }
+  .gd-ps {
+    margin-top: 6px;
+    padding: 12px 14px;
+  }
+  .gd-ps h3 {
+    font-size: 22px;
+  }
+  .gd-card {
+    margin-right: 6px;
+  }
+  .gd-card-head {
+    padding: 14px 16px 12px;
+  }
+  .gd-sec {
+    padding: 12px 16px;
+  }
+  .gd-actions {
+    padding: 12px 16px 14px;
+    gap: 8px;
+  }
+  .gd-extra {
+    margin: 0 16px 12px;
+  }
+  .gd .footer {
+    padding-top: 12px;
+    gap: 8px;
+  }
+  .gd-needs,
+  .gd .roster-finance-summary,
+  .gd-panel {
+    padding: 14px;
+  }
+  .gd-need {
+    padding: 10px 0;
+  }
+  /* every control keeps the 44px touch target on a phone */
+  .gd-btn.gd-small {
+    min-height: 44px;
+  }
+  .gd-extra summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
