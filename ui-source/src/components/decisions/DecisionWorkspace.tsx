@@ -1,17 +1,31 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useId, useRef } from 'react';
 import { getMotionLevel } from '@/motion/level';
 import { MotionSurface } from '@/motion/MotionSurface';
-import { TeamCrest, SportsIcon } from '@/components/roster/SportsPresentation';
+import { SportsIcon } from '@/components/roster/SportsPresentation';
 import { useDialog } from '@/components/useDialog';
-import { teamFullName } from '@/data/teams';
+import { GameDayMasthead } from '@/design/GameDayMasthead';
+import { gdStyle } from '@/design/teamArt';
+import { useStore } from '@/state/store';
+import { viewerTeamCode } from '@/state/selectors';
 import type { DecisionRow, DecisionSort } from './decision-view';
 import './decisions.css';
+import '@/design/gameday.css';
+import '@/design/gameday-blocks.css';
+import './decisions-gameday.css';
+/**
+ * The page shell for every decision screen (free agency, trade, the draft
+ * rooms): the gameday system's light page in the team's colours. The screens
+ * keep their own markup inside; decisions-gameday.css restyles it.
+ */
 export function DecisionFrame({children,kind,code,focused=false}:{children:ReactNode;focused?:boolean;kind:'draft'|'market'|'trade';code?:string|null}) {
- return <div className={'decision-workspace decision-'+kind} data-team={code??''} data-focused={focused}>{children}</div>;
+ const mine=useStore(s=>viewerTeamCode(s));
+ return <div className={'roster-workspace gd decision-gd decision-workspace decision-'+kind} data-team={code??''} data-focused={focused} style={gdStyle(code||mine||'') as CSSProperties}><div className="gd-page">{children}</div></div>;
 }
+/** The screen's masthead: the team, its stadium, what the screen is and where it stands. */
 export function DecisionHeading({code,title,subtitle,children}:{code?:string|null;title:string;subtitle:string;children?:ReactNode}) {
- return <header className="decision-heading">{code&&<TeamCrest code={code}/>}<div><p className="decision-eyebrow">{code?teamFullName(code):'Franchise front office'}</p><h1>{title}</h1><p>{subtitle}</p></div>{children&&<div className="decision-heading-side">{children}</div>}</header>;
+ const mine=useStore(s=>viewerTeamCode(s));
+ return <GameDayMasthead code={code||mine||''} title={title} sub={subtitle} actions={children}/>;
 }
 export function DecisionSortControl({value,onChange}:{value:DecisionSort;onChange:(value:DecisionSort)=>void}) {
  return <label className="decision-sort">Sort board <select value={value} onChange={e=>onChange(e.target.value as DecisionSort)}><option value="board">Board order</option><option value="name">Name A–Z</option><option value="rating">Rating — highest</option><option value="age">Age — youngest</option></select></label>;
