@@ -1,0 +1,303 @@
+/*
+ * The weekly team hub on the gameday system (design/gameday.css and
+ * design/gameday-blocks.css). Its device is the season strip: one cell per
+ * week, the current week in ink.
+ */
+.hub-gd .hub-command:empty {
+  display: none;
+}
+.hub-gd .hub-command {
+  margin: 0;
+  padding: 4px 20px;
+  border: 2px solid var(--gd-rule);
+  border-left: 10px solid var(--gd-accent);
+  border-radius: 0;
+  background: var(--gd-card);
+}
+.hub-gd .hub-command .readiness {
+  margin: 0;
+  padding: 14px 0;
+  border: 0;
+  background: none;
+}
+.hub-gd .readiness-top p {
+  font: 900 26px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.hub-gd .readiness-top span,
+.hub-gd .readiness-held {
+  color: var(--gd-mute);
+  font-size: 14px;
+}
+.hub-gd .btn-primary,
+.hub-gd .hub-command .btn-primary {
+  min-height: 52px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+  font: 800 16px/1.2 var(--gd-body);
+  box-shadow: none;
+}
+.hub-gd .btn-primary:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.hub-gd .sim-shortcut .btnlink {
+  border-radius: 0;
+}
+
+.hub-gd .dashboard-overview,
+.hub-gd .dashboard-main,
+.hub-gd .dashboard-side {
+  gap: var(--gd-gap);
+}
+.hub-gd .season-track__games {
+  gap: 8px;
+  margin: 0;
+  padding: 2px 6px 12px 2px;
+  scrollbar-color: var(--gd-ink) transparent;
+}
+.hub-gd .season-game {
+  flex: 0 0 82px;
+  min-height: 0;
+  gap: 6px;
+  padding: 8px 4px 10px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font-size: 13px;
+}
+.hub-gd .season-game--current {
+  background: var(--gd-ink);
+  color: #fff;
+  box-shadow: 5px 5px 0 var(--gd-accent);
+  transform: translate(-1px, -1px);
+}
+.hub-gd .season-game__week {
+  margin: 0;
+  color: inherit;
+  font: 800 18px/1 var(--gd-display);
+  opacity: 0.8;
+}
+.hub-gd .season-game__team {
+  font: 800 20px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.hub-gd .season-game__score,
+.hub-gd .season-game__site {
+  color: inherit;
+  font: 600 12px/1.2 var(--gd-body);
+  opacity: 0.85;
+}
+.hub-gd .season-game strong {
+  font: 900 30px/1 var(--gd-display);
+}
+.hub-gd .season-game strong.good {
+  color: var(--good);
+}
+.hub-gd .season-game strong.bad {
+  color: var(--bad);
+}
+.hub-gd .season-game--current strong.good {
+  color: #7ff0b0;
+}
+.hub-gd .season-game--current strong.bad {
+  color: #ffab9d;
+}
+.hub-gd .season-game__bye {
+  height: auto;
+  font: 900 26px/1 var(--gd-display);
+  color: inherit;
+  opacity: 0.5;
+}
+.hub-gd .front-office__links {
+  gap: 10px;
+}
+.hub-gd .decision-link,
+.hub-gd .decision-link--purple,
+.hub-gd .decision-link--blue {
+  gap: 0;
+  padding: 14px 16px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  box-shadow: none;
+  transform: none;
+}
+.hub-gd .decision-link:hover {
+  background: var(--gd-ink);
+  color: #fff;
+  box-shadow: 5px 5px 0 var(--gd-accent);
+  transform: translate(-2px, -2px);
+}
+.hub-gd .decision-link strong {
+  font: 900 24px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.hub-gd .decision-link small {
+  margin-top: 4px;
+  color: inherit;
+  font-size: 14px;
+  opacity: 0.8;
+}
+.hub-gd .unit-pulse__row > div:first-child {
+  font: 700 15px/1.2 var(--gd-body);
+}
+.hub-gd .unit-pulse__row strong {
+  font: 800 26px/1 var(--gd-display);
+}
+.hub-gd .unit-pulse__row small {
+  margin-top: 4px;
+  color: var(--gd-mute);
+  font-size: 13px;
+}
+.hub-gd .cap-snapshot__figure {
+  color: var(--gd-mute);
+  font: 600 14px/1.2 var(--gd-body);
+}
+.hub-gd .cap-snapshot__figure strong {
+  font: 900 40px/1 var(--gd-display);
+}
+.hub-gd .cap-snapshot__figure strong.good {
+  color: var(--good);
+}
+.hub-gd .cap-snapshot__figure strong.bad {
+  color: var(--bad);
+}
+.hub-gd .cap-snapshot dl {
+  gap: 6px;
+  font-size: 14px;
+}
+.hub-gd .cap-snapshot dt {
+  color: var(--gd-mute);
+}
+.hub-gd .cap-snapshot dd {
+  font: 800 20px/1 var(--gd-display);
+}
+/* the tabs and their panel: one ruled block */
+.hub-gd .gd-hub + .panel.open {
+  margin-top: -2px;
+  padding: 18px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+@media (max-width: 1100px) {
+  .hub-gd .dashboard-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hub-gd .dashboard-side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .hub-gd .dashboard-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hub-gd .gd-hub + .panel.open {
+    padding: 14px 12px;
+  }
+  .hub-gd .ticker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hub-gd .ticker .stat:nth-child(odd) {
+    border-left: 0;
+  }
+  .hub-gd .ticker .stat:nth-child(n + 3) {
+    border-top: 2px solid var(--gd-rule);
+  }
+}
+/* an empty command band (only its scroll anchor inside) takes no room */
+.hub-gd .hub-command:not(:has(> :not(#hub-next))) {
+  display: none;
+}
+.hub-gd .front-office {
+  flex: 0 0 auto;
+}
+.hub-gd .command-center-game-plan {
+  margin: 0;
+}
+.hub-gd .game-plan-card {
+  padding: 18px 20px;
+}
+.hub-gd .game-plan-projection {
+  border: 2px dashed var(--gd-rule);
+  border-radius: 0;
+  background: none;
+}
+.hub-gd .game-plan-actions button,
+.hub-gd .fan-reactions button {
+  min-height: 44px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+  box-shadow: none;
+}
+.hub-gd .game-plan-actions button:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.hub-gd .game-plan-actions button:disabled {
+  opacity: 0.4;
+}
+.hub-gd .fan-reactions__post {
+  border: 0;
+  border-bottom: 1px solid var(--gd-soft);
+  border-radius: 0;
+  background: none;
+}
+.hub-gd .fan-reactions__avatar {
+  border-radius: 0;
+}
+/* unit ranks (overview tab) */
+.hub-unit {
+  padding: 12px 14px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.hub-unit__label {
+  margin: 0;
+  color: var(--gd-mute);
+  font: 600 13px/1.2 var(--gd-body);
+}
+.hub-unit__rank {
+  margin: 4px 0 8px;
+  font: 900 28px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.hub-unit__rank span {
+  color: var(--gd-mute);
+  font: 600 13px/1 var(--gd-body);
+  text-transform: none;
+}
+.hub-unit__bar {
+  height: 10px;
+  border: 2px solid var(--gd-rule);
+  background: #dfe6ec;
+}
+.hub-unit__bar > div {
+  height: 100%;
+  background: var(--gd-team);
+}
+/* the watch notes under "around the league" */
+.hub-gd .watchnote {
+  border: 2px solid var(--gd-rule);
+  border-left-width: 8px;
+  border-radius: 0;
+  background: var(--gd-card);
+}
+.hub-gd .watchnote .who {
+  color: var(--gd-mute);
+  font: 800 14px/1.2 var(--gd-display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.hub-gd .watchnote .txt {
+  color: var(--gd-ink);
+  font-size: 15px;
+}

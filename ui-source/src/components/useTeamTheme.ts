@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { deepen, readableAccent, TEAMS_BY_CODE } from "@/data/teams";
-import { mastheadPalette } from "@/components/roster/teamArt";
+import { mastheadPalette } from "@/design/teamArt";
 import { useStore } from "@/state/store";
 
 /**

@@ -1,291 +1,3 @@
-/*
- * Roster & depth chart: the gameday-program design.
- *
- * A light page inside the dark shell. The team-coloured masthead carries the
- * stadium, the salary cap is drawn as a field, the depth chart is a stack of
- * hard-edged strips with the rating as a big block, and the selected player
- * gets a card with a hard offset shadow. Square corners and thick ink rules
- * throughout; no glass, no glow, no decorative icons.
- *
- * Team colours arrive as --gd-team / --gd-team-ink / --gd-accent /
- * --gd-on-accent / --gd-accent-text, set on .gd by the screen
- * (teamArt.mastheadPalette), so every team reads.
- *
- * Inside the screen's sections the shared tokens are redefined to the light
- * palette, so the shared pieces that live on this screen (notices, empty
- * states, the readiness gate, unit cards) follow without their own copies.
- */
-.gd {
-  --gd-paper: #eef2f5;
-  --gd-card: #ffffff;
-  --gd-ink: #0b1b2e;
-  --gd-mute: #4e5f70;
-  --gd-rule: #0b1b2e;
-  --gd-soft: #c9d3dc;
-  --gd-turf: #2f8f5b;
-  --gd-turf-2: #287d4f;
-  --gd-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
-  --gd-body: "Hanken Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --gd-gap: 22px;
-
-  width: 100%;
-  min-width: 0;
-}
-.app-main:has(.roster-workspace.gd) {
-  background: #eef2f5;
-}
-/* the main area is a flex row: without this the screen is only as wide as
-   its widest tab, and the page jumps when the tabs change */
-.app-main > :has(> .roster-workspace.gd) {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/*
- * The light palette for the screen's own sections. Dialogs (the player card,
- * the extension offer) render inside this screen too but are built for the
- * dark theme, so they keep it.
- */
-:where(.gd-page > :not(.modal-scrim)) {
-  color: var(--gd-ink);
-  font-family: var(--gd-body);
-  font-variant-numeric: tabular-nums;
-  --page: var(--gd-paper);
-  --panel: var(--gd-card);
-  --panel-raised: #f5f8fa;
-  --panel-sunken: var(--gd-paper);
-  --line: rgba(11, 27, 46, 0.16);
-  --line-strong: rgba(11, 27, 46, 0.34);
-  --ink: var(--gd-ink);
-  --ink-dim: #34465a;
-  --ink-faint: var(--gd-mute);
-  --good: #0f7a45;
-  --bad: #b8301c;
-  --notice: #8a5a00;
-  --accent: var(--gd-accent-text);
-  --team: var(--gd-team);
-  color-scheme: light;
-}
-.gd-page {
-  max-width: 1440px;
-  margin: 0 auto;
-  display: grid;
-  /* one column exactly as wide as the screen, never as wide as its widest
-     content: a wider fallback font must wrap, not stretch the page */
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--gd-gap);
-}
-.gd-page > * {
-  min-width: 0;
-}
-:where(.gd-page > :not(.modal-scrim)) :focus-visible {
-  outline: 3px solid var(--gd-ink);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 6px var(--gd-accent);
-}
-:where(.gd-page > :not(.modal-scrim)) button {
-  font-family: var(--gd-body);
-}
-
-/* ---- shared controls ------------------------------------------------------ */
-.gd-btn,
-.gd .footer button {
-  min-height: 44px;
-  padding: 8px 14px;
-  border: 2px solid var(--gd-rule);
-  border-radius: 0;
-  background: var(--gd-card);
-  color: var(--gd-ink);
-  font: 700 14px/1.2 var(--gd-body);
-  box-shadow: none;
-}
-.gd-btn:hover:not(:disabled),
-.gd .footer button:hover:not(:disabled) {
-  background: var(--gd-ink);
-  color: #fff;
-  box-shadow: none;
-}
-.gd-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.gd-btn.gd-go,
-.gd .footer .btn-primary {
-  background: var(--gd-accent);
-  color: var(--gd-on-accent);
-  border-color: var(--gd-rule);
-}
-.gd-btn.gd-go:hover:not(:disabled),
-.gd .footer .btn-primary:hover:not(:disabled) {
-  background: var(--gd-ink);
-  color: #fff;
-}
-.gd-btn.gd-cut {
-  color: var(--bad);
-  border-color: var(--bad);
-  background: var(--gd-card);
-}
-.gd-btn.gd-cut:hover:not(:disabled) {
-  background: var(--bad);
-  color: #fff;
-}
-.gd-btn.gd-small {
-  min-height: 38px;
-  padding: 6px 12px;
-  font-size: 13px;
-}
-.gd .notice,
-.gd-notice {
-  margin: 0;
-  border: 2px solid var(--gd-rule);
-  border-left-width: 8px;
-  border-radius: 0;
-  background: var(--gd-card);
-  color: var(--gd-ink);
-  font-size: 14px;
-}
-.gd .notice.bad {
-  border-color: var(--bad);
-  background: #fff4f1;
-}
-.gd .emptystate {
-  border: 2px dashed var(--gd-rule);
-  border-radius: 0;
-  background: var(--gd-card);
-  color: var(--gd-mute);
-  padding: 18px;
-}
-.gd .form-error {
-  color: var(--bad);
-}
-
-/* ---- masthead ------------------------------------------------------------- */
-.gd-mast {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-height: clamp(270px, 27vw, 350px);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 16px 24px;
-  padding: 26px clamp(18px, 3vw, 36px) 34px;
-  border: 2px solid var(--gd-rule);
-  background: var(--gd-team);
-  color: var(--gd-team-ink);
-}
-.gd-mast-sky {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -4;
-}
-.gd-mast-photo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: -3;
-  opacity: 0;
-  filter: saturate(0.9) contrast(1.06);
-  transition: opacity var(--dur-slow) var(--ease-soft);
-}
-.gd-mast[data-photo="shown"] .gd-mast-photo {
-  opacity: 1;
-}
-/* the photo takes the team's colour, so all 32 read as one set */
-.gd-mast[data-photo="shown"]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background: var(--gd-team);
-  mix-blend-mode: multiply;
-  opacity: 0.5;
-}
-/* and the left side, where the name sits, is solid team colour */
-.gd-mast-tint {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(
-    90deg,
-    var(--gd-team) 0,
-    var(--gd-team) 30%,
-    color-mix(in srgb, var(--gd-team) 80%, transparent) 46%,
-    transparent 72%
-  );
-}
-.gd-mast-body {
-  min-width: 0;
-  align-self: end;
-}
-.gd-mast h1 {
-  margin: 0;
-  font-weight: inherit;
-}
-.gd-kicker {
-  display: block;
-  margin: 0 0 12px;
-  font: 700 15px/1.2 var(--gd-body);
-}
-.gd-team {
-  display: block;
-  font: 900 clamp(52px, 7.6vw, 108px)/0.86 var(--gd-display);
-  text-transform: uppercase;
-  letter-spacing: -0.005em;
-  text-wrap: balance;
-}
-.gd-team > span {
-  display: block;
-  /* a very long name wraps rather than being clipped by the masthead */
-  overflow-wrap: anywhere;
-}
-.gd-mast-sub {
-  margin: 14px 0 0;
-  max-width: 62ch;
-  font: 600 15px/1.45 var(--gd-body);
-}
-.gd-mast-actions {
-  align-self: start;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: flex-end;
-}
-.gd-flat {
-  min-height: 44px;
-  padding: 9px 16px;
-  border: 2px solid var(--gd-rule);
-  border-radius: 0;
-  background: #fff;
-  color: var(--gd-ink);
-  font: 700 14px/1.2 var(--gd-body);
-}
-.gd-flat:hover {
-  background: var(--gd-accent);
-  color: var(--gd-on-accent);
-}
-.gd-credit {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  max-width: min(70ch, 100%);
-  margin: 0;
-  padding: 4px 10px;
-  background: rgba(0, 0, 0, 0.62);
-  color: #fff;
-  font: 500 11.5px/1.35 var(--gd-body);
-  text-align: right;
-}
-.gd-credit a {
-  color: #fff;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 /* ---- the cap, drawn as a field ---------------------------------------------- */
 .gd-field {
   border: 2px solid var(--gd-rule);
@@ -415,41 +127,6 @@
 .gd-field-foot b {
   color: var(--gd-ink);
 }
-
-/* ---- hub tabs ------------------------------------------------------------- */
-.gd-hub .tabs {
-  gap: 0;
-  padding: 0;
-  border-bottom: 3px solid var(--gd-rule);
-  overflow: visible;
-  flex-wrap: wrap;
-}
-.gd-hub .tab {
-  padding: 12px 22px 8px;
-  margin-bottom: -3px;
-  border-bottom: 7px solid transparent;
-  color: #5d6c7b;
-  font: 800 clamp(22px, 2.2vw, 28px)/1 var(--gd-display);
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-}
-.gd-hub .tab::after {
-  display: none;
-}
-.gd-hub .tab:hover {
-  color: var(--gd-ink);
-}
-.gd-hub .tab.active {
-  color: var(--gd-ink);
-  border-bottom-color: var(--gd-accent);
-}
-.gd .panel.open {
-  padding: 0;
-  border: 0;
-  background: none;
-  animation: none;
-}
-
 /* ---- depth chart ---------------------------------------------------------- */
 .gd-board {
   display: grid;
@@ -543,7 +220,6 @@
   color: var(--gd-mute);
   font-weight: 600;
 }
-
 .gd-strips {
   display: grid;
   gap: 10px;
@@ -585,11 +261,11 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-motion="off"]) .gd-strip {
-    transition:
-      transform var(--dur-fast) var(--ease),
-      box-shadow var(--dur-fast) var(--ease),
-      background var(--dur-fast) var(--ease);
-  }
+      transition:
+        transform var(--dur-fast) var(--ease),
+        box-shadow var(--dur-fast) var(--ease),
+        background var(--dur-fast) var(--ease);
+    }
 }
 .gd-slot {
   display: grid;
@@ -726,7 +402,6 @@
 .gd-ovr small {
   font: 700 12px/1 var(--gd-body);
 }
-
 .gd-ps {
   margin-top: 14px;
   padding: 16px 20px;
@@ -780,7 +455,6 @@
   background: #d6dee6;
   color: var(--gd-ink);
 }
-
 /* The rows answer to the depth chart's own width, not the window's: beside
    the player card at 1280 the column is as narrow as a tablet's. */
 .gd-depth {
@@ -788,120 +462,72 @@
 }
 @container gd-depth (max-width: 820px) {
   .gd-strip {
-    grid-template-columns: 50px minmax(0, 1fr) 84px 54px 84px 92px;
-    gap: 0 14px;
-  }
+      grid-template-columns: 50px minmax(0, 1fr) 84px 54px 84px 92px;
+      gap: 0 14px;
+    }
 }
 @container gd-depth (max-width: 700px) {
-  /* twelve positions in two even rows of six: a grid, so a wide fallback
-     font can never push a cell past its sixth of the width */
   .gd-positions {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    overflow: hidden;
-  }
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      overflow: hidden;
+    }
   .gd-positions button {
-    min-width: 0;
-    overflow: hidden;
-    border-bottom: 2px solid var(--gd-rule);
-    margin-bottom: -2px;
-  }
+      min-width: 0;
+      overflow: hidden;
+      border-bottom: 2px solid var(--gd-rule);
+      margin-bottom: -2px;
+    }
   .gd-positions button b {
-    font-size: clamp(17px, 6vw, 24px);
-  }
+      font-size: clamp(17px, 6vw, 24px);
+    }
   .gd-positions button:nth-child(6n) {
-    border-right: 0;
-  }
+      border-right: 0;
+    }
 }
 @container gd-depth (max-width: 660px) {
-  /* every field stays on the row: name and rating up top, the facts beneath */
   .gd-strip {
-    grid-template-columns: 38px repeat(3, minmax(0, 1fr)) 72px;
-    grid-template-rows: auto auto;
-    gap: 0 10px;
-  }
+      grid-template-columns: 38px repeat(3, minmax(0, 1fr)) 72px;
+      grid-template-rows: auto auto;
+      gap: 0 10px;
+    }
   .gd-slot {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-  }
+      grid-column: 1;
+      grid-row: 1 / span 2;
+    }
   .gd-who {
-    grid-column: 2 / span 3;
-    grid-row: 1;
-    padding: 10px 0 4px;
-  }
+      grid-column: 2 / span 3;
+      grid-row: 1;
+      padding: 10px 0 4px;
+    }
   .gd-strip > .gd-fact {
-    grid-row: 2;
-    justify-items: start;
-    text-align: left;
-    padding-bottom: 10px;
-  }
+      grid-row: 2;
+      justify-items: start;
+      text-align: left;
+      padding-bottom: 10px;
+    }
   .gd-strip > .gd-fact:nth-child(3) { grid-column: 2; }
   .gd-strip > .gd-fact:nth-child(4) { grid-column: 3; }
   .gd-strip > .gd-fact:nth-child(5) { grid-column: 4; }
   .gd-ovr {
-    grid-column: 5;
-    grid-row: 1 / span 2;
-  }
+      grid-column: 5;
+      grid-row: 1 / span 2;
+    }
   .gd-ovr b {
-    font-size: 42px;
-  }
+      font-size: 42px;
+    }
   .gd-slot {
-    font-size: 30px;
-  }
+      font-size: 30px;
+    }
   .gd-fact b {
-    font-size: 20px;
-  }
+      font-size: 20px;
+    }
 }
 @container gd-depth (max-width: 420px) {
-  /* a phone: the age's career tag goes under the number */
   .gd-age {
-    grid-template-columns: auto;
-  }
+      grid-template-columns: auto;
+    }
 }
-
-/* ---- the player card ------------------------------------------------------ */
-.gd-card {
-  position: sticky;
-  top: 16px;
-  min-width: 0;
-  border: 2px solid var(--gd-rule);
-  background: var(--gd-card);
-  box-shadow: 8px 8px 0 var(--gd-rule);
-  scroll-margin-top: 16px;
-}
-.gd-card:focus-visible {
-  outline: 3px solid var(--gd-accent);
-  outline-offset: 3px;
-}
-.gd-card-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 4px 16px;
-  padding: 18px 20px 16px;
-  background: var(--gd-ink);
-  color: #fff;
-}
-.gd-card-head h3 {
-  margin: 0;
-  font: 900 40px/0.92 var(--gd-display);
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-}
-.gd-card-head p {
-  margin: 8px 0 0;
-  color: #bccbda;
-  font-weight: 600;
-}
-.gd-card-ovr {
-  font: 900 96px/0.8 var(--gd-display);
-  color: var(--gd-accent);
-}
-.gd-sec {
-  padding: 16px 20px;
-  border-bottom: 2px solid var(--gd-rule);
-}
-.gd-sec h4,
 .gd-card .roster-contract-facts h3 {
   margin: 0;
   font: 800 19px/1 var(--gd-display);
@@ -924,7 +550,6 @@
   font-weight: 600;
 }
 /* the ledger: label, dotted leader, figure */
-.gd-ledger,
 .gd-card .roster-deal-totals {
   margin: 0;
   padding: 0;
@@ -932,14 +557,12 @@
   background: none;
   display: grid;
 }
-.gd-ledger > div,
 .gd-card .roster-deal-totals > div {
   display: flex;
   align-items: baseline;
   gap: 8px;
   padding: 5px 0;
 }
-.gd-ledger > div::after,
 .gd-card .roster-deal-totals > div::after {
   content: "";
   order: 1;
@@ -948,14 +571,12 @@
   border-bottom: 2px dotted #93a2b0;
   transform: translateY(-4px);
 }
-.gd-ledger dt,
 .gd-card .roster-deal-totals dt {
   order: 0;
   color: var(--gd-mute);
   font-size: 14px;
   font-weight: 600;
 }
-.gd-ledger dd,
 .gd-card .roster-deal-totals dd {
   order: 2;
   margin: 0;
@@ -1010,53 +631,6 @@
   font-weight: 600;
   line-height: 1.2;
 }
-.gd-actions {
-  display: grid;
-  gap: 10px;
-  padding: 16px 20px 18px;
-}
-.gd-actions .gd-go {
-  min-height: 52px;
-  font-size: 16px;
-}
-.gd-actions-label {
-  margin: 4px 0 -2px;
-  font: 800 19px/1 var(--gd-display);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-.gd-two {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.gd-note {
-  margin: 0;
-  color: var(--gd-mute);
-  font-size: 13px;
-  line-height: 1.5;
-}
-.gd-note.form-error {
-  color: var(--bad);
-  font-weight: 600;
-}
-.gd-extra {
-  margin: 0 20px 18px;
-  font-size: 14px;
-}
-.gd-extra summary {
-  cursor: pointer;
-  padding: 6px 0;
-  font-weight: 700;
-}
-.gd-extra .roster-player-rating {
-  display: grid;
-  gap: 6px;
-  margin-top: 10px;
-  color: var(--gd-mute);
-  font-size: 13px;
-}
-
 /* ---- cap table tab -------------------------------------------------------- */
 .gd-finance {
   display: grid;
@@ -1237,7 +811,6 @@
 .contract-player-list b {
   font: 800 22px/1 var(--gd-display);
 }
-
 /* ---- unit grades and needs ---------------------------------------------- */
 .gd-units .sectionlabel {
   font: 900 30px/1 var(--gd-display);
@@ -1343,7 +916,6 @@
 .gd-units > .unit-cards > div[style] span[style]:first-child {
   color: var(--gd-ink) !important;
 }
-
 .gd-needs {
   padding: 18px 22px;
   border: 2px solid var(--gd-rule);
@@ -1399,268 +971,102 @@
   background: var(--gd-accent);
   color: var(--gd-on-accent) !important;
 }
-
-/* ---- footer and readiness ------------------------------------------------- */
-.gd .footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 0;
-  padding: 16px 0 0;
-  border-top: 3px solid var(--gd-rule);
-  background: none;
-}
-.gd .footer .btn-primary {
-  margin-left: auto;
-}
-.gd .readiness {
-  margin: 0;
-  border: 2px solid var(--gd-rule);
-  border-radius: 0;
-  background: var(--gd-card);
-}
-
 /* ---- narrower ------------------------------------------------------------- */
 @media (max-width: 1240px) {
   .gd-board {
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 24px;
-  }
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 24px;
+    }
 }
 @media (max-width: 1050px) {
   .gd-board,
   .gd-finance {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .gd-card {
-    position: static;
-    box-shadow: 6px 6px 0 var(--gd-rule);
-    margin-right: 6px;
-  }
+      grid-template-columns: minmax(0, 1fr);
+    }
 }
 @media (max-width: 760px) {
-  .gd {
-    --gd-gap: 16px;
-  }
-  .gd-mast {
-    display: block;
-    min-height: 0;
-    padding: 22px 18px 18px;
-  }
-  .gd-mast-body {
-    padding-top: 40px;
-  }
-  .gd-team {
-    font-size: clamp(48px, 15vw, 72px);
-  }
-  .gd-mast-actions {
-    justify-content: flex-start;
-    margin-top: 18px;
-  }
-  .gd-credit {
-    position: static;
-    margin: 14px -18px -18px;
-    text-align: left;
-  }
   .gd-field-top {
-    padding: 16px 16px 12px;
-  }
+      padding: 16px 16px 12px;
+    }
   .gd-pitch,
   .gd-yards {
-    margin-left: 16px;
-    margin-right: 16px;
-  }
+      margin-left: 16px;
+      margin-right: 16px;
+    }
   .gd-field-foot {
-    padding: 12px 16px 14px;
-  }
+      padding: 12px 16px 14px;
+    }
   .gd-cap-figure dd {
-    font-size: 24px;
-  }
+      font-size: 24px;
+    }
   .gd-cap-figures {
-    gap: 6px 20px;
-  }
-  .gd-hub .tab {
-    padding: 10px 10px 6px;
-    font-size: 19px;
-  }
-  .gd-card-head h3 {
-    font-size: 34px;
-  }
-  .gd-card-ovr {
-    font-size: 76px;
-  }
+      gap: 6px 20px;
+    }
   .gd-need {
-    grid-template-columns: 60px minmax(0, 1fr);
-  }
+      grid-template-columns: 60px minmax(0, 1fr);
+    }
   .gd-need .gd-level {
-    grid-column: 2;
-    justify-self: start;
-  }
+      grid-column: 2;
+      justify-self: start;
+    }
   .contract-list-head,
   .contract-player-list button {
-    grid-template-columns: minmax(0, 1fr) 70px 80px;
-  }
-  .gd .footer button {
-    flex: 1 1 140px;
-  }
-  .gd .footer .btn-primary {
-    margin-left: 0;
-  }
+      grid-template-columns: minmax(0, 1fr) 70px 80px;
+    }
 }
-
-/* ---- dialogs on this screen ------------------------------------------------
- * The player card and the extension offer keep the dark theme, but their
- * controls keep the 44px touch targets and fit a phone screen, as they did
- * before this screen's redesign. */
-.gd .modal-card button {
-  min-height: 44px;
-}
-.gd .modal-x,
-.gd .neg-ctrl button {
-  min-width: 44px;
-  min-height: 44px;
-}
-.gd .neg-row {
-  padding: 12px 0;
-  gap: 12px;
-}
-@media (max-width: 600px) {
-  .gd .modal-scrim {
-    padding: 10px;
-  }
-  .gd .modal-card {
-    max-height: calc(100dvh - 20px);
-  }
-  .gd .modal-head,
-  .gd .modal-body,
-  .gd .modal-foot {
-    padding: 16px;
-  }
-}
-
 /* ---- phone spacing ----------------------------------------------------------
  * Same header scale, same field, same type: only the gaps between and inside
  * the sections are tightened, and the repeated outer framing is thinned. */
 @media (max-width: 760px) {
-  .gd {
-    --gd-gap: 12px;
-  }
-  .gd-mast {
-    padding: 18px 16px 0;
-  }
-  .gd-mast-body {
-    padding-top: 0;
-  }
-  .gd-kicker {
-    margin-bottom: 8px;
-  }
-  .gd-mast-sub {
-    margin-top: 10px;
-    font-size: 14px;
-  }
-  .gd-mast-actions {
-    margin: 14px 0 16px;
-  }
-  .gd-credit {
-    margin: 0 -16px;
-    padding: 6px 16px;
-  }
   .gd-field-top {
-    padding: 14px 14px 10px;
-    gap: 10px 20px;
-  }
+      padding: 14px 14px 10px;
+      gap: 10px 20px;
+    }
   .gd-field-top p {
-    font-size: 14px;
-    margin-top: 4px;
-  }
+      font-size: 14px;
+      margin-top: 4px;
+    }
   .gd-pitch,
   .gd-yards {
-    margin-left: 14px;
-    margin-right: 14px;
-  }
+      margin-left: 14px;
+      margin-right: 14px;
+    }
   .gd-pitch {
-    height: 76px;
-  }
+      height: 76px;
+    }
   .gd-field-foot {
-    padding: 10px 14px 12px;
-    gap: 2px 18px;
-    font-size: 13px;
-  }
-  /* the four tabs as an even two-by-two, not a ragged wrap */
-  .gd-hub .tabs {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 0;
-    column-gap: 0;
-  }
-  .gd-hub .tab {
-    padding: 8px 4px 5px;
-    font-size: 20px;
-    line-height: 1.05;
-    text-align: left;
-    border-bottom-width: 5px;
-    /* a wider fallback font wraps the label instead of spilling the page sideways */
-    white-space: normal;
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
+      padding: 10px 14px 12px;
+      gap: 2px 18px;
+      font-size: 13px;
+    }
   .gd-board {
-    gap: 14px;
-  }
+      gap: 14px;
+    }
   .gd-depth {
-    gap: 8px;
-  }
+      gap: 8px;
+    }
   .gd-unit {
-    margin-top: 2px;
-  }
+      margin-top: 2px;
+    }
   .gd-unit p {
-    margin-top: 2px;
-  }
+      margin-top: 2px;
+    }
   .gd-strips {
-    gap: 8px;
-  }
+      gap: 8px;
+    }
   .gd-ps {
-    margin-top: 6px;
-    padding: 12px 14px;
-  }
+      margin-top: 6px;
+      padding: 12px 14px;
+    }
   .gd-ps h3 {
-    font-size: 22px;
-  }
-  .gd-card {
-    margin-right: 6px;
-  }
-  .gd-card-head {
-    padding: 14px 16px 12px;
-  }
-  .gd-sec {
-    padding: 12px 16px;
-  }
-  .gd-actions {
-    padding: 12px 16px 14px;
-    gap: 8px;
-  }
-  .gd-extra {
-    margin: 0 16px 12px;
-  }
-  .gd .footer {
-    padding-top: 12px;
-    gap: 8px;
-  }
+      font-size: 22px;
+    }
   .gd-needs,
   .gd .roster-finance-summary,
   .gd-panel {
-    padding: 14px;
-  }
+      padding: 14px;
+    }
   .gd-need {
-    padding: 10px 0;
-  }
-  /* every control keeps the 44px touch target on a phone */
-  .gd-btn.gd-small {
-    min-height: 44px;
-  }
-  .gd-extra summary {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-  }
+      padding: 10px 0;
+    }
 }
