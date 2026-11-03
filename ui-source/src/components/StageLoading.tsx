@@ -17,7 +17,7 @@ export function StageLoading() {
     return () => clearTimeout(t);
   }, []);
   return (
-    <div className="emptystate">
+    <div className="emptystate stage-loading">
       {slow ? (
         <>
           This isn&rsquo;t coming — the league is probably at a different stage.{" "}
