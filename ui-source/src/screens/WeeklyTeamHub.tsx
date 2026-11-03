@@ -1,10 +1,14 @@
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
-import { TeamBadge } from "@/components/bits";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { gdStyle } from "@/design/teamArt";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "@/components/dashboard/dashboard-gameday.css";
 import { RosterRepairNotice } from "@/components/RosterRepairNotice";
 import { LeagueWire } from "@/components/LeagueWire";
 import { seasonShape } from "@/state/leagueFormat";
 import { recordWatch } from "@/state/seasonAwards";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -187,14 +191,15 @@ export function WeeklyTeamHub() {
   const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
   return (
-    <div className="hub-dashboard">
-    <Card maxWidth={1280}>
+    <div className="roster-workspace gd hub-gd" style={gdStyle(code) as CSSProperties}>
+    <div className="gd-page">
       <RosterRepairNotice state={s} team={code} />
-      <div className="hub-kicker">Franchise command center <span>{displaySeasonFor(s.season, s.stage)} season</span></div>
-      <CardHeader
-        badge={<TeamBadge code={code} size={60} />}
-        title={teamFullName(code)}
-        subtitle={
+      <GameDayMasthead
+        code={code}
+        title={`Franchise command center, ${displaySeasonFor(s.season, s.stage)} season`}
+        sub={
+          <>
+            {
           isPreseason
             ? `Preseason · starting lineup ${team.ratings.overall} OVR`
             : // before a game is played the place is only the tiebreak order
@@ -205,32 +210,29 @@ export function WeeklyTeamHub() {
               : single
                 ? `${record(team)} · ${ordinal(team.leagueRank)} of ${leagueSize}`
                 : `${record(team)} · ${ordinal(team.divisionRank)} in ${meta.conference} ${meta.division}`
-        }
-        right={
-          <>
-            <p>
-              {!phase
-                ? // the deadline and the midseason market are not the offseason
-                  s.stage.startsWith("midseason") || s.stage.startsWith("tradeDeadline")
-                  ? "Mid-season"
-                  : "Offseason"
-                : blockDone
-                  ? isPreseason
-                    ? "Preseason complete"
-                    : `Through Week ${watched}`
-                  : isPreseason
-                    ? `Preseason Wk ${headerWeek}`
-                    : `Week ${headerWeek}`}
-            </p>
-            <p>
-              {oppCode
-                ? `${iHost ? "vs" : "@"} ${TEAMS_BY_CODE[oppCode]!.label}${isPreseason ? "" : ` (${record(s.teams[oppCode]!)})`}`
-                : blockDone
-                  ? "Ready when you are"
-                  : phase
-                    ? "Bye week"
-                    : STAGE_LABEL[s.stage]}
-            </p>
+            }
+            .{" "}
+            {!phase
+              ? // the deadline and the midseason market are not the offseason
+                s.stage.startsWith("midseason") || s.stage.startsWith("tradeDeadline")
+                ? "Mid-season"
+                : "Offseason"
+              : blockDone
+                ? isPreseason
+                  ? "Preseason complete"
+                  : `Through Week ${watched}`
+                : isPreseason
+                  ? `Preseason Wk ${headerWeek}`
+                  : `Week ${headerWeek}`}
+            :{" "}
+            {oppCode
+              ? `${iHost ? "vs" : "@"} ${TEAMS_BY_CODE[oppCode]!.label}${isPreseason ? "" : ` (${record(s.teams[oppCode]!)})`}`
+              : blockDone
+                ? "Ready when you are"
+                : phase
+                  ? "Bye week"
+                  : STAGE_LABEL[s.stage]}
+            .
           </>
         }
       />
@@ -322,6 +324,7 @@ export function WeeklyTeamHub() {
         offers={s.trades.filter(t => t.status === "offered" && t.toTeam === code).length} />
       <CommandCenterGamePlan />
       <FanReactions />
+      <div className="gd-hub">
       <Tabs
         tabs={[
           // the game is what this screen is for in a season; the league's
@@ -337,6 +340,7 @@ export function WeeklyTeamHub() {
         active={tab}
         onChange={setActive}
       />
+      </div>
 
       <Panel id="overview" open={tab === "overview"}>
         {code && <ExpiringContracts teamCode={code} />}
@@ -603,7 +607,7 @@ export function WeeklyTeamHub() {
         )}
       </Footer>
 
-    </Card>
+    </div>
     </div>
   );
 }
@@ -835,15 +839,15 @@ function UnitCard({ label, rank, rating, of }: { label: string; rank: number; ra
   // last of four read as a nearly full bar out of 32
   const pct = Math.max(6, Math.round(((of + 1 - rank) / Math.max(1, of)) * 100));
   return (
-    <div style={{ background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: "13px 14px" }}>
-      <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{label}</p>
-      <p className="oswald" style={{ margin: "4px 0 8px", fontSize: 18, fontWeight: 600 }}>
+    <div className="hub-unit">
+      <p className="hub-unit__label">{label}</p>
+      <p className="hub-unit__rank">
         {ordinal(rank)}
         {of < 32 ? ` of ${of}` : ""}{" "}
-        <span style={{ fontSize: 12, color: "var(--ink-dim)", fontWeight: 400 }}>· {rating} OVR</span>
+        <span>· {rating} OVR</span>
       </p>
-      <div style={{ height: 6, background: "var(--panel-raised)", borderRadius: 3, overflow: "hidden" }}>
-        <div style={{ height: "100%", background: "var(--team)", borderRadius: 3, width: `${pct}%` }} />
+      <div className="hub-unit__bar">
+        <div style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

@@ -98,6 +98,18 @@ function forWhiteType(bg: string): string {
   return contrastRatio(c, "#ffffff") >= 4.5 ? c : bg;
 }
 
+/** The inline CSS variables a `.gd` page needs for this team (see design/gameday.css). */
+export function gdStyle(code: string): Record<string, string> {
+  const p = mastheadPalette(code);
+  return {
+    "--gd-team": p.bg,
+    "--gd-team-ink": p.ink,
+    "--gd-accent": p.accent,
+    "--gd-on-accent": p.onAccent,
+    "--gd-accent-text": p.accentText,
+  };
+}
+
 export function mastheadPalette(code: string): MastheadPalette {
   const bg = forWhiteType(mastheadBg(TEAMS_BY_CODE[code]?.color ?? NEUTRAL));
   const { h, s } = hue(bg);

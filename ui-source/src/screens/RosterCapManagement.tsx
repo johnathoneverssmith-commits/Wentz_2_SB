@@ -10,10 +10,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { ContractFacts, RosterFinance, StaffCost } from "@/components/roster/RosterFinance";
 import { CapField } from "@/components/roster/CapField";
-import { GameDayMasthead } from "@/components/roster/GameDayMasthead";
-import { mastheadPalette } from "@/components/roster/teamArt";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { gdStyle } from "@/design/teamArt";
 import { MotionMeter, MotionSurface } from "@/motion/MotionSurface";
 import { AnimatedNumber } from "@/motion/AnimatedNumber";
+import "@/design/gameday.css";
 import "@/components/roster/gameday.css";
 import { ContractNegotiation } from "@/components/ContractNegotiation";
 import { useLeagueActions } from "@/state/useLeagueActions";
@@ -131,7 +132,6 @@ export function RosterCapManagement() {
     () => (code && s.teams[code] ? unitReport(s, code).units : []),
     [s, code],
   );
-  const palette = useMemo(() => mastheadPalette(code ?? ""), [code]);
   // players on injured reserve don't hold one of the 53 spots
   const onIr = roster.filter((p) => onInjuredReserve(p, s.stage)).length;
   const activeCount = roster.length - onIr;
@@ -501,13 +501,7 @@ export function RosterCapManagement() {
   );
 
   const week = viewerWeek(s);
-  const style = {
-    "--gd-team": palette.bg,
-    "--gd-team-ink": palette.ink,
-    "--gd-accent": palette.accent,
-    "--gd-on-accent": palette.onAccent,
-    "--gd-accent-text": palette.accentText,
-  } as CSSProperties;
+  const style = gdStyle(code) as CSSProperties;
 
   return (
     <div className="roster-workspace gd" style={style}>
