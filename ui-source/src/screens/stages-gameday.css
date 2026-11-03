@@ -1,0 +1,839 @@
+/*
+ * Setup and the turn-based stages on the gameday system (design/gameday.css and
+ * design/gameday-blocks.css): training camp and its results, the coaching draft
+ * room and summary, the Hooded Figure, league developments, the check-in
+ * wait. Everything is scoped under .gd-stage.
+ */
+.gd-stage .stage-body,
+.gd-stage .stage-feed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gd-gap);
+  min-width: 0;
+}
+.gd-stage .stage-block {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.gd-stage .stage-h {
+  margin: 0 0 8px;
+  font: 900 clamp(24px, 2.4vw, 30px) / 1 var(--gd-display);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.gd-stage .stage-text {
+  margin: 0 0 12px;
+  color: var(--gd-mute);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.gd-stage .stage-note {
+  margin: 12px 0 0;
+  color: var(--gd-mute);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.gd-stage .stage-note--bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+.gd-stage .stage-mute {
+  color: var(--gd-mute);
+  font-weight: 500;
+}
+.gd-stage .stage-strong {
+  font-weight: 800;
+}
+.gd-stage .stage-foot-note {
+  flex: 1 1 240px;
+  align-self: center;
+  min-width: 0;
+  color: var(--gd-mute);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.gd-stage .stage-scroll {
+  overflow-x: auto;
+}
+.gd-stage .stage-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.gd-stage .stage-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.gd-stage .stage-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ---- the clock, in the masthead ---------------------------------------------- */
+.gd-stage .stage-clock {
+  padding: 10px 14px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  min-width: 0;
+}
+.gd-stage .stage-clock p {
+  margin: 0;
+  font: 600 13px/1.3 var(--gd-body);
+}
+.gd-stage .stage-clock p + p {
+  font: 900 24px/1.05 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+/* ---- buttons that are not in a footer ----------------------------------------- */
+.gd-stage .btnlink,
+.gd-stage .stage-callout .btn-primary,
+.gd-stage .team-callout .btn-primary,
+.gd-stage .lobby-actions button,
+.gd-stage .stage-confirm button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+  box-shadow: none;
+  text-decoration: none;
+}
+.gd-stage .btnlink:hover:not(:disabled),
+.gd-stage .lobby-actions button:hover:not(:disabled),
+.gd-stage .stage-confirm button:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.gd-stage .btn-primary:not(.footer *) {
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+}
+.gd-stage button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- the focus pickers and the role filter ----------------------------------- */
+.gd-stage .rolefilter {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 84px), 1fr));
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.gd-stage .rolefilter button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 800 17px/1.1 var(--gd-display);
+  text-transform: uppercase;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.gd-stage .rolefilter button:hover:not(:disabled) {
+  background: #e6edf2;
+}
+.gd-stage .rolefilter button.active {
+  background: var(--gd-ink);
+  color: #fff;
+  box-shadow: 5px 5px 0 var(--gd-accent);
+}
+.gd-stage .stage-pick-note {
+  display: block;
+  margin-top: 4px;
+  font: 600 12px/1.3 var(--gd-body);
+  text-transform: none;
+  color: inherit;
+  opacity: 0.8;
+}
+.gd-stage .stage-picks {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+}
+
+/* ---- ruled rows (coaching staffs, the draft board) ---------------------------- */
+.gd-stage .lobby-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 2px solid var(--gd-soft);
+  border-radius: 0;
+  background: none;
+}
+.gd-stage .lobby-row > div:first-child {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.gd-stage .pname {
+  margin: 0;
+  font: 800 clamp(20px, 2vw, 24px) / 1.1 var(--gd-display);
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+.gd-stage .lobby-sub {
+  margin: 4px 0 0;
+  color: var(--gd-mute);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.gd-stage .lobby-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gd-stage .ovrpill {
+  min-width: 48px;
+  padding: 6px 8px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-ink);
+  color: #fff;
+  font: 900 22px/1 var(--gd-display);
+  text-align: center;
+}
+.gd-stage .ppos {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: none;
+  color: var(--gd-ink);
+  font: 700 12px/1.2 var(--gd-body);
+  vertical-align: middle;
+}
+.gd-stage .team-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 2px solid var(--gd-rule);
+  border-left-width: 8px;
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font-size: 14px;
+}
+.gd-stage .team-callout > span {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.gd-stage .team-callout > p {
+  margin: 0;
+}
+.gd-stage [data-testid="coach-delegation"] {
+  display: block;
+}
+.gd-stage .stage-mine td {
+  background: #e6edf2;
+}
+.gd-stage .stage-team-cell {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---- training camp results ------------------------------------------------------ */
+.gd-stage .stage-details {
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  padding: 0 18px;
+  font-size: 14px;
+}
+.gd-stage .stage-details summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 700;
+}
+.gd-stage .stage-details ol {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  line-height: 1.55;
+  color: var(--gd-mute);
+}
+.gd-stage .stage-pos {
+  color: var(--gd-mute);
+}
+.gd-stage .stage-delta {
+  font-weight: 800;
+}
+.gd-stage .stage-delta.up {
+  color: var(--good);
+}
+.gd-stage .stage-delta.down {
+  color: var(--bad);
+}
+.gd-stage .stage-delta.flat {
+  color: var(--gd-mute);
+}
+.gd-stage .stage-now {
+  font-weight: 700;
+}
+
+/* ---- league developments --------------------------------------------------------- */
+.gd-stage .stage-entry {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 16px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.gd-stage .stage-entry--swindle {
+  border-color: var(--bad);
+  border-left-width: 8px;
+}
+.gd-stage .stage-entry-team {
+  margin: 0;
+  font: 900 24px/1 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.gd-stage .stage-entry-lead {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.45;
+}
+.gd-stage .stage-lines {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+.gd-stage .stage-entry .stage-text {
+  margin: 0;
+}
+.gd-stage .stage-feed > .emptystate:only-child {
+  margin: 0;
+}
+
+/* ---- the Hooded Figure: the one place the page inverts to ink -------------------- */
+.gd-stage.stage-hooded .stage-scene {
+  padding: 24px clamp(18px, 3vw, 36px);
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-ink);
+  color: #e6edf2;
+  box-shadow: 8px 8px 0 var(--gd-accent);
+}
+.gd-stage .stage-scene p {
+  margin: 0;
+  max-width: 62ch;
+  font: italic 500 17px/1.6 var(--gd-body);
+}
+.gd-stage .stage-scene p + p {
+  margin-top: 14px;
+}
+.gd-stage .stage-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0;
+}
+.gd-stage .stage-stepper button {
+  width: 52px;
+  min-height: 52px;
+  padding: 0;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 900 28px/1 var(--gd-display);
+}
+.gd-stage .stage-stepper button:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.gd-stage .stage-amount {
+  min-width: 140px;
+  text-align: center;
+  font: 900 clamp(40px, 6vw, 64px) / 1 var(--gd-display);
+}
+
+/* ---- the check-in wait --------------------------------------------------------------- */
+.gd-stage .checkpoint {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding: 18px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  text-align: left;
+}
+.gd-stage .checkpoint > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.gd-stage .checkpoint-wait {
+  margin: 0;
+  font: 900 clamp(26px, 3vw, 34px) / 1 var(--gd-display);
+  text-transform: uppercase;
+}
+.gd-stage .checkpoint-stages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  border: 2px solid var(--gd-rule);
+}
+.gd-stage .checkpoint-stages > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px;
+}
+.gd-stage .checkpoint-stages > div + .checkpoint-arrow + div {
+  border-left: 2px solid var(--gd-rule);
+}
+.gd-stage .checkpoint-arrow {
+  display: none;
+}
+.gd-stage .checkpoint-label {
+  color: var(--gd-mute);
+  font: 600 13px/1.3 var(--gd-body);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.gd-stage .checkpoint-stage {
+  font: 900 clamp(22px, 2.4vw, 30px) / 1.05 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.gd-stage .checkpoint-stage.next {
+  color: var(--gd-accent-text);
+}
+.gd-stage .checkpoint-note {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--gd-mute);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.gd-stage .checkpoint .btnlink {
+  margin: 0 12px 0 0;
+}
+
+@media (max-width: 760px) {
+  .gd-stage .stage-block,
+  .gd-stage .stage-entry,
+  .gd-stage .checkpoint {
+    padding: 14px 16px;
+  }
+  .gd-stage .checkpoint-stages {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gd-stage .checkpoint-stages > div + .checkpoint-arrow + div {
+    border-left: 0;
+    border-top: 2px solid var(--gd-rule);
+  }
+  .gd-stage .stage-clock {
+    width: 100%;
+  }
+  .gd-stage .rolefilter,
+  .gd-stage .stage-picks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gd-stage .stage-stepper {
+    justify-content: center;
+  }
+}
+
+/* the readiness gate's advance button: a 44px target */
+.gd-stage .readiness button {
+  min-height: 44px;
+  border-radius: 0;
+}
+
+/* ======================================================================================
+ * League Setup
+ * ==================================================================================== */
+.setup-gd .gd-hub ~ .panel.open {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gd-gap);
+}
+.setup-gd .setup-h {
+  margin: 8px 0 0;
+}
+.setup-gd .setup-code {
+  font: 900 20px/1 var(--gd-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.setup-gd .rank-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  box-shadow: none;
+  white-space: normal;
+  font: 600 13px/1.3 var(--gd-body);
+}
+.setup-gd .rank-chip .rk {
+  min-width: 34px;
+  height: auto;
+  padding: 4px 8px;
+  border-radius: 0;
+  background: var(--gd-ink);
+  color: #fff;
+  font: 900 20px/1 var(--gd-display);
+}
+.setup-gd .rank-chip small,
+.setup-gd .rank-chip .mood {
+  color: var(--gd-mute);
+  opacity: 1;
+}
+
+/* the GMs at the table: a ruled list, the code as the big figure */
+.setup-gd .setup-lobby {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 2px solid var(--gd-rule);
+}
+.setup-gd .setup-lobby li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px 10px 0;
+  border-bottom: 2px solid var(--gd-soft);
+}
+.setup-gd .setup-lobby li.you .setup-lobby-name {
+  text-decoration: underline;
+  text-decoration-color: var(--gd-accent);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 3px;
+}
+.setup-gd .setup-lobby-code {
+  min-width: 56px;
+  font: 900 30px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.setup-gd .setup-lobby li > span {
+  display: grid;
+  min-width: 0;
+}
+.setup-gd .setup-lobby-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.setup-gd .setup-lobby-team {
+  color: var(--gd-mute);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* the league board: every team a block of its own colour */
+.setup-gd .setup-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  margin: 0;
+}
+.setup-gd .setup-conf {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+.setup-gd .setup-conf-h {
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 4px solid var(--gd-rule);
+  font: 900 clamp(40px, 4vw, 56px) / 0.95 var(--gd-display);
+  text-transform: uppercase;
+}
+.setup-gd .setup-div {
+  min-width: 0;
+}
+.setup-gd .setup-div-h {
+  margin: 0 0 6px;
+  font: 800 16px/1.1 var(--gd-display);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.setup-gd .setup-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.setup-gd .team-tile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px 10px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--tile, var(--gd-ink));
+  color: var(--tile-ink, #fff);
+  text-align: left;
+  box-shadow: none;
+}
+.setup-gd .team-tile:hover:not(:disabled) {
+  background: var(--tile, var(--gd-ink));
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 var(--gd-rule);
+}
+.setup-gd .team-tile.mine,
+.setup-gd .team-tile.mine:hover {
+  background: var(--tile, var(--gd-ink));
+  border-color: var(--gd-ink);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--gd-accent);
+  outline: 3px solid var(--gd-ink);
+  outline-offset: -5px;
+}
+.setup-gd .team-tile:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.setup-gd .tile-code {
+  min-width: 44px;
+  font: 900 28px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.setup-gd .tile-text {
+  display: grid;
+  min-width: 0;
+}
+.setup-gd .team-tile .tile-name {
+  font: 700 14px/1.15 var(--gd-body);
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+.setup-gd .team-tile .tile-name span {
+  color: inherit;
+  font-weight: 800;
+}
+.setup-gd .team-tile .tile-status {
+  margin-top: 2px;
+  font: 600 12px/1.2 var(--gd-body);
+  color: inherit;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
+.setup-gd .team-tile.mine .tile-status {
+  color: inherit;
+  opacity: 1;
+  font-weight: 800;
+}
+
+/* settings: a ledger, the setting on the left and its control on the right */
+.setup-gd .setup-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  padding: 16px 0;
+  border-bottom: 2px solid var(--gd-soft);
+}
+.setup-gd .setup-row-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.setup-gd .setup-row-label {
+  margin: 0;
+  font: 800 22px/1.05 var(--gd-display);
+  text-transform: uppercase;
+}
+.setup-gd .setup-row-hint {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  color: var(--gd-mute);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.setup-gd .setup-settings-row > select,
+.setup-gd .setup-settings-row > input {
+  min-width: min(100%, 220px);
+}
+.setup-gd .pill {
+  display: inline-block;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 800 15px/1.1 var(--gd-body);
+}
+.setup-gd select,
+.setup-gd input[type="text"],
+.setup-gd input[type="number"],
+.setup-gd input:not([type]) {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 600 15px/1.2 var(--gd-body);
+}
+.setup-gd select:disabled,
+.setup-gd input:disabled {
+  opacity: 0.5;
+}
+
+/* the universe picker and seed, written for the dark theme */
+.setup-gd .universe-picker {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+}
+.setup-gd .universe-picker h3 {
+  margin: 0;
+  color: var(--gd-ink);
+  font: 900 clamp(24px, 2.4vw, 30px) / 1 var(--gd-display);
+  text-transform: uppercase;
+}
+.setup-gd .universe-picker p,
+.setup-gd .universe-picker output,
+.setup-gd .universe-picker label,
+.setup-gd .universe-row label {
+  margin: 0;
+  color: var(--gd-mute);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.setup-gd .universe-picker p output,
+.setup-gd .universe-picker strong {
+  color: var(--gd-ink);
+  font-weight: 800;
+}
+.setup-gd .universe-opts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 10px;
+}
+.setup-gd .universe-opt {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  text-align: left;
+  box-shadow: none;
+}
+.setup-gd .universe-opt b {
+  font: 800 19px/1.1 var(--gd-display);
+  text-transform: uppercase;
+}
+.setup-gd .universe-opt span {
+  color: var(--gd-mute);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.setup-gd .universe-opt[aria-checked="true"] {
+  border-color: var(--gd-ink);
+  background: var(--gd-ink);
+  color: #fff;
+  box-shadow: 5px 5px 0 var(--gd-accent);
+}
+.setup-gd .universe-opt[aria-checked="true"] span {
+  color: #d4dee7;
+}
+.setup-gd .universe-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.setup-gd .universe-row label {
+  display: grid;
+  gap: 4px;
+  font-weight: 600;
+}
+.setup-gd .universe-row button,
+.setup-gd .universe-picker button:not(.universe-opt) {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+  font: 800 14px/1.2 var(--gd-body);
+}
+.setup-gd .universe-row button:disabled,
+.setup-gd .universe-picker button:disabled {
+  opacity: 0.4;
+}
+
+@media (max-width: 900px) {
+  .setup-gd .setup-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .setup-gd .setup-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .setup-gd .setup-settings-row > select,
+  .setup-gd .setup-settings-row > input {
+    width: 100%;
+  }
+}
+
+/* the league profile brief is shared with the draft board and styled inline */
+.gd-stage [data-testid="scouting-brief"] {
+  margin: 0 !important;
+  padding: 14px 18px !important;
+  border: 2px solid var(--gd-rule) !important;
+  border-radius: 0 !important;
+  background: var(--gd-card);
+}
+.gd-stage [data-testid="scouting-brief"] > div {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: var(--gd-ink) !important;
+  font: 800 19px/1.1 var(--gd-display) !important;
+  text-transform: uppercase !important;
+}
+.gd-stage [data-testid="scouting-brief"] > p {
+  color: var(--gd-mute);
+  font-size: 14px !important;
+}
+.setup-gd .gd-kicker,
+.gd-stage .gd-kicker {
+  margin-bottom: 16px;
+}
+
+.gd-stage .ticker .stat-value.sm {
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}

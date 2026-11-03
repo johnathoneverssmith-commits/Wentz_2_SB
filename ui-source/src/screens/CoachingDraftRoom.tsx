@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 
 import { pressable, TeamBadge } from "@/components/bits";
 import { CoachDetailsModal } from "@/components/CoachDetailsModal";
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { StagePage } from "@/components/stages/StagePage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Coach, CoachRole } from "@/domain";
 import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } from "@/domain";
@@ -83,12 +84,9 @@ export function CoachingDraftRoom() {
 
   if (!draft || !code) {
     return (
-      <Card>
-        <CardHeader badge="CD" title="Coaching Draft" subtitle="Setting the board" />
-        <div className="panel open">
-          <StageLoading />
-        </div>
-      </Card>
+      <StagePage code={code} kicker="Coaching draft" heading={code ? undefined : "Coaching draft"} sub="Setting the board">
+        <StageLoading />
+      </StagePage>
     );
   }
 
@@ -120,18 +118,18 @@ export function CoachingDraftRoom() {
   const picksAway = nextMine < 0 ? null : nextMine - draft.currentPickIndex;
 
   return (
-    <Card maxWidth={900}>
-      <CardHeader
-        badge={TEAMS_BY_CODE[code]!.abbr}
-        title="Coaching Draft"
-        subtitle={`Round ${round} of ${COACHING_ROUNDS} · pick ${pickInRound} of ${teams}`}
-        right={
-          <>
-            <p>{yourPick ? "You're on the clock" : "On the clock"}</p>
-            <p>{onClock ? TEAMS_BY_CODE[onClock]?.label ?? onClock : "Draft complete"}</p>
-          </>
-        }
-      />
+    <StagePage
+      code={code}
+      kicker="Coaching Draft"
+      sub={`Round ${round} of ${COACHING_ROUNDS} · pick ${pickInRound} of ${teams}`}
+      className="gd-tabbed"
+      actions={
+        <div className="stage-clock">
+          <p>{yourPick ? "You're on the clock" : "On the clock"}</p>
+          <p>{onClock ? TEAMS_BY_CODE[onClock]?.label ?? onClock : "Draft complete"}</p>
+        </div>
+      }
+    >
       <Ticker
         stats={[
           { label: "Your staff", value: `${12 - mine.length} / 12` },
@@ -175,6 +173,7 @@ export function CoachingDraftRoom() {
         }}
       />
 
+      <div className="gd-hub">
       <Tabs
         tabs={[
           { id: "board", label: "Available" },
@@ -185,6 +184,7 @@ export function CoachingDraftRoom() {
         onChange={setActive}
         label="Coaching draft"
       />
+      </div>
 
       <Panel id="board" open={active === "board"}>
         {yourPick &&
@@ -197,22 +197,17 @@ export function CoachingDraftRoom() {
             const c = suggestedCoachingPick(s, code);
             if (!c) return null;
             return (
-              <div
-                className="team-callout"
-                style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}
-                role="status"
-              >
-                <span style={{ flex: 1, minWidth: 200 }}>
+              <div className="team-callout stage-callout" role="status">
+                <span>
                   You're on the clock — best value for your open jobs:{" "}
-                  <strong style={{ color: "var(--ink)" }}>{c.name}</strong>{" "}
-                  <span style={{ color: "var(--ink-dim)", fontWeight: 500 }}>
+                  <strong>{c.name}</strong>{" "}
+                  <span className="stage-mute">
                     ({COACH_ROLE_LABEL[c.role]}, {ratingOf(c)})
                   </span>
                 </span>
                 <button
                   type="button"
                   className="btn-primary"
-                  style={{ fontSize: 11.5, padding: "7px 12px" }}
                   disabled={busy}
                   onClick={() => take(c.id)}
                 >
@@ -249,7 +244,7 @@ export function CoachingDraftRoom() {
         </div>
 
         {!yourPick && (
-          <p style={{ margin: "0 0 12px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+          <p className="stage-text">
             Waiting for{" "}
             {onClock
               ? clockGm
@@ -286,14 +281,11 @@ export function CoachingDraftRoom() {
               <div>
                 <p className="pname">
                   {hire ? (
-                    <span
-                      {...pressable(() => setInspect(hire))}
-                      style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
-                    >
+                    <span {...pressable(() => setInspect(hire))} className="stage-link">
                       {hire.name}
                     </span>
                   ) : (
-                    <span style={{ color: "var(--ink-faint)" }}>Vacant</span>
+                    <span className="stage-mute">Vacant</span>
                   )}
                   <span className="ppos">{role}</span>
                 </p>
@@ -321,10 +313,7 @@ export function CoachingDraftRoom() {
                   <div>
                     <p className="pname">
                       {c ? (
-                        <span
-                          {...pressable(() => setInspect(c))}
-                          style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
-                        >
+                        <span {...pressable(() => setInspect(c))} className="stage-link">
                           {c.name}
                         </span>
                       ) : (
@@ -351,14 +340,14 @@ export function CoachingDraftRoom() {
       </Panel>
 
       <Footer>
-        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
+        <span className="stage-foot-note">
           Every one of the twelve is picked by hand. The draft ends when the last job in the league
           is filled, and everyone moves to the summary together.
         </span>
       </Footer>
 
       {inspect && <CoachDetailsModal coach={inspect} onClose={() => setInspect(null)} />}
-    </Card>
+    </StagePage>
   );
 }
 
@@ -379,10 +368,7 @@ function CoachRow({
     <div className="lobby-row">
       <div>
         <p className="pname">
-          <span
-            {...pressable(onInspect)}
-            style={{ textDecoration: "underline", textDecorationColor: "var(--line-strong)", cursor: "pointer" }}
-          >
+          <span {...pressable(onInspect)} className="stage-link">
             {coach.name}
           </span>
           <span className="ppos">{coach.role}</span>
@@ -431,21 +417,21 @@ function DelegationPanel({
   const [confirming, setConfirming] = useState(false);
   if (remaining === 0 && staffPicks.length === 0) return null;
   return (
-    <section className="team-callout" data-testid="coach-delegation" data-team={code} style={{ margin: "12px 0" }} aria-label="Delegate remaining picks">
+    <section className="team-callout" data-testid="coach-delegation" data-team={code} aria-label="Delegate remaining picks">
       {delegated ? (
         <>
-          <p style={{ margin: 0 }} role="status">
+          <p role="status">
             <strong>Your staff is making your remaining picks.</strong>{" "}
             {remaining > 0
               ? `${remaining} job${remaining === 1 ? "" : "s"} still to fill — each is taken when your turn comes up.`
               : "Every job is filled."}
           </p>
           {staffPicks.length > 0 && (
-            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }} data-testid="staff-picks">
+            <ul className="stage-list" data-testid="staff-picks">
               {staffPicks.map((r) => (
                 <li key={r.coachId}>
                   Round {r.round} · {COACH_ROLE_LABEL[r.role]} — <strong>{coaches[r.coachId]?.name ?? r.coachId}</strong>{" "}
-                  <span style={{ color: "var(--ink-dim)" }}>({coaches[r.coachId] ? ratingOf(coaches[r.coachId]!) : "?"})</span>
+                  <span className="stage-mute">({coaches[r.coachId] ? ratingOf(coaches[r.coachId]!) : "?"})</span>
                 </li>
               ))}
             </ul>
@@ -453,14 +439,14 @@ function DelegationPanel({
         </>
       ) : (
         <>
-          <p style={{ margin: "0 0 8px", color: "var(--ink-dim)", fontSize: 12.5 }}>
+          <p className="stage-text">
             Let your staff finish the draft for you. They pick for your open jobs only, in the normal order, with
             the same judgement as the computer-run teams; other GMs&rsquo; picks are never touched, and you can
             still watch every pick. Picks already made stay yours.
           </p>
           {confirming ? (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: 12.5 }}>
+            <div className="stage-confirm">
+              <span>
                 Delegate your remaining {remaining} pick{remaining === 1 ? "" : "s"}?
               </span>
               <button type="button" className="btn-primary" disabled={busy} onClick={onDelegate}>
