@@ -64,17 +64,15 @@ test("play two weeks, then reach every game's play-by-play, history, fans and po
   await page.locator("main select").selectOption({ label: "Week 2" });
   await expect(page.getByRole("button", { name: /^Play-by-play, / }).first()).toBeVisible();
 
-  // portraits: the roster screen shows none, by design; the free-agent market shows a unique face per player
+  // portraits: the roster screen and the decision screens show no faces, by design (the generator's
+  // one-face-per-player guarantee is unit-tested in components/PlayerPortrait.test.ts)
   await page.goto("/#/roster");
   await expect(page.locator(".roster-list .prow").first()).toBeVisible();
   await expect(page.locator("svg.player-portrait")).toHaveCount(0);
   await page.goto("/#/free-agency");
-  const faces = page.locator("svg.player-portrait");
-  await expect(faces.first()).toBeVisible();
-  const ids = await faces.evaluateAll((els) => els.map((e) => e.getAttribute("data-portrait")));
-  expect(ids.length).toBeGreaterThanOrEqual(3);
-  expect(new Set(ids).size, "one face per player").toBe(ids.length);
-  await shot(page, "market-portraits-desktop");
+  await expect(page.locator(".decision-gd .fa-list .prow").first()).toBeVisible();
+  await expect(page.locator("svg.player-portrait")).toHaveCount(0);
+  await shot(page, "market-no-portraits-desktop");
 
   // mobile
   await page.setViewportSize({ width: 390, height: 844 });
