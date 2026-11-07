@@ -32,7 +32,7 @@ Source: PR [#94](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/
 | UI-TAFI-021 | Left rail clips footer controls at 900px height | UX | Low | P3 | Both | Confirmed | — |
 | UI-TAFI-022 | Full-page captures show rail ending mid-page | UX | Low? | P3 | Both | (see source) | may be capture artefact |
 
-Note: 001/002/005/017 look like leftovers Group 08 (dead CSS + one token layer) may already be meant to remove. Do not schedule separately until Group 08 scope is checked (open decision O-1).
+Routing (D-009): 001, 002, 005, 017 (and the theme part of 010, if confirmed) are folded into Group 08 — see `GROUP-08-PLAN.md`. 003 and the rest stay in this register for later PRs.
 
 ## Agent 3 — Competitiveness (6 TAFIs + 1 gap list, **work in progress**)
 Source: draft PR [#95](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/95), [register](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/blob/claude/kind-feynman-ay3w05/docs/qa-longitudinal/agent-03-competitiveness/TAFI_REGISTER.md). Final results and TAFIs are pending per owner; entries may change. Sim path: **real engine, headless** (not UI, not mock) — see AGENT-STATUS for the one point still to confirm.
@@ -51,7 +51,7 @@ Source: draft PR [#95](https://github.com/johnathoneverssmith-commits/Wentz_2_SB
 Priority rationale: Agent 3 proposed P1 for COMP-002 and COMP-006. Both are un-run hypotheses, so they start at P2 with an explicit upgrade trigger (a confirmed repeatable exploit, or a scripted human winning a large share of titles). Rule: unproven exploits do not displace confirmed defects.
 
 ## Agents 2, 4, 5
-_No submissions yet._
+_No submissions on GitHub._ Agent 5 reportedly has 13 TAFIs not yet pushed; **not registered** until its draft PR exists (D-014).
 
 ## Agents 6–9
 _Not launched._
