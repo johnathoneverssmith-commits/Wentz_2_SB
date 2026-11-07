@@ -111,3 +111,66 @@ Draft, free-agent, cap and trade *decision quality* were not directly measured. 
 5. Give the head-coach hire and a bad staff real stakes (TAFI-COMP-003) — an optional depth feature.
 6. K/P: leave as is or add a late-game leverage (TAFI-COMP-004) — optional.
 7. Run the missing experiments (TAFI-COMP-007).
+
+---
+
+# Part 2 — follow-up investigations (this section supersedes Part 1 where they differ)
+
+Raw data and scripts: `data/` and `harness/`; tables with CIs: [data/analysis_followup.md](data/analysis_followup.md) and [data/analysis_unit_summary.md](data/analysis_unit_summary.md) (regenerated, now includes all talent-1.5 arms).
+
+## 11. Coverage now complete for the unit sweeps
+All 36 planned unit-swap arms are done (talent 1.0 and 1.5 for every group; 640 pairs/arm unless 1,280 is listed in the table). Talent 1.5 scales group effects ≈1.4–1.6× (front +10: 5.1→8.0; secondary +10: 5.6→8.2; OL +10: 3.4→6.4; WR+TE +10: 3.7→5.5; RB +10: 1.0→2.6±1.2; LB 2.2→3.0). K ±10 at 1.5 is +0.45 [+0.17,+0.73] / −0.28 [−0.64,+0.08]; P is still not distinguishable from 0 (±0.9 margin). Still underpowered: RB at 1.5 and P at either level.
+
+## 12. Individual starter vs whole unit (direct measurement, replaces the divided estimate)
+One starter +10 (640 pairs each, talent 1.0, margin pts/game ±95% CI): QB **+3.91 ±1.15** (win +10.1 ±4.5 pp); S1 +1.91 ±1.11; CB1 +1.69 ±1.12; WR1 +1.64 ±1.20; EDGE1 +1.40, EDGE2 +1.29 (±1.1); ILB1 +1.04; TE +1.04; DT1 +0.98; WR3 +0.96; RB +0.91; C +0.80; CB3 +0.71; OG1 +0.59; OT1 +0.20 (±1.1 each). The single-starter intervals are wide (a single upgrade is a ≈±1-point effect on a game whose margin SD is ≈13), so **only the QB is individually distinguishable from zero and from the rest of the lineup**; the ordering among non-QB slots (S/CB/WR1/EDGE above OL/C/OT) is suggestive and consistent with the group results but is *not* established. The QB single-player effect (+3.9) is 2–4× the best other single starter.
+
+## 13. Quarterback valuation at equal payroll (COMP-001, tested)
+Method: `harness/qb_budget.ts`. The QB's rating moves by X; the dollars that move (game's FA price curve, `expectedSalary` formula, age ≤28, scale 1) are taken evenly from the other 22 starter/rotation slots, whose ratings move by the amount that costs/saves the same dollars (mean −1.6 points each for +10; +1.3 each for −10). Paired seeds, 640 pairs/arm.
+
+| talent | QB change | others (mean) | margin [95% CI] | win% pts [95% CI] |
+|---|---|---|---|---|
+| 1.0 | +10 | −1.6 | **+1.15 [+0.01,+2.29]** | +4.4 [0.0,+8.8] |
+| 1.0 | +5 | −0.9 | +0.65 [−0.45,+1.76] | +3.1 [−1.1,+7.3] |
+| 1.0 | −5 | +0.7 | −0.82 [−1.99,+0.34] | 0.0 [−4.4,+4.5] |
+| 1.0 | −10 | +1.3 | **−1.84 [−3.08,−0.60]** | −3.1 [−7.7,+1.5] |
+| 1.5 | +10 | −1.6 | **+2.15 [+0.91,+3.38]** | +6.4 [+1.9,+10.9] |
+| 1.5 | −10 | +1.3 | −1.17 [−2.46,+0.12] | −1.8 [−6.2,+2.6] |
+
+Conclusion: reallocating payroll into the QB helps, but modestly: ≈ +0.1 to +0.2 margin per QB rating point at equal payroll (≈ +1 at talent 1.0, ≈ +2 at 1.5), against a 4–5× individual-starter advantage before payroll. So **the underpricing seen in Part 1 is real but small**; QB-heavy building is a mild edge, not a dominant strategy, in this model. Limits: even-split financing is one policy (a QB-heavy GM could concentrate cuts at cheap-to-lose positions such as K/P/RB, which would raise the edge); price curve ignores age and the 24% max-deal clamp; only one league-wide rating-to-dollar curve was used; no positional-minimum/depth effects.
+
+## 14. Sign-and-flip (COMP-002, tested through the real trade model)
+Method: `harness/flip.test.ts`; real `judgeWith` (acceptance ≥ 0.5) and real `checkTrade` (cap and 53-man legality). A human team signs a player at his `expectedSalary` and offers him to every CPU team for as many of that team's non-comp picks as it will pay (greedy, highest-chart first). The league's top players at each position are treated as the market (a fresh league's actual free-agent pool is leftovers, best QB 71): a **modelling limitation**, since a real human must also win the player in the bidding rounds. 4 seeds × ranks {0,4} × contract years {1,4} = 16 cases per position per setting. Results in `data/analysis_followup.md`.
+
+What the rules do: (a) roster limit and cap are the binding constraints — with every CPU roster full at 53 only 94/224 cases found any buyer (and nearly all through the one or two teams with a spare slot); with one free slot per CPU team, mid-priced starters sell widely; (b) players over ≈$20M mostly cannot be absorbed (QB, EDGE: 0/16; CB 2/16; RB 4/16); (c) **mid-priced vets sell for ≈0.8–0.9× their chart value in picks** (C 14/16 sold, TE 16/16, DT 10/16, ILB 12/16); (d) **kickers and punters sell for MORE than the chart says**: K 1.14×, P 1.80×, accepted by all 31 CPU teams in 16/16 cases. A $3.5M punter returned ≈23 chart points of picks (about a second-round pick's chart value, R2 = 29.7), a $9M kicker ≈31, though punter rating is not detectably worth anything on the field (§2, §11).
+Root cause (confirmed by reading `tradeModel.ts`): the CPU "need" bonus is `needAt = max(1, 78 − bestAtPosition)` for every position equally, so a hole at K/P is treated like a hole at QB although K/P are priced low and matter little; with `needScale` and the /90 divisor it can outweigh the chart gap.
+Whether this is **repeatable** depends on rules outside this harness: in online play ad-hoc trading is closed and trades happen only at the deadline event (one trade per team per round, 3 rounds — `decide.ts`), and free agents are won in turn-based rounds. So the loop is bounded to ≈ the number of K/P-like assets and deadline rounds a GM can use, not unlimited. Magnitude was not simulated over a season; no evidence of a game-breaking pick stockpile, but the K/P channel is a real unintended pick source.
+
+## 15. CPU management skill (COMP-008) — does smarter AI management win?
+Method: `harness/skill_split.test.ts`, real engine, no human GM; every CPU GM's `skill` set to +2.5 (high) on half the teams and −2.5 (low) on the rest (alternating by sorted code, flipped by seed; re-applied each season), 6 leagues (seeds 9401–9406) × 5 seasons, league difficulty "standard". Starting team strength was identical between groups (difference 0.00).
+Result: **no benefit from higher skill.** Mean wins/team/season (high − low) by league: −1.14, −0.54, −0.34, −0.47, +0.50, −1.32 → overall **−0.55 (SE 0.26 across leagues)**; titles high/low 9 vs 21 in 30 seasons; mean team overall gain over the five seasons equal (+11.3 vs +11.4, mostly the engine's rating recompute artifact noted in `docs/AUDIT_multiseason_2026-10.md`). Five of six leagues favour the *low*-skill GMs. Treated as **tentative**: 6 leagues, SE ≈ half the effect, and the knob sets search depth/noise/need-awareness, not goals. It does mean the CPU "intelligence" setting is not translating into wins in this harness, so a human cannot read "AI Difficulty" as a roster-strength lever, and a rational human strategy cannot be benchmarked against it. This tests the CPU skill knob, **not** human skill.
+
+## 16. Game plans and the "universal plan" question (COMP-009)
+Existing harnesses re-run at talent 1.5, 12 games per roster (32 rosters, 384 games per cell; the harnesses do not print SEs, so per-cell uncertainty is ≈ ±0.7 margin, a limit): raw output in `data/gameplan_42_strategy_tournament.txt` and `data/gameplan_43_lever_audit.txt`.
+- All seven AI strategy plans score **below** the standard plan on an average roster: −0.08 (defense_heavy) to −1.97 (trenches_first) points a game. They gain only on the eight best-fit rosters (defense_heavy +1.19, pass_heavy +1.03, offense_heavy +0.50) and lose −2.1 to −5.9 on the eight worst-fit.
+- Every lever at its extreme (qb-run, 2-pt, 4th down, kickoff, returns, rookie usage) is ≈0 or negative on average (kickoff −0.6 to −1.2, qb-run +100: −0.68). The only positive averages are tiny (qb-run −100 +0.23, fourthLong −100 +0.20).
+So the **default plan is (near-)optimal on average and plan choices mostly carry downside**: consistent with "a universally good plan exists", and with plan-fit gains being small (≈+1 on the best-fitting third). Not tested: opponent-specific adaptation (all runs are against the standard opponent slate).
+
+## 17. Depth-chart safeguard (verified in the code, not in the rendered UI)
+`ui-source/src/screens/RosterCapManagement.tsx`: the roster screen offers "Auto-reorder by overall" and a needs panel that flags only (a) no player at a position, (b) fewer than the positional minimum, (c) top player of a group under 72 OVR, (d) a single player with no depth. **Nothing warns when a lower-rated player is ahead of a higher-rated healthy one at the same position**, and the chart is locked while a block of games runs (`depthLocked`). So an accidentally inverted starter (Part 1 sabotage test: 0.27 vs 10.0 wins a season) goes unflagged. Proposed safeguard is in TAFI-COMP-005.
+
+## 18. Human-vs-CPU strategies and the real UI (COMP-006 / priority 9)
+- **Headless strategy comparison: not done.** The human transaction surface online is turn-based events only (`decide.ts`: instant signing and ad-hoc trades are refused), so a scripted "aggressive/rebuilder/balanced" human has to drive the free-agency rounds, draft turns, and deadline turns. That is the `online/src/actions.ts` flow; it was not scripted here. Only the poor-decision control (worst-first depth chart, Part 1) and the CPU-skill split (§15) were run.
+- **Real-UI playthrough: attempted and partially working.** Environment: root + `ui-source` dependencies installed; real-engine adapter `npx tsx server/index.ts` (:8787) and `npx vite --port 5199` in `ui-source`; the pre-installed Chromium at `/opt/pw-browsers/chromium` launched through the repo's Playwright with `executablePath` (the repo's pinned Playwright expects another browser build). A Playwright script (`harness/ui_loop.js`) picks a team in "New solo dynasty" and presses the visible advance/confirm/delegate buttons. It got through team select, the 53-round fantasy draft, the coaching draft (delegated), training camp, preseason and regular-season weeks, and the **adapter received `/simulate-week` calls (real engine games)**. UI_RUN_RESULT_PLACEHOLDER
+- The UI games are **not seed-pinned** (a solo dynasty uses its own seed), so runs are not reproducible league-to-league as the headless runs are; the results are an end-to-end real-engine/UI check and a single trajectory, not a controlled comparison.
+
+## 19. Updated answer
+Intelligent management matters through **lineup and roster quality** (large, well-measured effects: QB, then the front seven and secondary; OL/WR+TE group effects) and not through the other levers tested: coaching (small), plans (standard is already ≈best), CPU-AI skill (no measurable gain), kicker/punter (≈0 on the field). The game has two *unintended* pricing/AI quirks that favour the human: the K/P need bonus (confirmed, pays picks above the chart) and a QB that is ≈1.5× underpriced (real but mild at equal payroll). Not established: how far a cap-constrained skilled human can dominate over a decade, and whether human strategies (aggressive/rebuild) differ. See the updated register.
+
+## 20. Ranked recommendations (updated; none implemented)
+1. **Neutralise the K/P need bonus** (COMP-002b): weight `needAt` by the position's trade/engine value or cap K/P need; regression test: signing and flipping a K/P returns ≤ chart value in picks. Highest confidence, smallest change.
+2. Depth-chart "starter out-rated by a healthy backup" warning + auto-fix prompt (COMP-005).
+3. Re-measure COMP-001/QB underpricing with a "concentrated-cuts" financing policy and decide on a modest QB price rise only if the edge exceeds ≈+2 margin at talent 1.0.
+4. Build the scripted-human strategy runner over the turn-based events (COMP-006), then re-assess dominance and the AI-skill result (COMP-008) with ≥20 leagues.
+5. Give the head coach and poor staffs real stakes (COMP-003); give AI skill a measurable effect or relabel it (COMP-008).
+6. Review the sign-and-flip window for mid-priced starters if later tests show it generates large pick totals (COMP-002a).
+7. Optional depth: K/P late-game leverage (COMP-004); plan–opponent matchups so non-default plans can win (COMP-009).
