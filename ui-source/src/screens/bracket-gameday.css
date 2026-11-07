@@ -168,7 +168,8 @@
 }
 .gd-bracket .bx-gm {
   justify-self: start;
-  margin-top: 3px;
+  margin: 3px 0 1px;
+  font-size: 12px;
 }
 .gd-bracket .bx-rec {
   margin-top: 2px;
@@ -356,4 +357,10 @@
 }
 .gd-bracket .bx-board + .bx-board {
   margin-top: 28px;
+}
+
+/* the strip's accent figure: --team is pale for a yellow team and fails on white,
+   --gd-accent-text is darkened to 4.5:1 for every team */
+.gd-bracket .ticker .stat-value.accent {
+  color: var(--gd-accent-text);
 }
