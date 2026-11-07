@@ -1,0 +1,26 @@
+import { writeFileSync } from "node:fs";
+import { it } from "vitest";
+import { DEFAULT_CONFIG, fillRosterGaps } from "./seed.ts";
+import { useStore } from "./store.ts";
+import { determineHoodedFigureLosers, ensureHoodedFigureEncounters, ensureHoodedFigureState, resolveHoodedFigureEncounter } from "./hoodedFigure.ts";
+
+const s = () => useStore.getState();
+it("HF monte carlo + solo eligibility", async () => {
+  // controlled: eligibility for a solo champion
+  const champ = { season: 2030, gmId: "g", teamCode: "GB", madePlayoffs: true, seed: 1, furthestRound: "SB", wonSuperBowl: true, regularSeasonRecord: { wins: 15, losses: 2, ties: 0 }, eliminationMargin: null, pointDifferential: 200, rivalsEliminated: [] } as any;
+  const soloChampLoser = determineHoodedFigureLosers([champ]);
+  await s().newLeague(5, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+  useStore.setState((d) => { d.gms[0]!.teamCode = "GB"; d.teams.GB!.controlledBy = { kind: "human", gmId: d.gms[0]!.id }; fillRosterGaps(d as never); });
+  const res: any[] = []; const pays = [1, 2, 3, 5, 7, 10];
+  const t0 = s().season;
+  for (const pay of pays) for (let i = 0; i < 300; i++) {
+    useStore.setState((d: any) => {
+      d.season = t0 + 1 + i; const hf = ensureHoodedFigureState(d);
+      hf.firstNegativeConsumed = true; hf.unavailable = []; hf.encountersBySeason = {}; hf.losingStreaks.GB = 2;
+      d.teams.GB.cap.dead = 0; ensureHoodedFigureEncounters(d);
+      const e = resolveHoodedFigureEncounter(d, "GB", pay);
+      res.push({ pay, swindle: e.swindle, branch: e.branch, tier: e.tier, id: e.outcome?.eventId, wk: (e.outcome as any)?.absenceWeeks, n: (e.outcome as any)?.negativePlayers?.length, fam: (e.outcome as any)?.family, whole: (e.outcome as any)?.wholeRosterOut, coach: (e.outcome as any)?.coachFired, txt: e.outcome?.publicText, th: e.thresholds });
+    });
+  }
+  writeFileSync(process.env.A5_OUT ?? "hf_mc.json", JSON.stringify({ soloChampLoser, res }));
+}, 900000);
