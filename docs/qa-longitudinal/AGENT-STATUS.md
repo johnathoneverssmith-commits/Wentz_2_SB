@@ -8,11 +8,19 @@ Last updated: 2026-11-07. Derived from GitHub evidence only. A mission prompt ex
 | 2 | Simulation Realism | none found | Awaiting evidence | Must state sim path (D-006) |
 | 3 | Competitiveness | draft PR [#95](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/95) (branch `claude/kind-feynman-ay3w05`): report, 6 TAFIs, harnesses, raw data | **Work in progress** | Real engine, headless. Covered: unit swaps, staff swaps, 5-season CPU leagues, price probe. Not done: UI play, draft/FA/trade, human-policy runs, multiplayer. Final TAFIs pending. |
 | 4 | Gaps & Completeness | none found | Awaiting evidence | |
-| 5 | Special Features & Fun | none found | Awaiting evidence | |
+| 5 | Special Features & Fun | **none on GitHub.** Owner reports a completed 5-season headless investigation with 13 TAFIs (Hooded Figure / special features), not yet pushed | Reported, **unverified — not registered** (D-014) | Will be registered only when its draft PR exists. No TAFI IDs are recorded from hearsay |
 | 6–9 | Security, Economy, Multiplayer, Audio | none | Not started | |
 | 10 | Coordinator | `docs/qa-longitudinal/` (#93 merged) | Active per session only; no continuous monitoring | |
 
 Other open PRs observed (not QA evidence): #92 audit harness (failing required test), #83 redesign prompts, and old infrastructure PRs #3, #6, #8, #9, #10.
+
+## Briefs for development agents (drafted; owner to deliver — I cannot message sessions)
+
+**#92 development agent (D-010).** Scope, nothing more: (1) add a change-selector rule so every tracked `e2e-audit/**` file is covered (`.claude/skills/wentz-verify/select-checks.mjs`; the failing test is `test/verify-selector.test.ts` › "covers every source file tracked in this repository"; 20 files listed in the CI log, run 42396176539); (2) update the branch against current `master` (`d9af7c4` or later); (3) rerun CI and report the `test` result. Do not change `e2e-audit/` behaviour or anything under `ui-source/`, `src/`, `online/`, `server/`; do not merge. Also confirm that adding the Agent 1/3 documentation PRs' files (`.ts` harness code under `docs/`) will not trip the same rule.
+
+**Group 08 development agent (D-009).** Use `GROUP-08-PLAN.md` together with `docs/ui-redesign/00-brief.md` and `08-cleanup.md` (on PR #83's branch).
+
+**Agent 1 (D-012).** Update #94 against current master, add the session header (sim path, SHA), continue the incomplete browser work (second season by hand, other team palettes, Gamecast, Hooded Figure, League Developments, online screens) and the follow-ups listed below. Treat 001/002/005/017 as owned by Group 08: re-verify after it merges instead of re-reporting.
 
 ## Format deviations (accepted, to normalise at finalisation)
 - Agents 1 and 3 used `docs/qa-longitudinal/agent-0N-*/` rather than `agents/agent-NN-*/`, and kept their own ID series (`UI-TAFI-nnn`, `COMP-nnn`). IDs are preserved; no rename needed. Their reports predate `SUBMISSION-FORMAT.md` being merged, so they lack the session-header block (seeds/stages are present in prose). Ask for a header at finalisation.

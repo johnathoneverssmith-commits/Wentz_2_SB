@@ -30,6 +30,9 @@ prioritises and tracks what they find. This directory is documentation only: not
 5. **Passing automated tests are not a playthrough.** Coverage is credited only by the categories in `COVERAGE-MATRIX.md`.
 6. Dedup: duplicates are cross-linked, never deleted. One root cause may carry several agents' observations.
 
+## Handoff standard (owner decision D-015)
+The coordinator tracks, de-duplicates and links; it does not investigate for the agents. Before submitting, an agent has: reproduced the finding (or labelled it unreproduced), stated its simulation path and baseline SHA, proposed a concrete fix with alternatives, and named a regression check. Submissions missing these are returned with a targeted request rather than filled in by the coordinator.
+
 ## Priority levels
 
 | P | Meaning | Examples | Target |
