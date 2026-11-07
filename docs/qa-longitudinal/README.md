@@ -18,7 +18,7 @@ prioritises and tracks what they find. This directory is documentation only: not
 | `RELEASE-READINESS.md` | Closed-alpha go/no-go assessment |
 | `SUBMISSION-FORMAT.md` | **The template every agent uses to report** |
 | `TEMPLATE-TAFI.md` | Blank full TAFI record (the coordinator expands submissions into this) |
-| `agents/` | One folder or file per agent: `agent-NN-<name>/report-YYYY-MM-DD.md` |
+| `agents/` | One folder per agent: `agent-NN-<name>/report-YYYY-MM-DD.md` (Agents 1 and 3 used top-level `agent-0N-*/` before this was merged; accepted) |
 | `tafis/` | One file per confirmed TAFI: `<AGENT-ID>.md` (agent's original ID preserved) |
 
 ## Rules
