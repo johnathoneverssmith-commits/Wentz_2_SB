@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer } from "@/components/primitives";
+import { Footer } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { cleanPlan, DEFAULT_PLAN, type GamePlan, isDefaultPlan } from "@/state/gamePlan";
 import { viewerTeamCode } from "@/state/selectors";
@@ -9,6 +11,10 @@ import { useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import type { PlanPreviewAnswer } from "@/state/planPreview";
 import { requestPlanPreview } from "@/state/planPreviewClient";
+
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./game-days-gameday.css";
 
 /** What each personnel group is, for the labels. */
 const PERSONNEL: { key: "p11" | "p12" | "p13"; label: string; note: string }[] = [
@@ -53,26 +59,12 @@ function Dial({
   high: string;
   note: string;
 }) {
+  const quiet = value === 0 || display.startsWith("0");
   return (
-    <div style={{ padding: "16px 0 14px", borderTop: "1px solid var(--line)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <label style={{ fontSize: 15, fontWeight: 600 }}>{label}</label>
-        <span
-          className="oswald"
-          style={{
-            marginLeft: "auto",
-            minWidth: 56,
-            textAlign: "center",
-            padding: "3px 12px",
-            borderRadius: 999,
-            fontSize: 16,
-            border: "1px solid var(--line-strong)",
-            color: value === 0 || display.startsWith("0") ? "var(--ink-dim)" : "var(--team)",
-            background: value === 0 || display.startsWith("0") ? "transparent" : "var(--panel)",
-          }}
-        >
-          {display}
-        </span>
+    <div className="gdy-dial">
+      <div className="gdy-dial-head">
+        <label>{label}</label>
+        <span className={"gdy-dial-value" + (quiet ? " gdy-dial-value--quiet" : "")}>{display}</span>
       </div>
       <input
         type="range"
@@ -82,33 +74,21 @@ function Dial({
         value={value}
         aria-label={label}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: "100%", margin: "12px 0 4px", accentColor: "var(--team)", height: 6 }}
       />
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, color: "var(--ink-dim)" }}>
+      <div className="gdy-dial-ends">
         <span>← {low}</span>
         <span>{high} →</span>
       </div>
-      <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.55, maxWidth: 680 }}>{note}</p>
+      <p className="gdy-dial-note">{note}</p>
     </div>
   );
 }
 
 function Group({ title, blurb, children }: { title: string; blurb: string; children: React.ReactNode }) {
   return (
-    <section
-      style={{
-        marginBottom: 22,
-        padding: "16px 20px 6px",
-        border: "1px solid var(--line)",
-        borderLeft: "4px solid var(--team)",
-        borderRadius: "var(--r-md)",
-        background: "var(--panel-sunken)",
-      }}
-    >
-      <h3 className="oswald" style={{ margin: 0, fontSize: 20, letterSpacing: "0.03em", fontWeight: 600 }}>
-        {title}
-      </h3>
-      <p style={{ margin: "3px 0 6px", fontSize: 13, color: "var(--ink-dim)" }}>{blurb}</p>
+    <section className="gdy-group">
+      <h3>{title}</h3>
+      <p>{blurb}</p>
       {children}
     </section>
   );
@@ -140,10 +120,10 @@ export function GamePlanScreen() {
 
   if (!code) {
     return (
-      <Card maxWidth={800}>
-        <CardHeader badge="FS" title="Game Plan" subtitle="No team selected" />
+      <GdPage code={null} className="gdy">
+        <GameDayMasthead code="" compact title="Game plan" heading="Game plan" sub="No team selected." />
         <div className="emptystate">Pick a team in League Setup first.</div>
-      </Card>
+      </GdPage>
     );
   }
   const meta = TEAMS_BY_CODE[code]!;
@@ -151,9 +131,9 @@ export function GamePlanScreen() {
     `Higher means more fourth downs ${zone} are gone for rather than punted or kicked. It never applies in the final two minutes, where the clock decides.`;
 
   return (
-    <Card maxWidth={900}>
-      <CardHeader badge={meta.abbr} title="Game Plan" subtitle={`${meta.label} · applies to games not yet simulated`} />
-      <div style={{ padding: "14px 22px 4px" }}>
+    <GdPage code={code} className="gdy">
+      <GameDayMasthead code={code} compact title="Game plan" heading="Game plan" sub={`${meta.label}. Applies to games not yet simulated.`} />
+      <div className="gdy-plan">
         <Group title="Pass or run" blurb="How the offense calls its game.">
           <Dial
             label="Pass rate"
@@ -348,7 +328,7 @@ export function GamePlanScreen() {
       <PlanLab plan={plan} />
 
       <Footer>
-        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
+        <span className="gdy-plan-status">
           {note ?? (isDefaultPlan(plan) ? "This is the standard plan: the game as it's always been played." : dirty ? "Unsaved changes." : "Saved. It applies to every game from the next one simulated.")}
         </span>
         <button type="button" disabled={isDefaultPlan(plan)} onClick={() => setPlan(cleanPlan(DEFAULT_PLAN))}>
@@ -372,7 +352,7 @@ export function GamePlanScreen() {
           Back to hub
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
 
@@ -394,13 +374,13 @@ function PlanLab({ plan }: { plan: GamePlan }) {
   const opp = answer ? (TEAMS_BY_CODE[answer.opponent]?.label ?? answer.opponent) : "";
   const delta = answer ? answer.withPlan - answer.standard : 0;
   return (
-    <div style={{ margin: "4px 22px 14px", padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "var(--r-md)", background: "var(--panel-sunken)" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-        <strong style={{ fontSize: 14 }}>Preseason lab</strong>
-        <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>Test this plan against your next opponent before it counts.</span>
+    <div className="gdy-lab">
+      <div className="gdy-lab-head">
+        <strong>Preseason lab</strong>
+        <span>Test this plan against your next opponent before it counts.</span>
         <button
           type="button"
-          style={{ marginLeft: "auto" }}
+          className="gdy-lab-go"
           disabled={busy}
           onClick={() => {
             setBusy(true);
@@ -419,15 +399,15 @@ function PlanLab({ plan }: { plan: GamePlan }) {
         </button>
       </div>
       {answer && (
-        <div style={{ marginTop: 10, opacity: stale ? 0.55 : 1 }}>
-          <p style={{ margin: 0, fontSize: 13.5 }}>
+        <div className="gdy-lab-answer" style={{ opacity: stale ? 0.55 : 1 }}>
+          <p>
             vs {opp} ({answer.game}): <span className="oswald">{answer.standard}%</span> with the standard plan,{" "}
-            <span className="oswald" style={{ color: delta > 0 ? "var(--good, #4caf50)" : delta < 0 ? "var(--bad, #e05d5d)" : undefined }}>
+            <span className={"oswald" + (delta > 0 ? " gdy-up" : delta < 0 ? " gdy-down" : "")}>
               {answer.withPlan}%
             </span>{" "}
             with this one ({signed(delta, " pts")} chance, {signed(answer.marginDelta)} points a game).
           </p>
-          <p style={{ margin: "4px 0 0", fontSize: 11.5, color: "var(--ink-dim)" }}>
+          <p className="gdy-lab-basis">
             {answer.tooClose
               ? `Too close to call: the difference is inside the noise of ${answer.games} games each way (±${answer.plusMinus} points).`
               : `Measured over ${answer.games} games each way, ±${answer.plusMinus} points.`}
@@ -436,7 +416,7 @@ function PlanLab({ plan }: { plan: GamePlan }) {
         </div>
       )}
       {error && (
-        <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+        <p className="form-error gdy-lab-error" role="status">
           {error}
         </p>
       )}
