@@ -145,3 +145,16 @@ Severity scale: Critical (blocks play) · High (a main screen looks broken or un
 
 ### What works well (keep)
 Keyboard focus is strong everywhere probed (2–3px white ring + shadow on rail items; "Skip to content" first). Reduced motion stops all running animations (0 running `document.getAnimations()`). No horizontal page overflow on any of 23 routes at 1024/768/390/320. The roster/cap "yards to the cap line" panel is the model of the design system.
+
+
+---
+# Wave 2 additions (pre-baseline) — see `agents/agent-01-aesthetics/report-2026-11-07.md`
+IDs `A1-001…022` = `UI-TAFI-001…022` above (unchanged). Updates to those entries and the new `A1-023…037` are in the submission file in the standard format. Summary of what changed:
+
+| Entry | Change |
+|---|---|
+| UI-TAFI-001 | root cause confirmed: `decisions.css:6`; 1.02:1; fix validated as concept |
+| UI-TAFI-002 | root cause confirmed; scope extended (A1-025: trade, FA, rookie summaries) |
+| UI-TAFI-003 | root cause confirmed: `.fs-overlay` is `position:absolute` over the whole card |
+| UI-TAFI-004/012/016/019/020 | reproduced / itemised / verified (see `08`) |
+| New | A1-023 save ceiling (High); 024 native dialogs; 025 summaries; 026 onboarding card; 027 banners; 028 masthead collision; 029–030 contrast; 031 Gamecast quarter modal; 032 commissioner panel; 033 lobby tabs; 034–035 pick/offer feedback; 036 skyline sameness; 037 HF/League Developments |

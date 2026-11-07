@@ -1,6 +1,8 @@
 # 06 · Transition & animation proposal
 
-**Status: proposal from stills and code, not a review of motion.** I could not judge timing/feel (see README). I confirmed: the app has a Motion setting (Full/Subtle/Off), `framer-motion` is a dependency, and with reduced motion on no animations were running on the hub. Everything below must honour that setting and `prefers-reduced-motion` (swap movement for a 150ms fade or an instant state change).
+**Status (wave 2): the table's 'Today' column is now measured for draft pick, FA offer and navigation (see `08` §4: every running animation by name and duration, reduced-motion verified); trade acceptance, playoff advancement, championship, coaching hire and Hooded Figure reveal were *not* measured (no distinct animation observed or the moment was not reached), so those rows remain proposals.** Wave-1 text follows.
+
+**Wave-1 status: proposal from stills and code, not a review of motion.** I could not judge timing/feel (see README). I confirmed: the app has a Motion setting (Full/Subtle/Off), `framer-motion` is a dependency, and with reduced motion on no animations were running on the hub. Everything below must honour that setting and `prefers-reduced-motion` (swap movement for a 150ms fade or an instant state change).
 
 Principles: ≤ 600ms for a moment, ≤ 200ms for a transition; never block input; skippable by click/Esc; one hero moment per event, not per row.
 
@@ -18,3 +20,10 @@ Principles: ≤ 600ms for a moment, ≤ 200ms for a transition; never block inpu
 | Page-to-page | Hard cut | 150 ms cross-fade of the body, masthead persists | 150 ms |
 
 Implementation notes: gate every animation on one `useMotion()` hook (reads the Motion setting and the media query); animate only transform/opacity; test with reduced motion and with the Motion toggle at Off; never delay the game state commit — animate after it.
+
+
+## Wave-2 measured facts that change the proposal
+- A draft pick currently produces **no animation of its own**; the first motion (~1–1.5 s later) is the next team's full-card "on the clock" overlay (220 + 420 ms). So the first change is *remove the overlay for CPU picks and put a 500 ms pick card on the user's pick*.
+- FA offers: only a 620 ms counter tick. Row and cap bar should react.
+- Gamecast: quarter card pauses autoplay; auto-dismiss it after ~1.2 s when autoplay is on.
+- The existing set (`scrim-in` 220 ms, `lift-in` 420 ms, `row-rise` 420 ms, `stat-moved` 620 ms, 130 ms hover transitions) already honours reduced motion (0 ms) — new animations should reuse those tokens (`--dur`, `--dur-slow`, `--ease`).

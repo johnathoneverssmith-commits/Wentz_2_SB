@@ -38,3 +38,24 @@
 
 ## Ten screens with the most improvement potential (player impact first)
 1. Fantasy draft summary (002) 2. Season complete (010) 3. Draft room strip + overlay (001, 003) 4. Mid-season FA (001, 009) 5. Command Center (008) 6. Postseason bracket (014) 7. Game Day / empty states (007) 8. Free agency standing (001, 013) 9. Trade deadline (001) 10. Online lobby failure state (020).
+
+
+## Wave 2 additions (rendered in wave 2; same 1–5 scale; judgement from stills and measured values)
+| Screen | A | C | R | N | Rs | E | Notes |
+|---|---|---|---|---|---|---|---|
+| Gamecast (real-engine play-by-play) | 5 | 4 | 4 | 4 | 3 | 5 | best screen; quarter modal halts autoplay (A1-031); mobile: floating button covers (004) |
+| Hooded Figure | 4 | 4 | 5 | 4 | – | 4 | plain for a dark-comedy beat (A1-037) |
+| League Developments | 3 | 5 | 5 | 5 | – | 3 | one white card (A1-037) |
+| Hot Seat (with content) | 5 | 5 | 5 | 4 | – | 4 | "SECURE" hero |
+| Retirement Review (with content) | 4 | 4 | 5 | 4 | – | 3 | purple CTA (017) |
+| Rookie Draft Summary | 2 | 1 | 2 | 3 | – | 2 | dark (A1-002/025) |
+| Free Agency Summary | 2 | 1 | 2 | 3 | – | 2 | dark (A1-025) |
+| Trade Summary | 2 | 1 | 2 | 3 | – | 2 | dark (A1-025) |
+| Training Camp Results (with content) | 4 | 4 | 4 | 4 | – | 4 | |
+| Multiplayer lobby (create/join/claim) | 3 | 3 | 4 | 4 | 4 | 2 | small tabs, empty space (A1-033) |
+| Multiplayer waiting gate ("Waiting for other players") | 4 | 4 | 4 | 5 | – | 3 | model screen |
+| Commissioner "Manage GMs" | 3 | 3 | 3 | 3 | 4 | 2 | no state, equal-weight destructive (A1-032) |
+| Online onboarding card / banners | 2 | 1 | 2 | 3 | 2 | 1 | dark glass (A1-026/027) |
+| Dialogs & drawers (Methodology, Unit Grades, dossier, Draft X?) | 4 | 4 | 4 | 4 | 4 | 3 | native dialogs the exception (A1-024) |
+
+Wave-1 rows for Gamecast, Hooded Figure, League Developments, commissioner screens and waiting states (N/R) are superseded by the rows above. Still not rendered: coach-details modal, Checkpoint with a stalled GM.

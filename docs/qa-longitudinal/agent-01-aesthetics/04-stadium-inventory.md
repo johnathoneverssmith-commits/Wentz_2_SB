@@ -2,7 +2,9 @@
 
 Source of truth: `ui-source/public/art/stadiums/*.webp` and `STADIUM_PHOTO_CREDITS` in `ui-source/src/design/teamArt.ts` at `3abcfff`. Teams without a file fall back to the drawn `StadiumScene` skyline (`TEAM_SKYLINE`).
 
-**What I actually looked at:** BAL's photo, rendered on ~30 screens, and the drawn skyline on the setup screen. For the other 16 photos I verified the file exists, its pixel size and its credit entry in code; I did **not** render them in the app, so crop quality and visual consistency for those are *unverified*. I did not check licence pages online; every file needs its Commons page re-checked before more are added.
+**Wave 2 update — verified by rendering:** all 32 franchise mastheads were rendered with the real component (viewer team swapped in a real save; `evidence/wave2/masthead_32_teams_A/B.webp`). **Confirmed working in-app (photo loaded, 1600px wide, credit line printed): ARI, ATL, BAL, BUF, CAR, CHI, CLE, DAL, DEN, HOU, JAX, LV, NO, PIT, SEA, TB, TEN (17).** **Confirmed skyline fallback (no photo file): CIN, DET, GB, IND, KC, LAC, LAR, MIA, MIN, NE, NYG, NYJ, PHI, SF, WAS (15).** No broken image. Visual notes: ARI's very wide crop works; the NO photo is washed out by the tan tint; eight skylines share one composition and LAC/LAR are near-identical (A1-036). Licences were still not checked online. The text below is the wave-1 inventory (source inspection plus BAL rendered); where it says 'unverified', the paragraph above supersedes it for loading and crop.
+
+**What I looked at in wave 1:** BAL's photo, rendered on ~30 screens, and the drawn skyline on the setup screen. For the other 16 photos I verified the file exists, its pixel size and its credit entry in code; I did **not** render them in the app, so crop quality and visual consistency for those are *unverified*. I did not check licence pages online; every file needs its Commons page re-checked before more are added.
 
 ## A. Teams with a stadium photo (17)
 | Team | File | Size | Credit in code | Notes |

@@ -2,6 +2,8 @@
 
 Direction stays as designed (light paper body, hard borders, condensed display type, team-coloured stadium masthead, orange primary). Nothing here changes that direction.
 
+**Wave-2 sequencing note:** Group 08 as specified (pixel-identical cleanup) should come *after* a small follow-up PR that finishes the decision-screen conversion (A1-001, 002, 025; root cause `decisions.css:6` and `draft-summary.css`), because 08 must stop on any remaining dark page and its pixel diff would otherwise lock the defects in. See `08-wave2-verification-report.md` §3.
+
 **Phase 1 — Finish the conversion (Small, 1–2 days):** TAFI-001, 002 (the page), 003, 005, 015, 017, 018. Outcome: no dark-theme leftovers, one primary colour, no clipped overlay. Gate: grep for the old dark classes; contrast probe on the changed routes.
 
 **Phase 2 — Chrome (Small–Medium):** 004, 012, 013, 021. One tools affordance, 44px shell targets, 12px text floor, rail footer pinned. Gate: the sweep in this audit (overflow / target / font-size) re-run at four widths.

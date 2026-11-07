@@ -11,7 +11,10 @@ Branch `claude/brave-cray-w76j72`, based on master `3abcfff` (PRs #84, #87, #90 
 | `05-top-10.md` | 5. Top 10 visual improvements |
 | `06-transitions-and-animation.md` | 6. Transition & animation proposal |
 | `07-consistency-roadmap.md` | 7. Visual consistency roadmap |
-| `evidence/` | 17 compressed screenshots/contact sheets (1.7 MB) |
+| `08-wave2-verification-report.md` | Wave 2: coverage by method, root causes, Group 08 determination, measured motion |
+| `../agents/agent-01-aesthetics/report-2026-11-07.md` | **Standard-format submission** (`SUBMISSION-FORMAT.md`), A1-001…A1-037 |
+| `evidence/` | wave-1 screenshots; `evidence/wave2/` = wave-2 images and run logs |
+| `tools/` | scripts used (paths point at the original scratch folder) |
 
 ## How the evidence was gathered
 1. Built the production UI (`ui-source`, `vite build`) and served it with `vite preview`.
@@ -19,7 +22,17 @@ Branch `claude/brave-cray-w76j72`, based on master `3abcfff` (PRs #84, #87, #90 
 3. Measured at 1024/768/390/320 across 23 routes (overflow, target size, font-size), plus fonts-blocked, reduced-motion and keyboard-focus probes.
 4. Hand-clicking the first fantasy draft in the live UI worked (setup → team select → ready → draft room with the on-the-clock overlay) but took minutes per pick, so I stopped and used the fixtures.
 
-## Limitations — read before relying on the scorecard
+## Status after wave 2
+Wave 1 limitations that are now closed (see `08` for method per item): two consecutive seasons (2027, 2028) and the 2029 offseason played through the real UI against the real engine adapter; live Gamecast with real play-by-play; Hooded Figure (organic and injected); League Developments; multiplayer lobby, waiting gate and commissioner panel against a real local server; PIT/CIN/CHI/LV contrast and mastheads; all 32 mastheads rendered; root causes; motion measured.
+
+## Remaining limitations
+- Method matters: other franchises and the 32-team check used game-generated fixtures (Mock sim, not the adapter); Hooded Figure also from an edited save. The two-season run itself is real-UI/real-engine.
+- Not covered: coach-details modal, Checkpoint with a stalled GM, take-turn on a real stalled turn, Firefox/Safari, real phones, audio, a title won by the human team, perceived smoothness (no frame-rate measurement), contrast of images.
+- Pre-baseline: Group 08 and the #92 audit harness are not merged; repeat the high-priority checks (A1-001/002/003/004/012/023) on the approved baseline.
+- The run was scripted, not a person; "enjoyment" judgements are mine from stills and timings.
+
+## Original wave-1 limitations (kept for history)
+
 These are **not** met, against the brief's Definition of Done:
 - **Two consecutive seasons were not played by hand through the UI.** I viewed screens from one full season plus the start of the next offseason, loaded from engine-played saves. No second regular season was rendered.
 - **Transitions and animations were not evaluated in motion.** Screenshots are static; I saw only the on-the-clock overlay. `06` is therefore a proposal from code and stills, not a review of felt motion.
