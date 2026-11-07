@@ -1,7 +1,13 @@
 import { useSetupCreating } from "@/components/journey/SetupCreationNotice";
 import { ScoutingBrief } from "@/components/ScoutingBrief";
 import { UniversePicker } from "@/components/journey/UniversePicker";
-import { GameTitle } from "@/components/GameTitle";
+import { GdPage } from "@/design/GdPage";
+import { SetupMasthead } from "@/components/stages/SetupMasthead";
+import { mastheadPalette } from "@/design/teamArt";
+import { gameTitle } from "@/state/gameTitle";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./stages-gameday.css";
 import { RankChip } from "@/visual/RankChip";
 import { ManualPicksInput } from "@/components/ManualPicksInput";
 import { GmIdentityPicker } from "@/components/GmIdentity";
@@ -9,13 +15,12 @@ import { CopyButton, inviteLink } from "@/components/CopyButton";
 import { cloneElement, isValidElement, useId, useState, type ReactElement } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { isOnline, lastLeagueId, onlineSession } from "@/state/online";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { DIVISIONS, TEAMS_BY_CODE, teamFullName } from "@/data/teams";
-import type { Difficulty, LeagueConfig, TeamMeta } from "@/domain";
+import type { Difficulty, LeagueConfig } from "@/domain";
 import {
   formatOf,
   humansOnlyLeagueSize,
@@ -87,21 +92,26 @@ export function LeagueSetup() {
   const myMeta = viewer.teamCode ? TEAMS_BY_CODE[viewer.teamCode] : undefined;
 
   return (
-    <>
-    <div className="setup-hero">
-      <GameTitle team={viewer.teamCode || undefined} eyebrow="Franchise Sim" />
-      {viewer.teamCode && <div className="rank-chip-row"><RankChip team={viewer.teamCode} /></div>}
-    </div>
-    <Card maxWidth={940}>
-      <CardHeader
-        badge={myMeta ? myMeta.abbr : "GM"}
+    <GdPage code={viewer.teamCode || null} className="gd-stage gd-tabbed setup-gd">
+      <SetupMasthead
+        code={viewer.teamCode || null}
         title="League Setup"
-        subtitle={
-          locked
-            ? `${STAGE_LABEL[stage]} · team and rules are locked while the league is running`
-            : // an online league has a name; "New Dynasty" is the solo game's
-              `${online ? (onlineSession()?.leagueName ?? "Online league") : "New Dynasty"} · ${config.humanGmCount} ${online ? "Human GMs" : "GMs"}`
+        headline={gameTitle(myMeta?.name)}
+        announce={myMeta ? `You are the ${myMeta.name}. ${gameTitle(myMeta.name)}.` : ""}
+        sub={
+          <>
+            {myMeta
+              ? `${myMeta.city} ${myMeta.name} · ${humansOnly ? "humans-only league" : `${myMeta.conference} ${myMeta.division}`}`
+              : "Choose a team below"}
+            {" — "}
+            {locked
+              ? `${STAGE_LABEL[stage]} · team and rules are locked while the league is running`
+              : // an online league has a name; "New Dynasty" is the solo game's
+                `${online ? (onlineSession()?.leagueName ?? "Online league") : "New Dynasty"} · ${config.humanGmCount} ${online ? "Human GMs" : "GMs"}`}
+            {!locked && myMeta ? " · you can still switch teams until the league starts" : ""}
+          </>
         }
+        actions={viewer.teamCode ? <RankChip team={viewer.teamCode} /> : undefined}
       />
 
       <Ticker
@@ -119,14 +129,16 @@ export function LeagueSetup() {
         ]}
       />
 
-      <Tabs
-        tabs={[
-          { id: "lobby", label: locked ? "League" : "Lobby" },
-          { id: "settings", label: "League Settings" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={[
+            { id: "lobby", label: locked ? "League" : "Lobby" },
+            { id: "settings", label: "League Settings" },
+          ]}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
 
       <Panel id="lobby" open={active === "lobby"}>
         {/* The single most common way to land here confused: this screen and
@@ -154,7 +166,7 @@ export function LeagueSetup() {
             {commissioner && onlineSession()?.inviteCode && lobby.filter((g) => g.teamCode).length < config.humanGmCount && (
               <>
                 {" "}Invite code:{" "}
-                <span className="oswald" style={{ letterSpacing: "0.08em" }}>
+                <span className="setup-code">
                   {onlineSession()!.inviteCode}
                 </span>{" "}
                 <CopyButton text={onlineSession()!.inviteCode!} /> ·{" "}
@@ -164,8 +176,6 @@ export function LeagueSetup() {
           </div>
         )}
         <ScoutingBrief profile={profile} kind="league"/>
-        <FranchiseBanner meta={myMeta} locked={locked} humansOnly={formatOf(config) === "humansOnly"} />
-
         {viewer && (
           <GmIdentityPicker
             value={viewer.strategy ?? "balanced"}
@@ -174,74 +184,36 @@ export function LeagueSetup() {
           />
         )}
 
-        <p className="sectionlabel">GM lobby</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8, marginBottom: 6 }}>
+        <h2 className="stage-h setup-h">GM lobby</h2>
+        <ul className="setup-lobby">
           {lobby.map((g) => {
             const meta = g.teamCode ? TEAMS_BY_CODE[g.teamCode] : undefined;
             const you = g.id === viewerGmId;
             return (
-              <div
-                key={g.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 11px",
-                  background: "var(--panel-sunken)",
-                  border: `1px solid ${you && meta ? "color-mix(in srgb, var(--team) 35%, transparent)" : "var(--line)"}`,
-                  borderRadius: "var(--r-sm)",
-                }}
-              >
-                {meta ? (
-                  <TeamBadge code={meta.code} size={30} />
-                ) : (
-                  <span
-                    className="oswald"
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: 8,
-                      background: "var(--panel-raised)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: "var(--ink-faint)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {(you ? "You" : g.name).charAt(0)}
-                  </span>
-                )}
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{you ? "You" : g.name}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11, color: meta ? "var(--ink-dim)" : "var(--ink-faint)" }}>
-                    {meta ? teamFullName(meta.code) : "Selecting…"}
-                  </p>
-                </div>
-              </div>
+              <li key={g.id} className={you ? "you" : undefined}>
+                <b className="setup-lobby-code">{meta ? meta.abbr : (you ? "You" : g.name).charAt(0)}</b>
+                <span>
+                  <span className="setup-lobby-name">{you ? "You" : g.name}</span>
+                  <span className="setup-lobby-team">{meta ? teamFullName(meta.code) : "Selecting…"}</span>
+                </span>
+              </li>
             );
           })}
-        </div>
+        </ul>
 
         {!locked && (
           <>
-            <p className="sectionlabel" style={{ marginTop: 22 }}>
-              Select your team
-            </p>
-            <div className="conf-grid">
+            <h2 className="stage-h setup-h">Select your team</h2>
+            <div className="conf-grid setup-board">
               {(["AFC", "NFC"] as const).map((conf) => (
-                <div key={conf}>
-                  <p className="subhead" style={{ marginTop: 0 }}>
-                    {conf}
-                  </p>
+                <div key={conf} className="setup-conf">
+                  <h3 className="setup-conf-h">{conf}</h3>
                   {DIVISIONS.filter((d) => d.conference === conf).map((d) => (
-                    <div key={d.division} style={{ marginBottom: 14 }}>
-                      <p style={{ margin: "0 0 6px", fontSize: 10.5, color: "var(--ink-faint)", fontWeight: 500 }}>
+                    <div key={d.division} className="setup-div">
+                      <p className="setup-div-h">
                         {conf} {d.division}
                       </p>
-                      <div className="split-2" style={{ gap: 8 }}>
+                      <div className="split-2 setup-tiles">
                         {d.teams.map((t) => {
                           const owner = takenBy.get(t.code);
                           const mine = owner === viewerGmId;
@@ -255,10 +227,11 @@ export function LeagueSetup() {
                               aria-pressed={mine}
                               // the badge, name and status ran together as "BALBaltimore RavensAvailable"
                               aria-label={`${t.city} ${t.name} — ${mine ? "your team" : otherTaken ? `taken by ${gmName(gms, owner)}` : "available"}`}
+                              style={tileStyle(t.code)}
                               onClick={() => pickTeam(viewerGmId, t.code)}
                             >
-                              <TeamBadge code={t.code} size={30} />
-                              <span style={{ minWidth: 0 }}>
+                              <b className="tile-code" aria-hidden="true">{t.abbr}</b>
+                              <span className="tile-text">
                                 <span className="tile-name">
                                   {t.city} <span>{t.name}</span>
                                 </span>
@@ -283,17 +256,17 @@ export function LeagueSetup() {
         {online && !commissioner && <p className="notice">Only the commissioner can change these league settings. Your team and check-in remain yours.</p>}
         <UniversePicker seed={seed} config={config} canRestart={!locked && !online && lastLeagueId()===null}/>
         {online && !locked && !commissioner && (
-          <div className="notice" role="status" style={{ marginBottom: 14 }}>
+          <div className="notice" role="status">
             Only the commissioner can change these. They&rsquo;re shown so everyone knows the rules.
           </div>
         )}
         {configError && (
-          <div className="notice bad" role="status" style={{ marginBottom: 14 }}>
+          <div className="notice bad" role="status">
             {configError}
           </div>
         )}
         {locked && (
-          <p style={{ margin: "0 0 14px", fontSize: 11.5, color: "var(--ink-faint)" }}>
+          <p className="stage-text">
             Rules are shown for reference — they can&rsquo;t change once the league is underway.{" "}
             {online
               ? "For different rules, start another league from Online Leagues."
@@ -493,7 +466,7 @@ export function LeagueSetup() {
       ) : (
         <>
           <Footer>
-            <span style={{ flex: 1, fontSize: 11, color: "var(--ink-faint)", alignSelf: "center" }}>
+            <span className="stage-foot-note">
               {config.fantasyDraft
                 ? "The fantasy draft begins once every GM is ready."
                 : "Teams keep their starting roster. The coaching draft begins once every GM is ready."}
@@ -507,96 +480,14 @@ export function LeagueSetup() {
           />
         </>
       )}
-    </Card>
-    </>
+    </GdPage>
   );
 }
 
-/** The "your franchise" moment at the top of the lobby. */
-function FranchiseBanner({
-  meta,
-  locked,
-  humansOnly,
-}: {
-  meta: TeamMeta | undefined;
-  locked: boolean;
-  humansOnly: boolean;
-}) {
-  if (!meta) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "18px 20px",
-          marginBottom: 22,
-          background: "var(--panel-sunken)",
-          border: "1px dashed var(--line-strong)",
-          borderRadius: "var(--r-md)",
-        }}
-      >
-        <span
-          className="oswald"
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 12,
-            background: "var(--panel-raised)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 22,
-            fontWeight: 600,
-            color: "var(--ink-faint)",
-            flexShrink: 0,
-          }}
-        >
-          ?
-        </span>
-        <div>
-          <p style={{ margin: 0, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-faint)", fontWeight: 600 }}>
-            Your franchise
-          </p>
-          <p className="oswald" style={{ margin: "4px 0 0", fontSize: 24, fontWeight: 600 }}>
-            Choose a team below
-          </p>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
-            Every GM builds from the same player pool in the fantasy draft — pick the colors you want to wear.
-          </p>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        padding: "18px 20px",
-        marginBottom: 22,
-        background: "linear-gradient(120deg, color-mix(in srgb, var(--team) 16%, var(--panel-sunken)), var(--panel-sunken) 72%)",
-        border: "1px solid color-mix(in srgb, var(--team) 35%, transparent)",
-        borderRadius: "var(--r-md)",
-      }}
-    >
-      <TeamBadge code={meta.code} size={52} />
-      <div style={{ minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--team)", fontWeight: 600 }}>
-          Your franchise
-        </p>
-        <p className="oswald" style={{ margin: "4px 0 0", fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>
-          {meta.city} {meta.name}
-        </p>
-        <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--ink-dim)" }}>
-          {/* a humans-only league has no conferences or divisions */}
-          {humansOnly ? "Humans-only league" : `${meta.conference} ${meta.division}`}
-          {locked ? "" : " · you can still switch teams until the league starts"}
-        </p>
-      </div>
-    </div>
-  );
+/** a team's tile is its own colour, in the contrast-safe shade the masthead uses */
+function tileStyle(code: string): React.CSSProperties {
+  const p = mastheadPalette(code);
+  return { "--tile": p.bg, "--tile-ink": p.ink } as React.CSSProperties;
 }
 
 function gmName(gms: { id: string; name: string }[], id: string): string {
@@ -615,31 +506,10 @@ function SettingRow({
   // the title beside each select was plain text: an unnamed dropdown
   const id = useId();
   return (
-    <div
-      role="group"
-      className="setup-settings-row"
-      aria-labelledby={`${id}-l`}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "13px 0",
-        borderBottom: "1px solid var(--line)",
-        gap: 14,
-      }}
-    >
-      <div>
-        <p id={`${id}-l`} style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
-        <p
-          id={`${id}-h`}
-          style={{
-            margin: "3px 0 0",
-            fontSize: 11.5,
-            color: "var(--ink-faint)",
-            maxWidth: 380,
-            lineHeight: 1.4,
-          }}
-        >
+    <div role="group" className="setup-settings-row" aria-labelledby={`${id}-l`}>
+      <div className="setup-row-text">
+        <p id={`${id}-l`} className="setup-row-label">{label}</p>
+        <p id={`${id}-h`} className="setup-row-hint">
           {hint}
         </p>
       </div>

@@ -5,12 +5,17 @@ import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { PostseasonMatchups } from "@/components/PostseasonMatchups";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./bracket-gameday.css";
 import { ReadinessGate } from "@/components/ReadinessGate";
 import { onColorFor, TEAMS_BY_CODE } from "@/data/teams";
 import type { BracketMatchup, PlayoffRound } from "@/domain";
 import { bracketRounds, record, roundLabelFor, winPct } from "@/domain";
-import { isHumansOnly, playoffFieldSize, leagueBadge } from "@/state/leagueFormat";
+import { isHumansOnly, playoffFieldSize } from "@/state/leagueFormat";
 import { GamePlanStrip } from "@/components/GamePlanStrip";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleBracket } from "@/state/reveal";
@@ -51,16 +56,22 @@ export function PostseasonBracket() {
         .slice(0, 7);
     const started = s.games.some((g) => g.phase === "REG" && g.played);
     return (
-      <Card maxWidth={940}>
-        <CardHeader badge={leagueBadge(s)} title="Postseason" subtitle={`${s.season} playoffs · not seeded yet`} />
-        <div className="panel open">
-          <div className="emptystate" style={{ marginBottom: started ? 20 : 0 }}>
+      <GdPage code={code} className="gd-bracket">
+        <GameDayMasthead
+          code={code ?? ""}
+          compact
+          title={`${s.season} playoffs`}
+          heading="Postseason"
+          sub="Not seeded yet: the bracket is set when the regular season ends."
+        />
+        <div className="bx-pre">
+          <div className="emptystate">
             The bracket is seeded when the regular season ends
             {started ? " — here's how the field looks right now." : "."}
           </div>
           {started && single && (
             <div>
-              <p className="subhead" style={{ marginTop: 0 }}>
+              <p className="subhead">
                 League — current top {playoffFieldSize(Object.keys(s.teams).length)}
               </p>
               <table className="stbl">
@@ -73,7 +84,7 @@ export function PostseasonBracket() {
                         className={t.code === code ? "highlight" : ""}
                         style={i >= playoffFieldSize(Object.keys(s.teams).length) ? { opacity: 0.55 } : undefined}
                       >
-                        <td className="c" style={{ width: 22, color: "var(--ink-faint)" }}>{i + 1}</td>
+                        <td className="c bx-rank">{i + 1}</td>
                         <td className="name">{TEAMS_BY_CODE[t.code]!.label}</td>
                         <td className="r">{record(t)}</td>
                       </tr>
@@ -83,17 +94,17 @@ export function PostseasonBracket() {
             </div>
           )}
           {started && !single && (
-            <div className="split-2" style={{ gap: 24 }}>
+            <div className="bx-split">
               {(["AFC", "NFC"] as const).map((conf) => (
                 <div key={conf}>
-                  <p className="subhead" style={{ marginTop: 0 }}>
+                  <p className="subhead">
                     {conf} — seeds if it ended today
                   </p>
                   <table className="stbl">
                     <tbody>
                       {inHunt(conf).map((t, i) => (
                         <tr key={t.code} className={t.code === code ? "highlight" : ""}>
-                          <td className="c" style={{ width: 22, color: "var(--ink-faint)" }}>{i + 1}</td>
+                          <td className="c bx-rank">{i + 1}</td>
                           <td className="name">{TEAMS_BY_CODE[t.code]!.label}</td>
                           <td className="r">{record(t)}</td>
                         </tr>
@@ -106,7 +117,7 @@ export function PostseasonBracket() {
           )}
         </div>
         {viewerTeamCode(s) && <ExpiringContracts teamCode={viewerTeamCode(s)!} />}
-      <Footer>
+        <Footer>
           <button type="button" className="btnlink" onClick={() => nav("/hub")}>
             Team hub
           </button>
@@ -114,7 +125,7 @@ export function PostseasonBracket() {
             Full schedule
           </button>
         </Footer>
-      </Card>
+      </GdPage>
     );
   }
 
@@ -145,8 +156,14 @@ export function PostseasonBracket() {
   const online = onlineSession() !== null;
 
   return (
-    <Card maxWidth={960}>
-      <CardHeader badge={leagueBadge(s)} title="Postseason" subtitle={`${roundLabelFor(b, b.currentRound)} · ${s.season} playoffs`} />
+    <GdPage code={code} className="gd-tabbed gd-bracket">
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={`${s.season} playoffs`}
+        heading="Postseason"
+        sub={b.champion ? `${TEAMS_BY_CODE[b.champion]!.label} won the ${roundLabelFor(b, "SB")}.` : `Now: ${roundLabelFor(b, b.currentRound)}.`}
+      />
       <Ticker
         stats={[
           {
@@ -188,14 +205,16 @@ export function PostseasonBracket() {
       />
       {b.format === "single" ? (
         <>
-          <Tabs
-            tabs={[
-              { id: "bracket", label: "Bracket" },
-              { id: "matchup", label: "Matchup" },
-            ]}
-            active={active}
-            onChange={setActive}
-          />
+          <div className="gd-hub">
+            <Tabs
+              tabs={[
+                { id: "bracket", label: "Bracket" },
+                { id: "matchup", label: "Matchup" },
+              ]}
+              active={active}
+              onChange={setActive}
+            />
+          </div>
           {active === "matchup" ? (
             <div className="panel open">
               <PostseasonMatchups b={b} />
@@ -206,16 +225,18 @@ export function PostseasonBracket() {
         </>
       ) : (
       <>
-      <Tabs
-        tabs={[
-          { id: "afc", label: "AFC" },
-          { id: "nfc", label: "NFC" },
-          { id: "sb", label: "Super Bowl" },
-          { id: "matchup", label: "Matchup" },
-        ]}
-        active={active}
-        onChange={setActive}
-      />
+      <div className="gd-hub">
+        <Tabs
+          tabs={[
+            { id: "afc", label: "AFC" },
+            { id: "nfc", label: "NFC" },
+            { id: "sb", label: "Super Bowl" },
+            { id: "matchup", label: "Matchup" },
+          ]}
+          active={active}
+          onChange={setActive}
+        />
+      </div>
 
       {(["afc", "nfc"] as const).map((conf) => (
         <Panel key={conf} open={active === conf}>
@@ -228,7 +249,7 @@ export function PostseasonBracket() {
       </Panel>
 
       <Panel id="sb" open={active === "sb"}>
-        <div style={{ maxWidth: 340, margin: "0 auto" }}>
+        <div className="bx-sb">
           {b.matchups
             .filter((m) => m.round === "SB")
             .map((m, i) => (
@@ -267,7 +288,7 @@ export function PostseasonBracket() {
             <p>{b.champion ? `The ${roundLabelFor(b, "SB")} has been played` : `${roundLabelFor(b, s.pendingGameDay.phase as PlayoffRound)} results are in`}</p>
             <span>Continue from Game Day to move on</span>
           </div>
-          <button type="button" className="btn-primary" style={{ width: "100%" }} onClick={() => nav("/game-day")}>
+          <button type="button" className="btn-primary" onClick={() => nav("/game-day")}>
             {b.champion ? "See the final result" : "View round results"}
           </button>
         </div>
@@ -282,7 +303,7 @@ export function PostseasonBracket() {
           onAdvance={(r) => nav(r)}
         />
       )}
-    </Card>
+    </GdPage>
   );
 }
 
@@ -349,18 +370,16 @@ function ConferenceBracket({
   }, [matchups, conf]);
 
   return (
-    <div ref={wrapRef} style={{ position: "relative" }}>
-      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "visible" }}>
+    <div ref={wrapRef} className="bx-conf">
+      <svg className="bx-lines" aria-hidden="true">
         {paths.map((d, i) => (
-          <path key={i} d={d} fill="none" stroke="var(--line-strong)" strokeWidth={1} />
+          <path key={i} d={d} fill="none" stroke="var(--gd-ink)" strokeWidth={2} strokeLinejoin="miter" />
         ))}
       </svg>
-      <div className="split-3" style={{ gap: 40 }}>
+      <div className="bx-cols">
         {(["WC", "DIV", "CONF"] as const).map((round, ci) => (
           <div key={round}>
-            <p className="subhead" style={{ textAlign: "center", marginTop: 0 }}>
-              {roundLabelFor(null, round)}
-            </p>
+            <h3 className="bx-round">{roundLabelFor(null, round)}</h3>
             <div
               ref={ci === 0 ? wc : ci === 1 ? div : cc}
               className="bracket-col"
@@ -368,9 +387,7 @@ function ConferenceBracket({
               {rows(round).length > 0 ? (
                 rows(round).map((m, i) => <MatchBox key={i} m={m} me={me} />)
               ) : (
-                <div className="emptystate" style={{ padding: "18px 8px" }}>
-                  TBD
-                </div>
+                <div className="bx-tbd">TBD</div>
               )}
             </div>
           </div>
@@ -388,51 +405,34 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
   const played = m.homeScore != null && m.awayScore != null;
   const bye = m.round === "WC" && !m.lowSeed;
 
+  // The row structure is read back by e2e/support/postseason.ts (seed chip and
+  // name in a cluster, the score a direct child of the row): change the classes
+  // freely, not the nesting.
   const row = (side: BracketMatchup["highSeed"], score: number | null, isWinner: boolean) => {
-    if (!side) return <div style={{ padding: "9px 12px", color: "var(--ink-faint)", fontStyle: "italic", fontSize: 13 }}>TBD</div>;
+    if (!side) return <div className="bx-row bx-row--tbd">TBD</div>;
     const t = TEAMS_BY_CODE[side.code]!;
     const st = teams[side.code];
     const gm = gmOf(side.code);
     const mineSide = side.code === me;
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "9px 12px",
-          gap: 8,
-          background: isWinner ? "rgba(111,200,150,0.07)" : undefined,
-          // a GM's team stands out from thirty others; yours most of all
-          ...(gm ? { boxShadow: `inset 3px 0 0 ${mineSide ? "var(--team)" : "var(--notice)"}` } : {}),
-          ...(mineSide ? { background: "color-mix(in srgb, var(--team) 14%, transparent)" } : {}),
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
-          <span className="oswald" style={{ width: 20, height: 20, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, background: t.color, color: onColorFor(t.color) }}>
+      <div className={`bx-row${isWinner ? " bx-row--won" : ""}${mineSide ? " bx-row--me" : gm ? " bx-row--gm" : ""}`}>
+        <div className="bx-id">
+          <span className="oswald bx-seed" style={{ background: t.color, color: onColorFor(t.color) }}>
             {side.seed || "•"}
           </span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: gm ? 700 : 500 }}>{t.label}</span>
-            {gm && (
-              <span className="ppos" style={{ marginLeft: 6 }}>
-                {mineSide ? "you" : gm.name}
-              </span>
-            )}
-            <GmLine code={side.code} style={{ display: "block", fontSize: 10.5 }} />
+          <span className="bx-name">
+            <span className="bx-label">{t.label}</span>
+            {gm && <span className="ppos bx-gm">{mineSide ? "you" : gm.name}</span>}
+            <GmLine code={side.code} style={{ display: "block", fontSize: 12 }} />
             {st && (
-              <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>
+              <span className="bx-rec">
                 {st.ratings.overall} OVR · {st.wins}-{st.losses}
                 {st.ties ? `-${st.ties}` : ""}
               </span>
             )}
           </span>
         </div>
-        {score != null && (
-          <span className="oswald" style={{ fontSize: 14, fontWeight: 600, color: isWinner ? "var(--good)" : "var(--ink-dim)" }}>
-            {score}
-          </span>
-        )}
+        {score != null && <span className="oswald bx-score">{score}</span>}
       </div>
     );
   };
@@ -447,12 +447,12 @@ function MatchBox({ m, me }: { m: BracketMatchup; me: string | undefined }) {
   const favProb = m.favoredWinProb >= 50 ? m.favoredWinProb : 100 - m.favoredWinProb;
 
   return (
-    <div style={{ background: "var(--panel-sunken)", border: `1px ${bye ? "dashed" : "solid"} ${yours ? "color-mix(in srgb, var(--team) 48%, transparent)" : "var(--line)"}`, borderRadius: 8, overflow: "hidden" }}>
+    <div className={`bx${yours ? " bx--mine" : ""}${bye ? " bx--bye" : ""}`}>
       {row(m.highSeed, played ? m.homeScore : null, highWin || (bye && !!m.winner))}
-      {!bye && <div style={{ borderTop: "1px solid var(--line)" }}>{row(m.lowSeed, played ? m.awayScore : null, lowWin)}</div>}
-      {bye && <div style={{ padding: "4px 12px 9px", fontSize: 9.5, color: "var(--ink-faint)", fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase" }}>Bye — auto-advance</div>}
+      {!bye && row(m.lowSeed, played ? m.awayScore : null, lowWin)}
+      {bye && <div className="bx-foot">Bye — auto-advance</div>}
       {!played && !bye && favCode && (
-        <div style={{ padding: "6px 12px 9px", fontSize: 11, color: "var(--good)", textAlign: "center", borderTop: "1px solid var(--line)" }}>
+        <div className="bx-foot bx-foot--fav">
           {/* "favored · 50%" is a contradiction, and two evenly matched teams
               land there often enough to notice */}
           {favProb === 50
@@ -623,19 +623,17 @@ function SingleBracket({ b, me }: { b: import("@/domain").BracketState; me: stri
   const rounds = bracketRounds(b);
   return (
     <div className="panel open">
-      <div className="single-bracket" style={{ "--rounds": rounds.length } as React.CSSProperties}>
+      <div className="bx-single" style={{ "--rounds": rounds.length } as React.CSSProperties}>
         {rounds.map((round) => {
           const games = b.matchups.filter((m) => m.round === round);
           return (
             <div key={round}>
-              <p className="subhead" style={{ marginTop: 0, textAlign: "center" }}>
-                {roundLabelFor(b, round)}
-              </p>
-              <div style={{ display: "grid", gap: 14 }}>
+              <h3 className="bx-round">{roundLabelFor(b, round)}</h3>
+              <div className="bx-stack">
                 {games.map((m, i) => (
                   <MatchBox key={i} m={m} me={me} />
                 ))}
-                {games.length === 0 && <div className="emptystate">Set once the previous round is played.</div>}
+                {games.length === 0 && <div className="bx-tbd">Set once the previous round is played.</div>}
               </div>
             </div>
           );

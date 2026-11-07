@@ -196,9 +196,10 @@ export interface ShownMatchup {
  * A game's winner is the team whose score is drawn in the colour the UI keeps for winners (`--good`), not the other's.
  */
 function readColumns(cols: Element[]): ShownMatchup[][] {
+  // `--good` is read where the bracket is drawn: a converted (light) screen redefines it inside its own page
   const probe = document.createElement("span");
   probe.style.color = "var(--good)";
-  document.body.appendChild(probe);
+  (document.querySelector(".gd-page") ?? document.body).appendChild(probe);
   const good = getComputedStyle(probe).color;
   probe.remove();
   return cols.map((col) =>

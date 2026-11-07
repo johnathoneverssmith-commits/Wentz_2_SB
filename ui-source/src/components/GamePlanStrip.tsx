@@ -16,24 +16,10 @@ export function GamePlanStrip() {
   const plan = useStore((s) => (code ? s.gamePlans?.[code] : undefined));
   const custom = !!plan && !isDefaultPlan(plan);
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        margin: "0 22px 4px",
-        padding: "8px 12px",
-        border: "1px solid var(--line)",
-        borderRadius: "var(--r-md)",
-        background: "var(--panel-sunken)",
-        fontSize: 12.5,
-      }}
-    >
-      <span style={{ color: "var(--ink-faint)" }}>Game plan</span>
-      <strong style={{ color: custom ? "var(--team)" : "var(--ink-dim)" }}>{custom ? "Custom" : "Standard"}</strong>
-      <span style={{ flex: 1, color: "var(--ink-faint)", fontSize: 11.5 }}>
-        Pass rate, fourth down, blitz, personnel and backs, for the games you play next.
-      </span>
+    <div className="plan-strip">
+      <span className="plan-strip__k">Game plan</span>
+      <strong className={custom ? "plan-strip__v plan-strip__v--custom" : "plan-strip__v"}>{custom ? "Custom" : "Standard"}</strong>
+      <span className="plan-strip__note">Pass rate, fourth down, blitz, personnel and backs, for the games you play next.</span>
       <button type="button" onClick={() => nav("/game-plan")}>
         Adjust
       </button>

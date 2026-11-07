@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
-import { Card, CardHeader, Footer, Ticker } from "@/components/primitives";
+import { Footer, Ticker } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
-import { TEAMS_BY_CODE } from "@/data/teams";
+import { StagePage } from "@/components/stages/StagePage";
 import { POSITIONS } from "@/domain";
 import { FOCUS_LABEL, planFor } from "@/state/trainingCamp";
 import { viewerTeamCode } from "@/state/selectors";
@@ -40,11 +40,8 @@ export function TrainingCampResults() {
 
   if (!code || results.length === 0) {
     return (
-      <Card>
-        <CardHeader badge="TC" title="Training Camp Results" subtitle="Nothing to show" />
-        <div className="panel open">
-          <div className="emptystate">Camp hasn&rsquo;t run yet.</div>
-        </div>
+      <StagePage code={code} kicker="Training Camp Results" heading={code ? undefined : "No results"} sub="Nothing to show">
+        <div className="emptystate">Camp hasn&rsquo;t run yet.</div>
         {/* a dead end otherwise: this screen is reachable by URL or a stale tab */}
         <Footer>
           <button type="button" className="btnlink" onClick={() => nav("/hub")}>
@@ -56,17 +53,16 @@ export function TrainingCampResults() {
             </button>
           )}
         </Footer>
-      </Card>
+      </StagePage>
     );
   }
 
   return (
-    <Card maxWidth={860}>
-      <CardHeader
-        badge={TEAMS_BY_CODE[code]!.abbr}
-        title="Training Camp Results"
-        subtitle={`${displaySeason(s)} · ${improved} improved, ${declined} declined`}
-      />
+    <StagePage
+      code={code}
+      kicker="Training Camp Results"
+      sub={`${displaySeason(s)} · ${improved} improved, ${declined} declined`}
+    >
       <Ticker
         stats={[
           { label: "Improved", value: improved, className: "good" },
@@ -75,7 +71,7 @@ export function TrainingCampResults() {
         ]}
       />
 
-      <div className="panel open">
+      <div className="stage-body">
         <div className="notice" role="status">
           <strong>Camp is done.</strong> You concentrated on{" "}
           {plan?.offensiveFocus ? FOCUS_LABEL[plan.offensiveFocus] : "—"} and{" "}
@@ -83,9 +79,9 @@ export function TrainingCampResults() {
           <strong>The change shown is the whole offseason&rsquo;s</strong> — a year of progression or decline for
           every player, with your camp focus and coaches shaping it — not just what happened in camp.
         </div>
-        <details style={{ margin: "10px 0 16px", fontSize: 12.5, color: "var(--ink-dim)" }}>
-          <summary style={{ cursor: "pointer", color: "var(--ink)" }}>How progression and regression work</summary>
-          <ol style={{ margin: "8px 0 0", paddingLeft: 20, lineHeight: 1.55 }}>
+        <details className="stage-details">
+          <summary>How progression and regression work</summary>
+          <ol>
             <li>
               <strong>Age and potential set the baseline.</strong> Each player has an age where he stops developing and
               one where he starts to decline. Before the first he tends to improve, faster the more room he has left
@@ -130,52 +126,41 @@ export function TrainingCampResults() {
           if (rows.length === 0) return null;
 
           return (
-            <div key={group.label} style={{ marginBottom: 18 }}>
-              <p className="subhead">{group.label}</p>
-              <div style={{ overflowX: "auto" }}>
+            <section key={group.label} className="stage-block">
+              <h2 className="stage-h">{group.label}</h2>
+              <div className="stage-scroll">
                 <table className="stbl">
                   <thead>
                     <tr>
-                      <th style={{ width: 46 }}>Pos</th>
+                      <th>Pos</th>
                       <th>Player</th>
-                      <th className="c" style={{ width: 62 }}>Last year</th>
-                      <th className="c" style={{ width: 82 }}>Offseason change</th>
-                      <th className="c" style={{ width: 52 }}>Now</th>
+                      <th className="c">Last year</th>
+                      <th className="c">Offseason change</th>
+                      <th className="c">Now</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map(({ p, r }) => (
                       <tr key={p.id}>
-                        <td style={{ color: "var(--ink-faint)" }}>{posLabel(p.position)}</td>
+                        <td className="stage-pos">{posLabel(p.position)}</td>
                         <td className="name">{p.name}</td>
-                        <td className="c" style={{ color: "var(--ink-dim)" }}>{r!.previous}</td>
-                        <td
-                          className="c"
-                          style={{
-                            fontWeight: 700,
-                            color:
-                              r!.delta > 0
-                                ? "var(--good)"
-                                : r!.delta < 0
-                                  ? "var(--bad)"
-                                  : "var(--ink-faint)",
-                          }}
-                        >
+                        <td className="c">{r!.previous}</td>
+                        <td className={"c stage-delta " + (r!.delta > 0 ? "up" : r!.delta < 0 ? "down" : "flat")}>
                           {r!.delta > 0 ? `+${r!.delta}` : r!.delta < 0 ? `${r!.delta}` : "0"}
                         </td>
-                        <td className="c" style={{ fontWeight: 600 }}>{r!.next}</td>
+                        <td className="c stage-now">{r!.next}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </section>
           );
         })}
       </div>
 
       <Footer>
-        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
+        <span className="stage-foot-note">
           Advancing is final — you can&rsquo;t come back to camp.
         </span>
       </Footer>
@@ -186,6 +171,6 @@ export function TrainingCampResults() {
         label="Advance to Re-order Depth Chart"
         onAdvance={(r) => nav(r)}
       />
-    </Card>
+    </StagePage>
   );
 }
