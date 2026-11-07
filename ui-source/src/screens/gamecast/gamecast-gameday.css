@@ -1,0 +1,655 @@
+/*
+ * Watch a game on the gameday system (design/gameday.css, gameday-blocks.css).
+ *
+ * Loaded after gamecast.css and highlights.css, so it restyles them rather
+ * than forking them: the markup, the class names and every behaviour hook are
+ * the ones the Gamecast already had. What changes is the skin — a light page
+ * (GdPage), a scoreboard in the two teams' colours with big condensed
+ * numerals, square ruled panels, 44px transport controls with a visible focus
+ * ring. The turf keeps its greens and the blue line of scrimmage / yellow
+ * first-down line keep their colours: those are what the lines mean. The field
+ * is the one dark surface on the page, square-cornered and ruled like the rest.
+ */
+
+.wg-panel {
+  min-width: 0;
+}
+.wg-season {
+  margin: 0 0 8px;
+  color: var(--gd-mute);
+  font: 700 14px/1.2 var(--gd-body);
+}
+.wg-toggle {
+  margin: 14px 0 6px;
+}
+.wg .emptystate,
+.wg .notice {
+  margin-bottom: 14px;
+}
+.wg-loading {
+  padding: 28px 16px;
+  border: 2px dashed var(--gd-rule);
+  text-align: center;
+  font: 800 18px/1.3 var(--gd-body);
+}
+
+/* ---- the page's own buttons: square, ruled, 44px ---- */
+.wg .btnlink,
+.wg .btn-primary {
+  min-height: 44px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 800 14px/1.2 var(--gd-body);
+  box-shadow: none;
+}
+.wg .btnlink:hover:not(:disabled),
+.wg .btn-primary:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.wg .btn-primary,
+.wg .btnlink.btn-primary {
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+}
+.wg .btn-primary:hover:not(:disabled),
+.wg .btnlink.btn-primary:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+
+/* ---- the gamecast shell ---- */
+.wg .gc {
+  --gc-chalk: var(--gd-accent-text, var(--gd-team));
+  --gc-player: var(--gd-ink);
+  --gc-mono: var(--gd-body);
+  gap: var(--gd-gap);
+  min-width: 0;
+}
+.wg .gc:focus-visible {
+  outline: 3px solid var(--gd-ink);
+  outline-offset: 3px;
+}
+
+/* ---- the scoreboard ---- */
+.wg .gc-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  box-shadow: 6px 6px 0 var(--gd-rule);
+}
+.wg .gc-side {
+  gap: 14px;
+  padding: 14px 22px;
+  background: var(--gc-tc, var(--gd-ink));
+  color: var(--gc-tc-ink, #fff);
+  min-width: 0;
+}
+.wg .gc-chip {
+  display: none;
+}
+.wg .gc-code {
+  font: 900 clamp(26px, 5cqw, 52px) / 1 var(--gd-display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.wg .gc-score {
+  font: 900 clamp(48px, 11cqw, 112px) / 0.9 var(--gd-display);
+  font-variant-numeric: tabular-nums;
+}
+.wg .gc-mid {
+  min-width: 132px;
+  padding: 8px 16px;
+  gap: 2px;
+  background: var(--gd-card);
+  border-left: 2px solid var(--gd-rule);
+  border-right: 2px solid var(--gd-rule);
+  text-align: center;
+}
+.wg .gc-status {
+  color: var(--gd-mute);
+  font: 800 14px/1.2 var(--gd-body);
+  letter-spacing: 0.1em;
+}
+.wg .gc-status.live {
+  color: var(--gd-ink);
+}
+.wg .gc-situ {
+  margin-top: 0;
+  color: var(--gd-ink);
+  font: 900 clamp(20px, 3cqw, 30px) / 1.05 var(--gd-display);
+}
+
+/* ---- panels ---- */
+.wg .gc-grid {
+  gap: var(--gd-gap);
+}
+.wg .gc-panel {
+  min-width: 0;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+}
+.wg .gc-stage {
+  background: var(--gd-ink);
+  box-shadow: 6px 6px 0 var(--gd-rule);
+}
+.wg .gc-stage {
+  --ink: #fff;
+  --ink-dim: rgba(255, 255, 255, 0.82);
+  --ink-faint: rgba(255, 255, 255, 0.7);
+  color: #fff;
+}
+.wg .gc-phead {
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--gd-rule);
+  background: var(--gd-ink);
+  color: #fff;
+  font: 900 18px/1.2 var(--gd-display);
+  letter-spacing: 0.06em;
+}
+.wg .gc-phead .n {
+  color: rgba(255, 255, 255, 0.82);
+  font: 700 13px/1.2 var(--gd-body);
+}
+
+/* ---- field ---- */
+.wg .gc-fieldwrap {
+  padding: 0;
+}
+.wg .gc-field {
+  border-radius: 0;
+  border-bottom: 2px solid var(--gd-rule);
+}
+.wg .gc-playline {
+  padding: 12px 14px 0;
+}
+.wg .gc-dd {
+  font: 900 clamp(22px, 3cqw, 32px) / 1.1 var(--gd-display);
+  letter-spacing: 0.03em;
+}
+.wg .gc-dd.td {
+  color: var(--gd-accent);
+}
+.wg .gc-desc {
+  color: #fff;
+  font: 500 clamp(15px, 1.6cqw, 18px) / 1.4 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.wg .gc-stage .gc-name {
+  color: #fff;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- transport: 44px, square, focus ring ---- */
+.wg .gc-transport {
+  gap: 10px;
+  padding: 14px;
+}
+.wg .gc-transport button,
+.wg .gc-transport select {
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
+  border: 2px solid #fff;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+}
+.wg .gc-transport button:hover:not(:disabled) {
+  background: #fff;
+  color: var(--gd-ink);
+  border-color: #fff;
+}
+.wg .gc-transport button.gc-play {
+  width: 56px;
+  height: 56px;
+  border-color: var(--gd-accent);
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+}
+.wg .gc-transport button.gc-play:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
+  color: var(--gd-ink);
+}
+.wg .gc-transport button svg {
+  width: 18px;
+  height: 18px;
+}
+.wg .gc-transport select {
+  width: auto;
+  padding: 0 28px 0 10px;
+  font: 800 14px/1 var(--gd-body);
+  color: #fff;
+  background-color: var(--gd-ink);
+}
+.wg .gc-transport select option {
+  color: var(--gd-ink);
+  background: #fff;
+}
+.wg .gc-transport .gc-skip {
+  width: auto;
+  padding: 0 16px;
+  font: 800 14px/1 var(--gd-body);
+  letter-spacing: 0.06em;
+}
+.wg .gc-transport :focus-visible {
+  outline: 3px solid var(--gd-accent);
+  outline-offset: 3px;
+}
+.wg .gc-scrub {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.wg .gc-scrub input[type="range"] {
+  min-height: 44px;
+  accent-color: var(--gd-accent);
+}
+.wg .gc-count {
+  color: #fff;
+  font: 800 14px/1 var(--gd-body);
+}
+
+/* ---- drive chart ---- */
+.wg .gc-drive {
+  padding: 10px 14px;
+  min-height: 44px;
+  border-bottom: 2px solid var(--gd-rule);
+  font-size: 14px;
+}
+.wg .gc-drive:hover {
+  background: #eef2f6;
+}
+.wg .gc-drive[aria-current="true"] {
+  background: var(--gd-ink);
+  color: #fff;
+  --ink: #fff;
+  --ink-dim: rgba(255, 255, 255, 0.85);
+  --ink-faint: rgba(255, 255, 255, 0.78);
+}
+.wg .gc-drive[aria-current="true"] .gc-dteam,
+.wg .gc-drive[aria-current="true"] .gc-dwhen,
+.wg .gc-drive[aria-current="true"] .gc-dmeta,
+.wg .gc-drive[aria-current="true"] .gc-dsum,
+.wg .gc-drive[aria-current="true"] .gc-dkey {
+  color: #fff;
+}
+.wg .gc-dteam {
+  font: 900 20px/1 var(--gd-display);
+  letter-spacing: 0.05em;
+}
+.wg .gc-dteam::before {
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-radius: 0;
+}
+.wg .gc-dwhen {
+  color: var(--gd-mute);
+  font: 700 13px/1 var(--gd-body);
+}
+.wg .gc-dmeta {
+  color: var(--gd-ink);
+  font: 600 13px/1.3 var(--gd-body);
+  flex-wrap: wrap;
+}
+.wg .gc-dsum {
+  color: var(--gd-mute);
+  font: 600 13px/1.3 var(--gd-body);
+}
+.wg .gc-dkey {
+  color: var(--gd-ink);
+  font-weight: 800;
+}
+.wg .gc-dtag,
+.wg .gc-hl-badge {
+  padding: 2px 6px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--gd-ink);
+  font: 800 12px/1.2 var(--gd-body);
+  letter-spacing: 0.04em;
+}
+.wg .gc-dtag.td,
+.wg .gc-hl-badge.major {
+  background: var(--gd-accent);
+  border-color: var(--gd-rule);
+  color: var(--gd-on-accent);
+}
+.wg .gc-dtag.to,
+.wg .gc-dtag.against {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.wg .gc-dtag.special {
+  background: #fff;
+  color: var(--gd-ink);
+  border-style: dashed;
+}
+.wg .gc-drive[aria-current="true"] .gc-dtag {
+  border-color: #fff;
+  color: #fff;
+}
+.wg .gc-drive[aria-current="true"] .gc-dtag.td {
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+}
+
+/* ---- key moments (highlights.css) ---- */
+.wg .gc-hl-panel {
+  border-bottom: 2px solid var(--gd-rule);
+}
+.wg .gc-hl-item {
+  min-height: 44px;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--gd-rule);
+  border-left: 6px solid transparent;
+}
+.wg .gc-hl-item:hover {
+  background: #eef2f6;
+}
+.wg .gc-hl-item.major {
+  border-left-color: var(--gd-accent);
+}
+.wg .gc-hl-when {
+  color: var(--gd-mute);
+  font: 700 13px/1 var(--gd-body);
+}
+.wg .gc-hl-text {
+  color: var(--gd-ink);
+  font: 600 14px/1.35 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.wg .gc-hl-why {
+  color: var(--gd-mute);
+  font: 500 13px/1.3 var(--gd-body);
+}
+
+/* ---- injuries ---- */
+.wg .gc-inj {
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--gd-rule);
+}
+.wg .gc-stripe {
+  border-radius: 0;
+  background: var(--gd-ink);
+}
+.wg .gc-who {
+  font: 900 18px/1.1 var(--gd-display);
+  letter-spacing: 0.04em;
+}
+.wg .gc-injtag {
+  color: var(--gd-mute);
+  font: 700 13px/1 var(--gd-body);
+}
+.wg .gc-injbody {
+  color: var(--gd-ink);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.wg .gc-wk {
+  padding: 1px 8px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--gd-ink);
+  font: 800 12px/1.3 var(--gd-body);
+}
+.wg .gc-empty {
+  color: var(--gd-mute);
+  font-size: 14px;
+}
+
+/* ---- interstitial: a plain white card on a darkened field ---- */
+.wg .gc-veil {
+  border-radius: 0;
+  background: rgba(11, 27, 46, 0.8);
+}
+.wg .gc-card {
+  border: 2px solid var(--gd-rule);
+  border-top: 8px solid var(--gd-accent);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  box-shadow: 6px 6px 0 var(--gd-rule);
+  --ink: var(--gd-ink);
+  --ink-dim: var(--gd-ink);
+  --ink-faint: var(--gd-mute);
+}
+.wg .gc-kicker {
+  color: var(--gd-mute);
+  font: 800 13px/1.2 var(--gd-body);
+}
+.wg .gc-card h2 {
+  font: 900 34px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.wg .gc-card .gc-sub {
+  color: var(--gd-mute);
+  font: 700 14px/1.3 var(--gd-body);
+}
+.wg .gc-card .gc-narr {
+  color: var(--gd-ink);
+  font-size: 15px;
+}
+.wg .gc-card .gc-name {
+  color: var(--gd-ink);
+  font-weight: 800;
+}
+.wg .gc-foot {
+  color: var(--gd-mute);
+  font-size: 13px;
+}
+
+/* a wide screen is a broadcast */
+@container (min-width: 1040px) {
+  .wg .gc-code {
+    font-size: 52px;
+  }
+  .wg .gc-score {
+    font-size: 112px;
+  }
+  .wg .gc-dd {
+    font-size: 32px;
+  }
+  .wg .gc-desc {
+    font-size: 18px;
+  }
+}
+@container (max-width: 560px) {
+  .wg .gc-side {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .wg .gc-mid {
+    min-width: 0;
+    padding: 6px 10px;
+  }
+  .wg .gc-score {
+    font-size: clamp(40px, 12cqw, 64px);
+  }
+  .wg .gc-transport {
+    padding: 12px;
+  }
+}
+@media (max-width: 480px) {
+  .wg .gc-code {
+    font-size: 24px;
+  }
+  .wg .gc-score {
+    font-size: 44px;
+  }
+}
+
+/* ---- the transcript (PlayByPlayLog) ---- */
+.pbp {
+  margin-top: 6px;
+}
+.pbp-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0 14px;
+}
+.pbp-tab {
+  min-width: 44px;
+}
+.pbp-only {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-left: auto;
+  color: var(--gd-ink);
+  font: 700 14px/1.3 var(--gd-body);
+}
+.pbp-only input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--gd-ink);
+}
+.pbp-drive {
+  display: block;
+  padding: 12px 16px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.pbp-drive + .pbp-drive {
+  margin-top: -2px;
+}
+.pbp-drive__head {
+  margin: 0 0 6px;
+  color: var(--gd-ink);
+  font: 800 15px/1.35 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.pbp-drive__score {
+  color: var(--gd-mute);
+  font-weight: 600;
+}
+.pbp-plays {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--gd-ink);
+  font: 500 15px/1.5 var(--gd-body);
+}
+.pbp-plays li {
+  overflow-wrap: anywhere;
+}
+.pbp-plays li.is-notable {
+  font-weight: 800;
+}
+.pbp-clock {
+  color: var(--gd-mute);
+  font-weight: 700;
+}
+.pbp-score {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pbp-score > span {
+  min-width: 0;
+}
+.pbp-score__team {
+  display: block;
+  color: var(--gd-mute);
+  font-size: 14px;
+}
+.pbp-score__when {
+  color: var(--gd-mute);
+  font: 700 14px/1.3 var(--gd-body);
+  text-align: right;
+}
+@media (max-width: 560px) {
+  .pbp-only {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
+  .pbp-score {
+    flex-direction: column;
+  }
+  .pbp-score__when {
+    text-align: left;
+  }
+}
+
+/* the broadcast glides; with reduced motion it jumps */
+@media (prefers-reduced-motion: reduce) {
+  .wg .gc-ball {
+    transition: none;
+  }
+}
+
+/* the scrubber keeps its width beside the counter, and the current drive's
+   special-teams tag stays legible on the inverted strip */
+.wg .gc-scrub input[type="range"] {
+  width: 100%;
+  min-width: 60px;
+}
+.wg .gc-drive[aria-current="true"] .gc-dtag.special {
+  background: transparent;
+  color: #fff;
+}
+@container (min-width: 1040px) {
+  .wg .gc-grid {
+    grid-template-rows: auto 1fr;
+  }
+}
+
+/* the scrubber is drawn, not left to the browser: a ruled white track on the
+   dark stage with a square accent thumb */
+.wg .gc-scrub input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.wg .gc-scrub input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border: 2px solid #fff;
+  background: transparent;
+}
+.wg .gc-scrub input[type="range"]::-moz-range-track {
+  height: 8px;
+  border: 2px solid #fff;
+  background: transparent;
+}
+.wg .gc-scrub input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 26px;
+  margin-top: -11px;
+  border: 2px solid #fff;
+  border-radius: 0;
+  background: var(--gd-accent);
+}
+.wg .gc-scrub input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 22px;
+  border: 2px solid #fff;
+  border-radius: 0;
+  background: var(--gd-accent);
+}
+.wg .gc-scrub input[type="range"]:focus-visible {
+  outline: 3px solid var(--gd-accent);
+  outline-offset: 3px;
+}
+
+/* rows in the scrolling lists keep their height (an explicit min-height lets a
+   flex child shrink below its content, which overlapped the text) */
+.wg .gc-drive,
+.wg .gc-hl-item,
+.wg .gc-inj {
+  flex-shrink: 0;
+}

@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
-import { Card, CardHeader, Footer } from "@/components/primitives";
+import { Footer } from "@/components/primitives";
+import { GdPage } from "@/design/GdPage";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
 import { roundLabelFor, type GameBroadcast, type PlayoffRound } from "@/domain";
 import { fetchBroadcast, onlineSession } from "@/state/online";
 import { useStore } from "@/state/store";
+import { viewerTeamCode } from "@/state/selectors";
 
 import { findGame, archivedSeasonOf, describeTrace } from "@/state/gameHistory";
 import { Gamecast } from "./gamecast/Gamecast";
 import { PlayByPlayLog, ScoringSummary } from "./gamecast/PlayByPlayLog";
+import "./gamecast/gamecast-gameday.css";
 
 /**
  * Watch a game that has already been played.
@@ -34,6 +40,7 @@ export function WatchGame() {
   const game = useStore((s) => findGame(s, gameId));
   const archivedSeason = useStore((s) => (gameId ? archivedSeasonOf(s, gameId) : null));
   const bracket = useStore((s) => s.bracket);
+  const viewerCode = useStore((s) => viewerTeamCode(s));
 
   const [fetched, setFetched] = useState<GameBroadcast | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +95,9 @@ export function WatchGame() {
 
   if (!game || !game.played) {
     return (
-      <Card maxWidth={860}>
-        <CardHeader badge="TV" title="Play-by-Play" subtitle="Nothing to watch" />
-        <div className="panel open">
+      <GdPage code={viewerCode} className="wg">
+        <GameDayMasthead code={viewerCode ?? ""} compact title="Play-by-Play" sub="Nothing to watch" />
+        <section className="wg-panel">
           <div className="emptystate">
             {!game
               ? "That game isn't in this league."
@@ -99,39 +106,43 @@ export function WatchGame() {
                   "You haven't watched that far yet — reveal it from the team hub first."
                 : "That game hasn't been played yet."}
           </div>
-        </div>
+        </section>
         {footer}
-      </Card>
+      </GdPage>
     );
   }
 
+  const when =
+    game.phase === "PRE"
+      ? `Preseason Week ${game.week}`
+      : game.phase === "REG"
+        ? `Week ${game.week}`
+        : roundLabelFor(bracket, game.phase as PlayoffRound);
+
   return (
-    <Card maxWidth={1640}>
-      <CardHeader
-        badge="TV"
+    <GdPage code={game.homeTeam} className="wg">
+      <GameDayMasthead
+        code={game.homeTeam}
+        compact
         title="Play-by-Play"
-        subtitle={`${game.awayTeam} at ${game.homeTeam} · ${
-          game.phase === "PRE"
-            ? `Preseason Week ${game.week}`
-            : game.phase === "REG"
-              ? `Week ${game.week}`
-              : roundLabelFor(bracket, game.phase as PlayoffRound)
-        }`}
+        sub={`${game.awayTeam} at ${game.homeTeam} · ${when}`}
       />
-      <div className="panel open">
-        {loading && <div className="emptystate">Rebuilding the broadcast…</div>}
+      <section className="wg-panel">
+        {loading && (
+          <div className="emptystate wg-loading" role="status">
+            Rebuilding the broadcast…
+          </div>
+        )}
         {error && (
           <div className="notice bad" role="status">
             {error}
           </div>
         )}
-        {archivedSeason !== null && (
-          <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--ink-faint)" }}>{archivedSeason} season</p>
-        )}
+        {archivedSeason !== null && <p className="wg-season">{archivedSeason} season</p>}
         {broadcast && (
           <>
             <Gamecast game={{ ...game, broadcast }} />
-            <button type="button" className="btnlink" aria-expanded={showLog} onClick={() => setShowLog((v) => !v)} style={{ margin: "10px 0" }}>
+            <button type="button" className="btnlink wg-toggle" aria-expanded={showLog} onClick={() => setShowLog((v) => !v)}>
               {showLog ? "Hide full transcript" : "Show full transcript (shows the result)"}
             </button>
             {showLog && <PlayByPlayLog broadcast={broadcast} />}
@@ -144,8 +155,8 @@ export function WatchGame() {
             {archivedSeason !== null ? " Plays from seasons before the last one are not kept, to keep saves small." : ""}
           </div>
         )}
-      </div>
+      </section>
       {footer}
-    </Card>
+    </GdPage>
   );
 }
