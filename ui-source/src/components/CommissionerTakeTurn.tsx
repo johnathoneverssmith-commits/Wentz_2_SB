@@ -1,3 +1,4 @@
+import "@/screens/online-gameday.css";
 import { useState } from "react";
 
 import { TEAMS_BY_CODE } from "@/data/teams";
@@ -32,7 +33,7 @@ export function CommissionerTakeTurn({
   const what = answering ? "turn down the offer" : "take this turn";
   return (
     // a span, so it can sit inside the screens' own paragraphs
-    <span style={{ display: "block", margin: "6px 0 0", fontSize: 12 }}>
+    <span className="online-taketurn">
       <button
         type="button"
         className="btnlink"
@@ -51,7 +52,7 @@ export function CommissionerTakeTurn({
       >
         {busy ? "Taking the turn…" : `Commissioner: have ${name}'s staff ${what}`}
       </button>
-      {error && <span className="form-error" style={{ display: "block" }}>{error}</span>}
+      {error && <span className="form-error online-taketurn__error">{error}</span>}
     </span>
   );
 }
