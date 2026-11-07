@@ -837,3 +837,8 @@
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
+
+/* the team name under the stage title is plain big type, not a heading */
+.gd-stage p.gd-team {
+  margin: 0;
+}

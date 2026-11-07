@@ -100,8 +100,7 @@ export function Checkpoint({
   return (
     <StagePage
       code={teamCode}
-      kicker="Check-in"
-      heading="Waiting for other players"
+      kicker="Waiting for other players"
       sub="The league moves on together"
     >
       <div className="stage-body">

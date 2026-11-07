@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { TEAMS_BY_CODE } from "@/data/teams";
 import {
   SKYLINE_VIEWBOX,
   skylineSvg,
@@ -8,49 +9,41 @@ import {
 } from "@/design/teamArt";
 
 /**
- * League Setup's masthead. It is the shared masthead's look, with the two
- * headings this screen has always had: "League Setup" (the screen) and the
- * game's title, "The Seahawks' Road to the Super Bowl" once a team is picked,
- * as the big type. With no team yet it is the neutral drawn skyline and asks
- * for one; it requests no stadium photo.
+ * The masthead for the setup and turn-event stages. It is the shared
+ * masthead's look, but the page's h1 is exactly the stage's own name ("Coaching
+ * Draft Summary", "Waiting for other players"): that is the heading people,
+ * and the browser suite, look for, so the team's name under it is plain big
+ * type and not part of the heading.
+ *
+ * League Setup also has its game title as a second h1 (`headline`): "The
+ * Seahawks' Road to the Super Bowl" once a team is picked, with `announce`
+ * said to a screen reader when it changes.
+ *
+ * With no team the masthead is the neutral drawn skyline and requests no
+ * stadium photo.
  */
-export function SetupMasthead({
-  code,
-  title,
-  headline,
-  announce,
-  sub,
-  actions,
-}: {
+export interface StageMastheadProps {
   code: string | null | undefined;
   title: string;
-  /** the big type: the game's title, with the team in it once one is picked */
-  headline: string;
-  /** said to a screen reader when a team is picked */
+  /** the big type when there is no `headline`: omitted, the team's own name */
+  bigType?: ReactNode;
+  headline?: string;
   announce?: string;
   sub: ReactNode;
   actions?: ReactNode;
-}) {
-  // keyed on the code so a new pick starts from the skyline again
-  return <Inner key={code ?? "none"} code={code} title={title} headline={headline} announce={announce} sub={sub} actions={actions} />;
 }
 
-function Inner({
-  code,
-  title,
-  headline,
-  announce,
-  sub,
-  actions,
-}: {
-  code: string | null | undefined;
-  title: string;
-  headline: string;
-  announce?: string;
-  sub: ReactNode;
-  actions?: ReactNode;
-}) {
+export function StageMasthead(props: StageMastheadProps) {
+  // keyed on the code so a new pick starts from the skyline again
+  return <Inner key={props.code ?? "none"} {...props} />;
+}
+
+/** League Setup's name for the same thing */
+export const SetupMasthead = StageMasthead;
+
+function Inner({ code, title, bigType, headline, announce, sub, actions }: StageMastheadProps) {
   const [photo, setPhoto] = useState<"loading" | "shown" | "missing">(code ? "loading" : "missing");
+  const meta = code ? TEAMS_BY_CODE[code] : undefined;
   const credit = code ? STADIUM_PHOTO_CREDITS[code] : undefined;
   return (
     <header className="gd-mast gd-mast--compact" data-team={code ?? ""} data-photo={photo}>
@@ -76,13 +69,28 @@ function Inner({
       <div className="gd-mast-tint" aria-hidden="true" />
       <div className="gd-mast-body">
         <h1 className="gd-kicker">{title}</h1>
-        {/* the visible title changes when a team is chosen; this says so to a screen reader */}
-        <p className="sr-only" role="status">
-          {announce ?? ""}
-        </p>
-        <h1 className="gd-team" aria-label={headline}>
-          {headline}
-        </h1>
+        {headline !== undefined ? (
+          <>
+            {/* the visible title changes when a team is chosen; this says so to a screen reader */}
+            <p className="sr-only" role="status">
+              {announce ?? ""}
+            </p>
+            <h1 className="gd-team" aria-label={headline}>
+              {headline}
+            </h1>
+          </>
+        ) : (
+          <p className="gd-team">
+            {bigType ??
+              (meta ? (
+                <>
+                  <span>{meta.city}</span> <span>{meta.name}</span>
+                </>
+              ) : (
+                ""
+              ))}
+          </p>
+        )}
         <p className="gd-mast-sub">{sub}</p>
       </div>
       {actions && <div className="gd-mast-actions">{actions}</div>}

@@ -84,7 +84,7 @@ export function CoachingDraftRoom() {
 
   if (!draft || !code) {
     return (
-      <StagePage code={code} kicker="Coaching draft" heading={code ? undefined : "Coaching draft"} sub="Setting the board">
+      <StagePage code={code} kicker="Coaching Draft" heading={code ? undefined : "Coaching draft"} sub="Setting the board">
         <StageLoading />
       </StagePage>
     );

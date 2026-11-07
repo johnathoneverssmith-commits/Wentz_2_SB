@@ -40,7 +40,7 @@ export function TrainingCampResults() {
 
   if (!code || results.length === 0) {
     return (
-      <StagePage code={code} kicker="Training camp results" heading={code ? undefined : "No results"} sub="Nothing to show">
+      <StagePage code={code} kicker="Training Camp Results" heading={code ? undefined : "No results"} sub="Nothing to show">
         <div className="emptystate">Camp hasn&rsquo;t run yet.</div>
         {/* a dead end otherwise: this screen is reachable by URL or a stale tab */}
         <Footer>
@@ -60,7 +60,7 @@ export function TrainingCampResults() {
   return (
     <StagePage
       code={code}
-      kicker="Training camp results"
+      kicker="Training Camp Results"
       sub={`${displaySeason(s)} · ${improved} improved, ${declined} declined`}
     >
       <Ticker

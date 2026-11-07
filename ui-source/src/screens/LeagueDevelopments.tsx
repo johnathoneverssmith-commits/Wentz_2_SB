@@ -95,7 +95,7 @@ export function LeagueDevelopments() {
   return (
     <StagePage
       code={viewerTeamCode(s)}
-      kicker="League developments"
+      kicker="League Developments"
       heading="League news"
       sub={`${s.season} preseason wrap-up`}
     >

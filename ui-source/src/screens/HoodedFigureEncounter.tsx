@@ -46,7 +46,7 @@ export function HoodedFigureEncounter() {
     return (
       <StagePage
         code={code}
-        kicker="Training camp complete"
+        kicker="Training Camp Complete"
         sub={
           paid
             ? `The figure took ${millions(encounter!.payment)} and was gone`

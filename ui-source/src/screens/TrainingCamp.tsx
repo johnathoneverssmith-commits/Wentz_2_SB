@@ -62,7 +62,7 @@ export function TrainingCamp() {
 
   if (!code) {
     return (
-      <StagePage code={null} kicker="Training camp" heading="No team" sub="Pick a team first.">
+      <StagePage code={null} kicker="Training Camp" heading="No team" sub="Pick a team first.">
         <div className="emptystate">Pick a team first.</div>
       </StagePage>
     );
@@ -75,7 +75,7 @@ export function TrainingCamp() {
   // is nothing to do here but go see the result that already exists.
   if (s.trainingCamp?.plans[code]?.submitted) {
     return (
-      <StagePage code={code} kicker="Training camp" sub="Already run">
+      <StagePage code={code} kicker="Training Camp" sub="Already run">
         <div className="emptystate">You already ran camp this season. Opening results will not run it again.</div>
         <DecisionError message={error}/>
         <Footer>
@@ -155,7 +155,7 @@ export function TrainingCamp() {
   );
 
   return (
-    <StagePage code={code} kicker="Training camp" sub={`${displaySeason(s)} · set your focuses`}>
+    <StagePage code={code} kicker="Training Camp" sub={`${displaySeason(s)} · set your focuses`}>
       <Ticker
         stats={[
           { label: "OC base focus", value: `+${Math.round(offStrength * 100)}%` },
