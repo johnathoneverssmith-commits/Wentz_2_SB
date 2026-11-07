@@ -79,7 +79,7 @@ const TOT = ["points", "totalYards", "passYards", "rushYards", "plays", "thirdDo
     if (stuck > 30) { log({ STUCK: s, buttons: await btns(), text: (await page.evaluate(() => document.body.innerText)).slice(0, 1500) }); await page.screenshot({ path: `${OUT}/stuck_${s.stage}.png` }); console.log('STUCK at', JSON.stringify(s)); console.log(await btns()); break; }
     const order = [
       /^Draft [A-Z]/, /^Confirm pick/, /^Hire [A-Z]/, /^I'm ready to begin/, /^Ready for Game Day/, /^Play (the )?(next )?round/i, /^Simulate/i,
-      /^Let my staff fix the roster/i, /^Fix the roster/i, /^Make the offer/i, /^Pass$/i, /^Go ahead/i, /^Let my staff (handle|take)/i, /^Pass this round/i, /^Skip (free agency|this|the)/i, /^Continue/i, /^Advance/i, /^Ready (to|for)/i, /^Next/i, /^Begin/i, /^Start/i, /^Proceed/i,
+      /^Fix the roster/i, /^Let my staff fix the roster/i, /^Make the offer/i, /^Pass$/i, /^Go ahead/i, /^Let my staff (handle|take)/i, /^Pass this round/i, /^Skip (free agency|this|the)/i, /^Continue/i, /^Advance/i, /^Ready (to|for)/i, /^Next/i, /^Begin/i, /^Start/i, /^Proceed/i,
       /^Done/i, /^Finish/i, /^Confirm/i, /^Accept/i, /^Close/i, /^OK$/i, /^Sign/i,
     ];
     let did = null;

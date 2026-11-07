@@ -76,3 +76,6 @@ PYTHONPATH=analysis python3 analysis/analyze_longrun.py /tmp/run.jsonl A1 && PYT
 # NFL benchmarks: download nflverse files named in analysis/bench_nfl.py to /tmp/nflv, then
 OUT=data/nfl_benchmarks.json python3 analysis/bench_nfl.py && python3 analysis/bench_nfl2.py
 ```
+
+## UI playthrough status (as of this commit)
+Only season 1 (Bengals, champion DEN) was captured through the real UI + engine adapter (`data/raw/ui_season1_bengals.jsonl.gz`, click log `data/ui_actions.jsonl`); the run was in season 2 when stopped. Five seasons were **not** completed. Driver: `harness/ui_playthrough.cjs` (accepts confirm dialogs; staff-assisted FA, deadline and roster fixes).
