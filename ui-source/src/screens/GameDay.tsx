@@ -2,8 +2,10 @@ import { useNavigate } from "react-router-dom";
 
 import { AnimatedNumber } from "@/motion/AnimatedNumber";
 import { pressable, TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer } from "@/components/primitives";
+import { Footer } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
 import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { isOnline } from "@/state/online";
 import { useStore } from "@/state/store";
@@ -12,6 +14,10 @@ import { teamInfoFor } from "@/state/teamInfo";
 
 import { Gamecast } from "./gamecast/Gamecast";
 import { posLabel, weeksOut } from "@/util/format";
+
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./game-days-gameday.css";
 
 /**
  * Post-simulation Game Day screen. Deliberately a light canvas for now — the
@@ -29,17 +35,15 @@ export function GameDay() {
 
   if (!pgd) {
     return (
-      <Card>
-        <CardHeader badge="FS" title="Game Day" subtitle="Nothing to show" />
-        <div className="panel open">
-          <div className="emptystate">No simulated results are pending. Head back to the hub.</div>
-        </div>
+      <GdPage code={code} className="gdy">
+        <GameDayMasthead code={code ?? ""} compact title="Game day" heading="Game day" sub="Nothing to show." />
+        <div className="emptystate">No simulated results are pending. Head back to the hub.</div>
         <Footer>
           <button type="button" className="btnlink btn-primary" onClick={() => nav("/hub")}>
             Back to team hub
           </button>
         </Footer>
-      </Card>
+      </GdPage>
     );
   }
 
@@ -53,9 +57,7 @@ export function GameDay() {
   const slate = s.games.filter((g) => pgd.gameIds.includes(g.id));
   // each team's rating and record as of this slate, under its name
   const info = teamInfoFor(s, s.games, pgd.phase, pgd.week);
-  const infoLine = (team: string) => (
-    <small style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>{info(team)}</small>
-  );
+  const infoLine = (team: string) => <small className="gdy-info">{info(team)}</small>;
   const viewerGame = slate.find((g) => g.homeTeam === code || g.awayTeam === code);
   const myInjuries = (viewerGame?.injuries ?? [])
     .filter((e) => e.team === code)
@@ -79,12 +81,12 @@ export function GameDay() {
     (s.bracket?.matchups ?? []).some((m) => m.round === pgd.phase && !m.lowSeed && m.highSeed?.code === code);
 
   return (
-    <Card maxWidth={viewerGame?.broadcast ? 1440 : 760}>
-      <CardHeader badge={code ? TEAMS_BY_CODE[code]?.abbr ?? "FS" : "FS"} title="Game Day" subtitle={`${label} · results are in`} />
+    <GdPage code={code} className="gdy">
+      <GameDayMasthead code={code ?? ""} compact title={`${label} · results are in`} heading="Game day" sub="Final scores, and what it cost you." />
 
-      <div className="panel open">
+      <div className="gdy-board">
         {viewerGame?.broadcast && (
-          <div style={{ marginBottom: 16 }}>
+          <div className="gdy-cast">
             <Gamecast game={viewerGame} {...(hasBoxScore(viewerGame) ? { onBoxScore: () => nav(`/box/${viewerGame.id}`) } : {})} />
           </div>
         )}
@@ -94,21 +96,10 @@ export function GameDay() {
             // your own score opens the box score, as every other game's does
             {...(hasBoxScore(viewerGame) ? pressable(() => nav(`/box/${viewerGame.id}`)) : {})}
             title={hasBoxScore(viewerGame) ? "Open the box score" : undefined}
-            style={{
-              cursor: hasBoxScore(viewerGame) ? "pointer" : "default",
-              display: "grid",
-              gridTemplateColumns: "1fr auto 1fr",
-              alignItems: "center",
-              gap: 16,
-              padding: "22px 18px",
-              background: "var(--panel-sunken)",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--r-md)",
-              marginBottom: 16,
-            }}
+            className={"gdy-final" + (hasBoxScore(viewerGame) ? " gdy-final--open" : "")}
           >
             <ScoreSide code={viewerGame.homeTeam} score={viewerGame.homeScore} won={viewerGame.homeScore > viewerGame.awayScore} />
-            <div style={{ textAlign: "center", color: "var(--ink-faint)", fontSize: 11 }}>FINAL</div>
+            <div className="gdy-final-tag">Final</div>
             <ScoreSide code={viewerGame.awayTeam} score={viewerGame.awayScore} won={viewerGame.awayScore > viewerGame.homeScore} right />
           </div>
         )}
@@ -117,51 +108,44 @@ export function GameDay() {
             lost. It's in the box score too, but nobody opens a box score to
             find out their left tackle is gone for six weeks. */}
         {myInjuries.length > 0 && (
-          <>
-            <p className="subhead" style={{ marginTop: viewerGame ? 18 : 0 }}>
-              Your injury report
-            </p>
+          <section className="gdy-section">
+            <p className="subhead">Your injury report</p>
             {myInjuries.map((e, i) => (
               <div key={`${e.playerId}-${i}`} className="neg-row">
                 <span className="pname">
                   {e.player} <span className="ppos">{posLabel(e.position)}</span>
                 </span>
-                <span style={{ fontSize: 12.5, color: "var(--bad)", fontWeight: 600 }}>
+                <span className="gdy-injury">
                   {e.bodyPart} · {weeksOut(e.projectedWeeks)}
                 </span>
               </div>
             ))}
-          </>
+          </section>
         )}
 
         {roundResults.length > 0 && (
-          <>
-            <p className="subhead" style={{ marginTop: 0 }}>
-              This round
-            </p>
+          <section className="gdy-section">
+            <p className="subhead">This round</p>
             <div className="scroll-list short">
               {roundResults.map((m) => {
                 const home = m.highSeed!;
                 const away = m.lowSeed!;
                 const mine = isMine(m);
                 return (
-                  <div
-                    key={`${m.conference}-${home.code}-${away.code}`}
-                    style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, padding: "9px 6px", borderBottom: "1px solid var(--line)", borderRadius: "var(--r-sm)", background: mine ? "var(--panel-raised)" : undefined }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div key={`${m.conference}-${home.code}-${away.code}`} className={"gdy-row" + (mine ? " gdy-row--mine" : "")}>
+                    <span className={"gdy-side" + (m.winner === home.code ? " gdy-won" : "")}>
                       <TeamBadge code={home.code} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: m.winner === home.code ? 600 : 400 }}>
+                      <span>
                         {TEAMS_BY_CODE[home.code]?.label ?? home.code}
                         {infoLine(home.code)}
                       </span>
                     </span>
-                    <span className="oswald" style={{ fontSize: 13 }}>
+                    <span className="gdy-score">
                       {m.homeScore}–{m.awayScore}
                     </span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
+                    <span className={"gdy-side gdy-side--away" + (m.winner === away.code ? " gdy-won" : "")}>
                       <TeamBadge code={away.code} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: m.winner === away.code ? 600 : 400 }}>
+                      <span>
                         {TEAMS_BY_CODE[away.code]?.label ?? away.code}
                         {infoLine(away.code)}
                       </span>
@@ -170,14 +154,12 @@ export function GameDay() {
                 );
               })}
             </div>
-          </>
+          </section>
         )}
 
         {!isPlayoff && (
-          <>
-            <p className="subhead" style={{ marginTop: viewerGame ? 18 : 0 }}>
-              Around the league
-            </p>
+          <section className="gdy-section">
+            <p className="subhead">Around the league</p>
             <div className="scroll-list short">
               {/* your own game is the card above; it was listed here again */}
               {slate.filter((g) => g !== viewerGame).map((g) => {
@@ -189,21 +171,21 @@ export function GameDay() {
                     key={g.id}
                     {...(openable ? pressable(() => nav(`/box/${g.id}`)) : {})}
                     title={openable ? "Open the box score" : "No box score for this game"}
-                    style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, padding: "9px 6px", borderBottom: "1px solid var(--line)", cursor: openable ? "pointer" : "default", borderRadius: "var(--r-sm)" }}
+                    className={"gdy-row" + (openable ? " gdy-row--open" : "")}
                   >
-                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className={"gdy-side" + (homeWon ? " gdy-won" : "")}>
                       <TeamBadge code={g.homeTeam} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>
+                      <span>
                         {TEAMS_BY_CODE[g.homeTeam]!.label}
                         {infoLine(g.homeTeam)}
                       </span>
                     </span>
-                    <span className="oswald" style={{ fontSize: 13 }}>
+                    <span className="gdy-score">
                       {g.homeScore}–{g.awayScore}
                     </span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
+                    <span className={"gdy-side gdy-side--away" + (awayWon ? " gdy-won" : "")}>
                       <TeamBadge code={g.awayTeam} size={20} />
-                      <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400, textAlign: "right" }}>
+                      <span>
                         {TEAMS_BY_CODE[g.awayTeam]!.label}
                         {infoLine(g.awayTeam)}
                       </span>
@@ -212,11 +194,11 @@ export function GameDay() {
                 );
               })}
             </div>
-          </>
+          </section>
         )}
 
         {!viewerGame?.broadcast && !playedThisRound && (
-          <p style={{ margin: "16px 0 0", fontSize: 11, color: "var(--ink-faint)", textAlign: "center" }}>
+          <p className="gdy-note">
             {viewerGame
               ? online
                 ? // online the broadcast isn't stored; it is rebuilt when asked for
@@ -268,7 +250,7 @@ export function GameDay() {
           Continue
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
 
@@ -284,14 +266,14 @@ function ScoreSide({
   right?: boolean;
 }) {
   return (
-    <div style={{ textAlign: "center", display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 12, justifyContent: "center" }}>
+    <div className={"gdy-score-side" + (right ? " gdy-score-side--away" : "") + (won ? " gdy-won" : "")}>
       <TeamBadge code={code} size={44} />
       <div>
-        <p className="oswald" style={{ margin: 0, fontSize: 30, fontWeight: 700, color: won ? "var(--good)" : "var(--ink)" }}>
+        <p className="gdy-big">
           {/* the result is being revealed: it counts up from nothing */}
           <AnimatedNumber value={score} from={0} duration={1.1} />
         </p>
-        <p style={{ margin: 0, fontSize: 11, color: "var(--ink-faint)" }}>{TEAMS_BY_CODE[code]!.label}</p>
+        <p className="gdy-team">{TEAMS_BY_CODE[code]!.label}</p>
       </div>
     </div>
   );

@@ -1,13 +1,13 @@
 import { ManualPicksInput } from "@/components/ManualPicksInput";
 import { CopyButton, inviteLink } from "@/components/CopyButton";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { displaySeasonFor } from "@/state/stageMachine";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { humansOnlyLeagueSize, playoffFieldSize, seasonShapeFor } from "@/state/leagueFormat";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { InboxLeague, OnlineUser } from "@/sim/OnlineLeagueClient";
 import { OnlineError, OnlineLeagueClient } from "@/sim/OnlineLeagueClient";
@@ -19,6 +19,12 @@ import { timeLeft } from "@/util/format";
 import { ERAS } from "@/sim/leagueDna";
 import { DEFAULT_ERA_ID, UNIVERSE_HINT, UNIVERSE_LABEL, universePatch, type UniverseKind } from "@/state/universe";
 import { useStore } from "@/state/store";
+import { viewerTeamCode } from "@/state/selectors";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./online-gameday.css";
 import type { DeadlineChoice, Difficulty, Stage } from "@/domain";
 
 /**
@@ -59,6 +65,33 @@ interface LeagueRow {
 /** The server hands back the raw stage key; the app has a name for it. */
 const stageName = (stage: string): string => STAGE_LABEL[stage as Stage] ?? stage;
 /** Stages played a turn at a time — the only ones with a running clock. */
+
+/**
+ * The gameday page the lobby's views sit in: a compact masthead in the viewer's
+ * team colours (neutral when they have no team yet), then the view itself.
+ */
+function OnlineFrame({
+  heading,
+  sub,
+  actions,
+  tabbed = false,
+  children,
+}: {
+  heading: string;
+  sub: string;
+  actions?: ReactNode;
+  /** A tab bar and its open panel read as one ruled block. */
+  tabbed?: boolean;
+  children: ReactNode;
+}) {
+  const code = useStore((s) => viewerTeamCode(s));
+  return (
+    <GdPage code={code} className={"online-gd" + (tabbed ? " gd-tabbed" : "")}>
+      <GameDayMasthead code={code ?? ""} compact title="Online leagues" heading={heading} sub={sub} actions={actions} />
+      {children}
+    </GdPage>
+  );
+}
 
 export function OnlineLobby() {
   const nav = useNavigate();
@@ -181,30 +214,26 @@ export function OnlineLobby() {
 
   if (checking) {
     return (
-      <Card maxWidth={720}>
-        <CardHeader badge="ON" title="Online Leagues" subtitle="Looking for the league server…" />
-        <div className="panel open">
-          <div className="emptystate">
-            {wakeTries === 0
-              ? "One moment."
-              : "Waking the league server — it sleeps when nobody has played for a while. This can take up to a minute."}
-          </div>
+      <OnlineFrame heading="Online leagues" sub="Looking for the league server…">
+        <div className="emptystate" role="status">
+          {wakeTries === 0
+            ? "One moment."
+            : "Waking the league server — it sleeps when nobody has played for a while. This can take up to a minute."}
         </div>
-      </Card>
+      </OnlineFrame>
     );
   }
 
   if (offline) {
     return (
-      <Card maxWidth={720}>
-        <CardHeader badge="ON" title="Online Leagues" subtitle="No league server answered" />
-        <div className="panel open">
+      <OnlineFrame heading="Online leagues" sub="No league server answered">
+        <div className="online-card">
           <div className="notice bad" role="status">
             <strong>The league server didn't answer.</strong> It sleeps when nobody has used it
             for a while and takes up to a minute to wake — if that's all this is, waiting a moment
             and trying again will fix it.
           </div>
-          <p style={{ fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.6 }}>
+          <p className="online-note">
             If it keeps failing, the server is down — try again later. Your single-player dynasty
             is untouched either way.
             {/* setup instructions are for whoever runs the server, not for players */}
@@ -225,7 +254,7 @@ export function OnlineLobby() {
             Back to your dynasty
           </button>
         </Footer>
-      </Card>
+      </OnlineFrame>
     );
   }
 
@@ -265,34 +294,33 @@ export function OnlineLobby() {
     leagues.filter((l) => !l.teamCode && l.stage === "setup" && !inbox.some((x) => x.leagueId === l.id)).length;
 
   return (
-    <Card maxWidth={760}>
-      <CardHeader
-        badge="ON"
-        title="Online Leagues"
-        subtitle={`Signed in as ${user.name}`}
-        right={
-          <span style={{ display: "flex", gap: 12 }}>
-            <button type="button" className="btnlink" onClick={() => setChangingPassword((v) => !v)}>
-              Change password
-            </button>
-            <button
-              type="button"
-              className="btnlink"
-              onClick={() =>
-                void attempt(async () => {
-                  await client.logout();
-                  goLocal();
-                  setUser(null);
-                  setLeagues([]);
-                  setInbox([]);
-                })
-              }
-            >
-              Sign out
-            </button>
-          </span>
-        }
-      />
+    <OnlineFrame
+      heading="Online leagues"
+      sub={`Signed in as ${user.name}`}
+      tabbed
+      actions={
+        <span className="online-actions">
+          <button type="button" className="gd-btn gd-small" onClick={() => setChangingPassword((v) => !v)}>
+            Change password
+          </button>
+          <button
+            type="button"
+            className="gd-btn gd-small"
+            onClick={() =>
+              void attempt(async () => {
+                await client.logout();
+                goLocal();
+                setUser(null);
+                setLeagues([]);
+                setInbox([]);
+              })
+            }
+          >
+            Sign out
+          </button>
+        </span>
+      }
+    >
       {changingPassword && <ChangePassword userName={user.name} onDone={() => setChangingPassword(false)} />}
       <Ticker
         stats={[
@@ -369,9 +397,7 @@ export function OnlineLobby() {
                   {l.inviteCode && (l.openSeats ?? 1) > 0 && (
                     <p className="lobby-sub">
                       Invite code:{" "}
-                      <span className="oswald" style={{ fontSize: 14, letterSpacing: "0.08em" }}>
-                        {l.inviteCode}
-                      </span>{" "}
+                      <span className="lobby-code">{l.inviteCode}</span>{" "}
                       <CopyButton text={l.inviteCode} /> ·{" "}
                       <CopyButton text={inviteLink(l.inviteCode)} label="Copy invite link" />{" "}
                       — send it to the other GMs; they register, then enter it under Join a League.
@@ -383,9 +409,6 @@ export function OnlineLobby() {
                       <button
                         type="button"
                         className="btnlink"
-                        // a 16px-tall line under a thumb: the padding is the tap
-                        // area, the margin takes it back so the text sits as before
-                        style={{ padding: "8px 0", margin: "-8px 0", font: "inherit", textAlign: "left", color: "inherit" }}
                         disabled={busy || !l.teamCode}
                         onClick={() => void open(l.id, item.href || "/")}
                       >
@@ -428,7 +451,7 @@ export function OnlineLobby() {
                     </button>
                     <button
                       type="button"
-                      className="btnlink sm"
+                      className="btnlink sm lobby-danger"
                       disabled={busy}
                       aria-label={`Archive ${l.name}`}
                       onClick={() => {
@@ -447,7 +470,7 @@ export function OnlineLobby() {
                     l.teamCode && (
                       <button
                         type="button"
-                        className="btnlink sm"
+                        className="btnlink sm lobby-danger"
                         disabled={busy}
                         aria-label={`Leave ${l.name}`}
                         onClick={() => {
@@ -544,7 +567,7 @@ export function OnlineLobby() {
           </button>
         )}
       </Footer>
-    </Card>
+    </OnlineFrame>
   );
 }
 
@@ -583,13 +606,11 @@ function SignIn({
     });
 
   return (
-    <Card maxWidth={520}>
-      <CardHeader
-        badge="ON"
-        title={mode === "register" ? "Create an Account" : mode === "reset" ? "Reset Your Password" : "Sign In"}
-        subtitle="One league, one team, played over months"
-      />
-      <div className="panel open">
+    <OnlineFrame
+      heading={mode === "register" ? "Create an Account" : mode === "reset" ? "Reset Your Password" : "Sign In"}
+      sub="One league, one team, played over months"
+    >
+      <div className="online-card">
         {invited && (
           <div className="notice" role="status">
             You&rsquo;ve been invited to a league. Sign in — or create an account if you&rsquo;re new — and
@@ -656,7 +677,7 @@ function SignIn({
             {mode === "register" ? "Create account" : mode === "reset" ? "Set new password" : "Sign in"}
           </button>
         </form>
-        <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-faint)" }}>
+        <p className="online-note">
           {mode === "register"
             ? "Your name is how other GMs in the league will see you. Passwords need at least 8 characters."
             : mode === "reset"
@@ -683,7 +704,7 @@ function SignIn({
           Back to your dynasty
         </button>
       </Footer>
-    </Card>
+    </OnlineFrame>
   );
 }
 
@@ -751,7 +772,7 @@ function ChangePassword({ onDone, userName }: { onDone: () => void; userName: st
           <span>New password · at least 8 characters</span>
           <input type="password" value={next} autoComplete="new-password" maxLength={200} onChange={(e) => setNext(e.target.value)} />
         </label>
-        <div style={{ display: "flex", gap: 12 }}>
+        <div className="online-btnrow">
           <button type="submit" className="btn-primary" disabled={busy || current === "" || next.length < 8}>
             {busy ? "Saving…" : "Change password"}
           </button>
@@ -874,22 +895,15 @@ function OnlineSetting({
       role="group"
       aria-labelledby={`${id}-l`}
       aria-describedby={`${id}-h`}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "12px 0",
-        borderBottom: "1px solid var(--line)",
-        gap: 14,
-      }}
+      className="online-setting"
     >
-      <div style={{ minWidth: 0 }}>
-        <p id={`${id}-l`} style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{label}</p>
-        <p id={`${id}-h`} style={{ margin: "3px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.5 }}>
+      <div className="online-setting__text">
+        <p id={`${id}-l`} className="online-setting__label">{label}</p>
+        <p id={`${id}-h`} className="online-setting__hint">
           {hint}
         </p>
       </div>
-      <div style={{ flexShrink: 0 }}>{children}</div>
+      <div className="online-setting__control">{children}</div>
     </div>
   );
 }
@@ -986,7 +1000,7 @@ function CreateLeague({
             </select>
           </label>
         )}
-        <p id="online-universe-hint" style={{ margin: "-4px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+        <p id="online-universe-hint" className="online-note">
           {UNIVERSE_HINT[universe]} Fixed once the league is created.
         </p>
         <label>
@@ -1004,7 +1018,7 @@ function CreateLeague({
           </select>
         </label>
         {humansOnly && (
-          <p style={{ margin: "-4px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+          <p className="online-note">
             {leagueSize} teams ({slots} human + {leagueSize - slots} CPU), a round robin of{" "}
             {seasonShapeFor("humansOnly", leagueSize).regularSeasonWeeks} games, and a playoff for the top{" "}
             {playoffFieldSize(leagueSize)}. The other NFL franchises don&rsquo;t exist in this league.
@@ -1036,14 +1050,14 @@ function CreateLeague({
           type="button"
           className="btnlink"
           onClick={() => setShowSettings((v) => !v)}
-          style={{ justifySelf: "start", padding: 0 }}
+          style={{ justifySelf: "start" }}
         >
           {showSettings ? "Hide league settings" : "League settings"}
         </button>
 
         {showSettings && (
-          <div style={{ marginTop: 2 }}>
-            <p style={{ margin: "0 0 4px", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+          <div className="online-settings">
+            <p className="online-note">
               You can still change these in League settings until the league starts; once it
               kicks off they&rsquo;re fixed for everyone.
             </p>
@@ -1154,18 +1168,16 @@ function CreateLeague({
         </button>
       </form>
 
-      <p style={{ margin: "14px 0 0", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+      <p className="online-note online-note--after">
         You'll be the commissioner, and can force the league on when it's stuck waiting. When a GM
         runs out the clock on their turn — a draft pick, a coaching hire, a free-agency bid, a
         trade — their staff takes it for them. Check-ins between stages wait for everyone.
       </p>
 
       {invite && (
-        <div className="notice" role="status" style={{ marginTop: 16 }}>
+        <div className="notice online-created" role="status">
           <strong>League created.</strong> Send the other GMs this invite code:{" "}
-          <span className="oswald" style={{ fontSize: 16, letterSpacing: "0.08em" }}>
-            {invite}
-          </span>{" "}
+          <span className="lobby-code">{invite}</span>{" "}
           <CopyButton text={invite} /> · <CopyButton text={inviteLink(invite)} label="Copy invite link" />
           . It stays on the league under <em>Your Leagues</em>, so you can come back for it —
           and that is where you pick your own team.
@@ -1201,7 +1213,7 @@ function TeamPicker({
     // a block of its own, so it drops below the league row it belongs to
     // rather than squeezing in beside the button that opened it
     <div className="lobby-claim">
-      <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--ink-dim)" }}>
+      <p className="online-note">
         {underway
           ? // years into a league, "switch until the league starts" was wrong:
             // the seat is someone's roster, contracts and record, as it stands
@@ -1273,10 +1285,10 @@ function ManageGms({
 
   if (!gms) return <p className="lobby-sub">{note ?? "Loading…"}</p>;
   return (
-    <div className="lobby-claim" style={{ marginTop: 10 }}>
+    <div className="lobby-claim">
       {/* the clock was set at creation and never again */}
       {turnHours != null && (
-        <label className="neg-row" style={{ fontSize: 12.5 }}>
+        <label className="neg-row">
           <span>Hours per turn (drafts, markets, the deadline)</span>
           <select
             value={turnHours}
@@ -1298,9 +1310,9 @@ function ManageGms({
         </label>
       )}
       {/* a pause stops the clock and every request that would move the league; nobody's choices are touched */}
-      <div className="neg-row" style={{ fontSize: 12.5 }}>
+      <div className="neg-row">
         <span>Pause the league (stops the clock; nothing advances)</span>
-        <span style={{ display: "flex", gap: 8 }}>
+        <span className="online-btnrow">
           <button
             type="button"
             className="btnlink sm"
@@ -1321,11 +1333,11 @@ function ManageGms({
       </div>
       {gms.map((g) => (
         <div key={g.teamCode} className="neg-row">
-          <span style={{ fontSize: 12.5 }}>
+          <span>
             {g.you ? "You" : g.name} · {TEAMS_BY_CODE[g.teamCode]?.label ?? g.teamCode}
           </span>
           {!g.you && (
-            <span style={{ display: "flex", gap: 8 }}>
+            <span className="online-btnrow">
               <button
                 type="button"
                 className="btnlink sm"
@@ -1339,7 +1351,6 @@ function ManageGms({
                 // three of each, one per GM: say whose it is, and keep the
                 // label on one line
                 aria-label={`Reset code for ${g.name}`}
-                style={{ whiteSpace: "nowrap" }}
               >
                 reset code
               </button>
@@ -1357,7 +1368,6 @@ function ManageGms({
                 // three of each, one per GM: say whose it is, and keep the
                 // label on one line
                 aria-label={`Make commissioner: ${g.name}`}
-                style={{ whiteSpace: "nowrap" }}
               >
                 make commissioner
               </button>
@@ -1375,7 +1385,6 @@ function ManageGms({
                 // three of each, one per GM: say whose it is, and keep the
                 // label on one line
                 aria-label={`Open the seat of ${g.name}`}
-                style={{ whiteSpace: "nowrap" }}
               >
                 open seat
               </button>
@@ -1384,7 +1393,7 @@ function ManageGms({
         </div>
       ))}
       {note && (
-        <p className="lobby-sub" role="status" style={{ userSelect: "all" }}>
+        <p className="lobby-sub online-gms-note" role="status">
           {note}
         </p>
       )}

@@ -23,10 +23,10 @@ import { useStore } from "@/state/store";
 import { viewerTeamCode } from "@/state/selectors";
 import { AnimatedNumber } from "@/motion/AnimatedNumber";
 import { type Moment, ScoreMoment } from "@/motion/ScoreMoment";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { cue } from "@/audio/cues";
 
-import { TEAMS_BY_CODE } from "@/data/teams";
+import { TEAMS_BY_CODE, onColorFor } from "@/data/teams";
 import type { BroadcastDrive, BroadcastPlay, GameResult, InjuryEvent } from "@/domain";
 import { analyzeGame, type Highlight } from "../../../../src/engine/highlights.js";
 import { narrateBroadcast } from "../../../../src/engine/narration.js";
@@ -54,6 +54,11 @@ const driveAttacksRight = (side: string, q: number): boolean =>
   (side === "home") === homeAttacksRight(q);
 
 const teamColor = (code: string): string => TEAMS_BY_CODE[code]?.color ?? "var(--ink-faint)";
+/** A team's colour and the ink that reads on it, for the scoreboard blocks and drive strips. */
+const teamVars = (code: string): CSSProperties => {
+  const c = TEAMS_BY_CODE[code]?.color;
+  return { ["--gc-tc" as string]: c ?? "var(--ink-faint)", ["--gc-tc-ink" as string]: c ? onColorFor(c) : "#fff" };
+};
 const teamNick = (code: string): string => (TEAMS_BY_CODE[code]?.name ?? code).toUpperCase();
 
 // the whole phrase, article and all: callers wrote "the ${spot}", which read
@@ -502,7 +507,7 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
         className="gc-board"
         {...(done && onBoxScore ? { ...pressable(onBoxScore), title: "Open the box score", style: { cursor: "pointer" } } : {})}
       >
-        <div className="gc-side" style={{ ["--gc-tc" as string]: teamColor(bc.away) }}>
+        <div className="gc-side" style={teamVars(bc.away)}>
           <span className="gc-chip" />
           <span className="gc-code">{bc.away}</span>
           <span className="gc-score"><AnimatedNumber value={as} /></span>
@@ -515,7 +520,7 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
             Q{drive.quarter} · {step.type === "play" ? cur!.clock : drive.startClock}
           </span>
         </div>
-        <div className="gc-side home" style={{ ["--gc-tc" as string]: teamColor(bc.home) }}>
+        <div className="gc-side home" style={teamVars(bc.home)}>
           <span className="gc-chip" />
           <span className="gc-code">{bc.home}</span>
           <span className="gc-score"><AnimatedNumber value={hs} /></span>
@@ -584,7 +589,7 @@ export function Gamecast({ game, onBoxScore }: { game: GameResult; onBoxScore?: 
                   key={k}
                   className="gc-drive"
                   aria-current={k === step.k}
-                  style={{ ["--gc-tc" as string]: teamColor(dr.team) }}
+                  style={teamVars(dr.team)}
                   onClick={() => jumpTo((driveStart[k] ?? 0) + 1)}
                 >
                   <span className="gc-dteam">{dr.team}</span>

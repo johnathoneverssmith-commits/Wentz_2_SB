@@ -4,7 +4,9 @@ import { ExpiringContracts } from "@/components/ExpiringContracts";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { TeamBadge, pressable } from "@/components/bits";
-import { Card, CardHeader, Footer, Panel, Tabs } from "@/components/primitives";
+import { Footer, Panel, Tabs } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { GameResult } from "@/domain";
 import { onlineSession } from "@/state/online";
@@ -14,6 +16,11 @@ import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 import { teamInfoFor } from "@/state/teamInfo";
 import { useStore } from "@/state/store";
 import { posLabel, weeksOut } from "@/util/format";
+
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./game-days-gameday.css";
+
 
 /**
  * What a reveal opens: every week it just uncovered, on one screen.
@@ -80,23 +87,27 @@ export function SeasonResults() {
   const goHub = () => nav("/");
 
   return (
-    <Card maxWidth={860}>
-      <CardHeader
-        badge={code ? TEAMS_BY_CODE[code]?.abbr ?? "FS" : "FS"}
-        title="Game Results"
-        subtitle={single ? `${label(first)} · results are in` : `${label(first)} through ${label(last)}`}
+    <GdPage code={code} className={single ? "gdy" : "gdy gd-tabbed"}>
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={single ? `${label(first)} · results are in` : `${label(first)} through ${label(last)}`}
+        heading="Game results"
+        sub="What the week uncovered."
       />
 
       {!single && (
-        <Tabs
-          label="Revealed weeks"
-          tabs={weeks.map((w) => ({ id: String(w), label: label(w) }))}
-          active={String(active)}
-          onChange={(id) => nav(`/results/${phaseKey}/${first}/${last}/${id}`, { replace: true })}
-        />
+        <div className="gd-hub">
+          <Tabs
+            label="Revealed weeks"
+            tabs={weeks.map((w) => ({ id: String(w), label: label(w) }))}
+            active={String(active)}
+            onChange={(id) => nav(`/results/${phaseKey}/${first}/${last}/${id}`, { replace: true })}
+          />
+        </div>
       )}
 
-      <div className="panel open" ref={scroller} style={{ maxHeight: "62vh", overflowY: "auto" }}>
+      <div className={"panel open gdy-results" + (single ? " gdy-section" : "")} ref={scroller} style={{ maxHeight: "62vh", overflowY: "auto" }}>
         {weeks.map((w) => (
           <Panel key={w} id={String(w)} open={w === active}>
             <WeekResults
@@ -121,7 +132,7 @@ export function SeasonResults() {
           Continue
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
 
@@ -184,25 +195,14 @@ export function WeekResults({
           // your own score opens the box score, as every other game's does
           {...(hasBoxScore(mine) ? pressable(() => onBox(mine.id)) : {})}
           title={hasBoxScore(mine) ? "Open the box score" : undefined}
-          style={{
-            cursor: hasBoxScore(mine) ? "pointer" : "default",
-            display: "grid",
-            gridTemplateColumns: "1fr auto 1fr",
-            alignItems: "center",
-            gap: 16,
-            padding: "22px 18px",
-            background: "var(--panel-sunken)",
-            border: "1px solid var(--line)",
-            borderRadius: "var(--r-md)",
-            marginBottom: 16,
-          }}
+          className={"gdy-final gdy-final--inline" + (hasBoxScore(mine) ? " gdy-final--open" : "")}
         >
           <Side code={mine.homeTeam} score={mine.homeScore} won={mine.homeScore > mine.awayScore} info={info?.(mine.homeTeam)} />
-          <div style={{ textAlign: "center", color: "var(--ink-faint)", fontSize: 11 }}>FINAL</div>
+          <div className="gdy-final-tag">Final</div>
           <Side code={mine.awayTeam} score={mine.awayScore} won={mine.awayScore > mine.homeScore} right info={info?.(mine.awayTeam)} />
         </div>
       ) : (
-        <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--ink-faint)", textAlign: "center" }}>
+        <p className="gdy-note gdy-note--gap">
           {/* a playoff round without you is a bye, an elimination or a
               missed postseason — never a "bye week" */}
           {noGame ?? (detailOnEvery
@@ -212,7 +212,7 @@ export function WeekResults({
       )}
 
       {showDetail && mine && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+        <div className="gdy-actions">
           {hasBoxScore(mine) && (
             <button type="button" className="btnlink" onClick={() => onBox(mine.id)}>
               View Full Box Score
@@ -226,15 +226,13 @@ export function WeekResults({
 
       {myInjuries.length > 0 && (
         <>
-          <p className="subhead" style={{ marginTop: 0 }}>
-            Your injury report
-          </p>
+          <p className="subhead">Your injury report</p>
           {myInjuries.map((e, i) => (
             <div key={`${e.playerId}-${i}`} className="neg-row">
               <span className="pname">
                 {e.player} <span className="ppos">{posLabel(e.position)}</span>
               </span>
-              <span style={{ fontSize: 12.5, color: "var(--bad)", fontWeight: 600 }}>
+              <span className="gdy-injury">
                 {e.bodyPart} · {weeksOut(e.projectedWeeks)}
               </span>
             </div>
@@ -254,33 +252,21 @@ export function WeekResults({
               key={g.id}
               {...(openable ? pressable(() => onBox(g.id)) : {})}
               title={openable ? "Open the box score" : "No box score for this game"}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto 1fr",
-                alignItems: "center",
-                gap: 10,
-                padding: "9px 6px",
-                borderBottom: "1px solid var(--line)",
-                cursor: openable ? "pointer" : "default",
-                borderRadius: "var(--r-sm)",
-                ...(humanIn(g)
-                  ? { background: "color-mix(in srgb, var(--team) 10%, transparent)", boxShadow: "inset 3px 0 0 var(--team)" }
-                  : {}),
-              }}
+              className={"gdy-row" + (openable ? " gdy-row--open" : "") + (humanIn(g) ? " gdy-row--human" : "")}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className={"gdy-side" + (homeWon ? " gdy-won" : "")}>
                 <TeamBadge code={g.homeTeam} size={20} />
-                <span style={{ fontSize: 12.5, fontWeight: homeWon ? 600 : 400 }}>
+                <span>
                   {TEAMS_BY_CODE[g.homeTeam]!.label}
                   {gmName(g.homeTeam) && <> <span className="ppos">{gmName(g.homeTeam)}</span></>}
-                  {info && <small style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>{info(g.homeTeam)}</small>}
+                  {info && <small className="gdy-info">{info(g.homeTeam)}</small>}
                 </span>
               </span>
               {/* the playoff link lives in the score's cell: as a fourth item
                   in a three-column row it pushed the away team onto a line
                   of its own */}
-              <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <span className="oswald" style={{ fontSize: 13 }}>
+              <span className="gdy-scorecell">
+                <span className="gdy-score">
                   {g.homeScore}–{g.awayScore}
                 </span>
                 {detailOnEvery && (
@@ -296,12 +282,12 @@ export function WeekResults({
                   </button>
                 )}
               </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
+              <span className={"gdy-side gdy-side--away" + (awayWon ? " gdy-won" : "")}>
                 <TeamBadge code={g.awayTeam} size={20} />
-                <span style={{ fontSize: 12.5, fontWeight: awayWon ? 600 : 400 }}>
+                <span>
                   {TEAMS_BY_CODE[g.awayTeam]!.label}
                   {gmName(g.awayTeam) && <> <span className="ppos">{gmName(g.awayTeam)}</span></>}
-                  {info && <small style={{ display: "block", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400, textAlign: "right" }}>{info(g.awayTeam)}</small>}
+                  {info && <small className="gdy-info">{info(g.awayTeam)}</small>}
                 </span>
               </span>
             </div>
@@ -326,17 +312,14 @@ function Side({
   info?: string | undefined;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: right ? "row-reverse" : "row", alignItems: "center", gap: 10 }}>
+    <div className={"gdy-score-side" + (right ? " gdy-score-side--away" : "") + (won ? " gdy-won" : "")}>
       <TeamBadge code={code} size={34} />
-      <div style={{ textAlign: right ? "right" : "left" }}>
-        <span
-          className="oswald"
-          style={{ display: "block", fontSize: 26, fontWeight: 700, color: won ? "var(--good)" : "var(--ink)" }}
-        >
+      <div>
+        <span className="gdy-big">
           <AnimatedNumber value={score} from={0} duration={1.1} />
         </span>
-        <span style={{ fontSize: 11.5, color: "var(--ink-dim)" }}>{TEAMS_BY_CODE[code]!.label}</span>
-        {info && <span style={{ display: "block", fontSize: 11, color: "var(--ink-faint)" }}>{info}</span>}
+        <span className="gdy-team">{TEAMS_BY_CODE[code]!.label}</span>
+        {info && <span className="gdy-info">{info}</span>}
       </div>
     </div>
   );
