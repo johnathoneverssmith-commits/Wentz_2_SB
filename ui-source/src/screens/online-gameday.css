@@ -88,3 +88,312 @@
     margin-right: 4px;
   }
 }
+
+/* ===== section 2: the signed-in lobby (leagues, join) ============================ */
+.online-gd .online-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.online-gd .online-actions .gd-btn {
+  min-height: 44px;
+}
+.online-gd .panel.open {
+  min-width: 0;
+}
+.online-gd .lobby-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px 16px;
+  padding: 16px 0;
+  border-bottom: 2px solid var(--gd-soft);
+}
+.online-gd .lobby-row > div {
+  min-width: 0;
+}
+.online-gd .lobby-row .pname {
+  margin: 0;
+  font: 800 26px/1.05 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.online-gd .lobby-row .ppos {
+  margin-left: 8px;
+  color: var(--gd-mute);
+  font: 800 18px/1 var(--gd-display);
+}
+.online-gd .lobby-sub {
+  margin: 4px 0 0;
+  color: var(--gd-mute);
+  font: 500 14px/1.5 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.online-gd .lobby-todo {
+  margin: 6px 0 0;
+  color: var(--gd-ink);
+  font: 500 14px/1.5 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.online-gd .lobby-todo.now {
+  color: var(--bad);
+  font-weight: 700;
+}
+.online-gd .lobby-code {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 2px solid var(--gd-rule);
+  background: #fff;
+  color: var(--gd-ink);
+  font: 800 20px/1.1 var(--gd-display);
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+.online-gd .lobby-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* every button in the rows is a real 44px square-cornered target */
+.online-gd .lobby-row .btnlink,
+.online-gd .lobby-row .btn-primary,
+.online-gd .lobby-claim .btnlink,
+.online-gd .notice .btnlink,
+.online-gd .emptystate .btnlink {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+  box-shadow: none;
+  text-decoration: none;
+}
+.online-gd .lobby-row .btnlink:hover:not(:disabled),
+.online-gd .lobby-claim .btnlink:hover:not(:disabled),
+.online-gd .notice .btnlink:hover:not(:disabled),
+.online-gd .emptystate .btnlink:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.online-gd .lobby-row .btn-primary {
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+  font-weight: 800;
+}
+.online-gd .lobby-row .btn-primary:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.online-gd .lobby-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* leave and archive: apart from the primary action, never the accent */
+.online-gd .lobby-row .lobby-danger {
+  margin-left: 12px;
+  border-color: var(--bad);
+  color: var(--bad);
+}
+.online-gd .lobby-row .lobby-danger:hover:not(:disabled) {
+  background: var(--bad);
+  color: #fff;
+}
+/* a to-do line is a link to the thing it is about */
+.online-gd .lobby-todo .btnlink {
+  min-height: 44px;
+  padding: 8px 0;
+  margin: -8px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+}
+.online-gd .lobby-todo .btnlink:hover:not(:disabled) {
+  background: none;
+  color: var(--gd-accent-text);
+}
+.online-gd .lobby-claim {
+  grid-column: 1 / -1;
+  margin-top: 4px;
+  padding: 14px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-paper);
+}
+.online-gd .lobby-claim .needgrid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+}
+.online-gd .lobby-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.online-gd .lobby-team:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.online-gd .lobby-form.inline {
+  grid-template-columns: minmax(0, 260px) auto;
+}
+.online-gd .lobby-form.inline button[type="submit"] {
+  justify-self: stretch;
+}
+
+@media (max-width: 760px) {
+  .online-gd .lobby-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .online-gd .lobby-actions {
+    justify-content: flex-start;
+  }
+  .online-gd .lobby-row .lobby-danger {
+    margin-left: 0;
+  }
+  .online-gd .lobby-form.inline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- GM management (opened from a league row) and the create form's links -------- */
+.online-gd .lobby-claim .neg-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gd-soft);
+  font: 500 14px/1.4 var(--gd-body);
+  min-width: 0;
+}
+.online-gd .lobby-claim .neg-row > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.online-gd .online-btnrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.online-gd .lobby-form .btnlink {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+}
+
+/* the invite line: code and copy buttons sit in a row and wrap together */
+.online-gd .lobby-sub .btnlink {
+  display: inline-flex;
+  align-items: center;
+  margin: 4px 6px 4px 0;
+  vertical-align: middle;
+}
+
+/* wide fallback fonts made the shared tabs 43px */
+.online-gd .tabs [role="tab"] {
+  min-height: 44px;
+}
+
+/* ===== section 3: start a league ================================================ */
+.online-gd .online-note {
+  margin: 0;
+  color: var(--gd-mute);
+  font: 500 14px/1.55 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.online-gd .online-note--after {
+  margin-top: 14px;
+  max-width: 70ch;
+}
+.online-gd .panel.open .lobby-form {
+  max-width: 560px;
+}
+.online-gd .online-settings {
+  display: grid;
+  gap: 0;
+  margin-top: 4px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  padding: 12px 14px 0;
+}
+.online-gd .online-setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--gd-soft);
+}
+.online-gd .online-setting__text {
+  min-width: 0;
+}
+.online-gd .online-setting__label {
+  margin: 0;
+  font: 800 18px/1.1 var(--gd-display);
+  text-transform: uppercase;
+}
+.online-gd .online-setting__hint {
+  margin: 3px 0 0;
+  color: var(--gd-mute);
+  font: 500 13px/1.45 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.online-gd .online-setting__control {
+  min-width: 0;
+  max-width: 100%;
+}
+.online-gd .online-setting__control input {
+  min-height: 44px;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: #fff;
+  color: var(--gd-ink);
+  font: 700 15px/1.2 var(--gd-body);
+}
+.online-gd .online-created {
+  margin-top: 16px;
+  min-width: 0;
+  padding: 14px 16px;
+  overflow-wrap: anywhere;
+}
+.online-gd .online-gms-note {
+  user-select: all;
+  padding: 8px 0;
+}
+@media (max-width: 760px) {
+  .online-gd .online-setting {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* a select sizes to its longest option; under wide fonts that outran a phone */
+.online-gd .lobby-form select {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.online-gd .online-setting__control select {
+  max-width: 100%;
+}
