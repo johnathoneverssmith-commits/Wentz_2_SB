@@ -45,7 +45,7 @@ export function UpdateAvailable() {
   }, []);
   if (!stale) return null;
   return (
-    <div className="notice" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+    <div className="notice update-available" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
       The game has been updated since you opened this page.{" "}
       <button type="button" className="btnlink" onClick={() => window.location.reload()}>
         Reload to get the latest

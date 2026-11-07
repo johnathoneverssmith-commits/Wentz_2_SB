@@ -94,9 +94,9 @@ export function ScoreMoment({ moment, onDone }: { moment: Moment | null; onDone?
         className="sm-band"
         style={{
           background: moment.color,
-          // a light edge and a coloured glow: a navy or black team colour
-          // would otherwise disappear into the dark interface
-          boxShadow: `0 0 0 2px rgba(255,255,255,0.4), 0 10px 44px color-mix(in srgb, ${moment.color} 70%, transparent)`,
+          // an ink rule and a hard offset, no glow: a navy or black team colour
+          // still reads against the light pages
+          boxShadow: "0 0 0 3px #0b1b2e, 0 9px 0 #0b1b2e",
         }}
         initial={{ x: `${dir * -110}%`, opacity: 1 }}
         animate={

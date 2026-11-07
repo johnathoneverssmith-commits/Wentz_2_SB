@@ -39,7 +39,7 @@ export class ScreenBoundary extends Component<Props, { error: Error | null }> {
     const { error } = this.state;
     if (!error) return this.props.children;
     return (
-      <div className="card" style={{ maxWidth: 620, margin: "0 auto" }}>
+      <div className="card screen-boundary" style={{ maxWidth: 620, margin: "0 auto" }}>
         <div className="panel open">
           <p className="sectionlabel">This screen hit a problem</p>
           <p style={{ fontSize: 13, color: "var(--ink-dim)", lineHeight: 1.6 }}>
