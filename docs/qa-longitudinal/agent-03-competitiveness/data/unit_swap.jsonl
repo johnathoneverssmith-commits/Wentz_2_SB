@@ -20,3 +20,15 @@
 {"unit":"QB","delta":"abs:72","talent":1.5,"n":640,"dMargin":-7.487,"seMargin":0.667,"dWinPct":-18.91,"seWinPct":2.08}
 {"unit":"OL","delta":"-10","talent":1.5,"n":640,"dMargin":-5.617,"seMargin":0.636,"dWinPct":-15.16,"seWinPct":2.17}
 {"unit":"OL","delta":"10","talent":1.5,"n":640,"dMargin":6.447,"seMargin":0.65,"dWinPct":13.75,"seWinPct":2.25}
+{"unit":"WRTE","delta":"-10","talent":1.5,"n":640,"dMargin":-5.398,"seMargin":0.634,"dWinPct":-15.08,"seWinPct":2.19}
+{"unit":"RB","delta":"-10","talent":1.5,"n":640,"dMargin":-1.108,"seMargin":0.534,"dWinPct":-4.14,"seWinPct":2.02}
+{"unit":"WRTE","delta":"10","talent":1.5,"n":640,"dMargin":5.541,"seMargin":0.642,"dWinPct":14.14,"seWinPct":2.24}
+{"unit":"FRONT","delta":"-10","talent":1.5,"n":640,"dMargin":-3.473,"seMargin":0.632,"dWinPct":-8.67,"seWinPct":2.14}
+{"unit":"FRONT","delta":"10","talent":1.5,"n":640,"dMargin":7.973,"seMargin":0.656,"dWinPct":17.81,"seWinPct":2.18}
+{"unit":"RB","delta":"10","talent":1.5,"n":640,"dMargin":2.586,"seMargin":0.631,"dWinPct":6.25,"seWinPct":2.14}
+{"unit":"LB","delta":"-10","talent":1.5,"n":640,"dMargin":-3.198,"seMargin":0.583,"dWinPct":-6.64,"seWinPct":2.1}
+{"unit":"LB","delta":"10","talent":1.5,"n":640,"dMargin":2.959,"seMargin":0.586,"dWinPct":5.39,"seWinPct":2.14}
+{"unit":"SECONDARY","delta":"-10","talent":1.5,"n":640,"dMargin":-5.188,"seMargin":0.649,"dWinPct":-13.36,"seWinPct":2.14}
+{"unit":"K","delta":"-10","talent":1.5,"n":640,"dMargin":-0.281,"seMargin":0.183,"dWinPct":-0.08,"seWinPct":0.75}
+{"unit":"SECONDARY","delta":"10","talent":1.5,"n":640,"dMargin":8.17,"seMargin":0.649,"dWinPct":17.66,"seWinPct":2.18}
+{"unit":"K","delta":"10","talent":1.5,"n":640,"dMargin":0.445,"seMargin":0.142,"dWinPct":1.64,"seWinPct":0.61}
