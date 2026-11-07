@@ -1,0 +1,647 @@
+/*
+ * The season-end and offseason-review screens on the gameday system
+ * (design/gameday.css, design/gameday-blocks.css): end of season, season
+ * complete, hot seat, retirement review, rookie signings.
+ *
+ * Rows that reflow do so by the width of their own column, not the window's,
+ * because the sidebar takes a different share of every screen.
+ */
+
+/* the readiness gate's button is 40px tall by default; a phone needs 44 */
+.se .readiness button {
+  min-height: 44px;
+}
+
+/* a long figure in the stat strip (a name and a team) steps down a size */
+.se .ticker .stat-value.sm {
+  font-size: clamp(22px, 2.2vw, 28px);
+}
+
+/* ---- end of season: the year, and the season's awards ------------------------- */
+.se-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px 40px;
+  padding: 22px 26px 18px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  box-shadow: 8px 8px 0 var(--gd-accent);
+  cursor: pointer;
+}
+.se-stage:focus-visible {
+  outline: 3px solid var(--gd-ink);
+  outline-offset: 4px;
+}
+.se-stage__awards {
+  min-width: 0;
+}
+.se-stage__label,
+.se-label {
+  margin: 0 0 8px;
+  color: var(--gd-ink);
+  font: 900 clamp(24px, 2.4vw, 30px) / 1 var(--gd-display);
+  text-transform: uppercase;
+}
+.se-stage__hint {
+  grid-column: 1 / -1;
+  margin: 8px 0 0;
+  padding-top: 12px;
+  border-top: 2px solid var(--gd-rule);
+  color: var(--gd-mute);
+  font: 600 15px/1.4 var(--gd-body);
+}
+
+/* the award rows: label, winner, then position and team */
+.se-stage .awards-list {
+  max-width: none;
+  margin: 0;
+  gap: 0;
+}
+.se-stage .awards-list .award-row {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
+  gap: 0 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--gd-soft);
+  font: 600 15px/1.3 var(--gd-body);
+}
+.se-stage .awards-list .award-row > span:first-child {
+  /* the row sets a 200px floor inline; a narrow column must be able to wrap it */
+  min-width: 0 !important;
+  color: var(--gd-mute) !important;
+}
+.se-stage .awards-list .award-row > strong {
+  font: 800 22px/1.1 var(--gd-display);
+  overflow-wrap: anywhere;
+}
+.se-stage .awards-list .award-row > span:last-child {
+  grid-column: 2;
+  color: var(--gd-mute) !important;
+  font-size: 14px;
+}
+@media (max-width: 640px) {
+  .se-stage {
+    padding: 16px 14px 14px;
+    box-shadow: 6px 6px 0 var(--gd-accent);
+  }
+  .se-stage .awards-list .award-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .se-stage .awards-list .award-row > span:last-child {
+    grid-column: 1;
+  }
+}
+
+/* ---- season complete: one big result cell ------------------------------------- */
+.se-result {
+  display: grid;
+  gap: 4px;
+  padding: 24px 28px 22px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-ink);
+  color: #fff;
+  box-shadow: 8px 8px 0 var(--gd-accent);
+}
+.se-result__kicker {
+  margin: 0;
+  color: var(--gd-accent);
+  font: 800 clamp(22px, 2.2vw, 28px) / 1 var(--gd-display);
+  text-transform: uppercase;
+}
+.se-result__name {
+  margin: 0;
+  font: 900 clamp(48px, 8vw, 112px) / 0.95 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.se-result__line {
+  margin: 8px 0 0;
+  color: #dbe5ee;
+  font: 600 17px/1.4 var(--gd-body);
+}
+.se-result__line strong {
+  color: #fff;
+  font-weight: 800;
+}
+.se-result__champ {
+  margin: 6px 0 0;
+  color: #b9c8d8;
+  font: 600 15px/1.4 var(--gd-body);
+}
+@media (max-width: 640px) {
+  .se-result {
+    padding: 18px 14px;
+    box-shadow: 6px 6px 0 var(--gd-accent);
+  }
+}
+
+/* the one panel holds the result, the table, the tracker and the rounds choice:
+   each of those is its own ruled card on the page */
+.se-complete .panel.open {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gd-gap);
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.se-complete .panel.open > * {
+  min-width: 0;
+}
+.se-card,
+.se-complete .panel .panel.open {
+  padding: 18px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.se-complete .panel .panel.open .subhead {
+  margin-top: 0 !important;
+}
+.se-complete .stbl {
+  width: 100%;
+}
+.se-complete .panel .panel.open label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font: 600 15px/1.3 var(--gd-body);
+}
+@media (max-width: 760px) {
+  .se-card,
+  .se-complete .panel .panel.open {
+    padding: 14px 12px;
+  }
+}
+
+/* ---- the lists of the verdict and the offseason ------------------------------- */
+.gd .se-note {
+  margin: 0;
+  color: var(--gd-mute);
+  font: 600 15px/1.45 var(--gd-body);
+}
+.gd .se-note.bad {
+  color: var(--bad);
+}
+.gd .se-lede {
+  margin-bottom: 14px;
+}
+.gd .se-gap {
+  margin-top: 18px;
+}
+.gd .notice.se-gap-b {
+  margin-bottom: 16px;
+}
+.se-moves {
+  margin-bottom: 18px;
+}
+.gd .se-warm {
+  margin-top: 10px;
+}
+
+/* ---- hot seat ----------------------------------------------------------------- */
+.se-verdict {
+  margin: 0 0 4px;
+  font: 900 clamp(44px, 7vw, 84px) / 0.95 var(--gd-display);
+  text-transform: uppercase;
+  transform-origin: left center;
+  overflow-wrap: anywhere;
+  /* the stamp scales up on arrival: from the word's own width, not the page's,
+     so it cannot push the page sideways while it lands */
+  width: fit-content;
+  max-width: 100%;
+}
+.se-meter {
+  position: relative;
+  height: 18px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-paper);
+}
+.se-meter__fill {
+  height: 100%;
+}
+.se-meter__line {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 4px;
+  margin-left: -2px;
+  background: var(--gd-ink);
+}
+.se-seasons {
+  display: grid;
+  margin-top: 14px;
+  border-top: 3px solid var(--gd-rule);
+  container-type: inline-size;
+}
+.se-season {
+  display: grid;
+  grid-template-columns: 4.5rem 5rem minmax(0, 1fr) 3.5rem;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--gd-soft);
+  font: 600 15px/1.3 var(--gd-body);
+}
+.se-season strong {
+  font: 800 22px/1 var(--gd-display);
+}
+.se-season__rec {
+  font: 800 20px/1 var(--gd-display);
+}
+.se-season__delta {
+  text-align: right;
+  font: 800 22px/1 var(--gd-display);
+  font-variant-numeric: tabular-nums;
+}
+@container (max-width: 420px) {
+  .se-season {
+    grid-template-columns: 4rem minmax(0, 1fr) 3rem;
+  }
+  .se-season > span:nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+.se-jobs {
+  display: grid;
+  gap: 0;
+  border-top: 3px solid var(--gd-rule);
+  container-type: inline-size;
+}
+.se-job {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gd-soft);
+}
+.se-job strong {
+  font: 800 26px/1.05 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.se-job span {
+  color: var(--gd-mute);
+  font: 600 15px/1.3 var(--gd-body);
+}
+@container (max-width: 520px) {
+  .se-job {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .se-job .gd-btn {
+    justify-self: stretch;
+  }
+}
+.se-move {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--gd-soft);
+  font: 600 16px/1.4 var(--gd-body);
+}
+.se-move strong {
+  font-weight: 800;
+}
+.se-gm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--gd-soft);
+}
+.se-gm__name {
+  font: 800 26px/1.05 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.se-gm__team {
+  margin-left: 10px;
+  color: var(--gd-mute);
+  font: 600 15px/1.3 var(--gd-body);
+  text-transform: none;
+}
+.se-gm__level {
+  font: 800 20px/1.1 var(--gd-display);
+  text-align: right;
+  text-transform: uppercase;
+}
+.se-gm .se-meter {
+  grid-column: 1 / -1;
+}
+.se-how {
+  display: grid;
+  gap: 10px;
+  max-width: 70ch;
+  color: var(--gd-ink);
+  font: 500 16px/1.55 var(--gd-body);
+}
+.se-how p {
+  margin: 0;
+}
+.se-gmidentity {
+  margin-top: 18px;
+  padding-top: 8px;
+  border-top: 3px solid var(--gd-rule);
+}
+@media (max-width: 640px) {
+  .se-gm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .se-gm__level {
+    text-align: left;
+  }
+}
+
+/* ---- long lists with expanding rows (retirements, rookie signings) ------------ */
+.se-list {
+  container-type: inline-size;
+  min-width: 0;
+}
+.se-list .rowhead {
+  padding: 0 6px 8px;
+  border-bottom: 3px solid var(--gd-rule);
+  background: none;
+}
+.se-list .rowhead,
+.se-list .rowhead * {
+  color: var(--gd-ink);
+  font: 800 15px/1.1 var(--gd-display);
+  letter-spacing: 0.03em;
+}
+.se-list .prow {
+  min-height: 60px;
+  padding: 10px 6px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--gd-ink);
+}
+.se-list .prow:hover {
+  background: #f1f6f9;
+  box-shadow: none;
+}
+.se-list .prow:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+.se-list .prow-wrap {
+  border-bottom: 1px solid var(--gd-soft);
+}
+.se-list .pname {
+  margin: 0;
+  font: 800 24px/1.05 var(--gd-display);
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+.se-list .pname .ppos {
+  margin-left: 6px;
+  font: 600 14px/1.3 var(--gd-body);
+  text-transform: none;
+}
+.se-list .se-sub {
+  margin: 0;
+  color: var(--gd-mute);
+  font: 600 14px/1.3 var(--gd-body);
+}
+.se-list .se-sub strong {
+  color: var(--bad);
+  font-weight: 800;
+}
+.se-list .pcell {
+  color: var(--gd-ink);
+  font: 800 24px/1 var(--gd-display);
+}
+.se-list .chev {
+  width: 24px;
+  /* the disclosure mark is a plus or a minus, not an arrow */
+  font-size: 0;
+  line-height: 1;
+  transform: none;
+  transition: none;
+}
+.se-list .chev::before {
+  content: "+";
+  color: var(--gd-ink);
+  font: 800 28px/1 var(--gd-display);
+}
+.se-list .chev.open::before {
+  content: "\2212";
+}
+.se-list .pdetail {
+  margin: 0 6px 14px;
+  padding: 14px 16px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-paper);
+}
+.se-list .pdetail .grid4 {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+.se-list .pdetail .grid4 > div {
+  min-width: 0;
+}
+.se-list .pdetail .grid4 p:first-child {
+  color: var(--gd-mute);
+  font: 600 14px/1.3 var(--gd-body);
+}
+.se-list .pdetail .grid4 p:last-child {
+  font: 800 24px/1.1 var(--gd-display);
+}
+.se-list .pdetail .grid4 p:last-child small {
+  display: block;
+  color: var(--gd-mute);
+  font: 600 14px/1.3 var(--gd-body);
+}
+.se-list .pdetail .blurb,
+.se-list .pdetail .se-detail-line {
+  margin: 12px 0 0;
+  color: var(--gd-ink);
+  font: 500 15px/1.5 var(--gd-body);
+}
+.se-list .pdetail .se-detail-line {
+  padding-top: 12px;
+  border-top: 2px solid var(--gd-rule);
+}
+.se-list .pdetail .se-good {
+  color: var(--good);
+  font-weight: 800;
+}
+.se-list .pdetail .grid4 p.se-ok {
+  color: var(--good);
+}
+.se-list .pdetail .grid4 p.se-no {
+  color: var(--bad);
+}
+.se-list .pdetail .grid4 p.se-unknown {
+  color: var(--gd-mute);
+  font: 600 15px/1.3 var(--gd-body);
+}
+.gd table.stbl td.se-result-cell {
+  font: 800 20px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.gd table.stbl td.se-result-cell.signed {
+  color: var(--good);
+}
+.gd table.stbl td.se-result-cell.released {
+  color: var(--bad);
+}
+
+.se-status {
+  justify-self: end;
+  padding: 4px 10px;
+  border: 2px solid var(--bad);
+  color: var(--bad);
+  font: 800 16px/1 var(--gd-display);
+  text-transform: uppercase;
+  text-align: center;
+}
+.se-pick {
+  color: var(--gd-mute);
+  font: 800 22px/1 var(--gd-display);
+}
+.se-money {
+  color: var(--gd-ink);
+  font: 600 15px/1.3 var(--gd-body);
+}
+.se-money small {
+  display: block;
+  color: var(--gd-mute);
+  font-size: 14px;
+}
+.se-outcome {
+  justify-self: end;
+  text-align: right;
+  font: 800 24px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.se-outcome small {
+  display: block;
+  margin-top: 2px;
+  color: var(--gd-mute);
+  font: 700 14px/1 var(--gd-body);
+}
+.se-outcome.signed {
+  color: var(--good);
+}
+.se-outcome.released {
+  color: var(--bad);
+}
+.se-acts {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* the list reflows by its own width: a phone, or a narrow column beside the sidebar */
+@container (max-width: 560px) {
+  .se-list .prow,
+  .se-list .rowhead {
+    min-width: 0;
+  }
+}
+.se-rookies .prow,
+.se-rookies .rowhead {
+  min-width: 0;
+}
+@container (max-width: 700px) {
+  .se-rookies .prow,
+  .se-rookies .rowhead {
+    grid-template-columns: 2.4rem minmax(0, 1fr) auto 24px !important;
+  }
+  /* slot value and year-one money move into the expanded row */
+  .se-rookies .prow > :nth-child(3),
+  .se-rookies .rowhead > :nth-child(3),
+  .se-rookies .rowhead > :nth-child(4) {
+    display: none;
+  }
+  .se-rookies .prow > :nth-child(1) {
+    grid-area: 1 / 1;
+  }
+  .se-rookies .prow > :nth-child(2) {
+    grid-area: 1 / 2;
+  }
+  .se-rookies .prow > :nth-child(4) {
+    grid-area: 2 / 2;
+    justify-self: start;
+  }
+  .se-rookies .prow > :nth-child(5) {
+    grid-area: 1 / 3 / 3 / 4;
+  }
+  .se-rookies .prow > :nth-child(6) {
+    grid-area: 1 / 4 / 3 / 5;
+  }
+}
+.se-retirees .prow,
+.se-retirees .rowhead {
+  min-width: 0;
+}
+@container (max-width: 520px) {
+  .se-retirees .prow,
+  .se-retirees .rowhead {
+    grid-template-columns: minmax(0, 1fr) 3rem 24px !important;
+  }
+  .se-retirees .prow > :nth-child(3),
+  .se-retirees .rowhead > :nth-child(3) {
+    display: none;
+  }
+}
+
+/* sign and release */
+.se-act {
+  min-height: 44px;
+  min-width: 64px;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+  font: 800 17px/1.1 var(--gd-display);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.se-act:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.se-act.cut {
+  background: var(--gd-card);
+  border-color: var(--bad);
+  color: var(--bad);
+}
+.se-act.cut:hover:not(:disabled) {
+  background: var(--bad);
+  color: #fff;
+}
+.se-act:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.se-acts--stack {
+  flex-wrap: wrap;
+}
+@container (max-width: 560px) {
+  .se-acts {
+    flex-direction: column;
+  }
+  .se-act {
+    width: 100%;
+  }
+}
+
+.se-foot {
+  flex: 1 1 14rem;
+  align-self: center;
+  margin: 0;
+  color: var(--gd-mute);
+  font: 600 15px/1.4 var(--gd-body);
+}
+.se-class-note {
+  margin: 12px 0 0;
+  color: var(--gd-mute);
+  font: 600 15px/1.4 var(--gd-body);
+}
+.se-lock {
+  color: var(--gd-mute);
+}

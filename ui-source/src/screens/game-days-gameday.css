@@ -1,0 +1,438 @@
+/*
+ * Game day, the full box score and the game plan on the gameday system
+ * (design/gameday.css and design/gameday-blocks.css). Screen-level rules only.
+ * Everything is scoped under .gdy.
+ */
+
+.gdy {
+  --gdy-win: #0b6b3a;
+  --gdy-bad: #a4262c;
+}
+
+/* ---- sections ---------------------------------------------------------------- */
+.gdy-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gd-gap);
+  min-width: 0;
+}
+.gdy-board > * {
+  min-width: 0;
+}
+.gdy-section {
+  padding: 16px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.gdy-section .subhead {
+  margin-top: 0;
+}
+.gdy-cast {
+  min-width: 0;
+  overflow: hidden;
+}
+.gdy-note {
+  margin: 0;
+  color: var(--gd-mute);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+.gdy-note--left {
+  margin: 0 0 12px;
+  text-align: left;
+}
+.gdy-sub {
+  margin: 2px 0 0;
+  color: var(--gd-mute);
+  font-size: 13px;
+}
+.gdy-right {
+  text-align: right;
+}
+.gdy-severity {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.gdy-injury {
+  color: var(--gdy-bad);
+  font-size: 14px;
+  font-weight: 700;
+}
+.gdy-info {
+  display: block;
+  color: var(--gd-mute);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ---- the final score as a scoreboard ----------------------------------------- */
+.gdy-final {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  box-shadow: 6px 6px 0 var(--gd-accent);
+}
+.gdy-final--open {
+  cursor: pointer;
+}
+.gdy-final--open:hover {
+  background: var(--gd-paper);
+}
+.gdy-final--box {
+  cursor: default;
+}
+.gdy-final-tag {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  color: var(--gd-mute);
+  font: 800 16px/1.1 var(--gd-display);
+  text-transform: uppercase;
+}
+.gdy-score-side {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.gdy-score-side--away {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.gdy-score-side > div {
+  min-width: 0;
+}
+.gdy-big {
+  display: block;
+  margin: 0;
+  color: var(--gd-ink);
+  font: 900 64px/0.95 var(--gd-display);
+}
+.gdy-score-side.gdy-won .gdy-big,
+.gdy-won .gdy-big {
+  color: var(--gdy-win);
+}
+.gdy-team {
+  display: block;
+  margin: 0;
+  color: var(--gd-mute);
+  font: 600 14px/1.3 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.gdy-final-tag .gdy-won {
+  color: var(--gdy-win);
+}
+
+/* ---- score rows -------------------------------------------------------------- */
+.gdy .scroll-list {
+  max-height: none;
+  overflow: visible;
+}
+.gdy-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--gd-soft);
+}
+.gdy-row--open {
+  cursor: pointer;
+}
+.gdy-row--open:hover {
+  background: #f1f6f9;
+}
+.gdy-row--mine {
+  background: var(--gd-ink);
+  color: #fff;
+  padding-inline: 12px;
+}
+.gdy-row--mine .gdy-info {
+  color: rgba(255, 255, 255, 0.75);
+}
+.gdy-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.gdy-side--away {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.gdy-side > span:last-child {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.gdy-side.gdy-won > span:last-child {
+  font-weight: 700;
+}
+.gdy-score {
+  font: 800 22px/1 var(--gd-display);
+  white-space: nowrap;
+}
+
+/* ---- box score tables and plays ---------------------------------------------- */
+.gdy .panel.open {
+  overflow-x: auto;
+}
+.gdy table.mtable {
+  width: 100%;
+  border-collapse: collapse;
+}
+.gdy table.mtable td {
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--gd-soft);
+  font-size: 14px;
+}
+.gdy table.mtable td.val,
+.gdy-stat-c {
+  text-align: center;
+  font: 800 18px/1 var(--gd-display);
+}
+.gdy-stat-h {
+  padding: 4px;
+  color: var(--gd-mute);
+  font: 600 13px/1.2 var(--gd-body);
+  text-align: left;
+}
+.gdy-stat-gap {
+  width: 16px;
+}
+.gdy-quarters {
+  margin-bottom: 18px;
+}
+.gdy-play {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gd-soft);
+}
+.gdy-play-q {
+  flex: none;
+  width: 30px;
+  color: var(--gd-mute);
+  font-size: 13px;
+}
+.gdy-play-team {
+  flex: none;
+  width: 30px;
+}
+.gdy-play-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.gdy-play-score {
+  flex: none;
+  font: 800 18px/1 var(--gd-display);
+}
+
+/* ---- game plan ---------------------------------------------------------------- */
+.gdy-plan {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--gd-gap);
+}
+.gdy-group {
+  min-width: 0;
+  padding: 16px 20px 6px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.gdy-group h3 {
+  margin: 0;
+  font: 900 28px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.gdy-group > p {
+  margin: 4px 0 6px;
+  color: var(--gd-mute);
+  font-size: 14px;
+}
+.gdy-dial {
+  padding: 14px 0;
+  border-top: 2px solid var(--gd-soft);
+}
+.gdy-dial-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.gdy-dial-head label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 700 16px/1.3 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.gdy-dial-value {
+  flex: none;
+  min-width: 64px;
+  padding: 2px 10px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-team);
+  color: var(--gd-team-ink);
+  font: 900 22px/1.15 var(--gd-display);
+  text-align: center;
+}
+.gdy-dial-value--quiet {
+  background: none;
+  color: var(--gd-mute);
+  border-color: var(--gd-soft);
+}
+.gdy-dial input[type="range"] {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 4px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--gd-accent);
+  cursor: pointer;
+}
+.gdy-dial input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border: 2px solid var(--gd-rule);
+  background: #dfe6ec;
+}
+.gdy-dial input[type="range"]::-webkit-slider-thumb {
+  width: 22px;
+  height: 22px;
+  margin-top: -9px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-accent);
+  -webkit-appearance: none;
+}
+.gdy-dial input[type="range"]::-moz-range-track {
+  height: 8px;
+  border: 2px solid var(--gd-rule);
+  background: #dfe6ec;
+}
+.gdy-dial input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-accent);
+}
+.gdy-dial input[type="range"]:focus-visible {
+  outline: 3px solid var(--gd-ink);
+  outline-offset: 2px;
+}
+.gdy-dial-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--gd-ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+.gdy-dial-note {
+  max-width: 70ch;
+  margin: 8px 0 0;
+  color: var(--gd-mute);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.gdy-plan-status {
+  flex: 1 1 220px;
+  align-self: center;
+  color: var(--gd-mute);
+  font-size: 14px;
+}
+.gdy-lab {
+  padding: 16px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+}
+.gdy-lab-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+}
+.gdy-lab-head strong {
+  font: 900 24px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.gdy-lab-head span {
+  min-width: 0;
+  color: var(--gd-mute);
+  font-size: 14px;
+}
+.gdy-lab-go {
+  margin-left: auto;
+}
+.gdy-lab-answer p {
+  margin: 10px 0 0;
+  font-size: 15px;
+}
+.gdy-lab-answer .oswald {
+  font: 900 22px/1 var(--gd-display);
+}
+.gdy-lab-answer .gdy-lab-basis {
+  margin: 4px 0 0;
+  color: var(--gd-mute);
+  font-size: 13px;
+}
+.gdy-up {
+  color: var(--gdy-win);
+}
+.gdy-down {
+  color: var(--gdy-bad);
+}
+.gdy-lab-error {
+  margin: 8px 0 0;
+}
+
+/* ---- phones ------------------------------------------------------------------- */
+@media (max-width: 760px) {
+  .gdy-section,
+  .gdy-group,
+  .gdy-lab {
+    padding-inline: 14px;
+  }
+  .gdy-final {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 10px;
+    padding: 16px 14px;
+    box-shadow: 4px 4px 0 var(--gd-accent);
+  }
+  .gdy-score-side,
+  .gdy-score-side--away {
+    flex-direction: row;
+    text-align: left;
+  }
+  .gdy-big {
+    font-size: 48px;
+  }
+  .gdy-final-tag {
+    justify-items: start;
+    grid-auto-flow: column;
+    justify-content: start;
+    gap: 8px;
+  }
+  .gdy-dial-ends {
+    font-size: 12px;
+  }
+  .gdy .footer button,
+  .gdy-lab-go {
+    min-height: 44px;
+  }
+  .gdy-lab-go {
+    margin-left: 0;
+    width: 100%;
+  }
+}
