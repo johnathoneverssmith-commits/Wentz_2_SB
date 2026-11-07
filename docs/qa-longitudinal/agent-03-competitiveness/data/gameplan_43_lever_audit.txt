@@ -1,0 +1,3 @@
+talent 1.5, 12 games a roster; margin vs the standard plan (points/game)
+
+lever            setting   overall   best-fit 8   worst-fit 8   fit by

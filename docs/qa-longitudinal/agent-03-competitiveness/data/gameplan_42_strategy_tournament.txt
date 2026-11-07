@@ -1,0 +1,3 @@
+talent 1.5, 12 games a roster; margin vs the standard plan (points/game)
+
+strategy          overall    best-fit 8   worst-fit 8   spread  | sd of margin   close-game win%   17+ pt losses

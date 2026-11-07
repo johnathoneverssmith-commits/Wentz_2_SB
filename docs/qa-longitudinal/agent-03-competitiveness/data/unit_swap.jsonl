@@ -32,3 +32,5 @@
 {"unit":"K","delta":"-10","talent":1.5,"n":640,"dMargin":-0.281,"seMargin":0.183,"dWinPct":-0.08,"seWinPct":0.75}
 {"unit":"SECONDARY","delta":"10","talent":1.5,"n":640,"dMargin":8.17,"seMargin":0.649,"dWinPct":17.66,"seWinPct":2.18}
 {"unit":"K","delta":"10","talent":1.5,"n":640,"dMargin":0.445,"seMargin":0.142,"dWinPct":1.64,"seWinPct":0.61}
+{"unit":"P","delta":"10","talent":1.5,"n":640,"dMargin":0.273,"seMargin":0.469,"dWinPct":-0.23,"seWinPct":1.68}
+{"unit":"P","delta":"-10","talent":1.5,"n":640,"dMargin":0.053,"seMargin":0.446,"dWinPct":-0.08,"seWinPct":1.73}

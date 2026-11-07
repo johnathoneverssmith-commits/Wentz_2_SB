@@ -10,3 +10,6 @@
 {"pos":"EDGE","slot":0,"delta":10,"talent":1,"n":640,"dMargin":1.403,"seMargin":0.575,"dWinPct":4.38,"seWinPct":2.25}
 {"pos":"DT","slot":0,"delta":10,"talent":1,"n":640,"dMargin":0.984,"seMargin":0.576,"dWinPct":5.78,"seWinPct":2.36}
 {"pos":"ILB","slot":0,"delta":10,"talent":1,"n":640,"dMargin":1.042,"seMargin":0.587,"dWinPct":4.53,"seWinPct":2.33}
+{"pos":"CB","slot":0,"delta":10,"talent":1,"n":640,"dMargin":1.686,"seMargin":0.57,"dWinPct":5.16,"seWinPct":2.22}
+{"pos":"CB","slot":2,"delta":10,"talent":1,"n":640,"dMargin":0.709,"seMargin":0.475,"dWinPct":1.33,"seWinPct":1.95}
+{"pos":"S","slot":0,"delta":10,"talent":1,"n":640,"dMargin":1.909,"seMargin":0.566,"dWinPct":5.39,"seWinPct":2.29}
