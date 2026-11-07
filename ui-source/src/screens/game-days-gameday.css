@@ -436,3 +436,156 @@
     width: 100%;
   }
 }
+
+/* ---- results screens: season results, a playoff round, game history ----------- */
+.gdy-final--inline {
+  margin-bottom: 16px;
+}
+.gdy-note--gap {
+  margin-bottom: 16px;
+}
+.gdy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.gdy-actions .btnlink,
+.gdy-row .btnlink,
+.gdy-hactions .btnlink {
+  min-height: 44px;
+}
+.gdy-results {
+  min-width: 0;
+}
+.gdy-results .panel,
+.gdy-results .panel.open {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.gdy-results.gdy-section {
+  padding: 18px 20px;
+}
+.gdy-row--human {
+  background: #eaf0f5;
+  box-shadow: inset 4px 0 0 var(--gd-team);
+}
+.gdy-scorecell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gdy-history {
+  padding-block: 8px;
+}
+.gdy-hrow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+}
+.gdy-hres {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--gd-rule);
+  color: var(--gd-ink);
+  font: 900 26px/1 var(--gd-display);
+}
+.gdy-hres.gdy-won {
+  background: var(--gdy-win);
+  color: #fff;
+}
+.gdy-hres.gdy-lost {
+  background: var(--gd-card);
+  color: var(--gdy-bad);
+}
+.gdy-hmain {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.gdy-hmain .pname {
+  font: 800 22px/1.1 var(--gd-display);
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+.gdy-hactions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.gdy-recap h2 {
+  margin: 0 0 10px;
+  font: 900 30px/1.05 var(--gd-display);
+  text-transform: uppercase;
+}
+.gdy-recap p:not(.sectionlabel):not(.gdy-sub):not(.gdy-note) {
+  margin: 0 0 10px;
+  color: var(--gd-ink);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.gdy-recap .sectionlabel {
+  margin: 18px 0 4px;
+  font: 800 22px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.gdy-recap-when {
+  color: var(--gd-mute);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .gdy-hrow {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .gdy-hactions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+  .gdy-hactions .btnlink {
+    flex: 1 1 0;
+  }
+  .gdy-results.gdy-section {
+    padding-inline: 14px;
+  }
+  .gdy-actions .btnlink {
+    flex: 1 1 100%;
+  }
+}
+
+/* link-buttons inside the screens (not the footer, which the system styles) */
+.gdy .btnlink {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+  box-shadow: none;
+}
+.gdy .btnlink:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+.gdy .btnlink.btn-primary {
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+}
+.gdy .btnlink.btn-primary:hover:not(:disabled) {
+  background: var(--gd-ink);
+  color: #fff;
+}
+/* tabs sit on the paper, not on the page's fading backdrop */
+.gdy.gd-tabbed .gd-hub {
+  background: var(--gd-paper);
+}
