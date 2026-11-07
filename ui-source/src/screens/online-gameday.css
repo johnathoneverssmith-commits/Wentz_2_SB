@@ -403,22 +403,28 @@
 .online-taketurn {
   display: block;
   margin: 8px 0 0;
-  font: 500 14px/1.4 var(--gd-body, inherit);
+  font-size: 14px;
+  line-height: 1.4;
 }
+/* every context: a 44px target that wraps (colours come from the page) */
 .online-taketurn .btnlink {
   min-height: 44px;
   max-width: 100%;
   padding: 8px 14px;
-  border: 2px solid var(--gd-rule, currentColor);
-  border-radius: 0;
-  background: var(--gd-card, #fff);
-  color: var(--gd-ink, inherit);
-  font: 700 14px/1.2 var(--gd-body, inherit);
   text-align: left;
   overflow-wrap: anywhere;
 }
-.online-taketurn .btnlink:hover:not(:disabled) {
-  background: var(--gd-ink, #000);
+/* on a gameday page only: the ruled square button. The dark-themed screens
+   (the coaching draft) keep their own paired colours. */
+.gd .online-taketurn .btnlink {
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+}
+.gd .online-taketurn .btnlink:hover:not(:disabled) {
+  background: var(--gd-ink);
   color: #fff;
 }
 .online-taketurn__error {
