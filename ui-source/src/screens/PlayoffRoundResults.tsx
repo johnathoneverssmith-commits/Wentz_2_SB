@@ -1,15 +1,21 @@
 import { useNavigate, useParams } from "react-router-dom";
 
-import { Card, CardHeader, Footer } from "@/components/primitives";
+import { Footer } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { onlineSession } from "@/state/online";
 import { revealedRounds, visibleGames } from "@/state/reveal";
-import { leagueBadge } from "@/state/leagueFormat";
 import { viewerTeamCode } from "@/state/selectors";
 import { useStore } from "@/state/store";
 
 import { WeekResults } from "./SeasonResults";
+
+import "@/design/gameday.css";
+import "@/design/gameday-blocks.css";
+import "./game-days-gameday.css";
+
 
 /**
  * One revealed playoff round.
@@ -65,13 +71,15 @@ export function PlayoffRoundResults() {
   const back = `/results/round/${r}`;
 
   return (
-    <Card maxWidth={860}>
-      <CardHeader
-        badge={leagueBadge(s)}
-        title={roundLabelFor(s.bracket, r)}
-        subtitle={`${s.season} postseason · ${revealed ? "results are in" : "not watched yet"}`}
+    <GdPage code={code} className="gdy">
+      <GameDayMasthead
+        code={code ?? ""}
+        compact
+        title={`${s.season} postseason · ${revealed ? "results are in" : "not watched yet"}`}
+        heading={roundLabelFor(s.bracket, r)}
+        sub={revealed ? "Every game of the round, with its detail." : "Watch the round to see its results."}
       />
-      <div className="panel open">
+      <div className="gdy-board">
         {!revealed ? (
           <div className="emptystate">You haven&rsquo;t watched this round yet.</div>
         ) : (
@@ -148,6 +156,6 @@ export function PlayoffRoundResults() {
           Continue
         </button>
       </Footer>
-    </Card>
+    </GdPage>
   );
 }
