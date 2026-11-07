@@ -19,10 +19,10 @@ Last updated: 2026-11-07 · **Verdict: NOT ASSESSABLE** (partial pre-baseline ev
 |---|---|---|---|
 | P-1 | Fix #92: selector rule for `e2e-audit/`, update vs master, CI green (D-010) | #92 dev agent | approved, **not done** |
 | P-2 | Owner approval to merge #92 | owner | pending, after P-1 |
-| P-3 | Group 08 built per `GROUP-08-PLAN.md`: pixel-diff report, contrast fixes for UI-TAFI-001/002/005/017, CI green (D-009) | Group 08 dev agent | planned, **not started**; needs #83 prompts available |
+| P-3 | Group 08 built per `GROUP-08-PLAN.md`: pixel-diff report, contrast fixes for UI-TAFI-001/002/005/017, CI green (D-009, D-018) | dedicated Group 08 dev agent | planned, **not started**; reads prompts from branch `docs/ui-redesign-prompts`, #83 stays unmerged (D-017) |
 | P-4 | Owner approval to merge Group 08 | owner | pending, after P-3 |
 | P-5 | #92 visual/accessibility audit run on the post-Group-08 build; High/Critical findings fixed or accepted | #92 harness + Agent 1 | blocked on P-2, P-4 |
-| P-6 | Decide how #74 affects the baseline: real-engine path (UI + adapter, or online) required for realism runs; sim-path header mandatory (**recommend: do not wait for #74 implementation**) | owner | decision needed (`ISSUE-74-PLAN.md` Part 5) |
+| P-6 | #74 and the baseline (D-021): the **visual** baseline does not wait for #74. **Definitive realism/competitiveness testing** must use the real engine (headless, UI + adapter, or online) and state its sim path. #74 Phase 1 is approved as its own PR (D-020); Phases 2–5 are not | — | **decided** |
 | P-7 | Triage #37 (dead money on auto trim) and #38 (CPU releases same-window signings): fix before baseline or accept and document | owner / Agent 7 | open |
 | P-8 | Wave-1 first passes complete: Agent 3 final, Agent 5 draft PR, Agent 1 update and re-run, Agents 2 and 4 first reports | agents | A1 submitted; A3 WIP; A5 unpushed; A2/A4 none |
 | P-9 | Standard baseline test matrix agreed: seeds, teams (BAL plus ≥1 with and ≥1 without a stadium photo), `nfl` and `humansOnly`, talentImpact setting, ≥3-GM online league | coordinator proposes, owner approves | not drafted |

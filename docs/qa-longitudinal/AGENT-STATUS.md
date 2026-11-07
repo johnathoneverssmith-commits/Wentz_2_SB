@@ -18,7 +18,9 @@ Other open PRs observed (not QA evidence): #92 audit harness (failing required t
 
 **#92 development agent (D-010).** Scope, nothing more: (1) add a change-selector rule so every tracked `e2e-audit/**` file is covered (`.claude/skills/wentz-verify/select-checks.mjs`; the failing test is `test/verify-selector.test.ts` › "covers every source file tracked in this repository"; 20 files listed in the CI log, run 42396176539); (2) update the branch against current `master` (`d9af7c4` or later); (3) rerun CI and report the `test` result. Do not change `e2e-audit/` behaviour or anything under `ui-source/`, `src/`, `online/`, `server/`; do not merge. Also confirm that adding the Agent 1/3 documentation PRs' files (`.ts` harness code under `docs/`) will not trip the same rule.
 
-**Group 08 development agent (D-009).** Use `GROUP-08-PLAN.md` together with `docs/ui-redesign/00-brief.md` and `08-cleanup.md` (on PR #83's branch).
+**Group 08 development agent (D-009, D-017, D-018).** Dedicated agent. Use `GROUP-08-PLAN.md` together with `00-brief.md` and `08-cleanup.md` read from branch `docs/ui-redesign-prompts` (do not merge #83). Re-check paths/routes against current master.
+
+**Issue #74 Phase 1 development agent (D-020).** Separate agent, separate PR. Brief: `ISSUE-74-PLAN.md` → "Phase 1 assignment". Phases 2–5 are not approved.
 
 **Agent 1 (D-012).** Update #94 against current master, add the session header (sim path, SHA), continue the incomplete browser work (second season by hand, other team palettes, Gamecast, Hooded Figure, League Developments, online screens) and the follow-ups listed below. Treat 001/002/005/017 as owned by Group 08: re-verify after it merges instead of re-reporting.
 

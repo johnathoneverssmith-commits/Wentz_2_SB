@@ -1,6 +1,6 @@
 # Issue #74 — real engine in standalone single-player: implementation plan
 
-Status 2026-11-07: **plan only. Not approved, not implemented.** Owner decision D-011: the long-term requirement is that standalone single-player uses the real simulation engine. Builds on the spike in [issue #74](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/issues/74) and `docs/agent4_notes.md`; this document adds sequencing, risks, acceptance tests and QA hooks. Per `CLAUDE.md`, simulation/production changes need explicit approval per change.
+Status 2026-11-07: **Phase 1 only is approved (D-020); nothing is implemented. Phases 2–5 are not approved.** Owner decision D-011: the long-term requirement is that standalone single-player uses the real simulation engine. Builds on the spike in [issue #74](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/issues/74) and `docs/agent4_notes.md`; this document adds sequencing, risks, acceptance tests and QA hooks. Per `CLAUDE.md`, simulation/production changes need explicit approval per change.
 
 ## Part 1 — Mock fallback: documented limitations (until #74 ships)
 
@@ -36,6 +36,23 @@ When the engine adapter (`http://localhost:8787`) is unreachable — the deploye
 | 5. Switch the default | `HybridSimulationService` prefers worker → adapter → mock as last resort; remove the "no play-by-play" fallback copy and the game-plan disclosure; update `howItWorks.ts` | Math determinism differences between runtimes | Parity suite green (below) |
 
 Speed is not a blocker (spike: ≈35 ms/game, ≈0.6 s for a 16-game week).
+
+## Phase 1 assignment (approved, D-020) — brief for its own development agent and PR
+
+**Goal:** make the reference player pool an *explicit, versioned input* to the engine, with **byte-identical** engine behaviour by default.
+
+**Background (from issue #74):** `src/engine/roster.ts` calls `loadPlayerPool()` at run time (via synergy/team-strength centring, `rushYardsShift` → `centered` → `offsets` → `teamList`). That reads `data/players.local.json` if present, else the 8-player committed sample, so results depend on the host's files.
+
+**In scope:** an explicit pool argument/input plus a version or content hash; default path resolves exactly as today; the version is *recordable* (exposed so later phases can store it in saves and games). Keep the Python mirror question visible: say whether `analysis/engine/` needs a matching change or is deliberately not mirrored (CLAUDE.md: some surface is TS-only).
+**Out of scope:** loaders (`readFileSync`), browser worker, bundle, `HybridSimulationService`, `server/index.ts` extraction, saves/schema changes, UI changes (Phases 2–5, or a separate approval).
+
+**Acceptance (all must be shown, not asserted):**
+1. Existing engine suites unchanged and passing: `npm test`, `npm run typecheck`; `test/engine-realism.test.ts`; §22/§23 validation paths byte-identical.
+2. Same seed + inputs ⇒ identical output with and without `data/players.local.json` present *when the explicit pool is supplied*; and identical to pre-change output in the default configuration (golden comparison before/after on a fixed seed set, stating the seeds).
+3. `online` and `ui-source` still typecheck and their suites pass (`npm run online:typecheck`, `npm --prefix ui-source run typecheck`, plus the suites that import the engine); database suites run in CI, not just PGlite.
+4. A test that fails if the pool is read implicitly in the engine run path.
+5. `docs/decisions.md` entry; no change to `howItWorks.ts` unless a player-visible figure changes (none expected).
+Risk to watch: any accidental ordering or rounding change in pool-derived centring offsets. Use `wentz-verify` and report PASSED/FAILED/SKIPPED/NOT RUN honestly; CI is the authority. Do not merge; do not start Phase 2.
 
 ## Part 4 — Acceptance tests (must exist before Phase 5)
 - **Parity matrix:** N seeds × (Node, adapter, online, worker bundle) compare scores, box scores, traces, injuries. Include `Math.*`-heavy paths.

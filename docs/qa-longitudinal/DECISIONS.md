@@ -18,6 +18,13 @@ Only the project owner's explicit approvals/rejections are recorded here.
 | D-013 | 2026-11-07 | **Noted:** #95 stays draft; Agent 3 finishes investigations before final review | — | #95 |
 | D-014 | 2026-11-07 | **Noted:** Agent 5 reports 13 TAFIs from a five-season headless investigation. **Not pushed, so not registered.** Agent 5 will submit a draft PR | register only after the PR exists | — |
 | D-015 | 2026-11-07 | **Process:** coordinator stays on shared docs, tracking and cross-agent issues; agents investigate, reproduce and propose before handing off | see README → Handoff standard | — |
+| D-016 | 2026-11-07 | **Approved:** merge #97 once required CI is green and it remains docs-only | no other file types | #97 |
+| D-017 | 2026-11-07 | **Decided:** do **not** merge #83 to give the Group 08 agent its prompts; the agent reads `docs/ui-redesign/08-cleanup.md` (and `00-brief.md`) directly from branch `docs/ui-redesign-prompts` | supersedes the #83 option in `GROUP-08-PLAN.md` | #83 |
+| D-018 | 2026-11-07 | **Decided:** Group 08 is done by a dedicated development agent, not the coordinator; scope = the agreed cleanup plus the relevant Agent 1 findings only | per `GROUP-08-PLAN.md` | — |
+| D-019 | 2026-11-07 | **Confirmed:** #92 development agent implements the selector fix, updates from master, gets green CI; no merge of #92 without further approval | restates D-010 | #92 |
+| D-020 | 2026-11-07 | **Approved: Issue #74 Phase 1 only** — explicit, versioned player-pool input, byte-identical engine behaviour. Its own development assignment and its own PR. Phases 2–5 **not** approved | see `ISSUE-74-PLAN.md` → Phase 1 assignment | #74 |
+| D-021 | 2026-11-07 | **Decided:** the *visual* baseline need not wait for #74. *Definitive* realism and competitiveness testing must use the real engine and state its simulation path | supersedes the open question P-6 | `RELEASE-READINESS.md` |
+| D-022 | 2026-11-07 | **Reaffirmed:** agents complete their own investigations and TAFIs; coordinator = documentation, shared dependencies, final prioritisation | restates D-015 | — |
 | D-007 | 2026-11-07 | **Standing:** no gameplay change and no merge of any other PR without explicit approval | — | — |
 
 ## Proposals awaiting a decision

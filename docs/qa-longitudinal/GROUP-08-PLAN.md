@@ -2,7 +2,7 @@
 
 Status 2026-11-07: **planned, not started.** No Group 08 branch or PR exists. Owner decision D-009: organise now; include Agent 1's *confirmed* visual inconsistencies that the cleanup can reasonably absorb; no unrelated features, no wider redesign. The coordinator does not implement; a Group 08 development agent does, after the owner starts it.
 
-Source brief: `docs/ui-redesign/08-cleanup.md` and `00-brief.md`, which exist **only on open PR #83** (branch `docs/ui-redesign-prompts`, base is old master `f7c9a85`). The Group 08 agent needs them. Options for the owner: approve merging #83 (docs-only), or point the agent at that branch.
+Source brief: `docs/ui-redesign/08-cleanup.md` and `00-brief.md`, which exist **only on branch `docs/ui-redesign-prompts`** (open PR #83; its base is old master `f7c9a85`). Owner decision D-017: **#83 is not merged**; the agent reads those files from that branch (`git show origin/docs/ui-redesign-prompts:docs/ui-redesign/08-cleanup.md`). Note the prompts were written against an older master, so the agent re-checks every path and route against current master before relying on it. Owner decision D-018: a dedicated development agent builds this, not the coordinator.
 
 ## Scope: the original nine tasks (unchanged)
 Dead CSS removal · pixel-diff proof · one token layer · one page shell (`GdPage`) · dev screens (`ScreenGallery`, `VisualLab`) · delete unused components/assets · keep e2e selectors resolving · CLAUDE.md "UI design system" section · retire the prompts.
@@ -29,7 +29,7 @@ The original brief demands *pixel-identical* output "except where this file says
 
 ## Dependencies and order
 1. #92 fixed and green (so the pixel-diff/accessibility harness is available) — owner decision D-010.
-2. #83 prompts available to the agent.
+2. The agent reads the prompts from branch `docs/ui-redesign-prompts` (D-017); #83 stays unmerged.
 3. Group 08 PR → owner approval → merge.
 4. Agent 1 re-verifies 001/002/005/017 on the result; #92 harness run; baseline can then be frozen.
 
