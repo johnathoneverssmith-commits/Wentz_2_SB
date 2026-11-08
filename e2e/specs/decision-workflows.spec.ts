@@ -2,7 +2,8 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, SAVE_KEY } from '../support/test.ts';
 import type { Page } from '@playwright/test';
-const saved=(page:Page)=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)!).state,SAVE_KEY);
+import { readSavedState } from "../support/idb.ts";
+const saved=(page:Page)=>readSavedState(page,SAVE_KEY);
 async function capture(page:Page,name:string){if(process.env.UI4_ARTIFACTS){mkdirSync(process.env.UI4_ARTIFACTS,{recursive:true});await page.evaluate(()=>{document.querySelectorAll('.scroll-list').forEach(el=>el.scrollTop=0);window.scrollTo({top:0,behavior:'instant'});});await page.screenshot({path:join(process.env.UI4_ARTIFACTS,name),fullPage:page.viewportSize()!.width<700});}}
 for(const [device,width] of [['desktop',1600],['mobile',390]] as const){
  test.describe(`UI-4 draft ${device}`,()=>{

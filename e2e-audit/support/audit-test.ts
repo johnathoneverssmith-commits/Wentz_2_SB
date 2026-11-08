@@ -1,12 +1,12 @@
 /**
  * The test object for the visual audit. Per test:
  *   - a brand-new browser context at the requested viewport, colour scheme, motion preference and font mode;
- *   - the league for (team, fixtureName) already in localStorage, as the game itself saved it (e2e/fixtures/build.ts);
+ *   - the league for (team, fixtureName) seeded in localStorage as the game itself saved it (the app migrates it into IndexedDB on load) (e2e/fixtures/build.ts);
  *   - the same default-deny network guard as the functional suite, plus an optional pass-through for the two font hosts;
  *   - a `capture` helper that loads a screen, runs the probes, takes the screenshot and appends a record.
  *
  * Nothing here writes outside the audit output directory, and nothing reaches a server: the engine adapter, the league
- * API and every other origin are aborted by the guard. The app's persistent data is a localStorage string inside a
+ * API and every other origin are aborted by the guard. The app's persistent data is its IndexedDB save inside a
  * context that is discarded at the end of the test.
  */
 import { appendFileSync, mkdirSync } from "node:fs";

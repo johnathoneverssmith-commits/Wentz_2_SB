@@ -1,0 +1,11 @@
+const { chromium } = require('playwright');
+const API='http://127.0.0.1:8788', STAMP=process.env.STAMP;
+(async()=>{ const b=await chromium.launch(); const ctx=await b.newContext(); await ctx.request.post(`${API}/auth/login`,{data:{name:`alice${STAMP}`,password:'password123'}});
+ const ls=await (await ctx.request.get(`${API}/leagues`)).json(); const arr=Array.isArray(ls)?ls:(ls.leagues||ls.items||[]); const lg=arr.find(l=>l.name.startsWith('QA4'));
+ const body=await (await ctx.request.get(`${API}/leagues/${lg.id}`)).json(); const s=body.state;
+ console.log('season',s.season,'stage',s.stage,'champions',JSON.stringify(s.champions));
+ const arch=s.gameArchive||[]; console.log('archive',arch.length);
+ const pg=[...arch.filter(g=>['WC','DIV','CONF','SB'].includes(g.phase)),...s.games.filter(g=>['WC','DIV','CONF','SB'].includes(g.phase)).map(g=>({...g,season:s.season}))];
+ console.log('playoff games visible',pg.length, pg.map(g=>`${g.season}-${g.phase}-${g.homeTeam}${g.homeScore}-${g.awayScore}${g.awayTeam}`).join(' | '));
+ if (s.bracket) console.log('bracket', JSON.stringify(s.bracket.matchups.map(m=>[m.round,m.highSeed&&m.highSeed.code,m.lowSeed&&m.lowSeed.code,m.winner])));
+ await b.close(); })();

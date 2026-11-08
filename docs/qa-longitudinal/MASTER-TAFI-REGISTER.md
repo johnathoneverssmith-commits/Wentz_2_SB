@@ -50,7 +50,28 @@ Source: draft PR [#95](https://github.com/johnathoneverssmith-commits/Wentz_2_SB
 
 Priority rationale: Agent 3 proposed P1 for COMP-002 and COMP-006. Both are un-run hypotheses, so they start at P2 with an explicit upgrade trigger (a confirmed repeatable exploit, or a scripted human winning a large share of titles). Rule: unproven exploits do not displace confirmed defects.
 
-## Agents 2, 4, 5
+## Agent 4 — Gaps & Completeness (11 TAFIs, submitted)
+Source: PR [#99](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/99), `agent-04-gaps/report-2026-11-07.md`. Pre-baseline (built from master `d9af7c4`, work started at `3abcfff`). Sim path stated per finding in the report: **real engine** for UI/online runs, **Mock** only where marked. IDs `TAFI-GAP-nnn` = alias `A4-nnn` (kept as issued). Status for all: **New** (intake). Priorities are the coordinator's provisional reading.
+
+| ID | Title | Class | Sev (A4) | P (prov.) | Mode | Grounding | Fix / links |
+|---|---|---|---|---|---|---|---|
+| TAFI-GAP-008 | Solo save outgrows browser storage; failed saves lose progress on reload | Bug (data loss) | **Critical** | **P0** | SP | Played-in-UI ×2 (two seeds) + controlled sim; root cause confirmed | Fix in review: [#101](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/101) (draft, **unmerged**, CI not yet green when checked). **Duplicate observation:** Agent 1 `A1-023` (per #94 description) — same root cause, linked, not a separate TAFI. Related #74 (would make the default player hit it) |
+| TAFI-GAP-011 | Solo playoff bracket contradicts stored playoff games (engine path) | Bug | High | P1 | SP (adapter path) | Controlled sim 4/4 seasons + one UI instance; mechanism confirmed, trigger suspected | Fix **merged**: [#100](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/100) as `13e80ea` (CI green). Status **Fixed — not yet Verified**: re-run Agent 4's bracket-vs-games check (`harness/bracket_check_snippet.txt`) on current master first. Online nfl-format playoffs **untested** |
+| TAFI-GAP-004 | Silent, per-call, mid-franchise fallback to Mock; no indicator | Bug/UX | High | P1 | SP | Played-in-UI (controlled block) + code; root cause confirmed | #74 (reduces, does not remove). Spontaneous browser failure never observed |
+| TAFI-GAP-001 | Mock simulator produces impossible scores (1-point "Safety") | Bug | High | P1 | SP standalone | Controlled sim (Mock) + code; confirmed | #74 resolves it only if the Mock is retired or fixed. Small fix available |
+| TAFI-GAP-002 | Mock player lines contradict team totals | Bug | Medium | P2 | SP standalone | Controlled sim + code; confirmed | tied to 001 / #74 |
+| TAFI-GAP-005 | Mock playoffs store no games | Bug | Medium | P2 | SP standalone | Code + controlled sim | tied to 001 / #74 |
+| TAFI-GAP-006 | Native `confirm()`/`alert()` dialogs remain (~20 sites; two fired in real play) | UX | Low–Medium | P2 | Both | Two played-in-UI, rest code-inspected | Dedup: Agent 1 `A1-024` (28 sites, per #94) — **same inventory, merge when #94 lands**. Irreversible ones first (trade accept, Hooded Figure payment, pass-a-turn) |
+| TAFI-GAP-009 | Hard-coded "Week 10"/"Week 9" labels ignore league size | Bug (text) | Low | P3 | Both | Formula run (`seasonShapeFor`), not played in other formats | Wrong for 6, 8, 12, 16, 20, 32 teams; XS fix |
+| TAFI-GAP-007 | Unknown/out-of-stage URLs silently go to hub; bogus round renders | UX | Low | P3 | Both | Route crawl (13 routes) | XS fix; no state lost |
+| TAFI-GAP-003 | Engine box-score player lines vs team yardage | Bug (accounting) | Low | P3 | Both | Controlled sim + code; **mixed** | Rush gap = convention (code-confirmed); pass gap **unexplained** → hand to Agent 2 |
+| TAFI-GAP-010 | Engine logs non-finite shifts in a 4-team league | Bug (suspected) | Low | P3 | MP | Log only, **not reproduced** elsewhere | Hand to Agent 2 |
+
+Agent 4 is **not** a "no gaps" result for what it did not touch: online inactive-GM / disconnect / commissioner-transfer paths, Firefox/WebKit, real phones and online playoffs were **not exercised** (see `agent-04-gaps/playtest-and-multiplayer-coverage.md`).
+
+Cross-agent routing: GAP-001/002/004/005 → issue #74 plan (Phase 1 approved only; no fallback fix approved). GAP-003/010/011-trigger → Agent 2. GAP-006 → Agent 1 (and Group 08 is **not** the place: out of its scope). GAP-011's fix (#100) is merged but **not Verified** until Agent 4's regression check is re-run; GAP-008's fix (#101) is unmerged, so GAP-008 is not Fixed.
+
+## Agents 2, 5
 _No submissions on GitHub._ Agent 5 reportedly has 13 TAFIs not yet pushed; **not registered** until its draft PR exists (D-014).
 
 ## Agents 6–9

@@ -1,0 +1,263 @@
+{
+ "season": 2027,
+ "human": "BAL",
+ "seeds": {
+  "AFC": [
+   "LAC",
+   "NYJ",
+   "CIN",
+   "HOU",
+   "DEN",
+   "KC",
+   "CLE"
+  ],
+  "NFC": [
+   "CHI",
+   "CAR",
+   "WAS",
+   "LAR",
+   "DET",
+   "TB",
+   "NYG"
+  ]
+ },
+ "matchups": [
+  {
+   "round": "WC",
+   "hi": "LAC",
+   "hs": null,
+   "as": null,
+   "w": "LAC"
+  },
+  {
+   "round": "WC",
+   "hi": "NYJ",
+   "lo": "CLE",
+   "hs": 24,
+   "as": 16,
+   "w": "NYJ"
+  },
+  {
+   "round": "WC",
+   "hi": "CIN",
+   "lo": "KC",
+   "hs": 24,
+   "as": 19,
+   "w": "CIN"
+  },
+  {
+   "round": "WC",
+   "hi": "HOU",
+   "lo": "DEN",
+   "hs": 38,
+   "as": 31,
+   "w": "HOU"
+  },
+  {
+   "round": "WC",
+   "hi": "CHI",
+   "hs": null,
+   "as": null,
+   "w": "CHI"
+  },
+  {
+   "round": "WC",
+   "hi": "CAR",
+   "lo": "NYG",
+   "hs": 19,
+   "as": 16,
+   "w": "CAR"
+  },
+  {
+   "round": "WC",
+   "hi": "WAS",
+   "lo": "TB",
+   "hs": 17,
+   "as": 34,
+   "w": "TB"
+  },
+  {
+   "round": "WC",
+   "hi": "LAR",
+   "lo": "DET",
+   "hs": 17,
+   "as": 9,
+   "w": "LAR"
+  },
+  {
+   "round": "DIV",
+   "hi": "LAC",
+   "lo": "HOU",
+   "hs": null,
+   "as": null,
+   "w": null
+  },
+  {
+   "round": "DIV",
+   "hi": "NYJ",
+   "lo": "CIN",
+   "hs": null,
+   "as": null,
+   "w": null
+  },
+  {
+   "round": "DIV",
+   "hi": "CHI",
+   "lo": "TB",
+   "hs": 34,
+   "as": 17,
+   "w": "CHI"
+  },
+  {
+   "round": "DIV",
+   "hi": "CAR",
+   "lo": "LAR",
+   "hs": 34,
+   "as": 17,
+   "w": "CAR"
+  },
+  {
+   "round": "CONF",
+   "hi": "KC",
+   "lo": "CLE",
+   "hs": null,
+   "as": null,
+   "w": null
+  },
+  {
+   "round": "CONF",
+   "hi": "CHI",
+   "lo": "CAR",
+   "hs": 13,
+   "as": 14,
+   "w": "CAR"
+  },
+  {
+   "round": "SB",
+   "hi": "LAC",
+   "lo": "CAR",
+   "hs": 19,
+   "as": 14,
+   "w": "LAC"
+  }
+ ],
+ "games": [
+  {
+   "id": "2027-WC-NYJ-CLE",
+   "phase": "WC",
+   "h": "NYJ",
+   "a": "CLE",
+   "hs": 24,
+   "as": 16,
+   "bc": false
+  },
+  {
+   "id": "2027-WC-CIN-KC",
+   "phase": "WC",
+   "h": "CIN",
+   "a": "KC",
+   "hs": 24,
+   "as": 19,
+   "bc": false
+  },
+  {
+   "id": "2027-WC-HOU-DEN",
+   "phase": "WC",
+   "h": "HOU",
+   "a": "DEN",
+   "hs": 38,
+   "as": 31,
+   "bc": false
+  },
+  {
+   "id": "2027-WC-CAR-NYG",
+   "phase": "WC",
+   "h": "CAR",
+   "a": "NYG",
+   "hs": 19,
+   "as": 16,
+   "bc": false
+  },
+  {
+   "id": "2027-WC-WAS-TB",
+   "phase": "WC",
+   "h": "WAS",
+   "a": "TB",
+   "hs": 17,
+   "as": 34,
+   "bc": false
+  },
+  {
+   "id": "2027-WC-LAR-DET",
+   "phase": "WC",
+   "h": "LAR",
+   "a": "DET",
+   "hs": 17,
+   "as": 9,
+   "bc": false
+  },
+  {
+   "id": "2027-DIV-LAC-CLE",
+   "phase": "DIV",
+   "h": "LAC",
+   "a": "CLE",
+   "hs": 17,
+   "as": 21,
+   "bc": false
+  },
+  {
+   "id": "2027-DIV-HOU-KC",
+   "phase": "DIV",
+   "h": "HOU",
+   "a": "KC",
+   "hs": 16,
+   "as": 36,
+   "bc": false
+  },
+  {
+   "id": "2027-DIV-CHI-TB",
+   "phase": "DIV",
+   "h": "CHI",
+   "a": "TB",
+   "hs": 34,
+   "as": 17,
+   "bc": false
+  },
+  {
+   "id": "2027-DIV-CAR-LAR",
+   "phase": "DIV",
+   "h": "CAR",
+   "a": "LAR",
+   "hs": 34,
+   "as": 17,
+   "bc": false
+  },
+  {
+   "id": "2027-CONF-LAC-HOU",
+   "phase": "CONF",
+   "h": "LAC",
+   "a": "HOU",
+   "hs": 29,
+   "as": 16,
+   "bc": false
+  },
+  {
+   "id": "2027-CONF-CHI-CAR",
+   "phase": "CONF",
+   "h": "CHI",
+   "a": "CAR",
+   "hs": 13,
+   "as": 14,
+   "bc": false
+  },
+  {
+   "id": "2027-SB-LAC-CAR",
+   "phase": "SB",
+   "h": "LAC",
+   "a": "CAR",
+   "hs": 19,
+   "as": 14,
+   "bc": false
+  }
+ ]
+}

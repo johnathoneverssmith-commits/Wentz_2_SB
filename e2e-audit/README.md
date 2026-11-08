@@ -34,7 +34,9 @@ mistaken for the baseline.
 * The network is sealed by the functional suite's guard (`e2e/support/guard.ts`): only this run's own loopback UI origin
   is reachable. The engine adapter, the league API, deployed sites and WebSockets are aborted. With `fonts: real`, exactly
   `fonts.googleapis.com` and `fonts.gstatic.com` are served from a disk cache fetched by this process.
-* Every test gets a fresh browser context; the league lives in that context's `localStorage` and dies with it.
+* Every test gets a fresh browser context; the league lives in that context's browser storage and dies with it. The app
+  saves to IndexedDB: a league is *seeded* as the old localStorage string, which the app migrates into real IndexedDB on
+  load, and specs read or write the save through `e2e/support/idb.ts` (never by reading `localStorage`).
 * Leagues are played headless through the game's own stage machine by `e2e/fixtures/build.ts` (seeded, fixed clock,
   engine adapter unreachable), one per audited franchise (`--team`, added for this harness; default output unchanged).
 * Online screens run on a route handler (`support/online-league.ts`, `support/lobby-api.ts`); action calls are refused.

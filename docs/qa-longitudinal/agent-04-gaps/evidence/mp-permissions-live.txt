@@ -1,0 +1,12 @@
+register outsider cara 200
+league stage regularSeason
+outsider GET league -> 403
+outsider GET league feed -> 403
+outsider POST ready -> 403
+non-commissioner (bob) pause -> 403
+non-commissioner (bob) advance -> 403
+non-commissioner (bob) transfer commissioner to self -> 400
+commissioner (alice) pause -> 200
+paused: bob ready -> 423
+commissioner resume -> 200
+bob (member) sees invite code in league body? -> ["league","state","version","you","isCommissioner","inviteCode","msLeft","waitingOn","canClaimCommissioner"]

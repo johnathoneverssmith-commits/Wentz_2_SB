@@ -1,12 +1,13 @@
 import type { Page } from "@playwright/test";
 
+import { readSaveText } from "./idb.ts";
 import { SAVE_KEY, type SavedLeague } from "./test.ts";
 
 /** Reads the league the app has saved in this browser, reduced to the fields the tests check. Parsed in the page. */
 export async function readSave(page: Page): Promise<SavedLeague | null> {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key);
-    if (raw == null) return null;
+  const stored = await readSaveText(page, SAVE_KEY);
+  if (stored == null) return null;
+  return page.evaluate((raw) => {
     const doc = JSON.parse(raw) as { version: number; state: Record<string, any> };
     const s = doc.state;
     const gm = (s.gms as Array<{ id: string; teamCode?: string }>).find((g) => g.id === s.viewerGmId);
@@ -34,5 +35,5 @@ export async function readSave(page: Page): Promise<SavedLeague | null> {
       rosterCount: team ? Object.values(players).filter((p) => p.nfl_team === team && !p.retired).length : 0,
       bytes: raw.length,
     };
-  }, SAVE_KEY);
+  }, stored);
 }

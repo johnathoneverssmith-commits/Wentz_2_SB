@@ -57,6 +57,7 @@ saves; it also builds with another seed (different) and with the real clock (the
 | `regular-season.spec.ts` | the regular season through the hub and Game Day: each game once, records and standings recounted from the games, reloads that never replay, the trade deadline and the stages after it, and the move into the playoffs (see below) |
 | `free-agency-offers.spec.ts` | real offers in a free-agency market: the form, what the game accepts and refuses, the signing, the roster, the books and the cap, across rounds and reloads (see below) |
 | `free-agency-skip.spec.ts` | the "Skip free agency" soft-lock (commit `b757e8d`): the real checkbox and buttons, on screen and in the saved league, across a reload (see below) |
+| `save-durability.spec.ts` | the save in real IndexedDB: migration of a seeded league, a failing write (banner, Download/Restore, notice after reload), and a reload mid-write is never silent |
 | `stack.spec.ts` | the static server: read-only, loopback, refuses taken ports, exits with its parent |
 
 Selectors are accessible roles and names (`getByRole`); no `data-testid` was needed.
@@ -224,3 +225,11 @@ market whose rounds never advance.
 
 Runs on GitHub's Ubuntu in the advisory workflow `.github/workflows/browser-e2e.yml`, which runs the whole suite. Not part
 of `wentz-verify`. Multiplayer is out of scope.
+
+## Saves are in IndexedDB
+
+The app saves to IndexedDB, not localStorage. Fixtures are still stored as the old localStorage string and seeded
+into the browser that way, so the app migrates them into IndexedDB on first load. Specs read the save through
+`support/idb.ts` (`readSavedState`, `readSaveText`, `editSave`), which asks the page to finish its pending writes
+first. `page.reload()` in the specs does the same before reloading; the reload-mid-write case is tested on purpose
+in `save-durability.spec.ts`. `E2E_CHROMIUM_PATH` points Playwright at a specific Chromium binary.

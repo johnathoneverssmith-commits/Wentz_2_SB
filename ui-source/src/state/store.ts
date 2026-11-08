@@ -15,7 +15,7 @@ import { syncAiGms } from "./aiGms.ts";
 import { setSkip as setSkipFor, type SkipKind } from "./skips.ts";
 import { create } from "zustand";
 import { lastLeagueId, onOnlineChange } from "./online.ts";
-import { createJSONStorage, persist, type PersistStorage } from "zustand/middleware";
+import { persist, type PersistStorage } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
 import {
@@ -115,6 +115,13 @@ import { draftClassTilt } from "./draftSupply.ts";
 import { classDnaForLeague } from "@/sim/leagueDna";
 import { refreshClassProfile } from "./classProfile.ts";
 import { compactRetired, trimStoredBoxScores } from "./saveCompaction.ts";
+import {
+  createAutoBackend,
+  createDurableStorage,
+  createIndexedDbBackend,
+  createLocalStorageBackend,
+  type SaveStatus,
+} from "./durableSave.ts";
 import { archiveSeasonGames, withLeagueArchive } from "./gameHistory.ts";
 import { applyInjuries, clearInjuries, healOneWeek } from "./injuries.ts";
 import {
@@ -305,6 +312,24 @@ function withGameDayLock<T>(busy: T, work: () => Promise<T>): Promise<T> {
 
 export type Store = LeagueState & StoreActions;
 
+/** What is saved of the store: everything but its functions. */
+function partializeLeague(s: Store): Partial<Store> {
+  const rest: Partial<Store> = { ...s };
+  for (const k of Object.keys(rest) as (keyof Store)[]) {
+    if (typeof rest[k] === "function") delete rest[k];
+  }
+  return rest;
+}
+
+/**
+ * The save as one JSON string (`{ state, version }`) — the form the app stored in localStorage before
+ * IndexedDB, and the form a backup of the store's state takes. For tools that build saves headless (the
+ * browser-test fixture builder), where there is no `window` and so nothing persists.
+ */
+export function leagueSnapshotJson(): string {
+  return JSON.stringify({ state: partializeLeague(useStore.getState()), version: CURRENT_SAVE_VERSION });
+}
+
 /**
  * Whether the last attempt to write the save failed (localStorage full, or
  * disabled entirely — a private window blocks it). The shell watches this so
@@ -319,6 +344,45 @@ export function onSaveStateChange(fn: (broken: boolean) => void): () => void {
   saveWatchers.add(fn);
   fn(saveBroken);
   return () => saveWatchers.delete(fn);
+}
+
+/** The newest stored record was unreadable and the generation before it was loaded instead. */
+let saveRecoveredAt: number | null | undefined;
+const recoveredWatchers = new Set<(at: number | null | undefined) => void>();
+export function onSaveRecovered(fn: (at: number | null | undefined) => void): () => void {
+  recoveredWatchers.add(fn);
+  fn(saveRecoveredAt);
+  return () => recoveredWatchers.delete(fn);
+}
+
+/**
+ * The previous session ended while saves were failing. What loaded is the last write that landed,
+ * so anything played after it is gone; this says when that was, once, and until it is dismissed.
+ */
+let priorFailure: SaveStatus | null = null;
+const priorWatchers = new Set<(s: SaveStatus | null) => void>();
+export function onPriorSaveFailure(fn: (s: SaveStatus | null) => void): () => void {
+  priorWatchers.add(fn);
+  fn(priorFailure);
+  return () => priorWatchers.delete(fn);
+}
+export function dismissPriorSaveFailure(): void {
+  priorFailure = null;
+  for (const fn of priorWatchers) fn(null);
+}
+
+/** Has the stored save been read (or found absent) yet? The shell shows nothing of a league before that. */
+let hydratedFlag = false;
+const hydratedWatchers = new Set<(h: boolean) => void>();
+export function onStoreHydrated(fn: (h: boolean) => void): () => void {
+  hydratedWatchers.add(fn);
+  fn(hydratedFlag);
+  return () => hydratedWatchers.delete(fn);
+}
+function markHydrated(): void {
+  if (hydratedFlag) return;
+  hydratedFlag = true;
+  for (const fn of hydratedWatchers) fn(true);
 }
 
 const SAVE_KEY = "nfl-sim-ui.league";
@@ -359,9 +423,11 @@ try {
  * once. A held write is dropped if this device has since left online play,
  * so it can never land in the solo slot.
  */
+let flushOnlineCopy: () => void = () => undefined;
 function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
   let pending: { name: string; value: Parameters<PersistStorage<S>["setItem"]>[1] } | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let wroteOnline = false;
   const flush = (): void => {
     if (timer) clearTimeout(timer);
     timer = null;
@@ -369,6 +435,7 @@ function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
     pending = null;
     if (p && slotFor(p.name) === ONLINE_SAVE_KEY) void inner.setItem(p.name, p.value);
   };
+  flushOnlineCopy = flush;
   // (guarded: tests run this against a bare stand-in for `window`)
   if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
     window.addEventListener("pagehide", flush);
@@ -387,9 +454,17 @@ function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
     setItem: (name, value) => {
       if (slotFor(name) !== ONLINE_SAVE_KEY) {
         pending = null;
+        wroteOnline = false; // the next online league's first write is immediate again
         return inner.setItem(name, value);
       }
       pending = { name, value };
+      // The first write of this copy in a page session goes straight through: a league joined a moment ago
+      // must be on disk if the page is reloaded (or the server is down) before the half-minute is up.
+      if (!wroteOnline) {
+        wroteOnline = true;
+        flush();
+        return;
+      }
       if (!timer) timer = setTimeout(flush, 30_000);
     },
   };
@@ -413,6 +488,45 @@ const CORRUPT_BACKUP_KEY = `${SAVE_KEY}.corrupted-backup`;
  * was always what was there.
  */
 let saveCorrupted = false;
+
+const hasWindow = typeof window !== "undefined";
+const durable = createDurableStorage<Partial<Store>>({
+  slotFor,
+  statusStorage: () => window.localStorage,
+  backend: createAutoBackend(
+    hasWindow && window.indexedDB ? createIndexedDbBackend(window.indexedDB, { storage: () => window.localStorage }) : null,
+    createLocalStorageBackend({
+      storage: () => window.localStorage,
+      // room for a save that doesn't fit: the old corrupted-save copy goes first, then (for a solo
+      // save) the online copy, which the server holds anyway
+      evictKeys: (slot) => (slot === ONLINE_SAVE_KEY ? [CORRUPT_BACKUP_KEY] : [CORRUPT_BACKUP_KEY, ONLINE_SAVE_KEY]),
+      damagedKey: () => CORRUPT_BACKUP_KEY,
+    }),
+  ),
+  onBroken: (broken) => {
+    saveBroken = broken;
+    notifySaveState();
+  },
+  onRecovered: ({ savedAt }) => {
+    saveRecoveredAt = savedAt ?? null;
+    for (const fn of recoveredWatchers) fn(saveRecoveredAt);
+  },
+  onPriorFailure: (st) => {
+    priorFailure = st;
+    for (const fn of priorWatchers) fn(st);
+  },
+});
+
+/** Write whatever is waiting to be saved, now. True when the save is current and the last write landed. */
+export function flushSave(): Promise<boolean> {
+  flushOnlineCopy(); // an online league's copy is held back up to 30 s; "now" means now
+  return durable.flush();
+}
+// Browser tests (and anyone debugging) can ask the page to finish its writes before they read storage.
+if (hasWindow) (window as unknown as { __nflSimFlushSave?: () => Promise<boolean> }).__nflSimFlushSave = flushSave;
+export const saveStatus = (): SaveStatus => durable.status();
+export const saveBackendKind = (): string => durable.backend.kind;
+export const lastSaveError = (): string | null => durable.lastError();
 /** Team codes a person is actually playing, for the CPU sweeps to stop on. */
 /**
  * A turn-based event can finish with nobody left to act: every human skipped
@@ -1528,6 +1642,7 @@ export const useStore = create<Store>()(
       // `JSON.parse` of whatever storage.getItem returned, not in the
       // storage object below.
       onRehydrateStorage: () => (_state, error) => {
+        markHydrated();
         if (!error) {
           if (saveCorrupted) {
             saveCorrupted = false;
@@ -1539,78 +1654,22 @@ export const useStore = create<Store>()(
         // about — the server has the league and the resume replaces it. The
         // "your dynasty couldn't be read" banner is for the solo save.
         if (slotFor(SAVE_KEY) === ONLINE_SAVE_KEY) {
-          try {
-            window.localStorage.removeItem(ONLINE_SAVE_KEY);
-          } catch {
-            // nothing to clear
-          }
+          void durable.backend.remove(ONLINE_SAVE_KEY).catch(() => undefined);
+          durable.markHydrated(ONLINE_SAVE_KEY);
           return;
         }
-        try {
-          // the slot that failed — an online copy isn't the solo save
-          const raw = window.localStorage.getItem(slotFor(SAVE_KEY));
-          if (raw != null) window.localStorage.setItem(CORRUPT_BACKUP_KEY, raw);
-        } catch {
-          // the backup is a courtesy on top of the flag, not the fix itself —
-          // a device where even this write fails still gets the warning
-        }
+        // The raw bytes were already copied aside by the storage layer (to a
+        // key no autosave writes) before the error reached here.
         saveCorrupted = true;
         notifyCorruptState();
       },
-      // A quota error out of `localStorage.setItem` is swallowed by the
-      // persist middleware — it logs and carries on, so a dynasty that
-      // outgrows its storage just quietly stops saving and the player finds
-      // out when they reopen the tab. This surfaces it instead.
-      storage: deferOnlineCopy(createJSONStorage(() => ({
-        getItem: (k) => window.localStorage.getItem(slotFor(k)),
-        removeItem: (k) => window.localStorage.removeItem(slotFor(k)),
-        setItem: (k, v) => {
-          const slot = slotFor(k);
-          const write = (): void => {
-            window.localStorage.setItem(slot, v);
-            if (saveBroken) {
-              saveBroken = false;
-              notifySaveState();
-            }
-          };
-          try {
-            write();
-          } catch {
-            // A league is ~2.5MB and a browser gives a site about 5MB; with a
-            // solo save, an online copy and an old corrupted-save backup the
-            // quota runs out. The backup goes first.
-            try {
-              window.localStorage.removeItem(CORRUPT_BACKUP_KEY);
-              write();
-              return;
-            } catch {
-              // still no room
-            }
-            // The online copy is a convenience — the server has the league —
-            // so failing to keep it is not "your dynasty isn't being saved".
-            if (slot === ONLINE_SAVE_KEY) return;
-            // and the solo save outranks it: drop the online copy for room
-            try {
-              window.localStorage.removeItem(ONLINE_SAVE_KEY);
-              write();
-              return;
-            } catch {
-              // genuinely full
-            }
-            if (!saveBroken) {
-              saveBroken = true;
-              notifySaveState();
-            }
-          }
-        },
-      }))!),
-      partialize: (s) => {
-        const rest: Partial<Store> = { ...s };
-        for (const k of Object.keys(rest) as (keyof Store)[]) {
-          if (typeof rest[k] === "function") delete rest[k];
-        }
-        return rest;
-      },
+      // Where the save lives: IndexedDB (compressed, atomic, previous generation kept), or
+      // compressed localStorage when IndexedDB isn't there. See durableSave.ts. Writes are
+      // debounced and flushed on pagehide; a failed write raises `saveBroken` and leaves the
+      // last good save in place.
+      // (no `window`: a Node process importing the store — the online server, most tests — has nowhere to save)
+      storage: hasWindow ? deferOnlineCopy(durable.storage) : undefined,
+      partialize: partializeLeague,
     },
   ),
 );
@@ -1619,8 +1678,18 @@ export const useStore = create<Store>()(
 // the one in the store: a league that has not grown carries no cap-growth fields, so they are named as unset
 // (`withLeagueCapFields`), or the previous league's growth stays on the new one.
 const setStateOnStore = useStore.setState;
-(useStore as { setState: unknown }).setState = ((partial: unknown, replace?: boolean) =>
-  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueArchive(withLeagueCapFields(partial)), replace)) as typeof setStateOnStore;
+(useStore as { setState: unknown }).setState = ((partial: unknown, replace?: boolean) => {
+  // Joining or opening an online league: `joinLeague` points saving at the online slot, and the whole league the
+  // server returns is handed in here next. Until that happens the store still holds the solo dynasty, which must
+  // never be written into the online slot — so that slot's writes stay gated (see durableSave: a slot not yet read
+  // is not written) until the server's league arrives. The server's copy is authoritative, so its arrival is what
+  // opens the gate; the first write then replaces any older local copy (which moves to `#prev`, not away).
+  if (isWholeLeague(partial) && slotFor(SAVE_KEY) === ONLINE_SAVE_KEY) durable.markHydrated(ONLINE_SAVE_KEY);
+  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueArchive(withLeagueCapFields(partial)), replace);
+}) as typeof setStateOnStore;
+function isWholeLeague(p: unknown): boolean {
+  return typeof p === "object" && p !== null && "teams" in p && "players" in p;
+}
 
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   (window as unknown as { __store: typeof useStore }).__store = useStore;
@@ -1633,8 +1702,11 @@ let remembered = lastLeagueId() !== null;
 onOnlineChange(() => {
   const now = lastLeagueId() !== null;
   if (remembered && !now) {
-    if (window.localStorage.getItem(SAVE_KEY) != null) void useStore.persist.rehydrate();
-    else void useStore.getState().newLeague();
+    void durable.backend.has(SAVE_KEY).then((has) => {
+      if (has) return useStore.persist.rehydrate();
+      durable.markHydrated(SAVE_KEY);
+      return useStore.getState().newLeague();
+    });
   }
   remembered = now;
 });
