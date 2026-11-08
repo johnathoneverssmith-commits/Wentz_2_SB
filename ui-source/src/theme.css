@@ -829,24 +829,6 @@ table.mtable td.val {
      costs no layout and can't shift the row */
   box-shadow: inset 2px 0 0 var(--team);
 }
-.prow:hover .draghandle {
-  opacity: 1;
-}
-.handlecell {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.draghandle {
-  color: var(--ink-dim);
-  font-size: 13px;
-  cursor: grab;
-  opacity: 0.28;
-  transition: opacity 0.15s ease;
-}
-.draghandle:active {
-  cursor: grabbing;
-}
 .rank-num {
   font-size: 11px;
   color: var(--ink-faint);
@@ -951,17 +933,6 @@ table.mtable td.val {
   font-family: var(--font-display);
   font-weight: 500;
 }
-.capbar-track {
-  height: 6px;
-  background: var(--panel-sunken);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.capbar-fill {
-  height: 100%;
-  background: var(--team);
-  border-radius: 3px;
-}
 
 /* ---- readiness gate ------------------------------------- */
 .readiness {
@@ -986,8 +957,7 @@ table.mtable td.val {
   font-size: 12px;
   color: var(--ink-dim);
 }
-.gmchiprow,
-.gmrow {
+.gmchiprow {
   display: flex;
   gap: 8px;
   margin-bottom: 11px;
@@ -1071,7 +1041,6 @@ table.mtable td.val {
   white-space: nowrap;
 }
 
-.lockedstate,
 .emptystate {
   padding: 34px 16px;
   text-align: center;
@@ -1215,18 +1184,9 @@ table.mtable td.val {
 }
 /* a humans-only bracket's rounds as columns — four of them squeezed each
  * team's name into ~80px on a phone, so there they stack, first round on top */
-.single-bracket {
-  display: grid;
-  grid-template-columns: repeat(var(--rounds, 3), minmax(0, 1fr));
-  gap: 20px;
-  align-items: center;
-}
 @media (max-width: 560px) {
   .bracket-col {
     min-height: 0;
-  }
-  .single-bracket {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -1770,27 +1730,9 @@ input[type="range"]::-moz-range-thumb {
   text-align: center;
   padding: 34px 20px 30px;
 }
-.checkpoint-spinner {
-  display: flex;
-  gap: 7px;
-  margin-bottom: 22px;
-}
-.checkpoint-spinner span {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: 0.35;
-  animation: checkpoint-pulse 1.25s ease-in-out infinite;
-}
-.checkpoint-spinner span:nth-child(2) { animation-delay: 0.16s; }
-.checkpoint-spinner span:nth-child(3) { animation-delay: 0.32s; }
 @keyframes checkpoint-pulse {
   0%, 100% { opacity: 0.25; transform: translateY(0); }
   50% { opacity: 1; transform: translateY(-4px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .checkpoint-spinner span { animation: none; opacity: 0.6; }
 }
 .checkpoint-wait {
   margin: 0 0 26px;
@@ -1904,34 +1846,8 @@ input[type="range"]::-moz-range-thumb {
    edge. Drop the money columns (both are in the expanded row) and let the
    name wrap. */
 @media (max-width: 600px) {
-  .rookie-list .prow,
-  .rookie-list .rowhead {
-    grid-template-columns: 26px minmax(0, 1fr) auto 16px !important;
-    min-width: 0;
-  }
-  .rookie-list .prow > :nth-child(2) {
-    min-width: 0;
-    overflow-wrap: anywhere;
-  }
   /* the slot value goes; year one stays — with both hidden a GM chose sign
      or release without seeing what either cost */
-  .rookie-list .prow > :nth-child(3),
-  .rookie-list .rowhead > :nth-child(3) {
-    display: none;
-  }
-  .rookie-list .rowhead > :nth-child(4) {
-    display: none;
-  }
-  .rookie-list .prow > :nth-child(1) { grid-area: 1 / 1; }
-  .rookie-list .prow > :nth-child(2) { grid-area: 1 / 2; }
-  .rookie-list .prow > :nth-child(4) {
-    grid-area: 2 / 2;
-    justify-self: start;
-    font-size: 11.5px;
-    white-space: nowrap;
-  }
-  .rookie-list .prow > :nth-child(5) { grid-area: 1 / 3 / 3 / 4; }
-  .rookie-list .prow > :nth-child(6) { grid-area: 1 / 4 / 3 / 5; }
 }
 
 /* The draft board on a phone: the Draft button sat half past the edge of a
@@ -1967,17 +1883,6 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* a phone-only shortcut down to the hub's week controls */
-.jump-next {
-  display: none;
-}
-@media (max-width: 900px) {
-  .jump-next {
-    display: block;
-    margin: 4px 26px 6px;
-    padding: 8px 0;
-    font-size: 12.5px;
-  }
-}
 
 /* the negotiation value, typeable but reading as the number it was */
 .neg-input {

@@ -365,6 +365,44 @@ docs/       engine_spec.md is the full engine build contract
 - Ratings are 0–99 integers everywhere.
 - Money is plain numbers in whole dollars.
 
+## UI design system (gameday)
+
+The franchise UI (`ui-source/`) is converted to one design system; the redesign
+prompts are retired (`docs/ui-redesign/README.md`).
+
+- **Tokens.** `ui-source/src/design/gameday.css` defines the neutral `--gd-*`
+  tokens on `:root` (paper, card, ink, mute, rule, soft, link, fonts, gap). A
+  page's team colours (`--gd-team`, `--gd-accent`, `--gd-accent-text`, ...) are set
+  by `GdPage` from `teamArt.gdStyle(code)`. The older page tokens (`--page`,
+  `--panel`, `--ink`, ...) are still dark on `:root` because the navy sidebar and
+  every dialog/overlay are still dark; inside `.gd-page` one block in
+  `gameday.css` remaps them to the light palette. Do not delete that block until
+  the shell and dialogs are converted. Never hard-code team colours.
+- **Page shell.** Every page is `<GdPage code={team} className="...">` (extra
+  `data-*` attributes pass through) with a `GameDayMasthead`; never a hand-built
+  `<div className="gd"><div className="gd-page">`.
+- **Blocks.** `design/gameday-blocks.css` (stat strip `.ticker`/`.stat`,
+  `.ui-surface`, `.stbl`, `.gd-tabbed`, meters). Buttons: `.gd-btn` (`.gd-go`
+  primary, `.gd-cut` destructive); every `.btn-primary` in a `.gd` page takes the
+  accent. Notice links use `--gd-link`.
+- **Shared files.** Treat `src/design/*` as shared: additive, small, one change
+  per PR. New screen-only rules go in the screen's own css file.
+- **Dead CSS.** Before deleting a rule, search the class in `src`, `e2e` and
+  `e2e-audit`, including classes built at runtime (`'decision-' + kind`,
+  `"ui-meter--" + tone`).
+- **Verification matrix.** `npm run audit:visual` (PR #92 harness,
+  `e2e-audit/`) captures every route at 1440/390/320; narrow it with
+  `AUDIT_TEAMS`, `AUDIT_VIEWPORTS`, `AUDIT_CONDITIONS=reduced-motion`,
+  `AUDIT_OUT`. Compare before/after PNGs pixel by pixel; a difference must be
+  zero or documented. Also `npm --prefix ui-source run typecheck`, the UI
+  tests, and `npm run e2e`.
+- **Photo credit.** Stadium photos need their visible credit line
+  (`teamArt.ts`); never remove it.
+- **Pinned data.** `ui-source/src/data/teams.ts` and `pool-2026.json` feed the
+  e2e fixture hashes: editing either changes every fixture.
+- **Dev screens.** `/gallery` and `/visual-lab` (dev builds only) are the
+  route index and the stadium lab, both on `GdPage`.
+
 ## Open design questions
 
 Tracked in `docs/decisions.md` — the "figure out later" list from the spec

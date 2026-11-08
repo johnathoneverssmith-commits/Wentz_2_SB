@@ -43,6 +43,7 @@ export const SCREENS: readonly Screen[] = [
   // ---- drafts
   { id: "fantasy-draft", group: "drafts", fixture: "fantasy-draft", route: "/", state: "fantasy draft, first pick on the clock", palette: true },
   { id: "coaching-draft", group: "drafts", fixture: "coaching-draft", route: "/", state: "coaching draft, first arrival", palette: true },
+  { id: "fantasy-draft-summary", group: "drafts", fixture: "coaching-draft", route: "/fantasy-draft-summary", state: "fantasy draft summary: grade, ranks, strengths (after the fantasy draft)" },
   { id: "coaching-draft-hub", group: "coaching-staff", fixture: "coaching-draft", route: "/coaching", state: "coaching staff hub during the coaching draft" },
   { id: "training-camp", group: "coaching-staff", fixture: "training-camp", route: "/", state: "training camp, focus choices", palette: true },
   // ---- command centre and office

@@ -1,11 +1,11 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useEffect, useId, useRef } from 'react';
 import { getMotionLevel } from '@/motion/level';
 import { MotionSurface } from '@/motion/MotionSurface';
 import { SportsIcon } from '@/components/roster/SportsPresentation';
 import { useDialog } from '@/components/useDialog';
 import { GameDayMasthead } from '@/design/GameDayMasthead';
-import { gdStyle } from '@/design/teamArt';
+import { GdPage } from '@/design/GdPage';
 import { useStore } from '@/state/store';
 import { viewerTeamCode } from '@/state/selectors';
 import type { DecisionRow, DecisionSort } from './decision-view';
@@ -20,7 +20,7 @@ import './decisions-gameday.css';
  */
 export function DecisionFrame({children,kind,code,focused=false}:{children:ReactNode;focused?:boolean;kind:'draft'|'market'|'trade';code?:string|null}) {
  const mine=useStore(s=>viewerTeamCode(s));
- return <div className={'roster-workspace gd decision-gd decision-workspace decision-'+kind} data-team={code??''} data-focused={focused} style={gdStyle(code||mine||'') as CSSProperties}><div className="gd-page">{children}</div></div>;
+ return <GdPage code={code||mine||''} className={'decision-gd decision-workspace decision-'+kind} data-team={code??''} data-focused={focused}>{children}</GdPage>;
 }
 /** The screen's masthead: the team, its stadium, what the screen is and where it stands. */
 export function DecisionHeading({code,title,subtitle,children}:{code?:string|null;title:string;subtitle:string;children?:ReactNode}) {

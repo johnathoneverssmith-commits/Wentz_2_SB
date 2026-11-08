@@ -445,10 +445,6 @@
   color: var(--gd-ink);
   font-weight: 800;
 }
-.wg .gc-foot {
-  color: var(--gd-mute);
-  font-size: 13px;
-}
 
 /* a wide screen is a broadcast */
 @container (min-width: 1040px) {

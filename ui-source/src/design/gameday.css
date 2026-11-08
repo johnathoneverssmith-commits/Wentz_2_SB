@@ -1,4 +1,14 @@
 /*
+ * The gameday design system: tokens, masthead, controls.
+ *
+ * Token layers (see CLAUDE.md "UI design system"): the neutral --gd-* tokens
+ * below live on :root, so any screen, dialog or overlay can read them. The
+ * team's own colours (--gd-team, --gd-accent, ...) are set per page by GdPage.
+ * The older page tokens (--page, --panel, --ink, ...) stay dark on :root for the
+ * navy shell and the dialogs, and are remapped to the light palette inside
+ * .gd-page by the block further down: that remap is the one place the two
+ * layers meet.
+ *
  * Roster & depth chart: the gameday-program design.
  *
  * A light page inside the dark shell. The team-coloured masthead carries the
@@ -15,7 +25,7 @@
  * palette, so the shared pieces that live on this screen (notices, empty
  * states, the readiness gate, unit cards) follow without their own copies.
  */
-.gd {
+:root {
   --gd-paper: #eef2f5;
   --gd-card: #ffffff;
   --gd-ink: #0b1b2e;
@@ -26,8 +36,10 @@
   --gd-turf-2: #287d4f;
   --gd-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
   --gd-body: "Hanken Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --gd-link: #0b1b2e;
   --gd-gap: 22px;
-
+}
+.gd {
   width: 100%;
   min-width: 0;
 }
@@ -108,12 +120,14 @@
   cursor: not-allowed;
 }
 .gd-btn.gd-go,
+.gd .btn-primary,
 .gd .footer .btn-primary {
   background: var(--gd-accent);
   color: var(--gd-on-accent);
   border-color: var(--gd-rule);
 }
 .gd-btn.gd-go:hover:not(:disabled),
+.gd .btn-primary:hover:not(:disabled),
 .gd .footer .btn-primary:hover:not(:disabled) {
   background: var(--gd-ink);
   color: #fff;
@@ -145,6 +159,17 @@
 .gd .notice.bad {
   border-color: var(--bad);
   background: #fff4f1;
+}
+.gd .notice a,
+.gd-notice a {
+  color: var(--gd-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 700;
+}
+.gd .notice a:hover,
+.gd-notice a:hover {
+  color: var(--gd-accent-text);
 }
 .gd .emptystate {
   border: 2px dashed var(--gd-rule);

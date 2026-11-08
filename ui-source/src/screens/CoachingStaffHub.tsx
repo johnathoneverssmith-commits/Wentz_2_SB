@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { RatingBar } from "@/components/ExpandableRow";
 import { useLeagueActions } from "@/state/useLeagueActions";
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { GameDayMasthead } from "@/design/GameDayMasthead";
-import { gdStyle } from "@/design/teamArt";
+import { GdPage } from "@/design/GdPage";
 import "@/design/gameday.css";
 import "@/design/gameday-blocks.css";
 import "./people-gameday.css";
@@ -92,8 +92,7 @@ function NormalHub({ code }: { code: string | undefined }) {
   }
 
   return (
-    <div className="roster-workspace gd people-gd" style={gdStyle(code) as CSSProperties}>
-    <div className="gd-page">
+    <GdPage code={code} className="people-gd">
       <GameDayMasthead
         code={code}
         title="Coaching staff"
@@ -300,7 +299,6 @@ function NormalHub({ code }: { code: string | undefined }) {
           Return to team hub
         </button>
       </Footer>
-    </div>
-    </div>
+    </GdPage>
   );
 }

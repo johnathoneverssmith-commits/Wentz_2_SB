@@ -1,0 +1,52 @@
+# Group 08 report: final UI cleanup
+
+Branch `claude/kind-johnson-nf6kyy`, draft PR. Local results are not CI; CI is the authority.
+
+## What changed
+| Task | Result |
+|---|---|
+| 1 Dead CSS | 8 files, 69 selectors removed (one commit per file): `app-shell`, `dashboard`, `shared-presentation`, `gamecast`, `gamecast-gameday`, `season-end-gameday`, `theme`, `visual`; plus the dead `.decision-heading` rules. Classes built at runtime (`'decision-' + kind`, `"ui-meter--" + tone`) are kept: a first pass removed some and was reverted. |
+| 2 Proof | PR #92 harness (`e2e-audit`), BAL, 1440/390/320, reduced motion, 32 routes x 3 widths = 96 shots, master vs branch, pixel-diffed. `group-08-evidence/pixel-diff-*.tsv`. |
+| 3 Tokens | Neutral `--gd-*` tokens moved to `:root`; added `--gd-link`. The remap block stays (see "Dark surfaces remain"). |
+| 4 Page shell | Roster, hub, coaching, decision rooms on `GdPage` (now passes `data-*`). Dead `roster-workspace` class gone. |
+| 5 Dev screens | `/gallery` and `/visual-lab` on `GdPage`, cross-linked, kept (rail link uses the gallery). |
+| 6 Unused | Deleted `GameTitle.tsx`, `art/franchise/player-silhouette.webp`. |
+| 7 Selectors | No selector, role, name, aria or data hook removed: e2e 105 passed (see below). |
+| 8 Docs | CLAUDE.md "UI design system (gameday)". |
+| 9 Prompts | `docs/ui-redesign/README.md` marks the redesign complete. |
+
+CSS bytes (all `ui-source/src/**/*.css`): 303,158 -> 296,699 (-6,459, -2.1%).
+
+## Approved visual corrections (every intentional pixel difference)
+- **UI-TAFI-001**: leftover `.decision-workspace .ticker` override in `decisions.css` made the strip near-black. Removed; the light gameday strip shows. Routes: draft, free-agency board/standing, mid-season FA, trade deadline (and the dossier/fantasy-draft shots that start on the draft room). Page height +2px; later content shifts, which is why those shots differ widely. Evidence: `TAFI-001-*.webp`.
+- **UI-TAFI-002**: the Fantasy Draft Summary was already on the shell; its overview panel (`draft-summary.css`) was the dark part. Restyled on the tokens (light cards, 2px rules, no glow). Layout and grade logic untouched. **Not in the harness catalogue, so no pixel pair was captured**; verify by eye and with `visual-accessibility.spec.ts` (passes).
+- **UI-TAFI-005**: setup-notice links use `--gd-link` (bold, underlined). The link change is confirmed by the 1440px `/setup` diff (0.6%, the link only). The 390/320 `/setup` diffs (+82/-61px) are **not** caused by the link: the setup screen draws a random league profile and GM names per capture ("Finesse era" vs "2013-era NFL", different GM names), so its shots differ run to run. An earlier version of this report blamed link reflow; that was wrong.
+- **UI-TAFI-017**: `.btn-primary` inside `.gd` is the accent colour (was team colour). Visible on Season Complete "Continue" (teal -> orange). Evidence: `TAFI-017-*.webp`. Button shape is unchanged (still rounded there).
+- **UI-TAFI-010**: not changed. The dark result card and champion-coloured masthead are deliberate gameday design, not a leftover theme; moving the champion is a layout change, out of scope.
+
+Results: 67 of 96 shots identical; the other 29 are exactly the routes above. The committed table `pixel-diff-BAL-1440-390-320.tsv` now has a classification column. Two entries that looked unexplained, `coaching-draft` and `end-of-season` at 390px, are capture noise, not Group 08 differences: the changed pixels are only the top 28-79px band (the mobile rail's scroll offset), plus a masthead photo that had not loaded in one run; re-captured on master they are identical to the branch. `league-rosters` at 1440px was a not-yet-loaded page in the first run and is identical on re-capture.
+
+Contrast probe (harness findings, all 96 shots): 123 -> 114 contrast findings; mid-season FA 5 -> 3, Season Complete 5 -> 4. The remaining findings were there before and are other TAFIs.
+
+## Checks
+- `npm --prefix ui-source run typecheck`: pass. UI tests: 166 files passed, 1 skipped (1,020 tests).
+- `npm run e2e` (local Chromium via symlinked build): 105 passed, 1 failed, 5 not run. The failure is `cleanup.spec.ts:141` ("process is still running" after a killed server tree), a process-handling test that touches no UI code; it also failed on the first attempt. Needs CI to confirm. The 5 not run are its serial dependents.
+- Keyboard/focus: `visual-accessibility.spec.ts` (dossier focus trap, ranking disclosures, scorecards) passes.
+- No engine, online, schema, dependency or CI change.
+
+## Dark surfaces remain (reported, per the brief)
+The navy sidebar and every dialog/overlay (`overlays.css`) are dark and use the old `--page/--panel/--ink` tokens; `gameday.css` remaps them inside `.gd-page`. The brief's "promote gameday tokens to :root and delete the remap" would turn the shell and dialogs light, so it was not done. Stadium-city art is still referenced by `.decision-workspace .card > .header` and `shared-presentation.css`; kept because I could not prove those rules dead.
+
+## For later phases
+Other TAFIs (003, 004, 006-009, 011-016, 018-022); Season Complete layout (010); a harness screen for `/fantasy-draft-summary`; converting dialogs/shell to light tokens, then deleting the remap block.
+
+## Final verification addendum
+- **Fantasy Draft Summary (UI-TAFI-002)**: harness catalogue entry `fantasy-draft-summary` added (fixture `coaching-draft`); BAL, 1440/390/320, reduced motion, master vs final branch: `group-08-evidence/TAFI-002-*-before-left-after-right.webp`. Harness contrast findings on the route: 5 before, **1 after** at every width (the shared `BAL` badge, black on purple, 2.34:1, outstanding). The "GM" tag and the "Methodology and full numbers" disclosure were fixed in two steps: first with `.dso-method summary`, which the older, more specific `.decision-workspace details > summary { color: #c9dcf0 }` in `decisions.css` overrode, leaving the disclosure at 1.40:1 (an independent review caught this; my earlier report wrongly listed it as fixed). It is now `.decision-workspace .dso-method > summary`, which wins. Measured on the final branch: **17.35:1 at 1440, 390 and 320px** (ink on white). Close-up: `TAFI-002-methodology-disclosure-390-before-left-after-right.webp`.
+- **Dark stat strips (UI-TAFI-001)**: the strip's `.stat-value` and `.stat-label` were measured on draft, free-agency board/standing, trade deadline and mid-season FA at all three widths. After: every value and label is at least 6.57:1 (free-agency standing 5.40:1); the 4.5:1 criterion passes. The "before" figures (`...-UNRELIABLE.txt`) are not valid: that script ignores the old strip's dark gradient background-image and measured against the page, so it reads 5.84 where the strip was visibly unreadable (the audit measured 1.02:1). The criterion rests on the after numbers and the screenshots.
+- The harness's own contrast probe never flagged the old strip, so it cannot serve as the gate for this criterion.
+
+## Outstanding accessibility / visual findings (documented, not fixed here)
+- **BAL badge contrast (new TAFI):** the team badge in the shared card header is black on purple, 2.34:1 against 4.5:1. Shared primitive, every screen that uses it.
+- **Floating Methodology tab overlaps content at 390/320px** (already UI-TAFI-004), e.g. it covers the "Draft grade" cell on the Fantasy Draft Summary strip.
+- **Dark card-header band** above the decision screens is shared across them and left unchanged by owner decision.
+- Stacked stat-strip cells at phone width show a stray left rule after the first cell (shared `.gd .ticker .stat` rule; also on setup).
