@@ -7,7 +7,7 @@
  * draft salt), a team is claimed, readiness is given, and `tryAdvance` moves the league on, exactly as the
  * screens do; the helper that does each stage's work (`actOn`) mirrors `ui-source/src/state/playthrough.test.ts`,
  * which is the guard that this same play stays legal. A save is captured at the first arrival in each stage
- * named in FIXTURES: the very string the app would have written to localStorage.
+ * named in FIXTURES: the string the app held (the legacy localStorage form).
  *
  * Controlled inputs, because a frozen clock alone does not make a league deterministic:
  *   - the seed, and the draft salt (which the game derives as seed * 31 for any seed but 1, set here explicitly);
@@ -21,7 +21,6 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
-const SAVE_KEY = "nfl-sim-ui.league";
 
 const opt = (name: string): string | undefined => {
   const i = process.argv.indexOf(`--${name}`);
@@ -39,21 +38,18 @@ if (!Number.isSafeInteger(seed) || seed === 1) throw new Error("--seed must be a
 const FIXED_TIME = Date.UTC(2026, 0, 1);
 if (!realClock) Date.now = () => FIXED_TIME;
 Object.assign(globalThis, { fetch: () => Promise.reject(new TypeError("headless mock mode")) });
-const saved = new Map<string, string>();
 
-const { useStore } = await import("../../ui-source/src/state/store.ts");
+const { useStore, leagueSnapshotJson } = await import("../../ui-source/src/state/store.ts");
 const { DEFAULT_CONFIG } = await import("../../ui-source/src/state/seed.ts");
 const { bestCoachingPick, coachingOnTheClock } = await import("../../ui-source/src/state/coachingDraft.ts");
 const { pendingFor } = await import("../../ui-source/src/state/tradeDeadline.ts");
-Object.assign(globalThis, {
-  window: {
-    localStorage: {
-      getItem: (k: string) => saved.get(k) ?? null,
-      setItem: (k: string, v: string) => void saved.set(k, v),
-      removeItem: (k: string) => void saved.delete(k),
-    },
-  },
-});
+Object.assign(globalThis, { window: { localStorage: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined } } });
+// Under Node there is no `window` at import, so the store has no persistence (in a browser it persists to IndexedDB,
+// asynchronously) and zustand says so on every change. The save is taken from the store's own snapshot instead.
+const warn = console.warn;
+console.warn = (...a: unknown[]) => {
+  if (!String(a[0]).includes("[zustand persist middleware]")) warn(...a);
+};
 type Stage = ReturnType<typeof useStore.getState>["stage"];
 
 /** Stages at which a save is kept, in the order a league reaches them. */
@@ -203,8 +199,7 @@ for (let guard = 0; guard < 220 && kept.size < chosen.length; guard++) {
   if (process.env.E2E_BUILD_TRACE) console.error(`[build] ${guard} ${stage} season ${state().season} week ${state().week}`);
   const name = chosen.find((f) => f.stage === stage && (f.week === undefined || f.week === state().week) && !kept.has(f.name))?.name;
   if (name) {
-    const save = saved.get(SAVE_KEY);
-    if (!save) throw new Error(`no save had been written on arriving at ${stage}`);
+    const save = leagueSnapshotJson();
     const s = state();
     const viewerTeam = s.gms.find((g) => g.id === s.viewerGmId)?.teamCode ?? null;
     const skipSet = Boolean(s.gms.find((g) => g.id === s.viewerGmId)?.skips?.freeAgency);

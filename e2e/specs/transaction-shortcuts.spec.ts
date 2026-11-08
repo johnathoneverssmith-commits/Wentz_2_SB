@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 
 import { expect, test, SAVE_KEY } from "../support/test.ts";
+import { readSavedState } from "../support/idb.ts";
 
 /**
  * UI-PT-11/16/17/22/23/24 in a real browser: the shortcuts that exist, and the
@@ -11,7 +12,7 @@ import { expect, test, SAVE_KEY } from "../support/test.ts";
 const SHOTS = process.env.SHOTS_DIR ?? "";
 const DESKTOP = { width: 1440, height: 1000 };
 const PHONE = { width: 390, height: 844 };
-const saved = (page: Page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key)!).state, SAVE_KEY);
+const saved = (page: Page) => readSavedState(page, SAVE_KEY);
 
 async function shot(page: Page, name: string): Promise<void> {
   if (!SHOTS) return;

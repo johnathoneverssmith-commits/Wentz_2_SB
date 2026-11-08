@@ -4,7 +4,8 @@ import {join} from 'node:path';
 import {expect,test,SAVE_KEY} from '../support/test.ts';
 import {controlledLeague} from '../support/controlled-league.ts';
 import type {Page} from '@playwright/test';
-const saved=(page:Page)=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)!).state,SAVE_KEY);
+import { readSavedState } from "../support/idb.ts";
+const saved=(page:Page)=>readSavedState(page,SAVE_KEY);
 async function capture(page:Page,name:string){if(process.env.UI5_ARTIFACTS){mkdirSync(process.env.UI5_ARTIFACTS,{recursive:true});await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));await page.screenshot({path:join(process.env.UI5_ARTIFACTS,name),fullPage:page.viewportSize()!.width<700&&(await page.getByRole('dialog').count())===0});}}
 
 test.describe('UI-5 setup orientation',()=>{

@@ -312,6 +312,24 @@ function withGameDayLock<T>(busy: T, work: () => Promise<T>): Promise<T> {
 
 export type Store = LeagueState & StoreActions;
 
+/** What is saved of the store: everything but its functions. */
+function partializeLeague(s: Store): Partial<Store> {
+  const rest: Partial<Store> = { ...s };
+  for (const k of Object.keys(rest) as (keyof Store)[]) {
+    if (typeof rest[k] === "function") delete rest[k];
+  }
+  return rest;
+}
+
+/**
+ * The save as one JSON string (`{ state, version }`) — the form the app stored in localStorage before
+ * IndexedDB, and the form a backup of the store's state takes. For tools that build saves headless (the
+ * browser-test fixture builder), where there is no `window` and so nothing persists.
+ */
+export function leagueSnapshotJson(): string {
+  return JSON.stringify({ state: partializeLeague(useStore.getState()), version: CURRENT_SAVE_VERSION });
+}
+
 /**
  * Whether the last attempt to write the save failed (localStorage full, or
  * disabled entirely — a private window blocks it). The shell watches this so
@@ -405,6 +423,7 @@ try {
  * once. A held write is dropped if this device has since left online play,
  * so it can never land in the solo slot.
  */
+let flushOnlineCopy: () => void = () => undefined;
 function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
   let pending: { name: string; value: Parameters<PersistStorage<S>["setItem"]>[1] } | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -415,6 +434,7 @@ function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
     pending = null;
     if (p && slotFor(p.name) === ONLINE_SAVE_KEY) void inner.setItem(p.name, p.value);
   };
+  flushOnlineCopy = flush;
   // (guarded: tests run this against a bare stand-in for `window`)
   if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
     window.addEventListener("pagehide", flush);
@@ -490,8 +510,11 @@ const durable = createDurableStorage<Partial<Store>>({
 
 /** Write whatever is waiting to be saved, now. True when the save is current and the last write landed. */
 export function flushSave(): Promise<boolean> {
+  flushOnlineCopy(); // an online league's copy is held back up to 30 s; "now" means now
   return durable.flush();
 }
+// Browser tests (and anyone debugging) can ask the page to finish its writes before they read storage.
+if (hasWindow) (window as unknown as { __nflSimFlushSave?: () => Promise<boolean> }).__nflSimFlushSave = flushSave;
 export const saveStatus = (): SaveStatus => durable.status();
 export const saveBackendKind = (): string => durable.backend.kind;
 export const lastSaveError = (): string | null => durable.lastError();
@@ -1637,13 +1660,7 @@ export const useStore = create<Store>()(
       // last good save in place.
       // (no `window`: a Node process importing the store — the online server, most tests — has nowhere to save)
       storage: hasWindow ? deferOnlineCopy(durable.storage) : undefined,
-      partialize: (s) => {
-        const rest: Partial<Store> = { ...s };
-        for (const k of Object.keys(rest) as (keyof Store)[]) {
-          if (typeof rest[k] === "function") delete rest[k];
-        }
-        return rest;
-      },
+      partialize: partializeLeague,
     },
   ),
 );
