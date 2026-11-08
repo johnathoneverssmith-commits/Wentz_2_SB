@@ -1,0 +1,252 @@
+{
+ "SEED": 21,
+ "TEAM": "GB",
+ "PAY": 3,
+ "log": [
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2027,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 5,
+     "losses": 12,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -121,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 1
+   },
+   "eligibleNext": false,
+   "stagesSeen": 15
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2028,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": true,
+    "seed": 6,
+    "furthestRound": "WC",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 10,
+     "losses": 7,
+     "ties": 0
+    },
+    "eliminationMargin": 1,
+    "pointDifferential": 61,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 2
+   },
+   "eligibleNext": true,
+   "stagesSeen": 23
+  },
+  {
+   "kind": "HF",
+   "season": 2028,
+   "offered": 3,
+   "ok": true,
+   "enc": {
+    "teamCode": "GB",
+    "season": 2028,
+    "thresholds": {
+     "t1": 0.5,
+     "t2": 6.2,
+     "t3": 9.4
+    },
+    "payment": 3,
+    "resolved": true,
+    "swindle": false,
+    "branch": "negative",
+    "tier": 2,
+    "outcome": {
+     "eventId": "keep_chopping_something_else",
+     "publicText": "Branik Oakware missed the stump during a locker-room motivational exercise involving an actual axe and buried it in his own leg. He is done for the season.",
+     "targetTeam": "CHI",
+     "negativePlayers": [
+      {
+       "playerId": "p_g1_35958e_DT208",
+       "name": "Branik Oakware",
+       "position": "DT",
+       "overall": 76
+      }
+     ],
+     "absenceWeeks": null
+    }
+   }
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2029,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 7,
+     "losses": 10,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -41,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 3
+   },
+   "eligibleNext": true,
+   "stagesSeen": 25
+  },
+  {
+   "kind": "HF",
+   "season": 2029,
+   "offered": 3,
+   "ok": true,
+   "enc": {
+    "teamCode": "GB",
+    "season": 2029,
+    "thresholds": {
+     "t1": 3.4,
+     "t2": 3.8,
+     "t3": 4.2
+    },
+    "payment": 3,
+    "resolved": true,
+    "swindle": false,
+    "branch": "negative",
+    "tier": 1,
+    "outcome": {
+     "eventId": "the_canal_was_right_there",
+     "publicText": "Vicdre Delgado was arrested before dawn after deciding a downtown canal looked extremely swimmable. He has been suspended for the team's next game.",
+     "targetTeam": "CHI",
+     "negativePlayers": [
+      {
+       "playerId": "p_g1_35958e_P027",
+       "name": "Vicdre Delgado",
+       "position": "P",
+       "overall": 94
+      }
+     ],
+     "absenceWeeks": 1
+    }
+   }
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2030,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 7,
+     "losses": 10,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -40,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 4
+   },
+   "eligibleNext": true,
+   "stagesSeen": 25
+  },
+  {
+   "kind": "HF",
+   "season": 2030,
+   "offered": 3,
+   "ok": true,
+   "enc": {
+    "teamCode": "GB",
+    "season": 2030,
+    "thresholds": {
+     "t1": 3,
+     "t2": 6,
+     "t3": 6.9
+    },
+    "payment": 3,
+    "resolved": true,
+    "swindle": false,
+    "branch": "negative",
+    "tier": 2,
+    "outcome": {
+     "eventId": "the_bye_week_yacht",
+     "publicText": "Leoer Brookford, Finor Rhodes, Rafek Flintcroft was one of several starters suspended after a bye-week yacht rental ended with police waiting at the dock, phones in the water, and evidence nobody can adequately explain.",
+     "targetTeam": "DET",
+     "negativePlayers": [
+      {
+       "playerId": "p_g1_35958e_RB014",
+       "name": "Leoer Brookford",
+       "position": "RB",
+       "overall": 75
+      },
+      {
+       "playerId": "p_g1_35958e_ILB001",
+       "name": "Finor Rhodes",
+       "position": "ILB",
+       "overall": 86
+      },
+      {
+       "playerId": "p_g1_35958e_EDGE161",
+       "name": "Rafek Flintcroft",
+       "position": "EDGE",
+       "overall": 64
+      }
+     ],
+     "absenceWeeks": 1
+    }
+   }
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2031,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 6,
+     "losses": 11,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -61,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 5
+   },
+   "eligibleNext": true,
+   "stagesSeen": 25
+  }
+ ],
+ "stageSeq": 213
+}

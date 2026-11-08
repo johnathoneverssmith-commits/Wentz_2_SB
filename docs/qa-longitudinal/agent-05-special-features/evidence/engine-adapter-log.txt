@@ -1,0 +1,19 @@
+nfl-franchise-sim adapter listening on http://localhost:8787
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
+engine: non-finite M04 shift on SACK; ignoring it
+engine: non-finite M09 shift on COMPLETE; ignoring it
