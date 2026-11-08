@@ -2,7 +2,7 @@ import { viewerWeek } from "@/state/reveal";
 import { getMotionLevel } from "@/motion/level";
 import { StaggerList } from "@/motion/Stagger";
 import { onlineSession } from "@/state/online";
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState } from "react";
 import { careerArc } from "@/state/careerArc";
 import { displaySeason, STAGE_LABEL } from "@/state/stageMachine";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -11,7 +11,7 @@ import { PlayerStatsModal } from "@/components/PlayerStatsModal";
 import { ContractFacts, RosterFinance, StaffCost } from "@/components/roster/RosterFinance";
 import { CapField } from "@/components/roster/CapField";
 import { GameDayMasthead } from "@/design/GameDayMasthead";
-import { gdStyle } from "@/design/teamArt";
+import { GdPage } from "@/design/GdPage";
 import { MotionMeter, MotionSurface } from "@/motion/MotionSurface";
 import { AnimatedNumber } from "@/motion/AnimatedNumber";
 import "@/design/gameday.css";
@@ -142,11 +142,9 @@ export function RosterCapManagement() {
 
   if (!code || !team) {
     return (
-      <div className="roster-workspace gd">
-        <div className="gd-page">
-          <div className="emptystate">Pick a team in League Setup first.</div>
-        </div>
-      </div>
+      <GdPage code={null}>
+        <div className="emptystate">Pick a team in League Setup first.</div>
+      </GdPage>
     );
   }
 
@@ -501,11 +499,9 @@ export function RosterCapManagement() {
   );
 
   const week = viewerWeek(s);
-  const style = gdStyle(code) as CSSProperties;
 
   return (
-    <div className="roster-workspace gd" style={style}>
-    <div className="gd-page">
+    <GdPage code={code}>
       <GameDayMasthead
         code={code}
         title={active === "cap" ? "Finances & salary cap" : "Roster & depth chart"}
@@ -841,8 +837,7 @@ export function RosterCapManagement() {
         />
       )}
       {inspecting && s.players[inspecting] && <PlayerStatsModal player={s.players[inspecting]!} portrait={false} onClose={() => setInspecting(null)} />}
-    </div>
-    </div>
+    </GdPage>
   );
 }
 

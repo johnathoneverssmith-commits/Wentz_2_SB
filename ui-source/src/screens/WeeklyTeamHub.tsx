@@ -1,6 +1,6 @@
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { GameDayMasthead } from "@/design/GameDayMasthead";
-import { gdStyle } from "@/design/teamArt";
+import { GdPage } from "@/design/GdPage";
 import "@/design/gameday.css";
 import "@/design/gameday-blocks.css";
 import "@/components/dashboard/dashboard-gameday.css";
@@ -8,7 +8,7 @@ import { RosterRepairNotice } from "@/components/RosterRepairNotice";
 import { LeagueWire } from "@/components/LeagueWire";
 import { seasonShape } from "@/state/leagueFormat";
 import { recordWatch } from "@/state/seasonAwards";
-import { useEffect, useMemo, useState, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
@@ -191,8 +191,7 @@ export function WeeklyTeamHub() {
   const winProb = opp ? favWinProb(team.ratings, opp.ratings, iHost, talentScaleOf(s.config)) : 50;
 
   return (
-    <div className="roster-workspace gd hub-gd" style={gdStyle(code) as CSSProperties}>
-    <div className="gd-page">
+    <GdPage code={code} className="hub-gd">
       <RosterRepairNotice state={s} team={code} />
       <GameDayMasthead
         code={code}
@@ -607,8 +606,7 @@ export function WeeklyTeamHub() {
         )}
       </Footer>
 
-    </div>
-    </div>
+    </GdPage>
   );
 }
 
