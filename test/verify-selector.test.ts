@@ -1017,6 +1017,43 @@ describe("the browser test harness", () => {
   });
 });
 
+describe("the visual and accessibility audit harness (e2e-audit/)", () => {
+  it.each([
+    "e2e-audit/playwright.config.ts",
+    "e2e-audit/tsconfig.json",
+    "e2e-audit/defects/manual.json",
+    "e2e-audit/scripts/build-register.ts",
+    "e2e-audit/specs/capture.spec.ts",
+    "e2e-audit/support/probes.ts",
+    "e2e-audit/README.md",
+  ])("%s is classified, not left to the conservative default", (path) => {
+    const p = run([change(path)]);
+    expect(p.classes).toContain("browser-e2e");
+    expect(p.unknownSourcePaths).toEqual([]);
+    expect(p.conservative).toBe(false);
+    expect(p.notes.join(" ")).toMatch(/audit:typecheck/);
+  });
+});
+
+describe("QA documentation and its analysis scripts", () => {
+  // Agent reports keep their scripts next to the evidence. They are documentation, not product code, so they must
+  // not fall to the conservative default (which asks for every suite) however they are written.
+  it.each([
+    "docs/qa-longitudinal/agent-01-aesthetics/tools/drive.cjs",
+    "docs/qa-longitudinal/agent-01-aesthetics/tools/lib.cjs",
+    "docs/qa-longitudinal/agent-03-competitiveness/analysis/run.ts",
+    "docs/qa-longitudinal/agent-03-competitiveness/analysis/report.mjs",
+    "docs/qa-longitudinal/agent-01-aesthetics/evidence/wave2/run-log.json",
+    "docs/qa-longitudinal/agents/agent-01-aesthetics/report-2026-11-07.md",
+  ])("%s is documentation: no unknown source, not conservative, no suite beyond scope", (path) => {
+    const p = run([change(path)]);
+    expect(p.classes).toEqual(["docs"]);
+    expect(p.unknownSourcePaths).toEqual([]);
+    expect(p.conservative).toBe(false);
+    expect(ids(p)).toEqual(["scope"]);
+  });
+});
+
 describe("combined launcher and browser selection", () => {
   it("keeps both rules and the required launcher verification", () => {
     const p = run([change("online/dev/local-server.ts"), change("e2e/support/stack.ts")]);

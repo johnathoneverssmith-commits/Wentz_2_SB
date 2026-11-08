@@ -43,6 +43,8 @@ export interface BuildFixturesOptions {
   realClock?: boolean;
   /** Build only these fixtures, and stop playing once they are kept (the whole-year saves are the slow ones). */
   only?: readonly string[];
+  /** Claim this team code for the human GM (default: the first free team, as before). */
+  team?: string;
   /** Replaces the builder script (tests only: one that fails or hangs). */
   script?: string;
   timeoutMs?: number;
@@ -64,7 +66,7 @@ export async function buildFixtures(options: BuildFixturesOptions = {}): Promise
     const r = await runProcess(
       {
         file: process.execPath,
-        args: [tsx, "--tsconfig", "tsconfig.app.json", options.script ?? BUILDER, "--out", dir, "--seed", String(options.seed ?? FIXTURE_SEED), ...(options.realClock ? ["--real-clock"] : []), ...(options.only ? ["--only", options.only.join(",")] : [])],
+        args: [tsx, "--tsconfig", "tsconfig.app.json", options.script ?? BUILDER, "--out", dir, "--seed", String(options.seed ?? FIXTURE_SEED), ...(options.realClock ? ["--real-clock"] : []), ...(options.team ? ["--team", options.team] : []), ...(options.only ? ["--only", options.only.join(",")] : [])],
         shell: false,
       },
       { cwd: UI_DIR, env: baseEnvironment(process.env), timeoutMs },
