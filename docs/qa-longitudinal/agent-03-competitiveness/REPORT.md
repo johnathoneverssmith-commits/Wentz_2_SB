@@ -1,5 +1,7 @@
 # Agent 3 — Competitiveness & Strategic Depth: findings report
 
+> **Status note (added at finalization):** Part 1 is the first-pass write-up. Part 2 (below) supersedes it wherever they differ. In particular: Part 1's statements that a real-UI playthrough was not possible, that sign-and-flip was unsimulated, and that QB underpricing was an open exploit candidate are **out of date**. The UI harness ran (one full season plus 16 games, not five); sign-and-flip was simulated (kicker/punter confirmed); and the QB edge at equal payroll was measured and is small. Finding status labels used throughout: **Confirmed** = measured with an interval excluding zero or confirmed in code; **Tentative** = suggestive, wide interval or few leagues; **Incomplete** = not run.
+
 Baseline `3abcfff` · pool `pool-2026.json` · all numbers are from files in `data/`; nothing here is from memory or the UI.
 **Read [README.md](README.md) first for which experiment arms are complete and which are not.** Full CI tables: [data/analysis_unit_summary.md](data/analysis_unit_summary.md).
 
@@ -9,7 +11,7 @@ Within what was tested, **the engine strongly rewards roster quality and lineup 
 
 ## 1. Five-season playthrough (what was and was not done)
 
-- **Real UI, four human strategies: not done.** This cloud session has no usable browser stack for driving the app against the real engine, and the repo's `franchise:stress` runner uses a mock backend (excluded as evidence, as instructed).
+- **Real UI, four human strategies: not done (superseded by Part 2 §18: a browser harness was later made to work; one full season and 16 games completed, not five).** At the time of Part 1 this was believed impossible in this session; the repo's `franchise:stress` runner uses a mock backend (excluded as evidence, as instructed).
 - **Done instead — headless real-engine longitudinal (not UI play):** 3 leagues × 5 seasons, `online/src/blocks.ts` games (real `simulateGame`), CPU running every team (no human GM, so no contender/rebuilder/balanced strategy was exercised). KC was the focal team: CPU-managed vs. depth chart set worst-first (the "poor-decision control"). See §4 and §7.
 
 ## 2. Player-rating impact (talent 1.0 unless stated; paired seeds)
@@ -96,7 +98,7 @@ Draft, free-agent, cap and trade *decision quality* were not directly measured. 
 
 ## 9. What remains and exactly how to close it
 
-1. **Five real-UI seasons** (browser-enabled agent). Blocker here: the cloud session cannot run the app's UI against the real engine adapter. Procedure: `npm --prefix ui-source run build`; start `server/index.ts` adapter (`:8787`) and serve the build; in a real browser play four leagues from the same seed (aggressive, rebuilder, balanced, poor-control) for five seasons; record each decision, team record, cap and roster ovr each stage. Do **not** use `franchise:stress`/`e2e` fixtures (mock simulation).
+1. **Five real-UI seasons** (superseded by §18: a Playwright harness exists; what remains is finishing seasons 2–5 under supervision). Original procedure: `npm --prefix ui-source run build`; start `server/index.ts` adapter (`:8787`) and serve the build; in a real browser play four leagues from the same seed (aggressive, rebuilder, balanced, poor-control) for five seasons; record each decision, team record, cap and roster ovr each stage. Do **not** use `franchise:stress`/`e2e` fixtures (mock simulation).
 2. **Headless human-policy runs.** Extend `harness/longitudinal.test.ts` with scripted action calls (`online/src/actions.ts`) for the four strategies; ≥10 seeds each; compare titles/wins/cap. This closes the strategy-comparison deliverable and TAFI-COMP-006.
 3. **Sign-and-flip and price-arbitrage experiment** (TAFI-COMP-002) and **budget-matched QB vs balanced build** (TAFI-COMP-001).
 4. **Draft/FA/trade CPU behaviour experiments** (TAFI-COMP-007) and multiplayer fairness (Agent 8 / Agent 6 coordination).

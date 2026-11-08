@@ -15,7 +15,7 @@ Baseline for all entries: master `3abcfff0f58d7117bbcd265f9cea9e7f1bcc829b`, poo
 | COMP-004 | Kicker/punter nearly irrelevant on the field | Optional depth enhancement | Low | Medium/Low | Unchanged; ties to COMP-002b |
 | COMP-007 | Untested systems (draft, FA bidding, multiplayer, CPU draft/FA decision quality, 5-season controlled UI strategies) | Needs more testing | – | – | Partly closed; remainder listed below |
 
-Entries below are the Part 1 text; **Part 2 updates follow at the end of this file and supersede them where they differ.**
+Status vocabulary: **Confirmed** (interval excludes zero, or confirmed in code), **Tentative** (wide interval/few leagues), **Incomplete** (not run). Entries below are the Part 1 text; **Part 2 updates follow at the end of this file and supersede them where they differ.**
 
 ---|---|---|---|---|---|
 | COMP-001 | QB leverage exceeds QB price (≈1.4–1.7× per price unit) | Balance concern | Medium | Medium | Yes |
@@ -28,7 +28,7 @@ Entries below are the Part 1 text; **Part 2 updates follow at the end of this fi
 
 ---
 
-## TAFI-COMP-001 — QB leverage exceeds QB price
+## TAFI-COMP-001 — QB leverage exceeds QB price  *(Part 1 text — superseded by the Part 2 update at the end of this file where they differ)*
 - **Severity / impact:** Medium. One player decides about as much as a whole defensive unit.
 - **System:** Rating layer (`ratings.ts`/QB effect) vs `POSITION_VALUE` / `TRADE_POSITION_VALUE` (`MockSimulationService.ts`).
 - **Baseline/config:** `3abcfff`; `harness/unit_swap.ts QB abs:72|abs:95 40|20 1|1.5`; seeds `5_100_000+rep*1009+teamIdx`; 1,280 pairs (talent 1) / 640 (talent 1.5).
@@ -44,7 +44,7 @@ Entries below are the Part 1 text; **Part 2 updates follow at the end of this fi
 - **Regression/balance test:** extend `analysis/46_qb_value.ts` with a cap-matched QB-heavy vs balanced roster over ≥20 seeds × 32 teams; assert the margin gap ≤ ±1 point.
 - **Complexity/priority:** medium / P2.
 
-## TAFI-COMP-002 — FA salary vs trade-chart mismatch: sign-and-flip candidate
+## TAFI-COMP-002 — FA salary vs trade-chart mismatch: sign-and-flip candidate  *(Part 1 text — superseded by the Part 2 update at the end of this file where they differ)*
 - **Severity:** Medium–High if confirmed; the strategy would be repeatable and cap-efficient.
 - **System:** `expectedSalary` (`freeAgencyValues.ts`) vs `playerPerformanceValue`/`TRADE_POSITION_VALUE` (`MockSimulationService.ts`), `tradeModel.ts` acceptance.
 - **Config:** `harness/price_arbitrage.test.ts`; one league, seed 9301, synthetic age-27 players at ovr 75/85/92.
@@ -59,7 +59,7 @@ Entries below are the Part 1 text; **Part 2 updates follow at the end of this fi
 - **Regression test:** an `online/test/` metric like `trade-metrics.test.ts` asserting average pick value gained per FA signing ≤ ε at every position.
 - **Complexity/priority:** low (experiment) / medium (fix) / **P1**.
 
-## TAFI-COMP-005 — Worst-first depth chart ⇒ 0 wins
+## TAFI-COMP-005 — Worst-first depth chart ⇒ 0 wins  *(Part 1 text — superseded by the Part 2 update at the end of this file where they differ)*
 - **Severity:** Medium. **Class:** Difficulty/fairness concern.
 - **System:** depth chart → `Roster` depth order; lineup UI.
 - **Config:** `harness/longitudinal.test.ts`, seeds 9301–9303, 2026–2030, focal team KC; variants `cpu` and `sabotage`.
@@ -73,7 +73,7 @@ Entries below are the Part 1 text; **Part 2 updates follow at the end of this fi
 - **Regression test:** UI test that an inverted starter at each premium slot raises the warning; a lineup test that rating-sorted equals default.
 - **Complexity/priority:** low / P2.
 
-## TAFI-COMP-006 — Dominance ceiling for a skilled human is unknown
+## TAFI-COMP-006 — Dominance ceiling for a skilled human is unknown  *(Part 1 text — superseded by the Part 2 update at the end of this file where they differ)*
 - **Class:** Difficulty/fairness concern; needs testing. **Severity:** unknown.
 - **Config:** talent 1.0 vs 1.5 unit sweeps (`data/unit_swap.jsonl`).
 - **Observed:** group effects are large (+10 on every unit sums to ≈25 margin/game if additive, derived not measured); the default talent 1.5 scales QB/OL effects by 1.4–1.6×. CPU-only leagues show healthy parity (§6 of the report), but a human has no cap-constrained opponent behaviour tested.
@@ -105,7 +105,7 @@ Entries below are the Part 1 text; **Part 2 updates follow at the end of this fi
 - **Regression test:** a 1,280-pair K/P sweep in close games only.
 - **Complexity/priority:** medium / P4.
 
-## TAFI-COMP-007 — Untested systems
+## TAFI-COMP-007 — Untested systems  *(Part 1 text — superseded by the Part 2 update at the end of this file where they differ)*
 - **Class:** Needs more testing.
 - **Not run:** real-UI five-season play; four human strategies; draft strategy and draft order; FA bidding and cap management; CPU trade acceptance and deadline behaviour; CPU roster-need responses to injuries; multiplayer turn order and collusion; inactive GMs; game-plan adaptation vs one universal plan.
 - **Proposed solution/procedure:** README "Experiment status" and REPORT §9.
