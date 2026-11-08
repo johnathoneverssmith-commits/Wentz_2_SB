@@ -3,6 +3,7 @@ import { mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { guardContext, unexpected } from "../support/guard.ts";
 import { expect, test, SAVE_KEY } from "../support/test.ts";
+import { readSavedState } from "../support/idb.ts";
 
 interface Saved {
   viewerGmId: string;
@@ -11,7 +12,7 @@ interface Saved {
   players: Record<string, { id: string; name: string; position: string; contract: { years_remaining: number; total_value: number; guaranteed: number; signing_bonus: number; cap_hit_by_year: number[] } }>;
   depthChart: Record<string, Record<string, string[]>>;
 }
-const read = (page: Page): Promise<Saved> => page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state, SAVE_KEY);
+const read = (page: Page): Promise<Saved> => readSavedState(page, SAVE_KEY);
 const meOf = (s: Saved) => s.gms.find(g => g.id === s.viewerGmId)!.teamCode;
 const money = (n: number) => `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(1)}M`;
 const capture = async (page: Page, file: string, fullPage = false) => {

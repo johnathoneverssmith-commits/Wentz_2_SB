@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import { expect, test } from "../support/test.ts";
+import { editSave, readSavedState } from "../support/idb.ts";
 
 /**
  * Play-by-play access, game history, fan reactions and portraits, through the screens.
@@ -100,9 +101,7 @@ test("a game with a recorded trace browses quarter by quarter", async ({ page })
   await cont(page).click();
   await expect(page).toHaveURL(/#\/hub$/);
 
-  const target = await page.evaluate(() => {
-    const doc = JSON.parse(localStorage.getItem("nfl-sim-ui.league")!);
-    const s = doc.state;
+  const target = await readSavedState(page).then((s) => {
     const me = s.gms.find((g: any) => g.id === s.viewerGmId).teamCode;
     const g = s.games.filter((x: any) => x.phase === "REG" && (x.homeTeam === me || x.awayTeam === me)).pop();
     return { id: g.id as string, home: g.homeTeam as string, away: g.awayTeam as string };
@@ -112,14 +111,13 @@ test("a game with a recorded trace browses quarter by quarter", async ({ page })
   const pool = (await import("../../ui-source/src/data/pool-2026.json", { with: { type: "json" } })).default as unknown as Array<{ nfl_team: string }>;
   const squad = (code: string) => new Roster(code === "LAR" ? "LA" : code, pool.filter((p) => p.nfl_team === code) as never);
   const bc = broadcastGame(20260101, target.home === "LAR" ? "LA" : target.home, target.away === "LAR" ? "LA" : target.away, { homeRoster: squad(target.home), awayRoster: squad(target.away) });
-  await page.evaluate(({ id, bc }) => {
-    const doc = JSON.parse(localStorage.getItem("nfl-sim-ui.league")!);
-    const g = doc.state.games.find((x: any) => x.id === id);
-    g.broadcast = bc;
-    g.homeScore = bc.finalScore[0];
-    g.awayScore = bc.finalScore[1];
-    localStorage.setItem("nfl-sim-ui.league", JSON.stringify(doc));
-  }, { id: target.id, bc: JSON.parse(JSON.stringify(bc)) });
+  const bcJson = JSON.parse(JSON.stringify(bc));
+  await editSave(page, (doc) => {
+    const g = doc.state.games.find((x: any) => x.id === target.id);
+    g.broadcast = bcJson;
+    g.homeScore = bcJson.finalScore[0];
+    g.awayScore = bcJson.finalScore[1];
+  });
 
   await page.goto(`/#/watch/${target.id}`);
   await page.reload();

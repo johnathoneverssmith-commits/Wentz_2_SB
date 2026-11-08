@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 
+import { readSaveText } from "./idb.ts";
 import { SAVE_KEY } from "./test.ts";
 
 /** One contract as the game stores it (`offerToContract` in ui-source/src/state/rules.ts). */
@@ -34,9 +35,9 @@ export interface Ledger {
 }
 
 export async function readLedger(page: Page): Promise<Ledger> {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key);
-    if (raw == null) throw new Error("no saved league");
+  const stored = await readSaveText(page, SAVE_KEY);
+  if (stored == null) throw new Error("no saved league");
+  return page.evaluate((raw) => {
     const s = (JSON.parse(raw) as { state: Record<string, any> }).state;
     const gm = (s.gms as Array<{ id: string; teamCode?: string }>).find((g) => g.id === s.viewerGmId)!;
     const me = gm.teamCode as string;
@@ -62,18 +63,19 @@ export async function readLedger(page: Page): Promise<Ledger> {
         : [],
       signed: e ? e.signed.map((x) => ({ playerId: x.playerId, teamCode: x.teamCode, salary: x.salary, years: x.years, round: x.round })) : [],
     };
-  }, SAVE_KEY);
+  }, stored);
 }
 
 /** One player as saved: who owns him, whether he is still a free agent, and his contract. */
 export async function readPlayer(page: Page, playerId: string): Promise<{ name: string; team: string | null; freeAgent: boolean; contract: SavedContract | null }> {
+  const stored = (await readSaveText(page, SAVE_KEY))!;
   return page.evaluate(
-    ([key, id]) => {
-      const s = (JSON.parse(window.localStorage.getItem(key)!) as { state: Record<string, any> }).state;
+    ([raw, id]) => {
+      const s = (JSON.parse(raw as string) as { state: Record<string, any> }).state;
       const p = s.players[id as string];
       return { name: p.name as string, team: (p.nfl_team ?? null) as string | null, freeAgent: Boolean(p.free_agent), contract: (p.contract ?? null) as SavedContract | null };
     },
-    [SAVE_KEY, playerId] as const,
+    [stored, playerId] as const,
   );
 }
 

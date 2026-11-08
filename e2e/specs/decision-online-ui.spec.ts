@@ -1,8 +1,9 @@
 import {expect,test,SAVE_KEY} from '../support/test.ts';
 import {controlledLeague} from '../support/controlled-league.ts';
 import type {Page} from '@playwright/test';
-const onlineSaved=(page:Page)=>page.evaluate(()=>JSON.parse(localStorage.getItem('nfl-sim-ui.online-league')!).state);
-const saved=(page:Page)=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)!).state,SAVE_KEY);
+import { readSavedState } from "../support/idb.ts";
+const onlineSaved=(page:Page)=>readSavedState(page,'nfl-sim-ui.online-league');
+const saved=(page:Page)=>readSavedState(page,SAVE_KEY);
 
 test.describe('UI-4 controlled multiplayer transport — UI guards, not server E2E',()=>{
  test.describe('draft permissions',()=>{

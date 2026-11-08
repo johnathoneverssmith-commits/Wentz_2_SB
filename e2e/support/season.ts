@@ -4,6 +4,7 @@ import type { Page } from "@playwright/test";
 
 import { expect } from "@playwright/test";
 
+import { readSaveText } from "./idb.ts";
 import { SAVE_KEY } from "./test.ts";
 
 /** The NFL's two conferences. The league's team list is pinned by fixtures/inputs.json, so this cannot drift silently. */
@@ -51,9 +52,9 @@ export interface Season {
 }
 
 export async function readSeason(page: Page): Promise<Season> {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key);
-    if (raw == null) throw new Error("no saved league");
+  const stored = await readSaveText(page, SAVE_KEY);
+  if (stored == null) throw new Error("no saved league");
+  return page.evaluate((raw) => {
     const s = (JSON.parse(raw) as { state: Record<string, any> }).state;
     const me = (s.gms as Array<{ id: string; teamCode?: string }>).find((g) => g.id === s.viewerGmId)!.teamCode as string;
     const teams: Record<string, SavedTeam> = {};
@@ -71,7 +72,7 @@ export async function readSeason(page: Page): Promise<Season> {
       pending: s.pendingGameDay ? { phase: s.pendingGameDay.phase, week: s.pendingGameDay.week, gameIds: s.pendingGameDay.gameIds } : null,
       bracket: b ? { round: b.currentRound, champion: b.champion, seeds: b.seeds, matchups: b.matchups.map((m) => ({ round: m.round, conference: m.conference, high: m.highSeed, low: m.lowSeed, winner: m.winner, homeScore: m.homeScore })) } : null,
     };
-  }, SAVE_KEY);
+  }, stored);
 }
 
 export const regGames = (s: Season, week?: number): SavedGame[] => s.games.filter((g) => g.phase === "REG" && (week === undefined || g.week === week));
