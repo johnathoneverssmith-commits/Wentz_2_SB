@@ -1,0 +1,14 @@
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+0 #/game-day -> Continue adapter {"/simulate-week":1}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+1 #/hub -> Ready for Game Day adapter {"/simulate-week":2}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+2 #/game-day -> Continue adapter {"/simulate-week":2}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+3 #/hub -> Ready for Game Day adapter {"/simulate-week":3}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+4 #/game-day -> Continue adapter {"/simulate-week":3,"/playoffs/seed":1}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+5 #/bracket -> Let my staff re-sign the core adapter {"/simulate-week":3,"/playoffs/seed":1}
+STUCK at #/bracket on Let my staff re-sign the core | buttons: Skip to content | Sound off | Full | Subtle | Off | Download backup | Restore from backup | New solo dynasty | AFC | NFC | Super Bowl | Matchup | Extend them | No thanks
+final #/bracket {"/simulate-week":3,"/playoffs/seed":1}
