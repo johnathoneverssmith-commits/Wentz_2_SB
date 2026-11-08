@@ -61,3 +61,47 @@ describe("recorded playoff games are authoritative", () => {
     expect(b.games).toEqual(a.games);
   });
 });
+
+describe("recorded games: orientation and saves from before the fix", () => {
+  const SB_SEEDING = SEEDING;
+  it("keeps the recorded score on the right team whichever way the record lists home/away", () => {
+    let p = startPlayoffs(31, SB_SEEDING);
+    const all: PlayoffGame[] = [];
+    while (p.nextRound !== "done") {
+      const r = playPlayoffRound(p);
+      p = r.progress;
+      all.push(...r.games);
+    }
+    // flip home/away (and scores) in every record, including the neutral-site Super Bowl
+    const flipped: RecordedPlayoffGame[] = all.map((g) => ({
+      round: g.round, home: g.away, away: g.home, homeScore: g.awayScore, awayScore: g.homeScore, winner: g.winner,
+    }));
+    let q = startPlayoffs(999, SB_SEEDING); // different inputs
+    const out: PlayoffGame[] = [];
+    while (q.nextRound !== "done") {
+      const r = playPlayoffRound(q, flipped);
+      q = r.progress;
+      out.push(...r.games);
+    }
+    expect(out.map((g) => [g.round, g.home, g.away, g.homeScore, g.awayScore, g.winner]))
+      .toEqual(all.map((g) => [g.round, g.home, g.away, g.homeScore, g.awayScore, g.winner]));
+  });
+
+  it("a partial or missing record (an older save) falls back to simulating only the missing games", () => {
+    const first = playPlayoffRound(startPlayoffs(77, SEEDING));
+    const [kept, ...missing] = first.games.map(asRecorded);
+    const r = playPlayoffRound(startPlayoffs(77, SEEDING), [kept!]);
+    expect(r.games).toEqual(first.games); // same inputs: identical either way
+    const drifted = playPlayoffRound(startPlayoffs(78, SEEDING), [kept!]);
+    const k = drifted.games.find((g) => g.home === kept!.home && g.away === kept!.away)!;
+    expect([k.homeScore, k.awayScore, k.winner]).toEqual([kept!.homeScore, kept!.awayScore, kept!.winner]);
+    expect(missing.length).toBe(first.games.length - 1);
+    expect(drifted.games.length).toBe(first.games.length); // never drops or duplicates a game
+  });
+
+  it("a record that matches no pairing is ignored, not forced onto the bracket", () => {
+    const stray: RecordedPlayoffGame = { round: "wildcard", home: "NYJ", away: "CIN", homeScore: 1, awayScore: 0, winner: "NYJ" };
+    const base = playPlayoffRound(startPlayoffs(5, SEEDING));
+    expect(playPlayoffRound(startPlayoffs(5, SEEDING), [stray]).games).toEqual(base.games);
+  });
+});
