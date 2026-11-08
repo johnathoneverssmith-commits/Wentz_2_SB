@@ -1,0 +1,172 @@
+import { writeFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+import type { LeagueState, SeasonOutcome } from "@/domain";
+import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "./seed.ts";
+import { useStore } from "./store.ts";
+import {
+  checkHoodedFigurePayment, determineHoodedFigureLosers, ensureHoodedFigureEncounters, ensureHoodedFigureState,
+  hoodedFigureEncounterFor, isHoodedFigureUnavailable, redactHoodedFigureFor, resolveHoodedFigureEncounter,
+} from "./hoodedFigure.ts";
+import { HybridSimulationService } from "@/sim/HybridSimulationService";
+
+const OUT = process.env.A5_OUTDIR ?? ".";
+const save = (n: string, o: unknown) => writeFileSync(`${OUT}/${n}.json`, JSON.stringify(o, null, 1));
+function mulberry(seed: number) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+// ---------- E1: eligibility rules on a synthetic league (seed 7, 4000 seasons per cell) ----------
+type Arch = { name: string; p: number };
+const ROUNDS = ["WC", "DIV", "CONF", "SB"] as const;
+function simSeason(rng: () => number, humanP: number[], season: number): SeasonOutcome[] {
+  const cpu = Array.from({ length: 32 - humanP.length }, () => Math.min(0.8, Math.max(0.2, 0.5 + (rng() + rng() + rng() - 1.5) * 0.18)));
+  const ps = [...humanP, ...cpu];
+  const wins = ps.map((p) => { let w = 0; for (let i = 0; i < 17; i++) if (rng() < p) w++; return w; });
+  const order = wins.map((w, i) => ({ w, i, tie: rng() })).sort((a, b) => b.w - a.w || b.tie - a.tie);
+  const made = new Set(order.slice(0, 14).map((x) => x.i));
+  const out: SeasonOutcome[] = [];
+  humanP.forEach((p, i) => {
+    let round: SeasonOutcome["furthestRound"] = "none", won = false;
+    if (made.has(i)) {
+      round = "WC"; const adv = 0.5 + (p - 0.5) * 1.2;
+      for (let r = 0; r < 4; r++) { if (rng() < adv) { if (r === 3) { won = true; round = "SB"; } else round = ROUNDS[r + 1]!; } else break; }
+    }
+    out.push({ season, gmId: "g" + i, teamCode: "T" + i, madePlayoffs: made.has(i), seed: made.has(i) ? 3 : 0, furthestRound: round, wonSuperBowl: won,
+      regularSeasonRecord: { wins: wins[i]!, losses: 17 - wins[i]!, ties: 0 }, eliminationMargin: made.has(i) && !won ? Math.floor(rng() * 20) + 1 : null, pointDifferential: 0, rivalsEliminated: [] });
+  });
+  return out;
+}
+const winPct = (o: SeasonOutcome) => o.regularSeasonRecord.wins / 17;
+const RULES: Record<string, (all: SeasonOutcome[], o: SeasonOutcome) => boolean> = {
+  R0_current: (all, o) => determineHoodedFigureLosers(all).includes(o.teamCode),
+  A_missed_playoffs: (_a, o) => !o.madePlayoffs,
+  B_below_500: (_a, o) => winPct(o) < 0.5,
+  C_relative_AND_below_500: (all, o) => determineHoodedFigureLosers(all).includes(o.teamCode) && winPct(o) < 0.5,
+  D_relative_AND_missed_playoffs: (all, o) => determineHoodedFigureLosers(all).includes(o.teamCode) && !o.madePlayoffs,
+};
+describe("E1 eligibility rules", () => {
+  it("compares rules", () => {
+    const rows: any[] = [];
+    const archs: Arch[] = [{ name: "contender .65", p: 0.65 }, { name: "average .50", p: 0.5 }, { name: "poor .35", p: 0.35 }];
+    const configs: Record<string, Arch[][]> = {
+      "1 human": archs.map((a) => [a]),
+      "2 humans (avg+avg)": [[archs[1]!, archs[1]!]],
+      "2 humans (contender+poor)": [[archs[0]!, archs[2]!]],
+      "4 humans (all avg)": [[archs[1]!, archs[1]!, archs[1]!, archs[1]!]],
+    };
+    const N = 4000;
+    for (const [cfg, variants] of Object.entries(configs)) for (const humans of variants) for (const [rname, rule] of Object.entries(RULES)) {
+      const rng = mulberry(7); const streak = humans.map(() => 0); const elig = humans.map(() => 0); const falsePos = humans.map(() => 0); const champElig = humans.map(() => 0);
+      for (let s = 0; s < N; s++) {
+        const o = simSeason(rng, humans.map((h) => h.p), 2030 + s);
+        o.forEach((x, i) => { const lose = rule(o, x); streak[i] = lose ? streak[i]! + 1 : 0;
+          if (streak[i]! >= 2) { elig[i]!++; if (winPct(x) >= 11 / 17 || x.madePlayoffs) falsePos[i]!++; if (x.wonSuperBowl) champElig[i]!++; } });
+      }
+      humans.forEach((h, i) => rows.push({ cfg, rule: rname, human: h.name, N, appearancesPer10Seasons: +(elig[i]! / N * 10).toFixed(2), shareOfAppearancesAfterPlayoffSeason: elig[i] ? +(falsePos[i]! / elig[i]!).toFixed(3) : 0, appearancesAfterTitle: champElig[i] }));
+    }
+    save("e1_eligibility_rules", rows);
+  });
+});
+
+// ---------- fixtures ----------
+function twoHumans(): LeagueState {
+  const s = createLeague(9001, { ...DEFAULT_CONFIG, humanGmCount: 2 }); fillRosterGaps(s);
+  s.gms[0]!.teamCode = "KC"; s.gms[0]!.isHuman = true; s.gms[1]!.teamCode = "BUF"; s.gms[1]!.isHuman = true; return s;
+}
+
+// ---------- E3: persistence / multiplayer ----------
+describe("E3 persistence & multiplayer", () => {
+  it("round-trip determinism, double resolve, two eligible GMs, redaction", () => {
+    const r: any = {};
+    const mk = () => { const s = twoHumans(); const hf = ensureHoodedFigureState(s); hf.losingStreaks.KC = 2; hf.losingStreaks.BUF = 2; hf.firstNegativeConsumed = true; ensureHoodedFigureEncounters(s); return s; };
+    const A = mk(); const B = JSON.parse(JSON.stringify(mk())) as LeagueState;   // B = saved & reloaded mid-encounter
+    resolveHoodedFigureEncounter(A, "KC", 4); resolveHoodedFigureEncounter(B, "KC", 4);
+    r.reloadMidEncounter_sameOutcome = JSON.stringify(hoodedFigureEncounterFor(A, "KC")) === JSON.stringify(hoodedFigureEncounterFor(B, "KC"));
+    r.kcOutcome = hoodedFigureEncounterFor(A, "KC");
+    // double resolve at the pure-function level (callers are what guard it)
+    const deadBefore = A.teams.KC!.cap.dead ?? 0; resolveHoodedFigureEncounter(A, "KC", 4);
+    r.pureFunctionDoubleCallDeadMoneyDelta = (A.teams.KC!.cap.dead ?? 0) - deadBefore;
+    // second GM resolves too -> both bargains in the same league
+    resolveHoodedFigureEncounter(A, "BUF", 6);
+    r.bothEligibleEncounters = Object.keys(A.hoodedFigure!.encountersBySeason[A.season]!);
+    // what does an ordinary GM (BUF) see of KC's bargain, and what leaks?
+    const viewBuf = JSON.parse(JSON.stringify(A)) as LeagueState; redactHoodedFigureFor(viewBuf, "BUF");
+    const seenEnc = viewBuf.hoodedFigure!.encountersBySeason[A.season]!;
+    r.bufSeesEncountersFor = Object.keys(seenEnc);
+    r.bufSeesKcPayment = seenEnc.KC?.payment ?? null;
+    r.leak_unavailableList_visible_to_BUF = viewBuf.hoodedFigure!.unavailable.length;
+    r.leak_unavailable_teams = [...new Set(viewBuf.hoodedFigure!.unavailable.map((u) => viewBuf.players[u.playerId]?.nfl_team))];
+    r.leak_losingStreaks_visible = viewBuf.hoodedFigure!.losingStreaks;
+    r.leak_thresholds_own = seenEnc.BUF?.thresholds;
+    // ratings changed by a positive branch are in the shared document (visible regardless of redaction)
+    // multi-season: effects cleared when next season's encounters open
+    A.season += 1; const before = A.hoodedFigure!.unavailable.length; ensureHoodedFigureEncounters(A);
+    r.unavailableBeforeNextSeasonEncounterOpen = before; r.unavailableAfter = A.hoodedFigure!.unavailable.length;
+    r.encounterSeasons = Object.keys(A.hoodedFigure!.encountersBySeason);
+    save("e3_persistence_multiplayer", r);
+    expect(r.reloadMidEncounter_sameOutcome).toBe(true);
+  });
+  it("store: second payment refused, cap charged once", async () => {
+    await useStore.getState().newLeague(5, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+    useStore.setState((d: any) => { d.gms[0].teamCode = "GB"; d.teams.GB.controlledBy = { kind: "human", gmId: d.gms[0].id }; fillRosterGaps(d); ensureHoodedFigureState(d).losingStreaks.GB = 2; d.stage = "hoodedFigureEncounter"; ensureHoodedFigureEncounters(d); });
+    const used0 = useStore.getState().teams.GB!.cap.used;
+    const a = useStore.getState().submitHoodedFigurePayment(3); const used1 = useStore.getState().teams.GB!.cap.used;
+    const b = useStore.getState().submitHoodedFigurePayment(3); const used2 = useStore.getState().teams.GB!.cap.used;
+    save("e3b_store_double_submit", { first: a, second: b, capCharged: [used1 - used0, used2 - used1] });
+    expect(b.ok).toBe(false);
+  });
+});
+
+// ---------- E2: is a "1-game" suspension spent in the preseason? (real adapter, request spy) ----------
+describe("E2 preseason consumption", () => {
+  const rep0: any = {};
+  it("looks at the rosters actually posted to the engine", async () => {
+    vi.unstubAllGlobals();
+    const real = globalThis.fetch; const bodies: any[] = [];
+    globalThis.fetch = (async (u: any, init: any) => { if (String(u).includes("simulate-week")) { try { bodies.push(JSON.parse(init.body)); } catch {} } return (real as any)(u, init); }) as any;
+    const st: any = createLeague(33, DEFAULT_CONFIG); fillRosterGaps(st);
+    rep0.schedule = st.schedule.length;
+    const team = "GB"; const qb = Object.values(st.players as Record<string, any>).filter((p) => p.nfl_team === team && p.position === "QB").sort((a, b) => b.overall - a.overall)[0];
+    const preWeeks = [...new Set(st.schedule.filter((g: any) => g.phase === "PRE").map((g: any) => g.week))];
+    const regFirst = Math.min(...st.schedule.filter((g: any) => g.phase === "REG").map((g: any) => g.week));
+    ensureHoodedFigureState(st).unavailable.push({ playerId: qb.id, untilWeek: 1 });
+    const svc = new HybridSimulationService(); const rep: any = { ...rep0, qb: qb.name, preWeeks, regFirst, hadPostedBody: false };
+    const findIn = (b: any) => JSON.stringify(b.rosters?.[team] ?? b.rosters ?? b).includes(qb.id);
+    const preWk = preWeeks[0] as number;
+    await svc.simulateWeek(st, preWk, "PRE"); rep.preGameBodies = bodies.length;
+    rep.qbInRostersPostedForPreseasonWeek1 = bodies.length ? findIn(bodies[bodies.length - 1]) : "no request captured (adapter down?)";
+    await svc.simulateWeek(st, regFirst, "REG");
+    rep.qbInRostersPostedForRegularSeasonWeek1 = bodies.length > 1 ? findIn(bodies[bodies.length - 1]) : "no request captured";
+    rep.isUnavailable = { week1: isHoodedFigureUnavailable(st, qb.id, 1) };
+    save("e2_preseason_consumption", rep);
+  }, 300000);
+});
+
+describe("E3c leak of a negative bargain before the reveal", () => {
+  it("what another GM can read in their copy of the league", () => {
+    const rows: any[] = [];
+    for (let k = 0; k < 40; k++) {
+      const s = twoHumans(); s.season = 2026 + k; const hf = ensureHoodedFigureState(s); hf.losingStreaks.KC = 2; hf.losingStreaks.BUF = 2; hf.firstNegativeConsumed = false;
+      ensureHoodedFigureEncounters(s); resolveHoodedFigureEncounter(s, "BUF", 5);
+      const e = hoodedFigureEncounterFor(s, "BUF")!; if (e.branch !== "negative" || e.outcome?.targetTeam == null) continue;
+      const view = JSON.parse(JSON.stringify(s)) as LeagueState; redactHoodedFigureFor(view, "KC");
+      const ids = view.hoodedFigure!.unavailable.map((u) => u.playerId);
+      rows.push({ k, event: e.outcome!.eventId, kcSeesBufEncounter: !!view.hoodedFigure!.encountersBySeason[s.season]?.BUF, unavailableIdsVisibleToKC: ids.length, teamsOfThose: [...new Set(ids.map((i) => view.players[i]?.nfl_team))], names: ids.slice(0, 3).map((i) => view.players[i]?.name), stage: s.stage });
+    }
+    save("e3c_negative_leak", { trials: rows.length, rows: rows.slice(0, 12) });
+  });
+});
+
+describe("E1b cooldown", () => {
+  it("rule D (relative AND missed playoffs) with and without a 1-season cooldown / streak 3", () => {
+    const rows: any[] = []; const N = 4000;
+    for (const [nm, pp] of [["contender .65", 0.65], ["average .50", 0.5], ["poor .35", 0.35]] as const) for (const variant of ["D streak2", "D streak2 + cooldown1", "D streak3"]) {
+      const rng = mulberry(7); let streak = 0, last = -9, app = 0, consecutive = 0, prev = false;
+      for (let s = 0; s < N; s++) {
+        const o = simSeason(rng, [pp], 2030 + s)[0]!; const lose = !o.madePlayoffs; streak = lose ? streak + 1 : 0;
+        const need = variant === "D streak3" ? 3 : 2; let e = streak >= need; if (variant.includes("cooldown") && s - last <= 1) e = false;
+        if (e) { app++; last = s; if (prev) consecutive++; } prev = e;
+      }
+      rows.push({ team: nm, variant, N, appearancesPer10Seasons: +(app / N * 10).toFixed(2), consecutiveYearShare: app ? +(consecutive / app).toFixed(2) : 0 });
+    }
+    save("e1b_cooldown", rows);
+  });
+});

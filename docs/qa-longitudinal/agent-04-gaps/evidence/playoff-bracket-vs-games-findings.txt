@@ -1,0 +1,1375 @@
+S2027: 2027-PRE-1-WAS-BAL home passYds lines 203 != team 211
+S2027: 2027-PRE-1-WAS-BAL home rushYds lines 144 != team 95
+S2027: 2027-PRE-1-WAS-BAL home recYds lines 203 != team passYards 211
+S2027: 2027-PRE-1-WAS-BAL away passYds lines 241 != team 245
+S2027: 2027-PRE-1-WAS-BAL away rushYds lines 49 != team 44
+S2027: 2027-PRE-1-WAS-BAL away recYds lines 241 != team passYards 245
+S2027: 2027-PRE-2-BAL-ATL home passYds lines 180 != team 184
+S2027: 2027-PRE-2-BAL-ATL home rushYds lines 110 != team 104
+S2027: 2027-PRE-2-BAL-ATL home recYds lines 180 != team passYards 184
+S2027: 2027-PRE-2-BAL-ATL away passYds lines 268 != team 269
+S2027: 2027-PRE-2-BAL-ATL away rushYds lines 132 != team 116
+S2027: 2027-PRE-2-BAL-ATL away recYds lines 268 != team passYards 269
+S2027: 2027-PRE-3-SF-BAL home passYds lines 264 != team 273
+S2027: 2027-PRE-3-SF-BAL home rushYds lines 93 != team 82
+S2027: 2027-PRE-3-SF-BAL home recYds lines 264 != team passYards 273
+S2027: 2027-PRE-3-SF-BAL away passYds lines 205 != team 207
+S2027: 2027-PRE-3-SF-BAL away rushYds lines 86 != team 76
+S2027: 2027-PRE-3-SF-BAL away recYds lines 205 != team passYards 207
+S2027: 2027-REG-1-TEN-BAL home passYds lines 290 != team 278
+S2027: 2027-REG-1-TEN-BAL home rushYds lines 222 != team 198
+S2027: 2027-REG-1-TEN-BAL home recYds lines 290 != team passYards 278
+S2027: 2027-REG-1-TEN-BAL away passYds lines 250 != team 251
+S2027: 2027-REG-1-TEN-BAL away rushYds lines 103 != team 80
+S2027: 2027-REG-1-TEN-BAL away recYds lines 250 != team passYards 251
+S2027: 2027-REG-2-BAL-PIT home passYds lines 163 != team 166
+S2027: 2027-REG-2-BAL-PIT home rushYds lines 100 != team 97
+S2027: 2027-REG-2-BAL-PIT home recYds lines 163 != team passYards 166
+S2027: 2027-REG-2-BAL-PIT away passYds lines 213 != team 214
+S2027: 2027-REG-2-BAL-PIT away rushYds lines 132 != team 103
+S2027: 2027-REG-2-BAL-PIT away recYds lines 213 != team passYards 214
+S2027: 2027-REG-3-BAL-CIN home passYds lines 241 != team 233
+S2027: 2027-REG-3-BAL-CIN home rushYds lines 124 != team 108
+S2027: 2027-REG-3-BAL-CIN home recYds lines 241 != team passYards 233
+S2027: 2027-REG-3-BAL-CIN away rushYds lines 143 != team 145
+S2027: 2027-REG-4-CIN-BAL home rushYds lines 71 != team 73
+S2027: 2027-REG-4-CIN-BAL away passYds lines 218 != team 212
+S2027: 2027-REG-4-CIN-BAL away rushYds lines 120 != team 119
+S2027: 2027-REG-4-CIN-BAL away recYds lines 218 != team passYards 212
+S2027: 2027-REG-5-NO-BAL home passYds lines 243 != team 249
+S2027: 2027-REG-5-NO-BAL home rushYds lines 101 != team 61
+S2027: 2027-REG-5-NO-BAL home recYds lines 243 != team passYards 249
+S2027: 2027-REG-5-NO-BAL away passYds lines 285 != team 284
+S2027: 2027-REG-5-NO-BAL away rushYds lines 264 != team 251
+S2027: 2027-REG-5-NO-BAL away recYds lines 285 != team passYards 284
+S2027: 2027-REG-6-BAL-CAR home passYds lines 196 != team 198
+S2027: 2027-REG-6-BAL-CAR home rushYds lines 118 != team 101
+S2027: 2027-REG-6-BAL-CAR home recYds lines 196 != team passYards 198
+S2027: 2027-REG-6-BAL-CAR away passYds lines 155 != team 152
+S2027: 2027-REG-6-BAL-CAR away rushYds lines 124 != team 111
+S2027: 2027-REG-6-BAL-CAR away recYds lines 155 != team passYards 152
+S2027: 2027-REG-7-BAL-DEN home passYds lines 181 != team 187
+S2027: 2027-REG-7-BAL-DEN home rushYds lines 179 != team 162
+S2027: 2027-REG-7-BAL-DEN home recYds lines 181 != team passYards 187
+S2027: 2027-REG-7-BAL-DEN away passYds lines 237 != team 234
+S2027: 2027-REG-7-BAL-DEN away rushYds lines 182 != team 183
+S2027: 2027-REG-7-BAL-DEN away recYds lines 237 != team passYards 234
+S2027: 2027-REG-8-BAL-ATL home passYds lines 223 != team 227
+S2027: 2027-REG-8-BAL-ATL home rushYds lines 79 != team 76
+S2027: 2027-REG-8-BAL-ATL home recYds lines 223 != team passYards 227
+S2027: 2027-REG-8-BAL-ATL away passYds lines 201 != team 211
+S2027: 2027-REG-8-BAL-ATL away rushYds lines 182 != team 153
+S2027: 2027-REG-8-BAL-ATL away recYds lines 201 != team passYards 211
+S2027: 2027-REG-9-DAL-BAL home passYds lines 303 != team 309
+S2027: 2027-REG-9-DAL-BAL home rushYds lines 54 != team 46
+S2027: 2027-REG-9-DAL-BAL home recYds lines 303 != team passYards 309
+S2027: 2027-REG-9-DAL-BAL away passYds lines 158 != team 161
+S2027: 2027-REG-9-DAL-BAL away rushYds lines 134 != team 79
+S2027: 2027-REG-9-DAL-BAL away recYds lines 158 != team passYards 161
+S2027: 2027-REG-10-BUF-BAL home passYds lines 197 != team 188
+S2027: 2027-REG-10-BUF-BAL home rushYds lines 105 != team 100
+S2027: 2027-REG-10-BUF-BAL home recYds lines 197 != team passYards 188
+S2027: 2027-REG-10-BUF-BAL away passYds lines 193 != team 191
+S2027: 2027-REG-10-BUF-BAL away rushYds lines 161 != team 164
+S2027: 2027-REG-10-BUF-BAL away recYds lines 193 != team passYards 191
+S2027: 2027-REG-11-JAX-BAL home passYds lines 197 != team 198
+S2027: 2027-REG-11-JAX-BAL home rushYds lines 32 != team 35
+S2027: 2027-REG-11-JAX-BAL home recYds lines 197 != team passYards 198
+S2027: 2027-REG-11-JAX-BAL away passYds lines 283 != team 277
+S2027: 2027-REG-11-JAX-BAL away recYds lines 283 != team passYards 277
+S2027: 2027-REG-12-BAL-HOU home passYds lines 349 != team 356
+S2027: 2027-REG-12-BAL-HOU home rushYds lines 140 != team 136
+S2027: 2027-REG-12-BAL-HOU home recYds lines 349 != team passYards 356
+S2027: 2027-REG-12-BAL-HOU away passYds lines 328 != team 337
+S2027: 2027-REG-12-BAL-HOU away rushYds lines 111 != team 103
+S2027: 2027-REG-12-BAL-HOU away recYds lines 328 != team passYards 337
+S2027: 2027-REG-13-BAL-IND home passYds lines 121 != team 125
+S2027: 2027-REG-13-BAL-IND home rushYds lines 288 != team 264
+S2027: 2027-REG-13-BAL-IND home recYds lines 121 != team passYards 125
+S2027: 2027-REG-13-BAL-IND away passYds lines 288 != team 277
+S2027: 2027-REG-13-BAL-IND away rushYds lines 62 != team 63
+S2027: 2027-REG-13-BAL-IND away recYds lines 288 != team passYards 277
+S2027: 2027-REG-15-PIT-BAL home passYds lines 138 != team 139
+S2027: 2027-REG-15-PIT-BAL home rushYds lines 99 != team 92
+S2027: 2027-REG-15-PIT-BAL home recYds lines 138 != team passYards 139
+S2027: 2027-REG-15-PIT-BAL away passYds lines 171 != team 174
+S2027: 2027-REG-15-PIT-BAL away rushYds lines 88 != team 85
+S2027: 2027-REG-15-PIT-BAL away recYds lines 171 != team passYards 174
+S2027: 2027-REG-16-CLE-BAL home passYds lines 281 != team 290
+S2027: 2027-REG-16-CLE-BAL home rushYds lines 146 != team 137
+S2027: 2027-REG-16-CLE-BAL home recYds lines 281 != team passYards 290
+S2027: 2027-REG-16-CLE-BAL away passYds lines 160 != team 162
+S2027: 2027-REG-16-CLE-BAL away rushYds lines 94 != team 92
+S2027: 2027-REG-16-CLE-BAL away recYds lines 160 != team passYards 162
+S2027: 2027-REG-17-TB-BAL home passYds lines 333 != team 330
+S2027: 2027-REG-17-TB-BAL home rushYds lines 153 != team 132
+S2027: 2027-REG-17-TB-BAL home recYds lines 333 != team passYards 330
+S2027: 2027-REG-17-TB-BAL away passYds lines 176 != team 179
+S2027: 2027-REG-17-TB-BAL away rushYds lines 107 != team 95
+S2027: 2027-REG-17-TB-BAL away recYds lines 176 != team passYards 179
+S2027: 2027-REG-18-BAL-CLE home passYds lines 280 != team 283
+S2027: 2027-REG-18-BAL-CLE home rushYds lines 130 != team 132
+S2027: 2027-REG-18-BAL-CLE home recYds lines 280 != team passYards 283
+S2027: 2027-REG-18-BAL-CLE away passYds lines 225 != team 231
+S2027: 2027-REG-18-BAL-CLE away rushYds lines 63 != team 51
+S2027: 2027-REG-18-BAL-CLE away recYds lines 225 != team passYards 231
+S2027: matchup DIV LAC-HOU has NO stored game
+S2027: matchup DIV NYJ-CIN has NO stored game
+S2027: matchup CONF KC-CLE has NO stored game
+S2028-preseason: retired Leojah Kingwright still on BUF
+S2028-preseason: retired Meltan Bianchi still on SF
+S2028-preseason: retired Ammar Targate still on TEN
+S2028-preseason: retired Lanos Yorkby still on BUF
+S2028-preseason: retired Trent Brenman still on CIN
+S2028-preseason: retired Darmon Ellison still on SF
+S2028-preseason: retired Arar Dunner still on CIN
+S2028-preseason: retired Tyler Dalfield still on LV
+S2028-preseason: retired Matrick Jendale still on DEN
+S2028-preseason: retired Calor Calton still on BUF
+S2028-preseason: retired Anlan Evton still on MIN
+S2028-preseason: retired Calcus Westman still on NE
+S2028-preseason: retired Travis Garett still on TEN
+S2028-preseason: retired Branmon Morwood still on IND
+S2028-preseason: retired Barik Thornford still on ATL
+S2028-preseason: retired Alen Flintford still on ARI
+S2028-preseason: retired Jasaldo Sutgate still on HOU
+S2028-preseason: retired Peril Okafor still on SF
+S2028-preseason: retired Evan Okafor still on BUF
+S2028-preseason: retired Travis Quinshaw still on NYJ
+S2028-preseason: retired Trent Halekins still on MIN
+S2028-preseason: retired Patil Okafor still on CIN
+S2028-preseason: retired Nicno Rosser still on CAR
+S2028-preseason: retired Tyrese Brookstead still on JAX
+S2028-preseason: retired Basar Wolfson still on TB
+S2028-preseason: retired Landon Claycroft still on LV
+S2028-preseason: retired Edlo Shawworth still on CAR
+S2028-preseason: retired Ronar Rosswell still on NYG
+S2028-preseason: retired Preston Fenford still on KC
+S2028-preseason: retired Anel Hatcher still on PHI
+S2028-preseason: retired Reyar Tarens still on BUF
+S2028-preseason: retired Kenric Kowalski still on NO
+S2028-preseason: retired Taydan Denford still on DET
+S2028-preseason: retired Kiris Langkins still on BUF
+S2028-preseason: retired Erley Oakdale still on SEA
+S2028-preseason: retired Dunett Randland still on NO
+S2028-preseason: retired Elijah Blackkins still on PHI
+S2028-preseason: retired Gildan Yorkens still on KC
+S2028-preseason: retired Victor Ridley still on NYJ
+S2028-preseason: retired Otis Faulk still on LV
+S2028-preseason: retired Gildon Langsey still on IND
+S2028-preseason: retired Quinin Tarson still on SF
+S2028-preseason: retired Jablen Bramwell still on SF
+S2028-preseason: retired Rafvius Dunwright still on NYG
+S2028-preseason: retired Cole Radware still on CIN
+S2028-preseason: retired Holmar Nashard still on DET
+S2028-preseason: retired Ronett Dalford still on PHI
+S2028-preseason: retired Jarvin Crossland still on BUF
+S2028-preseason: retired Perdon Nashow still on JAX
+S2028-preseason: retired Sean Thornberry still on LV
+S2028-preseason: retired Ranman Bradsey still on TEN
+S2028-preseason: retired Hartin Marshall still on BUF
+S2028-preseason: retired Dartan Hayware still on SF
+S2028-preseason: retired Zanmon Wardard still on BUF
+S2028-preseason: retired Elno Bradins still on KC
+S2028-preseason: retired Hunter Bradwood still on HOU
+S2028-preseason: retired Taymon Stoneton still on CHI
+S2028-preseason: retired Olol Barkfield still on TB
+S2028-preseason: retired Bryro Claygate still on SF
+S2028-preseason: retired Travis Treett still on LV
+S2028-preseason: retired Caleb Sanders still on SF
+S2028-preseason: retired Otis Gilby still on JAX
+S2028-preseason: retired Bryce Wexshaw still on SF
+S2028-preseason: retired Edin Fosens still on MIA
+S2028-preseason: retired Darius Ellison still on TB
+S2028-preseason: retired Landon Nasher still on JAX
+S2028-preseason: retired Felix Bradard still on SF
+S2028-preseason: retired Linol Crosskins still on KC
+S2028-preseason: retired Cameron Milling still on KC
+S2028-preseason: retired Brandon Parkner still on DET
+S2028-preseason: retired Melel Evware still on BUF
+S2028-preseason: retired Quindan Tarberry still on SF
+S2028-preseason: retired Solsey Faulk still on JAX
+S2028-preseason: retired Melton Parkson still on JAX
+S2028-preseason: retired Ranno Holfield still on LAR
+S2028-preseason: retired Trevor Tarner still on SF
+S2028-preseason: retired Talus Adeyemi still on MIN
+S2028-preseason: retired Elto Chaseford still on NO
+S2028-preseason: retired Jaror Brookkins still on DEN
+S2028-preseason: retired David Linmore still on NE
+S2028-preseason: retired Basek Oakland still on LV
+S2028-preseason: retired Lorard Simmons still on NE
+S2028-preseason: retired Reggie Flintwick still on NYG
+S2028-preseason: retired Preston Rosston still on KC
+S2028-preseason: retired Bryce Kingland still on BUF
+S2028-preseason: retired Bento Mbeki still on BUF
+S2028-preseason: retired Samman Thornwell still on SF
+S2028-preseason: retired Matrick Brookberry still on HOU
+S2028-preseason: retired Jordan Ashton still on HOU
+S2028-preseason: retired Valor Whitham still on LV
+S2028-preseason: retired Keenan Carrware still on NYG
+S2028-preseason: retired Tyrese Denford still on DAL
+S2028-preseason: retired Patett Blackins still on IND
+S2028-preseason: retired Trent Gilow still on JAX
+S2028-preseason: retired Benun Rossell still on SF
+S2028-preseason: retired Zebley Castellanos still on LV
+S2028-preseason: retired Orden Haystead still on TEN
+S2028-preseason: retired Terrence Parkstead still on PIT
+S2028-preseason: retired Corey Rhodes still on DAL
+S2028-preseason: retired Barlin Gilins still on DEN
+S2028-preseason: retired Neltan Kinridge still on NE
+S2028-preseason: retired Reggie Adeyemi still on DAL
+S2028-preseason: retired Andre Gilford still on CIN
+S2028-preseason: retired Ranes Fosby still on ATL
+S2028-preseason: retired Perlin Chaseware still on LV
+S2028-preseason: retired Zebro Carrow still on NE
+S2028-preseason: retired Jarlan Yorkard still on IND
+S2028-preseason: retired Melvon Brenwick still on DET
+S2028-preseason: retired Akor Nwosu still on BAL
+S2028-preseason: retired Baril Marshall still on KC
+S2028-preseason: retired Cedric Jenner still on CAR
+S2028-preseason: retired Solel Tarell still on PIT
+S2028-preseason: retired Cassey Wexwood still on TB
+S2028-preseason: retired Coran Ellison still on TEN
+S2028-preseason: retired Leojah Kingwright still on BUF
+S2028-preseason: retired Meltan Bianchi still on SF
+S2028-preseason: retired Ammar Targate still on TEN
+S2028-preseason: retired Lanos Yorkby still on BUF
+S2028-preseason: retired Trent Brenman still on CIN
+S2028-preseason: retired Darmon Ellison still on SF
+S2028-preseason: retired Arar Dunner still on CIN
+S2028-preseason: retired Tyler Dalfield still on LV
+S2028-preseason: retired Matrick Jendale still on DEN
+S2028-preseason: retired Calor Calton still on BUF
+S2028-preseason: retired Anlan Evton still on MIN
+S2028-preseason: retired Calcus Westman still on NE
+S2028-preseason: retired Travis Garett still on TEN
+S2028-preseason: retired Branmon Morwood still on IND
+S2028-preseason: retired Barik Thornford still on ATL
+S2028-preseason: retired Alen Flintford still on ARI
+S2028-preseason: retired Jasaldo Sutgate still on HOU
+S2028-preseason: retired Peril Okafor still on SF
+S2028-preseason: retired Evan Okafor still on BUF
+S2028-preseason: retired Travis Quinshaw still on NYJ
+S2028-preseason: retired Trent Halekins still on MIN
+S2028-preseason: retired Patil Okafor still on CIN
+S2028-preseason: retired Nicno Rosser still on CAR
+S2028-preseason: retired Tyrese Brookstead still on JAX
+S2028-preseason: retired Basar Wolfson still on TB
+S2028-preseason: retired Landon Claycroft still on LV
+S2028-preseason: retired Edlo Shawworth still on CAR
+S2028-preseason: retired Ronar Rosswell still on NYG
+S2028-preseason: retired Preston Fenford still on KC
+S2028-preseason: retired Anel Hatcher still on PHI
+S2028-preseason: retired Reyar Tarens still on BUF
+S2028-preseason: retired Kenric Kowalski still on NO
+S2028-preseason: retired Taydan Denford still on DET
+S2028-preseason: retired Kiris Langkins still on BUF
+S2028-preseason: retired Erley Oakdale still on SEA
+S2028-preseason: retired Dunett Randland still on NO
+S2028-preseason: retired Elijah Blackkins still on PHI
+S2028-preseason: retired Gildan Yorkens still on KC
+S2028-preseason: retired Victor Ridley still on NYJ
+S2028-preseason: retired Otis Faulk still on LV
+S2028-preseason: retired Gildon Langsey still on IND
+S2028-preseason: retired Quinin Tarson still on SF
+S2028-preseason: retired Jablen Bramwell still on SF
+S2028-preseason: retired Rafvius Dunwright still on NYG
+S2028-preseason: retired Cole Radware still on CIN
+S2028-preseason: retired Holmar Nashard still on DET
+S2028-preseason: retired Ronett Dalford still on PHI
+S2028-preseason: retired Jarvin Crossland still on BUF
+S2028-preseason: retired Perdon Nashow still on JAX
+S2028-preseason: retired Sean Thornberry still on LV
+S2028-preseason: retired Ranman Bradsey still on TEN
+S2028-preseason: retired Hartin Marshall still on BUF
+S2028-preseason: retired Dartan Hayware still on SF
+S2028-preseason: retired Zanmon Wardard still on BUF
+S2028-preseason: retired Elno Bradins still on KC
+S2028-preseason: retired Hunter Bradwood still on HOU
+S2028-preseason: retired Taymon Stoneton still on CHI
+S2028-preseason: retired Olol Barkfield still on TB
+S2028-preseason: retired Bryro Claygate still on SF
+S2028-preseason: retired Travis Treett still on LV
+S2028-preseason: retired Caleb Sanders still on SF
+S2028-preseason: retired Otis Gilby still on JAX
+S2028-preseason: retired Bryce Wexshaw still on SF
+S2028-preseason: retired Edin Fosens still on MIA
+S2028-preseason: retired Darius Ellison still on TB
+S2028-preseason: retired Landon Nasher still on JAX
+S2028-preseason: retired Felix Bradard still on SF
+S2028-preseason: retired Linol Crosskins still on KC
+S2028-preseason: retired Cameron Milling still on KC
+S2028-preseason: retired Brandon Parkner still on DET
+S2028-preseason: retired Melel Evware still on BUF
+S2028-preseason: retired Quindan Tarberry still on SF
+S2028-preseason: retired Solsey Faulk still on JAX
+S2028-preseason: retired Melton Parkson still on JAX
+S2028-preseason: retired Ranno Holfield still on LAR
+S2028-preseason: retired Trevor Tarner still on SF
+S2028-preseason: retired Talus Adeyemi still on MIN
+S2028-preseason: retired Elto Chaseford still on NO
+S2028-preseason: retired Jaror Brookkins still on DEN
+S2028-preseason: retired David Linmore still on NE
+S2028-preseason: retired Basek Oakland still on LV
+S2028-preseason: retired Lorard Simmons still on NE
+S2028-preseason: retired Reggie Flintwick still on NYG
+S2028-preseason: retired Preston Rosston still on KC
+S2028-preseason: retired Bryce Kingland still on BUF
+S2028-preseason: retired Bento Mbeki still on BUF
+S2028-preseason: retired Samman Thornwell still on SF
+S2028-preseason: retired Matrick Brookberry still on HOU
+S2028-preseason: retired Jordan Ashton still on HOU
+S2028-preseason: retired Valor Whitham still on LV
+S2028-preseason: retired Keenan Carrware still on NYG
+S2028-preseason: retired Tyrese Denford still on DAL
+S2028-preseason: retired Patett Blackins still on IND
+S2028-preseason: retired Trent Gilow still on JAX
+S2028-preseason: retired Benun Rossell still on SF
+S2028-preseason: retired Zebley Castellanos still on LV
+S2028-preseason: retired Orden Haystead still on TEN
+S2028-preseason: retired Terrence Parkstead still on PIT
+S2028-preseason: retired Corey Rhodes still on DAL
+S2028-preseason: retired Barlin Gilins still on DEN
+S2028-preseason: retired Neltan Kinridge still on NE
+S2028-preseason: retired Reggie Adeyemi still on DAL
+S2028-preseason: retired Andre Gilford still on CIN
+S2028-preseason: retired Ranes Fosby still on ATL
+S2028-preseason: retired Perlin Chaseware still on LV
+S2028-preseason: retired Zebro Carrow still on NE
+S2028-preseason: retired Jarlan Yorkard still on IND
+S2028-preseason: retired Melvon Brenwick still on DET
+S2028-preseason: retired Akor Nwosu still on BAL
+S2028-preseason: retired Baril Marshall still on KC
+S2028-preseason: retired Cedric Jenner still on CAR
+S2028-preseason: retired Solel Tarell still on PIT
+S2028-preseason: retired Cassey Wexwood still on TB
+S2028-preseason: retired Coran Ellison still on TEN
+S2028-preseason: retired Leojah Kingwright still on BUF
+S2028-preseason: retired Meltan Bianchi still on SF
+S2028-preseason: retired Ammar Targate still on TEN
+S2028-preseason: retired Lanos Yorkby still on BUF
+S2028-preseason: retired Trent Brenman still on CIN
+S2028-preseason: retired Darmon Ellison still on SF
+S2028-preseason: retired Arar Dunner still on CIN
+S2028-preseason: retired Tyler Dalfield still on LV
+S2028-preseason: retired Matrick Jendale still on DEN
+S2028-preseason: retired Calor Calton still on BUF
+S2028-preseason: retired Anlan Evton still on MIN
+S2028-preseason: retired Calcus Westman still on NE
+S2028-preseason: retired Travis Garett still on TEN
+S2028-preseason: retired Branmon Morwood still on IND
+S2028-preseason: retired Barik Thornford still on ATL
+S2028-preseason: retired Alen Flintford still on ARI
+S2028-preseason: retired Jasaldo Sutgate still on HOU
+S2028-preseason: retired Peril Okafor still on SF
+S2028-preseason: retired Evan Okafor still on BUF
+S2028-preseason: retired Travis Quinshaw still on NYJ
+S2028-preseason: retired Trent Halekins still on MIN
+S2028-preseason: retired Patil Okafor still on CIN
+S2028-preseason: retired Nicno Rosser still on CAR
+S2028-preseason: retired Tyrese Brookstead still on JAX
+S2028-preseason: retired Basar Wolfson still on TB
+S2028-preseason: retired Landon Claycroft still on LV
+S2028-preseason: retired Edlo Shawworth still on CAR
+S2028-preseason: retired Ronar Rosswell still on NYG
+S2028-preseason: retired Preston Fenford still on KC
+S2028-preseason: retired Anel Hatcher still on PHI
+S2028-preseason: retired Reyar Tarens still on BUF
+S2028-preseason: retired Kenric Kowalski still on NO
+S2028-preseason: retired Taydan Denford still on DET
+S2028-preseason: retired Kiris Langkins still on BUF
+S2028-preseason: retired Erley Oakdale still on SEA
+S2028-preseason: retired Dunett Randland still on NO
+S2028-preseason: retired Elijah Blackkins still on PHI
+S2028-preseason: retired Gildan Yorkens still on KC
+S2028-preseason: retired Victor Ridley still on NYJ
+S2028-preseason: retired Otis Faulk still on LV
+S2028-preseason: retired Gildon Langsey still on IND
+S2028-preseason: retired Quinin Tarson still on SF
+S2028-preseason: retired Jablen Bramwell still on SF
+S2028-preseason: retired Rafvius Dunwright still on NYG
+S2028-preseason: retired Cole Radware still on CIN
+S2028-preseason: retired Holmar Nashard still on DET
+S2028-preseason: retired Ronett Dalford still on PHI
+S2028-preseason: retired Jarvin Crossland still on BUF
+S2028-preseason: retired Perdon Nashow still on JAX
+S2028-preseason: retired Sean Thornberry still on LV
+S2028-preseason: retired Ranman Bradsey still on TEN
+S2028-preseason: retired Hartin Marshall still on BUF
+S2028-preseason: retired Dartan Hayware still on SF
+S2028-preseason: retired Zanmon Wardard still on BUF
+S2028-preseason: retired Elno Bradins still on KC
+S2028-preseason: retired Hunter Bradwood still on HOU
+S2028-preseason: retired Taymon Stoneton still on CHI
+S2028-preseason: retired Olol Barkfield still on TB
+S2028-preseason: retired Bryro Claygate still on SF
+S2028-preseason: retired Travis Treett still on LV
+S2028-preseason: retired Caleb Sanders still on SF
+S2028-preseason: retired Otis Gilby still on JAX
+S2028-preseason: retired Bryce Wexshaw still on SF
+S2028-preseason: retired Edin Fosens still on MIA
+S2028-preseason: retired Darius Ellison still on TB
+S2028-preseason: retired Landon Nasher still on JAX
+S2028-preseason: retired Felix Bradard still on SF
+S2028-preseason: retired Linol Crosskins still on KC
+S2028-preseason: retired Cameron Milling still on KC
+S2028-preseason: retired Brandon Parkner still on DET
+S2028-preseason: retired Melel Evware still on BUF
+S2028-preseason: retired Quindan Tarberry still on SF
+S2028-preseason: retired Solsey Faulk still on JAX
+S2028-preseason: retired Melton Parkson still on JAX
+S2028-preseason: retired Ranno Holfield still on LAR
+S2028-preseason: retired Trevor Tarner still on SF
+S2028-preseason: retired Talus Adeyemi still on MIN
+S2028-preseason: retired Elto Chaseford still on NO
+S2028-preseason: retired Jaror Brookkins still on DEN
+S2028-preseason: retired David Linmore still on NE
+S2028-preseason: retired Basek Oakland still on LV
+S2028-preseason: retired Lorard Simmons still on NE
+S2028-preseason: retired Reggie Flintwick still on NYG
+S2028-preseason: retired Preston Rosston still on KC
+S2028-preseason: retired Bryce Kingland still on BUF
+S2028-preseason: retired Bento Mbeki still on BUF
+S2028-preseason: retired Samman Thornwell still on SF
+S2028-preseason: retired Matrick Brookberry still on HOU
+S2028-preseason: retired Jordan Ashton still on HOU
+S2028-preseason: retired Valor Whitham still on LV
+S2028-preseason: retired Keenan Carrware still on NYG
+S2028-preseason: retired Tyrese Denford still on DAL
+S2028-preseason: retired Patett Blackins still on IND
+S2028-preseason: retired Trent Gilow still on JAX
+S2028-preseason: retired Benun Rossell still on SF
+S2028-preseason: retired Zebley Castellanos still on LV
+S2028-preseason: retired Orden Haystead still on TEN
+S2028-preseason: retired Terrence Parkstead still on PIT
+S2028-preseason: retired Corey Rhodes still on DAL
+S2028-preseason: retired Barlin Gilins still on DEN
+S2028-preseason: retired Neltan Kinridge still on NE
+S2028-preseason: retired Reggie Adeyemi still on DAL
+S2028-preseason: retired Andre Gilford still on CIN
+S2028-preseason: retired Ranes Fosby still on ATL
+S2028-preseason: retired Perlin Chaseware still on LV
+S2028-preseason: retired Zebro Carrow still on NE
+S2028-preseason: retired Jarlan Yorkard still on IND
+S2028-preseason: retired Melvon Brenwick still on DET
+S2028-preseason: retired Akor Nwosu still on BAL
+S2028-preseason: retired Baril Marshall still on KC
+S2028-preseason: retired Cedric Jenner still on CAR
+S2028-preseason: retired Solel Tarell still on PIT
+S2028-preseason: retired Cassey Wexwood still on TB
+S2028-preseason: retired Coran Ellison still on TEN
+S2028: 2028-PRE-1-CIN-BAL home passYds lines 156 != team 154
+S2028: 2028-PRE-1-CIN-BAL home rushYds lines 157 != team 128
+S2028: 2028-PRE-1-CIN-BAL home recYds lines 156 != team passYards 154
+S2028: 2028-PRE-1-CIN-BAL away passYds lines 236 != team 229
+S2028: 2028-PRE-1-CIN-BAL away rushYds lines 50 != team 53
+S2028: 2028-PRE-1-CIN-BAL away recYds lines 236 != team passYards 229
+S2028: 2028-PRE-2-NYJ-BAL home passYds lines 167 != team 165
+S2028: 2028-PRE-2-NYJ-BAL home rushYds lines 79 != team 73
+S2028: 2028-PRE-2-NYJ-BAL home recYds lines 167 != team passYards 165
+S2028: 2028-PRE-2-NYJ-BAL away passYds lines 227 != team 232
+S2028: 2028-PRE-2-NYJ-BAL away rushYds lines 102 != team 97
+S2028: 2028-PRE-2-NYJ-BAL away recYds lines 227 != team passYards 232
+S2028: 2028-PRE-3-BAL-NYJ home passYds lines 242 != team 249
+S2028: 2028-PRE-3-BAL-NYJ home rushYds lines 72 != team 69
+S2028: 2028-PRE-3-BAL-NYJ home recYds lines 242 != team passYards 249
+S2028: 2028-PRE-3-BAL-NYJ away passYds lines 273 != team 271
+S2028: 2028-PRE-3-BAL-NYJ away rushYds lines 243 != team 241
+S2028: 2028-PRE-3-BAL-NYJ away recYds lines 273 != team passYards 271
+S2028: 2028-REG-1-TEN-BAL home passYds lines 211 != team 205
+S2028: 2028-REG-1-TEN-BAL home rushYds lines 113 != team 115
+S2028: 2028-REG-1-TEN-BAL home recYds lines 211 != team passYards 205
+S2028: 2028-REG-1-TEN-BAL away passYds lines 243 != team 241
+S2028: 2028-REG-1-TEN-BAL away rushYds lines 44 != team 35
+S2028: 2028-REG-1-TEN-BAL away recYds lines 243 != team passYards 241
+S2028: 2028-REG-2-BAL-PIT home passYds lines 277 != team 279
+S2028: 2028-REG-2-BAL-PIT home rushYds lines 208 != team 166
+S2028: 2028-REG-2-BAL-PIT home recYds lines 277 != team passYards 279
+S2028: 2028-REG-2-BAL-PIT away passYds lines 236 != team 231
+S2028: 2028-REG-2-BAL-PIT away rushYds lines 125 != team 102
+S2028: 2028-REG-2-BAL-PIT away recYds lines 236 != team passYards 231
+S2028: 2028-REG-3-BAL-CIN home passYds lines 315 != team 303
+S2028: 2028-REG-3-BAL-CIN home rushYds lines 120 != team 103
+S2028: 2028-REG-3-BAL-CIN home recYds lines 315 != team passYards 303
+S2028: 2028-REG-3-BAL-CIN away passYds lines 226 != team 230
+S2028: 2028-REG-3-BAL-CIN away rushYds lines 153 != team 131
+S2028: 2028-REG-3-BAL-CIN away recYds lines 226 != team passYards 230
+S2028: 2028-REG-4-CIN-BAL home passYds lines 277 != team 274
+S2028: 2028-REG-4-CIN-BAL home rushYds lines 192 != team 179
+S2028: 2028-REG-4-CIN-BAL home recYds lines 277 != team passYards 274
+S2028: 2028-REG-4-CIN-BAL away passYds lines 261 != team 254
+S2028: 2028-REG-4-CIN-BAL away rushYds lines 68 != team 65
+S2028: 2028-REG-4-CIN-BAL away recYds lines 261 != team passYards 254
+S2028: 2028-REG-5-NO-BAL home passYds lines 295 != team 302
+S2028: 2028-REG-5-NO-BAL home rushYds lines 159 != team 154
+S2028: 2028-REG-5-NO-BAL home recYds lines 295 != team passYards 302
+S2028: 2028-REG-5-NO-BAL away passYds lines 195 != team 194
+S2028: 2028-REG-5-NO-BAL away rushYds lines 141 != team 108
+S2028: 2028-REG-5-NO-BAL away recYds lines 195 != team passYards 194
+S2028: 2028-REG-6-BAL-CAR home passYds lines 248 != team 245
+S2028: 2028-REG-6-BAL-CAR home rushYds lines 177 != team 160
+S2028: 2028-REG-6-BAL-CAR home recYds lines 248 != team passYards 245
+S2028: 2028-REG-6-BAL-CAR away passYds lines 217 != team 219
+S2028: 2028-REG-6-BAL-CAR away rushYds lines 222 != team 186
+S2028: 2028-REG-6-BAL-CAR away recYds lines 217 != team passYards 219
+S2028: 2028-REG-7-BAL-DEN home passYds lines 88 != team 89
+S2028: 2028-REG-7-BAL-DEN home rushYds lines 74 != team 72
+S2028: 2028-REG-7-BAL-DEN home recYds lines 88 != team passYards 89
+S2028: 2028-REG-7-BAL-DEN away passYds lines 153 != team 155
+S2028: 2028-REG-7-BAL-DEN away rushYds lines 188 != team 159
+S2028: 2028-REG-7-BAL-DEN away recYds lines 153 != team passYards 155
+S2028: 2028-REG-8-BAL-ATL home passYds lines 233 != team 229
+S2028: 2028-REG-8-BAL-ATL home rushYds lines 70 != team 65
+S2028: 2028-REG-8-BAL-ATL home recYds lines 233 != team passYards 229
+S2028: 2028-REG-8-BAL-ATL away passYds lines 367 != team 364
+S2028: 2028-REG-8-BAL-ATL away rushYds lines 174 != team 122
+S2028: 2028-REG-8-BAL-ATL away recYds lines 367 != team passYards 364
+S2028: 2028-REG-9-DAL-BAL home passYds lines 170 != team 164
+S2028: 2028-REG-9-DAL-BAL home rushYds lines 80 != team 68
+S2028: 2028-REG-9-DAL-BAL home recYds lines 170 != team passYards 164
+S2028: 2028-REG-9-DAL-BAL away passYds lines 180 != team 184
+S2028: 2028-REG-9-DAL-BAL away rushYds lines 47 != team 43
+S2028: 2028-REG-9-DAL-BAL away recYds lines 180 != team passYards 184
+S2028: 2028-REG-10-BUF-BAL home passYds lines 298 != team 294
+S2028: 2028-REG-10-BUF-BAL home rushYds lines 144 != team 110
+S2028: 2028-REG-10-BUF-BAL home recYds lines 298 != team passYards 294
+S2028: 2028-REG-10-BUF-BAL away passYds lines 359 != team 363
+S2028: 2028-REG-10-BUF-BAL away rushYds lines 153 != team 137
+S2028: 2028-REG-10-BUF-BAL away recYds lines 359 != team passYards 363
+S2028: 2028-REG-11-JAX-BAL home passYds lines 270 != team 260
+S2028: 2028-REG-11-JAX-BAL home rushYds lines 90 != team 79
+S2028: 2028-REG-11-JAX-BAL home recYds lines 270 != team passYards 260
+S2028: 2028-REG-11-JAX-BAL away passYds lines 162 != team 166
+S2028: 2028-REG-11-JAX-BAL away recYds lines 162 != team passYards 166
+S2028: 2028-REG-12-BAL-HOU home passYds lines 275 != team 276
+S2028: 2028-REG-12-BAL-HOU home rushYds lines 98 != team 92
+S2028: 2028-REG-12-BAL-HOU home recYds lines 275 != team passYards 276
+S2028: 2028-REG-12-BAL-HOU away passYds lines 156 != team 158
+S2028: 2028-REG-12-BAL-HOU away rushYds lines 127 != team 83
+S2028: 2028-REG-12-BAL-HOU away recYds lines 156 != team passYards 158
+S2028: 2028-REG-13-BAL-IND home passYds lines 275 != team 274
+S2028: 2028-REG-13-BAL-IND home recYds lines 275 != team passYards 274
+S2028: 2028-REG-13-BAL-IND away passYds lines 223 != team 216
+S2028: 2028-REG-13-BAL-IND away rushYds lines 140 != team 134
+S2028: 2028-REG-13-BAL-IND away recYds lines 223 != team passYards 216
+S2028: 2028-REG-15-PIT-BAL home passYds lines 260 != team 270
+S2028: 2028-REG-15-PIT-BAL home rushYds lines 110 != team 98
+S2028: 2028-REG-15-PIT-BAL home recYds lines 260 != team passYards 270
+S2028: 2028-REG-15-PIT-BAL away rushYds lines 281 != team 265
+S2028: 2028-REG-16-CLE-BAL home passYds lines 251 != team 258
+S2028: 2028-REG-16-CLE-BAL home rushYds lines 124 != team 111
+S2028: 2028-REG-16-CLE-BAL home recYds lines 251 != team passYards 258
+S2028: 2028-REG-16-CLE-BAL away passYds lines 277 != team 276
+S2028: 2028-REG-16-CLE-BAL away rushYds lines 109 != team 80
+S2028: 2028-REG-16-CLE-BAL away recYds lines 277 != team passYards 276
+S2028: 2028-REG-17-TB-BAL home passYds lines 220 != team 226
+S2028: 2028-REG-17-TB-BAL home rushYds lines 199 != team 197
+S2028: 2028-REG-17-TB-BAL home recYds lines 220 != team passYards 226
+S2028: 2028-REG-17-TB-BAL away passYds lines 107 != team 109
+S2028: 2028-REG-17-TB-BAL away rushYds lines 144 != team 105
+S2028: 2028-REG-17-TB-BAL away recYds lines 107 != team passYards 109
+S2028: 2028-REG-18-BAL-CLE home passYds lines 364 != team 362
+S2028: 2028-REG-18-BAL-CLE home rushYds lines 126 != team 129
+S2028: 2028-REG-18-BAL-CLE home recYds lines 364 != team passYards 362
+S2028: 2028-REG-18-BAL-CLE away passYds lines 132 != team 136
+S2028: 2028-REG-18-BAL-CLE away rushYds lines 206 != team 205
+S2028: 2028-REG-18-BAL-CLE away recYds lines 132 != team passYards 136
+S2028: matchup CONF CIN-DEN has NO stored game
+S2029-preseason: retired Melrick Faulk still on BAL
+S2029-preseason: retired Reggie Jennings still on NO
+S2029-preseason: retired Leorick Fenwell still on JAX
+S2029-preseason: retired Aler Haystead still on MIN
+S2029-preseason: retired Devan Linow still on TEN
+S2029-preseason: retired Karlen Thornkins still on NYJ
+S2029-preseason: retired Ranar Wolfner still on HOU
+S2029-preseason: retired Andre Marley still on DET
+S2029-preseason: retired Ronric Ellison still on DET
+S2029-preseason: retired Grant Pener still on JAX
+S2029-preseason: retired Felix Harson still on LV
+S2029-preseason: retired Wesik Milling still on CAR
+S2029-preseason: retired Casvius Harley still on DAL
+S2029-preseason: retired Hamdrick Kowalski still on DEN
+S2029-preseason: retired Reylin Mayfield still on DEN
+S2029-preseason: retired Victor Bradcroft still on TB
+S2029-preseason: retired Eddan Evham still on TEN
+S2029-preseason: retired Dominic Gorham still on LV
+S2029-preseason: retired Salden Linwright still on SF
+S2029-preseason: retired Oron Whitaker still on KC
+S2029-preseason: retired Alin Tarmont still on NYJ
+S2029-preseason: retired Nelvin Penberry still on PHI
+S2029-preseason: retired Felix Fosdale still on GB
+S2029-preseason: retired Samik Harworth still on MIA
+S2029-preseason: retired Isaldo Okafor still on LV
+S2029-preseason: retired Valan Simmons still on NYJ
+S2029-preseason: retired Sean Dunfield still on TB
+S2029-preseason: retired Maror Gilow still on JAX
+S2029-preseason: retired Casett Randens still on MIA
+S2029-preseason: retired Rafcus Westlow still on NO
+S2029-preseason: retired Robric Radner still on NYG
+S2029-preseason: retired Isdre Kellner still on CLE
+S2029-preseason: retired Mason Fenmont still on DAL
+S2029-preseason: retired Bartan Gorlow still on SEA
+S2029-preseason: retired David Langcroft still on CIN
+S2029-preseason: retired Reggie Whitwood still on NO
+S2029-preseason: retired Travis Millton still on MIA
+S2029-preseason: retired Marel Corell still on NE
+S2029-preseason: retired Loron Flinting still on SEA
+S2029-preseason: retired Domto Draketon still on TB
+S2029-preseason: retired Matmin Oakstead still on KC
+S2029-preseason: retired Bryor Westware still on NO
+S2029-preseason: retired Basett Flintson still on NYJ
+S2029-preseason: retired Dunley Denard still on LAR
+S2029-preseason: retired Hunter Sutfield still on LV
+S2029-preseason: retired Reyik Drakeberry still on BAL
+S2029-preseason: retired David Mbeki still on BUF
+S2029-preseason: retired Hollan Ellison still on JAX
+S2029-preseason: retired Marun Gordale still on JAX
+S2029-preseason: retired Travis Marwell still on DAL
+S2029-preseason: retired Wade Holstead still on SF
+S2029-preseason: retired Olel Langwell still on DAL
+S2029-preseason: retired Leoric Crossstead still on PHI
+S2029-preseason: retired Matek Treard still on CIN
+S2029-preseason: retired Aman Grayberry still on NE
+S2029-preseason: retired Gavvon Denwick still on NYG
+S2029-preseason: retired Reyron Parkware still on ARI
+S2029-preseason: retired Melno Vailmont still on DAL
+S2029-preseason: retired Dante Simmons still on ATL
+S2029-preseason: retired Kelmar Wolfwood still on SEA
+S2029-preseason: retired Asus Stonedale still on NYG
+S2029-preseason: retired Jablo Mayfield still on DAL
+S2029-preseason: retired Victor Garland still on CHI
+S2029-preseason: retired Salar Nwosu still on BAL
+S2029-preseason: retired Jarus Stonesey still on MIN
+S2029-preseason: retired Victor Wexmont still on BAL
+S2029-preseason: retired Lindre Fosner still on DET
+S2029-preseason: retired Trero Haleberry still on CIN
+S2029-preseason: retired Danrick Gilins still on LAR
+S2029-preseason: retired Sallan Kinger still on MIA
+S2029-preseason: retired Sevik Carrley still on DAL
+S2029-preseason: retired Valis Pensey still on CIN
+S2029-preseason: retired Natmin Chaseridge still on LV
+S2029-preseason: retired Trerick Clayware still on CHI
+S2029-preseason: retired Dunlo Millworth still on NYG
+S2029-preseason: retired Melrick Faulk still on BAL
+S2029-preseason: retired Reggie Jennings still on NO
+S2029-preseason: retired Leorick Fenwell still on JAX
+S2029-preseason: retired Aler Haystead still on MIN
+S2029-preseason: retired Devan Linow still on TEN
+S2029-preseason: retired Karlen Thornkins still on NYJ
+S2029-preseason: retired Ranar Wolfner still on HOU
+S2029-preseason: retired Andre Marley still on DET
+S2029-preseason: retired Ronric Ellison still on DET
+S2029-preseason: retired Grant Pener still on JAX
+S2029-preseason: retired Felix Harson still on LV
+S2029-preseason: retired Wesik Milling still on CAR
+S2029-preseason: retired Casvius Harley still on DAL
+S2029-preseason: retired Hamdrick Kowalski still on DEN
+S2029-preseason: retired Reylin Mayfield still on DEN
+S2029-preseason: retired Victor Bradcroft still on TB
+S2029-preseason: retired Eddan Evham still on TEN
+S2029-preseason: retired Dominic Gorham still on LV
+S2029-preseason: retired Salden Linwright still on SF
+S2029-preseason: retired Oron Whitaker still on KC
+S2029-preseason: retired Alin Tarmont still on NYJ
+S2029-preseason: retired Nelvin Penberry still on PHI
+S2029-preseason: retired Felix Fosdale still on GB
+S2029-preseason: retired Samik Harworth still on MIA
+S2029-preseason: retired Isaldo Okafor still on LV
+S2029-preseason: retired Valan Simmons still on NYJ
+S2029-preseason: retired Sean Dunfield still on TB
+S2029-preseason: retired Maror Gilow still on JAX
+S2029-preseason: retired Casett Randens still on MIA
+S2029-preseason: retired Rafcus Westlow still on NO
+S2029-preseason: retired Robric Radner still on NYG
+S2029-preseason: retired Isdre Kellner still on CLE
+S2029-preseason: retired Mason Fenmont still on DAL
+S2029-preseason: retired Bartan Gorlow still on SEA
+S2029-preseason: retired David Langcroft still on CIN
+S2029-preseason: retired Reggie Whitwood still on NO
+S2029-preseason: retired Travis Millton still on MIA
+S2029-preseason: retired Marel Corell still on NE
+S2029-preseason: retired Loron Flinting still on SEA
+S2029-preseason: retired Domto Draketon still on TB
+S2029-preseason: retired Matmin Oakstead still on KC
+S2029-preseason: retired Bryor Westware still on NO
+S2029-preseason: retired Basett Flintson still on NYJ
+S2029-preseason: retired Dunley Denard still on LAR
+S2029-preseason: retired Hunter Sutfield still on LV
+S2029-preseason: retired Reyik Drakeberry still on BAL
+S2029-preseason: retired David Mbeki still on BUF
+S2029-preseason: retired Hollan Ellison still on JAX
+S2029-preseason: retired Marun Gordale still on JAX
+S2029-preseason: retired Travis Marwell still on DAL
+S2029-preseason: retired Wade Holstead still on SF
+S2029-preseason: retired Olel Langwell still on DAL
+S2029-preseason: retired Leoric Crossstead still on PHI
+S2029-preseason: retired Matek Treard still on CIN
+S2029-preseason: retired Aman Grayberry still on NE
+S2029-preseason: retired Gavvon Denwick still on NYG
+S2029-preseason: retired Reyron Parkware still on ARI
+S2029-preseason: retired Melno Vailmont still on DAL
+S2029-preseason: retired Dante Simmons still on ATL
+S2029-preseason: retired Kelmar Wolfwood still on SEA
+S2029-preseason: retired Asus Stonedale still on NYG
+S2029-preseason: retired Jablo Mayfield still on DAL
+S2029-preseason: retired Victor Garland still on CHI
+S2029-preseason: retired Salar Nwosu still on BAL
+S2029-preseason: retired Jarus Stonesey still on MIN
+S2029-preseason: retired Victor Wexmont still on BAL
+S2029-preseason: retired Lindre Fosner still on DET
+S2029-preseason: retired Trero Haleberry still on CIN
+S2029-preseason: retired Danrick Gilins still on LAR
+S2029-preseason: retired Sallan Kinger still on MIA
+S2029-preseason: retired Sevik Carrley still on DAL
+S2029-preseason: retired Valis Pensey still on CIN
+S2029-preseason: retired Natmin Chaseridge still on LV
+S2029-preseason: retired Trerick Clayware still on CHI
+S2029-preseason: retired Dunlo Millworth still on NYG
+S2029-preseason: retired Melrick Faulk still on BAL
+S2029-preseason: retired Reggie Jennings still on NO
+S2029-preseason: retired Leorick Fenwell still on JAX
+S2029-preseason: retired Aler Haystead still on MIN
+S2029-preseason: retired Devan Linow still on TEN
+S2029-preseason: retired Karlen Thornkins still on NYJ
+S2029-preseason: retired Ranar Wolfner still on HOU
+S2029-preseason: retired Andre Marley still on DET
+S2029-preseason: retired Ronric Ellison still on DET
+S2029-preseason: retired Grant Pener still on JAX
+S2029-preseason: retired Felix Harson still on LV
+S2029-preseason: retired Wesik Milling still on CAR
+S2029-preseason: retired Casvius Harley still on DAL
+S2029-preseason: retired Hamdrick Kowalski still on DEN
+S2029-preseason: retired Reylin Mayfield still on DEN
+S2029-preseason: retired Victor Bradcroft still on TB
+S2029-preseason: retired Eddan Evham still on TEN
+S2029-preseason: retired Dominic Gorham still on LV
+S2029-preseason: retired Salden Linwright still on SF
+S2029-preseason: retired Oron Whitaker still on KC
+S2029-preseason: retired Alin Tarmont still on NYJ
+S2029-preseason: retired Nelvin Penberry still on PHI
+S2029-preseason: retired Felix Fosdale still on GB
+S2029-preseason: retired Samik Harworth still on MIA
+S2029-preseason: retired Isaldo Okafor still on LV
+S2029-preseason: retired Valan Simmons still on NYJ
+S2029-preseason: retired Sean Dunfield still on TB
+S2029-preseason: retired Maror Gilow still on JAX
+S2029-preseason: retired Casett Randens still on MIA
+S2029-preseason: retired Rafcus Westlow still on NO
+S2029-preseason: retired Robric Radner still on NYG
+S2029-preseason: retired Isdre Kellner still on CLE
+S2029-preseason: retired Mason Fenmont still on DAL
+S2029-preseason: retired Bartan Gorlow still on SEA
+S2029-preseason: retired David Langcroft still on CIN
+S2029-preseason: retired Reggie Whitwood still on NO
+S2029-preseason: retired Travis Millton still on MIA
+S2029-preseason: retired Marel Corell still on NE
+S2029-preseason: retired Loron Flinting still on SEA
+S2029-preseason: retired Domto Draketon still on TB
+S2029-preseason: retired Matmin Oakstead still on KC
+S2029-preseason: retired Bryor Westware still on NO
+S2029-preseason: retired Basett Flintson still on NYJ
+S2029-preseason: retired Dunley Denard still on LAR
+S2029-preseason: retired Hunter Sutfield still on LV
+S2029-preseason: retired Reyik Drakeberry still on BAL
+S2029-preseason: retired David Mbeki still on BUF
+S2029-preseason: retired Hollan Ellison still on JAX
+S2029-preseason: retired Marun Gordale still on JAX
+S2029-preseason: retired Travis Marwell still on DAL
+S2029-preseason: retired Wade Holstead still on SF
+S2029-preseason: retired Olel Langwell still on DAL
+S2029-preseason: retired Leoric Crossstead still on PHI
+S2029-preseason: retired Matek Treard still on CIN
+S2029-preseason: retired Aman Grayberry still on NE
+S2029-preseason: retired Gavvon Denwick still on NYG
+S2029-preseason: retired Reyron Parkware still on ARI
+S2029-preseason: retired Melno Vailmont still on DAL
+S2029-preseason: retired Dante Simmons still on ATL
+S2029-preseason: retired Kelmar Wolfwood still on SEA
+S2029-preseason: retired Asus Stonedale still on NYG
+S2029-preseason: retired Jablo Mayfield still on DAL
+S2029-preseason: retired Victor Garland still on CHI
+S2029-preseason: retired Salar Nwosu still on BAL
+S2029-preseason: retired Jarus Stonesey still on MIN
+S2029-preseason: retired Victor Wexmont still on BAL
+S2029-preseason: retired Lindre Fosner still on DET
+S2029-preseason: retired Trero Haleberry still on CIN
+S2029-preseason: retired Danrick Gilins still on LAR
+S2029-preseason: retired Sallan Kinger still on MIA
+S2029-preseason: retired Sevik Carrley still on DAL
+S2029-preseason: retired Valis Pensey still on CIN
+S2029-preseason: retired Natmin Chaseridge still on LV
+S2029-preseason: retired Trerick Clayware still on CHI
+S2029-preseason: retired Dunlo Millworth still on NYG
+S2029: 2029-PRE-1-BAL-CIN home passYds lines 297 != team 294
+S2029: 2029-PRE-1-BAL-CIN home rushYds lines 45 != team 23
+S2029: 2029-PRE-1-BAL-CIN home recYds lines 297 != team passYards 294
+S2029: 2029-PRE-1-BAL-CIN away passYds lines 232 != team 228
+S2029: 2029-PRE-1-BAL-CIN away rushYds lines 204 != team 193
+S2029: 2029-PRE-1-BAL-CIN away recYds lines 232 != team passYards 228
+S2029: 2029-PRE-2-BAL-CHI home passYds lines 209 != team 213
+S2029: 2029-PRE-2-BAL-CHI home rushYds lines 40 != team 43
+S2029: 2029-PRE-2-BAL-CHI home recYds lines 209 != team passYards 213
+S2029: 2029-PRE-2-BAL-CHI away passYds lines 141 != team 142
+S2029: 2029-PRE-2-BAL-CHI away rushYds lines 296 != team 275
+S2029: 2029-PRE-2-BAL-CHI away recYds lines 141 != team passYards 142
+S2029: 2029-PRE-3-BAL-NYJ home passYds lines 316 != team 311
+S2029: 2029-PRE-3-BAL-NYJ home rushYds lines 92 != team 67
+S2029: 2029-PRE-3-BAL-NYJ home recYds lines 316 != team passYards 311
+S2029: 2029-PRE-3-BAL-NYJ away passYds lines 70 != team 68
+S2029: 2029-PRE-3-BAL-NYJ away rushYds lines 278 != team 245
+S2029: 2029-PRE-3-BAL-NYJ away recYds lines 70 != team passYards 68
+S2029: 2029-REG-1-TEN-BAL home passYds lines 233 != team 235
+S2029: 2029-REG-1-TEN-BAL home rushYds lines 109 != team 95
+S2029: 2029-REG-1-TEN-BAL home recYds lines 233 != team passYards 235
+S2029: 2029-REG-1-TEN-BAL away passYds lines 117 != team 122
+S2029: 2029-REG-1-TEN-BAL away rushYds lines 177 != team 170
+S2029: 2029-REG-1-TEN-BAL away recYds lines 117 != team passYards 122
+S2029: 2029-REG-2-BAL-PIT home passYds lines 228 != team 223
+S2029: 2029-REG-2-BAL-PIT home rushYds lines 92 != team 88
+S2029: 2029-REG-2-BAL-PIT home recYds lines 228 != team passYards 223
+S2029: 2029-REG-2-BAL-PIT away passYds lines 249 != team 258
+S2029: 2029-REG-2-BAL-PIT away rushYds lines 49 != team 51
+S2029: 2029-REG-2-BAL-PIT away recYds lines 249 != team passYards 258
+S2029: 2029-REG-3-BAL-CIN home passYds lines 225 != team 222
+S2029: 2029-REG-3-BAL-CIN home rushYds lines 220 != team 206
+S2029: 2029-REG-3-BAL-CIN home recYds lines 225 != team passYards 222
+S2029: 2029-REG-3-BAL-CIN away passYds lines 199 != team 195
+S2029: 2029-REG-3-BAL-CIN away rushYds lines 179 != team 173
+S2029: 2029-REG-3-BAL-CIN away recYds lines 199 != team passYards 195
+S2029: 2029-REG-4-CIN-BAL home passYds lines 177 != team 173
+S2029: 2029-REG-4-CIN-BAL home rushYds lines 173 != team 146
+S2029: 2029-REG-4-CIN-BAL home recYds lines 177 != team passYards 173
+S2029: 2029-REG-4-CIN-BAL away passYds lines 373 != team 370
+S2029: 2029-REG-4-CIN-BAL away rushYds lines 95 != team 71
+S2029: 2029-REG-4-CIN-BAL away recYds lines 373 != team passYards 370
+S2029: 2029-REG-5-NO-BAL home passYds lines 165 != team 170
+S2029: 2029-REG-5-NO-BAL home rushYds lines 222 != team 207
+S2029: 2029-REG-5-NO-BAL home recYds lines 165 != team passYards 170
+S2029: 2029-REG-5-NO-BAL away passYds lines 195 != team 187
+S2029: 2029-REG-5-NO-BAL away rushYds lines 44 != team 36
+S2029: 2029-REG-5-NO-BAL away recYds lines 195 != team passYards 187
+S2029: 2029-REG-6-BAL-CAR home passYds lines 96 != team 92
+S2029: 2029-REG-6-BAL-CAR home rushYds lines 94 != team 72
+S2029: 2029-REG-6-BAL-CAR home recYds lines 96 != team passYards 92
+S2029: 2029-REG-6-BAL-CAR away passYds lines 150 != team 153
+S2029: 2029-REG-6-BAL-CAR away rushYds lines 294 != team 260
+S2029: 2029-REG-6-BAL-CAR away recYds lines 150 != team passYards 153
+S2029: 2029-REG-7-BAL-DEN home passYds lines 204 != team 203
+S2029: 2029-REG-7-BAL-DEN home rushYds lines 81 != team 66
+S2029: 2029-REG-7-BAL-DEN home recYds lines 204 != team passYards 203
+S2029: 2029-REG-7-BAL-DEN away passYds lines 114 != team 113
+S2029: 2029-REG-7-BAL-DEN away rushYds lines 161 != team 150
+S2029: 2029-REG-7-BAL-DEN away recYds lines 114 != team passYards 113
+S2029: 2029-REG-8-BAL-ATL home passYds lines 198 != team 195
+S2029: 2029-REG-8-BAL-ATL home rushYds lines 173 != team 134
+S2029: 2029-REG-8-BAL-ATL home recYds lines 198 != team passYards 195
+S2029: 2029-REG-8-BAL-ATL away passYds lines 150 != team 144
+S2029: 2029-REG-8-BAL-ATL away rushYds lines 199 != team 195
+S2029: 2029-REG-8-BAL-ATL away recYds lines 150 != team passYards 144
+S2029: 2029-REG-9-DAL-BAL home passYds lines 288 != team 281
+S2029: 2029-REG-9-DAL-BAL home rushYds lines 103 != team 79
+S2029: 2029-REG-9-DAL-BAL home recYds lines 288 != team passYards 281
+S2029: 2029-REG-9-DAL-BAL away passYds lines 154 != team 153
+S2029: 2029-REG-9-DAL-BAL away rushYds lines 100 != team 69
+S2029: 2029-REG-9-DAL-BAL away recYds lines 154 != team passYards 153
+S2029: 2029-REG-10-BUF-BAL home passYds lines 160 != team 157
+S2029: 2029-REG-10-BUF-BAL home rushYds lines 366 != team 341
+S2029: 2029-REG-10-BUF-BAL home recYds lines 160 != team passYards 157
+S2029: 2029-REG-10-BUF-BAL away passYds lines 302 != team 312
+S2029: 2029-REG-10-BUF-BAL away rushYds lines 116 != team 79
+S2029: 2029-REG-10-BUF-BAL away recYds lines 302 != team passYards 312
+S2029: 2029-REG-11-JAX-BAL home passYds lines 194 != team 187
+S2029: 2029-REG-11-JAX-BAL home rushYds lines 109 != team 100
+S2029: 2029-REG-11-JAX-BAL home recYds lines 194 != team passYards 187
+S2029: 2029-REG-11-JAX-BAL away passYds lines 153 != team 154
+S2029: 2029-REG-11-JAX-BAL away rushYds lines 86 != team 54
+S2029: 2029-REG-11-JAX-BAL away recYds lines 153 != team passYards 154
+S2029: 2029-REG-12-BAL-HOU home passYds lines 235 != team 241
+S2029: 2029-REG-12-BAL-HOU home rushYds lines 84 != team 87
+S2029: 2029-REG-12-BAL-HOU home recYds lines 235 != team passYards 241
+S2029: 2029-REG-12-BAL-HOU away rushYds lines 152 != team 132
+S2029: 2029-REG-13-BAL-IND home passYds lines 267 != team 256
+S2029: 2029-REG-13-BAL-IND home rushYds lines 78 != team 76
+S2029: 2029-REG-13-BAL-IND home recYds lines 267 != team passYards 256
+S2029: 2029-REG-13-BAL-IND away passYds lines 138 != team 143
+S2029: 2029-REG-13-BAL-IND away rushYds lines 141 != team 123
+S2029: 2029-REG-13-BAL-IND away recYds lines 138 != team passYards 143
+S2029: 2029-REG-15-PIT-BAL home passYds lines 214 != team 221
+S2029: 2029-REG-15-PIT-BAL home rushYds lines 184 != team 172
+S2029: 2029-REG-15-PIT-BAL home recYds lines 214 != team passYards 221
+S2029: 2029-REG-15-PIT-BAL away passYds lines 361 != team 354
+S2029: 2029-REG-15-PIT-BAL away rushYds lines 51 != team 52
+S2029: 2029-REG-15-PIT-BAL away recYds lines 361 != team passYards 354
+S2029: 2029-REG-16-CLE-BAL home passYds lines 165 != team 168
+S2029: 2029-REG-16-CLE-BAL home rushYds lines 239 != team 243
+S2029: 2029-REG-16-CLE-BAL home recYds lines 165 != team passYards 168
+S2029: 2029-REG-16-CLE-BAL away passYds lines 310 != team 298
+S2029: 2029-REG-16-CLE-BAL away rushYds lines 44 != team 28
+S2029: 2029-REG-16-CLE-BAL away recYds lines 310 != team passYards 298
+S2029: 2029-REG-17-TB-BAL home passYds lines 117 != team 121
+S2029: 2029-REG-17-TB-BAL home rushYds lines 211 != team 194
+S2029: 2029-REG-17-TB-BAL home recYds lines 117 != team passYards 121
+S2029: 2029-REG-17-TB-BAL away passYds lines 181 != team 182
+S2029: 2029-REG-17-TB-BAL away rushYds lines 191 != team 195
+S2029: 2029-REG-17-TB-BAL away recYds lines 181 != team passYards 182
+S2029: 2029-REG-18-BAL-CLE home passYds lines 146 != team 138
+S2029: 2029-REG-18-BAL-CLE home rushYds lines 84 != team 67
+S2029: 2029-REG-18-BAL-CLE home recYds lines 146 != team passYards 138
+S2029: 2029-REG-18-BAL-CLE away passYds lines 319 != team 307
+S2029: 2029-REG-18-BAL-CLE away rushYds lines 244 != team 224
+S2029: 2029-REG-18-BAL-CLE away recYds lines 319 != team passYards 307
+S2029: matchup DIV TEN-DEN has NO stored game
+S2029: matchup DIV LAC-CLE has NO stored game
+S2029: matchup DIV WAS-CHI has NO stored game
+S2029: matchup DIV GB-ATL has NO stored game
+S2029: matchup CONF TEN-CLE has NO stored game
+S2029: matchup CONF GB-ATL has NO stored game
+S2029: matchup SB WAS-LAC has NO stored game
+S2030-preseason: retired Felix Oakwick still on SF
+S2030-preseason: retired Oler Westner still on NYJ
+S2030-preseason: retired Corey Vance still on JAX
+S2030-preseason: retired Finon Carter still on DET
+S2030-preseason: retired Samney Wolfby still on BAL
+S2030-preseason: retired Edron Hatcher still on JAX
+S2030-preseason: retired Hamik Kinins still on CAR
+S2030-preseason: retired Evan Mormore still on DAL
+S2030-preseason: retired Luke Locker still on BUF
+S2030-preseason: retired Belard Rossstead still on CIN
+S2030-preseason: retired Torron Holloway still on LV
+S2030-preseason: retired Danvin Sutford still on ARI
+S2030-preseason: retired Darius Sutman still on NYG
+S2030-preseason: retired Melol Crossfield still on KC
+S2030-preseason: retired Andre Barkby still on BUF
+S2030-preseason: retired Treas Linell still on BAL
+S2030-preseason: retired Reggie Brenwood still on DEN
+S2030-preseason: retired Brandon Chaseridge still on TB
+S2030-preseason: retired James Denwell still on DAL
+S2030-preseason: retired Cole Claylow still on LV
+S2030-preseason: retired Andre Wexwick still on JAX
+S2030-preseason: retired Roben Lockworth still on NO
+S2030-preseason: retired Calas Eldson still on MIA
+S2030-preseason: retired Cedric Evwell still on BAL
+S2030-preseason: retired Zebcus Vance still on NE
+S2030-preseason: retired Ronney Evson still on SF
+S2030-preseason: retired Cedric Linfield still on ARI
+S2030-preseason: retired Sevmon Bramins still on KC
+S2030-preseason: retired Nicik Ellison still on BAL
+S2030-preseason: retired Kenman Yorkstead still on WAS
+S2030-preseason: retired Preston Delgado still on LV
+S2030-preseason: retired Samin Rhodes still on MIA
+S2030-preseason: retired Akus Clayley still on NO
+S2030-preseason: retired Asric Shawner still on ATL
+S2030-preseason: retired Leomar Drakeham still on NE
+S2030-preseason: retired Ranes Sanders still on JAX
+S2030-preseason: retired Verro Linfield still on MIA
+S2030-preseason: retired Hammin Fairwood still on ATL
+S2030-preseason: retired Ronvius Hayham still on SEA
+S2030-preseason: retired Finlin Drakegate still on CIN
+S2030-preseason: retired Benley Fosell still on NO
+S2030-preseason: retired Finek Denmont still on JAX
+S2030-preseason: retired Domar Kellett still on TEN
+S2030-preseason: retired Akar Delgado still on BAL
+S2030-preseason: retired Giltin Fosson still on PHI
+S2030-preseason: retired Wesley Polham still on NYG
+S2030-preseason: retired Keenan Polworth still on NYJ
+S2030-preseason: retired Oldrick Lockwell still on GB
+S2030-preseason: retired Micah Langard still on JAX
+S2030-preseason: retired Marett Ingram still on SF
+S2030-preseason: retired Zanvin Wardstead still on ATL
+S2030-preseason: retired Bryor Clayton still on CAR
+S2030-preseason: retired Reggie Ingram still on BAL
+S2030-preseason: retired Verett Penell still on TB
+S2030-preseason: retired Tyler Hatcher still on BAL
+S2030-preseason: retired Barsey Adeyemi still on TEN
+S2030-preseason: retired Devlen Marshall still on MIA
+S2030-preseason: retired Micah Bradridge still on TB
+S2030-preseason: retired Holan Jenby still on CAR
+S2030-preseason: retired Basno Whitaker still on PHI
+S2030-preseason: retired Sever Ellison still on JAX
+S2030-preseason: retired Hamun Oaklow still on KC
+S2030-preseason: retired Maras Ingram still on BAL
+S2030-preseason: retired Cameron Carter still on PHI
+S2030-preseason: retired Omar Jencroft still on ATL
+S2030-preseason: retired Austin Vance still on KC
+S2030-preseason: retired Preston Wolfens still on CAR
+S2030-preseason: retired Jordan Daler still on SF
+S2030-preseason: retired Linan Mayfield still on DAL
+S2030-preseason: retired Jonor Ingram still on CAR
+S2030-preseason: retired Perlen Kingens still on KC
+S2030-preseason: retired Gavin Stanberry still on KC
+S2030-preseason: retired Casman Fairware still on NE
+S2030-preseason: retired Trevin Kingner still on LAR
+S2030-preseason: retired Gavin Chaseshaw still on HOU
+S2030-preseason: retired Travis Oakwick still on TEN
+S2030-preseason: retired Valin Sutwell still on NO
+S2030-preseason: retired Calin Haleton still on ATL
+S2030-preseason: retired Brandon Dalard still on NYJ
+S2030-preseason: retired Keler Fosmore still on PHI
+S2030-preseason: retired Felix Oakwick still on SF
+S2030-preseason: retired Oler Westner still on NYJ
+S2030-preseason: retired Corey Vance still on JAX
+S2030-preseason: retired Finon Carter still on DET
+S2030-preseason: retired Samney Wolfby still on BAL
+S2030-preseason: retired Edron Hatcher still on JAX
+S2030-preseason: retired Hamik Kinins still on CAR
+S2030-preseason: retired Evan Mormore still on DAL
+S2030-preseason: retired Luke Locker still on BUF
+S2030-preseason: retired Belard Rossstead still on CIN
+S2030-preseason: retired Torron Holloway still on LV
+S2030-preseason: retired Danvin Sutford still on ARI
+S2030-preseason: retired Darius Sutman still on NYG
+S2030-preseason: retired Melol Crossfield still on KC
+S2030-preseason: retired Andre Barkby still on BUF
+S2030-preseason: retired Treas Linell still on BAL
+S2030-preseason: retired Reggie Brenwood still on DEN
+S2030-preseason: retired Brandon Chaseridge still on TB
+S2030-preseason: retired James Denwell still on DAL
+S2030-preseason: retired Cole Claylow still on LV
+S2030-preseason: retired Andre Wexwick still on JAX
+S2030-preseason: retired Roben Lockworth still on NO
+S2030-preseason: retired Calas Eldson still on MIA
+S2030-preseason: retired Cedric Evwell still on BAL
+S2030-preseason: retired Zebcus Vance still on NE
+S2030-preseason: retired Ronney Evson still on SF
+S2030-preseason: retired Cedric Linfield still on ARI
+S2030-preseason: retired Sevmon Bramins still on KC
+S2030-preseason: retired Nicik Ellison still on BAL
+S2030-preseason: retired Kenman Yorkstead still on WAS
+S2030-preseason: retired Preston Delgado still on LV
+S2030-preseason: retired Samin Rhodes still on MIA
+S2030-preseason: retired Akus Clayley still on NO
+S2030-preseason: retired Asric Shawner still on ATL
+S2030-preseason: retired Leomar Drakeham still on NE
+S2030-preseason: retired Ranes Sanders still on JAX
+S2030-preseason: retired Verro Linfield still on MIA
+S2030-preseason: retired Hammin Fairwood still on ATL
+S2030-preseason: retired Ronvius Hayham still on SEA
+S2030-preseason: retired Finlin Drakegate still on CIN
+S2030-preseason: retired Benley Fosell still on NO
+S2030-preseason: retired Finek Denmont still on JAX
+S2030-preseason: retired Domar Kellett still on TEN
+S2030-preseason: retired Akar Delgado still on BAL
+S2030-preseason: retired Giltin Fosson still on PHI
+S2030-preseason: retired Wesley Polham still on NYG
+S2030-preseason: retired Keenan Polworth still on NYJ
+S2030-preseason: retired Oldrick Lockwell still on GB
+S2030-preseason: retired Micah Langard still on JAX
+S2030-preseason: retired Marett Ingram still on SF
+S2030-preseason: retired Zanvin Wardstead still on ATL
+S2030-preseason: retired Bryor Clayton still on CAR
+S2030-preseason: retired Reggie Ingram still on BAL
+S2030-preseason: retired Verett Penell still on TB
+S2030-preseason: retired Tyler Hatcher still on BAL
+S2030-preseason: retired Barsey Adeyemi still on TEN
+S2030-preseason: retired Devlen Marshall still on MIA
+S2030-preseason: retired Micah Bradridge still on TB
+S2030-preseason: retired Holan Jenby still on CAR
+S2030-preseason: retired Basno Whitaker still on PHI
+S2030-preseason: retired Sever Ellison still on JAX
+S2030-preseason: retired Hamun Oaklow still on KC
+S2030-preseason: retired Maras Ingram still on BAL
+S2030-preseason: retired Cameron Carter still on PHI
+S2030-preseason: retired Omar Jencroft still on ATL
+S2030-preseason: retired Austin Vance still on KC
+S2030-preseason: retired Preston Wolfens still on CAR
+S2030-preseason: retired Jordan Daler still on SF
+S2030-preseason: retired Linan Mayfield still on DAL
+S2030-preseason: retired Jonor Ingram still on CAR
+S2030-preseason: retired Perlen Kingens still on KC
+S2030-preseason: retired Gavin Stanberry still on KC
+S2030-preseason: retired Casman Fairware still on NE
+S2030-preseason: retired Trevin Kingner still on LAR
+S2030-preseason: retired Gavin Chaseshaw still on HOU
+S2030-preseason: retired Travis Oakwick still on TEN
+S2030-preseason: retired Valin Sutwell still on NO
+S2030-preseason: retired Calin Haleton still on ATL
+S2030-preseason: retired Brandon Dalard still on NYJ
+S2030-preseason: retired Keler Fosmore still on PHI
+S2030-preseason: retired Felix Oakwick still on SF
+S2030-preseason: retired Oler Westner still on NYJ
+S2030-preseason: retired Corey Vance still on JAX
+S2030-preseason: retired Finon Carter still on DET
+S2030-preseason: retired Samney Wolfby still on BAL
+S2030-preseason: retired Edron Hatcher still on JAX
+S2030-preseason: retired Hamik Kinins still on CAR
+S2030-preseason: retired Evan Mormore still on DAL
+S2030-preseason: retired Luke Locker still on BUF
+S2030-preseason: retired Belard Rossstead still on CIN
+S2030-preseason: retired Torron Holloway still on LV
+S2030-preseason: retired Danvin Sutford still on ARI
+S2030-preseason: retired Darius Sutman still on NYG
+S2030-preseason: retired Melol Crossfield still on KC
+S2030-preseason: retired Andre Barkby still on BUF
+S2030-preseason: retired Treas Linell still on BAL
+S2030-preseason: retired Reggie Brenwood still on DEN
+S2030-preseason: retired Brandon Chaseridge still on TB
+S2030-preseason: retired James Denwell still on DAL
+S2030-preseason: retired Cole Claylow still on LV
+S2030-preseason: retired Andre Wexwick still on JAX
+S2030-preseason: retired Roben Lockworth still on NO
+S2030-preseason: retired Calas Eldson still on MIA
+S2030-preseason: retired Cedric Evwell still on BAL
+S2030-preseason: retired Zebcus Vance still on NE
+S2030-preseason: retired Ronney Evson still on SF
+S2030-preseason: retired Cedric Linfield still on ARI
+S2030-preseason: retired Sevmon Bramins still on KC
+S2030-preseason: retired Nicik Ellison still on BAL
+S2030-preseason: retired Kenman Yorkstead still on WAS
+S2030-preseason: retired Preston Delgado still on LV
+S2030-preseason: retired Samin Rhodes still on MIA
+S2030-preseason: retired Akus Clayley still on NO
+S2030-preseason: retired Asric Shawner still on ATL
+S2030-preseason: retired Leomar Drakeham still on NE
+S2030-preseason: retired Ranes Sanders still on JAX
+S2030-preseason: retired Verro Linfield still on MIA
+S2030-preseason: retired Hammin Fairwood still on ATL
+S2030-preseason: retired Ronvius Hayham still on SEA
+S2030-preseason: retired Finlin Drakegate still on CIN
+S2030-preseason: retired Benley Fosell still on NO
+S2030-preseason: retired Finek Denmont still on JAX
+S2030-preseason: retired Domar Kellett still on TEN
+S2030-preseason: retired Akar Delgado still on BAL
+S2030-preseason: retired Giltin Fosson still on PHI
+S2030-preseason: retired Wesley Polham still on NYG
+S2030-preseason: retired Keenan Polworth still on NYJ
+S2030-preseason: retired Oldrick Lockwell still on GB
+S2030-preseason: retired Micah Langard still on JAX
+S2030-preseason: retired Marett Ingram still on SF
+S2030-preseason: retired Zanvin Wardstead still on ATL
+S2030-preseason: retired Bryor Clayton still on CAR
+S2030-preseason: retired Reggie Ingram still on BAL
+S2030-preseason: retired Verett Penell still on TB
+S2030-preseason: retired Tyler Hatcher still on BAL
+S2030-preseason: retired Barsey Adeyemi still on TEN
+S2030-preseason: retired Devlen Marshall still on MIA
+S2030-preseason: retired Micah Bradridge still on TB
+S2030-preseason: retired Holan Jenby still on CAR
+S2030-preseason: retired Basno Whitaker still on PHI
+S2030-preseason: retired Sever Ellison still on JAX
+S2030-preseason: retired Hamun Oaklow still on KC
+S2030-preseason: retired Maras Ingram still on BAL
+S2030-preseason: retired Cameron Carter still on PHI
+S2030-preseason: retired Omar Jencroft still on ATL
+S2030-preseason: retired Austin Vance still on KC
+S2030-preseason: retired Preston Wolfens still on CAR
+S2030-preseason: retired Jordan Daler still on SF
+S2030-preseason: retired Linan Mayfield still on DAL
+S2030-preseason: retired Jonor Ingram still on CAR
+S2030-preseason: retired Perlen Kingens still on KC
+S2030-preseason: retired Gavin Stanberry still on KC
+S2030-preseason: retired Casman Fairware still on NE
+S2030-preseason: retired Trevin Kingner still on LAR
+S2030-preseason: retired Gavin Chaseshaw still on HOU
+S2030-preseason: retired Travis Oakwick still on TEN
+S2030-preseason: retired Valin Sutwell still on NO
+S2030-preseason: retired Calin Haleton still on ATL
+S2030-preseason: retired Brandon Dalard still on NYJ
+S2030-preseason: retired Keler Fosmore still on PHI
+S2030: 2030-PRE-1-KC-LA home passYds lines 224 != team 229
+S2030: 2030-PRE-1-KC-LA home rushYds lines 117 != team 105
+S2030: 2030-PRE-1-KC-LA home recYds lines 224 != team passYards 229
+S2030: 2030-PRE-1-KC-LA away passYds lines 197 != team 205
+S2030: 2030-PRE-1-KC-LA away rushYds lines 85 != team 72
+S2030: 2030-PRE-1-KC-LA away recYds lines 197 != team passYards 205
+S2030: 2030-PRE-2-TEN-KC home passYds lines 341 != team 352
+S2030: 2030-PRE-2-TEN-KC home rushYds lines 185 != team 141
+S2030: 2030-PRE-2-TEN-KC home recYds lines 341 != team passYards 352
+S2030: 2030-PRE-2-TEN-KC away passYds lines 285 != team 281
+S2030: 2030-PRE-2-TEN-KC away rushYds lines 59 != team 34
+S2030: 2030-PRE-2-TEN-KC away recYds lines 285 != team passYards 281
+S2030: 2030-PRE-3-KC-SEA home passYds lines 188 != team 193
+S2030: 2030-PRE-3-KC-SEA home rushYds lines 74 != team 76
+S2030: 2030-PRE-3-KC-SEA home recYds lines 188 != team passYards 193
+S2030: 2030-PRE-3-KC-SEA away passYds lines 260 != team 256
+S2030: 2030-PRE-3-KC-SEA away rushYds lines 173 != team 160
+S2030: 2030-PRE-3-KC-SEA away recYds lines 260 != team passYards 256
+S2030: 2030-REG-1-KC-LAC home passYds lines 208 != team 213
+S2030: 2030-REG-1-KC-LAC home rushYds lines 78 != team 71
+S2030: 2030-REG-1-KC-LAC home recYds lines 208 != team passYards 213
+S2030: 2030-REG-1-KC-LAC away passYds lines 184 != team 178
+S2030: 2030-REG-1-KC-LAC away rushYds lines 247 != team 216
+S2030: 2030-REG-1-KC-LAC away recYds lines 184 != team passYards 178
+S2030: 2030-REG-2-BUF-KC home passYds lines 190 != team 191
+S2030: 2030-REG-2-BUF-KC home rushYds lines 86 != team 80
+S2030: 2030-REG-2-BUF-KC home recYds lines 190 != team passYards 191
+S2030: 2030-REG-2-BUF-KC away passYds lines 222 != team 218
+S2030: 2030-REG-2-BUF-KC away rushYds lines 120 != team 108
+S2030: 2030-REG-2-BUF-KC away recYds lines 222 != team passYards 218
+S2030: 2030-REG-3-SF-KC home passYds lines 276 != team 278
+S2030: 2030-REG-3-SF-KC home rushYds lines 122 != team 109
+S2030: 2030-REG-3-SF-KC home recYds lines 276 != team passYards 278
+S2030: 2030-REG-3-SF-KC away passYds lines 251 != team 257
+S2030: 2030-REG-3-SF-KC away rushYds lines 100 != team 101
+S2030: 2030-REG-3-SF-KC away recYds lines 251 != team passYards 257
+S2030: 2030-REG-4-KC-DEN home passYds lines 299 != team 298
+S2030: 2030-REG-4-KC-DEN home rushYds lines 66 != team 53
+S2030: 2030-REG-4-KC-DEN home recYds lines 299 != team passYards 298
+S2030: 2030-REG-4-KC-DEN away passYds lines 232 != team 240
+S2030: 2030-REG-4-KC-DEN away rushYds lines 178 != team 164
+S2030: 2030-REG-4-KC-DEN away recYds lines 232 != team passYards 240
+S2030: 2030-REG-5-IND-KC home passYds lines 310 != team 305
+S2030: 2030-REG-5-IND-KC home rushYds lines 82 != team 75
+S2030: 2030-REG-5-IND-KC home recYds lines 310 != team passYards 305
+S2030: 2030-REG-5-IND-KC away rushYds lines 187 != team 165
+S2030: 2030-REG-6-MIA-KC home passYds lines 147 != team 154
+S2030: 2030-REG-6-MIA-KC home rushYds lines 156 != team 117
+S2030: 2030-REG-6-MIA-KC home recYds lines 147 != team passYards 154
+S2030: 2030-REG-6-MIA-KC away passYds lines 244 != team 251
+S2030: 2030-REG-6-MIA-KC away rushYds lines 113 != team 105
+S2030: 2030-REG-6-MIA-KC away recYds lines 244 != team passYards 251
+S2030: 2030-REG-7-LV-KC home passYds lines 188 != team 189
+S2030: 2030-REG-7-LV-KC home rushYds lines 224 != team 223
+S2030: 2030-REG-7-LV-KC home recYds lines 188 != team passYards 189
+S2030: 2030-REG-7-LV-KC away passYds lines 169 != team 175
+S2030: 2030-REG-7-LV-KC away rushYds lines 71 != team 57
+S2030: 2030-REG-7-LV-KC away recYds lines 169 != team passYards 175
+S2030: 2030-REG-8-KC-SEA home passYds lines 248 != team 254
+S2030: 2030-REG-8-KC-SEA home rushYds lines 196 != team 178
+S2030: 2030-REG-8-KC-SEA home recYds lines 248 != team passYards 254
+S2030: 2030-REG-8-KC-SEA away passYds lines 398 != team 391
+S2030: 2030-REG-8-KC-SEA away rushYds lines 112 != team 97
+S2030: 2030-REG-8-KC-SEA away recYds lines 398 != team passYards 391
+S2030: 2030-REG-9-CAR-KC home passYds lines 416 != team 405
+S2030: 2030-REG-9-CAR-KC home rushYds lines 84 != team 86
+S2030: 2030-REG-9-CAR-KC home recYds lines 416 != team passYards 405
+S2030: 2030-REG-9-CAR-KC away passYds lines 193 != team 192
+S2030: 2030-REG-9-CAR-KC away rushYds lines 135 != team 125
+S2030: 2030-REG-9-CAR-KC away recYds lines 193 != team passYards 192
+S2030: 2030-REG-10-KC-LV home passYds lines 308 != team 313
+S2030: 2030-REG-10-KC-LV home rushYds lines 203 != team 192
+S2030: 2030-REG-10-KC-LV home recYds lines 308 != team passYards 313
+S2030: 2030-REG-10-KC-LV away passYds lines 160 != team 165
+S2030: 2030-REG-10-KC-LV away rushYds lines 109 != team 77
+S2030: 2030-REG-10-KC-LV away recYds lines 160 != team passYards 165
+S2030: 2030-REG-11-KC-NYJ home passYds lines 319 != team 322
+S2030: 2030-REG-11-KC-NYJ home rushYds lines 150 != team 133
+S2030: 2030-REG-11-KC-NYJ home recYds lines 319 != team passYards 322
+S2030: 2030-REG-11-KC-NYJ away passYds lines 209 != team 211
+S2030: 2030-REG-11-KC-NYJ away rushYds lines 148 != team 137
+S2030: 2030-REG-11-KC-NYJ away recYds lines 209 != team passYards 211
+S2030: 2030-REG-12-KC-NE home passYds lines 229 != team 228
+S2030: 2030-REG-12-KC-NE home rushYds lines 108 != team 90
+S2030: 2030-REG-12-KC-NE home recYds lines 229 != team passYards 228
+S2030: 2030-REG-12-KC-NE away passYds lines 295 != team 308
+S2030: 2030-REG-12-KC-NE away rushYds lines 78 != team 77
+S2030: 2030-REG-12-KC-NE away recYds lines 295 != team passYards 308
+S2030: 2030-REG-14-KC-CIN home passYds lines 315 != team 322
+S2030: 2030-REG-14-KC-CIN home rushYds lines 180 != team 156
+S2030: 2030-REG-14-KC-CIN home recYds lines 315 != team passYards 322
+S2030: 2030-REG-14-KC-CIN away passYds lines 307 != team 298
+S2030: 2030-REG-14-KC-CIN away rushYds lines 135 != team 122
+S2030: 2030-REG-14-KC-CIN away recYds lines 307 != team passYards 298
+S2030: 2030-REG-15-LAC-KC home passYds lines 211 != team 205
+S2030: 2030-REG-15-LAC-KC home rushYds lines 164 != team 152
+S2030: 2030-REG-15-LAC-KC home recYds lines 211 != team passYards 205
+S2030: 2030-REG-15-LAC-KC away passYds lines 264 != team 270
+S2030: 2030-REG-15-LAC-KC away rushYds lines 267 != team 260
+S2030: 2030-REG-15-LAC-KC away recYds lines 264 != team passYards 270
+S2030: 2030-REG-16-ARI-KC home passYds lines 200 != team 208
+S2030: 2030-REG-16-ARI-KC home rushYds lines 172 != team 149
+S2030: 2030-REG-16-ARI-KC home recYds lines 200 != team passYards 208
+S2030: 2030-REG-16-ARI-KC away passYds lines 179 != team 181
+S2030: 2030-REG-16-ARI-KC away rushYds lines 228 != team 190
+S2030: 2030-REG-16-ARI-KC away recYds lines 179 != team passYards 181
+S2030: 2030-REG-17-KC-LA home rushYds lines 90 != team 75
+S2030: 2030-REG-17-KC-LA away passYds lines 251 != team 265
+S2030: 2030-REG-17-KC-LA away rushYds lines 101 != team 103
+S2030: 2030-REG-17-KC-LA away recYds lines 251 != team passYards 265
+S2030: 2030-REG-18-DEN-KC home passYds lines 225 != team 234
+S2030: 2030-REG-18-DEN-KC home rushYds lines 265 != team 257
+S2030: 2030-REG-18-DEN-KC home recYds lines 225 != team passYards 234
+S2030: 2030-REG-18-DEN-KC away passYds lines 307 != team 306
+S2030: 2030-REG-18-DEN-KC away rushYds lines 33 != team 28
+S2030: 2030-REG-18-DEN-KC away recYds lines 307 != team passYards 306
+S2030: 2030-WC-TEN-KC home passYds lines 329 != team 342
+S2030: 2030-WC-TEN-KC home rushYds lines 205 != team 199
+S2030: 2030-WC-TEN-KC home recYds lines 329 != team passYards 342
+S2030: 2030-WC-TEN-KC away passYds lines 228 != team 219
+S2030: 2030-WC-TEN-KC away rushYds lines 176 != team 110
+S2030: 2030-WC-TEN-KC away recYds lines 228 != team passYards 219
+S2030: matchup DIV PIT-DEN has NO stored game
+S2030: matchup DIV TEN-NE has NO stored game
+S2030: matchup CONF PHI-SEA has NO stored game
+S2031-preseason: retired Mares Millwood still on PIT
+S2031-preseason: retired Ethan Gardale still on TEN
+S2031-preseason: retired Wade Randins still on SF
+S2031-preseason: retired Danan Drakeley still on TEN
+S2031-preseason: retired Lanjah Dunware still on LV
+S2031-preseason: retired Karlin Kinwood still on MIA
+S2031-preseason: retired Jordan Flintville still on MIA
+S2031-preseason: retired David Marwood still on NO
+S2031-preseason: retired Edek Garer still on CIN
+S2031-preseason: retired Jarik Calwood still on CIN
+S2031-preseason: retired Karvon Pening still on KC
+S2031-preseason: retired Ethan Dalson still on KC
+S2031-preseason: retired David Thornner still on HOU
+S2031-preseason: retired Reggie Crosskins still on KC
+S2031-preseason: retired Bento Yorkham still on PHI
+S2031-preseason: retired Trent Brenett still on LV
+S2031-preseason: retired Casrick Westwell still on SEA
+S2031-preseason: retired Nolan Rossville still on SF
+S2031-preseason: retired Isaiah Chaseard still on DEN
+S2031-preseason: retired Derek Hayard still on LAR
+S2031-preseason: retired Branus Harell still on NYG
+S2031-preseason: retired Ranan Denridge still on MIA
+S2031-preseason: retired Valrick Wolfing still on SEA
+S2031-preseason: retired Solvius Wexwick still on IND
+S2031-preseason: retired Jabun Wolfett still on ARI
+S2031-preseason: retired Nicdan Rhodes still on NYG
+S2031-preseason: retired Ethan Vailware still on NYG
+S2031-preseason: retired Nolan Kingwell still on CIN
+S2031-preseason: retired Evan Vailberry still on GB
+S2031-preseason: retired Asmon Quinlow still on KC
+S2031-preseason: retired Meltan Parkson still on HOU
+S2031-preseason: retired Harton Langwick still on DET
+S2031-preseason: retired Ersey Gorman still on HOU
+S2031-preseason: retired Elron Eldridge still on NYG
+S2031-preseason: retired Harun Crosssey still on MIA
+S2031-preseason: retired Elijah Adeyemi still on KC
+S2031-preseason: retired Lortan Gorlow still on DAL
+S2031-preseason: retired Tyrese Clayham still on DAL
+S2031-preseason: retired Wade Carrman still on CIN
+S2031-preseason: retired Braner Kowalski still on KC
+S2031-preseason: retired Bryas Chasewick still on TEN
+S2031-preseason: retired Gilvius Greer still on TEN
+S2031-preseason: retired Bryno Clayfield still on CIN
+S2031-preseason: retired Ollo Mbeki still on WAS
+S2031-preseason: retired Salmon Trewood still on LAC
+S2031-preseason: retired Gilvon Tarwell still on PHI
+S2031-preseason: retired Tyto Tarfield still on DEN
+S2031-preseason: retired Patard Daling still on CHI
+S2031-preseason: retired Caleb Haleins still on KC
+S2031-preseason: retired Bryus Crossmont still on DAL
+S2031-preseason: retired Patcus Drakeware still on HOU
+S2031-preseason: retired Garsey Langberry still on SEA
+S2031-preseason: retired Loris Tremont still on MIA
+S2031-preseason: retired Robto Crossley still on CIN
+S2031-preseason: retired Branric Harwell still on SF
+S2031-preseason: retired Holdre Randard still on LV
+S2031-preseason: retired Jalen Delgado still on LV
+S2031-preseason: retired Isaiah Fairer still on TEN
+S2031-preseason: retired Torel Kinton still on TEN
+S2031-preseason: retired Solin Yorkham still on NO
+S2031-preseason: retired Ronsey Radberry still on CLE
+S2031-preseason: retired Jordan Tarridge still on CAR
+S2031-preseason: retired Darius Haledale still on TB
+S2031-preseason: retired Isaiah Millware still on NYJ
+S2031-preseason: retired Dante Jennings still on CIN
+S2031-preseason: retired Patno Evberry still on CHI
+S2031-preseason: retired Basard Evett still on WAS
+S2031-preseason: retired Zanor Radwell still on TB
+S2031-preseason: retired Bryce Grayow still on NE
+S2031-preseason: retired Hunter Wolfner still on CIN
+S2031-preseason: retired Landon Mbeki still on KC
+S2031-preseason: retired Zanmon Gilfield still on DAL
+S2031-preseason: retired Reyel Nwosu still on KC
+S2031-preseason: retired Wade Quinmont still on SF
+S2031-preseason: retired Jardrick Kowalski still on CHI
+S2031-preseason: retired Oldre Westville still on MIA
+S2031-preseason: retired Samell Halesey still on SEA
+S2031-preseason: retired Wesmin Linett still on DEN
+S2031-preseason: retired Torun Lockwright still on LAR
+S2031-preseason: retired Gildan Tarwick still on NYJ
+S2031-preseason: retired Dardrick Millmore still on MIA
+S2031-preseason: retired Reyor Randlow still on NE
+S2031-preseason: retired Lorlin Kowalski still on PHI

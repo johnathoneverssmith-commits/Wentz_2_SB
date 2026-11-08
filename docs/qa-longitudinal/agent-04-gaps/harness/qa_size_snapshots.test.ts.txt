@@ -1,0 +1,327 @@
+import { describe, expect, it } from "vitest";
+
+import type { LeagueState, Player, Stage } from "@/domain";
+import { OFFSEASON_ROSTER_SIZE, ROSTER_SIZE } from "@/sim/roster-template.ts";
+
+import { DEFAULT_CONFIG } from "./seed.ts";
+import { useStore } from "./store.ts";
+import { bestCoachingPick, coachingOnTheClock } from "./coachingDraft.ts";
+import { pendingFor } from "./tradeDeadline.ts";
+
+/**
+ * Drives the store through a whole franchise year the way a player does —
+ * every stage, in order, taking each stage's required action — and checks the
+ * league is still legal and still moving at every step.
+ *
+ * This is the guard for the class of bug that only shows up several stages
+ * downstream of its cause: a roster that quietly grows past 53 across an
+ * offseason, a team that ends the draft over the cap and can then sign nobody,
+ * a stage whose gate never opens. Unit tests cover each of those pieces; only
+ * playing the year catches them interacting.
+ */
+const TIMEOUT = 1_800_000;
+import { writeFileSync, mkdirSync } from "node:fs";
+import { vi } from "vitest";
+
+function state(): LeagueState {
+  return useStore.getState();
+}
+
+function rosterOf(s: LeagueState, code: string): Player[] {
+  return Object.values(s.players).filter((p) => p.nfl_team === code && !p.retired);
+}
+
+/** Everything that must be true of a league about to take the field. */
+function expectSeasonLegal(s: LeagueState): void {
+  for (const code of Object.keys(s.teams)) {
+    const roster = rosterOf(s, code);
+    expect(roster.length, `${code} roster size`).toBe(ROSTER_SIZE);
+
+    const used = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    expect(Math.round(used * 10) / 10, `${code} cap`).toBeLessThanOrEqual(s.teams[code]!.cap.total);
+
+    // a legal lineup needs someone at every position, not just 53 bodies
+    for (const pos of ["QB", "K", "P", "C", "OT"] as const) {
+      expect(roster.some((p) => p.position === pos), `${code} has a ${pos}`).toBe(true);
+    }
+  }
+}
+
+/**
+ * A stage that owns state has to have built it by the time you arrive.
+ *
+ * `actOn` has no case for the turn-based stages — it readies up and advances
+ * straight through them — so a stage whose screen refuses to work until its
+ * own state exists could dead-end in the app and still pass this test. That
+ * is exactly how the coaching draft ("One moment." forever), free agency
+ * (same) and the trade deadline ("The deadline hasn't opened yet", with no
+ * controls at all) each shipped. Arriving is the moment to check.
+ */
+function expectStageOpened(s: LeagueState, stage: Stage): void {
+  if (stage === "coachingDraft") expect(s.coachingDraft, "coaching draft never opened").toBeTruthy();
+  if (stage === "tradeDeadline") expect(s.tradeDeadline, "trade deadline never opened").toBeTruthy();
+  if (stage === "freeAgency" || stage === "midseasonFreeAgency") {
+    expect(s.freeAgencyEvent, `${stage} never opened`).toBeTruthy();
+  }
+}
+
+/** Does whatever this stage needs before its readiness gate can open. */
+async function actOn(stage: Stage): Promise<void> {
+  const s = useStore.getState();
+  switch (stage) {
+    case "setup":
+      for (const g of s.gms) if (g.isHuman && !g.teamCode) s.pickTeam(g.id, unclaimedTeam());
+      break;
+    case "fantasyDraft":
+      s.startDraft("fantasy");
+      useStore.getState().autopickRemaining();
+      break;
+    case "offseasonDraft":
+      s.startDraft("rookie");
+      useStore.getState().autopickRemaining();
+      break;
+    case "offseasonSignings": {
+      const mine = viewerTeam();
+      for (const r of useStore.getState().draft?.results ?? []) {
+        if (r.teamCode === mine && r.selectedId) useStore.getState().signRookie(r.selectedId, mine);
+      }
+      break;
+    }
+    case "coachingHiring":
+    case "offseasonFreeAgency": {
+      // run the live window out to its last day, the way the clock does
+      const subject = stage === "coachingHiring" ? "coaches" : "players";
+      useStore.getState().startBidding(subject);
+      for (let i = 0; i < 6; i++) useStore.getState().advanceBiddingDay(subject);
+      break;
+    }
+    case "preseason":
+    case "regularSeason":
+    case "playoffs":
+      await useStore.getState().simulateGameDay();
+      break;
+    // The turn-based events end themselves once every turn is taken — the
+    // readiness gate no longer skips them (it once left the fantasy draft
+    // at pick 20 and skipped a whole midseason market online). So the
+    // viewer takes their turns, the plain way: best available coach, pass
+    // in the market, pass at the deadline.
+    case "coachingDraft":
+      for (let guard = 0; guard < 400 && state().stage === "coachingDraft"; guard++) {
+        const team = coachingOnTheClock(state());
+        const pick = team ? bestCoachingPick(state(), team) : null;
+        if (!pick) break;
+        useStore.getState().draftCoach(pick);
+      }
+      break;
+    case "freeAgency":
+    case "midseasonFreeAgency":
+      for (let guard = 0; guard < 400 && state().stage === stage; guard++) {
+        if (!state().freeAgencyEvent || state().freeAgencyEvent!.complete) break;
+        useStore.getState().freeAgencyTurn({ pass: true });
+      }
+      break;
+    case "tradeDeadline":
+      for (let guard = 0; guard < 400 && state().stage === "tradeDeadline"; guard++) {
+        const duty = pendingFor(state(), viewerTeam());
+        if (!duty) break;
+        useStore.getState().deadlineTurn(duty === "propose" ? { kind: "skip" } : { kind: "deny" });
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+function unclaimedTeam(): string {
+  const s = useStore.getState();
+  const taken = new Set(s.gms.map((g) => g.teamCode).filter(Boolean));
+  return Object.keys(s.teams).find((c) => !taken.has(c))!;
+}
+
+function viewerTeam(): string {
+  const s = useStore.getState();
+  return s.gms.find((g) => g.id === s.viewerGmId)?.teamCode ?? "";
+}
+
+/** One stage's worth of play. Returns the stage we ended up in. */
+async function playStage(): Promise<Stage> {
+  const stage = state().stage;
+  await actOn(stage);
+  // an event that ended itself has already moved the league on
+  if (state().stage !== stage) return state().stage;
+
+  const s = useStore.getState();
+  s.autoReadyNonViewers();
+  s.setReady(s.viewerGmId, true);
+
+  // in-season stages step through Game Day, everything else through the gate
+  if (stage === "preseason" || stage === "regularSeason" || stage === "playoffs") {
+    await useStore.getState().finishGameDay();
+  } else {
+    const moved = await useStore.getState().tryAdvance();
+    expect(moved.moved, `stage ${stage} refused to advance`).toBe(true);
+  }
+  return state().stage;
+}
+
+
+const OUT = process.env.QA_OUT ?? "/tmp/qa";
+const findings: string[] = [];
+const log: string[] = [];
+const keep: any[] = [];
+const sizes: string[] = [];
+const note = (m: string) => { findings.push(m); };
+
+function check(s: LeagueState, tag: string) {
+  const games = s.games.filter((g) => g.played);
+  // duplicates / per-team counts
+  const ids = new Set<string>();
+  const perTeamWeek = new Map<string, number>();
+  const reg: Record<string, number> = {};
+  for (const g of games) {
+    if (ids.has(g.id)) note(`${tag}: duplicate game id ${g.id}`);
+    ids.add(g.id);
+    if (g.homeTeam === g.awayTeam) note(`${tag}: ${g.id} team plays itself`);
+    if (g.phase === "REG") {
+      for (const t of [g.homeTeam, g.awayTeam]) {
+        const k = `${t}|${g.week}`;
+        perTeamWeek.set(k, (perTeamWeek.get(k) ?? 0) + 1);
+        reg[t] = (reg[t] ?? 0) + 1;
+      }
+    }
+    // score vs quarter totals
+    if (g.totals) {
+      const h = g.totals.home.byQuarter.reduce((a, b) => a + b, 0);
+      const a = g.totals.away.byQuarter.reduce((x, y) => x + y, 0);
+      if (h !== g.homeScore || a !== g.awayScore) note(`${tag}: ${g.id} quarters ${h}-${a} != final ${g.homeScore}-${g.awayScore}`);
+      if (g.totals.home.points !== g.homeScore || g.totals.away.points !== g.awayScore) note(`${tag}: ${g.id} totals.points != final`);
+    }
+    // scoring plays last running score
+    if (g.scoringPlays?.length) {
+      const l = g.scoringPlays[g.scoringPlays.length - 1]!;
+      if (l.homeScore !== g.homeScore || l.awayScore !== g.awayScore) note(`${tag}: ${g.id} last scoring play ${l.homeScore}-${l.awayScore} != final ${g.homeScore}-${g.awayScore}`);
+      let ph = 0, pa = 0;
+      for (const p of g.scoringPlays) {
+        const dh = p.homeScore - ph, da = p.awayScore - pa;
+        if (dh < 0 || da < 0 || (dh > 0 && da > 0)) note(`${tag}: ${g.id} non-monotone running score`);
+        const d = Math.max(dh, da);
+        if (![1, 2, 3, 6, 7, 8].includes(d)) note(`${tag}: ${g.id} odd scoring increment ${d} (${p.description})`);
+        ph = p.homeScore; pa = p.awayScore;
+      }
+    }
+    // player lines vs team totals
+    if (g.playerLines && g.totals) {
+      for (const side of ["home", "away"] as const) {
+        const L = g.playerLines[side], T = g.totals[side];
+        const sum = (f: (x: any) => number) => L.reduce((n, x) => n + (f(x) || 0), 0);
+        const py = sum((x) => x.passYds);
+        if (T.passYards && Math.abs(py - T.passYards) > 0) note(`${tag}: ${g.id} ${side} passYds lines ${py} != team ${T.passYards}`);
+        const ry = sum((x) => x.rushYds);
+        if (T.rushYards !== undefined && ry !== T.rushYards) note(`${tag}: ${g.id} ${side} rushYds lines ${ry} != team ${T.rushYards}`);
+        const recy = sum((x) => x.recYds);
+        if (T.passYards && recy !== T.passYards) note(`${tag}: ${g.id} ${side} recYds lines ${recy} != team passYards ${T.passYards}`);
+        const tds = sum((x) => x.passTd);
+        const rectd = sum((x) => x.recTd);
+        if (tds !== rectd) note(`${tag}: ${g.id} ${side} passTd ${tds} != recTd ${rectd}`);
+        const own = side === "home" ? g.homeScore : g.awayScore;
+        const offTd = sum((x) => x.rushTd) + rectd;
+        const fg = sum((x) => x.fgm), xp = sum((x) => x.xpm);
+        const implied = offTd * 6 + fg * 3 + xp;
+        if (implied > own) note(`${tag}: ${g.id} ${side} lines imply ${implied} pts > score ${own}`);
+      }
+    }
+    if (g.phase !== "REG" && g.phase !== "PRE" && g.homeScore === g.awayScore) note(`${tag}: ${g.id} playoff game ended tied`);
+    if (g.homeScore === 1 || g.awayScore === 1) note(`${tag}: ${g.id} one-point score ${g.homeScore}-${g.awayScore}`);
+  }
+  for (const [k, n] of perTeamWeek) if (n > 1) note(`${tag}: ${k} played ${n} regular-season games in one week`);
+  // W-L recount
+  const rec: Record<string, [number, number, number, number, number]> = {};
+  for (const g of games.filter((x) => x.phase === "REG")) {
+    for (const [t, f, a] of [[g.homeTeam, g.homeScore, g.awayScore], [g.awayTeam, g.awayScore, g.homeScore]] as const) {
+      const r = (rec[t] ??= [0, 0, 0, 0, 0]);
+      if (f > a) r[0]++; else if (f < a) r[1]++; else r[2]++;
+      r[3] += f; r[4] += a;
+    }
+  }
+  for (const [t, r] of Object.entries(rec)) {
+    const T = s.teams[t]!;
+    if (T.wins !== r[0] || T.losses !== r[1] || T.ties !== r[2]) note(`${tag}: ${t} record ${T.wins}-${T.losses}-${T.ties} != recount ${r[0]}-${r[1]}-${r[2]}`);
+    if (T.pointsFor !== r[3] || T.pointsAgainst !== r[4]) note(`${tag}: ${t} PF/PA ${T.pointsFor}/${T.pointsAgainst} != recount ${r[3]}/${r[4]}`);
+  }
+  const counts = Object.values(reg);
+  log.push(`${tag}: games=${games.length} reg-games/team min=${Math.min(...counts)} max=${Math.max(...counts)}`);
+  const wins = Object.values(s.teams).reduce((n, t) => n + t.wins, 0), losses = Object.values(s.teams).reduce((n, t) => n + t.losses, 0);
+  if (wins !== losses) note(`${tag}: league wins ${wins} != losses ${losses}`);
+}
+
+function integrity(s: LeagueState, tag: string) {
+  const seen = new Map<string, string>();
+  for (const p of Object.values(s.players)) {
+    if (p.retired && p.nfl_team && !String(p.nfl_team).startsWith("PS:") && p.nfl_team !== "FA") note(`${tag}: retired ${p.name} still on ${p.nfl_team}`);
+    const c = p.contract;
+    if (c && p.nfl_team && p.nfl_team !== "FA" && !p.retired) {
+      if (c.cap_hit_by_year.length === 0) note(`${tag}: ${p.name} has empty contract years`);
+      if (c.cap_hit_by_year.some((x: number) => x < 0)) note(`${tag}: ${p.name} negative cap hit`);
+    }
+    if (!p.contract && p.nfl_team && p.nfl_team !== "FA" && !p.retired) note(`${tag}: ${p.name} on ${p.nfl_team} without contract`);
+  }
+  for (const [code, t] of Object.entries(s.teams)) {
+    const roster = Object.values(s.players).filter((p) => p.nfl_team === code && !p.retired);
+    const used = roster.reduce((n, p) => n + (p.contract?.cap_hit_by_year[0] ?? 0), 0);
+    if (used > t.cap.total + 0.05) note(`${tag}: ${code} cap used ${used.toFixed(1)} > ${t.cap.total}`);
+  }
+  // picks
+  const yrs = new Set(Object.values(s.draftPicks).map((p: any) => p.year));
+  log.push(`${tag}: pick years ${[...yrs].sort().join(",")} count=${Object.keys(s.draftPicks).length}`);
+  for (const [k, p] of Object.entries(s.draftPicks) as any) {
+    const parts = k.split("-");
+    if (p.owner && !s.teams[p.owner]) note(`${tag}: pick ${k} owned by unknown ${p.owner}`);
+  }
+}
+
+describe("QA longitudinal", () => {
+  it("plays 4 seasons with integrity checks", async () => {
+    const fstat: Record<string, number> = {};
+    if (process.env.QA_ENGINE === "1") {
+      vi.unstubAllGlobals();
+      const real = globalThis.fetch;
+      globalThis.fetch = (async (u: any, i: any) => { try { let r; try { r = await real(u, i); } catch { fstat["retry"] = (fstat["retry"] ?? 0) + 1; r = await real(u, i); } const k = `${String(u).replace(/^https?:\/\/[^/]+/, "")} ${r.status}`; fstat[k] = (fstat[k] ?? 0) + 1; return r; } catch (e) { const k = `${String(u).replace(/^https?:\/\/[^/]+/, "")} ERR ${(e as Error).name}:${(e as Error).message}:${String((e as any).cause?.message ?? "")}`; fstat[k] = (fstat[k] ?? 0) + 1; throw e; } }) as any;
+    }
+    const seed = Number(process.env.QA_SEED ?? 4001);
+    await useStore.getState().newLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1 });
+    let guard = 600;
+    const seasonsDone: number[] = [];
+    const target = 2026 + Number(process.env.QA_SEASONS ?? 4);
+    while (guard-- > 0 && state().season < target) {
+      const before = state().stage, season = state().season;
+      let after: Stage;
+      mkdirSync(OUT, { recursive: true }); try { after = await playStage(); } catch (e) { note(`STALL/ERR at ${season} ${before}: ${(e as Error).message}`); break; }
+      log.push(`${season} w${state().week} ${before} -> ${after}`);
+      { const ser = JSON.stringify({ state: ((useStore as any).persist.getOptions().partialize)(state()), version: (useStore as any).persist.getOptions().version }); sizes.push(`${season} ${after} ${ser.length}`); writeFileSync(`${OUT}/sizes.txt`, sizes.join("\n")); if (after === "preseason" || after === "endOfSeasonAnnounce") { mkdirSync(`${OUT}/snaps`, { recursive: true }); writeFileSync(`${OUT}/snaps/${season}_${after}.json`, ser); } }
+      if (before === "playoffs" && after !== "playoffs") { /* postseason over */ }
+      if (after === "endOfSeasonAnnounce" && !seasonsDone.includes(season)) {
+        seasonsDone.push(season);
+        const s = state();
+        check(s, `S${season}`);
+        for (const g of s.games) if (g.played && (g.homeScore === 1 || g.awayScore === 1)) keep.push(g);
+        if (!keep.some((g) => g.id === "sample")) { const lg = s.games.find((g) => g.playerLines && g.phase === "REG"); if (lg) keep.push({ ...lg, id: lg.id }); }
+        const me = viewerTeam();
+        const t = s.teams[me]!;
+        log.push(`S${season} human ${me} ${t.wins}-${t.losses}-${t.ties} champion=${s.bracket?.champion} history=${s.history.length} champs=${s.champions?.length} teamSeasons=${s.teamSeasons?.length} awards=${s.awards?.length}`);
+      }
+      if (after === "preseason") integrity(state(), `S${state().season}-preseason`);
+    }
+    const s = state();
+    log.push(`END season=${s.season} stage=${s.stage} history=${s.history.length} champions=${JSON.stringify(s.champions)}`);
+    log.push(`archive=${s.gameArchive?.length} awards=${s.awards?.length} hof=${s.hallOfFame?.length} records=${s.records?.length}`);
+    mkdirSync(OUT, { recursive: true });
+    const all = [...s.games, ...(s.gameArchive ?? [])];
+    const odd = keep;
+    const lines = all.filter((g) => g.playerLines && g.totals).slice(0, 2);
+    writeFileSync(`${OUT}/odd-games.json`, JSON.stringify({ odd: odd.map((g) => ({ ...g, broadcast: g.broadcast ? "present" : undefined })), lines, broadcastCount: all.filter((g) => g.broadcast).length, gameCount: all.length }, null, 1));
+    writeFileSync(`${OUT}/log.txt`, log.join("\n"));
+    writeFileSync(`${OUT}/findings.txt`, findings.join("\n"));
+    log.push("FETCH " + JSON.stringify(fstat)); console.log(log.join("\n"));
+    console.log("FINDINGS", findings.length, "\n" + [...new Set(findings)].slice(0, 80).join("\n"));
+  }, TIMEOUT);
+});

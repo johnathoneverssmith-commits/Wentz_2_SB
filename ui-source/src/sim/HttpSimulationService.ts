@@ -17,6 +17,15 @@ import type { GameResult, Player, ScheduledGame } from "@/domain";
 
 const BASE_URL = "http://localhost:8787";
 
+/** A game already on record, in engine round names (`wildcard`…), applied rather than replayed. */
+export interface RecordedPlayoffGame {
+  round: "wildcard" | "divisional" | "conference" | "superbowl";
+  home: string;
+  away: string;
+  homeScore: number;
+  awayScore: number;
+  winner: string;
+}
 const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
 const toUi = (code: string): string => (code === "LA" ? "LAR" : code);
 
@@ -314,8 +323,10 @@ export class HttpSimulationService {
     offenseAdjust = 0,
     viewerTeam: string | null = null,
     plans: Record<string, GamePlan> = {},
+    recorded: RecordedPlayoffGame[] = [],
   ): Promise<RawPlayoffRoundResult> {
     const body = {
+      recorded: recorded.map((g) => ({ ...g, home: toEngine(g.home), away: toEngine(g.away), winner: toEngine(g.winner) })),
       seed,
       seeding: {
         AFC: { seeds: seeding.AFC.seeds.map(toEngine), divisionWinners: [], wildCards: [] },

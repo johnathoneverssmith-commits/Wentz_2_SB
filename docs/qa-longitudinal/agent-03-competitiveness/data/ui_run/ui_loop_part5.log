@@ -1,0 +1,9 @@
+   text: Free Agency / , / BALTIMORE / RAVENS / Round 1 of 5 · one offer or pass per round / Your turn / Baltimore / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / R
+0 #/rookie-signings -> Continue to Free Agency adapter {}
+   text: Free Agency / , / BALTIMORE / RAVENS / Round 1 of 5 · one offer or pass per round / Your turn / Baltimore / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / R
+1 #/free-agency-board -> Let my staff take this turn adapter {}
+clickfail Pass
+   text: BAL / Free Agency Summary / 2028 · 0 signed / Signed / 0 / Roster / 58 / 53 / Cap used / $251.2M / Cap space / $21.7M / YOUR RESULTS / LEAGUE SIGNINGS / REMAINING POOL / ROSTER & BUDGET (1) / SIGNED (
+12 #/free-agency-summary -> Let my staff fix the roster adapter {}
+STUCK at #/free-agency-summary on Let my staff fix the roster | buttons: Skip to content | Sound off | Full | Subtle | Off | Download backup | Restore from backup | New solo dynasty | Your Results | League Signings | Remaining Pool | Roster & Budget (1) | Fix the roster | No thanks
+final #/free-agency-summary {}

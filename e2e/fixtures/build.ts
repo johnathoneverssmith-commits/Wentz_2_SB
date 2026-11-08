@@ -29,6 +29,8 @@ const opt = (name: string): string | undefined => {
 const seed = Number(opt("seed") ?? 4242);
 const out = opt("out");
 const realClock = process.argv.includes("--real-clock");
+// claim this team for the human GM instead of the first free one (the visual-audit harness uses it for team palettes)
+const claimTeam = opt("team");
 // build only these fixtures (and stop playing once they are kept); by default all of them
 const only = opt("only")?.split(",").filter(Boolean);
 if (!out) throw new Error("--out <directory> is required");
@@ -92,7 +94,8 @@ async function actOn(stage: Stage): Promise<void> {
     case "setup": {
       const taken = new Set(s.gms.map((g) => g.teamCode).filter(Boolean));
       const free = Object.keys(s.teams).filter((c) => !taken.has(c));
-      for (const g of s.gms) if (g.isHuman && !g.teamCode) s.pickTeam(g.id, free.shift()!);
+      if (claimTeam && !free.includes(claimTeam)) throw new Error(`--team ${claimTeam} is not a free team in this league`);
+      for (const g of s.gms) if (g.isHuman && !g.teamCode) s.pickTeam(g.id, claimTeam ?? free.shift()!);
       break;
     }
     case "fantasyDraft":

@@ -1,0 +1,65 @@
+[
+ {
+  "team": "contender .65",
+  "variant": "D streak2",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.24,
+  "consecutiveYearShare": 0.17
+ },
+ {
+  "team": "contender .65",
+  "variant": "D streak2 + cooldown1",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.21,
+  "consecutiveYearShare": 0
+ },
+ {
+  "team": "contender .65",
+  "variant": "D streak3",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.04,
+  "consecutiveYearShare": 0.19
+ },
+ {
+  "team": "average .50",
+  "variant": "D streak2",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.26,
+  "consecutiveYearShare": 0.58
+ },
+ {
+  "team": "average .50",
+  "variant": "D streak2 + cooldown1",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.05,
+  "consecutiveYearShare": 0
+ },
+ {
+  "team": "average .50",
+  "variant": "D streak3",
+  "N": 4000,
+  "appearancesPer10Seasons": 1.9,
+  "consecutiveYearShare": 0.57
+ },
+ {
+  "team": "poor .35",
+  "variant": "D streak2",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.58,
+  "consecutiveYearShare": 0.92
+ },
+ {
+  "team": "poor .35",
+  "variant": "D streak2 + cooldown1",
+  "N": 4000,
+  "appearancesPer10Seasons": 4.45,
+  "consecutiveYearShare": 0
+ },
+ {
+  "team": "poor .35",
+  "variant": "D streak3",
+  "N": 4000,
+  "appearancesPer10Seasons": 7.94,
+  "consecutiveYearShare": 0.92
+ }
+]

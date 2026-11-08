@@ -409,6 +409,20 @@ export class HybridSimulationService implements SimulationService {
     return this.viaAdapter<BracketState>(async () => {
       const asRaw = (seeds: string[]): RawConferenceSeeding => ({ seeds, divisionWinners: [], wildCards: [] });
       const roundsPlayed = ROUND_ORDER.indexOf(round);
+      // Results already on the bracket are authoritative: hand them to the
+      // adapter so it applies them instead of replaying the earlier rounds
+      // from today's (post-injury) rosters. See docs/decisions.md → GAP-011.
+      const ENGINE_ROUND = { WC: "wildcard", DIV: "divisional", CONF: "conference", SB: "superbowl" } as const;
+      const recorded = bracket.matchups
+        .filter((m) => ROUND_ORDER.indexOf(m.round) < roundsPlayed && m.winner && m.highSeed && m.lowSeed && m.homeScore != null && m.awayScore != null)
+        .map((m) => ({
+          round: ENGINE_ROUND[m.round],
+          home: m.highSeed!.code,
+          away: m.lowSeed!.code,
+          homeScore: m.homeScore!,
+          awayScore: m.awayScore!,
+          winner: m.winner!,
+        }));
       const result = await this.http.playoffRound(
         playoffSeed(state),
         { AFC: asRaw(bracket.seeds.AFC), NFC: asRaw(bracket.seeds.NFC) },
@@ -421,15 +435,18 @@ export class HybridSimulationService implements SimulationService {
         state.offenseAdjust ?? 0,
         viewerTeam,
         gamePlansFor(state),
+        recorded,
       );
 
       const matchups = bracket.matchups.map((m) => ({ ...m }));
       for (const g of result.games) {
-        playedGames.push(asGame(g.home, g.away, g.homeScore, g.awayScore, result.boxes[`${g.home}|${g.away}`]));
         const m = matchups.find(
           (x) => x.round === round && x.highSeed?.code === g.home && x.lowSeed?.code === g.away,
         );
-        if (m) {
+        // a game that decides no matchup on the bracket is never stored
+        if (!m) continue;
+        playedGames.push(asGame(g.home, g.away, g.homeScore, g.awayScore, result.boxes[`${g.home}|${g.away}`]));
+        {
           m.homeScore = g.homeScore;
           m.awayScore = g.awayScore;
           m.winner = g.winner;

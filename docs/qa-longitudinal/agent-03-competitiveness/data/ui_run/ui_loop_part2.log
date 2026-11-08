@@ -1,0 +1,70 @@
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 3-6 · 4th in AFC North. Week 10: @ Buffalo (5-4). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Co
+0 #/roster -> Ready for Week 10 adapter {"/scheme-fit-baseline":1}
+   text: Week 10 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:
+1 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":1}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 4-6 · 4th in AFC North. Week 11: @ Jacksonville (4-5). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimed
+2 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":1}
+   text: Week 11 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:
+3 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":2}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 4-7 · 4th in AFC North. Week 12: vs Houston (7-3). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia C
+4 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":2}
+   text: Week 12 · results are in / , / GAME DAY / Final scores, and what it cost you. / HOU / 0 / PRE-GAME / Q1 · 15:00 / BAL / 0 / DRIVE CHART / 1 drive so far / BAL / Q1 15:00 / 0 plays · from their own 24 
+5 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":3}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 5-7 · 3rd in AFC North. Week 13: vs Indianapolis (1-10). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikim
+6 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":3}
+   text: Week 13 · results are in / , / GAME DAY / Final scores, and what it cost you. / IND / 0 / PRE-GAME / Q1 · 15:00 / BAL / 0 / DRIVE CHART / 1 drive so far / IND / Q1 15:00 / 0 plays · from their own 25 
+7 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":4}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 6-7 · 2nd in AFC North. Week 14: Bye week. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons /
+8 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":4}
+   text: Week 14 · results are in / , / GAME DAY / Final scores, and what it cost you. / AROUND THE LEAGUE / CAR / Carolina / 81 OVR · 7-6 / 7–21 / CLE / Cleveland / 84 OVR · 8-5 / CHI / Chicago / 83 OVR · 9-4
+9 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":5}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 6-7 · 2nd in AFC North. Week 15: @ Pittsburgh (5-8). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia
+10 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":5}
+   text: Week 15 · results are in / , / GAME DAY / Final scores, and what it cost you. / BAL / 0 / PRE-GAME / Q1 · 15:00 / PIT / 0 / DRIVE CHART / 1 drive so far / BAL / Q1 15:00 / 0 plays · from their own 30 
+11 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":6}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 7-7 · 2nd in AFC North. Week 16: @ Cleveland (9-5). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia 
+12 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":6}
+   text: Week 16 · results are in / , / GAME DAY / Final scores, and what it cost you. / BAL / 0 / PRE-GAME / Q1 · 15:00 / CLE / 0 / DRIVE CHART / 1 drive so far / CLE / Q1 15:00 / 0 plays · from their own 30 
+13 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":7}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 7-8 · 2nd in AFC North. Week 17: @ Tampa Bay (4-10-1). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimed
+14 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":7}
+   text: Week 17 · results are in / , / GAME DAY / Final scores, and what it cost you. / BAL / 0 / PRE-GAME / Q1 · 15:00 / TB / 0 / DRIVE CHART / 1 drive so far / BAL / Q1 15:00 / 0 plays · from their own 30 /
+15 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":8}
+   text: Franchise command center, 2027 season / , / BALTIMORE / RAVENS / 8-8 · 2nd in AFC North. Week 18: vs Cleveland (10-6). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedi
+16 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":8}
+   text: Week 18 · results are in / , / GAME DAY / Final scores, and what it cost you. / CLE / 0 / PRE-GAME / Q1 · 15:00 / BAL / 0 / DRIVE CHART / 1 drive so far / BAL / Q1 15:00 / 0 plays · from their own 30 
+17 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":9}
+   text: 2027 playoffs / , / POSTSEASON / Now: Wild Card. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Your team / Missed / Seed / — / Next game / — / Champion /
+18 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1}
+   text: Wild Card · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / THIS ROUND / HOU / Houston 
+19 #/bracket -> Simulate the Wild Card adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":1}
+   text: 2027 playoffs / , / POSTSEASON / Now: Divisional. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Your team / Missed / Seed / — / Next game / — / Champion 
+20 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":1}
+   text: Divisional · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / THIS ROUND / DEN / Denver 
+21 #/bracket -> Simulate the Divisional adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":2}
+   text: 2027 playoffs / , / POSTSEASON / Now: Conference Championship. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Your team / Missed / Seed / — / Next game / 
+22 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":2}
+   text: Conference Championship · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Your team mis
+23 #/bracket -> Simulate the Conference Championship adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":3}
+   text: 2027 playoffs / , / POSTSEASON / Now: Super Bowl. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Your team / Missed / Seed / — / Next game / — / Champion 
+24 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":3}
+   text: Super Bowl · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Your team missed the playo
+25 #/bracket -> Simulate the Super Bowl adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: End of season / , / 2027 / That's a wrap on 2027. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / SEASON AWARDS / Most Valuable Player / Wesvon Whitland / 
+26 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: End of season / , / 2027 / That's a wrap on 2027. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / SEASON AWARDS / Most Valuable Player / Wesvon Whitland / 
+27 #/end-of-season -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: Offseason · Baltimore / , / RETIREMENT REVIEW / Who is hanging it up this offseason, on your roster and around the league. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wiki
+29 #/hot-seat -> Continue to the offseason adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: On the clock / The Baltimore Ravens are on the clock / Tap or click anywhere to make your selection. / Draft Room / , / BALTIMORE / RAVENS / 2028 Rookie Draft · Round 1 · Linear / Photo: M&T Bank Stad
+30 #/retirement -> Advance to the Draft adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: Draft Room / , / BALTIMORE / RAVENS / 2028 Rookie Draft · Round 1 · Linear / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / SCOUTING REPORT: 2027 DRAFT CLAS
+31 #/draft -> Draft Barol Ashing adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: Draft Room / , / BALTIMORE / RAVENS / 2028 Rookie Draft · Round 4 · Linear / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / SCOUTING REPORT: 2027 DRAFT CLAS
+40 #/draft -> Draft Trevor Milllow adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: 2028 draft class · Baltimore / , / ROOKIE SIGNINGS / Sign or release each of your picks. A release goes to the free-agent market for good. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC 
+53 #/rookie-draft-summary -> Continue to Rookie Signings adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+   text: 2028 draft class · Baltimore / , / ROOKIE SIGNINGS / Sign or release each of your picks. A release goes to the free-agent market for good. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC 
+54 #/rookie-signings -> Draft Summary (locked) adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
+STUCK at #/rookie-signings on Draft Summary (locked) | buttons: Skip to content | Sound off | Full | Subtle | Off | Download backup | Restore from backup | New solo dynasty | Signings | Draft Summary (locked) | Sign | Release | Sign | Release
+final #/rookie-signings {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1,"/playoffs/round":4}
