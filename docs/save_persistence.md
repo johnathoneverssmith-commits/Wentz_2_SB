@@ -52,3 +52,15 @@ Results are in the PR description.
 * Online leagues still keep a 30 s-deferred local mirror; unchanged.
 * Archive retention, `gameArchive` size and per-game traces were deliberately not trimmed — that is
   a gameplay/history decision, and the size is no longer a limit. The 10-season sizes are in the PR.
+
+## Measured results (real engine, seed 4001, 10 seasons)
+
+`SAVE_SOAK=1 SOAK_SEASONS=10` (`saveSoak.test.ts`): 371 stage writes, **28 reloads** (preseason, end of
+season, offseason entry in every season) with play continuing on the reloaded store. At every write the
+stored record equalled the live state exactly; no write failed; nothing was written to localStorage.
+173 of the 371 states were over the 5,242,875-character localStorage limit (the old build would have
+stopped saving at all of them).
+
+Peak JSON characters per season: 2026 2.29 M · 2027 4.56 M · 2028 5.90 M · 2029 6.12 M · 2030 5.37 M ·
+2031 6.45 M · 2032 6.53 M · 2033 6.54 M · 2034 5.62 M · 2035 6.58 M · 2036 4.28 M — identical to the
+pre-fix measurements in PR #99, i.e. the saved content did not change, only where it lives.
