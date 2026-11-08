@@ -5,7 +5,7 @@ Branch `claude/kind-johnson-nf6kyy`, draft PR. Local results are not CI; CI is t
 ## What changed
 | Task | Result |
 |---|---|
-| 1 Dead CSS | 8 files, 63 selectors removed (one commit per file): `app-shell`, `dashboard`, `shared-presentation`, `gamecast`, `gamecast-gameday`, `season-end-gameday`, `theme`, `visual`; plus the dead `.decision-heading` rules. Classes built at runtime (`'decision-' + kind`, `"ui-meter--" + tone`) are kept: a first pass removed some and was reverted. |
+| 1 Dead CSS | 8 files, 69 selectors removed (one commit per file): `app-shell`, `dashboard`, `shared-presentation`, `gamecast`, `gamecast-gameday`, `season-end-gameday`, `theme`, `visual`; plus the dead `.decision-heading` rules. Classes built at runtime (`'decision-' + kind`, `"ui-meter--" + tone`) are kept: a first pass removed some and was reverted. |
 | 2 Proof | PR #92 harness (`e2e-audit`), BAL, 1440/390/320, reduced motion, 32 routes x 3 widths = 96 shots, master vs branch, pixel-diffed. `group-08-evidence/pixel-diff-*.tsv`. |
 | 3 Tokens | Neutral `--gd-*` tokens moved to `:root`; added `--gd-link`. The remap block stays (see "Dark surfaces remain"). |
 | 4 Page shell | Roster, hub, coaching, decision rooms on `GdPage` (now passes `data-*`). Dead `roster-workspace` class gone. |
