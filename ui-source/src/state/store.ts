@@ -427,6 +427,7 @@ let flushOnlineCopy: () => void = () => undefined;
 function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
   let pending: { name: string; value: Parameters<PersistStorage<S>["setItem"]>[1] } | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let wroteOnline = false;
   const flush = (): void => {
     if (timer) clearTimeout(timer);
     timer = null;
@@ -453,9 +454,17 @@ function deferOnlineCopy<S>(inner: PersistStorage<S>): PersistStorage<S> {
     setItem: (name, value) => {
       if (slotFor(name) !== ONLINE_SAVE_KEY) {
         pending = null;
+        wroteOnline = false; // the next online league's first write is immediate again
         return inner.setItem(name, value);
       }
       pending = { name, value };
+      // The first write of this copy in a page session goes straight through: a league joined a moment ago
+      // must be on disk if the page is reloaded (or the server is down) before the half-minute is up.
+      if (!wroteOnline) {
+        wroteOnline = true;
+        flush();
+        return;
+      }
       if (!timer) timer = setTimeout(flush, 30_000);
     },
   };
@@ -1669,8 +1678,18 @@ export const useStore = create<Store>()(
 // the one in the store: a league that has not grown carries no cap-growth fields, so they are named as unset
 // (`withLeagueCapFields`), or the previous league's growth stays on the new one.
 const setStateOnStore = useStore.setState;
-(useStore as { setState: unknown }).setState = ((partial: unknown, replace?: boolean) =>
-  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueArchive(withLeagueCapFields(partial)), replace)) as typeof setStateOnStore;
+(useStore as { setState: unknown }).setState = ((partial: unknown, replace?: boolean) => {
+  // Joining or opening an online league: `joinLeague` points saving at the online slot, and the whole league the
+  // server returns is handed in here next. Until that happens the store still holds the solo dynasty, which must
+  // never be written into the online slot — so that slot's writes stay gated (see durableSave: a slot not yet read
+  // is not written) until the server's league arrives. The server's copy is authoritative, so its arrival is what
+  // opens the gate; the first write then replaces any older local copy (which moves to `#prev`, not away).
+  if (isWholeLeague(partial) && slotFor(SAVE_KEY) === ONLINE_SAVE_KEY) durable.markHydrated(ONLINE_SAVE_KEY);
+  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueArchive(withLeagueCapFields(partial)), replace);
+}) as typeof setStateOnStore;
+function isWholeLeague(p: unknown): boolean {
+  return typeof p === "object" && p !== null && "teams" in p && "players" in p;
+}
 
 if (import.meta.env?.DEV && typeof window !== "undefined") {
   (window as unknown as { __store: typeof useStore }).__store = useStore;

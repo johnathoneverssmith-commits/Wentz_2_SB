@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { decodeRecord, type SaveRecord } from "./durableSave";
 import { FakeIDBFactory, quotaStorage } from "./fakeIndexedDb.testutil";
+
+const decodeText = (rec: unknown): Promise<string> => decodeRecord(rec as SaveRecord);
 
 /**
  * GAP-008 at the store level: the real store module, against a browser-shaped `window` (an
@@ -216,4 +219,86 @@ describe("durable solo save", () => {
     expect(await a.flushSave()).toBe(true);
     expect(a.saveStatus().broken).toBe(false);
   }, BUDGET);
+
+  describe("solo to online mid-session", () => {
+    const ONLINE = "nfl-sim-ui.online-league";
+    const LEAGUE_ID = "fs.online.leagueId";
+    /** what `joinLeague` does to storage, then what the lobby does with the server's league */
+    const join = (m: StoreModule, d: Device, serverSeason: number) => {
+      d.ls.setItem(LEAGUE_ID, "L1"); // rememberLeague()
+      const server = { ...m.useStore.getState(), season: serverSeason };
+      m.useStore.setState(server as never); // useStore.setState(state)
+    };
+
+    it("persists the online league's local copy in its own slot, and leaves the solo dynasty alone", async () => {
+      const a = await pageLoad(dev);
+      await a.useStore.getState().newLeague(31);
+      const soloSeason = a.useStore.getState().season;
+      await a.flushSave();
+
+      join(a, dev, soloSeason + 5);
+      await a.flushSave();
+
+      const online = JSON.parse(await decodeText(dev.idb.raw().get(ONLINE))) as { state: { season: number } };
+      expect(online.state.season).toBe(soloSeason + 5);
+      const solo = JSON.parse(await decodeText(dev.idb.raw().get(SAVE_KEY))) as { state: { season: number } };
+      expect(solo.state.season, "the solo dynasty record is untouched by online play").toBe(soloSeason);
+    }, BUDGET);
+
+    it("writes the first online copy at once, not half a minute later", async () => {
+      const a = await pageLoad(dev);
+      await a.useStore.getState().newLeague(32);
+      await a.flushSave();
+      join(a, dev, 2090);
+      await new Promise((r) => setTimeout(r, 400)); // no flushSave: the copy must already be on its way
+      await vi.waitFor(() => expect(dev.idb.raw().has(ONLINE)).toBe(true), { timeout: 5000 });
+    }, BUDGET);
+
+    it("never writes the solo league into the online slot before the server's league arrives", async () => {
+      const a = await pageLoad(dev);
+      await a.useStore.getState().newLeague(33);
+      await a.flushSave();
+      dev.ls.setItem(LEAGUE_ID, "L1"); // joined, but the server's league has not been applied yet
+      a.useStore.setState({ season: 2999 } as never); // any ordinary store change in that gap
+      await a.flushSave();
+      expect(dev.idb.raw().has(ONLINE), "nothing is saved to the online slot yet").toBe(false);
+      const solo = JSON.parse(await decodeText(dev.idb.raw().get(SAVE_KEY))) as { state: { season: number } };
+      expect(solo.state.season).not.toBe(2999);
+    }, BUDGET);
+
+    it("after a reload with the server unreachable, the online copy loads; leaving online brings the solo dynasty back", async () => {
+      const a = await pageLoad(dev);
+      await a.useStore.getState().newLeague(34);
+      const soloSeason = a.useStore.getState().season;
+      await a.flushSave();
+      join(a, dev, soloSeason + 7);
+      await a.flushSave();
+
+      // reload: the browser still remembers the league; fetch fails (the test setup rejects every request)
+      const b = await pageLoad(dev);
+      expect(b.useStore.getState().season, "the online copy, from IndexedDB").toBe(soloSeason + 7);
+
+      // the player leaves online play: the solo dynasty is exactly as it was
+      const online = await import("./online.ts");
+      online.goLocal();
+      await vi.waitFor(() => expect(b.useStore.getState().season).toBe(soloSeason), { timeout: 10_000 });
+      expect(dev.ls.getItem(LEAGUE_ID)).toBeNull();
+    }, BUDGET);
+
+    it("an older local copy of the same league is replaced by the server's, and kept as the previous generation", async () => {
+      const a = await pageLoad(dev);
+      await a.useStore.getState().newLeague(35);
+      const s0 = a.useStore.getState().season;
+      await a.flushSave();
+      join(a, dev, s0 + 1);
+      await a.flushSave();
+      // later, still online (page stays alive): the lobby opens the league again with newer server state
+      join(a, dev, s0 + 2);
+      await a.flushSave();
+      const cur = JSON.parse(await decodeText(dev.idb.raw().get(ONLINE))) as { state: { season: number } };
+      const prev = JSON.parse(await decodeText(dev.idb.raw().get(`${ONLINE}#prev`))) as { state: { season: number } };
+      expect(cur.state.season).toBe(s0 + 2);
+      expect(prev.state.season).toBe(s0 + 1);
+    }, BUDGET);
+  });
 });
