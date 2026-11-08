@@ -1,0 +1,17 @@
+talent 1.5, 12 games a roster; margin vs the standard plan (points/game)
+
+lever            setting   overall   best-fit 8   worst-fit 8   fit by
+qbRun               100     -0.68        +0.37         -0.58   QB mobility
+qbRun              -100     +0.23        -0.41         +0.58   QB mobility
+twoPoint            100     -0.31                              
+twoPoint           -100     +0.12                              
+fourthShort         100     -0.20                              
+fourthShort        -100     -0.23                              
+fourthLong          100     -0.06                              
+fourthLong         -100     +0.20                              
+kickoff             100     -1.21        -2.06         -3.07   kicker leg
+kickoff            -100     -0.60        -1.94         -0.89   kicker leg
+returns             100     -0.54        -2.50         +1.44   returner
+returns            -100     -0.20        -1.25         +0.38   returner
+rookies             100     -0.44        -0.58         -0.30   usable rookies
+rookies            -100     -0.26        -1.19         +0.83   usable rookies

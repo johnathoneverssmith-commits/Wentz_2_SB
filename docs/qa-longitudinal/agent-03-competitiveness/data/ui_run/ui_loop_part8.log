@@ -1,0 +1,48 @@
+   text: Mid-Season Free Agency / , / BALTIMORE / RAVENS / Round 2 of 5 · one offer or pass per round / Your turn / Baltimore / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia 
+0 #/free-agency-board -> Pass this round adapter {}
+   text: Roster & depth chart / , / BALTIMORE / RAVENS / 2028 season, Depth Chart. Team overall 83, 8th of 32. 52 of 53 on the active roster. / Trade history / Photo: M&T Bank Stadium in Baltimore, Quintin Sol
+5 #/free-agency-summary -> Advance to Re-order Depth Chart adapter {"/scheme-fit-baseline":1}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 5-4 · 2nd in AFC North. Week 10: @ Buffalo (4-5). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Co
+6 #/roster -> Ready for Week 10 adapter {"/scheme-fit-baseline":1}
+   text: Week 10 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:
+7 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":1}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 6-4 · 2nd in AFC North. Week 11: @ Jacksonville (6-3). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimed
+8 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":1}
+   text: Week 11 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:
+9 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":2}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 7-4 · 2nd in AFC North. Week 12: vs Houston (8-2). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia C
+10 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":2}
+   text: Week 12 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / HOU / 0 / PRE-GAME / Q1 · 15:
+11 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 7-5 · 2nd in AFC North. Week 13: vs Indianapolis (3-8). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikime
+12 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":3}
+   text: Week 13 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / IND / 0 / PRE-GAME / Q1 · 15:
+13 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":4}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 8-5 · 2nd in AFC North. Week 14: Bye week. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons /
+14 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":4}
+   text: Week 14 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / AROUND THE LEAGUE / CAR / Car
+15 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":5}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 8-5 · 2nd in AFC North. Week 15: @ Pittsburgh (4-9). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia
+16 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":5}
+   text: Week 15 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:
+17 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":6}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 9-5 · 1st in AFC North. Week 16: @ Cleveland (9-5). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia 
+18 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":6}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+19 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":7}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+20 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":7}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+21 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":8}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+22 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":8}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+23 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/simulate-week":9}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+24 #/game-day -> Continue adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+25 #/bracket -> Let my staff re-sign the core adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1}
+   text: This dynasty isn't being saved. The browser refused to write to storage — usually a full quota, or a private window, which blocks it entirely. Play continues, but closing this tab will lose everything
+40 #/bracket -> Let my staff re-sign the core adapter {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1}
+STUCK at #/bracket on Let my staff re-sign the core | buttons: Skip to content | Sound off | Full | Subtle | Off | Download backup | Restore from backup | New solo dynasty | AFC | NFC | Super Bowl | Matchup | Extend them | No thanks
+final #/bracket {"/scheme-fit-baseline":1,"/simulate-week":9,"/playoffs/seed":1}
