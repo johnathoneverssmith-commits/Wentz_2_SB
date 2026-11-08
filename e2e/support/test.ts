@@ -69,6 +69,18 @@ export const test = base.extend<Options & Fixtures>({
     await use(blockedByContext.get(context) ?? []);
   },
 
+  // `page.reload()` lets the app finish any save in flight first. Saving is asynchronous (IndexedDB), so a reload in
+  // the same instant as a change can race it; that race is the app's documented limit and is tested on purpose in
+  // save-durability.spec.ts (with `location.reload()`), not by every spec that happens to reload after a click.
+  page: async ({ page }, use) => {
+    const reload = page.reload.bind(page);
+    page.reload = async (options) => {
+      await page.evaluate(async () => (window as unknown as { __nflSimFlushSave?: () => Promise<boolean> }).__nflSimFlushSave?.()).catch(() => undefined);
+      return reload(options);
+    };
+    await use(page);
+  },
+
   consoleErrors: async ({ page }, use) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));

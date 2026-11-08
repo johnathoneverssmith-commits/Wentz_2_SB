@@ -364,13 +364,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         {priorFailure && !saveBroken && (
           <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
-            <strong>Some progress from your last session wasn&rsquo;t saved.</strong> Saving was
-            failing when it ended, so this is the last save that landed
-            {priorFailure.okAt
-              ? <> ({new Date(priorFailure.okAt).toLocaleString()}{priorFailure.okSeason ? `, season ${priorFailure.okSeason}` : ""}{priorFailure.okWeek ? `, week ${priorFailure.okWeek}` : ""})</>
-              : null}
-            . If you downloaded a backup afterwards, restore it:
-            <SaveBackup inline />
+            {priorFailure.unsavedTail ? (
+              <>
+                <strong>Your last action wasn&rsquo;t saved.</strong> The page was closed or reloaded a
+                moment after a change, before it reached storage, so this is the save from just before it
+                — redo that last step.
+              </>
+            ) : (
+              <>
+                <strong>Some progress from your last session wasn&rsquo;t saved.</strong> Saving was
+                failing when it ended, so this is the last save that landed
+                {priorFailure.okAt
+                  ? <> ({new Date(priorFailure.okAt).toLocaleString()}{priorFailure.okSeason ? `, season ${priorFailure.okSeason}` : ""}{priorFailure.okWeek ? `, week ${priorFailure.okWeek}` : ""})</>
+                  : null}
+                . If you downloaded a backup afterwards, restore it:
+                <SaveBackup inline />
+              </>
+            )}{" "}
             <button type="button" className="btnlink sm" onClick={dismissPriorSaveFailure}>
               Dismiss
             </button>

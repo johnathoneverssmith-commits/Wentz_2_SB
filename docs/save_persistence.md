@@ -60,6 +60,14 @@ runs the migration and from then on reads/writes only IndexedDB; specs read the 
 store has no `window` at import and therefore no persistence (it previously relied on a lazily-resolved
 localStorage stand-in).
 
+## Changes lost to a close or reload mid-write are detected, not silent
+
+Each change that will be saved writes a few bytes synchronously to localStorage (`nfl-sim-ui.save-seq`,
+a per-slot counter) and each stored record carries the counter it holds. If a load finds the counter ahead
+of the record, the last action(s) never reached IndexedDB, and the app says "Your last action wasn't saved"
+instead of presenting the older save as current. (Records migrated from localStorage carry no counter until
+their first write, so that first window is not detected.)
+
 ## Known limits (not fixed here)
 
 * **Immediate tab close.** A change made and the tab closed within roughly the write time (measured: under 60 ms

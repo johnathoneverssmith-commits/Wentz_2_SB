@@ -344,4 +344,49 @@ describe("the storage the store persists through", () => {
     });
     expect(await reloaded.storage.getItem(SLOT)).toEqual(huge);
   }, 60_000);
+
+  it("a load that finds changes newer than the stored save says the last action wasn't saved", async () => {
+    const { idb, backend } = setup();
+    const first = make(backend);
+    first.d.markHydrated(SLOT);
+    first.d.storage.setItem(SLOT, league(2027) as never);
+    await first.d.flush();
+    // the next change starts a write that the page never lets finish (closed/reloaded mid-write)
+    idb.faults.abortBeforeCommit = true;
+    first.d.storage.setItem(SLOT, league(2028) as never);
+    await first.d.flush().catch(() => undefined);
+
+    const seen: unknown[] = [];
+    const second = createDurableStorage<Record<string, unknown>>({
+      backend: createIndexedDbBackend(idb as unknown as IDBFactory, { storage: () => first.ls }),
+      slotFor: (n) => n,
+      statusStorage: () => first.ls,
+      onBroken: () => undefined,
+      onPriorFailure: (st) => seen.push(st),
+    });
+    // (the failed write also marked the status broken; clear it to isolate the tail marker)
+    first.ls.setItem("nfl-sim-ui.save-status", "{}");
+    const got = (await second.storage.getItem(SLOT)) as { state: { season: number } };
+    expect(got.state.season).toBe(2027);
+    expect(seen).toEqual([expect.objectContaining({ unsavedTail: true })]);
+  });
+
+  it("raises no tail warning when every change reached the store", async () => {
+    const { idb, backend } = setup();
+    const first = make(backend);
+    first.d.markHydrated(SLOT);
+    first.d.storage.setItem(SLOT, league(2027) as never);
+    first.d.storage.setItem(SLOT, league(2028) as never);
+    await first.d.flush();
+    const seen: unknown[] = [];
+    const second = createDurableStorage<Record<string, unknown>>({
+      backend: createIndexedDbBackend(idb as unknown as IDBFactory, { storage: () => first.ls }),
+      slotFor: (n) => n,
+      statusStorage: () => first.ls,
+      onBroken: () => undefined,
+      onPriorFailure: (st) => seen.push(st),
+    });
+    await second.storage.getItem(SLOT);
+    expect(seen).toEqual([]);
+  });
 });

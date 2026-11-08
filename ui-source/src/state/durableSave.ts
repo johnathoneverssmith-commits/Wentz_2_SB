@@ -79,10 +79,12 @@ export interface SaveRecord {
   chars: number;
   sum: number;
   savedAt: number;
+  /** the change counter this record holds (see `SEQ_KEY`); absent on records migrated from localStorage */
+  seq?: number;
 }
 
-export async function encodeRecord(json: string, forceSync = false): Promise<SaveRecord> {
-  const base = { fmt: 1 as const, chars: json.length, sum: checksum(json), savedAt: Date.now() };
+export async function encodeRecord(json: string, forceSync = false, seq?: number): Promise<SaveRecord> {
+  const base = { fmt: 1 as const, chars: json.length, sum: checksum(json), savedAt: Date.now(), ...(seq !== undefined ? { seq } : {}) };
   if (forceSync || !compressionAvailable()) return { ...base, enc: "plain", data: json };
   return { ...base, enc: "gzip", data: await gzip(json) };
 }
@@ -98,6 +100,8 @@ export async function decodeRecord(r: SaveRecord): Promise<string> {
 
 export interface ReadResult {
   json: string | null;
+  /** the change counter of the record that was loaded */
+  seq?: number;
   /** the newest record was unreadable and the one before it was used */
   fromPrevious?: boolean;
   /** when the record that was loaded was written */
@@ -109,9 +113,9 @@ export interface Backend {
   probe?(): Promise<void>;
   readonly kind: "indexeddb" | "localstorage";
   read(slot: string): Promise<ReadResult>;
-  write(slot: string, json: string): Promise<void>;
+  write(slot: string, json: string, seq?: number): Promise<void>;
   /** Start a write now without waiting for compression: the page is going away. */
-  writeNow(slot: string, json: string): void;
+  writeNow(slot: string, json: string, seq?: number): void;
   remove(slot: string): Promise<void>;
   has(slot: string): Promise<boolean>;
 }
@@ -246,13 +250,13 @@ export function createIndexedDbBackend(factory: IDBFactory, legacy: LegacyOption
         return m ?? { json: null };
       }
       try {
-        return { json: await decodeRecord(cur), savedAt: cur.savedAt };
+        return { json: await decodeRecord(cur), savedAt: cur.savedAt, ...(cur.seq !== undefined ? { seq: cur.seq } : {}) };
       } catch {
         const prev = await getRecord(db, prevKey(slot));
         await keepDamaged(db, slot, cur);
         if (prev) {
           try {
-            return { json: await decodeRecord(prev), fromPrevious: true, savedAt: prev.savedAt };
+            return { json: await decodeRecord(prev), fromPrevious: true, savedAt: prev.savedAt, ...(prev.seq !== undefined ? { seq: prev.seq } : {}) };
           } catch {
             // both generations unreadable
           }
@@ -260,18 +264,18 @@ export function createIndexedDbBackend(factory: IDBFactory, legacy: LegacyOption
         throw new Error("the stored save could not be read");
       }
     },
-    async write(slot, json) {
+    async write(slot, json, seq) {
       const db = await open();
-      await commit(db, slot, await encodeRecord(json, !legacy.compress));
+      await commit(db, slot, await encodeRecord(json, !legacy.compress, seq));
     },
-    writeNow(slot, json) {
+    writeNow(slot, json, seq) {
       // The page is closing: no awaiting compression and no read-then-write. One `put` of a plain
       // record, issued synchronously, is what survives an unload most reliably. The previous
       // generation is left as it was.
       if (!dbNow) return;
       try {
         const tx = rw(dbNow);
-        tx.objectStore(STORE).put({ fmt: 1, enc: "plain", data: json, chars: json.length, sum: checksum(json), savedAt: Date.now() } satisfies SaveRecord, slot);
+        tx.objectStore(STORE).put({ fmt: 1, enc: "plain", data: json, chars: json.length, sum: checksum(json), savedAt: Date.now(), ...(seq !== undefined ? { seq } : {}) } satisfies SaveRecord, slot);
       } catch {
         // nothing more can be done while unloading
       }
@@ -420,6 +424,8 @@ export interface SaveStatus {
   /** a write failed and none has landed since */
   broken?: boolean;
   failedAt?: number;
+  /** set on a load that found changes newer than the stored save: the last action(s) were not saved */
+  unsavedTail?: boolean;
 }
 
 export interface DurableHooks {
@@ -439,6 +445,13 @@ export interface DurableHooks {
 }
 
 export const STATUS_KEY = "nfl-sim-ui.save-status";
+/**
+ * `{ [slot]: counter }`, written synchronously (a few bytes) at every change that is going to be saved. Each
+ * stored record carries the counter it holds. A load that finds the counter ahead of the record knows the last
+ * change(s) never reached IndexedDB — the tab closed or reloaded inside the write — and says so, instead of
+ * quietly showing the older save.
+ */
+export const SEQ_KEY = "nfl-sim-ui.save-seq";
 
 export interface Durable<S> {
   storage: PersistStorage<S>;
@@ -455,9 +468,9 @@ export interface Durable<S> {
 
 export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
   const debounceMs = h.debounceMs ?? 0;
-  let pending: { slot: string; value: StorageValue<S> } | null = null;
+  let pending: { slot: string; value: StorageValue<S>; seq: number } | null = null;
   /** the value being written right now (compression and the transaction are in flight) */
-  let current: { slot: string; value: StorageValue<S> } | null = null;
+  let current: { slot: string; value: StorageValue<S>; seq: number } | null = null;
   let writing: Promise<void> | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let err: string | null = null;
@@ -487,10 +500,28 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
     h.onBroken(b);
   };
 
-  const persist = async (slot: string, value: StorageValue<S>): Promise<void> => {
+  let lastSeq = 0;
+  const readSeqs = (): Record<string, number> => {
+    try {
+      return JSON.parse(h.statusStorage?.().getItem(SEQ_KEY) ?? "{}") as Record<string, number>;
+    } catch {
+      return {};
+    }
+  };
+  const noteIntent = (slot: string): number => {
+    lastSeq = Math.max(lastSeq + 1, Date.now());
+    try {
+      h.statusStorage?.().setItem(SEQ_KEY, JSON.stringify({ ...readSeqs(), [slot]: lastSeq }));
+    } catch {
+      // detection is best effort; a full quota must not break saving
+    }
+    return lastSeq;
+  };
+
+  const persist = async (slot: string, value: StorageValue<S>, seq: number): Promise<void> => {
     try {
       if (!looksLikeLeague(value)) return; // never replace a good save with something that isn't a league
-      await h.backend.write(slot, JSON.stringify(value));
+      await h.backend.write(slot, JSON.stringify(value), seq);
       const st = (value.state ?? {}) as unknown as { season?: number; week?: number; stage?: string };
       writeStatus({ okAt: Date.now(), okSeason: st.season, okWeek: st.week, okStage: st.stage, broken: false });
       err = null;
@@ -508,7 +539,7 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
     if (writing || !pending) return;
     current = pending;
     pending = null;
-    const w = persist(current.slot, current.value).finally(() => {
+    const w = persist(current.slot, current.value, current.seq).finally(() => {
       current = null;
       writing = null;
       if (pending) schedule();
@@ -538,7 +569,7 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
   const onHide = (): void => {
     const p = pending ?? current;
     if (!p || !looksLikeLeague(p.value)) return;
-    h.backend.writeNow(p.slot, JSON.stringify(p.value));
+    h.backend.writeNow(p.slot, JSON.stringify(p.value), p.seq);
   };
   if (typeof window !== "undefined" && typeof window.addEventListener === "function") window.addEventListener("pagehide", onHide);
   if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
@@ -563,6 +594,10 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
       const st = readStatus();
       // the previous session ended with a save that was failing: this load is the last write that landed
       if (st.broken) h.onPriorFailure?.(st);
+      else if ((readSeqs()[slot] ?? 0) > (r.seq ?? 0) && readSeqs()[slot] !== undefined && r.seq !== undefined) {
+        // changes were made after the newest record that landed: the tab closed or reloaded inside the write
+        h.onPriorFailure?.({ ...st, unsavedTail: true });
+      }
       return JSON.parse(r.json) as StorageValue<S>;
     },
     setItem(name, value) {
@@ -570,7 +605,7 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
       // Before the stored save has been read, the store still holds its fresh initial state;
       // persisting that would overwrite the very save about to be loaded.
       if (!hydrated.has(slot)) return;
-      pending = { slot, value };
+      pending = { slot, value, seq: looksLikeLeague(value) ? noteIntent(slot) : 0 };
       schedule();
     },
     async removeItem(name) {
@@ -578,6 +613,13 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
       pending = null;
       await writing;
       await h.backend.remove(slot);
+      try {
+        const m = readSeqs();
+        delete m[slot];
+        h.statusStorage?.().setItem(SEQ_KEY, JSON.stringify(m));
+      } catch {
+        // none
+      }
     },
   };
 
