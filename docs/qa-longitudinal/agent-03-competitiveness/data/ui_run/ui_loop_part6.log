@@ -1,0 +1,12 @@
+   text: BAL / Free Agency Summary / 2028 · 0 signed / Signed / 0 / Roster / 58 / 53 / Cap used / $251.2M / Cap space / $21.7M / YOUR RESULTS / LEAGUE SIGNINGS / REMAINING POOL / ROSTER & BUDGET (1) / SIGNED (
+0 #/free-agency-summary -> Let my staff fix the roster adapter {}
+   text: Training Camp / BALTIMORE / RAVENS / 2028 · set your focuses / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / OC base focus / +23% / DC base focus / +13% / 
+3 #/training-camp -> Quarterbacks3 players · 1 young · 2 vets adapter {}
+   text: Roster & depth chart / , / BALTIMORE / RAVENS / 2028 season, Depth Chart. Team overall 81, 20th of 32. 53 of 53 on the active roster. / Trade history / Photo: M&T Bank Stadium in Baltimore, Quintin So
+6 #/training-camp-results -> Advance to Re-order Depth Chart adapter {"/scheme-fit-baseline":1}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / Preseason · starting lineup 81 OVR. Preseason Wk 1: @ Cincinnati. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, 
+7 #/roster -> Ready to start the season adapter {"/scheme-fit-baseline":1,"/schedule":1}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / Preseason · starting lineup 81 OVR. Preseason Wk 1: @ Cincinnati. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, 
+8 #/hub -> Ready for Game Day adapter {"/scheme-fit-baseline":1,"/schedule":1,"/plan-preview":1,"/simulate-week":1}
+STUCK at #/hub on Simulate Preseason | buttons: Skip to content | Sound off | Full | Subtle | Off | Download backup | Restore from backup | New solo dynasty | Simulate Preseason | Matchup | Division Standings | League Standings | Injuries | Overview
+final #/hub {"/scheme-fit-baseline":1,"/schedule":1,"/plan-preview":1,"/simulate-week":1}
