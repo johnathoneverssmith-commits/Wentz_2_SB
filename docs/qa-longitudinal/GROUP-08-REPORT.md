@@ -39,3 +39,8 @@ The navy sidebar and every dialog/overlay (`overlays.css`) are dark and use the 
 
 ## For later phases
 Other TAFIs (003, 004, 006-009, 011-016, 018-022); Season Complete layout (010); a harness screen for `/fantasy-draft-summary`; converting dialogs/shell to light tokens, then deleting the remap block.
+
+## Final verification addendum
+- **Fantasy Draft Summary (UI-TAFI-002)**: harness catalogue entry `fantasy-draft-summary` added (fixture `coaching-draft`); BAL, 1440/390/320, reduced motion, master vs branch: `group-08-evidence/TAFI-002-*-before-left-after-right.webp`. Harness contrast findings on the route 5 -> 3 at every width, then two of the remaining three (the "GM" tag at 4.29:1 and the "Methodology" summary at 1.40:1) were fixed in the last commit. The third (the `BAL` badge, black on purple, 2.34:1) is the shared `CardHeader` badge on every screen that uses it; not changed here (shared-primitive change, out of scope), left for a later phase. Re-capture after that last CSS fix was not repeated.
+- **Dark stat strips (UI-TAFI-001)**: the strip's `.stat-value` and `.stat-label` were measured on draft, free-agency board/standing, trade deadline and mid-season FA at all three widths. After: every value and label is at least 6.57:1 (free-agency standing 5.40:1); the 4.5:1 criterion passes. The "before" figures (`...-UNRELIABLE.txt`) are not valid: that script ignores the old strip's dark gradient background-image and measured against the page, so it reads 5.84 where the strip was visibly unreadable (the audit measured 1.02:1). The criterion rests on the after numbers and the screenshots.
+- The harness's own contrast probe never flagged the old strip, so it cannot serve as the gate for this criterion.
