@@ -162,6 +162,24 @@ function decide(
   };
 }
 
+/**
+ * A game already played and recorded by the caller. When `playPlayoffRound`
+ * is given these, a matching game is *applied* (its recorded score and winner
+ * are kept) instead of re-simulated, so an earlier round can never be
+ * re-decided differently by a later call.
+ */
+export interface RecordedPlayoffGame {
+  round: PlayoffRound;
+  home: string;
+  away: string;
+  homeScore: number;
+  awayScore: number;
+  winner: string;
+}
+
+let recordedGames: Map<string, RecordedPlayoffGame> | null = null;
+const recordedKey = (round: PlayoffRound, a: string, b: string) => `${round}|${[a, b].sort().join("|")}`;
+
 function play(
   round: PlayoffRound,
   conference: Conference | "NFL",
@@ -172,6 +190,20 @@ function play(
   // higher seed (smaller number) hosts — except the Super Bowl, where the
   // better seed is only *listed* home and both teams travel
   const [home, away] = a.seed <= b.seed ? [a, b] : [b, a];
+  const rec = recordedGames?.get(recordedKey(round, home.team, away.team));
+  if (rec) {
+    return {
+      round,
+      conference,
+      home: home.team,
+      away: away.team,
+      homeSeed: home.seed,
+      awaySeed: away.seed,
+      homeScore: rec.home === home.team ? rec.homeScore : rec.awayScore,
+      awayScore: rec.home === home.team ? rec.awayScore : rec.homeScore,
+      winner: rec.winner,
+    };
+  }
   const r = decide(seed, home, away, round === "superbowl");
   return {
     round,
@@ -265,7 +297,24 @@ export function startPlayoffs(
 }
 
 /** Play the next round (both conferences, or the Super Bowl). Pure — `p` is not mutated. */
-export function playPlayoffRound(p: PlayoffProgress): {
+export function playPlayoffRound(
+  p: PlayoffProgress,
+  recorded?: readonly RecordedPlayoffGame[],
+): {
+  progress: PlayoffProgress;
+  games: PlayoffGame[];
+} {
+  if (p.nextRound === "done") return { progress: p, games: [] };
+  const prev = recordedGames;
+  recordedGames = recorded?.length ? new Map(recorded.map((g) => [recordedKey(g.round, g.home, g.away), g])) : null;
+  try {
+    return playRound(p);
+  } finally {
+    recordedGames = prev;
+  }
+}
+
+function playRound(p: PlayoffProgress): {
   progress: PlayoffProgress;
   games: PlayoffGame[];
 } {

@@ -31,6 +31,7 @@ import {
   startPlayoffs,
   withPlayoffRosters,
   type PlayoffProgress,
+  type RecordedPlayoffGame,
 } from "../src/engine/playoffs.js";
 import { nflSchedule } from "../src/engine/schedule.js";
 import { Roster, type DepthOrder } from "../src/engine/roster.js";
@@ -184,6 +185,12 @@ interface PlayoffRoundBody {
   plans?: Record<string, GamePlan>;
   /** how many rounds have already been played, before this call plays the next one. */
   roundsPlayed: number;
+  /**
+   * The games the caller already holds for the rounds before this one. They
+   * are applied, not re-simulated: rosters change between rounds (injuries),
+   * so a replay could crown a different winner than the one on record.
+   */
+  recorded?: RecordedPlayoffGame[];
 }
 
 /**
@@ -307,7 +314,7 @@ function playoffRound(body: PlayoffRoundBody, capture: (on: boolean) => void = (
   const seeding = body.seeding as Record<Conference, ConferenceSeeding>;
   capture(false); // the rounds replayed to reach this one aren't this call's games
   let p: PlayoffProgress = startPlayoffs(body.seed, seeding);
-  for (let i = 0; i < body.roundsPlayed; i++) p = playPlayoffRound(p).progress;
+  for (let i = 0; i < body.roundsPlayed; i++) p = playPlayoffRound(p, body.recorded).progress;
   capture(true);
   const { progress, games } = playPlayoffRound(p);
   capture(false); // and neither is the next round's preview, played only to name its pairings
