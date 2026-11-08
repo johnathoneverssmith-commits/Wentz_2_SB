@@ -26,6 +26,7 @@ Only the project owner's explicit approvals/rejections are recorded here.
 | D-021 | 2026-11-07 | **Decided:** the *visual* baseline need not wait for #74. *Definitive* realism and competitiveness testing must use the real engine and state its simulation path | supersedes the open question P-6 | `RELEASE-READINESS.md` |
 | D-022 | 2026-11-07 | **Reaffirmed:** agents complete their own investigations and TAFIs; coordinator = documentation, shared dependencies, final prioritisation | restates D-015 | — |
 | D-023 | 2026-11-08 | **Approved:** merge Agent 4's PR #99 once required checks pass and documentation is verified | docs/evidence/scripts only; findings registered centrally; do not touch #100/#101; no branch-protection bypass | #99 |
+| D-024 | 2026-11-08 | **Instruction:** consolidate #104's confirmed findings centrally; mark disproven ones; keep defects, accessibility advisories and optional audio enhancements distinct; prioritise overlapping mobile tabs, Trade Deadline controls, Fantasy Draft disclosure contrast and Game Day overflow; do not implement, re-audit or merge #104 | registered in `MASTER-TAFI-REGISTER.md` | #104 |
 | D-007 | 2026-11-07 | **Standing:** no gameplay change and no merge of any other PR without explicit approval | — | — |
 
 ## Proposals awaiting a decision
