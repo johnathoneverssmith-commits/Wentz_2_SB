@@ -35,7 +35,11 @@
     "online:db": "tsx online/dev/local-db.ts",
     "online:local": "tsx --tsconfig online/tsconfig.json online/dev/local-server.ts",
     "e2e": "playwright test -c e2e/playwright.config.ts",
-    "e2e:typecheck": "tsc -p e2e/tsconfig.json && tsc -p e2e/fixtures/tsconfig.json"
+    "e2e:typecheck": "tsc -p e2e/tsconfig.json && tsc -p e2e/fixtures/tsconfig.json",
+    "audit:visual": "playwright test -c e2e-audit/playwright.config.ts",
+    "audit:register": "tsx e2e-audit/scripts/build-register.ts",
+    "audit:typecheck": "tsc -p e2e-audit/tsconfig.json",
+    "audit:selfcheck": "AUDIT_NO_STACK=1 playwright test -c e2e-audit/playwright.config.ts harness-selfcheck"
   },
   "dependencies": {
     "@types/pg": "^8.23.1",

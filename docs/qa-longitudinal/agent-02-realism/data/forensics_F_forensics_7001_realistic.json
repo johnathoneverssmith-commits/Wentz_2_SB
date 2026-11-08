@@ -1,0 +1,138 @@
+{
+ "tag": "F_forensics_7001_realistic",
+ "seed": 7001,
+ "talent": "realistic",
+ "games": 4000,
+ "events_per_game": {
+  "touchdown": 4.30225,
+  "extra_point": 4.44275,
+  "field_goal": 2.996,
+  "interception_return_td": 0.18675,
+  "safety": 0.12075,
+  "fumble_return_td": 0.053,
+  "kick_return_td": 0.023,
+  "punt_return_td": 0.068
+ },
+ "events_per_team_game": {
+  "touchdown": 2.151125,
+  "extra_point": 2.221375,
+  "field_goal": 1.498,
+  "interception_return_td": 0.093375,
+  "safety": 0.060375,
+  "fumble_return_td": 0.0265,
+  "kick_return_td": 0.0115,
+  "punt_return_td": 0.034
+ },
+ "score_decomposition_mismatch": 0,
+ "ppg": 20.735125,
+ "pts_sd": 9.757251981699303,
+ "margin_sd": 15.188274587243278,
+ "home_win": 0.54575,
+ "ot_rate": 0.04125,
+ "tie_rate": 0.002,
+ "ot_games": 165,
+ "ot_tie_share": 0.048484848484848485,
+ "ot_margin_dist": {
+  "3": 76,
+  "7": 67,
+  "0": 8,
+  "4": 10,
+  "1": 1,
+  "14": 1,
+  "2": 2
+ },
+ "safeties_per_game": 0.12075,
+ "two_point_per_game": 0.0,
+ "xp_per_team_game": 2.221375,
+ "td_per_team_game": 2.151125,
+ "xp_per_td": 0.9589358946686812,
+ "score_value_counts_low": {
+  "0": 112,
+  "1": 0,
+  "2": 6,
+  "3": 187,
+  "4": 0,
+  "5": 12,
+  "6": 165,
+  "7": 293,
+  "8": 8,
+  "9": 146,
+  "10": 502,
+  "11": 8
+ },
+ "score_1_count": 0,
+ "score_max": 68,
+ "total_max": 89,
+ "def_td_per_team_game": 0.119875,
+ "pick6_per_team_game": 0.093375,
+ "punt_return_td_per_team_game": 0.034,
+ "kick_return_td_per_team_game": 0.0115,
+ "fg_per_team_game": 1.498,
+ "drives_per_team_game": 11.01825,
+ "drive_results": {
+  "punt": 0.3701926349465659,
+  "touchdown": 0.19523290903727905,
+  "field_goal": 0.13595625439611553,
+  "end_of_half": 0.07021305561227963,
+  "interception": 0.08595965784040115,
+  "downs": 0.057631656569781954,
+  "fumble": 0.035305062056134144,
+  "missed_fg": 0.03006375785628389,
+  "opp_touchdown": 0.013965466385315272,
+  "safety": 0.0054795452998434415
+ },
+ "points_per_drive": 1.7665123771923854,
+ "avg_start_yl": 70.08494439549635,
+ "fourth_downs_per_team_game": 7.357125,
+ "fourth_go_rate": 0.20121650780705777,
+ "fourth_situations": {
+  "own_territory_4th_long(>5 to go, yl>60)": {
+   "n": 15886,
+   "go": 0.05816442150321038,
+   "fg": 0.0005665365730832179,
+   "punt": 0.9412690419237064
+  },
+  "midfield_short(1-2 to go,40<yl<=60)": {
+   "n": 2600,
+   "go": 0.6442307692307693,
+   "fg": 0.006923076923076923,
+   "punt": 0.34884615384615386
+  },
+  "fg_range_4th_and_1(yl 20-35)": {
+   "n": 755,
+   "go": 0.8105960264900662,
+   "fg": 0.18940397350993377,
+   "punt": 0.0
+  },
+  "redzone_4th_and_goal(yl<=5)": {
+   "n": 3075,
+   "go": 0.6146341463414634,
+   "fg": 0.3821138211382114,
+   "punt": 0.0032520325203252032
+  },
+  "fg_range_4th_long(>=7 to go, yl<=35)": {
+   "n": 6508,
+   "go": 0.07867240319606637,
+   "fg": 0.9200983405039951,
+   "punt": 0.001229256299938537
+  }
+ },
+ "fourth_go_outcomes": {
+  "run": 4481,
+  "complete": 4148,
+  "incomplete": 1897,
+  "sack": 526,
+  "scramble": 415,
+  "interception": 287,
+  "fumble": 89
+ },
+ "q4_trailing8plus_4th_go_rate": 0.5341459042839218,
+ "q4_trailing8plus_n": 5579,
+ "fourth_ydstogo_fractional_share": 0.9082012334981395,
+ "margin_ge21": 0.1835,
+ "margin_le3": 0.17425,
+ "pts_ge40": 0.033875,
+ "pts_le6": 0.06025,
+ "total_ge70": 0.012,
+ "plays_per_team_game_traced": 66.261375
+}

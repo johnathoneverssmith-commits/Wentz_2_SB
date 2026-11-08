@@ -1,0 +1,254 @@
+{
+ "SEED": 21,
+ "TEAM": "GB",
+ "PAY": 3,
+ "engine": "real-adapter",
+ "adapterSimulateWeekOk": 105,
+ "log": [
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2027,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": true,
+    "seed": 3,
+    "furthestRound": "WC",
+    "wonSuperBowl": true,
+    "regularSeasonRecord": {
+     "wins": 13,
+     "losses": 4,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": 127,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 1
+   },
+   "eligibleNext": false,
+   "stagesSeen": 15
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2028,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 5,
+     "losses": 12,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -87,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 2
+   },
+   "eligibleNext": true,
+   "stagesSeen": 23
+  },
+  {
+   "kind": "HF",
+   "season": 2028,
+   "offered": 3,
+   "ok": true,
+   "enc": {
+    "teamCode": "GB",
+    "season": 2028,
+    "thresholds": {
+     "t1": 0.5,
+     "t2": 6.2,
+     "t3": 9.4
+    },
+    "payment": 3,
+    "resolved": true,
+    "swindle": false,
+    "branch": "negative",
+    "tier": 2,
+    "outcome": {
+     "eventId": "keep_chopping_something_else",
+     "publicText": "Kiren Faulk missed the stump during a locker-room motivational exercise involving an actual axe and buried it in his own leg. He is done for the season.",
+     "targetTeam": "CHI",
+     "negativePlayers": [
+      {
+       "playerId": "p_g1_35958e_ILB101",
+       "name": "Kiren Faulk",
+       "position": "ILB",
+       "overall": 80
+      }
+     ],
+     "absenceWeeks": null
+    }
+   }
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2029,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 3,
+     "losses": 14,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -105,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 3
+   },
+   "eligibleNext": true,
+   "stagesSeen": 26
+  },
+  {
+   "kind": "HF",
+   "season": 2029,
+   "offered": 3,
+   "ok": true,
+   "enc": {
+    "teamCode": "GB",
+    "season": 2029,
+    "thresholds": {
+     "t1": 3.4,
+     "t2": 3.8,
+     "t3": 4.2
+    },
+    "payment": 3,
+    "resolved": true,
+    "swindle": false,
+    "branch": "negative",
+    "tier": 1,
+    "outcome": {
+     "eventId": "the_canal_was_right_there",
+     "publicText": "Matik Kellell was arrested before dawn after deciding a downtown canal looked extremely swimmable. He has been suspended for the team's next game.",
+     "targetTeam": "DET",
+     "negativePlayers": [
+      {
+       "playerId": "p_g1_35958e_P032",
+       "name": "Matik Kellell",
+       "position": "P",
+       "overall": 81
+      }
+     ],
+     "absenceWeeks": 1
+    }
+   }
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2030,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 4,
+     "losses": 13,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -99,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 4
+   },
+   "eligibleNext": true,
+   "stagesSeen": 26
+  },
+  {
+   "kind": "HF",
+   "season": 2030,
+   "offered": 3,
+   "ok": true,
+   "enc": {
+    "teamCode": "GB",
+    "season": 2030,
+    "thresholds": {
+     "t1": 3,
+     "t2": 6,
+     "t3": 6.9
+    },
+    "payment": 3,
+    "resolved": true,
+    "swindle": false,
+    "branch": "negative",
+    "tier": 2,
+    "outcome": {
+     "eventId": "the_bye_week_yacht",
+     "publicText": "Ranis Jennings, Elar Eldford, Bellen Whitson was one of several starters suspended after a bye-week yacht rental ended with police waiting at the dock, phones in the water, and evidence nobody can adequately explain.",
+     "targetTeam": "MIN",
+     "negativePlayers": [
+      {
+       "playerId": "p_g1_35958e_QB096",
+       "name": "Ranis Jennings",
+       "position": "QB",
+       "overall": 92
+      },
+      {
+       "playerId": "p_g1_35958e_S037",
+       "name": "Elar Eldford",
+       "position": "S",
+       "overall": 72
+      },
+      {
+       "playerId": "p_g1_35958e_CB210",
+       "name": "Bellen Whitson",
+       "position": "CB",
+       "overall": 88
+      }
+     ],
+     "absenceWeeks": 1
+    }
+   }
+  },
+  {
+   "kind": "SEASON",
+   "outcome": {
+    "season": 2031,
+    "gmId": "gm_you",
+    "teamCode": "GB",
+    "madePlayoffs": false,
+    "seed": 0,
+    "furthestRound": "none",
+    "wonSuperBowl": false,
+    "regularSeasonRecord": {
+     "wins": 4,
+     "losses": 13,
+     "ties": 0
+    },
+    "eliminationMargin": null,
+    "pointDifferential": -139,
+    "rivalsEliminated": []
+   },
+   "team": "GB",
+   "hfStreak": {
+    "GB": 5
+   },
+   "eligibleNext": true,
+   "stagesSeen": 26
+  }
+ ],
+ "stageSeq": 213
+}
