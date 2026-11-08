@@ -56,7 +56,7 @@ Source: PR [#99](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/
 | ID | Title | Class | Sev (A4) | P (prov.) | Mode | Grounding | Fix / links |
 |---|---|---|---|---|---|---|---|
 | TAFI-GAP-008 | Solo save outgrows browser storage; failed saves lose progress on reload | Bug (data loss) | **Critical** | **P0** | SP | Played-in-UI ×2 (two seeds) + controlled sim; root cause confirmed | Fix in review: [#101](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/101) (draft, **unmerged**, CI not yet green when checked). **Duplicate observation:** Agent 1 `A1-023` (per #94 description) — same root cause, linked, not a separate TAFI. Related #74 (would make the default player hit it) |
-| TAFI-GAP-011 | Solo playoff bracket contradicts stored playoff games (engine path) | Bug | High | P1 | SP (adapter path) | Controlled sim 4/4 seasons + one UI instance; mechanism confirmed, trigger suspected | Fix in review: [#100](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/100) (draft, **unmerged**, CI not yet green when checked). Online nfl-format playoffs **untested** |
+| TAFI-GAP-011 | Solo playoff bracket contradicts stored playoff games (engine path) | Bug | High | P1 | SP (adapter path) | Controlled sim 4/4 seasons + one UI instance; mechanism confirmed, trigger suspected | Fix **merged**: [#100](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/100) as `13e80ea` (CI green). Status **Fixed — not yet Verified**: re-run Agent 4's bracket-vs-games check (`harness/bracket_check_snippet.txt`) on current master first. Online nfl-format playoffs **untested** |
 | TAFI-GAP-004 | Silent, per-call, mid-franchise fallback to Mock; no indicator | Bug/UX | High | P1 | SP | Played-in-UI (controlled block) + code; root cause confirmed | #74 (reduces, does not remove). Spontaneous browser failure never observed |
 | TAFI-GAP-001 | Mock simulator produces impossible scores (1-point "Safety") | Bug | High | P1 | SP standalone | Controlled sim (Mock) + code; confirmed | #74 resolves it only if the Mock is retired or fixed. Small fix available |
 | TAFI-GAP-002 | Mock player lines contradict team totals | Bug | Medium | P2 | SP standalone | Controlled sim + code; confirmed | tied to 001 / #74 |
@@ -69,7 +69,7 @@ Source: PR [#99](https://github.com/johnathoneverssmith-commits/Wentz_2_SB/pull/
 
 Agent 4 is **not** a "no gaps" result for what it did not touch: online inactive-GM / disconnect / commissioner-transfer paths, Firefox/WebKit, real phones and online playoffs were **not exercised** (see `agent-04-gaps/playtest-and-multiplayer-coverage.md`).
 
-Cross-agent routing: GAP-001/002/004/005 → issue #74 plan (Phase 1 approved only; no fallback fix approved). GAP-003/010/011-trigger → Agent 2. GAP-006 → Agent 1 (and Group 08 is **not** the place: out of its scope). GAP-008 and GAP-011 have implementation PRs but are **not Fixed** until merged and re-verified against the TAFI's regression check.
+Cross-agent routing: GAP-001/002/004/005 → issue #74 plan (Phase 1 approved only; no fallback fix approved). GAP-003/010/011-trigger → Agent 2. GAP-006 → Agent 1 (and Group 08 is **not** the place: out of its scope). GAP-011's fix (#100) is merged but **not Verified** until Agent 4's regression check is re-run; GAP-008's fix (#101) is unmerged, so GAP-008 is not Fixed.
 
 ## Agents 2, 5
 _No submissions on GitHub._ Agent 5 reportedly has 13 TAFIs not yet pushed; **not registered** until its draft PR exists (D-014).
