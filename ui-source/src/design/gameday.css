@@ -26,6 +26,7 @@
   --gd-turf-2: #287d4f;
   --gd-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
   --gd-body: "Hanken Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --gd-link: #0b1b2e;
   --gd-gap: 22px;
 
   width: 100%;
@@ -108,12 +109,14 @@
   cursor: not-allowed;
 }
 .gd-btn.gd-go,
+.gd .btn-primary,
 .gd .footer .btn-primary {
   background: var(--gd-accent);
   color: var(--gd-on-accent);
   border-color: var(--gd-rule);
 }
 .gd-btn.gd-go:hover:not(:disabled),
+.gd .btn-primary:hover:not(:disabled),
 .gd .footer .btn-primary:hover:not(:disabled) {
   background: var(--gd-ink);
   color: #fff;
@@ -145,6 +148,17 @@
 .gd .notice.bad {
   border-color: var(--bad);
   background: #fff4f1;
+}
+.gd .notice a,
+.gd-notice a {
+  color: var(--gd-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 700;
+}
+.gd .notice a:hover,
+.gd-notice a:hover {
+  color: var(--gd-accent-text);
 }
 .gd .emptystate {
   border: 2px dashed var(--gd-rule);
