@@ -1,0 +1,1433 @@
+{
+ "odd": [
+  {
+   "id": "2027-REG-1-ATL-NO",
+   "week": 1,
+   "phase": "REG",
+   "homeTeam": "ATL",
+   "awayTeam": "NO",
+   "played": true,
+   "homeScore": 1,
+   "awayScore": 4,
+   "totals": {
+    "home": {
+     "points": 1,
+     "totalYards": 261,
+     "passYards": 173,
+     "rushYards": 88,
+     "plays": 62,
+     "thirdDownMade": 5,
+     "thirdDownAtt": 13,
+     "topSeconds": 2156,
+     "penalties": 9,
+     "penaltyYards": 42,
+     "turnovers": 0,
+     "byQuarter": [
+      1,
+      0,
+      0,
+      0
+     ]
+    },
+    "away": {
+     "points": 4,
+     "totalYards": 303,
+     "passYards": 214,
+     "rushYards": 89,
+     "plays": 67,
+     "thirdDownMade": 9,
+     "thirdDownAtt": 12,
+     "topSeconds": 1716,
+     "penalties": 9,
+     "penaltyYards": 41,
+     "turnovers": 0,
+     "byQuarter": [
+      3,
+      1,
+      0,
+      0
+     ]
+    }
+   },
+   "scoringPlays": [
+    {
+     "quarter": 1,
+     "team": "ATL",
+     "description": "Safety",
+     "homeScore": 1,
+     "awayScore": 0
+    },
+    {
+     "quarter": 2,
+     "team": "NO",
+     "description": "Safety",
+     "homeScore": 1,
+     "awayScore": 1
+    },
+    {
+     "quarter": 3,
+     "team": "NO",
+     "description": "R. Yates 50 yd FG",
+     "homeScore": 1,
+     "awayScore": 4
+    }
+   ],
+   "injuries": [
+    {
+     "team": "ATL",
+     "playerId": "p_g1_f2780a_EDGE063",
+     "player": "Bryno Clayfield",
+     "position": "EDGE",
+     "slot": "EDGE",
+     "quarter": 2,
+     "clock": "0:00",
+     "bodyPart": "hamstring",
+     "suspectedType": "hamstring",
+     "severity": "moderate",
+     "projectedWeeks": [
+      2,
+      4
+     ],
+     "mechanism": "contact",
+     "onPlay": "",
+     "narrative": "Bryno Clayfield left the game with a hamstring injury."
+    },
+    {
+     "team": "NO",
+     "playerId": "p_g1_f2780a_K006",
+     "player": "Barric Haysey",
+     "position": "K",
+     "slot": "K",
+     "quarter": 1,
+     "clock": "0:00",
+     "bodyPart": "concussion",
+     "suspectedType": "concussion",
+     "severity": "minor",
+     "projectedWeeks": [
+      1,
+      1
+     ],
+     "mechanism": "contact",
+     "onPlay": "",
+     "narrative": "Barric Haysey left the game with a concussion."
+    }
+   ]
+  },
+  {
+   "id": "2027-REG-9-MIA-IND",
+   "week": 9,
+   "phase": "REG",
+   "homeTeam": "MIA",
+   "awayTeam": "IND",
+   "played": true,
+   "homeScore": 21,
+   "awayScore": 1,
+   "totals": {
+    "home": {
+     "points": 21,
+     "totalYards": 322,
+     "passYards": 212,
+     "rushYards": 110,
+     "plays": 71,
+     "thirdDownMade": 9,
+     "thirdDownAtt": 12,
+     "topSeconds": 2301,
+     "penalties": 3,
+     "penaltyYards": 78,
+     "turnovers": 2,
+     "byQuarter": [
+      14,
+      7,
+      0,
+      0
+     ]
+    },
+    "away": {
+     "points": 1,
+     "totalYards": 437,
+     "passYards": 292,
+     "rushYards": 145,
+     "plays": 68,
+     "thirdDownMade": 9,
+     "thirdDownAtt": 14,
+     "topSeconds": 1748,
+     "penalties": 6,
+     "penaltyYards": 79,
+     "turnovers": 1,
+     "byQuarter": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   },
+   "scoringPlays": [
+    {
+     "quarter": 1,
+     "team": "IND",
+     "description": "Safety",
+     "homeScore": 0,
+     "awayScore": 1
+    },
+    {
+     "quarter": 1,
+     "team": "MIA",
+     "description": "T. Calloway 46 yd FG",
+     "homeScore": 3,
+     "awayScore": 1
+    },
+    {
+     "quarter": 2,
+     "team": "MIA",
+     "description": "Safety",
+     "homeScore": 4,
+     "awayScore": 1
+    },
+    {
+     "quarter": 2,
+     "team": "MIA",
+     "description": "E. Ellison 29 yd FG",
+     "homeScore": 7,
+     "awayScore": 1
+    },
+    {
+     "quarter": 3,
+     "team": "MIA",
+     "description": "O. Vickers 39 yd TD pass",
+     "homeScore": 14,
+     "awayScore": 1
+    },
+    {
+     "quarter": 3,
+     "team": "MIA",
+     "description": "J. Nwosu 36 yd TD pass",
+     "homeScore": 21,
+     "awayScore": 1
+    }
+   ],
+   "injuries": []
+  },
+  {
+   "id": "2027-REG-17-DET-CHI",
+   "week": 17,
+   "phase": "REG",
+   "homeTeam": "DET",
+   "awayTeam": "CHI",
+   "played": true,
+   "homeScore": 20,
+   "awayScore": 1,
+   "totals": {
+    "home": {
+     "points": 20,
+     "totalYards": 336,
+     "passYards": 230,
+     "rushYards": 106,
+     "plays": 57,
+     "thirdDownMade": 6,
+     "thirdDownAtt": 14,
+     "topSeconds": 1458,
+     "penalties": 8,
+     "penaltyYards": 55,
+     "turnovers": 3,
+     "byQuarter": [
+      14,
+      0,
+      6,
+      0
+     ]
+    },
+    "away": {
+     "points": 1,
+     "totalYards": 329,
+     "passYards": 175,
+     "rushYards": 154,
+     "plays": 53,
+     "thirdDownMade": 8,
+     "thirdDownAtt": 12,
+     "topSeconds": 2058,
+     "penalties": 6,
+     "penaltyYards": 47,
+     "turnovers": 1,
+     "byQuarter": [
+      1,
+      0,
+      0,
+      0
+     ]
+    }
+   },
+   "scoringPlays": [
+    {
+     "quarter": 1,
+     "team": "DET",
+     "description": "D. Kilgore 31 yd FG",
+     "homeScore": 3,
+     "awayScore": 0
+    },
+    {
+     "quarter": 1,
+     "team": "DET",
+     "description": "D. Crenshaw 12 yd TD run",
+     "homeScore": 10,
+     "awayScore": 0
+    },
+    {
+     "quarter": 2,
+     "team": "CHI",
+     "description": "Safety",
+     "homeScore": 10,
+     "awayScore": 1
+    },
+    {
+     "quarter": 2,
+     "team": "DET",
+     "description": "B. Holloway 19 yd TD run",
+     "homeScore": 17,
+     "awayScore": 1
+    },
+    {
+     "quarter": 3,
+     "team": "DET",
+     "description": "W. Renfro 28 yd FG",
+     "homeScore": 20,
+     "awayScore": 1
+    }
+   ],
+   "injuries": [
+    {
+     "team": "CHI",
+     "playerId": "p_g1_f2780a_RB112",
+     "player": "Keenan Holell",
+     "position": "RB",
+     "slot": "RB",
+     "quarter": 3,
+     "clock": "0:00",
+     "bodyPart": "hamstring",
+     "suspectedType": "hamstring",
+     "severity": "minor",
+     "projectedWeeks": [
+      1,
+      1
+     ],
+     "mechanism": "contact",
+     "onPlay": "",
+     "narrative": "Keenan Holell left the game with a hamstring injury."
+    }
+   ]
+  },
+  {
+   "id": "2027-REG-1-TEN-BAL",
+   "week": 1,
+   "phase": "REG",
+   "homeTeam": "TEN",
+   "awayTeam": "BAL",
+   "played": true,
+   "homeScore": 17,
+   "awayScore": 30,
+   "totals": {
+    "home": {
+     "points": 17,
+     "totalYards": 437,
+     "passYards": 289,
+     "rushYards": 148,
+     "plays": 57,
+     "thirdDownMade": 7,
+     "thirdDownAtt": 11,
+     "topSeconds": 2000,
+     "penalties": 5,
+     "penaltyYards": 77,
+     "turnovers": 1,
+     "byQuarter": [
+      14,
+      3,
+      0,
+      0
+     ]
+    },
+    "away": {
+     "points": 30,
+     "totalYards": 230,
+     "passYards": 147,
+     "rushYards": 83,
+     "plays": 55,
+     "thirdDownMade": 3,
+     "thirdDownAtt": 10,
+     "topSeconds": 1539,
+     "penalties": 4,
+     "penaltyYards": 44,
+     "turnovers": 2,
+     "byQuarter": [
+      0,
+      14,
+      3,
+      13
+     ]
+    }
+   },
+   "scoringPlays": [
+    {
+     "quarter": 1,
+     "team": "BAL",
+     "description": "C. Marsh 21 yd TD run",
+     "homeScore": 0,
+     "awayScore": 7
+    },
+    {
+     "quarter": 1,
+     "team": "BAL",
+     "description": "K. Iwuchukwu 49 yd FG",
+     "homeScore": 0,
+     "awayScore": 10
+    },
+    {
+     "quarter": 1,
+     "team": "TEN",
+     "description": "C. Tolliver 24 yd FG",
+     "homeScore": 3,
+     "awayScore": 10
+    },
+    {
+     "quarter": 2,
+     "team": "TEN",
+     "description": "W. Ingram 26 yd TD pass",
+     "homeScore": 10,
+     "awayScore": 10
+    },
+    {
+     "quarter": 2,
+     "team": "TEN",
+     "description": "G. Alonso 43 yd TD run",
+     "homeScore": 17,
+     "awayScore": 10
+    },
+    {
+     "quarter": 2,
+     "team": "BAL",
+     "description": "V. Jefferson 22 yd TD pass",
+     "homeScore": 17,
+     "awayScore": 17
+    },
+    {
+     "quarter": 3,
+     "team": "BAL",
+     "description": "I. Radcliffe 19 yd TD run",
+     "homeScore": 17,
+     "awayScore": 24
+    },
+    {
+     "quarter": 3,
+     "team": "BAL",
+     "description": "K. Alonso 22 yd FG",
+     "homeScore": 17,
+     "awayScore": 27
+    },
+    {
+     "quarter": 3,
+     "team": "BAL",
+     "description": "K. Hollins 41 yd FG",
+     "homeScore": 17,
+     "awayScore": 30
+    }
+   ],
+   "playerLines": {
+    "home": [
+     {
+      "playerId": "p_g1_f2780a_QB063",
+      "name": "Ammar Targate",
+      "position": "QB",
+      "passCmp": 17,
+      "passAtt": 30,
+      "passYds": 355,
+      "passTd": 1,
+      "passInt": 2,
+      "rushAtt": 4,
+      "rushYds": 3,
+      "rushTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB031",
+      "name": "Danan Drakeley",
+      "position": "RB",
+      "rushAtt": 19,
+      "rushYds": 82,
+      "rushTd": 1,
+      "rec": 2,
+      "recYds": 2,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB079",
+      "name": "Torron Holloway",
+      "position": "RB",
+      "rushAtt": 15,
+      "rushYds": 75,
+      "rushTd": 0,
+      "rec": 2,
+      "recYds": 2,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR158",
+      "name": "Nattin Dunham",
+      "position": "WR",
+      "rec": 1,
+      "recYds": 17,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR043",
+      "name": "Benol Treville",
+      "position": "WR",
+      "rec": 9,
+      "recYds": 79,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR172",
+      "name": "Verol Jefferson",
+      "position": "WR",
+      "rec": 9,
+      "recYds": 100,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_TE021",
+      "name": "Eddan Evham",
+      "position": "TE",
+      "rec": 3,
+      "recYds": 46,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_K027",
+      "name": "Wade Kowalski",
+      "position": "K",
+      "fgm": 2,
+      "fga": 3,
+      "xpm": 2,
+      "xpa": 2
+     },
+     {
+      "playerId": "p_g1_f2780a_EDGE148",
+      "name": "Anor Flintens",
+      "position": "EDGE",
+      "tackles": 6,
+      "sacks": 0,
+      "defInt": 1,
+      "passDef": 1,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_ILB151",
+      "name": "Trevor Carter",
+      "position": "ILB",
+      "tackles": 7,
+      "sacks": 0,
+      "defInt": 1,
+      "passDef": 3,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_CB036",
+      "name": "Sollan Eldmont",
+      "position": "CB",
+      "tackles": 4,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 1,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_S096",
+      "name": "Karlo Bramton",
+      "position": "S",
+      "tackles": 6,
+      "sacks": 1,
+      "defInt": 1,
+      "passDef": 3,
+      "ffum": 0
+     }
+    ],
+    "away": [
+     {
+      "playerId": "p_g1_f2780a_QB091",
+      "name": "Linin Grayland",
+      "position": "QB",
+      "passCmp": 27,
+      "passAtt": 39,
+      "passYds": 264,
+      "passTd": 3,
+      "passInt": 2,
+      "rushAtt": 2,
+      "rushYds": 15,
+      "rushTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB024",
+      "name": "Terrence Fenman",
+      "position": "RB",
+      "rushAtt": 15,
+      "rushYds": 50,
+      "rushTd": 1,
+      "rec": 4,
+      "recYds": 17,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB130",
+      "name": "Emjah Wolfland",
+      "position": "RB",
+      "rushAtt": 18,
+      "rushYds": 56,
+      "rushTd": 0,
+      "rec": 1,
+      "recYds": 21,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR037",
+      "name": "Treas Linell",
+      "position": "WR",
+      "rec": 8,
+      "recYds": 123,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_WR110",
+      "name": "Trent Dalgate",
+      "position": "WR",
+      "rec": 5,
+      "recYds": 61,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR003",
+      "name": "Branric Bradberry",
+      "position": "WR",
+      "rec": 3,
+      "recYds": 38,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_TE018",
+      "name": "Quindan Jenworth",
+      "position": "TE",
+      "rec": 1,
+      "recYds": 17,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_K002",
+      "name": "Holin Dunkins",
+      "position": "K",
+      "fgm": 3,
+      "fga": 3,
+      "xpm": 4,
+      "xpa": 4
+     },
+     {
+      "playerId": "p_g1_f2780a_EDGE180",
+      "name": "Nater Radwick",
+      "position": "EDGE",
+      "tackles": 10,
+      "sacks": 2,
+      "defInt": 1,
+      "passDef": 0,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_ILB014",
+      "name": "Akak Fendale",
+      "position": "ILB",
+      "tackles": 10,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 3,
+      "ffum": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_CB079",
+      "name": "Chris Rhodes",
+      "position": "CB",
+      "tackles": 11,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 2,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_S016",
+      "name": "Permin Hatcher",
+      "position": "S",
+      "tackles": 7,
+      "sacks": 0,
+      "defInt": 1,
+      "passDef": 0,
+      "ffum": 0
+     }
+    ]
+   },
+   "injuries": [
+    {
+     "team": "TEN",
+     "playerId": "p_g1_f2780a_C057",
+     "player": "Robney Holner",
+     "position": "C",
+     "slot": "C",
+     "quarter": 2,
+     "clock": "0:00",
+     "bodyPart": "concussion",
+     "suspectedType": "concussion",
+     "severity": "moderate",
+     "projectedWeeks": [
+      2,
+      4
+     ],
+     "mechanism": "contact",
+     "onPlay": "",
+     "narrative": "Robney Holner left the game with a concussion."
+    }
+   ]
+  }
+ ],
+ "lines": [
+  {
+   "id": "2027-PRE-1-WAS-BAL",
+   "week": 1,
+   "phase": "PRE",
+   "homeTeam": "WAS",
+   "awayTeam": "BAL",
+   "played": true,
+   "homeScore": 12,
+   "awayScore": 22,
+   "totals": {
+    "home": {
+     "points": 12,
+     "totalYards": 286,
+     "passYards": 164,
+     "rushYards": 122,
+     "plays": 61,
+     "thirdDownMade": 7,
+     "thirdDownAtt": 13,
+     "topSeconds": 1795,
+     "penalties": 9,
+     "penaltyYards": 80,
+     "turnovers": 1,
+     "byQuarter": [
+      10,
+      0,
+      0,
+      2
+     ]
+    },
+    "away": {
+     "points": 22,
+     "totalYards": 430,
+     "passYards": 321,
+     "rushYards": 109,
+     "plays": 60,
+     "thirdDownMade": 8,
+     "thirdDownAtt": 10,
+     "topSeconds": 1535,
+     "penalties": 6,
+     "penaltyYards": 26,
+     "turnovers": 1,
+     "byQuarter": [
+      0,
+      0,
+      3,
+      19
+     ]
+    }
+   },
+   "scoringPlays": [
+    {
+     "quarter": 1,
+     "team": "BAL",
+     "description": "X. Wainwright 20 yd TD run",
+     "homeScore": 0,
+     "awayScore": 7
+    },
+    {
+     "quarter": 1,
+     "team": "BAL",
+     "description": "S. Dempsey 32 yd TD run",
+     "homeScore": 0,
+     "awayScore": 14
+    },
+    {
+     "quarter": 2,
+     "team": "BAL",
+     "description": "Safety",
+     "homeScore": 0,
+     "awayScore": 15
+    },
+    {
+     "quarter": 2,
+     "team": "WAS",
+     "description": "N. Ingram 47 yd FG",
+     "homeScore": 3,
+     "awayScore": 15
+    },
+    {
+     "quarter": 3,
+     "team": "WAS",
+     "description": "T. Northcutt 12 yd TD run",
+     "homeScore": 10,
+     "awayScore": 15
+    },
+    {
+     "quarter": 3,
+     "team": "WAS",
+     "description": "Safety",
+     "homeScore": 12,
+     "awayScore": 15
+    },
+    {
+     "quarter": 4,
+     "team": "BAL",
+     "description": "G. Prescott 28 yd TD pass",
+     "homeScore": 12,
+     "awayScore": 22
+    }
+   ],
+   "playerLines": {
+    "home": [
+     {
+      "playerId": "p_g1_f2780a_QB023",
+      "name": "Devin Hayville",
+      "position": "QB",
+      "passCmp": 19,
+      "passAtt": 29,
+      "passYds": 239,
+      "passTd": 0,
+      "passInt": 1,
+      "rushAtt": 3,
+      "rushYds": -2,
+      "rushTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB099",
+      "name": "Jasvius Mayfield",
+      "position": "RB",
+      "rushAtt": 16,
+      "rushYds": 67,
+      "rushTd": 1,
+      "rec": 4,
+      "recYds": 41,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB118",
+      "name": "Aslan Crossmont",
+      "position": "RB",
+      "rushAtt": 10,
+      "rushYds": 47,
+      "rushTd": 0,
+      "rec": 5,
+      "recYds": 29,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR220",
+      "name": "Bryce Dunville",
+      "position": "WR",
+      "rec": 8,
+      "recYds": 104,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR078",
+      "name": "Ranett Bramell",
+      "position": "WR",
+      "rec": 8,
+      "recYds": 116,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR210",
+      "name": "Amari Greer",
+      "position": "WR",
+      "rec": 4,
+      "recYds": 44,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_TE081",
+      "name": "Jabley Randins",
+      "position": "TE",
+      "rec": 5,
+      "recYds": 73,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_K013",
+      "name": "Trevon Foswick",
+      "position": "K",
+      "fgm": 0,
+      "fga": 1,
+      "xpm": 1,
+      "xpa": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_EDGE128",
+      "name": "Verlo Fairwood",
+      "position": "EDGE",
+      "tackles": 3,
+      "sacks": 1,
+      "defInt": 0,
+      "passDef": 0,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_ILB068",
+      "name": "Preston Hartham",
+      "position": "ILB",
+      "tackles": 4,
+      "sacks": 1,
+      "defInt": 0,
+      "passDef": 3,
+      "ffum": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_CB168",
+      "name": "Weser Linner",
+      "position": "CB",
+      "tackles": 4,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 3,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_S057",
+      "name": "Valsey Drakeins",
+      "position": "S",
+      "tackles": 10,
+      "sacks": 1,
+      "defInt": 0,
+      "passDef": 3,
+      "ffum": 0
+     }
+    ],
+    "away": [
+     {
+      "playerId": "p_g1_f2780a_QB091",
+      "name": "Linin Grayland",
+      "position": "QB",
+      "passCmp": 29,
+      "passAtt": 42,
+      "passYds": 408,
+      "passTd": 2,
+      "passInt": 1,
+      "rushAtt": 2,
+      "rushYds": 27,
+      "rushTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB024",
+      "name": "Terrence Fenman",
+      "position": "RB",
+      "rushAtt": 7,
+      "rushYds": 33,
+      "rushTd": 0,
+      "rec": 5,
+      "recYds": 19,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB130",
+      "name": "Emjah Wolfland",
+      "position": "RB",
+      "rushAtt": 20,
+      "rushYds": 81,
+      "rushTd": 1,
+      "rec": 2,
+      "recYds": 44,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR037",
+      "name": "Treas Linell",
+      "position": "WR",
+      "rec": 7,
+      "recYds": 100,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR110",
+      "name": "Trent Dalgate",
+      "position": "WR",
+      "rec": 1,
+      "recYds": 13,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_WR003",
+      "name": "Branric Bradberry",
+      "position": "WR",
+      "rec": 6,
+      "recYds": 59,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_TE018",
+      "name": "Quindan Jenworth",
+      "position": "TE",
+      "rec": 8,
+      "recYds": 104,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_K002",
+      "name": "Holin Dunkins",
+      "position": "K",
+      "fgm": 1,
+      "fga": 3,
+      "xpm": 3,
+      "xpa": 3
+     },
+     {
+      "playerId": "p_g1_f2780a_EDGE180",
+      "name": "Nater Radwick",
+      "position": "EDGE",
+      "tackles": 3,
+      "sacks": 2,
+      "defInt": 0,
+      "passDef": 1,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_ILB014",
+      "name": "Akak Fendale",
+      "position": "ILB",
+      "tackles": 8,
+      "sacks": 1,
+      "defInt": 0,
+      "passDef": 0,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_CB079",
+      "name": "Chris Rhodes",
+      "position": "CB",
+      "tackles": 8,
+      "sacks": 0,
+      "defInt": 1,
+      "passDef": 1,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_S016",
+      "name": "Permin Hatcher",
+      "position": "S",
+      "tackles": 4,
+      "sacks": 1,
+      "defInt": 0,
+      "passDef": 1,
+      "ffum": 0
+     }
+    ]
+   },
+   "injuries": [
+    {
+     "team": "WAS",
+     "playerId": "p_g1_f2780a_ILB068",
+     "player": "Preston Hartham",
+     "position": "ILB",
+     "slot": "ILB",
+     "quarter": 2,
+     "clock": "0:00",
+     "bodyPart": "ankle",
+     "suspectedType": "ankle",
+     "severity": "minor",
+     "projectedWeeks": [
+      1,
+      1
+     ],
+     "mechanism": "contact",
+     "onPlay": "",
+     "narrative": "Preston Hartham left the game with an ankle injury."
+    },
+    {
+     "team": "BAL",
+     "playerId": "p_g1_f2780a_QB091",
+     "player": "Linin Grayland",
+     "position": "QB",
+     "slot": "QB",
+     "quarter": 4,
+     "clock": "0:00",
+     "bodyPart": "knee",
+     "suspectedType": "knee",
+     "severity": "severe",
+     "projectedWeeks": [
+      8,
+      14
+     ],
+     "mechanism": "contact",
+     "onPlay": "",
+     "narrative": "Linin Grayland left the game with a knee injury."
+    }
+   ],
+   "season": 2027
+  },
+  {
+   "id": "2027-PRE-2-BAL-ATL",
+   "week": 2,
+   "phase": "PRE",
+   "homeTeam": "BAL",
+   "awayTeam": "ATL",
+   "played": true,
+   "homeScore": 19,
+   "awayScore": 26,
+   "totals": {
+    "home": {
+     "points": 19,
+     "totalYards": 310,
+     "passYards": 247,
+     "rushYards": 63,
+     "plays": 62,
+     "thirdDownMade": 5,
+     "thirdDownAtt": 11,
+     "topSeconds": 1561,
+     "penalties": 8,
+     "penaltyYards": 68,
+     "turnovers": 0,
+     "byQuarter": [
+      7,
+      7,
+      5,
+      0
+     ]
+    },
+    "away": {
+     "points": 26,
+     "totalYards": 274,
+     "passYards": 186,
+     "rushYards": 88,
+     "plays": 65,
+     "thirdDownMade": 6,
+     "thirdDownAtt": 13,
+     "topSeconds": 1895,
+     "penalties": 2,
+     "penaltyYards": 83,
+     "turnovers": 2,
+     "byQuarter": [
+      0,
+      7,
+      3,
+      16
+     ]
+    }
+   },
+   "scoringPlays": [
+    {
+     "quarter": 1,
+     "team": "BAL",
+     "description": "W. Radcliffe 36 yd FG",
+     "homeScore": 3,
+     "awayScore": 0
+    },
+    {
+     "quarter": 1,
+     "team": "BAL",
+     "description": "H. Calloway 20 yd TD run",
+     "homeScore": 10,
+     "awayScore": 0
+    },
+    {
+     "quarter": 1,
+     "team": "ATL",
+     "description": "G. Sutherland 19 yd TD pass",
+     "homeScore": 10,
+     "awayScore": 7
+    },
+    {
+     "quarter": 2,
+     "team": "BAL",
+     "description": "Safety",
+     "homeScore": 12,
+     "awayScore": 7
+    },
+    {
+     "quarter": 2,
+     "team": "ATL",
+     "description": "D. Poe 29 yd TD pass",
+     "homeScore": 12,
+     "awayScore": 14
+    },
+    {
+     "quarter": 2,
+     "team": "ATL",
+     "description": "T. Easley 31 yd TD pass",
+     "homeScore": 12,
+     "awayScore": 21
+    },
+    {
+     "quarter": 3,
+     "team": "BAL",
+     "description": "I. Jefferson 3 yd TD run",
+     "homeScore": 19,
+     "awayScore": 21
+    },
+    {
+     "quarter": 3,
+     "team": "ATL",
+     "description": "F. Whitfield 26 yd FG",
+     "homeScore": 19,
+     "awayScore": 24
+    },
+    {
+     "quarter": 3,
+     "team": "ATL",
+     "description": "Safety",
+     "homeScore": 19,
+     "awayScore": 26
+    }
+   ],
+   "playerLines": {
+    "home": [
+     {
+      "playerId": "p_g1_f2780a_QB091",
+      "name": "Linin Grayland",
+      "position": "QB",
+      "passCmp": 17,
+      "passAtt": 30,
+      "passYds": 229,
+      "passTd": 2,
+      "passInt": 1,
+      "rushAtt": 2,
+      "rushYds": 28,
+      "rushTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB024",
+      "name": "Terrence Fenman",
+      "position": "RB",
+      "rushAtt": 8,
+      "rushYds": 24,
+      "rushTd": 0,
+      "rec": 2,
+      "recYds": 3,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB130",
+      "name": "Emjah Wolfland",
+      "position": "RB",
+      "rushAtt": 17,
+      "rushYds": 59,
+      "rushTd": 0,
+      "rec": 4,
+      "recYds": 43,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR037",
+      "name": "Treas Linell",
+      "position": "WR",
+      "rec": 3,
+      "recYds": 30,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_WR110",
+      "name": "Trent Dalgate",
+      "position": "WR",
+      "rec": 5,
+      "recYds": 69,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_WR003",
+      "name": "Branric Bradberry",
+      "position": "WR",
+      "rec": 1,
+      "recYds": 15,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_TE018",
+      "name": "Quindan Jenworth",
+      "position": "TE",
+      "rec": 5,
+      "recYds": 54,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_K002",
+      "name": "Holin Dunkins",
+      "position": "K",
+      "fgm": 0,
+      "fga": 4,
+      "xpm": 2,
+      "xpa": 2
+     },
+     {
+      "playerId": "p_g1_f2780a_EDGE180",
+      "name": "Nater Radwick",
+      "position": "EDGE",
+      "tackles": 8,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 3,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_ILB014",
+      "name": "Akak Fendale",
+      "position": "ILB",
+      "tackles": 9,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 1,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_CB079",
+      "name": "Chris Rhodes",
+      "position": "CB",
+      "tackles": 6,
+      "sacks": 1,
+      "defInt": 0,
+      "passDef": 2,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_S016",
+      "name": "Permin Hatcher",
+      "position": "S",
+      "tackles": 5,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 3,
+      "ffum": 0
+     }
+    ],
+    "away": [
+     {
+      "playerId": "p_g1_f2780a_QB045",
+      "name": "Trent Denware",
+      "position": "QB",
+      "passCmp": 22,
+      "passAtt": 32,
+      "passYds": 260,
+      "passTd": 1,
+      "passInt": 0,
+      "rushAtt": 3,
+      "rushYds": 8,
+      "rushTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB085",
+      "name": "Ranro Kellwood",
+      "position": "RB",
+      "rushAtt": 11,
+      "rushYds": 35,
+      "rushTd": 1,
+      "rec": 3,
+      "recYds": 43,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_RB114",
+      "name": "Barik Thornford",
+      "position": "RB",
+      "rushAtt": 6,
+      "rushYds": 22,
+      "rushTd": 0,
+      "rec": 0,
+      "recYds": 33,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR151",
+      "name": "Holaldo Faulk",
+      "position": "WR",
+      "rec": 2,
+      "recYds": 22,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR174",
+      "name": "Trealdo Yorkwell",
+      "position": "WR",
+      "rec": 1,
+      "recYds": 11,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_WR109",
+      "name": "Jabos Brookwick",
+      "position": "WR",
+      "rec": 1,
+      "recYds": 13,
+      "recTd": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_TE101",
+      "name": "Dommar Sutstead",
+      "position": "TE",
+      "rec": 5,
+      "recYds": 41,
+      "recTd": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_K026",
+      "name": "Sean Tarer",
+      "position": "K",
+      "fgm": 1,
+      "fga": 2,
+      "xpm": 3,
+      "xpa": 3
+     },
+     {
+      "playerId": "p_g1_f2780a_EDGE038",
+      "name": "Belin Stonefield",
+      "position": "EDGE",
+      "tackles": 2,
+      "sacks": 2,
+      "defInt": 0,
+      "passDef": 0,
+      "ffum": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_ILB168",
+      "name": "Perro Corsey",
+      "position": "ILB",
+      "tackles": 10,
+      "sacks": 1,
+      "defInt": 1,
+      "passDef": 2,
+      "ffum": 1
+     },
+     {
+      "playerId": "p_g1_f2780a_CB191",
+      "name": "Bryce Bramridge",
+      "position": "CB",
+      "tackles": 7,
+      "sacks": 1,
+      "defInt": 0,
+      "passDef": 1,
+      "ffum": 0
+     },
+     {
+      "playerId": "p_g1_f2780a_S066",
+      "name": "Harric Dalgate",
+      "position": "S",
+      "tackles": 4,
+      "sacks": 0,
+      "defInt": 0,
+      "passDef": 3,
+      "ffum": 0
+     }
+    ]
+   },
+   "injuries": [],
+   "season": 2027
+  }
+ ],
+ "broadcastCount": 0,
+ "gameCount": 20
+}

@@ -1,0 +1,10 @@
+// Paste into harness/qa_longitudinal.test.ts.txt (copied to ui-source/src/state/_qa_x.test.ts) right after `check(s, `S${season}`);`
+// Compares the playoff bracket with the stored playoff games (GAP-011). Run with QA_ENGINE=1 and the adapter on :8787.
+{ const br = s.bracket; const pg = s.games.filter((g) => ["WC","DIV","CONF","SB"].includes(g.phase));
+  for (const m of br?.matchups ?? []) {
+    if (!m.highSeed || !m.lowSeed) continue;
+    const g = pg.find((x) => x.phase === m.round && [x.homeTeam, x.awayTeam].includes(m.highSeed!.code) && [x.homeTeam, x.awayTeam].includes(m.lowSeed!.code));
+    if (!g) { note(`S${season}: matchup ${m.round} ${m.highSeed.code}-${m.lowSeed.code} has NO stored game`); continue; }
+    const win = g.homeScore > g.awayScore ? g.homeTeam : g.awayTeam;
+    if (win !== m.winner) note(`S${season}: BRACKET/GAME CONFLICT ${m.round}`);
+  } }
