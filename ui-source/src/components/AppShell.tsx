@@ -19,7 +19,17 @@ import { useGameAudio } from "@/audio/useGameAudio";
 import { SoundControl } from "./SoundControl.tsx";
 import { MotionControl } from "@/motion/MotionControl";
 import { isOnline } from "@/state/online";
-import { isInSeason, onSaveCorrupted, onSaveStateChange, useStore } from "@/state/store";
+import {
+  dismissPriorSaveFailure,
+  isInSeason,
+  onPriorSaveFailure,
+  onSaveCorrupted,
+  onSaveRecovered,
+  onSaveStateChange,
+  saveStatus,
+  useStore,
+} from "@/state/store";
+import type { SaveStatus } from "@/state/durableSave";
 import { teamFullName } from "@/data/teams";
 import { viewerWeek } from "@/state/reveal";
 import { onTheClock as faOnTheClock } from "@/state/freeAgencyEvent";
@@ -140,12 +150,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // could have, so it is the one thing the shell always says out loud
   const [saveBroken, setSaveBroken] = useState(false);
   useEffect(() => onSaveStateChange(setSaveBroken), []);
+  // while saves are failing, leaving the page loses the unsaved play: ask first
+  useEffect(() => {
+    if (!saveBroken) return;
+    const warn = (e: BeforeUnloadEvent): void => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [saveBroken]);
+  // the last session ended with saves failing: what loaded is the last write that landed
+  const [priorFailure, setPriorFailure] = useState<SaveStatus | null>(null);
+  useEffect(() => onPriorSaveFailure(setPriorFailure), []);
+  // the newest stored record was unreadable; the one before it was loaded
+  const [recoveredAt, setRecoveredAt] = useState<number | null | undefined>(undefined);
+  useEffect(() => onSaveRecovered(setRecoveredAt), []);
   // a save that failed to *read back* is a different failure from one that
   // failed to write — the player is looking at a fresh league right now and
   // needs to know that isn't the dynasty they left, not just that saving is
   // currently broken
   const [saveCorrupted, setSaveCorrupted] = useState(false);
   useEffect(() => onSaveCorrupted(setSaveCorrupted), []);
+  const lastSaveLabel = (): string | null => {
+    const st = saveStatus();
+    if (!st.okAt) return null;
+    return `the last save landed ${new Date(st.okAt).toLocaleTimeString()}${st.okSeason ? `, season ${st.okSeason}` : ""}${st.okWeek ? `, week ${st.okWeek}` : ""}`;
+  };
   // things waiting on the GM, so an offer doesn't sit unseen on a screen
   // they had no reason to open
   const offers = useStore((s) =>
@@ -325,10 +353,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
         {saveBroken && (
+          <div className="notice bad" role="alert" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>This dynasty isn&rsquo;t being saved.</strong> The browser refused to write to
+            storage (full, or blocked by a private window). Play continues, but closing this tab
+            will lose everything since the last successful save
+            {lastSaveLabel() ? <> — {lastSaveLabel()}</> : null}. Download a backup now: it holds
+            everything up to this moment and can be restored from here later.
+            <SaveBackup inline />
+          </div>
+        )}
+        {priorFailure && !saveBroken && (
           <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
-            <strong>This dynasty isn't being saved.</strong> The browser refused to write to
-            storage — usually a full quota, or a private window, which blocks it entirely. Play
-            continues, but closing this tab will lose everything since the last successful save.
+            <strong>Some progress from your last session wasn&rsquo;t saved.</strong> Saving was
+            failing when it ended, so this is the last save that landed
+            {priorFailure.okAt
+              ? <> ({new Date(priorFailure.okAt).toLocaleString()}{priorFailure.okSeason ? `, season ${priorFailure.okSeason}` : ""}{priorFailure.okWeek ? `, week ${priorFailure.okWeek}` : ""})</>
+              : null}
+            . If you downloaded a backup afterwards, restore it:
+            <SaveBackup inline />
+            <button type="button" className="btnlink sm" onClick={dismissPriorSaveFailure}>
+              Dismiss
+            </button>
+          </div>
+        )}
+        {recoveredAt !== undefined && (
+          <div className="notice bad" role="status" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>Your latest save couldn&rsquo;t be read, so the one before it was loaded</strong>
+            {recoveredAt ? <> (from {new Date(recoveredAt).toLocaleString()})</> : null}. You may
+            have lost the last few moves. The unreadable copy is kept aside in this browser.
           </div>
         )}
         <SetupCreationNotice />
