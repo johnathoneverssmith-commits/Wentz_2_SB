@@ -4,6 +4,7 @@
  * an account with many long-named leagues. The in-league tests cover the commissioner's take-turn control in every
  * context it appears in, and a partially revealed season for spoiler leaks.
  */
+import { readSavedState } from "../../e2e/support/idb.ts";
 import { expect, test, appendRecord, SAVE_KEY } from "../support/audit-test.ts";
 import { addOtherHuman, moveClockOffViewer, onlineLeague } from "../support/online-league.ts";
 import { lobbyScenario, type LobbyScenario } from "../support/lobby-api.ts";
@@ -51,7 +52,7 @@ test.describe("CommissionerTakeTurn", () => {
         test.use({ team: PRIMARY_TEAM, fixtureName: ctx.fixture, viewportId: vp.id, conditionId: "baseline", allowAnyBlocked: true });
         test("appears for the commissioner when another human is on the clock, and reads in this context", async ({ page, capture, origin, team }) => {
           await page.goto("/");
-          const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)!).state, SAVE_KEY);
+          const state = await readSavedState(page, SAVE_KEY);
           const clock = moveClockOffViewer(state, team);
           expect(clock, `${ctx.id}: the saved league has no turn-based event to hand to another GM`).toBeTruthy();
           addOtherHuman(state, clock!);
@@ -89,7 +90,7 @@ test.describe("partially revealed season: no spoilers", () => {
         test.use({ team: PRIMARY_TEAM, fixtureName: "season-week-9", viewportId: vp.id, conditionId: "baseline", variant: "partial-reveal", allowAnyBlocked: true });
         test(`shows nothing past week ${PARTIAL_REVEAL_WEEK}`, async ({ page, capture, origin, fixture }) => {
           await page.goto("/");
-          const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)!).state, SAVE_KEY);
+          const state = await readSavedState(page, SAVE_KEY);
           const gm = state.gms.find((g: any) => g.id === state.viewerGmId);
           // worst-case server: the whole block is sent unredacted, so the client's own filters are what is under test
           await onlineLeague(page, origin, state, { you: { teamCode: gm.teamCode, gmId: gm.id } });
@@ -118,5 +119,19 @@ test.describe("solo: corrupt save", () => {
     const text = (await page.locator("body").innerText()).trim();
     appendRecord({ kind: "error-state", what: "corrupt-save", text: text.slice(0, 300), consoleErrors, at: new Date().toISOString() });
     expect(text.length, "blank page after a corrupt save").toBeGreaterThan(20);
+    // the app keeps what it could not read (a copy in IndexedDB that no autosave touches) instead of discarding it
+    const kept = await page.evaluate(
+      () =>
+        new Promise<boolean>((res) => {
+          const r = indexedDB.open("nfl-sim-ui-saves");
+          r.onsuccess = () => {
+            const q = r.result.transaction("saves").objectStore("saves").get("nfl-sim-ui.league#damaged");
+            q.onsuccess = () => res(q.result === "{not json");
+            q.onerror = () => res(false);
+          };
+          r.onerror = () => res(false);
+        }),
+    );
+    expect(kept, "the unreadable legacy save was kept aside, not discarded").toBe(true);
   });
 });
