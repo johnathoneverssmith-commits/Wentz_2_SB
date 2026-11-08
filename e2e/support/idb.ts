@@ -60,7 +60,12 @@ export async function editSave(page: Page, edit: (doc: { state: any; version: nu
   if (text == null) throw new Error(`no saved league under ${key}`);
   const doc = JSON.parse(text) as { state: any; version: number };
   edit(doc);
-  const next = JSON.stringify(doc);
+  await writeSaveText(page, key, JSON.stringify(doc));
+}
+
+/** Store `json` as the save under `key` — a valid IndexedDB record, length and checksum included. */
+export async function writeSaveText(page: Page, key: string, json: string): Promise<void> {
+  const next = json;
   await page.evaluate(
     async ([k, json]) => {
       let h = 0x811c9dc5;

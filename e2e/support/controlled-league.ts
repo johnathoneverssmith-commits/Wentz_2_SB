@@ -1,4 +1,5 @@
 import type {Page} from '@playwright/test';
+import {readSaveText,writeSaveText} from './idb.ts';
 /** Controlled UI transport only. No HTTP server, database, or real remote endpoint is contacted. */
 export async function controlledLeague(page:Page,origin:string,initial:any,you:{teamCode:string;gmId:string},onAction?:(path:string,payload:any)=>Promise<{status:number;body:unknown}>) {
  let state=initial;const requests:{path:string;payload:any}[]=[];let loads=0;const unexpected:string[]=[];
@@ -21,6 +22,8 @@ export async function controlledLeague(page:Page,origin:string,initial:any,you:{
   }
   unexpected.push(path);await route.fulfill({headers,status:404,json:{error:'Unexpected controlled endpoint: '+path}});
  });
- await page.evaluate(()=>{const solo=localStorage.getItem('nfl-sim-ui.league');if(solo)localStorage.setItem('nfl-sim-ui.online-league',solo);localStorage.setItem('fs.online.leagueId','ui4-controlled');});
+ // the online league's local copy starts as the solo save, as before — but both live in IndexedDB now
+ const solo=await readSaveText(page,'nfl-sim-ui.league');if(solo)await writeSaveText(page,'nfl-sim-ui.online-league',solo);
+ await page.evaluate(()=>{localStorage.setItem('fs.online.leagueId','ui4-controlled');});
  return {requests,unexpected,setViewer(next:{teamCode:string;gmId:string}){you=next;},get loads(){return loads;},setState(next:any){state=next;}};
 }

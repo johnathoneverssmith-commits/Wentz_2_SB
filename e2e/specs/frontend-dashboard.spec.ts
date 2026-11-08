@@ -91,6 +91,8 @@ test.describe("franchise dashboard presentation", () => {
 
   test("keyboard users can skip the rail, change tabs, and follow a real front-office link", async ({ page }) => {
     await page.goto("/");
+    // the app reads its save before it draws anything: start pressing keys once the page is there
+    await expect(page.getByRole("region", { name: "Franchise dashboard" })).toBeVisible();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "Skip to content" })).toBeFocused();
     await page.keyboard.press("Enter");
