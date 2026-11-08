@@ -1,0 +1,149 @@
+{
+ "A1": {
+  "events_per_team_game": 0.5097716718266254,
+  "by_severity": {
+   "minor": 3298,
+   "moderate": 1545,
+   "significant": 370,
+   "severe": 18,
+   "season": 38
+  },
+  "by_pos_share": {
+   "OG": 0.123,
+   "OT": 0.12,
+   "WR": 0.114,
+   "DT": 0.106,
+   "ILB": 0.103,
+   "EDGE": 0.102,
+   "CB": 0.084,
+   "S": 0.078,
+   "C": 0.063,
+   "RB": 0.054,
+   "TE": 0.037,
+   "QB": 0.017
+  },
+  "mean_proj_weeks": {
+   "minor": 1.42,
+   "moderate": 3.59,
+   "significant": 7.44,
+   "severe": 17.0,
+   "season": 18.0
+  },
+  "inj_per_100_player_seasons": {
+   "QB": 12.3,
+   "RB": 19.4,
+   "WR": 26.3,
+   "TE": 25.0,
+   "EDGE": 25.9,
+   "DT": 27.2,
+   "ILB": 33.4,
+   "CB": 28.1,
+   "S": 27.0,
+   "K": 0.0
+  },
+  "long_injury_gamesPlayed_check": {
+   "n": 30,
+   "violations": 15
+  },
+  "qualified_QB_games_lt14_share": 0.0625,
+  "games_played_mean_RB_over100car": 16.685352622061483
+ },
+ "A2": {
+  "events_per_team_game": 0.5029024767801857,
+  "by_severity": {
+   "moderate": 1509,
+   "minor": 3265,
+   "significant": 367,
+   "season": 46,
+   "severe": 11
+  },
+  "by_pos_share": {
+   "OG": 0.13,
+   "OT": 0.118,
+   "DT": 0.109,
+   "EDGE": 0.109,
+   "WR": 0.105,
+   "ILB": 0.096,
+   "S": 0.087,
+   "CB": 0.081,
+   "C": 0.065,
+   "RB": 0.054,
+   "TE": 0.03,
+   "QB": 0.017
+  },
+  "mean_proj_weeks": {
+   "moderate": 3.62,
+   "minor": 1.41,
+   "significant": 7.43,
+   "season": 18.0,
+   "severe": 17.0
+  },
+  "inj_per_100_player_seasons": {
+   "QB": 12.4,
+   "RB": 19.4,
+   "WR": 25.0,
+   "TE": 21.3,
+   "EDGE": 27.0,
+   "DT": 27.7,
+   "ILB": 31.5,
+   "CB": 27.1,
+   "S": 29.0,
+   "K": 0.0
+  },
+  "long_injury_gamesPlayed_check": {
+   "n": 29,
+   "violations": 19
+  },
+  "qualified_QB_games_lt14_share": 0.038834951456310676,
+  "games_played_mean_RB_over100car": 16.709821428571427
+ },
+ "R1": {
+  "events_per_team_game": 0.5033862229102167,
+  "by_severity": {
+   "minor": 3280,
+   "significant": 343,
+   "moderate": 1518,
+   "severe": 19,
+   "season": 43
+  },
+  "by_pos_share": {
+   "OT": 0.124,
+   "OG": 0.113,
+   "WR": 0.11,
+   "DT": 0.108,
+   "ILB": 0.104,
+   "EDGE": 0.098,
+   "S": 0.086,
+   "CB": 0.079,
+   "C": 0.066,
+   "RB": 0.058,
+   "TE": 0.038,
+   "QB": 0.017
+  },
+  "mean_proj_weeks": {
+   "minor": 1.42,
+   "significant": 7.45,
+   "moderate": 3.6,
+   "severe": 17.0,
+   "season": 18.0
+  },
+  "inj_per_100_player_seasons": {
+   "QB": 12.2,
+   "RB": 20.6,
+   "WR": 25.6,
+   "TE": 25.8,
+   "EDGE": 24.9,
+   "DT": 27.1,
+   "ILB": 33.8,
+   "CB": 26.7,
+   "S": 29.1,
+   "K": 0.0
+  },
+  "long_injury_gamesPlayed_check": {
+   "n": 27,
+   "violations": 18
+  },
+  "qualified_QB_games_lt14_share": 0.03571428571428571,
+  "games_played_mean_RB_over100car": 16.688123300090663
+ }
+}
