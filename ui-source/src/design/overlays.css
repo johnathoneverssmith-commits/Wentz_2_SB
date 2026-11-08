@@ -1,0 +1,587 @@
+/*
+ * Overlays: dialogs, drawers, docks and the card-covering interstitial, in the
+ * gameday language.
+ *
+ * Every overlay is a light, ruled card over a dimmed scrim: square corners, a
+ * 2px ink border, a hard offset shadow in the accent, a condensed heading and
+ * plain buttons, with the accent on the one primary action. Drawers are ruled
+ * panels that slide in from the right.
+ *
+ * Overlays render in two places: inside a page (the player card, the offer)
+ * and portalled to <body> (the drawers, the "creating league" notice). So the
+ * light tokens are set here, on the overlay itself, rather than inherited from
+ * a page: they look the same wherever they sit. Selectors lead with `body` so
+ * they win over theme.css and the screens' own rules whatever the bundle order.
+ *
+ * The accent is the same one the sidebar and the pages use (--accent-ui, set
+ * by useTeamTheme: orange, or yellow on a red or orange team).
+ */
+body :is(.modal-scrim, .how-scrim, .unitgrades-scrim, .fs-overlay) {
+  --ov-ink: #0b1b2e;
+  --ov-card: #ffffff;
+  --ov-paper: #eef2f5;
+  --ov-accent: var(--accent-ui, #f26a1b);
+  --ov-on-accent: var(--accent-ui-on, #0b1b2e);
+  --ov-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
+  --ov-body: "Hanken Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --page: var(--ov-paper);
+  --panel: var(--ov-card);
+  --panel-raised: #f5f8fa;
+  --panel-sunken: var(--ov-paper);
+  --line: rgba(11, 27, 46, 0.16);
+  --line-strong: rgba(11, 27, 46, 0.34);
+  --ink: var(--ov-ink);
+  --ink-dim: #34465a;
+  --ink-faint: #4e5f70;
+  --good: #0f7a45;
+  --bad: #b8301c;
+  --notice: #8a5a00;
+  --accent: #8a3a00;
+  --team: var(--ov-ink);
+  --team-on: #ffffff;
+  color: var(--ov-ink);
+  font-family: var(--ov-body);
+  font-variant-numeric: tabular-nums;
+  color-scheme: light;
+}
+
+/* ---- shared controls inside overlays ------------------------------------- */
+body :is(.modal-card, .how-drawer, .unitgrades-drawer, .fs-overlay) button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--ov-ink);
+  border-radius: 0;
+  background: var(--ov-card);
+  color: var(--ov-ink);
+  font: 700 14px/1.2 var(--ov-body);
+  box-shadow: none;
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) button:hover:not(:disabled) {
+  background: var(--ov-ink);
+  color: #fff;
+  border-color: var(--ov-ink);
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) button:disabled {
+  background: var(--ov-card);
+  border-color: var(--line-strong);
+  color: var(--ink-faint);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .btn-primary {
+  background: var(--ov-accent);
+  border-color: var(--ov-ink);
+  color: var(--ov-on-accent);
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .btn-primary:hover:not(:disabled) {
+  background: var(--ov-ink);
+  color: #fff;
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .btn-primary:disabled {
+  background: var(--ov-card);
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer, .fs-overlay) :focus-visible {
+  outline: 3px solid var(--ov-ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--ov-accent);
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .btnlink {
+  min-height: 44px;
+  border: 2px solid var(--ov-ink);
+  border-radius: 0;
+  background: var(--ov-card);
+  color: var(--ov-ink);
+  font: 700 14px/1.2 var(--ov-body);
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .subhead {
+  margin: 20px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--ov-ink);
+  color: var(--ov-ink);
+  font: 800 15px/1.1 var(--ov-display);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .subhead:first-child {
+  margin-top: 0;
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) table.stbl td {
+  border-bottom: 1px solid var(--line);
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .notice {
+  border: 2px solid var(--ov-ink);
+  border-left-width: 6px;
+  border-radius: 0;
+  background: var(--ov-card);
+}
+body :is(.modal-card, .how-drawer, .unitgrades-drawer) .notice.bad {
+  border-color: var(--bad);
+  background: #fdf1ee;
+}
+
+/* ---- dialog: a ruled card over a dimmed page ----------------------------- */
+body .modal-scrim {
+  background: rgba(11, 27, 46, 0.64);
+  backdrop-filter: none;
+}
+body .modal-scrim > .modal-card {
+  max-width: 440px;
+  border: 2px solid var(--ov-ink);
+  border-radius: 0;
+  background: var(--ov-card);
+  box-shadow: 8px 8px 0 var(--ov-accent);
+  overflow: hidden;
+}
+body .modal-scrim .modal-head {
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 12px 20px;
+  border-bottom: 2px solid var(--ov-ink);
+  background: var(--ov-card);
+}
+body .modal-scrim .modal-head > div {
+  min-width: 0;
+}
+body .modal-scrim :is(.modal-title, .modal-card h2) {
+  margin: 0;
+  color: var(--ov-ink);
+  font: 900 26px/1 var(--ov-display);
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+body .modal-scrim .modal-sub {
+  margin: 4px 0 0;
+  color: var(--ink-faint);
+  font: 500 13px/1.35 var(--ov-body);
+}
+body .modal-scrim .modal-x {
+  flex: none;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid var(--ov-ink);
+  font: 700 24px/1 var(--ov-body);
+}
+body .modal-scrim .modal-body {
+  padding: 18px 20px;
+}
+/* the setup notice and the confirm have no .modal-head, so their text sits in the body */
+body .modal-scrim .modal-card > h2 {
+  padding: 16px 20px 0;
+}
+body .modal-scrim .modal-card > p {
+  margin: 0;
+  padding: 10px 20px;
+  color: var(--ink-dim);
+  font-size: 14px;
+  line-height: 1.55;
+}
+body .modal-scrim .modal-card > button {
+  margin: 4px 20px 20px;
+  align-self: flex-start;
+}
+body .modal-scrim .modal-error {
+  margin: 0;
+  padding: 10px 20px;
+  border-top: 2px solid var(--bad);
+  background: #fdf1ee;
+  color: var(--bad);
+  font-weight: 700;
+}
+body .modal-scrim .modal-foot {
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 2px solid var(--ov-ink);
+  background: var(--ov-paper);
+}
+body .modal-scrim .modal-foot button {
+  flex: 1;
+}
+body .modal-scrim .prio-chip {
+  border: 2px solid var(--ov-ink);
+  border-radius: 0;
+  background: var(--ov-card);
+  color: var(--ov-ink);
+  font-weight: 700;
+}
+
+/* ---- contract negotiation: a ledger of terms ------------------------------ */
+body .modal-scrim .neg-row {
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px dotted var(--line-strong);
+}
+body .modal-scrim .neg-label {
+  color: var(--ov-ink);
+  font-weight: 600;
+}
+body .modal-scrim .neg-ctrl button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  font-size: 20px;
+}
+body .modal-scrim .neg-val {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  min-width: 96px;
+  font: 900 22px/1 var(--ov-display);
+}
+body .modal-scrim .modal-card .neg-input {
+  width: 3.6em;
+  font-size: 22px;
+  min-height: 44px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 3px solid var(--ov-ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ov-ink);
+  font: inherit;
+  text-align: right;
+}
+body .modal-scrim .neg-input:focus-visible {
+  background: var(--ov-paper);
+}
+body .modal-scrim .neg-summary {
+  color: var(--ov-ink);
+  font-weight: 600;
+}
+body .modal-scrim .neg-summary:first-of-type {
+  border-top: 2px solid var(--ov-ink);
+}
+body .modal-scrim .neg-summary .oswald {
+  font: 900 20px/1 var(--ov-display);
+}
+
+/* ---- drawers: Methodology and Unit Grades --------------------------------- */
+body :is(.how-scrim, .unitgrades-scrim) {
+  background: rgba(11, 27, 46, 0.64);
+}
+body :is(.how-drawer, .unitgrades-drawer) {
+  border-left: 2px solid var(--ov-ink);
+  background: var(--ov-card);
+  box-shadow: -8px 0 0 var(--ov-accent);
+  color: var(--ov-ink);
+}
+body :is(.how-head, .unitgrades-head) {
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 2px solid var(--ov-ink);
+}
+body :is(.how-head, .unitgrades-head) strong {
+  font: 900 28px/1 var(--ov-display);
+  letter-spacing: 0.01em;
+}
+body :is(.how-body, .unitgrades-body) {
+  background: var(--ov-card);
+}
+body .how-drawer .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0;
+  padding: 0 18px;
+  border-bottom: 2px solid var(--ov-ink);
+  background: var(--ov-paper);
+  border-radius: 0;
+}
+body .how-drawer .tabs button {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  border-bottom: 5px solid transparent;
+  background: transparent;
+  color: var(--ink-dim);
+  font: 800 15px/1.1 var(--ov-display);
+  overflow-wrap: anywhere;
+}
+body .how-drawer .tabs button:hover:not(:disabled) {
+  background: #fff;
+  color: var(--ov-ink);
+  border-bottom-color: var(--line-strong);
+}
+body .how-drawer .tabs button[aria-selected="true"] {
+  background: #fff;
+  color: var(--ov-ink);
+  border-bottom-color: var(--ov-accent);
+}
+body .how-drawer .how-quick {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 2px solid var(--ov-ink);
+  border-left: 8px solid var(--ov-accent);
+  border-radius: 0;
+  background: var(--ov-paper);
+}
+body .how-drawer .how-quick h2 {
+  margin: 0 0 6px;
+  font: 800 18px/1.1 var(--ov-display);
+}
+body .how-drawer .how-quick li {
+  color: var(--ov-ink);
+}
+body .how-drawer .how-body h2.oswald {
+  font: 900 34px/1 var(--ov-display);
+}
+body .how-drawer .how-body h3 {
+  font: 800 19px/1.1 var(--ov-display);
+  color: var(--ov-ink);
+}
+body .how-drawer .how-body p {
+  color: var(--ink-dim);
+}
+
+/* ---- docks: the buttons that open the drawers ------------------------------ */
+body .unitgrades-dock {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 2px solid var(--ov-ink, #0b1b2e);
+  border-radius: 0;
+  background: var(--accent-ui, #f26a1b);
+  color: var(--accent-ui-on, #0b1b2e);
+  font: 800 14px/1 "Hanken Grotesk", "Segoe UI", system-ui, sans-serif;
+  box-shadow: 4px 4px 0 #0b1b2e;
+}
+body .unitgrades-dock:hover {
+  background: #0b1b2e;
+  border-color: #0b1b2e;
+  color: #fff;
+}
+body .unitgrades-dock:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px #0b1b2e;
+}
+
+/* ---- the card-covering interstitial ("on the clock", "Day N") --------------- */
+body .fs-overlay {
+  background: rgba(238, 242, 245, 0.97);
+  color: var(--ov-ink);
+  border-radius: 0;
+}
+body .fs-overlay .fs-kicker {
+  color: var(--ink-faint);
+  font: 700 14px/1.2 var(--ov-body);
+  letter-spacing: 0;
+  text-transform: none;
+}
+body .fs-overlay .fs-big {
+  display: inline-block;
+  margin-top: 8px;
+  padding-bottom: 6px;
+  border-bottom: 8px solid var(--ov-accent);
+  color: var(--ov-ink);
+  font: 900 clamp(40px, 9vw, 76px) / 0.95 var(--ov-display);
+  overflow-wrap: anywhere;
+}
+body .fs-overlay .fs-note {
+  color: var(--ink-dim);
+  font-size: 15px;
+}
+
+/* ---- phone: a card that fits, with its own scrolling body ------------------- */
+@media (max-width: 600px) {
+  body .modal-scrim {
+    padding: 10px;
+  }
+  body .modal-scrim > .modal-card {
+    max-height: calc(100dvh - 20px);
+    box-shadow: 5px 5px 0 var(--ov-accent);
+  }
+  body .modal-scrim .modal-head,
+  body .modal-scrim .modal-body,
+  body .modal-scrim .modal-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  body .modal-scrim :is(.modal-title, .modal-card h2) {
+    font-size: 24px;
+  }
+  body :is(.how-drawer, .unitgrades-drawer) {
+    width: 100%;
+    border-left: 0;
+    box-shadow: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body :is(.modal-scrim, .modal-card, .fs-overlay, .fs-overlay > div, .fs-big) {
+    animation: none;
+  }
+}
+
+/* ---- notices and states that stand on their own ---------------------------- */
+body :is(.screen-boundary, .update-available, .stage-loading) {
+  --page: #eef2f5;
+  --panel: #ffffff;
+  --panel-raised: #f5f8fa;
+  --panel-sunken: #eef2f5;
+  --line: rgba(11, 27, 46, 0.16);
+  --line-strong: rgba(11, 27, 46, 0.34);
+  --ink: #0b1b2e;
+  --ink-dim: #34465a;
+  --ink-faint: #4e5f70;
+  --bad: #b8301c;
+  --team: #0b1b2e;
+  --team-on: #ffffff;
+  border: 2px solid #0b1b2e;
+  border-radius: 0;
+  background: #ffffff;
+  color: #0b1b2e;
+  font-family: "Hanken Grotesk", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+body .screen-boundary {
+  box-shadow: 8px 8px 0 var(--accent-ui, #f26a1b);
+}
+body .screen-boundary .sectionlabel {
+  margin: 0 0 8px;
+  color: #0b1b2e;
+  font: 900 30px/1 "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+body .screen-boundary pre {
+  border: 2px solid #0b1b2e;
+  border-radius: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+body :is(.screen-boundary, .update-available, .stage-loading) button {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid #0b1b2e;
+  border-radius: 0;
+  background: #ffffff;
+  color: #0b1b2e;
+  font: 700 14px/1.2 "Hanken Grotesk", "Segoe UI", system-ui, sans-serif;
+}
+body :is(.screen-boundary, .update-available, .stage-loading) button:hover:not(:disabled) {
+  background: #0b1b2e;
+  color: #ffffff;
+}
+body .screen-boundary .btn-primary {
+  background: var(--accent-ui, #f26a1b);
+  color: var(--accent-ui-on, #0b1b2e);
+}
+body .update-available {
+  border-left-width: 8px;
+  border-left-color: var(--accent-ui, #f26a1b);
+  font-size: 14px;
+  line-height: 1.5;
+}
+body .stage-loading {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ---- score moments: a banner across the page, no glow ----------------------- */
+body .score-moment .sm-label {
+  font-family: var(--font-display, "Big Shoulders Display", Impact, sans-serif);
+  font-weight: 900;
+  text-shadow: 2px 2px 0 #0b1b2e;
+}
+body .score-moment .sm-bit {
+  border-radius: 0;
+}
+
+/* ---- Unit Grades inside its drawer: the same scorecards as the roster's tab -- */
+body .unitgrades-drawer .sectionlabel {
+  margin: 0 0 6px;
+  color: var(--ov-ink);
+  font: 900 26px/1 var(--ov-display);
+  letter-spacing: 0;
+  text-transform: none;
+}
+body .unitgrades-drawer .unit-cards-note {
+  color: var(--ink-faint);
+  font-size: 14px;
+}
+body .unitgrades-drawer .unit-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+body .unitgrades-drawer .unit-card {
+  border: 2px solid var(--ov-ink);
+  border-radius: 0;
+  background: var(--ov-card);
+}
+body .unitgrades-drawer .unit-card.open {
+  border-color: var(--ov-ink);
+  box-shadow: 6px 6px 0 var(--ov-ink);
+}
+body .unitgrades-drawer .unit-name {
+  color: var(--ov-ink);
+  font: 800 20px/1 var(--ov-display);
+}
+body .unitgrades-drawer .unit-grade {
+  border: 2px solid var(--ov-ink);
+  border-radius: 0;
+  background: var(--ov-card);
+  color: var(--ov-ink);
+  font: 900 22px/1.15 var(--ov-display);
+}
+body .unitgrades-drawer .unit-grade.g-A {
+  background: var(--good);
+  border-color: var(--good);
+  color: #fff;
+}
+body .unitgrades-drawer .unit-grade.g-D,
+body .unitgrades-drawer .unit-grade.g-F {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #fff;
+}
+body .unitgrades-drawer .unit-card-num b {
+  color: var(--ov-ink);
+  font: 900 40px/1 var(--ov-display);
+}
+body .unitgrades-drawer .unit-card-num span,
+body .unitgrades-drawer .unit-card-rank,
+body .unitgrades-drawer .unit-card-rank em {
+  color: var(--ink-faint);
+  letter-spacing: 0;
+  text-transform: none;
+}
+body .unitgrades-drawer .unit-card-rank b {
+  color: var(--ov-ink);
+}
+body .unitgrades-drawer .unit-card-weak {
+  color: var(--bad);
+}
+body .unitgrades-drawer .unit-card-weak[style] {
+  color: var(--ink-faint) !important;
+}
+body .unitgrades-drawer .unit-card-detail th {
+  color: var(--ink-faint);
+  border-bottom-color: var(--ov-ink);
+}
+body .unitgrades-drawer .unit-card-detail td {
+  color: var(--ov-ink);
+  border-bottom-color: #c9d3dc;
+}
+body .unitgrades-drawer .unit-card-detail tr.weak td {
+  color: var(--bad);
+}
+body .unitgrades-drawer .unitgrades-body > .unit-cards > div[style] {
+  padding: 12px 16px !important;
+  border: 2px solid var(--ov-ink) !important;
+  border-left: 8px solid var(--ov-accent) !important;
+  border-radius: 0 !important;
+  background: var(--ov-card) !important;
+  flex-wrap: wrap;
+}
+body .unitgrades-drawer .unitgrades-body > .unit-cards > div[style] span[style] {
+  color: var(--ink-faint) !important;
+  font-size: 14px !important;
+}
+body .unitgrades-drawer .unitgrades-body > .unit-cards > div[style] span[style]:first-child {
+  color: var(--ov-ink) !important;
+  min-width: 0 !important;
+}

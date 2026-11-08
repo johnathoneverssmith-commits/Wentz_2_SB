@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { Card, CardHeader } from "@/components/primitives";
+import { StagePage } from "@/components/stages/StagePage";
+import { viewerTeamCode } from "@/state/selectors";
 import { isOnline, onlineSession, pull } from "@/state/online";
 import { STAGE_LABEL } from "@/state/stageMachine";
 import { useStore } from "@/state/store";
@@ -40,6 +41,7 @@ export function Checkpoint({
 }) {
   const actions = useLeagueActions();
   const stage = useStore((s) => s.stage);
+  const teamCode = useStore((s) => viewerTeamCode(s));
   const gms = useStore((s) => s.gms);
   const readiness = useStore((s) => s.readiness);
   const [forcing, setForcing] = useState(false);
@@ -96,15 +98,13 @@ export function Checkpoint({
   }, [actions, stage]);
 
   return (
-    <Card maxWidth={620}>
-      <CardHeader badge="··" title="Waiting for other players" subtitle="The league moves on together" />
-      <div className="panel open">
+    <StagePage
+      code={teamCode}
+      kicker="Waiting for other players"
+      sub="The league moves on together"
+    >
+      <div className="stage-body">
         <div className="checkpoint">
-          <div className="checkpoint-spinner" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
 
           <p className="checkpoint-wait" role="status" aria-live="polite">
             Waiting for other players
@@ -115,9 +115,7 @@ export function Checkpoint({
               <span className="checkpoint-label">Previous stage</span>
               <span className="checkpoint-stage">{previousStage}</span>
             </div>
-            <span className="checkpoint-arrow" aria-hidden="true">
-              →
-            </span>
+            <span className="checkpoint-arrow" aria-hidden="true" />
             <div>
               <span className="checkpoint-label">Next stage</span>
               <span className="checkpoint-stage next">{nextStage}</span>
@@ -130,7 +128,7 @@ export function Checkpoint({
           </p>
 
           {waitingNames.length > 0 && (
-            <p className="checkpoint-note" style={{ marginTop: 8 }}>
+            <p className="checkpoint-note" >
               Waiting on {andList(waitingNames)}.
               {/* check-ins have no clock — the league waits (a note here once
                   promised a staff would step in; none does) */}
@@ -149,7 +147,7 @@ export function Checkpoint({
             <button
               type="button"
               className="btnlink"
-              style={{ marginTop: 12 }}
+              
               disabled={forcing}
               onClick={() => {
                 if (
@@ -181,7 +179,7 @@ export function Checkpoint({
             <button
               type="button"
               className="btnlink"
-              style={{ marginTop: 12, marginLeft: isCommissioner ? 16 : 0 }}
+              
               disabled={forcing}
               onClick={() => {
                 setForcing(true);
@@ -197,7 +195,7 @@ export function Checkpoint({
           {/* a commissioner gone for a week left nobody able to move the
               league on; any GM can now take the role (the server checks) */}
           {!isCommissioner && onlineSession()?.canClaimCommissioner && waitingNames.length > 0 && (
-            <div className="checkpoint-note" style={{ marginTop: 12 }}>
+            <div className="checkpoint-note" >
               Your commissioner hasn&rsquo;t been around for a week.{" "}
               <button
                 type="button"
@@ -223,19 +221,19 @@ export function Checkpoint({
           {/* moving on past a block gate plays the next stretch of games, and
               "Moving the league on…" sat there for a minute with no reason */}
           {forcingSlow && (
-            <p className="checkpoint-note" role="status" style={{ marginTop: 8 }}>
+            <p className="checkpoint-note" role="status" >
               Still working — when the league moves into a stretch of games, those games are played
               now, which can take a minute or two.
             </p>
           )}
           {forceError && (
-            <p className="form-error" role="status" style={{ margin: "8px 0 0" }}>
+            <p className="form-error" role="status" >
               {forceError}
             </p>
           )}
 
           {failed && (
-            <div className="notice bad" role="status" style={{ marginTop: 18 }}>
+            <div className="notice bad" role="status" >
               <strong>Connection failed.</strong> Couldn&rsquo;t reach the league server to check
               whether the stage has moved.{" "}
               <button
@@ -257,7 +255,7 @@ export function Checkpoint({
           )}
         </div>
       </div>
-    </Card>
+    </StagePage>
   );
 }
 

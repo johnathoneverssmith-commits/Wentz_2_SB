@@ -30,25 +30,6 @@
   margin-bottom: 0;
 }
 
-/* dialogs inside the page stay on the app's dark theme */
-.decision-gd .modal-scrim {
-  --page: #080f14;
-  --panel: #111d25;
-  --panel-raised: #1a2a34;
-  --panel-sunken: #0c171f;
-  --ink: #f1f6fa;
-  --ink-dim: #b4c4d1;
-  --ink-faint: #96aaba;
-  --line: #ffffff12;
-  --line-strong: #bdd9ee30;
-  --good: #66e4ad;
-  --bad: #ff9b9b;
-  --notice: #f5cd78;
-  color-scheme: dark;
-  color: var(--ink);
-  font-family: var(--font-body);
-}
-
 /* buttons: square and ruled; the primary action takes the accent */
 .decision-gd button:not([role="tab"]):not(.decision-asset):not(.modal-x) {
   border-radius: 0;
