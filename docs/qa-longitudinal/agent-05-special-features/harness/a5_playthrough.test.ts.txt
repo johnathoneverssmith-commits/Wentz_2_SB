@@ -1,0 +1,109 @@
+import { writeFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+
+import type { Stage } from "@/domain";
+import { availableCoaches, vacantRoles } from "./coachingDraft.ts";
+import { onTheClock as faOnTheClock } from "./freeAgencyEvent.ts";
+import { pendingFor } from "./tradeDeadline.ts";
+import { DEFAULT_CONFIG } from "./seed.ts";
+import { useStore } from "./store.ts";
+import { OFFENSIVE_FOCUSES, DEFENSIVE_FOCUSES } from "./trainingCamp.ts";
+import { hoodedFigureEncounterFor, hoodedFigureMaxPayment, isHoodedFigureEligible } from "./hoodedFigure.ts";
+
+// Agent 5 harness: N consecutive seasons through the real store, autopilot GM.
+const SEED = Number(process.env.A5_SEED ?? 21);
+const SEASONS = Number(process.env.A5_SEASONS ?? 5);
+const TEAM = process.env.A5_TEAM ?? "GB";
+const PAY = Number(process.env.A5_PAY ?? 3); // payment offered if the figure appears
+const OUT = process.env.A5_OUT ?? "a5_run.json";
+const s = () => useStore.getState();
+const IN_SEASON: Stage[] = ["preseason", "regularSeason", "playoffs"];
+const log: any[] = [];
+let seenStages: Stage[] = [];
+
+async function actOn(stage: Stage) {
+  const me = s().gms.find((g) => g.id === s().viewerGmId)?.teamCode ?? "";
+  switch (stage) {
+    case "setup": s().pickTeam(s().viewerGmId, TEAM); break;
+    case "fantasyDraft": case "offseasonDraft":
+      s().startDraft(stage === "fantasyDraft" ? "fantasy" : "rookie"); s().autopickRemaining(); break;
+    case "coachingDraft":
+      for (let i = 0; i < 40 && s().stage === "coachingDraft"; i++) {
+        const open = vacantRoles(s(), me);
+        const pick = availableCoaches(s()).find((c) => open.includes(c.role));
+        if (!pick) break; s().draftCoach(pick.id);
+      } break;
+    case "freeAgency": case "midseasonFreeAgency":
+      for (let i = 0; i < 60 && s().stage === stage; i++) {
+        if (faOnTheClock(s()) !== me) break; s().freeAgencyTurn({ pass: true });
+      } break;
+    case "tradeDeadline":
+      for (let i = 0; i < 60 && s().stage === "tradeDeadline"; i++) {
+        const duty = pendingFor(s(), me); if (!duty) break;
+        s().deadlineTurn({ kind: duty === "propose" ? "skip" : "deny" });
+      } break;
+    case "trainingCamp": {
+      const season = s().season;
+      const r = s().submitTrainingCamp({ offensiveFocus: OFFENSIVE_FOCUSES[(season) % OFFENSIVE_FOCUSES.length]!, defensiveFocus: DEFENSIVE_FOCUSES[(season) % DEFENSIVE_FOCUSES.length]!, submitted: true } as any);
+      if (!r.ok) log.push({ note: "camp submit failed", reason: r.reason });
+      break;
+    }
+    case "hoodedFigureEncounter": {
+      const enc = hoodedFigureEncounterFor(s(), me);
+      if (enc && !enc.resolved) {
+        const max = hoodedFigureMaxPayment(s(), me);
+        const pay = Math.min(PAY, max);
+        const r = s().submitHoodedFigurePayment(pay >= 1 ? pay : 0);
+        log.push({ kind: "HF", season: s().season, offered: pay, ok: r.ok, reason: r.reason, enc: JSON.parse(JSON.stringify(hoodedFigureEncounterFor(s(), me))) });
+      }
+      break;
+    }
+    case "offseasonDraftSummary":
+      s().stepForward("rookieSignings");
+      for (const r of s().draft?.results ?? []) if (r.teamCode === me && r.selectedId) s().signRookie(r.selectedId, me);
+      break;
+    case "offseasonFreeAgency":
+      s().startBidding("players"); for (let i = 0; i < 6; i++) s().advanceBiddingDay("players"); break;
+    case "preseason": case "regularSeason": case "playoffs": await s().simulateGameDay(); break;
+  }
+}
+
+async function step(): Promise<Stage> {
+  const stage = s().stage; seenStages.push(stage);
+  await actOn(stage);
+  if (s().stage !== stage) return s().stage;
+  const st = s(); st.autoReadyNonViewers(); st.setReady(st.viewerGmId, true);
+  if (IN_SEASON.includes(stage)) await s().finishGameDay();
+  else {
+    const moved = await s().tryAdvance();
+    if (!moved.moved) { log.push({ note: "STUCK", stage, reason: (moved as any).reason }); throw new Error("stuck at " + stage); }
+  }
+  return s().stage;
+}
+
+describe("A5 playthrough", () => {
+  it("plays seasons", async () => {
+    // REAL ENGINE: undo test-setup.ts fetch stub; count adapter calls
+    vi.unstubAllGlobals();
+    const realFetch = globalThis.fetch; let okSim = 0;
+    globalThis.fetch = (async (...a: any[]) => { const r = await (realFetch as any)(...a); if (String(a[0]).includes("simulate-week") && r.ok) okSim++; return r; }) as any;
+    (globalThis as any).__okSim = () => okSim;
+    await s().newLeague(SEED, DEFAULT_CONFIG);
+    let kickoffs = 0, guard = 3000;
+    let lastHist = 0;
+    while (guard-- > 0 && kickoffs < SEASONS + 1) {
+      const before = s().stage;
+      const after = await step();
+      if (before === "hoodedFigureEncounter" || after === "hoodedFigureEncounter") { /* logged above */ }
+      const h = s().history.filter((x) => x.teamCode === (s().gms.find((g) => g.id === s().viewerGmId)?.teamCode));
+      if (h.length > lastHist) {
+        lastHist = h.length;
+        const me = s().gms.find((g) => g.id === s().viewerGmId)!.teamCode!;
+        log.push({ kind: "SEASON", outcome: h[h.length - 1], team: me, hfStreak: s().hoodedFigure?.losingStreaks ?? {}, eligibleNext: isHoodedFigureEligible(s(), me), stagesSeen: [...new Set(seenStages)].length });
+      }
+      if (before !== "preseason" && after === "preseason") kickoffs++;
+    }
+    writeFileSync(OUT, JSON.stringify({ SEED, TEAM, PAY, engine: "real-adapter", adapterSimulateWeekOk: okSim, log, stageSeq: seenStages.length }, null, 1));
+    expect(guard).toBeGreaterThan(0);
+  }, 1_800_000);
+});

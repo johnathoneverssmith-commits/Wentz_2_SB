@@ -1,0 +1,497 @@
+[
+ {
+  "cfg": "1 human",
+  "rule": "R0_current",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 10,
+  "shareOfAppearancesAfterPlayoffSeason": 0.846,
+  "appearancesAfterTitle": 702
+ },
+ {
+  "cfg": "1 human",
+  "rule": "A_missed_playoffs",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.24,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "1 human",
+  "rule": "B_below_500",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.11,
+  "shareOfAppearancesAfterPlayoffSeason": 0.07,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "1 human",
+  "rule": "C_relative_AND_below_500",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.11,
+  "shareOfAppearancesAfterPlayoffSeason": 0.07,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "1 human",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.24,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "1 human",
+  "rule": "R0_current",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 10,
+  "shareOfAppearancesAfterPlayoffSeason": 0.43,
+  "appearancesAfterTitle": 112
+ },
+ {
+  "cfg": "1 human",
+  "rule": "A_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.26,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "1 human",
+  "rule": "B_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.48,
+  "shareOfAppearancesAfterPlayoffSeason": 0.032,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "1 human",
+  "rule": "C_relative_AND_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.48,
+  "shareOfAppearancesAfterPlayoffSeason": 0.032,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "1 human",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.26,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "1 human",
+  "rule": "R0_current",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 10,
+  "shareOfAppearancesAfterPlayoffSeason": 0.074,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "1 human",
+  "rule": "A_missed_playoffs",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.58,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "1 human",
+  "rule": "B_below_500",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.21,
+  "shareOfAppearancesAfterPlayoffSeason": 0.009,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "1 human",
+  "rule": "C_relative_AND_below_500",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.21,
+  "shareOfAppearancesAfterPlayoffSeason": 0.009,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "1 human",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.58,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "R0_current",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.94,
+  "shareOfAppearancesAfterPlayoffSeason": 0.19,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "R0_current",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3,
+  "shareOfAppearancesAfterPlayoffSeason": 0.187,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "A_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.24,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "A_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.11,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "B_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.54,
+  "shareOfAppearancesAfterPlayoffSeason": 0.028,
+  "appearancesAfterTitle": 4
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "B_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.39,
+  "shareOfAppearancesAfterPlayoffSeason": 0.03,
+  "appearancesAfterTitle": 4
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "C_relative_AND_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 1.58,
+  "shareOfAppearancesAfterPlayoffSeason": 0.006,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "C_relative_AND_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 1.63,
+  "shareOfAppearancesAfterPlayoffSeason": 0.012,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 1.93,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (avg+avg)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 1.98,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "R0_current",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.02,
+  "shareOfAppearancesAfterPlayoffSeason": 0.333,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "R0_current",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 9.35,
+  "shareOfAppearancesAfterPlayoffSeason": 0.052,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "A_missed_playoffs",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.24,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "A_missed_playoffs",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.57,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "B_below_500",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.13,
+  "shareOfAppearancesAfterPlayoffSeason": 0.078,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "B_below_500",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.03,
+  "shareOfAppearancesAfterPlayoffSeason": 0.008,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "C_relative_AND_below_500",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.01,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "C_relative_AND_below_500",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 7.9,
+  "shareOfAppearancesAfterPlayoffSeason": 0.007,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "contender .65",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.01,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "2 humans (contender+poor)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "poor .35",
+  "N": 4000,
+  "appearancesPer10Seasons": 8.41,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "R0_current",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.93,
+  "shareOfAppearancesAfterPlayoffSeason": 0.043,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "R0_current",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.95,
+  "shareOfAppearancesAfterPlayoffSeason": 0.026,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "R0_current",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 1.02,
+  "shareOfAppearancesAfterPlayoffSeason": 0.034,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "R0_current",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.92,
+  "shareOfAppearancesAfterPlayoffSeason": 0.038,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "A_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.27,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "A_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.27,
+  "shareOfAppearancesAfterPlayoffSeason": 0.001,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "A_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.29,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "A_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 3.24,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "B_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.39,
+  "shareOfAppearancesAfterPlayoffSeason": 0.027,
+  "appearancesAfterTitle": 1
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "B_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.4,
+  "shareOfAppearancesAfterPlayoffSeason": 0.022,
+  "appearancesAfterTitle": 3
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "B_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.5,
+  "shareOfAppearancesAfterPlayoffSeason": 0.025,
+  "appearancesAfterTitle": 4
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "B_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 2.38,
+  "shareOfAppearancesAfterPlayoffSeason": 0.028,
+  "appearancesAfterTitle": 2
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "C_relative_AND_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.74,
+  "shareOfAppearancesAfterPlayoffSeason": 0.003,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "C_relative_AND_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.8,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "C_relative_AND_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.87,
+  "shareOfAppearancesAfterPlayoffSeason": 0.003,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "C_relative_AND_below_500",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.8,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.86,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.9,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.94,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ },
+ {
+  "cfg": "4 humans (all avg)",
+  "rule": "D_relative_AND_missed_playoffs",
+  "human": "average .50",
+  "N": 4000,
+  "appearancesPer10Seasons": 0.86,
+  "shareOfAppearancesAfterPlayoffSeason": 0,
+  "appearancesAfterTitle": 0
+ }
+]

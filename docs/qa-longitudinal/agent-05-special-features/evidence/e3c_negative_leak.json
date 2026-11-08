@@ -1,0 +1,147 @@
+{
+ "trials": 38,
+ "rows": [
+  {
+   "k": 0,
+   "event": "keep_chopping_something_else",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 1,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Jonard Flintham"
+   ],
+   "stage": "setup"
+  },
+  {
+   "k": 1,
+   "event": "the_600_problem",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 1,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Nicard Sutwell"
+   ],
+   "stage": "setup"
+  },
+  {
+   "k": 2,
+   "event": "the_trailer_park_sting",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 0,
+   "teamsOfThose": [],
+   "names": [],
+   "stage": "setup"
+  },
+  {
+   "k": 4,
+   "event": "helmet_standoff",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 1,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Kenno Vailware"
+   ],
+   "stage": "setup"
+  },
+  {
+   "k": 5,
+   "event": "keep_chopping_something_else",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 1,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Jonard Flintham"
+   ],
+   "stage": "setup"
+  },
+  {
+   "k": 6,
+   "event": "accidental_office_upload",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 0,
+   "teamsOfThose": [],
+   "names": [],
+   "stage": "setup"
+  },
+  {
+   "k": 7,
+   "event": "the_bye_week_yacht",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 3,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Nelcus Bradkins",
+    "Holor Haleberry",
+    "Talvin Lockham"
+   ],
+   "stage": "setup"
+  },
+  {
+   "k": 8,
+   "event": "pizza_recovery_drill",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 1,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Wade Yorkford"
+   ],
+   "stage": "setup"
+  },
+  {
+   "k": 9,
+   "event": "motorcycle_personnel_meeting",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 0,
+   "teamsOfThose": [],
+   "names": [],
+   "stage": "setup"
+  },
+  {
+   "k": 10,
+   "event": "halftime_retirement",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 1,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Talar Blackow"
+   ],
+   "stage": "setup"
+  },
+  {
+   "k": 11,
+   "event": "the_ohio_bar_video",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 0,
+   "teamsOfThose": [],
+   "names": [],
+   "stage": "setup"
+  },
+  {
+   "k": 12,
+   "event": "celebration_season_ending_injury",
+   "kcSeesBufEncounter": false,
+   "unavailableIdsVisibleToKC": 1,
+   "teamsOfThose": [
+    "MIA"
+   ],
+   "names": [
+    "Olton Claying"
+   ],
+   "stage": "setup"
+  }
+ ]
+}
