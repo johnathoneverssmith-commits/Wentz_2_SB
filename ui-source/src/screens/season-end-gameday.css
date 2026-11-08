@@ -35,8 +35,7 @@
 .se-stage__awards {
   min-width: 0;
 }
-.se-stage__label,
-.se-label {
+.se-stage__label {
   margin: 0 0 8px;
   color: var(--gd-ink);
   font: 900 clamp(24px, 2.4vw, 30px) / 1 var(--gd-display);
@@ -618,9 +617,6 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
-.se-acts--stack {
-  flex-wrap: wrap;
-}
 @container (max-width: 560px) {
   .se-acts {
     flex-direction: column;
@@ -641,7 +637,4 @@
   margin: 12px 0 0;
   color: var(--gd-mute);
   font: 600 15px/1.4 var(--gd-body);
-}
-.se-lock {
-  color: var(--gd-mute);
 }
