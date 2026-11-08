@@ -1,0 +1,23 @@
+D2 prototype engine. Concept strategy minus balanced (no declared concept), margin pts (SE)
+  natural         +0.28 (0.44) n=768
+  opposite        -1.39 (0.41) n=768
+  counter         -0.35 (0.42) n=768
+  natLean         +0.06 (0.45) n=768
+  allZoneVert     -0.47 (0.45) n=768
+  allPowerTiming  -1.05 (0.43) n=768
+  fixed league-wide concept vs opponent front (front>0 stout/slow, <0 quick/penetrating): margin minus balanced
+     opp front stout (>0.3)     allZoneVert     +0.48 (0.68) n=330
+     opp front stout (>0.3)     allPowerTiming  -1.07 (0.65) n=330
+     opp front stout (>0.3)     counter         +0.59 (0.67) n=330
+     opp front stout (>0.3)     natLean         +0.69 (0.70) n=330
+     opp front stout (>0.3)     natural         +0.62 (0.68) n=330
+     opp front neutral          allZoneVert     +2.18 (1.26) n=89
+     opp front neutral          allPowerTiming  -0.93 (1.38) n=89
+     opp front neutral          counter         -0.29 (0.92) n=89
+     opp front neutral          natLean         +1.60 (1.28) n=89
+     opp front neutral          natural         +1.74 (1.25) n=89
+     opp front quick (<-0.3)    allZoneVert     -2.04 (0.66) n=349
+     opp front quick (<-0.3)    allPowerTiming  -1.06 (0.63) n=349
+     opp front quick (<-0.3)    counter         -1.26 (0.63) n=349
+     opp front quick (<-0.3)    natLean         -0.93 (0.65) n=349
+     opp front quick (<-0.3)    natural         -0.40 (0.65) n=349

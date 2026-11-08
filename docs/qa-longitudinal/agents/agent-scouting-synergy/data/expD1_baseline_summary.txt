@@ -1,0 +1,26 @@
+D1 baseline engine. Effect of coordinator SCHEME (rating 50) vs neutral scheme, margin pts (SE); n pairs
+  off players WITH scheme_tags (pool-2026)
+     west_coast  -0.86 (0.41) n=512
+     vertical    -0.01 (0.34) n=512
+     spread      -0.41 (0.41) n=512
+     power_run   -0.54 (0.39) n=512
+     zone_run    -1.07 (0.42) n=512
+  off players WITHOUT scheme_tags (default fictional league / rookies)
+     west_coast  -1.76 (0.64) n=512
+     vertical    -1.02 (0.58) n=512
+     spread      -2.01 (0.63) n=512
+     power_run   -1.14 (0.58) n=512
+     zone_run    -0.93 (0.63) n=512
+  def players WITH scheme_tags (pool-2026)
+     four_three  -0.20 (0.42) n=512
+     three_four  +0.47 (0.38) n=512
+     cover_3     +0.20 (0.39) n=512
+     cover_2     -0.32 (0.42) n=512
+     man_press   -0.35 (0.39) n=512
+  def players WITHOUT scheme_tags (default fictional league / rookies)
+     four_three  -0.54 (0.49) n=512
+     three_four  -0.57 (0.50) n=512
+     cover_3     -0.71 (0.52) n=512
+     cover_2     -0.54 (0.49) n=512
+     man_press   -0.87 (0.54) n=512
+  per-team best offensive scheme (tags present): split-half agreement 3/32 (chance 5.3); chosen-on-A scheme vs pro_style on B: -0.93 pts

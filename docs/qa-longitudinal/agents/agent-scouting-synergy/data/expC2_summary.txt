@@ -1,0 +1,11 @@
+leagues=24; treated teams per league=11; metric = team rating (exact, 0.1) after draft+signing, minus the same team in the control draft (CPU default)
+  public           dRating vs CPU -0.12 (SE 0.04, n=264)  mean true rating of picks 63.3
+  basic24-need     dRating vs CPU -0.02 (SE 0.03, n=264)  mean true rating of picks 63.8
+  basic24-needwin  dRating vs CPU -0.03 (SE 0.04, n=264)  mean true rating of picks 63.8
+  deep8-need       dRating vs CPU -0.11 (SE 0.04, n=264)  mean true rating of picks 63.3
+  deep8-needwin    dRating vs CPU -0.08 (SE 0.04, n=264)  mean true rating of picks 63.5
+  paired difference vs public (same teams, same leagues):
+     basic24-need     +0.10 (SE 0.03)
+     basic24-needwin  +0.09 (SE 0.03)
+     deep8-need       +0.01 (SE 0.02)
+     deep8-needwin    +0.04 (SE 0.03)

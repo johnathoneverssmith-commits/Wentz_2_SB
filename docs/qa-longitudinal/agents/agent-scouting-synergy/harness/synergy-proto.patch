@@ -1,0 +1,185 @@
+diff --git a/src/engine/synergy.ts b/src/engine/synergy.ts
+index d7797b1..656cf4c 100644
+--- a/src/engine/synergy.ts
++++ b/src/engine/synergy.ts
+@@ -331,6 +331,7 @@ function offenseScores(o: Lineup): Pick<UnitScores, "passPro" | "runBlock" | "ru
+   }
+ 
+   return {
++    ...protoOffense(o),
+     passPro: cohesion(pro, olAdjacent),
+     // the TE (index 5) sits next to the right tackle (index 4)
+     runBlock: cohesion(run, (i, j) => (Math.abs(i - j) === 1 ? 2 : 1)),
+@@ -381,6 +382,7 @@ function defenseScores(d: Lineup): Omit<UnitScores, "passPro" | "runBlock" | "ru
+   const dbMean = meanZ(dbs);
+ 
+   return {
++    ...protoDefense(d),
+     passRush,
+     secondary: cohesion(dbs, dbWeight),
+     lbCoverage: cross(lbCov, dbMean),
+@@ -524,7 +526,7 @@ function cachedDefense(d: Lineup): ReturnType<typeof defenseScores> {
+ /** Centred scores for this offense against this defense. */
+ export function unitScores(o: Lineup, d: Lineup): UnitScores {
+   const ref = referenceScores();
+-  const raw = { ...cachedOffense(o), ...cachedDefense(d), pressure: cachedPressure(o, d) };
++  const raw = { ...cachedOffense(o), ...cachedDefense(d), pressure: cachedPressure(o, d), ...protoCounter(o, d) };
+   const out = {} as Record<string, number>;
+   for (const [k, v] of Object.entries(raw)) out[k] = v - (ref[k as keyof UnitScores] ?? 0);
+   return out as unknown as UnitScores;
+@@ -604,6 +606,8 @@ export function synergyShift(o: Lineup, d: Lineup, channel: Channel): number {
+   // Asymmetric for sacks: more room below (a great line) than above. The
+   // linear model already carries a bad line close to the worst real sack
+   // rates, so synergy adds less on top there before reality runs out.
++  const pw = (PROTO.w as any)[channel] as Record<string, number> | undefined;
++  if (pw) for (const [k, w] of Object.entries(pw)) total += ((s as any)[k] ?? 0) * w * PROTO.scale;
+   const cap = channel === "sack" && total > 0 ? SACK_CEILING_UP : SATURATION[channel];
+   return cap * Math.tanh((total * synergyScale) / cap);
+ }
+@@ -753,3 +757,146 @@ export function blitzContext(o: Lineup, d: Lineup): BlitzContext {
+     quarterback: z("quarterback"),
+   };
+ }
++
++
++// ======================================================================================
++// PROTOTYPE (docs/qa-longitudinal/agents/agent-scouting-synergy): skill-style fit and counters.
++// Isolated: lives only in a scratch worktree via prototype/synergy-proto.patch. Not production.
++// Concepts are read from scheme_tags on QB1 (offense: "zone"|"power", "vertical"|"timing", "ocq=NN")
++// and CB1 (defense: "man"|"zone", "dcq=NN") so the harness can set them with no change to sim.ts.
++// ======================================================================================
++export const PROTO = {
++  scale: 1,
++  w: {
++    rushYards: { runFit: 0.12, counterRun: 0.05 },
++    complete: { passFit: 0.05, counterPass: 0.02, covFit: -0.04 },
++  } as Record<string, Record<string, number>>,
++};
++if (typeof process !== "undefined" && process.env.PROTO_W) { const o = JSON.parse(process.env.PROTO_W); for (const ch of Object.keys(o)) Object.assign(PROTO.w[ch] ??= {}, o[ch]); }
++if (typeof process !== "undefined" && process.env.PROTO_SCALE) PROTO.scale = Number(process.env.PROTO_SCALE);
++const c2 = (x: number | null | undefined): number => (x == null ? 0 : Math.max(-2, Math.min(2, x)));
++const RB_ELUSIVE: Skill = { ball_carrier_vision: 0.4, agility: 0.2, juke_move: 0.2, acceleration: 0.2 };
++const RB_POWER: Skill = { break_tackle: 0.4, stiff_arm: 0.3, strength: 0.3 };
++const OL_MOBILE: Skill = { agility: 0.5, acceleration: 0.25, speed: 0.25 };
++const OL_DRIVE: Skill = { strength: 0.5, anchor: 0.3, pass_block_power: 0.2 };
++const QB_VERT: Skill = { throw_accuracy_deep: 0.5, throw_power: 0.5 };
++const QB_QUICK: Skill = { throw_accuracy_short: 0.6, awareness: 0.4 };
++const WR_VERT: Skill = { route_running_deep: 0.4, speed: 0.3, acceleration: 0.3 };
++const WR_TIMING: Skill = { route_running_short: 0.4, catching: 0.3, release: 0.3 };
++const DL_STOUT: Skill = { run_defense: 0.4, strength: 0.3, block_shedding: 0.3 };
++const DL_QUICK: Skill = { speed: 0.3, acceleration: 0.3, finesse_moves: 0.4 };
++const CV_MAN: Skill = { man_coverage: 0.5, press: 0.5 };
++const CV_ZONE: Skill = { zone_coverage: 0.7, play_recognition: 0.3 };
++const avg = (xs: (number | null)[]): number => {
++  const v = xs.filter((x): x is number => x !== null);
++  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
++};
++const styleRaw = (ps: (Player | null | undefined)[], a: Skill, b: Skill): number => avg(ps.map((p) => skillZ(p, a))) - avg(ps.map((p) => skillZ(p, b)));
++/** Quality factor: 1 for a reference unit, +0.8 per z above it, clamped to [0.3, 2.0] (so fit is worth ~1.6x more to an elite unit and can never run away). */
++const qFac = (q: number, ref: number): number => Math.max(0.3, Math.min(2.0, 1 + 0.8 * (q - ref)));
++const qual = (z: number): number => 0.5 + 0.5 * Math.tanh(z);
++const STYLE_GETTERS: Record<string, (r: ReturnType<typeof roster>) => (Player | null | undefined)[]> = {
++  rb: (r) => [r.offense().RB1],
++  ol: (r) => OL_SLOTS.map((s) => r.offense()[s]),
++  qb: (r) => [r.offense().QB1],
++  wr: (r) => [r.offense().WR1, r.offense().WR2, r.offense().WR3],
++  front: (r) => [r.defense().EDGE1, r.defense().EDGE2, r.defense().DT1, r.defense().DT2],
++  cover: (r) => [r.defense().CB1, r.defense().CB2, r.defense().S1, r.defense().S2],
++};
++const STYLE_SPECS: Record<string, [Skill, Skill]> = {
++  rb: [RB_ELUSIVE, RB_POWER], ol: [OL_MOBILE, OL_DRIVE], qb: [QB_VERT, QB_QUICK], wr: [WR_VERT, WR_TIMING], front: [DL_STOUT, DL_QUICK], cover: [CV_MAN, CV_ZONE],
++};
++const _styleStats = new Map<string, { m: number; s: number }>();
++/** Style relative to the SAME POSITION GROUP's reference starters (mean 0, sd 1), so an offensive line is not "drive-heavy" merely because linemen are strong compared with the whole pool. */
++function zs(key: string, ps: (Player | null | undefined)[]): number {
++  let st = _styleStats.get(key);
++  if (!st) {
++    const [a, b] = STYLE_SPECS[key]!;
++    const xs = teamList().map((t) => styleRaw(STYLE_GETTERS[key]!(roster(t)), a, b));
++    const m = xs.reduce((u, v) => u + v, 0) / xs.length;
++    const sd = Math.sqrt(xs.reduce((u, v) => u + (v - m) ** 2, 0) / xs.length) || 1;
++    _styleStats.set(key, (st = { m, s: sd }));
++  }
++  const [a, b] = STYLE_SPECS[key]!;
++  return c2((styleRaw(ps, a, b) - st.m) / st.s);
++}
++
++function tagNum(tags: readonly string[] | undefined, key: string): number {
++  const t = tags?.find((x) => x.startsWith(key + "="));
++  return t ? Number(t.slice(key.length + 1)) : 50;
++}
++const execOf = (q: number): number => 1 + 0.4 * Math.max(-1, Math.min(1, (q - 50) / 40));
++export function protoConcepts(o: Lineup): { run: number; pass: number; exec: number } {
++  const tags = o.QB1?.scheme_tags;
++  return {
++    run: tags?.includes("zone") ? 1 : tags?.includes("power") ? -1 : 0,
++    pass: tags?.includes("vertical") ? 1 : tags?.includes("timing") ? -1 : 0,
++    exec: execOf(tagNum(tags, "ocq")),
++  };
++}
++/** Reference mean of the coherence penalty |s_a - s_b|/2, so that an ordinary roster's alignment term is centred at zero BEFORE it is multiplied by unit quality. */
++let _cohRef: { run: number; pass: number; qRun: number; qPass: number } | null = null;
++function cohRef(): { run: number; pass: number; qRun: number; qPass: number } {
++  if (_cohRef) return _cohRef;
++  let r = 0, p = 0, n = 0, qr = 0, qp = 0;
++  for (const t of teamList()) {
++    const o = roster(t).offense();
++    const olx = OL_SLOTS.map((s) => o[s]);
++    qr += avg([skillZ(o.RB1, RUNNER), avg(olx.map((q) => skillZ(q, RUN_BLOCK)))]);
++    qp += avg([skillZ(o.QB1, QB_PASS), avg([o.WR1, o.WR2, o.WR3].map((q) => skillZ(q, RECEIVING)))]);
++    r += Math.abs(zs("rb", [o.RB1]) - zs("ol", OL_SLOTS.map((s) => o[s]))) / 2;
++    p += Math.abs(zs("qb", [o.QB1]) - zs("wr", [o.WR1, o.WR2, o.WR3])) / 2;
++    n++;
++  }
++  return (_cohRef = { run: r / n, pass: p / n, qRun: qr / n, qPass: qp / n });
++}
++function protoOffense(o: Lineup): { runFit: number; passFit: number } {
++  const cc = protoConcepts(o);
++  const ol = OL_SLOTS.map((s) => o[s]);
++  const sRb = zs("rb", [o.RB1]);
++  const sOl = zs("ol", ol);
++  const qRun = avg([skillZ(o.RB1, RUNNER), avg(ol.map((p) => skillZ(p, RUN_BLOCK)))]);
++  const runFit = cc.exec * qFac(qRun, cohRef().qRun) * (cc.run * (sRb + sOl) / 2 - Math.abs(sRb - sOl) / 2 + cohRef().run);
++  const wr = [o.WR1, o.WR2, o.WR3];
++  const sQb = zs("qb", [o.QB1]);
++  const sWr = zs("wr", wr);
++  const qPro = avg(ol.map((p) => skillZ(p, PASS_PRO)));
++  const qPass = avg([skillZ(o.QB1, QB_PASS), avg(wr.map((p) => skillZ(p, RECEIVING)))]);
++  const aPass = cc.pass * (sQb + sWr) / 2 + (cc.pass > 0 ? 0.5 * c2(qPro) : 0) - Math.abs(sQb - sWr) / 2 + cohRef().pass;
++  const passFit = cc.exec * qFac(qPass, cohRef().qPass) * aPass;
++  return { runFit, passFit };
++}
++function protoDefense(d: Lineup): { covFit: number } {
++  const dbs = [d.CB1, d.CB2, d.S1, d.S2];
++  const tags = d.CB1?.scheme_tags;
++  const cd = tags?.includes("man") ? 1 : tags?.includes("zone") ? -1 : 0;
++  const sCv = zs("cover", dbs);
++  const qCov = avg(dbs.map((p) => skillZ(p, COVERAGE)));
++  return { covFit: execOf(tagNum(tags, "dcq")) * qual(qCov) * cd * sCv };
++}
++function protoCounter(o: Lineup, d: Lineup): { counterRun: number; counterPass: number } {
++  const cc = protoConcepts(o);
++  if (cc.run === 0 && cc.pass === 0) return { counterRun: 0, counterPass: 0 };
++  const dbs = [d.CB1, d.CB2, d.S1, d.S2];
++  const front = [d.EDGE1, d.EDGE2, d.DT1, d.DT2];
++  return { counterRun: cc.run * zs("front", front), counterPass: cc.pass * zs("cover", dbs) };
++}
++
++/** Prototype diagnostics: the style axes (z, clamped +-2) the fit and counter terms read. */
++export function protoStyles(o: Lineup, d: Lineup): { sRb: number; sOl: number; sQb: number; sWr: number; front: number; cover: number } {
++  const ol = OL_SLOTS.map((s) => o[s]);
++  return {
++    sRb: zs("rb", [o.RB1]),
++    sOl: zs("ol", ol),
++    sQb: zs("qb", [o.QB1]),
++    sWr: zs("wr", [o.WR1, o.WR2, o.WR3]),
++    front: zs("front", [d.EDGE1, d.EDGE2, d.DT1, d.DT2]),
++    cover: zs("cover", [d.CB1, d.CB2, d.S1, d.S2]),
++  };
++}
++
++export function protoDebug(o: Lineup): { qRun: number; Q: number; sRb: number; sOl: number } {
++  const ol = OL_SLOTS.map((s) => o[s]);
++  const qRun = avg([skillZ(o.RB1, RUNNER), avg(ol.map((p) => skillZ(p, RUN_BLOCK)))]);
++  return { qRun, Q: qual(qRun), sRb: zs("rb", [o.RB1]), sOl: zs("ol", ol) };
++}
