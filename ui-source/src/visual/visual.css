@@ -39,7 +39,6 @@
 .rank-chip.heaven { border-color:#e9cf7a; box-shadow:0 0 14px #ffe9a055; }
 .rank-chip.hell { border-color:#d2542c; box-shadow:0 0 14px #ff5a1a44; }
 .rank-chip small { color:#a9c1cf; }
-.rank-chip-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 10px; }
 
 /* game title + team-select transition */
 .game-title { margin:0; font-family:var(--font-display,inherit); font-size:clamp(26px,5.2vw,46px); line-height:1.05; letter-spacing:.01em; text-wrap:balance; color:#f6fbff; text-shadow:0 2px 18px #000a; }
@@ -65,8 +64,6 @@
 .universe-row input,.universe-row select { min-height:40px; padding:6px 10px; border-radius:8px; border:1px solid #35566a; background:#08141d; color:#f2f8fb; }
 
 @media (max-width:760px) { .atmo-backdrop { height:300px; } .rank-chip { white-space:normal; } }
-
-.setup-hero { max-width:940px; margin:12px auto 14px; padding:0 4px; min-height:112px; display:flex; flex-direction:column; justify-content:flex-end; }
 .universe-picker p,.universe-picker output { font-size:14px; line-height:1.5; color:#c4d8e3; }
 .universe-picker h3 { font-size:16px; color:#fff; }
 .universe-picker p output { color:#fff; font-weight:700; }
