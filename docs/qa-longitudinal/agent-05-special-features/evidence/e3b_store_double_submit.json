@@ -1,0 +1,13 @@
+{
+ "first": {
+  "ok": true
+ },
+ "second": {
+  "ok": false,
+  "reason": "You've already answered the figure this year."
+ },
+ "capCharged": [
+  241.7,
+  0
+ ]
+}

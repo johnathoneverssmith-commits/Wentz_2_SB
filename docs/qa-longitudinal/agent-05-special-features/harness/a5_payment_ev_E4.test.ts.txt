@@ -1,0 +1,31 @@
+import { writeFileSync } from "node:fs";
+import { it } from "vitest";
+import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "./seed.ts";
+import { ensureHoodedFigureEncounters, ensureHoodedFigureState, resolveHoodedFigureEncounter } from "./hoodedFigure.ts";
+const OUT = process.env.A5_OUTDIR ?? ".";
+it("EV by payment", () => {
+  const s: any = createLeague(77, { ...DEFAULT_CONFIG, humanGmCount: 1 }); fillRosterGaps(s);
+  s.gms[0].teamCode = "GB"; s.gms[0].isHuman = true; s.teams.GB.controlledBy = { kind: "human", gmId: s.gms[0].id };
+  const reg = s.schedule.filter((g: any) => g.phase === "REG");
+  const gbGames = reg.filter((g: any) => g.homeTeam === "GB" || g.awayTeam === "GB").map((g: any) => ({ week: g.week, opp: g.homeTeam === "GB" ? g.awayTeam : g.homeTeam }));
+  const snapP = JSON.stringify(Object.values(s.players).filter((p: any) => p.nfl_team === "GB")); const snapC = JSON.stringify(s.coaches);
+  const base0 = s.season; const rows: any[] = []; const N = 300;
+  for (const pay of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) for (let i = 0; i < N; i++) {
+    for (const p of JSON.parse(snapP)) s.players[p.id] = p; s.coaches = JSON.parse(snapC);
+    s.season = base0 + 1 + i; const hf = ensureHoodedFigureState(s); hf.firstNegativeConsumed = true; hf.unavailable = []; hf.encountersBySeason = {}; hf.losingStreaks.GB = 2;
+    s.teams.GB.cap.dead = 0; ensureHoodedFigureEncounters(s);
+    const e: any = resolveHoodedFigureEncounter(s, "GB", pay); const o = e.outcome;
+    const row: any = { pay, swindle: e.swindle, branch: e.branch, tier: e.tier, id: o?.eventId };
+    if (e.branch === "negative" && o?.targetTeam) {
+      const until = o.coachFired ? 0 : o.absenceWeeks; const vs = gbGames.filter((g: any) => g.opp === o.targetTeam);
+      const felt = o.coachFired ? 0 : vs.filter((g: any) => until === null || g.week <= until).length;
+      const list = o.wholeRosterOut ? Object.values(s.players).filter((p: any) => p.nfl_team === o.targetTeam) : (o.negativePlayers ?? []);
+      row.target = o.targetTeam; row.coachFired = !!o.coachFired; row.whole = !!o.wholeRosterOut; row.weeks = o.absenceWeeks ?? null;
+      row.gamesVsPayerWeakened = felt; row.absentPlayers = list.length; row.absentOvrSum = list.reduce((a: number, p: any) => a + (p.overall ?? 0), 0);
+      row.targetGamesWeakened = o.coachFired ? 0 : (o.absenceWeeks ?? 17);
+    }
+    if (e.branch === "positive") { const ch = o.playerChanges ?? []; row.fam = o.family; row.grp = o.positionGroup; row.nPlayers = ch.length; row.sumDelta = ch.reduce((a: number, c: any) => a + (c.after - c.before), 0); row.maxDelta = Math.max(0, ...ch.map((c: any) => c.after - c.before)); }
+    rows.push(row);
+  }
+  writeFileSync(`${OUT}/e4_payment_ev_raw.json`, JSON.stringify({ N, schedule: "mock-generated 17-game REG slate", gbGamesVs: gbGames.length, rows }));
+}, 600000);

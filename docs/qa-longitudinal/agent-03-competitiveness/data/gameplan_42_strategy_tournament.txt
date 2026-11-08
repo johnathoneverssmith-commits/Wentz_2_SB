@@ -1,0 +1,10 @@
+talent 1.5, 12 games a roster; margin vs the standard plan (points/game)
+
+strategy          overall    best-fit 8   worst-fit 8   spread  | sd of margin   close-game win%   17+ pt losses
+offense_heavy      -1.06        +0.50         -3.34    +3.84  |    -0.45             -2.9          +3.4
+defense_heavy      -0.08        +1.19         -2.10    +3.29  |    -0.34             -7.9          -0.5
+pass_heavy         -0.75        +1.03         -3.23    +4.26  |    +0.31            -13.2          +3.9
+run_heavy          -1.71        -1.19         -3.25    +2.06  |    -0.45             -6.3          +1.8
+high_floor         -1.30        -0.13         -2.80    +2.68  |    -1.31             -5.8          -1.0
+high_ceiling       -1.48        -1.12         -3.80    +2.68  |    -0.27             +1.9          +1.8
+trenches_first     -1.97        -1.14         -5.93    +4.79  |    +0.15             -1.5          +0.5

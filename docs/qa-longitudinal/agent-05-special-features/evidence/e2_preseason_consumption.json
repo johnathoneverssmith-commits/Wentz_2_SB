@@ -1,0 +1,17 @@
+{
+ "schedule": 320,
+ "qb": "Bares Kingson",
+ "preWeeks": [
+  1,
+  2,
+  3
+ ],
+ "regFirst": 1,
+ "hadPostedBody": false,
+ "preGameBodies": 1,
+ "qbInRostersPostedForPreseasonWeek1": false,
+ "qbInRostersPostedForRegularSeasonWeek1": false,
+ "isUnavailable": {
+  "week1": true
+ }
+}

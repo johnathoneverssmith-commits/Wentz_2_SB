@@ -36,10 +36,10 @@ Evaluate each proposal on: licensing (original or properly licensed only; **no c
 
 | ID | Question | Recommendation |
 |---|---|---|
-| O-1 | Are Agent 1's dark-strip / token findings (UI-TAFI-001, 002, 005, 017) part of Group 08, or a separate PR? | Check Group 08 scope first; do not duplicate. 001 is small and affects the draft/FA/deadline turn readout, so it should ship before alpha. |
-| O-2 | Who fixes #92's failing test (selector rule for `e2e-audit/`)? | The #92 author; small, tooling-only. |
-| O-3 | Issue #74: should solo play ship with the real engine, or an explicit "simulated (mock)" label? | Decide before Agent 2/4 baseline runs; it decides whether solo realism can be tested at all. |
-| O-4 | Review/merge of #94 and #95 (documentation PRs from Agents 1 and 3)? | #94 once checks are green (docs only). Hold #95 until Agent 3 finalises and its harness code is reviewed. |
+| O-1 | ~~Group 08 or separate?~~ **Decided (D-009):** folded into Group 08; see `GROUP-08-PLAN.md`. | — |
+| O-2 | ~~Who fixes #92's failing test?~~ **Decided (D-010):** the #92 development agent; no merge without approval. | — |
+| O-3 | Issue #74: long-term real engine is required (D-011). Open: does the baseline wait for it? | Recommend no; see `ISSUE-74-PLAN.md` Part 5. |
+| O-4 | #94 / #95 | **Decided (D-012/D-013):** #94 merges once updated and verified; #95 stays draft. |
 
 ## Draft batches (nothing approved)
 

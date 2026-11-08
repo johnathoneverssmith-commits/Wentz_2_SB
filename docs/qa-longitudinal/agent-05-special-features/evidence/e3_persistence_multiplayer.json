@@ -1,0 +1,93 @@
+{
+ "reloadMidEncounter_sameOutcome": true,
+ "kcOutcome": {
+  "teamCode": "KC",
+  "season": 2026,
+  "thresholds": {
+   "t1": 1,
+   "t2": 4.1,
+   "t3": 8.1
+  },
+  "payment": 4,
+  "resolved": true,
+  "swindle": false,
+  "branch": "positive",
+  "tier": 2,
+  "outcome": {
+   "eventId": "positive_position_group_boost",
+   "publicText": "The whole WR room quietly got better over the offseason.",
+   "family": "position_group_boost",
+   "positionGroup": "WR",
+   "playerChanges": [
+    {
+     "playerId": "p_g1_ed7f29_WR028",
+     "name": "Karard Whitaker",
+     "position": "WR",
+     "before": 81,
+     "after": 83
+    },
+    {
+     "playerId": "p_g1_ed7f29_WR091",
+     "name": "Lorlan Jefferson",
+     "position": "WR",
+     "before": 69,
+     "after": 71
+    },
+    {
+     "playerId": "p_g1_ed7f29_WR094",
+     "name": "Wade Morfield",
+     "position": "WR",
+     "before": 69,
+     "after": 71
+    },
+    {
+     "playerId": "p_g1_ed7f29_WR119",
+     "name": "Marcus Dunville",
+     "position": "WR",
+     "before": 69,
+     "after": 71
+    },
+    {
+     "playerId": "p_g1_ed7f29_WR153",
+     "name": "Belak Brenens",
+     "position": "WR",
+     "before": 82,
+     "after": 84
+    },
+    {
+     "playerId": "p_g1_ed7f29_WR219",
+     "name": "Jordan Ashford",
+     "position": "WR",
+     "before": 82,
+     "after": 84
+    }
+   ]
+  }
+ },
+ "pureFunctionDoubleCallDeadMoneyDelta": 4,
+ "bothEligibleEncounters": [
+  "KC",
+  "BUF"
+ ],
+ "bufSeesEncountersFor": [
+  "BUF"
+ ],
+ "bufSeesKcPayment": null,
+ "leak_unavailableList_visible_to_BUF": 0,
+ "leak_unavailable_teams": [],
+ "leak_losingStreaks_visible": {
+  "KC": 2,
+  "BUF": 2
+ },
+ "leak_thresholds_own": {
+  "t1": 0,
+  "t2": 0,
+  "t3": 0
+ },
+ "unavailableBeforeNextSeasonEncounterOpen": 0,
+ "unavailableAfter": 0,
+ "encounterSeasons": [
+  "2026",
+  "2027"
+ ]
+}
