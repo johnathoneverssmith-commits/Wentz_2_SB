@@ -1,0 +1,63 @@
+[3s] season=2028 stage=playoffs week=0 save=5.58MB
+  click: Let my staff re-sign the core
+  click: Simulate the Wild Card
+  click: Continue
+  click: Simulate the Divisional
+  click: Continue
+  click: Simulate the Conference Championship
+  click: Continue
+  click: Simulate the Super Bowl
+  click: Continue
+[31s] season=2028 stage=endOfSeasonAnnounce week=0 save=5.70MB
+  click: Continue
+[34s] season=2028 stage=endOfSeasonConsolation week=0 save=5.70MB
+  click: Continue
+[37s] season=2028 stage=offseasonHotSeat week=0 save=5.70MB
+  click: Continue to the offseason
+[41s] season=2028 stage=offseasonRetirement week=0 save=5.70MB
+  click: Advance to the Draft
+[45s] season=2028 stage=offseasonDraft week=0 save=5.72MB
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+[75s] season=2028 stage=offseasonDraftSummary week=0 save=5.73MB
+  closed pick-in dialog
+  click: Continue to Rookie Signings
+  click: Sign all remaining
+  click: Continue to Free Agency
+[90s] season=2028 stage=freeAgency week=0 save=6.00MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[97s] season=2028 stage=freeAgency week=0 save=6.01MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[104s] season=2028 stage=freeAgency week=0 save=6.01MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[110s] season=2028 stage=freeAgency week=0 save=6.01MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[117s] season=2028 stage=freeAgency week=0 save=6.02MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[127s] season=2028 stage=freeAgencySummary week=0 save=6.02MB
+  click: Advance to Training Camp
+[132s] season=2028 stage=trainingCamp week=0 save=6.01MB
+  camp focus picked
+  camp focus picked
+  click: Advance to End of Training Camp
+  click: Advance to Re-order Depth Chart
+[143s] season=2028 stage=hoodedFigureEncounter week=0 save=6.02MB
+STUCK at 2028|hoodedFigureEncounter|0|[5,null,0,null]|[4,null] url http://localhost:5173/#/hooded-figure ["After training camp","YOUR OFFER"] ["Sound off","Full","Subtle","Off","Download backup","Restore from backup","New solo dynasty","+","Decline"]
+DONE seasonsDone 1 errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)"] adapter calls 4 ["/playoffs/round"]

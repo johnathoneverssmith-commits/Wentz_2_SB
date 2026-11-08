@@ -1,0 +1,190 @@
+[2s] season=2026 stage=setup week=0 save=1.84MB
+  click: Delegate Remaining Picks to Staff
+[3s] season=2026 stage=coachingDraft week=0 save=1.85MB
+  click: Yes, delegate
+[5s] season=2026 stage=coachingDraftSummary week=0 save=1.88MB
+  click: Advance to Free Agency
+[6s] season=2026 stage=freeAgency week=0 save=1.88MB
+  click: Let my staff take this turn
+  confirm staff plan: Pass
+[9s] season=2026 stage=freeAgency week=0 save=1.88MB
+  click: Let my staff take this turn
+  confirm staff plan: Pass
+[12s] season=2026 stage=freeAgency week=0 save=1.88MB
+  click: Let my staff take this turn
+  confirm staff plan: Pass
+[15s] season=2026 stage=freeAgency week=0 save=1.88MB
+  click: Let my staff take this turn
+  confirm staff plan: Pass
+[18s] season=2026 stage=freeAgency week=0 save=1.88MB
+  click: Let my staff take this turn
+  confirm staff plan: Pass
+[21s] season=2026 stage=freeAgencySummary week=0 save=1.88MB
+  click: Advance to Training Camp
+[24s] season=2026 stage=trainingCamp week=0 save=2.02MB
+  camp focus picked
+  camp focus picked
+  click: Advance to End of Training Camp
+  click: Advance to Re-order Depth Chart
+[30s] season=2026 stage=offseasonDepthChart week=0 save=2.03MB
+  click: Ready to start the season
+[33s] season=2027 stage=preseason week=1 save=2.00MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[51s] season=2027 stage=preseason week=2 save=2.10MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[68s] season=2027 stage=preseason week=3 save=2.20MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[85s] season=2027 stage=regularSeason week=1 save=2.31MB
+  click: Ready for Game Day
+  click: Continue
+[88s] season=2027 stage=regularSeason week=2 save=2.53MB
+  click: Ready for Game Day
+  click: Continue
+[92s] season=2027 stage=regularSeason week=3 save=2.65MB
+  click: Ready for Game Day
+  click: Continue
+[96s] season=2027 stage=regularSeason week=4 save=2.75MB
+  click: Ready for Game Day
+  click: Continue
+[100s] season=2027 stage=regularSeason week=5 save=2.85MB
+  click: Ready for Game Day
+  click: Continue
+[104s] season=2027 stage=regularSeason week=6 save=2.95MB
+  click: Ready for Game Day
+  click: Continue
+[108s] season=2027 stage=regularSeason week=7 save=3.04MB
+  click: Ready for Game Day
+  click: Continue
+[112s] season=2027 stage=regularSeason week=8 save=3.13MB
+  click: Ready for Game Day
+  click: Continue
+[116s] season=2027 stage=regularSeason week=9 save=3.22MB
+  click: Ready for Game Day
+  click: Continue
+[120s] season=2027 stage=tradeDeadline week=9 save=3.32MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[129s] season=2027 stage=tradeDeadline week=9 save=3.32MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[139s] season=2027 stage=tradeDeadline week=9 save=3.32MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[143s] season=2027 stage=tradeDeadlineSummary week=9 save=3.32MB
+  click: Advance to Mid-Season Free Agency
+[145s] season=2027 stage=midseasonFreeAgency week=9 save=3.32MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[150s] season=2027 stage=midseasonFreeAgency week=9 save=3.33MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[154s] season=2027 stage=midseasonFreeAgency week=9 save=3.33MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[158s] season=2027 stage=midseasonFreeAgency week=9 save=3.33MB
+  click: Let my staff take this turn
+  confirm staff plan: Pass
+[162s] season=2027 stage=midseasonFreeAgency week=9 save=3.33MB
+  click: Let my staff take this turn
+  confirm staff plan: Pass
+[168s] season=2027 stage=midseasonFreeAgencySummary week=9 save=3.33MB
+  click: Let my staff fix the roster
+  confirm staff plan: Fix the roster
+  click: Advance to Re-order Depth Chart
+[174s] season=2027 stage=midseasonDepthChart week=9 save=3.33MB
+  click: Ready for Week 10
+[177s] season=2027 stage=regularSeason week=10 save=3.33MB
+  click: Ready for Game Day
+  click: Continue
+[181s] season=2027 stage=regularSeason week=11 save=3.43MB
+  click: Ready for Game Day
+  click: Continue
+[185s] season=2027 stage=regularSeason week=12 save=3.52MB
+  click: Ready for Game Day
+  click: Continue
+[190s] season=2027 stage=regularSeason week=13 save=3.62MB
+  click: Ready for Game Day
+  click: Continue
+[194s] season=2027 stage=regularSeason week=14 save=3.71MB
+  click: Ready for Game Day
+  click: Continue
+[199s] season=2027 stage=regularSeason week=15 save=3.75MB
+  click: Ready for Game Day
+  click: Continue
+[203s] season=2027 stage=regularSeason week=16 save=3.85MB
+  click: Ready for Game Day
+  click: Continue
+[208s] season=2027 stage=regularSeason week=17 save=3.95MB
+  click: Ready for Game Day
+  click: Continue
+[213s] season=2027 stage=regularSeason week=18 save=4.05MB
+  click: Ready for Game Day
+  click: Continue
+[218s] season=2027 stage=playoffs week=0 save=4.14MB
+  click: Simulate the Wild Card
+  click: Continue
+  click: Simulate the Divisional
+  click: Continue
+  click: Simulate the Conference Championship
+  click: Continue
+  click: Simulate the Super Bowl
+  click: Continue
+[239s] season=2027 stage=endOfSeasonAnnounce week=0 save=4.33MB
+  click: Continue
+[241s] season=2027 stage=endOfSeasonConsolation week=0 save=4.33MB
+  click: Continue
+[244s] season=2027 stage=offseasonHotSeat week=0 save=4.33MB
+  click: Continue to the offseason
+[247s] season=2027 stage=offseasonRetirement week=0 save=4.33MB
+  click: Advance to the Draft
+[250s] season=2027 stage=offseasonDraft week=0 save=4.36MB
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+  click failed: Draft locator.click: Timeout 5000ms exceeded.
+STUCK at 2027|offseasonDraft|0|[5,null,0,null]|[4,null] url http://localhost:5173/#/draft ["Draft Room\n,\nBALTIMORE\nRAVENS","PLAYER COMPARISON","UPCOMING SELECTIONS","RECENT PICKS"] ["Sound off","Full","Subtle","Off","Download backup","Restore from backup","New solo dynasty","AVAILABLE PROSPECTS","YOUR PLAYERS","TEAM NEEDS","LEAGUE DRAFT BOARD","Draft Wade Calner","☆","Draft","Compare","☆","
+DONE seasonsDone 1 errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)"] adapter calls 33 ["/schedule","/coach-market","/scheme-fit-baseline","/plan-preview","/simulate-week","/playoffs/seed","/playoffs/round"]

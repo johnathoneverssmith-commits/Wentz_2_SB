@@ -1,0 +1,15 @@
+[1s] season=2026 stage=setup week=0 save=1.67MB
+[3s] season=2026 stage=fantasyDraft week=0 save=1.68MB
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+[17s] season=2026 stage=fantasyDraftSummary week=0 save=2.08MB
+STUCK at 2026|fantasyDraftSummary|0|| url http://localhost:5173/#/draft ["Draft Room\n,\nDALLAS\nCOWBOYS","SCOUTING DOSSIER","UPCOMING SELECTIONS","RECENT PICKS"] ["Sound off","Full","Subtle","Off","Download backup","Restore from backup","New solo dynasty","AVAILABLE PLAYERS","YOUR PLAYERS","TEAM NEEDS","LEAGUE DRAFT BOARD","Show more players","Garro Trestead","Verdon Bradville","Victor Morby","Ra
+DONE seasonsDone 0 errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)"] adapter calls 2 ["/schedule","/coach-market"]

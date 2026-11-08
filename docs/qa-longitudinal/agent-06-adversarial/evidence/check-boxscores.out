@@ -1,0 +1,81 @@
+## /tmp/final-8724.json
+{
+ "gamesChecked": 411,
+ "withPlayerLines": 99,
+ "anomalies": {
+  "PL-PASSYDS": 191,
+  "PL-RUSHYDS": 193,
+  "PL-CMP": 23
+ }
+}
+PL-PASSYDS [
+  '2031-PRE-1-NYJ-BAL BAL 37@NYJ 10 home lines 123 vs team 117',
+  '2031-PRE-1-NYJ-BAL BAL 37@NYJ 10 away lines 180 vs team 183',
+  '2031-PRE-2-BAL-NE NE 37@BAL 20 home lines 193 vs team 192'
+]
+PL-RUSHYDS [
+  '2031-PRE-1-NYJ-BAL BAL 37@NYJ 10 home lines 127 vs team 129',
+  '2031-PRE-1-NYJ-BAL BAL 37@NYJ 10 away lines 153 vs team 123',
+  '2031-PRE-2-BAL-NE NE 37@BAL 20 home lines 124 vs team 104'
+]
+PL-CMP [
+  '2031-REG-2-BAL-PIT PIT 34@BAL 17 home 27 vs 28',
+  '2031-REG-5-NO-BAL BAL 12@NO 6 home 19 vs 20',
+  '2031-REG-18-BAL-CLE CLE 20@BAL 17 away 22 vs 23'
+]
+## /tmp/final-31337.json
+{
+ "gamesChecked": 373,
+ "withPlayerLines": 60,
+ "anomalies": {
+  "PL-PASSYDS": 116,
+  "PL-RUSHYDS": 116,
+  "PL-CMP": 4
+ }
+}
+PL-PASSYDS [
+  '2029-PRE-1-ARI-DAL DAL 23@ARI 28 home lines 129 vs team 124',
+  '2029-PRE-1-ARI-DAL DAL 23@ARI 28 away lines 291 vs team 282',
+  '2029-PRE-2-DAL-BUF BUF 21@DAL 27 home lines 205 vs team 197'
+]
+PL-RUSHYDS [
+  '2029-PRE-1-ARI-DAL DAL 23@ARI 28 home lines 277 vs team 248',
+  '2029-PRE-1-ARI-DAL DAL 23@ARI 28 away lines 134 vs team 99',
+  '2029-PRE-2-DAL-BUF BUF 21@DAL 27 home lines 152 vs team 119'
+]
+PL-CMP [
+  '2029-REG-2-NYG-DAL DAL 14@NYG 36 away 25 vs 26',
+  '2027-REG-13-SEA-DAL DAL 24@SEA 20 home 24 vs 25',
+  '2027-REG-14-DAL-IND IND 24@DAL 31 home 20 vs 21'
+]
+## /tmp/final-nofb.json
+{
+ "gamesChecked": 377,
+ "withPlayerLines": 77,
+ "anomalies": {
+  "T-PEN": 30,
+  "PL-PASSYDS": 150,
+  "PL-RUSHYDS": 150,
+  "PL-CMP": 44,
+  "PL-REC!=CMP": 40,
+  "PL-RECYDS!=PASSYDS": 40,
+  "PL-PASSTD!=RECTD": 11,
+  "T-TOP-SUM": 77
+ }
+}
+T-PEN [
+  '2030-PRE-1-KC-LAR LAR 28@KC 20 2/65',
+  '2030-PRE-2-SEA-NYG NYG 30@SEA 34 2/77',
+  '2030-PRE-2-BUF-IND IND 21@BUF 30 2/64'
+]
+PL-PASSYDS [
+  '2030-PRE-1-DAL-BAL BAL 0@DAL 15 home lines 265 vs team 196',
+  '2030-PRE-1-DAL-BAL BAL 0@DAL 15 away lines 250 vs team 239',
+  '2030-PRE-2-DAL-LAC LAC 9@DAL 39 home lines 241 vs team 310'
+]
+PL-RUSHYDS [
+  '2030-PRE-1-DAL-BAL BAL 0@DAL 15 home lines 152 vs team 111',
+  '2030-PRE-1-DAL-BAL BAL 0@DAL 15 away lines 103 vs team 78',
+  '2030-PRE-2-DAL-LAC LAC 9@DAL 39 home lines 98 vs team 209'
+]
+PL-CMP [

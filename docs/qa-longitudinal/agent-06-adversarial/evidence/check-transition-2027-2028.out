@@ -1,0 +1,7 @@
+players 2039 -> 2359; removed-from-state 0; added 320
+mean Δovr by age(prior year): 25-28: 0.04 (n=866, min -7, max 6) | 32+: -1.72 (n=177, min -10, max 3) | 29-31: -0.98 (n=498, min -9, max 3) | <=24: 1.24 (n=287, min -4, max 7)
+age != +1: 0 ; |Δovr|>=15: 0 ; un-retired: 0; contract years increased w/o team change: 7
+duplicate active names in B: 0 
+newly retired 332, ages min 20 max 38, ovr mean 57.52; retired age<30: 183
+cap field sample {"total":270,"used":238.2,"dead":4.6}; payroll range B (M) 0.0..0.0
+roster sizes B: min 53 max 53

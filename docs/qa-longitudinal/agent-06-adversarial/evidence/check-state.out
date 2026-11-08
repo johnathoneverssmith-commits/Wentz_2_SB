@@ -1,0 +1,25 @@
+## /tmp/final-8724.json
+{"season":2031,"stage":"offseasonHotSeat","players":2463,"teams":32,"games":333,"archive":78,"history":5,"findings":0}
+  by category {}
+## /tmp/final-31337.json
+{"season":2029,"stage":"offseasonHotSeat","players":2524,"teams":32,"games":333,"archive":40,"history":3,"findings":0}
+  by category {}
+## /tmp/final-nofb.json
+{"season":2030,"stage":"offseasonHotSeat","players":2502,"teams":32,"games":320,"archive":57,"history":4,"findings":16}
+  by category {"G-SCORE":3,"B-NOGAME":13}
+  G-SCORE: 2030-REG-1-NO-ATL 33-1
+  G-SCORE: 2030-REG-3-WAS-SF 19-1
+  G-SCORE: 2030-REG-18-LAR-LV 22-1
+  B-NOGAME: WC LAC,JAX has winner but no game result
+  B-NOGAME: WC CIN,LV has winner but no game result
+  B-NOGAME: WC MIA,BAL has winner but no game result
+  B-NOGAME: WC CAR,DET has winner but no game result
+  B-NOGAME: WC SEA,LAR has winner but no game result
+  B-NOGAME: WC DAL,MIN has winner but no game result
+  B-NOGAME: DIV HOU,JAX has winner but no game result
+## /tmp/drive-31337-snap-2027-endOfSeasonAnnounce.json
+{"season":2027,"stage":"endOfSeasonAnnounce","players":2039,"teams":32,"games":333,"archive":0,"history":1,"findings":0}
+  by category {}
+## /tmp/drive-31337-snap-2028-preseason.json
+{"season":2028,"stage":"preseason","players":2359,"teams":32,"games":0,"archive":20,"history":1,"findings":0}
+  by category {}
