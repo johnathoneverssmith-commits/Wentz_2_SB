@@ -1,6 +1,9 @@
 import { Link } from "react-router-dom";
 
-import { Card, CardHeader } from "@/components/primitives";
+import { GameDayMasthead } from "@/design/GameDayMasthead";
+import { GdPage } from "@/design/GdPage";
+import { viewerTeamCode } from "@/state/selectors";
+import { useStore } from "@/state/store";
 
 const SCREENS: Array<{ to: string; title: string; note: string }> = [
   { to: "/setup", title: "League Setup", note: "Lobby, team select, rules" },
@@ -41,23 +44,24 @@ const SCREENS: Array<{ to: string; title: string; note: string }> = [
 ];
 
 export function ScreenGallery() {
+  const mine = useStore((st) => viewerTeamCode(st));
   return (
-    <Card maxWidth={900}>
-      <CardHeader badge="DEV" title="Screen Gallery" subtitle="Dev-only — not part of the state machine" />
-      <div className="panel open">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+    <GdPage code={mine}>
+      <GameDayMasthead code={mine ?? ""} compact title="Development" heading="Screen gallery" sub="Dev-only. Not part of the state machine." />
+      <section className="ui-surface" aria-label="Screens">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(220px, 100%), 1fr))", gap: 10 }}>
           {SCREENS.map((sc) => (
-            <Link
-              key={sc.to}
-              to={sc.to}
-              style={{ textDecoration: "none", color: "inherit", background: "var(--panel-sunken)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: 14 }}
-            >
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{sc.title}</p>
-              <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>{sc.note}</p>
+            <Link key={sc.to} to={sc.to} className="gd-btn" style={{ display: "block", textDecoration: "none", textAlign: "left" }}>
+              <span style={{ display: "block", fontWeight: 700 }}>{sc.title}</span>
+              <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--gd-mute)" }}>{sc.note}</span>
             </Link>
           ))}
+          <Link to="/visual-lab" className="gd-btn" style={{ display: "block", textDecoration: "none", textAlign: "left" }}>
+            <span style={{ display: "block", fontWeight: 700 }}>Visual lab</span>
+            <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: "var(--gd-mute)" }}>Every stadium at three atmosphere levels</span>
+          </Link>
         </div>
-      </div>
-    </Card>
+      </section>
+    </GdPage>
   );
 }
