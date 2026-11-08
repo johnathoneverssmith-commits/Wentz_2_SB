@@ -13,6 +13,8 @@ export interface FaultPlan {
   quota?: boolean;
   /** abort the next readwrite transaction after its last request, before commit (power cut) */
   abortBeforeCommit?: boolean;
+  /** hold every readwrite commit for this long (a slow disk), so a test can look at the world mid-write */
+  commitDelayMs?: number;
 }
 
 export class FakeIDBFactory {
@@ -65,6 +67,7 @@ class FakeTx {
   private staged = new Map<string, unknown | typeof DELETED>();
   private pending = 0;
   private finished = false;
+  private skipDelay = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
   constructor(private f: FakeIDBFactory, private data: Map<string, unknown>, private mode: IDBTransactionMode) {
     this.arm();
@@ -78,6 +81,19 @@ class FakeTx {
     if (this.finished) return;
     if (this.pending > 0) return this.arm();
     this.finished = true;
+    if (this.mode === "readwrite" && this.f.faults.commitDelayMs && !this.skipDelay) {
+      const d = this.f.faults.commitDelayMs;
+      this.f.faults = { ...this.f.faults, commitDelayMs: 0 };
+      this.finished = false;
+      this.pending++;
+      setTimeout(() => {
+        this.pending--;
+        this.f.faults = { ...this.f.faults, commitDelayMs: d };
+        this.skipDelay = true;
+        this.maybeFinish();
+      }, d);
+      return;
+    }
     if (this.mode === "readwrite") {
       if (this.f.faults.abortBeforeCommit) {
         this.f.faults.abortBeforeCommit = false;

@@ -170,4 +170,50 @@ describe("durable solo save", () => {
     expect(at).not.toBe("unset");
     expect(dev.idb.raw().has(`${SAVE_KEY}#damaged`)).toBe(true);
   }, BUDGET);
+
+  it("never reports a change as saved before its write has completed", async () => {
+    const a = await pageLoad(dev);
+    await a.useStore.getState().newLeague(18);
+    await a.flushSave();
+    const bk = await import("./saveBackup.ts");
+    const { text } = bk.backupJson();
+
+    // a slow disk: the transaction holds for 400 ms before it commits
+    dev.idb.faults.commitDelayMs = 400;
+    let resolved = false;
+    const restoring = bk.restoreFromText(text).then((r) => {
+      resolved = true;
+      return r;
+    });
+    await new Promise((r) => setTimeout(r, 150));
+    expect(resolved, "restore must not report success while the write is still in flight").toBe(false);
+    const r = await restoring;
+    expect(r).toMatchObject({ ok: true, saved: true });
+    const rec = dev.idb.raw().get(SAVE_KEY) as { savedAt: number };
+    expect(rec, "…and by then the record is really there").toBeTruthy();
+
+    // a change made while a write is in flight: flushSave waits for it too, and the save equals the live state
+    dev.idb.faults.commitDelayMs = 300;
+    a.useStore.setState({ season: 2090 } as never);
+    a.useStore.setState({ season: 2091 } as never);
+    expect(await a.flushSave()).toBe(true);
+    const b = await pageLoad(dev);
+    expect(b.useStore.getState().season).toBe(2091);
+  }, BUDGET);
+
+  it("reports unsaved (not saved) when the write fails, and keeps saying so until one lands", async () => {
+    const a = await pageLoad(dev);
+    await a.useStore.getState().newLeague(19);
+    await a.flushSave();
+    const bk = await import("./saveBackup.ts");
+    const { text } = bk.backupJson();
+    dev.idb.faults.quota = true;
+    expect(await bk.restoreFromText(text)).toMatchObject({ ok: true, saved: false });
+    expect(await a.flushSave()).toBe(false);
+    expect(a.saveStatus().broken).toBe(true);
+    dev.idb.faults.quota = false;
+    a.useStore.setState({ season: 2092 } as never);
+    expect(await a.flushSave()).toBe(true);
+    expect(a.saveStatus().broken).toBe(false);
+  }, BUDGET);
 });

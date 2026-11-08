@@ -41,9 +41,29 @@ damaged write recoverable.
 
 Results are in the PR description.
 
+## What "saved" means in the UI
+
+Nothing in the UI says "saved" until the write has committed. The "isn't being saved" banner clears only
+when a write lands; `flushSave()` (used by Restore, and by browser tests through `window.__nflSimFlushSave`)
+resolves only after every pending and in-flight write has finished, and returns `false` if the last one
+failed; Restore's note says "…and saved it" only on `true`, otherwise "could not be saved to this browser".
+Pinned by `saveDurability.test.ts` ("never reports a change as saved before its write has completed",
+"reports unsaved … when the write fails").
+
+## Browser tests (`e2e/`)
+
+Fixtures are still built headless and stored in the old single-string localStorage form, then seeded into
+the browser as localStorage. The app migrates them into **real IndexedDB** on load, so every browser test
+runs the migration and from then on reads/writes only IndexedDB; specs read the save through
+`e2e/support/idb.ts` (which asks the page to finish pending writes first) and never bypass IndexedDB.
+`e2e/fixtures/build.ts` takes its string from `leagueSnapshotJson()` in `store.ts` because under Node the
+store has no `window` at import and therefore no persistence (it previously relied on a lazily-resolved
+localStorage stand-in).
+
 ## Known limits (not fixed here)
 
-* A change made and the tab closed within roughly the write time (tens of ms) can be lost: browsers
+* **Immediate tab close.** A change made and the tab closed within roughly the write time (measured: under 60 ms
+  for a 1.7 M-character league; a write starts in the same call as the change) can be lost: browsers
   abort IndexedDB transactions on unload (measured; synthetic `pagehide` writes did not survive a
   real navigation). Previously a synchronous `localStorage.setItem` closed that gap for small saves.
 * Firefox and WebKit were not available to test; Safari's eviction of script-writable storage after

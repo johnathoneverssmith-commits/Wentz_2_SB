@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
 
 import { teamIdentity } from "./season.ts";
+import { readSaveText } from "./idb.ts";
 import { SAVE_KEY } from "./test.ts";
 
 export type Round = "WC" | "DIV" | "CONF" | "SB";
@@ -41,9 +42,9 @@ export interface Postseason {
 }
 
 export async function readPostseason(page: Page): Promise<Postseason> {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key);
-    if (raw == null) throw new Error("no saved league");
+  const stored = await readSaveText(page, SAVE_KEY);
+  if (stored == null) throw new Error("no saved league");
+  return page.evaluate((raw) => {
     const s = (JSON.parse(raw) as { state: Record<string, any> }).state;
     const me = (s.gms as Array<{ id: string; teamCode?: string }>).find((g) => g.id === s.viewerGmId)!.teamCode as string;
     const b = s.bracket as null | { currentRound: Round; champion: string | null; seeds: { AFC: string[]; NFC: string[] }; matchups: Array<{ round: Round; conference: "AFC" | "NFC" | "SB"; highSeed: Side | null; lowSeed: Side | null; homeScore: number | null; awayScore: number | null; winner: string | null }> };
@@ -68,7 +69,7 @@ export async function readPostseason(page: Page): Promise<Postseason> {
       regularSeason: games.filter((g) => g.phase === "REG").map((g) => `${g.id}:${g.homeScore}-${g.awayScore}`).join("|"),
       outcomes,
     };
-  }, SAVE_KEY);
+  }, stored);
 }
 
 const inRound = (p: Postseason, round: Round, conference?: string) => p.matchups.filter((m) => m.round === round && (conference === undefined || m.conference === conference));

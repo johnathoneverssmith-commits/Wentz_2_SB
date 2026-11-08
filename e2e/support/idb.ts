@@ -24,11 +24,19 @@ export async function readSaveText(page: Page, key: string = SAVE_KEY): Promise<
       r.onsuccess = () => res(r.result);
       r.onerror = () => rej(r.error);
     });
-    const rec = await new Promise<{ enc: string; data: string | ArrayBuffer } | undefined>((res, rej) => {
-      const q = db.transaction("saves", "readonly").objectStore("saves").get(k);
-      q.onsuccess = () => res(q.result);
-      q.onerror = () => rej(q.error);
-    });
+    const get = () =>
+      new Promise<{ enc: string; data: string | ArrayBuffer } | undefined>((res, rej) => {
+        const q = db.transaction("saves", "readonly").objectStore("saves").get(k);
+        q.onsuccess = () => res(q.result);
+        q.onerror = () => rej(q.error);
+      });
+    let rec = await get();
+    // A seeded league sits in localStorage until the app has loaded and migrated it into IndexedDB (a moment after
+    // the page opens). While the old copy is still there, the save is on its way: wait for it rather than report none.
+    for (let i = 0; !rec && localStorage.getItem(k) != null && i < 100; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+      rec = await get();
+    }
     db.close();
     if (!rec) return null;
     if (rec.enc === "plain") return rec.data as string;

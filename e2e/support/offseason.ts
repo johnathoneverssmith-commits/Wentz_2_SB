@@ -11,6 +11,7 @@ import type { Page } from "@playwright/test";
 
 import { expect } from "@playwright/test";
 
+import { readSaveText } from "./idb.ts";
 import { SAVE_KEY } from "./test.ts";
 
 export interface PlayerRow {
@@ -71,9 +72,9 @@ export interface League {
 }
 
 export async function readLeague(page: Page): Promise<League> {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key);
-    if (raw == null) throw new Error("no saved league");
+  const stored = await readSaveText(page, SAVE_KEY);
+  if (stored == null) throw new Error("no saved league");
+  return page.evaluate((raw) => {
     const s = (JSON.parse(raw) as { state: Record<string, any> }).state;
     const gms = s.gms as Array<{ id: string; isHuman?: boolean; teamCode?: string }>;
     const me = gms.find((g) => g.id === s.viewerGmId)!.teamCode as string;
@@ -109,7 +110,7 @@ export async function readLeague(page: Page): Promise<League> {
       schedule: (s.schedule as Array<{ week: number; phase: string; homeTeam: string; awayTeam: string }>).map((g) => ({ week: g.week, phase: g.phase, home: g.homeTeam, away: g.awayTeam })),
       gameCounts: { PRE: games.filter((g) => g.phase === "PRE").length, REG: games.filter((g) => g.phase === "REG").length, other: games.filter((g) => g.phase !== "PRE" && g.phase !== "REG").length },
     };
-  }, SAVE_KEY);
+  }, stored);
 }
 
 export const ROSTER_SIZE = 53;
@@ -315,7 +316,7 @@ export type ExtensionQuotes = Record<string, ExtensionQuote>;
  * There is no extension transaction log; eligibility + exact quote is the available evidence.
  */
 export async function contractRuleQuotes(page: Page, before: League): Promise<ExtensionQuotes> {
-  const raw = await page.evaluate((key) => window.localStorage.getItem(key)!, SAVE_KEY);
+  const raw = (await readSaveText(page, SAVE_KEY))!;
   const state = (JSON.parse(raw) as { state: Record<string, any> }).state;
   for (const [id, p] of Object.entries(state.players as Record<string, any>)) {
     if (before.players[id]) p.contract = before.players[id]!.contract;
