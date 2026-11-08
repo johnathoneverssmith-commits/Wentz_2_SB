@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 
+import { readSaveText } from "./idb.ts";
 import { SAVE_KEY } from "./test.ts";
 
 /** What the saved league says about free agency and the human GM's choices, read in the page. */
@@ -26,9 +27,9 @@ export interface SavedMarket {
 
 /** Reads the league the app has saved in this browser, reduced to the free-agency fields. Parsed in the page. */
 export async function readMarket(page: Page): Promise<SavedMarket | null> {
-  return page.evaluate((key) => {
-    const raw = window.localStorage.getItem(key);
-    if (raw == null) return null;
+  const stored = await readSaveText(page, SAVE_KEY);
+  if (stored == null) return null;
+  return page.evaluate((raw) => {
     const s = (JSON.parse(raw) as { state: Record<string, any> }).state;
     const gm = (s.gms as Array<{ id: string; teamCode?: string; skips?: { freeAgency?: boolean; tradeDeadline?: boolean } }>).find((g) => g.id === s.viewerGmId);
     const me = gm?.teamCode ?? null;
@@ -50,5 +51,5 @@ export async function readMarket(page: Page): Promise<SavedMarket | null> {
         : null,
       rosterCount: me ? players.filter((p) => p.nfl_team === me && !p.retired).length : 0,
     };
-  }, SAVE_KEY);
+  }, stored);
 }

@@ -1,6 +1,7 @@
 import { test, expect, SAVE_KEY } from '../support/test.ts';
 import { controlledLeague } from '../support/controlled-league.ts';
 import type { Page, Locator } from '@playwright/test';
+import { editSave, readSavedState } from "../support/idb.ts";
 async function capture(page: Page, panel: Locator, width: number) {
     await page.evaluate(() => window.scrollTo({top: 0, behavior: 'instant'}));
     const box = await panel.boundingBox();
@@ -8,7 +9,7 @@ async function capture(page: Page, panel: Locator, width: number) {
     // Capture document coordinates without scrolling the card beneath sticky navigation.
     await page.screenshot({path: `${process.env.GAMEPLAN_ARTIFACTS}/command-center-${width}.png`, fullPage: true, clip: box!});
 }
-const saved = (page: any) => page.evaluate((k: string) => JSON.parse(localStorage.getItem(k)!).state, SAVE_KEY);
+const saved = (page: any) => readSavedState(page, SAVE_KEY);
 for (const width of [1440, 390])
     test.describe(`command-center game planning ${width}`, () => {
         test.use({ fixtureName: 'preseason' });
@@ -104,7 +105,7 @@ test.describe('command-center preview isolation', () => {
         let count = 0;
         await page.route('http://localhost:8787/plan-preview', async (r) => { count++; await r.abort(); });
         await page.goto('/');
-        await page.evaluate(k => { const doc = JSON.parse(localStorage.getItem(k)!); doc.state.schedule = []; localStorage.setItem(k, JSON.stringify(doc)); }, SAVE_KEY);
+        await editSave(page, (doc) => { doc.state.schedule = []; });
         await page.reload();
         await page.goto('/#/hub');
         const panel = page.getByRole('region', { name: 'Command center game plan' });

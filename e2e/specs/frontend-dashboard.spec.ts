@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { guardContext, unexpected } from "../support/guard.ts";
 import { expect, test, SAVE_KEY } from "../support/test.ts";
+import { readSavedState } from "../support/idb.ts";
 
 test.describe("franchise dashboard presentation", () => {
   test.use({ fixtureName: "season-week-9" });
@@ -13,7 +14,7 @@ test.describe("franchise dashboard presentation", () => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.goto("/");
     await expect(page).toHaveURL(new RegExp("#/hub$"));
-    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state, SAVE_KEY);
+    const saved = await readSavedState(page, SAVE_KEY);
     const me = saved.gms.find((g: { id: string }) => g.id === saved.viewerGmId).teamCode;
     const dashboard = page.getByRole("region", { name: "Franchise dashboard" });
     await expect(dashboard.getByRole("heading", { name: "Season timeline" })).toBeVisible();
@@ -90,6 +91,8 @@ test.describe("franchise dashboard presentation", () => {
 
   test("keyboard users can skip the rail, change tabs, and follow a real front-office link", async ({ page }) => {
     await page.goto("/");
+    // the app reads its save before it draws anything: start pressing keys once the page is there
+    await expect(page.getByRole("region", { name: "Franchise dashboard" })).toBeVisible();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "Skip to content" })).toBeFocused();
     await page.keyboard.press("Enter");
@@ -121,7 +124,7 @@ test.describe("offseason timeline year", () => {
   test.use({ fixtureName: "offseason-fa-skip-carried" });
   test("labels retained results with their stored year, not the year being prepared for", async ({ page }) => {
     await page.goto("/#/hub");
-    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state, SAVE_KEY);
+    const saved = await readSavedState(page, SAVE_KEY);
     expect(saved.stage).toBe("offseasonDraftSummary");
     expect(saved.games.some((g: { phase: string; played: boolean }) => g.phase === "REG" && g.played)).toBe(true);
     const timeline = page.locator(".season-track");
@@ -136,7 +139,7 @@ test.describe("preseason timeline year", () => {
   test.use({ fixtureName: "preseason" });
   test("labels the new preseason schedule with the rolled-over year and no old scores", async ({ page }) => {
     await page.goto("/");
-    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!).state, SAVE_KEY);
+    const saved = await readSavedState(page, SAVE_KEY);
     expect(saved.stage).toBe("preseason");
     expect(saved.games).toHaveLength(0);
     const timeline = page.locator(".season-track");

@@ -6,6 +6,8 @@
  */
 import type { Page } from "@playwright/test";
 
+import { readSaveText, writeSaveText } from "../../e2e/support/idb.ts";
+
 export interface OnlineOptions {
   you: { teamCode: string; gmId: string };
   isCommissioner?: boolean;
@@ -59,15 +61,11 @@ export async function onlineLeague(page: Page, origin: string, initial: Record<s
     unexpected.push(path);
     return route.fulfill({ status: 404, headers, json: { error: `Unexpected audit endpoint: ${path}` } });
   });
-  // put the solo save where the online client reads it, and point at this league, then reload into it
-  await page.evaluate(
-    ([id]) => {
-      const solo = localStorage.getItem("nfl-sim-ui.league");
-      if (solo) localStorage.setItem("nfl-sim-ui.online-league", solo);
-      localStorage.setItem("fs.online.leagueId", id!);
-    },
-    [LEAGUE_ID],
-  );
+  // put the solo save where the online client reads it, and point at this league, then reload into it.
+  // Both saves live in IndexedDB now (the page has loaded, so the seeded localStorage league has been migrated).
+  const solo = await readSaveText(page, "nfl-sim-ui.league");
+  if (solo) await writeSaveText(page, "nfl-sim-ui.online-league", solo);
+  await page.evaluate(([id]) => localStorage.setItem("fs.online.leagueId", id!), [LEAGUE_ID]);
   return { requests, unexpected, state };
 }
 

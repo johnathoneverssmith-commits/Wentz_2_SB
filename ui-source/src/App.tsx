@@ -12,7 +12,7 @@ import { currentBlock } from "@/state/revealBlocks";
 import { stepOf } from "@/state/reveal";
 import { currentScreen, STAGE_HOME, STAGE_LABEL } from "@/state/stageMachine";
 import { checkedInJustNow } from "@/state/useLeagueActions";
-import { useStore } from "@/state/store";
+import { onStoreHydrated, useStore } from "@/state/store";
 
 import { CoachingDraftRoom } from "./screens/CoachingDraftRoom.tsx";
 import { CoachingDraftSummary } from "./screens/CoachingDraftSummary.tsx";
@@ -346,7 +346,7 @@ function useRemoval(): [Removal | null, () => void] {
   return [name, () => setName(null)];
 }
 
-export function App() {
+function AppInner() {
   // keyed on the route so navigating away from a crashed screen clears it
   const { pathname } = useLocation();
   const { resuming, failed: resumeFailed } = useResumeOnline();
@@ -498,4 +498,22 @@ export function App() {
       )}
     </AppShell>
   );
+}
+
+/**
+ * Nothing of a league is shown until the stored save has been read. The save is in IndexedDB, which
+ * is asynchronous, so for a moment the store holds a fresh initial league; rendering it would flash
+ * the wrong dynasty and let a click act on it.
+ */
+export function App() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => onStoreHydrated(setReady), []);
+  if (!ready) {
+    return (
+      <div className="notice" role="status" style={{ maxWidth: 820, margin: "48px auto" }}>
+        Loading your dynasty…
+      </div>
+    );
+  }
+  return <AppInner />;
 }

@@ -1,10 +1,6 @@
 import { useRef, useState } from "react";
 
-import type { LeagueState } from "@/domain";
-import { CURRENT_SAVE_VERSION, migrateLeagueSave } from "@/state/saveMigration";
-import { useStore } from "@/state/store";
-
-const FORMAT = "nfl-franchise-sim-save";
+import { downloadBackup, peekBackup, restoreFromText } from "@/state/saveBackup";
 
 /**
  * Back a dynasty up to a file, and bring one back.
@@ -13,48 +9,35 @@ const FORMAT = "nfl-franchise-sim-save";
  * cleared cache, a new computer or a full quota and it was gone. This writes
  * the whole league to a file the player keeps, and reads one back — through
  * the same migration a stored save goes through, so an old backup still
- * loads after the game has moved on.
+ * loads after the game has moved on. A restore is only reported as done once
+ * the restored league has reached storage.
  */
-export function SaveBackup() {
+export function SaveBackup({ inline = false }: { inline?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState<string | null>(null);
 
   const download = () => {
-    const st = useStore.getState() as unknown as Record<string, unknown>;
-    const league: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(st)) if (typeof v !== "function") league[k] = v;
-    const blob = new Blob([JSON.stringify({ format: FORMAT, version: CURRENT_SAVE_VERSION, league })], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const team = (league.gms as LeagueState["gms"] | undefined)?.find((g) => g.id === league.viewerGmId)?.teamCode ?? "league";
-    a.href = url;
-    a.download = `dynasty-${team}-${String(league.season ?? "")}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNote("Backup downloaded.");
+    const bytes = downloadBackup();
+    setNote(`Backup downloaded (${(bytes / 1024 / 1024).toFixed(1)} MB).`);
   };
 
   const restore = async (file: File) => {
-    try {
-      const parsed = JSON.parse(await file.text()) as { format?: string; version?: number; league?: unknown };
-      const league = parsed.league as LeagueState | undefined;
-      if (parsed.format !== FORMAT || !league?.teams || !league.players || !league.gms) {
-        setNote("That file isn't a dynasty backup.");
-        return;
-      }
-      if (!confirm(`Replace the current dynasty with the ${league.season} backup from this file?`)) return;
-      const migrated = migrateLeagueSave(league, parsed.version ?? 0);
-      useStore.setState(migrated as never);
-      setNote(`Restored the ${migrated.season} dynasty.`);
-    } catch {
-      setNote("That file couldn't be read.");
-    }
+    const text = await file.text().catch(() => null);
+    if (text == null) return setNote("That file couldn't be read.");
+    const peek = peekBackup(text);
+    if (!peek) return setNote(text.trimStart().startsWith("{") ? "That file isn't a dynasty backup." : "That file couldn't be read.");
+    if (!confirm(`Replace the current dynasty with the ${peek.season ?? ""} backup from this file?`)) return;
+    const r = await restoreFromText(text);
+    if (!r.ok) return setNote(r.reason === "notABackup" ? "That file isn't a dynasty backup." : "That file couldn't be read.");
+    setNote(
+      r.saved
+        ? `Restored the ${r.season} dynasty and saved it.`
+        : `Restored the ${r.season} dynasty, but it could not be saved to this browser. Keep this tab open and download a fresh backup.`,
+    );
   };
 
   return (
-    <div style={{ display: "grid", gap: 4, margin: "4px 0" }}>
+    <div style={{ display: "grid", gap: 4, margin: inline ? 0 : "4px 0", ...(inline ? { gridAutoFlow: "column", justifyContent: "start", alignItems: "center" } : null) }}>
       <button type="button" className="reset" onClick={download} title="Save this dynasty to a file you keep">
         Download backup
       </button>
@@ -72,7 +55,7 @@ export function SaveBackup() {
           e.target.value = "";
         }}
       />
-      {note && <span style={{ fontSize: 10.5, color: "var(--ink-faint)", padding: "0 10px" }}>{note}</span>}
+      {note && <span role="status" style={{ fontSize: 10.5, color: "var(--ink-faint)", padding: "0 10px" }}>{note}</span>}
     </div>
   );
 }

@@ -21,8 +21,10 @@ is only used by `react-router`'s `HashRouter`).
 - `src/state/store.ts` — the entire `LeagueState` plus every mutating action
   (`tryAdvance`, `simulateGameDay`, `startDraft`, `placeOffer`, `signRookie`,
   `proposeTrade`, …), wrapped in `immer` so actions read like plain mutations.
-  Persisted to `localStorage` via zustand's `persist` middleware
-  (key `nfl-sim-ui.league`).
+  Persisted via zustand's `persist` middleware to **IndexedDB**
+  (`src/state/durableSave.ts`; slot `nfl-sim-ui.league`), with a compressed
+  localStorage fallback and a one-time migration of old localStorage saves.
+  See `docs/save_persistence.md`.
 - Screens read state with the `useStore` hook, e.g.
   `const s = useStore(); const code = useStore((s) => s.viewerGmId);` — plain
   selector props, no prop-drilling between screens.
