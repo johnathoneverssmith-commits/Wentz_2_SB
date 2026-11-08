@@ -23,8 +23,8 @@
 .dso-ranks button { display:grid; grid-template-columns:34px 24px 1fr auto 52px; gap:10px; align-items:center; width:100%; min-height:44px; padding:6px 12px; background:none; border:0; color:var(--gd-ink); font:inherit; text-align:left; cursor:pointer; }
 .dso-ranks button:focus-visible { outline:3px solid var(--gd-ink); outline-offset:-3px; }
 .dso-ranks .n { color:var(--gd-mute); font-variant-numeric:tabular-nums; } .dso-ranks .g { font-weight:800; min-width:30px; text-align:center; } .dso-ranks .o { text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
-.dso-ranks em { font-style:normal; font-weight:700; color:var(--gd-accent-text); font-size:12px; }
+.dso-ranks em { font-style:normal; font-weight:700; color:var(--gd-ink); font-size:12px; }
 .dso-detail { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px 16px; margin:0; padding:6px 14px 12px 46px; }
 .dso-detail dt { font-size:12px; font-weight:600; color:var(--gd-mute); } .dso-detail dd { margin:0; font-weight:600; }
-.dso-method { border:2px solid var(--gd-rule); border-radius:0; padding:10px 14px; background:var(--gd-card); } .dso-method summary { cursor:pointer; font-weight:600; min-height:44px; display:flex; align-items:center; }
+.dso-method { border:2px solid var(--gd-rule); border-radius:0; padding:10px 14px; background:var(--gd-card); } .dso-method summary { color:var(--gd-ink); cursor:pointer; font-weight:600; min-height:44px; display:flex; align-items:center; }
 @media (max-width:600px) { .dso-hero { grid-template-columns:1fr; justify-items:start; } .dso-grade b { font-size:60px; } .dso-ranks button { grid-template-columns:28px 22px 1fr auto 40px; gap:6px; padding:6px 8px; } .dso-detail { padding-left:14px; } }
