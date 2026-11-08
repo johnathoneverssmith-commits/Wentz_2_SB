@@ -50,15 +50,14 @@ export function PostseasonMatchups({ b }: { b: BracketState }) {
 
   return (
     <div>
-      <div role="tablist" aria-label="Round" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+      <div role="tablist" aria-label="Round" className="bx-chips">
         {rounds.map((r) => (
           <button
             key={r}
             type="button"
             role="tab"
             aria-selected={r === round}
-            className={r === round ? "btn-primary" : "btnlink"}
-            style={{ padding: "5px 12px", fontSize: 12 }}
+            className={r === round ? "bx-chip bx-chip--on" : "bx-chip"}
             onClick={() => setPicked(r)}
           >
             {roundLabelFor(b, r)}
@@ -78,7 +77,7 @@ export function PostseasonMatchups({ b }: { b: BracketState }) {
         if (!ta || !tz) return null;
         const names = [TEAMS_BY_CODE[a]?.abbr ?? a, TEAMS_BY_CODE[z]?.abbr ?? z] as [string, string];
         return (
-          <div key={`${m.conference}-${hi}-${lo}`} style={{ marginBottom: 28 }}>
+          <div key={`${m.conference}-${hi}-${lo}`} className="bx-board">
             <MatchupBoard
               when={roundLabelFor(b, round)}
               note={[gmOf(a), gmOf(z)].filter(Boolean).join(" vs ") || undefined}

@@ -3,8 +3,9 @@ import { displaySeason } from "@/state/stageMachine";
 import { useNavigate } from "react-router-dom";
 
 import { TeamBadge } from "@/components/bits";
-import { Card, CardHeader, Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
+import { Footer, Panel, Tabs, Ticker, useTabs } from "@/components/primitives";
 import { ReadinessGate } from "@/components/ReadinessGate";
+import { StagePage } from "@/components/stages/StagePage";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import type { Coach, CoachRole } from "@/domain";
 import { COACH_POSITION_GROUPS, COACH_ROLES, COACH_ROLE_LABEL, SCHEME_LABEL } from "@/domain";
@@ -72,12 +73,13 @@ export function CoachingDraftSummary() {
   const myCard = cards.find((c) => c.teamCode === mine);
 
   return (
-    <Card maxWidth={960}>
-      <CardHeader
-        badge={mine ? TEAMS_BY_CODE[mine]?.abbr ?? "CD" : "CD"}
-        title="Coaching Draft Summary"
-        subtitle={`${displaySeason(s)} staffs · every job filled`}
-      />
+    <StagePage
+      code={mine}
+      kicker="Coaching Draft Summary"
+      heading={mine ? undefined : "Every staff"}
+      sub={`${displaySeason(s)} staffs · every job filled`}
+      className="gd-tabbed"
+    >
       <Ticker
         stats={[
           { label: "Your staff OVR", value: myCard?.overall ?? "—" },
@@ -99,6 +101,7 @@ export function CoachingDraftSummary() {
         ]}
       />
 
+      <div className="gd-hub">
       <Tabs
         tabs={[
           // your own team's tab first, then the other GMs'
@@ -116,6 +119,7 @@ export function CoachingDraftSummary() {
         onChange={setActive}
         label="Coaching summary"
       />
+      </div>
 
       {humanTeams.map((team) => (
         <Panel key={team} id={team} open={active === team}>
@@ -124,7 +128,7 @@ export function CoachingDraftSummary() {
       ))}
 
       <Panel id="league" open={active === "league"}>
-        <div style={{ overflowX: "auto" }}>
+        <div className="stage-scroll">
           <table className="stbl">
             <thead>
               <tr>
@@ -145,9 +149,9 @@ export function CoachingDraftSummary() {
                 .map((c) => {
                   const isMine = c.teamCode === mine;
                   return (
-                    <tr key={c.teamCode} style={isMine ? { background: "var(--panel-sunken)" } : undefined}>
+                    <tr key={c.teamCode} className={isMine ? "stage-mine" : undefined}>
                       <td className="name">
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <span className="stage-team-cell">
                           <TeamBadge code={c.teamCode} size={18} />
                           {TEAMS_BY_CODE[c.teamCode]?.label ?? c.teamCode}
                           {isMine ? (
@@ -159,13 +163,13 @@ export function CoachingDraftSummary() {
                           )}
                         </span>
                       </td>
-                      <td className="c" style={{ fontWeight: 700 }}>{c.overall}</td>
+                      <td className="c stage-strong">{c.overall}</td>
                       <td className="c">{hcRank.get(c.teamCode)}</td>
                       <td className="c">{offenseRank.get(c.teamCode)}</td>
                       <td className="c">{defenseRank.get(c.teamCode)}</td>
                       <td className="c">{stRank.get(c.teamCode)}</td>
                       <td className="c">{medRank.get(c.teamCode)}</td>
-                      <td className="c" style={{ fontWeight: 700 }}>
+                      <td className="c stage-strong">
                         {gradeFor(overallRank.get(c.teamCode) ?? teams, teams)}
                       </td>
                     </tr>
@@ -174,7 +178,7 @@ export function CoachingDraftSummary() {
             </tbody>
           </table>
         </div>
-        <p style={{ margin: "14px 0 0", fontSize: 11, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+        <p className="stage-note">
           Staff OVR is a weighted average of all twelve, head coach counting triple and the
           coordinators double. The offensive and defensive columns are ranks within their own
           composite and exclude the head coach, who is already the heaviest part of the overall.
@@ -182,7 +186,7 @@ export function CoachingDraftSummary() {
       </Panel>
 
       <Footer>
-        <span style={{ flex: 1, fontSize: 11.5, color: "var(--ink-faint)", alignSelf: "center" }}>
+        <span className="stage-foot-note">
           Advancing is final — you can&rsquo;t come back to this summary.
         </span>
       </Footer>
@@ -192,7 +196,7 @@ export function CoachingDraftSummary() {
         label={fantasyDraft ? "Advance to Training Camp" : "Advance to Free Agency"}
         onAdvance={(r) => nav(r)}
       />
-    </Card>
+    </StagePage>
   );
 }
 
@@ -204,9 +208,7 @@ function StaffDetail({ teamCode }: { teamCode: string }) {
 
   return (
     <>
-      <p className="subhead" style={{ marginTop: 0 }}>
-        {TEAMS_BY_CODE[teamCode]?.label ?? teamCode}
-      </p>
+      <h2 className="stage-h">{TEAMS_BY_CODE[teamCode]?.label ?? teamCode}</h2>
       {COACH_ROLES.map((role) => {
         const c = byRole.get(role);
         if (!c) {
@@ -214,7 +216,7 @@ function StaffDetail({ teamCode }: { teamCode: string }) {
             <div key={role} className="lobby-row">
               <div>
                 <p className="pname">
-                  <span style={{ color: "var(--ink-faint)" }}>Vacant</span>
+                  <span className="stage-mute">Vacant</span>
                   <span className="ppos">{role}</span>
                 </p>
                 <p className="lobby-sub">{COACH_ROLE_LABEL[role]}</p>

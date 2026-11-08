@@ -1,0 +1,366 @@
+/*
+ * The postseason bracket on the gameday system (design/gameday.css and
+ * design/gameday-blocks.css).
+ *
+ * The bracket is the screen's device: rounds as columns, each game a ruled
+ * two-team cell with a seed block in the team's colour, the winner in heavy
+ * type, the viewer's own games in ink with the accent. Square corners, 2px
+ * ink rules, hard offset shadow on the viewer's game.
+ *
+ * e2e/support/postseason.ts reads the cells back from the DOM: the nesting in
+ * MatchBox is fixed (cluster > seed + name; score a direct child of the row),
+ * these classes are free.
+ */
+
+/* ---- before the bracket is seeded ------------------------------------------ */
+.gd-bracket .bx-pre {
+  display: grid;
+  gap: 18px;
+  padding: 18px 20px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  container-type: inline-size;
+}
+.gd-bracket .bx-pre .emptystate {
+  border-width: 2px;
+}
+.gd-bracket .bx-pre .subhead {
+  margin-top: 0;
+}
+.gd-bracket .bx-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.gd-bracket .bx-rank {
+  width: 32px;
+  color: var(--gd-mute);
+}
+@container (max-width: 560px) {
+  .gd-bracket .bx-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---- the bracket ------------------------------------------------------------- */
+.gd-bracket .bx-conf {
+  position: relative;
+  container-type: inline-size;
+}
+.gd-bracket .bx-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.gd-bracket .bx-cols {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 44px;
+}
+.gd-bracket .bx-cols > *,
+.gd-bracket .bx-single > * {
+  min-width: 0;
+}
+@container (max-width: 700px) {
+  .gd-bracket .bx-cols {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+}
+
+.gd-bracket .bx-round {
+  margin: 0 0 12px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--gd-rule);
+  font: 800 22px/1 var(--gd-display);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--gd-ink);
+  overflow-wrap: anywhere;
+}
+
+/* a column of cells, spaced to line up with the cells it feeds */
+.gd-bracket .bracket-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  min-height: 300px;
+  gap: 16px;
+}
+.gd-bracket .bx-stack {
+  display: grid;
+  gap: 16px;
+}
+@container (max-width: 700px) {
+  .gd-bracket .bracket-col {
+    min-height: 0;
+    justify-content: flex-start;
+  }
+}
+
+/* ---- one game --------------------------------------------------------------- */
+.gd-bracket .bx {
+  min-width: 0;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  color: var(--gd-ink);
+}
+.gd-bracket .bx--bye {
+  border-style: dashed;
+}
+.gd-bracket .bx--mine {
+  box-shadow: 5px 5px 0 var(--gd-accent);
+  margin: 0 5px 5px 0;
+}
+.gd-bracket .bx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.gd-bracket .bx-row + .bx-row {
+  border-top: 2px solid var(--gd-rule);
+}
+.gd-bracket .bx-row--tbd {
+  justify-content: flex-start;
+  color: var(--gd-mute);
+  font: 600 14px/1.3 var(--gd-body);
+}
+/* a GM's team stands out from thirty others; yours most of all */
+.gd-bracket .bx-row--gm {
+  box-shadow: inset 5px 0 0 var(--notice);
+}
+.gd-bracket .bx-row--me {
+  background: color-mix(in srgb, var(--gd-accent) 24%, #fff);
+  box-shadow: inset 6px 0 0 var(--gd-ink);
+}
+.gd-bracket .bx-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.gd-bracket .bx-seed {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--gd-rule);
+  font: 800 14px/1 var(--gd-display);
+}
+.gd-bracket .bx-name {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gd-bracket .bx-label {
+  font: 800 19px/1.05 var(--gd-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.gd-bracket .bx-gm {
+  justify-self: start;
+  margin: 3px 0 1px;
+  font-size: 12px;
+}
+.gd-bracket .bx-rec {
+  margin-top: 2px;
+  color: var(--gd-mute);
+  font: 600 12px/1.25 var(--gd-body);
+}
+.gd-bracket .bx-score {
+  flex: none;
+  font: 800 26px/1 var(--gd-display);
+  color: var(--ink-dim);
+}
+/* the winner's score is exactly --good, on every row: the e2e reads it */
+.gd-bracket .bx-row--won .bx-score {
+  color: var(--good);
+}
+.gd-bracket .bx-row--won .bx-label {
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--gd-accent);
+}
+.gd-bracket .bx-foot {
+  padding: 7px 12px 8px;
+  border-top: 2px solid var(--gd-rule);
+  background: var(--gd-paper);
+  color: var(--gd-mute);
+  font: 700 12px/1.3 var(--gd-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.gd-bracket .bx--bye .bx-foot {
+  border-top-style: dashed;
+}
+.gd-bracket .bx-foot--fav {
+  color: var(--good);
+  text-align: center;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 13px;
+}
+.gd-bracket .bx-tbd {
+  padding: 22px 10px;
+  border: 2px dashed var(--gd-rule);
+  background: var(--gd-card);
+  color: var(--gd-mute);
+  font: 700 14px/1.3 var(--gd-body);
+  text-align: center;
+}
+
+/* the Super Bowl: one game, centred */
+.gd-bracket .bx-sb {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* a humans-only league: one field, a column per round */
+.gd-bracket .bx-single {
+  display: grid;
+  grid-template-columns: repeat(var(--rounds, 3), minmax(0, 1fr));
+  gap: 28px;
+  align-items: start;
+}
+@container (max-width: 700px) {
+  .gd-bracket .bx-single {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.gd-bracket .panel.open:has(> .bx-single) {
+  container-type: inline-size;
+}
+
+/* ---- the plan strip and the gate under the bracket ------------------------------- */
+.gd-bracket .plan-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 14px;
+  border: 2px solid var(--gd-rule);
+  background: var(--gd-card);
+  font: 600 14px/1.35 var(--gd-body);
+}
+.gd-bracket .plan-strip__k {
+  color: var(--gd-mute);
+}
+.gd-bracket .plan-strip__v {
+  font: 800 18px/1 var(--gd-display);
+  text-transform: uppercase;
+}
+.gd-bracket .plan-strip__v--custom {
+  text-decoration: underline;
+  text-decoration-color: var(--gd-accent);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+.gd-bracket .plan-strip__note {
+  flex: 1 1 260px;
+  min-width: 0;
+  color: var(--gd-mute);
+  font-weight: 500;
+  font-size: 13px;
+}
+.gd-bracket .plan-strip button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+}
+.gd-bracket .plan-strip button:hover {
+  background: var(--gd-ink);
+  color: #fff;
+}
+/* the shared primary button reads --team-on, which this light page does not set */
+.gd-bracket .btn-primary {
+  width: 100%;
+  min-height: 48px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-accent);
+  color: var(--gd-on-accent);
+  font: 800 16px/1.2 var(--gd-body);
+}
+.gd-bracket .btn-primary:hover:not(:disabled) {
+  background: var(--gd-ink);
+  border-color: var(--gd-rule);
+  color: #fff;
+}
+.gd-bracket .btn-primary:disabled {
+  background: var(--gd-soft);
+  border-color: var(--gd-rule);
+  color: var(--gd-mute);
+  cursor: not-allowed;
+}
+.gd-bracket .readiness .gmchip,
+.gd-bracket .readiness .btnlink {
+  border-radius: 0;
+}
+.gd-bracket .readiness .btnlink {
+  min-height: 44px;
+}
+.gd-bracket .bx-label {
+  margin-bottom: 3px;
+}
+
+/* phones: the cell is the target, and nothing needs the sideways room */
+@media (max-width: 760px) {
+  .gd-bracket .bx-pre {
+    padding: 14px 12px;
+  }
+  .gd-bracket .bx-label {
+    font-size: 21px;
+  }
+  .gd-bracket .bx-score {
+    font-size: 30px;
+  }
+}
+
+/* ---- the Matchup tab: round chips, then the shared board per game ----------------- */
+.gd-bracket .bx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.gd-bracket .bx-chip {
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+  color: var(--gd-ink);
+  font: 700 14px/1.2 var(--gd-body);
+  overflow-wrap: anywhere;
+}
+.gd-bracket .bx-chip:hover {
+  background: var(--gd-paper);
+}
+.gd-bracket .bx-chip--on {
+  background: var(--gd-ink);
+  color: #fff;
+  box-shadow: 4px 4px 0 var(--gd-accent);
+}
+.gd-bracket .bx-board + .bx-board {
+  margin-top: 28px;
+}
+
+/* the strip's accent figure: --team is pale for a yellow team and fails on white,
+   --gd-accent-text is darkened to 4.5:1 for every team */
+.gd-bracket .ticker .stat-value.accent {
+  color: var(--gd-accent-text);
+}
