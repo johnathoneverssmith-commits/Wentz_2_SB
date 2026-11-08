@@ -1920,3 +1920,7 @@ guarantees now run on the deadline turn (one negotiation from two simultaneous
 submissions, a retry refused with no write), and a new test pins the old route
 closed with no write. These suites need real concurrent connections: PGlite
 cannot run them (and its failures in them hid these two real ones).
+
+## GAP-011 — playoff rounds are applied, not replayed
+
+The engine adapter's `/playoffs/round` is a stateless stepper that replayed every earlier round from the seed. Rosters are rebuilt per call and injuries from the previous round change them, so the replay could decide an earlier game differently from the one the UI had stored: bracket matchups with no stored game, eliminated teams advancing (seed 4001/2027; 47547: BAL lost the Wild Card yet won the Super Bowl). Fix: the client sends the games already on the bracket (`recorded`); `playPlayoffRound(p, recorded)` applies a matching recorded game instead of simulating it. Without `recorded` behaviour is byte-identical. The client also stores a returned game only if it decides a bracket matchup. Not touched: scoring, ratings, saves, regular season, online.
