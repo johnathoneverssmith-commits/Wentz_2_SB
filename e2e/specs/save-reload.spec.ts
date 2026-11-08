@@ -23,8 +23,9 @@ for (const c of CASES) {
 
       // the browser started from the exact bytes the Node build produced, and holds only this league
       const keys = await page.evaluate(() => Object.keys(window.localStorage).sort());
-      // (`nfl-sim-ui.save-status` is the app's small "when did a save last land" note)
-      expect(keys.filter((k) => !k.startsWith("nfl-sim-ui.league") && k !== "nfl-sim-ui.save-status"), "nothing from another session").toEqual([]);
+      // (`nfl-sim-ui.save-status` and `nfl-sim-ui.save-seq` are the app's small notes on when a save last landed
+      // and how many changes were made, for telling a player when the last action was not saved)
+      expect(keys.filter((k) => !k.startsWith("nfl-sim-ui.league") && !k.startsWith("nfl-sim-ui.save-")), "nothing from another session").toEqual([]);
       // the save was migrated out of localStorage into IndexedDB, which is where it is now read from
       expect(keys, "the old localStorage copy is gone once verified in IndexedDB").not.toContain("nfl-sim-ui.league");
       const first = (await readSave(page))!;
