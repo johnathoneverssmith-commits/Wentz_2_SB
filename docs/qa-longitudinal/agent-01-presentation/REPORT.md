@@ -1,3 +1,97 @@
+# Agent 1 — Presentation, Audio & Immersion Audit (FINAL)
+
+Baseline: `master` `d0727ff` (still the tip of master when verified; the TAFI register is unchanged since).
+QA-only PR, no production change. Local results, not CI. Verification detail: `verification/`.
+
+## Result in one paragraph
+Of the 10 findings in the first pass, **6 are confirmed**, **3 were false positives** (and one half of PA-004),
+and **2 were reclassified as opportunities, not defects** (one of them partly my error). Audio could not be
+listened to, but it was measured. Nothing here blocks play (no P0).
+
+## Final classification of the first-pass findings
+
+| ID | Verdict | Pri | Evidence and method |
+|---|---|---|---|
+| PA-001 "Your assets (0)" unreadable at phone width (Trade Deadline) | **Confirmed** | P1 | Viewed in screenshot (dark teal text on the dark card-header band); harness 1.28:1 on a solid `rgb(10,52,53)`. Residual of the dark header band left by owner decision in Group 08; **related to, not the same as, UI-TAFI-001** (a different element) |
+| PA-002 Game Day empty state scrolls sideways at 390/320 | **Confirmed** | P2 | `scrollWidth` 394 > 390, viewed. Not in the register |
+| PA-003 "Roster needs & unit grades" disclosure invisible on the draft screen | **Confirmed** (corrected figure) | P2 | Real pixels, text hidden, background sampled: foreground `#c9dcf0` on **opaque `rgb(239,242,245)`, 1.25:1** (not 1.40), 100% of sampled pixels, 1440 and 390. Root cause: `decisions.css:19` `.decision-workspace details>summary{color:#c9dcf0}`, a leftover dark-theme colour; affects every `details>summary` in the decision workspace. Same family as UI-TAFI-001/002, distinct instance |
+| PA-004a Hub favourite-% green on grey | **Confirmed, marginal** | P3 | Real pixels: `rgb(15,122,69)` 13px bold on `rgb(206,224,220)` (90% of pixels): **3.94:1**, needs 4.5:1 (not "large" text). Best-case pixel 4.80 |
+| PA-004b Hub 10px caption "4.25:1" | **False positive** | n/a | Real pixels: `rgb(78,95,112)` on `rgb(238,242,245)`, 5.84:1, passes. The harness read the wrong background |
+| PA-005 Heading level skips h1 -> h3 | **Confirmed, advisory** | P3 | Game plan, bracket, rookie-draft summary all go h1 then h3; no h2 on them. Best-practice (WCAG 1.3.1 advisory technique), not a failure |
+| PA-006 Roster pitch graphic clipped | **False positive** | n/a | 2.5px of a decorative football icon overshoots a `overflow:hidden` box (`verification/PA-006-pitch-390.png`); no content lost, no page scroll |
+| PA-007 Skip checkbox "13x40px" below 24px | **False positive** | n/a | Effective target is the wrapping `<label>`: **366-1152 x 72-106 px**; the checkbox is just its glyph. Passes WCAG 2.2 SC 2.5.8, and the nearest other target is 24-88px away so the spacing exception also holds |
+| PA-008 `signed` cue never fired | **Confirmed gap**, downgraded | P3 | See "Intent" below |
+| PA-009 No sack cue | **Opportunity** (source-only) | P3 | Not a defect |
+| PA-010 Draft atmosphere stops at your own pick | **Reclassified: intentional** | P3 opportunity | See "Intent" below. My original wording ("no announcement") was wrong |
+
+**Confirmed new issues: 6** (P1: 1, P2: 2, P3: 3). **False positives: 3 findings plus the harness's V-001..V-004
+History-table readings, and PA-004b.** No regressions identified (no earlier baseline measured).
+
+## Touch targets (task 3)
+The 40px-high buttons (`button.reset`, `.how-tab`, `.ui-skip`) and 110x25 `span[role=button]` reported by the harness
+are all >= 24px, so they meet WCAG 2.2 AA (2.5.8); they miss only the 44px platform/AAA guideline. That makes the
+existing **UI-TAFI-012 a P3 polish item, not an accessibility barrier**. Widths are from the harness boxes; I measured
+label-inclusive boxes only for the checkboxes.
+
+## Intent of PA-008 and PA-010 (task 5)
+- **PA-010 is by design.** `PickMoments.tsx` states it "sounds nothing" for others' picks and keeps others to the
+  brisk first-round visual only, because a draft has 224 picks and a fantasy draft over a thousand. First-round picks
+  by others do get a visual moment (`decisions.md`, motion system). Silence for others' picks is a documented choice,
+  so it is an *optional opportunity* (a subtle tone for first-round picks), not a defect. Trade-completion and
+  offseason-stage sounds are not documented either way: also opportunities.
+- **PA-008 is a real but small gap.** `cues.ts` defines `signed` ("A signature") and the git history never shows a
+  caller. The sound rule ("never for something you just clicked; yes for a result landing") would allow it where
+  results land: the free-agency board already computes how your bids came out when a round closes
+  (`FreeAgencyBoardTurns.tsx`, `lastResults`, added because "the round used to end silently"). `gameWon` works the
+  same way. Visual feedback exists, so silence is not a usability defect.
+
+## Audio (task 4)
+No audio device, no human listening. Loudness was **measured** by recording the real Web Audio graph in headless
+Chromium (details and limits: `verification/AUDIO-RESULTS.md`). Music beds are consistent (-22.5 to -24.1 dBFS RMS,
+no clipping, 4-5 dB headroom); cues rise +3.1 to +8.5 dB over the bed, loudest for the championship (+8.5) and the
+clock (+6.5). `tradeOffer` and `signed` are the quietest (~+3 dB) and may be masked under chants/crowd. Whether it
+*sounds good*, chant balance, and long-session repetition remain **unassessed**.
+
+## Deduplication against the current master register (task 6)
+Master is unchanged since the baseline. The register has no audio entries, so PA-008 (and the opportunities) are new.
+- Existing, still open: **UI-TAFI-004** floating buttons. Re-seen at 390 on Trade Deadline, where Methodology and
+  Unit Grades tabs cover the "You're on the clock" text, and on the hub. By effect this is the worst phone-width
+  defect I saw; I would raise it from P2 to P1.
+- Related, distinct: PA-001 and PA-003 (leftover dark-theme styling; UI-TAFI-001/002 family). PA-002 (sideways scroll)
+  is not in the register.
+- Existing: UI-TAFI-012 (see touch targets), 008/009 (page length), 021/022 (rail clipping).
+- Not re-verified: BAL badge 2.34:1 and the stat-strip stray rule (Group 08 report; not in my subset).
+
+## Prioritised development backlog (impact / effort)
+| # | Item | Pri | Effort | Source |
+|---|---|---|---|---|
+| 1 | Stop the floating Methodology / Unit Grades tabs covering content on phones | P1 | S | UI-TAFI-004 (existing) |
+| 2 | Make "Your assets" and other dark-header controls legible | P1 | S | PA-001 |
+| 3 | Replace `#c9dcf0` in `decisions.css:19` with a light-theme token; check every decision screen's disclosures | P2 | XS | PA-003 |
+| 4 | Fix Game Day empty-state sideways scroll at 390/320 | P2 | XS | PA-002 |
+| 5 | Fire `signed` when your free-agency bids land at round end; consider a trade-completed cue | P3 | XS | PA-008 |
+| 6 | Hub favourite-% green to a darker token (>= 4.5:1) | P3 | XS | PA-004a |
+| 7 | Heading hierarchy (h2 sections) on game plan, bracket, draft summary | P3 | S | PA-005 |
+| 8 | Optional: subtle tone for first-round picks by others, a sack cue, stage-change sting | P3 | S | PA-009/010 |
+| 9 | Raise `tradeOffer`/`signed` level slightly if a human listening test confirms masking | P3 | XS | audio data |
+| 10 | Champion-first Season Complete, richer History | P2 | M | UI-TAFI-010 (existing) |
+
+## Top five fixes
+1. Floating tabs off the content on phones (UI-TAFI-004).
+2. Legible dark-header controls (PA-001).
+3. The invisible draft-screen disclosure (PA-003), a one-line colour fix.
+4. Game Day sideways scroll (PA-002).
+5. Wire the `signed` / round-result sound so signings have audio feedback (PA-008).
+
+## Tested vs inspected (final)
+- **Tested (rendered pixels / measured):** PA-001..PA-007 on BAL at 1440 and 390; audio loudness via Web Audio capture.
+- **Inspected only:** audio intent and call sites (source and git history); `decisions.css` root cause.
+- **Not tested:** human listening, chants, keyboard/focus/reduced motion, other team palettes, a hand-played journey.
+
+---
+
+# Appendix: first-pass report (superseded where it differs)
+
 # Agent 1 — Presentation, Audio & Immersion Audit
 
 Baseline: `master` `d0727ff` (merge of PR #103, Group 08). QA-only PR, no production change.
