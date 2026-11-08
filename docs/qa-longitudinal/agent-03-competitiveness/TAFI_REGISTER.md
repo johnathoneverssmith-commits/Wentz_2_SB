@@ -187,3 +187,11 @@ Entries below are the Part 1 text; **Part 2 updates follow at the end of this fi
 
 ## TAFI-COMP-007 (update) — Remaining untested
 Not run: CPU draft/FA decision-quality experiments (only the skill split touches these); positional need responses to injuries; multiplayer fairness (draft/FA order, collusion, inactive GMs); controlled-seed multi-strategy UI playthroughs; opponent-specific plan adaptation; talent-1.5 RB/P at ≥1,280 pairs.
+
+## TAFI-COMP-010 — Real-UI playthrough automation: status and blockers (testing infrastructure, not a game defect)
+- **Done:** a Playwright/Chromium script drives the real UI against the real-engine adapter through team select, 53-round fantasy draft, coaching draft, camp, preseason, regular season, trade deadline, free agency, playoffs, rookie draft and rookie signings; one full season (8–8, 2nd AFC North) and 16 games of season 2. `data/ui_run/`.
+- **Not done:** five seasons; four strategies; seed-pinned leagues (a solo dynasty's seed is not controllable from the UI, so UI runs are not reproducible).
+- **Blockers:** stage-specific dialogs needed ~10 handlers; adapter and dev-server processes were killed during the run; ≈30–45 min wall-clock per season.
+- **Proposed solution:** (A) run `ui_loop.js` under a supervisor that restarts the adapter/Vite and resumes from `ui_snapshot.json`; (B) add a test-only URL/query option to start a solo dynasty with a given seed and an "auto-play" delegate-all mode (production-code change: **needs approval**); (C) record results by reading the saved league JSON instead of scraping text.
+- **Regression test:** nightly job that plays one UI season against the real adapter and asserts `/simulate-week` is called and the stage reaches the rookie draft.
+- **Complexity/priority:** medium (A, C) / low–medium (B) / P2.

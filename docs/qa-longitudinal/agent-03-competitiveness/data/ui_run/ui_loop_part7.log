@@ -1,0 +1,58 @@
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / Preseason · starting lineup 81 OVR. Preseason Wk 1: @ Cincinnati. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, 
+0 #/hub -> Simulate Preseason adapter {"/simulate-week":1,"/plan-preview":1}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / Preseason · starting lineup 81 OVR. Preseason Wk 2: @ N.Y. Jets. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, v
+5 #/game-day -> Continue adapter {"/simulate-week":1,"/plan-preview":2}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / Preseason · starting lineup 81 OVR. Preseason Wk 2: @ N.Y. Jets. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, v
+6 #/hub -> Ready for Game Day adapter {"/simulate-week":2,"/plan-preview":2}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / Preseason · starting lineup 81 OVR. Preseason Wk 3: vs N.Y. Jets. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, 
+10 #/game-day -> Continue adapter {"/simulate-week":2,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / Preseason · starting lineup 81 OVR. Preseason Wk 3: vs N.Y. Jets. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, 
+11 #/hub -> Ready for Game Day adapter {"/simulate-week":3,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 0-0 · AFC North. Week 1: @ Tennessee (0-0). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons 
+15 #/game-day -> Continue adapter {"/simulate-week":3,"/plan-preview":3}
+   text: Week 1 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:0
+16 #/hub -> Ready for Game Day adapter {"/simulate-week":4,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 0-1 · 3rd in AFC North. Week 2: vs Pittsburgh (0-1). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia
+17 #/game-day -> Continue adapter {"/simulate-week":4,"/plan-preview":3}
+   text: Week 2 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / PIT / 0 / PRE-GAME / Q1 · 15:0
+18 #/hub -> Ready for Game Day adapter {"/simulate-week":5,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 1-1 · 2nd in AFC North. Week 3: vs Cincinnati (0-2). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia
+19 #/game-day -> Continue adapter {"/simulate-week":5,"/plan-preview":3}
+   text: Week 3 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / CIN / 0 / PRE-GAME / Q1 · 15:0
+20 #/hub -> Ready for Game Day adapter {"/simulate-week":6,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 2-1 · 2nd in AFC North. Week 4: @ Cincinnati (0-3). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia 
+21 #/game-day -> Continue adapter {"/simulate-week":6,"/plan-preview":3}
+   text: Week 4 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:0
+22 #/hub -> Ready for Game Day adapter {"/simulate-week":7,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 3-1 · 2nd in AFC North. Week 5: @ New Orleans (1-3). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia
+23 #/game-day -> Continue adapter {"/simulate-week":7,"/plan-preview":3}
+   text: Week 5 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:0
+24 #/hub -> Ready for Game Day adapter {"/simulate-week":8,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 4-1 · 2nd in AFC North. Week 6: vs Carolina (2-3). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia C
+25 #/game-day -> Continue adapter {"/simulate-week":8,"/plan-preview":3}
+   text: Week 6 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / CAR / 0 / PRE-GAME / Q1 · 15:0
+26 #/hub -> Ready for Game Day adapter {"/simulate-week":9,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 5-1 · 2nd in AFC North. Week 7: vs Denver (4-2). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Com
+27 #/game-day -> Continue adapter {"/simulate-week":9,"/plan-preview":3}
+   text: Week 7 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / DEN / 0 / PRE-GAME / Q1 · 15:0
+28 #/hub -> Ready for Game Day adapter {"/simulate-week":10,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 5-2 · 2nd in AFC North. Week 8: vs Atlanta (4-3). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Co
+29 #/game-day -> Continue adapter {"/simulate-week":10,"/plan-preview":3}
+   text: Week 8 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / ATL / 0 / PRE-GAME / Q1 · 15:0
+30 #/hub -> Ready for Game Day adapter {"/simulate-week":11,"/plan-preview":3}
+   text: Franchise command center, 2028 season / , / BALTIMORE / RAVENS / 5-3 · 2nd in AFC North. Week 9: @ Dallas (5-2). / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Comm
+31 #/game-day -> Continue adapter {"/simulate-week":11,"/plan-preview":3}
+   text: Week 9 · results are in / , / GAME DAY / Final scores, and what it cost you. / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / BAL / 0 / PRE-GAME / Q1 · 15:0
+32 #/hub -> Ready for Game Day adapter {"/simulate-week":12,"/plan-preview":3}
+   text: Trade Deadline / , / BALTIMORE / RAVENS / Round 1 of 3 / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Round / 1/3 / Turn / 19/32 / On the clock / BAL / Tr
+33 #/game-day -> Continue adapter {"/simulate-week":12,"/plan-preview":3}
+   text: Trade Deadline / , / BALTIMORE / RAVENS / Round 1 of 3 / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Round / 1/3 / Turn / 19/32 / On the clock / BAL / Tr
+34 #/trade-deadline -> Let my staff handle this turn adapter {"/simulate-week":12,"/plan-preview":3}
+   text: Trade Deadline / , / BALTIMORE / RAVENS / Round 3 of 3 / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia Commons / Round / 3/3 / Turn / 2/32 / On the clock / CIN / Tra
+40 #/trade-deadline -> Let my staff handle this turn adapter {"/simulate-week":12,"/plan-preview":3}
+   text: Mid-Season Free Agency / , / BALTIMORE / RAVENS / Round 1 of 5 · one offer or pass per round / Your turn / Baltimore / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia 
+44 #/trade-summary -> Advance to Mid-Season Free Agency adapter {"/simulate-week":12,"/plan-preview":3}
+   text: Mid-Season Free Agency / , / BALTIMORE / RAVENS / Round 1 of 5 · one offer or pass per round / Your turn / Baltimore / Photo: M&T Bank Stadium in Baltimore, Quintin Soloviev, CC BY 4.0, via Wikimedia 
+45 #/free-agency-board -> Let my staff take this turn adapter {"/simulate-week":12,"/plan-preview":3}
+STUCK at #/free-agency-board on Let my staff take this turn | buttons: Skip to content | Sound off | Full | Subtle | Off | Download backup | Restore from backup | New solo dynasty | Make the offer | No thanks | Pass this round | Let my staff take this turn | Unsigned (317) | Roster Needs
+final #/free-agency-board {"/simulate-week":12,"/plan-preview":3}

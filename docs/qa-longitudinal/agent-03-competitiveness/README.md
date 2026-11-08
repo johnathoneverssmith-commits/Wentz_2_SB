@@ -14,8 +14,9 @@ Documentation, harnesses and raw data only. **No production gameplay, rating, po
 | Coaching staff (HC/OC/DC at 95 or 20 vs league-average staff) | **Complete, 8 arms, 640 pairs each**, talent 1.5 only. Single-role arms are underpowered for win% | focal staff varies; opponent has league-average staff | `data/staff_swap.jsonl` |
 | Longitudinal, real engine, headless (no UI) | **Complete: 3 leagues (seeds 9301–9303) × 5 seasons × 2 variants.** CPU runs every team; no human GM | `online/` block simulation (`simulateBlock`, `simulatePlayoffBlock`), talent default | `data/longitudinal_real_engine.json` |
 | Price-table probe | **Complete (one league, synthetic players)** | `expectedSalary` vs `playerPerformanceValue`, age 27 | `data/price_arbitrage.csv` |
-| Five seasons through the real **UI** with four human strategies | **Not done** — see REPORT §9 for the blocker and a procedure | – | – |
-| Draft-strategy, FA-bidding, trade-acceptance, exploit simulations | **Not done** (only code/price-table review) | – | – |
+| Real **UI** playthrough against the real-engine adapter (Playwright + Chromium) | **Partial: 1 full season (2027, 8–8) and 16 games of 2028; not five seasons, one default-policy run, not seed-pinned**; four human strategies not done. Blockers and handoff procedure: REPORT §18 | `harness/ui_loop.js` | `data/ui_run/ui_loop_part*.log` |
+| Follow-up (Part 2): all 36 unit-swap arms; single-starter +10 (15 arms, 640 pairs); equal-payroll QB (6 arms, 640 pairs); sign-and-flip (4 seeds, 448 cases); CPU skill split (6 leagues × 5 seasons); game-plan audits 42/43 (12 games/roster) | **Complete** as listed (limits in REPORT Part 2) | seeds in harness files | `data/unit_single.jsonl`, `qb_budget.jsonl`, `flip_sign_and_trade.json`, `skill_split_real_engine.json`, `gameplan_*.txt`, `analysis_followup.md` |
+| Scripted aggressive/balanced/rebuilder human policies; multiplayer fairness; CPU draft/FA decision-quality experiments | **Not done** | – | – |
 | Multiplayer fairness | **Not done** | – | – |
 
 ## Reproduce
