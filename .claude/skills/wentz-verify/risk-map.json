@@ -217,7 +217,7 @@
       "match": ["e2e-audit/**"],
       "requires": ["scope", "tc-engine"],
       "recommends": ["ci-pr"],
-      "notes": ["The visual and accessibility audit harness is not part of CI or `npm run e2e`, and is not yet a wentz-verify command. Run `npm run audit:typecheck` and `npm run audit:selfcheck` (browser-free) and report the result as it is; `npm run audit:visual` needs a browser and produces audit output, not a pass/fail check."]
+      "notes": ["The visual and accessibility audit harness is not part of CI or `npm run e2e`, and it is not yet a wentz-verify command. Run `npm run audit:typecheck` and `npm run audit:selfcheck` (browser-free) and report the result as it is; `npm run audit:visual` needs a browser and produces audit output, not a pass/fail gate."]
     },
     {
       "id": "online-dev-launcher", "class": "online-dev-launcher", "risk": "medium", "component": "online",
