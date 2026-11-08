@@ -1,6 +1,6 @@
 # Agent 02 — Simulation Realism report
 
-**Baseline:** `3abcfff0f58d7117bbcd265f9cea9e7f1bcc829b` (master after PR #87). No gameplay, rating, pool, scoring, development or injury code was modified. Files added: this folder, and two scratch harness copies `online/test/_agent02_*.test.ts` (underscore-named, excluded from CI; originals under `harness/`).
+**Baseline:** `3abcfff0f58d7117bbcd265f9cea9e7f1bcc829b` (master after PR #87). No gameplay, rating, pool, scoring, development or injury code was modified. The branch adds only this folder. The harnesses live in `harness/`; to run one, copy it to `online/test/_agent02_*.test.ts` (underscore-named, excluded from CI) and delete the copy afterwards. No copies are committed.
 Backlog with evidence, repro and acceptance criteria: **[TAFI_BACKLOG.md](TAFI_BACKLOG.md)** (TAFI-REAL-001…017).
 
 ## Bottom line
@@ -19,7 +19,7 @@ Backlog with evidence, repro and acceptance criteria: **[TAFI_BACKLOG.md](TAFI_B
 | Requirement | Status |
 |---|---|
 | ≥20-season accelerated simulation | **Done**: 3 leagues × 20 seasons = 60 seasons, real engine games, `online` phase machine (seeds 7001, 7002 Amplified; 7003 Realistic). |
-| ≥5 consecutive interactive UI seasons | **Not complete.** See "UI playthrough" below for what exactly was played. |
+| ≥5 consecutive interactive UI seasons | **Not met: only ONE interactive UI season (season 1) was completed**; the run stopped in season 2 at week 16. See "UI playthrough status" below. |
 | Game-level forensics | Done: 4 × traced samples (28,000+ games). |
 | Player development/aging, injuries | Done from the same data; injury benchmarks not sourced (see TAFI-REAL-016). |
 | Historical benchmarks | nflverse 2021-24 regular season (1,087 games, pbp, player stats 2018-24), downloaded 2026-11-07; scripts `analysis/bench_nfl*.py`. |
