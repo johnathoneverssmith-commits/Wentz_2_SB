@@ -535,12 +535,6 @@
 .gc-stage {
   position: relative;
 }
-.gc-foot {
-  margin: 0;
-  font-size: 11px;
-  color: var(--ink-faint);
-  text-align: center;
-}
 
 /* A phone: the middle block kept its 120px and the home side's score slid
    under it ("GB (" beside PRE-GAME). Tighten everything instead. */
