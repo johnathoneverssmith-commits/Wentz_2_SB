@@ -22,11 +22,15 @@ import { prepareDatabase, requireDatabaseInCi } from "./requireDatabase.js";
 const url = process.env.DATABASE_URL ?? process.env.TEST_DATABASE_URL;
 let reachable = false;
 const stamp = Date.now();
-const users = { payer: `hfa_payer_${stamp}`, viewer: `hfa_viewer_${stamp}` };
+const users = { payer: `hfa_payer_${stamp}`, second: `hfa_second_${stamp}`, viewer: `hfa_viewer_${stamp}` };
 let leagueId = "";
 let baseUrl = "";
 let baseline = "";
 let stored: { playerId: string; untilWeek: number | null }[] = [];
+/** the player both bargains hit, and the duration each one disclosed */
+let shared = "";
+let firstWeeks: number | null = null;
+let secondWeeks: number | null = null;
 let season = 0;
 
 const restore = (text: string) =>
@@ -49,30 +53,44 @@ beforeAll(async () => {
       [u],
     );
   }
-  leagueId = (await createOnlineLeague(users.payer, { name: "Figure availability", humanSlots: 2 })).leagueId;
+  leagueId = (await createOnlineLeague(users.payer, { name: "Figure availability", humanSlots: 3 })).leagueId;
   await claimTeam(leagueId, users.payer, "BUF");
+  await claimTeam(leagueId, users.second, "MIA");
   await claimTeam(leagueId, users.viewer, "KC");
   await setup((s) => {
     fillRosterGaps(s);
     season = s.season;
     s.stage = "hoodedFigureEncounter";
     const hf = ensureHoodedFigureState(s);
-    const mk = (year: number) => ({
-      teamCode: "BUF", season: year, thresholds: { t1: 1, t2: 2, t3: 3 },
+    const mk = (year: number, team = "BUF") => ({
+      teamCode: team, season: year, thresholds: { t1: 20, t2: 40, t3: 60 },
       payment: 0, resolved: false, swindle: false, branch: null, tier: null, outcome: null,
     });
     // an older encounter, long public, with nothing sidelined
     hf.encountersBySeason[s.season - 2] = { BUF: { ...mk(s.season - 2), resolved: true } as never };
     hf.encountersBySeason[s.season] = { BUF: mk(s.season) as never };
-    // a payment whose seeded outcome sidelines named players
-    for (let pay = 1; pay <= 60; pay += 0.5) {
-      const copy = JSON.parse(JSON.stringify(s)) as LeagueState;
-      const e = resolveHoodedFigureEncounter(copy, "BUF", pay);
-      if (e.branch === "negative" && e.outcome?.negativePlayers?.length) {
-        resolveHoodedFigureEncounter(s, "BUF", pay);
-        break;
+    // BUF and MIA share a division, so both hit the same CPU team. Find two
+    // payments whose seeded outcomes sideline the same player for different
+    // lengths: the second bargain then overwrites the stored duration.
+    hf.encountersBySeason[s.season]!.MIA = mk(s.season, "MIA") as never;
+    hf.firstNegativeConsumed = true;
+    search: for (let pa = 1; pa <= 40; pa += 0.5) {
+      for (let pb = 1; pb <= 40; pb += 0.5) {
+        const copy = structuredClone(s);
+        const a = resolveHoodedFigureEncounter(copy, "BUF", pa).outcome;
+        const b = resolveHoodedFigureEncounter(copy, "MIA", pb).outcome;
+        const both = (a?.negativePlayers ?? []).find((x) => b?.negativePlayers?.some((y) => y.playerId === x.playerId));
+        if (both && a!.absenceWeeks !== b!.absenceWeeks) {
+          resolveHoodedFigureEncounter(s, "BUF", pa);
+          resolveHoodedFigureEncounter(s, "MIA", pb);
+          shared = both.playerId;
+          firstWeeks = a!.absenceWeeks ?? null;
+          secondWeeks = b!.absenceWeeks ?? null;
+          break search;
+        }
       }
     }
+    if (!shared) throw new Error("no pair of payments overlaps on one player; widen the search");
     stored = JSON.parse(JSON.stringify(s.hoodedFigure!.unavailable));
   });
   baseline = JSON.stringify((await readLeague(leagueId))!.state);
@@ -107,59 +125,82 @@ const at = (stage: LeagueState["stage"], rolled: boolean) =>
     s.season = rolled ? season + 1 : season;
   });
 
+const sharedEntry = (s: LeagueState) => s.hoodedFigure!.unavailable.filter((u) => u.playerId === shared);
+
 describe("the figure's sidelined list, over GET /leagues/:id", () => {
-  maybe("really holds a sidelined player on the server", async () => {
+  maybe("really holds two bargains on one player, the second overwriting the duration", async () => {
+    expect(shared).not.toBe("");
+    expect(firstWeeks).not.toBe(secondWeeks);
     expect(stored.length).toBeGreaterThan(0);
-    expect((await readLeague(leagueId))!.state.hoodedFigure!.unavailable).toEqual(stored);
+    const raw = (await readLeague(leagueId))!.state;
+    expect(raw.hoodedFigure!.unavailable).toEqual(stored);
+    expect(sharedEntry(raw)).toEqual([{ playerId: shared, untilWeek: secondWeeks }]);
   });
 
-  maybe("is not sent to another team before rollover", async () => {
+  maybe("is not sent to an unrelated team before rollover", async () => {
     for (const stage of ["hoodedFigureEncounter", "offseasonDepthChart"] as const) {
       await at(stage, false);
       const s = await read(users.viewer);
       expect(s.hoodedFigure!.unavailable, stage).toEqual([]);
-      expect(JSON.stringify(s.hoodedFigure), stage).not.toContain(stored[0]!.playerId);
+      expect(JSON.stringify(s.hoodedFigure), stage).not.toContain(shared);
     }
   });
 
-  maybe("is not sent to another team in the preseason after rollover", async () => {
+  maybe("is not sent to an unrelated team in the preseason after rollover", async () => {
     await at("preseason", true);
     const s = await read(users.viewer);
     expect(s.hoodedFigure!.unavailable).toEqual([]);
-    expect(JSON.stringify(s.hoodedFigure)).not.toContain(stored[0]!.playerId);
+    expect(JSON.stringify(s.hoodedFigure)).not.toContain(shared);
   });
 
-  maybe("comes back, player and duration, at League Developments and in the regular season", async () => {
-    for (const stage of ["leagueDevelopments", "regularSeason"] as const) {
-      await at(stage, true);
-      const s = await read(users.viewer);
-      expect(s.hoodedFigure!.unavailable, stage).toEqual(stored);
-      expect(s.hoodedFigure!.encountersBySeason[season]!.BUF!.outcome, stage).not.toBeNull();
+  maybe("shows each payer only the duration their own bargain disclosed, before the reveal", async () => {
+    for (const [stage, rolled] of [["hoodedFigureEncounter", false], ["offseasonDepthChart", false], ["preseason", true]] as const) {
+      await at(stage, rolled);
+      const first = await read(users.payer);
+      const second = await read(users.second);
+      expect(sharedEntry(first), `${stage} first payer`).toEqual([{ playerId: shared, untilWeek: firstWeeks }]);
+      expect(sharedEntry(second), `${stage} second payer`).toEqual([{ playerId: shared, untilWeek: secondWeeks }]);
     }
   });
 
-  maybe("keeps the payer's own bargain visible before the reveal, price points still hidden", async () => {
-    await at("preseason", true);
-    const s = await read(users.payer);
-    expect(s.hoodedFigure!.unavailable).toEqual(stored);
-    expect(s.hoodedFigure!.encountersBySeason[season]!.BUF!.resolved).toBe(true);
-    expect(s.hoodedFigure!.encountersBySeason[season]!.BUF!.thresholds).toEqual({ t1: 0, t2: 0, t3: 0 });
+  maybe("comes back as the authoritative list at League Developments and in the regular season", async () => {
+    for (const stage of ["leagueDevelopments", "regularSeason"] as const) {
+      await at(stage, true);
+      for (const u of [users.viewer, users.payer, users.second]) {
+        const s = await read(u);
+        expect(s.hoodedFigure!.unavailable, stage).toEqual(stored);
+        expect(sharedEntry(s), stage).toEqual([{ playerId: shared, untilWeek: secondWeeks }]);
+      }
+      const v = await read(users.viewer);
+      expect(v.hoodedFigure!.encountersBySeason[season]!.BUF!.outcome, stage).not.toBeNull();
+    }
   });
 
-  maybe("hides the encounter itself from the other team until the reveal", async () => {
+  maybe("keeps the payer's own encounter visible before the reveal, price points still hidden", async () => {
+    await at("preseason", true);
+    const s = await read(users.payer);
+    const e = s.hoodedFigure!.encountersBySeason[season]!;
+    expect(e.BUF!.resolved).toBe(true);
+    expect(e.BUF!.thresholds).toEqual({ t1: 0, t2: 0, t3: 0 });
+    expect(e.MIA).toBeUndefined();
+  });
+
+  maybe("hides the encounters from an unrelated team until the reveal", async () => {
     await at("preseason", true);
     const s = await read(users.viewer);
     expect(s.hoodedFigure!.encountersBySeason[season]!.BUF).toBeUndefined();
+    expect(s.hoodedFigure!.encountersBySeason[season]!.MIA).toBeUndefined();
     // the older, public encounter is still shown (thresholds hidden)
     expect(s.hoodedFigure!.encountersBySeason[season - 2]!.BUF!.thresholds).toEqual({ t1: 0, t2: 0, t3: 0 });
   });
 
-  maybe("does not change what is stored when it is read", async () => {
-    await at("preseason", true);
-    const before = JSON.stringify((await readLeague(leagueId))!.state.hoodedFigure);
-    await read(users.viewer);
-    await read(users.payer);
-    expect(JSON.stringify((await readLeague(leagueId))!.state.hoodedFigure)).toBe(before);
-    expect((await readLeague(leagueId))!.state.hoodedFigure!.unavailable).toEqual(stored);
+  maybe("does not change what is stored when it is read, before or after the reveal", async () => {
+    for (const stage of ["preseason", "leagueDevelopments"] as const) {
+      await at(stage, true);
+      const before = JSON.stringify((await readLeague(leagueId))!.state.hoodedFigure);
+      for (const u of [users.viewer, users.payer, users.second]) await read(u);
+      expect(JSON.stringify((await readLeague(leagueId))!.state.hoodedFigure), stage).toBe(before);
+      expect((await readLeague(leagueId))!.state.hoodedFigure!.unavailable, stage).toEqual(stored);
+    }
   });
 });

@@ -142,4 +142,69 @@ describe("the sidelined list, as one GM sees it", () => {
     redactHoodedFigureFor(s, "NYJ");
     expect(s.hoodedFigure!.unavailable, "already public").toEqual(stored);
   });
+
+  it("gives each of two payers hitting one player only the duration their own bargain disclosed", () => {
+    // BUF and MIA share a division, so both target NE; a second bargain on the
+    // same player overwrites the stored duration (payments found by search)
+    const s = league();
+    s.gms[0]!.teamCode = "BUF";
+    s.gms[1]!.teamCode = "MIA";
+    const hf = s.hoodedFigure!;
+    hf.encountersBySeason[s.season] = {};
+    hf.unavailable = [];
+    hf.losingStreaks = { BUF: 2, MIA: 2 };
+    ensureHoodedFigureEncounters(s);
+    hf.firstNegativeConsumed = true;
+    const a = resolveHoodedFigureEncounter(s, "BUF", 1).outcome!;
+    const b = resolveHoodedFigureEncounter(s, "MIA", 3.5).outcome!;
+    const id = a.negativePlayers![0]!.playerId;
+    expect(b.negativePlayers!.map((p) => p.playerId)).toContain(id);
+    expect(a.absenceWeeks).not.toBe(b.absenceWeeks);
+    const stored = structuredClone(hf.unavailable);
+    expect(stored.find((u) => u.playerId === id)!.untilWeek).toBe(b.absenceWeeks);
+
+    const view = (team: string | null, stage: "hoodedFigureEncounter" | "preseason" | "leagueDevelopments") => {
+      const v = structuredClone(s);
+      if (stage !== "hoodedFigureEncounter") v.season += 1;
+      v.stage = stage;
+      redactHoodedFigureFor(v, team);
+      return v.hoodedFigure!.unavailable;
+    };
+    for (const stage of ["hoodedFigureEncounter", "preseason"] as const) {
+      expect(view("BUF", stage).find((u) => u.playerId === id), stage).toEqual({ playerId: id, untilWeek: a.absenceWeeks });
+      expect(view("MIA", stage).find((u) => u.playerId === id), stage).toEqual({ playerId: id, untilWeek: b.absenceWeeks });
+      expect(view("NYJ", stage), stage).toEqual([]);
+    }
+    expect(view("NYJ", "leagueDevelopments")).toEqual(stored);
+    expect(s.hoodedFigure!.unavailable).toEqual(stored); // the stored list is untouched
+  });
+
+  it("builds a whole-roster payer's list from the event, not from other bargains on that team", () => {
+    const s = league();
+    const target = "DEN";
+    const roster = Object.values(s.players).filter((p) => p.nfl_team === target);
+    const kicker = roster.find((p) => p.position === "K" || p.position === "P");
+    const starters = roster.filter((p) => p.position !== "K" && p.position !== "P").slice(0, 4);
+    expect(kicker).toBeDefined();
+    s.hoodedFigure!.unavailable = [
+      // another bargain overwrote one roster player with a finite absence, and sidelined the kicker
+      { playerId: starters[0]!.id, untilWeek: 2 },
+      ...starters.slice(1).map((p) => ({ playerId: p.id, untilWeek: null })),
+      { playerId: kicker!.id, untilWeek: 1 },
+    ];
+    s.hoodedFigure!.encountersBySeason[s.season]!.GB!.outcome = {
+      eventId: "the_team_plane", publicText: "", targetTeam: target, wholeRosterOut: true, absenceWeeks: null,
+    };
+    const stored = structuredClone(s.hoodedFigure!.unavailable);
+    const other = structuredClone(s);
+    redactHoodedFigureFor(other, "NYJ");
+    expect(other.hoodedFigure!.unavailable).toEqual([]);
+    const payer = structuredClone(s);
+    redactHoodedFigureFor(payer, "GB");
+    expect(payer.hoodedFigure!.unavailable).toEqual(starters.map((p) => ({ playerId: p.id, untilWeek: null })));
+    s.season += 1;
+    s.stage = "leagueDevelopments";
+    redactHoodedFigureFor(s, "NYJ");
+    expect(s.hoodedFigure!.unavailable).toEqual(stored);
+  });
 });

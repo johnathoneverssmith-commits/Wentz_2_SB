@@ -900,10 +900,23 @@ export function redactHoodedFigureFor(s: LeagueState, teamCode: string | null): 
   const newest = years.length ? Math.max(...years) : null;
   if (newest !== null && !encountersRevealed(s, newest)) {
     const own = teamCode ? hf.encountersBySeason[newest]?.[teamCode]?.outcome : null;
-    const ids = new Set((own?.negativePlayers ?? []).map((p) => p.playerId));
-    hf.unavailable = (hf.unavailable ?? []).filter((u) =>
-      ids.has(u.playerId) || (own?.wholeRosterOut === true && s.players[u.playerId]?.nfl_team === own.targetTeam),
-    );
+    const stored = hf.unavailable ?? [];
+    // Rebuilt from the payer's own outcome, not copied from the shared list:
+    // two bargains can hit the same player in one offseason, and the stored
+    // entry then carries whichever duration was written last.
+    if (own?.wholeRosterOut === true) {
+      hf.unavailable = stored
+        .filter((u) => {
+          const p = s.players[u.playerId];
+          return p?.nfl_team === own.targetTeam && p.position !== "K" && p.position !== "P";
+        })
+        .map((u) => ({ playerId: u.playerId, untilWeek: null }));
+    } else {
+      const ids = new Set((own?.negativePlayers ?? []).map((p) => p.playerId));
+      hf.unavailable = stored
+        .filter((u) => ids.has(u.playerId))
+        .map((u) => ({ playerId: u.playerId, untilWeek: own?.absenceWeeks ?? null }));
+    }
   }
 
   for (const [season, bySeason] of Object.entries(hf.encountersBySeason ?? {})) {
