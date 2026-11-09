@@ -92,22 +92,19 @@ export interface ReferencePoolInfo {
  * `NFL_POOL_PATH` or the sample, so the same seed and inputs give the same
  * result on any host. The array is not copied or modified, so do not mutate it
  * afterwards; supply a new one instead.
+ *
+ * Scope: this is **process-wide** state, set once before the engine runs (at
+ * startup, or between whole simulations). It is not per league, per request
+ * or per async context: do not change it while a simulation is in flight, and
+ * do not call it from code that interleaves with another league's games.
+ * Per-league or async-scoped pools are a later phase; there is deliberately no
+ * scoped helper here, because a synchronous try/finally cannot protect an
+ * async caller.
  */
 export function setReferencePool(players: readonly Player[] | null = null): ReferencePoolInfo {
   _explicit = players;
   dropPoolDerived();
   return referencePoolInfo();
-}
-
-/** Run `fn` on `players` as the reference pool, then restore whatever was in force. */
-export function withReferencePool<T>(players: readonly Player[] | null, fn: () => T): T {
-  const prev = _explicit;
-  setReferencePool(players);
-  try {
-    return fn();
-  } finally {
-    setReferencePool(prev);
-  }
 }
 
 function referencePlayers(): readonly Player[] {

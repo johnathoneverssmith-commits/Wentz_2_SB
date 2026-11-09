@@ -95,7 +95,7 @@ describe("reference pool is an explicit, versioned input", () => {
     const e = await freshEngine(FIXTURE, { onRead: (w) => reads.push(w) });
     e.roster.setReferencePool(fixturePool);
     e.fingerprint();
-    e.roster.withReferencePool(fixturePool, () => e.sim.simulateGame(9, "SF", "DAL"));
+    e.sim.simulateGame(9, "SF", "DAL");
     expect(reads).toEqual([]);
 
     // control: the detector does see the default path, so an empty list means something
@@ -128,12 +128,26 @@ describe("reference pool is an explicit, versioned input", () => {
     expect(e.fingerprint()).toEqual(original);
   });
 
-  it("withReferencePool restores the pool that was in force", async () => {
+  it("setReferencePool is process-wide and restorable: a pool can be replaced, nested and put back", async () => {
     const e = await freshEngine(FIXTURE);
     const v0 = e.roster.referencePoolInfo().version;
-    const seen = e.roster.withReferencePool(fixturePool.slice(0, 200), () => e.roster.referencePoolInfo());
-    expect(seen.source).toBe("explicit");
-    expect(seen.players).toBe(200);
+    const a = fixturePool.slice(0, 200);
+    const b = fixturePool.slice(0, 300);
+    e.roster.setReferencePool(a);
+    e.roster.setReferencePool(b); // replaces, does not stack
+    expect(e.roster.referencePoolInfo()).toMatchObject({ source: "explicit", players: 300 });
+    // a caller that restores in finally gets the previous pool back even if its work throws
+    const prev = e.roster.referencePoolInfo().version;
+    expect(() => {
+      e.roster.setReferencePool(a);
+      try {
+        throw new Error("boom");
+      } finally {
+        e.roster.setReferencePool(b);
+      }
+    }).toThrow("boom");
+    expect(e.roster.referencePoolInfo().version).toBe(prev);
+    e.roster.setReferencePool(null);
     expect(e.roster.referencePoolInfo()).toMatchObject({ source: "default", version: v0 });
   });
 
