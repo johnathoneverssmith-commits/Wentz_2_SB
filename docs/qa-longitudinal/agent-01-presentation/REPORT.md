@@ -4,9 +4,11 @@ Baseline: `master` `d0727ff` (still the tip of master when verified; the TAFI re
 QA-only PR, no production change. Local results, not CI. Verification detail: `verification/`.
 
 ## Result in one paragraph
-Of the 10 findings in the first pass, **6 are confirmed**, **3 were false positives** (and one half of PA-004),
-and **2 were reclassified as opportunities, not defects** (one of them partly my error). Audio could not be
-listened to, but it was measured. Nothing here blocks play (no P0).
+Of the 10 first-pass findings (PA-001 to PA-010): **6 are confirmed** (PA-001, 002, 003, 004, 005, 008),
+**2 are false positives** (PA-006, PA-007), and **2 were reclassified as opportunities, not defects** (PA-009,
+PA-010; PA-010 partly my error). PA-004 is split: its green-text half is confirmed (PA-004a), its caption half is a
+false positive (PA-004b). Separately, four harness readings (V-001 to V-004, History tables) were discarded as probe
+artefacts before they became findings. Audio could not be listened to, but it was measured. Nothing here blocks play (no P0).
 
 ## Final classification of the first-pass findings
 
@@ -24,8 +26,9 @@ listened to, but it was measured. Nothing here blocks play (no P0).
 | PA-009 No sack cue | **Opportunity** (source-only) | P3 | Not a defect |
 | PA-010 Draft atmosphere stops at your own pick | **Reclassified: intentional** | P3 opportunity | See "Intent" below. My original wording ("no announcement") was wrong |
 
-**Confirmed new issues: 6** (P1: 1, P2: 2, P3: 3). **False positives: 3 findings plus the harness's V-001..V-004
-History-table readings, and PA-004b.** No regressions identified (no earlier baseline measured).
+**Confirmed new issues: 6** (P1: 1, P2: 2, P3: 3). **False positives: 2 findings (PA-006, PA-007) and 1 sub-reading
+(PA-004b); 4 harness readings (V-001 to V-004) discarded before reporting.** **Reclassified: 2** (PA-009, PA-010).
+No regressions identified (no earlier baseline measured).
 
 ## Touch targets (task 3)
 The 40px-high buttons (`button.reset`, `.how-tab`, `.ui-skip`) and 110x25 `span[role=button]` reported by the harness
@@ -90,9 +93,15 @@ Master is unchanged since the baseline. The register has no audio entries, so PA
 
 ---
 
-# Appendix: first-pass report (superseded where it differs)
+# Appendix: first-pass report (SUPERSEDED, kept as measurement history)
 
-# Agent 1 — Presentation, Audio & Immersion Audit
+> **Superseded.** Everything above this line is authoritative. The first-pass table below uses the original
+> priorities and figures, several of which were corrected or reversed on verification (PA-003 was 1.25:1 not 1.40;
+> PA-004b, PA-006 and PA-007 were false positives; PA-010 is a documented design choice; PA-008 and PA-009 are P3).
+> Its roadmap, top-five and uncertainty sections were removed so no second set of priorities remains. Do not plan
+> from this appendix.
+
+## First-pass audit text (historical)
 
 Baseline: `master` `d0727ff` (merge of PR #103, Group 08). QA-only PR, no production change.
 Local results, not CI.
@@ -124,7 +133,7 @@ Wired: onTheClock, pickMade (your picks), tradeOffer (incoming), gameWon/Lost, c
 touchdown/fieldGoal/turnover/injury (gamecast), newJob (hot seat). Not audio-capable surfaces: muting is
 a master switch only (no per-category mute besides the chants box).
 
-## New findings
+## First-pass findings table (historical; final verdicts are in the section above)
 
 IDs `PA-###`. All "New" (not in the Master register); none is a regression (no earlier baseline compared).
 Frequency is for BAL in this run.
@@ -142,7 +151,6 @@ Frequency is for BAL in this run.
 | PA-009 | P3 | **No sack cue** in the gamecast (TD, FG, turnover, injury only), though sacks are tagged key plays in the log | `Gamecast.tsx:324-327` | Source only |
 | PA-010 | P2 | **Draft atmosphere stops at your own pick.** `pickMade` fires only for the viewer's team; other teams' picks, trades-completed and offseason-stage transitions have no cue or announcement. Draft day is the biggest missed atmosphere moment | `useGameAudio.ts:93-98` | Source only |
 
-Totals: 10 new (P1: 1, P2: 5, P3: 4; no P0). 3 are source-only, 5 probe-only, 2 visually confirmed.
 
 ### Discarded (probe artefacts, not reported as defects)
 - Harness V-001..V-004 (history/season-complete `td`, 1.20:1 "on rgb(1,1,1)"): the screenshot shows dark navy
@@ -150,7 +158,7 @@ Totals: 10 new (P1: 1, P2: 5, P3: 4; no P0). 3 are source-only, 5 probe-only, 2 
   for gradients). **Recommend the harness treat near-black background readings as unknown.**
 - V-006 roster slot numerals 2.95:1 vs 3:1 at 44px: decorative, within rounding.
 
-## Existing TAFIs seen again (not new)
+## Existing TAFIs seen again (see the deduplication section above)
 - **UI-TAFI-004** (floating buttons cover content): confirmed at 390 on trade deadline, where the Methodology and
   Unit Grades tabs sit on top of the "You're on the clock" explanation, and on the hub where Methodology overlaps the
   readiness card. This is the Methodology-tab overlap named in the brief; still open, and the worst phone-width defect I saw (P1).
@@ -180,26 +188,5 @@ Totals: 10 new (P1: 1, P2: 5, P3: 4; no P0). 3 are source-only, 5 probe-only, 2 
 | Offseason transition | mood change only | a stage-change sting on Season Complete -> Draft | Small |
 | Mixing/accessibility | master toggle, two sliders, chant box | per-category mute, a captions-style "sound cue" toast for deaf/HoH players, volume memory is fine | Medium |
 
-## Prioritised roadmap (impact / effort)
-1. Fix phone-width floating Methodology / Unit Grades tabs (UI-TAFI-004): move into the header or a menu. P1, small.
-2. Fix the unreadable "Your assets" button (PA-001) and the dark header band's text tokens. P1, small.
-3. Wire `signed`, add trade-complete and other-team draft-pick cues (PA-008, PA-010). P2, small.
-4. Fix Game Day sideways scroll and the 40px / 25px touch targets (PA-002, PA-007, UI-TAFI-012). P2, small-medium.
-5. Season Complete / History: lead with the champion and a story of the season (UI-TAFI-010, History empty values). P2, medium.
-6. Per-photo variety for mastheads (UI-TAFI-006/019), heading hierarchy (PA-005). P3, medium (asset work).
 
-## Top five changes most likely to improve perceived quality
-1. Stop floating tabs covering content on phones.
-2. Fix the unreadable dark-band controls (Your assets, and the whole class of dark header text).
-3. Give the draft a voice: other-team picks, announcements, trades.
-4. Make season ends feel like a payoff: champion-first Season Complete and a richer History.
-5. Wire the unfired `signed` cue plus a sack and trade-complete cue, so every major action has feedback.
-
-## Unresolved uncertainties
-- No audio was heard; cue loudness, mix and whether the generative score is pleasant are unknown.
-- Keyboard and reduced-motion behavior not exercised by me.
-- Only BAL was captured; other team palettes can fail contrast differently (the harness probe found it did before).
-- PA-003..PA-007 rest on the probe alone; PA-004's background may be a gradient.
-- The fixture league, not a hand-played one, so 4-11-2 and sparse History values may be fixture artefacts.
-
-Reproduce: `AUDIT_CHROMIUM_PATH=/opt/pw-browsers/chromium AUDIT_TEAMS=BAL AUDIT_VIEWPORTS=1440,390,320 AUDIT_SCREENS=<ids> npm run audit:visual -- specs/capture.spec.ts` then `npm run audit:register`.
+Reproduce the first-pass capture: `AUDIT_CHROMIUM_PATH=/opt/pw-browsers/chromium AUDIT_TEAMS=BAL AUDIT_VIEWPORTS=1440,390,320 AUDIT_SCREENS=<ids> npm run audit:visual -- specs/capture.spec.ts`, then `npm run audit:register`. The verification spec and audio capture script are in `verification/` (`.txt` copies, not wired into the harness).
