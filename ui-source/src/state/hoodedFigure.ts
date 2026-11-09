@@ -908,7 +908,7 @@ export function redactHoodedFigureFor(s: LeagueState, teamCode: string | null): 
       hf.unavailable = stored
         .filter((u) => {
           const p = s.players[u.playerId];
-          return p?.nfl_team === own.targetTeam && p.position !== "K" && p.position !== "P";
+          return !!p && p.nfl_team === own.targetTeam && p.position !== "K" && p.position !== "P";
         })
         .map((u) => ({ playerId: u.playerId, untilWeek: null }));
     } else {
