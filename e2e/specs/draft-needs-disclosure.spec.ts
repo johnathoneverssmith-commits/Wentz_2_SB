@@ -17,17 +17,23 @@ async function measure(page: Page) {
       const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
       return 0.2126 * f(r!) + 0.7152 * f(g!) + 0.0722 * f(b!);
     };
-    let bg = [255, 255, 255];
+    // composite every translucent layer from the first opaque ancestor down to the summary, then the text over that
+    const over = (top: number[], a: number, under: number[]) => top.map((v, i) => v * a + under[i]! * (1 - a));
+    const layers: number[][] = [];
     let image = false;
     for (let el: Element | null = summary; el; el = el.parentElement) {
-      const [r, g, b, a = 1] = parse(getComputedStyle(el).backgroundColor);
-      if (getComputedStyle(el).backgroundImage !== "none") image = true;
-      if (a === 1) { bg = [r!, g!, b!]; break; }
-      if (a > 0) { bg = [r!, g!, b!]; break; }
+      const cs = getComputedStyle(el);
+      if (cs.backgroundImage !== "none") image = true;
+      const [r, g, b, a = 1] = parse(cs.backgroundColor);
+      if (a > 0) layers.push([r!, g!, b!, a]);
+      if (a === 1) break;
     }
-    const fg = parse(getComputedStyle(summary).color).slice(0, 3);
+    let bg = [255, 255, 255]; // the page canvas, if no ancestor was opaque
+    for (const [r, g, b, a] of layers.reverse()) bg = over([r!, g!, b!], a!, bg);
+    const [fr, fg0, fb, fa = 1] = parse(getComputedStyle(summary).color);
+    const fg = over([fr!, fg0!, fb!], fa, bg);
     const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
-    return { image, fg: fg.join(","), bg: bg.join(","), ratio: Math.round(((hi! + 0.05) / (lo! + 0.05)) * 100) / 100 };
+    return { image, fg: fg.map(Math.round).join(","), bg: bg.map(Math.round).join(","), ratio: Math.round(((hi! + 0.05) / (lo! + 0.05)) * 100) / 100 };
   });
 }
 
