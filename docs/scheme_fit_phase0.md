@@ -35,6 +35,9 @@ Before the per-slot, fictional-league centring the same check showed `man_press`
 ## Real-engine margins (earlier draft: reference-pool centring; not re-swept, the exact shifts above are the evidence) (team A, 384 games/cell, standard error about 0.75 at talent 1.0 and 0.9 at 1.5)
 Mean over the five specialised offences, margin vs the neutral scheme's cell: stripped legacy talent 1.0 +0.14 vs +0.10 neutral (inside noise); talent 1.5 -0.74 vs +0.02 (clearly negative, the defect); stripped derived talent 1.5 +0.55 vs +0.02. Defensive cells are all inside noise in both modes at both talents (legacy -0.46..+0.77 at 1.0, +0.21..+0.64 at 1.5), so the sim does not by itself demonstrate the defensive penalty; the exact shifts above do. Compatible rosters (every starter tagged for the scheme) gain +1.5..+2.4 over neutral at talent 1.0 and +0.2..+2.4 at 1.5 (offence at 1.5 is noisy: +0.21..+0.84). "Incompatible" cells equal legacy-untagged exactly (same fit of 0), as expected. Full tables were printed by the harness; do not read single cells as precise.
 
+## Environment caveat
+The legacy fit baseline and the engine's other reference-pool centring come from whichever pool the process loads (a full local pool, `test/fixtures/pool.json` for the root suite, or the 8-player sample for the online suite). The legacy columns above were measured with a full 32-team pool; the derived columns for fictional leagues do not depend on it. In the sample-pool environment (CI online), derived vs legacy per team-game over 2,304 team-games: points 20.90 -> 21.54, rushing 115.1 -> 120.1, passing yards 227.1 -> 227.4.
+
 ## Compatibility
 - Absent `LeagueConfig.schemeFit` or `Staff.schemeFit` = legacy; asserted byte-identical at talent 1.0 and 1.5 (`test/engine-scheme-fit.test.ts`).
 - Tagged rosters are byte-identical in derived mode; the league-average staff stays an exact no-op.

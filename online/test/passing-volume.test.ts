@@ -36,8 +36,8 @@ it("a simulated week throws the ball, and every stat layer records it", () => {
   for (const code of new Set(games.flatMap((g) => [g.homeTeam, g.awayTeam]))) {
     const thrown = players.filter((p) => p.nfl_team === code).reduce((n, p) => n + (p.season_stats?.passAtt ?? 0), 0);
     // a team's passer threw: this catches a stat layer that records nothing. A low-volume
-    // game is real football (the 2026-11 engine gave one team 15 in this seed's week 1),
-    // so the bar is "threw", not "threw like an average team".
+    // game is real football (with the derived scheme fit, seed 9090's week 1 gives one team
+    // exactly 15), so the bar is "threw", not "threw like an average team".
     expect(thrown, code).toBeGreaterThan(8);
   }
 });
@@ -83,17 +83,13 @@ it("a simulated week throws the ball, and every stat layer records it", () => {
  * because it was wide). The fix itself moved points 21.82 -> 21.25 (-0.57), every other
  * statistic within noise. Sack rate 0.0686 -> 0.0705.
  *
- * RE-MEASURED again for Phase 0 scheme fit (2026-11, same seeds 101-124 x 3 weeks, 2,304
- * team-games), and the stored figures above were already stale: master's engine with the
- * legacy fit measures passing yards 239.5 / sd 82.6, rushing 111.3, points 23.0 / sd 11.8,
- * sacks 2.08, attempts 29.78 on those seeds (not 223.0 / 120.3 / 21.25), so the old band
- * only passed on the six default leagues by luck. New leagues now start on the derived
- * scheme fit, which on the same seeds moves league means by passing yards -1.4 (noise),
- * rushing +2.8, points +0.5 (+2%; the NFL's 22.6 is a little further away, 23.0 -> 23.5, accepted), sacks -0.08, attempts -0.12,
- * completion +0.3 points. The per-game baseline is now the derived measurement: 238.12 /
- * 114.14 / 23.51 / 1.998 / 29.66. The sack-RATE band (SACK_RATE) is deliberately left alone: it
- * needs a league-by-league spread this re-measurement did not take. The NFL envelope below is
- * unchanged.
+ * CHECKED again for Phase 0 scheme fit (2026-11): new leagues now start on the derived scheme fit.
+ * Measured the way CI runs this suite (no local pool, so the engine's reference pool is the
+ * 8-player sample), on these same seeds 101-124 x 3 weeks: legacy fit vs derived fit, per
+ * team-game, passing yards 227.1 -> 227.4, rushing 115.1 -> 120.1, points 20.90 -> 21.54
+ * (+3%, toward the NFL's 22.6), sacks 2.239 -> 2.236, attempts 30.05 -> 29.98. All inside the
+ * baseline above, so it is unchanged. (A machine with a full local pool centres the rating
+ * layer on 32 teams and measures higher, 239.5 / 23.0 for legacy - do not re-measure there.)
  *
  * Cost: ~5 seconds a league. The default is 6 leagues; STATS_SEEDS=12 (or any
  * number up to the length of SEEDS) widens the net for a deep check.
@@ -102,11 +98,11 @@ const BASELINE_SEEDS = Array.from({ length: 24 }, (_, i) => 101 + i);
 const BASELINE = {
   n: 2304,
   // per team-game: mean and standard deviation
-  passYards: { mean: 238.12, sd: 81.22 },
-  rushYards: { mean: 114.14, sd: 59.29 },
-  points: { mean: 23.51, sd: 11.61 },
-  sacksAllowed: { mean: 1.998, sd: 1.85 },
-  passAtt: { mean: 29.66, sd: 6.4 },
+  passYards: { mean: 222.96, sd: 63.82 },
+  rushYards: { mean: 120.31, sd: 59.79 },
+  points: { mean: 21.25, sd: 9.45 },
+  sacksAllowed: { mean: 2.258, sd: 1.59 },
+  passAtt: { mean: 29.79, sd: 6.62 },
 } as const;
 type Stat = keyof Omit<typeof BASELINE, "n">;
 const STATS = Object.keys(BASELINE).filter((k) => k !== "n") as Stat[];
