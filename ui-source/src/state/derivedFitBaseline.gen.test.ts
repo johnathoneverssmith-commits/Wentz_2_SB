@@ -4,7 +4,11 @@ import { createLeague, DEFAULT_CONFIG, fillRosterGaps } from "./seed.ts";
 import { Roster } from "../../../src/engine/roster.ts";
 import { derivedSchemeTags } from "../../../src/engine/scheme-tags.ts";
 import { DEF_SCHEME_TAGS, OFF_SCHEME_TAGS } from "../../../src/engine/staff.ts";
-import { DEF_SLOTS, OFF_SLOTS } from "../../../src/engine/staff-fit.ts";
+// Same lists, same order as `OFF_SLOTS` / `DEF_SLOTS` in src/engine/staff-fit.ts. They are repeated here
+// rather than imported because staff-fit reaches the engine's model loaders, which the UI's strict
+// `tsc -b` would then have to compile; test/engine-scheme-fit.test.ts pins the artifact's shape to the engine's.
+const OFF_SLOTS = ["QB1", "RB1", "WR1", "WR2", "WR3", "TE1", "LT", "LG", "C", "RG", "RT"] as const;
+const DEF_SLOTS = ["EDGE1", "EDGE2", "DT1", "DT2", "ILB1", "ILB2", "CB1", "CB2", "S1", "S2"] as const;
 const SEEDS = Array.from({ length: 20 }, (_, i) => 1000 + i);
 /**
  * Regenerates artifacts/models/derived_fit_baseline.json (the centring for

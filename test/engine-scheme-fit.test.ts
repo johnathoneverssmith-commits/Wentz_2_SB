@@ -4,6 +4,7 @@ import { hasFullPool } from "../src/data/players.js";
 import type { Player } from "../src/schema/player.js";
 import { Roster, roster, teamList } from "../src/engine/roster.js";
 import { derivedSchemeTags, effectiveSchemeTags } from "../src/engine/scheme-tags.js";
+import { loadDerivedFitBaseline } from "../src/engine/loaders.js";
 import { simulateGame } from "../src/engine/sim.js";
 import {
   DEF_SCHEME_TAGS,
@@ -47,6 +48,20 @@ const tagsOf = (r: Roster, side: "off" | "def", derived: boolean) => {
   const u = (side === "off" ? r.offense() : r.defense()) as Record<string, Player | null>;
   return (side === "off" ? OFF_SLOTS : DEF_SLOTS).map((s) => (derived ? effectiveSchemeTags(u[s]) : u[s]?.scheme_tags));
 };
+
+describe("derived-fit baseline artifact", () => {
+  it("has a column per lineup slot for every scheme (the UI generator repeats the slot lists)", () => {
+    const b = loadDerivedFitBaseline();
+    expect(Object.keys(b.off).sort()).toEqual([...OFF].sort());
+    expect(Object.keys(b.def).sort()).toEqual([...DEF].sort());
+    for (const s of OFF) expect(b.off[s]).toHaveLength(OFF_SLOTS.length);
+    for (const s of DEF) expect(b.def[s]).toHaveLength(DEF_SLOTS.length);
+    for (const v of [...Object.values(b.off), ...Object.values(b.def)].flat()) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+  });
+});
 
 describe("derived scheme tags (pool-free)", () => {
   it("reads archetype-like styles off attributes", () => {
