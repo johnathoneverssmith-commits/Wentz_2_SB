@@ -1,0 +1,4 @@
+PASS  loaded a pre-change engine-played save unchanged (simEngine=undefined, 2028/preseason)
+PASS  inferred engine-backed (its archived games carry engine weather): adapter loss stops play
+PASS  nothing played; save unchanged
+PASS  resumes on the engine and the choice is now recorded (simEngine=engine)

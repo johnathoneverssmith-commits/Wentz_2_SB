@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { downloadBackup, peekBackup, restoreFromText } from "@/state/saveBackup";
+import { teamFullName } from "@/data/teams";
+import { downloadBackup, peekBackup, peekKeptDynasty, restoreFromText, restoreKeptDynasty, type KeptDynasty } from "@/state/saveBackup";
+import { useStore, worthKeeping } from "@/state/store";
 
 /**
  * Back a dynasty up to a file, and bring one back.
@@ -15,6 +17,32 @@ import { downloadBackup, peekBackup, restoreFromText } from "@/state/saveBackup"
 export function SaveBackup({ inline = false }: { inline?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const [note, setNote] = useState<string | null>(null);
+  // the dynasty kept aside when a new one was started (see `keepCurrentDynasty`); re-read when the league changes
+  const [kept, setKept] = useState<KeptDynasty | null>(null);
+  const marker = useStore((s) => `${s.season}|${s.stage}|${s.history.length}`);
+  useEffect(() => {
+    let live = true;
+    void peekKeptDynasty().then((k) => live && setKept(k));
+    return () => {
+      live = false;
+    };
+  }, [marker]);
+
+  const restoreKept = async () => {
+    if (!kept) return;
+    const keepsCurrent = worthKeeping(useStore.getState());
+    const where = `${kept.team ? teamFullName(kept.team) + ", " : ""}${kept.seasonsPlayed} season${kept.seasonsPlayed === 1 ? "" : "s"} played, ${kept.season}`;
+    if (!confirm(`Restore the previous dynasty (${where})? ${keepsCurrent ? "The dynasty on screen takes its place as the kept copy, so pressing this again switches back." : "The league on screen has no progress to keep, so it is simply replaced."}`)) return;
+    const r = await restoreKeptDynasty();
+    if (!r.ok) {
+      return setNote(
+        r.reason === "couldNotSwap"
+          ? "Nothing was changed: this browser couldn't complete the swap (storage full or blocked). Both dynasties are still where they were."
+          : "The kept dynasty couldn't be read.",
+      );
+    }
+    setNote(r.saved ? `Restored the ${r.season} dynasty and saved it.${r.swapped ? " The dynasty you left is now the kept copy." : ""}` : `Restored the ${r.season} dynasty, but it could not be saved to this browser. Keep this tab open and download a backup.`);
+  };
 
   const download = () => {
     const bytes = downloadBackup();
@@ -44,6 +72,11 @@ export function SaveBackup({ inline = false }: { inline?: boolean }) {
       <button type="button" className="reset" onClick={() => input.current?.click()} title="Load a dynasty from a backup file">
         Restore from backup
       </button>
+      {kept && (
+        <button type="button" className="reset" data-testid="restore-previous-dynasty" onClick={() => void restoreKept()} title="Brings back the dynasty that was on this device before you started a new one">
+          Restore previous dynasty ({kept.team || "?"}, {kept.season})
+        </button>
+      )}
       <input
         ref={input}
         type="file"

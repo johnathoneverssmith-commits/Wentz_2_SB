@@ -1,7 +1,7 @@
 import type { LeagueState } from "@/domain";
 
 import { CURRENT_SAVE_VERSION, migrateLeagueSave } from "./saveMigration";
-import { flushSave, useStore } from "./store";
+import { flushSave, readKeptDynasty, swapKeptDynasty, useStore } from "./store";
 
 export const BACKUP_FORMAT = "nfl-franchise-sim-save";
 
@@ -31,8 +31,8 @@ export function downloadBackup(): number {
 }
 
 export type RestoreOutcome =
-  | { ok: true; season: number; saved: boolean }
-  | { ok: false; reason: "notABackup" | "unreadable" };
+  | { ok: true; season: number; saved: boolean; swapped?: boolean }
+  | { ok: false; reason: "notABackup" | "unreadable" | "couldNotSwap" };
 
 /**
  * Parse a backup, migrate it and make it the current dynasty. `saved` says whether the restored
@@ -62,4 +62,49 @@ export function peekBackup(text: string): { season?: number } | null {
   } catch {
     return null;
   }
+}
+
+/** What the kept (previous) dynasty is, for the "Restore previous dynasty" control. Null when none is kept. */
+export interface KeptDynasty {
+  season: number;
+  stage: string;
+  team: string;
+  seasonsPlayed: number;
+  savedAt?: number;
+}
+export async function peekKeptDynasty(): Promise<KeptDynasty | null> {
+  const kept = await readKeptDynasty();
+  if (!kept) return null;
+  try {
+    const st = (JSON.parse(kept.json) as { state?: Partial<LeagueState> }).state;
+    if (!st?.teams || !st.gms) return null;
+    const team = st.gms.find((g) => g.id === st.viewerGmId)?.teamCode ?? "";
+    return { season: st.season ?? 0, stage: String(st.stage ?? ""), team, seasonsPlayed: st.history?.length ?? 0, ...(kept.savedAt ? { savedAt: kept.savedAt } : {}) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Bring the kept dynasty back, all-or-nothing. The two saves are exchanged in one storage step: the kept dynasty
+ * becomes the live save and, when the dynasty on screen has seasons or progress, it takes the kept slot (so a second
+ * press swaps back). If that step cannot complete (storage full or refusing writes) nothing changes and both dynasties
+ * are still where they were; the screen is only updated after the exchange has committed.
+ */
+export async function restoreKeptDynasty(): Promise<RestoreOutcome> {
+  const kept = await readKeptDynasty();
+  if (!kept) return { ok: false, reason: "notABackup" };
+  let migrated: LeagueState;
+  try {
+    const env = JSON.parse(kept.json) as { state?: LeagueState; version?: number };
+    if (!env.state?.teams || !env.state.players || !env.state.gms) return { ok: false, reason: "notABackup" };
+    migrated = migrateLeagueSave(env.state, env.version ?? 0);
+  } catch {
+    return { ok: false, reason: "unreadable" };
+  }
+  const { done, swapped } = await swapKeptDynasty();
+  if (!done) return { ok: false, reason: "couldNotSwap" };
+  useStore.setState(migrated as never);
+  const saved = await flushSave();
+  return { ok: true, season: migrated.season, saved, swapped };
 }

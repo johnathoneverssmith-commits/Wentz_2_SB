@@ -51,7 +51,7 @@ export interface SimulationService {
   generateCoachMarket(seed: number): Coach[] | Promise<Coach[]>;
 
   /** 18-week regular-season schedule + a 3-week preseason (spec §6.1/§6.7). */
-  generateSchedule(seed: number, teamCodes: string[]): ScheduledGame[] | Promise<ScheduledGame[]>;
+  generateSchedule(seed: number, teamCodes: string[], engine?: import("./engineMode").EngineRequest): ScheduledGame[] | Promise<ScheduledGame[]>;
 
   /** A rookie draft class (spec §6.5). */
   generateDraftClass(

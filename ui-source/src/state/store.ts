@@ -31,6 +31,7 @@ import {
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
+import { engineOf, isEngineUnavailable, type EngineMode } from "@/sim/engineMode";
 
 import {
   applyDraftSetting,
@@ -170,7 +171,7 @@ const sim = new HybridSimulationService();
 export interface StoreActions {
   /** builds the league instantly (Mock skeleton), then upgrades players/schedule to
    *  real engine data in the background if the adapter is reachable. */
-  newLeague: (seed?: number, config?: LeagueConfig) => Promise<void>;
+  newLeague: (seed?: number, config?: LeagueConfig, opts?: { discardUnkept?: boolean }) => Promise<void>;
   setConfig: (partial: Partial<LeagueConfig>) => void;
   pickTeam: (gmId: string, teamCode: string) => void;
   setReady: (gmId: string, ready: boolean) => void;
@@ -524,6 +525,48 @@ export function flushSave(): Promise<boolean> {
 }
 // Browser tests (and anyone debugging) can ask the page to finish its writes before they read storage.
 if (hasWindow) (window as unknown as { __nflSimFlushSave?: () => Promise<boolean> }).__nflSimFlushSave = flushSave;
+
+/**
+ * A dynasty worth keeping a copy of before it is replaced: one that has left setup or has seasons on record.
+ * (A league still at setup is empty, and must never replace the recovery copy of a real one.)
+ */
+export const worthKeeping = (s: Pick<LeagueState, "stage" | "history">): boolean => s.stage !== "setup" || (s.history?.length ?? 0) > 0;
+
+/**
+ * Keep the current solo dynasty in `<slot>#undo` — a record no autosave or reset ever writes — before it is replaced
+ * (a new dynasty, or restoring another one). "kept": a verified copy exists. "nothing": there was nothing worth
+ * keeping (or this device is in an online league, whose server holds the league). "failed": a copy could not be made.
+ */
+export async function keepCurrentDynasty(): Promise<"kept" | "nothing" | "failed"> {
+  // no browser storage at all (a headless run): nothing is persisted, so there is no save to protect
+  if (!hasWindow || lastLeagueId() !== null) return "nothing";
+  if (!worthKeeping(useStore.getState())) return "nothing";
+  return (await durable.archive(SAVE_KEY)) ? "kept" : "failed";
+}
+/** The dynasty kept by {@link keepCurrentDynasty}, as the persisted envelope, or null. */
+export const readKeptDynasty = () => durable.readUndo(SAVE_KEY);
+/** Make the kept dynasty the live save, all-or-nothing; the dynasty being left takes its place when it is worth keeping. */
+export async function swapKeptDynasty(): Promise<{ done: boolean; swapped: boolean }> {
+  const swapped = lastLeagueId() === null && worthKeeping(useStore.getState());
+  return { done: await durable.swap(SAVE_KEY, swapped), swapped };
+}
+
+/**
+ * A new league was not started because the dynasty it would replace could not be kept (storage full or refusing
+ * writes). The shell says so and offers to download a backup or to go ahead anyway.
+ */
+let resetRefused: { seed: number; config: LeagueConfig | undefined } | null = null;
+const resetRefusedWatchers = new Set<(r: { seed: number; config: LeagueConfig | undefined } | null) => void>();
+function setResetRefused(r: typeof resetRefused): void {
+  resetRefused = r;
+  for (const fn of resetRefusedWatchers) fn(r);
+}
+export function onResetRefused(fn: (r: { seed: number; config: LeagueConfig | undefined } | null) => void): () => void {
+  resetRefusedWatchers.add(fn);
+  fn(resetRefused);
+  return () => resetRefusedWatchers.delete(fn);
+}
+export const dismissResetRefused = (): void => setResetRefused(null);
 export const saveStatus = (): SaveStatus => durable.status();
 export const saveBackendKind = (): string => durable.backend.kind;
 export const lastSaveError = (): string | null => durable.lastError();
@@ -737,6 +780,68 @@ export function onSaveCorrupted(fn: (corrupted: boolean) => void): () => void {
   return () => corruptWatchers.delete(fn);
 }
 
+/**
+ * The engine-backed dynasty could not reach the engine. The save is untouched (every simulator call happens
+ * before any state change); the shell shows this with a Retry button, and the move is simply not made.
+ */
+let engineIssue: string | null = null;
+/** the dynasty is an old save with no recorded simulator: besides Retry, the player may choose the Mock */
+let engineChoice = false;
+const engineIssueWatchers = new Set<(msg: string | null) => void>();
+const engineChoiceWatchers = new Set<(needed: boolean) => void>();
+function setEngineIssue(msg: string | null, choice = false): void {
+  if (choice !== engineChoice) {
+    engineChoice = choice;
+    for (const fn of engineChoiceWatchers) fn(choice);
+  }
+  if (msg === engineIssue) return;
+  engineIssue = msg;
+  for (const fn of engineIssueWatchers) fn(msg);
+}
+export function onEngineChoice(fn: (needed: boolean) => void): () => void {
+  engineChoiceWatchers.add(fn);
+  fn(engineChoice);
+  return () => engineChoiceWatchers.delete(fn);
+}
+/**
+ * The player's explicit decision for an old save that never recorded its simulator and cannot be inferred: play it on
+ * the Mock. Recorded on the save, so it is never changed afterwards. Does nothing on a save that already has one.
+ */
+export function chooseMockForThisDynasty(): boolean {
+  if (engineOf(useStore.getState())) return false;
+  useStore.setState({ simEngine: "mock" } as never);
+  setEngineIssue(null);
+  return true;
+}
+export function onEngineIssue(fn: (msg: string | null) => void): () => void {
+  engineIssueWatchers.add(fn);
+  fn(engineIssue);
+  return () => engineIssueWatchers.delete(fn);
+}
+/** Ask the engine whether it is back. True clears the notice; the player then repeats the move they made. */
+export async function retryEngine(): Promise<boolean> {
+  const ok = await sim.engineReachable();
+  if (ok) setEngineIssue(null);
+  return ok;
+}
+/** Runs a simulator step; an unreachable engine becomes a notice and `onDown` instead of a half-made move or a crash. */
+async function engineStep<T, D>(work: () => Promise<T>, onDown: D): Promise<T | D> {
+  try {
+    const out = await work();
+    setEngineIssue(null);
+    return out;
+  } catch (e) {
+    if (isEngineUnavailable(e)) {
+      setEngineIssue(e.message, e.undecided === true);
+      return onDown;
+    }
+    throw e;
+  }
+}
+/** The simulator to fix on a dynasty that has not chosen one, after a step that actually called it. */
+const lockedTo = (s: { simEngine?: EngineMode | undefined; games: LeagueState["games"] }): EngineMode | undefined =>
+  s.simEngine ?? sim.lastSource;
+
 /** The stage move under way, if any — see `tryAdvance`. */
 let advanceInFlight: Promise<{ moved: boolean; route: string }> | null = null;
 
@@ -747,10 +852,20 @@ export const useStore = create<Store>()(
       // fantasy-draft order (Minnesota first, every time)
       ...createLeague(Date.now() % 100_000),
 
-      newLeague: async (seed = Date.now() % 100000, config) => {
+      newLeague: async (seed = Date.now() % 100000, config, opts) => {
         // Observe initialization for the UI without changing generation or saved state.
         const finishCreating = beginSetupCreation();
         try {
+        // The dynasty being replaced is kept first, in a place the new league's autosaves cannot reach. (The header
+        // button asks for this itself, ahead of its confirmation, and refuses to go on without it; any other caller
+        // gets the same best-effort copy.)
+        const kept = await keepCurrentDynasty();
+        if (kept === "failed" && !opts?.discardUnkept) {
+          // nothing has been replaced: the dynasty on screen is still the saved one
+          setResetRefused({ seed, config });
+          return;
+        }
+        setResetRefused(null);
         // instant, Mock-backed skeleton — always playable, never blocks on the network
         set(() => createLeague(seed, config) as Store);
         try {
@@ -761,7 +876,14 @@ export const useStore = create<Store>()(
             sim.generateSchedule(seed, TEAMS.map((t) => t.code)),
             sim.generateCoachMarket(seed),
           ]);
+          // The simulator is fixed here, for the life of this dynasty: the real engine only if everything it
+          // was built from came from the adapter, otherwise the Mock — and never the other way round later.
+          const built: EngineMode =
+            sim.sourceOf("schedule") === "engine" && sim.sourceOf("coach market") === "engine" && (fictional || sim.sourceOf("pool") === "engine")
+              ? "engine"
+              : "mock";
           set((s) => {
+            s.simEngine = built;
             // the engine pool arrives unowned and unpaid — see `normalizePool`
             if (pool) {
               normalizePool(pool, s.config.fantasyDraft, seed);
@@ -855,15 +977,22 @@ export const useStore = create<Store>()(
           // season-rollover's new schedule, seeding the playoff bracket) can be
           // awaited outside it — immer producers must stay synchronous.
           const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
-          const newSchedule = t.seasonRollover
-            ? isHumansOnly(before)
-              ? humansOnlySchedule({ teams: before.teams, season: before.season + 1 })
-              : await sim.generateSchedule(before.season + 1, Object.keys(before.teams))
-            : null;
-          const newBracket =
-            t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
+          const prepared = await engineStep(async () => {
+            const sched = t.seasonRollover
+              ? isHumansOnly(before)
+                ? humansOnlySchedule({ teams: before.teams, season: before.season + 1 })
+                : await sim.generateSchedule(before.season + 1, Object.keys(before.teams), engineOf(before) ?? "ask")
+              : null;
+            const br = t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
+            return { sched, br };
+          }, null);
+          // the engine is down: nothing has been changed, so the move is simply not made
+          if (!prepared) return { moved: false, route: STAGE_HOME[before.stage] };
+          const { sched: newSchedule, br: newBracket } = prepared;
+          const lock = (newSchedule && !isHumansOnly(before)) || newBracket ? lockedTo(before) : undefined;
 
           set((s) => {
+            if (lock && !s.simEngine) s.simEngine = lock;
             if (newBracket && !s.bracket) s.bracket = newBracket;
             if (t.resetStats) resetSeasonStats(s);
 
@@ -941,16 +1070,22 @@ export const useStore = create<Store>()(
         // the async pieces (real game sim / real playoff round over HTTP)
         // resolved ahead of the producer, same reasoning as tryAdvance —
         // immer producers stay sync.
-        const results =
-          before.stage === "preseason" || before.stage === "regularSeason"
-            ? await sim.simulateWeek(before, before.week, before.stage === "preseason" ? "PRE" : "REG")
-            : null;
         const playoffRoundToPlay = before.stage === "playoffs" ? (before.bracket?.currentRound ?? "WC") : null;
-        const newBracket = playoffRoundToPlay
-          ? await sim.simulatePlayoffRound(before, playoffRoundToPlay)
-          : null;
+        const played = await engineStep(async () => {
+          const r =
+            before.stage === "preseason" || before.stage === "regularSeason"
+              ? await sim.simulateWeek(before, before.week, before.stage === "preseason" ? "PRE" : "REG")
+              : null;
+          const b = playoffRoundToPlay ? await sim.simulatePlayoffRound(before, playoffRoundToPlay) : null;
+          return { r, b };
+        }, null);
+        // the engine is down: no game was played and nothing was changed
+        if (!played) return { route: "/hub" };
+        const { r: results, b: newBracket } = played;
+        const lock = results || newBracket ? lockedTo(before) : undefined;
 
         set((s) => {
+          if (lock && !s.simEngine) s.simEngine = lock;
           if (results) {
             const viewerTeam = s.gms.find((g) => g.id === s.viewerGmId)?.teamCode;
             const phase = s.stage === "preseason" ? "PRE" : "REG";
@@ -1024,6 +1159,8 @@ export const useStore = create<Store>()(
                 const week = get().week;
                 shortcutGrant = true;
                 await get().simulateGameDay();
+                // the engine was unreachable: nothing was played, so there is nothing to finish
+                if (!get().pendingGameDay) throw new Error(engineIssue ?? "The week could not be simulated.");
                 from ??= week;
                 to = week;
                 weeksPlayed++;
@@ -1060,8 +1197,13 @@ export const useStore = create<Store>()(
       finishGameDay: () => withGameDayLock({ route: STAGE_HOME[get().stage] }, async () => {
         const before = get();
         const t = resolveTransition(before, { humanGmWonSuperBowl: sbWonByHuman(before) });
-        const newBracket =
-          t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null;
+        const seeded = await engineStep(
+          async () => ({ br: t.stage === "playoffs" && !before.bracket ? await sim.seedBracket(before) : null }),
+          null,
+        );
+        // the engine is down: the finished week stays pending, and Retry then Continue repeats this step
+        if (!seeded) return { route: STAGE_HOME[before.stage] };
+        const newBracket = seeded.br;
 
         set((s) => {
           if (newBracket && !s.bracket) s.bracket = newBracket;

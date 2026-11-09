@@ -1,0 +1,132 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { LeagueState } from "@/domain";
+
+import { EngineUnavailableError, engineOf, isEngineUnavailable } from "./engineMode.ts";
+import { HybridSimulationService } from "./HybridSimulationService.ts";
+
+/**
+ * #74 / TAFI-GAP-004: a dynasty must never silently change simulator. QA PR #106 killed the adapter under an
+ * engine-built dynasty and the same save played a whole season on the Mock, with 1-point scores and no stored
+ * playoff games. The simulator is now fixed per save (`simEngine`): engine -> adapter or an error, mock -> never the adapter.
+ */
+const down = () => vi.fn(() => Promise.reject(new TypeError("Failed to fetch")));
+const slate = [{ week: 1, phase: "REG" as const, homeTeam: "KC", awayTeam: "BUF" }];
+const league = (extra: Partial<LeagueState>): LeagueState =>
+  ({ season: 2027, stage: "regularSeason", week: 1, schedule: slate, games: [], teams: {}, players: {}, gms: [], viewerGmId: "g", config: {}, ...extra }) as unknown as LeagueState;
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe("engine-backed dynasty", () => {
+  it("refuses to simulate when the adapter is down (no Mock fallback), and asks again on every retry", async () => {
+    const f = down();
+    vi.stubGlobal("fetch", f);
+    const sim = new HybridSimulationService();
+    const state = league({ simEngine: "engine" });
+    await expect(sim.simulateWeek(state, 1, "REG")).rejects.toBeInstanceOf(EngineUnavailableError);
+    const afterFirst = f.mock.calls.length;
+    expect(afterFirst).toBeGreaterThan(0);
+    // the 30 s cooldown that spares the console in standalone use must not make Retry a no-op
+    await expect(sim.simulateWeek(state, 1, "REG")).rejects.toSatisfy(isEngineUnavailable);
+    expect(f.mock.calls.length).toBeGreaterThan(afterFirst);
+  });
+
+  it("refuses playoff seeding, a playoff round and next season's schedule too", async () => {
+    vi.stubGlobal("fetch", down());
+    const sim = new HybridSimulationService();
+    const state = league({ simEngine: "engine", bracket: { currentRound: "WC", seeds: { AFC: [], NFC: [] }, matchups: [], champion: null } });
+    await expect(sim.seedBracket(state)).rejects.toBeInstanceOf(EngineUnavailableError);
+    await expect(sim.simulatePlayoffRound(state, "WC")).rejects.toBeInstanceOf(EngineUnavailableError);
+    await expect(sim.generateSchedule(2028, ["KC", "BUF"], "engine")).rejects.toBeInstanceOf(EngineUnavailableError);
+  });
+
+  it("an old save with engine-stamped games (weather) is inferred to be engine-backed", async () => {
+    vi.stubGlobal("fetch", down());
+    const sim = new HybridSimulationService();
+    const old = league({ games: [{ id: "g1", week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF", played: true, homeScore: 20, awayScore: 17, weather: "Indoors" }] });
+    expect(engineOf(old)).toBe("engine");
+    await expect(sim.simulateWeek(old, 1, "REG")).rejects.toBeInstanceOf(EngineUnavailableError);
+  });
+});
+
+describe("no hidden fallback in the playoff round", () => {
+  it("an engine dynasty with no bracket is an error, never a Mock round", async () => {
+    vi.stubGlobal("fetch", down());
+    const sim = new HybridSimulationService();
+    await expect(sim.simulatePlayoffRound(league({ simEngine: "engine" }), "WC")).rejects.toThrow(/bracket/);
+    await expect(sim.simulatePlayoffRound(league({}), "WC")).rejects.toThrow(/bracket/);
+  });
+});
+
+describe("mock-backed dynasty", () => {
+  it("never calls the adapter, even when it is up (a Mock dynasty cannot turn into an engine one)", async () => {
+    const f = vi.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
+    vi.stubGlobal("fetch", f);
+    const sim = new HybridSimulationService();
+    const s = league({ simEngine: "mock" });
+    const games = await sim.simulateWeek(s, 1, "REG");
+    expect(games).toHaveLength(1);
+    expect(f).not.toHaveBeenCalled();
+    expect(sim.lastSource).toBe("mock");
+  });
+
+  it("an old save whose games have no weather is inferred to be Mock-backed", () => {
+    const old = league({ games: [{ id: "g1", week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF", played: true, homeScore: 20, awayScore: 17 }] });
+    expect(engineOf(old)).toBe("mock");
+  });
+});
+
+describe("a dynasty being created (no save yet)", () => {
+  it("standalone: no adapter -> Mock, and says so, so the caller can fix the choice", async () => {
+    vi.stubGlobal("fetch", down());
+    const sim = new HybridSimulationService();
+    expect((await sim.generateSchedule(2026, ["KC", "BUF"])).length).toBeGreaterThan(0);
+    expect(sim.sourceOf("schedule")).toBe("mock");
+    expect(sim.lastSource).toBe("mock");
+  });
+});
+
+describe("pre-change saves (no simEngine)", () => {
+  const game = (extra: object) => ({ id: "g", week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF", played: true, homeScore: 20, awayScore: 17, ...extra });
+  it("with engine-stamped games (regular season, playoffs, or preseason only) are engine-backed", () => {
+    expect(engineOf(league({ games: [game({ weather: "Indoors" })] } as never))).toBe("engine");
+    expect(engineOf(league({ games: [game({ phase: "PRE", weather: "Indoors" })] } as never))).toBe("engine");
+    expect(engineOf(league({ games: [], gameArchive: [game({ weather: "34F", season: 2027 })] } as never))).toBe("engine");
+  });
+  it("with unstamped games are Mock-backed; an explicit simEngine always wins", () => {
+    expect(engineOf(league({ games: [game({})] } as never))).toBe("mock");
+    expect(engineOf(league({ games: [game({ phase: "PRE" })] } as never))).toBe("mock");
+  });
+  it("with no games cannot be classified, and the adapter being down never hands them to the Mock", async () => {
+    vi.stubGlobal("fetch", down());
+    const sim = new HybridSimulationService();
+    const s = league({});
+    expect(engineOf(s)).toBeUndefined();
+    const err = await sim.simulateWeek(s, 1, "REG").then(() => null, (e) => e);
+    expect(err).toBeInstanceOf(EngineUnavailableError);
+    expect(err.undecided).toBe(true);
+    expect(sim.lastSource).toBeUndefined();
+    await expect(sim.seedBracket(s)).rejects.toMatchObject({ undecided: true });
+    await expect(sim.generateSchedule(2028, ["KC", "BUF"], "ask")).rejects.toMatchObject({ undecided: true });
+  });
+  it("with no games, a reachable adapter is used (and the store then records engine)", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify([{ week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF" }]), { status: 200, headers: { "content-type": "application/json" } }))));
+    const sim = new HybridSimulationService();
+    await sim.generateSchedule(2028, ["KC", "BUF"], "ask");
+    expect(sim.lastSource).toBe("engine");
+  });
+});
+
+describe("labels the store relies on to fix a new dynasty's simulator", () => {
+  it("an answering adapter is recorded as 'engine' for the schedule (and an unreachable one as 'mock')", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify([{ week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF" }]), { status: 200, headers: { "content-type": "application/json" } }))));
+    const up = new HybridSimulationService();
+    expect((await up.generateSchedule(2026, ["KC", "BUF"])).some((g) => g.phase === "REG")).toBe(true);
+    expect(up.sourceOf("schedule")).toBe("engine");
+    expect(up.lastSource).toBe("engine");
+    vi.stubGlobal("fetch", down());
+    const dn = new HybridSimulationService();
+    await dn.generateSchedule(2026, ["KC", "BUF"]);
+    expect(dn.sourceOf("schedule")).toBe("mock");
+  });
+});

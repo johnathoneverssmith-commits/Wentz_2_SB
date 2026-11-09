@@ -259,6 +259,13 @@ export const HOW_IT_WORKS: HowTopic[] = [
         ],
       },
       {
+        heading: "Real engine or Mock simulation",
+        body: [
+          "A solo dynasty is played on one simulator for its whole life, chosen when it is created. With the engine adapter running it is the real engine; without it (the standalone build, or the adapter not started) it is the simplified built-in Mock simulator, and the game says so on the hub. The choice never changes mid-dynasty.",
+          "If a real-engine dynasty loses the adapter, play stops with a notice and a Retry button instead of switching to the Mock: nothing is simulated, nothing changes, and your save is kept as it was. Start the adapter (npm run server), press Retry, and carry on.",
+        ],
+      },
+      {
         heading: "What moves the odds",
         body: [
           "Players act by the unit they play in. A great unit with one weak starter plays closer to that starter, two units that work together (a quarterback and his receivers, a line and its back) are worth more than their ratings add up to, and the pass rush against the protection decides sacks.",
@@ -397,7 +404,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
       {heading:"Start a franchise",body:["A solo dynasty is saved in this browser; its rivals run on this device. An online league has accounts, real GM seats and a shared server. Choose the mode before creating your league.","Setup leads into the fantasy player draft if enabled, then the coaching draft; in the coaching draft you can delegate your remaining picks to your staff, which fills only your open jobs, in order, the way computer-run teams do. Without a fantasy draft you keep the starting player rosters and begin with coaches. Fantasy rosters proceed from coaching to camp; other rosters go through free agency first."]},
       {heading:"Review, decide, commit",body:["The phase guide names your current personal step and the next decision. Browsing rosters, finances or history does not advance the league; use the return link to get back.","Draft picks and submitted bids commit when accepted by the game. A readiness check-in tells the league you are done with a stage. Online, you wait for the other GMs; you may take the check-in back while the stage is still open. The turn clock can let staff act during a draft, market or deadline; checkpoint readiness has no automatic turn clock."]},
       {heading:"Play and continue",body:["Set camp focuses and review their results before finalizing your depth chart. Follow preseason and regular-season results, with a trading and free-agency checkpoint at the league’s deadline. Completed games have results, recaps and play-by-play; opening them never plays a second game.","Online results are revealed at your own pace. Other GMs can be ahead without changing your view; wait for your own revealed scores before judging standings. The game supports different league sizes, so use the dates and rounds shown for your league."]},
-      {heading:"Another season",body:["After the playoffs, review awards, history, job security and retirements. Scout the new rookie class, draft and sign your selections, use annual free agency and training camp, then prepare the next preseason.","Keep using Continue and readiness inside this franchise. New solo dynasty creates a different league; it is not the way to begin the next season. Use backups for a browser-saved dynasty, and reconnect to an online league instead of playing its disconnected copy."]},
+      {heading:"Another season",body:["After the playoffs, review awards, history, job security and retirements. Scout the new rookie class, draft and sign your selections, use annual free agency and training camp, then prepare the next preseason.","Keep using Continue and readiness inside this franchise. New solo dynasty creates a different league; it is not the way to begin the next season. Starting one keeps the dynasty you are leaving as a recovery copy in this browser (Restore previous dynasty brings it back; it covers one dynasty and clearing site data removes it), so download a backup for anything you want to keep for good. Reconnect to an online league instead of playing its disconnected copy."]},
     ],
   },
 ];
