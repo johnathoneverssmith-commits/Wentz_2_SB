@@ -10,6 +10,7 @@ Builds on PR #105 (strategic depth), PR #95 (competitiveness) and PR #102 (reali
 | Player-facing presentation and wireframes | [UI-PROPOSAL.md](UI-PROPOSAL.md) |
 | Phased plan, acceptance criteria, compatibility | [IMPLEMENTATION-ROADMAP.md](IMPLEMENTATION-ROADMAP.md) |
 | Balance, performance, compatibility, exploit risks | [RISKS.md](RISKS.md) |
+| **Final refinement** (superadditivity diagnosis, long-term scouting, scheme-fit correction, acceptance criteria) | [REFINEMENT.md](REFINEMENT.md) |
 
 ## Simulation path of every number (issue #74)
 
@@ -51,3 +52,6 @@ Seeds: A/B/D use fixed seed formulas in the scripts (`8_100_000 + …`, `8_300_0
 * "Margin" is points per game for the focal team; "SE" is the paired standard error; 95% CI = ±1.96 SE. Effects smaller than ≈ 2 SE are called *not distinguishable from zero*, not *zero*.
 * Talent impact 1.5 (the new-league default, "Amplified") unless stated; only Experiment B was also run at 1.0 (A, C, D, E were not).
 * Engine tree and weights are recorded in each data file's `proto` flag; the prototype weights are `harness/proto-weights.json`.
+
+## Refinement experiments (REFINEMENT.md)
+`diagA_factorial_shift.ts` (exact), `expA2_factorial.ts` + `analyze_A2.py` (2×2×2, prototype variants via `PROTO_Q=mean|geo|prod|min` in the patched tree; the patch now includes them), `expB2_devpre.test.ts` + `expB2_scouting_longterm.test.ts` + `analyze_B2.py` (multi-season scouting; scratch-copy to `online/test/`), `diagD1_exact_schemefit.ts`, `analyze_D1_ci.py`. A2 cells with the mean combination used 2,250–2,400 pairs (baseline 2,400); geo cells 1,280. Runs interrupted by a worker restart were reused as partial files (30–32 of 32 teams, all cells per team).

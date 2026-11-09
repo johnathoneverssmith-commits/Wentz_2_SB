@@ -1,0 +1,109 @@
+{
+ "variant": "min",
+ "elite": 1,
+ "cells": {
+  "A|rb0|ol0": {
+   "base": -0.0124,
+   "proto": 0.2204,
+   "pre": 0.2081,
+   "post": 0.2029
+  },
+  "A|rb0|ol1": {
+   "base": 0.1524,
+   "proto": 0.2731,
+   "pre": 0.4255,
+   "post": 0.4041
+  },
+  "A|rb1|ol0": {
+   "base": -0.0134,
+   "proto": 0.2172,
+   "pre": 0.2039,
+   "post": 0.1992
+  },
+  "A|rb1|ol1": {
+   "base": 0.1624,
+   "proto": 0.36,
+   "pre": 0.5224,
+   "post": 0.4896
+  },
+  "M|rb0|ol0": {
+   "base": -0.0124,
+   "proto": -0.19,
+   "pre": -0.2023,
+   "post": -0.2002
+  },
+  "M|rb0|ol1": {
+   "base": 0.1524,
+   "proto": -0.242,
+   "pre": -0.0896,
+   "post": -0.0887
+  },
+  "M|rb1|ol0": {
+   "base": -0.0134,
+   "proto": -0.2088,
+   "pre": -0.2222,
+   "post": -0.2196
+  },
+  "M|rb1|ol1": {
+   "base": 0.1624,
+   "proto": -0.3498,
+   "pre": -0.1874,
+   "post": -0.1852
+  }
+ },
+ "interactions": {
+  "pre|RBxOL|A": [
+   0.1012,
+   0.015
+  ],
+  "pre|RBxOL|M": [
+   -0.078,
+   0.0094
+  ],
+  "pre|QualityxAlignment": [
+   0.2994,
+   0.0205
+  ],
+  "post|RBxOL|A": [
+   0.0892,
+   0.012
+  ],
+  "post|RBxOL|M": [
+   -0.077,
+   0.0092
+  ],
+  "post|QualityxAlignment": [
+   0.2717,
+   0.0192
+  ],
+  "proto|RBxOL|A": [
+   0.0902,
+   0.0149
+  ],
+  "proto|RBxOL|M": [
+   -0.089,
+   0.0095
+  ],
+  "proto|QualityxAlignment": [
+   0.2994,
+   0.0205
+  ],
+  "base|RBxOL|A": [
+   0.011,
+   0.0004
+  ],
+  "base|RBxOL|M": [
+   0.011,
+   0.0004
+  ],
+  "base|QualityxAlignment": [
+   0,
+   0
+  ]
+ },
+ "saturation": {
+  "postOverPre_eliteAligned": 0.937,
+  "maxPre": 0.993,
+  "cap": 1.4
+ }
+}

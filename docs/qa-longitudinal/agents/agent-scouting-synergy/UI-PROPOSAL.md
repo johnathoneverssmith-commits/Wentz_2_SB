@@ -146,3 +146,6 @@ Ranges must not rely on colour (bar + text range + word badge). 44 px targets fo
 2. **Comprehension of ranges**: ≥ 80% correctly say that a scouted range "is more likely right than a public one".
 3. **Behaviour test** on a prototype: do players spend all points, and do they prefer *Sleepers/Needs* to the top of the board? (Experiment C says the latter pays.)
 4. **Overload**: tasks per offseason added by this system ≤ 2 (scouting, identity check) and zero new gates.
+
+## 6. Read-only indicators must not look like bonuses (owner decision)
+Until a league runs the engine fit model (`synergyModel: "v2"`), every Fit chip and compatibility explanation carries the fixed label **"Style match (information only; does not change game results yet)"**, is drawn outlined rather than filled, and shows **no** predicted margin, yards or percentage. `howItWorks.ts` states the same. When v2 is on, the label becomes a description of the actual effect with its range. Free coarse "growth" and role labels on prospects are information, not an advantage, and are worded that way.

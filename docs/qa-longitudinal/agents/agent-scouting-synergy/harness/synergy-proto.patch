@@ -1,5 +1,5 @@
 diff --git a/src/engine/synergy.ts b/src/engine/synergy.ts
-index d7797b1..656cf4c 100644
+index d7797b1..f5ffc8f 100644
 --- a/src/engine/synergy.ts
 +++ b/src/engine/synergy.ts
 @@ -331,6 +331,7 @@ function offenseScores(o: Lineup): Pick<UnitScores, "passPro" | "runBlock" | "ru
@@ -36,7 +36,7 @@ index d7797b1..656cf4c 100644
    const cap = channel === "sack" && total > 0 ? SACK_CEILING_UP : SATURATION[channel];
    return cap * Math.tanh((total * synergyScale) / cap);
  }
-@@ -753,3 +757,146 @@ export function blitzContext(o: Lineup, d: Lineup): BlitzContext {
+@@ -753,3 +757,158 @@ export function blitzContext(o: Lineup, d: Lineup): BlitzContext {
      quarterback: z("quarterback"),
    };
  }
@@ -118,20 +118,32 @@ index d7797b1..656cf4c 100644
 +  };
 +}
 +/** Reference mean of the coherence penalty |s_a - s_b|/2, so that an ordinary roster's alignment term is centred at zero BEFORE it is multiplied by unit quality. */
-+let _cohRef: { run: number; pass: number; qRun: number; qPass: number } | null = null;
-+function cohRef(): { run: number; pass: number; qRun: number; qPass: number } {
++let _cohRef: { run: number; pass: number; qRun: number; qPass: number; qRb: number; qOl: number } | null = null;
++function cohRef(): { run: number; pass: number; qRun: number; qPass: number; qRb: number; qOl: number } {
 +  if (_cohRef) return _cohRef;
-+  let r = 0, p = 0, n = 0, qr = 0, qp = 0;
++  let r = 0, p = 0, n = 0, qr = 0, qp = 0, qrb = 0, qol = 0;
 +  for (const t of teamList()) {
 +    const o = roster(t).offense();
 +    const olx = OL_SLOTS.map((s) => o[s]);
 +    qr += avg([skillZ(o.RB1, RUNNER), avg(olx.map((q) => skillZ(q, RUN_BLOCK)))]);
++    qrb += skillZ(o.RB1, RUNNER) ?? 0; qol += avg(olx.map((q) => skillZ(q, RUN_BLOCK)));
 +    qp += avg([skillZ(o.QB1, QB_PASS), avg([o.WR1, o.WR2, o.WR3].map((q) => skillZ(q, RECEIVING)))]);
 +    r += Math.abs(zs("rb", [o.RB1]) - zs("ol", OL_SLOTS.map((s) => o[s]))) / 2;
 +    p += Math.abs(zs("qb", [o.QB1]) - zs("wr", [o.WR1, o.WR2, o.WR3])) / 2;
 +    n++;
 +  }
-+  return (_cohRef = { run: r / n, pass: p / n, qRun: qr / n, qPass: qp / n });
++  return (_cohRef = { run: r / n, pass: p / n, qRun: qr / n, qPass: qp / n, qRb: qrb / n, qOl: qol / n });
++}
++/** PROTO_Q: how RB and line quality combine into the fit multiplier. mean (as shipped in PR #107) | prod | geo | min */
++const PROTO_Q: string = (typeof process !== "undefined" && process.env.PROTO_Q) || "mean";
++function runQuality(qRb: number, qOl: number, qMean: number): number {
++  const r = cohRef();
++  if (PROTO_Q === "mean") return qFac(qMean, r.qRun);
++  const fr = Math.max(0.3, 1 + 0.8 * (qRb - r.qRb)), fo = Math.max(0.3, 1 + 0.8 * (qOl - r.qOl));
++  if (PROTO_Q === "prod") return Math.min(2.5, fr * fo);
++  if (PROTO_Q === "geo") return Math.min(2.0, Math.sqrt(fr * fo));
++  if (PROTO_Q === "min") return Math.min(2.0, Math.min(fr, fo));
++  return qFac(qMean, r.qRun);
 +}
 +function protoOffense(o: Lineup): { runFit: number; passFit: number } {
 +  const cc = protoConcepts(o);
@@ -139,7 +151,7 @@ index d7797b1..656cf4c 100644
 +  const sRb = zs("rb", [o.RB1]);
 +  const sOl = zs("ol", ol);
 +  const qRun = avg([skillZ(o.RB1, RUNNER), avg(ol.map((p) => skillZ(p, RUN_BLOCK)))]);
-+  const runFit = cc.exec * qFac(qRun, cohRef().qRun) * (cc.run * (sRb + sOl) / 2 - Math.abs(sRb - sOl) / 2 + cohRef().run);
++  const runFit = cc.exec * runQuality(skillZ(o.RB1, RUNNER) ?? 0, avg(ol.map((p) => skillZ(p, RUN_BLOCK))), qRun) * (cc.run * (sRb + sOl) / 2 - Math.abs(sRb - sOl) / 2 + cohRef().run);
 +  const wr = [o.WR1, o.WR2, o.WR3];
 +  const sQb = zs("qb", [o.QB1]);
 +  const sWr = zs("wr", wr);
