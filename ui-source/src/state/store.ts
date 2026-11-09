@@ -9,7 +9,8 @@ import { beginSetupCreation } from "./setupCreationStatus";
  *   Game Day screen. `finishGameDay()` then steps the week / advances the stage.
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
-import { chooseGmStrategy } from "./aiGms.ts";
+import { chooseGmStrategy, difficultyFor } from "./aiGms.ts";
+import { budgetFor, spendReport, suggestTargets } from "./scouting.ts";
 import { minSalaryM, withLeagueCapFields } from "./capEconomy.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { setSkip as setSkipFor, type SkipKind } from "./skips.ts";
@@ -198,6 +199,8 @@ export interface StoreActions {
   makePick: (selectedId: string) => void;
   autopickRemaining: () => void;
   toggleDraftTarget: (gmId: string, id: string) => void;
+  /** Spend scouting points on rookie prospects (`state/scouting.ts`); returns how many reports were bought. */
+  scoutProspects: (team: string, ids: string[] | "needs") => number;
 
   startBidding: (subject: Subject) => void;
   /** Place/replace this team's bid in the live window. Rejects (changing
@@ -1293,6 +1296,15 @@ export const useStore = create<Store>()(
       },
 
       toggleDraftTarget: (gmId, id) => set((s) => toggleDraftTargetFor(s, gmId, id)),
+
+      scoutProspects: (team, ids) => {
+        let bought = 0;
+        set((s) => {
+          const budget = budgetFor(s, team, difficultyFor(s, team).scoutingAccuracy);
+          for (const id of ids === "needs" ? suggestTargets(s, team, budget) : ids) if (spendReport(s, team, id, budget).ok) bought++;
+        });
+        return bought;
+      },
 
       startBidding: (subject) => set((s) => beginBidding(s, subject)),
 

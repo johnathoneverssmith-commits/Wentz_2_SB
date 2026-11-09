@@ -74,6 +74,7 @@ import {
 } from "./aiStrategy.ts";
 import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 import { growCap, marketScale, minSalaryM } from "./capEconomy.ts";
+import { applyReports, budgetFor, reportsFor, runCpuScouting } from "./scouting.ts";
 import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, teamHorizon, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { commitmentsOf } from "./contractValue.ts";
@@ -343,7 +344,11 @@ export function readRookieBoard(
   /** The class's mean age, what a prospect's youth is measured against. */
   classMeanAge: number;
 } {
-  const expected = expectedRatings(s.draftClass, difficulty.scoutingAccuracy);
+  // a team reads its own scouting reports where it bought them (`scouting.ts`), the public board elsewhere
+  const expected = applyReports(
+    expectedRatings(s.draftClass, difficulty.scoutingAccuracy),
+    teamCode ? reportsFor(s, teamCode, s.draft?.year ?? s.season) : {},
+  );
   const drafted = new Map<Position, number>();
   const incumbents: { position: Position; overall: number; age: number; yearsLeft: number }[] = [];
   if (teamCode) {
@@ -2377,6 +2382,14 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
     results: [],
     targetsByGm: Object.fromEntries(s.gms.filter((g) => g.isHuman).map((g) => [g.id, []])),
   };
+  // Scouting: the league's CPU GMs buy their reports as the draft opens, from the same menu and prices as a person
+  // (a CPU never gets more points than a person, and picks its targets from public data only). Off unless the league opted in.
+  if (mode === "rookie" && s.config.scouting) {
+    s.scouting = { year: s.season, reports: {} };
+    for (const code of Object.keys(s.teams)) {
+      if (isAiTeam(s, code)) runCpuScouting(s, code, budgetFor(s, code, difficultyFor(s, code).scoutingAccuracy));
+    }
+  }
 }
 
 /** FNV-1a, for seeding per-player generation from a stable id. */
