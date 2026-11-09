@@ -12,9 +12,8 @@
 import type { Player } from "../src/schema/player.js";
 import { Roster, roster, teamList } from "../src/engine/roster.js";
 import { simulateGame } from "../src/engine/sim.js";
-import { effectiveSchemeTags } from "../src/engine/scheme-tags.js";
 import { DEF_SCHEME_TAGS, OFF_SCHEME_TAGS, leagueAverageStaff, type Staff } from "../src/engine/staff.js";
-import { defSchemeFitShift, offSchemeFitShift } from "../src/engine/staff-fit.js";
+import { defSchemeFitShift, defSchemeFitShiftDerived, offSchemeFitShift, offSchemeFitShiftDerived } from "../src/engine/staff-fit.js";
 
 const arg = (n: string, d: string): string => {
   const i = process.argv.indexOf(`--${n}`);
@@ -67,16 +66,18 @@ if (PART === "shifts" || PART === "all") {
       for (const sc of OFF) {
         const sh = teams.map((tm) => {
           const o = rosterFor(tm, t, null, "off").offense() as Record<string, Player | null>;
-          const tags = OFF_SLOTS.map((s) => (derived ? effectiveSchemeTags(o[s]) : o[s]?.scheme_tags));
-          return offSchemeFitShift(sc, tags, derived);
+          return derived
+            ? offSchemeFitShiftDerived(sc, OFF_SLOTS.map((s) => o[s]))
+            : offSchemeFitShift(sc, OFF_SLOTS.map((s) => o[s]?.scheme_tags));
         });
         row.push(`${sc}:${mean(sh.map((x) => x.rush)).toFixed(3)}|${mean(sh.map((x) => x.complete)).toFixed(4)}`);
       }
       for (const sc of DEF) {
         const sh = teams.map((tm) => {
           const d = rosterFor(tm, t, null, "def").defense() as Record<string, Player | null>;
-          const tags = DEF_SLOTS.map((s) => (derived ? effectiveSchemeTags(d[s]) : d[s]?.scheme_tags));
-          return defSchemeFitShift(sc, tags, derived);
+          return derived
+            ? defSchemeFitShiftDerived(sc, DEF_SLOTS.map((s) => d[s]))
+            : defSchemeFitShift(sc, DEF_SLOTS.map((s) => d[s]?.scheme_tags));
         });
         row.push(`${sc}:${mean(sh.map((x) => x.rush)).toFixed(3)}|${mean(sh.map((x) => x.complete)).toFixed(4)}`);
       }

@@ -15,7 +15,7 @@ import {
   type OffScheme,
   type Staff,
 } from "../src/engine/staff.js";
-import { defSchemeFitShift, offSchemeFitShift, schemeFitBaseline } from "../src/engine/staff-fit.js";
+import { defSchemeFitShift, defSchemeFitShiftDerived, offSchemeFitShift, offSchemeFitShiftDerived, schemeFitBaseline } from "../src/engine/staff-fit.js";
 
 /**
  * Phase 0 scheme fit: an untagged roster must not be charged for a coordinator's
@@ -39,6 +39,10 @@ const retag = (r: Roster, f: (p: Player) => string[]): Roster => {
 };
 const stripped = (team: string) => retag(roster(team), () => []);
 
+const starters = (r: Roster, side: "off" | "def") => {
+  const u = (side === "off" ? r.offense() : r.defense()) as Record<string, Player | null>;
+  return (side === "off" ? OFF_SLOTS : DEF_SLOTS).map((x) => u[x]);
+};
 const tagsOf = (r: Roster, side: "off" | "def", derived: boolean) => {
   const u = (side === "off" ? r.offense() : r.defense()) as Record<string, Player | null>;
   return (side === "off" ? OFF_SLOTS : DEF_SLOTS).map((s) => (derived ? effectiveSchemeTags(u[s]) : u[s]?.scheme_tags));
@@ -75,8 +79,8 @@ describe("derived scheme tags (pool-free)", () => {
   it("a unit with nothing readable is exactly neutral in derived mode", () => {
     if (!hasPool) return; // the shift is centred on the 32-team baseline
     const blank = OFF_SLOTS.map(() => undefined);
-    for (const s of OFF) expect(offSchemeFitShift(s, blank, true)).toEqual({ complete: 0, rush: 0 });
-    for (const s of DEF) expect(defSchemeFitShift(s, blank, true)).toEqual({ complete: 0, rush: 0 });
+    for (const s of OFF) expect(offSchemeFitShiftDerived(s, blank)).toEqual({ complete: 0, rush: 0 });
+    for (const s of DEF) expect(defSchemeFitShiftDerived(s, blank)).toEqual({ complete: 0, rush: 0 });
   });
 });
 
@@ -100,8 +104,8 @@ describe.skipIf(!hasPool)("scheme fit on the reference rosters", () => {
   it("neutral schemes contribute nothing in either mode, tagged or not", () => {
     for (const t of teams.slice(0, 4)) {
       const r = stripped(t);
-      expect(offSchemeFitShift("pro_style", tagsOf(r, "off", true), true)).toEqual({ complete: 0, rush: 0 });
-      expect(defSchemeFitShift("multiple", tagsOf(r, "def", true), true)).toEqual({ complete: 0, rush: 0 });
+      expect(offSchemeFitShiftDerived("pro_style", starters(r, "off"))).toEqual({ complete: 0, rush: 0 });
+      expect(defSchemeFitShiftDerived("multiple", starters(r, "def"))).toEqual({ complete: 0, rush: 0 });
       expect(offSchemeFitShift("pro_style", tagsOf(r, "off", false))).toEqual({ complete: 0, rush: 0 });
     }
   });
@@ -109,21 +113,21 @@ describe.skipIf(!hasPool)("scheme fit on the reference rosters", () => {
   it("tagged rosters: derived mode is the legacy shift, exactly", () => {
     for (const t of teams) {
       const r = roster(t);
-      for (const s of OFF) expect(offSchemeFitShift(s, tagsOf(r, "off", true), true)).toEqual(offSchemeFitShift(s, tagsOf(r, "off", false)));
-      for (const s of DEF) expect(defSchemeFitShift(s, tagsOf(r, "def", true), true)).toEqual(defSchemeFitShift(s, tagsOf(r, "def", false)));
+      for (const s of OFF) expect(offSchemeFitShiftDerived(s, starters(r, "off"))).toEqual(offSchemeFitShift(s, tagsOf(r, "off", false)));
+      for (const s of DEF) expect(defSchemeFitShiftDerived(s, starters(r, "def"))).toEqual(defSchemeFitShift(s, tagsOf(r, "def", false)));
     }
   });
 
   it("untagged rosters: the legacy penalty is gone, specialisation is not punished on average", () => {
     for (const s of OFF.filter((x) => x !== "pro_style")) {
       const legacy = mean(teams.map((t) => offSchemeFitShift(s, tagsOf(stripped(t), "off", false)).rush));
-      const derived = mean(teams.map((t) => offSchemeFitShift(s, tagsOf(stripped(t), "off", true), true).rush));
+      const derived = mean(teams.map((t) => offSchemeFitShiftDerived(s, starters(stripped(t), "off")).rush));
       expect(legacy, `${s} legacy`).toBeLessThan(-0.1);
       expect(Math.abs(derived), `${s} derived`).toBeLessThan(0.05);
     }
     for (const s of DEF.filter((x) => x !== "multiple")) {
       const legacy = mean(teams.map((t) => defSchemeFitShift(s, tagsOf(stripped(t), "def", false)).rush));
-      const derived = mean(teams.map((t) => defSchemeFitShift(s, tagsOf(stripped(t), "def", true), true).rush));
+      const derived = mean(teams.map((t) => defSchemeFitShiftDerived(s, starters(stripped(t), "def")).rush));
       expect(legacy, `${s} legacy`).toBeGreaterThan(0.07);
       expect(Math.abs(derived), `${s} derived`).toBeLessThan(0.07);
     }
@@ -132,7 +136,7 @@ describe.skipIf(!hasPool)("scheme fit on the reference rosters", () => {
   it("compatible beats neutral beats incompatible", () => {
     const t = teams[0]!;
     for (const s of OFF.filter((x) => x !== "pro_style")) {
-      const mk = (f: (p: Player) => string[]) => offSchemeFitShift(s, tagsOf(retag(roster(t), f), "off", true), true).rush;
+      const mk = (f: (p: Player) => string[]) => offSchemeFitShiftDerived(s, starters(retag(roster(t), f), "off")).rush;
       const good = mk(() => [OFF_SCHEME_TAGS[s][0]!]);
       const bad = mk(() => ["__none__"]);
       expect(good).toBeGreaterThan(0.1);
@@ -140,7 +144,7 @@ describe.skipIf(!hasPool)("scheme fit on the reference rosters", () => {
       expect(bad).toBeLessThan(0); // offense is still charged for a roster built against its scheme
     }
     for (const s of DEF.filter((x) => x !== "multiple")) {
-      const mk = (f: (p: Player) => string[]) => defSchemeFitShift(s, tagsOf(retag(roster(t), f), "def", true), true).rush;
+      const mk = (f: (p: Player) => string[]) => defSchemeFitShiftDerived(s, starters(retag(roster(t), f), "def")).rush;
       expect(mk(() => [DEF_SCHEME_TAGS[s][0]!])).toBeLessThan(mk(() => ["__none__"])); // negative = better for the defense
     }
   });
@@ -186,11 +190,15 @@ describe.skipIf(!hasPool)("scheme fit on the reference rosters", () => {
         }
       });
 
-      it("untagged + specialised scheme: derived differs from legacy, and is reproducible", () => {
-        const run = () => play(41, h, a, stripped(h), stripped(a), avg(true, "spread", "cover_3"), avg(true, "zone_run", "man_press"), talent);
-        expect(sig(run())).toBe(sig(run()));
-        const legacy = play(41, h, a, stripped(h), stripped(a), avg(false, "spread", "cover_3"), avg(false, "zone_run", "man_press"), talent);
-        expect(sig(run())).not.toBe(sig(legacy));
+      it("untagged + specialised scheme: reproducible, and the legacy penalty no longer decides games", () => {
+        const mk = (derived: boolean, seed: number) =>
+          play(seed, h, a, stripped(h), stripped(a), avg(derived, "spread", "cover_3"), avg(derived, "zone_run", "man_press"), talent);
+        let differs = 0;
+        for (const seed of [41, 42, 43, 44, 45, 46]) {
+          expect(sig(mk(true, seed))).toBe(sig(mk(true, seed)));
+          if (sig(mk(true, seed)) !== sig(mk(false, seed))) differs += 1;
+        }
+        expect(differs).toBeGreaterThan(0);
       });
     });
   }

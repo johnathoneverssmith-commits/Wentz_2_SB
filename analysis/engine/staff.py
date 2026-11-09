@@ -93,9 +93,3 @@ def scheme_fit_fraction(tag_lists, scheme_tags) -> float:
             fit += 1
     return fit / n if n else 0.0
 
-
-def scheme_fit_fraction_or_none(tag_lists, scheme_tags):
-    """Like ``scheme_fit_fraction`` but None when no player has any tags (legacy returned 0)."""
-    if not any(t for t in tag_lists):
-        return None
-    return scheme_fit_fraction(tag_lists, scheme_tags)
