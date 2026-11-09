@@ -81,7 +81,7 @@ import { NO_WEATHER_EFFECT, type Weather, type WeatherEffect, weatherEffect } fr
 import { REST_DT1, REST_DT2, REST_EDGE1, REST_EDGE2, type Lineup, type Roster, roster } from "./roster.js";
 import type { Staff } from "./staff.js";
 import type { Player } from "../schema/player.js";
-import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
+import { defSchemeFitShift, defSchemeFitShiftDerived, offSchemeFitShift, offSchemeFitShiftDerived } from "./staff-fit.js";
 import {
   dcDefenseShift,
   hcGoForItDelta,
@@ -829,14 +829,18 @@ export class Game {
     const dc = dcDefenseShift(dcS);
     const o = this.offLineup();
     const d = this.defLineup();
-    const offTags = [o.QB1, o.RB1, o.WR1, o.WR2, o.WR3, o.TE1, o.LT, o.LG, o.C, o.RG, o.RT].map(
-      (p) => p?.scheme_tags,
-    );
-    const defTags = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2, d.CB1, d.CB2, d.S1, d.S2].map(
-      (p) => p?.scheme_tags,
-    );
-    const ofit = offSchemeFitShift(ocS.scheme, offTags);
-    const dfit = defSchemeFitShift(dcS.scheme, defTags);
+    // Phase 0 scheme fit: each side's fit mode is its own staff's flag; a
+    // league sets it for every team, so a mixed pair only occurs in tests.
+    const offLine = [o.QB1, o.RB1, o.WR1, o.WR2, o.WR3, o.TE1, o.LT, o.LG, o.C, o.RG, o.RT];
+    const defLine = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2, d.CB1, d.CB2, d.S1, d.S2];
+    const ofit =
+      this.offStaff().schemeFit === "derived"
+        ? offSchemeFitShiftDerived(ocS.scheme, offLine)
+        : offSchemeFitShift(ocS.scheme, offLine.map((p) => p?.scheme_tags));
+    const dfit =
+      this.defStaff().schemeFit === "derived"
+        ? defSchemeFitShiftDerived(dcS.scheme, defLine)
+        : defSchemeFitShift(dcS.scheme, defLine.map((p) => p?.scheme_tags));
     // The blitz against the personnel on both sides of it: corners who can
     // hold up alone let it get home and give little back; a great line picks
     // it up; a great quarterback punishes it. Centred on the reference

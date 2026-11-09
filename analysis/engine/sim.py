@@ -199,12 +199,19 @@ class Game:
         if not self.staff_on or not self.ratings_on:
             return {"complete": 0.0, "rush": 0.0, "sack": 0.0}
         from .staff_shift import dc_defense_shift, oc_offense_shift
-        from .staff_fit import def_scheme_fit_shift, off_scheme_fit_shift
+        from .staff_fit import (def_scheme_fit_shift, def_scheme_fit_shift_derived,
+                                off_scheme_fit_shift, off_scheme_fit_shift_derived)
         oc_s, dc_s = self._off_staff().oc, self._def_staff().dc
         oc = oc_offense_shift(oc_s)
         dc = dc_defense_shift(dc_s)
-        ofit = off_scheme_fit_shift(oc_s.scheme, self._off_lineup())
-        dfit = def_scheme_fit_shift(dc_s.scheme, self._def_lineup())
+        if self._off_staff().scheme_fit == "derived":
+            ofit = off_scheme_fit_shift_derived(oc_s.scheme, self._off_lineup())
+        else:
+            ofit = off_scheme_fit_shift(oc_s.scheme, self._off_lineup())
+        if self._def_staff().scheme_fit == "derived":
+            dfit = def_scheme_fit_shift_derived(dc_s.scheme, self._def_lineup())
+        else:
+            dfit = def_scheme_fit_shift(dc_s.scheme, self._def_lineup())
         return {
             "complete": oc["complete"] + dc["complete"] + ofit["complete"] + dfit["complete"],
             "rush": oc["rush"] + dc["rush"] + ofit["rush"] + dfit["rush"],

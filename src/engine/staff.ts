@@ -59,6 +59,16 @@ export interface DefensiveCoordinator {
 }
 
 export interface Staff {
+  /**
+   * Scheme-fit mode (`staff-fit.ts`). Omitted is the legacy fit, byte-identical:
+   * a unit whose players carry no `scheme_tags` scores 0 against the league
+   * baseline. `"derived"` reads stored tags else `derivedSchemeTags` and treats
+   * a unit with no usable information as neutral. It rides on the staff because
+   * the staff already travels with every simulation and replay (season sim,
+   * playoffs, the HTTP adapter, online blocks), so a league's flag cannot be
+   * dropped at one call site.
+   */
+  schemeFit?: "derived" | undefined;
   headCoach: HeadCoach;
   oc: OffensiveCoordinator;
   dc: DefensiveCoordinator;
@@ -114,4 +124,15 @@ export function schemeFitFraction(
     if (tags.some((t) => want.has(t))) fit += 1;
   }
   return n ? fit / n : 0;
+}
+
+/**
+ * Like `schemeFitFraction`, but `null` when no player in the unit has any
+ * tags (the legacy code returned 0 there, which read as a total mismatch).
+ */
+export function schemeFitFractionOrNull(
+  tagLists: readonly (readonly string[] | undefined)[],
+  schemeTags: readonly string[],
+): number | null {
+  return tagLists.some((t) => t && t.length > 0) ? schemeFitFraction(tagLists, schemeTags) : null;
 }

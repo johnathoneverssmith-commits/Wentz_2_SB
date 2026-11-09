@@ -59,6 +59,8 @@ export const coachToEngine = (key: CoachBand, uiValue: number): number => toEngi
 /** Structurally the engine's `Staff` (`src/engine/staff.ts`); kept local so
  *  the franchise layer does not import the engine. */
 export interface EngineStaff {
+  /** engine `Staff.schemeFit`: set from `LeagueConfig.schemeFit`, absent for a legacy league */
+  schemeFit?: "derived";
   headCoach: { name: string; gameManagement: number; discipline: number; aggression: number };
   oc: { name: string; rating: number; scheme: string; passBias: number; tempo: number };
   dc: { name: string; rating: number; scheme: string; blitzBias: number };
@@ -75,13 +77,14 @@ export interface EngineStaff {
  * which is precisely zero effect, so a team is never penalised for a hole it
  * could not fill and never credited for one either.
  */
-export function engineStaffFor(s: Pick<LeagueState, "coaches">, teamCode: string): EngineStaff {
+export function engineStaffFor(s: Pick<LeagueState, "coaches"> & { config?: LeagueState["config"] }, teamCode: string): EngineStaff {
   const on = (role: Coach["role"]): Coach | undefined =>
     Object.values(s.coaches).find((c) => c.team === teamCode && c.role === role);
   const hc = on("HC");
   const oc = on("OC");
   const dc = on("DC");
   return {
+    ...(s.config?.schemeFit === "derived" ? { schemeFit: "derived" as const } : {}),
     headCoach: hc
       ? {
           name: hc.name,
@@ -111,7 +114,7 @@ export function engineStaffFor(s: Pick<LeagueState, "coaches">, teamCode: string
 }
 
 /** Every league team's staff, for a slate of games. */
-export function engineStaffsFor(s: Pick<LeagueState, "coaches" | "teams">): Record<string, EngineStaff> {
+export function engineStaffsFor(s: Pick<LeagueState, "coaches" | "teams"> & { config?: LeagueState["config"] }): Record<string, EngineStaff> {
   const out: Record<string, EngineStaff> = {};
   for (const code of Object.keys(s.teams)) out[code] = engineStaffFor(s, code);
   return out;

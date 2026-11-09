@@ -385,6 +385,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         heading: "In a game",
         body: [
           "The head coach, offensive coordinator and defensive coordinator each nudge a few decisions: game management and aggression (fourth downs, the clock), discipline (penalties), the offensive coordinator's pass lean and play-calling, and the defense's blitz tendency. A league-average staff changes nothing.",
+          "A coordinator who runs a specific scheme (a West Coast or power-run offense, a Cover 2 or man-press defense) also gets a small bonus for starters who suit it and a small penalty for starters who don't, measured against how well the average team suits that scheme. Pro-style and multiple are the scheme-agnostic defaults and ask nothing of the roster. A player's suit comes from his scheme tags; a player with none (a rookie, a signed free agent, anyone in a fictional-player league) is read from his ratings instead, so a roster nobody tagged is not marked down for it. Leagues created before this change keep the older reading, where an untagged starter counts as suiting nothing, until the league is moved over.",
         ],
       },
       {

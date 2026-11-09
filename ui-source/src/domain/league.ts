@@ -102,6 +102,15 @@ export interface LeagueConfig {
    */
   talentImpact?: "realistic" | "amplified" | "extreme";
   /**
+   * Scheme fit (`state/schemeTags.ts`, engine `Staff.schemeFit`). Absent or
+   * "legacy": a player with no `scheme_tags` counts as fitting nothing, so a
+   * specialised coordinator is charged for it (the pre-fix behaviour, kept so
+   * existing franchises play exactly as before). "derived": missing tags are
+   * read off the player's attributes and an unreadable unit is neutral. New
+   * leagues start on "derived".
+   */
+  schemeFit?: "legacy" | "derived";
+  /**
    * Where the opening players come from. Absent or "fictional": Seeded League
    * DNA (`sim/leagueDna`), original players unique to the league's seed.
    * "legacy": the shipped real-player pool, kept for tests and tools that
