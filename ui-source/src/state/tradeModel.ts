@@ -232,6 +232,9 @@ export function judgeWith(
 
   // the team's own reading of the chart: its window, and what the salary does to its room
   let teamDelta = delta;
+  // what the taking team makes of each incoming player with a bad contract (below the chart’s price of him)
+  const takenAt = new Map<string, number>();
+  const worth = (a: TradeAsset): number => takenAt.get(assetKey(a)) ?? chart(a);
   if (cpu) {
     const fx = windowEffect(ctx.windowOf(toTeam), difficulty.longTermWeight);
     const mine = (a: TradeAsset): number => {
@@ -260,6 +263,7 @@ export function judgeWith(
       const keep = playerPerformanceValue(state, p) + TRADE_CONTRACT_WEIGHT * RECEIVED_SHORTFALL_COST * raw;
       const cut = -TRADE_CONTRACT_WEIGHT * releasePenalty(p);
       const w = Math.min(chart(a), Math.max(cut, keep));
+      takenAt.set(assetKey(a), w);
       return w > 0 ? w * teamAssetMultiplier(state, a, fx) : w;
     };
     const received = packageValue(state, fromAssets, taking, 1);
@@ -272,7 +276,8 @@ export function judgeWith(
   const holeAt = (best: number): number => Math.max(1, 78 - (best || 40));
   const none = new Set<string>();
   // (a player the chart prices at or below nothing fills no hole: a bad contract is not a need)
-  const useful = (a: TradeAsset): boolean => a.kind === "player" && chart(a) > 0;
+  // (nor one the taking team reads as a liability, whatever the chart says of him, and a need is bounded by what he is worth to the taking team, not by the chart: a hole must not make an overpaid contract attractive)
+  const useful = (a: TradeAsset): boolean => a.kind === "player" && worth(a) > 0;
   // A need is worth a share of the player's own price at most (NEED_PREMIUM_SHARE), in the units the likelihood takes it in
   // (`needScale * need / 90` likelihood = `needScale * need * 0.4` chart points).
   const fxNeed = cpu ? windowEffect(ctx.windowOf(toTeam), difficulty.longTermWeight) : 0;
@@ -280,7 +285,7 @@ export function judgeWith(
   // at a position of need was worth up to a third of the likelihood more than a pick of the same price, and a rebuilding seller took
   // a spare player over picks nearly every time (a pick-only package in 3% of deadline trades).
   const needScale = clamp(1 - 0.5 * Math.max(0, -fxNeed) + 0.25 * Math.max(0, fxNeed), 0.5, 1.25);
-  const bounded = (need: number, a: TradeAsset): number => Math.min(need, (NEED_PREMIUM_SHARE * Math.max(0, chart(a)) * 90) / (36 * needScale));
+  const bounded = (need: number, a: TradeAsset): number => Math.min(need, (NEED_PREMIUM_SHARE * Math.max(0, worth(a)) * 90) / (36 * needScale));
   const needGained = fromAssets.reduce((s, a) => {
     const pos = useful(a) ? state.players[a.playerId ?? ""]?.position : undefined;
     return s + (pos ? bounded(holeAt(ctx.bestAt(toTeam, pos, none)), a) : 0);

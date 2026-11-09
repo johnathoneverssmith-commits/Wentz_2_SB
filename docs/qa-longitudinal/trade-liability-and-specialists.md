@@ -4,8 +4,7 @@ Measured on `e44f18d` (includes #109, #110) with the real `judgeWith`/`checkTrad
 (seeds 9501, 9502, seasons 1-3, played through the store) plus seeded leagues 12-17. Old = master, new = this change.
 
 ## What was reproduced
-- **Dump: confirmed, but later-season only.** Age-32, 70 OVR on $20M x 3 (release penalty $13.2M), asked for nothing: year 1 0/372 teams with room
-  (fresh caps leave no room; the legal-roster check also blocks most), **year 2 36%**, year 3 6%, pooled 43% of cap-room teams (156/360). The reported "32 of 32"
+- **Dump: confirmed, but later-season only.** Age-32, 70 OVR on $20M x 3 (release penalty $13.2M), asked for nothing: season 1 0 of 372 offers accepted (no team has the room), **season 2 135/372 offers (135/306 with cap room)**, season 3 21/372 (21/54 with room); pooled 156/360 = 43% of cap-room offers (table below). The reported "32 of 32"
   is not reproduced on current master. Cause: the chart adds the player's full performance price (+19) to a contract term floored at
   0.8 x release penalty (-10.6), so he is worth +8 to a team taking him. At the deadline no cap/roster check applies at all, so only valuation gates it.
 - **K/P: mean is already under chart; the best buyer is the exploit.** Shopped to 31 teams (36 cases each): mean over all teams K 0.68x, P 0.74x,
@@ -14,25 +13,52 @@ Measured on `e44f18d` (includes #109, #110) with the real `judgeWith`/`checkTrad
 
 ## Change (`tradeModel.ts` only, plus the How It Works text)
 1. A CPU team **taking a player on** reads his contract unclamped (shortfall x `RECEIVED_SHORTFALL_COST` 1.25) and takes the better of keeping him and cutting him (-0.8 x penalty). The shedding side is unchanged (`LIABILITY_RELIEF`).
-2. A need adds at most `NEED_PREMIUM_SHARE` (25%) of the player's chart price, both gained and lost.
+2. A need adds at most `NEED_PREMIUM_SHARE` (25%) of the player's worth to the taking team (the chart price, or its own reading of a bad contract), both gained and lost. A player the taking team reads as a liability fills no hole.
 
-## Before / after (cap-room teams unless noted)
-| Case | n | old | new |
+## Before / after
+Cohort for the dump rows: 2 seeds (9501, 9502) x 3 seasons x 6 positions (EDGE, CB, OT, WR, ILB, S) = 36 planted players, each offered to the 31 other teams,
+so 1,116 offers (372 per season). "Cap room" = the team could absorb the first-year hit. The deadline path ignores cap and roster.
+
+**Reconciliation of the 20x3 free ask (age 32, 70 OVR, penalty $13.2M).** The earlier table gave 36% / 6% by season over a 372-offer denominator while the numerator counted only cap-room acceptances; the correct pairs are below. Old pooled `156/360` = 135 + 21 (cap-room accepts) over 306 + 54 (cap-room offers; season 1 has none).
+
+| Season | All offers, old | All offers, new | Cap-room offers, old | Cap-room offers, new | Real deadline path (first 8 teams per player = 48 asks x 2 seeds = 96), old | new |
+|---|---|---|---|---|---|---|
+| 1 | 0/372 | 0/372 | 0/0 | 0/0 | 0/96 | 0/96 |
+| 2 | 135/372 (36%) | 4/372 (1%) | 135/306 (44%) | 4/306 (1%) | 38/96 (40%) | 0/96 |
+| 3 | 21/372 (6%) | 0/372 | 21/54 (39%) | 0/54 | 7/96 (7%) | 0/96 |
+| pooled | 156/1116 (14%) | 4/1116 (0.4%) | 156/360 (43%) | 4/360 (1%) | 45/288 (16%) | 0/288 |
+
+Every old acceptance had cap room, so all-offers and cap-room numerators agree. The "deadline path" columns drive `runCpuTurns` (no cap check, so all teams are eligible); an earlier table mislabelled the all-offers valuation count as the deadline path.
+
+**Other cohorts (labelled).** Rows marked *(EDGE only)* use one planted EDGE per state: 6 states x up to 31 teams, cap-room teams only, so n=60 per difficulty level (the five levels are re-runs of the same cohort; the window rows pool them, n=300).
+
+| Case | n | Old | New |
 |---|---|---|---|
-| 20x3 free, rel >= $10M | 360 | 43% | **1%** |
-| 20x3 free by year (y1/y2/y3) | 372 each | 0 / 36 / 6% | 0 / 1 / 0% |
-| 20x3 free, EDGE only, by difficulty (casual..master) | 60 each | 57-63% | 0-12% |
-| 20x3 free by window (contending / middle / rebuilding) | 80/75/145 | 56/67/58% | 1/3/13% |
-| 20x3 + R7 token | 360 | 43% | not re-tabulated at 1.25 (5% at 1.0); test asserts <= 10% |
-| 20x3 + R3 | 360 | 99% | 21% |
-| 20x3 + R2 (meaningful) | 360 | 100% | 96% |
-| 30x4 + R2 / R3 | 192 | 100% / 36% | 30% / 1% |
-| 20x3 free, deadline path (all 31, no cap check) | 1116 | 14% | 0% |
-| 12x2 (penalty $5.3M) free / +R2 | 888 | 81% / 100% | 36% / 100% |
-| K: best offer / chart (mean), > 1.25x | 12 | 1.19x, 25% | **0.98x, 0%** |
-| P: best offer / chart (mean), > 1.25x | 12 | 1.68x, 75% | **1.04x, 8% (1 of 12)** |
+| 30x4 free, cap-room | 192 | 1% | 0% |
+| 20x3 + 7th / 5th / 3rd / 2nd, cap-room | 360 | 43% / 54% / 99% / 100% | 2% / 2% / 17% / 96% |
+| 30x4 + 2nd, cap-room | 192 | 100% | 29% |
+| 12x2 (penalty $5.3M) free / + 2nd, cap-room | 888 | 81% / 100% | 36% / 100% |
+| 20x3 free by difficulty casual..master *(EDGE only)* | 60 each | 57-63% | 0-12% |
+| 20x3 free by window contending / middle / rebuilding *(EDGE only, pooled over difficulties)* | 80 / 75 / 145 | 56 / 67 / 58% | 1 / 3 / 13% |
+| K best offer / chart (mean); above 1.25x | 12 | 1.19x; 25% | 0.98x; 0% |
+| P best offer / chart (mean); above 1.25x | 12 | 1.68x; 75% | 1.04x; 8% (1 of 12) |
 | K / P mean over all teams / chart | 12 | 0.71 / 0.72 | 0.70 / 0.69 |
 | K / P teams that buy (of 31) | 12 | 31.0 / 30.8 | 31.0 / 30.8 |
+
+## Does a need bonus rescue a liability?
+It did, in the original model: the bonus read the chart (+8 for the dumped player), not what the taking team thought of him. Same 20x3 contract, seasons 2-3,
+cap-room teams (n=360), the position either emptied (hole) or topped up to an 82 starter (filled):
+
+| | free | + 7th | + 5th |
+|---|---|---|---|
+| hole, original | 359/360 (99.7%) | 360/360 | 360/360 |
+| filled, original | 152/360 (42.2%) | 152/360 | 189/360 (52.5%) |
+| hole, first version of this PR | 8/360 (2.2%) | 8/360 | 15/360 (4.2%) |
+| filled, first version | 4/360 (1.1%) | 6/360 | 8/360 |
+| hole, final | 4/360 (1.1%) | 6/360 (1.7%) | 8/360 (2.2%) |
+| filled, final | 4/360 (1.1%) | 6/360 (1.7%) | 8/360 (2.2%) |
+
+The residual gap in the first version came from the bonus being bounded by the chart price. The final version bounds a need by what the taking team makes of the player (`worth`), so a hole and a filled position now give identical answers for a liability.
 
 ## Controls (unchanged or near)
 - Productive vets taken free by all cap-room teams, old and new: 78/30 $20M x3 (180/180), 85/29 $25M x3 (126/126), 75/27 $10M x3 (447/447), 72/31 $8M x2 (477/477). They pay less in picks when overpaid: 78/30 $20M x3 75% -> 44% of chart; others -1 to -7 points.

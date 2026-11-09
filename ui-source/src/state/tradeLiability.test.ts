@@ -130,6 +130,33 @@ describe("STRAT-002: a cap mistake is not handed to the league for nothing", () 
     }
   });
 
+  it("a hole at the position does not make the liability attractive: a team with no one there takes it no more than one with a starter", () => {
+    const rate = (variant: "hole" | "filled", compensation: 0 | 7): number => {
+      let yes = 0;
+      let n = 0;
+      for (const seed of SEEDS) {
+        for (const pos of DUMP_POSITIONS) {
+          const base = withRoom(league(seed));
+          const p = plant(base, pos, 70, 32, 20, 3);
+          for (const t of roomFor(base, p).slice(0, 12)) {
+            const s = structuredClone(base);
+            const theirs = Object.values(s.players).filter((q) => q.nfl_team === t && q.position === pos && !q.retired && q.id !== p.id).sort((a, b) => b.overall - a.overall);
+            if (variant === "hole") for (const q of theirs) q.retired = true;
+            else if (theirs[0]) theirs[0].overall = Math.max(theirs[0].overall, 82);
+            const offer = compensation ? [...give(p), pickOf(s, humanTeam(s), compensation)] : give(p);
+            n++;
+            if (tradeAccepts(judgeTrade(s, humanTeam(s), t, offer, []).acceptLikelihood)) yes++;
+          }
+        }
+      }
+      return yes / n;
+    };
+    for (const c of [0, 7] as const) {
+      expect(rate("hole", c), `hole, compensation R${c}`).toBeLessThanOrEqual(0.1);
+      expect(rate("hole", c) - rate("filled", c), `hole minus filled, R${c}`).toBeLessThanOrEqual(0.03);
+    }
+  });
+
   it("through the real trade-deadline path: the CPU team answers the dump with a no", () => {
     let accepted = 0;
     let asked = 0;
