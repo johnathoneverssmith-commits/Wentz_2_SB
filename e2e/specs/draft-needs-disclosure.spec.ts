@@ -1,4 +1,6 @@
-import { test, expect, type Page } from "../support/test";
+import type { Page } from "@playwright/test";
+
+import { test, expect } from "../support/test";
 
 /**
  * The Draft Room's "Roster needs & unit grades" disclosure read #c9dcf0 on the light page (1.25:1, QA register PA-003).
@@ -9,7 +11,7 @@ test.use({ fixtureName: "fantasy-draft" });
 
 async function measure(page: Page) {
   return page.evaluate(() => {
-    const summary = [...document.querySelectorAll("summary")].find((s) => s.textContent?.includes("Roster needs"))!;
+    const summary = Array.from(document.querySelectorAll("summary")).find((s) => s.textContent?.includes("Roster needs"))!;
     const parse = (c: string) => (c.match(/[\d.]+/g) ?? []).map(Number);
     const lum = ([r, g, b]: number[]) => {
       const f = (v: number) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
