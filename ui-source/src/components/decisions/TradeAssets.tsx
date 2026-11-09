@@ -1,3 +1,4 @@
+import './trade-steps.css';
 import type { ReactNode } from 'react';
 export type AssetStep='you'|'them'|'review';
 export function AssetNavigation({step,onChange,give,get}:{step:AssetStep;onChange:(step:AssetStep)=>void;give:number;get:number}) {
