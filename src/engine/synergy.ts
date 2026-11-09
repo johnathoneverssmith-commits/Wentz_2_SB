@@ -70,7 +70,7 @@
 
 import type { Player } from "../schema/player.js";
 import { QB_EFFECT, attributeZ, onQbEffectChange, playerKey } from "./ratings.js";
-import { type Lineup, roster, teamList } from "./roster.js";
+import { type Lineup, onReferencePoolChange, roster, teamList } from "./roster.js";
 
 // ---- per-player skill scores -------------------------------------------------
 
@@ -495,6 +495,14 @@ const keyOf = (l: Lineup): string =>
     .join(",");
 
 // the quarterback setting is part of every cached score that involves him
+// the reference pool is part of every centring value too
+onReferencePoolChange(() => {
+  _posMean.clear();
+  _pressureRef = null;
+  _reference = null;
+  _blitzRef = null;
+});
+
 onQbEffectChange(() => {
   _reference = null;
   _offCache.clear();

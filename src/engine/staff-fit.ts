@@ -16,7 +16,7 @@
  */
 
 import { loadDerivedFitBaseline } from "./loaders.js";
-import { roster, teamList } from "./roster.js";
+import { onReferencePoolChange, roster, teamList } from "./roster.js";
 import { effectiveSchemeTags, type TaggablePlayer } from "./scheme-tags.js";
 import {
   DEF_SCHEME_TAGS,
@@ -46,6 +46,10 @@ interface Baseline {
   def: Record<DefScheme, number>;
 }
 let _baseline: Baseline | null = null;
+onReferencePoolChange(() => {
+  _baseline = null;
+  _slot = null;
+});
 
 /** League-mean fit fraction per scheme, over all 32 current depth charts. */
 export function schemeFitBaseline(): Baseline {
