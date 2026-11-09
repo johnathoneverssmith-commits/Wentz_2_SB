@@ -203,8 +203,10 @@ class Game:
         oc_s, dc_s = self._off_staff().oc, self._def_staff().dc
         oc = oc_offense_shift(oc_s)
         dc = dc_defense_shift(dc_s)
-        ofit = off_scheme_fit_shift(oc_s.scheme, self._off_lineup())
-        dfit = def_scheme_fit_shift(dc_s.scheme, self._def_lineup())
+        ofit = off_scheme_fit_shift(oc_s.scheme, self._off_lineup(),
+                                    self._off_staff().scheme_fit == "derived")
+        dfit = def_scheme_fit_shift(dc_s.scheme, self._def_lineup(),
+                                    self._def_staff().scheme_fit == "derived")
         return {
             "complete": oc["complete"] + dc["complete"] + ofit["complete"] + dfit["complete"],
             "rush": oc["rush"] + dc["rush"] + ofit["rush"] + dfit["rush"],

@@ -78,6 +78,7 @@ import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternat
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { commitmentsOf } from "./contractValue.ts";
 import { outlookFor } from "./faValue.ts";
+import { effectiveSchemeTags } from "./schemeTags";
 import { chooseStructure, cpuExtension, cpuOfferYears } from "./cpuContracts.ts";
 import { readTeamTimeline } from "./teamTimeline.ts";
 import { updateHoodedFigureStreaks } from "./hoodedFigure.ts";
@@ -1520,6 +1521,12 @@ export function rosterSchemeFit(s: LeagueState, teamCode: string, role: "OC" | "
   if (want.size === 0) return 0;
   const roster = Object.values(s.players).filter((p) => p.nfl_team === teamCode && !p.retired);
   if (roster.length === 0) return 0;
+  // a derived-fit league reads untagged players off their attributes, so a
+  // roster of rookies is not "a roster that fits nothing" (K/P carry no tags)
+  if (s.config.schemeFit === "derived") {
+    const tagged = roster.map(effectiveSchemeTags).filter((t) => t.length > 0);
+    return tagged.length === 0 ? 0 : tagged.filter((t) => t.some((x) => want.has(x))).length / tagged.length;
+  }
   const fit = roster.filter((p) => p.scheme_tags.some((t) => want.has(t))).length;
   return fit / roster.length;
 }

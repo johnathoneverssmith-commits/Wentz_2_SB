@@ -71,6 +71,9 @@ export const DEFAULT_CONFIG: LeagueConfig = {
   // new leagues default to rosters mattering more than real football allows;
   // Realistic is one setting away (see `talentImpact.ts`)
   talentImpact: "amplified",
+  // new leagues read a player's scheme fit off his attributes; saves without
+  // the field keep the legacy fit (see `schemeTags.ts`)
+  schemeFit: "derived",
 };
 
 const AI_GM_NAMES = ["Priya", "Marcus", "Dana", "Theo", "Nadia", "Wes", "Iris"];

@@ -42,6 +42,10 @@ class Staff:
     head_coach: HeadCoach
     oc: Coordinator
     dc: Coordinator
+    # Scheme-fit mode (mirror of ``Staff.schemeFit``). None = legacy, byte-identical;
+    # "derived" reads stored tags else attribute-derived ones and treats a unit with
+    # no usable tags as neutral.
+    scheme_fit: str | None = None
 
 
 def league_average_staff(label: str = "League Average") -> Staff:
@@ -88,3 +92,10 @@ def scheme_fit_fraction(tag_lists, scheme_tags) -> float:
         if any(t in want for t in tags):
             fit += 1
     return fit / n if n else 0.0
+
+
+def scheme_fit_fraction_or_none(tag_lists, scheme_tags):
+    """Like ``scheme_fit_fraction`` but None when no player has any tags (legacy returned 0)."""
+    if not any(t for t in tag_lists):
+        return None
+    return scheme_fit_fraction(tag_lists, scheme_tags)

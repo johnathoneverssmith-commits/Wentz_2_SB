@@ -82,6 +82,7 @@ import { REST_DT1, REST_DT2, REST_EDGE1, REST_EDGE2, type Lineup, type Roster, r
 import type { Staff } from "./staff.js";
 import type { Player } from "../schema/player.js";
 import { defSchemeFitShift, offSchemeFitShift } from "./staff-fit.js";
+import { effectiveSchemeTags } from "./scheme-tags.js";
 import {
   dcDefenseShift,
   hcGoForItDelta,
@@ -829,14 +830,20 @@ export class Game {
     const dc = dcDefenseShift(dcS);
     const o = this.offLineup();
     const d = this.defLineup();
+    // Phase 0 scheme fit: each side's fit mode is its own staff's flag; a
+    // league sets it for every team, so a mixed pair only occurs in tests.
+    const offDerived = this.offStaff().schemeFit === "derived";
+    const defDerived = this.defStaff().schemeFit === "derived";
+    const tagsOf = (derived: boolean) => (p: Parameters<typeof effectiveSchemeTags>[0]) =>
+      derived ? effectiveSchemeTags(p) : p?.scheme_tags;
     const offTags = [o.QB1, o.RB1, o.WR1, o.WR2, o.WR3, o.TE1, o.LT, o.LG, o.C, o.RG, o.RT].map(
-      (p) => p?.scheme_tags,
+      tagsOf(offDerived),
     );
     const defTags = [d.EDGE1, d.EDGE2, d.DT1, d.DT2, d.ILB1, d.ILB2, d.CB1, d.CB2, d.S1, d.S2].map(
-      (p) => p?.scheme_tags,
+      tagsOf(defDerived),
     );
-    const ofit = offSchemeFitShift(ocS.scheme, offTags);
-    const dfit = defSchemeFitShift(dcS.scheme, defTags);
+    const ofit = offSchemeFitShift(ocS.scheme, offTags, offDerived);
+    const dfit = defSchemeFitShift(dcS.scheme, defTags, defDerived);
     // The blitz against the personnel on both sides of it: corners who can
     // hold up alone let it get home and give little back; a great line picks
     // it up; a great quarterback punishes it. Centred on the reference

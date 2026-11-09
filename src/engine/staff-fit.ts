@@ -22,6 +22,7 @@ import {
   OFF_SCHEME_TAGS,
   type OffScheme,
   schemeFitFraction,
+  schemeFitFractionOrNull,
 } from "./staff.js";
 
 const NEUTRAL_OFF: OffScheme = "pro_style";
@@ -63,12 +64,20 @@ export function schemeFitBaseline(): Baseline {
   return _baseline;
 }
 
-/** Offense's scheme-fit contribution for its OC scheme. Zero for `pro_style`. */
+/**
+ * Offense's scheme-fit contribution for its OC scheme. Zero for `pro_style`.
+ * `derived` (Staff.schemeFit): the caller passes effective tags, and a unit
+ * with no tag information at all is neutral (zero) instead of a 0% match.
+ */
 export function offSchemeFitShift(
   scheme: OffScheme,
   offenseTags: Tags,
+  derived = false,
 ): { complete: number; rush: number } {
   if (scheme === NEUTRAL_OFF) return { complete: 0, rush: 0 };
+  if (derived && schemeFitFractionOrNull(offenseTags, OFF_SCHEME_TAGS[scheme]) === null) {
+    return { complete: 0, rush: 0 };
+  }
   const dev = schemeFitFraction(offenseTags, OFF_SCHEME_TAGS[scheme]) - schemeFitBaseline().off[scheme];
   return { complete: FIT_COMPLETE * dev, rush: FIT_RUSH * dev };
 }
@@ -77,8 +86,12 @@ export function offSchemeFitShift(
 export function defSchemeFitShift(
   scheme: DefScheme,
   defenseTags: Tags,
+  derived = false,
 ): { complete: number; rush: number } {
   if (scheme === NEUTRAL_DEF) return { complete: 0, rush: 0 };
+  if (derived && schemeFitFractionOrNull(defenseTags, DEF_SCHEME_TAGS[scheme]) === null) {
+    return { complete: 0, rush: 0 };
+  }
   const dev = schemeFitFraction(defenseTags, DEF_SCHEME_TAGS[scheme]) - schemeFitBaseline().def[scheme];
   return { complete: 0 - FIT_COMPLETE * dev, rush: 0 - FIT_RUSH * dev };
 }
