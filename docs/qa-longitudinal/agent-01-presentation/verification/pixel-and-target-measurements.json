@@ -1,0 +1,221 @@
+{
+ "PA-003@1440": {
+  "fg": "rgb(201, 220, 240)",
+  "size": "12px",
+  "weight": "400",
+  "text": "Roster needs & unit grades",
+  "w": 290,
+  "h": 44,
+  "fgRgb": [
+   201,
+   220,
+   240
+  ],
+  "worst": 1.25,
+  "median": 1.25,
+  "best": 1.25,
+  "dominantBg": "239,242,245",
+  "dominantShare": 1
+ },
+ "PA-003-all-summaries@1440": [
+  {
+   "t": "Roster needs & unit grades",
+   "c": "rgb(201, 220, 240)",
+   "bg": "rgba(0, 0, 0, 0)",
+   "vis": true
+  }
+ ],
+ "PA-004-fav@1440": {
+  "fg": "rgb(15, 122, 69)",
+  "size": "13px",
+  "weight": "700",
+  "text": "82",
+  "w": 96,
+  "h": 23,
+  "fgRgb": [
+   15,
+   122,
+   69
+  ],
+  "worst": 3.94,
+  "median": 3.94,
+  "best": 4.8,
+  "dominantBg": "206,224,220",
+  "dominantShare": 0.9
+ },
+ "PA-004-small@1440": {
+  "fg": "rgb(78, 95, 112)",
+  "size": "10px",
+  "weight": "400",
+  "text": "26th",
+  "w": 96,
+  "h": 11,
+  "fgRgb": [
+   78,
+   95,
+   112
+  ],
+  "worst": 5.84,
+  "median": 5.84,
+  "best": 5.84,
+  "dominantBg": "238,242,245",
+  "dominantShare": 1
+ },
+ "PA-003@390": {
+  "fg": "rgb(201, 220, 240)",
+  "size": "12px",
+  "weight": "400",
+  "text": "Roster needs & unit grades",
+  "w": 334,
+  "h": 44,
+  "fgRgb": [
+   201,
+   220,
+   240
+  ],
+  "worst": 1.25,
+  "median": 1.25,
+  "best": 1.25,
+  "dominantBg": "239,242,245",
+  "dominantShare": 1
+ },
+ "PA-003-all-summaries@390": [
+  {
+   "t": "Roster needs & unit grades",
+   "c": "rgb(201, 220, 240)",
+   "bg": "rgba(0, 0, 0, 0)",
+   "vis": true
+  }
+ ],
+ "PA-004-fav@390": {
+  "fg": "rgb(15, 122, 69)",
+  "size": "13px",
+  "weight": "700",
+  "text": "82",
+  "w": 72,
+  "h": 23,
+  "fgRgb": [
+   15,
+   122,
+   69
+  ],
+  "worst": 3.94,
+  "median": 3.94,
+  "best": 4.8,
+  "dominantBg": "206,224,220",
+  "dominantShare": 0.88
+ },
+ "PA-004-small@390": {
+  "fg": "rgb(78, 95, 112)",
+  "size": "10px",
+  "weight": "400",
+  "text": "26th",
+  "w": 72,
+  "h": 11,
+  "fgRgb": [
+   78,
+   95,
+   112
+  ],
+  "worst": 5.84,
+  "median": 5.84,
+  "best": 5.84,
+  "dominantBg": "238,242,245",
+  "dominantShare": 1
+ },
+ "PA-006": {
+  "box": [
+   28,
+   362,
+   334
+  ],
+  "overflow": "hidden",
+  "scrollW": 334,
+  "clientW": 330,
+  "contentSpan": [
+   231.28125,
+   364.48150634765625
+  ],
+  "parentOverflow": "visible",
+  "hasHScroll": false
+ },
+ "PA-007-free-agency-board@1440": [
+  {
+   "input": [
+    13,
+    40
+   ],
+   "label": [
+    800,
+    72
+   ],
+   "labelText": "Skip free agencyYour own turns are passe",
+   "nearestOtherTargetPx": 24
+  }
+ ],
+ "PA-007-free-agency-board@390": [
+  {
+   "input": [
+    13,
+    40
+   ],
+   "label": [
+    366,
+    87
+   ],
+   "labelText": "Skip free agencyYour own turns are passe",
+   "nearestOtherTargetPx": 37
+  }
+ ],
+ "PA-007-trade-deadline@1440": [
+  {
+   "input": [
+    13,
+    40
+   ],
+   "label": [
+    1152,
+    72
+   ],
+   "labelText": "Skip the trade deadlineYour own turns ar",
+   "nearestOtherTargetPx": 50
+  }
+ ],
+ "PA-007-trade-deadline@390": [
+  {
+   "input": [
+    13,
+    40
+   ],
+   "label": [
+    366,
+    106
+   ],
+   "labelText": "Skip the trade deadlineYour own turns ar",
+   "nearestOtherTargetPx": 88
+  }
+ ],
+ "PA-005-game-plan": [
+  "H1:Game plan, Game plan",
+  "H3:Pass or run",
+  "H3:Fourth down",
+  "H3:After touchdowns",
+  "H3:Defense",
+  "H3:Personnel",
+  "H3:Special teams",
+  "H3:Young players",
+  "H3:Running backs"
+ ],
+ "PA-005-bracket": [
+  "H1:2027 playoffs, Postseason",
+  "H3:Wild Card",
+  "H3:Divisional",
+  "H3:Conference Championship"
+ ],
+ "PA-005-offseason-fa": [
+  "H1:Rookie Draft Summary",
+  "H3:Strengths",
+  "H3:Weaknesses",
+  "H3:Every team, ranked by starti"
+ ]
+}

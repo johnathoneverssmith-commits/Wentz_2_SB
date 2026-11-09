@@ -1,0 +1,98 @@
+/** Targeted verification of PA-003..PA-007 (Agent 1). Measures rendered pixels, not computed backgrounds. */
+import { writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { SCREENS } from "../support/screens.ts";
+import { OUT_DIR, settle, test } from "../support/audit-test.ts";
+import { CONDITIONS } from "../support/matrix.ts";
+
+const out: Record<string, unknown> = {};
+const lum = (c: number[]) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+const cr = (a: number[], b: number[]) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+
+async function bgPixels(page: any, sel: string, nth: number) {
+  const el = page.locator(sel).nth(nth);
+  await el.scrollIntoViewIfNeeded();
+  const info = await el.evaluate((e: HTMLElement) => { const s = getComputedStyle(e); const r = e.getBoundingClientRect(); return { fg: s.color, size: s.fontSize, weight: s.fontWeight, text: (e.textContent || "").trim().slice(0, 40), w: r.width, h: r.height }; });
+  const hide = await page.addStyleTag({ content: `${sel}{color:transparent!important;text-shadow:none!important} ${sel} *{color:transparent!important;text-shadow:none!important}` });
+  const png = await el.screenshot({ animations: "disabled" });
+  await hide.evaluate((n: HTMLElement) => n.remove());
+  const px = await page.evaluate(async (b64: string) => {
+    const img = new Image(); img.src = "data:image/png;base64," + b64; await img.decode();
+    const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const g = c.getContext("2d")!; g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, c.width, c.height).data; const all: number[][] = [];
+    for (let i = 0; i < d.length; i += 4) all.push([d[i], d[i + 1], d[i + 2]]);
+    return all;
+  }, png.toString("base64"));
+  const fg = (info.fg.match(/\d+(\.\d+)?/g) || []).slice(0, 3).map(Number);
+  const ratios = px.map((p: number[]) => cr(fg, p)).sort((a: number, b: number) => a - b);
+  const pick = (q: number) => +ratios[Math.floor(q * (ratios.length - 1))].toFixed(2);
+  const bgs = new Map<string, number>(); for (const p of px) { const k = p.join(","); bgs.set(k, (bgs.get(k) || 0) + 1); }
+  const top = [...bgs.entries()].sort((a, b) => b[1] - a[1])[0];
+  return { ...info, fgRgb: fg, worst: pick(0), median: pick(0.5), best: pick(1), dominantBg: top[0], dominantShare: +(top[1] / px.length).toFixed(2) };
+}
+
+const run = async (page: any, screenId: string) => {
+  const s = SCREENS.find((x) => x.id === screenId)!;
+  await page.goto(`/#${s.route}`); await settle(page, CONDITIONS.baseline); if (s.open) await s.open(page); await page.waitForTimeout(300);
+};
+
+for (const vp of ["1440", "390"]) {
+  test.describe(`verify @${vp}`, () => {
+    test.use({ team: "BAL", fixtureName: "fantasy-draft", viewportId: vp });
+    test(`PA-003 ${vp}`, async ({ page }) => {
+      await run(page, "fantasy-draft");
+      out[`PA-003@${vp}`] = await bgPixels(page, "summary", 0).catch((e: Error) => String(e));
+      out[`PA-003-all-summaries@${vp}`] = await page.locator("summary").evaluateAll((els: HTMLElement[]) => els.map((e) => ({ t: (e.textContent || "").trim().slice(0, 40), c: getComputedStyle(e).color, bg: getComputedStyle(e).backgroundColor, vis: !!e.offsetParent })));
+    });
+  });
+  test.describe(`verify hub @${vp}`, () => {
+    test.use({ team: "BAL", fixtureName: "season-week-9", viewportId: vp });
+    test(`PA-004 ${vp}`, async ({ page }) => {
+      await run(page, "hub-week-9");
+      out[`PA-004-fav@${vp}`] = await bgPixels(page, "span.mval.fav", 0).catch((e: Error) => String(e));
+      const idx = await page.locator("small").evaluateAll((els: HTMLElement[]) => els.findIndex((e) => getComputedStyle(e).color === "rgb(78, 95, 112)" && getComputedStyle(e).fontSize === "10px"));
+      out[`PA-004-small@${vp}`] = idx >= 0 ? await bgPixels(page, "small", idx).catch((e: Error) => String(e)) : "no 10px small found";
+    });
+  });
+}
+
+test.describe("verify roster 390", () => {
+  test.use({ team: "BAL", fixtureName: "season-week-9", viewportId: "390" });
+  test("PA-006", async ({ page }) => {
+    await run(page, "roster");
+    const el = page.locator(".gd-pitch").first(); await el.scrollIntoViewIfNeeded();
+    out["PA-006"] = await el.evaluate((e: HTMLElement) => { const r = e.getBoundingClientRect(); const p = e.parentElement!; const kids = [...e.querySelectorAll("*")].map((k) => (k as HTMLElement).getBoundingClientRect()); const maxR = Math.max(...kids.map((k) => k.right)); const minL = Math.min(...kids.map((k) => k.left)); return { box: [r.left, r.right, r.width], overflow: getComputedStyle(e).overflow, scrollW: e.scrollWidth, clientW: e.clientWidth, contentSpan: [minL, maxR], parentOverflow: getComputedStyle(p).overflow, hasHScroll: document.documentElement.scrollWidth > innerWidth }; });
+    mkdirSync(join(OUT_DIR, "verify"), { recursive: true });
+    await el.screenshot({ path: join(OUT_DIR, "verify", "PA-006-pitch-390.png") });
+  });
+});
+
+for (const [scr, fx] of [["free-agency-board", "midseason-fa"], ["trade-deadline", "trade-deadline"]] as const) {
+  for (const vp of ["1440", "390"]) {
+    test.describe(`verify ${scr} @${vp}`, () => {
+      test.use({ team: "BAL", fixtureName: fx, viewportId: vp });
+      test(`PA-007 ${scr} ${vp}`, async ({ page }) => {
+        await run(page, scr);
+        out[`PA-007-${scr}@${vp}`] = await page.locator("input[type=checkbox]").evaluateAll((els: HTMLInputElement[]) => els.map((i) => {
+          const r = i.getBoundingClientRect(); const l = i.closest("label"); const lr = l?.getBoundingClientRect();
+          const near = [...document.querySelectorAll("button,a,input,[role=button]")].filter((o) => o !== i && o.getBoundingClientRect().width > 0).map((o) => { const q = o.getBoundingClientRect(); const dx = Math.max(q.left - r.right, r.left - q.right, 0), dy = Math.max(q.top - r.bottom, r.top - q.bottom, 0); return Math.hypot(dx, dy); }).sort((a, b) => a - b)[0];
+          return { input: [r.width, r.height], label: lr ? [Math.round(lr.width), Math.round(lr.height)] : null, labelText: (l?.textContent || "").trim().slice(0, 40), nearestOtherTargetPx: Math.round(near) };
+        }));
+      });
+    });
+  }
+}
+
+test.describe("verify headings", () => {
+  for (const [scr, fx] of [["game-plan", "season-week-9"], ["bracket", "playoffs-wild-card"], ["offseason-fa", "offseason-fa-skip-carried"]] as const) {
+    test.describe(scr, () => {
+      test.use({ team: "BAL", fixtureName: fx, viewportId: "1440" });
+      test(`PA-005 ${scr}`, async ({ page }) => {
+        await run(page, scr);
+        out[`PA-005-${scr}`] = await page.locator("h1,h2,h3,h4").evaluateAll((els: HTMLElement[]) => els.filter((e) => e.offsetParent).map((e) => e.tagName + ":" + (e.textContent || "").trim().slice(0, 28)));
+      });
+    });
+  }
+});
+
+test.afterAll(() => { mkdirSync(join(OUT_DIR, "verify"), { recursive: true }); writeFileSync(join(OUT_DIR, "verify", "verify.json"), JSON.stringify(out, null, 1)); });
