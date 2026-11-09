@@ -1,0 +1,11 @@
+PASS  new dynasty built with adapter is engine-backed (simEngine=engine, stage=preseason)
+PASS  adapter stopped
+PASS  engine-unavailable alert is shown
+   banner: Play is stopped. The simulation engine isn't reachable (this week's games). Nothing was played or changed; your dynasty is saved as it was. Start the engine (npm run server), then press Retry. Retry
+PASS  nothing played, week unchanged (games 0, week 1)
+PASS  still engine-backed (no switch to Mock)
+PASS  after reload the save is intact and still engine-backed
+PASS  a second press retries for real and is refused the same safe way
+PASS  adapter restarted
+PASS  Retry clears the notice once the engine answers
+PASS  play resumes on the real engine (16 games, all with engine weather)

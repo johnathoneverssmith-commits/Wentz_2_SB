@@ -1,0 +1,6 @@
+PASS  pre-change save with no games and no simEngine (2027/preseason)
+PASS  adapter down: play stops (not silently Mock)
+PASS  the explicit 'Play this dynasty on the Mock simulation' choice is offered
+PASS  nothing played and the save is still undecided (not locked to Mock)
+PASS  still undecided after a reload
+PASS  adapter back: plays on the engine and records it (simEngine=engine)

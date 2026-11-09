@@ -328,6 +328,8 @@ export interface LeagueState {
    * (`decideStaffFix`), so a release cannot be turned into a re-signing on the minimum.
    */
   recentReleases?: { season: number; byTeam: Record<string, string[]>; at?: Record<string, number> | undefined } | undefined;
+  /** Which simulator this dynasty is played on, fixed when it is created; see `sim/engineMode.ts`. Absent on older saves (inferred). */
+  simEngine?: "engine" | "mock" | undefined;
   pause?: { at: string; by: string; remainingMs: number | null } | null | undefined;
   /**
    * The seed the league was created with, kept so that what's generated

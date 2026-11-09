@@ -1,0 +1,5 @@
+PASS  no adapter at creation -> Mock-backed (simEngine=mock)
+PASS  the hub says plainly that this is the Mock simulation
+   notice: Mock simulation (not the real engine). This dynasty was begun without the engine adapter, so its games use the simplified built-in simulator (no play-by-play, w
+PASS  plays on the Mock (48 games, none with engine weather)
+PASS  even with the adapter now running, a Mock dynasty never calls it
