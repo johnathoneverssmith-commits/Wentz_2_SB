@@ -125,6 +125,12 @@ export interface Backend {
   archive?(slot: string): Promise<boolean>;
   /** The save kept by {@link archive}, if there is one and it still reads. */
   readUndo?(slot: string): Promise<{ json: string; savedAt?: number } | null>;
+  /**
+   * Make the kept dynasty the live save. With `keepCurrent` the live save takes its place in `<slot>#undo` (a swap),
+   * otherwise the kept copy stays where it is. All-or-nothing: on false nothing has changed, and both dynasties are
+   * still where they were.
+   */
+  swapUndo?(slot: string, keepCurrent: boolean): Promise<boolean>;
 }
 
 const DB_NAME = "nfl-sim-ui-saves";
@@ -315,6 +321,29 @@ export function createIndexedDbBackend(factory: IDBFactory, legacy: LegacyOption
       const back = await getRecord(db, undoKey(slot));
       return !!back && back.sum === cur.sum && back.chars === cur.chars;
     },
+    async swapUndo(slot, keepCurrent) {
+      const db = await open();
+      const und = await getRecord(db, undoKey(slot));
+      if (!und) return false;
+      try {
+        await decodeRecord(und); // never promote something that wouldn't load
+      } catch {
+        return false;
+      }
+      try {
+        const tx = rw(db);
+        const st = tx.objectStore(STORE);
+        const done = txDone(tx);
+        const cur = (await req(st.get(slot))) as SaveRecord | undefined;
+        if (cur) st.put(cur, prevKey(slot));
+        if (keepCurrent && cur) st.put(cur, undoKey(slot));
+        st.put(und, slot);
+        await done;
+        return true;
+      } catch {
+        return false; // a transaction that did not commit changed nothing
+      }
+    },
     async readUndo(slot) {
       const db = await open();
       const rec = await getRecord(db, undoKey(slot));
@@ -417,6 +446,33 @@ export function createLocalStorageBackend(o: LocalBackendOptions): Backend {
         return false; // unreadable, or no room: the caller decides whether to go on without a copy
       }
     },
+    async swapUndo(slot, keepCurrent) {
+      const und = ls().getItem(undoKey(slot));
+      if (und == null) return false;
+      const cur = ls().getItem(slot);
+      try {
+        JSON.parse(await decodeLegacy(und));
+      } catch {
+        return false;
+      }
+      try {
+        if (keepCurrent && cur != null) ls().setItem(undoKey(slot), cur);
+      } catch {
+        return false; // no room for the swap: nothing was written
+      }
+      try {
+        ls().setItem(slot, und);
+        return true;
+      } catch {
+        // put the kept copy back where it was, so neither dynasty is lost
+        try {
+          ls().setItem(undoKey(slot), und);
+        } catch {
+          // it was the same value a moment ago; nothing more can be done
+        }
+        return false;
+      }
+    },
     async readUndo(slot) {
       const raw = ls().getItem(undoKey(slot));
       if (raw == null) return null;
@@ -461,6 +517,7 @@ export function createAutoBackend(primary: Backend | null, fallback: Backend): B
     has: async (s) => (await chosen).has(s),
     archive: async (s) => ((await chosen).archive ? (await chosen).archive!(s) : false),
     readUndo: async (s) => ((await chosen).readUndo ? (await chosen).readUndo!(s) : null),
+    swapUndo: async (s, k) => ((await chosen).swapUndo ? (await chosen).swapUndo!(s, k) : false),
     probe: async () => void (await chosen),
   };
 }
@@ -524,6 +581,8 @@ export interface Durable<S> {
   /** Finish pending writes, then keep the slot's current save aside as its undo copy. */
   archive(slot: string): Promise<boolean>;
   readUndo(slot: string): Promise<{ json: string; savedAt?: number } | null>;
+  /** Finish pending writes, then make the kept dynasty the live save (see {@link Backend.swapUndo}). */
+  swap(slot: string, keepCurrent: boolean): Promise<boolean>;
   backend: Backend;
 }
 
@@ -699,5 +758,13 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
       return null;
     }
   };
-  return { storage, flush, lastError: () => err, status: readStatus, markHydrated: (slot) => void hydrated.add(slot), archive, readUndo, backend: h.backend };
+  const swap = async (slot: string, keepCurrent: boolean): Promise<boolean> => {
+    await flush();
+    try {
+      return (await h.backend.swapUndo?.(slot, keepCurrent)) ?? false;
+    } catch {
+      return false;
+    }
+  };
+  return { storage, flush, lastError: () => err, status: readStatus, markHydrated: (slot) => void hydrated.add(slot), archive, readUndo, swap, backend: h.backend };
 }

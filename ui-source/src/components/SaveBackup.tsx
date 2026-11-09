@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { teamFullName } from "@/data/teams";
 import { downloadBackup, peekBackup, peekKeptDynasty, restoreFromText, restoreKeptDynasty, type KeptDynasty } from "@/state/saveBackup";
-import { useStore } from "@/state/store";
+import { useStore, worthKeeping } from "@/state/store";
 
 /**
  * Back a dynasty up to a file, and bring one back.
@@ -30,11 +30,18 @@ export function SaveBackup({ inline = false }: { inline?: boolean }) {
 
   const restoreKept = async () => {
     if (!kept) return;
+    const keepsCurrent = worthKeeping(useStore.getState());
     const where = `${kept.team ? teamFullName(kept.team) + ", " : ""}${kept.seasonsPlayed} season${kept.seasonsPlayed === 1 ? "" : "s"} played, ${kept.season}`;
-    if (!confirm(`Restore the previous dynasty (${where})? The dynasty on screen is kept in its place, so you can switch back.`)) return;
+    if (!confirm(`Restore the previous dynasty (${where})? ${keepsCurrent ? "The dynasty on screen takes its place as the kept copy, so pressing this again switches back." : "The league on screen has no progress to keep, so it is simply replaced."}`)) return;
     const r = await restoreKeptDynasty();
-    if (!r.ok) return setNote("The kept dynasty couldn't be read.");
-    setNote(r.saved ? `Restored the ${r.season} dynasty and saved it.` : `Restored the ${r.season} dynasty, but it could not be saved to this browser. Keep this tab open and download a backup.`);
+    if (!r.ok) {
+      return setNote(
+        r.reason === "couldNotSwap"
+          ? "Nothing was changed: this browser couldn't complete the swap (storage full or blocked). Both dynasties are still where they were."
+          : "The kept dynasty couldn't be read.",
+      );
+    }
+    setNote(r.saved ? `Restored the ${r.season} dynasty and saved it.${r.swapped ? " The dynasty you left is now the kept copy." : ""}` : `Restored the ${r.season} dynasty, but it could not be saved to this browser. Keep this tab open and download a backup.`);
   };
 
   const download = () => {

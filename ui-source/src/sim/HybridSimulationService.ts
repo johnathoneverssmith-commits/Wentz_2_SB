@@ -72,7 +72,7 @@ import { distinctNames, fullPersonName } from "./names.ts";
 import { Rng } from "./rng.ts";
 import { winProbability, type Venue } from "./win-probability.ts";
 import type { RetirementOutcome, SimulationService, TradeEvaluation } from "./SimulationService.ts";
-import { EngineUnavailableError, engineOf, type EngineMode } from "./engineMode.ts";
+import { EngineUnavailableError, engineOf, type EngineMode, type EngineRequest } from "./engineMode.ts";
 
 // mirrors nfl-franchise-sim/src/engine/staff.ts's OFF_SCHEME_TAGS/DEF_SCHEME_TAGS
 const OFF_SCHEME_TAGS: Record<string, readonly string[]> = {
@@ -219,14 +219,16 @@ export class HybridSimulationService implements SimulationService {
    * - `"engine"`: the adapter or nothing. A failure is an {@link EngineUnavailableError} — never the Mock — and the
    *   cooldown below does not apply, so Retry really asks again.
    * - `"mock"`: the Mock, without touching the adapter. A Mock dynasty never turns into an engine one.
-   * - `undefined` (a dynasty being created, or an old save that has not played yet): try the adapter, otherwise the
-   *   Mock — and remember a refusal for `ADAPTER_RETRY_MS` instead of retrying on the next call. The caller records
-   *   the outcome (`sourceOf`) so the choice is fixed from then on.
+   * - `"ask"` (an old save that never recorded a simulator and has no games to infer it from): the adapter or an
+   *   error flagged `undecided`; the player then retries or explicitly picks the Mock. Never a silent fallback.
+   * - `undefined` (a dynasty being *created*): try the adapter, otherwise the Mock — and remember a refusal for
+   *   `ADAPTER_RETRY_MS` instead of retrying on the next call. The caller records the outcome (`sourceOf`) so the
+   *   choice is fixed from then on.
    */
   private async viaAdapter<T>(
     real: () => Promise<T>,
     fallback: () => T | Promise<T>,
-    mode?: EngineMode,
+    mode?: EngineRequest,
     label = "step",
     what = label,
   ): Promise<T> {
@@ -234,14 +236,14 @@ export class HybridSimulationService implements SimulationService {
       this.note(label, "mock");
       return fallback();
     }
-    if (mode === "engine") {
+    if (mode === "engine" || mode === "ask") {
       try {
         const out = await real();
         this.adapterDownUntil = 0;
         this.note(label, "engine");
         return out;
       } catch (e) {
-        throw new EngineUnavailableError(what, e);
+        throw new EngineUnavailableError(what, e, mode === "ask");
       }
     }
     if (Date.now() < this.adapterDownUntil) {
@@ -326,7 +328,7 @@ export class HybridSimulationService implements SimulationService {
     }, () => this.mock.generateCoachMarket(seed), undefined, "coach market");
   }
 
-  async generateSchedule(seed: number, teamCodes: string[], engine?: EngineMode): Promise<ScheduledGame[]> {
+  async generateSchedule(seed: number, teamCodes: string[], engine?: EngineRequest): Promise<ScheduledGame[]> {
     // preseason has no real-engine model — keep Mock's synthetic 3 weeks,
     // splice in the real regular season underneath it.
     const preseason = this.mock.generateSchedule(seed, teamCodes).filter((g) => g.phase === "PRE");
@@ -367,7 +369,7 @@ export class HybridSimulationService implements SimulationService {
         state.offenseAdjust ?? 0,
         gamePlansFor(state),
       );
-    }, () => this.mock.simulateWeek(state, week, phase), engineOf(state), "simulate", "this week's games");
+    }, () => this.mock.simulateWeek(state, week, phase), engineOf(state) ?? "ask", "simulate", "this week's games");
   }
 
   /** The preseason lab, single-player: needs the engine adapter (there is no mock answer to give). */
@@ -416,12 +418,16 @@ export class HybridSimulationService implements SimulationService {
         matchups,
         champion: null,
       };
-    }, () => this.mock.seedBracket(state), engineOf(state), "seed", "the playoff seeding");
+    }, () => this.mock.seedBracket(state), engineOf(state) ?? "ask", "seed", "the playoff seeding");
   }
 
   async simulatePlayoffRound(state: LeagueState, round: PlayoffRound): Promise<BracketState> {
     const bracket = state.bracket;
-    if (!bracket) return this.mock.simulatePlayoffRound(state, round);
+    if (!bracket) {
+      // only a Mock dynasty may be handed to the Mock; an engine (or undecided) one has no bracket to play from
+      if (engineOf(state) === "mock") return this.mock.simulatePlayoffRound(state, round);
+      throw new Error("The playoff bracket hasn't been set up for this season, so the round can't be played. Reload and continue from the end of the regular season.");
+    }
     const rosters = leagueRosters(state, playoffWeek(state));
     const depth = state.depthChart ?? {};
     const viewerTeam = state.gms.find((g) => g.id === state.viewerGmId)?.teamCode ?? null;
@@ -465,7 +471,7 @@ export class HybridSimulationService implements SimulationService {
           playedGames.push(asGame(m.highSeed.code, m.lowSeed.code, g.homeScore, g.awayScore, g.box));
         }
         return { ...advanceSingleBracket(b, round, (h, a, site) => favProb(state, h, a, site)), playedGames };
-      }, () => this.mock.simulatePlayoffRound(state, round), engineOf(state), "playoffs", "the playoff round");
+      }, () => this.mock.simulatePlayoffRound(state, round), engineOf(state) ?? "ask", "playoffs", "the playoff round");
     }
 
     return this.viaAdapter<BracketState>(async () => {
@@ -536,7 +542,7 @@ export class HybridSimulationService implements SimulationService {
         }
       }
       return { ...bracket, matchups, currentRound, champion, playedGames };
-    }, () => this.mock.simulatePlayoffRound(state, round), engineOf(state), "playoffs", "the playoff round");
+    }, () => this.mock.simulatePlayoffRound(state, round), engineOf(state) ?? "ask", "playoffs", "the playoff round");
   }
 
   evaluateTrade(

@@ -26,7 +26,11 @@ import {
   onPriorSaveFailure,
   onSaveCorrupted,
   onSaveRecovered,
+  chooseMockForThisDynasty,
+  dismissResetRefused,
+  onEngineChoice,
   onEngineIssue,
+  onResetRefused,
   onSaveStateChange,
   retryEngine,
   saveStatus,
@@ -176,6 +180,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // the dynasty's simulator is fixed; if it is the real engine and the engine is unreachable, play stops here
   const [engineIssue, setEngineIssueMsg] = useState<string | null>(null);
   useEffect(() => onEngineIssue(setEngineIssueMsg), []);
+  const [engineChoice, setEngineChoice] = useState(false);
+  useEffect(() => onEngineChoice(setEngineChoice), []);
+  // a new dynasty that was not started because the current one could not be kept first
+  const [refusedReset, setRefusedReset] = useState<ReturnType<typeof Object> | null>(null);
+  useEffect(() => onResetRefused(setRefusedReset as never), []);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryNote, setRetryNote] = useState<string | null>(null);
@@ -338,7 +347,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {confirmingReset && (
         <NewDynastyConfirm
           onCancel={() => setConfirmingReset(false)}
-          onStart={() => {
+          onStart={(force) => {
             setConfirmingReset(false);
             // a new league starts at setup — staying on the current screen left
             // you looking at (say) rookie signings for a league with no team.
@@ -346,7 +355,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             // otherwise the new solo game is treated as a disconnected copy
             // of it, and every move is refused
             goLocal();
-            void newLeague();
+            void newLeague(undefined, undefined, force ? { discardUnkept: true } : undefined);
             navTo("/setup");
           }}
         />
@@ -378,6 +387,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {retrying ? "Checking…" : "Retry"}
             </button>
             {retryNote && <span role="status"> {retryNote}</span>}
+            {engineChoice && (
+              <>
+                {" "}
+                <span>This older save never recorded which simulator it uses and has no games to tell. Retry with the engine running, or choose the built-in Mock simulation for it (permanent for this dynasty):</span>{" "}
+                <button type="button" className="btnlink sm" data-testid="choose-mock" onClick={() => chooseMockForThisDynasty()}>
+                  Play this dynasty on the Mock simulation
+                </button>
+              </>
+            )}
           </div>
         )}
         {saveCorrupted && (
@@ -431,6 +449,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         <SetupCreationNotice />
         {children}
+        {refusedReset && (
+          <div className="notice bad" role="alert" data-testid="reset-refused" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>A new dynasty wasn&rsquo;t started.</strong> A recovery copy of your current dynasty couldn&rsquo;t be made in this
+            browser (storage full or blocked), so nothing was replaced. Download a backup first, or start the new dynasty anyway and
+            lose the current one.{" "}
+            <SaveBackup inline />{" "}
+            <button
+              type="button"
+              className="btnlink sm"
+              onClick={() => {
+                const r = refusedReset as unknown as { seed: number; config: never };
+                dismissResetRefused();
+                void newLeague(r.seed, r.config, { discardUnkept: true });
+                navTo("/setup");
+              }}
+            >
+              Start anyway — lose current dynasty
+            </button>{" "}
+            <button type="button" className="btnlink sm" onClick={dismissResetRefused}>Dismiss</button>
+          </div>
+        )}
         {simMode === "mock" && ["/hub", "/game-day", "/bracket"].includes(location.pathname) && (
           <div className="notice" role="status" data-testid="mock-mode" style={{ maxWidth: 820, margin: "16px auto 0", fontSize: 12.5 }}>
             <strong>{engineLabel("mock")}.</strong> This dynasty was begun without the engine adapter, so its games use the simplified

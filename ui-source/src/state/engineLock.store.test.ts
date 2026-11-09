@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { onEngineIssue, retryEngine, useStore } from "./store.ts";
+import { chooseMockForThisDynasty, onEngineChoice, onEngineIssue, retryEngine, useStore } from "./store.ts";
 
 /**
  * The adapter-loss scenario from QA PR #106, at the store: an engine-backed dynasty that loses the adapter must stop
@@ -78,5 +78,56 @@ describe("simulator is fixed per dynasty", () => {
     const r = await s().finishGameDay();
     expect(r.route).toBeTruthy();
     expect(JSON.stringify({ st: s().stage, b: s().bracket, w: s().week })).toBe(before);
+  });
+
+  describe("a pre-change save with no recorded simulator and no games", () => {
+    beforeEach(() => {
+      useStore.setState({ simEngine: undefined, stage: "preseason", week: 1, games: [], gameArchive: [] } as never);
+    });
+
+    it("adapter down: nothing is played, it is NOT locked to Mock, and the player is offered the explicit choice", async () => {
+      let choice = false;
+      const stop = onEngineChoice((c) => (choice = c));
+      vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+      await s().simulateGameDay();
+      expect(s().games).toHaveLength(0);
+      expect(s().simEngine).toBeUndefined();
+      expect(choice).toBe(true);
+      expect(issues.at(-1)).toMatch(/isn't reachable/);
+      // still undecided on the next attempt, and still not silently Mock
+      await s().simulateGameDay();
+      expect(s().simEngine).toBeUndefined();
+      expect(s().games).toHaveLength(0);
+      stop();
+    });
+
+    it("choosing the Mock is explicit, recorded, and then plays", async () => {
+      vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+      await s().simulateGameDay();
+      expect(chooseMockForThisDynasty()).toBe(true);
+      expect(s().simEngine).toBe("mock");
+      expect(issues.at(-1)).toBeNull();
+      await new Promise((r) => setTimeout(r, 0)); // let the previous game-day lock release (a person takes longer than this)
+      await s().simulateGameDay();
+      expect(s().games.length).toBeGreaterThan(0);
+    });
+
+    it("the Mock choice cannot overwrite a dynasty that already has a simulator", () => {
+      useStore.setState({ simEngine: "engine" } as never);
+      expect(chooseMockForThisDynasty()).toBe(false);
+      expect(s().simEngine).toBe("engine");
+    });
+
+    it("a pre-change save WITH engine-stamped games stops (no choice offered) when the adapter is down", async () => {
+      let choice = true;
+      const stop = onEngineChoice((c) => (choice = c));
+      useStore.setState({ games: [{ id: "x", week: 1, phase: "PRE", homeTeam: "KC", awayTeam: "BUF", played: true, homeScore: 10, awayScore: 3, weather: "Indoors" }] } as never);
+      vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+      await s().simulateGameDay();
+      expect(issues.at(-1)).toMatch(/isn't reachable/);
+      expect(choice).toBe(false);
+      expect(chooseMockForThisDynasty()).toBe(false); // engine is inferred: no way to flip it
+      stop();
+    });
   });
 });

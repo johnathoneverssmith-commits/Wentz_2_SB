@@ -12,7 +12,7 @@ import { useDialog } from "./useDialog.ts";
  * back. The copy is made and verified *before* the reset; if it cannot be made the reset does not go ahead unless
  * the player says so.
  */
-export function NewDynastyConfirm({ onCancel, onStart }: { onCancel: () => void; onStart: () => void }) {
+export function NewDynastyConfirm({ onCancel, onStart }: { onCancel: () => void; onStart: (force: boolean) => void }) {
   const dialogRef = useDialog(onCancel);
   const team = useStore((s) => s.gms.find((g) => g.id === s.viewerGmId)?.teamCode ?? "");
   const season = useStore((s) => s.season);
@@ -38,7 +38,7 @@ export function NewDynastyConfirm({ onCancel, onStart }: { onCancel: () => void;
       setFailed(true);
       return;
     }
-    onStart();
+    onStart(force);
   };
 
   return (

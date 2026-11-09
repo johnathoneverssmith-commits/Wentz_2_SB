@@ -73,6 +73,25 @@ if (scenario === "old-save") {
   await browser.close();
 }
 
+if (scenario === "undecided") {
+  // a pre-change save from a brand-new dynasty: preseason, no games, no simEngine -> cannot be classified
+  rmSync("/tmp/pw-vlr-und", { recursive: true, force: true }); await startAdapter(); process.env.PROFILE = "/tmp/pw-vlr-und";
+  const raw = readFileSync(arg, "utf8"); const { ctx, page, browser } = await launch();
+  await ctx.addInitScript(([k, v]) => { try { if (!sessionStorage.getItem("seeded") && localStorage.getItem(k) == null) localStorage.setItem(k, v); sessionStorage.setItem("seeded", "1"); } catch {} }, [SAVE_KEY, raw]);
+  await page.goto(UI + "/"); await page.waitForTimeout(5000);
+  const s0 = await S(page); ok(s0.simEngine === undefined && s0.games.length === 0 && s0.stage === "preseason", `pre-change save with no games and no simEngine (${s0.season}/${s0.stage})`);
+  await stopAdapter(); await simulatePreseason(page); await page.waitForTimeout(4000);
+  ok(await page.getByTestId("engine-unavailable").isVisible(), "adapter down: play stops (not silently Mock)");
+  ok(await page.getByTestId("choose-mock").isVisible(), "the explicit 'Play this dynasty on the Mock simulation' choice is offered");
+  const s1 = await S(page); ok(s1.games.length === 0 && s1.simEngine === undefined, "nothing played and the save is still undecided (not locked to Mock)");
+  await page.reload(); await page.waitForTimeout(3000); const s2 = await S(page); ok(s2.simEngine === undefined && s2.games.length === 0, "still undecided after a reload");
+  await startAdapter(); await page.getByRole("button", { name: /^Ready for Game Day/ }).first().click().catch(() => {}); await page.getByRole("button", { name: /^Simulate Preseason/ }).first().click(); await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: "Retry", exact: true }).click().catch(() => {}); await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: /^Simulate Preseason/ }).first().click().catch(() => {}); for (let i = 0; i < 40 && (await S(page)).games.length === 0; i++) await page.waitForTimeout(1500);
+  const s3 = await S(page); ok(s3.simEngine === "engine" && s3.games.length > 0 && s3.games.every((g) => g.weather), `adapter back: plays on the engine and records it (simEngine=${s3.simEngine})`);
+  await browser.close();
+}
+
 if (scenario === "reset") {
   const P = "/tmp/pw-vlr-reset"; rmSync(P, { recursive: true, force: true }); cpSync(arg, P, { recursive: true }); process.env.PROFILE = P;
   let { page, browser } = await launch(); await page.goto(UI + "/"); await page.waitForTimeout(3500);

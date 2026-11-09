@@ -95,7 +95,7 @@ describe("recoverable dynasty reset", () => {
     const peek = await bk.peekKeptDynasty();
     expect(peek).toMatchObject({ season: 2031, seasonsPlayed: 5, team: "BAL", stage: "offseasonHotSeat" });
     const r = await bk.restoreKeptDynasty();
-    expect(r).toEqual({ ok: true, season: 2031, saved: true });
+    expect(r).toEqual({ ok: true, season: 2031, saved: true, swapped: false });
     const restored = b.useStore.getState();
     expect(restored.teams).toEqual(snapshot.teams);
     expect(restored.stage).toBe(snapshot.stage);
@@ -181,4 +181,108 @@ describe("recoverable dynasty reset", () => {
     expect(await bk.peekKeptDynasty()).toMatchObject({ seasonsPlayed: 5 });
     expect(await bk.restoreKeptDynasty()).toMatchObject({ ok: true, season: 2031 });
   }, BUDGET);
+
+  describe("failure safety", () => {
+    const live = async (dev: Device) => JSON.parse(await decodeRecord(dev.idb.raw().get(SAVE_KEY) as SaveRecord)).state;
+
+    it("a restore that cannot complete changes nothing: the live and kept dynasties are both still there", async () => {
+      const a = await pageLoad(dev);
+      await playFiveSeasons(a, 41);
+      await a.useStore.getState().newLeague(90);
+      a.useStore.setState({ stage: "regularSeason", season: 2030, history: [outcome(2029), outcome(2030)] } as never); // dynasty B, 2 seasons
+      await a.flushSave();
+      dev.idb.faults.quota = true; // storage refuses writes
+      const bk = await import("./saveBackup.ts");
+      expect(await bk.restoreKeptDynasty()).toEqual({ ok: false, reason: "couldNotSwap" });
+      dev.idb.faults.quota = false;
+      expect(a.useStore.getState().history).toHaveLength(2); // screen untouched
+      expect((await live(dev)).history).toHaveLength(2); // live save untouched
+      expect((await undoOf(dev)).history).toHaveLength(5); // kept dynasty untouched
+    }, BUDGET);
+
+    it("an aborted swap (power cut before commit) leaves both dynasties intact", async () => {
+      const a = await pageLoad(dev);
+      await playFiveSeasons(a, 42);
+      await a.useStore.getState().newLeague(91);
+      a.useStore.setState({ stage: "regularSeason", season: 2030, history: [outcome(2030)] } as never);
+      await a.flushSave();
+      dev.idb.faults.abortBeforeCommit = true;
+      const bk = await import("./saveBackup.ts");
+      expect((await bk.restoreKeptDynasty()).ok).toBe(false);
+      expect((await live(dev)).history).toHaveLength(1);
+      expect((await undoOf(dev)).history).toHaveLength(5);
+    }, BUDGET);
+
+    it("a successful restore swaps the two saves, and both survive a restart (and swap back)", async () => {
+      const a = await pageLoad(dev);
+      await playFiveSeasons(a, 43);
+      await a.useStore.getState().newLeague(92);
+      a.useStore.setState({ stage: "regularSeason", season: 2030, history: [outcome(2030)] } as never);
+      await a.flushSave();
+      const bk = await import("./saveBackup.ts");
+      expect(await bk.restoreKeptDynasty()).toEqual({ ok: true, season: 2031, saved: true, swapped: true });
+      const b = await pageLoad(dev); // restart
+      expect(b.useStore.getState().history).toHaveLength(5);
+      expect((await undoOf(dev)).history).toHaveLength(1);
+      const bk2 = await import("./saveBackup.ts");
+      expect(await bk2.restoreKeptDynasty()).toMatchObject({ ok: true, season: 2030, swapped: true }); // and back
+      const c = await pageLoad(dev);
+      expect(c.useStore.getState().history).toHaveLength(1);
+      expect((await undoOf(dev)).history).toHaveLength(5);
+    }, BUDGET);
+
+    it("restoring onto an empty league does not claim a swap and keeps the kept copy", async () => {
+      const a = await pageLoad(dev);
+      await playFiveSeasons(a, 44);
+      await a.useStore.getState().newLeague(93); // empty league on screen
+      await a.flushSave();
+      const bk = await import("./saveBackup.ts");
+      expect(await bk.restoreKeptDynasty()).toMatchObject({ ok: true, swapped: false });
+      expect((await undoOf(dev)).history).toHaveLength(5);
+      expect((await live(dev)).history).toHaveLength(5);
+    }, BUDGET);
+
+    it("a new league is refused, with nothing replaced, when the current dynasty cannot be kept; going ahead is explicit", async () => {
+      const a = await pageLoad(dev);
+      await playFiveSeasons(a, 45);
+      let refused: unknown = null;
+      const stop = a.onResetRefused((r) => (refused = r));
+      dev.idb.faults.quota = true;
+      await a.useStore.getState().newLeague(94);
+      expect(refused).toMatchObject({ seed: 94 });
+      expect(a.useStore.getState().history).toHaveLength(5); // still the dynasty
+      dev.idb.faults.quota = false;
+      await a.useStore.getState().newLeague(94, undefined, { discardUnkept: true });
+      expect(a.useStore.getState().history).toHaveLength(0);
+      stop();
+    }, BUDGET);
+
+    it("localStorage fallback: a restore that cannot fit rolls back and loses neither dynasty", async () => {
+      const ls = quotaStorage();
+      vi.resetModules();
+      globalThis.window = { localStorage: ls } as unknown as typeof globalThis.window;
+      const a = await import("./store.ts");
+      await vi.waitFor(() => {
+        let h = false;
+        a.onStoreHydrated((x) => (h = x))();
+        expect(h).toBe(true);
+      });
+      await playFiveSeasons(a, 46);
+      await a.keepCurrentDynasty();
+      await a.useStore.getState().newLeague(95);
+      a.useStore.setState({ stage: "regularSeason", season: 2030, history: [outcome(2030)] } as never);
+      await a.flushSave();
+      const realSet = ls.setItem.bind(ls);
+      let n = 0;
+      ls.setItem = (k: string, v: string) => {
+        if (k === SAVE_KEY && ++n >= 1) throw new DOMException("full", "QuotaExceededError"); // the live-slot write fails
+        realSet(k, v);
+      };
+      const bk = await import("./saveBackup.ts");
+      expect((await bk.restoreKeptDynasty()).ok).toBe(false);
+      ls.setItem = realSet;
+      expect(await bk.peekKeptDynasty()).toMatchObject({ seasonsPlayed: 5 }); // kept copy still the 5-season dynasty
+      expect(a.useStore.getState().history).toHaveLength(1);
+    }, BUDGET);
+  });
 });

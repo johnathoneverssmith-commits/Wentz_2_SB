@@ -49,6 +49,15 @@ describe("engine-backed dynasty", () => {
   });
 });
 
+describe("no hidden fallback in the playoff round", () => {
+  it("an engine dynasty with no bracket is an error, never a Mock round", async () => {
+    vi.stubGlobal("fetch", down());
+    const sim = new HybridSimulationService();
+    await expect(sim.simulatePlayoffRound(league({ simEngine: "engine" }), "WC")).rejects.toThrow(/bracket/);
+    await expect(sim.simulatePlayoffRound(league({}), "WC")).rejects.toThrow(/bracket/);
+  });
+});
+
 describe("mock-backed dynasty", () => {
   it("never calls the adapter, even when it is up (a Mock dynasty cannot turn into an engine one)", async () => {
     const f = vi.fn(() => Promise.resolve(new Response("{}", { status: 200 })));
@@ -67,21 +76,44 @@ describe("mock-backed dynasty", () => {
   });
 });
 
-describe("undecided (new, or an old save that has played nothing)", () => {
+describe("a dynasty being created (no save yet)", () => {
   it("standalone: no adapter -> Mock, and says so, so the caller can fix the choice", async () => {
     vi.stubGlobal("fetch", down());
     const sim = new HybridSimulationService();
-    expect(engineOf(league({}))).toBeUndefined();
-    const games = await sim.simulateWeek(league({}), 1, "REG");
-    expect(games).toHaveLength(1);
-    expect(sim.lastSource).toBe("mock");
     expect((await sim.generateSchedule(2026, ["KC", "BUF"])).length).toBeGreaterThan(0);
     expect(sim.sourceOf("schedule")).toBe("mock");
+    expect(sim.lastSource).toBe("mock");
   });
+});
 
-  it("an explicit simEngine always wins over inference", () => {
-    const s = league({ simEngine: "mock", games: [{ id: "g1", week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF", played: true, homeScore: 20, awayScore: 17, weather: "Indoors" }] });
-    expect(engineOf(s)).toBe("mock");
+describe("pre-change saves (no simEngine)", () => {
+  const game = (extra: object) => ({ id: "g", week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF", played: true, homeScore: 20, awayScore: 17, ...extra });
+  it("with engine-stamped games (regular season, playoffs, or preseason only) are engine-backed", () => {
+    expect(engineOf(league({ games: [game({ weather: "Indoors" })] } as never))).toBe("engine");
+    expect(engineOf(league({ games: [game({ phase: "PRE", weather: "Indoors" })] } as never))).toBe("engine");
+    expect(engineOf(league({ games: [], gameArchive: [game({ weather: "34F", season: 2027 })] } as never))).toBe("engine");
+  });
+  it("with unstamped games are Mock-backed; an explicit simEngine always wins", () => {
+    expect(engineOf(league({ games: [game({})] } as never))).toBe("mock");
+    expect(engineOf(league({ games: [game({ phase: "PRE" })] } as never))).toBe("mock");
+  });
+  it("with no games cannot be classified, and the adapter being down never hands them to the Mock", async () => {
+    vi.stubGlobal("fetch", down());
+    const sim = new HybridSimulationService();
+    const s = league({});
+    expect(engineOf(s)).toBeUndefined();
+    const err = await sim.simulateWeek(s, 1, "REG").then(() => null, (e) => e);
+    expect(err).toBeInstanceOf(EngineUnavailableError);
+    expect(err.undecided).toBe(true);
+    expect(sim.lastSource).toBeUndefined();
+    await expect(sim.seedBracket(s)).rejects.toMatchObject({ undecided: true });
+    await expect(sim.generateSchedule(2028, ["KC", "BUF"], "ask")).rejects.toMatchObject({ undecided: true });
+  });
+  it("with no games, a reachable adapter is used (and the store then records engine)", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify([{ week: 1, phase: "REG", homeTeam: "KC", awayTeam: "BUF" }]), { status: 200, headers: { "content-type": "application/json" } }))));
+    const sim = new HybridSimulationService();
+    await sim.generateSchedule(2028, ["KC", "BUF"], "ask");
+    expect(sim.lastSource).toBe("engine");
   });
 });
 
