@@ -118,12 +118,21 @@ export interface Backend {
   writeNow(slot: string, json: string, seq?: number): void;
   remove(slot: string): Promise<void>;
   has(slot: string): Promise<boolean>;
+  /**
+   * Copy the slot's current save, verbatim, to `<slot>#undo` — a place no autosave writes — and read it back. False
+   * when there is no readable current save or the copy could not be made/verified.
+   */
+  archive?(slot: string): Promise<boolean>;
+  /** The save kept by {@link archive}, if there is one and it still reads. */
+  readUndo?(slot: string): Promise<{ json: string; savedAt?: number } | null>;
 }
 
 const DB_NAME = "nfl-sim-ui-saves";
 const STORE = "saves";
 const prevKey = (s: string) => `${s}#prev`;
 const damagedKey = (s: string) => `${s}#damaged`;
+/** The dynasty kept aside when a new one is started. No autosave and no `remove` ever touches it. */
+export const undoKey = (s: string) => `${s}#undo`;
 
 const req = <T>(r: IDBRequest<T>): Promise<T> =>
   new Promise((res, rej) => {
@@ -291,6 +300,31 @@ export function createIndexedDbBackend(factory: IDBFactory, legacy: LegacyOption
         // none
       }
     },
+    async archive(slot) {
+      const db = await open();
+      const cur = await getRecord(db, slot);
+      if (!cur) return false;
+      try {
+        await decodeRecord(cur); // never keep something that wouldn't load
+      } catch {
+        return false;
+      }
+      const tx = rw(db);
+      tx.objectStore(STORE).put(cur, undoKey(slot));
+      await txDone(tx);
+      const back = await getRecord(db, undoKey(slot));
+      return !!back && back.sum === cur.sum && back.chars === cur.chars;
+    },
+    async readUndo(slot) {
+      const db = await open();
+      const rec = await getRecord(db, undoKey(slot));
+      if (!rec) return null;
+      try {
+        return { json: await decodeRecord(rec), savedAt: rec.savedAt };
+      } catch {
+        return null;
+      }
+    },
     async has(slot) {
       const db = await open();
       if ((await req(db.transaction(STORE, "readonly").objectStore(STORE).count(slot))) > 0) return true;
@@ -372,6 +406,28 @@ export function createLocalStorageBackend(o: LocalBackendOptions): Backend {
     async has(slot) {
       return ls().getItem(slot) != null;
     },
+    async archive(slot) {
+      const raw = ls().getItem(slot);
+      if (raw == null) return false;
+      try {
+        JSON.parse(await decodeLegacy(raw));
+        ls().setItem(undoKey(slot), raw);
+        return ls().getItem(undoKey(slot)) === raw;
+      } catch {
+        return false; // unreadable, or no room: the caller decides whether to go on without a copy
+      }
+    },
+    async readUndo(slot) {
+      const raw = ls().getItem(undoKey(slot));
+      if (raw == null) return null;
+      try {
+        const json = await decodeLegacy(raw);
+        JSON.parse(json);
+        return { json };
+      } catch {
+        return null;
+      }
+    },
   };
 }
 
@@ -403,6 +459,8 @@ export function createAutoBackend(primary: Backend | null, fallback: Backend): B
     },
     remove: async (s) => (await chosen).remove(s),
     has: async (s) => (await chosen).has(s),
+    archive: async (s) => ((await chosen).archive ? (await chosen).archive!(s) : false),
+    readUndo: async (s) => ((await chosen).readUndo ? (await chosen).readUndo!(s) : null),
     probe: async () => void (await chosen),
   };
 }
@@ -463,6 +521,9 @@ export interface Durable<S> {
   status(): SaveStatus;
   /** Declare a slot with nothing to read as loaded, so writes to it are accepted. */
   markHydrated(slot: string): void;
+  /** Finish pending writes, then keep the slot's current save aside as its undo copy. */
+  archive(slot: string): Promise<boolean>;
+  readUndo(slot: string): Promise<{ json: string; savedAt?: number } | null>;
   backend: Backend;
 }
 
@@ -623,5 +684,20 @@ export function createDurableStorage<S>(h: DurableHooks): Durable<S> {
     },
   };
 
-  return { storage, flush, lastError: () => err, status: readStatus, markHydrated: (slot) => void hydrated.add(slot), backend: h.backend };
+  const archive = async (slot: string): Promise<boolean> => {
+    await flush();
+    try {
+      return (await h.backend.archive?.(slot)) ?? false;
+    } catch {
+      return false;
+    }
+  };
+  const readUndo = async (slot: string) => {
+    try {
+      return (await h.backend.readUndo?.(slot)) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  return { storage, flush, lastError: () => err, status: readStatus, markHydrated: (slot) => void hydrated.add(slot), archive, readUndo, backend: h.backend };
 }

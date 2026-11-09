@@ -5,6 +5,7 @@ import { leaveForDynasty } from "@/state/leagueOrigin";
 import { useEffect, useRef, useState } from "react";
 import { goLocal, lastLeagueId, onlineSession } from "@/state/online";
 import { SaveBackup } from "./SaveBackup";
+import { NewDynastyConfirm } from "./NewDynastyConfirm";
 import { LeagueWire } from "./LeagueWire";
 import { TurnClock } from "./TurnClock";
 import { TurnAlerts } from "./TurnAlerts";
@@ -25,10 +26,13 @@ import {
   onPriorSaveFailure,
   onSaveCorrupted,
   onSaveRecovered,
+  onEngineIssue,
   onSaveStateChange,
+  retryEngine,
   saveStatus,
   useStore,
 } from "@/state/store";
+import { engineLabel, engineOf } from "@/sim/engineMode";
 import type { SaveStatus } from "@/state/durableSave";
 import { teamFullName } from "@/data/teams";
 import { viewerWeek } from "@/state/reveal";
@@ -169,6 +173,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // currently broken
   const [saveCorrupted, setSaveCorrupted] = useState(false);
   useEffect(() => onSaveCorrupted(setSaveCorrupted), []);
+  // the dynasty's simulator is fixed; if it is the real engine and the engine is unreachable, play stops here
+  const [engineIssue, setEngineIssueMsg] = useState<string | null>(null);
+  useEffect(() => onEngineIssue(setEngineIssueMsg), []);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryNote, setRetryNote] = useState<string | null>(null);
+  const simMode = useStore((s) => engineOf(s));
   const lastSaveLabel = (): string | null => {
     const st = saveStatus();
     if (!st.okAt) return null;
@@ -317,24 +328,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {!session && lastLeagueId() === null && (
         <button
           className="reset"
-          onClick={() => {
-            // a new league starts at setup — staying on the current screen left
-            // you looking at (say) rookie signings for a league with no team
-            if (confirm("Start a brand-new solo dynasty? This clears the current save.")) {
-              // and forgets an online league this browser couldn't reconnect
-              // to — otherwise the new solo game is treated as a disconnected
-              // copy of it, and every move is refused
-              goLocal();
-              void newLeague();
-              navTo("/setup");
-            }
-          }}
+          onClick={() => setConfirmingReset(true)}
           title="Solo play on this device. For a league real people can join, use Online leagues above."
         >
           New solo dynasty
         </button>
         )}
       </nav>
+      {confirmingReset && (
+        <NewDynastyConfirm
+          onCancel={() => setConfirmingReset(false)}
+          onStart={() => {
+            setConfirmingReset(false);
+            // a new league starts at setup — staying on the current screen left
+            // you looking at (say) rookie signings for a league with no team.
+            // And forget an online league this browser couldn't reconnect to —
+            // otherwise the new solo game is treated as a disconnected copy
+            // of it, and every move is refused
+            goLocal();
+            void newLeague();
+            navTo("/setup");
+          }}
+        />
+      )}
       <main className="app-main" id="franchise-main" tabIndex={-1}>
         <AtmosphereBackdrop />
         {session && paused && (
@@ -342,6 +358,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="notice bad league-paused" role="status" aria-live="polite" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
             <strong>The league is paused.</strong> The commissioner has stopped the clock; nothing advances and
             moves are held until they resume. Your decisions so far are safe.
+          </div>
+        )}
+        {engineIssue && (
+          <div className="notice bad" role="alert" data-testid="engine-unavailable" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>Play is stopped.</strong> {engineIssue}{" "}
+            <button
+              type="button"
+              className="btnlink sm"
+              disabled={retrying}
+              onClick={async () => {
+                setRetrying(true);
+                setRetryNote(null);
+                const ok = await retryEngine();
+                setRetrying(false);
+                setRetryNote(ok ? null : "Still can\u2019t reach the engine.");
+              }}
+            >
+              {retrying ? "Checking…" : "Retry"}
+            </button>
+            {retryNote && <span role="status"> {retryNote}</span>}
           </div>
         )}
         {saveCorrupted && (
@@ -395,6 +431,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         <SetupCreationNotice />
         {children}
+        {simMode === "mock" && ["/hub", "/game-day", "/bracket"].includes(location.pathname) && (
+          <div className="notice" role="status" data-testid="mock-mode" style={{ maxWidth: 820, margin: "16px auto 0", fontSize: 12.5 }}>
+            <strong>{engineLabel("mock")}.</strong> This dynasty was begun without the engine adapter, so its games use the simplified
+            built-in simulator (no play-by-play, weather or full box scores). It stays on it; it never switches to the real engine
+            midway. Start a new dynasty with the adapter running to play on the real engine.
+          </div>
+        )}
         <UnitGradesDock teamCode={teamCode} />
         <HowItWorksDock />
       </main>

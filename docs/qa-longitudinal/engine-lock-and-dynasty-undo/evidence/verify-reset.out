@@ -1,0 +1,17 @@
+PASS  opened a 5-season dynasty saved by the previous build (2031/offseasonHotSeat, simEngine=undefined)
+PASS  an in-app confirmation (not a native confirm) opens
+   dialog: Start a brand-new solo dynasty? This replaces your current dynasty — Baltimore Ravens, 5 seasons played, now in 2031. It is not deleted: a recovery copy is kept in this browser and Restore previous dynasty brings it back. The recovery copy lives only in this browser’s storage and covers one dynasty. Clearing site data removes it. For a copy that survives that, download a backup. Cancel Download backup first Start new
+PASS  it names what is replaced (5 seasons), what is kept, how to restore, and the limit
+PASS  Escape/Cancel changes nothing
+PASS  reset happened (2026/setup)
+PASS  #undo holds the 5-season dynasty (2031, 5 seasons)
+PASS  after further autosaves the kept dynasty is byte-identical
+   idb keys: [
+  'nfl-sim-ui.league',
+  'nfl-sim-ui.league#prev',
+  'nfl-sim-ui.league#undo'
+]
+PASS  after a browser restart the Restore previous dynasty control is offered
+   control: Restore previous dynasty (BAL, 2031)
+PASS  restored dynasty equals the original (teams, players, draft picks, history)
+PASS  and it is what the next browser restart shows
