@@ -1,6 +1,6 @@
 # Group 08 cleanup — organisation plan
 
-Status 2026-11-07: **planned, not started.** No Group 08 branch or PR exists. Owner decision D-009: organise now; include Agent 1's *confirmed* visual inconsistencies that the cleanup can reasonably absorb; no unrelated features, no wider redesign. The coordinator does not implement; a Group 08 development agent does, after the owner starts it.
+Status 2026-11-09: **DONE: merged as PR #103 (`d0727ff`).** (Plan retained as the record of scope; the original line read: planned, not started, no branch or PR.) Owner decision D-009: organise now; include Agent 1's *confirmed* visual inconsistencies that the cleanup can reasonably absorb; no unrelated features, no wider redesign. The coordinator does not implement; a Group 08 development agent does, after the owner starts it.
 
 Source brief: `docs/ui-redesign/08-cleanup.md` and `00-brief.md`, which exist **only on branch `docs/ui-redesign-prompts`** (open PR #83; its base is old master `f7c9a85`). Owner decision D-017: **#83 is not merged**; the agent reads those files from that branch (`git show origin/docs/ui-redesign-prompts:docs/ui-redesign/08-cleanup.md`). Note the prompts were written against an older master, so the agent re-checks every path and route against current master before relying on it. Owner decision D-018: a dedicated development agent builds this, not the coordinator.
 
