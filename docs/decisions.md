@@ -1941,4 +1941,8 @@ The engine adapter's `/playoffs/round` is a stateless stepper that replayed ever
 
 **Mirror.** `analysis/engine/{scheme_tags,staff,staff_fit,sim}.py` carry the same flag and logic. `test/engine-scheme-fit-parity.test.ts` writes TS inputs, baselines and shifts for tagged, stripped and mixed units and `analysis/engine/check_scheme_fit_parity.py` recomputes them: 1,152 values, max abs diff 0. The Python engine's own game loop is not re-run (its pool is not available here). `ui-source/src/state/schemeTags.ts` is the franchise layer's copy of the tag table, pinned equal to the engine's by `schemeTags.test.ts`.
 
+**Packaging and the browser engine (#74).** `artifacts/models/derived_fit_baseline.json` is committed beside the other model artifacts and read through `loadDerivedFitBaseline()` in `src/engine/loaders.ts`, the engine's one file-IO seam for artifacts (the server runs from the repo checkout via `tsx`, the same way it reads `artifacts/**/portable/*.json`; no build step copies a subset). A browser engine already has to replace `loaders.ts`, so it replaces this loader too; it is not a second, hidden file dependency. The reference-pool half of the centring still goes through `roster()`/`loadPool()`, as the legacy baseline always did.
+
+**Scoring level.** Derived scheme fit raises new-league scoring about 2% on the 24 baseline seeds (points 23.0 -> 23.5 per team-game; rush yards +2.8; pass yards, sacks, attempts within noise). The NFL's 22.6 is slightly further away, not nearer. Accepted by the project owner for PR #109 only; `online/test/passing-volume.test.ts` baselines re-measured accordingly.
+
 **Not changed.** Synergy weights, FIT_COMPLETE/FIT_RUSH, team strength, the scouting system, and what the schemes' tag lists contain.

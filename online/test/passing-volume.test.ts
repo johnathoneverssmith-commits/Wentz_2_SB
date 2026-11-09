@@ -89,7 +89,7 @@ it("a simulated week throws the ball, and every stat layer records it", () => {
  * sacks 2.08, attempts 29.78 on those seeds (not 223.0 / 120.3 / 21.25), so the old band
  * only passed on the six default leagues by luck. New leagues now start on the derived
  * scheme fit, which on the same seeds moves league means by passing yards -1.4 (noise),
- * rushing +2.8, points +0.5 (+2%, toward the NFL's 22.6), sacks -0.08, attempts -0.12,
+ * rushing +2.8, points +0.5 (+2%; the NFL's 22.6 is a little further away, 23.0 -> 23.5, accepted), sacks -0.08, attempts -0.12,
  * completion +0.3 points. The per-game baseline is now the derived measurement: 238.12 /
  * 114.14 / 23.51 / 1.998 / 29.66. The sack-RATE band (SACK_RATE) is deliberately left alone: it
  * needs a league-by-league spread this re-measurement did not take. The NFL envelope below is

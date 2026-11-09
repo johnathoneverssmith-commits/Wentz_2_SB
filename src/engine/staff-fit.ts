@@ -15,9 +15,7 @@
  * Kept behaviourally identical to `analysis/engine/staff_fit.py`.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
+import { loadDerivedFitBaseline } from "./loaders.js";
 import { roster, teamList } from "./roster.js";
 import { effectiveSchemeTags, type TaggablePlayer } from "./scheme-tags.js";
 import {
@@ -109,13 +107,10 @@ let _slot: { off: Record<OffScheme, SlotBaseline>; def: Record<DefScheme, SlotBa
 /**
  * Per-slot expected match shares. `auth`: the 32 reference depth charts' stored
  * tags. `derived`: attribute-derived tags in a default fictional league
- * (`artifacts/models/derived_fit_baseline.json`, 20 leagues x 32 teams; the
+ * (`artifacts/models/derived_fit_baseline.json` via `loaders.ts`, 20 leagues x 32 teams; the
  * derivation was tuned on the reference pool's attribute scale, which a
  * fictional league does not share, so each needs its own centring).
  */
-const readArtifact = <T>(rel: string): T =>
-  JSON.parse(readFileSync(fileURLToPath(new URL(`../../artifacts/${rel}`, import.meta.url)), "utf8")) as T;
-
 /** The per-slot centring tables (exported for the TS/Python parity fixture). */
 export function schemeFitSlotBaselines() {
   return slotBaseline();
@@ -124,10 +119,10 @@ export function schemeFitSlotBaselines() {
 function slotBaseline() {
   if (_slot) return _slot;
   const teams = teamList();
-  const derivedTable = readArtifact<{
+  const derivedTable = loadDerivedFitBaseline() as {
     off: Record<OffScheme, number[]>;
     def: Record<DefScheme, number[]>;
-  }>("models/derived_fit_baseline.json");
+  };
   const auth = (slots: readonly string[], unitOf: (t: string) => Lineupish, want: readonly string[]): number[] => {
     const w = new Set(want);
     return slots.map((slot) => {

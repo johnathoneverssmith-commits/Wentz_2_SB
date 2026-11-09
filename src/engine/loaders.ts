@@ -29,6 +29,21 @@ type Ctx = Record<string, number | string>;
 type Pmf = { v: number[]; cum: number[] };
 
 const MODEL_DIR = new URL("../../artifacts/models/portable/", import.meta.url);
+const FIT_BASELINE_URL = new URL("../../artifacts/models/derived_fit_baseline.json", import.meta.url);
+
+/**
+ * Per-slot share of starters whose attribute-derived scheme tags match each
+ * scheme, measured on default fictional leagues (staff-fit.ts, "derived" mode).
+ * Like every other artifact read here, this is the engine's file-IO seam: a
+ * browser build replaces this loader with a bundled import (issue #74).
+ */
+export function loadDerivedFitBaseline(): {
+  off: Record<string, number[]>;
+  def: Record<string, number[]>;
+} {
+  return readJson(FIT_BASELINE_URL);
+}
+
 const DIST_DIR = new URL("../../artifacts/distributions/portable/", import.meta.url);
 
 const LINEAR_IDS = new Set(["M04", "M08", "M11", "M13", "M15", "M20", "M21", "M25a", "M25b"]);
