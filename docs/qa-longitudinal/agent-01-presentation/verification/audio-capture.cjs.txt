@@ -1,0 +1,57 @@
+const { chromium } = require("playwright");
+const fs = require("fs");
+const MOODS = ["lobby","frontOffice","draft","freeAgency","gameday","playoffs","champion"];
+const CUES = ["onTheClock","pickMade","touchdown","fieldGoal","turnover","injury","tradeOffer","signed","newJob","gameWon","gameLost","champion"];
+(async () => {
+  const b = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium", args: ["--autoplay-policy=no-user-gesture-required"] });
+  const ctx = await b.newContext();
+  await ctx.addInitScript(() => {
+    const R = window.AudioContext; window.__chunks = []; window.__rec = false;
+    window.AudioContext = class extends R {
+      constructor(o) { super(o); const sp = this.createScriptProcessor(4096, 2, 2);
+        sp.onaudioprocess = (e) => { const l = e.inputBuffer.getChannelData(0), r = e.inputBuffer.getChannelData(1);
+          e.outputBuffer.getChannelData(0).set(l); e.outputBuffer.getChannelData(1).set(r);
+          if (window.__rec) window.__chunks.push([new Float32Array(l), new Float32Array(r)]); };
+        sp.connect(super.destination); Object.defineProperty(this, "destination", { value: sp }); }
+    };
+    localStorage.setItem("nfl-sim-ui.audio", JSON.stringify({ enabled: true, musicVolume: 0.34, sfxVolume: 0.6, chants: false }));
+  });
+  const page = await ctx.newPage();
+  page.on("pageerror", e => console.log("pageerror", e.message));
+  await page.route("**/blank.html",(r)=>r.fulfill({contentType:"text/html",body:"<html><body>blank</body></html>"}));await page.goto("http://127.0.0.1:5199/blank.html");
+  await page.waitForTimeout(1500);
+  await page.evaluate(async () => {
+    const e = await import("/src/audio/engine.ts"); const c = await import("/src/audio/cues.ts"); const s = await import("/src/audio/score.ts");
+    e.audio.setEnabled(true); window.__a = { e, c, s, dir: new s.MusicDirector() };
+  });
+  console.log("state", await page.evaluate(() => ({ music: !!window.__a.e.audio.music, sfx: !!window.__a.e.audio.sfx, ctx: window.__a.e.audio.now() })));
+  await page.waitForTimeout(500);
+  const t1 = await page.evaluate(() => window.__a.e.audio.now()); await page.waitForTimeout(1000);
+  const t2 = await page.evaluate(() => window.__a.e.audio.now()); console.log("clock advances", t2 - t1);
+  async function grab(name, secs, fn) {
+    await page.evaluate(() => { window.__chunks = []; window.__rec = true; });
+    if (fn) { await page.waitForTimeout(6000); await page.evaluate(fn); await page.waitForTimeout((secs - 6) * 1000); } else await page.waitForTimeout(secs * 1000);
+    const data = await page.evaluate(() => { window.__rec = false; const ch = window.__chunks; const n = ch.reduce((a, c) => a + c[0].length, 0); const L = new Float32Array(n); let o = 0; for (const c of ch) { L.set(c[0], o); o += c[0].length; } return { sr: window.__a.e.audio.now() && new AudioContext().sampleRate, b64: btoa(String.fromCharCode(...new Uint8Array(L.buffer.slice(0)).subarray(0)))}; }).catch(e => ({err: String(e)}));
+    return data;
+  }
+  // chunked transfer to avoid huge btoa spreads
+  async function grab2(name, secs, fn) {
+    await page.evaluate(() => { window.__chunks = []; window.__rec = true; });
+    if (fn) { await page.waitForTimeout(6000); await page.evaluate(fn); await page.waitForTimeout((secs - 6) * 1000); } else await page.waitForTimeout(secs * 1000);
+    await page.evaluate(() => { window.__rec = false; });
+    const n = await page.evaluate(() => window.__chunks.length);
+    const parts = [];
+    for (let i = 0; i < n; i += 200) parts.push(...await page.evaluate(([i]) => window.__chunks.slice(i, i + 200).map(c => Array.from(c[0]).map(v => Math.round(v * 32767))), [i]));
+    const flat = Int16Array.from(parts.flat());
+    fs.writeFileSync(name + ".pcm", Buffer.from(flat.buffer));
+    console.log(name, flat.length);
+  }
+  const sr = await page.evaluate(() => new AudioContext().sampleRate); fs.writeFileSync("sr.txt", String(sr));
+  for (const m of MOODS) { await page.evaluate((m) => { window.__a.dir.stop(); window.__a.dir.play(m, window.__a.e.audio.music); }, m); await page.waitForTimeout(2500); await grab2("mood_" + m, 14); }
+  await page.evaluate(() => { window.__a.dir.stop(); window.__a.dir.play("draft", window.__a.e.audio.music); }); await page.waitForTimeout(2000);
+  await page.evaluate(() => { window.__a.dir.stop(); }); await page.waitForTimeout(9000);
+  for (const c of CUES) await grab2("solo_" + c, 10, `window.__a.c.cue(${JSON.stringify(c)})`);
+  await page.evaluate(() => { window.__a.dir.play("draft", window.__a.e.audio.music); }); await page.waitForTimeout(2500);
+  for (const c of CUES) await grab2("cue_" + c, 11, `window.__a.c.cue(${JSON.stringify(c)})`);
+  await b.close();
+})();
