@@ -13,7 +13,8 @@ prioritises and tracks what they find. This directory is documentation only: not
 | `MASTER-TAFI-REGISTER.md` | One-line index of every TAFI, sorted by priority |
 | `AGENT-STATUS.md` | Who is assigned what, and what evidence has actually arrived |
 | `COVERAGE-MATRIX.md` | What has genuinely been tested, and how |
-| `PRIORITY-ROADMAP.md` | Ranked improvement batches (Phases A–E) |
+| `PRIORITY-ROADMAP.md` | Phases A–E and audio evaluation criteria |
+| `DEVELOPMENT-BACKLOG.md` | **Ranked, provisional development backlog** (defects vs enhancements, evidence path per row) |
 | `DECISIONS.md` | Owner-approved and rejected proposals |
 | `RELEASE-READINESS.md` | Closed-alpha go/no-go assessment |
 | `SUBMISSION-FORMAT.md` | **The template every agent uses to report** |

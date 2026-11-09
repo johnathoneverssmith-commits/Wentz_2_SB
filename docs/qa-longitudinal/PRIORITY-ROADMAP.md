@@ -1,5 +1,7 @@
 # Priority Roadmap
 
+> **2026-11-09:** ranked items now live in [`DEVELOPMENT-BACKLOG.md`](DEVELOPMENT-BACKLOG.md). The "Draft batches" list at the bottom of this file is superseded; the phase table and the audio criteria remain.
+
 Last updated: 2026-11-07. **Provisional.** Evidence so far: Agent 1 (22 UI TAFIs) and Agent 3 (6, WIP) only, all pre-baseline. No batch is ranked or approved. Phases are initial categories; they will be re-cut from actual evidence. No item here is approved for implementation.
 
 ## Batch template (one per independently reviewable PR)
