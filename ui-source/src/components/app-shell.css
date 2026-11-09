@@ -503,3 +503,12 @@
 @media (max-width: 700px) {
   .how-tab { top: auto; bottom: 74px; }
 }
+
+/* The Methodology tab and the Unit Grades pill are fixed to the bottom of a phone
+   screen. A control reached by keyboard (or scrollIntoView) is scrolled only to the
+   nearest edge, which left it under them (measured 34 controls on Trade Deadline at
+   320 px). Reserve their strip: 62 px of dock plus a margin, matching the 76 px of
+   bottom padding .app-main already keeps at the end of the page. */
+@media (max-width: 700px) {
+  html { scroll-padding-bottom: 76px; }
+}

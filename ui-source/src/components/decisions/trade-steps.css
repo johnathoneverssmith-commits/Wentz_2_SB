@@ -1,0 +1,28 @@
+/*
+ * The phone "Your assets / Their assets / Review" step switcher on the two trade
+ * screens (Trade Proposal, Trade Deadline). decisions.css gives it a dark strip
+ * (#0b1b24) but leaves the buttons on `color: var(--ink)`, which .gd-page remaps
+ * to the light page's dark ink: 1.28:1 on the selected step, 1.01:1 on the others.
+ * Same ruled, square look as the trade-asset cards beside it, on the gameday tokens.
+ * Kept here, not in decisions.css, because that file is shared with the draft room.
+ */
+.decision-gd .decision-mobile-steps {
+  border: 2px solid var(--gd-rule);
+  border-radius: 0;
+  background: var(--gd-card);
+}
+.decision-gd .decision-mobile-steps button {
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--gd-ink);
+  font-weight: 700;
+}
+.decision-gd .decision-mobile-steps button[aria-pressed="true"] {
+  border-color: var(--gd-ink);
+  background: var(--gd-ink);
+  color: #fff;
+}
+.decision-gd .decision-mobile-steps button:hover:not([aria-pressed="true"]) {
+  background: var(--gd-paper);
+}
