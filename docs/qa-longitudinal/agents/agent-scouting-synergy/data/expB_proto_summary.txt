@@ -1,0 +1,6 @@
+engine=PROTOTYPE lambda=0.6 pairs=1920
+  fit-based (F) minus highest-overall (H): margin         +0.19 pts (SE 0.18, 95% CI -0.16..+0.55)
+  balanced-no-concept (B) minus H: margin                 -0.84 pts (SE 0.23, 95% CI -1.28..-0.39)
+  F minus B                                               +1.03 pts (SE 0.26, 95% CI +0.52..+1.54)
+  mean overall of purchased starters: F is -0.13 vs H;  spend F-H = -5.36 chart points
+  win-share difference F-H: +0.2 pct points (per-game, sign of margin)

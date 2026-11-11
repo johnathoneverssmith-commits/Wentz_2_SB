@@ -1,0 +1,109 @@
+{
+ "variant": "geo",
+ "elite": 1,
+ "cells": {
+  "A|rb0|ol0": {
+   "base": -0.0124,
+   "proto": 0.2537,
+   "pre": 0.2414,
+   "post": 0.2349
+  },
+  "A|rb0|ol1": {
+   "base": 0.1524,
+   "proto": 0.341,
+   "pre": 0.4934,
+   "post": 0.4631
+  },
+  "A|rb1|ol0": {
+   "base": -0.0134,
+   "proto": 0.288,
+   "pre": 0.2746,
+   "post": 0.2667
+  },
+  "A|rb1|ol1": {
+   "base": 0.1624,
+   "proto": 0.3876,
+   "pre": 0.55,
+   "post": 0.5133
+  },
+  "M|rb0|ol0": {
+   "base": -0.0124,
+   "proto": -0.222,
+   "pre": -0.2344,
+   "post": -0.2313
+  },
+  "M|rb0|ol1": {
+   "base": 0.1524,
+   "proto": -0.3004,
+   "pre": -0.148,
+   "post": -0.1466
+  },
+  "M|rb1|ol0": {
+   "base": -0.0134,
+   "proto": -0.2826,
+   "pre": -0.2959,
+   "post": -0.2906
+  },
+  "M|rb1|ol1": {
+   "base": 0.1624,
+   "proto": -0.3792,
+   "pre": -0.2168,
+   "post": -0.2138
+  }
+ },
+ "interactions": {
+  "pre|RBxOL|A": [
+   0.0234,
+   0.0056
+  ],
+  "pre|RBxOL|M": [
+   -0.0072,
+   0.0029
+  ],
+  "pre|QualityxAlignment": [
+   0.2911,
+   0.0243
+  ],
+  "post|RBxOL|A": [
+   0.0183,
+   0.0032
+  ],
+  "post|RBxOL|M": [
+   -0.008,
+   0.0029
+  ],
+  "post|QualityxAlignment": [
+   0.261,
+   0.0226
+  ],
+  "proto|RBxOL|A": [
+   0.0124,
+   0.0053
+  ],
+  "proto|RBxOL|M": [
+   -0.0182,
+   0.0032
+  ],
+  "proto|QualityxAlignment": [
+   0.2911,
+   0.0243
+  ],
+  "base|RBxOL|A": [
+   0.011,
+   0.0004
+  ],
+  "base|RBxOL|M": [
+   0.011,
+   0.0004
+  ],
+  "base|QualityxAlignment": [
+   0,
+   0
+  ]
+ },
+ "saturation": {
+  "postOverPre_eliteAligned": 0.933,
+  "maxPre": 1.003,
+  "cap": 1.4
+ }
+}

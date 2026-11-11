@@ -1,0 +1,26 @@
+D1: coordinator scheme (rating 50) minus neutral scheme, margin pts; n=512 paired games per cell; Holm adjustment across all 20 cells
+side rosters   scheme       effect           95% CI       p  Holm p
+off  tagged    west_coast    -0.86 [-1.66,-0.06]   0.035   0.591
+off  tagged    vertical      -0.01 [-0.67,+0.65]   0.968   1.000
+off  tagged    spread        -0.41 [-1.22,+0.40]   0.321   1.000
+off  tagged    power_run     -0.54 [-1.29,+0.22]   0.167   1.000
+off  tagged    zone_run      -1.07 [-1.90,-0.24]   0.012   0.210
+off  tagless   west_coast    -1.76 [-3.01,-0.51]   0.006   0.113
+off  tagless   vertical      -1.02 [-2.16,+0.12]   0.078   1.000
+off  tagless   spread        -2.01 [-3.25,-0.78]   0.001   0.027
+off  tagless   power_run     -1.14 [-2.28,+0.01]   0.051   0.822
+off  tagless   zone_run      -0.93 [-2.16,+0.30]   0.140   1.000
+def  tagged    four_three    -0.20 [-1.03,+0.63]   0.634   1.000
+def  tagged    three_four    +0.47 [-0.26,+1.21]   0.210   1.000
+def  tagged    cover_3       +0.20 [-0.57,+0.97]   0.608   1.000
+def  tagged    cover_2       -0.32 [-1.14,+0.51]   0.451   1.000
+def  tagged    man_press     -0.35 [-1.11,+0.42]   0.374   1.000
+def  tagless   four_three    -0.54 [-1.50,+0.42]   0.271   1.000
+def  tagless   three_four    -0.57 [-1.55,+0.41]   0.257   1.000
+def  tagless   cover_3       -0.71 [-1.72,+0.31]   0.175   1.000
+def  tagless   cover_2       -0.54 [-1.50,+0.42]   0.271   1.000
+def  tagless   man_press     -0.87 [-1.93,+0.19]   0.109   1.000
+  off tagged: mean of 5 scheme effects -0.58; negative 5/5; significantly negative (p<.05 unadjusted) 2/5; after Holm 0/5; significantly positive 0/5
+  off tagless: mean of 5 scheme effects -1.37; negative 5/5; significantly negative (p<.05 unadjusted) 2/5; after Holm 1/5; significantly positive 0/5
+  def tagged: mean of 5 scheme effects -0.04; negative 3/5; significantly negative (p<.05 unadjusted) 0/5; after Holm 0/5; significantly positive 0/5
+  def tagless: mean of 5 scheme effects -0.64; negative 5/5; significantly negative (p<.05 unadjusted) 0/5; after Holm 0/5; significantly positive 0/5

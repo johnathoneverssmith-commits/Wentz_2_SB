@@ -1,0 +1,17 @@
+engine=PROTOTYPE q=mean talent=1 elite=1z pairs=2250
+  [yd/carry]
+    RBxOL interaction | aligned                      -0.003 (SE 0.055)
+    RBxOL interaction | mismatched                   +0.059 (SE 0.047)
+    Quality x Alignment (both elite vs both avg)     +0.174 (SE 0.057)
+    alignment gap, avg RB + avg line                 +0.474 (SE 0.041)
+    alignment gap, elite RB + avg line               +0.581 (SE 0.041)
+    alignment gap, avg RB + elite line               +0.603 (SE 0.041)
+    alignment gap, elite RB + elite line             +0.648 (SE 0.041)
+  [margin]
+    RBxOL interaction | aligned                      -0.083 (SE 0.450)
+    RBxOL interaction | mismatched                   +0.046 (SE 0.365)
+    Quality x Alignment (both elite vs both avg)     +0.894 (SE 0.444)
+    alignment gap, avg RB + avg line                 +1.512 (SE 0.312)
+    alignment gap, elite RB + avg line               +1.857 (SE 0.331)
+    alignment gap, avg RB + elite line               +2.190 (SE 0.326)
+    alignment gap, elite RB + elite line             +2.406 (SE 0.327)

@@ -1,0 +1,31 @@
+engine=PROTOTYPE  pairs per cell=768
+Part 1  quality factorial (vs base; margin pts | YPC)
+  rb    margin +0.26 (SE 0.50)   ypc +0.147 (SE 0.068)
+  ol    margin -0.35 (SE 0.42)   ypc -0.025 (SE 0.051)
+  both  margin +0.36 (SE 0.50)   ypc +0.151 (SE 0.065)
+  interaction (both - rb - ol) on margin: +0.445 (SE 0.614)
+  interaction (both - rb - ol) on ypc: +0.029 (SE 0.076)
+Part 2  run style x run concept (quality held constant). margin vs base | ypc vs base
+  run|rbE|olD|power            margin -0.79 (0.46)  ypc -0.235 (0.067)
+  run|rbE|olD|zone             margin -1.28 (0.51)  ypc -0.332 (0.070)
+  run|rbE|olM|power            margin -1.08 (0.49)  ypc -0.449 (0.068)
+  run|rbE|olM|zone             margin +0.21 (0.53)  ypc +0.408 (0.074)
+  run|rbP|olD|power            margin +0.35 (0.51)  ypc +0.334 (0.068)
+  run|rbP|olD|zone             margin -1.40 (0.53)  ypc -0.447 (0.069)
+  run|rbP|olM|power            margin -1.33 (0.50)  ypc -0.498 (0.068)
+  run|rbP|olM|zone             margin -1.33 (0.48)  ypc -0.275 (0.066)
+  aligned (RB+OL+concept agree)                    margin +0.28 (SE 0.37) ypc +0.371 n=1536
+  anti-aligned (RB+OL agree, concept opposite)     margin -1.24 (SE 0.36) ypc -0.448 n=1536
+  RB/OL split (any concept)                        margin -1.18 (SE 0.24) ypc -0.335 n=3072
+Part 3  pass style x pass concept
+  pass|qbK|wrT|timing          margin +0.74 (0.48)
+  pass|qbK|wrT|vertical        margin -0.68 (0.46)
+  pass|qbK|wrV|timing          margin -0.22 (0.45)
+  pass|qbK|wrV|vertical        margin -0.27 (0.46)
+  pass|qbV|wrT|timing          margin -0.68 (0.46)
+  pass|qbV|wrT|vertical        margin -1.16 (0.48)
+  pass|qbV|wrV|timing          margin -0.79 (0.47)
+  pass|qbV|wrV|vertical        margin -0.24 (0.46)
+  aligned                                          margin +0.25 (SE 0.33) n=1536
+  anti-aligned                                     margin -0.74 (SE 0.33) n=1536
+  QB/WR split                                      margin -0.58 (SE 0.23) n=3072

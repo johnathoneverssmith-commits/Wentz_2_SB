@@ -1,0 +1,58 @@
+{
+ "rho": 0.5915354288206515,
+ "rating_sd": 2.170586585764798,
+ "eps_sd": 1.7500983960640761,
+ "pairs": 1536,
+ "M_PER_RATING": 1.9,
+ "sims_per_cell": 4000,
+ "cells": {
+  "0": {
+   "wins_per_season": 8.500125,
+   "titles_per_decade": 0.322,
+   "P_3plus_titles_in_10y": 0.008,
+   "P_3_straight": 0.00175,
+   "best_CPU_team_titles_per_decade": 2.127,
+   "fair_share_titles_per_decade": 0.3125
+  },
+  "0.5": {
+   "wins_per_season": 8.95205,
+   "titles_per_decade": 0.41725,
+   "P_3plus_titles_in_10y": 0.014,
+   "P_3_straight": 0.00275,
+   "best_CPU_team_titles_per_decade": 2.137,
+   "fair_share_titles_per_decade": 0.3125
+  },
+  "1": {
+   "wins_per_season": 9.32615,
+   "titles_per_decade": 0.51125,
+   "P_3plus_titles_in_10y": 0.02325,
+   "P_3_straight": 0.00325,
+   "best_CPU_team_titles_per_decade": 2.11975,
+   "fair_share_titles_per_decade": 0.3125
+  },
+  "1.5": {
+   "wins_per_season": 9.778275,
+   "titles_per_decade": 0.66975,
+   "P_3plus_titles_in_10y": 0.0395,
+   "P_3_straight": 0.00675,
+   "best_CPU_team_titles_per_decade": 2.095,
+   "fair_share_titles_per_decade": 0.3125
+  },
+  "2": {
+   "wins_per_season": 10.240925,
+   "titles_per_decade": 0.8685,
+   "P_3plus_titles_in_10y": 0.06725,
+   "P_3_straight": 0.01025,
+   "best_CPU_team_titles_per_decade": 2.052,
+   "fair_share_titles_per_decade": 0.3125
+  },
+  "3": {
+   "wins_per_season": 11.041975,
+   "titles_per_decade": 1.3145,
+   "P_3plus_titles_in_10y": 0.15775,
+   "P_3_straight": 0.03375,
+   "best_CPU_team_titles_per_decade": 2.01325,
+   "fair_share_titles_per_decade": 0.3125
+  }
+ }
+}

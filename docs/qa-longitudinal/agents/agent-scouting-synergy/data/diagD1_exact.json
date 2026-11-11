@@ -1,0 +1,106 @@
+{
+ "offense": {
+  "west_coast": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": -0.0486,
+    "ydPerCarry": -0.2432
+   }
+  },
+  "vertical": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": -0.0248,
+    "ydPerCarry": -0.1239
+   }
+  },
+  "spread": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": -0.0514,
+    "ydPerCarry": -0.2568
+   }
+  },
+  "power_run": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": -0.0289,
+    "ydPerCarry": -0.1443
+   }
+  },
+  "zone_run": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": -0.0425,
+    "ydPerCarry": -0.2125
+   }
+  }
+ },
+ "defense": {
+  "four_three": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": 0.0152,
+    "ydPerCarry": 0.0762
+   }
+  },
+  "three_four": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": 0.0165,
+    "ydPerCarry": 0.0825
+   }
+  },
+  "cover_3": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": 0.0235,
+    "ydPerCarry": 0.1175
+   }
+  },
+  "cover_2": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": 0.0152,
+    "ydPerCarry": 0.0762
+   }
+  },
+  "man_press": {
+   "tagged": {
+    "completeLogit": 0,
+    "ydPerCarry": 0
+   },
+   "tagless": {
+    "completeLogit": 0.025,
+    "ydPerCarry": 0.125
+   }
+  }
+ }
+}

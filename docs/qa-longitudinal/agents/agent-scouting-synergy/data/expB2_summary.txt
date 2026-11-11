@@ -1,0 +1,29 @@
+leagues=24 (11 treated teams each). Metric: treated team's exact rating after N offseasons of real aging, minus the same team in the control draft; teams otherwise static (no FA/retirement), so differences come from the draft class only.
+arm                       yr0                  yr1                  yr3                  yr5
+public         -0.208 (0.041)       -0.259 (0.046)       -0.358 (0.057)       -0.432 (0.074)
+R24            -0.081 (0.043)       -0.107 (0.049)       -0.198 (0.058)       -0.240 (0.072)
+RD24           -0.100 (0.042)       -0.098 (0.047)       -0.169 (0.056)       -0.221 (0.073)
+D24            -0.204 (0.043)       -0.240 (0.047)       -0.346 (0.060)       -0.417 (0.076)
+Rperf          +0.041 (0.044)       +0.114 (0.050)       +0.243 (0.065)       +0.388 (0.078)
+RDperf         -0.025 (0.042)       +0.070 (0.048)       +0.289 (0.061)       +0.469 (0.074)
+Dperf          -0.275 (0.047)       -0.309 (0.053)       -0.330 (0.064)       -0.365 (0.079)
+paired difference vs the stated reference (same teams, same leagues): rating points (SE)
+  R24     - public  yr0: +0.126 (0.035) yr1: +0.152 (0.040) yr3: +0.160 (0.050) yr5: +0.192 (0.062)
+  RD24    - R24     yr0: -0.019 (0.028) yr1: +0.009 (0.030) yr3: +0.029 (0.036) yr5: +0.019 (0.044)
+  D24     - public  yr0: +0.004 (0.026) yr1: +0.019 (0.032) yr3: +0.013 (0.041) yr5: +0.015 (0.050)
+  RD24    - public  yr0: +0.107 (0.037) yr1: +0.161 (0.043) yr3: +0.189 (0.054) yr5: +0.211 (0.064)
+  Rperf   - public  yr0: +0.248 (0.040) yr1: +0.372 (0.046) yr3: +0.601 (0.061) yr5: +0.820 (0.074)
+  RDperf  - Rperf   yr0: -0.065 (0.032) yr1: -0.044 (0.038) yr3: +0.047 (0.052) yr5: +0.081 (0.059)
+  RDperf  - public  yr0: +0.183 (0.037) yr1: +0.329 (0.043) yr3: +0.648 (0.054) yr5: +0.901 (0.069)
+  Dperf   - public  yr0: -0.068 (0.037) yr1: -0.051 (0.043) yr3: +0.029 (0.053) yr5: +0.067 (0.065)
+mean overall of the treated teams' drafted rookies (all picks), paired vs public
+  R24     yr0: +0.66 (0.25) yr3: +0.67 (0.27) yr5: +0.69 (0.27)
+  RD24    yr0: +0.58 (0.29) yr3: +0.70 (0.30) yr5: +0.70 (0.30)
+  D24     yr0: -0.17 (0.23) yr3: -0.11 (0.25) yr5: -0.08 (0.25)
+  Rperf   yr0: +8.86 (0.24) yr3: +8.80 (0.26) yr5: +8.82 (0.27)
+  RDperf  yr0: +8.67 (0.25) yr3: +9.01 (0.26) yr5: +9.06 (0.27)
+  Dperf   yr0: -0.70 (0.30) yr3: +0.55 (0.32) yr5: +0.70 (0.32)
+  share of the 21 starting slots held by the team's own draft class, public arm, year 0: 0.056
+  share of the 21 starting slots held by the team's own draft class, public arm, year 1: 0.066
+  share of the 21 starting slots held by the team's own draft class, public arm, year 3: 0.084
+  share of the 21 starting slots held by the team's own draft class, public arm, year 5: 0.102
