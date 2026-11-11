@@ -1,0 +1,4 @@
+before   : {"cur":"2031/offseasonHotSeat/history=5","prev":"2031/offseasonHotSeat/history=5","damaged":false}
+t+0.3s   : {"cur":"2026/setup/history=0","prev":"2026/setup/history=0","damaged":false}
+t+4s     : {"cur":"2026/setup/history=0","prev":"2026/setup/history=0","damaged":false}
+after pick: {"cur":"2026/setup/history=0","prev":"2026/setup/history=0","damaged":false}

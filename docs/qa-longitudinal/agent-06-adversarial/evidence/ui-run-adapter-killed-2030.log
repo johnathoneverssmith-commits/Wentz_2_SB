@@ -1,0 +1,164 @@
+[3s] season=2029 stage=offseasonHotSeat week=0 save=5.84MB
+  click: Continue to the offseason
+[6s] season=2029 stage=offseasonRetirement week=0 save=5.84MB
+  click: Advance to the Draft
+[10s] season=2029 stage=offseasonDraft week=0 save=5.86MB
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+[41s] season=2029 stage=offseasonDraftSummary week=0 save=5.87MB
+  closed pick-in dialog
+  click: Continue to Rookie Signings
+  click: Sign all remaining
+  click: Continue to Free Agency
+[56s] season=2029 stage=freeAgency week=0 save=6.14MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[62s] season=2029 stage=freeAgency week=0 save=6.15MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[69s] season=2029 stage=freeAgency week=0 save=6.15MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[76s] season=2029 stage=freeAgency week=0 save=6.15MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[83s] season=2029 stage=freeAgency week=0 save=6.16MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[90s] season=2029 stage=freeAgencySummary week=0 save=6.16MB
+  click: Let my staff fix the roster
+  confirm staff plan: Fix the roster
+  click: Advance to Training Camp
+[103s] season=2029 stage=trainingCamp week=0 save=6.15MB
+  camp focus picked
+  camp focus picked
+  click: Advance to End of Training Camp
+  click: Advance to Re-order Depth Chart
+[114s] season=2029 stage=hoodedFigureEncounter week=0 save=6.16MB
+  click: Decline
+  click: Advance to Re-order Depth Chart
+[121s] season=2029 stage=offseasonDepthChart week=0 save=6.16MB
+  click: Ready to start the season
+[127s] season=2030 stage=preseason week=1 save=3.99MB
+  click: Ready for Game Day
+  click: Continue
+[133s] season=2030 stage=preseason week=2 save=4.02MB
+  click: Ready for Game Day
+  click: Continue
+[140s] season=2030 stage=preseason week=3 save=4.05MB
+  click: Ready for Game Day
+  click: Continue
+[145s] season=2030 stage=regularSeason week=1 save=3.95MB
+  click: Ready for Game Day
+  click: Continue
+[150s] season=2030 stage=regularSeason week=2 save=4.06MB
+  click: Ready for Game Day
+  click: Continue
+[156s] season=2030 stage=regularSeason week=3 save=4.09MB
+  click: Ready for Game Day
+  click: Continue
+[161s] season=2030 stage=regularSeason week=4 save=4.13MB
+  click: Ready for Game Day
+  click: Continue
+[166s] season=2030 stage=regularSeason week=5 save=4.16MB
+  click: Ready for Game Day
+  click: Continue
+[172s] season=2030 stage=regularSeason week=6 save=4.18MB
+  click: Ready for Game Day
+  click: Continue
+[178s] season=2030 stage=regularSeason week=7 save=4.21MB
+  click: Ready for Game Day
+  click: Continue
+[183s] season=2030 stage=regularSeason week=8 save=4.24MB
+  click: Ready for Game Day
+  click: Continue
+[188s] season=2030 stage=regularSeason week=9 save=4.27MB
+  click: Ready for Game Day
+  click: Continue
+[194s] season=2030 stage=tradeDeadline week=9 save=4.30MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[199s] season=2030 stage=tradeDeadline week=9 save=4.30MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[205s] season=2030 stage=tradeDeadline week=9 save=4.30MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[210s] season=2030 stage=tradeDeadlineSummary week=9 save=4.30MB
+  click: Advance to Mid-Season Free Agency
+[212s] season=2030 stage=midseasonFreeAgency week=9 save=4.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[217s] season=2030 stage=midseasonFreeAgency week=9 save=4.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[222s] season=2030 stage=midseasonFreeAgency week=9 save=4.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[227s] season=2030 stage=midseasonFreeAgency week=9 save=4.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[232s] season=2030 stage=midseasonFreeAgency week=9 save=4.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[239s] season=2030 stage=midseasonFreeAgencySummary week=9 save=4.29MB
+  click: Let my staff fix the roster
+  confirm staff plan: Fix the roster
+  click: Advance to Re-order Depth Chart
+[250s] season=2030 stage=midseasonDepthChart week=9 save=4.29MB
+  click: Ready for Week 10
+[252s] season=2030 stage=regularSeason week=10 save=4.29MB
+  click: Ready for Game Day
+  click: Continue
+[258s] season=2030 stage=regularSeason week=11 save=4.32MB
+  click: Ready for Game Day
+  click: Continue
+[264s] season=2030 stage=regularSeason week=12 save=4.35MB
+  click: Ready for Game Day
+  click: Continue
+[269s] season=2030 stage=regularSeason week=13 save=4.38MB
+  click: Ready for Game Day
+  click: Continue
+[275s] season=2030 stage=regularSeason week=14 save=4.41MB
+  click: Ready for Game Day
+  click: Continue
+[281s] season=2030 stage=regularSeason week=15 save=4.44MB
+  click: Ready for Game Day
+  click: Continue
+[286s] season=2030 stage=regularSeason week=16 save=4.47MB
+  click: Ready for Game Day
+  click: Continue
+[292s] season=2030 stage=regularSeason week=17 save=4.50MB
+  click: Ready for Game Day
+  click: Continue
+[298s] season=2030 stage=regularSeason week=18 save=4.53MB
+  click: Ready for Game Day
+  click: Continue
+[304s] season=2030 stage=playoffs week=0 save=4.56MB
+  click: Let my staff re-sign the core
+  confirm staff plan: Extend them
+  click: Simulate the Wild Card
+  click: Continue
+  click: Simulate the Divisional
+  click: Continue
+  click: Simulate the Conference Championship
+  click: Continue
+  click: Simulate the Super Bowl
+  click: Continue
+[332s] season=2030 stage=endOfSeasonAnnounce week=0 save=4.57MB
+  click: Continue
+[335s] season=2030 stage=endOfSeasonConsolation week=0 save=4.57MB
+  click: Continue
+DONE seasonsDone 1 errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)","console: Failed to load resource: net::ERR_CONNECTION_REFUSED","console: Failed to load resource: net::ERR_CONNECTION_REFUSED","console: Failed to load resource: net::ERR_CONNECTION_REFUSED","console: Failed to load resource: net::ERR_CONNECTION_REFUSED","console: Failed to load re

@@ -1,0 +1,11 @@
+import { cpSync, rmSync } from "node:fs"; import { launch, UI } from "./lib.mjs";
+const P = "/tmp/pw-profile-adv-nd2"; rmSync(P, { recursive: true, force: true }); cpSync(process.argv[2], P, { recursive: true }); process.env.PROFILE = P;
+const { browser, page } = await launch();
+await page.goto(UI + "/"); await page.waitForTimeout(3500);
+const peek = () => page.evaluate(async () => { await window.__nflSimFlushSave?.(); const db = await new Promise((r) => { const q = indexedDB.open("nfl-sim-ui-saves", 1); q.onsuccess = () => r(q.result); }); const get = (k) => new Promise((r) => { const q = db.transaction("saves").objectStore("saves").get(k); q.onsuccess = () => r(q.result); }); const dec = async (rec) => { if (!rec) return null; const t = rec.enc === "plain" ? rec.data : await new Response(new Blob([rec.data]).stream().pipeThrough(new DecompressionStream("gzip"))).text(); const s = JSON.parse(t).state; return `${s.season}/${s.stage}/history=${s.history.length}`; }; const o = { cur: await dec(await get("nfl-sim-ui.league")), prev: await dec(await get("nfl-sim-ui.league#prev")), damaged: !!(await get("nfl-sim-ui.league#damaged")) }; db.close(); return o; });
+console.log("before   :", JSON.stringify(await peek()));
+await page.getByRole("button", { name: "New solo dynasty", exact: true }).click();
+await page.waitForTimeout(300); console.log("t+0.3s   :", JSON.stringify(await peek()));
+await page.waitForTimeout(4000); console.log("t+4s     :", JSON.stringify(await peek()));
+await page.getByRole("button", { name: /^(BAL|CIN|CLE) /i }).first().click().catch(() => {}); await page.waitForTimeout(1500); console.log("after pick:", JSON.stringify(await peek()));
+await browser.close();

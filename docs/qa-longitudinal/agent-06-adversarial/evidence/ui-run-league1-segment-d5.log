@@ -1,0 +1,486 @@
+[3s] season=2028 stage=hoodedFigureEncounter week=0 save=6.02MB
+  click: Decline
+  click: Advance to Re-order Depth Chart
+[10s] season=2028 stage=offseasonDepthChart week=0 save=6.02MB
+  click: Ready to start the season
+[15s] season=2029 stage=preseason week=1 save=3.86MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[32s] season=2029 stage=preseason week=2 save=3.96MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[47s] season=2029 stage=preseason week=3 save=4.06MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[62s] season=2029 stage=regularSeason week=1 save=4.02MB
+  click: Ready for Game Day
+  click: Continue
+[67s] season=2029 stage=regularSeason week=2 save=4.25MB
+  click: Ready for Game Day
+  click: Continue
+[72s] season=2029 stage=regularSeason week=3 save=4.36MB
+  click: Ready for Game Day
+  click: Continue
+[77s] season=2029 stage=regularSeason week=4 save=4.45MB
+  click: Ready for Game Day
+  click: Continue
+[83s] season=2029 stage=regularSeason week=5 save=4.56MB
+  click: Ready for Game Day
+  click: Continue
+[89s] season=2029 stage=regularSeason week=6 save=4.65MB
+  click: Ready for Game Day
+  click: Continue
+[94s] season=2029 stage=regularSeason week=7 save=4.75MB
+  click: Ready for Game Day
+  click: Continue
+[100s] season=2029 stage=regularSeason week=8 save=4.84MB
+  click: Ready for Game Day
+  click: Continue
+[106s] season=2029 stage=regularSeason week=9 save=4.92MB
+  click: Ready for Game Day
+  click: Continue
+[112s] season=2029 stage=tradeDeadline week=9 save=5.02MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[119s] season=2029 stage=tradeDeadline week=9 save=5.02MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[125s] season=2029 stage=tradeDeadline week=9 save=5.03MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[132s] season=2029 stage=tradeDeadlineSummary week=9 save=5.03MB
+  click: Advance to Mid-Season Free Agency
+[135s] season=2029 stage=midseasonFreeAgency week=9 save=5.01MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[141s] season=2029 stage=midseasonFreeAgency week=9 save=5.02MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[147s] season=2029 stage=midseasonFreeAgency week=9 save=5.02MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[153s] season=2029 stage=midseasonFreeAgency week=9 save=5.02MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[159s] season=2029 stage=midseasonFreeAgency week=9 save=5.02MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[168s] season=2029 stage=midseasonFreeAgencySummary week=9 save=5.01MB
+  click: Let my staff fix the roster
+  confirm staff plan: Fix the roster
+  click: Advance to Re-order Depth Chart
+[179s] season=2029 stage=midseasonDepthChart week=9 save=5.01MB
+  click: Ready for Week 10
+[183s] season=2029 stage=regularSeason week=10 save=5.01MB
+  click: Ready for Game Day
+  click: Continue
+[189s] season=2029 stage=regularSeason week=11 save=5.11MB
+  click: Ready for Game Day
+  click: Continue
+[196s] season=2029 stage=regularSeason week=12 save=5.20MB
+  click: Ready for Game Day
+  click: Continue
+[202s] season=2029 stage=regularSeason week=13 save=5.29MB
+  click: Ready for Game Day
+  click: Continue
+[209s] season=2029 stage=regularSeason week=14 save=5.39MB
+  click: Ready for Game Day
+  click: Continue
+[216s] season=2029 stage=regularSeason week=15 save=5.43MB
+  click: Ready for Game Day
+  click: Continue
+[223s] season=2029 stage=regularSeason week=16 save=5.53MB
+  click: Ready for Game Day
+  click: Continue
+[229s] season=2029 stage=regularSeason week=17 save=5.62MB
+  click: Ready for Game Day
+  click: Continue
+[236s] season=2029 stage=regularSeason week=18 save=5.72MB
+  click: Ready for Game Day
+  click: Continue
+[244s] season=2029 stage=playoffs week=0 save=5.82MB
+  click: Let my staff re-sign the core
+  confirm staff plan: Extend them
+  click: Simulate the Wild Card
+  click: Continue
+  click: Simulate the Divisional
+  click: Continue
+  click: Simulate the Conference Championship
+  click: Continue
+  click: Simulate the Super Bowl
+  click: Continue
+[279s] season=2029 stage=endOfSeasonAnnounce week=0 save=5.98MB
+  click: Continue
+[283s] season=2029 stage=endOfSeasonConsolation week=0 save=5.98MB
+  click: Continue
+[286s] season=2029 stage=offseasonHotSeat week=0 save=5.98MB
+  click: Continue to the offseason
+[290s] season=2029 stage=offseasonRetirement week=0 save=5.98MB
+  click: Advance to the Draft
+[293s] season=2029 stage=offseasonDraft week=0 save=6.01MB
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+[325s] season=2029 stage=offseasonDraftSummary week=0 save=6.02MB
+  closed pick-in dialog
+  click: Continue to Rookie Signings
+  click: Sign all remaining
+  click: Continue to Free Agency
+[340s] season=2029 stage=freeAgency week=0 save=6.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[347s] season=2029 stage=freeAgency week=0 save=6.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[355s] season=2029 stage=freeAgency week=0 save=6.30MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[363s] season=2029 stage=freeAgency week=0 save=6.30MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[371s] season=2029 stage=freeAgency week=0 save=6.31MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[380s] season=2029 stage=freeAgencySummary week=0 save=6.31MB
+  click: Advance to Training Camp
+[387s] season=2029 stage=trainingCamp week=0 save=6.30MB
+  camp focus picked
+  camp focus picked
+  click: Advance to End of Training Camp
+  click: Advance to Re-order Depth Chart
+[399s] season=2029 stage=hoodedFigureEncounter week=0 save=6.31MB
+  click: Decline
+  click: Advance to Re-order Depth Chart
+[407s] season=2029 stage=offseasonDepthChart week=0 save=6.31MB
+  click: Ready to start the season
+[415s] season=2030 stage=preseason week=1 save=4.10MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[436s] season=2030 stage=preseason week=2 save=4.19MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[457s] season=2030 stage=preseason week=3 save=4.29MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[472s] season=2030 stage=regularSeason week=1 save=4.24MB
+  click: Ready for Game Day
+  click: Continue
+[477s] season=2030 stage=regularSeason week=2 save=4.46MB
+  click: Ready for Game Day
+  click: Continue
+[483s] season=2030 stage=regularSeason week=3 save=4.57MB
+  click: Ready for Game Day
+  click: Continue
+[488s] season=2030 stage=regularSeason week=4 save=4.68MB
+  click: Ready for Game Day
+  click: Continue
+[494s] season=2030 stage=regularSeason week=5 save=4.78MB
+  click: Ready for Game Day
+  click: Continue
+[500s] season=2030 stage=regularSeason week=6 save=4.88MB
+  click: Ready for Game Day
+  click: Continue
+[506s] season=2030 stage=regularSeason week=7 save=4.97MB
+  click: Ready for Game Day
+  click: Continue
+[512s] season=2030 stage=regularSeason week=8 save=5.07MB
+  click: Ready for Game Day
+  click: Continue
+[518s] season=2030 stage=regularSeason week=9 save=5.17MB
+  click: Ready for Game Day
+  click: Continue
+[524s] season=2030 stage=tradeDeadline week=9 save=5.27MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[538s] season=2030 stage=tradeDeadline week=9 save=5.27MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[551s] season=2030 stage=tradeDeadline week=9 save=5.27MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[565s] season=2030 stage=tradeDeadlineSummary week=9 save=5.27MB
+  click: Advance to Mid-Season Free Agency
+[568s] season=2030 stage=midseasonFreeAgency week=9 save=5.26MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[575s] season=2030 stage=midseasonFreeAgency week=9 save=5.26MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[582s] season=2030 stage=midseasonFreeAgency week=9 save=5.26MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[589s] season=2030 stage=midseasonFreeAgency week=9 save=5.27MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[595s] season=2030 stage=midseasonFreeAgency week=9 save=5.27MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[605s] season=2030 stage=midseasonFreeAgencySummary week=9 save=5.26MB
+  click: Let my staff fix the roster
+  confirm staff plan: Fix the roster
+  click: Advance to Re-order Depth Chart
+[616s] season=2030 stage=midseasonDepthChart week=9 save=5.26MB
+  click: Ready for Week 10
+[620s] season=2030 stage=regularSeason week=10 save=5.26MB
+  click: Ready for Game Day
+  click: Continue
+[627s] season=2030 stage=regularSeason week=11 save=5.36MB
+  click: Ready for Game Day
+  click: Continue
+[633s] season=2030 stage=regularSeason week=12 save=5.45MB
+  click: Ready for Game Day
+  click: Continue
+[640s] season=2030 stage=regularSeason week=13 save=5.55MB
+  click: Ready for Game Day
+  click: Continue
+[647s] season=2030 stage=regularSeason week=14 save=5.64MB
+  click: Ready for Game Day
+  click: Continue
+[654s] season=2030 stage=regularSeason week=15 save=5.68MB
+  click: Ready for Game Day
+  click: Continue
+[660s] season=2030 stage=regularSeason week=16 save=5.77MB
+  click: Ready for Game Day
+  click: Continue
+[667s] season=2030 stage=regularSeason week=17 save=5.87MB
+  click: Ready for Game Day
+  click: Continue
+[674s] season=2030 stage=regularSeason week=18 save=5.97MB
+  click: Ready for Game Day
+  click: Continue
+[680s] season=2030 stage=playoffs week=0 save=6.08MB
+  click: Let my staff re-sign the core
+  confirm staff plan: Extend them
+  click: Simulate the Wild Card
+  click: Continue
+  click: Simulate the Divisional
+  click: Continue
+  click: Simulate the Conference Championship
+  click: Continue
+  click: Simulate the Super Bowl
+  click: Continue
+[715s] season=2030 stage=endOfSeasonAnnounce week=0 save=6.12MB
+  click: Continue
+[718s] season=2030 stage=endOfSeasonConsolation week=0 save=6.12MB
+  click: Continue
+[721s] season=2030 stage=offseasonHotSeat week=0 save=6.12MB
+  click: Continue to the offseason
+[725s] season=2030 stage=offseasonRetirement week=0 save=6.12MB
+  click: Advance to the Draft
+[730s] season=2030 stage=offseasonDraft week=0 save=6.14MB
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+  dialog dismissed
+  drafted
+[762s] season=2030 stage=offseasonDraftSummary week=0 save=6.15MB
+  closed pick-in dialog
+  click: Continue to Rookie Signings
+  click: Sign all remaining
+  click: Continue to Free Agency
+[778s] season=2030 stage=freeAgency week=0 save=6.42MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[785s] season=2030 stage=freeAgency week=0 save=6.43MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[792s] season=2030 stage=freeAgency week=0 save=6.43MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[799s] season=2030 stage=freeAgency week=0 save=6.44MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[806s] season=2030 stage=freeAgency week=0 save=6.44MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[814s] season=2030 stage=freeAgencySummary week=0 save=6.44MB
+  click: Let my staff fix the roster
+  confirm staff plan: Fix the roster
+  click: Advance to Training Camp
+[827s] season=2030 stage=trainingCamp week=0 save=6.44MB
+  camp focus picked
+  camp focus picked
+  click: Advance to End of Training Camp
+  click: Advance to Re-order Depth Chart
+[839s] season=2030 stage=hoodedFigureEncounter week=0 save=6.44MB
+  click: Decline
+  click: Advance to Re-order Depth Chart
+[847s] season=2030 stage=offseasonDepthChart week=0 save=6.44MB
+  click: Ready to start the season
+[853s] season=2031 stage=preseason week=1 save=4.13MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[869s] season=2031 stage=preseason week=2 save=4.23MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[886s] season=2031 stage=preseason week=3 save=4.33MB
+  click: Ready for Game Day
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Simulate Preseason
+  click: Continue
+[902s] season=2031 stage=regularSeason week=1 save=4.29MB
+  click: Ready for Game Day
+  click: Continue
+[907s] season=2031 stage=regularSeason week=2 save=4.51MB
+  click: Ready for Game Day
+  click: Continue
+[913s] season=2031 stage=regularSeason week=3 save=4.61MB
+  click: Ready for Game Day
+  click: Continue
+[920s] season=2031 stage=regularSeason week=4 save=4.72MB
+  click: Ready for Game Day
+  click: Continue
+[927s] season=2031 stage=regularSeason week=5 save=4.82MB
+  click: Ready for Game Day
+  click: Continue
+[933s] season=2031 stage=regularSeason week=6 save=4.92MB
+  click: Ready for Game Day
+  click: Continue
+[939s] season=2031 stage=regularSeason week=7 save=5.02MB
+  click: Ready for Game Day
+  click: Continue
+[946s] season=2031 stage=regularSeason week=8 save=5.11MB
+  click: Ready for Game Day
+  click: Continue
+[952s] season=2031 stage=regularSeason week=9 save=5.21MB
+  click: Ready for Game Day
+  click: Continue
+[959s] season=2031 stage=tradeDeadline week=9 save=5.30MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[965s] season=2031 stage=tradeDeadline week=9 save=5.30MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[972s] season=2031 stage=tradeDeadline week=9 save=5.30MB
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+  click: Let my staff handle this turn
+  confirm staff plan: Go ahead
+[985s] season=2031 stage=tradeDeadlineSummary week=9 save=5.30MB
+  click: Advance to Mid-Season Free Agency
+[989s] season=2031 stage=midseasonFreeAgency week=9 save=5.28MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[995s] season=2031 stage=midseasonFreeAgency week=9 save=5.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[1002s] season=2031 stage=midseasonFreeAgency week=9 save=5.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[1008s] season=2031 stage=midseasonFreeAgency week=9 save=5.29MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[1014s] season=2031 stage=midseasonFreeAgency week=9 save=5.30MB
+  click: Let my staff take this turn
+  confirm staff plan: Make the offer
+[1024s] season=2031 stage=midseasonFreeAgencySummary week=9 save=5.29MB
+  click: Let my staff fix the roster
+  confirm staff plan: Fix the roster
+  click: Advance to Re-order Depth Chart
+[1037s] season=2031 stage=midseasonDepthChart week=9 save=5.29MB
+  click: Ready for Week 10
+[1041s] season=2031 stage=regularSeason week=10 save=5.29MB
+  click: Ready for Game Day
+  click: Continue
+[1047s] season=2031 stage=regularSeason week=11 save=5.39MB
+  click: Ready for Game Day
+  click: Continue
+[1054s] season=2031 stage=regularSeason week=12 save=5.49MB
+  click: Ready for Game Day
+  click: Continue
+[1061s] season=2031 stage=regularSeason week=13 save=5.59MB
+  click: Ready for Game Day
+  click: Continue
+[1068s] season=2031 stage=regularSeason week=14 save=5.68MB
+  click: Ready for Game Day
+  click: Continue
+[1075s] season=2031 stage=regularSeason week=15 save=5.72MB
+  click: Ready for Game Day
+  click: Continue
+[1081s] season=2031 stage=regularSeason week=16 save=5.82MB
+  click: Ready for Game Day
+  click: Continue
+[1088s] season=2031 stage=regularSeason week=17 save=5.90MB
+  click: Ready for Game Day
+  click: Continue
+[1096s] season=2031 stage=regularSeason week=18 save=6.01MB
+  click: Ready for Game Day
+  click: Continue
+[1103s] season=2031 stage=playoffs week=0 save=6.11MB
+  click: Let my staff re-sign the core
+  confirm staff plan: Extend them
+  click: Simulate the Wild Card
+  click: Continue
+  click: Simulate the Divisional
+  click: Continue
+  click: Simulate the Conference Championship
+  click: Continue
+  click: Simulate the Super Bowl
+  click: Continue
+[1140s] season=2031 stage=endOfSeasonAnnounce week=0 save=6.21MB
+  click: Continue
+[1144s] season=2031 stage=endOfSeasonConsolation week=0 save=6.21MB
+  click: Continue
+DONE seasonsDone 3 errors ["console: Failed to load resource: the server responded with a status of 404 (Not Found)"] adapter calls 91 ["/scheme-fit-baseline","/schedule","/plan-preview","/simulate-week","/playoffs/seed","/playoffs/round"]
