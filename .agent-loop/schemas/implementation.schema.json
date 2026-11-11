@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent loop implementation v1",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "taskId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[A-Za-z0-9-]+$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[A-Za-z0-9-]+$"
+    },
+    "planDigest": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "baseSha": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "headSha": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000,
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "diff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "additions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "deletions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000000
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "100644"
+            ]
+          },
+          "binary": {
+            "type": "boolean"
+          },
+          "previousPath": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          }
+        },
+        "required": [
+          "path",
+          "additions",
+          "deletions",
+          "mode",
+          "binary"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 1000,
+      "uniqueItems": true
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10000
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "runId",
+    "planDigest",
+    "baseSha",
+    "headSha",
+    "diff",
+    "summary"
+  ],
+  "additionalProperties": false
+}
