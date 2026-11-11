@@ -1,0 +1,409 @@
+[0] NEW #/setup|League Setup|League Setup · 2027 :: LOBBY | LEAGUE SETTINGS | BAL Baltimore Ravens Your team | CIN Cincinnati Bengals Available | CLE Cleveland Browns Available | HOU Houston Texans Available | IND Indianapolis Colts Available | JAX Jacksonville Jaguars Available | TEN Tennessee Titans Available | BUF Buffalo Bills Available
+   click "I'm ready to begin"
+[1] NEW #/||Fantasy Draft · 2027 :: 
+[2] NEW #/draft|Draft Room , BALTIMORE RAVENS|Fantasy Draft · 2027 :: AVAILABLE PLAYERS | YOUR PLAYERS | TEAM NEEDS | LEAGUE DRAFT BOARD | Draft Elijah Kowalski | Draft | Draft | Draft | Draft | Draft
+manual draft pick done
+[17] NEW #/draft|Draft Room , BALTIMORE RAVENS|Fantasy Draft Summary · 2027 :: AVAILABLE PLAYERS | YOUR PLAYERS | TEAM NEEDS | LEAGUE DRAFT BOARD | Show more players | Rober Garwick | Tyaldo Dencroft | Baslen Linsey | Tyus Nwosu | Olas Brookett
+[18] NEW #/fantasy-draft-summary|Fantasy Draft Summary|Fantasy Draft Summary · 2027 :: OVERVIEW & RANKINGS | YOUR TEAM | NFL | 1 BAL Baltimore · GM A+ 68 | 2 CIN Cincinnati A+ 68 | 3 CLE Cleveland A+ 68 | 4 PIT Pittsburgh A+ 68 | 5 HOU Houston A 68 | 6 IND Indianapolis A 68 | 7 JAX Jacksonville A 68
+   click "Advance to Coaching"
+[19] NEW #/coaching-draft|Coaching Draft|Coaching Fantasy Draft · 2027 :: Delegate Remaining Picks to Staff | AVAILABLE | YOUR STAFF (0) | RECENT PICKS | Hire Cameron Ashby | ALL | HC | OC | DC | QB
+   click "Delegate Remaining Picks to Staff"
+   click "Yes, delegate"
+[21] NEW #/coaching-draft-summary|Coaching Draft Summary|Coaching Draft Summary · 2027 :: YOUR STAFF | EVERY TEAM | Advance to Training Camp
+   click "Advance to Training Camp"
+[22] NEW #/training-camp|Training Camp|Training Camp · 2027 :: QUARTERBACKS 3 players · 1 young · 2 vets | RUNNING BACKS 4 players · 1 young · 0 vets | OFFENSIVE LINE 10 players · 4 young · 3 vets | RECEIVERS AND TIGHT ENDS 9 players · 2 young · 1 vet | DEFENSIVE LINE AND EDGE 10 players · 2 young · 2 vets | LINEBACKERS 5 players · 0 young · 1 vet | DEFENSIVE BACKS 10 players · 5 young · 0 vets
+   focus QUARTERBACKS 3 players · 1 you
+   focus DEFENSIVE BACKS 10 players · 5
+[25] NEW #/training-camp-results|Training Camp Results|Training Camp Results · 2027 :: Advance to Re-order Depth Chart
+   click "Advance to Re-order Depth Chart"
+[26] NEW #/roster|Roster & depth chart , BALTIMORE RAVENS|Depth Chart · 2027 :: Trade history | DEPTH CHART | CAP TABLE | UNIT GRADES | POSITIONAL NEEDS | QB B | RB C+ | WR C | TE F | OL B+
+   click "Ready to start the season"
+[28] NEW #/hub|Roster & depth chart , BALTIMORE RAVENS|Preseason · 2027 · Wk 1 :: Trade history | DEPTH CHART | CAP TABLE | UNIT GRADES | POSITIONAL NEEDS | QB B | RB C+ | WR C | TE F | OL B+
+[29] NEW #/hub|Franchise command center, 2027 season , |Preseason · 2027 · Wk 1 :: Ready for Game Day | Simulate Preseason | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Preseason"
+[56] NEW #/game-day|Franchise command center, 2027 season , |Preseason · 2027 · Wk 1 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[57] NEW #/game-day|Preseason Week 1 · results are in , GAME|Preseason · 2027 · Wk 1 :: WAS Q1 15:00 0 plays · from their own 26 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+gamecast captured
+   click "SKIP TO FINAL"
+[60] NEW #/hub|Franchise command center, 2027 season , |Preseason · 2027 · Wk 2 :: Ready for Game Day | Simulate Preseason | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Preseason"
+[92] NEW #/game-day|Franchise command center, 2027 season , |Preseason · 2027 · Wk 2 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[93] NEW #/game-day|Preseason Week 2 · results are in , GAME|Preseason · 2027 · Wk 2 :: ATL Q1 15:00 0 plays · from their own 26 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[95] NEW #/hub|Franchise command center, 2027 season , |Preseason · 2027 · Wk 3 :: Ready for Game Day | Simulate Preseason | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Preseason"
+[126] NEW #/game-day|Preseason Week 3 · results are in , GAME|Preseason · 2027 · Wk 3 :: SF Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[128] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 1 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[131] NEW #/game-day|Week 1 · results are in , GAME DAY|Regular Season · 2027 · Wk 1 :: BAL Q1 15:00 0 plays · from their own 39 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[133] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 2 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[135] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 2 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[136] NEW #/game-day|Week 2 · results are in , GAME DAY|Regular Season · 2027 · Wk 2 :: PIT Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[138] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 3 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[140] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 3 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[141] NEW #/game-day|Week 3 · results are in , GAME DAY|Regular Season · 2027 · Wk 3 :: CIN Q1 15:00 0 plays · from their own 31 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[143] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 4 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[145] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 4 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[146] NEW #/game-day|Week 4 · results are in , GAME DAY|Regular Season · 2027 · Wk 4 :: CIN Q1 15:00 0 plays · from their own 39 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[148] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 5 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[150] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 5 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[151] NEW #/game-day|Week 5 · results are in , GAME DAY|Regular Season · 2027 · Wk 5 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[153] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 6 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[156] NEW #/game-day|Week 6 · results are in , GAME DAY|Regular Season · 2027 · Wk 6 :: CAR Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[158] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 7 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[160] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 7 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[161] NEW #/game-day|Week 7 · results are in , GAME DAY|Regular Season · 2027 · Wk 7 :: BAL Q1 15:00 0 plays · from their own 29 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[163] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 8 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[165] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 8 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[166] NEW #/game-day|Week 8 · results are in , GAME DAY|Regular Season · 2027 · Wk 8 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[168] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 9 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[170] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 9 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[171] NEW #/game-day|Week 9 · results are in , GAME DAY|Regular Season · 2027 · Wk 9 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[173] NEW #/trade-deadline|Trade Deadline , BALTIMORE RAVENS|Trade Deadline · 2027 :: Let my staff handle this turn | Pass this turn | 93 JABRICK FOSELL · CB + | 92 ELIJAH KOWALSKI · WR + | 89 AUSTIN ELDARD · P + | 85 KIRUN KINDALE · C + | 85 CEDRIC DUNWELL · K + | 84 JAMES GILELL · OT + | 83 ULRO JENNINGS · OG + | 82 OTIS VANCE · OG +
+   click "Let my staff handle this turn"
+DIALOG affirm="Go ahead" decline=No thanks (before: Go ahead)
+[179] NEW #/trade-summary|Trade Summary|Trade Summary · 2027 :: YOUR TRADES | LEAGUE TRADES | REJECTED OFFERS | UPDATED ROSTER | Advance to Mid-Season Free Agency
+   click "Advance to Mid-Season Free Agency"
+[180] NEW #/free-agency-board|Mid-Season Free Agency , BALTIMORE RAVEN|Mid-Season Free Agency · 2027 :: Pass this round | Let my staff take this turn | UNSIGNED (295) | ROSTER NEEDS | SIGNED (0) | Details | Compare | Offer | Details | Compare
+   click "Let my staff take this turn"
+DIALOG affirm="Make the offer" decline=No thanks (before: Make the offer)
+DIALOG affirm="Pass" decline=No thanks (before: Pass)
+[190] NEW #/free-agency-summary|Mid-Season Free Agency Summary|Mid-Season Free Agency Summary · 2027 :: YOUR RESULTS | LEAGUE SIGNINGS | REMAINING POOL | ROSTER & BUDGET (1) | Let my staff fix the roster
+adapter calls: /scheme-fit-baseline, /schedule, /plan-preview, /simulate-week
+[0] NEW #/free-agency-summary|Mid-Season Free Agency Summary|Mid-Season Free Agency Summary · 2027 :: YOUR RESULTS | LEAGUE SIGNINGS | REMAINING POOL | ROSTER & BUDGET (1) | Let my staff fix the roster
+   click "Let my staff fix the roster"
+DIALOG affirm="Fix the roster" decline=No thanks (before: LEAGUE SIGNINGS | REMAINING POOL | ROSTER & BUDGET (1) | Fix the roster)
+[3] NEW #/roster|Roster & depth chart , BALTIMORE RAVENS|Depth Chart · 2027 :: Trade history | DEPTH CHART | CAP TABLE | UNIT GRADES | POSITIONAL NEEDS | QB B | RB C+ | WR A | TE F | OL B+
+   click "Ready for Week 10"
+[4] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 10 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[6] NEW #/game-day|Week 10 · results are in , GAME DAY|Regular Season · 2027 · Wk 10 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+gamecast captured
+   click "SKIP TO FINAL"
+[9] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 11 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[11] NEW #/game-day|Week 11 · results are in , GAME DAY|Regular Season · 2027 · Wk 11 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[13] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 12 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[15] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 12 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[16] NEW #/game-day|Week 12 · results are in , GAME DAY|Regular Season · 2027 · Wk 12 :: BAL Q1 15:00 0 plays · from their own 24 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[18] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 13 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[21] NEW #/game-day|Week 13 · results are in , GAME DAY|Regular Season · 2027 · Wk 13 :: IND Q1 15:00 0 plays · from their own 25 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[23] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 14 :: Ready for Game Day | Simulate Regular Season | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[25] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 14 :: View Game Day results | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score | Watch Play-by-Play
+[26] NEW #/game-day|Week 14 · results are in , GAME DAY|Regular Season · 2027 · Wk 14 :: Team hub | Continue
+   click "Continue"
+[27] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 15 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[29] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 15 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[30] NEW #/game-day|Week 15 · results are in , GAME DAY|Regular Season · 2027 · Wk 15 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[32] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 16 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[35] NEW #/game-day|Week 16 · results are in , GAME DAY|Regular Season · 2027 · Wk 16 :: CLE Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[37] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 17 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[40] NEW #/game-day|Week 17 · results are in , GAME DAY|Regular Season · 2027 · Wk 17 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[42] NEW #/hub|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 18 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[44] NEW #/game-day|Franchise command center, 2027 season , |Regular Season · 2027 · Wk 18 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[45] NEW #/game-day|Week 18 · results are in , GAME DAY|Regular Season · 2027 · Wk 18 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[47] NEW #/bracket|2027 playoffs , POSTSEASON|Playoffs · 2027 :: AFC | NFC | SUPER BOWL | MATCHUP | Player Statistics | League Statistics | Adjust | Simulate the Wild Card
+   click "Simulate the Wild Card"
+[49] NEW #/game-day|Wild Card · results are in , GAME DAY|Playoffs · 2027 :: NYJ Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[53] NEW #/game-day|Divisional · results are in , GAME DAY|Playoffs · 2027 :: Team hub | Continue
+   click "Continue"
+[56] NEW #/game-day|Conference Championship · results are in|Playoffs · 2027 :: Team hub | Continue
+   click "Continue"
+[59] NEW #/game-day|Super Bowl · results are in , GAME DAY|Playoffs · 2027 :: Team hub | Continue
+   click "Continue"
+[60] NEW #/end-of-season|End of season , 2027|Season Complete · 2027 :: Continue
+EOS experiment 2027 hash=#/end-of-season btns=Continue
+after tap: ["#/end-of-season",["Continue"]]
+after real click hash=#/hot-seat
+[61] NEW #/hot-seat|Offseason · 2027 season review , HOT SEA|Hot Seat · 2028 :: YOUR JOB | AROUND THE LEAGUE | METHODOLOGY | Continue to the offseason
+   click "Continue to the offseason"
+[62] NEW #/retirement|Offseason · Baltimore , RETIREMENT REVIE|Retirement Review · 2028 :: YOUR TEAM | LEAGUE-WIDE | Advance to the Draft
+   click "Advance to the Draft"
+[63] NEW #/draft|Draft Room , BALTIMORE RAVENS|Rookie Draft · 2028 :: AVAILABLE PROSPECTS | YOUR PLAYERS | TEAM NEEDS | LEAGUE DRAFT BOARD | Draft Findre Foskins | ☆ | Draft | Compare | ☆ | Draft
+manual draft pick done
+[84] NEW #/draft|Draft Room , BALTIMORE RAVENS|Rookie Draft Summary · 2028 :: AVAILABLE PROSPECTS | YOUR PLAYERS | TEAM NEEDS | LEAGUE DRAFT BOARD | Compare | Compare | Compare | Compare | Compare | Compare
+[85] NEW #/rookie-draft-summary|Rookie Draft Summary|Rookie Draft Summary · 2028 :: OVERVIEW & RANKINGS | YOUR TEAM | NFL | 1 DAL Dallas A+ 81 | 2 MIA Miami A+ 80 | 3 SF San Francisco A+ 80 | 4 IND Indianapolis A+ 80 | 5 CHI Chicago A 79 | 6 DEN Denver A 79 | 7 LV Las Vegas A 79
+NATIVE confirm: Continue to Rookie Signings? You can't return to this summary.
+   click "Continue to Rookie Signings"
+[86] NEW #/rookie-signings|2028 draft class · Baltimore , ROOKIE SI|Rookie Signings · 2028 :: SIGNINGS | SIGN | RELEASE | SIGN | RELEASE | SIGN | RELEASE | SIGN | RELEASE | SIGN
+   click "SIGN"
+   click "SIGN"
+[94] NEW #/free-agency-board|Free Agency , BALTIMORE RAVENS|Free Agency · 2028 :: Pass this round | Let my staff take this turn | UNSIGNED (356) | ROSTER NEEDS | SIGNED (0) | Details | Compare | Offer | Details | Compare
+   click "Let my staff take this turn"
+DIALOG affirm="Pass" decline=No thanks (before: Pass)
+[104] NEW #/free-agency-summary|Free Agency Summary|Free Agency Summary · 2028 :: YOUR RESULTS | LEAGUE SIGNINGS | REMAINING POOL | ROSTER & BUDGET | Advance to Training Camp
+   click "Advance to Training Camp"
+[105] NEW #/training-camp|Training Camp|Training Camp · 2028 :: QUARTERBACKS 3 players · 0 young · 2 vets | RUNNING BACKS 4 players · 1 young · 2 vets | OFFENSIVE LINE 10 players · 3 young · 4 vets | RECEIVERS AND TIGHT ENDS 9 players · 1 young · 1 vet | DEFENSIVE LINE AND EDGE 9 players · 4 young · 3 vets | LINEBACKERS 5 players · 0 young · 3 vets | DEFENSIVE BACKS 11 players · 4 young · 2 vets
+   focus QUARTERBACKS 3 players · 0 you
+   focus DEFENSIVE BACKS 11 players · 4
+[108] NEW #/training-camp-results|Training Camp Results|Training Camp Results · 2028 :: Advance to Re-order Depth Chart
+   click "Advance to Re-order Depth Chart"
+[109] NEW #/roster|Roster & depth chart , BALTIMORE RAVENS|Depth Chart · 2028 :: Trade history | DEPTH CHART | CAP TABLE | UNIT GRADES | POSITIONAL NEEDS | QB B | RB B | WR B+ | TE C | OL B+
+   click "Ready to start the season"
+[111] NEW #/hub|Roster & depth chart , BALTIMORE RAVENS|Preseason · 2028 · Wk 1 :: Trade history | DEPTH CHART | CAP TABLE | UNIT GRADES | POSITIONAL NEEDS | QB B | RB B | WR B+ | TE C | OL B+
+[112] NEW #/hub|Franchise command center, 2028 season , |Preseason · 2028 · Wk 1 :: Ready for Game Day | Simulate Preseason | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Preseason"
+[135] NEW #/game-day|Franchise command center, 2028 season , |Preseason · 2028 · Wk 1 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[136] NEW #/game-day|Preseason Week 1 · results are in , GAME|Preseason · 2028 · Wk 1 :: CIN Q1 15:00 0 plays · from their own 31 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[138] NEW #/hub|Franchise command center, 2028 season , |Preseason · 2028 · Wk 2 :: Ready for Game Day | Simulate Preseason | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Preseason"
+[166] NEW #/game-day|Franchise command center, 2028 season , |Preseason · 2028 · Wk 2 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[167] NEW #/game-day|Preseason Week 2 · results are in , GAME|Preseason · 2028 · Wk 2 :: BAL Q1 15:00 0 plays · from their own 18 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[169] NEW #/hub|Franchise command center, 2028 season , |Preseason · 2028 · Wk 3 :: Ready for Game Day | Simulate Preseason | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Preseason"
+[195] NEW #/game-day|Franchise command center, 2028 season , |Preseason · 2028 · Wk 3 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[196] NEW #/game-day|Preseason Week 3 · results are in , GAME|Preseason · 2028 · Wk 3 :: BAL Q1 15:00 0 plays · from their own 21 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[198] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 1 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[200] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 1 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[201] NEW #/game-day|Week 1 · results are in , GAME DAY|Regular Season · 2028 · Wk 1 :: BAL Q1 15:00 0 plays · from their own 22 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[203] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 2 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[206] NEW #/game-day|Week 2 · results are in , GAME DAY|Regular Season · 2028 · Wk 2 :: PIT Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[208] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 3 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[211] NEW #/game-day|Week 3 · results are in , GAME DAY|Regular Season · 2028 · Wk 3 :: CIN Q1 15:00 0 plays · from their own 33 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[213] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 4 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[215] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 4 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[216] NEW #/game-day|Week 4 · results are in , GAME DAY|Regular Season · 2028 · Wk 4 :: CIN Q1 15:00 0 plays · from their own 29 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[218] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 5 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[220] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 5 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[221] NEW #/game-day|Week 5 · results are in , GAME DAY|Regular Season · 2028 · Wk 5 :: BAL Q1 15:00 0 plays · from their own 28 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[223] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 6 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[225] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 6 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[226] NEW #/game-day|Week 6 · results are in , GAME DAY|Regular Season · 2028 · Wk 6 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[228] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 7 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[231] NEW #/game-day|Week 7 · results are in , GAME DAY|Regular Season · 2028 · Wk 7 :: DEN Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[233] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 8 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[236] NEW #/game-day|Week 8 · results are in , GAME DAY|Regular Season · 2028 · Wk 8 :: BAL Q1 15:00 0 plays · from their own 22 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[238] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 9 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[240] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 9 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[241] NEW #/game-day|Week 9 · results are in , GAME DAY|Regular Season · 2028 · Wk 9 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[243] NEW #/trade-deadline|Trade Deadline , BALTIMORE RAVENS|Trade Deadline · 2028 :: Let my staff handle this turn | Pass this turn | 93 ELIJAH KOWALSKI · WR + | 93 JABRICK FOSELL · CB + | 87 AUSTIN ELDARD · P + | 86 ERETT WHITAKER · WR + | 85 JAMES GILELL · OT + | 85 CEDRIC DUNWELL · K + | 84 ULRO JENNINGS · OG + | 84 KIRUN KINDALE · C +
+   click "Let my staff handle this turn"
+DIALOG affirm="Go ahead" decline=No thanks (before: Go ahead)
+[251] NEW #/trade-summary|Trade Summary|Trade Summary · 2028 :: YOUR TRADES | LEAGUE TRADES | REJECTED OFFERS | UPDATED ROSTER | Advance to Mid-Season Free Agency
+   click "Advance to Mid-Season Free Agency"
+[252] NEW #/free-agency-board|Mid-Season Free Agency , BALTIMORE RAVEN|Mid-Season Free Agency · 2028 :: Pass this round | Let my staff take this turn | UNSIGNED (310) | ROSTER NEEDS | SIGNED (0) | Details | Compare | Offer | Details | Compare
+   click "Let my staff take this turn"
+DIALOG affirm="Make the offer" decline=No thanks (before: Make the offer)
+[262] NEW #/free-agency-summary|Mid-Season Free Agency Summary|Mid-Season Free Agency Summary · 2028 :: YOUR RESULTS | LEAGUE SIGNINGS | REMAINING POOL | ROSTER & BUDGET (1) | Let my staff fix the roster
+   click "Let my staff fix the roster"
+[266] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 10 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[268] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 10 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[269] NEW #/game-day|Week 10 · results are in , GAME DAY|Regular Season · 2028 · Wk 10 :: BAL Q1 15:00 0 plays · from their own 21 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[271] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 11 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[274] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 11 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[275] NEW #/game-day|Week 11 · results are in , GAME DAY|Regular Season · 2028 · Wk 11 :: JAX Q1 15:00 0 plays · from their own 26 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[277] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 12 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[280] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 12 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[281] NEW #/game-day|Week 12 · results are in , GAME DAY|Regular Season · 2028 · Wk 12 :: HOU Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[283] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 13 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[286] NEW #/game-day|Week 13 · results are in , GAME DAY|Regular Season · 2028 · Wk 13 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[288] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 14 :: Ready for Game Day | Simulate Regular Season | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Extend at his ask | Extend at his ask | Extend at his ask | Extend at his ask
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[290] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 14 :: View Game Day results | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Extend at his ask | Extend at his ask | Extend at his ask | Extend at his ask | Extend at his ask
+[291] NEW #/game-day|Week 14 · results are in , GAME DAY|Regular Season · 2028 · Wk 14 :: Team hub | Continue
+   click "Continue"
+[292] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 15 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[294] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 15 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[295] NEW #/game-day|Week 15 · results are in , GAME DAY|Regular Season · 2028 · Wk 15 :: PIT Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[297] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 16 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[299] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 16 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[300] NEW #/game-day|Week 16 · results are in , GAME DAY|Regular Season · 2028 · Wk 16 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[302] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 17 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[304] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 17 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[305] NEW #/game-day|Week 17 · results are in , GAME DAY|Regular Season · 2028 · Wk 17 :: TB Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[307] NEW #/hub|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 18 :: Ready for Game Day | Simulate Regular Season | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics
+   click "Ready for Game Day"
+   click "Simulate Regular Season"
+[309] NEW #/game-day|Franchise command center, 2028 season , |Regular Season · 2028 · Wk 18 :: View Game Day results | MATCHUP | DIVISION STANDINGS | LEAGUE STANDINGS | INJURIES | OVERVIEW | Full Schedule | Player Statistics | League Statistics | Latest Box Score
+[310] NEW #/game-day|Week 18 · results are in , GAME DAY|Regular Season · 2028 · Wk 18 :: BAL Q1 15:00 0 plays · from their own 21 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[312] NEW #/bracket|2028 playoffs , POSTSEASON|Playoffs · 2028 :: AFC | NFC | SUPER BOWL | MATCHUP | Extend at his ask | Extend at his ask | Extend at his ask | Extend at his ask | Extend at his ask | Let my staff re-sign the core
+   click "Simulate the Wild Card"
+[314] NEW #/game-day|Wild Card · results are in , GAME DAY|Playoffs · 2028 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[318] NEW #/game-day|Divisional · results are in , GAME DAY|Playoffs · 2028 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[322] NEW #/game-day|Conference Championship · results are in|Playoffs · 2028 :: BAL Q1 15:00 0 plays · from their own 30 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[326] NEW #/game-day|Super Bowl · results are in , GAME DAY|Playoffs · 2028 :: BAL Q1 15:00 0 plays · from their own 28 LIVE | play | next step | SKIP TO FINAL | Full box score | Team hub | Continue
+   click "SKIP TO FINAL"
+   click "Continue"
+[328] NEW #/end-of-season|End of season , 2028|Season Complete · 2028 :: Continue
+EOS experiment 2028 hash=#/end-of-season btns=Continue
+after tap: ["#/end-of-season",["Continue"]]
+after real click hash=#/end-of-season
+[330] NEW #/hot-seat|Offseason · 2028 season review , HOT SEA|Hot Seat · 2029 :: YOUR JOB | AROUND THE LEAGUE | METHODOLOGY | Continue to the offseason
+   click "Continue to the offseason"
+[331] NEW #/retirement|Offseason · Baltimore , RETIREMENT REVIE|Retirement Review · 2029 :: YOUR TEAM | LEAGUE-WIDE | Advance to the Draft
+   click "Advance to the Draft"
+[332] NEW #/draft|Draft Room , BALTIMORE RAVENS|Rookie Draft · 2029 :: AVAILABLE PROSPECTS | YOUR PLAYERS | TEAM NEEDS | LEAGUE DRAFT BOARD | Draft Ronon Jenins | ☆ | Draft | Compare | ☆ | Draft
+   click "Draft Ronon Jenins"
+[353] NEW #/draft|Draft Room , BALTIMORE RAVENS|Rookie Draft Summary · 2029 :: AVAILABLE PROSPECTS | YOUR PLAYERS | TEAM NEEDS | LEAGUE DRAFT BOARD | Compare | Compare | Compare | Compare | Compare | Compare
+[354] NEW #/rookie-draft-summary|Rookie Draft Summary|Rookie Draft Summary · 2029 :: OVERVIEW & RANKINGS | YOUR TEAM | NFL | 1 SF San Francisco A+ 83 | 2 IND Indianapolis A+ 81 | 3 CHI Chicago A+ 81 | 4 MIA Miami A+ 80 | 5 PHI Philadelphia A 80 | 6 NO New Orleans A 80 | 7 TEN Tennessee A 80
+NATIVE confirm: Continue to Rookie Signings? You can't return to this summary.
+   click "Continue to Rookie Signings"
+[355] NEW #/rookie-signings|2029 draft class · Baltimore , ROOKIE SI|Rookie Signings · 2029 :: SIGNINGS | SIGN | RELEASE | SIGN | RELEASE | SIGN | RELEASE | SIGN | RELEASE | SIGN
+   click "SIGN"
+   click "SIGN"
+[363] NEW #/free-agency-board|Free Agency , BALTIMORE RAVENS|Free Agency · 2029 :: Pass this round | Let my staff take this turn | UNSIGNED (617) | ROSTER NEEDS | SIGNED (0) | Details | Compare | Offer | Details | Compare
+   click "Let my staff take this turn"
+[373] NEW #/free-agency-summary|Free Agency Summary|Free Agency Summary · 2029 :: YOUR RESULTS | LEAGUE SIGNINGS | REMAINING POOL | ROSTER & BUDGET | Advance to Training Camp
+   click "Advance to Training Camp"
+[374] NEW #/training-camp|Training Camp|Training Camp · 2029 :: QUARTERBACKS 3 players · 1 young · 1 vet | RUNNING BACKS 3 players · 1 young · 2 vets | OFFENSIVE LINE 7 players · 2 young · 3 vets | RECEIVERS AND TIGHT ENDS 8 players · 3 young · 3 vets | DEFENSIVE LINE AND EDGE 9 players · 7 young · 2 vets | LINEBACKERS 4 players · 1 young · 1 vet | DEFENSIVE BACKS 12 players · 4 young · 2 vets
+   focus QUARTERBACKS 3 players · 1 you
+   focus DEFENSIVE BACKS 12 players · 4
+[377] NEW #/training-camp-results|Training Camp Results|Training Camp Results · 2029 :: Advance to Re-order Depth Chart
+   click "Advance to Re-order Depth Chart"
+[378] NEW #/hooded-figure|After training camp|Hooded Figure · 2029 :: + | Decline
+adapter calls: /scheme-fit-baseline, /simulate-week, /playoffs/seed, /playoffs/round, /schedule, /plan-preview
