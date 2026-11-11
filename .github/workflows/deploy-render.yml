@@ -8,6 +8,15 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      deploy_authorized:
+        description: Explicitly request deployment after protected production approval
+        type: boolean
+        default: false
+      deploy_sha:
+        description: Exact current master commit SHA to deploy
+        type: string
+        required: false
 
 # The checks only read the repository; nothing here needs to write to it.
 permissions:
@@ -57,12 +66,18 @@ jobs:
       - run: npm run online:test
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      - name: Verify deployment authorization guards
+        run: node --test test/agent-loop/deployment.test.mjs
 
   deploy:
     needs: test
-    # Production is only ever touched by a run on master, never a pull request
-    # (or a manual run of some other branch).
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    # A merge/push runs CI only. Deployment requires a separate explicit request.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master' && inputs.deploy_authorized == true
+    environment: production
+    permissions:
+      contents: read
+      deployments: read
+      actions: read
     # Deploys queue one after another, whichever run they came from.
     concurrency:
       group: production-render
@@ -75,6 +90,18 @@ jobs:
       DEPLOY_API_URL: ${{ vars.DEPLOY_API_URL }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+      - name: Verify explicit SHA and protected production approval
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_REQUESTED_SHA: ${{ inputs.deploy_sha }}
+          DEPLOY_AUTHORIZED: ${{ inputs.deploy_authorized }}
+        run: node scripts/authorize-render-deploy.mjs
       - name: Require deployment configuration
         run: |
           test -n "$UI_DEPLOY_HOOK" || { echo "Missing RENDER_UI_DEPLOY_HOOK secret"; exit 1; }
