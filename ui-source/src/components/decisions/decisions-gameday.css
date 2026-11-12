@@ -280,6 +280,19 @@
 .decision-gd .draft-avail tbody tr:hover {
   background: #f1f6f9;
 }
+/* Phone: each prospect row is a card (decisions.css paints it with a dark gradient under a
+   max-width:699px rule). Give it the light surface by default, not only under :hover, or a
+   touch device never leaves the dark gradient and the light-theme ink is unreadable on it. */
+@media (max-width: 699px) {
+  .decision-gd .draft-avail tbody tr {
+    border-color: var(--gd-soft) !important;
+    background: var(--gd-card);
+    color: var(--gd-ink);
+  }
+  .decision-gd .draft-avail td[data-label]::before {
+    color: var(--gd-mute);
+  }
+}
 .decision-gd .draft-avail .name > span:first-child {
   font: 800 21px/1.1 var(--gd-display);
   /* no text-transform: a name's innerText must stay its accessible name */
