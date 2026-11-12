@@ -54,7 +54,7 @@ export function TeamBadge({ code, size = 30 }: { code: string; size?: number }) 
  */
 export function GradePill({ value, short = false }: { value: number; short?: boolean }) {
   return (
-    <span className="pgrade" title="College grade: how he rated in college. His NFL overall is lower, and his projection is shown beside it.">
+    <span className="pgrade" title="College grade: where the board has him, on a college scale. It is not his NFL overall; his projected rookie OVR is shown beside it.">
       {short ? "" : <small>College Grade</small>}
       <b>{value}</b>
     </span>

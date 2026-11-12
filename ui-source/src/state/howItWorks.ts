@@ -44,9 +44,9 @@ export const HOW_IT_WORKS: HowTopic[] = [
         ],
       },
       {
-        heading: "College Grade is not OVR",
+        heading: "College grade is not a rookie rating",
         body: [
-          "A prospect's College Grade is how he rated in college, and it runs well above the overall he arrives with. The room shows what he projects to as a rookie beside it, and a late-round prospect's range is far wider than a top pick's.",
+          "A prospect's college grade is where the board has him, on a college scale: the higher he is projected to go, the higher it reads, and it runs well above the overall he arrives with. The room shows his projected rookie OVR beside it, the usual range for a prospect at that draft slot. A late-round prospect's range is far wider than a top pick's, and two prospects projected to go in the same place show the same range.",
           "His true overall is hidden until you sign him: rookies can come in above or below the projection, and you can release one before the deal counts.",
         ],
       },
