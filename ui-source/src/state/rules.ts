@@ -344,10 +344,10 @@ export function readRookieBoard(
   /** The class's mean age, what a prospect's youth is measured against. */
   classMeanAge: number;
 } {
-  // a team reads its own scouting reports where it bought them (`scouting.ts`), the public board elsewhere
+  // a team reads its own scouting reports where it bought them (`scouting.ts`), the public board elsewhere, and always when scouting is off
   const expected = applyReports(
     expectedRatings(s.draftClass, difficulty.scoutingAccuracy),
-    teamCode ? reportsFor(s, teamCode, s.draft?.year ?? s.season) : {},
+    teamCode && s.config.scouting ? reportsFor(s, teamCode, s.draft?.year ?? s.season) : {},
   );
   const drafted = new Map<Position, number>();
   const incumbents: { position: Position; overall: number; age: number; yearsLeft: number }[] = [];

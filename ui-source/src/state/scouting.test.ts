@@ -7,7 +7,7 @@ import {
   BASIC_COST, CPU_POINTS, HUMAN_POINTS, budgetFor, makeReport, pointsSpent, publicRanks, reportsFor, runCpuScouting, spendReport, suggestTargets,
 } from "./scouting.ts";
 import type { LeagueState } from "@/domain";
-import { scoutingViewFor } from "./scouting.ts";
+import { needPositions, scoutingViewFor } from "./scouting.ts";
 
 function leagueAtDraft(seed = 7, scouting = true): { s: LeagueState; me: string } {
   const s = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1, scouting } as never);
@@ -139,5 +139,28 @@ describe("scouting slice: budget, flow, and what a report may reveal", () => {
     expect(JSON.stringify(wire)).not.toContain(Object.keys(reportsFor(s, cpu, s.draft!.year)).find((id) => !mineIds.has(id))! + '":{"estimate"');
     // without the view the whole ledger would ship: every CPU's targets and free reports on those prospects
     expect(Object.keys(s.scouting!.reports).length).toBeGreaterThan(1);
+  });
+
+  it("needs: a rival's backups do not lower the league benchmark (each team's best player is averaged)", () => {
+    const players: Record<string, unknown> = {};
+    const POS = ["QB", "RB", "WR", "TE", "OT", "OG", "C", "EDGE", "DT", "ILB", "CB", "S"];
+    const add = (team: string, position: string, overall: number, n: string) => (players[`${team}${position}${n}`] = { nfl_team: team, position, overall, retired: false });
+    for (let t = 0; t < 31; t++) {
+      for (const pos of POS) add(`T${t}`, pos, pos === "QB" ? 80 : 75, "a");
+      add(`T${t}`, "QB", 40, "b"); // a backup: must not drag the QB benchmark to 60
+    }
+    for (const pos of POS) add("ME", pos, pos === "QB" ? 70 : 75, "a");
+    expect(needPositions({ players } as unknown as LeagueState, "ME", 1)).toEqual(["QB"]);
+  });
+
+  it("flag off: reports left in the state by another dynasty are ignored by the board", () => {
+    const { s, me } = leagueAtDraft(7, true);
+    const id = s.draftClass[40]!.id;
+    expect(spendReport(s, me, id, HUMAN_POINTS).ok).toBe(true);
+    const on = readRookieBoard(s, me, difficultyProfile("expert")).expected.get(id)!;
+    const publicRead = expectedRatings(s.draftClass, difficultyProfile("expert").scoutingAccuracy).get(id)!;
+    expect(on).not.toBe(publicRead);
+    s.config.scouting = undefined;
+    expect(readRookieBoard(s, me, difficultyProfile("expert")).expected.get(id)).toBe(publicRead);
   });
 });

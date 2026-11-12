@@ -48,7 +48,7 @@ export const HOW_IT_WORKS: HowTopic[] = [
         body: [
           "When a solo league turns on Rookie scouting, every GM can buy basic scouting reports before the rookie draft. You have 24 reports and each CPU GM has 12, whatever the difficulty. A report re-reads one prospect's rookie rating: a best guess and an 80% range around it. It is a better guess than the room's projection (it cuts the typical miss from about 8 points to about 5) but it is never exact, and a prospect you did not scout keeps the public projection. Asking twice returns the same report.",
           "\"Scout my needs\" spends your reports on the positions where your roster is thinnest, among the prospects near where you pick. That beats scouting the top of the board, which everyone already has well covered. CPU GMs choose their reports the same way, from public information only, and read their own reports the way you read yours. A report is private to the GM who bought it; the reports are cleared when the draft ends.",
-          "Scouting is a race, not a free edge: in testing, a GM who scouts at need gained about a tenth of a rating point on the CPUs, and a GM who skips it gave up little at 12 reports. Online leagues do not have scouting yet.",
+          "Scouting is a race, not a free edge: in testing, a GM who scouts at need gained about a tenth of a rating point on the CPUs, and a GM who skips it fell behind by about half that. Online leagues do not have scouting yet.",
         ],
       },
       {

@@ -149,20 +149,20 @@ const POS12: Position[] = ["QB", "RB", "WR", "TE", "OT", "OG", "C", "EDGE", "DT"
  */
 export function needPositions(s: LeagueState, team: string, count = 4): Position[] {
   const best = new Map<string, number>();
-  const lg = new Map<string, number[]>();
+  // each rival team's best player at each position, so a team's backups never enter the league benchmark
+  const rivals = new Map<string, Map<string, number>>();
   for (const p of Object.values(s.players)) {
     if (p.retired) continue;
     if (p.nfl_team === team) best.set(p.position, Math.max(best.get(p.position) ?? 0, p.overall));
     else if (p.nfl_team !== "FA" && !String(p.nfl_team).startsWith("PS:")) {
-      const l = lg.get(p.position) ?? [];
-      l.push(p.overall);
-      lg.set(p.position, l);
+      const byPos = rivals.get(p.position) ?? new Map<string, number>();
+      byPos.set(p.nfl_team, Math.max(byPos.get(p.nfl_team) ?? 0, p.overall));
+      rivals.set(p.position, byPos);
     }
   }
   return POS12.map((pos) => {
-    const l = (lg.get(pos) ?? [70]).sort((a, b) => b - a);
-    const top = l.filter((_, i) => i % 31 === 0).slice(0, 32);
-    const mean = top.reduce((a, b) => a + b, 0) / top.length;
+    const tops = [...(rivals.get(pos)?.values() ?? [])];
+    const mean = tops.length ? tops.reduce((a, b) => a + b, 0) / tops.length : 70;
     return [pos, (best.get(pos) ?? 40) - mean] as const;
   })
     .sort((a, b) => a[1] - b[1])

@@ -7,170 +7,170 @@
   "arms": {
     "B6_skip": {
       "humanVsControl": {
-        "mean": -0.0093,
-        "se": 0.0172,
+        "mean": -0.042,
+        "se": 0.0154,
         "ci95": [
-          -0.0439,
-          0.0254
+          -0.0731,
+          -0.011
         ],
         "n": 48
       },
       "cpuVsControl": {
-        "mean": 0.0162,
-        "se": 0.0139,
+        "mean": 0.0177,
+        "se": 0.0118,
         "ci95": [
-          -0.0118,
-          0.0441
+          -0.006,
+          0.0413
         ],
         "n": 48
       },
       "humanMinusCpu": {
-        "mean": -0.0255,
-        "se": 0.0248,
+        "mean": -0.0597,
+        "se": 0.0231,
         "ci95": [
-          -0.0754,
-          0.0245
+          -0.1061,
+          -0.0133
         ],
         "n": 48
       },
-      "cpuScoutMsPerLeague": 45.2,
-      "cpuScoutMsMax": 58,
-      "cpuProspectsScouted": 31.6,
+      "cpuScoutMsPerLeague": 43.5,
+      "cpuScoutMsMax": 64.9,
+      "cpuProspectsScouted": 34.2,
       "humanReports": null,
       "cpuReports": {
         "n": 6048,
-        "rmsePublic": 6.81,
-        "rmseReport": 4.89,
-        "coverage80": 0.839
+        "rmsePublic": 6.66,
+        "rmseReport": 4.88,
+        "coverage80": 0.84
       }
     },
     "B6_need24": {
       "humanVsControl": {
-        "mean": 0.11,
-        "se": 0.0234,
+        "mean": 0.114,
+        "se": 0.0177,
         "ci95": [
-          0.0629,
-          0.1572
+          0.0783,
+          0.1497
         ],
         "n": 48
       },
       "cpuVsControl": {
-        "mean": -0.0364,
-        "se": 0.0131,
+        "mean": -0.0325,
+        "se": 0.0116,
         "ci95": [
-          -0.0628,
-          -0.01
+          -0.0558,
+          -0.0093
         ],
         "n": 48
       },
       "humanMinusCpu": {
-        "mean": 0.1464,
-        "se": 0.0293,
+        "mean": 0.1466,
+        "se": 0.0235,
         "ci95": [
-          0.0876,
-          0.2053
+          0.0993,
+          0.1938
         ],
         "n": 48
       },
-      "cpuScoutMsPerLeague": 45.9,
-      "cpuScoutMsMax": 57.5,
-      "cpuProspectsScouted": 31.6,
+      "cpuScoutMsPerLeague": 44,
+      "cpuScoutMsMax": 54.9,
+      "cpuProspectsScouted": 34.2,
       "humanReports": {
-        "n": 12671,
-        "rmsePublic": 7.63,
+        "n": 12672,
+        "rmsePublic": 7.52,
         "rmseReport": 5.23,
-        "coverage80": 0.83
+        "coverage80": 0.829
       },
       "cpuReports": {
         "n": 6048,
-        "rmsePublic": 6.81,
-        "rmseReport": 4.89,
-        "coverage80": 0.839
+        "rmsePublic": 6.66,
+        "rmseReport": 4.88,
+        "coverage80": 0.84
       }
     },
     "B8_skip": {
       "humanVsControl": {
-        "mean": -0.0256,
-        "se": 0.0196,
+        "mean": -0.0383,
+        "se": 0.0176,
         "ci95": [
-          -0.065,
-          0.0139
+          -0.0738,
+          -0.0028
         ],
         "n": 48
       },
       "cpuVsControl": {
-        "mean": 0.017,
-        "se": 0.0141,
+        "mean": 0.0121,
+        "se": 0.0129,
         "ci95": [
-          -0.0113,
-          0.0453
+          -0.0138,
+          0.038
         ],
         "n": 48
       },
       "humanMinusCpu": {
-        "mean": -0.0425,
-        "se": 0.0299,
+        "mean": -0.0504,
+        "se": 0.0245,
         "ci95": [
-          -0.1026,
-          0.0176
+          -0.0997,
+          -0.001
         ],
         "n": 48
       },
-      "cpuScoutMsPerLeague": 54.9,
-      "cpuScoutMsMax": 68.6,
-      "cpuProspectsScouted": 37.6,
+      "cpuScoutMsPerLeague": 53.2,
+      "cpuScoutMsMax": 73.5,
+      "cpuProspectsScouted": 40.2,
       "humanReports": null,
       "cpuReports": {
         "n": 8064,
-        "rmsePublic": 6.85,
-        "rmseReport": 4.94,
-        "coverage80": 0.836
+        "rmsePublic": 6.71,
+        "rmseReport": 4.91,
+        "coverage80": 0.839
       }
     },
     "B8_need24": {
       "humanVsControl": {
-        "mean": 0.1114,
-        "se": 0.0231,
+        "mean": 0.1025,
+        "se": 0.0172,
         "ci95": [
-          0.0649,
-          0.1578
+          0.0678,
+          0.1372
         ],
         "n": 48
       },
       "cpuVsControl": {
-        "mean": -0.0274,
-        "se": 0.0142,
+        "mean": -0.0279,
+        "se": 0.0134,
         "ci95": [
-          -0.056,
-          0.0013
+          -0.0549,
+          -0.0009
         ],
         "n": 48
       },
       "humanMinusCpu": {
-        "mean": 0.1387,
-        "se": 0.0288,
+        "mean": 0.1303,
+        "se": 0.0244,
         "ci95": [
-          0.0809,
-          0.1966
+          0.0813,
+          0.1793
         ],
         "n": 48
       },
-      "cpuScoutMsPerLeague": 54.9,
-      "cpuScoutMsMax": 67.5,
-      "cpuProspectsScouted": 37.6,
+      "cpuScoutMsPerLeague": 50.8,
+      "cpuScoutMsMax": 63.8,
+      "cpuProspectsScouted": 40.2,
       "humanReports": {
-        "n": 12671,
-        "rmsePublic": 7.63,
+        "n": 12672,
+        "rmsePublic": 7.52,
         "rmseReport": 5.23,
-        "coverage80": 0.83
+        "coverage80": 0.829
       },
       "cpuReports": {
         "n": 8064,
-        "rmsePublic": 6.85,
-        "rmseReport": 4.94,
-        "coverage80": 0.836
+        "rmsePublic": 6.71,
+        "rmseReport": 4.91,
+        "coverage80": 0.839
       }
     }
   },
-  "controlDraftMs": 69.9
+  "controlDraftMs": 73.7
 }

@@ -870,7 +870,8 @@ export const useStore = create<Store>()(
         }
         setResetRefused(null);
         // instant, Mock-backed skeleton — always playable, never blocks on the network
-        set(() => createLeague(seed, config) as Store);
+        // `scouting` is cleared explicitly: set() merges, and a ledger left from the dynasty being replaced would score this league's prospects (ids repeat by year)
+        set(() => ({ ...createLeague(seed, config), scouting: undefined }) as Store);
         try {
           // a League DNA league already has its players: the adapter's real pool would replace them
           const fictional = !!get().dna;

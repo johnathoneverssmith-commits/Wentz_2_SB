@@ -47,6 +47,8 @@ function run(seed: number, arm: string) {
   s.gms.push(...fake);
   for (const g of s.gms) s.readiness[g.id] = true;
   onStageEntered(s, "offseasonRetirement");
+  // the draft has opened without buying anything (the flag was off); the harness buys by hand, so switch the flag on for the arms
+  if (arm !== "control") s.config.scouting = true;
   const exp = expectedRatings(s.draftClass, 1), rank = publicRanks(s.draftClass, exp);
   const t0 = performance.now();
   let cpuMs = 0; const spent: Record<string, number> = {};
