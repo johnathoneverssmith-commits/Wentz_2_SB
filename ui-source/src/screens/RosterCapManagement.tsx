@@ -39,6 +39,7 @@ import {
   previewRestructure,
 } from "@/state/contracts";
 import { depthAt } from "@/state/seed";
+import { depthInversionAt } from "@/state/depthInversion";
 import { onInjuredReserve } from "@/state/injuries";
 import {
   checkPromote,
@@ -191,6 +192,11 @@ export function RosterCapManagement() {
       });
   };
   const lineAt = (pos: Position) => ordered.filter((x) => x.position === pos);
+  // a nonblocking heads-up: never edits the chart, clears once it's corrected
+  const inversions = positionsInGroup.flatMap((pos) => {
+    const found = depthInversionAt(pos, lineAt(pos));
+    return found ? [found] : [];
+  });
   const slotOf = (p: Player): number => lineAt(p.position).indexOf(p) + 1;
 
   const needs = POSITION_GROUPS.map((g) => {
@@ -619,6 +625,14 @@ export function RosterCapManagement() {
             were played with today&rsquo;s roster. Both open again at the next break.
           </div>
         )}
+        {inversions.map((inv) => (
+          <div key={inv.position} className="notice gd-notice" role="status" data-testid="depth-inversion-warning">
+            <strong>{posLabel(inv.position)} order may be backwards.</strong>{" "}
+            {inv.starter.name} ({inv.starter.overall}) starts ahead of {inv.reserve.name} ({inv.reserve.overall}),
+            {" "}{inv.gap} points better. If that is not on purpose, check the order with the arrows or use
+            &ldquo;Auto-reorder by overall&rdquo;. Your order is unchanged.
+          </div>
+        ))}
         {moveNote?.id === "" && !moveNote.ok && (
           <p className="form-error" role="status">
             {moveNote.text}
