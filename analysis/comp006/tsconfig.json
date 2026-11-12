@@ -1,0 +1,5 @@
+{
+  "extends": "../../online/tsconfig.json",
+  "compilerOptions": { "baseUrl": "../..", "paths": { "@/*": ["ui-source/src/*"] }, "skipLibCheck": true },
+  "include": ["*.ts"]
+}
