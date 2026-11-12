@@ -867,10 +867,27 @@ export function swindleLineFor(teamCode: string, season: number): string {
 }
 
 /**
+ * Whether the encounters filed under `year` are public yet: the League
+ * Developments reveal. They are filed under the year they happened in, and the
+ * season number turns over on the way into the preseason, so they stay private
+ * through that preseason and are public from League Developments on.
+ */
+function encountersRevealed(s: Pick<LeagueState, "season" | "stage">, year: number): boolean {
+  return year < s.season - 1 || (year < s.season && s.stage !== "preseason");
+}
+
+/**
  * What one GM may know about the figure, online. The league document goes to
  * every GM, so the hidden price points (which would let anyone pay exactly
  * the top tier) and the other GMs' bargains are stripped on the way out —
  * the bargains until the League Developments reveal, when they're public.
+ *
+ * `hoodedFigure.unavailable` is part of a bargain: it names the sidelined
+ * players (and so the team and the length of the absence). It is rebuilt each
+ * offseason when the first encounter of the year is created, so it always
+ * belongs to the newest year's encounters; until that year is revealed a GM
+ * keeps only the entries their own bargain produced. The simulation reads the
+ * stored copy, which this never touches — it runs on the per-request copy.
  */
 export function redactHoodedFigureFor(s: LeagueState, teamCode: string | null): void {
   const hf = s.hoodedFigure;
@@ -878,9 +895,32 @@ export function redactHoodedFigureFor(s: LeagueState, teamCode: string | null): 
   const hidden = { t1: 0, t2: 0, t3: 0 };
   // which branch someone's bargain took, before anyone's been told
   hf.firstNegativeConsumed = false;
+
+  const years = Object.keys(hf.encountersBySeason ?? {}).map(Number);
+  const newest = years.length ? Math.max(...years) : null;
+  if (newest !== null && !encountersRevealed(s, newest)) {
+    const own = teamCode ? hf.encountersBySeason[newest]?.[teamCode]?.outcome : null;
+    const stored = hf.unavailable ?? [];
+    // Rebuilt from the payer's own outcome, not copied from the shared list:
+    // two bargains can hit the same player in one offseason, and the stored
+    // entry then carries whichever duration was written last.
+    if (own?.wholeRosterOut === true) {
+      hf.unavailable = stored
+        .filter((u) => {
+          const p = s.players[u.playerId];
+          return !!p && p.nfl_team === own.targetTeam && p.position !== "K" && p.position !== "P";
+        })
+        .map((u) => ({ playerId: u.playerId, untilWeek: null }));
+    } else {
+      const ids = new Set((own?.negativePlayers ?? []).map((p) => p.playerId));
+      hf.unavailable = stored
+        .filter((u) => ids.has(u.playerId))
+        .map((u) => ({ playerId: u.playerId, untilWeek: own?.absenceWeeks ?? null }));
+    }
+  }
+
   for (const [season, bySeason] of Object.entries(hf.encountersBySeason ?? {})) {
-    const year = Number(season);
-    const revealed = year < s.season - 1 || (year < s.season && s.stage !== "preseason");
+    const revealed = encountersRevealed(s, Number(season));
     for (const [code, e] of Object.entries(bySeason)) {
       if (code === teamCode || (revealed && e.resolved)) {
         bySeason[code] = { ...e, thresholds: hidden };

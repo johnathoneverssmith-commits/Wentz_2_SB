@@ -1,0 +1,9 @@
+/*
+ * The Draft Room's "Roster needs & unit grades" disclosure sat at 1.25:1 (#c9dcf0 on the light page): the shared
+ * `.decision-workspace details > summary` rule is the dark-theme colour and nothing in the gameday frame overrode it
+ * (QA register PA-003). Scoped to this one disclosure on purpose: the shared rule also touches the trade and free-agency
+ * screens, which are not this change's to restyle.
+ */
+.decision-workspace .draft-needs-disclosure > summary {
+  color: var(--gd-ink);
+}
