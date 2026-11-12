@@ -27,8 +27,8 @@ export function DecisionHeading({code,title,subtitle,children}:{code?:string|nul
  const mine=useStore(s=>viewerTeamCode(s));
  return <GameDayMasthead code={code||mine||''} title={title} sub={subtitle} actions={children}/>;
 }
-export function DecisionSortControl({value,onChange}:{value:DecisionSort;onChange:(value:DecisionSort)=>void}) {
- return <label className="decision-sort">Sort board <select value={value} onChange={e=>onChange(e.target.value as DecisionSort)}><option value="board">Board order</option><option value="name">Name A–Z</option><option value="rating">Rating — highest</option><option value="age">Age — youngest</option></select></label>;
+export function DecisionSortControl({value,onChange,ratingLabel='Rating'}:{value:DecisionSort;onChange:(value:DecisionSort)=>void;ratingLabel?:string}) {
+ return <label className="decision-sort">Sort board <select value={value} onChange={e=>onChange(e.target.value as DecisionSort)}><option value="board">Board order</option><option value="name">Name A–Z</option><option value="rating">{ratingLabel} — highest</option><option value="age">Age — youngest</option></select></label>;
 }
 export function CompareToggle({row,selected,onToggle}:{row:DecisionRow;selected:readonly string[];onToggle:(id:string)=>void}) {
  const on=selected.includes(row.id);
