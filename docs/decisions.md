@@ -1978,3 +1978,17 @@ The engine adapter's `/playoffs/round` is a stateless stepper that replayed ever
 **Python mirror: no change.** `analysis/engine/loaders.py` reads the same portable JSON from `artifacts/` on disk and the Python pipeline always runs there; the injectable source is a TS-runtime seam for a browser engine, so it is deliberately not mirrored.
 
 **Not changed.** The pool input, artifact content, model evaluators, `server/`, `online/` and UI call sites, browser worker/bundle, saves/schema, `howItWorks.ts`, any rating or balance. Phases 3-5 are not started.
+
+## Issue #74 Phase 3: one shared simulation-service module (2026-11)
+
+**Problem.** The week/playoff request logic (seed derivation, the mapping of a franchise's rosters, depth charts, staffs and plans onto each game) and the box-score presentation lived inside `server/index.ts` / `server/simGame.ts`, so a second host (a browser worker, Phase 4) could not reuse them, and the online server kept its own copy of the box-score assembly.
+
+**Change.** New `src/sim-service/` (host-independent; engine + schema imports only): `boxscore-map.ts` and `game.ts` (moved from `server/boxscore-map.ts`, `server/simGame.ts`; plus `boxScoreParts`, which `presentGame` and online's `boxScoreOf` now share), `week.ts` (`hashStr`, `SimulateWeekBody`, `simulateWeek(body, run)` with the game runner injected), `playoffs.ts` (`handlePlayoffRound`, `handlePlayoffGame`, capture/presentation), `index.ts`. `server/index.ts` keeps HTTP, routing and the Node worker pool (`simPool.ts`, `simWorker.ts`) and passes `runGame` into `simulateWeek`. `server/boxscore-map.ts` and `server/simGame.ts` remain as one-line re-exports so existing imports (tests, `analysis/`) resolve to the same code. `online/src/boxscore.ts` builds on `boxScoreParts`.
+
+**What stays online's own.** The online server's game loops (`online/src/simulate.ts`, `blocks.ts`) keep their own seeding, roster and state mapping: unifying them with the adapter's seed rule would change online results. Only the box-score assembly is shared.
+
+**Byte-identity.** Adapter HTTP responses before and after, same server, fixed requests on `test/fixtures/pool.json`: `/simulate-week` (plain, with rosters/depth/staffs/plans/talent, preseason), `/playoffs/round` rounds 0-3 with recorded games and a viewer, `/playoffs/game`, `/playoffs/seed`, `/plan-preview`: all hashes identical, and the golden is deterministic across runs. Property order of `presentGame` is pinned by a test.
+
+**Found, not changed.** On unchanged `master`, `/playoffs/round` returns 500 ("Cannot read properties of undefined (reading 'gained')") when `rosters` is omitted, although the request type documents that case (reference rosters). The UI always sends rosters. Left as is to keep this change byte-identical; separate fix.
+
+**Not changed.** Engine behaviour, artifacts, pool, saves/schema, UI, `howItWorks.ts`, online game loops and seeds, the browser worker (Phase 4). Python mirror: none (adapter/presentation code has no Python counterpart). Python §22/§23 still cannot run here.
