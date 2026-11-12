@@ -21,13 +21,22 @@
  * Deterministic: nothing here draws a random number. The same offer to the same league gives the same answer on every machine.
  */
 import type { LeagueState, Player, Position, TradeAsset } from "@/domain";
-import { isFranchiseQb, packageValue, tradeAssetValue } from "@/sim/MockSimulationService";
+import {
+  isFranchiseQb,
+  packageValue,
+  playerPerformanceValue,
+  TRADE_CONTRACT_WEIGHT,
+  tradeAssetValue,
+} from "@/sim/MockSimulationService";
 import type { TradeEvaluation } from "@/sim/SimulationService.ts";
 
 import { clampTradeAcceptance, deterministicNoiseUnit } from "./aiDifficulty.ts";
 import { difficultyFor, strategyOf } from "./aiGms.ts";
 import { strategyTradeAcceptanceShift } from "./aiStrategy.ts";
+import { marketScale } from "./capEconomy.ts";
+import { contractSurplusM } from "./contractValue.ts";
 import { windowEffect } from "./draftBoard.ts";
+import { releasePenalty } from "./releaseCost.ts";
 import { readTeamTimeline } from "./teamTimeline.ts";
 
 /** The likelihood at which a team says yes. One number for every channel. */
@@ -68,6 +77,23 @@ export const LIABILITY_RELIEF = 0.5;
  * differently and keep the gap.
  */
 export const TRADE_FRICTION = 0.05;
+
+/**
+ * A team taking on an overpaid contract counts the shortfall at this multiple of the chart’s own rate: the cap room it eats is room it could
+ * have spent at the market. 1.0 already takes the 20M x 3 dump from 43% to 4% of teams with room; 1.25 leaves every position, difficulty
+ * and window under the backlog’s 20% (EDGE alone was 23% at 1.0) while a second-round sweetener still moves it.
+ */
+export const RECEIVED_SHORTFALL_COST = 1.25;
+
+/**
+ * The most a need can add to what one player is worth to the team that needs him, as a share of his chart price. Need is a small
+ * correction on a fair trade, not a second price: without a bound a team with a hole at kicker paid 1.5-2.3x chart for one (his chart
+ * price is a fifth of a starter's), and any low-priced starter at a thin position was bought at 1.4-2.1x.
+ */
+export const NEED_PREMIUM_SHARE = 0.25;
+
+/** Stages in which a season is under way (the same set the chart's contract term reads). */
+const IN_SEASON_STAGES = new Set(["regularSeason", "tradeDeadline", "tradeDeadlineSummary", "midseasonFreeAgency", "midseasonFreeAgencySummary", "midseasonDepthChart", "playoffs"]);
 
 /** The share of a team's cap past which taking on salary starts to cost it flexibility, and the points it costs at the cap itself. */
 export const FLEX_START = 0.93;
@@ -206,28 +232,70 @@ export function judgeWith(
 
   // the team's own reading of the chart: its window, and what the salary does to its room
   let teamDelta = delta;
+  // what the taking team makes of each incoming player with a bad contract (below the chart’s price of him)
+  const takenAt = new Map<string, number>();
+  const worth = (a: TradeAsset): number => takenAt.get(assetKey(a)) ?? chart(a);
   if (cpu) {
     const fx = windowEffect(ctx.windowOf(toTeam), difficulty.longTermWeight);
     const mine = (a: TradeAsset): number => {
       const v = chart(a);
       return v > 0 ? v * teamAssetMultiplier(state, a, fx) : v;
     };
-    const received = packageValue(state, fromAssets, mine, 1);
+    // How a CPU team *taking a player on* reads his contract: the whole shortfall, not the part the chart books.
+    // The chart counts a bad contract at the market gap (TRADE_CONTRACT_WEIGHT points per $M) but never past what it costs to be rid of
+    // him (releasePenalty), and adds his whole performance price on top. That is the right price for the team shedding him (it can cut
+    // him), but it left a 32-year-old 70 on $20M x 3 worth +8 points to a team taking him for nothing, so a cap mistake could be handed
+    // to the league at the deadline (43% of the teams with the room, in the seasons after the first). A team that keeps him pays the
+    // whole gap in cap room it could have spent at the market; one that cuts him pays the penalty: so the receiver reads the contract
+    // unclamped and takes the better of the two. The giving side is untouched (LIABILITY_RELIEF still pays half), so absorbing a bad
+    // contract for a pick, and passing one back and forth between CPU teams, stay unprofitable.
+    const taking = (a: TradeAsset): number => {
+      if (a.kind !== "player") return mine(a);
+      const p = state.players[a.playerId ?? ""];
+      if (!p?.contract) return mine(a);
+      const inSeason = IN_SEASON_STAGES.has(state.stage);
+      const raw = contractSurplusM(p, {
+        scale: marketScale(state),
+        agedFirst: !inSeason,
+        firstYearShare: inSeason ? clamp(1 - state.week / 18, 0.1, 1) : 1,
+      });
+      if (raw >= 0) return mine(a);
+      const keep = playerPerformanceValue(state, p) + TRADE_CONTRACT_WEIGHT * RECEIVED_SHORTFALL_COST * raw;
+      const cut = -TRADE_CONTRACT_WEIGHT * releasePenalty(p);
+      const w = Math.min(chart(a), Math.max(cut, keep));
+      takenAt.set(assetKey(a), w);
+      return w > 0 ? w * teamAssetMultiplier(state, a, fx) : w;
+    };
+    const received = packageValue(state, fromAssets, taking, 1);
     const given = packageValue(state, toAssets, mine, LIABILITY_RELIEF);
     teamDelta = given - received + flexibilityPoints(state, toTeam, fromAssets, toAssets) + (opts.friction === false ? 0 : TRADE_FRICTION * Math.max(given, received) + 1);
   }
 
   // OQ-9: a player who fills an actual hole on toTeam's roster is worth more to them than his overall alone says, and a player leaving a
   // position toTeam is already thin at costs them more than his overall says.
-  const needAt = (team: string, pos: Position | undefined, exclude: ReadonlySet<string>): number =>
-    pos ? Math.max(1, 78 - (ctx.bestAt(team, pos, exclude) || 40)) : 0;
+  const holeAt = (best: number): number => Math.max(1, 78 - (best || 40));
   const none = new Set<string>();
   // (a player the chart prices at or below nothing fills no hole: a bad contract is not a need)
-  const useful = (a: TradeAsset): boolean => a.kind === "player" && chart(a) > 0;
-  const needGained = fromAssets.reduce((s, a) => s + (useful(a) ? needAt(toTeam, state.players[a.playerId ?? ""]?.position, none) : 0), 0);
+  // (nor one the taking team reads as a liability, whatever the chart says of him, and a need is bounded by what he is worth to the taking team, not by the chart: a hole must not make an overpaid contract attractive)
+  const useful = (a: TradeAsset): boolean => a.kind === "player" && worth(a) > 0;
+  // A need is worth a share of the player's own price at most (NEED_PREMIUM_SHARE), in the units the likelihood takes it in
+  // (`needScale * need / 90` likelihood = `needScale * need * 0.4` chart points).
+  const fxNeed = cpu ? windowEffect(ctx.windowOf(toTeam), difficulty.longTermWeight) : 0;
+  // A rebuild plays for later and cares less whether a trade fills a hole this season; a contender cares more. Without this a player
+  // at a position of need was worth up to a third of the likelihood more than a pick of the same price, and a rebuilding seller took
+  // a spare player over picks nearly every time (a pick-only package in 3% of deadline trades).
+  const needScale = clamp(1 - 0.5 * Math.max(0, -fxNeed) + 0.25 * Math.max(0, fxNeed), 0.5, 1.25);
+  const bounded = (need: number, a: TradeAsset): number => Math.min(need, (NEED_PREMIUM_SHARE * Math.max(0, worth(a)) * 90) / (36 * needScale));
+  const needGained = fromAssets.reduce((s, a) => {
+    const pos = useful(a) ? state.players[a.playerId ?? ""]?.position : undefined;
+    return s + (pos ? bounded(holeAt(ctx.bestAt(toTeam, pos, none)), a) : 0);
+  }, 0);
   // measured on their roster after every departing player leaves: losing your only starter at a position is a real cost
   const departing = new Set(toAssets.flatMap((a) => (a.kind === "player" && a.playerId ? [a.playerId] : [])));
-  const needLost = toAssets.reduce((s, a) => s + (useful(a) ? needAt(toTeam, state.players[a.playerId ?? ""]?.position, departing) : 0), 0);
+  const needLost = toAssets.reduce((s, a) => {
+    const pos = useful(a) ? state.players[a.playerId ?? ""]?.position : undefined;
+    return s + (pos ? bounded(holeAt(ctx.bestAt(toTeam, pos, departing)), a) : 0);
+  }, 0);
 
   // AI GM season strategy: a bounded preference shift on top of the base model, never enough on its own to turn a clearly bad deal attractive
   const strategy = strategyOf(state, toTeam);
@@ -248,11 +316,6 @@ export function judgeWith(
       ? 0
       : deterministicNoiseUnit(toTeam, state.season, "trade_accept", tradeKey) * difficulty.tradeAcceptanceThresholdVariation;
 
-  // A rebuild plays for later and cares less whether a trade fills a hole this season; a contender cares more. Without this a player
-  // at a position of need was worth up to a third of the likelihood more than a pick of the same price, and a rebuilding seller took
-  // a spare player over picks nearly every time (a pick-only package in 3% of deadline trades).
-  const fxNeed = cpu ? windowEffect(ctx.windowOf(toTeam), difficulty.longTermWeight) : 0;
-  const needScale = clamp(1 - 0.5 * Math.max(0, -fxNeed) + 0.25 * Math.max(0, fxNeed), 0.5, 1.25);
   const raw = clamp(0.5 - teamDelta / 36 + (needScale * (needGained - needLost)) / 90 + strategyShift + thresholdShift, 0.02, 0.98);
   // Master: no coin flip. It takes a deal only when the deal helps it, its value side and its need side together, with a small margin
   const strictGain = -teamDelta / 36 + (needScale * (needGained - needLost)) / 90;
