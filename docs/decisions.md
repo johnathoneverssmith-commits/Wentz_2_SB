@@ -1960,3 +1960,19 @@ The engine adapter's `/playoffs/round` is a stateless stepper that replayed ever
 **Python mirror: no change.** `analysis/engine/roster.py` reads `data/players.local.json` directly through one `lru_cache`d `load_pool()`; it has no injection surface (like roster injection and depth order, which are TS/adapter-only) and is the validation pipeline, which always runs on that one pool. Explicit pools are a TS runtime concern, so it is deliberately not mirrored.
 
 **Not changed.** `src/data/players.ts` loaders, `loadPlayerPool`'s signature, artifact loaders, the browser worker, `server/` and `online/` call sites (they still use the default; passing and recording the version in saves/games is for later phases), the UI, saves/schema, `howItWorks.ts`, scoring, ratings or balance. Phases 2-5 are not started.
+
+## Issue #74 Phase 2: the engine reads artifacts through an injectable source (2026-11)
+
+**Problem.** `src/engine/loaders.ts` and `ratings.ts` called `readFileSync` on `artifacts/` directly (ratings at import time), so the engine could only run where those files are on disk, which blocks a browser build (plan Phase 4).
+
+**Change (engine only).** New `src/engine/artifact-source.ts`: `ArtifactSource {id, readJson(path)}`, `readArtifactJson`, `setArtifactSource(source | null)`, `artifactSource()`, `createMemoryArtifactSource(files)`, `onArtifactSourceChange`. Paths are relative to `artifacts/` with forward slashes (`models/portable/M04.json`, `distributions/portable/<name>.json`, `ratings/*.json`, `models/derived_fit_baseline.json`). The default, `artifact-source-node.ts`, is the same `fs` read as before. `loaders.ts` and `ratings.ts` read through it; ratings' coefficient and reference-stat tables are now read on first use instead of at import, so a source supplied before the first simulation is honoured.
+
+**Scope.** Process-wide state set before the engine runs, like `setReferencePool`; synchronous, because the engine is. A lazy or async browser source must preload its files first (that is Phase 4). The default module still imports `node:fs`; bundling a browser build without it is Phase 4.
+
+**Caches.** Switching source drops everything derived from artifact content: the resolver and PMF tables, the rating tables and family-modifier cache, centring offsets, synergy's unit/pressure/reference/blitz caches, the team-strength cache, and the scheme-fit baselines.
+
+**Verification.** 27-hash fixed-seed golden (the Phase 1 set) identical before/after on `test/fixtures/pool.json`; paired `analysis/39_league_metrics.ts --seeds 2` identical on `origin/master` (`ad17f9c`) and the branch. `test/engine-artifact-source.test.ts`: default is node-fs; a memory source holding the same artifacts plays identical football; a detector fails if the engine reads `artifacts/` from disk once a source is supplied (with a control); derived values follow the source in both directions; a source missing an artifact fails with the path. Python §22/§23 still cannot run here (no venv, scikit-learn, parquet or `players.local.json`).
+
+**Python mirror: no change.** `analysis/engine/loaders.py` reads the same portable JSON from `artifacts/` on disk and the Python pipeline always runs there; the injectable source is a TS-runtime seam for a browser engine, so it is deliberately not mirrored.
+
+**Not changed.** The pool input, artifact content, model evaluators, `server/`, `online/` and UI call sites, browser worker/bundle, saves/schema, `howItWorks.ts`, any rating or balance. Phases 3-5 are not started.

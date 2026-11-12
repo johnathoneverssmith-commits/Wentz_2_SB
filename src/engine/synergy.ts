@@ -69,6 +69,7 @@
  */
 
 import type { Player } from "../schema/player.js";
+import { onArtifactSourceChange } from "./artifact-source.js";
 import { QB_EFFECT, attributeZ, onQbEffectChange, playerKey } from "./ratings.js";
 import { type Lineup, onReferencePoolChange, roster, teamList } from "./roster.js";
 
@@ -495,6 +496,17 @@ const keyOf = (l: Lineup): string =>
     .join(",");
 
 // the quarterback setting is part of every cached score that involves him
+// artifact content (the attribute reference stats) is part of every score and centring value
+onArtifactSourceChange(() => {
+  _offCache.clear();
+  _defCache.clear();
+  _pressureCache.clear();
+  _posMean.clear();
+  _pressureRef = null;
+  _reference = null;
+  _blitzRef = null;
+});
+
 // the reference pool is part of every centring value too
 onReferencePoolChange(() => {
   _posMean.clear();
