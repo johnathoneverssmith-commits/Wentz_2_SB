@@ -22,6 +22,7 @@
     "commissioner-recovery.test.ts",
     "commissioner-transfer.test.ts",
     "concurrency.test.ts",
+    "hooded-figure-availability.test.ts",
     "hot-seat.test.ts",
     "inbox-facts.test.ts",
     "lobby.test.ts",
