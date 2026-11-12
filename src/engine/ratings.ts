@@ -15,10 +15,8 @@
  * outcome.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
 import type { Player } from "../schema/player.js";
+import { onArtifactSourceChange, readArtifactJson } from "./artifact-source.js";
 import { type Lineup, onReferencePoolChange, roster, teamList } from "./roster.js";
 
 /** A "unit" is the set of participating players; nulls/undefined are ignored. */
@@ -63,18 +61,15 @@ interface RefStat {
   sd: number;
 }
 
-function readArtifact<T>(rel: string): T {
-  const url = new URL(`../../artifacts/ratings/${rel}`, import.meta.url);
-  return JSON.parse(readFileSync(fileURLToPath(url), "utf8")) as T;
-}
-
-const FAMILIES: Record<string, Family> = readArtifact<{ families: Record<string, Family> }>(
-  "rating_effect_coefficients.json",
-).families;
-
-const REF: Record<string, RefStat> = readArtifact<{
-  attribute_reference_stats: Record<string, RefStat>;
-}>("attribute_reference_stats.json").attribute_reference_stats;
+// Read on first use, not at import, so an artifact source supplied before the
+// first simulation (`setArtifactSource`) is the one used; dropped when it changes.
+let _families: Record<string, Family> | null = null;
+let _ref: Record<string, RefStat> | null = null;
+const families = (): Record<string, Family> =>
+  (_families ??= readArtifactJson<{ families: Record<string, Family> }>("ratings/rating_effect_coefficients.json").families);
+const refStats = (): Record<string, RefStat> =>
+  (_ref ??= readArtifactJson<{ attribute_reference_stats: Record<string, RefStat> }>("ratings/attribute_reference_stats.json")
+    .attribute_reference_stats);
 
 /**
  * One attribute as a clipped z-score against the reference pool, or null when
@@ -83,7 +78,7 @@ const REF: Record<string, RefStat> = readArtifact<{
  * each man's own score rather than his unit's average.
  */
 export function attributeZ(attr: string, value: number): number | null {
-  const r = REF[attr];
+  const r = refStats()[attr];
   if (!r || !r.sd || !Number.isFinite(value)) return null;
   return Math.max(-CLIP, Math.min(CLIP, (value - r.mean) / r.sd));
 }
@@ -123,6 +118,13 @@ export function playerKey(p: Player | null | undefined): string {
 }
 
 const _modCache = new Map<string, number>();
+onArtifactSourceChange(() => {
+  _families = null;
+  _ref = null;
+  _modCache.clear();
+  _offsets = null;
+  for (const f of _qbListeners) f(); // caches keyed on the quarterback setting also hold artifact-derived scores
+});
 
 /** Σ beta·z over the family's attributes for this participating unit. */
 export function familyModifier(famKey: string, players: Unit, scale = 1): number {
@@ -130,12 +132,12 @@ export function familyModifier(famKey: string, players: Unit, scale = 1): number
   const hit = _modCache.get(key);
   if (hit !== undefined) return hit * scale;
 
-  const fam = FAMILIES[famKey];
+  const fam = families()[famKey];
   let total = 0;
   if (fam) {
     for (const a of fam.attributes) {
       const m = unitMean(players, a.attribute);
-      const r = REF[a.attribute];
+      const r = refStats()[a.attribute];
       if (m === null || !r || !r.sd) continue;
       let z = (m - r.mean) / r.sd;
       z = Math.max(-CLIP, Math.min(CLIP, z));
