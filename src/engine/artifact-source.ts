@@ -27,6 +27,25 @@ export interface ArtifactSource {
   readJson<T>(path: string): T;
 }
 
+/**
+ * Every artifact file the engine can load, relative to `artifacts/`. A source
+ * is checked against this list when it is installed, so an incomplete source is
+ * refused up front instead of failing in the middle of a game.
+ * `test/engine-artifact-source.test.ts` fails if this list and the directories
+ * drift apart.
+ */
+export const REQUIRED_ARTIFACTS: readonly string[] = [
+  ...["M01", "M02", "M03", "M04", "M05", "M08", "M09", "M10", "M11", "M13", "M14", "M15", "M20", "M21", "M25a", "M25b"].map(
+    (id) => `models/portable/${id}.json`,
+  ),
+  ...["air_yards", "clock_runoff", "m10_exact", "m11_exact", "m14_exact", "penalty", "punt", "rz_yac"].map(
+    (name) => `distributions/portable/${name}.json`,
+  ),
+  "ratings/rating_effect_coefficients.json",
+  "ratings/attribute_reference_stats.json",
+  "models/derived_fit_baseline.json",
+];
+
 let _source: ArtifactSource | null = null;
 const _listeners: (() => void)[] = [];
 
@@ -43,8 +62,25 @@ export function artifactSource(): ArtifactSource {
   return _source ?? nodeArtifactSource;
 }
 
-/** Supply the artifact source; `null` restores the Node `fs` default. */
+/**
+ * Supply the artifact source; `null` restores the Node `fs` default.
+ *
+ * A supplied source must be able to read every file in `REQUIRED_ARTIFACTS`.
+ * If it cannot, this throws naming the source and the file **before anything
+ * changes**: the active source, and every value the engine has derived from
+ * it, stay exactly as they were. Switching does not touch the reference pool
+ * or the rosters built from it.
+ */
 export function setArtifactSource(source: ArtifactSource | null = null): void {
+  if (source) {
+    for (const path of REQUIRED_ARTIFACTS) {
+      try {
+        source.readJson(path);
+      } catch (e) {
+        throw new Error(`artifact source "${source.id}" rejected: ${path}: ${e instanceof Error ? e.message : String(e)}`, { cause: e });
+      }
+    }
+  }
   _source = source;
   for (const f of _listeners) f();
 }
