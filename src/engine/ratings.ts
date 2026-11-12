@@ -19,7 +19,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { Player } from "../schema/player.js";
-import { type Lineup, roster, teamList } from "./roster.js";
+import { type Lineup, onReferencePoolChange, roster, teamList } from "./roster.js";
 
 /** A "unit" is the set of participating players; nulls/undefined are ignored. */
 type Unit = readonly (Player | null | undefined)[];
@@ -166,6 +166,9 @@ const SLOTS: Record<string, Pick> = {
 };
 
 let _offsets: Record<string, number> | null = null;
+onReferencePoolChange(() => {
+  _offsets = null;
+});
 
 /** Per-family mean modifier over its on-field slot across all 32 depth charts. */
 export function offsets(): Record<string, number> {
