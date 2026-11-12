@@ -1,0 +1,17 @@
+leagues 8 league-seasons 64
+wins(t) vs wins(t+1) r=0.39; team-ovr(t) vs ovr(t+1) r=0.53 (n=1792 team-seasons)
+same-season ovr->wins r=0.66, slope=0.95 wins per team-ovr point, sd(ovr)=2.36 sd(wins)=3.41
+titles 64 distinct champions 23 max titles by one team/league-run(8 seasons): 3
+title share top-ovr team (pre-playoff best ovr): 0.125
+champion's pre-playoff ovr rank: mean 6.1 median 5; top3 38%; bottom half 2%
+k=1 years later: bottom-quartile teams avg 6.91 wins; top-quartile 10.15 (league avg 8.5) n=448
+k=2 years later: bottom-quartile teams avg 7.71 wins; top-quartile 9.41 (league avg 8.5) n=384
+k=3 years later: bottom-quartile teams avg 8.12 wins; top-quartile 8.97 (league avg 8.5) n=320
+k=5 years later: bottom-quartile teams avg 8.68 wins; top-quartile 8.56 (league avg 8.5) n=192
+league mean top-24 ovr by year: [78.4, 81.2, 81.6, 81.6, 81.5, 81.6, 81.6, 81.6] sd across teams: [2.06, 1.59, 1.66, 1.63, 1.65, 1.63, 1.75, 1.86]
+mean age of top-24 by year: [27.2, 27.2, 27.4, 27.7, 27.9, 28.1, 28.2, 28.4]
+payroll $M mean by year: [247.0, 265.0, 288.0, 310.0, 331.0, 355.0, 380.0, 409.0] sd: [6.0, 7.0, 8.0, 8.0, 10.0, 8.0, 12.0, 13.0] max: [255.0, 278, 304.0, 324.0, 354.0, 376.0, 411.0, 442.0]
+corr(payroll,wins)=0.03 corr(payroll,ovr)=0.09
+wins: sd 3.41; share of team-seasons >=12 wins 20.5%, <=5 wins 21.6%; max 17 min 0
+team-runs with >=3 consecutive 11+ win seasons: 65 of 256 (25.4%)
+bottom-4 -> next year >=10 wins: 44/224 (20%)  (real NFL ~ 20-25% of last-place teams make playoffs next year)

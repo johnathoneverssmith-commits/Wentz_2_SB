@@ -1,0 +1,929 @@
+{
+ "p1": [
+  {
+   "seed": 9501,
+   "pos": "QB",
+   "k": 1,
+   "junkChartValue": 10,
+   "bestAcceptedChartValue": 11.4,
+   "what": "ILB 68",
+   "team": "LAC",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "QB",
+   "k": 2,
+   "junkChartValue": 20.1,
+   "bestAcceptedChartValue": 18.3,
+   "what": "C 66",
+   "team": "LV",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "QB",
+   "k": 3,
+   "junkChartValue": 30.1,
+   "bestAcceptedChartValue": 23.1,
+   "what": "ILB 72",
+   "team": "SF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "RB",
+   "k": 1,
+   "junkChartValue": 2.9,
+   "bestAcceptedChartValue": 4.2,
+   "what": "pick r4",
+   "team": "CHI",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "RB",
+   "k": 2,
+   "junkChartValue": 5.9,
+   "bestAcceptedChartValue": 8.6,
+   "what": "pick r3",
+   "team": "SF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "RB",
+   "k": 3,
+   "junkChartValue": 8.8,
+   "bestAcceptedChartValue": 11,
+   "what": "pick r3",
+   "team": "SF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "WR",
+   "k": 1,
+   "junkChartValue": 7.9,
+   "bestAcceptedChartValue": 8.6,
+   "what": "pick r3",
+   "team": "JAX",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "WR",
+   "k": 2,
+   "junkChartValue": 15.7,
+   "bestAcceptedChartValue": 16.3,
+   "what": "pick r2",
+   "team": "NO",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "WR",
+   "k": 3,
+   "junkChartValue": 23.6,
+   "bestAcceptedChartValue": 22.7,
+   "what": "OT 74",
+   "team": "SEA",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "TE",
+   "k": 1,
+   "junkChartValue": 2.6,
+   "bestAcceptedChartValue": 4.2,
+   "what": "pick r4",
+   "team": "GB",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "TE",
+   "k": 2,
+   "junkChartValue": 5.3,
+   "bestAcceptedChartValue": 8.6,
+   "what": "pick r3",
+   "team": "SF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "TE",
+   "k": 3,
+   "junkChartValue": 7.9,
+   "bestAcceptedChartValue": 8.6,
+   "what": "pick r3",
+   "team": "LAC",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "OT",
+   "k": 1,
+   "junkChartValue": 12.7,
+   "bestAcceptedChartValue": 13.3,
+   "what": "CB 62",
+   "team": "LV",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "OT",
+   "k": 2,
+   "junkChartValue": 25.5,
+   "bestAcceptedChartValue": 23.1,
+   "what": "ILB 72",
+   "team": "SF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "OT",
+   "k": 3,
+   "junkChartValue": 38.2,
+   "bestAcceptedChartValue": 30.7,
+   "what": "ILB 72",
+   "team": "SF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9501,
+   "pos": "OG",
+   "k": 1,
+   "junkChartValue": -0.8,
+   "bestAcceptedChartValue": 0.9,
+   "what": "pick r6",
+   "team": "JAX",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9501,
+   "pos": "OG",
+   "k": 2,
+   "junkChartValue": -1.5,
+   "bestAcceptedChartValue": 0.4,
+   "what": "pick r7",
+   "team": "LAC",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9501,
+   "pos": "OG",
+   "k": 3,
+   "junkChartValue": -2.3,
+   "bestAcceptedChartValue": 0,
+   "what": "none",
+   "team": "",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9501,
+   "pos": "C",
+   "k": 1,
+   "junkChartValue": 4.9,
+   "bestAcceptedChartValue": 10.2,
+   "what": "OT 57",
+   "team": "BAL",
+   "thinTeams": 3
+  },
+  {
+   "seed": 9501,
+   "pos": "C",
+   "k": 2,
+   "junkChartValue": 9.9,
+   "bestAcceptedChartValue": 19,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 3
+  },
+  {
+   "seed": 9501,
+   "pos": "C",
+   "k": 3,
+   "junkChartValue": 14.8,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 3
+  },
+  {
+   "seed": 9501,
+   "pos": "EDGE",
+   "k": 1,
+   "junkChartValue": 14.7,
+   "bestAcceptedChartValue": 19.9,
+   "what": "OG 64",
+   "team": "CIN",
+   "thinTeams": 5
+  },
+  {
+   "seed": 9501,
+   "pos": "EDGE",
+   "k": 2,
+   "junkChartValue": 29.5,
+   "bestAcceptedChartValue": 31.8,
+   "what": "QB 61",
+   "team": "PIT",
+   "thinTeams": 5
+  },
+  {
+   "seed": 9501,
+   "pos": "EDGE",
+   "k": 3,
+   "junkChartValue": 44.2,
+   "bestAcceptedChartValue": 45.5,
+   "what": "pick r1",
+   "team": "BAL",
+   "thinTeams": 5
+  },
+  {
+   "seed": 9501,
+   "pos": "DT",
+   "k": 1,
+   "junkChartValue": 6,
+   "bestAcceptedChartValue": 10.1,
+   "what": "TE 61",
+   "team": "BAL",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9501,
+   "pos": "DT",
+   "k": 2,
+   "junkChartValue": 12,
+   "bestAcceptedChartValue": 18.2,
+   "what": "OG 63",
+   "team": "JAX",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9501,
+   "pos": "DT",
+   "k": 3,
+   "junkChartValue": 18,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9501,
+   "pos": "OLB",
+   "k": 1,
+   "junkChartValue": 9.3,
+   "bestAcceptedChartValue": 8.6,
+   "what": "pick r3",
+   "team": "IND",
+   "thinTeams": 32
+  },
+  {
+   "seed": 9501,
+   "pos": "OLB",
+   "k": 2,
+   "junkChartValue": 18.7,
+   "bestAcceptedChartValue": 16.3,
+   "what": "pick r2",
+   "team": "ATL",
+   "thinTeams": 32
+  },
+  {
+   "seed": 9501,
+   "pos": "OLB",
+   "k": 3,
+   "junkChartValue": 28,
+   "bestAcceptedChartValue": 20.1,
+   "what": "C 67",
+   "team": "LAC",
+   "thinTeams": 32
+  },
+  {
+   "seed": 9501,
+   "pos": "ILB",
+   "k": 1,
+   "junkChartValue": 8.5,
+   "bestAcceptedChartValue": 13.2,
+   "what": "WR 60",
+   "team": "HOU",
+   "thinTeams": 9
+  },
+  {
+   "seed": 9501,
+   "pos": "ILB",
+   "k": 2,
+   "junkChartValue": 16.9,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 9
+  },
+  {
+   "seed": 9501,
+   "pos": "ILB",
+   "k": 3,
+   "junkChartValue": 25.4,
+   "bestAcceptedChartValue": 31.8,
+   "what": "QB 61",
+   "team": "PIT",
+   "thinTeams": 9
+  },
+  {
+   "seed": 9501,
+   "pos": "CB",
+   "k": 1,
+   "junkChartValue": 8,
+   "bestAcceptedChartValue": 15.6,
+   "what": "QB 57",
+   "team": "CIN",
+   "thinTeams": 11
+  },
+  {
+   "seed": 9501,
+   "pos": "CB",
+   "k": 2,
+   "junkChartValue": 16,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 11
+  },
+  {
+   "seed": 9501,
+   "pos": "CB",
+   "k": 3,
+   "junkChartValue": 24.1,
+   "bestAcceptedChartValue": 34.9,
+   "what": "DT 69",
+   "team": "TEN",
+   "thinTeams": 11
+  },
+  {
+   "seed": 9501,
+   "pos": "S",
+   "k": 1,
+   "junkChartValue": 9.2,
+   "bestAcceptedChartValue": 14.7,
+   "what": "TE 62",
+   "team": "JAX",
+   "thinTeams": 13
+  },
+  {
+   "seed": 9501,
+   "pos": "S",
+   "k": 2,
+   "junkChartValue": 18.5,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 13
+  },
+  {
+   "seed": 9501,
+   "pos": "S",
+   "k": 3,
+   "junkChartValue": 27.7,
+   "bestAcceptedChartValue": 33.6,
+   "what": "DT 69",
+   "team": "TEN",
+   "thinTeams": 13
+  },
+  {
+   "seed": 9501,
+   "pos": "K",
+   "k": 1,
+   "junkChartValue": -1.4,
+   "bestAcceptedChartValue": 0.3,
+   "what": "pick r7",
+   "team": "LAC",
+   "thinTeams": 3
+  },
+  {
+   "seed": 9501,
+   "pos": "K",
+   "k": 2,
+   "junkChartValue": -2.7,
+   "bestAcceptedChartValue": 0,
+   "what": "none",
+   "team": "",
+   "thinTeams": 3
+  },
+  {
+   "seed": 9501,
+   "pos": "K",
+   "k": 3,
+   "junkChartValue": -4.1,
+   "bestAcceptedChartValue": 0,
+   "what": "none",
+   "team": "",
+   "thinTeams": 3
+  },
+  {
+   "seed": 9501,
+   "pos": "P",
+   "k": 1,
+   "junkChartValue": -0.2,
+   "bestAcceptedChartValue": 1.5,
+   "what": "pick r5",
+   "team": "LAC",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9501,
+   "pos": "P",
+   "k": 2,
+   "junkChartValue": -0.4,
+   "bestAcceptedChartValue": 0.9,
+   "what": "pick r6",
+   "team": "JAX",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9501,
+   "pos": "P",
+   "k": 3,
+   "junkChartValue": -0.6,
+   "bestAcceptedChartValue": 0.8,
+   "what": "pick r6",
+   "team": "LAC",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9502,
+   "pos": "QB",
+   "k": 1,
+   "junkChartValue": 33.2,
+   "bestAcceptedChartValue": 33.7,
+   "what": "WR 70",
+   "team": "ARI",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "QB",
+   "k": 2,
+   "junkChartValue": 66.5,
+   "bestAcceptedChartValue": 55.8,
+   "what": "CB 78",
+   "team": "ARI",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "QB",
+   "k": 3,
+   "junkChartValue": 99.7,
+   "bestAcceptedChartValue": 71.4,
+   "what": "OG 81",
+   "team": "NYJ",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "RB",
+   "k": 1,
+   "junkChartValue": 9,
+   "bestAcceptedChartValue": 11,
+   "what": "pick r3",
+   "team": "LAC",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "RB",
+   "k": 2,
+   "junkChartValue": 18,
+   "bestAcceptedChartValue": 17.3,
+   "what": "WR 75",
+   "team": "LAR",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "RB",
+   "k": 3,
+   "junkChartValue": 27.1,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "DAL",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "WR",
+   "k": 1,
+   "junkChartValue": 8.6,
+   "bestAcceptedChartValue": 8.8,
+   "what": "RB 63",
+   "team": "NYJ",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "WR",
+   "k": 2,
+   "junkChartValue": 17.2,
+   "bestAcceptedChartValue": 16.3,
+   "what": "pick r2",
+   "team": "KC",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "WR",
+   "k": 3,
+   "junkChartValue": 25.8,
+   "bestAcceptedChartValue": 20.5,
+   "what": "TE 65",
+   "team": "KC",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "TE",
+   "k": 1,
+   "junkChartValue": 9,
+   "bestAcceptedChartValue": 11,
+   "what": "pick r3",
+   "team": "LAC",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "TE",
+   "k": 2,
+   "junkChartValue": 17.9,
+   "bestAcceptedChartValue": 16.4,
+   "what": "S 75",
+   "team": "SF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "TE",
+   "k": 3,
+   "junkChartValue": 26.9,
+   "bestAcceptedChartValue": 23.7,
+   "what": "DT 70",
+   "team": "DAL",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "OT",
+   "k": 1,
+   "junkChartValue": 7.5,
+   "bestAcceptedChartValue": 8.8,
+   "what": "WR 60",
+   "team": "CIN",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "OT",
+   "k": 2,
+   "junkChartValue": 14.9,
+   "bestAcceptedChartValue": 12.2,
+   "what": "RB 62",
+   "team": "BUF",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "OT",
+   "k": 3,
+   "junkChartValue": 22.4,
+   "bestAcceptedChartValue": 18.1,
+   "what": "TE 64",
+   "team": "NYJ",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "OG",
+   "k": 1,
+   "junkChartValue": 4.8,
+   "bestAcceptedChartValue": 4.6,
+   "what": "WR 58",
+   "team": "PIT",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "OG",
+   "k": 2,
+   "junkChartValue": 9.5,
+   "bestAcceptedChartValue": 9.4,
+   "what": "OG 59",
+   "team": "CIN",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "OG",
+   "k": 3,
+   "junkChartValue": 14.3,
+   "bestAcceptedChartValue": 11.7,
+   "what": "TE 61",
+   "team": "CIN",
+   "thinTeams": 0
+  },
+  {
+   "seed": 9502,
+   "pos": "C",
+   "k": 1,
+   "junkChartValue": 9.2,
+   "bestAcceptedChartValue": 13.3,
+   "what": "WR 60",
+   "team": "BAL",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9502,
+   "pos": "C",
+   "k": 2,
+   "junkChartValue": 18.3,
+   "bestAcceptedChartValue": 19,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9502,
+   "pos": "C",
+   "k": 3,
+   "junkChartValue": 27.5,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 1
+  },
+  {
+   "seed": 9502,
+   "pos": "EDGE",
+   "k": 1,
+   "junkChartValue": 5.8,
+   "bestAcceptedChartValue": 11.2,
+   "what": "TE 61",
+   "team": "BAL",
+   "thinTeams": 2
+  },
+  {
+   "seed": 9502,
+   "pos": "EDGE",
+   "k": 2,
+   "junkChartValue": 11.7,
+   "bestAcceptedChartValue": 19,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 2
+  },
+  {
+   "seed": 9502,
+   "pos": "EDGE",
+   "k": 3,
+   "junkChartValue": 17.5,
+   "bestAcceptedChartValue": 26.7,
+   "what": "QB 56",
+   "team": "CIN",
+   "thinTeams": 2
+  },
+  {
+   "seed": 9502,
+   "pos": "DT",
+   "k": 1,
+   "junkChartValue": 7.7,
+   "bestAcceptedChartValue": 12.1,
+   "what": "OT 63",
+   "team": "IND",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9502,
+   "pos": "DT",
+   "k": 2,
+   "junkChartValue": 15.4,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "HOU",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9502,
+   "pos": "DT",
+   "k": 3,
+   "junkChartValue": 23.1,
+   "bestAcceptedChartValue": 37.8,
+   "what": "WR 89",
+   "team": "HOU",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9502,
+   "pos": "OLB",
+   "k": 1,
+   "junkChartValue": 9.3,
+   "bestAcceptedChartValue": 9.9,
+   "what": "ILB 66",
+   "team": "NYJ",
+   "thinTeams": 32
+  },
+  {
+   "seed": 9502,
+   "pos": "OLB",
+   "k": 2,
+   "junkChartValue": 18.7,
+   "bestAcceptedChartValue": 16.3,
+   "what": "pick r2",
+   "team": "DAL",
+   "thinTeams": 32
+  },
+  {
+   "seed": 9502,
+   "pos": "OLB",
+   "k": 3,
+   "junkChartValue": 28,
+   "bestAcceptedChartValue": 19.5,
+   "what": "WR 77",
+   "team": "DAL",
+   "thinTeams": 32
+  },
+  {
+   "seed": 9502,
+   "pos": "ILB",
+   "k": 1,
+   "junkChartValue": 8.6,
+   "bestAcceptedChartValue": 14.5,
+   "what": "OT 61",
+   "team": "CLE",
+   "thinTeams": 10
+  },
+  {
+   "seed": 9502,
+   "pos": "ILB",
+   "k": 2,
+   "junkChartValue": 17.3,
+   "bestAcceptedChartValue": 24.4,
+   "what": "pick r2",
+   "team": "CIN",
+   "thinTeams": 10
+  },
+  {
+   "seed": 9502,
+   "pos": "ILB",
+   "k": 3,
+   "junkChartValue": 25.9,
+   "bestAcceptedChartValue": 31.8,
+   "what": "QB 61",
+   "team": "IND",
+   "thinTeams": 10
+  },
+  {
+   "seed": 9502,
+   "pos": "CB",
+   "k": 1,
+   "junkChartValue": 13.5,
+   "bestAcceptedChartValue": 19,
+   "what": "pick r2",
+   "team": "CIN",
+   "thinTeams": 12
+  },
+  {
+   "seed": 9502,
+   "pos": "CB",
+   "k": 2,
+   "junkChartValue": 27.1,
+   "bestAcceptedChartValue": 31.8,
+   "what": "QB 61",
+   "team": "IND",
+   "thinTeams": 12
+  },
+  {
+   "seed": 9502,
+   "pos": "CB",
+   "k": 3,
+   "junkChartValue": 40.6,
+   "bestAcceptedChartValue": 45.5,
+   "what": "pick r1",
+   "team": "BAL",
+   "thinTeams": 12
+  },
+  {
+   "seed": 9502,
+   "pos": "S",
+   "k": 1,
+   "junkChartValue": 4.7,
+   "bestAcceptedChartValue": 8.8,
+   "what": "WR 60",
+   "team": "CIN",
+   "thinTeams": 8
+  },
+  {
+   "seed": 9502,
+   "pos": "S",
+   "k": 2,
+   "junkChartValue": 9.5,
+   "bestAcceptedChartValue": 14.5,
+   "what": "OT 61",
+   "team": "CLE",
+   "thinTeams": 8
+  },
+  {
+   "seed": 9502,
+   "pos": "S",
+   "k": 3,
+   "junkChartValue": 14.2,
+   "bestAcceptedChartValue": 19,
+   "what": "pick r2",
+   "team": "BAL",
+   "thinTeams": 8
+  },
+  {
+   "seed": 9502,
+   "pos": "K",
+   "k": 1,
+   "junkChartValue": -0.9,
+   "bestAcceptedChartValue": 1.1,
+   "what": "pick r6",
+   "team": "ARI",
+   "thinTeams": 6
+  },
+  {
+   "seed": 9502,
+   "pos": "K",
+   "k": 2,
+   "junkChartValue": -1.8,
+   "bestAcceptedChartValue": 0,
+   "what": "none",
+   "team": "",
+   "thinTeams": 6
+  },
+  {
+   "seed": 9502,
+   "pos": "K",
+   "k": 3,
+   "junkChartValue": -2.6,
+   "bestAcceptedChartValue": 0,
+   "what": "none",
+   "team": "",
+   "thinTeams": 6
+  },
+  {
+   "seed": 9502,
+   "pos": "P",
+   "k": 1,
+   "junkChartValue": 1.5,
+   "bestAcceptedChartValue": 4.2,
+   "what": "pick r4",
+   "team": "NYJ",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9502,
+   "pos": "P",
+   "k": 2,
+   "junkChartValue": 3.1,
+   "bestAcceptedChartValue": 11,
+   "what": "pick r3",
+   "team": "NYJ",
+   "thinTeams": 7
+  },
+  {
+   "seed": 9502,
+   "pos": "P",
+   "k": 3,
+   "junkChartValue": 4.6,
+   "bestAcceptedChartValue": 16.3,
+   "what": "pick r2",
+   "team": "NYJ",
+   "thinTeams": 7
+  }
+ ],
+ "p5": [],
+ "p6": {
+  "9501": {
+   "assets": 400,
+   "medianMaxOverMin": 1.0240824302002338,
+   "p90": 1.0312166050143854,
+   "max": 1.0353537401175754,
+   "frictionPerLeg": 0.05,
+   "windowSpread": [
+    -0.33499999999999996,
+    0.358
+   ]
+  },
+  "9502": {
+   "assets": 400,
+   "medianMaxOverMin": 1.0255778761780956,
+   "p90": 1.0350724248927037,
+   "max": 1.0355561423464412,
+   "frictionPerLeg": 0.05,
+   "windowSpread": [
+    -0.384,
+    0.32749999999999996
+   ]
+  }
+ }
+}
