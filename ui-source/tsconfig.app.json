@@ -25,5 +25,9 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  // These two tests import the repo-root engine (src/engine/roster.ts -> zod). The static site builds with only
+  // ui-source's own dependencies installed (online/DEPLOY.md), where tsc cannot resolve zod and the whole build
+  // fails. Vitest still runs them: it resolves from the repo root and does not type-check.
+  "exclude": ["src/state/derivedFitBaseline.gen.test.ts", "src/state/schemeTags.test.ts"]
 }
