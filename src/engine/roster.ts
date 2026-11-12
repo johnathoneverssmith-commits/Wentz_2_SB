@@ -6,8 +6,10 @@
  * individual skill attributes via the rating layer (`ratings.ts`).
  */
 
+import { createHash } from "node:crypto";
+
 import type { Player } from "../schema/player.js";
-import { loadPlayerPool } from "../data/players.js";
+import { loadPlayerPool, resolveDefaultPoolPath } from "../data/players.js";
 import { policyOrder } from "./rookies.js";
 
 export const OFF_SLOTS = [
@@ -35,12 +37,103 @@ function pushInto<K, V>(m: Map<K, V[]>, k: K, v: V): void {
 }
 
 let _pool: Map<string, Player[]> | null = null;
+/** The pool the caller supplied; `null` = resolve the default (`loadPlayerPool`) on first use, as always. */
+let _explicit: readonly Player[] | null = null;
+let _resolved: readonly Player[] | null = null;
+let _version: string | null = null;
+let _defaultPath: string | null = null;
+const _poolListeners: (() => void)[] = [];
+
+/**
+ * Every module that keeps something derived from the reference pool (centring
+ * offsets, reference scores, baselines, rosters) registers here, so changing
+ * the pool can never be served from a value computed on the old one.
+ */
+export function onReferencePoolChange(fn: () => void): void {
+  _poolListeners.push(fn);
+}
+
+function dropPoolDerived(): void {
+  _pool = null;
+  _resolved = null;
+  _version = null;
+  _defaultPath = null;
+  _rosters.clear();
+  for (const f of _poolListeners) f();
+}
+
+/**
+ * Content hash of a pool: sha-256 over its JSON in the order given, first 16
+ * hex digits are the short form. Order counts on purpose — equal-rated
+ * players keep their pool order in a depth chart, so a reordered pool can play
+ * differently and must not share a version.
+ */
+export function poolVersion(players: readonly Player[]): string {
+  return createHash("sha256").update(JSON.stringify(players)).digest("hex");
+}
+
+export interface ReferencePoolInfo {
+  /** `explicit`: handed in with `setReferencePool`; `default`: resolved from the host's files, as before. */
+  source: "explicit" | "default";
+  /** Full sha-256 of the pool's content: record this next to a save or a game to know what it was played on. */
+  version: string;
+  players: number;
+  /** The file a default pool came from (`resolveDefaultPoolPath`); absent for an explicit pool. */
+  path?: string;
+}
+
+/**
+ * Make `players` the engine's reference pool: the 32 depth charts every
+ * rating, synergy, team-strength and scheme-fit value is centred on. With no
+ * argument (or `null`) the engine goes back to resolving the default pool from
+ * the host's files exactly as it did before this input existed.
+ *
+ * Once a pool is supplied the engine never reads `data/players.local.json`,
+ * `NFL_POOL_PATH` or the sample, so the same seed and inputs give the same
+ * result on any host. The array is not copied or modified, so do not mutate it
+ * afterwards; supply a new one instead.
+ *
+ * Scope: this is **process-wide** state, set once before the engine runs (at
+ * startup, or between whole simulations). It is not per league, per request
+ * or per async context: do not change it while a simulation is in flight, and
+ * do not call it from code that interleaves with another league's games.
+ * Per-league or async-scoped pools are a later phase; there is deliberately no
+ * scoped helper here, because a synchronous try/finally cannot protect an
+ * async caller.
+ */
+export function setReferencePool(players: readonly Player[] | null = null): ReferencePoolInfo {
+  _explicit = players;
+  dropPoolDerived();
+  return referencePoolInfo();
+}
+
+function referencePlayers(): readonly Player[] {
+  if (_explicit) return _explicit;
+  if (!_resolved) {
+    _defaultPath = resolveDefaultPoolPath();
+    _resolved = loadPlayerPool(_defaultPath);
+  }
+  return _resolved;
+}
+
+/** Which pool the engine is running on, and its content version. */
+export function referencePoolInfo(): ReferencePoolInfo {
+  const players = referencePlayers();
+  _version ??= poolVersion(players);
+  const info: ReferencePoolInfo = {
+    source: _explicit ? "explicit" : "default",
+    version: _version,
+    players: players.length,
+  };
+  if (!_explicit && _defaultPath) info.path = _defaultPath;
+  return info;
+}
 
 /** Pool grouped by `nfl_team`; free agents ("FA" / blank) dropped. Memoised. */
 export function loadPool(): Map<string, Player[]> {
   if (_pool) return _pool;
   const byTeam = new Map<string, Player[]>();
-  for (const p of loadPlayerPool()) {
+  for (const p of referencePlayers()) {
     const t = p.nfl_team;
     if (!t || t === "FA") continue;
     pushInto(byTeam, t, p);
