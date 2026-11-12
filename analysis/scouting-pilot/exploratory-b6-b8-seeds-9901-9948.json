@@ -1,0 +1,176 @@
+{
+  "seeds": [
+    9901,
+    9948
+  ],
+  "nSeeds": 48,
+  "arms": {
+    "B6_skip": {
+      "humanVsControl": {
+        "mean": -0.0093,
+        "se": 0.0172,
+        "ci95": [
+          -0.0439,
+          0.0254
+        ],
+        "n": 48
+      },
+      "cpuVsControl": {
+        "mean": 0.0162,
+        "se": 0.0139,
+        "ci95": [
+          -0.0118,
+          0.0441
+        ],
+        "n": 48
+      },
+      "humanMinusCpu": {
+        "mean": -0.0255,
+        "se": 0.0248,
+        "ci95": [
+          -0.0754,
+          0.0245
+        ],
+        "n": 48
+      },
+      "cpuScoutMsPerLeague": 45.2,
+      "cpuScoutMsMax": 58,
+      "cpuProspectsScouted": 31.6,
+      "humanReports": null,
+      "cpuReports": {
+        "n": 6048,
+        "rmsePublic": 6.81,
+        "rmseReport": 4.89,
+        "coverage80": 0.839
+      }
+    },
+    "B6_need24": {
+      "humanVsControl": {
+        "mean": 0.11,
+        "se": 0.0234,
+        "ci95": [
+          0.0629,
+          0.1572
+        ],
+        "n": 48
+      },
+      "cpuVsControl": {
+        "mean": -0.0364,
+        "se": 0.0131,
+        "ci95": [
+          -0.0628,
+          -0.01
+        ],
+        "n": 48
+      },
+      "humanMinusCpu": {
+        "mean": 0.1464,
+        "se": 0.0293,
+        "ci95": [
+          0.0876,
+          0.2053
+        ],
+        "n": 48
+      },
+      "cpuScoutMsPerLeague": 45.9,
+      "cpuScoutMsMax": 57.5,
+      "cpuProspectsScouted": 31.6,
+      "humanReports": {
+        "n": 12671,
+        "rmsePublic": 7.63,
+        "rmseReport": 5.23,
+        "coverage80": 0.83
+      },
+      "cpuReports": {
+        "n": 6048,
+        "rmsePublic": 6.81,
+        "rmseReport": 4.89,
+        "coverage80": 0.839
+      }
+    },
+    "B8_skip": {
+      "humanVsControl": {
+        "mean": -0.0256,
+        "se": 0.0196,
+        "ci95": [
+          -0.065,
+          0.0139
+        ],
+        "n": 48
+      },
+      "cpuVsControl": {
+        "mean": 0.017,
+        "se": 0.0141,
+        "ci95": [
+          -0.0113,
+          0.0453
+        ],
+        "n": 48
+      },
+      "humanMinusCpu": {
+        "mean": -0.0425,
+        "se": 0.0299,
+        "ci95": [
+          -0.1026,
+          0.0176
+        ],
+        "n": 48
+      },
+      "cpuScoutMsPerLeague": 54.9,
+      "cpuScoutMsMax": 68.6,
+      "cpuProspectsScouted": 37.6,
+      "humanReports": null,
+      "cpuReports": {
+        "n": 8064,
+        "rmsePublic": 6.85,
+        "rmseReport": 4.94,
+        "coverage80": 0.836
+      }
+    },
+    "B8_need24": {
+      "humanVsControl": {
+        "mean": 0.1114,
+        "se": 0.0231,
+        "ci95": [
+          0.0649,
+          0.1578
+        ],
+        "n": 48
+      },
+      "cpuVsControl": {
+        "mean": -0.0274,
+        "se": 0.0142,
+        "ci95": [
+          -0.056,
+          0.0013
+        ],
+        "n": 48
+      },
+      "humanMinusCpu": {
+        "mean": 0.1387,
+        "se": 0.0288,
+        "ci95": [
+          0.0809,
+          0.1966
+        ],
+        "n": 48
+      },
+      "cpuScoutMsPerLeague": 54.9,
+      "cpuScoutMsMax": 67.5,
+      "cpuProspectsScouted": 37.6,
+      "humanReports": {
+        "n": 12671,
+        "rmsePublic": 7.63,
+        "rmseReport": 5.23,
+        "coverage80": 0.83
+      },
+      "cpuReports": {
+        "n": 8064,
+        "rmsePublic": 6.85,
+        "rmseReport": 4.94,
+        "coverage80": 0.836
+      }
+    }
+  },
+  "controlDraftMs": 69.9
+}
