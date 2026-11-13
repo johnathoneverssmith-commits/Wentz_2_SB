@@ -11,28 +11,28 @@ Solo-only, off by default (`config.scouting`). Each CPU GM buys `CPU_POINTS = 12
 ## Result at 12 CPU reports (48 leagues)
 | Scripted human | Human vs today's draft (mean ± SE, 95% CI) | CPUs (21) vs today | Human minus CPU |
 |---|---|---|---|
-| scouts 24 at need | **+0.085 ± 0.019** [+0.046, +0.123] | −0.019 ± 0.015 | +0.104 ± 0.028 |
-| skips | **−0.060 ± 0.019** [−0.097, −0.022] | +0.031 ± 0.014 | −0.091 ± 0.028 |
-| scouts the top 24 | −0.013 ± 0.020 [−0.053, +0.027] | +0.006 ± 0.013 | −0.020 ± 0.027 |
+| scouts 24 at need | **+0.101 ± 0.021** [+0.060, +0.143] | −0.019 ± 0.013 | +0.120 ± 0.026 |
+| skips | **−0.046 ± 0.018** [−0.082, −0.010] | +0.034 ± 0.013 | −0.080 ± 0.024 |
+| scouts the top 24 | −0.046 ± 0.019 [−0.084, −0.009] | +0.026 ± 0.014 | −0.072 ± 0.025 |
 
 **Acceptance check as approved (12 reports):**
-- Scouting at need ≥ +0.05: **met** on the point estimate (+0.085); the 95% interval's lower end (+0.046) is just below 0.05.
-- Skipping within ±0.03 of baseline: **not met** (−0.060; the whole 95% interval, −0.097 to −0.022, is outside ±0.03). **Owner decision: the 12-report budget stays and the −0.060 cost of skipping is accepted.** It exceeds the original ±0.03 band; the trade-off was accepted because scouting should matter: a GM who skips falls behind, and a GM who scouts at positions of need gains **+0.085** (95% CI +0.046 to +0.123) over today's draft.
+- Scouting at need ≥ +0.05: **met** (+0.101; the whole 95% interval, +0.060 to +0.143, is above 0.05).
+- Skipping within ±0.03 of baseline: **not met** (−0.046; the 95% interval, −0.082 to −0.010, reaches past −0.03). **Owner decision: the 12-report budget stays and the cost of skipping is accepted.** It exceeds the original ±0.03 band; the trade-off was accepted because scouting should matter: a GM who skips falls behind, and a GM who scouts at positions of need gains over today's draft. (The decision was taken when the measured cost was −0.060; the figures above are after the noise fix below, which made it −0.046.)
 
-These numbers are from the corrected build. An earlier run used a need benchmark that averaged every 31st player rather than each team's best (Codex review finding, fixed in this PR): it gave need +0.081 and skip −0.060, so the conclusion did not change.
+History of this measurement, all on seeds 9901-9948: first build need +0.081 / skip −0.060; after fixing the needs benchmark (Codex finding 2) need +0.085 / skip −0.060; after fixing the report noise generator (Codex finding 3: two correlated hashes made the Gaussian noise skewed, 13.9% of draws above +1.28 and none below -1.28) need +0.101 / skip −0.046. The conclusions did not change.
 
 ## Exploratory, same 48 seeds (not part of the approved scope)
 | CPU reports | skip | scouts at need | human minus CPU (need) |
 |---|---|---|---|
-| 6 | −0.042 ± 0.015 | +0.114 ± 0.018 | +0.147 |
-| 8 | −0.038 ± 0.018 | +0.103 ± 0.017 | +0.130 |
-| 12 | −0.060 ± 0.019 | +0.085 ± 0.019 | +0.104 |
+| 6 | −0.044 ± 0.017 | +0.138 ± 0.021 | +0.184 |
+| 8 | −0.045 ± 0.017 | +0.112 ± 0.022 | +0.146 |
+| 12 | −0.046 ± 0.018 | +0.101 ± 0.021 | +0.120 |
 
-A smaller CPU budget does **not** bring skipping inside ±0.03 on these seeds. An earlier, pre-fix run suggested 8 might; the corrected run does not support that. Hypothesis (untested): part of the skip penalty is not the CPUs' reports but the control comparison itself, because any CPU scouting changes which prospects are left for the human proxy. If so, the ±0.03 skip band may not be reachable with any non-zero CPU budget, and the criterion should be restated (for example, "skipping costs no more than −0.07", or "need beats skip by at least X").
+The cost of skipping is about −0.045 at every budget tested (6, 8, 12), so a smaller CPU budget would not have met the ±0.03 band either. Hypothesis (untested): most of the skip penalty is not the CPUs' reports but the control comparison itself, because any CPU scouting changes which prospects are left for the human proxy. If so, the ±0.03 skip band may not be reachable with any non-zero CPU budget.
 
 ## Report quality and cost (12-report run)
-- Report error vs the hidden rating: public projection RMSE 6.9 (CPU-scouted prospects) / 7.5 (human-scouted) → report **5.05 / 5.23**. 80% interval covers the truth **83%** of the time.
-- CPU scouting runtime: about **68 ms per league** on average (max 89 ms across the arms) for all 21 CPU GMs; the whole CPU draft is about 69 ms. About 53 distinct prospects are scouted by the CPUs per league.
+- Report error vs the hidden rating: public projection RMSE 6.9 (CPU-scouted prospects) / 7.5 (human-scouted) → report **5.03 / 5.11**. 80% interval covers the truth **82%** of the time.
+- CPU scouting runtime: about **65 ms per league** on average (max 101 ms across the arms) for all 21 CPU GMs; the whole CPU draft is about 69 ms. About 53 distinct prospects are scouted by the CPUs per league.
 - Human effort: one "Scout my needs" press, or one click per prospect (24 points).
 
 ## Not measured

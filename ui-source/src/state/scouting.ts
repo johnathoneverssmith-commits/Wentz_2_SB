@@ -63,10 +63,22 @@ function hash(str: string): number {
   for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
   return h >>> 0;
 }
-function gauss(key: string): number {
-  const a = hash(key + "a") / 4294967296 || 1e-9;
-  const b = hash(key + "b") / 4294967296;
-  return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * b);
+/** mulberry32: a small PRNG; two successive draws from one seed are independent uniforms on [0, 1). */
+function mulberry32(seed: number): () => number {
+  let t = seed >>> 0;
+  return () => {
+    t = (t + 0x6d2b79f5) >>> 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** A standard normal from a key: Box-Muller on two independent draws of a PRNG seeded from the key. Same key, same value. */
+export function gauss(key: string): number {
+  const next = mulberry32(hash(key));
+  const u1 = next() || 1e-9;
+  const u2 = next();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
 /** Public rank of every prospect: by the public projection, ties by id. */

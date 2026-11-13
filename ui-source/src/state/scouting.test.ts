@@ -7,7 +7,7 @@ import {
   BASIC_COST, CPU_POINTS, HUMAN_POINTS, budgetFor, makeReport, pointsSpent, publicRanks, reportsFor, runCpuScouting, spendReport, suggestTargets,
 } from "./scouting.ts";
 import type { LeagueState } from "@/domain";
-import { needPositions, scoutingViewFor } from "./scouting.ts";
+import { gauss, needPositions, scoutingViewFor } from "./scouting.ts";
 
 function leagueAtDraft(seed = 7, scouting = true): { s: LeagueState; me: string } {
   const s = createLeague(seed, { ...DEFAULT_CONFIG, humanGmCount: 1, scouting } as never);
@@ -162,5 +162,17 @@ describe("scouting slice: budget, flow, and what a report may reveal", () => {
     expect(on).not.toBe(publicRead);
     s.config.scouting = undefined;
     expect(readRookieBoard(s, me, difficultyProfile("expert")).expected.get(id)).toBe(publicRead);
+  });
+
+  it("report noise is a standard normal: unbiased, unit spread, and symmetric tails", () => {
+    const v: number[] = [];
+    for (let seed = 9901; seed <= 9948; seed++) for (let y = 2026; y <= 2030; y++) for (let i = 1; i <= 320; i++) v.push(gauss(`${seed}|${y}|d${y}_${i}|basic`));
+    const n = v.length, m = v.reduce((a, b) => a + b, 0) / n, sd = Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / n);
+    const lo = v.filter((x) => x < -1.2816).length / n, hi = v.filter((x) => x > 1.2816).length / n;
+    expect(Math.abs(m)).toBeLessThan(0.02);
+    expect(Math.abs(sd - 1)).toBeLessThan(0.02);
+    expect(Math.abs(lo - 0.1)).toBeLessThan(0.006);
+    expect(Math.abs(hi - 0.1)).toBeLessThan(0.006);
+    expect(gauss("same")).toBe(gauss("same"));
   });
 });
