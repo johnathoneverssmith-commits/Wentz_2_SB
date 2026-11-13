@@ -42,4 +42,21 @@ describe("single-player and online present the same game the same way", () => {
       }
     expect(games).toBe(36);
   }, 120_000);
+
+  it("online's box score is the shared builder's, player lines included (issue #74 Phase 3)", () => {
+    const [home, away] = ["KC", "BUF"];
+    const g = simulateGame(5, home, away, {
+      homeRoster: new Roster(home, squad(home)),
+      awayRoster: new Roster(away, squad(away)),
+      trace: true,
+      injuries: true,
+      overtime: "nfl",
+    });
+    const squads = { [home]: squad(home), [away]: squad(away) };
+    const local = presentGame(g, { homeTeam: home, awayTeam: away, week: 2, weather: null, players: squads });
+    const online = boxScoreOf(g, home, away, 2, { home: squad(home) as never, away: squad(away) as never });
+    expect(online).toEqual({ totals: local.totals, scoringPlays: local.scoringPlays, playerLines: local.playerLines });
+    expect(Object.keys(online)).toEqual(["totals", "scoringPlays", "playerLines"]);
+    expect(JSON.stringify(online.playerLines).length).toBeGreaterThan(1000); // real lines, not an empty shell
+  });
 });

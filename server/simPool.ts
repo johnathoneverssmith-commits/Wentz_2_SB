@@ -11,7 +11,7 @@
 import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
 
-import { simulateOne, type GameInput } from "./simGame.js";
+import { simulateOne, type GameInput } from "../src/sim-service/game.js";
 
 type Result = ReturnType<typeof simulateOne>;
 
