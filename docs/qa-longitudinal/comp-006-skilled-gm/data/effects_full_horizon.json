@@ -462,6 +462,16 @@
    "longest_streak": 2,
    "back_to_back": 3
   },
+  "title_rate_usable": {
+   "rate": 0.06287425149700598,
+   "lo": 0.04046018382220946,
+   "hi": 0.0825965005168545,
+   "titles": 21,
+   "seat_seasons": 334,
+   "leagues": 10,
+   "all4_titles": 16,
+   "all4_league_seasons": 59
+  },
   "cpu_spillover_unit": {
    "diff": 3.1168853303571353,
    "lo": 2.4429866348221023,
@@ -930,6 +940,16 @@
    "control": 0.13,
    "longest_streak": 3,
    "back_to_back": 6
+  },
+  "title_rate_usable": {
+   "rate": 0.09937888198757763,
+   "lo": 0.060810810810810814,
+   "hi": 0.13411167602929674,
+   "titles": 32,
+   "seat_seasons": 322,
+   "leagues": 10,
+   "all4_titles": 26,
+   "all4_league_seasons": 51
   },
   "cpu_spillover_unit": {
    "diff": 3.1115060446428573,

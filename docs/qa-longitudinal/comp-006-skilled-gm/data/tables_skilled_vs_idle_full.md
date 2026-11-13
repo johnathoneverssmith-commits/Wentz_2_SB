@@ -27,7 +27,8 @@ Wins and strength by tenure (paired diff [95% league-bootstrap]):
 | seasons 4-6 | 54 | +6.59 [+5.73, +7.31] | +0.630 [+0.509, +0.750] | +0.074 [+0.000, +0.151] | +15.19 [+13.08, +16.75] | -170.3 [-179.4, -159.7] |
 | seasons 7-10 | 2 | +7.50 [+4.00, +11.00] | +0.500 [+0.000, +1.000] | +0.000 [+0.000, +0.000] | +11.84 [+8.47, +15.20] | -243.8 [-244.8, -242.8] |
 
-Title share of the 4 seats: **21.0%** [12.0, 29.0] (21 titles in 100 league-seasons); idle seats: 12.0% (12/100). Longest seat title streak: 2; back-to-back-title occurrences: 3.
+[counts seasons after a GM was fired if any] Title share of the 4 seats: **21.0%** [12.0, 29.0] (21 titles in 100 league-seasons); idle seats: 12.0% (12/100). Longest seat title streak: 2; back-to-back-title occurrences: 3.
+Titles per usable seat-season (same GM in both arms): skilled 11/176 = 6.2% [3.3, 9.3] over 10 leagues; league-seasons with all four seats still theirs: 7 seat titles in 32 league-seasons (parity 12.5%).
 CPU (non-seat) teams' mean start-of-season unit score, treated minus control: -0.08 [-0.29, +0.13] (t over leagues).
 
 ### talent 1.5: skilled vs idle  (173 seat-seasons, 10 leagues, up to 6 seasons)
@@ -57,5 +58,6 @@ Wins and strength by tenure (paired diff [95% league-bootstrap]):
 | seasons 2-3 | 80 | +3.62 [+2.74, +4.48] | +0.362 [+0.250, +0.487] | +0.138 [+0.075, +0.200] | +5.46 [+4.13, +6.92] | -35.1 [-42.7, -28.0] |
 | seasons 4-6 | 53 | +7.52 [+6.62, +8.34] | +0.604 [+0.482, +0.707] | +0.132 [+0.062, +0.231] | +15.69 [+13.82, +17.89] | -168.2 [-176.9, -158.4] |
 
-Title share of the 4 seats: **32.0%** [19.0, 45.0] (32 titles in 100 league-seasons); idle seats: 6.0% (6/100). Longest seat title streak: 3; back-to-back-title occurrences: 6.
+[counts seasons after a GM was fired if any] Title share of the 4 seats: **32.0%** [19.0, 45.0] (32 titles in 100 league-seasons); idle seats: 6.0% (6/100). Longest seat title streak: 3; back-to-back-title occurrences: 6.
+Titles per usable seat-season (same GM in both arms): skilled 22/173 = 12.7% [7.8, 17.4] over 10 leagues; league-seasons with all four seats still theirs: 16 seat titles in 32 league-seasons (parity 12.5%).
 CPU (non-seat) teams' mean start-of-season unit score, treated minus control: -0.19 [-0.50, +0.12] (t over leagues).

@@ -37,6 +37,14 @@ OUTCOMES = {
 }
 
 
+MAXS = 99   # --max-season: only seat-seasons with season index <= MAXS
+DROP = set()  # --drop: "seed" or "seed:talent" matched leagues excluded
+
+
+def dropped(seed, talent):
+    return str(seed) in DROP or f"{seed}:{talent}" in DROP
+
+
 def load(d):
     runs = {}
     for f in glob.glob(os.path.join(d, "*.json")):
@@ -73,6 +81,8 @@ def paired(runs, arm, talent, mods=(), base="control"):
     out = []
     seeds = sorted({k[2] for k in runs if k[0] == arm and k[1] == talent and k[3] == tuple(mods)})
     for sd in seeds:
+        if dropped(sd, talent):
+            continue
         c = runs.get((base, talent, sd, ()))
         t = runs.get((arm, talent, sd, tuple(mods)))
         if not c or not t:
@@ -83,7 +93,7 @@ def paired(runs, arm, talent, mods=(), base="control"):
         for x in c["seats"]:
             if x["censoredFrom"] is not None:
                 cens[x["team"]] = min(cens.get(x["team"]) or 99, x["censoredFrom"])
-        n = min(len(c["rows"]), len(t["rows"]))
+        n = min(len(c["rows"]), len(t["rows"]), MAXS)
         for team in seats:
             for i in range(n):
                 if cens.get(team) is not None and i + 1 >= cens[team]:
@@ -116,13 +126,46 @@ def fmt(e, d=2):
     return f"{e['diff']:+.{d}f} [{e['lo']:+.{d}f}, {e['hi']:+.{d}f}]"
 
 
+def title_rates(runs, arm, talent, mods=(), base=None):
+    """Titles per UNCENSORED seat-season (the same GM ran the team in both arms), by league, with a league bootstrap.
+    base=None -> use only this arm's own censoring (for the arm's rate); base=<arm> -> also require base uncensored."""
+    per, allfour = [], [0, 0]
+    for sd in sorted({k[2] for k in runs if k[0] == arm and k[1] == talent and k[3] == tuple(mods)}):
+        if dropped(sd, talent):
+            continue
+        t = runs[(arm, talent, sd, tuple(mods))]
+        b = runs.get((base, talent, sd, ())) if base else None
+        if base and not b:
+            continue
+        cens = {x["team"]: x["censoredFrom"] for x in t["seats"]}
+        if b:
+            for x in b["seats"]:
+                if x["censoredFrom"] is not None:
+                    cens[x["team"]] = min(cens.get(x["team"]) or 99, x["censoredFrom"])
+        w = n = 0
+        for i, r in enumerate(t["rows"][:MAXS], 1):
+            live = [tm for tm in t["spec"]["seats"] if not (cens.get(tm) is not None and i >= cens[tm])]
+            n += len(live); w += sum(r["champion"] == tm for tm in live)
+            if len(live) == len(t["spec"]["seats"]):
+                allfour[0] += r["champion"] in live; allfour[1] += 1
+        per.append((w, n))
+    if not per or sum(n for _, n in per) == 0:
+        return None
+    arrs = [np.array([1.0] * w + [0.0] * (n - w)) for w, n in per if n]
+    est, lo, hi = boot_ci(arrs)
+    return dict(rate=est, lo=lo, hi=hi, titles=sum(w for w, _ in per), seat_seasons=sum(n for _, n in per), leagues=len(per),
+                all4_titles=allfour[0], all4_league_seasons=allfour[1])
+
+
 def title_share(runs, arm, talent, mods=()):
     """Share of all league titles won by the seats, per league-season, with a league-bootstrap interval."""
     per_seed = []
     for sd in sorted({k[2] for k in runs if k[0] == arm and k[1] == talent and k[3] == tuple(mods)}):
+        if dropped(sd, talent):
+            continue
         t = runs[(arm, talent, sd, tuple(mods))]
         seats = set(t["spec"]["seats"]); won = 0; seasons = 0
-        for r in t["rows"]:
+        for r in t["rows"][:MAXS]:
             seasons += 1
             won += r["champion"] in seats
         per_seed.append((won, seasons))
@@ -164,8 +207,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("dir"); ap.add_argument("--arm", default="skilled"); ap.add_argument("--out"); ap.add_argument("--json")
     ap.add_argument("--base", default="control", help="comparison arm: control (CPU default) or idle (absentee seat)")
+    ap.add_argument("--max-season", type=int, default=99, help="primary analysis uses 3: hot-seat firings cannot happen before season 4")
+    ap.add_argument("--drop", default="", help="comma list of seed or seed:talent matched leagues to exclude")
     ap.add_argument("--mods", default="", help="comma list: analyse the ablation arm run with exactly these modules")
     a = ap.parse_args()
+    global MAXS, DROP
+    MAXS = a.max_season; DROP = {x for x in a.drop.split(",") if x}
     runs = load(a.dir)
     mods = tuple(x for x in a.mods.split(",") if x)
     talents = sorted({k[1] for k in runs if k[0] == a.arm})
@@ -202,12 +249,18 @@ def main():
         ts = title_share(runs, a.arm, talent, mods); cs = title_share(runs, a.base, talent)
         if ts:
             st = streaks(runs, a.arm, talent, mods)
-            lines.append(f"\nTitle share of the {len(runs[(a.arm, talent, leagues[0], mods)]['spec']['seats'])} seats: **{ts[0]*100:.1f}%** "
+            lines.append(f"\n[counts seasons after a GM was fired if any] Title share of the {len(runs[(a.arm, talent, leagues[0], mods)]['spec']['seats'])} seats: **{ts[0]*100:.1f}%** "
                          f"[{ts[1]*100:.1f}, {ts[2]*100:.1f}] ({ts[3]} titles in {ts[4]} league-seasons); {a.base} seats: "
                          f"{(cs[0]*100 if cs else float('nan')):.1f}% ({cs[3] if cs else 0}/{cs[4] if cs else 0}). "
                          f"Longest seat title streak: {st[0]}; back-to-back-title occurrences: {st[1]}.")
             js[str(talent)]["title_share"] = dict(est=ts[0], lo=ts[1], hi=ts[2], titles=ts[3], league_seasons=ts[4],
                                                  control=(cs[0] if cs else None), longest_streak=st[0], back_to_back=st[1])
+        tr = title_rates(runs, a.arm, talent, mods, a.base); tb = title_rates(runs, a.base, talent, (), a.arm) if False else None
+        trb = title_rates(runs, a.base, talent, (), None)
+        if tr:
+            lines.append(f"Titles per usable seat-season (same GM in both arms): {a.arm} {tr['titles']}/{tr['seat_seasons']} = {tr['rate']*100:.1f}% [{tr['lo']*100:.1f}, {tr['hi']*100:.1f}] over {tr['leagues']} leagues; "
+                         f"league-seasons with all four seats still theirs: {tr['all4_titles']} seat titles in {tr['all4_league_seasons']} league-seasons (parity 12.5%).")
+            js[str(talent)]["title_rate_usable"] = tr
         sp = spillover(runs, a.arm, talent, OUTCOMES["unit_start"][0], mods, a.base)
         if sp:
             lines.append(f"CPU (non-seat) teams' mean start-of-season unit score, treated minus control: {sp[0]:+.2f} [{sp[1]:+.2f}, {sp[2]:+.2f}] (t over leagues).")

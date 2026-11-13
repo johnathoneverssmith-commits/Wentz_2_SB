@@ -36,12 +36,23 @@ cd analysis/comp006
 npm ci && npm --prefix ../../ui-source ci          # once, from the repo root
 npx vitest run -c vitest.config.ts info-guard      # information guard
 ./run.sh out "9601 9602" "1 1.5" "control skilled" 10 4 4   # outdir seeds talents arms seasons seats workers [mods] [suffix]
-python3 analyze.py out --arm skilled               # tables; --arm idle, --base idle, --mods trades for ablations
+python3 analyze.py out --arm skilled --max-season 3   # PRIMARY: seasons 1-3 (no hot-seat censoring possible)
+python3 analyze.py out --arm skilled               # full horizon (survivor-selected after season 3)
+python3 analyze.py out --arm skilled --max-season 3 --drop 9608:1.5   # exclude a matched league (seed or seed:talent)
+                                                   # also: --arm idle, --base idle, --mods trades for ablations
 python3 export_slim.py out ../../docs/qa-longitudinal/comp-006-skilled-gm/data
 ```
 Pool: `ui-source/src/data/pool-2026.json` via `NFL_POOL_PATH` (set by `run.sh`; sha256 in the report). New leagues are the
 shipped Seeded League DNA leagues (fictional players) from `createLeague(seed, ...)`, fantasy draft off, so a league
 starts at `setup` with full rosters and plays the coaching draft first. Talent 1.0 = `realistic`, 1.5 = `amplified`.
+
+## Censoring and run accounting
+The hot-seat rule can fire a GM from season 4. `analyze.py` drops a seat-season once the seat's GM changed team in **either** arm
+(`censoredFrom` in each run file), so the primary window `--max-season 3` is uncensored and the full horizon is survivor-selected.
+Title figures: "per usable seat-season" never counts post-firing seasons; see the report, section 3c. Every run attempted, with
+its disposition (reused / discarded / re-run), is in `docs/qa-longitudinal/comp-006-skilled-gm/RUN_ACCOUNTING.md`.
+Runs are deterministic: re-running a seed with the committed code reproduces rows, ledgers and the fingerprint bit for bit
+(checked for 4 runs against files made with earlier driver versions).
 
 ## Engine path
 
