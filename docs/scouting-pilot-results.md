@@ -17,7 +17,7 @@ Solo-only, off by default (`config.scouting`). Each CPU GM buys `CPU_POINTS = 12
 
 **Acceptance check as approved (12 reports):**
 - Scouting at need ≥ +0.05: **met** on the point estimate (+0.085); the 95% interval's lower end (+0.046) is just below 0.05.
-- Skipping within ±0.03 of baseline: **not met** (−0.060; the whole 95% interval is outside ±0.03).
+- Skipping within ±0.03 of baseline: **not met** (−0.060; the whole 95% interval, −0.097 to −0.022, is outside ±0.03). **Owner decision: the 12-report budget stays and the −0.060 cost of skipping is accepted.** It exceeds the original ±0.03 band; the trade-off was accepted because scouting should matter: a GM who skips falls behind, and a GM who scouts at positions of need gains **+0.085** (95% CI +0.046 to +0.123) over today's draft.
 
 These numbers are from the corrected build. An earlier run used a need benchmark that averaged every 31st player rather than each team's best (Codex review finding, fixed in this PR): it gave need +0.081 and skip −0.060, so the conclusion did not change.
 
