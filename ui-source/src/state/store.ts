@@ -10,6 +10,7 @@ import { beginSetupCreation } from "./setupCreationStatus";
  * - Non-viewer human GMs are ready by default; the gate only waits on the viewer.
  */
 import { chooseGmStrategy } from "./aiGms.ts";
+import { budgetFor, spendReport, suggestTargets } from "./scouting.ts";
 import { minSalaryM, withLeagueCapFields } from "./capEconomy.ts";
 import { syncAiGms } from "./aiGms.ts";
 import { setSkip as setSkipFor, type SkipKind } from "./skips.ts";
@@ -198,6 +199,8 @@ export interface StoreActions {
   makePick: (selectedId: string) => void;
   autopickRemaining: () => void;
   toggleDraftTarget: (gmId: string, id: string) => void;
+  /** Spend scouting points on rookie prospects (`state/scouting.ts`); returns how many reports were bought. */
+  scoutProspects: (team: string, ids: string[] | "needs") => number;
 
   startBidding: (subject: Subject) => void;
   /** Place/replace this team's bid in the live window. Rejects (changing
@@ -867,7 +870,8 @@ export const useStore = create<Store>()(
         }
         setResetRefused(null);
         // instant, Mock-backed skeleton — always playable, never blocks on the network
-        set(() => createLeague(seed, config) as Store);
+        // `scouting` is cleared explicitly: set() merges, and a ledger left from the dynasty being replaced would score this league's prospects (ids repeat by year)
+        set(() => ({ ...createLeague(seed, config), scouting: undefined }) as Store);
         try {
           // a League DNA league already has its players: the adapter's real pool would replace them
           const fictional = !!get().dna;
@@ -1293,6 +1297,15 @@ export const useStore = create<Store>()(
       },
 
       toggleDraftTarget: (gmId, id) => set((s) => toggleDraftTargetFor(s, gmId, id)),
+
+      scoutProspects: (team, ids) => {
+        let bought = 0;
+        set((s) => {
+          const budget = budgetFor(s, team);
+          for (const id of ids === "needs" ? suggestTargets(s, team, budget) : ids) if (spendReport(s, team, id, budget).ok) bought++;
+        });
+        return bought;
+      },
 
       startBidding: (subject) => set((s) => beginBidding(s, subject)),
 

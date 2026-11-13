@@ -1,0 +1,137 @@
+{
+  "seeds": [
+    9901,
+    9948
+  ],
+  "nSeeds": 48,
+  "arms": {
+    "B12_skip": {
+      "humanVsControl": {
+        "mean": -0.0462,
+        "se": 0.0179,
+        "ci95": [
+          -0.0822,
+          -0.0103
+        ],
+        "n": 48
+      },
+      "cpuVsControl": {
+        "mean": 0.0342,
+        "se": 0.0127,
+        "ci95": [
+          0.0087,
+          0.0598
+        ],
+        "n": 48
+      },
+      "humanMinusCpu": {
+        "mean": -0.0804,
+        "se": 0.0242,
+        "ci95": [
+          -0.1292,
+          -0.0317
+        ],
+        "n": 48
+      },
+      "cpuScoutMsPerLeague": 65.5,
+      "cpuScoutMsMax": 84.2,
+      "cpuProspectsScouted": 52.8,
+      "humanReports": null,
+      "cpuReports": {
+        "n": 12096,
+        "rmsePublic": 6.9,
+        "rmseReport": 5.03,
+        "coverage80": 0.822
+      }
+    },
+    "B12_need24": {
+      "humanVsControl": {
+        "mean": 0.1011,
+        "se": 0.0207,
+        "ci95": [
+          0.0595,
+          0.1428
+        ],
+        "n": 48
+      },
+      "cpuVsControl": {
+        "mean": -0.0187,
+        "se": 0.0131,
+        "ci95": [
+          -0.0452,
+          0.0077
+        ],
+        "n": 48
+      },
+      "humanMinusCpu": {
+        "mean": 0.1199,
+        "se": 0.0256,
+        "ci95": [
+          0.0683,
+          0.1714
+        ],
+        "n": 48
+      },
+      "cpuScoutMsPerLeague": 63.3,
+      "cpuScoutMsMax": 86.4,
+      "cpuProspectsScouted": 52.8,
+      "humanReports": {
+        "n": 12672,
+        "rmsePublic": 7.52,
+        "rmseReport": 5.11,
+        "coverage80": 0.83
+      },
+      "cpuReports": {
+        "n": 12096,
+        "rmsePublic": 6.9,
+        "rmseReport": 5.03,
+        "coverage80": 0.822
+      }
+    },
+    "B12_top24": {
+      "humanVsControl": {
+        "mean": -0.0462,
+        "se": 0.0186,
+        "ci95": [
+          -0.0836,
+          -0.0088
+        ],
+        "n": 48
+      },
+      "cpuVsControl": {
+        "mean": 0.0257,
+        "se": 0.0139,
+        "ci95": [
+          -0.0023,
+          0.0537
+        ],
+        "n": 48
+      },
+      "humanMinusCpu": {
+        "mean": -0.0719,
+        "se": 0.0253,
+        "ci95": [
+          -0.1229,
+          -0.021
+        ],
+        "n": 48
+      },
+      "cpuScoutMsPerLeague": 65,
+      "cpuScoutMsMax": 101.4,
+      "cpuProspectsScouted": 52.8,
+      "humanReports": {
+        "n": 12672,
+        "rmsePublic": 6.57,
+        "rmseReport": 4.83,
+        "coverage80": 0.831
+      },
+      "cpuReports": {
+        "n": 12096,
+        "rmsePublic": 6.9,
+        "rmseReport": 5.03,
+        "coverage80": 0.822
+      }
+    }
+  },
+  "controlDraftMs": 66.6
+}

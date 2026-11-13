@@ -405,6 +405,21 @@ export function LeagueSetup() {
             ))}
           </select>
         </SettingRow>
+        {!online && (
+          <SettingRow
+            label="Rookie scouting (pilot)"
+            hint="Off: the draft is exactly as it was. On: every GM can buy basic scouting reports on rookie prospects before the draft (you get 24, each CPU GM 12). A report is a better guess at a rookie's rating, never exact. Solo leagues only."
+          >
+            <select
+              value={config.scouting ? "on" : "off"}
+              disabled={settingsLocked}
+              onChange={(e) => setConfig({ scouting: e.target.value === "on" })}
+            >
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </select>
+          </SettingRow>
+        )}
         <SettingRow
           label="Talent impact"
           hint={TALENT_IMPACT_HINT[config.talentImpact ?? "realistic"]}
