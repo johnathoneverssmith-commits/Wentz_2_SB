@@ -28,6 +28,7 @@ import { fitFor } from "@/state/unitReport";
 import { posLabel } from "@/util/format";
 import { PickMoments } from "@/components/PickMoments";
 import { ScoutingBrief } from "@/components/ScoutingBrief";
+import { HUMAN_POINTS, pointsSpent, reportsFor } from "@/state/scouting";
 
 interface Available {
   id: string;
@@ -294,6 +295,10 @@ export function DraftRoom() {
   // your stars first: the highest target still on the board (the draft
   // preview is where they're set — they used to go nowhere)
   const myTargets = draftTargetsFor(s, s.viewerGmId);
+  // scouting (rookie draft, leagues that opted in): this GM's own reports only
+  const scoutingOn = mode === "rookie" && !!s.config.scouting && !!code && !!draft;
+  const myReports = scoutingOn ? reportsFor(s, code!, draft!.year) : {};
+  const pointsLeft = scoutingOn ? HUMAN_POINTS - pointsSpent(s, code!, draft!.year) : 0;
   const topTarget = mode === "rookie" ? myTargets.find((id) => available.some((a) => a.id === id)) : undefined;
   const suggestedId = yourPick && !complete ? (topTarget ?? bestAvailable(s)) : null;
   const suggested = suggestedId ? available.find((a) => a.id === suggestedId) : undefined;
@@ -442,6 +447,15 @@ export function DraftRoom() {
             actual rating stays hidden until you sign him.
           </p>
         )}
+        {scoutingOn && !complete && (
+          <div className="notice" role="status" data-testid="scouting-strip" style={{ marginBottom: 12 }}>
+            <strong>Scouting:</strong> {pointsLeft} of {HUMAN_POINTS} reports left. A report re-reads a prospect's rookie rating
+            (a best guess and an 80% range); it is never exact, and unscouted prospects keep the public projection.{" "}
+            <button type="button" className="btn-primary" style={{ fontSize: 11, padding: "5px 10px" }} disabled={pointsLeft <= 0} onClick={() => void actions.scoutProspects("needs")}>
+              Scout my needs
+            </button>
+          </div>
+        )}
         <div className="scroll-list" style={{ overflowX: "auto" }}>
           <table className="stbl draft-avail" aria-label="Available draft players">
             <thead>
@@ -498,6 +512,17 @@ export function DraftRoom() {
                       )
                     )}
                     <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-faint)" }}>{p.sub}</span>
+                    {scoutingOn && (
+                      myReports[p.id] ? (
+                        <span data-testid="scout-report" style={{ display: "block", fontSize: 11, fontWeight: 650 }}>
+                          Scouted: about {myReports[p.id]!.estimate} as a rookie ({myReports[p.id]!.lo}–{myReports[p.id]!.hi})
+                        </span>
+                      ) : !complete ? (
+                        <button type="button" className="btnlink" disabled={pointsLeft <= 0} aria-label={`Scout ${p.name}`} onClick={() => void actions.scoutProspects([p.id])}>
+                          {pointsLeft > 0 ? `Scout (1 of ${pointsLeft})` : "No reports left"}
+                        </button>
+                      ) : null
+                    )}
                     {p.scout && <span style={{ display: "block", fontSize: 10.5, color: "var(--ink-dim)", marginTop: 2 }}>{p.scout}</span>}
                   </td>
                   <td className="c" data-label="Position">{posLabel(p.position)}</td>
