@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 
 const calls = { engine: 0, scales: {} as Record<string, number>, mock: {} as Record<string, number> };
-vi.mock("../../src/engine/sim.js", async (orig) => {
+vi.mock("../../../../src/engine/sim.js", async (orig) => {
   const m: any = await orig();
   return { ...m, simulateGame: (...a: any[]) => { calls.engine++; const k = String(a[3]?.talentScale); calls.scales[k] = (calls.scales[k] ?? 0) + 1; return m.simulateGame(...a); } };
 });

@@ -1,6 +1,6 @@
 # COMP-006: does a scripted skilled GM dominate the default CPU GM?
 
-Analysis only. **Primary comparison: seasons 1-3** (see section 3). Run accounting: `RUN_ACCOUNTING.md`. No production gameplay, rating, pool, schema, cap or balance constant was changed. Harness: `analysis/comp006/`
+Analysis only. **Primary comparison: seasons 1-3** (see section 3). Run accounting: `RUN_ACCOUNTING.md`. No production gameplay, rating, pool, schema, cap or balance constant was changed. Harness: `harness/` (this folder; see `harness/README.md`)
 (README there). Raw per-run JSON (~15 MB) is regenerable (runs are deterministic) and is not committed; the committed data are
 `data/*.csv` (seat-seasons, league-seasons, run metadata) and `data/tables_*.md`.
 

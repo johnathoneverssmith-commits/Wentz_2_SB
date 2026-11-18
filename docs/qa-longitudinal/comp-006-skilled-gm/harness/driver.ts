@@ -39,8 +39,8 @@ import {
   decideStaffFix,
   decideTrainingCamp,
   runPendingCpuTurns,
-} from "../../online/src/decide.js";
-import { advanceIfReadyLocal, advanceStage, clearReadinessOnline } from "../../online/src/phases.js";
+} from "../../../../online/src/decide.js";
+import { advanceIfReadyLocal, advanceStage, clearReadinessOnline } from "../../../../online/src/phases.js";
 import * as K from "./skilled.js";
 import { ALL_MODULES, type Ctx, type Ledger, type Module } from "./skilled.js";
 

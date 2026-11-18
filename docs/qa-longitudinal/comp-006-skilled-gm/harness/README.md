@@ -4,6 +4,11 @@ Analysis only. No production gameplay, rating, pool, schema, cap or balance cons
 `ui-source/src/`, `online/src/`, `artifacts/` or CI is touched. The harness imports those modules and drives them.
 The report is `docs/qa-longitudinal/comp-006-skilled-gm/REPORT.md`.
 
+## Why this lives under `docs/`
+The repo's root `tsconfig.json` (`npm run typecheck`) includes all of `analysis/` but has no `@/` alias, and this harness imports the
+franchise rules through `@/` (as `online/` does). Placed in `analysis/` it broke the required engine typecheck (CI run 43339716598), so
+it sits beside the report, like the PR #95 / #105 harnesses. It has its own `tsconfig.json` and `vitest.config.ts`.
+
 ## Files
 
 | File | Role |
@@ -32,7 +37,7 @@ streams diverge, so a pair is "same team, same league, different GM", not "same 
 ## Reproduce
 
 ```bash
-cd analysis/comp006
+cd docs/qa-longitudinal/comp-006-skilled-gm/harness   # from the repo root
 npm ci && npm --prefix ../../ui-source ci          # once, from the repo root
 npx vitest run -c vitest.config.ts info-guard      # information guard
 ./run.sh out "9601 9602" "1 1.5" "control skilled" 10 4 4   # outdir seeds talents arms seasons seats workers [mods] [suffix]
@@ -40,7 +45,8 @@ python3 analyze.py out --arm skilled --max-season 3   # PRIMARY: seasons 1-3 (no
 python3 analyze.py out --arm skilled               # full horizon (survivor-selected after season 3)
 python3 analyze.py out --arm skilled --max-season 3 --drop 9608:1.5   # exclude a matched league (seed or seed:talent)
                                                    # also: --arm idle, --base idle, --mods trades for ablations
-python3 export_slim.py out ../../docs/qa-longitudinal/comp-006-skilled-gm/data
+python3 export_slim.py out ../data
+npx tsc -p tsconfig.json --noEmit                  # type-check the harness (uses the online project's `@/` alias)
 ```
 Pool: `ui-source/src/data/pool-2026.json` via `NFL_POOL_PATH` (set by `run.sh`; sha256 in the report). New leagues are the
 shipped Seeded League DNA leagues (fictional players) from `createLeague(seed, ...)`, fantasy draft off, so a league
