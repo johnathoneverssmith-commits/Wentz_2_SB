@@ -74,7 +74,7 @@ import {
 } from "./aiStrategy.ts";
 import { type AiDifficultyProfile, deterministicNoiseUnit, difficultyProfile, shortlistByBaseScore } from "./aiDifficulty.ts";
 import { growCap, marketScale, minSalaryM } from "./capEconomy.ts";
-import { applyReports, budgetFor, reportsFor, runCpuScouting } from "./scouting.ts";
+import { applyReports, budgetFor, reportsFor, runCpuScouting, scoutingEnv } from "./scouting.ts";
 import { POSITION_VALUE, effectiveByPosition, expectedRatings, freeAgentAlternatives, rookieValue, strategyScaleFor, teamHorizon, windowEffect, type MarketPlayer, type MarketTeam } from "./draftBoard.ts";
 import { difficultyFor, recordAiOutcomes, strategyOf } from "./aiGms.ts";
 import { commitmentsOf } from "./contractValue.ts";
@@ -2386,7 +2386,8 @@ export function beginDraft(s: LeagueState, mode: DraftMode): void {
   };
   // Scouting: the league's CPU GMs buy their reports as the draft opens, from the same menu and prices as a person
   // (a CPU never gets more points than a person, and picks its targets from public data only). Off unless the league opted in.
-  if (mode === "rookie" && s.config.scouting) {
+  // `scoutingEnv()` is null where the host has switched scouting off (an online server without it): no ledger, no spending.
+  if (mode === "rookie" && s.config.scouting && scoutingEnv() !== null) {
     s.scouting = { year: s.season, reports: {} };
     for (const code of Object.keys(s.teams)) {
       if (isAiTeam(s, code)) runCpuScouting(s, code, budgetFor(s, code));

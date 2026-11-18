@@ -11,6 +11,7 @@ import type { LeagueState } from "@/domain";
 import { upgradeLeagueState } from "@/state/saveMigration.ts";
 
 import { takeBlockJobs } from "./blockJobs.js";
+import { ScoutingUnavailable, scoutContextFor, withScoutContext } from "./scouting.js";
 import { takeNotes } from "./notes.js";
 import { attentionOf, deliverNudges, nudgesFor, type Attention } from "./push.js";
 import { runBlockJobs } from "./simPool.js";
@@ -356,7 +357,10 @@ async function withLeagueLocked<T>(
     } catch {
       // notifications are never a reason to refuse an action
     }
-    const out = await apply(loaded, client);
+    // Scouting: the secret is read (and made, once) here, under the row lock, and stays in scope for everything the
+    // action does, including the CPU teams buying their reports as a draft opens (`scouting.ts`).
+    const scout = await scoutContextFor(client, leagueId, loaded.state, isConnectionError);
+    const out = await withScoutContext(scout, () => apply(loaded, client));
     // a stage that opened a block of games queued it rather than playing it
     // on the event loop; play it now, off-thread, before anything is written
     const jobs = takeBlockJobs(out.state);
@@ -468,6 +472,7 @@ async function withLeagueLocked<T>(
         503,
       );
     }
+    if (err instanceof ScoutingUnavailable) throw new ActionError(err.message, 503);
     throw err;
   } finally {
     guard.release(rollbackFailed);

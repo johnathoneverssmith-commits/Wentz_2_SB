@@ -465,7 +465,7 @@ export interface LeagueState {
    */
   draftTargets?: Record<string, string[]>;
   /** Rookie-draft scouting reports bought this year, by team (`state/scouting.ts`). Absent = nobody has scouted. */
-  scouting?: { year: number; reports: Record<string, Record<string, { estimate: number; lo: number; hi: number }>> };
+  scouting?: { year: number; reports: Record<string, Record<string, { estimate: number; lo: number; hi: number }>> } | undefined;
   /** This league's scoring correction for the engine (`scoringCommittee`). */
   offenseAdjust?: number;
   /** The last season whose accrued years were credited (`accrueCareers`). */

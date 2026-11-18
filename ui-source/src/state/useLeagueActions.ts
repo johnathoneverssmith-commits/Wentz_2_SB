@@ -110,7 +110,7 @@ export interface LeagueActions {
   setConfig: (patch: Partial<LeagueConfig>) => Promise<ActionResult>;
   /** Star or unstar a draft prospect (private to this GM). */
   toggleDraftTarget: (prospectId: string) => Promise<ActionResult>;
-  /** Spend scouting points on rookie prospects: a list, or "needs" for the suggested targets. Solo only until the online action ships. */
+  /** Spend scouting points on rookie prospects: a list, or "needs" for the suggested targets. Online, the server buys and the pull returns only this team's reports. */
   scoutProspects: (ids: string[] | "needs") => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
@@ -465,8 +465,9 @@ export function useLeagueActions(): LeagueActions {
       setConfig: (patch) => attempt(() => send((s) => s.client.updateConfig(s.leagueId, patch))).then(after),
       toggleDraftTarget: (prospectId) =>
         attempt(() => send((s) => s.client.toggleDraftTarget(s.leagueId, prospectId))).then(after),
-      // the server action and its privacy view are the production half of this slice (docs/scouting-slice.md)
-      scoutProspects: async () => ({ ok: false, error: "Scouting is not available in online leagues yet." }),
+      // the server buys, from its own secret, and the pull that follows carries this team's reports only
+      scoutProspects: (ids) =>
+        attempt(() => send((s) => s.client.scout(s.leagueId, ids === "needs" ? { needs: true } : { prospectIds: ids }))).then(after),
       stepForward: (step) =>
         attempt(() => send((s) => s.client.stepForward(s.leagueId, step, s.version))).then(after),
       freeAgencyTurn: (move) =>

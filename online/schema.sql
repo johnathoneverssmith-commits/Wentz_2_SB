@@ -141,3 +141,12 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions (user_id);
+
+-- Online scouting: one random 32-byte salt per league that opted in, kept OUT of the league document (which is sent
+-- to every member) so report noise cannot be recomputed by a client. Created with the league, or lazily, once, under
+-- the league's row lock. Additive: a league without a row has never scouted, and nothing reads this table for it.
+CREATE TABLE IF NOT EXISTS league_secrets (
+  league_id  TEXT PRIMARY KEY REFERENCES leagues(id) ON DELETE CASCADE,
+  scout_salt BYTEA NOT NULL CHECK (octet_length(scout_salt) = 32),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
