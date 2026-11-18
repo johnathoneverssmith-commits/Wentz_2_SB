@@ -115,6 +115,28 @@ describe("playoff handlers", () => {
     expect(withBroadcast.every((k) => k.includes(home))).toBe(true);
   });
 
+  it("a round without rosters plays the reference teams: games, no boxes, no throw", () => {
+    const body = { seed: 21, seeding, roundsPlayed: 0, viewerTeam: home } as unknown as Parameters<typeof handlePlayoffRound>[0];
+    const a = handlePlayoffRound(body);
+    expect(a.games.length).toBe(6);
+    expect(a.boxes).toEqual({});
+    expect(handlePlayoffRound(body)).toEqual(a);
+    // and the games are the same ones the engine's own stepper decides
+    const full = handlePlayoffRound({ ...body, roundsPlayed: 3 } as typeof body);
+    expect(full.done).toBe(true);
+    expect(full.champion).toBeTruthy();
+  });
+
+  it("a single decided game without rosters returns its score and no box", () => {
+    const r = handlePlayoffGame({ seed: 31, homeTeam: home, awayTeam: away, neutralSite: true });
+    expect(r.homeScore).not.toBe(r.awayScore);
+    expect(r.box).toBeNull();
+  });
+
+  it("malformed seeding is still rejected, not swallowed", () => {
+    expect(() => handlePlayoffRound({ seed: 1, seeding: { AFC: mk([]), NFC: mk([]) }, roundsPlayed: 0 } as unknown as Parameters<typeof handlePlayoffRound>[0])).toThrow(/7 seeds/);
+  });
+
   it("a single decided game is never tied and returns its box", () => {
     const r = handlePlayoffGame({ seed: 31, homeTeam: home, awayTeam: away, neutralSite: true, rosters, viewerTeam: home });
     expect(r.homeScore).not.toBe(r.awayScore);

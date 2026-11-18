@@ -1991,6 +1991,8 @@ The engine adapter's `/playoffs/round` is a stateless stepper that replayed ever
 
 **Found, not changed.** On unchanged `master`, `/playoffs/round` returns 500 ("Cannot read properties of undefined (reading 'gained')") when `rosters` is omitted, although the request type documents that case (reference rosters). The UI always sends rosters. Left as is to keep this change byte-identical; separate fix.
 
+**Fixed afterwards (omitted `rosters`).** `/playoffs/round` and `/playoffs/game` without `rosters` now return 200 instead of 500. Cause: the reference teams play untraced (`decide` in `engine/playoffs.ts`, deliberately unchanged, so the pool-free paths stay byte-identical), and `presentCaptured` built a box score from a game with no play trace. It now skips untraced games. **Intentional response change, omitted-rosters only:** `games`, `nextRoundPreview`, `done` and `champion` are what the engine decides (as before the box layer was added); `boxes` is `{}` and `/playoffs/game` returns `box: null` (no play data exists to build one, and no `broadcast` either). Supplied-roster responses are byte-identical (sha256 of rounds 0-3 plus a single game, with a viewer, equal on `master` and the fix).
+
 **Not changed.** Engine behaviour, artifacts, pool, saves/schema, UI, `howItWorks.ts`, online game loops and seeds, the browser worker (Phase 4). Python mirror: none (adapter/presentation code has no Python counterpart). Python §22/§23 still cannot run here.
 
 ## Issue #74 Phase 4a: the engine runs in a browser worker (2026-11)
