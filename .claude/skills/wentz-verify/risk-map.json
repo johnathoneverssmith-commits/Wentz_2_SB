@@ -300,6 +300,13 @@
       "recommends": ["related-engine", "full-online"]
     },
     {
+      "id": "sim-service", "class": "engine-adapter", "risk": "medium", "component": "engine",
+      "match": ["src/sim-service/**"],
+      "requires": ["tc-engine", "tc-online", "direct-tests", "full-engine", "full-online", "ci-pr"],
+      "recommends": ["related-engine"],
+      "notes": ["Shared by the local adapter (server/), the online server's box scores and, later, a browser worker: check the adapter's responses too, and run the online suite."]
+    },
+    {
       "id": "analysis", "class": "analysis-scripts", "risk": "low", "component": "engine",
       "match": ["analysis/**"],
       "requires": ["scope"],

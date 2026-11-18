@@ -1,6 +1,6 @@
 import { parentPort } from "node:worker_threads";
 
-import { simulateOne, type GameInput } from "./simGame.js";
+import { simulateOne, type GameInput } from "../src/sim-service/game.js";
 
 parentPort?.on("message", (msg: { id: number; input: GameInput }) => {
   try {

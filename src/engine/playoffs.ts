@@ -126,7 +126,7 @@ function decide(
           overtime: "nfl" as const,
           mustDecide: true,
           offenseAdjust: _playoffOffense,
-          // the same game a regular-season week plays (`server/simGame.ts`):
+          // the same game a regular-season week plays (`src/sim-service/game.ts`):
           // injuries roll and pull starters, and the play trace is kept for
           // the box score. Without the injury flag a playoff game was a
           // different simulation, with a different RNG stream and no
