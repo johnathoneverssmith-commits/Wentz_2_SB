@@ -271,6 +271,45 @@ describe("caching and reloads", () => {
     expect(offline.assetRequests()).toEqual([]);
   });
 
+  it("an upgrade that fails to start leaves the working engine's files alone, so it still starts offline", async () => {
+    const cache = new FakeCacheStorage();
+    await setup(new FakeSite(dir1), {}, cache).client.ensureReady(); // engine A: running, saved
+    const aFiles = cache.entries.filter((u) => !u.endsWith("manifest.json"));
+    expect(aFiles).toHaveLength(3);
+
+    // engine B shares A's worker and artifacts and has a new pool; its worker never answers init
+    const made: FakeWorker[] = [];
+    const upgrading = setup(new FakeSite(dir2), { createWorker: () => (made.push(new FakeWorker("silent")), made.at(-1)!), timeoutMs: { init: 40 } }, cache);
+    const e = await upgrading.client.ensureReady().catch((x: unknown) => x);
+    expect(e).toMatchObject({ stage: "init", retryable: true });
+    expect(made).toHaveLength(1); // a slow worker is not evidence of bad files: no second attempt from the network
+    // A's three files are all still saved, and so is A's manifest
+    expect(cache.entries.filter((u) => aFiles.includes(u))).toEqual(aFiles.slice().sort());
+
+    const offline = new FakeSite(dir2);
+    offline.fail = () => new TypeError("Failed to fetch");
+    const info = await setup(offline, {}, cache).client.ensureReady();
+    expect(info).toMatchObject({ offline: true, fromCache: true, engineVersion: v1.manifest.engineVersion });
+    expect(offline.assetRequests()).toEqual([]);
+  });
+
+  it("files that disagree with the manifest are dropped, but never ones the working engine also needs", async () => {
+    const cache = new FakeCacheStorage();
+    await setup(new FakeSite(dir1), {}, cache).client.ensureReady(); // engine A saved
+    // B: same worker and artifacts, but its manifest promises a pool version its pool file does not have
+    const site = new FakeSite(dir2);
+    const original = site.fetch;
+    const wrong = { ...v2.manifest, pool: { ...v2.manifest.pool, poolVersion: "0".repeat(64) } };
+    site.fetch = async (input, init) => (String(input).endsWith("manifest.json") ? new Response(JSON.stringify(wrong)) : original(input, init));
+    const e = await setup(site, {}, cache).client.ensureReady().catch((x: unknown) => x);
+    expect(e).toMatchObject({ stage: "init", retryable: true });
+    const left = cache.entries;
+    expect(left.some((u) => u.endsWith(v1.manifest.worker.url))).toBe(true); // shared with A: kept
+    expect(left.some((u) => u.endsWith(v1.manifest.artifacts.url))).toBe(true); // shared with A: kept
+    expect(left.some((u) => u.endsWith(v1.manifest.pool.url))).toBe(true); // A's own pool: kept
+    expect(left.some((u) => u.endsWith(v2.manifest.pool.url))).toBe(false); // B's mismatching pool: dropped
+  });
+
   it("a stale cached manifest never wins over a reachable server", async () => {
     const cache = new FakeCacheStorage();
     await setup(new FakeSite(dir1), {}, cache).client.ensureReady();

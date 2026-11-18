@@ -201,7 +201,7 @@ export class EngineWorkerClient {
     } catch (e) {
       // files that don't agree with each other (a saved copy from another engine, a deploy caught half way): the saved
       // copies were just dropped, so go to the network once. A damaged saved copy never gets here; it is replaced inline.
-      if (isEngineLoadError(e) && e.retryable && e.stage === "init") return await this.loadOnce(true, epoch);
+      if (isEngineLoadError(e) && e.stage === "init" && e.suspectsFiles) return await this.loadOnce(true, epoch);
       throw e;
     }
   }
@@ -244,7 +244,7 @@ export class EngineWorkerClient {
       // only this start's own worker: after dispose() a newer start may own `this.worker` by now
       if (this.worker === worker) this.failWorker(isEngineLoadError(e) ? e : messages.worker(String(e)), false);
       else worker.terminate();
-      if (isEngineLoadError(e) && e.stage === "init" && e.retryable && epoch === this.epoch) await this.purge(manifest);
+      if (isEngineLoadError(e) && e.stage === "init" && e.suspectsFiles && epoch === this.epoch) await this.purge(manifest);
       throw e;
     }
     if (epoch !== this.epoch) {
@@ -261,8 +261,26 @@ export class EngineWorkerClient {
     return { engineVersion: manifest.engineVersion, poolVersion: info.poolVersion, players: info.players, fromCache, offline };
   }
 
+  /**
+   * Drops the files of a manifest that wouldn't start, except any the saved (last working) manifest also names: an
+   * upgrade that shares its worker or artifacts with the engine this browser can still start offline must not take
+   * those down with it.
+   */
   private async purge(manifest: SimEngineManifest): Promise<void> {
-    for (const e of [manifest.worker, manifest.artifacts, manifest.pool]) await this.store.delete(new URL(e.url, this.manifestUrl).href);
+    const keep = new Set<string>();
+    const saved = await this.store.get(this.manifestUrl);
+    if (saved) {
+      try {
+        const m = parseManifest(JSON.parse(new TextDecoder().decode(saved)));
+        for (const e of [m.worker, m.artifacts, m.pool]) keep.add(new URL(e.url, this.manifestUrl).href);
+      } catch {
+        /* an unreadable saved manifest protects nothing */
+      }
+    }
+    for (const e of [manifest.worker, manifest.artifacts, manifest.pool]) {
+      const url = new URL(e.url, this.manifestUrl).href;
+      if (!keep.has(url)) await this.store.delete(url);
+    }
   }
 
   private async timed(url: string, ms: number, init: RequestInit = {}): Promise<Response> {
@@ -430,8 +448,9 @@ export class EngineWorkerClient {
           clearTimeout(timer);
           if (isEngineLoadError(e)) return reject(e);
           const why = e instanceof Error ? e.message.replace(/^the engine could not answer a request: /, "") : String(e);
-          // a pool or artifact set that doesn't match what the manifest promised is a bad saved copy: worth one fresh download
-          reject(messages.init(why, /pool version mismatch|artifact source .* rejected|not initialised/.test(why) ? true : false, e));
+          // files that disagree with what the manifest promised are suspect and worth one fresh download; a worker that
+          // is merely slow or unhappy is not evidence the saved bytes are bad
+          reject(messages.init(why, /pool version mismatch|artifact source .* rejected/.test(why), e));
         },
       });
       worker.postMessage(

@@ -14,6 +14,8 @@ export class EngineLoadError extends Error {
     readonly retryable: boolean,
     readonly detail?: string,
     cause?: unknown,
+    /** the files themselves look wrong (they disagree with the manifest), as opposed to merely not having started */
+    readonly suspectsFiles = false,
   ) {
     super(message);
     this.name = "EngineLoadError";
@@ -79,15 +81,16 @@ export const messages = {
       why,
       cause,
     ),
-  init: (why: string, retryable: boolean, cause?: unknown) =>
+  init: (why: string, suspectsFiles: boolean, cause?: unknown) =>
     new EngineLoadError(
       "init",
-      retryable
+      suspectsFiles
         ? `The simulation engine downloaded but wouldn't start (${why}). The saved copy was discarded; press Retry to fetch a fresh one.`
-        : `The simulation engine downloaded but wouldn't start (${why}). Reload the page; if it still fails, report this message.`,
-      retryable,
+        : `The simulation engine downloaded but wouldn't start (${why}). Press Retry; if it still fails, reload the page and report this message.`,
+      true,
       why,
       cause,
+      suspectsFiles,
     ),
   cancelled: () =>
     new EngineLoadError("worker", "The simulation engine was shut down while it was starting. Ask for it again to start it.", true, "disposed during start"),
