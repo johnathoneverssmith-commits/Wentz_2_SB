@@ -301,7 +301,7 @@
     },
     {
       "id": "sim-service", "class": "engine-adapter", "risk": "medium", "component": "engine",
-      "match": ["src/sim-service/**"],
+      "match": ["src/sim-service/**", "scripts/build-sim-worker.ts"],
       "requires": ["tc-engine", "tc-online", "direct-tests", "full-engine", "full-online", "ci-pr"],
       "recommends": ["related-engine"],
       "notes": ["Shared by the local adapter (server/), the online server's box scores and, later, a browser worker: check the adapter's responses too, and run the online suite."]

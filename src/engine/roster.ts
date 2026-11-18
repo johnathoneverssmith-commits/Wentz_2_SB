@@ -6,11 +6,10 @@
  * individual skill attributes via the rating layer (`ratings.ts`).
  */
 
-import { createHash } from "node:crypto";
-
 import type { Player } from "../schema/player.js";
 import { loadPlayerPool, resolveDefaultPoolPath } from "../data/players.js";
 import { policyOrder } from "./rookies.js";
+import { sha256Hex } from "./sha256.js";
 
 export const OFF_SLOTS = [
   "QB1", "RB1", "WR1", "WR2", "WR3", "TE1", "LT", "LG", "C", "RG", "RT",
@@ -69,7 +68,7 @@ function dropPoolDerived(): void {
  * differently and must not share a version.
  */
 export function poolVersion(players: readonly Player[]): string {
-  return createHash("sha256").update(JSON.stringify(players)).digest("hex");
+  return sha256Hex(JSON.stringify(players));
 }
 
 export interface ReferencePoolInfo {
