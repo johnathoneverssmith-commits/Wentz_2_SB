@@ -199,6 +199,8 @@ test.describe("the browser simulation engine in Chromium", () => {
       ["/coach-market", { seed: 7 }],
       ["/scheme-fit-baseline", {}],
       ["/playoffs/seed", { games: [{ week: 1, home: four[0], away: four[1], homeScore: 21, awayScore: 17 }, { week: 2, home: four[2], away: four[3], homeScore: 10, awayScore: 20 }] }],
+      // no rosters: the reference teams play untraced and the games come back without a box (fixed on master in #127)
+      ["/playoffs/round", { seed: 21, seeding, roundsPlayed: 0 }],
       ["/playoffs/round", { seed: 21, seeding, roundsPlayed: 0, rosters: Object.fromEntries(t14.map((t) => [t, playersOf(t)])), viewerTeam: t14[0] }],
       ["/playoffs/game", { seed: 31, homeTeam: t14[0], awayTeam: t14[7], neutralSite: true, rosters: { [t14[0]!]: playersOf(t14[0]!), [t14[7]!]: playersOf(t14[7]!) }, viewerTeam: t14[0] }],
     ];
