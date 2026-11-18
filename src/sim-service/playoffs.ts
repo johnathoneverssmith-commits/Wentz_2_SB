@@ -115,6 +115,10 @@ function presentCaptured(
   const out: Record<string, unknown> = {};
   for (const [key, { g, neutral, seed }] of c.games) {
     const [home, away] = key.split("|") as [string, string];
+    // No rosters supplied: the reference teams play untraced (`decide` in
+    // engine/playoffs.ts), so there is no play data to build a box from. The
+    // game itself is still returned; it just has no box.
+    if (!g.playTrace) continue;
     const present = presentGame(g, {
       homeTeam: home,
       awayTeam: away,
