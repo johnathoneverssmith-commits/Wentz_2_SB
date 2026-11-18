@@ -89,6 +89,8 @@ export const messages = {
       why,
       cause,
     ),
+  cancelled: () =>
+    new EngineLoadError("worker", "The simulation engine was shut down while it was starting. Ask for it again to start it.", true, "disposed during start"),
   timeout: (what: string, ms: number) =>
     new EngineLoadError(
       "init",

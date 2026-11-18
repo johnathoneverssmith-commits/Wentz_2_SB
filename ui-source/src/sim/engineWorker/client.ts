@@ -93,6 +93,8 @@ export class EngineWorkerClient {
   private readonly t: { manifest: number; asset: number; init: number };
   private readonly manifestUrl: string;
 
+  /** bumped by dispose(): a start that began under an older value must not create a worker or publish readiness */
+  private epoch = 0;
   private state: Status = "idle";
   private loading: Promise<EngineInfo> | null = null;
   private info: EngineInfo | null = null;
@@ -127,21 +129,29 @@ export class EngineWorkerClient {
     if (this.loading) return this.loading;
     this.state = "loading";
     this.lastError = null;
-    this.loading = this.load().then(
+    const epoch = this.epoch;
+    const attempt: Promise<EngineInfo> = this.load(epoch).then(
       (info) => {
-        this.state = "ready";
-        this.info = info;
-        this.loading = null;
+        if (epoch === this.epoch) {
+          this.state = "ready";
+          this.info = info;
+          this.loading = null;
+        }
         return info;
       },
       (e: unknown) => {
-        this.state = "failed";
-        this.loading = null;
-        this.lastError = isEngineLoadError(e) ? e : messages.worker(e instanceof Error ? e.message : String(e), e);
-        throw this.lastError;
+        const err = isEngineLoadError(e) ? e : messages.worker(e instanceof Error ? e.message : String(e), e);
+        // a start that dispose() cancelled reports to its own caller and touches nothing a newer start owns
+        if (epoch === this.epoch) {
+          this.state = "failed";
+          this.loading = null;
+          this.lastError = err;
+        }
+        throw err;
       },
     );
-    return this.loading;
+    this.loading = attempt;
+    return attempt;
   }
 
   /** One route of the simulation service (`/simulate-week`, …) with its request body; resolves to the parsed answer. */
@@ -170,21 +180,28 @@ export class EngineWorkerClient {
 
   /** Stops the worker. A later call starts the engine again. */
   dispose(): void {
+    this.epoch++; // a start in flight is cancelled: it stops at its next step and creates no worker
     this.failWorker(messages.worker("the engine was shut down"), false);
+    this.loading = null;
     this.state = "idle";
     this.info = null;
+    this.lastError = null;
+  }
+
+  private assertCurrent(epoch: number): void {
+    if (epoch !== this.epoch) throw messages.cancelled();
   }
 
   // ---- loading -----------------------------------------------------------------------------------------------
 
-  private async load(): Promise<EngineInfo> {
+  private async load(epoch: number): Promise<EngineInfo> {
     if (typeof Worker === "undefined" && !this.opts.createWorker) throw messages.unsupported("no Web Workers");
     try {
-      return await this.loadOnce(false);
+      return await this.loadOnce(false, epoch);
     } catch (e) {
       // files that don't agree with each other (a saved copy from another engine, a deploy caught half way): the saved
       // copies were just dropped, so go to the network once. A damaged saved copy never gets here; it is replaced inline.
-      if (isEngineLoadError(e) && e.retryable && e.stage === "init") return await this.loadOnce(true);
+      if (isEngineLoadError(e) && e.retryable && e.stage === "init") return await this.loadOnce(true, epoch);
       throw e;
     }
   }
@@ -193,8 +210,9 @@ export class EngineWorkerClient {
     this.opts.onProgress?.(p);
   }
 
-  private async loadOnce(fresh: boolean): Promise<EngineInfo> {
-    const { manifest, offline } = await this.getManifest();
+  private async loadOnce(fresh: boolean, epoch: number): Promise<EngineInfo> {
+    const { manifest, offline, text } = await this.getManifest();
+    this.assertCurrent(epoch);
     const entries: [EngineAsset, AssetEntry][] = [
       ["worker", manifest.worker],
       ["artifacts", manifest.artifacts],
@@ -214,6 +232,7 @@ export class EngineWorkerClient {
     const bytes = Object.fromEntries(entries.map(([name], i) => [name, got[i]!.bytes])) as Record<EngineAsset, ArrayBuffer>;
     const fromCache = got.every((g) => g.cached);
 
+    this.assertCurrent(epoch); // dispose() during the downloads: no worker is created
     this.progress({ stage: "start", loaded: total, total });
     const worker = this.makeWorker(bytes.worker);
     this.worker = worker;
@@ -222,12 +241,21 @@ export class EngineWorkerClient {
     try {
       info = await this.init(worker, manifest, bytes);
     } catch (e) {
-      this.failWorker(isEngineLoadError(e) ? e : messages.worker(String(e)), false);
-      if (isEngineLoadError(e) && e.stage === "init" && e.retryable) await this.purge(manifest);
+      // only this start's own worker: after dispose() a newer start may own `this.worker` by now
+      if (this.worker === worker) this.failWorker(isEngineLoadError(e) ? e : messages.worker(String(e)), false);
+      else worker.terminate();
+      if (isEngineLoadError(e) && e.stage === "init" && e.retryable && epoch === this.epoch) await this.purge(manifest);
       throw e;
     }
+    if (epoch !== this.epoch) {
+      // disposed while the worker was starting: dispose() already stopped it; nothing is published
+      worker.terminate();
+      throw messages.cancelled();
+    }
     this.progress({ stage: "ready", loaded: total, total });
-    // the engine is running: files from an engine this browser used to have are no longer needed
+    // the engine is running: it is now the one to fall back to with no connection (a manifest saved earlier, when it
+    // was only downloaded, could name files that never arrived), and files from an older engine are not needed
+    if (!offline) await this.store.put(this.manifestUrl, new TextEncoder().encode(text).buffer as ArrayBuffer, "application/json");
     const keep = new Set<string>([this.manifestUrl, ...entries.map(([, e]) => new URL(e.url, this.manifestUrl).href)]);
     void this.store.keepOnly(keep);
     return { engineVersion: manifest.engineVersion, poolVersion: info.poolVersion, players: info.players, fromCache, offline };
@@ -241,7 +269,7 @@ export class EngineWorkerClient {
     return await this.fetchFn(url, { ...init, signal: AbortSignal.timeout(ms) });
   }
 
-  private async getManifest(): Promise<{ manifest: SimEngineManifest; offline: boolean }> {
+  private async getManifest(): Promise<{ manifest: SimEngineManifest; offline: boolean; text: string }> {
     this.progress({ stage: "manifest", loaded: 0, total: 0 });
     let text: string | undefined;
     let why = "";
@@ -249,7 +277,6 @@ export class EngineWorkerClient {
       const res = await this.timed(this.manifestUrl, this.t.manifest, { cache: "no-store" });
       if (res.ok) {
         text = await res.text();
-        void this.store.put(this.manifestUrl, new TextEncoder().encode(text).buffer as ArrayBuffer, "application/json");
       } else {
         why = `HTTP ${res.status}`;
       }
@@ -271,7 +298,7 @@ export class EngineWorkerClient {
     } catch (e) {
       throw messages.manifestFormat(`not JSON: ${e instanceof Error ? e.message : String(e)}`);
     }
-    return { manifest: parseManifest(raw), offline };
+    return { manifest: parseManifest(raw), offline, text };
   }
 
   /** Checks bytes against the manifest: the size always, and the hash wherever the browser can compute one. */

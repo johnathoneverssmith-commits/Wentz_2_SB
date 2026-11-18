@@ -69,12 +69,15 @@ class FakeCacheStorage {
 class FakeSite {
   readonly requests: string[] = [];
   fail: ((path: string, attempt: number) => Response | Error | undefined) | null = null;
+  /** when set, every response waits for it */
+  hold: Promise<void> | null = null;
   private attempts = new Map<string, number>();
   constructor(public dir: string) {}
   fetch: typeof fetch = async (input) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
     const path = url.pathname.replace("/sim-engine/", "");
     this.requests.push(path);
+    if (this.hold) await this.hold;
     const n = (this.attempts.get(path) ?? 0) + 1;
     this.attempts.set(path, n);
     const broken = this.fail?.(path, n);
@@ -247,6 +250,25 @@ describe("caching and reloads", () => {
     // and the pool the worker runs on is the new one
     const pool = await client.call<{ id: string; overall?: number }[]>("/pool", {});
     expect(pool[0]!.overall).toBe(v2.pool[0]!.overall);
+  });
+
+  it("an upgrade whose download fails does not replace the engine this browser can still start offline", async () => {
+    const cache = new FakeCacheStorage();
+    await setup(new FakeSite(dir1), {}, cache).client.ensureReady(); // engine A is running and saved
+
+    // engine B's manifest arrives, but its pool never does
+    const upgrading = new FakeSite(dir2);
+    upgrading.fail = (p) => (p === v2.manifest.pool.url ? new Response("unavailable", { status: 503 }) : undefined);
+    const failed = await setup(upgrading, {}, cache).client.ensureReady().catch((x: unknown) => x);
+    expect(failed).toMatchObject({ stage: "download" });
+
+    // now the connection is gone: A, whose files are all still saved, starts
+    const offline = new FakeSite(dir2);
+    offline.fail = () => new TypeError("Failed to fetch");
+    const { client } = setup(offline, {}, cache);
+    const info = await client.ensureReady();
+    expect(info).toMatchObject({ offline: true, fromCache: true, engineVersion: v1.manifest.engineVersion });
+    expect(offline.assetRequests()).toEqual([]);
   });
 
   it("a stale cached manifest never wins over a reachable server", async () => {
@@ -442,6 +464,55 @@ describe("the worker dying", () => {
     expect(client.status).toBe("idle");
     await client.call("/schedule", {});
     expect(workers).toHaveLength(2);
+  });
+
+  it("dispose during a start cancels it: no worker is created, nothing is published, and the engine can be started again", async () => {
+    const site = new FakeSite(dir1);
+    let release!: () => void;
+    site.hold = new Promise<void>((r) => (release = r));
+    const { client, workers } = setup(site);
+    const starting = client.ensureReady().catch((x: unknown) => x);
+    await new Promise((r) => setTimeout(r, 5)); // the manifest request is in flight
+    client.dispose();
+    expect(client.status).toBe("idle");
+    release();
+    const e = await starting;
+    expect(e).toBeInstanceOf(EngineLoadError);
+    expect(e).toMatchObject({ stage: "worker", retryable: true });
+    expect((e as Error).message).toMatch(/shut down/);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(workers).toHaveLength(0); // the downloads finished after dispose, and no worker came of them
+    expect(client.status).toBe("idle");
+    expect(client.engine).toBeNull();
+    expect(client.error).toBeNull();
+
+    site.hold = null;
+    await expect(client.call("/schedule", {})).resolves.toBeTruthy();
+    expect(workers).toHaveLength(1);
+    expect(client.status).toBe("ready");
+  });
+
+  it("dispose while the worker is initialising terminates it, and a newer start is not disturbed by the old one's cleanup", async () => {
+    const site = new FakeSite(dir1);
+    const made: FakeWorker[] = [];
+    const { client } = setup(site, {
+      createWorker: () => {
+        const w = new FakeWorker(made.length === 0 ? "silent" : "normal"); // the first never answers init
+        made.push(w);
+        return w;
+      },
+    });
+    const first = client.ensureReady().catch((x: unknown) => x);
+    for (let i = 0; i < 100 && made.length === 0; i++) await new Promise((r) => setTimeout(r, 5));
+    expect(made).toHaveLength(1);
+    client.dispose();
+    expect(made[0]!.terminated).toBe(true);
+    const second = client.ensureReady(); // starts again at once
+    expect(await first).toMatchObject({ stage: "worker" });
+    await expect(second).resolves.toBeTruthy();
+    expect(made).toHaveLength(2);
+    expect(made[1]!.terminated).toBe(false); // the cancelled start's cleanup left the new worker alone
+    await expect(client.call("/schedule", {})).resolves.toBeTruthy();
   });
 
   it("an aborted call rejects with the abort reason and leaves the engine usable", async () => {
