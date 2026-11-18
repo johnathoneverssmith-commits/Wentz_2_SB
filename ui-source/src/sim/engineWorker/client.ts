@@ -228,9 +228,10 @@ export class EngineWorkerClient {
     const settled = await Promise.allSettled(entries.map(([name, e]) => this.getAsset(name, e, fresh, (n) => report(name, n))));
     const failed = settled.find((r): r is PromiseRejectedResult => r.status === "rejected");
     if (failed) throw failed.reason;
-    const got = settled.map((r) => (r as PromiseFulfilledResult<{ bytes: ArrayBuffer; cached: boolean }>).value);
+    const got = settled.map((r) => (r as PromiseFulfilledResult<{ bytes: ArrayBuffer; cached: boolean; persisted: boolean }>).value);
     const bytes = Object.fromEntries(entries.map(([name], i) => [name, got[i]!.bytes])) as Record<EngineAsset, ArrayBuffer>;
     const fromCache = got.every((g) => g.cached);
+    const persisted = got.every((g) => g.persisted);
 
     this.assertCurrent(epoch); // dispose() during the downloads: no worker is created
     this.progress({ stage: "start", loaded: total, total });
@@ -255,9 +256,13 @@ export class EngineWorkerClient {
     this.progress({ stage: "ready", loaded: total, total });
     // the engine is running: it is now the one to fall back to with no connection (a manifest saved earlier, when it
     // was only downloaded, could name files that never arrived), and files from an older engine are not needed
-    if (!offline) await this.store.put(this.manifestUrl, new TextEncoder().encode(text).buffer as ArrayBuffer, "application/json");
-    const keep = new Set<string>([this.manifestUrl, ...entries.map(([, e]) => new URL(e.url, this.manifestUrl).href)]);
-    void this.store.keepOnly(keep);
+    // ... but only if this engine's files and manifest were really saved: when the browser refused a write (storage
+    // full), the engine runs this time and the previous one stays saved, files and manifest, as the fallback.
+    const saved = offline || (persisted && (await this.store.put(this.manifestUrl, new TextEncoder().encode(text).buffer as ArrayBuffer, "application/json")));
+    if (saved) {
+      const keep = new Set<string>([this.manifestUrl, ...entries.map(([, e]) => new URL(e.url, this.manifestUrl).href)]);
+      void this.store.keepOnly(keep);
+    }
     return { engineVersion: manifest.engineVersion, poolVersion: info.poolVersion, players: info.players, fromCache, offline };
   }
 
@@ -289,34 +294,45 @@ export class EngineWorkerClient {
 
   private async getManifest(): Promise<{ manifest: SimEngineManifest; offline: boolean; text: string }> {
     this.progress({ stage: "manifest", loaded: 0, total: 0 });
-    let text: string | undefined;
-    let why = "";
+    const parse = (text: string): SimEngineManifest => {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(text);
+      } catch (e) {
+        throw messages.manifestFormat(`not JSON: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return parseManifest(raw);
+    };
+
+    let problem: EngineLoadError | null = null;
     try {
       const res = await this.timed(this.manifestUrl, this.t.manifest, { cache: "no-store" });
       if (res.ok) {
-        text = await res.text();
+        const text = await res.text();
+        try {
+          return { manifest: parse(text), offline: false, text };
+        } catch (e) {
+          // a 200 that isn't the manifest: a captive portal's login page, a half-finished deploy
+          problem = isEngineLoadError(e) ? e : messages.manifestFormat(String(e));
+        }
       } else {
-        why = `HTTP ${res.status}`;
+        problem = messages.manifest(`HTTP ${res.status}`);
       }
     } catch (e) {
-      why = e instanceof Error && e.name === "TimeoutError" ? "no answer in time" : "no connection";
-      if (!(e instanceof Error)) why = String(e);
+      problem = messages.manifest(e instanceof Error && e.name === "TimeoutError" ? "no answer in time" : "no connection", e);
     }
-    let offline = false;
-    if (text === undefined) {
-      // no manifest from the server: the last engine this browser ran, if there is one, still starts
-      const kept = await this.store.get(this.manifestUrl);
-      if (!kept) throw messages.manifest(why);
-      text = new TextDecoder().decode(kept);
-      offline = true;
+
+    // no usable manifest from the server: the last engine this browser ran, if there is one, still starts
+    const kept = await this.store.get(this.manifestUrl);
+    if (kept) {
+      const text = new TextDecoder().decode(kept);
+      try {
+        return { manifest: parse(text), offline: true, text };
+      } catch {
+        /* an unreadable saved manifest is no fallback */
+      }
     }
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch (e) {
-      throw messages.manifestFormat(`not JSON: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    return { manifest: parseManifest(raw), offline, text };
+    throw problem;
   }
 
   /** Checks bytes against the manifest: the size always, and the hash wherever the browser can compute one. */
@@ -332,14 +348,14 @@ export class EngineWorkerClient {
     e: AssetEntry,
     fresh: boolean,
     report: (loaded: number) => void,
-  ): Promise<{ bytes: ArrayBuffer; cached: boolean }> {
+  ): Promise<{ bytes: ArrayBuffer; cached: boolean; persisted: boolean }> {
     const url = new URL(e.url, this.manifestUrl).href;
     if (!fresh) {
       const kept = await this.store.get(url);
       if (kept) {
         if (!(await this.verify(kept, e))) {
           report(e.bytes);
-          return { bytes: kept, cached: true };
+          return { bytes: kept, cached: true, persisted: true };
         }
         await this.store.delete(url); // damaged on disk: fetch it again
       }
@@ -356,8 +372,8 @@ export class EngineWorkerClient {
       const bytes = await this.readBody(res, report);
       const problem = await this.verify(bytes, e);
       if (!problem) {
-        await this.store.put(url, bytes, res.headers.get("content-type") ?? "application/octet-stream");
-        return { bytes, cached: false };
+        const persisted = await this.store.put(url, bytes, res.headers.get("content-type") ?? "application/octet-stream");
+        return { bytes, cached: false, persisted };
       }
       lastProblem = problem; // once more past any intermediary's cache before giving up
     }

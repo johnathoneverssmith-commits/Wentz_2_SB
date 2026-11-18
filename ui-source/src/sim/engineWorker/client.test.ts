@@ -52,11 +52,16 @@ class FakeCacheStorage {
         const e = entries.get(url);
         return e ? new Response(e.bytes.slice(0), { headers: { "content-type": e.type } }) : undefined;
       },
-      put: async (url: string, res: Response) => void entries.set(url, { bytes: await res.arrayBuffer(), type: res.headers.get("content-type") ?? "" }),
+      put: async (url: string, res: Response) => {
+        if (this.failPutFor && url.includes(this.failPutFor)) throw new DOMException("quota", "QuotaExceededError");
+        entries.set(url, { bytes: await res.arrayBuffer(), type: res.headers.get("content-type") ?? "" });
+      },
       delete: async (req: string | Request) => entries.delete(typeof req === "string" ? req : req.url),
       keys: async () => [...entries.keys()].map((u) => new Request(u)),
     };
   }
+  /** a write to any entry whose URL contains this fails, as a full disk's would */
+  failPutFor: string | null = null;
   get entries(): string[] {
     return [...(this.caches.get("sim-engine-v1")?.keys() ?? [])].sort();
   }
@@ -308,6 +313,45 @@ describe("caching and reloads", () => {
     expect(left.some((u) => u.endsWith(v1.manifest.artifacts.url))).toBe(true); // shared with A: kept
     expect(left.some((u) => u.endsWith(v1.manifest.pool.url))).toBe(true); // A's own pool: kept
     expect(left.some((u) => u.endsWith(v2.manifest.pool.url))).toBe(false); // B's mismatching pool: dropped
+  });
+
+  it("an upgrade whose files could not be saved runs, but does not replace or prune the engine that is saved", async () => {
+    const cache = new FakeCacheStorage();
+    await setup(new FakeSite(dir1), {}, cache).client.ensureReady(); // engine A saved
+    const aEntries = cache.entries;
+
+    // engine B downloads and starts, but the browser refuses to store its new pool (storage full)
+    cache.failPutFor = v2.manifest.pool.url;
+    const { client } = setup(new FakeSite(dir2), {}, cache);
+    const info = await client.ensureReady();
+    expect(info.engineVersion).toBe(v2.manifest.engineVersion); // this session plays on B
+    expect(cache.entries).toEqual(aEntries); // A's files and manifest are untouched, nothing pruned
+
+    // next time, with no connection, A (whose files are all still there) starts
+    cache.failPutFor = null;
+    const offline = new FakeSite(dir2);
+    offline.fail = () => new TypeError("Failed to fetch");
+    const again = await setup(offline, {}, cache).client.ensureReady();
+    expect(again).toMatchObject({ offline: true, fromCache: true, engineVersion: v1.manifest.engineVersion });
+  });
+
+  it("a 200 that isn't the manifest (a captive portal's login page) falls back to the saved engine, and says so if there is none", async () => {
+    const portal = async (input: Parameters<typeof fetch>[0], init?: RequestInit, real?: typeof fetch) =>
+      String(input).endsWith("manifest.json") ? new Response("<html>Sign in to the Wi-Fi</html>", { status: 200 }) : real!(input, init);
+
+    const cache = new FakeCacheStorage();
+    await setup(new FakeSite(dir1), {}, cache).client.ensureReady();
+    const site = new FakeSite(dir1);
+    site.fetch = ((i, n) => portal(i, n, new FakeSite(dir1).fetch)) as typeof fetch;
+    const info = await setup(site, {}, cache).client.ensureReady();
+    expect(info).toMatchObject({ offline: true, fromCache: true, engineVersion: v1.manifest.engineVersion });
+
+    // nothing saved: an error that says what happened
+    const bare = new FakeSite(dir1);
+    bare.fetch = ((i, n) => portal(i, n, new FakeSite(dir1).fetch)) as typeof fetch;
+    const e = await setup(bare).client.ensureReady().catch((x: unknown) => x);
+    expect(e).toMatchObject({ stage: "manifest" });
+    expect((e as EngineLoadError).detail).toMatch(/not JSON/);
   });
 
   it("a stale cached manifest never wins over a reachable server", async () => {

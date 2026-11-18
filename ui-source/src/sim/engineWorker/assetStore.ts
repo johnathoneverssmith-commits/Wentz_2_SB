@@ -8,7 +8,8 @@ export const CACHE_NAME = "sim-engine-v1";
 
 export interface AssetStore {
   get(url: string): Promise<ArrayBuffer | undefined>;
-  put(url: string, bytes: ArrayBuffer, contentType: string): Promise<void>;
+  /** true only if the entry was really written: a full disk or a refused write is `false`, never silently lost */
+  put(url: string, bytes: ArrayBuffer, contentType: string): Promise<boolean>;
   delete(url: string): Promise<void>;
   /** removes every entry whose URL is not in `urls` */
   keepOnly(urls: ReadonlySet<string>): Promise<void>;
@@ -19,7 +20,8 @@ export function cacheStorageStore(storage: CacheStorage | null | undefined): Ass
   if (!storage) return nullStore;
   let opened: Promise<Cache> | null = null;
   const cache = () => (opened ??= storage.open(CACHE_NAME));
-  // a failure to read or write the cache costs a download, never the game
+  // a failure to read or write the cache costs a download, never the game; but a failed write is reported, because the
+  // caller must not drop a working engine in favour of one that was not saved
   const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
     try {
       return await fn();
@@ -36,7 +38,8 @@ export function cacheStorageStore(storage: CacheStorage | null | undefined): Ass
     put: (url, bytes, contentType) =>
       safe(async () => {
         await (await cache()).put(url, new Response(bytes.slice(0), { headers: { "content-type": contentType } }));
-      }, undefined),
+        return true;
+      }, false),
     delete: (url) =>
       safe(async () => {
         await (await cache()).delete(url);
@@ -51,7 +54,7 @@ export function cacheStorageStore(storage: CacheStorage | null | undefined): Ass
 
 const nullStore: AssetStore = {
   get: async () => undefined,
-  put: async () => {},
+  put: async () => false,
   delete: async () => {},
   keepOnly: async () => {},
 };
