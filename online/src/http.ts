@@ -163,6 +163,41 @@ async function sendUi(req: IncomingMessage, res: ServerResponse, path: string): 
   res.end(req.method === "HEAD" ? undefined : gz ? uiPage.zipped : uiPage.html);
 }
 
+/**
+ * The browser simulation engine, beside the page (issue #74 Phase 4b): the worker script, the model artifacts
+ * and the player pool, as files named by their content hash, plus the manifest that says which are current.
+ * Only those exact names are served, from the built UI's `sim-engine/` directory, so a request can't reach
+ * anything else. A hashed file never changes under its name, so it is cached for good; the manifest is
+ * revalidated every time, which is how a new engine reaches a browser that has an old one.
+ */
+const SIM_ENGINE_FILE = /^\/sim-engine\/(manifest\.json|sim-worker\.[0-9a-f]{12}\.js|engine-artifacts\.[0-9a-f]{12}\.json|pool\.[0-9a-f]{12}\.json)$/;
+const simEngineCache = new Map<string, { raw: Buffer; zipped: Buffer }>();
+async function sendSimEngine(req: IncomingMessage, res: ServerResponse, uiFile: string, name: string): Promise<void> {
+  const path = join(dirname(uiFile), "sim-engine", name);
+  let hit = simEngineCache.get(path);
+  if (!hit) {
+    let raw: Buffer;
+    try {
+      raw = await readFile(path);
+    } catch {
+      res.writeHead(404, { "cache-control": "no-cache" }).end();
+      return;
+    }
+    hit = { raw, zipped: await gzipAsync(raw, { level: 9 }) };
+    // the manifest is the one file that changes under its name (on a redeploy, which restarts this process)
+    if (simEngineCache.size > 16) simEngineCache.clear();
+    simEngineCache.set(path, hit);
+  }
+  const gz = /\bgzip\b/.test(String(req.headers["accept-encoding"] ?? ""));
+  res.writeHead(200, {
+    "content-type": name.endsWith(".js") ? "text/javascript; charset=utf-8" : "application/json; charset=utf-8",
+    "cache-control": name === "manifest.json" ? "no-cache" : "public, max-age=31536000, immutable",
+    vary: "accept-encoding",
+    ...(gz ? { "content-encoding": "gzip" } : {}),
+  });
+  res.end(req.method === "HEAD" ? undefined : gz ? hit.zipped : hit.raw);
+}
+
 export async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const origin = process.env.CLIENT_ORIGIN;
   if (origin) {
@@ -180,6 +215,11 @@ export async function handle(req: IncomingMessage, res: ServerResponse): Promise
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   if (uiPath && (req.method === "GET" || req.method === "HEAD") && (url.pathname === "/" || url.pathname === "/index.html")) {
     await sendUi(req, res, uiPath);
+    return;
+  }
+  const engineFile = SIM_ENGINE_FILE.exec(url.pathname);
+  if (uiPath && engineFile && (req.method === "GET" || req.method === "HEAD")) {
+    await sendSimEngine(req, res, uiPath, engineFile[1]!);
     return;
   }
   // the push notifications' service worker and the app manifest, beside the
