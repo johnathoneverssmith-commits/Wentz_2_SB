@@ -119,7 +119,21 @@ patched only to pass `--no-sandbox` and a Chromium path) plus ad hoc Playwright 
   (a stand-in, not a phone): cold 0.65 s, warm 0.31 s, 16-game week 0.74 s.
 - **Not exercised by a user path:** the app never requests these files today (see section 4).
 
-## 7. Unverified
+## 7. Live-browser checks (attempted 2026-11-20, ~22:40 UTC)
+
+| Check | Target | Result |
+|---|---|---|
+| `/art/stadiums/BAL.webp` from the league origin | `https://wentz-2-sb-2.onrender.com/art/stadiums/BAL.webp` | **Unverified: blocked.** `curl` from the audit container fails at the proxy (`CONNECT tunnel failed, response 403`; HTTP status 000) for this host and for `wentz-2-sb-1.onrender.com`. |
+| First-load permission prompt from the `localhost:8787` probe | real Chrome, fresh profile, deployed site | **Unverified: blocked.** Needs a real, headed Chrome. No computer is attached to this session (`list_computer_folders` returned none), and the container has only headless Chrome for Testing 153. |
+| Live commit and engine id | deployed UI and API | **Not readable live.** Last logged deploy (run #520): `07d5774`, engine `cc953769b656`, per the deploy-audit session. |
+
+**What the code says (not a live observation):** the league server serves only the UI page and `/sim-engine/*` (`online/src/http.ts`), so `/art/*` on that origin should 404 as it did locally (#134). PR #136 adds 15 more stadium photos to `ui-source/public/art/stadiums/`, which does not change what the league origin serves. The `localhost:8787` probe is `HttpSimulationService` (`BASE_URL`), and a public HTTPS page requesting loopback is what recent Chrome may gate behind a permission; I have not seen it.
+
+**Do they block alpha?** Neither is shown to. #134 only costs the masthead photo (skyline fallback). The prompt, if it appears, hits every solo tester on first load and may be moot once Phase 5b stops probing the adapter by default. Both stay unverified until someone runs them in a headed Chrome (owner or tester): open the deployed URL in a fresh profile, note any prompt and the browser version, then request `/art/stadiums/BAL.webp` on the league origin.
+
+**B1 status (#132):** open, unassigned, no comments, no fix PR as of this check.
+
+## 8. Unverified
 
 Deploy-audit session, from workflow logs only (not a live read): at run #511 both services served `6461f4b` with engine
 `297c6dcf5cf0`, matching my clean build; at run #520 (2026-11-20 18:30 UTC) both served `07d5774` with engine `cc953769b656`
@@ -137,7 +151,7 @@ league origin (D2) and the `localhost:8787` permission prompt in real Chrome.
   push notifications, multiple tabs, and online scouting (#130, off by default).
 - Deadline-sweep recovery from B1 after `phase_ends_at`.
 
-## 8. Alpha checklist
+## 9. Alpha checklist
 
 - [ ] B1 fixed and an all-eliminated postseason test added
 - [ ] Owner decision on solo (B2): Phase 5 first, or online-only alpha with solo labelled
