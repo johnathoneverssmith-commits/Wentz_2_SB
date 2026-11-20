@@ -73,11 +73,22 @@ export function adapterFallbackAllowed(): boolean {
  * the error the player sees, with its advice; the adapter is never probed from a deployed page.
  */
 export function engineTransport(client?: EngineWorkerClient, adapter: Transport = adapterTransport): Transport {
+  // Once the browser engine has answered in this page, it is the engine of every game played here: if it later fails
+  // (a worker that crashes mid-request, a restart that can't download), that is an error to show, never a reason to
+  // replay the request on an adapter whose build can't be named and save its games under the browser engine's build.
+  let answered = false;
   return async (path, body, signal) => {
+    const c = client ?? sharedEngineClient();
+    // already started when this request was made (the version check starts it before a move): whatever happens next is
+    // that engine's failure, not a failure to start
+    const wasRunning = c.engine != null;
     try {
-      return await workerTransport(client ?? sharedEngineClient())(path, body, signal);
+      const out = await workerTransport(c)(path, body, signal);
+      answered = true;
+      return out;
     } catch (e) {
-      if (!isEngineLoadError(e) || !adapterFallbackAllowed()) throw e;
+      // only a failure to START the engine, before it has ever answered, may fall back (a dev server has no engine files)
+      if (answered || wasRunning || !isEngineLoadError(e) || e.stage === "call" || !adapterFallbackAllowed()) throw e;
       try {
         return await adapter(path, body, signal);
       } catch {

@@ -96,6 +96,31 @@ describe("the local adapter is only ever looked for on a developer's own machine
     const adapter = vi.fn(() => Promise.reject(new Error("connection refused")));
     await expect(engineTransport(failing, adapter)("/x", {})).rejects.toBe(loadError);
   });
+  it("once the browser engine has answered, a later failure is never replayed on the adapter", async () => {
+    vi.stubGlobal("location", { hostname: "localhost" });
+    let n = 0;
+    const flaky = { call: () => (n++ === 0 ? Promise.resolve({ ok: 1 }) : Promise.reject(loadError)) } as never;
+    const adapter = vi.fn(() => Promise.resolve({ from: "adapter" }));
+    const t = engineTransport(flaky, adapter);
+    await expect(t("/x", {})).resolves.toEqual({ ok: 1 });
+    await expect(t("/x", {})).rejects.toBe(loadError);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+  it("an engine already running when the request is made (the version check starts it) that crashes mid-request is not replayed on the adapter", async () => {
+    vi.stubGlobal("location", { hostname: "localhost" });
+    const died = new EngineLoadError("worker", "The game engine stopped working.", true);
+    const adapter = vi.fn(() => Promise.resolve({ from: "adapter" }));
+    const running = { engine: { engineVersion: "abc" }, call: () => Promise.reject(died) } as never;
+    await expect(engineTransport(running, adapter)("/x", {})).rejects.toBe(died);
+    expect(adapter).not.toHaveBeenCalled();
+  });
+  it("a worker that dies while answering (stage call) is not a failure to start: no fallback", async () => {
+    vi.stubGlobal("location", { hostname: "localhost" });
+    const crash = new EngineLoadError("call", "The game engine stopped while working. Press Retry.", true);
+    const adapter = vi.fn(() => Promise.resolve({ from: "adapter" }));
+    await expect(engineTransport({ call: () => Promise.reject(crash) } as never, adapter)("/x", {})).rejects.toBe(crash);
+    expect(adapter).not.toHaveBeenCalled();
+  });
   it("an engine that ran and refused a request is not a reason to ask the adapter", async () => {
     vi.stubGlobal("location", { hostname: "localhost" });
     const refusal = new Error("route failed");
