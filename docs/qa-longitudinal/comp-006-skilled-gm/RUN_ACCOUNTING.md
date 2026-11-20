@@ -51,3 +51,14 @@ Codex review of the PR found four defects: the policy read a hidden field (`pote
 76 runs executed in this round (6,210 s wall on 4 workers). Every run file asserts the talent scale it saw (1.0 or 1.5 only) and zero Mock game simulations. The restructure fallback ran in two skilled 1.0 runs (seed 9602 PIT x1, seed 9604 CAR x2); `cap.stuckReconcile` is 0 everywhere, so no run ended with an illegal roster.
 
 Total executed over the whole study: 117 (batches 1-3) + 76 (regeneration) = 193 league-runs, plus the 12-run pilot and unreported smoke runs.
+
+## 7. Policy / code version of every arm in the final data
+Harness commits: `6076c5b` (first harness), `b8ca703` (review round 1), `c32c176` (moved under `docs/`, same logic), `31d6401` (review fixes).
+| Arm | Runs | Version | Notes |
+|---|---|---|---|
+| skilled | 20 | `31d6401` policy: cap discipline + restructure fallback + client-equivalent redacted view + per-season draft counters | Policy v3. Regenerated. |
+| skilled ablations | 36 | `31d6401`, module subsets | Regenerated with v3. |
+| control | 20 | `31d6401` driver (adds per-season GM tracking); runs no policy code | Regenerated; seasons 1-3 identical to the earlier controls. |
+| idle | 20 | Produced in batch 3 with the harness at `b8ca703`-era driver (before the redaction, counters and GM tracking); no `seatGm` field | **Reused.** Idle calls the production autopilot path only and no skilled policy code. Check: `idle seed 9601, talent 1.5, 10 seasons` re-run with the `31d6401` code gives an identical fingerprint, identical season rows (ignoring the new `seatGm` field) and identical ledgers. Only that one run was re-checked; the other 19 are reused on that evidence and on the identical-control result. |
+| pilot (separate) | 12 | `6076c5b` policy v1 | Not pooled. |
+Superseded and unused: policy v1 (first, no cap discipline) and policy v2 (`b8ca703`, cap discipline, reads `potential`) skilled/ablation runs and the old controls.

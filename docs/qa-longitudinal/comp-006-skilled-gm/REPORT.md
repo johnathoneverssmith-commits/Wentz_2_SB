@@ -5,6 +5,8 @@ Analysis only. **Primary comparison: seasons 1-3** (see section 3). Run accounti
 `data/*.csv` (seat-seasons, league-seasons, run metadata) and `data/tables_*.md`.
 
 ## 1. Pinned setup
+**All measurements use the pinned baseline below (`origin/master` `d219564`, with the pool and engine path listed). The branch has since merged a later `origin/master` to stay mergeable; that merge touches no file in this folder and no measurement was re-run on it. Do not read these results as describing current master.**
+
 | | |
 |---|---|
 | Baseline | `origin/master` `d219564` (merge of PR #115). #115 is an ancestor (`git merge-base --is-ancestor c29858a d219564`), so the trade-model fix for contract dumping / specialist need is in force. |
@@ -52,7 +54,16 @@ Reads only: player table (overall, age, contract, injury), the public draft boar
 
 **Titles in seasons 1-3.** Skilled seats won 8 titles (talent 1.0) and 15 (talent 1.5) in 120 seat-seasons (6.7% [2.5, 11.7] and 12.5% [8.3, 17.5]); the same seats under control won 3 and 3 (2.5%). Over the 30 league-seasons that is 8 and 15 of the 30 league titles taken by the four skilled seats: **27% [10, 47] and 50% [33, 70]** (parity for four of 32 teams is 12.5%). At the new-league default the early-tenure title share **reaches the TAFI "more than 50% of titles" line at its point estimate**, with an interval of 33-70% and 30 league-seasons behind it; at 1.0 it is well under. (An earlier draft said the threshold was "not approached"; that rested on the diluted full-horizon figure.)
 
-Sensitivity: dropping the **two matched leagues in which the restructure fallback ran** (skilled seed 9602 at 1.0 and seed 9604 at 1.0; section 4) leaves talent 1.5 untouched (they are 1.0 runs) and cuts talent-1.0 wins from +1.11 to **+0.72 [-0.03, +1.49]** (8 leagues, 96 seat-seasons): the point estimate falls by a third and the interval now touches zero. Playoffs +0.135 [+0.021, +0.250]; unit score +1.94 [+1.44, +2.44]; titles per seat-season +0.031 [0.000, +0.073]. So the 1.0 wins headline is not robust to those two leagues; the direction and the roster-strength gain are (`data/tables_sensitivity_*`). The talent-1.5 headlines do not depend on the fallback at all.
+**Fallback-exclusion sensitivity, beside the primary (seasons 1-3, skilled - control).** The two leagues dropped are those in which the restructure fallback ran (skilled seeds 9602 and 9604, both talent 1.0; section 4). Talent 1.5 has no such league, so its column is the primary unchanged.
+| outcome | talent 1.0 primary (10 leagues, n=120) | talent 1.0 without 9602, 9604 (8 leagues, n=96) | talent 1.5 (no change, n=120) |
+|---|---|---|---|
+| regular-season wins | **+1.11 [+0.35, +1.94]** | **+0.72 [-0.03, +1.49]** | +1.85 [+1.36, +2.30] |
+| made playoffs | +0.150 [+0.058, +0.233] | +0.135 [+0.021, +0.250] | +0.225 [+0.158, +0.292] |
+| playoff depth 0-4 | +0.51 [+0.30, +0.72] | +0.40 [+0.20, +0.59] | +0.78 [+0.57, +0.98] |
+| Super Bowl per seat-season | +0.042 [+0.008, +0.083] | +0.031 [0.000, +0.073] | +0.100 [+0.067, +0.133] |
+| unit score at season start | +2.65 [+1.75, +3.74] | +1.94 [+1.44, +2.44] | +2.62 [+1.73, +3.59] |
+| cap space at the playoffs ($M) | +20.3 [+16.4, +24.3] | +20.0 [+15.2, +24.7] | +21.1 [+17.6, +24.7] |
+The talent-1.0 wins effect falls by about a third and its interval now touches zero; playoffs, depth, unit score and cap space keep their sign and interval. So the talent-1.0 wins headline is not robust to those two leagues; the talent-1.5 headlines do not depend on the fallback (`data/tables_sensitivity_*`).
 
 ### 3b. Full horizon (secondary; survivor-selected after season 3)
 Skilled - control over every usable seat-season. Denominators: **talent 1.0: 270 of 400 seat-seasons (130 dropped), 10 leagues; talent 1.5: 256 of 400 (144 dropped), 10 leagues.** Dropped = the seat's GM was replaced earlier in either arm. Seasons used by index: 120 (1-3), then 150 / 136 over seasons 4-10.
@@ -83,6 +94,7 @@ Longest seat title streak 3 (1.5) and 2 (1.0); back-to-back occurrences 3 and 2 
 - In the regenerated data the fallback executed in **two** skilled runs, both at talent 1.0: **seed 9602, PIT** (`cap.restructure` 1, `cap.cuts` 26) and **seed 9604, CAR** (`cap.restructure` 2, `cap.cuts` 13). It ran 3 times in all across the 20 final skilled runs (217 cap cuts). `skilled s9608 t1.5`, the run that needed the fallback under the previous policy, no longer needs it (no restructure; DAL stays legal after cuts and the staff fix): the policy changed (section 6 of `RUN_ACCOUNTING.md`) and so did the path.
 - **Illegal roster recorded: none.** `cap.stuckReconcile` is absent (0) in every run, so no roster stayed illegal after the fallback; no run aborted in the regenerated set (76 of 76 completed, 0 failed).
 - Exclusion check: section 3a and `data/tables_sensitivity_seasons1-3_drop_fallback_leagues.md` / `..._full_...`. Talent 1.5 is unaffected. At talent 1.0 wins go from +1.11 to +0.72 [-0.03, +1.49] in seasons 1-3, so that headline depends on these two matched leagues (see 3a).
+- **Why the fallback runs changed.** The fallback only fires when a roster is still over the cap after value-aware cuts and the staff fix, so it is a tail event of each seat's cap path. The regenerated skilled policy differs from the one that needed it (it runs against a view without `potential`, so free-agency, trade and re-signing valuations that used it changed, and the per-season draft counters were fixed), and a run's random streams diverge from the first decision. Different valuations give different contracts and cap paths, so the over-cap tail landed on different leagues (one run before, two now). I did not isolate which change moved which league, and three events in 20 runs cannot support a causal story; the sensitivity check, not an explanation, is what protects the headline.
 - Controls: the new control runs reproduce the old control runs' rows exactly for seasons 1-3 (20 of 20 files, season rows compared with the new `seatGm` field removed); only per-season GM tracking was added.
 
 ## 5. Explanation (not direct measurement of the full policy): which decisions drove it
