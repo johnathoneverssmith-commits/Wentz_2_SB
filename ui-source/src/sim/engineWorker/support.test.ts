@@ -103,6 +103,13 @@ describe("the local adapter is only ever looked for on a developer's own machine
     await expect(engineTransport({ call: () => Promise.reject(refusal) } as never, adapter)("/x", {})).rejects.toBe(refusal);
     expect(adapter).not.toHaveBeenCalled();
   });
+  it("a save that already names a build is not carried on by an adapter that can't be named", async () => {
+    vi.stubGlobal("location", { hostname: "localhost" });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("{}", { status: 200 }))));
+    const failingClient = { ensureReady: () => Promise.reject(loadError) } as never;
+    await expect(currentEngineVersion(failingClient, true)).resolves.toBeUndefined(); // no recorded build: the adapter may stand in
+    await expect(currentEngineVersion(failingClient, false)).rejects.toBe(loadError); // a recorded build: held
+  });
   it("the version to record is the browser engine's; none when only the adapter answered; an error when nothing did", async () => {
     vi.stubGlobal("location", { hostname: "wentz.example.com" });
     await expect(currentEngineVersion({ ensureReady: () => Promise.resolve({ engineVersion: "abc" }) } as never)).resolves.toBe("abc");

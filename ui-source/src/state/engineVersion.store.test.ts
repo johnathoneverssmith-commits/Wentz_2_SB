@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from "vitest";
 
 import { EngineLoadError } from "@/sim/engineWorker/errors";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
@@ -13,7 +13,7 @@ const s = () => useStore.getState();
 let upgrades: (EngineUpgrade | null)[];
 let issues: (string | null)[];
 let offs: (() => void)[];
-let version: ReturnType<typeof vi.spyOn>;
+let version: MockInstance<(allowUnnamed?: boolean) => Promise<string | undefined>>;
 let fetched: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
@@ -109,6 +109,27 @@ describe("a dynasty played on the same build, or on none recorded", () => {
     await s().simulateGameDay();
     expect(s().simEngineVersion).toBeUndefined();
     expect(reachedTheEngine()).toBe(true);
+  });
+});
+
+describe("which engines may stand in", () => {
+  it("a save that names a build refuses an engine that can't be named; one that names none accepts it", async () => {
+    useStore.setState({ simEngine: "engine", simEngineVersion: "A".repeat(64) } as never);
+    await s().simulateGameDay();
+    expect(version).toHaveBeenLastCalledWith(false);
+    await settle();
+    useStore.setState({ simEngineVersion: undefined } as never);
+    await s().simulateGameDay();
+    expect(version).toHaveBeenLastCalledWith(true);
+  });
+  it("the refusal is the usual stop: nothing is played, nothing is recorded", async () => {
+    useStore.setState({ simEngine: "engine", simEngineVersion: "A".repeat(64) } as never);
+    version.mockRejectedValue(new EngineLoadError("manifest", "The game engine couldn't be found.", true));
+    const before = snapshot();
+    await s().simulateGameDay();
+    expect(snapshot()).toBe(before);
+    expect(s().simEngineVersion).toBe("A".repeat(64));
+    expect(issues.at(-1)).toMatch(/couldn't be found/);
   });
 });
 

@@ -89,13 +89,15 @@ export function engineTransport(client?: EngineWorkerClient, adapter: Transport 
 
 /**
  * Which engine is answering, as a version to record in a save: the browser engine's, or `undefined` when only the
- * local adapter is (a developer's machine), whose engine this page cannot name.
+ * local adapter is (a developer's machine), whose engine this page cannot name, and only when `allowUnnamed`.
  */
-export async function currentEngineVersion(client: EngineWorkerClient = sharedEngineClient()): Promise<string | undefined> {
+export async function currentEngineVersion(client: EngineWorkerClient = sharedEngineClient(), allowUnnamed = true): Promise<string | undefined> {
   try {
     return (await client.ensureReady()).engineVersion;
   } catch (e) {
-    if (isEngineLoadError(e) && adapterFallbackAllowed()) {
+    // `allowUnnamed` is false for a save that recorded a browser-engine build: an adapter whose build can't be named
+    // must not quietly carry on playing it, so the browser engine's failure stands
+    if (allowUnnamed && isEngineLoadError(e) && adapterFallbackAllowed()) {
       try {
         await adapterTransport("/scheme-fit-baseline", {});
         return undefined;

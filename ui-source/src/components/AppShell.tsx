@@ -385,9 +385,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <code>{engineUpgrade.from.slice(0, 8)}</code>; this page now carries <code>{engineUpgrade.to.slice(0, 8)}</code>.
             The older engine isn&rsquo;t available any more, so the dynasty can only carry on on the new one. Everything already
             played keeps its results and your schedule is unchanged, but games from here on are played by the new engine, and the
-            play-by-play of earlier games may no longer match what you watched. Nothing has been played or changed yet.{" "}
+            play-by-play of earlier games may no longer match what you watched. Nothing has been played or changed yet. After you
+            upgrade, Game Day carries on by itself; if you were fast-forwarding or finishing a week, press that button again.{" "}
             <button type="button" className="btnlink sm" data-testid="confirm-engine-upgrade" onClick={() => confirmEngineUpgrade()}>
-              Upgrade and continue
+              Upgrade the engine
             </button>
           </div>
         )}

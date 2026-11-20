@@ -877,7 +877,8 @@ async function engineVersionAllows(): Promise<boolean> {
   if (engineOf(s) !== "engine") return true;
   let current: string | undefined;
   try {
-    current = await sim.engineVersion();
+    // a save that names a build is never carried on by an engine that can't be named
+    current = await sim.engineVersion(!s.simEngineVersion);
   } catch (e) {
     // the engine could not start: the same notice (with Retry) as any other step that needs it
     throw new EngineUnavailableError("starting the engine", e);

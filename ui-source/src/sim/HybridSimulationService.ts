@@ -214,11 +214,11 @@ export class HybridSimulationService implements SimulationService {
 
   /**
    * The version of the engine answering, to record in a save; `undefined` when nothing can be named (the local adapter).
-   * Starts the engine if it is not running; if it cannot start, throws what the player needs to read.
+   * Starts the engine if it is not running; if it cannot start, throws what the player needs to read. `allowUnnamed` false (the save already names a build) refuses the local adapter as a stand-in.
    */
-  async engineVersion(): Promise<string | undefined> {
-    if (!this.versioned) return undefined;
-    return currentEngineVersion();
+  async engineVersion(allowUnnamed = true): Promise<string | undefined> {
+    if (!this.versioned) return undefined; // the developer chose the adapter outright
+    return currentEngineVersion(undefined, allowUnnamed);
   }
 
   /** Where each kind of answer last came from, so the store can record which simulator a new dynasty was built on. */
