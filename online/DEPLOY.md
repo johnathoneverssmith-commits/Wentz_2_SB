@@ -63,6 +63,24 @@ redeploys it.
 That's it — cookies won't flow and CORS will refuse the UI until this step
 is done, so if sign-in fails with a CORS error, this is almost always why.
 
+## The browser simulation engine (issue #74 Phase 4)
+
+Both services also serve a copy of the browser simulation engine at `/sim-engine/` (a manifest and three
+content-hashed files, about 1.1 MB gzipped, fetched only when a page first needs it). Nothing in the dashboard has
+to change for it:
+
+| Service | What builds it | What serves it |
+|---|---|---|
+| Web service | the root `postinstall` (`scripts/render-build-ui.mjs`) calls `scripts/prepare-sim-engine.mjs`, using the root's production dependencies | `online/src/http.ts`, gzip, the manifest uncached and the hashed files cached for good |
+| Static site | `npm run build` in `ui-source` calls the same script, which first installs the repo root's production dependencies (`npm ci --omit=dev --ignore-scripts`) | Render's static hosting, from `dist/sim-engine/` |
+
+The static site's Root Directory stays `ui-source`: Render clones the whole repository, so the build can reach the
+root. If a build ever fails with "the repository root isn't part of this build", clear Root Directory, set Build
+Command to `npm --prefix ui-source install && npm --prefix ui-source run build` and Publish Directory to
+`ui-source/dist`. After a deploy, `node scripts/verify-deployment.mjs` confirms both services serve the same complete
+engine; `node scripts/verify-sim-engine-dist.mjs <ui-source/dist>` runs the engine in a real Chromium from a built
+directory (it needs Playwright's browser: `npx playwright install chromium`).
+
 ## Where GMs play
 
 The web service also serves the UI itself, at its own URL — that is the

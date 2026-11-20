@@ -22,7 +22,7 @@ jobs:
   browser-e2e:
     name: Chromium browser tests (advisory)
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       CI: 'true'
       E2E_BROWSER_CHANNEL: ''

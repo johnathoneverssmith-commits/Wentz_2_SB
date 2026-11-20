@@ -129,7 +129,7 @@
   "rules": [
     {
       "id": "ci-deploy-config", "class": "ci-or-deploy-config", "risk": "high",
-      "match": [".github/**", "scripts/trigger-render-deploys.mjs", "scripts/verify-deployment.mjs", "scripts/render-build-ui.mjs", "render.yaml", ".node-version", ".nvmrc"],
+      "match": [".github/**", "scripts/trigger-render-deploys.mjs", "scripts/verify-deployment.mjs", "scripts/render-build-ui.mjs", "scripts/prepare-sim-engine.mjs", "render.yaml", ".node-version", ".nvmrc"],
       "requires": ["static-review", "tc-engine", "tc-online", "tc-ui", "ui-build", "ci-pr"],
       "recommends": [],
       "approval": "CI or deployment configuration",
@@ -302,7 +302,7 @@
     },
     {
       "id": "sim-service", "class": "engine-adapter", "risk": "medium", "component": "engine",
-      "match": ["src/sim-service/**", "scripts/build-sim-worker.ts"],
+      "match": ["src/sim-service/**", "scripts/build-sim-worker.ts", "scripts/verify-sim-engine-dist.mjs"],
       "requires": ["tc-engine", "tc-online", "direct-tests", "full-engine", "full-online", "ci-pr"],
       "recommends": ["related-engine"],
       "notes": ["Shared by the local adapter (server/), the online server's box scores and, later, a browser worker: check the adapter's responses too, and run the online suite."]
