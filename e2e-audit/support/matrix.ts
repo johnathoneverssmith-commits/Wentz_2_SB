@@ -28,16 +28,16 @@ export interface AuditTeam {
   required: boolean;
 }
 
-/** Teams that have a photo in ui-source/public/art/stadiums (the rest get the drawn skyline). Re-derived by a self-check. */
+/** Audited teams. Every team now has a photo in ui-source/public/art/stadiums (the drawn skyline is only the load-failure fallback). Re-derived by a self-check. */
 export const TEAMS: readonly AuditTeam[] = [
   { code: "BAL", why: "required; stadium photo; purple/black with a gold accent", required: true },
   { code: "PIT", why: "required; stadium photo; black/gold, the yellow-on-white contrast risk", required: true },
-  { code: "CIN", why: "required; NO stadium photo, so the drawn skyline fallback; orange/black", required: true },
+  { code: "CIN", why: "required; stadium photo; orange/black", required: true },
   { code: "CHI", why: "required; stadium photo; navy/orange", required: true },
   { code: "LV", why: "required; stadium photo; silver/black, a low-chroma palette", required: true },
-  { code: "GB", why: "extra: no photo (skyline); green/gold, a second yellow-accent case", required: false },
-  { code: "MIA", why: "extra: no photo (skyline); aqua/orange, a light primary", required: false },
-  { code: "LAC", why: "extra: no photo (skyline); powder blue/gold, the lightest primary", required: false },
+  { code: "GB", why: "extra: stadium photo; green/gold, a second yellow-accent case", required: false },
+  { code: "MIA", why: "extra: stadium photo; aqua/orange, a light primary", required: false },
+  { code: "LAC", why: "extra: stadium photo; powder blue/gold, the lightest primary", required: false },
   { code: "JAX", why: "extra: stadium photo; teal/gold/black", required: false },
   { code: "SEA", why: "extra: stadium photo; navy/neon green", required: false },
 ];
