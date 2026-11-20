@@ -859,6 +859,8 @@ export const useStore = create<Store>()(
         // Observe initialization for the UI without changing generation or saved state.
         const finishCreating = beginSetupCreation();
         try {
+        // a notice about the dynasty being replaced says nothing about the new one (which tries the engine afresh)
+        setEngineIssue(null);
         // The dynasty being replaced is kept first, in a place the new league's autosaves cannot reach. (The header
         // button asks for this itself, ahead of its confirmation, and refuses to go on without it; any other caller
         // gets the same best-effort copy.)

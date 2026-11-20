@@ -151,17 +151,18 @@ describe("the readiness gate after an engine failure", () => {
   it("resumes exactly once after a successful Retry, and stays stopped after a failed one", async () => {
     useStore.setState({ simEngine: "engine" } as never);
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    const base = issues.length; // whatever the setup left behind is not part of this move
     await s().simulateGameDay(); // the move that is interrupted
     expect(issues.at(-1)).toBeTruthy();
     const seen = [...issues];
     expect(await retryEngine()).toBe(false); // still down
     expect(await retryEngine()).toBe(false);
     expect(issues).toEqual(seen); // a failed Retry says nothing new: the gate is not woken
-    expect(starts([null, ...issues])).toBe(1); // just the original check-in
+    expect(starts([null, ...issues.slice(base)])).toBe(1); // just the original check-in
     vi.stubGlobal("fetch", answers());
     expect(await retryEngine()).toBe(true);
     expect(await retryEngine()).toBe(true); // pressing again changes nothing
-    expect(starts([null, ...issues])).toBe(2); // the check-in, and the one resume
+    expect(starts([null, ...issues.slice(base)])).toBe(2); // the check-in, and the one resume
   });
 
   it("is not started online, or while a notice is up, or before everyone is in", () => {
@@ -169,5 +170,16 @@ describe("the readiness gate after an engine failure", () => {
     expect(advanceWanted({ online: false, allReady: true, engineIssue: "down" })).toBe(false);
     expect(advanceWanted({ online: false, allReady: false, engineIssue: null })).toBe(false);
     expect(advanceWanted({ online: false, allReady: true, engineIssue: null })).toBe(true);
+  });
+});
+
+describe("a new dynasty does not inherit the old one's engine notice", () => {
+  it("starting over clears the notice, so the new setup gate is not held", async () => {
+    useStore.setState({ simEngine: "engine" } as never);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    await s().simulateGameDay();
+    expect(issues.at(-1)).toBeTruthy();
+    await s().newLeague(777); // engine still down: this one falls back to the Mock, as before
+    expect(issues.at(-1)).toBeNull();
   });
 });
