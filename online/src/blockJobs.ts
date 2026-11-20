@@ -41,6 +41,23 @@ export function runOrDefer(state: LeagueState, job: BlockJob): void {
   else pending.set(state, [job]);
 }
 
+/**
+ * Registered by `phases.ts`: starts the next postseason round when no human is
+ * left to check in for it (every human is eliminated, so the readiness gate is
+ * already open and no press will ever come). Returns whether it queued a round.
+ * A hook rather than an import because `phases.ts` itself imports `db.ts`.
+ */
+let postseasonSettler: ((state: LeagueState) => boolean) | null = null;
+export function setPostseasonSettler(fn: (state: LeagueState) => boolean): void {
+  postseasonSettler = fn;
+}
+export function startIdlePostseasonRound(state: LeagueState): boolean {
+  return postseasonSettler ? postseasonSettler(state) : false;
+}
+export function isDeferring(): boolean {
+  return deferring;
+}
+
 export function takeBlockJobs(state: LeagueState): BlockJob[] {
   const list = pending.get(state) ?? [];
   pending.delete(state);
@@ -51,7 +68,11 @@ export function runBlockJob(state: LeagueState, job: BlockJob): void {
   if (job.kind === "playoffs") simulatePlayoffBlock(state);
   else if (job.kind === "playoffRound") {
     simulatePlayoffBlock(state, 1);
-    readyEliminated(state);
+    if (state.bracket?.champion) {
+      // the final checkpoint is the stage's own and waits for everybody again, the GMs who went out in an earlier
+      // round included (they were checked in only so a round nobody could change would not wait on them)
+      for (const g of state.gms) state.readiness[g.id] = !(g.isHuman && g.teamCode);
+    } else readyEliminated(state);
   }
   else simulateBlock(state, job.phase, job.from, job.to);
 }

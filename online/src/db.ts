@@ -10,7 +10,7 @@ import pg from "pg";
 import type { LeagueState } from "@/domain";
 import { upgradeLeagueState } from "@/state/saveMigration.ts";
 
-import { takeBlockJobs } from "./blockJobs.js";
+import { startIdlePostseasonRound, takeBlockJobs } from "./blockJobs.js";
 import { ScoutingUnavailable, scoutContextFor, withScoutContext } from "./scouting.js";
 import { takeNotes } from "./notes.js";
 import { attentionOf, deliverNudges, nudgesFor, type Attention } from "./push.js";
@@ -366,6 +366,13 @@ async function withLeagueLocked<T>(
     const jobs = takeBlockJobs(out.state);
     const notes = takeNotes(out.state);
     if (jobs.length > 0) out.state = await runBlockJobs(out.state, jobs);
+    // A postseason with no human left alive has nobody to check in for the
+    // next round, so nothing would ever press the gate (issue #132): play the
+    // rounds nobody can hold up, in this same transaction. At most the four
+    // rounds a bracket has; the final checkpoint waits for everyone again.
+    for (let guard = 0; guard < 4 && startIdlePostseasonRound(out.state); guard++) {
+      out.state = await runBlockJobs(out.state, takeBlockJobs(out.state));
+    }
     if (out.unchanged) {
       await client.query("ROLLBACK");
       return { result: out.result, version: row.version };
