@@ -15,7 +15,7 @@ another document, it says so.
 
 ## 2. Alpha blockers
 
-### B1. Online playoffs stall when no human team is still alive (High, reproduced twice)
+### B1. Online playoffs stall when no human team is still alive (High, reproduced twice; issue #132)
 **Where:** `online/src/blockJobs.ts` `readyEliminated`, `online/src/phases.ts` `clearReadinessOnline` / `readyUp`,
 `ui-source/src/screens/Checkpoint.tsx`.
 **What happens:** on entering `playoffs`, and again after every round, a human GM whose team is not alive is marked ready.
@@ -49,8 +49,8 @@ simulation (not the real engine)" and the dynasty never switches.
 
 | ID | Defect | Severity | Notes |
 |---|---|---|---|
-| D1 | **Reload during an online draft lands on League Setup.** `#/draft` becomes `#/setup` and stays there. The sidebar still shows "Fantasy Draft · Your turn" and the clock; clicking the current-stage link recovers. | Medium | Reproduced each of the 3 times it was tried. Reload on `#/hub` stays on the hub. Not checked at other stages. |
-| D2 | **The league server does not serve `/art/*`.** Stadium photos 404 (`/art/stadiums/BAL.webp`, `/art/franchise/stadium-city.webp`) and one request has an empty code (`/art/stadiums/.webp`). The static dist serves them. | Low-Medium | `online/src/http.ts` serves only the UI page and an allowlist of `/sim-engine/*`. Mastheads fall back to the skyline, so nothing breaks. Confirm on production. |
+| D1 (#133) | **Reload during an online draft lands on League Setup.** `#/draft` becomes `#/setup` and stays there. The sidebar still shows "Fantasy Draft · Your turn" and the clock; clicking the current-stage link recovers. | Medium | Reproduced each of the 3 times it was tried. Reload on `#/hub` stays on the hub. Not checked at other stages. |
+| D2 (#134) | **The league server does not serve `/art/*`.** Stadium photos 404 (`/art/stadiums/BAL.webp`, `/art/franchise/stadium-city.webp`) and one request has an empty code (`/art/stadiums/.webp`). The static dist serves them. | Low-Medium | `online/src/http.ts` serves only the UI page and an allowlist of `/sim-engine/*`. Mastheads fall back to the skyline, so nothing breaks. Confirm on production. |
 | D3 | Mock output is visibly wrong in places: scores such as 1-22 and 12-1, 13 playoff matchups with a winner and no stored game, player lines that disagree (receiving vs passing). | Known | Already tracked under #74 and the TAFI register. Only the Mock does this. |
 | D4 | `engine: non-finite M04 shift on SACK / M09 shift on COMPLETE; ignoring it` in the online server log. | Low | Tracked as GAP-010. |
 | D5 | Phone setup header strip shows its first chip clipped at the left edge ("Setup · 2027"). | Cosmetic | Looks like a scrolled strip. Not investigated. |
