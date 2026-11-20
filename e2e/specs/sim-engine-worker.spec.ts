@@ -21,6 +21,7 @@ import { buildSimWorker, DEFAULT_POOL, type SimEngineBuild } from "../../scripts
 import { allStaffs } from "../../src/engine/staff-data.ts";
 import { cleanPlan } from "../../src/engine/gameplan.ts";
 import { expect, test } from "../support/test.ts";
+import { assets, newSite, serveEngine, type Site } from "../support/sim-engine-site.ts";
 import { freePort } from "../support/stack.ts";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
@@ -45,15 +46,6 @@ let adapterPort = 0;
 const pool = JSON.parse(readFileSync(DEFAULT_POOL, "utf8")) as { id: string; nfl_team: string; position: string; overall?: number }[];
 const playersOf = (t: string) => pool.filter((p) => p.nfl_team === t);
 const TEAMS = [...new Set(pool.map((p) => p.nfl_team))].filter((t) => t && t !== "FA").sort();
-
-/** What the test's "server" does right now. */
-interface Site {
-  dir: string;
-  requests: string[];
-  breakAsset: string | null;
-  failManifest: boolean;
-  manifestOverride: ((m: Record<string, unknown>) => Record<string, unknown>) | null;
-}
 
 test.beforeAll(async () => {
   test.setTimeout(240_000);
@@ -119,25 +111,9 @@ async function serve(page: Page, origin: string, site: Site): Promise<void> {
     r.fulfill({ contentType: "text/html", body: '<!doctype html><meta charset="utf-8"><title>x</title><script src="/__engine-harness.js"></script>' }),
   );
   await page.route(`${origin}/__engine-harness.js`, (r) => r.fulfill({ contentType: "text/javascript", body: harnessJs }));
-  await page.route(`${origin}/sim-engine/**`, async (r) => {
-    const name = new URL(r.request().url()).pathname.replace("/sim-engine/", "");
-    site.requests.push(name);
-    if (name === "manifest.json") {
-      if (site.failManifest) return r.abort("internetdisconnected");
-      const m = JSON.parse(readFileSync(join(site.dir, name), "utf8")) as Record<string, unknown>;
-      return r.fulfill({ contentType: "application/json", headers: { "cache-control": "no-cache" }, body: JSON.stringify(site.manifestOverride ? site.manifestOverride(m) : m) });
-    }
-    if (site.breakAsset && name.startsWith(site.breakAsset)) return r.fulfill({ status: 503, body: "unavailable" });
-    try {
-      return r.fulfill({ contentType: name.endsWith(".js") ? "text/javascript" : "application/json", headers: { "cache-control": "public, max-age=31536000, immutable" }, body: readFileSync(join(site.dir, name)) });
-    } catch {
-      return r.fulfill({ status: 404, body: "not found" });
-    }
-  });
+  await serveEngine(page, origin, site);
 }
 
-const newSite = (dir: string): Site => ({ dir, requests: [], breakAsset: null, failManifest: false, manifestOverride: null });
-const assets = (s: Site) => s.requests.filter((n) => n !== "manifest.json");
 const ready = (page: Page) => page.evaluate(() => (window as unknown as { __ready: () => Promise<unknown> }).__ready()) as Promise<Result<Record<string, unknown>>>;
 const call = (page: Page, route: string, body: unknown) =>
   page.evaluate(([r, b]) => (window as unknown as { __call: (r: string, b: unknown) => Promise<unknown> }).__call(r as string, b), [route, body] as const) as Promise<Result<never>>;

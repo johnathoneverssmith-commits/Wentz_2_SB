@@ -1,5 +1,7 @@
 import type { LeagueState } from "@/domain";
 
+import { isEngineLoadError } from "./engineWorker/errors.ts";
+
 /**
  * Which simulator a dynasty is played on. It is decided once, when the dynasty is created (or, for an old
  * save, inferred from its own games) and is then fixed for the life of the save:
@@ -19,8 +21,11 @@ export class EngineUnavailableError extends Error {
   readonly undecided: boolean;
   constructor(readonly what: string, cause?: unknown, undecided = false) {
     super(
-      `The simulation engine isn't reachable (${what}). Nothing was played or changed; your dynasty is saved as it was. ` +
-        `Start the engine (npm run server), then press Retry.`,
+      // the browser engine says for itself what went wrong and what to do; the adapter's advice would mislead there
+      isEngineLoadError(cause)
+        ? `${cause.message} Your dynasty is saved as it was.`
+        : `The simulation engine isn't reachable (${what}). Nothing was played or changed; your dynasty is saved as it was. ` +
+            `Start the engine (npm run server), then press Retry.`,
     );
     this.name = "EngineUnavailableError";
     this.undecided = undecided;

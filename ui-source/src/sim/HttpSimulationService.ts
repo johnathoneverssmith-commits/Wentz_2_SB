@@ -10,6 +10,7 @@
  * (matches the nflverse/real-world convention everywhere else). Every other
  * code matches. `toEngine`/`toUi` translate at this boundary only.
  */
+import type { Transport } from "./transportType.ts";
 import type { EngineStaff } from "@/state/coachScale";
 import type { GamePlan } from "../../../src/engine/gameplan.js";
 import type { GameBroadcast } from "@/domain/broadcast.ts";
@@ -29,7 +30,14 @@ export interface RecordedPlayoffGame {
 const toEngine = (code: string): string => (code === "LAR" ? "LA" : code);
 const toUi = (code: string): string => (code === "LA" ? "LAR" : code);
 
-async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+/**
+ * How a request reaches the engine (`transportType.ts`). The default is the local adapter over HTTP; the browser
+ * engine (`engineWorker/transport.ts`) answers the same routes from a Web Worker. Everything above this seam, the
+ * request shapes and the translation of team codes, is identical for both.
+ */
+export type { Transport };
+
+export const adapterTransport: Transport = async (path, body, signal) => {
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -37,8 +45,8 @@ async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promi
     signal,
   });
   if (!res.ok) throw new Error(`adapter ${path} -> ${res.status}`);
-  return (await res.json()) as T;
-}
+  return await res.json();
+};
 
 function playerToEngine(p: Player): Player {
   return { ...p, nfl_team: toEngine(p.nfl_team) };
@@ -122,6 +130,12 @@ function presentedToUi<T extends Partial<PresentedGame>>(g: T): Pick<PresentedGa
 }
 
 export class HttpSimulationService {
+  constructor(private readonly transport: Transport = adapterTransport) {}
+
+  private post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+    return this.transport(path, body, signal) as Promise<T>;
+  }
+
   /** The preseason lab: one game played both ways (`src/engine/plan-preview.ts`). */
   async previewPlan(b: {
     seed: number;
@@ -144,7 +158,7 @@ export class HttpSimulationService {
     };
     const staffs = this.engineStaffsOf(b.staffs);
     const [h, a] = [toEngine(b.homeTeam), toEngine(b.awayTeam)];
-    return post("/plan-preview", {
+    return this.post("/plan-preview", {
       seed: b.seed,
       phase: b.phase,
       week: b.week,
@@ -171,12 +185,12 @@ export class HttpSimulationService {
   }
 
   async generateInitialPool(): Promise<Player[]> {
-    const pool = await post<Player[]>("/pool", {});
+    const pool = await this.post<Player[]>("/pool", {});
     return pool.map(playerToUi);
   }
 
   async generateSchedule(year?: number): Promise<ScheduledGame[]> {
-    const games = await post<{ week: number; phase: "REG"; homeTeam: string; awayTeam: string }[]>(
+    const games = await this.post<{ week: number; phase: "REG"; homeTeam: string; awayTeam: string }[]>(
       "/schedule",
       year !== undefined ? { year } : {},
     );
@@ -258,7 +272,7 @@ export class HttpSimulationService {
       offenseAdjust,
       plans: this.enginePlansOf(plans),
     };
-    const results = await post<
+    const results = await this.post<
       (GameResult & { broadcast?: GameBroadcast & { home: string; away: string } })[]
     >("/simulate-week", body);
     return results.map((g) => ({
@@ -269,14 +283,14 @@ export class HttpSimulationService {
   }
 
   async schemeFitBaseline(): Promise<SchemeFitBaseline> {
-    const res = await post<{ baseline: SchemeFitBaseline }>("/scheme-fit-baseline", {});
+    const res = await this.post<{ baseline: SchemeFitBaseline }>("/scheme-fit-baseline", {});
     return res.baseline;
   }
 
   async generateCoachMarket(
     seed: number,
   ): Promise<{ real: RawCoachCandidate[]; generated: RawCoachCandidate[] }> {
-    const res = await post<{ real: RawCoachCandidate[]; generated: RawCoachCandidate[] }>(
+    const res = await this.post<{ real: RawCoachCandidate[]; generated: RawCoachCandidate[] }>(
       "/coach-market",
       { seed },
     );
@@ -297,7 +311,7 @@ export class HttpSimulationService {
         awayScore: g.awayScore,
       })),
     };
-    const res = await post<{ AFC: RawConferenceSeeding; NFC: RawConferenceSeeding }>("/playoffs/seed", body);
+    const res = await this.post<{ AFC: RawConferenceSeeding; NFC: RawConferenceSeeding }>("/playoffs/seed", body);
     const translateSeeding = (s: RawConferenceSeeding): RawConferenceSeeding => ({
       seeds: s.seeds.map(toUi),
       divisionWinners: s.divisionWinners.map(toUi),
@@ -342,7 +356,7 @@ export class HttpSimulationService {
       viewerTeam: viewerTeam ? toEngine(viewerTeam) : null,
       plans: this.enginePlansOf(plans),
     };
-    const res = await post<RawPlayoffRoundResult>("/playoffs/round", body);
+    const res = await this.post<RawPlayoffRoundResult>("/playoffs/round", body);
     const translateGame = (g: RawPlayoffGame): RawPlayoffGame => ({
       ...g,
       home: toUi(g.home),
@@ -377,7 +391,7 @@ export class HttpSimulationService {
     viewerTeam: string | null = null,
     plans: Record<string, GamePlan> = {},
   ): Promise<{ homeScore: number; awayScore: number; winner: string; box: PresentedGame | null }> {
-    const res = await post<{ homeScore: number; awayScore: number; winner: string; box: PresentedGame | null }>("/playoffs/game", {
+    const res = await this.post<{ homeScore: number; awayScore: number; winner: string; box: PresentedGame | null }>("/playoffs/game", {
       viewerTeam: viewerTeam ? toEngine(viewerTeam) : null,
       plans: this.enginePlansOf(plans),
       seed,
