@@ -121,6 +121,11 @@ patched only to pass `--no-sandbox` and a Chromium path) plus ad hoc Playwright 
 
 ## 7. Unverified
 
+Deploy-audit session, from workflow logs only (not a live read): at run #511 both services served `6461f4b` with engine
+`297c6dcf5cf0`, matching my clean build; at run #520 (2026-11-20 18:30 UTC) both served `07d5774` with engine `cc953769b656`
+and the verify step passed. It could not rule out a later redeploy or rollback. Two items are **unassigned**: `/art` on the
+league origin (D2) and the `localhost:8787` permission prompt in real Chrome.
+
 - The **deployed** site and API (container proxy blocks them); Render cold start from the free tier's spin-down.
 - **Local Network Access:** the deployed HTTPS page probes `http://localhost:8787`. Recent Chrome may show a permission prompt
   to every solo tester on first load. Check in real Chrome on the deployed site.
@@ -137,7 +142,7 @@ patched only to pass `--no-sandbox` and a Chromium path) plus ad hoc Playwright 
 - [ ] B1 fixed and an all-eliminated postseason test added
 - [ ] Owner decision on solo (B2): Phase 5 first, or online-only alpha with solo labelled
 - [x] #129 merged (schedule identical across Node and Chrome), per the #129 session; its container showed the old solver differing for 18/18 years
-- [ ] Production smoke: deployed UI and API serve the same commit and the same `engineVersion`; `/art` served on the league origin (D2)
+- [~] Production smoke: both services matched on commit and engine at the last logged deploy (run #520); no live read yet; `/art` served on the league origin (D2)
 - [ ] Real Chrome on the deployed site: no permission prompt from the `localhost:8787` probe
 - [ ] Firefox and Safari: sign in stays signed in; one solo season
 - [ ] A real phone (owner or tester; not possible from the audit container): setup, a game week, the draft, and, once 5b lands, first-load download on mobile data, a warm-cache reload, an engine-upgrade confirmation
