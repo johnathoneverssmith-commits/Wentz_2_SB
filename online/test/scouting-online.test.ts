@@ -285,7 +285,9 @@ describe("online scouting: concurrent spending", () => {
     const ledger = (await rawLedger())!;
     for (const id of ids.slice(41, 44)) {
       const seen = [TEAM.a, TEAM.b, TEAM.c].map((t) => ledger.reports[t]?.[id]).filter(Boolean);
-      expect(new Set(seen.map((r) => JSON.stringify(r))).size).toBe(1);
+      // compared by value: the newest version is served from the server's cached JSON (insertion order), older ones from JSONB (sorted keys)
+      expect(new Set(seen.map((r) => `${r!.estimate}|${r!.lo}|${r!.hi}`)).size).toBe(1);
+      expect(seen.length).toBeGreaterThanOrEqual(2); // each of these was asked for by at least two teams
     }
   });
 });
