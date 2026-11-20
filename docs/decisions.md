@@ -1236,7 +1236,6 @@ checked at a 375 px phone width for sideways overflow: none.
   they are revealed.
 - Full-screen interstitials and dialogs fade and lift in.
 
-
 ## A soft limit on how far a roster can move a channel (the "nobody throws" bug)
 
 A weak team's passing game collapsed. Each channel's logit is the sum of the
@@ -2070,3 +2069,19 @@ The engine adapter's `/playoffs/round` is a stateless stepper that replayed ever
 **Not in this change.** No save-schema change (no engine/pool version recorded in saves), no change to which dynasties use which simulator, no copy changes, no `howItWorks.ts` change. Those are the Phase 5b proposal.
 
 **A new dynasty starts without the old one's engine notice** (Codex review on #131). The notice is module-level, so after a failed move the player starting over (while the engine is still down, which falls back to a playable Mock dynasty) would have had the old notice hold the new setup gate. `newLeague` now clears it first, and so do both restore paths in `saveBackup.ts` (second Codex finding); the new or restored dynasty tries the engine afresh.
+
+## Online scouting (2026-11)
+
+**Problem.** The solo scouting pilot (#124) seeded report noise from `state.seed`, which every online pull carries (and which online is only `Date.now() % 100_000`), so a client could subtract the noise and read a scouted prospect's hidden rating; the ledger of every team would have shipped in every pull; and there was no online action.
+
+**Design.**
+- **Server-held randomness.** `league_secrets(league_id, scout_salt BYTEA CHECK (octet_length = 32))`, outside the league document. Noise is `HMAC-SHA256(salt, "year|prospect|basic")` turned into a standard normal (`online/src/scouting.ts`), a pure function of (salt, year, prospect): a retry, a restart, or a second team reading the same prospect gets the same report. Reports stay the same number for every team (as measured in the pilot); privacy comes from ledger isolation. The shared rules take the draw through a provider seam (`setScoutingProvider` in `ui-source/src/state/scouting.ts`); with no provider (solo, and any test outside a league transaction) the draw is the seed-derived one, so solo reports and the flag-off goldens are unchanged.
+- **Where the secret lives in a request.** `withLeagueLocked` reads (and, once, creates) the salt under the league's row lock, only for leagues that opted in, and keeps it in an `AsyncLocalStorage` scope for the whole action, so the CPU teams buying their reports as a draft opens use it too. If it cannot be produced the move is refused with a 503 "Online scouting is unavailable" and nothing is changed; a connection failure keeps its existing "not saved" handling.
+- **Switches, all server-side.** `ONLINE_SCOUTING=1` (default off) and `config.scouting`, which can only be set when the league is created (`createOnlineLeague`; `cleanConfigPatch` has no such key, so an existing league cannot gain it). With either missing there is no ledger, CPU teams buy nothing, the action refuses, the view carries none. The lobby offers the setting only where `GET /features` says the server has it.
+- **Action.** `POST /leagues/:id/actions/scout` `{prospectIds}` or `{needs: true}`. The team is the seat's, never the request's. Ids are deduplicated and taken in request order; the answer lists `purchased`, `owned` and `refused` (with a reason) and `left`. Partial batches are fine. A request that buys nothing is `unchanged` (rolled back, version untouched, no event); a purchase bumps the version. Budget is counted from the ledger inside the row lock, so parallel requests cannot overspend.
+- **Views.** `GET /leagues/:id` is the only response that carries the league document; action responses are `{ok, version, ...}`. `applyScoutingView` keeps the viewer's own team's reports only, only in `offseasonDraft` with a rookie draft open; a commissioner without a team or an unclaimed seat gets none. The mask on a prospect's true rating moved into `privacyView.ts`.
+- **Client merge.** The store merges a pulled league over its own, so a missing `scouting` key kept the old ledger. `asViewer` now always writes the key (undefined when the server sent none).
+- **Clearing.** `signAiDraftPicks` (unchanged) and now `onStageEntered` when leaving `offseasonDraft` delete the ledger; the view also hides it outside the open rookie draft.
+- **Existing saves.** Additive table; no row for a league that never opted in; no migration of any document. Solo saves keep their stored reports.
+
+**Not changed.** Engine, ratings, report accuracy and prices, the solo store action, CPU budgets, the draft's results with the flag off.

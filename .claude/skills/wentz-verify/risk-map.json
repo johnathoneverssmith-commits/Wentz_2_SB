@@ -34,6 +34,7 @@
     "reliability-mp3.test.ts",
     "reliability-pool.test.ts",
     "result-visibility.test.ts",
+    "scouting-online.test.ts",
     "universe.test.ts",
     "vacate-advances.test.ts",
     "vacate-seat.test.ts"

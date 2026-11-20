@@ -49,6 +49,28 @@ export interface ScoutReport {
   hi: number;
 }
 
+/**
+ * Where a league's report noise comes from.
+ *
+ * A solo league has no secret from its only player, so it keeps the seed-derived draw (`gauss`) and its saves read
+ * exactly as before. An online server cannot do that: the seed travels in every pull. It registers a provider that
+ * answers per request, from inside the league's own transaction:
+ *   undefined  no provider answer: the solo default (also what a test outside any league sees)
+ *   null       scouting is switched off here: no ledger opens, no report can be bought, CPU teams buy nothing
+ *   {noise}    a standard normal for (draft year, prospect id) drawn from a server-held secret
+ * A provider may throw to say the secret is unavailable; that refuses the move with its message.
+ */
+export interface ScoutingEnv {
+  noise: (year: number, prospectId: string) => number;
+}
+let scoutingProvider: (() => ScoutingEnv | null | undefined) | null = null;
+export function setScoutingProvider(p: (() => ScoutingEnv | null | undefined) | null): void {
+  scoutingProvider = p;
+}
+export function scoutingEnv(): ScoutingEnv | null | undefined {
+  return scoutingProvider ? scoutingProvider() : undefined;
+}
+
 export interface ScoutingState {
   /** the draft year these reports belong to; a new class starts a clean ledger */
   year: number;
@@ -97,12 +119,14 @@ export function makeReport(args: {
   prospect: Pick<DraftProspect, "id" | "trueOverall">;
   projection: number;
   rank: number;
+  /** a standard normal from a server-held secret; absent = the seed-derived draw (solo) */
+  z?: number;
 }): ScoutReport {
   const { prospect, projection, rank } = args;
   const tau = tauOf(rank);
   const k = (tau * tau) / (tau * tau + BASIC_SIGMA * BASIC_SIGMA);
   const eps = prospect.trueOverall - projection;
-  const noise = BASIC_SIGMA * gauss(`${args.seed}|${args.year}|${prospect.id}|basic`);
+  const noise = BASIC_SIGMA * (args.z ?? gauss(`${args.seed}|${args.year}|${prospect.id}|basic`));
   const estimate = projection + k * (eps + noise);
   // the posterior sd of eps given the report
   const sd = Math.sqrt((tau * tau * BASIC_SIGMA * BASIC_SIGMA) / (tau * tau + BASIC_SIGMA * BASIC_SIGMA));
@@ -131,7 +155,7 @@ export function pointsSpent(s: Pick<LeagueState, "scouting">, team: string, year
 
 export type SpendResult =
   | { ok: true; report: ScoutReport; left: number }
-  | { ok: false; reason: "no-draft" | "unknown-prospect" | "taken" | "already-scouted" | "no-points" };
+  | { ok: false; reason: "no-draft" | "unknown-prospect" | "taken" | "already-scouted" | "no-points" | "disabled" };
 
 /**
  * Spend one report on a prospect. The ledger is the only state: a repeat is refused (it would return the same
@@ -140,6 +164,8 @@ export type SpendResult =
 export function spendReport(s: LeagueState, team: string, prospectId: string, budget: number): SpendResult {
   const d = s.draft;
   if (!d || d.mode !== "rookie" || d.currentPickIndex >= d.pickOrder.length) return { ok: false, reason: "no-draft" };
+  const env = scoutingEnv();
+  if (env === null) return { ok: false, reason: "disabled" };
   const p = s.draftClass.find((x) => x.id === prospectId);
   if (!p) return { ok: false, reason: "unknown-prospect" };
   if (d.results.some((r) => r.selectedId === prospectId)) return { ok: false, reason: "taken" };
@@ -148,9 +174,42 @@ export function spendReport(s: LeagueState, team: string, prospectId: string, bu
   if ((Object.keys(mine).length + 1) * BASIC_COST > budget) return { ok: false, reason: "no-points" };
   const expected = expectedRatings(s.draftClass, 1);
   const rank = publicRanks(s.draftClass, expected).get(prospectId)!;
-  const report = makeReport({ seed: s.seed ?? 0, year: d.year, prospect: p, projection: expected.get(prospectId)!, rank });
+  const report = makeReport({ seed: s.seed ?? 0, year: d.year, prospect: p, projection: expected.get(prospectId)!, rank, ...(env ? { z: env.noise(d.year, prospectId) } : {}) });
   (ledger(s, d.year).reports[team] ??= {})[prospectId] = report;
   return { ok: true, report, left: budget - (Object.keys(mine).length + 1) * BASIC_COST };
+}
+
+export type ScoutRefusal = "no-draft" | "unknown-prospect" | "taken" | "no-points" | "disabled";
+export interface ScoutBatchResult {
+  /** bought by this request, in request order */
+  purchased: { id: string; report: ScoutReport }[];
+  /** already in the team's ledger before or earlier in this request (not charged again) */
+  owned: { id: string; report: ScoutReport }[];
+  refused: { id: string; reason: ScoutRefusal }[];
+  /** points left after this request */
+  left: number;
+}
+
+/**
+ * Buy reports for a list, partial batches allowed. Ids are deduplicated and processed in request order; each ends up
+ * purchased, already owned, or refused with a reason, and a refusal never stops the ones after it. A repeat of a
+ * finished request buys nothing: everything is already owned.
+ */
+export function scoutBatch(s: LeagueState, team: string, ids: readonly string[], budget: number): ScoutBatchResult {
+  const out: ScoutBatchResult = { purchased: [], owned: [], refused: [], left: budget };
+  const year = s.draft?.year ?? s.season;
+  for (const id of [...new Set(ids)]) {
+    const have = reportsFor(s, team, year)[id];
+    if (have) {
+      out.owned.push({ id, report: have });
+      continue;
+    }
+    const r = spendReport(s, team, id, budget);
+    if (r.ok) out.purchased.push({ id, report: r.report });
+    else out.refused.push({ id, reason: r.reason as ScoutRefusal });
+  }
+  out.left = budget - pointsSpent(s, team, year);
+  return out;
 }
 
 const POS12: Position[] = ["QB", "RB", "WR", "TE", "OT", "OG", "C", "EDGE", "DT", "ILB", "CB", "S"];

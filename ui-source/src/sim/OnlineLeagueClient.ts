@@ -229,6 +229,20 @@ export class OnlineLeagueClient {
   toggleDraftTarget = (leagueId: string, prospectId: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/draft-target`, { prospectId });
 
+  /** What the server offers a new league (a switch that is off is false). */
+  features = () => this.call<{ scouting: boolean }>("/features");
+
+  /** Buy scouting reports: a list of prospect ids, or `needs` for the server's own suggestions. */
+  scout = (leagueId: string, request: { prospectIds: string[] } | { needs: true }) =>
+    this.call<{
+      ok: true;
+      version: string;
+      purchased: { id: string }[];
+      owned: { id: string }[];
+      refused: { id: string; reason: string }[];
+      left: number;
+    }>(`/leagues/${leagueId}/actions/scout`, request);
+
   stepForward = (leagueId: string, step: string, version: string) =>
     this.call<{ ok: true; version: string }>(`/leagues/${leagueId}/actions/step`, {
       step,

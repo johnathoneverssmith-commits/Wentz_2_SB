@@ -10,7 +10,8 @@
  * Run it with `npm run online` (and `npm run online:migrate` once).
  */
 import { redactTrainingCamp } from "./campView.js";
-import { stripPrivatePlayerFields } from "./privacyView.js";
+import { maskUnsettledProspects, stripPrivatePlayerFields } from "./privacyView.js";
+import { applyScoutingView, onlineScoutingAllowed } from "./scouting.js";
 import { deferBlockJobs } from "./blockJobs.js";
 import { createServer } from "node:http";
 
@@ -45,6 +46,7 @@ import {
   revealRound,
   stepForward,
   toggleDraftTarget,
+  scoutProspects,
 } from "./actions.js";
 import {
   changePassword,
@@ -110,6 +112,9 @@ const serverStartedAt = new Date().toISOString();
  * to "which commit is Render actually running?" and lets the release verifier
  * catch a stale API independently of the static UI.
  */
+/** What this server offers a new league. Public; a switch that is off is simply absent from the form. */
+get("/features", async () => ({ scouting: onlineScoutingAllowed() }));
+
 get("/version", async () => ({
   service: "online-api",
   commit: process.env.RENDER_GIT_COMMIT ?? process.env.GIT_COMMIT ?? "unknown",
@@ -462,9 +467,10 @@ get("/leagues/:id", async (ctx) => {
   // The coaching draft's board and results are only read by its own room;
   // afterwards they rode along with every pull for the life of the league.
   if (state.stage !== "coachingDraft" && state.stage !== "coachingDraftSummary") state.coachingDraft = null;
-  state.draftClass = (state.draftClass ?? []).map((pr) =>
-    state.rookieOutcomes?.[pr.id] ? pr : { ...pr, trueOverall: 0 },
-  );
+  maskUnsettledProspects(state);
+  // Scouting reports are the viewer's own team's and no one else's: another team's ledger is free scouting on every
+  // prospect it covers. A commissioner without a team, or anyone unclaimed, gets none (`scouting.ts`).
+  applyScoutingView(state, franchise?.teamCode);
 
   return {
     league: { id: loaded.league.id, name: loaded.league.name },
@@ -640,6 +646,12 @@ post("/leagues/:id/actions/reveal", async (ctx) => {
 post("/leagues/:id/actions/draft-target", async (ctx) => {
   const a = await actor(ctx);
   return toggleDraftTarget(a, field(ctx, "prospectId", "string"));
+});
+
+post("/leagues/:id/actions/scout", async (ctx) => {
+  const a = await actor(ctx);
+  const body = (ctx.body ?? {}) as { prospectIds?: unknown; needs?: unknown };
+  return scoutProspects(a, { prospectIds: body.prospectIds, needs: body.needs });
 });
 
 post("/leagues/:id/actions/step", async (ctx) => {
