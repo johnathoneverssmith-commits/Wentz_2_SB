@@ -2,6 +2,9 @@
  * On Render's web service, build the UI so the league server can serve it
  * from its own origin (`SERVE_UI`).
  *
+ * It also builds the browser simulation engine into the UI's `public/sim-engine/` (issue #74 Phase 4b),
+ * so the league server can serve it with the page.
+ *
  * Runs as the root package's `postinstall`, so the service's existing Build
  * Command (`npm install`) picks it up with no dashboard change. Everywhere
  * else — a laptop, CI — it does nothing: `RENDER` is set only on Render, and
@@ -24,6 +27,8 @@ const run = (cmd, env = {}, cwd = undefined) =>
 
 // devDependencies too: Vite is one, and Render installs with NODE_ENV=production
 run("npm --prefix ui-source ci --include=dev");
+// the browser simulation engine (worker, artifacts, pool), copied into dist/sim-engine by the build below
+run("node scripts/prepare-sim-engine.mjs");
 // an empty API base: the client calls the origin it was loaded from
 // and where single-player lives: the static site, whose address this service
 // already knows as the origin it accepts calls from

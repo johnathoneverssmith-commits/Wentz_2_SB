@@ -25,7 +25,7 @@ import { loadPlayerPool } from "../src/data/players.js";
 import { createRoutes } from "../src/sim-service/index.js";
 import { runGame, warmPool } from "./simPool.js";
 
-const PORT = 8787;
+const PORT = Number(process.env.ADAPTER_PORT ?? 8787);
 
 function readJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
