@@ -54,6 +54,11 @@ npm run generate:pool   # build a full pool from open NFL data (see below)
 npm start           # load + print the active pool
 ```
 
+`npm test` and `npm run typecheck` cover the engine only. The UI and the online
+server have their own commands: `npm --prefix ui-source run test` and
+`npm --prefix ui-source run typecheck`, and `npm run online:test` and
+`npm run online:typecheck`.
+
 Relative imports use `.js` extensions (NodeNext) even though sources are `.ts`.
 
 ## Player pool
