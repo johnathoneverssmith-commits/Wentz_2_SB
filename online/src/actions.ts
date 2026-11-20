@@ -20,6 +20,7 @@ import type { LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { franchiseOf, isCommissioner } from "./auth.js";
 import { ActionError, withLeague, type Applied } from "./db.js";
+import type { ScoutBatchResult } from "@/state/scouting.ts";
 import { assertSeatHeld } from "./seat.js";
 import { deadlineFor, turnKey } from "./phases.js";
 import {
@@ -37,6 +38,7 @@ import {
   decideRevealRound,
   decideStep,
   decideDraftTarget,
+  decideScout,
   decideDeadlineTurn,
   decideSkipPreference,
   decideRookieOutcome,
@@ -293,6 +295,20 @@ export const revealRound = (actor: Actor, expectedVersion?: string) =>
 // no version: a star is private and can't conflict with anyone's move
 export const toggleDraftTarget = (actor: Actor, prospectId: string) =>
   run(actor, undefined, (s) => decideDraftTarget(s, actor, prospectId));
+
+/** Buy scouting reports; answers with what was purchased, already owned and refused (`decideScout`). */
+export async function scoutProspects(
+  actor: Actor,
+  request: { prospectIds?: unknown; needs?: unknown },
+): Promise<{ ok: true; version: string } & ScoutBatchResult> {
+  let outcome: ScoutBatchResult | undefined;
+  const out = await run(actor, undefined, (s) => {
+    const decision = decideScout(s, actor, request);
+    outcome = decision.outcome;
+    return decision;
+  });
+  return { ...out, ...outcome! };
+}
 
 export const stepForward = (actor: Actor, step: string, expectedVersion?: string) =>
   run(actor, undefined, (s) => decideStep(s, actor, step));

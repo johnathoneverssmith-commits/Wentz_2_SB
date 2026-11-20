@@ -67,8 +67,11 @@ export function leagueConnected(): boolean {
  * Stamping it here means every path is covered at once: the first load, the
  * stream's refetch, and the state that comes back from an action.
  */
-function asViewer(state: LeagueState, gmId: string): LeagueState {
-  return state.viewerGmId === gmId ? state : { ...state, viewerGmId: gmId };
+export function asViewer(state: LeagueState, gmId: string): LeagueState {
+  // `scouting` is always written, even when the server sent none. The store merges a pulled league over its own
+  // (`useStore.setState(state)`), and a key that is missing merges as "keep what you had": a ledger cleared on the
+  // server (the draft ended, scouting was switched off) would stay on screen. An own key set to undefined clears it.
+  return { ...state, viewerGmId: gmId, scouting: state.scouting };
 }
 
 /**

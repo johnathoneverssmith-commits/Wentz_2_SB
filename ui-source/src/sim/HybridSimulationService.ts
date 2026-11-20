@@ -73,6 +73,7 @@ import { Rng } from "./rng.ts";
 import { winProbability, type Venue } from "./win-probability.ts";
 import type { RetirementOutcome, SimulationService, TradeEvaluation } from "./SimulationService.ts";
 import { EngineUnavailableError, engineOf, type EngineMode, type EngineRequest } from "./engineMode.ts";
+import { browserEngineEnabled, workerTransport } from "./engineWorker/transport.ts";
 
 // mirrors nfl-franchise-sim/src/engine/staff.ts's OFF_SCHEME_TAGS/DEF_SCHEME_TAGS
 const OFF_SCHEME_TAGS: Record<string, readonly string[]> = {
@@ -194,12 +195,20 @@ const engConfToUi = (c: string): "AFC" | "NFC" | "SB" => (c === "NFL" ? "SB" : (
 const ADAPTER_RETRY_MS = 30_000;
 
 export class HybridSimulationService implements SimulationService {
-  private readonly http = new HttpSimulationService();
+  private readonly http: HttpSimulationService;
   private readonly mock = new MockSimulationService();
   private baseline: SchemeFitBaseline | null = null;
   private baselineRequested = false;
   /** epoch ms before which the adapter is assumed still unreachable */
   private adapterDownUntil = 0;
+
+  /**
+   * `http` is where engine requests go. By default the local adapter; with the browser engine switched on
+   * (`browserEngineEnabled`) the Web Worker answers the same routes instead.
+   */
+  constructor(opts: { http?: HttpSimulationService } = {}) {
+    this.http = opts.http ?? new HttpSimulationService(browserEngineEnabled() ? workerTransport() : undefined);
+  }
 
   /** Where each kind of answer last came from, so the store can record which simulator a new dynasty was built on. */
   private readonly sources = new Map<string, EngineMode>();

@@ -13,6 +13,7 @@ import type pg from "pg";
 import type { DeadlineChoice, LeagueConfig, LeagueState } from "@/domain";
 import { TEAMS_BY_CODE } from "@/data/teams";
 import { cleanConfigPatch } from "@/state/rules.ts";
+import { ensureScoutSalt, onlineScoutingAllowed } from "./scouting.js";
 import { createLeague, DEFAULT_CONFIG } from "@/state/seed.ts";
 import { syncAiGms } from "@/state/aiGms.ts";
 
@@ -52,7 +53,12 @@ export async function createOnlineLeague(
 
   // The rules pass the same check the commissioner's later changes do; they
   // used to be spread in as sent, any key and any value.
-  const { gameDayDeadlineHours, offseasonStageDeadlineHours, ...rules } = (input.config ?? {}) as Partial<LeagueConfig>;
+  const { gameDayDeadlineHours, offseasonStageDeadlineHours, scouting: wantScouting, ...rules } = (input.config ?? {}) as Partial<LeagueConfig>;
+  // Scouting is a creation-time opt-in, behind the host's ONLINE_SCOUTING switch (default off). It has no later patch:
+  // `cleanConfigPatch` does not know the key, so a league made without it can never gain it.
+  if (wantScouting === true && !onlineScoutingAllowed()) {
+    throw new ActionError("Scouting isn't available on this server, so the league was not created.", 400);
+  }
   const clean = cleanConfigPatch({ stage: "setup", config: DEFAULT_CONFIG } as LeagueState, rules as Record<string, unknown>, { creating: true });
   if (!clean.ok) throw new ActionError(clean.reason);
   const deadline = (v: unknown): DeadlineChoice | undefined =>
@@ -72,6 +78,7 @@ export async function createOnlineLeague(
       ? { offseasonStageDeadlineHours: deadline(offseasonStageDeadlineHours)! }
       : {}),
     humanGmCount: humanSlots,
+    ...(wantScouting === true ? { scouting: true } : {}),
   };
   const state: LeagueState = createLeague(Date.now() % 100_000, config);
 
@@ -111,6 +118,8 @@ export async function createOnlineLeague(
         pickHours,
       ],
     );
+    // the scouting salt is made in the same transaction as the league: it exists or the league does not
+    if (config.scouting) await ensureScoutSalt(client, id);
     await client.query(
       `INSERT INTO league_state (league_id, state, season, stage, week)
        VALUES ($1, $2, $3, $4, $5)`,

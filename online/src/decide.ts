@@ -16,6 +16,8 @@
  * `actions.ts` wraps each of these in `withLeague`, which supplies the row
  * lock, the version check and the event log.
  */
+import { budgetFor, scoutBatch, suggestTargets, type ScoutBatchResult } from "@/state/scouting.ts";
+import { onlineScoutingAllowed, scoutContext, ScoutingUnavailable } from "./scouting.js";
 import { chooseGmStrategy } from "@/state/aiGms.ts";
 import { setSkip } from "@/state/skips.ts";
 import { bracketRounds, COACH_ROLE_LABEL, ROUND_ORDER, roundLabelFor } from "@/domain";
@@ -521,6 +523,39 @@ export function decideDraftTarget(state: LeagueState, actor: Actor, prospectId: 
   toggleDraftTargetFor(state, actor.gmId, prospectId);
   // private: no event, nothing for the other GMs' tickers to read
   return { events: [] };
+}
+
+/**
+ * Buy scouting reports for the actor's own team. The team comes from the seat, never from the request.
+ * Partial batches are fine: ids are deduplicated and taken in request order, and each comes back purchased,
+ * already owned, or refused with a reason. Nothing bought = `unchanged`, so a repeat of a finished request
+ * (a double click, a retry after a dropped response) spends nothing and does not bump the version.
+ * Fails closed: without the host switch, the league's opt-in, or the league's secret, nothing is bought.
+ */
+export function decideScout(
+  state: LeagueState,
+  actor: Actor,
+  request: { prospectIds?: unknown; needs?: unknown },
+): Decision & { outcome: ScoutBatchResult } {
+  if (!state.config.scouting) throw new ActionError("Scouting isn't on in this league.");
+  if (!onlineScoutingAllowed()) throw new ActionError("Scouting is switched off on this server.");
+  const ctx = scoutContext();
+  if (ctx?.kind === "unavailable") throw new ScoutingUnavailable(ctx.reason);
+  if (ctx?.kind !== "on") throw new ScoutingUnavailable("Online scouting is unavailable: its secret is not loaded. Nothing was changed.");
+  const d = state.draft;
+  if (state.stage !== "offseasonDraft" || !d || d.mode !== "rookie" || d.currentPickIndex >= d.pickOrder.length) {
+    throw new ActionError("Scouting is open while the rookie draft is.");
+  }
+  const budget = budgetFor(state, actor.teamCode);
+  let ids: string[];
+  if (request.needs === true) ids = suggestTargets(state, actor.teamCode, budget);
+  else if (Array.isArray(request.prospectIds) && request.prospectIds.every((x) => typeof x === "string")) ids = request.prospectIds as string[];
+  else throw new ActionError("Say which prospects to scout (prospectIds) or ask for your needs.");
+  if (ids.length === 0 && request.needs !== true) throw new ActionError("Nothing to scout.");
+  if (ids.length > 400) throw new ActionError("At most 400 at a time.");
+  const outcome = scoutBatch(state, actor.teamCode, ids, budget);
+  // private: no event, nothing for the other GMs' tickers to read
+  return { events: [], outcome, ...(outcome.purchased.length === 0 ? { unchanged: true } : {}) };
 }
 
 export function decideStep(state: LeagueState, actor: Actor, step: string): Decision {
