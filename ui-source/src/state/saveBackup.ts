@@ -1,7 +1,7 @@
 import type { LeagueState } from "@/domain";
 
 import { CURRENT_SAVE_VERSION, migrateLeagueSave } from "./saveMigration";
-import { flushSave, readKeptDynasty, swapKeptDynasty, useStore } from "./store";
+import { clearEngineIssue, flushSave, readKeptDynasty, swapKeptDynasty, useStore } from "./store";
 
 export const BACKUP_FORMAT = "nfl-franchise-sim-save";
 
@@ -47,6 +47,7 @@ export async function restoreFromText(text: string): Promise<RestoreOutcome> {
     }
     const migrated = migrateLeagueSave(league, parsed.version ?? 0);
     useStore.setState(migrated as never);
+    clearEngineIssue();
     const saved = await flushSave();
     return { ok: true, season: migrated.season, saved };
   } catch {
@@ -105,6 +106,7 @@ export async function restoreKeptDynasty(): Promise<RestoreOutcome> {
   const { done, swapped } = await swapKeptDynasty();
   if (!done) return { ok: false, reason: "couldNotSwap" };
   useStore.setState(migrated as never);
+  clearEngineIssue();
   const saved = await flushSave();
   return { ok: true, season: migrated.season, saved, swapped };
 }

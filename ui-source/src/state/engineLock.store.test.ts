@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { chooseMockForThisDynasty, onEngineChoice, onEngineIssue, retryEngine, useStore } from "./store.ts";
+import { backupJson, restoreFromText } from "./saveBackup.ts";
 import { advanceWanted } from "./advanceWanted.ts";
 
 /**
@@ -180,6 +181,16 @@ describe("a new dynasty does not inherit the old one's engine notice", () => {
     await s().simulateGameDay();
     expect(issues.at(-1)).toBeTruthy();
     await s().newLeague(777); // engine still down: this one falls back to the Mock, as before
+    expect(issues.at(-1)).toBeNull();
+  });
+
+  it("restoring a backup clears it too", async () => {
+    const { text } = backupJson(); // a dynasty that does not need the engine
+    useStore.setState({ simEngine: "engine" } as never);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    await s().simulateGameDay();
+    expect(issues.at(-1)).toBeTruthy();
+    expect((await restoreFromText(text)).ok).toBe(true);
     expect(issues.at(-1)).toBeNull();
   });
 });

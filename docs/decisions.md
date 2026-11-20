@@ -2069,4 +2069,4 @@ The engine adapter's `/playoffs/round` is a stateless stepper that replayed ever
 
 **Not in this change.** No save-schema change (no engine/pool version recorded in saves), no change to which dynasties use which simulator, no copy changes, no `howItWorks.ts` change. Those are the Phase 5b proposal.
 
-**A new dynasty starts without the old one's engine notice** (Codex review on #131). The notice is module-level, so after a failed move the player starting over (while the engine is still down, which falls back to a playable Mock dynasty) would have had the old notice hold the new setup gate. `newLeague` now clears it first; the new dynasty tries the engine afresh.
+**A new dynasty starts without the old one's engine notice** (Codex review on #131). The notice is module-level, so after a failed move the player starting over (while the engine is still down, which falls back to a playable Mock dynasty) would have had the old notice hold the new setup gate. `newLeague` now clears it first, and so do both restore paths in `saveBackup.ts` (second Codex finding); the new or restored dynasty tries the engine afresh.
