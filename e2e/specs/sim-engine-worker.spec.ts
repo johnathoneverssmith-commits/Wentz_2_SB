@@ -181,8 +181,9 @@ test.describe("the browser simulation engine in Chromium", () => {
     const seeding = { AFC: mk(t14.slice(0, 7)), NFC: mk(t14.slice(7)) };
     const sixteen = Array.from({ length: 16 }, (_, i) => ({ homeTeam: teams[(2 * i) % teams.length]!, awayTeam: teams[(2 * i + 1) % teams.length]! }));
 
-    // `/schedule` is deliberately not here: see the known-issue test below
     const requests: [string, unknown][] = [
+      // week placement used to differ between V8 versions (the solver's sort comparator drew from the seeded RNG)
+      ["/schedule", { year: 2026 }],
       ["/simulate-week", { seed: 11, season: 2026, week: 3, phase: "REG", games: sixteen, viewer: sixteen[0] }],
       [
         "/simulate-week",
@@ -212,26 +213,6 @@ test.describe("the browser simulation engine in Chromium", () => {
     // the pool route returns the pool the worker was started with, which is the one the adapter ran on
     const p = await call(page, "/pool", {});
     expect(JSON.parse(p.json!)).toEqual(JSON.parse(await adapterAnswer("/pool", {})));
-  });
-
-  // KNOWN ISSUE, found by this spec: the 2026 schedule differs between Node 22 (V8 12.4) and this Chromium (V8 15).
-  // `src/engine/schedule.ts` sorts candidate weeks with a comparator that draws from the seeded RNG
-  // (`... || rand() - 0.5`), so what it produces depends on how many comparisons the JavaScript engine's sort makes and
-  // in what order, which changes between V8 versions. The same 272 games are played; some land in other weeks.
-  // Fixing it changes generated schedules (and season results), so it needs the owner's approval and is its own change.
-  // `test.fail` keeps this honest: it passes while the schedules differ and FAILS the day they agree, as a reminder to
-  // delete this block and move `/schedule` into the test above.
-  test("KNOWN ISSUE: /schedule differs between this Chromium and Node, though the matchups are the same", async ({ page, origin }) => {
-    test.fail(true, "the schedule's week assignment depends on the JavaScript engine's sort (schedule.ts rand() comparator)");
-    const site = newSite(dirA);
-    await serve(page, origin, site);
-    await page.goto("/__engine-harness.html");
-    expect((await ready(page)).ok).toBe(true);
-    const mine = await call(page, "/schedule", { year: 2026 });
-    const node = await adapterAnswer("/schedule", { year: 2026 });
-    const games = (json: string) => (JSON.parse(json) as { homeTeam: string; awayTeam: string }[]).map((g) => `${g.homeTeam}|${g.awayTeam}`).sort();
-    expect(games(mine.json!), "the same games are played").toEqual(games(node)); // true today
-    expect(mine.json, "and in the same weeks").toBe(node); // false today: the known issue
   });
 
   test("the first use downloads once; a reload reads the cache, and with no connection the saved engine still starts", async ({ page, origin }) => {
