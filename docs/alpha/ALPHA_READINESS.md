@@ -34,7 +34,7 @@ alpha leagues would hit it. It repeats after each round (up to three times).
 **Workaround found (dev only):** re-sending `POST /leagues/:id/actions/ready {"ready":true,"stage":"playoffs"}` as a GM
 played the next round (version 100 to 102, `roundsPlayed` 2 to 3). The deadline sweep should also move it after
 `phase_ends_at`, but I did **not** wait it out, so that is unverified.
-**Test gap:** `full-circuit`, `humans-only-circuit`, `annual-circuit` and `playoff-resume-clock` pass (13 tests, PGlite) and
+**Test gap:** PR #125's harness (per its session) drives `phases.ts` in-process with CPU sweeps and scripted seats, with no readiness gating between humans, no database or UI, and never built a league with every human out, so it does not cover this gate either. `full-circuit`, `humans-only-circuit`, `annual-circuit` and `playoff-resume-clock` pass (13 tests, PGlite) and
 do not cover an all-eliminated postseason.
 **Suggested direction (owner of the files decides):** after `readyEliminated`, if `humanGate(state)` already holds, play the
 round or leave the stage in the same transaction; and show the commissioner control when the league is idle with nobody
