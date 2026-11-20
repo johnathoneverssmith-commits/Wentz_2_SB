@@ -31,7 +31,7 @@ import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tra
 import { currentBlock } from "@/state/revealBlocks.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
-import { isDeferring, readyEliminated, runOrDefer, setPostseasonSettler } from "./blockJobs.js";
+import { isDeferring, readyEliminated, runOrDefer, setPostseasonDeadline, setPostseasonSettler } from "./blockJobs.js";
 import { wipePreseason } from "@/state/preseasonWipe.ts";
 import {
   advanceBiddingDayOn,
@@ -346,6 +346,7 @@ function settleIdlePostseason(state: LeagueState): void {
   for (let guard = 0; guard < 4 && postseasonIdle(state); guard++) playNextPlayoffRound(state);
 }
 setPostseasonSettler((state) => postseasonIdle(state) && playNextPlayoffRound(state));
+setPostseasonDeadline((state, league: { phaseTimeoutHours: number; pickTimeoutHours: number }) => deadlineFor(state, league));
 
 /**
  * Applies the stage transition to a state in hand.

@@ -47,6 +47,13 @@ export function runOrDefer(state: LeagueState, job: BlockJob): void {
  * already open and no press will ever come). Returns whether it queued a round.
  * A hook rather than an import because `phases.ts` itself imports `db.ts`.
  */
+let postseasonDeadline: ((state: LeagueState, league: unknown) => Date | null) | null = null;
+export function setPostseasonDeadline(fn: (state: LeagueState, league: never) => Date | null): void {
+  postseasonDeadline = fn as typeof postseasonDeadline;
+}
+export function freshPostseasonDeadline(state: LeagueState, league: unknown): Date | null {
+  return postseasonDeadline ? postseasonDeadline(state, league) : null;
+}
 let postseasonSettler: ((state: LeagueState) => boolean) | null = null;
 export function setPostseasonSettler(fn: (state: LeagueState) => boolean): void {
   postseasonSettler = fn;
@@ -68,11 +75,12 @@ export function runBlockJob(state: LeagueState, job: BlockJob): void {
   if (job.kind === "playoffs") simulatePlayoffBlock(state);
   else if (job.kind === "playoffRound") {
     simulatePlayoffBlock(state, 1);
-    if (state.bracket?.champion) {
-      // the final checkpoint is the stage's own and waits for everybody again, the GMs who went out in an earlier
-      // round included (they were checked in only so a round nobody could change would not wait on them)
-      for (const g of state.gms) state.readiness[g.id] = !(g.isHuman && g.teamCode);
-    } else readyEliminated(state);
+    // The check-ins of the round just played are spent. Start the next checkpoint from "every human unchecked", then check
+    // in the ones with no game to plan for: eliminated GMs, and (before the divisional round) a bye team's GM, who was
+    // checked in for the wild card and must be asked again now that they play. After the final round nobody is alive, so
+    // the final checkpoint is the stage's own and waits for everybody, the GMs who went out earlier included.
+    for (const g of state.gms) state.readiness[g.id] = !(g.isHuman && g.teamCode);
+    if (!state.bracket?.champion) readyEliminated(state);
   }
   else simulateBlock(state, job.phase, job.from, job.to);
 }

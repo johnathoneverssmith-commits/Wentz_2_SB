@@ -267,4 +267,40 @@ describe("the postseason with no human left to check in", () => {
     const after = await load(leagueId);
     expect(after.bracket?.champion, "an 'unchanged' action did not throw the settlement away").toBeTruthy();
   });
+
+  maybe("a competing human with a first-round bye is asked again for the divisional round, not played for", async () => {
+    const s = endOfRegularSeason();
+    const seeded = new MockSimulationService().seedBracket(JSON.parse(JSON.stringify(s)) as LeagueState);
+    const bye = seeded.matchups.find((m) => m.round === "WC" && m.highSeed && !m.lowSeed)!.highSeed!.code;
+    const out = teamsFor(s, ["out", "out"])[0];
+    const { leagueId, gmA } = await makeLeague("bye", [bye, out], s);
+
+    await press(leagueId, gmA, "regularSeason");
+    const gmB = (await load(leagueId)).gms.find((g) => g.teamCode === out)!.id;
+    await press(leagueId, gmB, "regularSeason");
+    const now = await load(leagueId);
+    expect(now.stage).toBe("playoffs");
+    // neither human had a wild-card game, so that round was played for them; the bye team's GM has a divisional game
+    expect(now.games.some((g) => g.phase === "WC")).toBe(true);
+    expect(now.games.some((g) => g.phase === "DIV"), "the divisional round waits for the GM who now has a game").toBe(false);
+    expect(waitingOn(now)).toEqual([bye]);
+  });
+
+  maybe("gives the checkpoint a settled round opens a fresh deadline", async () => {
+    const s = endOfRegularSeason();
+    const [x, y] = teamsFor(s, ["out", "out"]);
+    const { leagueId } = await makeLeague("deadline", [x, y], s);
+    setPostseasonSettler(() => false);
+    await withLeague(leagueId, async ({ state }) => {
+      state.bracket = new MockSimulationService().seedBracket(state);
+      state.stage = "playoffs";
+      for (const g of state.gms) state.readiness[g.id] = true;
+      return { result: null, state, events: [], phaseEndsAt: new Date(Date.now() - 1000) };
+    });
+    setPostseasonSettler((st) => postseasonIdle(st) && playNextPlayoffRound(st));
+    const start = Date.now();
+    await withLeague(leagueId, async ({ state }) => ({ result: null, state, unchanged: true }));
+    const row = await pool.query<{ phase_ends_at: Date }>(`SELECT phase_ends_at FROM league_state WHERE league_id = $1`, [leagueId]);
+    expect(row.rows[0]!.phase_ends_at.getTime(), "an expired deadline was replaced").toBeGreaterThan(start);
+  });
 });

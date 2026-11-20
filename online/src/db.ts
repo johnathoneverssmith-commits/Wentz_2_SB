@@ -10,7 +10,7 @@ import pg from "pg";
 import type { LeagueState } from "@/domain";
 import { upgradeLeagueState } from "@/state/saveMigration.ts";
 
-import { startIdlePostseasonRound, takeBlockJobs } from "./blockJobs.js";
+import { freshPostseasonDeadline, startIdlePostseasonRound, takeBlockJobs } from "./blockJobs.js";
 import { ScoutingUnavailable, scoutContextFor, withScoutContext } from "./scouting.js";
 import { takeNotes } from "./notes.js";
 import { attentionOf, deliverNudges, nudgesFor, type Attention } from "./push.js";
@@ -378,7 +378,11 @@ async function withLeagueLocked<T>(
       out.state = await runBlockJobs(out.state, takeBlockJobs(out.state));
       settled = true;
     }
-    if (settled) out.unchanged = false;
+    if (settled) {
+      out.unchanged = false;
+      // the checkpoint it opened gets its own window, as a round advanced by a press does
+      out.phaseEndsAt = freshPostseasonDeadline(out.state, loaded.league) ?? out.phaseEndsAt;
+    }
     if (out.unchanged) {
       await client.query("ROLLBACK");
       return { result: out.result, version: row.version };
