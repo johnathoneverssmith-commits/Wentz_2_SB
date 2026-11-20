@@ -55,8 +55,5 @@ Settings: `createLeague(seed, {...DEFAULT_CONFIG, humanGmCount: 1})`, all GMs CP
 ## Browser check (Chromium, solo league saved at the rookie-draft door with scouting on)
 At 1440, 390 and 320 px: the strip shows "24 of 24 reports left"; one row button buys one report; "Scout my needs" spends the rest; the report line reads "Scouted: about 78 as a rookie (71-84)"; rows left over read "No reports left"; no horizontal scroll; no console errors; the reports survive a reload. At 390/320 some rows draw as dark cards with dark text, including on current master (an existing mobile style rule in `decisions.css`), so the scouted line is hard to read in those rows.
 
-## Remaining online blockers
-1. Report noise is a pure function of `state.seed`, which an online pull carries: a client can subtract it and recover a scouted prospect's hidden rating to about 0.6 points. Needs a server-held salt.
-2. `scoutingViewFor` is not applied in `online/src/index.ts`; the ledger would ship every team's reports.
-3. The online `scout` action does not exist; the `trueOverall` mask in `index.ts` should move to `privacyView.ts`.
-4. Concurrency test for two GMs buying reports; `full-circuit` with scouting on; Postgres-backed CI.
+## Online blockers (resolved)
+All four are addressed by "Online scouting" in `docs/decisions.md`: a server-held per-league salt replaces the seed-derived noise online, the ledger is filtered to the viewer's own team in the only response that carries the league, the `scout` action exists (creation-time opt-in behind `ONLINE_SCOUTING=1`), and `online/test/scouting-online.test.ts` covers concurrency, `full draft` and Postgres.

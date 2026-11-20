@@ -15,3 +15,14 @@ import type { LeagueState } from "@/domain";
 export function stripPrivatePlayerFields(state: LeagueState): void {
   for (const p of Object.values(state.players)) delete p.potential;
 }
+
+/**
+ * A prospect's true rating is the draft's one hidden fact: it shows only once the pick is signed or released. It went
+ * out with every pull for all 320 prospects, so any GM with the developer tools open could read the busts off the
+ * board before drafting. Masked here for every viewer, whoever they are.
+ */
+export function maskUnsettledProspects(state: LeagueState): void {
+  state.draftClass = (state.draftClass ?? []).map((pr) =>
+    state.rookieOutcomes?.[pr.id] ? pr : { ...pr, trueOverall: 0 },
+  );
+}
