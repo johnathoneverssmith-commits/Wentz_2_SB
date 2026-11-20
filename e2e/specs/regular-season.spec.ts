@@ -48,7 +48,11 @@ async function playToGameDay(page: Page, week: number): Promise<{ before: Season
   expectSeasonConsistent(results, week);
 
   await expect(page.getByText(`Week ${week} · results are in`)).toBeVisible();
-  await expect(page.getByText(/^final$/i).first()).toBeVisible();
+  // the player's own game carries the "Final" tag; in the week the player's team has its bye there is no such game, and
+  // which week that is depends on the schedule, so the screen is held to whichever is true of this league
+  const myGame = scheduledIn(results, week).some((g) => g.home === results.me || g.away === results.me);
+  if (myGame) await expect(page.getByText(/^final$/i).first()).toBeVisible();
+  else await expect(page.getByText(/^final$/i)).toHaveCount(0);
   return { before, results };
 }
 
