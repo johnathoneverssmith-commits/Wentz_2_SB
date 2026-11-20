@@ -22,6 +22,7 @@ import { lastLeagueId, onlineSession } from "@/state/online";
 import { CopyButton } from "@/components/CopyButton";
 import { currentScreen, STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
 import { stepOf } from "@/state/reveal";
+import { advanceWanted } from "@/state/advanceWanted";
 import { isInSeason, onEngineIssue, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
@@ -128,7 +129,7 @@ export function ReadinessGate({
   useEffect(() => {
     // the server owns the transition online; it arrives on the stream
     // (and while the engine is reported down there is nothing to try until Retry clears it)
-    if (online || !allReady || engineIssue) return;
+    if (!advanceWanted({ online, allReady, engineIssue })) return;
     const t = setTimeout(async () => {
       if (advancingRef.current) return;
       advancingRef.current = true;

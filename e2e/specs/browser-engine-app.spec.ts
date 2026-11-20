@@ -127,6 +127,12 @@ test.describe("the real app on the browser engine", () => {
     expect(playedRegular(state, 1)).toHaveLength(0); // nothing was played or changed
     expect(state.simEngine).toBe("engine"); // and the dynasty did not slip onto the Mock
 
+    // Retry while it is still down: the notice stays, and the gate does not move on or play anything
+    await notice.getByRole("button", { name: "Retry" }).click();
+    await expect(notice).toBeVisible();
+    await page.waitForTimeout(1500); // longer than the gate's own delay before it moves
+    expect(playedRegular(await readSavedState<any>(page), 1)).toHaveLength(0);
+
     site.breakAsset = null; // the connection recovers
     await notice.getByRole("button", { name: "Retry" }).click();
     await expect(notice).toBeHidden();
