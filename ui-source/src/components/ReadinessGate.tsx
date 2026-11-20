@@ -23,7 +23,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { currentScreen, STAGE_HOME, STAGE_READY_LABEL } from "@/state/stageMachine";
 import { stepOf } from "@/state/reveal";
 import { advanceWanted } from "@/state/advanceWanted";
-import { isInSeason, onEngineIssue, useStore } from "@/state/store";
+import { isInSeason, onEngineIssue, onEngineUpgrade, useStore } from "@/state/store";
 import { useLeagueActions } from "@/state/useLeagueActions";
 
 /** Stages whose last check-in simulates the next block of games. */
@@ -126,10 +126,12 @@ export function ReadinessGate({
   // this is what then makes the move again, instead of leaving a gate that says "moving on…" and does nothing.
   const [engineIssue, setEngineIssueMsg] = useState<string | null>(null);
   useEffect(() => onEngineIssue(setEngineIssueMsg), []);
+  const [engineUpgrade, setEngineUpgradeHeld] = useState(false);
+  useEffect(() => onEngineUpgrade((u) => setEngineUpgradeHeld(u !== null)), []);
   useEffect(() => {
     // the server owns the transition online; it arrives on the stream
     // (and while the engine is reported down there is nothing to try until Retry clears it)
-    if (!advanceWanted({ online, allReady, engineIssue })) return;
+    if (!advanceWanted({ online, allReady, engineIssue, engineUpgrade })) return;
     const t = setTimeout(async () => {
       if (advancingRef.current) return;
       advancingRef.current = true;
@@ -144,7 +146,7 @@ export function ReadinessGate({
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [allReady, action, tryAdvance, online, engineIssue]);
+  }, [allReady, action, tryAdvance, online, engineIssue, engineUpgrade]);
 
   // An old stage's screen, opened again (the back button, a link from the
   // history) after the league moved on: its gate showed the *current*

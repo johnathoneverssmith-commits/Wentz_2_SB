@@ -170,6 +170,7 @@ describe("the readiness gate after an engine failure", () => {
     expect(advanceWanted({ online: true, allReady: true, engineIssue: null })).toBe(false);
     expect(advanceWanted({ online: false, allReady: true, engineIssue: "down" })).toBe(false);
     expect(advanceWanted({ online: false, allReady: false, engineIssue: null })).toBe(false);
+    expect(advanceWanted({ online: false, allReady: true, engineIssue: null, engineUpgrade: true })).toBe(false); // waiting for the upgrade to be confirmed
     expect(advanceWanted({ online: false, allReady: true, engineIssue: null })).toBe(true);
   });
 });

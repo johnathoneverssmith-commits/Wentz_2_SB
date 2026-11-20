@@ -1,7 +1,8 @@
 /**
- * The real app, playing on the browser simulation engine (issue #74 Phase 5, opt-in).
+ * The real app, playing on the browser simulation engine (issue #74 Phase 5), chosen explicitly with `?engine=browser`.
+ * (The default without a choice is covered in browser-engine-default.spec.ts; the e2e contexts choose the adapter.)
  *
- * Nothing here is the default: the browser engine is switched on for the page with `?engine=browser`. The engine
+ * The browser engine is switched on for the page with `?engine=browser`. The engine
  * files are served from a build made here (`scripts/build-sim-worker.ts`) on the run's UI origin, by the test's
  * routes. The fixture save was built without an engine, so it is edited to the real engine before the page loads
  * (a test-only move: a real dynasty fixes its simulator when it is created).
@@ -144,7 +145,7 @@ test.describe("the real app on the browser engine", () => {
     expect(state.simEngine).toBe("engine");
   });
 
-  test("without the switch the app is exactly as before: no engine files are fetched and the adapter is tried, not the worker", async ({ page, origin, blocked }) => {
+  test("with the adapter chosen (localStorage \"0\", as these specs run) no engine files are fetched and the adapter is tried, not the worker", async ({ page, origin, blocked }) => {
     const site = newSite(dir);
     await serveEngine(page, origin, site);
     await page.goto("/");

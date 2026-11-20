@@ -267,10 +267,13 @@ export const HOW_IT_WORKS: HowTopic[] = [
         ],
       },
       {
-        heading: "Real engine or Mock simulation",
+        heading: "The game engine in your browser, or the simplified simulator",
         body: [
-          "A solo dynasty is played on one simulator for its whole life, chosen when it is created. With the engine adapter running it is the real engine; without it (the standalone build, or the adapter not started) it is the simplified built-in Mock simulator, and the game says so on the hub. The choice never changes mid-dynasty.",
-          "If a real-engine dynasty loses the adapter, play stops with a notice and a Retry button instead of switching to the Mock: nothing is simulated, nothing changes, and your save is kept as it was. Start the adapter (npm run server), press Retry, and carry on.",
+          "A solo dynasty is played on one simulator for its whole life, chosen when it is created. A new dynasty is played on the full game engine, which runs on your own device, in your browser: no account or server is involved. The first time you play, the page downloads the engine (about 5 MB, about 1 MB when the host compresses it, with a progress bar) and keeps it in the browser's storage, so after that it starts at once and works offline. The simulator in use is shown in League Settings.",
+          "This alpha is checked on Chrome and Edge. Firefox and Safari should run the engine but are unverified: the same seed has only been confirmed to give the same games on Chrome and Edge. A browser that cannot run the engine tells you what is missing instead of switching simulator.",
+          "If the engine can't be downloaded or started, play stops with a notice and a Retry button instead of switching to the simplified simulator: nothing is simulated, nothing changes, and your save is kept as it was. Check your connection, press Retry, and the move you were making carries on.",
+          "Your save remembers which build of the engine it was played on. When the game is updated to a newer build, the next time you play the game explains the update and asks you to confirm before anything is simulated. The older build isn't kept, so confirming is the only way to carry on; games already played keep their results and your schedule, though their play-by-play may no longer match what you watched.",
+          "A dynasty begun on the simplified built-in simulator (no play-by-play, weather or full box scores) stays on it, and says so on the hub; it never switches to the full engine midway.",
         ],
       },
       {

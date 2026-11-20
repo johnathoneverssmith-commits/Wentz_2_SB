@@ -13,7 +13,7 @@ export function PlanProjection({ enabled, context, saved, plan }: {
     return <aside className="game-plan-projection" aria-label="Preseason win projection" aria-busy={p.busy}>
   <h3>Preseason matchup lab</h3>
   {p.busy && <p role="status">Measuring this plan with the engine…</p>}
-  {p.error && <><p role="status">Engine preview unavailable. {p.error}</p><p>The standalone offline simulator has no game-plan projection. A reachable engine adapter is required for solo previews; online leagues use their league server.</p><button type="button" onClick={p.retry}>Retry projection</button></>}
+  {p.error && <><p role="status">Engine preview unavailable. {p.error}</p><p>A dynasty on the simplified simulator has no game-plan projection. Otherwise this preview is measured by the game engine in your browser: check your connection, then press Retry. Online leagues use their league server.</p><button type="button" onClick={p.retry}>Retry projection</button></>}
   {!p.busy && !p.error && p.value === null && <p>No scheduled opponent is available to preview.</p>}
   {p.value && <>
    <p>vs {TEAMS_BY_CODE[p.value.draft.opponent]?.label ?? p.value.draft.opponent} · {p.value.draft.game}</p>

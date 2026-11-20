@@ -29,6 +29,7 @@ import {
 } from "@/state/leagueFormat";
 import { currentScreen, STAGE_LABEL } from "@/state/stageMachine";
 import { stepOf } from "@/state/reveal";
+import { SimulatorStatus } from "@/components/SimulatorStatus";
 import { TALENT_IMPACT_HINT, TALENT_IMPACT_LABEL, type TalentImpact } from "@/state/talentImpact";
 import { useStore } from "@/state/store";
 
@@ -418,6 +419,14 @@ export function LeagueSetup() {
               <option value="off">Off</option>
               <option value="on">On</option>
             </select>
+          </SettingRow>
+        )}
+        {!online && (
+          <SettingRow
+            label="Simulator"
+            hint="Chosen when the league is created and fixed for its whole life. New solo leagues are played on the full game engine, which runs in your browser and downloads its files the first time. A league begun on the simplified simulator stays on it."
+          >
+            <SimulatorStatus />
           </SettingRow>
         )}
         <SettingRow

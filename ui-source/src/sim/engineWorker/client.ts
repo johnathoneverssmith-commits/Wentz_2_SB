@@ -17,6 +17,7 @@
 import { type AssetStore, cacheStorageStore } from "./assetStore.ts";
 import { EngineLoadError, EngineRouteError, isEngineLoadError, messages } from "./errors.ts";
 import { type AssetEntry, parseManifest, type SimEngineManifest } from "./manifest.ts";
+import { browserSupport } from "./support.ts";
 
 /** The part of a Worker the client uses; the tests supply their own. */
 export interface WorkerLike {
@@ -195,7 +196,15 @@ export class EngineWorkerClient {
   // ---- loading -----------------------------------------------------------------------------------------------
 
   private async load(epoch: number): Promise<EngineInfo> {
-    if (typeof Worker === "undefined" && !this.opts.createWorker) throw messages.unsupported("no Web Workers");
+    // only what this page really uses from the browser: anything handed in (tests, an embedder) stands in for it
+    const lacks = browserSupport().missing.filter(
+      (m) =>
+        !(m === "Web Workers" && this.opts.createWorker) &&
+        !(m.startsWith("worker scripts") && this.opts.createWorker) &&
+        !(m.startsWith("the Cache Storage") && this.opts.caches !== undefined) &&
+        !(m.startsWith("the checksum") && this.opts.digest),
+    );
+    if (lacks.length) throw messages.unsupported(lacks.join(" and "));
     try {
       return await this.loadOnce(false, epoch);
     } catch (e) {
