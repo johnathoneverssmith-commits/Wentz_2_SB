@@ -234,4 +234,37 @@ describe("the postseason with no human left to check in", () => {
     expect(again.games.length === gamesBefore || again.stage !== "playoffs").toBe(true);
     expect(again.history.length >= healed.history.length).toBe(true);
   });
+
+  maybe("never plays the bracket while the league is paused, and commits a settled round even when the action changed nothing", async () => {
+    const s = endOfRegularSeason();
+    const [x, y] = teamsFor(s, ["out", "out"]);
+    const { leagueId } = await makeLeague("pause", [x, y], s);
+    setPostseasonSettler(() => false); // build the old stuck state
+    await withLeague(leagueId, async ({ state }) => {
+      state.bracket = new MockSimulationService().seedBracket(state);
+      state.stage = "playoffs";
+      for (const g of state.gms) state.readiness[g.id] = true;
+      state.pause = { at: new Date().toISOString(), by: "commissioner", remainingMs: null };
+      return { result: null, state, events: [] };
+    });
+    setPostseasonSettler((st) => postseasonIdle(st) && playNextPlayoffRound(st));
+
+    // a recovery action under the pause: the bracket must stay unplayed
+    await withLeague(leagueId, async ({ state }) => ({ result: null, state, events: [] }), { allowWhilePaused: true });
+    const paused = await load(leagueId);
+    expect(paused.bracket?.champion, "nothing was played under the pause").toBeFalsy();
+    expect(paused.games.some((g) => g.phase === "WC")).toBe(false);
+
+    // resumed, then an action that itself changes nothing: the settled rounds are still saved
+    setPostseasonSettler(() => false); // resume without settling, so the next action is the one that does
+    await withLeague(leagueId, async ({ state }) => {
+      state.pause = null;
+      return { result: null, state, events: [] };
+    }, { allowWhilePaused: true });
+    setPostseasonSettler((st) => postseasonIdle(st) && playNextPlayoffRound(st));
+    expect((await load(leagueId)).bracket?.champion).toBeFalsy();
+    await withLeague(leagueId, async ({ state }) => ({ result: null, state, unchanged: true }));
+    const after = await load(leagueId);
+    expect(after.bracket?.champion, "an 'unchanged' action did not throw the settlement away").toBeTruthy();
+  });
 });

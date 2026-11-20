@@ -370,9 +370,15 @@ async function withLeagueLocked<T>(
     // next round, so nothing would ever press the gate (issue #132): play the
     // rounds nobody can hold up, in this same transaction. At most the four
     // rounds a bracket has; the final checkpoint waits for everyone again.
-    for (let guard = 0; guard < 4 && startIdlePostseasonRound(out.state); guard++) {
+    // Never while the league is paused (recovery actions run under a pause, and a
+    // seat vacated then must not play the bracket), and a settled round is real
+    // progress even when the action that opened the gate changed nothing itself.
+    let settled = false;
+    for (let guard = 0; guard < 4 && !out.state.pause && startIdlePostseasonRound(out.state); guard++) {
       out.state = await runBlockJobs(out.state, takeBlockJobs(out.state));
+      settled = true;
     }
+    if (settled) out.unchanged = false;
     if (out.unchanged) {
       await client.query("ROLLBACK");
       return { result: out.result, version: row.version };
