@@ -16,7 +16,7 @@ it sits beside the report, like the PR #95 / #105 harnesses. It has its own `tsc
 | `driver.ts` | Builds a league and plays it through the real stage machine, pressing the buttons the screens press. Records, per team-season, results, playoff depth, roster strength and cap state. |
 | `skilled.ts` | The scripted skilled GM. Pure decisions from public information, split into switchable modules. |
 | `run.test.ts` | One vitest test = one league-run `(seed, talent, arm, modules)`. Counts real-engine calls and the talent scale the engine received; fails if the Mock simulated a game. |
-| `info-guard.test.ts` | Fails if `skilled.ts` touches hidden state (`potential`, a prospect's `trueOverall`, CPU GM strategy/skill/difficulty, RNG, unwatched results, the CPU's own decision procedures). |
+| `info-guard.test.ts` | Fails if `skilled.ts` touches hidden state (`potential`, a prospect's `trueOverall`, CPU GM strategy/skill/difficulty, RNG, unwatched results, the CPU's own decision procedures) **and** if any decision changes when `potential` / prospect `trueOverall` are perturbed. `driver.ts` also runs every policy call against a client-equivalent redacted view (`withClientView`). |
 | `run.sh` | Fan-out over seeds × talents × arms; resumable (skips existing outputs). |
 | `analyze.py` | Paired effects with league-clustered uncertainty (numpy only). |
 | `export_slim.py` | Raw run JSON -> three small CSVs (committed under the report's `data/`). |
@@ -43,7 +43,7 @@ npx vitest run -c vitest.config.ts info-guard      # information guard
 ./run.sh out "9601 9602" "1 1.5" "control skilled" 10 4 4   # outdir seeds talents arms seasons seats workers [mods] [suffix]
 python3 analyze.py out --arm skilled --max-season 3   # PRIMARY: seasons 1-3 (no hot-seat censoring possible)
 python3 analyze.py out --arm skilled               # full horizon (survivor-selected after season 3)
-python3 analyze.py out --arm skilled --max-season 3 --drop 9608:1.5   # exclude a matched league (seed or seed:talent)
+python3 analyze.py out --arm skilled --max-season 3 --drop 9602:1,9604:1   # exclude matched leagues (seed or seed:talent), e.g. the fallback runs
                                                    # also: --arm idle, --base idle, --mods trades for ablations
 python3 export_slim.py out ../data
 npx tsc -p tsconfig.json --noEmit                  # type-check the harness (uses the online project's `@/` alias)
@@ -66,3 +66,6 @@ Runs are deterministic: re-running a seed with the committed code reproduces row
 `simulateBlock` -> `src/engine/sim.ts` `simulateGame`. `run.test.ts` wraps `simulateGame` and every `MockSimulationService`
 method: each output file records the engine call count, the `talentScale` each call received, and the Mock calls made
 (schedule, draft class, bracket seeding, trade evaluation only; never a game).
+
+
+Censoring: every seat-season row records the seat's GM (`seatGm`); in the control arm that is the CPU GM on the team. A seat-season is dropped from season 4 on when the GM changed in either arm.

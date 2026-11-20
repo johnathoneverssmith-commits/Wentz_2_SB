@@ -13,7 +13,7 @@ import type { LeagueState, Player } from "@/domain";
 import { TEAMS } from "@/data/teams";
 import { MockSimulationService } from "@/sim/MockSimulationService";
 import { createLeague, DEFAULT_CONFIG, capUsedOf } from "@/state/seed.ts";
-import { syncAiGms } from "@/state/aiGms.ts";
+import { aiGmOf, syncAiGms } from "@/state/aiGms.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 import { reconciliationIssues } from "@/state/reconciliation.ts";
 import { rosterUnitScore } from "@/state/unitValue.ts";
@@ -41,8 +41,37 @@ import {
   runPendingCpuTurns,
 } from "../../../../online/src/decide.js";
 import { advanceIfReadyLocal, advanceStage, clearReadinessOnline } from "../../../../online/src/phases.js";
-import * as K from "./skilled.js";
+import { stripPrivatePlayerFields } from "../../../../online/src/privacyView.js";
+import * as KRaw from "./skilled.js";
 import { ALL_MODULES, type Ctx, type Ledger, type Module } from "./skilled.js";
+
+/**
+ * Every policy entry point runs against a client-equivalent view of the league: the fields the server never sends a GM
+ * (`stripPrivatePlayerFields`: the hidden `potential`) are removed for the duration of the call and put back after it.
+ * The policy only reads; the `decide*` actions that follow run on the real state. This covers the helpers the policy
+ * imports (focusGroupValue, judgeTrade, ...), which a text scan of skilled.ts cannot.
+ */
+export function withClientView<T>(s: LeagueState, fn: () => T): T {
+  const saved: [Player, number][] = [];
+  for (const p of Object.values(s.players)) if (p.potential !== undefined) saved.push([p, p.potential]);
+  stripPrivatePlayerFields(s);
+  try {
+    return fn();
+  } finally {
+    for (const [p, v] of saved) p.potential = v;
+  }
+}
+const PASS_THROUGH = new Set(["bump", "ratingsByPos", "gainOf", "cityOf", "capUsedOf"]);
+export const K = new Proxy(KRaw, {
+  get(target, key: string) {
+    const f = (target as Record<string, unknown>)[key];
+    if (typeof f !== "function" || PASS_THROUGH.has(key)) return f;
+    return (...a: unknown[]) => {
+      const c = a[0] as { s?: LeagueState } | undefined;
+      return c && c.s ? withClientView(c.s, () => (f as (...x: unknown[]) => unknown)(...a)) : (f as (...x: unknown[]) => unknown)(...a);
+    };
+  },
+}) as typeof KRaw;
 
 export type Arm = "control" | "skilled" | "idle";
 
@@ -117,6 +146,8 @@ export interface SeatState {
 
 export interface SeasonRow {
   season: number;
+  /** the CPU GM id running each seat team that season (null while a person / the scripted GM holds it) */
+  seatGm?: Record<string, string | null>;
   teams: Record<
     string,
     {
@@ -178,6 +209,7 @@ export function playLeague(spec: RunSpec, onProgress?: (msg: string) => void): {
   const rows: SeasonRow[] = [];
   const log: string[] = [];
   const draftedByTeam = new Map<string, Map<string, number>>();
+  let draftSeason = -1; // positional caps apply within ONE rookie class, so the counters reset when a new draft begins
   let seasonIndex = 0;
   let startSnap: Record<string, Strength> | null = null;
   let guard = 0;
@@ -311,6 +343,7 @@ export function playLeague(spec: RunSpec, onProgress?: (msg: string) => void): {
         return;
       }
       case "offseasonDraft": {
+        if (draftSeason !== s.season) { draftedByTeam.clear(); draftSeason = s.season; }
         let n = 0;
         while (s.stage === "offseasonDraft" && s.draft && s.draft.currentPickIndex < s.draft.pickOrder.length && n++ < 600) {
           const t = s.draft.pickOrder[s.draft.currentPickIndex]!;
@@ -409,7 +442,7 @@ export function playLeague(spec: RunSpec, onProgress?: (msg: string) => void): {
   const recordSeason = (): void => {
     const rs = furthestRounds(s);
     const champ = s.bracket?.champion ?? null;
-    const row: SeasonRow = { season: s.season, teams: {}, champion: champ };
+    const row: SeasonRow = { season: s.season, teams: {}, champion: champ, seatGm: Object.fromEntries(spec.seats.map((c) => [c, aiGmOf(s, c)?.id ?? null])) };
     for (const code of Object.keys(s.teams)) {
       const t = s.teams[code]!;
       row.teams[code] = {
@@ -470,6 +503,15 @@ export function playLeague(spec: RunSpec, onProgress?: (msg: string) => void): {
     }
   }
   if (rows.length < targetSeasons) throw new Error(`only ${rows.length}/${targetSeasons} seasons completed (guard ${guard})`);
+  // control arm: the seat teams are CPU-run, and the CPU fires and replaces its own GMs too. A seat-season after the
+  // original CPU GM was replaced is not "the same GM in both arms", so mark it exactly like a fired scripted GM.
+  if (spec.arm === "control") {
+    for (const sd of seats) {
+      const first = rows[0]?.seatGm?.[sd.team] ?? null;
+      const i = rows.findIndex((r) => (r.seatGm?.[sd.team] ?? null) !== first);
+      sd.censoredFrom = i >= 0 ? i + 1 : null;
+    }
+  }
   return { rows, seats, engineCalls: 0, log };
 }
 export type { Player };

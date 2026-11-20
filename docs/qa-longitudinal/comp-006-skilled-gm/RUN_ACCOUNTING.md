@@ -1,5 +1,7 @@
 # COMP-006 run accounting (every league-run attempted for the reported data)
 
+> **Current data = the regeneration in section 6.** Sections 1-5 describe the earlier batches (policy v1/v2); those skilled, control and ablation runs are **superseded and not used** by the numbers in `REPORT.md`. Only the 20 idle runs from batch 3 are carried into the final set.
+
 A "run" = one (arm, seed, talent) league played for the stated number of seasons. Seeds 9601-9610; talents 1 and 1.5. Sources: the orchestrator logs
 (`run.sh` output) and the per-run JSON. The earlier PR update said "the 20 control runs are complete and unchanged" and the first version of REPORT.md said
 "the 24 completed runs from that policy were discarded". **The second sentence was wrong**: of the 24 runs that completed in the first batch, 20 were control runs
@@ -34,3 +36,18 @@ Totals attempted in the study: 40 + 20 + 1 + 20 + 36 = 117 league-runs for the m
 
 ## Were runs produced under older driver code still valid?
 The 19 batch-2 skilled runs and the 20 controls were produced before the restructure fallback and `--max-season` edits. The edits touch only a path that had aborted. Check: skilled and control, seeds 9601 and 9605, talent 1.5, 10 seasons, re-run with the final committed code (the PR head) into a fresh directory: rows, seat ledgers and league fingerprints are **identical** for all four (`verify`).
+
+## 6. Regeneration after the review fixes (current data)
+Codex review of the PR found four defects: the policy read a hidden field (`potential`, via `focusGroupValue`), the draft counters leaked across seasons, control seats were not censored when a CPU GM was replaced, and the section 3c denominators were unmatched. Fixes: the driver now runs every policy call against a client-equivalent view (no `potential`, no prospect `trueOverall`), the draft tracking resets per season, each season row records the seat's GM (`seatGm`) in every arm and control `censoredFrom` is computed from the first CPU GM change, and `analyze.py` censors a seat-season when the GM changed in either arm.
+
+| Set | Runs | Disposition |
+|---|---|---|
+| control, 10 seeds x 2 talents x 10 seasons | 20 | **Re-run** with GM tracking. Season rows for seasons 1-3 are identical to the old controls in all 20 files (`seatGm` removed from the comparison); later seasons only gain the censoring field. Old files superseded. |
+| skilled, 10 seeds x 2 talents x 10 seasons | 20 | **Re-run** with the redacted view and fixed counters. All completed first time, 0 failed. |
+| ablations, 6 seeds x talent 1.5 x 6 module sets x 8 seasons | 36 | **Re-run** (they use the same policy code). All completed. |
+| idle, 10 seeds x 2 talents x 10 seasons | 20 | **Reused** from batch 3 (idle executes no policy code). |
+| Old skilled/control/ablation runs | 20 + 20 + 36 (+ the earlier 21 discarded) | Superseded; kept only in local scratch. |
+
+76 runs executed in this round (6,210 s wall on 4 workers). Every run file asserts the talent scale it saw (1.0 or 1.5 only) and zero Mock game simulations. The restructure fallback ran in two skilled 1.0 runs (seed 9602 PIT x1, seed 9604 CAR x2); `cap.stuckReconcile` is 0 everywhere, so no run ended with an illegal roster.
+
+Total executed over the whole study: 117 (batches 1-3) + 76 (regeneration) = 193 league-runs, plus the 12-run pilot and unreported smoke runs.

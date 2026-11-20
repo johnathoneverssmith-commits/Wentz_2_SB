@@ -255,6 +255,9 @@ def main():
                          f"Longest seat title streak: {st[0]}; back-to-back-title occurrences: {st[1]}.")
             js[str(talent)]["title_share"] = dict(est=ts[0], lo=ts[1], hi=ts[2], titles=ts[3], league_seasons=ts[4],
                                                  control=(cs[0] if cs else None), longest_streak=st[0], back_to_back=st[1])
+        n_t = sum(int(round(p["trt"]["champion"])) for p in pairs); n_c = sum(int(round(p["ctl"]["champion"])) for p in pairs)
+        lines.append(f"Titles in the usable pairs (same seat-seasons in both arms): {a.arm} {n_t}/{len(pairs)} = {n_t/len(pairs)*100:.1f}%, {a.base} {n_c}/{len(pairs)} = {n_c/len(pairs)*100:.1f}%.")
+        js[str(talent)]["titles_usable_pairs"] = dict(treated=n_t, base=n_c, n=len(pairs))
         tr = title_rates(runs, a.arm, talent, mods, a.base); tb = title_rates(runs, a.base, talent, (), a.arm) if False else None
         trb = title_rates(runs, a.base, talent, (), None)
         if tr:

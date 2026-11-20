@@ -28,27 +28,28 @@ Wins and strength by tenure (paired diff [95% league-bootstrap]):
 | seasons 7-10 | 2 | -7.50 [-10.00, -5.00] | -0.500 [-1.000, +0.000] | +0.000 [+0.000, +0.000] | -15.23 [-18.20, -12.26] | +237.1 [+233.2, +241.0] |
 
 [counts seasons after a GM was fired if any] Title share of the 4 seats: **12.0%** [7.0, 18.0] (12 titles in 100 league-seasons); control seats: 10.0% (10/100). Longest seat title streak: 1; back-to-back-title occurrences: 0.
+Titles in the usable pairs (same seat-seasons in both arms): idle 4/176 = 2.3%, control 5/176 = 2.8%.
 Titles per usable seat-season (same GM in both arms): idle 4/176 = 2.3% [0.6, 3.9] over 10 leagues; league-seasons with all four seats still theirs: 4 seat titles in 32 league-seasons (parity 12.5%).
 CPU (non-seat) teams' mean start-of-season unit score, treated minus control: +3.19 [+2.65, +3.74] (t over leagues).
 
-### talent 1.5: idle vs control  (174 seat-seasons, 10 leagues, up to 6 seasons)
+### talent 1.5: idle vs control  (168 seat-seasons, 10 leagues, up to 6 seasons)
 
 | outcome | control | idle | paired diff [95% league-bootstrap] | t-interval (leagues) | team-cluster bootstrap |
 |---|---:|---:|---:|---:|---:|
-| regular-season wins | 8.15 | 5.85 | -2.30 [-2.74, -1.80] | [-2.83, -1.67] | [-2.87, -1.73] |
-| made playoffs | 0.420 | 0.224 | -0.195 [-0.250, -0.132] | [-0.263, -0.120] | [-0.275, -0.114] |
-| playoff depth (0 none .. 4 reached SB) | 0.82 | 0.41 | -0.41 [-0.54, -0.28] | [-0.57, -0.25] | [-0.59, -0.25] |
-| won the Super Bowl | 0.029 | 0.000 | -0.029 [-0.056, -0.006] | [-0.059, +0.001] | [-0.054, -0.006] |
-| unit score, start of regular season | 235.46 | 232.30 | -3.15 [-4.55, -1.78] | [-4.64, -1.38] | [-4.21, -2.07] |
-| mean overall of top 24, start of season | 81.36 | 80.39 | -0.97 [-1.34, -0.55] | [-1.39, -0.46] | [-1.26, -0.67] |
-| team rating, start of season | 79.55 | 78.79 | -0.76 [-1.15, -0.31] | [-1.21, -0.21] | [-1.08, -0.43] |
-| starting QB overall, start of season | 85.42 | 83.27 | -2.15 [-3.84, -0.76] | [-3.83, -0.20] | [-3.89, -0.59] |
-| unit score, at the playoffs | 236.47 | 233.49 | -2.98 [-4.38, -1.50] | [-4.53, -1.09] | [-4.10, -1.79] |
-| cap space at the playoffs ($M) | 12.28 | 96.52 | +84.24 [+73.44, +92.98] | [+69.38, +94.99] | [+74.43, +92.86] |
-| dead money on the cap ($M) | 3.18 | 1.02 | -2.16 [-3.65, -0.78] | [-3.91, -0.35] | [-3.96, -0.57] |
-| next-year commitments / cap | 0.734 | 0.559 | -0.175 [-0.202, -0.146] | [-0.205, -0.136] | [-0.198, -0.150] |
-| mean age of top 24 | 27.63 | 27.65 | +0.02 [-0.10, +0.14] | [-0.11, +0.18] | [-0.12, +0.16] |
-| players on roster at the playoffs | 52.98 | 53.00 | +0.02 [-0.02, +0.06] | [-0.03, +0.07] | [-0.01, +0.06] |
+| regular-season wins | 8.06 | 6.00 | -2.06 [-2.50, -1.61] | [-2.56, -1.49] | [-2.72, -1.35] |
+| made playoffs | 0.405 | 0.232 | -0.173 [-0.221, -0.117] | [-0.235, -0.104] | [-0.256, -0.087] |
+| playoff depth (0 none .. 4 reached SB) | 0.78 | 0.42 | -0.36 [-0.46, -0.24] | [-0.49, -0.22] | [-0.54, -0.18] |
+| won the Super Bowl | 0.024 | 0.000 | -0.024 [-0.052, +0.000] | [-0.054, +0.006] | [-0.048, -0.006] |
+| unit score, start of regular season | 235.48 | 232.61 | -2.88 [-4.22, -1.58] | [-4.33, -1.27] | [-3.96, -1.77] |
+| mean overall of top 24, start of season | 81.37 | 80.48 | -0.89 [-1.25, -0.51] | [-1.29, -0.44] | [-1.20, -0.58] |
+| team rating, start of season | 79.57 | 78.89 | -0.67 [-1.07, -0.25] | [-1.12, -0.16] | [-1.01, -0.34] |
+| starting QB overall, start of season | 85.29 | 83.33 | -1.96 [-3.48, -0.66] | [-3.51, -0.17] | [-3.74, -0.38] |
+| unit score, at the playoffs | 236.50 | 233.78 | -2.72 [-4.10, -1.25] | [-4.27, -0.88] | [-3.88, -1.50] |
+| cap space at the playoffs ($M) | 12.53 | 94.12 | +81.58 [+71.06, +89.79] | [+66.58, +92.48] | [+70.65, +90.63] |
+| dead money on the cap ($M) | 3.29 | 1.06 | -2.23 [-3.78, -0.80] | [-4.02, -0.36] | [-4.07, -0.59] |
+| next-year commitments / cap | 0.735 | 0.566 | -0.169 [-0.196, -0.139] | [-0.200, -0.128] | [-0.192, -0.143] |
+| mean age of top 24 | 27.64 | 27.65 | +0.01 [-0.10, +0.11] | [-0.11, +0.13] | [-0.13, +0.14] |
+| players on roster at the playoffs | 52.99 | 53.00 | +0.01 [-0.02, +0.04] | [-0.03, +0.05] | [-0.02, +0.04] |
 
 Wins and strength by tenure (paired diff [95% league-bootstrap]):
 
@@ -56,8 +57,9 @@ Wins and strength by tenure (paired diff [95% league-bootstrap]):
 |---|---:|---:|---:|---:|---:|---:|
 | season 1 | 40 | +0.74 [+0.03, +1.48] | +0.050 [-0.050, +0.175] | -0.050 [-0.125, +0.000] | +0.37 [-0.17, +0.94] | +0.9 [-0.9, +2.6] |
 | seasons 2-3 | 80 | -1.84 [-2.17, -1.49] | -0.163 [-0.250, -0.075] | -0.013 [-0.037, +0.000] | -2.19 [-3.35, -1.09] | +66.5 [+63.1, +70.0] |
-| seasons 4-6 | 54 | -5.22 [-6.47, -3.72] | -0.426 [-0.560, -0.300] | -0.037 [-0.096, +0.000] | -7.18 [-9.92, -4.16] | +172.2 [+164.9, +178.8] |
+| seasons 4-6 | 48 | -4.74 [-6.10, -3.27] | -0.375 [-0.500, -0.250] | -0.021 [-0.073, +0.000] | -6.72 [-9.63, -3.85] | +173.9 [+167.8, +179.4] |
 
 [counts seasons after a GM was fired if any] Title share of the 4 seats: **6.0%** [1.0, 11.0] (6 titles in 100 league-seasons); control seats: 13.0% (13/100). Longest seat title streak: 1; back-to-back-title occurrences: 0.
-Titles per usable seat-season (same GM in both arms): idle 0/174 = 0.0% [0.0, 0.0] over 10 leagues; league-seasons with all four seats still theirs: 0 seat titles in 33 league-seasons (parity 12.5%).
+Titles in the usable pairs (same seat-seasons in both arms): idle 0/168 = 0.0%, control 4/168 = 2.4%.
+Titles per usable seat-season (same GM in both arms): idle 0/168 = 0.0% [0.0, 0.0] over 10 leagues; league-seasons with all four seats still theirs: 0 seat titles in 30 league-seasons (parity 12.5%).
 CPU (non-seat) teams' mean start-of-season unit score, treated minus control: +3.30 [+2.54, +4.06] (t over leagues).

@@ -18,7 +18,7 @@ Analysis only. **Primary comparison: seasons 1-3** (see section 3). Run accounti
 ## 2. The skilled GM and the information rule
 Acts only through `online/src/decide.ts` (the functions behind the buttons), on its own turn, so every rule, turn order and refusal is real.
 Decisions covered per season: coaching draft (the staff-suggestion value); five free-agency rounds, offseason and midseason (one bid per turn, unit-value-per-dollar, at 1.04x ask); the three-round trade deadline (propose upgrades paid with bench players and picks, respond to CPU offers); rookie draft (all rounds by hand, board projection valued by unit gain, positional caps) and rookie sign/release; extensions, franchise tag, fifth-year options; bench trimming, value-aware cap cuts and restructures at the reconciliation summaries; depth charts before each block; a small roster-based game-plan tilt (pass rate +-4); training-camp focus.
-Reads only: player table (overall, age, contract, injury), the public draft board (`collegeOverall`, `expectedRatings`), all rosters/caps/standings, market asking prices, and `judgeTrade` (the trade screen's own read). It knows the measured unit weights in `unitValue.ts` (published in-repo; knowledge, not hidden state). `info-guard.test.ts` fails if the policy touches `potential`, a prospect's `trueOverall`, CPU GM strategy/skill/difficulty, RNG, unwatched results (`state.games/history`), or the CPU's own decision procedures. Passes (7/7).
+Reads only: player table (overall, age, contract, injury), the public draft board (`collegeOverall`, `expectedRatings`), all rosters/caps/standings, market asking prices, and `judgeTrade` (the trade screen's own read). It knows the measured unit weights in `unitValue.ts` (published in-repo; knowledge, not hidden state). `info-guard.test.ts` fails if the policy source touches `potential`, a prospect's `trueOverall`, CPU GM strategy/skill/difficulty, RNG, unwatched results (`state.games/history`), or the CPU's own decision procedures, and a behavioural test fails if any decision changes when those hidden fields are perturbed (the driver also runs every policy call against a view that has them removed, as the client does). Passes (10/10).
 
 **Stages not exercised / limits of the harness** (also in every output file):
 - Hooded Figure: skilled seats decline; CPU never gets one. Hot-seat firing is **on** and censors seats (below).
@@ -32,77 +32,78 @@ Reads only: player table (overall, age, contract, injury), the public draft boar
 
 ## 3. Direct measurements: skilled vs control (paired)
 
-**Why seasons 1-3 are primary.** The hot-seat rule cannot fire a GM before season 4. From season 4 on, 37 of 80 skilled seats and all 80 idle seats were fired at some point (earliest: season 4). A fired seat's team is then run by someone else, so those seat-seasons are dropped. The surviving later seasons are therefore a selected set (GMs who kept their job), and the denominators fall with tenure. Seasons 1-3 have **no censoring**: 120 seat-seasons per talent setting (10 leagues x 4 seats x 3 seasons), every one with the same GM in both arms. Interval = 95% percentile bootstrap resampling whole leagues; t-intervals over league means and a team-cluster bootstrap are in `data/tables_PRIMARY_seasons1-3_skilled_vs_control.md` and agree. With only 10 leagues the intervals are approximate.
+**Why seasons 1-3 are primary.** The hot-seat rule cannot fire a GM before season 4. From season 4 on, a seat-season is dropped once the seat's GM changed in **either** arm (skilled seat fired; or the control run's CPU GM on that team replaced, tracked per season as `seatGm`). Over 10 seasons 39 of 80 skilled seats, 39 of 80 control seats and all 80 idle seats were fired at some point (earliest: season 4 in every arm). The surviving later seasons are a selected set and the denominators fall with tenure. Seasons 1-3 have **no censoring**: 120 seat-seasons per talent setting (10 leagues x 4 seats x 3 seasons), the same GM in both arms. Interval = 95% percentile bootstrap resampling whole leagues; t-intervals over league means and a team-cluster bootstrap are in `data/tables_PRIMARY_seasons1-3_skilled_vs_control.md` and agree. With only 10 leagues the intervals are approximate.
 
 ### 3a. PRIMARY: seasons 1-3, skilled - control (n = 120 seat-seasons, 10 leagues, per talent)
 | outcome | talent 1.0 | talent 1.5 |
 |---|---|---|
-| regular-season wins (control 8.40 / 8.30) | **+1.24 [+0.72, +1.89]** | **+1.92 [+1.48, +2.33]** |
-| made playoffs (control 0.425 / 0.417) | +0.158 [+0.092, +0.233] | +0.233 [+0.167, +0.308] |
-| playoff depth 0-4 | +0.56 [+0.34, +0.78] | +0.73 [+0.53, +0.94] |
-| won the Super Bowl, per seat-season (control 0.025 / 0.025) | +0.033 [+0.000, +0.067] | **+0.100 [+0.033, +0.167]** |
-| roster strength: unit score at season start | +2.34 [+1.65, +3.06] | +2.29 [+1.42, +3.17] |
-| team rating at season start | +1.23 [+0.95, +1.48] | +1.24 [+1.04, +1.49] |
-| starting QB overall | -0.34 [-1.15, +0.48] | -0.79 [-1.80, +0.06] |
-| cap space at the playoffs ($M) | +20.5 [+16.2, +24.9] | +21.3 [+17.4, +25.3] |
-| dead money ($M) | -1.98 [-3.31, -0.70] | -1.24 [-2.11, -0.50] |
-| next-year commitments / cap | +0.115 [+0.082, +0.146] | +0.096 [+0.073, +0.120] |
-| mean age of top 24 | +0.34 [+0.21, +0.47] | +0.33 [+0.19, +0.47] |
-| players on roster at the playoffs | -2.50 [-2.92, -2.08] | -2.44 [-2.67, -2.19] |
+| regular-season wins (control 8.40 / 8.30) | **+1.11 [+0.35, +1.94]** | **+1.85 [+1.36, +2.30]** |
+| made playoffs (control 0.425 / 0.417) | +0.150 [+0.058, +0.233] | +0.225 [+0.158, +0.292] |
+| playoff depth 0-4 | +0.51 [+0.30, +0.72] | +0.78 [+0.57, +0.98] |
+| won the Super Bowl, per seat-season (control 0.025 / 0.025) | +0.042 [+0.008, +0.083] | **+0.100 [+0.067, +0.133]** |
+| roster strength: unit score at season start | +2.65 [+1.75, +3.74] | +2.62 [+1.73, +3.59] |
+| team rating at season start | +1.41 [+1.12, +1.68] | +1.30 [+1.09, +1.57] |
+| starting QB overall | -0.44 [-1.05, +0.23] | -0.38 [-1.11, +0.40] |
+| cap space at the playoffs ($M) | +20.3 [+16.4, +24.3] | +21.1 [+17.6, +24.7] |
+| dead money ($M) | -1.80 [-3.05, -0.60] | -1.34 [-2.30, -0.50] |
+| next-year commitments / cap | +0.119 [+0.092, +0.142] | +0.109 [+0.091, +0.127] |
+| mean age of top 24 | +0.33 [+0.18, +0.46] | +0.34 [+0.20, +0.47] |
+| players on roster at the playoffs | -2.52 [-2.92, -2.08] | -2.46 [-2.77, -2.17] |
 
-**Titles in seasons 1-3.** Skilled seats won 7 titles (talent 1.0) and 15 (talent 1.5) in 120 seat-seasons (5.8% [2.5, 9.2] and 12.5% [7.5, 17.5]); the same seats under control won 3 and 3 (2.5%). Over the 30 league-seasons that is 7 and 15 of the 30 league titles taken by the four skilled seats: **23% [10, 37] and 50% [30, 70]** (parity for four of 32 teams is 12.5%). So at the new-league default the early-tenure title share **reaches the TAFI "more than 50% of titles" line at its point estimate**, with an interval that spans 30-70% and 30 league-seasons behind it. This corrects the earlier draft of this report, which said the threshold was "not approached"; that statement rested on the full-horizon figure below, which dilutes the early advantage.
+**Titles in seasons 1-3.** Skilled seats won 8 titles (talent 1.0) and 15 (talent 1.5) in 120 seat-seasons (6.7% [2.5, 11.7] and 12.5% [8.3, 17.5]); the same seats under control won 3 and 3 (2.5%). Over the 30 league-seasons that is 8 and 15 of the 30 league titles taken by the four skilled seats: **27% [10, 47] and 50% [33, 70]** (parity for four of 32 teams is 12.5%). At the new-league default the early-tenure title share **reaches the TAFI "more than 50% of titles" line at its point estimate**, with an interval of 33-70% and 30 league-seasons behind it; at 1.0 it is well under. (An earlier draft said the threshold was "not approached"; that rested on the diluted full-horizon figure.)
 
-Sensitivity: dropping the one matched league that used the restructure fallback (seed 9608, talent 1.5) changes talent-1.5 wins from +1.92 to +1.86 [+1.40, +2.32], titles per seat-season from +0.100 to +0.102 [+0.028, +0.176], and the title count to 13 in 27 league-seasons (12.0% of seat-seasons; 48% share). Dropping seed 9608 at both talents: 1.0 wins +1.13 [+0.60, +1.81], 1.5 wins +1.86. No headline sign or interval changes (section 4, `data/tables_sensitivity_*`).
+Sensitivity: dropping the **two matched leagues in which the restructure fallback ran** (skilled seed 9602 at 1.0 and seed 9604 at 1.0; section 4) leaves talent 1.5 untouched (they are 1.0 runs) and cuts talent-1.0 wins from +1.11 to **+0.72 [-0.03, +1.49]** (8 leagues, 96 seat-seasons): the point estimate falls by a third and the interval now touches zero. Playoffs +0.135 [+0.021, +0.250]; unit score +1.94 [+1.44, +2.44]; titles per seat-season +0.031 [0.000, +0.073]. So the 1.0 wins headline is not robust to those two leagues; the direction and the roster-strength gain are (`data/tables_sensitivity_*`). The talent-1.5 headlines do not depend on the fallback at all.
 
 ### 3b. Full horizon (secondary; survivor-selected after season 3)
-Skilled - control over every usable seat-season. Denominators: **talent 1.0: 334 of 400 seat-seasons (66 dropped), 10 leagues; talent 1.5: 322 of 400 (78 dropped), 10 leagues.** Dropped = the seat's GM was fired earlier (in either arm). Seasons used by index: 120 (1-3), then 214 / 202 over seasons 4-10.
-| outcome | talent 1.0 (n=334) | talent 1.5 (n=322) |
+Skilled - control over every usable seat-season. Denominators: **talent 1.0: 270 of 400 seat-seasons (130 dropped), 10 leagues; talent 1.5: 256 of 400 (144 dropped), 10 leagues.** Dropped = the seat's GM was replaced earlier in either arm. Seasons used by index: 120 (1-3), then 150 / 136 over seasons 4-10.
+| outcome | talent 1.0 (n=270) | talent 1.5 (n=256) |
 |---|---|---|
-| regular-season wins | +0.72 [-0.05, +1.41] | +1.49 [+0.62, +2.41] |
-| made playoffs | +0.090 [-0.031, +0.190] | +0.149 [+0.050, +0.239] |
-| won the Super Bowl per seat-season (control 0.030 / 0.028) | +0.033 [+0.006, +0.059] | +0.071 [+0.032, +0.109] |
-| unit score at season start | +3.62 [+2.70, +4.50] | +4.64 [+3.45, +5.77] |
-| cap space ($M) / dead money ($M) | +7.5 / -3.6 | +7.5 / -3.1 |
-| next-year commitments / cap; age of top 24; roster size | +0.252; +0.81 y; -1.45 | +0.244; +0.81 y; -1.49 |
-Excluding (9608, 1.5): talent-1.5 wins +1.50 [+0.48, +2.50] (n = 284, 9 leagues), titles +0.074 [+0.029, +0.115], unit score +4.68. By tenure at 1.5 (wins): season 1 +2.20, seasons 2-3 +1.77, seasons 4-6 +0.69 [-0.97, +2.34], seasons 7-10 +1.80 [+0.27, +3.09]; the later bins rest on 103 and 99 selected seat-seasons.
+| regular-season wins | +0.48 [-0.24, +1.25] | +1.27 [+0.43, +2.16] |
+| made playoffs | +0.059 [-0.015, +0.143] | +0.160 [+0.034, +0.275] |
+| won the Super Bowl per seat-season (control 0.026 / 0.027) | +0.030 [-0.004, +0.060] | +0.066 [+0.035, +0.103] |
+| unit score at season start | +4.70 [+3.30, +6.17] | +4.70 [+3.38, +5.99] |
+| cap space ($M) / dead money ($M) | +8.4 / -3.0 | +11.4 / -2.6 |
+| next-year commitments / cap; age of top 24; roster size | +0.243; +0.94 y; -1.58 | +0.221; +0.72 y; -1.62 |
+By tenure (wins): talent 1.0 seasons 4-6 -0.49 [-1.60, +0.56] (n=88), 7-10 +0.65 [-1.11, +2.24] (n=62); talent 1.5 seasons 4-6 +0.92 [-0.90, +2.71] (n=79), 7-10 +0.54 [-1.24, +2.31] (n=57). The unit-score advantage grows with tenure (+6 to +7 by season 4-10) while the wins advantage does not clearly: the later bins are survivor-selected and imprecise, so no conclusion about long-run dominance is drawn. Excluding the fallback leagues at 1.0: full-horizon wins -0.01 [-0.49, +0.52] (n=203, 8 leagues).
 
 ### 3c. Which title figures count outcomes after a GM was fired
 | figure | counts post-firing seasons? |
 |---|---|
 | Titles per seat-season in 3a ("per usable seat-season") | No. Only seat-seasons where the same GM ran the team in both arms. |
-| "Share of the league's titles taken by the 4 seats" in 3a (7/30, 15/30) | No firing is possible yet, so no. |
-| Full-horizon "share of titles" in the earlier draft (skilled 21 in 100 league-seasons at 1.0, 32 at 1.5; control 10, 13) | It counted a team's title whatever GM ran it and divided by all 100 league-seasons, including seasons when fewer than four seats were still held. For the skilled arm the numerator is identical to the usable count (21 and 32 titles, all won while the original GM held the seat), so nothing is contaminated there; but the 100-season denominator treats a league with 2 live seats like one with 4, so 21% / 32% **understate** the live-seat share and must not be compared with the 12.5% parity line. Idle: 12 and 6 titles counted vs 4 and 0 usable, i.e. idle's headline share did include post-firing titles. |
-| Per usable seat-season, full horizon (3b) | No: 21/334 = 6.3% [4.0, 8.3] (1.0) and 32/322 = 9.9% [6.1, 13.4] (1.5), vs control 2.5% and 3.3% (400 each). |
-| League-seasons in which all four seats were still held (full horizon) | 16 seat titles in 59 league-seasons (1.0) and 26 in 51 (1.5; 51%). Selected on survival, so also not a clean estimate. |
-Longest seat title streak 3 (1.5) and 2 (1.0); back-to-back occurrences 6 and 3 (full horizon).
+| "Share of the league's titles taken by the 4 seats" in 3a (8/30, 15/30; control 3/30 each) | No firing is possible before season 4, so no. |
+| "Title share of the 4 seats" in the full-horizon table file (skilled 18/100 league-seasons at 1.0, 27/100 at 1.5; control 10/100 and 13/100) | **Yes.** It counts a team's title whatever GM ran it, over all 100 league-seasons. This figure is not a clean estimate: it mixes live and fired seats and must not be compared with the 12.5% parity line. Skilled and control are both computed this way, so their ratio is comparable, their level is not. Idle's equivalent counts post-firing titles too (all idle seats are fired by season 8). |
+| Per usable seat-season, full horizon (3b) | No: 15/270 = 5.6% [2.4, 8.5] (1.0) and 24/256 = 9.4% [6.0, 13.4] (1.5), vs control 7/270 = 2.6% and 7/256 = 2.7%; the same seat-seasons in both arms. |
+| League-seasons in which all four seats were still held (full horizon) | 10 seat titles in 37 league-seasons (1.0) and 17 in 35 (1.5; 49%). Selected on survival; not a clean estimate. |
+Longest seat title streak 3 (1.5) and 2 (1.0); back-to-back occurrences 3 and 2 (full-horizon file; these count seasons while the original seat holder is in place only for the first three).
 
-**Spillover.** CPU (non-seat) teams' start-of-season unit score is +3.1 [2.4, 3.8] higher in the skilled arm at both talents (full horizon). Why is not established here.
-**Idle seats** (the seat does only what the production autopilot does; `data/tables_idle_vs_control_seasons1-3.md`): seasons 1-3 wins -1.23 [-1.60, -0.81] (1.0) and -0.98 [-1.16, -0.80] (1.5) vs control, with ~+45 M unspent cap space; they lose players they do not re-sign. Skilled vs idle, seasons 1-3: +2.48 [+1.97, +2.93] and +2.90 [+2.35, +3.44] wins. Idle seats were all fired by season 8, so their later seasons are not usable.
+**Spillover.** CPU (non-seat) teams' start-of-season unit score is +3.3 [2.5, 4.1] (1.0) and +3.0 [2.3, 3.7] (1.5) higher in the skilled arm over the full horizon (also +3.3 / +3.0 in seasons 1-3). Why is not established here.
+**Idle seats** (the seat does only what the production autopilot does; `data/tables_idle_vs_control_seasons1-3.md`): seasons 1-3 wins -1.23 [-1.60, -0.81] (1.0) and -0.98 [-1.16, -0.80] (1.5) vs control, with about +44 M unspent cap space; they lose players they do not re-sign. Skilled vs idle, seasons 1-3: +2.35 [+1.64, +3.04] and +2.83 [+2.27, +3.31] wins; titles 8/120 vs 4/120 (1.0) and 15/120 vs 0/120 (1.5). All idle seats were fired by season 8, so their later seasons are not usable.
 
-## 4. The run that used the restructure fallback, and the exclusion check
-- Run: **skilled, seed 9608, talent 1.5** (seats ARI, DAL, LAC, NYJ). In batch 2 it aborted when DAL was $2.0M over the cap at the offseason free-agency summary after cuts and the staff fix (that aborted run's ledger was not saved). It was re-run with the fallback. In the re-run, DAL's ledger shows `cap.cuts 12`, `cap.restructure 1`, `cap.staffFix 10`, **`cap.stuckReconcile` absent (0)**.
-- **Illegal roster recorded: none.** The fallback ran once in all 20 final skilled runs (175 cap cuts in total); after the single restructure the roster was legal and the run did not continue past an illegal state. A roster that stays illegal would have been counted in `cap.stuckReconcile`; the total over the final skilled runs is 0.
-- Matched league excluded (effect on headlines): see 3a and 3b. Changes are small (wins -0.06 in seasons 1-3, +0.01 full horizon at 1.5) and no interval moves across zero.
-- Earlier-batch runs vs the final code: skilled and control, seeds 9601 and 9605 at 1.5, 10 seasons re-run with the PR head: identical rows, ledgers and fingerprints.
+## 4. The runs that used the restructure fallback, and the exclusion check
+- In the regenerated data the fallback executed in **two** skilled runs, both at talent 1.0: **seed 9602, PIT** (`cap.restructure` 1, `cap.cuts` 26) and **seed 9604, CAR** (`cap.restructure` 2, `cap.cuts` 13). It ran 3 times in all across the 20 final skilled runs (217 cap cuts). `skilled s9608 t1.5`, the run that needed the fallback under the previous policy, no longer needs it (no restructure; DAL stays legal after cuts and the staff fix): the policy changed (section 6 of `RUN_ACCOUNTING.md`) and so did the path.
+- **Illegal roster recorded: none.** `cap.stuckReconcile` is absent (0) in every run, so no roster stayed illegal after the fallback; no run aborted in the regenerated set (76 of 76 completed, 0 failed).
+- Exclusion check: section 3a and `data/tables_sensitivity_seasons1-3_drop_fallback_leagues.md` / `..._full_...`. Talent 1.5 is unaffected. At talent 1.0 wins go from +1.11 to +0.72 [-0.03, +1.49] in seasons 1-3, so that headline depends on these two matched leagues (see 3a).
+- Controls: the new control runs reproduce the old control runs' rows exactly for seasons 1-3 (20 of 20 files, season rows compared with the new `seatGm` field removed); only per-season GM tracking was added.
 
 ## 5. Explanation (not direct measurement of the full policy): which decisions drove it
 Ablation arms: 6 leagues x 8 seasons at talent 1.5, a module subset on and everything else at the idle behaviour, compared with the **idle** arm (`data/tables_ablations_vs_idle_*.md`). Small samples; modules interact, so the parts need not add up; the full policy was not run with one module off at full length against control. **Seasons 1-3** (n = 72 seat-seasons, 6 leagues each), wins vs idle (7.29):
 | modules on | wins vs idle | titles/seat-season | unit score | cap space |
 |---|---|---|---|---|
-| trades only | **+1.50 [+0.54, +2.34]** | +0.083 [+0.042, +0.125] | +1.4 [+0.4, +2.3] | -7 M |
+| trades only | **+1.34 [+0.41, +2.30]** | +0.028 | +1.1 [-0.2, +2.3] | -9 M |
 | free agency only | +0.39 [+0.24, +0.58] | +0.014 | +1.0 [+0.6, +1.6] | -8 M |
 | contracts + cap only | +0.31 [-0.26, +0.83] | +0.014 | +1.0 [+0.6, +1.4] | -9 M |
-| draft only | +0.26 [-0.16, +0.69] | 0.000 | +0.0 | +0 |
-| lineup + plan + camp + coaching | -0.29 [-0.87, +0.27] | +0.014 | -0.4 | +0 |
-| all except trades | +1.03 [+0.56, +1.47] | 0.000 | +1.4 [+0.4, +2.3] | -14 M |
-Over the longer ablation horizon (up to 6 seasons usable) the picture shifts toward free agency and re-signing (free agency only +0.92 wins, contracts + cap +0.98, trades +1.18; all except trades +2.06). Reading: early on trades carry most of the edge over a neglected seat, with free agency, re-signing and cap management adding roster strength; later, spending and re-signing matter more as cap is used. The draft, lineup, plan, camp and coaching modules showed no detectable effect. The policy sells quarterbacks for higher-weighted unit players (QB overall -0.3 to -0.8 early), runs older (+0.3 y early, +0.8 y later) and more committed (+0.10 early, +0.25 later in next-year cap) rosters with 2-3 fewer bodies: the edge is partly bought with future flexibility. This is a description of behaviour, not a causal claim.
+| draft only | +0.36 [+0.01, +0.69] | 0.000 | +0.1 | +0 |
+| lineup + plan + camp + coaching | -0.23 [-0.63, +0.14] | +0.014 | -0.4 | +0 |
+| all except trades | +0.48 [+0.10, +0.93] | 0.000 | +1.2 [+1.0, +1.5] | -12 M |
+Over the longer ablation horizon (up to 6 seasons usable) the picture shifts toward free agency and re-signing: free agency only +0.92 [+0.55, +1.25], contracts + cap +0.98 [+0.26, +1.83], trades +1.19 [+0.29, +2.16], all except trades +1.42 [+0.79, +1.96], with unit-score gains of +2.7 to +3.7 and much lower cap space. Reading: early on trades carry most of the edge over a neglected seat, with free agency, re-signing and cap management adding roster strength; later, spending and re-signing matter more as cap is used. Draft, lineup, plan, camp and coaching modules show little or no detectable effect (draft only +0.36 early, near zero later). The policy sells quarterbacks for higher-weighted unit players (QB overall -0.4 early), runs older (+0.3 y early, +0.7 to +0.9 y later) and more committed (+0.11 early, +0.22 to +0.24 later in next-year cap) rosters with 2-3 fewer bodies: the edge is partly bought with future flexibility. This is a description of behaviour, not a causal claim.
 
 ## 6. What this does and does not say
-- At the new-league default (1.5) the scripted skilled GM beats the CPU default by about 1.9 wins in the first three seasons (+1.5 over the survivor-selected full horizon), reaches the playoffs about 23 points more often, and wins the Super Bowl 10 points more often per seat-season (4x control). At 1.0 the gains are about 1.2 wins and 3 points of title rate (the title interval touches zero).
-- **Dominance:** the four skilled seats took 15 of 30 league titles in seasons 1-3 at 1.5 (50%, interval 30-70%), which is on the TAFI threshold, not under it. That is early tenure with 10 leagues behind it. Over the full horizon the per-live-seat rate is 9.9% per seat-season (about 40% of titles for four live seats). Whether this is "too much" remains a design call; it is the number the review should decide on.
+- At the new-league default (1.5) the scripted skilled GM beats the CPU default by about 1.9 wins in the first three seasons (+1.3 over the survivor-selected full horizon), reaches the playoffs about 22 points more often, and wins the Super Bowl 10 points more often per seat-season (5x control). At 1.0 the gains are about 1.1 wins (+0.7 without the two fallback leagues, interval touching zero) and 4 points of title rate.
+- **Dominance:** the four skilled seats took 15 of 30 league titles in seasons 1-3 at 1.5 (50%, interval 33-70%), which is on the TAFI threshold, not under it. That is early tenure with 10 leagues behind it. Over the full horizon the per-usable-seat-season rate is 9.4% (about 38% of titles for four live seats), and the later-season wins effect is imprecise. Whether this is "too much" remains a design call.
 - Not shown: whether any production constant should change. The experiment does not isolate QB price or plan values.
+- Information rule, tested twice: a text guard (`info-guard.test.ts`) and a behavioural test that the policy's decisions are unchanged when `potential` and prospects' `trueOverall` are perturbed. All policy calls run in a client-equivalent view that withholds both (a hidden-`potential` read in the first version was found in review and removed; the skilled and ablation arms were regenerated).
 - Limits: one scripted policy and one skill level; seats interact only through CPU partners; 10 leagues is few for title rates (and 30 league-seasons in the primary window); the later seasons are survivor-selected; fictional-DNA leagues; the first rollover applies a year of aging before play; the game-plan lever is essentially untested; ablations are 6 leagues and the baseline is the idle seat; the "unit score" is the repo's own measured-weight model, not an independent measure of strength (wins and titles are); no fun/readability measure. Also not exercised: Hooded Figure, practice-squad moves, cross-position depth slots, post-draft coaching changes, multiplayer, UI discoverability.
-- Policy history: see `RUN_ACCOUNTING.md` (4 completed + 16 aborted first-policy skilled runs discarded; 20 controls reused; 20 skilled re-run, 1 of them twice).
+- Policy history: see `RUN_ACCOUNTING.md`. The data in this folder are the regeneration after the review fixes; older batches are superseded and not used.
 
 ## 7. Cost
-Final data set: 96 league-runs (control 20, skilled 20, idle 20, ablations 36), 888 league-seasons, 3,552 seat-season rows; plus the separate 12-run pilot. Attempted in the main study: 117 league-runs (21 discarded or aborted). CPU time for the 96 final runs 6.8 h; about 244 s (control), 310 s (skilled), 270 s (idle) per 10-season run on 4 parallel workers; wall time about 45 min for batch 1, 26 min for the skilled re-run, 72 min for batch 3 (idle + ablations + the 9608 re-run), on a 4-core machine; plus a 10-minute determinism check.
+Final data set: 96 league-runs (control 20, skilled 20, idle 20 of which are reused from the earlier batch, ablations 36), 888 league-seasons, 3,552 seat-season rows; plus the separate 12-run pilot (first-policy; not pooled). Regenerated this round: 76 runs (control 20, skilled 20, ablations 36) with idle 20 reused unchanged. Per-10-season run time: about 263 s (control), 347 s (skilled), 270 s (idle); ablations 8 seasons, 2.45 h in total. CPU time for the 96 runs 7.3 h; the 76 regenerated runs took 6,210 s wall on 4 parallel workers.
