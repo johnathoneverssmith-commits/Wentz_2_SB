@@ -1916,8 +1916,19 @@ const setStateOnStore = useStore.setState;
   // is not written) until the server's league arrives. The server's copy is authoritative, so its arrival is what
   // opens the gate; the first write then replaces any older local copy (which moves to `#prev`, not away).
   if (isWholeLeague(partial) && slotFor(SAVE_KEY) === ONLINE_SAVE_KEY) durable.markHydrated(ONLINE_SAVE_KEY);
-  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueArchive(withLeagueCapFields(partial)), replace);
+  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueEngineVersion(withLeagueArchive(withLeagueCapFields(partial))), replace);
 }) as typeof setStateOnStore;
+/**
+ * A whole league that names no engine build (an older save, a backup made on a developer's adapter, an online league) is
+ * named as having none: merged over the dynasty in the store it would otherwise inherit that dynasty's build, and be
+ * held, or recorded, as if it had been played on it.
+ */
+function withLeagueEngineVersion<T>(partial: T): T {
+  if (typeof partial !== "object" || partial === null) return partial;
+  const p = partial as Record<string, unknown>;
+  if (!("teams" in p) || !("players" in p) || "simEngineVersion" in p) return partial;
+  return { ...p, simEngineVersion: undefined } as T;
+}
 function isWholeLeague(p: unknown): boolean {
   return typeof p === "object" && p !== null && "teams" in p && "players" in p;
 }

@@ -153,3 +153,22 @@ describe("other dynasties and failures", () => {
     expect(s().simEngineVersion).toBe("A".repeat(64));
   });
 });
+
+describe("a replacement league does not inherit the dynasty it replaces", () => {
+  it("restoring a backup that names no build clears the one in the store", async () => {
+    const { backupJson, restoreFromText } = await import("./saveBackup.ts");
+    const { text } = backupJson(); // names no build
+    expect(JSON.parse(text).league.simEngineVersion).toBeUndefined();
+    useStore.setState({ simEngine: "engine", simEngineVersion: "A".repeat(64) } as never);
+    expect((await restoreFromText(text)).ok).toBe(true);
+    expect(s().simEngineVersion).toBeUndefined();
+  });
+  it("restoring a backup that names a build takes that build", async () => {
+    const { backupJson, restoreFromText } = await import("./saveBackup.ts");
+    useStore.setState({ simEngine: "engine", simEngineVersion: "C".repeat(64) } as never);
+    const { text } = backupJson();
+    useStore.setState({ simEngineVersion: "A".repeat(64) } as never);
+    expect((await restoreFromText(text)).ok).toBe(true);
+    expect(s().simEngineVersion).toBe("C".repeat(64));
+  });
+});
