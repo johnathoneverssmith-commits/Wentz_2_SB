@@ -28,7 +28,7 @@ Wins and strength by tenure (paired diff [95% league-bootstrap]):
 [counts seasons after a GM was fired if any] Title share of the 4 seats: **16.7%** [4.2, 33.3] (4 titles in 24 league-seasons); control seats: 4.2% (1/24). Longest seat title streak: 2; back-to-back-title occurrences: 2.
 Titles in the usable pairs (same seat-seasons in both arms): skilled 4/96 = 4.2%, control 1/96 = 1.0%.
 Titles per usable seat-season (same GM in both arms): skilled 4/96 = 4.2% [1.0, 8.3] over 8 leagues; league-seasons with all four seats still theirs: 4 seat titles in 24 league-seasons (parity 12.5%).
-CPU (non-seat) teams' mean start-of-season unit score, treated minus control: +3.31 [+2.53, +4.08] (t over leagues).
+CPU (non-seat) teams' mean start-of-season unit score, treated minus control: +1.37 [+0.86, +1.88] (t over leagues).
 
 ### talent 1.5: skilled vs control  (120 seat-seasons, 10 leagues, up to 3 seasons)
 
@@ -59,4 +59,4 @@ Wins and strength by tenure (paired diff [95% league-bootstrap]):
 [counts seasons after a GM was fired if any] Title share of the 4 seats: **50.0%** [33.3, 70.0] (15 titles in 30 league-seasons); control seats: 10.0% (3/30). Longest seat title streak: 3; back-to-back-title occurrences: 3.
 Titles in the usable pairs (same seat-seasons in both arms): skilled 15/120 = 12.5%, control 3/120 = 2.5%.
 Titles per usable seat-season (same GM in both arms): skilled 15/120 = 12.5% [8.3, 17.5] over 10 leagues; league-seasons with all four seats still theirs: 15 seat titles in 30 league-seasons (parity 12.5%).
-CPU (non-seat) teams' mean start-of-season unit score, treated minus control: +3.02 [+2.32, +3.72] (t over leagues).
+CPU (non-seat) teams' mean start-of-season unit score, treated minus control: +1.22 [+0.74, +1.70] (t over leagues).

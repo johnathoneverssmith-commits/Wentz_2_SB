@@ -196,7 +196,9 @@ def spillover(runs, arm, talent, getter, mods=(), base="control"):
         c, t = runs.get((base, talent, sd, ())), runs.get((arm, talent, sd, tuple(mods)))
         if not c or not t:
             continue
-        seats = set(t["spec"]["seats"]); n = min(len(c["rows"]), len(t["rows"]))
+        if dropped(sd, talent):
+            continue
+        seats = set(t["spec"]["seats"]); n = min(len(c["rows"]), len(t["rows"]), MAXS)
         a = np.mean([getter(c["rows"][i]["teams"][x]) for i in range(n) for x in c["rows"][i]["teams"] if x not in seats])
         b = np.mean([getter(t["rows"][i]["teams"][x]) for i in range(n) for x in t["rows"][i]["teams"] if x not in seats])
         diffs.append(b - a)

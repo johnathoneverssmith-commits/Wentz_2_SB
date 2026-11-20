@@ -87,7 +87,7 @@ By tenure (wins): talent 1.0 seasons 4-6 -0.49 [-1.60, +0.56] (n=88), 7-10 +0.65
 | League-seasons in which all four seats were still held (full horizon) | 10 seat titles in 37 league-seasons (1.0) and 17 in 35 (1.5; 49%). Selected on survival; not a clean estimate. |
 Longest seat title streak 3 (1.5) and 2 (1.0); back-to-back occurrences 3 and 2 (full-horizon file; these count seasons while the original seat holder is in place only for the first three).
 
-**Spillover.** CPU (non-seat) teams' start-of-season unit score is +3.3 [2.5, 4.1] (1.0) and +3.0 [2.3, 3.7] (1.5) higher in the skilled arm over the full horizon (also +3.3 / +3.0 in seasons 1-3). Why is not established here.
+**Spillover.** CPU (non-seat) teams' start-of-season unit score is higher in the skilled arm: in seasons 1-3 by +1.22 [0.78, 1.66] (1.0) and +1.22 [0.74, 1.70] (1.5); over the full horizon by +3.3 [2.5, 4.1] and +3.0 [2.3, 3.7]. The full-horizon figure includes seasons after seat GMs were fired, so only the seasons 1-3 figure is an early-tenure effect. Why it arises is not established here.
 **Idle seats** (the seat does only what the production autopilot does; `data/tables_idle_vs_control_seasons1-3.md`): seasons 1-3 wins -1.23 [-1.60, -0.81] (1.0) and -0.98 [-1.16, -0.80] (1.5) vs control, with about +44 M unspent cap space; they lose players they do not re-sign. Skilled vs idle, seasons 1-3: +2.35 [+1.64, +3.04] and +2.83 [+2.27, +3.31] wins; titles 8/120 vs 4/120 (1.0) and 15/120 vs 0/120 (1.5). All idle seats were fired by season 8, so their later seasons are not usable.
 
 ## 4. The runs that used the restructure fallback, and the exclusion check
