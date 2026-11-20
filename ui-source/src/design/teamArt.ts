@@ -157,7 +157,7 @@ export const STADIUM_PHOTO_CREDITS: Readonly<Record<string, PhotoCredit>> = {
   BUF: photo("Highmark Stadium in 2023 - Quintin Soloviev.jpg", "Quintin Soloviev", "CC BY-SA 4.0"),
   CAR: photo("Aerial view of Bank of America Stadium in Charlotte.jpg", "Quintin Soloviev", "CC BY 4.0"),
   CHI: photo("Soldier Field on June 26, 2020.jpg", "Moses8910", "CC BY-SA 4.0"),
-  CIN: photo("Cincinnati-paul-brown-stadium.jpg", "No author given", "Public domain"),
+  CIN: photo("Cincinnati-paul-brown-stadium.jpg", "Derek Jensen (Tysto)", "Public domain"),
   CLE: photo("Cleveland August 2015 08 (FirstEnergy Stadium).jpg", "Michael Barera", "CC BY-SA 4.0"),
   DAL: photo("Arlington June 2020 1 (AT&T Stadium).jpg", "Michael Barera", "CC BY-SA 4.0"),
   DEN: photo("Empower Field at Mile High, 2025.jpg", "MhcL947", "CC BY 4.0"),
