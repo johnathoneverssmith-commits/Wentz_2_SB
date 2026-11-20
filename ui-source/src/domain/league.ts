@@ -71,6 +71,8 @@ export interface LeagueConfig {
    * GMs had already been asked for.
    */
   draftSimulateAfterPicks: number | null;
+  /** Rookie-draft scouting (`state/scouting.ts`): reports and a finite budget for every GM. Absent = off, today's draft exactly. */
+  scouting?: boolean;
   /**
    * How many rounds of each year's rookie draft the human GMs pick by hand;
    * after them the staff picks for every team. `null` is every round. Absent
@@ -462,6 +464,8 @@ export interface LeagueState {
    * one began.
    */
   draftTargets?: Record<string, string[]>;
+  /** Rookie-draft scouting reports bought this year, by team (`state/scouting.ts`). Absent = nobody has scouted. */
+  scouting?: { year: number; reports: Record<string, Record<string, { estimate: number; lo: number; hi: number }>> };
   /** This league's scoring correction for the engine (`scoringCommittee`). */
   offenseAdjust?: number;
   /** The last season whose accrued years were credited (`accrueCareers`). */

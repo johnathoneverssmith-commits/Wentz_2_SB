@@ -46,3 +46,6 @@ scratch/
 # browser tests (e2e/): run output
 /e2e/test-results/
 /e2e/playwright-report/
+
+# the browser simulation engine, built by scripts/prepare-sim-engine.mjs
+ui-source/public/sim-engine/

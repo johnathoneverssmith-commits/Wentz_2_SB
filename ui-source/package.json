@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build --configLoader runner",
+    "build": "node ../scripts/prepare-sim-engine.mjs && tsc -b && vite build --configLoader runner",
+    "sim-engine": "node ../scripts/prepare-sim-engine.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",

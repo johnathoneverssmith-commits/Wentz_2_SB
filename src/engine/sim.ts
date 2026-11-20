@@ -241,7 +241,7 @@ export type ScoreKind =
  * This is the authoritative scoring record. Before it existed a consumer had
  * to reconstruct who scored, and when, from the turnover plays and the drive
  * log, and the reconstruction guessed the quarter and the player for
- * defensive scores (see `server/boxscore-map.ts`).
+ * defensive scores (see `src/sim-service/boxscore-map.ts`).
  */
 export interface ScoreEvent {
   type: "score";

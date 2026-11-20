@@ -1,6 +1,6 @@
 import type { Player } from "../schema/player.js";
 import { QB_EFFECT, onQbEffectChange } from "./ratings.js";
-import { type Roster, roster, teamList } from "./roster.js";
+import { type Roster, onReferencePoolChange, roster, teamList } from "./roster.js";
 
 /**
  * The part of team quality the modelled families cannot see (§23 residual).
@@ -101,6 +101,10 @@ const DEFENSE = new Set(["EDGE", "DT", "DL", "ILB", "OLB", "LB", "CB", "S", "DB"
  */
 let _cache = new WeakMap<Roster, StrengthIndex>();
 onQbEffectChange(() => {
+  _cache = new WeakMap();
+  _qbReference = null;
+});
+onReferencePoolChange(() => {
   _cache = new WeakMap();
   _qbReference = null;
 });

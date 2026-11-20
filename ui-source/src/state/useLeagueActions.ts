@@ -110,6 +110,8 @@ export interface LeagueActions {
   setConfig: (patch: Partial<LeagueConfig>) => Promise<ActionResult>;
   /** Star or unstar a draft prospect (private to this GM). */
   toggleDraftTarget: (prospectId: string) => Promise<ActionResult>;
+  /** Spend scouting points on rookie prospects: a list, or "needs" for the suggested targets. Solo only until the online action ships. */
+  scoutProspects: (ids: string[] | "needs") => Promise<ActionResult>;
   /** One free-agency turn: an offer, or a pass. */
   freeAgencyTurn: (move: {
     playerId?: string;
@@ -336,6 +338,11 @@ export function useLeagueActions(): LeagueActions {
           store.toggleDraftTarget(store.viewerGmId, prospectId);
           return { ok: true };
         },
+        scoutProspects: async (ids) => {
+          const team = store.gms.find((g) => g.id === store.viewerGmId)?.teamCode;
+          if (!team) return { ok: false, error: "No team to scout for." };
+          return store.scoutProspects(team, ids) > 0 ? { ok: true } : { ok: false, error: "No scouting points left, or nothing to scout." };
+        },
         freeAgencyTurn: async (move) => store.freeAgencyTurn(move),
         setSkip: async (kind, on) => store.setSkip(kind, on),
         draftCoach: async (coachId) => store.draftCoach(coachId),
@@ -458,6 +465,8 @@ export function useLeagueActions(): LeagueActions {
       setConfig: (patch) => attempt(() => send((s) => s.client.updateConfig(s.leagueId, patch))).then(after),
       toggleDraftTarget: (prospectId) =>
         attempt(() => send((s) => s.client.toggleDraftTarget(s.leagueId, prospectId))).then(after),
+      // the server action and its privacy view are the production half of this slice (docs/scouting-slice.md)
+      scoutProspects: async () => ({ ok: false, error: "Scouting is not available in online leagues yet." }),
       stepForward: (step) =>
         attempt(() => send((s) => s.client.stepForward(s.leagueId, step, s.version))).then(after),
       freeAgencyTurn: (move) =>

@@ -12,9 +12,7 @@
  * a bit-match of the Python cache.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
+import { onArtifactSourceChange, readArtifactJson } from "./artifact-source.js";
 import {
   type HgbPortableModel,
   predictProbaPortable,
@@ -28,29 +26,25 @@ import type { Rng } from "./rng.js";
 type Ctx = Record<string, number | string>;
 type Pmf = { v: number[]; cum: number[] };
 
-const MODEL_DIR = new URL("../../artifacts/models/portable/", import.meta.url);
-const FIT_BASELINE_URL = new URL("../../artifacts/models/derived_fit_baseline.json", import.meta.url);
+const MODEL_DIR = "models/portable/";
+const FIT_BASELINE_PATH = "models/derived_fit_baseline.json";
 
 /**
  * Per-slot share of starters whose attribute-derived scheme tags match each
  * scheme, measured on default fictional leagues (staff-fit.ts, "derived" mode).
- * Like every other artifact read here, this is the engine's file-IO seam: a
- * browser build replaces this loader with a bundled import (issue #74).
+ * Like every other artifact read here, it goes through `readArtifactJson`
+ * (`artifact-source.ts`), the engine's one file-IO seam (issue #74).
  */
 export function loadDerivedFitBaseline(): {
   off: Record<string, number[]>;
   def: Record<string, number[]>;
 } {
-  return readJson(FIT_BASELINE_URL);
+  return readArtifactJson(FIT_BASELINE_PATH);
 }
 
-const DIST_DIR = new URL("../../artifacts/distributions/portable/", import.meta.url);
+const DIST_DIR = "distributions/portable/";
 
 const LINEAR_IDS = new Set(["M04", "M08", "M11", "M13", "M15", "M20", "M21", "M25a", "M25b"]);
-
-function readJson<T>(url: URL): T {
-  return JSON.parse(readFileSync(fileURLToPath(url), "utf8")) as T;
-}
 
 // ---- resolvers ----------------------------------------------------------
 
@@ -65,9 +59,7 @@ const _resolvers = new Map<string, Resolver>();
 function resolver(mid: string): Resolver {
   let r = _resolvers.get(mid);
   if (!r) {
-    const model = readJson<HgbPortableModel | LinearPortableModel>(
-      new URL(`${mid}.json`, MODEL_DIR),
-    );
+    const model = readArtifactJson<HgbPortableModel | LinearPortableModel>(`${MODEL_DIR}${mid}.json`);
     r = { model, linear: LINEAR_IDS.has(mid), labels: model.labels };
     _resolvers.set(mid, r);
   }
@@ -140,11 +132,15 @@ export function sampleClass(
 // ---- empirical PMF tables --------------------------------------------
 
 const _tables = new Map<string, unknown>();
+onArtifactSourceChange(() => {
+  _resolvers.clear();
+  _tables.clear();
+});
 
 function table<T>(name: string): T {
   let t = _tables.get(name);
   if (!t) {
-    t = readJson<T>(new URL(`${name}.json`, DIST_DIR));
+    t = readArtifactJson<T>(`${DIST_DIR}${name}.json`);
     _tables.set(name, t);
   }
   return t as T;

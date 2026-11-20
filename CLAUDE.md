@@ -227,6 +227,9 @@ npm run pool:export-csv                   # active pool -> data/players.local.cs
 npm run pool:import-csv -- <in.csv> [out] # edited csv -> pool json
 npm run import:madden -- <csv> [out] [--season Y]   # alt: existing Madden CSV
 npm run analysis:audit                    # spec §28 schema audit -> artifacts/
+npm run sim-worker:build                  # the browser simulation engine -> dist/sim-engine (worker, artifacts, pool, manifest)
+npm --prefix ui-source run sim-engine     # the same, into ui-source/public/sim-engine (what the UI build and Render run)
+node scripts/verify-sim-engine-dist.mjs ui-source/dist   # runs a built UI's engine in real Chromium (issue #74 Phase 4)
 npm start             # loads + prints the active pool
 npm run season -- --seed 1 --year 2026 [--seasons K] [--compact] [--through W] [--picture W] [--box KC@BUF] [--staff KC] [--no-staff]  # season/franchise; --through=standings+clinch, --picture=seeds+in-hunt, --box=one game, --staff=coaching card
 # The three test projects (each has its own config; run from the repo root)
