@@ -127,6 +127,11 @@ patched only to pass `--no-sandbox` and a Chromium path) plus ad hoc Playwright 
 | First-load permission prompt from the `localhost:8787` probe | real Chrome, fresh profile, deployed site | **Unverified: blocked.** Needs a real, headed Chrome. No computer is attached to this session (`list_computer_folders` returned none), and the container has only headless Chrome for Testing 153. |
 | Live commit and engine id | deployed UI and API | **Not readable live.** Last logged deploy (run #520): `07d5774`, engine `cc953769b656`, per the deploy-audit session. |
 
+**Latest logged deploy (deploy-audit session, workflow log only):** run #525, Phase 5a PR #131, both services on
+`8e465cfc41c214b77d8cfc3d0dfb73de6ab05a96` with engine `cc953769b656` at 22:42 UTC. A live check should show that commit in
+the UI's `franchise-commit` meta tag and at `wentz-2-sb-1.onrender.com/version`, unless master has moved; a later redeploy or
+rollback cannot be ruled out from logs. That session names this audit as the owner of the two live checks above.
+
 **What the code says (not a live observation):** the league server serves only the UI page and `/sim-engine/*` (`online/src/http.ts`), so `/art/*` on that origin should 404 as it did locally (#134). PR #136 adds 15 more stadium photos to `ui-source/public/art/stadiums/`, which does not change what the league origin serves. The `localhost:8787` probe is `HttpSimulationService` (`BASE_URL`), and a public HTTPS page requesting loopback is what recent Chrome may gate behind a permission; I have not seen it.
 
 **Do they block alpha?** Neither is shown to. #134 only costs the masthead photo (skyline fallback). The prompt, if it appears, hits every solo tester on first load and may be moot once Phase 5b stops probing the adapter by default. Both stay unverified until someone runs them in a headed Chrome (owner or tester): open the deployed URL in a fresh profile, note any prompt and the browser version, then request `/art/stadiums/BAL.webp` on the league origin.
