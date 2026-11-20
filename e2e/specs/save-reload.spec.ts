@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+
+import { editSave, readSavedState } from "../support/idb.ts";
 import { readSave } from "../support/save.ts";
 import { expect, test } from "../support/test.ts";
 
@@ -49,3 +52,39 @@ for (const c of CASES) {
     });
   });
 }
+
+/**
+ * A save keeps the schedule it was made with. The week solver's tie-break changed (docs/decisions.md), so a league made
+ * before that stores a layout the solver no longer produces; loading it, reloading it and opening the schedule screen
+ * must leave that layout alone.
+ */
+test.describe("a save made before the schedule solver changed", () => {
+  test.use({ fixtureName: "preseason" });
+
+  test("keeps its stored schedule through load, reload and the schedule screen", async ({ page, consoleErrors }) => {
+    const legacy = JSON.parse(readFileSync(new URL("../../test/fixtures/legacy-schedule-2026.json", import.meta.url), "utf8")) as { games: [number, string, string][] };
+    const ui = (c: string) => (c === "LA" ? "LAR" : c);
+    const stored = legacy.games.map(([week, home, away]) => ({ week, phase: "REG", homeTeam: ui(home), awayTeam: ui(away) }));
+    const regOf = (state: any) => state.schedule.filter((g: any) => g.phase === "REG");
+
+    await page.goto("/");
+    await expect(page).toHaveURL(/#\/hub$/);
+    expect(JSON.stringify(regOf(await readSavedState(page))), "the fixture's own (new) layout differs from the old one").not.toBe(JSON.stringify(stored));
+
+    // make it a save from before the change: same league, the old layout
+    await editSave(page, (doc) => {
+      doc.state.schedule = [...doc.state.schedule.filter((g: any) => g.phase !== "REG"), ...stored];
+    });
+
+    await page.reload();
+    await expect(page).toHaveURL(/#\/hub$/);
+    expect(regOf(await readSavedState(page)), "after a reload").toEqual(stored);
+
+    await page.goto("/#/schedule");
+    await expect(page.getByRole("main")).toBeVisible();
+    await page.goto("/#/hub");
+    await page.reload();
+    expect(regOf(await readSavedState(page)), "after opening the schedule screen and reloading again").toEqual(stored);
+    expect(consoleErrors).toEqual([]);
+  });
+});

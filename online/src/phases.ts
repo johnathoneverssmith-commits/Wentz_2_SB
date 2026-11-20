@@ -680,7 +680,11 @@ export function onStageEntered(state: LeagueState, from?: string): void {
   // CPU classes are signed and the undrafted go to the market here, or they
   // never are — the branch below hangs off a stage the league no longer enters
   // this season's draft is over: its picks are spent (see the store)
-  if (from === "offseasonDraft") forgetSpentPicks(state, state.season + 1);
+  if (from === "offseasonDraft") {
+    forgetSpentPicks(state, state.season + 1);
+    // the scouting reports were for this draft's decisions; nothing reads them once the stage is left
+    delete state.scouting;
+  }
 
   // see the same note in the store: the free-agency stage is gone, so the AI's
   // draft-class signings and the roster trim hang off the depth-chart gate

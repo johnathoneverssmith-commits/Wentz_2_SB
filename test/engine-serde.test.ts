@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { startPlayoffs } from "../src/engine/playoffs.js";
@@ -95,5 +97,23 @@ describe("serde — priorRank bridge", () => {
     ]);
     expect(priorRankFromObj(priorRankToObj(m))).toEqual(m);
     expect(JSON.parse(JSON.stringify(priorRankToObj(m)))).toEqual({ BUF: 1, MIA: 3, NE: 2, NYJ: 4 });
+  });
+});
+
+describe("a saved season keeps the schedule it was saved with", () => {
+  // The 2026 layout schedule.ts produced before its tie-break stopped depending on the engine's sort (see
+  // docs/decisions.md). A save made then stores this; the current solver cannot produce it, so a load that
+  // regenerated the schedule would show up as a different one.
+  const legacy = JSON.parse(readFileSync(new URL("./fixtures/legacy-schedule-2026.json", import.meta.url), "utf8")) as {
+    games: [number, string, string][];
+  };
+  const schedule = legacy.games.map(([week, home, away]) => ({ week, home, away }));
+
+  it("returns it exactly as stored, and it is not what the solver now generates", () => {
+    const fresh = startSeason(7, { year: 2026 }).schedule;
+    expect(JSON.stringify(schedule)).not.toBe(JSON.stringify(fresh));
+    const saved = { seed: 7, year: 2026, schedule, nextWeek: 1, results: [], useStaff: true };
+    const loaded = deserializeSeason(serializeSeason(saved as never));
+    expect(loaded.schedule).toEqual(schedule);
   });
 });

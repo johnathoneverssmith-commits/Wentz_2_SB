@@ -330,12 +330,22 @@ function assignWeeks(matchups: Directed[], year: number): SchedulePair[] {
     }
     const g = matchups[pick]!;
     // mandatory weeks first (pack to 16), then window weeks nearest their target
+    // Decorate-sort-undecorate: one random key per candidate week, drawn in
+    // ascending-week order BEFORE sorting. The comparator is then a pure
+    // function of the data (it never touches the RNG), so the result does not
+    // depend on how many comparisons an engine's sort makes or in what order
+    // (V8 versions differ). The final tie-break is the week number, so even
+    // equal keys order the same way everywhere.
+    const key = new Map<number, number>();
+    for (const w of pickLW) key.set(w, rand());
     pickLW.sort((a, b) => {
       const wa = inWindow(a);
       const wb = inWindow(b);
       if (wa !== wb) return wa ? 1 : -1;
-      if (!wa) return cnt[b]! - cnt[a]! || rand() - 0.5;
-      return Math.abs(cnt[a]! + 1 - WINDOW_TARGET) - Math.abs(cnt[b]! + 1 - WINDOW_TARGET) || rand() - 0.5;
+      const primary = !wa
+        ? cnt[b]! - cnt[a]!
+        : Math.abs(cnt[a]! + 1 - WINDOW_TARGET) - Math.abs(cnt[b]! + 1 - WINDOW_TARGET);
+      return primary || key.get(a)! - key.get(b)! || a - b;
     });
     for (const w of pickLW) {
       apply(pick, w);

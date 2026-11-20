@@ -408,7 +408,7 @@ export function LeagueSetup() {
         {!online && (
           <SettingRow
             label="Rookie scouting (pilot)"
-            hint="Off: the draft is exactly as it was. On: every GM can buy basic scouting reports on rookie prospects before the draft (you get 24, each CPU GM 12). A report is a better guess at a rookie's rating, never exact. Solo leagues only."
+            hint="Off: the draft is exactly as it was. On: every GM can buy basic scouting reports on rookie prospects before the draft (you get 24, each CPU GM 12). A report is a better guess at a rookie's rating, never exact. (Online leagues choose this when they are created.)"
           >
             <select
               value={config.scouting ? "on" : "off"}

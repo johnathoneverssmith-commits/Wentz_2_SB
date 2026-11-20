@@ -944,6 +944,16 @@ function CreateLeague({
   const [difficulty, setDifficulty] = useState<Difficulty>("standard");
   const [talentImpact, setTalentImpact] = useState<TalentImpact>("amplified");
   const gameDayHours: DeadlineChoice = 24;
+  // Rookie scouting is offered only where the server has it switched on, and only at creation
+  const [scoutingOffered, setScoutingOffered] = useState(false);
+  const [scouting, setScouting] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void client.features().then((f) => live && setScoutingOffered(!!f.scouting), () => undefined);
+    return () => {
+      live = false;
+    };
+  }, [client]);
   const [universe, setUniverse] = useState<UniverseKind>("fictional");
   const [eraId, setEraId] = useState<string>(DEFAULT_ERA_ID);
 
@@ -970,6 +980,7 @@ function CreateLeague({
                 faHumanRounds: faRounds === "all" ? null : Number(faRounds),
                 difficulty,
                 talentImpact,
+                ...(scoutingOffered && scouting ? { scouting: true } : {}),
                 ...universePatch({ kind: universe, eraId }),
                 gameDayDeadlineHours: gameDayHours,
                 offseasonStageDeadlineHours: hours > 48 ? 48 : (hours as DeadlineChoice),
@@ -1133,6 +1144,18 @@ function CreateLeague({
                 onChange={(n) => setSimAfter(String(n))}
               />
             </OnlineSetting>
+
+            {scoutingOffered && (
+              <OnlineSetting
+                label="Rookie scouting"
+                hint="Off: the draft is as it always was. On: every GM can buy 24 basic scouting reports on rookie prospects before the draft (each CPU GM buys 12). Your reports are yours alone. Fixed once the league is created."
+              >
+                <select value={scouting ? "on" : "off"} onChange={(e) => setScouting(e.target.value === "on")}>
+                  <option value="off">Off</option>
+                  <option value="on">On</option>
+                </select>
+              </OnlineSetting>
+            )}
 
             <OnlineSetting label="Talent impact" hint={TALENT_IMPACT_HINT[talentImpact]}>
               <select value={talentImpact} onChange={(e) => setTalentImpact(e.target.value as TalentImpact)}>
