@@ -73,7 +73,7 @@ describe("the browser simulation worker bundle", () => {
     const { scope } = startWorker();
     for (const g of ["process", "require", "Buffer", "module", "__dirname"]) expect(scope[g], g).toBeUndefined();
     expect(typeof scope.onmessage).toBe("function");
-    expect(built.manifest.artifacts).toBe(REQUIRED_ARTIFACTS.length);
+    expect(built.manifest.artifacts.count).toBe(REQUIRED_ARTIFACTS.length);
   });
 
   it("refuses work before init, and a pool of the wrong version, without installing anything", async () => {

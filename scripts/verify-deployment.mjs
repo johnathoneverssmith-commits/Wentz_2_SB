@@ -50,12 +50,33 @@ async function inspect(uiUrl, apiOverride) {
   const apiUrl = apiOverride ?? meta(html, "franchise-api");
   if (!apiUrl) throw new Error("The UI does not publish its API URL. Deploy the metadata change first or pass --api.");
   const apiResponse = await fetchText(`${apiUrl.replace(/\/$/, "")}/version?${nonce}`);
-  return { ui, api: JSON.parse(apiResponse), apiUrl };
+  const engine = { ui: await inspectEngine(uiUrl), api: await inspectEngine(apiUrl) };
+  return { ui, api: JSON.parse(apiResponse), apiUrl, engine };
+}
+
+/**
+ * The browser simulation engine a service serves (issue #74 Phase 4b): its manifest, and every file the manifest
+ * names, present at the size promised. Both services build their own copy from the same commit, so the two
+ * `engineVersion`s must be equal.
+ */
+async function inspectEngine(baseUrl) {
+  const base = `${baseUrl.replace(/\/$/, "")}/sim-engine/`;
+  const manifest = JSON.parse(await fetchText(`${base}manifest.json?deploy-check=${Date.now()}`));
+  if (manifest.format !== 1 || typeof manifest.engineVersion !== "string") throw new Error(`${base}manifest.json is not a simulation engine manifest`);
+  for (const key of ["worker", "artifacts", "pool"]) {
+    const entry = manifest[key];
+    const response = await fetch(new URL(entry.url, base), { cache: "no-store" });
+    if (!response.ok) throw new Error(`${base}${entry.url} returned HTTP ${response.status}`);
+    const bytes = (await response.arrayBuffer()).byteLength;
+    if (bytes !== entry.bytes) throw new Error(`${base}${entry.url} is ${bytes} bytes, the manifest says ${entry.bytes}`);
+  }
+  return manifest.engineVersion;
 }
 
 function report(result, expected) {
   console.log(`UI:  ${result.ui.commit ?? "missing metadata"} (${result.ui.branch ?? "unknown branch"})`);
   console.log(`API: ${result.api.commit ?? "missing metadata"} (${result.api.branch ?? "unknown branch"})`);
+  console.log(`Simulation engine: UI ${result.engine.ui.slice(0, 12)}, API ${result.engine.api.slice(0, 12)}`);
   console.log(`Expected: ${expected}`);
 
   const failures = [];
@@ -67,6 +88,9 @@ function report(result, expected) {
   }
   if (!sameCommit(result.api.commit, expected)) {
     failures.push("The online API has not deployed the expected commit.");
+  }
+  if (result.engine.ui !== result.engine.api) {
+    failures.push(`The UI and API serve different simulation engines (${result.engine.ui.slice(0, 12)} and ${result.engine.api.slice(0, 12)}).`);
   }
   return failures;
 }
@@ -82,7 +106,7 @@ for (;;) {
     const result = await inspect(uiUrl, apiUrl);
     const failures = report(result, expected);
     if (failures.length === 0) {
-      console.log("Deployment verified: UI and API are serving the expected commit.");
+      console.log("Deployment verified: UI and API are serving the expected commit and the same simulation engine.");
       process.exit(0);
     }
     if (Date.now() >= deadline) {
