@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { chooseMockForThisDynasty, onEngineChoice, onEngineIssue, retryEngine, useStore } from "./store.ts";
+import { backupJson, restoreFromText } from "./saveBackup.ts";
+import { advanceWanted } from "./advanceWanted.ts";
 
 /**
  * The adapter-loss scenario from QA PR #106, at the store: an engine-backed dynasty that loses the adapter must stop
@@ -129,5 +131,66 @@ describe("simulator is fixed per dynasty", () => {
       expect(chooseMockForThisDynasty()).toBe(false); // engine is inferred: no way to flip it
       stop();
     });
+  });
+});
+
+describe("the readiness gate after an engine failure", () => {
+  // The gate's effect runs once each time advanceWanted turns true. Count those starts across the notices the store
+  // sends, with everyone checked in throughout.
+  const starts = (seq: (string | null)[]) => {
+    let wanted = false;
+    let n = 0;
+    for (const issue of seq) {
+      const now = advanceWanted({ online: false, allReady: true, engineIssue: issue });
+      if (now && !wanted) n++;
+      wanted = now;
+    }
+    return n;
+  };
+  const answers = () => vi.fn(() => Promise.resolve(new Response(JSON.stringify({ baseline: { off: {}, def: {} } }), { status: 200, headers: { "content-type": "application/json" } })));
+
+  it("resumes exactly once after a successful Retry, and stays stopped after a failed one", async () => {
+    useStore.setState({ simEngine: "engine" } as never);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    const base = issues.length; // whatever the setup left behind is not part of this move
+    await s().simulateGameDay(); // the move that is interrupted
+    expect(issues.at(-1)).toBeTruthy();
+    const seen = [...issues];
+    expect(await retryEngine()).toBe(false); // still down
+    expect(await retryEngine()).toBe(false);
+    expect(issues).toEqual(seen); // a failed Retry says nothing new: the gate is not woken
+    expect(starts([null, ...issues.slice(base)])).toBe(1); // just the original check-in
+    vi.stubGlobal("fetch", answers());
+    expect(await retryEngine()).toBe(true);
+    expect(await retryEngine()).toBe(true); // pressing again changes nothing
+    expect(starts([null, ...issues.slice(base)])).toBe(2); // the check-in, and the one resume
+  });
+
+  it("is not started online, or while a notice is up, or before everyone is in", () => {
+    expect(advanceWanted({ online: true, allReady: true, engineIssue: null })).toBe(false);
+    expect(advanceWanted({ online: false, allReady: true, engineIssue: "down" })).toBe(false);
+    expect(advanceWanted({ online: false, allReady: false, engineIssue: null })).toBe(false);
+    expect(advanceWanted({ online: false, allReady: true, engineIssue: null })).toBe(true);
+  });
+});
+
+describe("a new dynasty does not inherit the old one's engine notice", () => {
+  it("starting over clears the notice, so the new setup gate is not held", async () => {
+    useStore.setState({ simEngine: "engine" } as never);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    await s().simulateGameDay();
+    expect(issues.at(-1)).toBeTruthy();
+    await s().newLeague(777); // engine still down: this one falls back to the Mock, as before
+    expect(issues.at(-1)).toBeNull();
+  });
+
+  it("restoring a backup clears it too", async () => {
+    const { text } = backupJson(); // a dynasty that does not need the engine
+    useStore.setState({ simEngine: "engine" } as never);
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
+    await s().simulateGameDay();
+    expect(issues.at(-1)).toBeTruthy();
+    expect((await restoreFromText(text)).ok).toBe(true);
+    expect(issues.at(-1)).toBeNull();
   });
 });
