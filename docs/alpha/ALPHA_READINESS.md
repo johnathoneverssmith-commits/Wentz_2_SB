@@ -140,7 +140,7 @@ patched only to pass `--no-sandbox` and a Chromium path) plus ad hoc Playwright 
 - [ ] Production smoke: deployed UI and API serve the same commit and the same `engineVersion`; `/art` served on the league origin (D2)
 - [ ] Real Chrome on the deployed site: no permission prompt from the `localhost:8787` probe
 - [ ] Firefox and Safari: sign in stays signed in; one solo season
-- [ ] A real phone: setup, a game week, the draft
+- [ ] A real phone (owner or tester; not possible from the audit container): setup, a game week, the draft, and, once 5b lands, first-load download on mobile data, a warm-cache reload, an engine-upgrade confirmation
 - [ ] Reload mid-draft returns to the draft (D1)
 - [ ] Turn length chosen for the alpha (`1h` and `4h` shorten any deadline wait)
 - [ ] Tester guide (`docs/alpha/TESTER_GUIDE.md`) reviewed by the owner
