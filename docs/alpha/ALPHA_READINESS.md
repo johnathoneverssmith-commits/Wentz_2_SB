@@ -68,11 +68,18 @@ simulation (not the real engine)" and the dynasty never switches.
 **Is Phase 5 required?** Only if the alpha includes solo play as a way to evaluate the game. It is not required for an
 online-only alpha. Gates from `docs/qa-longitudinal/ISSUE-74-PLAN.md` that are still open: the parity matrix across
 Node / adapter / online / worker, replay with a version check, a real-engine e2e suite, legacy-save fixtures, and Firefox
-and Safari checks (Math determinism). The `/schedule` parity gap is addressed by #129 (not merged at the time of writing).
+and Safari checks (Math determinism). The `/schedule` parity gap was fixed by #129, merged at 932a52e (2026-11-20 17:15 UTC, after this audit's commit).
 
 Note on #129: on this machine (Node v22.23.5, Chrome for Testing 153.0.8010.12) master's expected-failure spec "KNOWN ISSUE:
 /schedule differs" reports as failed because the schedules **agree**. The mismatch depends on the Node and Chrome versions,
 which is the argument for #129.
+
+**Update from the #74 session (reported, not verified by me):** Phase 5a is PR #131: the app can play on the browser engine only
+when opted in (`?engine=browser` or localStorage `nfl-sim.browser-engine=1`), default off, with `EngineLoadError` mapped to the
+Retry flow. It was unmerged and had no CI result when last reported. Phase 5b (browser engine as the default for new solo
+dynasties) is **not approved**; it waits on the owner's decision in `docs/issue74_phase5b_proposal.md` on the #131 branch. So
+deployed solo testers still get the Mock. **Open gap:** nobody has diffed the worker's output against the online server's for
+the same request. Firefox/Safari Math determinism, a phone measurement and Python sections 22/23 also remain open.
 
 ## 5. Smoke-test record
 
@@ -129,7 +136,7 @@ patched only to pass `--no-sandbox` and a Chromium path) plus ad hoc Playwright 
 
 - [ ] B1 fixed and an all-eliminated postseason test added
 - [ ] Owner decision on solo (B2): Phase 5 first, or online-only alpha with solo labelled
-- [ ] #129 merged (schedule identical across Node and Chrome) before any worker-backed solo
+- [x] #129 merged (schedule identical across Node and Chrome), per the #129 session; its container showed the old solver differing for 18/18 years
 - [ ] Production smoke: deployed UI and API serve the same commit and the same `engineVersion`; `/art` served on the league origin (D2)
 - [ ] Real Chrome on the deployed site: no permission prompt from the `localhost:8787` probe
 - [ ] Firefox and Safari: sign in stays signed in; one solo season
