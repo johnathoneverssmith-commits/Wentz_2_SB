@@ -11,12 +11,12 @@
  * code matches. `toEngine`/`toUi` translate at this boundary only.
  */
 import type { Transport } from "./transportType.ts";
+import { adapterTransport } from "./adapterTransport.ts";
 import type { EngineStaff } from "@/state/coachScale";
 import type { GamePlan } from "../../../src/engine/gameplan.js";
 import type { GameBroadcast } from "@/domain/broadcast.ts";
 import type { GameResult, Player, ScheduledGame } from "@/domain";
 
-const BASE_URL = "http://localhost:8787";
 
 /** A game already on record, in engine round names (`wildcard`…), applied rather than replayed. */
 export interface RecordedPlayoffGame {
@@ -37,16 +37,7 @@ const toUi = (code: string): string => (code === "LA" ? "LAR" : code);
  */
 export type { Transport };
 
-export const adapterTransport: Transport = async (path, body, signal) => {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
-  });
-  if (!res.ok) throw new Error(`adapter ${path} -> ${res.status}`);
-  return await res.json();
-};
+export { adapterTransport };
 
 function playerToEngine(p: Player): Player {
   return { ...p, nfl_team: toEngine(p.nfl_team) };

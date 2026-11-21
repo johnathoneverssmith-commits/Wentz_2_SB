@@ -332,6 +332,13 @@ export interface LeagueState {
   recentReleases?: { season: number; byTeam: Record<string, string[]>; at?: Record<string, number> | undefined } | undefined;
   /** Which simulator this dynasty is played on, fixed when it is created; see `sim/engineMode.ts`. Absent on older saves (inferred). */
   simEngine?: "engine" | "mock" | undefined;
+  /**
+   * The browser engine's version this dynasty has been played on (the manifest's `engineVersion`). Recorded when a
+   * dynasty is created on the browser engine, and replaced only when the player confirms an upgrade. Absent on a
+   * Mock dynasty, on one built against the local adapter (which cannot name its engine), and on saves from before it
+   * existed; the first move such an engine dynasty makes on the browser engine records it.
+   */
+  simEngineVersion?: string | undefined;
   pause?: { at: string; by: string; remainingMs: number | null } | null | undefined;
   /**
    * The seed the league was created with, kept so that what's generated

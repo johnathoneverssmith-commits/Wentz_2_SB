@@ -32,7 +32,7 @@ import {
 } from "@/domain";
 import { TEAMS } from "@/data/teams";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
-import { engineOf, isEngineUnavailable, type EngineMode } from "@/sim/engineMode";
+import { engineOf, EngineUnavailableError, isEngineUnavailable, type EngineMode } from "@/sim/engineMode";
 
 import {
   applyDraftSetting,
@@ -819,6 +819,7 @@ export function chooseMockForThisDynasty(): boolean {
 /** A notice belongs to the dynasty that met it: whatever replaces that dynasty (new, restored) starts without it. */
 export function clearEngineIssue(): void {
   setEngineIssue(null);
+  setEngineUpgrade(null);
 }
 export function onEngineIssue(fn: (msg: string | null) => void): () => void {
   engineIssueWatchers.add(fn);
@@ -831,9 +832,75 @@ export async function retryEngine(): Promise<boolean> {
   if (ok) setEngineIssue(null);
   return ok;
 }
+/**
+ * The saved dynasty was played on a different engine build than the one now loading. Play is held until the player
+ * confirms the upgrade (`confirmEngineUpgrade`); nothing is played or changed meanwhile.
+ */
+export interface EngineUpgrade {
+  /** the version the dynasty has been played on */
+  from: string;
+  /** the version that is loading now */
+  to: string;
+}
+let engineUpgrade: EngineUpgrade | null = null;
+const engineUpgradeWatchers = new Set<(u: EngineUpgrade | null) => void>();
+function setEngineUpgrade(u: EngineUpgrade | null): void {
+  if (u?.from === engineUpgrade?.from && u?.to === engineUpgrade?.to) return;
+  engineUpgrade = u;
+  for (const fn of engineUpgradeWatchers) fn(u);
+}
+export function onEngineUpgrade(fn: (u: EngineUpgrade | null) => void): () => void {
+  engineUpgradeWatchers.add(fn);
+  fn(engineUpgrade);
+  return () => engineUpgradeWatchers.delete(fn);
+}
+/** The player accepted the upgrade: the dynasty now belongs to the new engine, and the held move can be made. */
+export function confirmEngineUpgrade(): boolean {
+  if (!engineUpgrade) return false;
+  const to = engineUpgrade.to;
+  useStore.setState({ simEngineVersion: to } as never);
+  setEngineUpgrade(null);
+  return true;
+}
+/** Why play is held right now, in words, or null; used where a loop has to say why it stopped. */
+const holdReason = (): string | null =>
+  engineUpgrade ? "The game engine has been updated since this dynasty was last played. Confirm the upgrade to carry on." : engineIssue;
+
+/**
+ * Before an engine-backed dynasty moves: is the engine now loading the one it has been played on? A dynasty with no
+ * recorded version (it predates the field, or was built against a developer's local adapter) is not held: its
+ * earlier engine cannot be known, so the current one is recorded and the move goes ahead. A recorded version that
+ * differs holds the move for the player's confirmation. Older engine builds are not kept, so there is no staying put.
+ */
+async function engineVersionAllows(): Promise<boolean> {
+  const s = useStore.getState();
+  if (engineOf(s) !== "engine") return true;
+  let current: string | undefined;
+  try {
+    // a save that names a build is never carried on by an engine that can't be named
+    current = await sim.engineVersion(!s.simEngineVersion);
+  } catch (e) {
+    // the engine could not start: the same notice (with Retry) as any other step that needs it
+    throw new EngineUnavailableError("starting the engine", e);
+  }
+  if (!current) return true;
+  const saved = s.simEngineVersion;
+  if (!saved) {
+    useStore.setState({ simEngineVersion: current } as never);
+    return true;
+  }
+  if (saved === current) {
+    setEngineUpgrade(null);
+    return true;
+  }
+  setEngineUpgrade({ from: saved, to: current });
+  return false;
+}
+
 /** Runs a simulator step; an unreachable engine becomes a notice and `onDown` instead of a half-made move or a crash. */
 async function engineStep<T, D>(work: () => Promise<T>, onDown: D): Promise<T | D> {
   try {
+    if (!(await engineVersionAllows())) return onDown;
     const out = await work();
     setEngineIssue(null);
     return out;
@@ -892,8 +959,11 @@ export const useStore = create<Store>()(
             sim.sourceOf("schedule") === "engine" && sim.sourceOf("coach market") === "engine" && (fictional || sim.sourceOf("pool") === "engine")
               ? "engine"
               : "mock";
+          // the browser engine's version, so a later build of it is noticed; none when only the local adapter answered
+          const builtOn = built === "engine" ? await sim.engineVersion().catch(() => undefined) : undefined;
           set((s) => {
             s.simEngine = built;
+            s.simEngineVersion = builtOn;
             // the engine pool arrives unowned and unpaid — see `normalizePool`
             if (pool) {
               normalizePool(pool, s.config.fantasyDraft, seed);
@@ -1170,7 +1240,7 @@ export const useStore = create<Store>()(
                 shortcutGrant = true;
                 await get().simulateGameDay();
                 // the engine was unreachable: nothing was played, so there is nothing to finish
-                if (!get().pendingGameDay) throw new Error(engineIssue ?? "The week could not be simulated.");
+                if (!get().pendingGameDay) throw new Error(holdReason() ?? "The week could not be simulated.");
                 from ??= week;
                 to = week;
                 weeksPlayed++;
@@ -1846,8 +1916,22 @@ const setStateOnStore = useStore.setState;
   // is not written) until the server's league arrives. The server's copy is authoritative, so its arrival is what
   // opens the gate; the first write then replaces any older local copy (which moves to `#prev`, not away).
   if (isWholeLeague(partial) && slotFor(SAVE_KEY) === ONLINE_SAVE_KEY) durable.markHydrated(ONLINE_SAVE_KEY);
-  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueArchive(withLeagueCapFields(partial)), replace);
+  (setStateOnStore as (p: unknown, r?: boolean) => void)(withLeagueEngineFields(withLeagueArchive(withLeagueCapFields(partial))), replace);
 }) as typeof setStateOnStore;
+/**
+ * A whole league handed to `setState` (a restored backup, an online league) merges over the dynasty in the store, so
+ * anything it does not name is silently kept from that dynasty. For the two fields that say which engine a dynasty
+ * belongs to that is wrong: a league that names no `simEngineVersion` has none, and one that names no `simEngine` is an
+ * older save whose simulator is inferred from its own games (`engineOf`: weather on a played game means the engine, none
+ * means the Mock, nothing played means undecided), exactly as when it is loaded. Neither is borrowed from the dynasty it
+ * replaces, which would hold, record or play it on the wrong engine.
+ */
+function withLeagueEngineFields<T>(partial: T): T {
+  if (typeof partial !== "object" || partial === null) return partial;
+  const p = partial as Record<string, unknown>;
+  if (!("teams" in p) || !("players" in p)) return partial;
+  return { ...p, ...("simEngine" in p ? {} : { simEngine: undefined }), ...("simEngineVersion" in p ? {} : { simEngineVersion: undefined }) } as T;
+}
 function isWholeLeague(p: unknown): boolean {
   return typeof p === "object" && p !== null && "teams" in p && "players" in p;
 }

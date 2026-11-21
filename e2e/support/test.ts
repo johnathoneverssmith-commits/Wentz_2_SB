@@ -11,6 +11,8 @@ import { guardContext, unexpected, type Blocked } from "./guard.ts";
 import { readFixture, type FixtureDoc } from "./fixtures-build.ts";
 
 export const SAVE_KEY = "nfl-sim-ui.league";
+/** the app's own key for choosing its engine ("0" the local adapter, "1" the browser engine) */
+export const BROWSER_ENGINE_KEY = "nfl-sim.browser-engine";
 
 const blockedByContext = new WeakMap<BrowserContext, Blocked[]>();
 
@@ -58,7 +60,18 @@ export const test = base.extend<Options & Fixtures>({
       // the app's own "motion off" setting (it follows the OS preference): no animation timing to wait on
       reducedMotion: "reduce",
       viewport: { width: 1280, height: 900 },
-      storageState: fixture ? { cookies: [], origins: [{ origin, localStorage: [{ name: SAVE_KEY, value: fixture.save }] }] } : { cookies: [], origins: [] },
+      // The app now plays on the browser engine unless told otherwise; these specs were written against the Mock and the
+      // fixture leagues, and the UI build they run on has no engine files. They opt out here, and the specs that are about
+      // the browser engine (browser-engine-*.spec.ts) opt back in.
+      storageState: {
+        cookies: [],
+        origins: [
+          {
+            origin,
+            localStorage: [{ name: BROWSER_ENGINE_KEY, value: "0" }, ...(fixture ? [{ name: SAVE_KEY, value: fixture.save }] : [])],
+          },
+        ],
+      },
     });
     blockedByContext.set(context, await guardContext(context, origin));
     await use(context);

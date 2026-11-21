@@ -73,7 +73,7 @@ import { Rng } from "./rng.ts";
 import { winProbability, type Venue } from "./win-probability.ts";
 import type { RetirementOutcome, SimulationService, TradeEvaluation } from "./SimulationService.ts";
 import { EngineUnavailableError, engineOf, type EngineMode, type EngineRequest } from "./engineMode.ts";
-import { browserEngineEnabled, workerTransport } from "./engineWorker/transport.ts";
+import { browserEngineEnabled, currentEngineVersion, engineTransport } from "./engineWorker/transport.ts";
 
 // mirrors nfl-franchise-sim/src/engine/staff.ts's OFF_SCHEME_TAGS/DEF_SCHEME_TAGS
 const OFF_SCHEME_TAGS: Record<string, readonly string[]> = {
@@ -203,11 +203,22 @@ export class HybridSimulationService implements SimulationService {
   private adapterDownUntil = 0;
 
   /**
-   * `http` is where engine requests go. By default the local adapter; with the browser engine switched on
-   * (`browserEngineEnabled`) the Web Worker answers the same routes instead.
+   * `http` is where engine requests go. In a browser that is the engine in a Web Worker (with the local adapter as a
+   * developer's fallback on localhost only); with no page to run it in, or `?engine=adapter`, the local adapter.
    */
   constructor(opts: { http?: HttpSimulationService } = {}) {
-    this.http = opts.http ?? new HttpSimulationService(browserEngineEnabled() ? workerTransport() : undefined);
+    this.http = opts.http ?? new HttpSimulationService(browserEngineEnabled() ? engineTransport() : undefined);
+    this.versioned = !opts.http && browserEngineEnabled();
+  }
+  private readonly versioned: boolean;
+
+  /**
+   * The version of the engine answering, to record in a save; `undefined` when nothing can be named (the local adapter).
+   * Starts the engine if it is not running; if it cannot start, throws what the player needs to read. `allowUnnamed` false (the save already names a build) refuses the local adapter as a stand-in.
+   */
+  async engineVersion(allowUnnamed = true): Promise<string | undefined> {
+    if (!this.versioned) return undefined; // the developer chose the adapter outright
+    return currentEngineVersion(undefined, allowUnnamed);
   }
 
   /** Where each kind of answer last came from, so the store can record which simulator a new dynasty was built on. */

@@ -9,6 +9,7 @@ import { GdPage } from "@/design/GdPage";
 import { roundLabelFor, type PlayoffRound } from "@/domain";
 import { isOnline } from "@/state/online";
 import { useStore } from "@/state/store";
+import { engineOf } from "@/sim/engineMode";
 import { hasBoxScore, viewerTeamCode } from "@/state/selectors";
 import { teamInfoFor } from "@/state/teamInfo";
 
@@ -30,6 +31,7 @@ export function GameDay() {
   const s = useStore();
   const finishGameDay = useStore((st) => st.finishGameDay);
   const online = isOnline();
+  const mockDynasty = useStore((s) => engineOf(s) === "mock");
   const pgd = s.pendingGameDay;
   const code = viewerTeamCode(s);
 
@@ -203,7 +205,9 @@ export function GameDay() {
               ? online
                 ? // online the broadcast isn't stored; it is rebuilt when asked for
                   "The play-by-play is a click away — Watch play-by-play below."
-                : "There's no play-by-play for this game — just the final score."
+                : mockDynasty
+                  ? "This dynasty is on the simplified simulator, which keeps no play-by-play — just the final score."
+                  : "The play-by-play isn't kept for this game any more — just the final score."
               : isPlayoff
                 ? hadBye
                   ? "Your team had the bye this round and advances automatically."

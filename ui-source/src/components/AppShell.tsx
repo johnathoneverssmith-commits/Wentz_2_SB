@@ -30,6 +30,9 @@ import {
   dismissResetRefused,
   onEngineChoice,
   onEngineIssue,
+  onEngineUpgrade,
+  confirmEngineUpgrade,
+  type EngineUpgrade,
   onResetRefused,
   onSaveStateChange,
   retryEngine,
@@ -37,6 +40,8 @@ import {
   useStore,
 } from "@/state/store";
 import { engineLabel, engineOf } from "@/sim/engineMode";
+import { EngineProgressLine } from "@/components/EngineProgressLine";
+import { useSetupCreating } from "@/components/journey/SetupCreationNotice";
 import type { SaveStatus } from "@/state/durableSave";
 import { teamFullName } from "@/data/teams";
 import { viewerWeek } from "@/state/reveal";
@@ -180,8 +185,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // the dynasty's simulator is fixed; if it is the real engine and the engine is unreachable, play stops here
   const [engineIssue, setEngineIssueMsg] = useState<string | null>(null);
   useEffect(() => onEngineIssue(setEngineIssueMsg), []);
+  const creatingSetup = useSetupCreating();
   const [engineChoice, setEngineChoice] = useState(false);
   useEffect(() => onEngineChoice(setEngineChoice), []);
+  // the game engine was rebuilt since this dynasty last played: nothing moves until the player confirms
+  const [engineUpgrade, setEngineUpgradeState] = useState<EngineUpgrade | null>(null);
+  useEffect(() => onEngineUpgrade(setEngineUpgradeState), []);
   // a new dynasty that was not started because the current one could not be kept first
   const [refusedReset, setRefusedReset] = useState<ReturnType<typeof Object> | null>(null);
   useEffect(() => onResetRefused(setRefusedReset as never), []);
@@ -369,6 +378,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             moves are held until they resume. Your decisions so far are safe.
           </div>
         )}
+        {!creatingSetup && <EngineProgressLine className="notice" />}
+        {engineUpgrade && (
+          <div className="notice bad" role="alert" data-testid="engine-upgrade" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
+            <strong>The game engine has been updated.</strong> This dynasty was last played on engine{" "}
+            <code>{engineUpgrade.from.slice(0, 8)}</code>; this page now carries <code>{engineUpgrade.to.slice(0, 8)}</code>.
+            The older engine isn&rsquo;t available any more, so the dynasty can only carry on on the new one. Everything already
+            played keeps its results and your schedule is unchanged, but games from here on are played by the new engine, and the
+            play-by-play of earlier games may no longer match what you watched. Nothing has been played or changed yet. After you
+            upgrade, Game Day carries on by itself; if you were fast-forwarding or finishing a week, press that button again.{" "}
+            <button type="button" className="btnlink sm" data-testid="confirm-engine-upgrade" onClick={() => confirmEngineUpgrade()}>
+              Upgrade the engine
+            </button>
+          </div>
+        )}
         {engineIssue && (
           <div className="notice bad" role="alert" data-testid="engine-unavailable" style={{ maxWidth: 820, margin: "0 auto 16px" }}>
             <strong>Play is stopped.</strong> {engineIssue}{" "}
@@ -472,9 +495,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         {simMode === "mock" && ["/hub", "/game-day", "/bracket"].includes(location.pathname) && (
           <div className="notice" role="status" data-testid="mock-mode" style={{ maxWidth: 820, margin: "16px auto 0", fontSize: 12.5 }}>
-            <strong>{engineLabel("mock")}.</strong> This dynasty was begun without the engine adapter, so its games use the simplified
-            built-in simulator (no play-by-play, weather or full box scores). It stays on it; it never switches to the real engine
-            midway. Start a new dynasty with the adapter running to play on the real engine.
+            <strong>{engineLabel("mock")}.</strong> This dynasty was begun on the simplified built-in simulator (no play-by-play,
+            weather or full box scores), and it stays on it; a dynasty never changes simulator midway. New dynasties are played on
+            the full game engine, which runs in your browser.
           </div>
         )}
         <UnitGradesDock teamCode={teamCode} />

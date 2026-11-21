@@ -4,13 +4,31 @@
  * so the engine is downloaded, cached and started once.
  */
 import type { Transport } from "../transportType.ts";
-import { EngineWorkerClient } from "./client.ts";
+import { adapterTransport } from "../adapterTransport.ts";
+import { EngineWorkerClient, type Progress } from "./client.ts";
+import { isEngineLoadError } from "./errors.ts";
 
 let shared: EngineWorkerClient | null = null;
 
+const progressWatchers = new Set<(p: Progress | null) => void>();
+let lastProgress: Progress | null = null;
+/**
+ * Progress of the engine's first download and start, for the screens that wait on it. `null` once it is ready (or
+ * before anything has been asked of it). The callback is told the current state straight away.
+ */
+export function onEngineProgress(fn: (p: Progress | null) => void): () => void {
+  progressWatchers.add(fn);
+  fn(lastProgress);
+  return () => progressWatchers.delete(fn);
+}
+function publish(p: Progress): void {
+  lastProgress = p.stage === "ready" ? null : p;
+  for (const fn of progressWatchers) fn(lastProgress);
+}
+
 /** The page's one engine. Nothing is fetched until it is first asked for something. */
 export function sharedEngineClient(): EngineWorkerClient {
-  return (shared ??= new EngineWorkerClient({ baseUrl: new URL("sim-engine/", document.baseURI).href }));
+  return (shared ??= new EngineWorkerClient({ baseUrl: new URL("sim-engine/", document.baseURI).href, onProgress: publish }));
 }
 
 export const workerTransport =
@@ -18,19 +36,86 @@ export const workerTransport =
   (path, body, signal) =>
     client.call(path, body, signal);
 
-/** localStorage key that turns the browser engine on for this browser. */
+/** localStorage key for this browser's choice of engine: "1" the browser engine, "0" the local adapter. */
 export const BROWSER_ENGINE_KEY = "nfl-sim.browser-engine";
 
 /**
- * Whether new play should use the browser engine instead of the local adapter. Off unless asked for, with
- * `?engine=browser` in the address or `localStorage["nfl-sim.browser-engine"] = "1"`; the default does not change
- * until the owner decides it should.
+ * Whether play uses the browser engine rather than the local adapter (`npm run server`).
+ *
+ * The browser engine is the default wherever there is a page to run it in. `?engine=adapter` (or
+ * `localStorage["nfl-sim.browser-engine"] = "0"`) chooses the adapter, which is how the engine is developed against;
+ * `?engine=browser` / `"1"` choose the browser engine explicitly. With no `window` (the unit tests, the headless
+ * tools) nothing runs in a browser, so the adapter path stands.
  */
 export function browserEngineEnabled(): boolean {
   try {
-    if (new URLSearchParams(globalThis.location?.search ?? "").get("engine") === "browser") return true;
-    return globalThis.localStorage?.getItem(BROWSER_ENGINE_KEY) === "1";
+    const q = new URLSearchParams(globalThis.location?.search ?? "").get("engine");
+    if (q === "browser") return true;
+    if (q === "adapter") return false;
+    const stored = globalThis.localStorage?.getItem(BROWSER_ENGINE_KEY);
+    if (stored === "1") return true;
+    if (stored === "0") return false;
   } catch {
-    return false; // storage blocked: the default
+    // storage blocked: the default below
+  }
+  return typeof window !== "undefined" && typeof document !== "undefined";
+}
+
+/** The adapter is a developer's tool on their own computer: only a page served from there ever looks for it. */
+export function adapterFallbackAllowed(): boolean {
+  const h = globalThis.location?.hostname ?? "";
+  return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+}
+
+/**
+ * The transport new play uses: the browser engine, and, on a developer's own machine only, the local adapter when
+ * the browser engine cannot start (no `sim-engine/` files in a dev server, say). Anywhere else a failure to start is
+ * the error the player sees, with its advice; the adapter is never probed from a deployed page.
+ */
+export function engineTransport(client?: EngineWorkerClient, adapter: Transport = adapterTransport): Transport {
+  // Once the browser engine has answered in this page, it is the engine of every game played here: if it later fails
+  // (a worker that crashes mid-request, a restart that can't download), that is an error to show, never a reason to
+  // replay the request on an adapter whose build can't be named and save its games under the browser engine's build.
+  let answered = false;
+  return async (path, body, signal) => {
+    const c = client ?? sharedEngineClient();
+    // already started when this request was made (the version check starts it before a move): whatever happens next is
+    // that engine's failure, not a failure to start
+    const wasRunning = c.engine != null;
+    try {
+      const out = await workerTransport(c)(path, body, signal);
+      answered = true;
+      return out;
+    } catch (e) {
+      // only a failure to START the engine, before it has ever answered, may fall back (a dev server has no engine files)
+      if (answered || wasRunning || !isEngineLoadError(e) || e.stage === "call" || !adapterFallbackAllowed()) throw e;
+      try {
+        return await adapter(path, body, signal);
+      } catch {
+        throw e; // say what went wrong with the engine the player was meant to be using
+      }
+    }
+  };
+}
+
+/**
+ * Which engine is answering, as a version to record in a save: the browser engine's, or `undefined` when only the
+ * local adapter is (a developer's machine), whose engine this page cannot name, and only when `allowUnnamed`.
+ */
+export async function currentEngineVersion(client: EngineWorkerClient = sharedEngineClient(), allowUnnamed = true): Promise<string | undefined> {
+  try {
+    return (await client.ensureReady()).engineVersion;
+  } catch (e) {
+    // `allowUnnamed` is false for a save that recorded a browser-engine build: an adapter whose build can't be named
+    // must not quietly carry on playing it, so the browser engine's failure stands
+    if (allowUnnamed && isEngineLoadError(e) && adapterFallbackAllowed()) {
+      try {
+        await adapterTransport("/scheme-fit-baseline", {});
+        return undefined;
+      } catch {
+        /* neither works: the browser engine's error is the one to show */
+      }
+    }
+    throw e;
   }
 }

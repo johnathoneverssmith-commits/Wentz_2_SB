@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { editSave, readSavedState } from "../support/idb.ts";
 import { readSave } from "../support/save.ts";
-import { expect, test } from "../support/test.ts";
+import { BROWSER_ENGINE_KEY, expect, test } from "../support/test.ts";
 
 /**
  * Each genuine-progression save loads into a fresh browser, the app puts me on that stage's own screen, and the
@@ -28,7 +28,8 @@ for (const c of CASES) {
       const keys = await page.evaluate(() => Object.keys(window.localStorage).sort());
       // (`nfl-sim-ui.save-status` and `nfl-sim-ui.save-seq` are the app's small notes on when a save last landed
       // and how many changes were made, for telling a player when the last action was not saved)
-      expect(keys.filter((k) => !k.startsWith("nfl-sim-ui.league") && !k.startsWith("nfl-sim-ui.save-")), "nothing from another session").toEqual([]);
+      // (and the engine choice every e2e context makes: support/test.ts)
+      expect(keys.filter((k) => !k.startsWith("nfl-sim-ui.league") && !k.startsWith("nfl-sim-ui.save-") && k !== BROWSER_ENGINE_KEY), "nothing from another session").toEqual([]);
       // the save was migrated out of localStorage into IndexedDB, which is where it is now read from
       expect(keys, "the old localStorage copy is gone once verified in IndexedDB").not.toContain("nfl-sim-ui.league");
       const first = (await readSave(page))!;

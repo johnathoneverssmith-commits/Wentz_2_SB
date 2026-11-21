@@ -39,7 +39,8 @@ export const messages = {
   unsupported: (what: string) =>
     new EngineLoadError(
       "unsupported",
-      `This browser can't run the simulation engine on its own (${what}). Use a current version of Chrome, Edge, Firefox or Safari, or run the engine on your computer (npm run server).`,
+      `This browser can't run the game engine on its own: it is missing ${what}. Open the game in a current Chrome or Edge ` +
+        `(what this alpha is checked on), and make sure the page is on https://. Your dynasty is saved as it was.`,
       false,
       what,
     ),
