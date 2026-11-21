@@ -179,10 +179,12 @@ def title_share(runs, arm, talent, mods=()):
 def streaks(runs, arm, talent, mods=()):
     best, two = 0, 0
     for sd in sorted({k[2] for k in runs if k[0] == arm and k[1] == talent and k[3] == tuple(mods)}):
+        if dropped(sd, talent):
+            continue
         t = runs[(arm, talent, sd, tuple(mods))]
         for team in t["spec"]["seats"]:
             run = 0
-            for r in t["rows"]:
+            for r in t["rows"][:MAXS]:
                 run = run + 1 if r["champion"] == team else 0
                 best = max(best, run)
                 two += run == 2

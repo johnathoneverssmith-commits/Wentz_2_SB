@@ -460,10 +460,11 @@ export function playLeague(spec: RunSpec, onProgress?: (msg: string) => void): {
   const targetSeasons = spec.seasons;
   while (guard++ < 20000) {
     const stage = s.stage;
-    // snapshot strength when the regular season opens, and the season's result when the playoffs end
-    if (stage === "regularSeason" && !s.tradeDeadline && (!startSnap || (startSnap as never as { _s?: number })._s !== s.season)) {
+    // Snapshot strength entering the season. Entering `regularSeason` already simulates weeks 1-9 (injuries included),
+    // so the snapshot is refreshed on every pass through the last two pre-season stages and the final one is kept:
+    // that is the roster (with its preseason injury state) the opening block starts from.
+    if (stage === "preseason" || stage === "leagueDevelopments") {
       startSnap = Object.fromEntries(Object.keys(s.teams).map((c) => [c, strength(s, c)]));
-      (startSnap as never as { _s: number })._s = s.season;
     }
     if (stage === "playoffs" && s.bracket?.champion && recorded !== s.season) {
       recordSeason();

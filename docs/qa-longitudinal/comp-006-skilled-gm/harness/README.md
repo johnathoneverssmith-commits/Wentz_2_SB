@@ -69,3 +69,5 @@ method: each output file records the engine call count, the `talentScale` each c
 
 
 Censoring: every seat-season row records the seat's GM (`seatGm`); in the control arm that is the CPU GM on the team. A seat-season is dropped from season 4 on when the GM changed in either arm.
+
+Start-of-season strength is captured at the last `preseason` / `leagueDevelopments` pass, before the opening nine-week block runs (that block applies injuries, and strength excludes injured players).
