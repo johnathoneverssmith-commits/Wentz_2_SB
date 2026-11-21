@@ -32,7 +32,8 @@ test("every audited team exists, and the 'no photo' claims match public/art/stad
     const claimsNoPhoto = /no (stadium )?photo/i.test(t.why);
     expect(photos.has(t.code), `${t.code}: "${t.why}"`).toBe(!claimsNoPhoto);
   }
-  expect(TEAMS.some((t) => /no (stadium )?photo/i.test(t.why)), "no fallback-skyline team in the set").toBe(true);
+  // Every team has a photo now, so no audited team shows the drawn skyline by default. The load-failure fallback is
+  // exercised in a browser by aborting the image request, not by this list.
 });
 
 test("screen ids are unique and every fixture they name is one the builder can make", () => {
