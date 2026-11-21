@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } fr
 
 import { EngineLoadError } from "@/sim/engineWorker/errors";
 import { HybridSimulationService } from "@/sim/HybridSimulationService";
+import { engineOf } from "@/sim/engineMode";
 import { confirmEngineUpgrade, onEngineIssue, onEngineUpgrade, type EngineUpgrade, useStore } from "./store.ts";
 
 /**
@@ -170,5 +171,68 @@ describe("a replacement league does not inherit the dynasty it replaces", () => 
     useStore.setState({ simEngineVersion: "A".repeat(64) } as never);
     expect((await restoreFromText(text)).ok).toBe(true);
     expect(s().simEngineVersion).toBe("C".repeat(64));
+  });
+});
+
+describe("restoring a whole save keeps the save's own simulator, build, schedule and results", () => {
+  const played = (id: string, weather?: string) => ({
+    id,
+    week: 1,
+    phase: "REG" as const,
+    homeTeam: "BAL",
+    awayTeam: "KC",
+    played: true,
+    homeScore: 27,
+    awayScore: 20,
+    ...(weather ? { weather } : {}),
+  });
+  /** a backup of a dynasty as it stood: what the backup file would hold, with the engine fields as the test gives them */
+  async function backupOf(seed: number, engine: { simEngine?: "engine" | "mock"; simEngineVersion?: string }, games: ReturnType<typeof played>[]) {
+    const { backupJson } = await import("./saveBackup.ts");
+    await s().newLeague(seed);
+    useStore.setState({ stage: "regularSeason", week: 2, games, simEngine: engine.simEngine, simEngineVersion: engine.simEngineVersion } as never);
+    const { text } = backupJson();
+    const league = JSON.parse(text).league as Record<string, unknown>;
+    // an older save simply does not have the keys
+    if (engine.simEngine === undefined) delete league.simEngine;
+    if (engine.simEngineVersion === undefined) delete league.simEngineVersion;
+    return { text: JSON.stringify({ ...JSON.parse(text), league }), league };
+  }
+  const own = () => ({ schedule: JSON.stringify(s().schedule), games: JSON.stringify(s().games) });
+
+  it("an unversioned legacy save restored over a browser-engine dynasty is inferred from its own games, not given the engine", async () => {
+    const { restoreFromText } = await import("./saveBackup.ts");
+    // played with the Mock: no weather on its game
+    const legacy = await backupOf(31, {}, [played("mock-1")]);
+    expect("simEngine" in legacy.league || "simEngineVersion" in legacy.league).toBe(false);
+    const expected = { schedule: JSON.stringify(legacy.league.schedule), games: JSON.stringify(legacy.league.games) };
+    // now an unrelated dynasty, on the browser engine with a build, is the one open
+    await s().newLeague(32);
+    useStore.setState({ simEngine: "engine", simEngineVersion: "A".repeat(64), games: [played("engine-1", "72°F, clear")] } as never);
+    expect((await restoreFromText(legacy.text)).ok).toBe(true);
+    expect(s().simEngine).toBeUndefined(); // not "engine"
+    expect(engineOf(s())).toBe("mock"); // what the legacy migration default infers from its game
+    expect(s().simEngineVersion).toBeUndefined();
+    expect(own()).toEqual(expected);
+    // and a legacy save that was played on the engine (weather on its game) is inferred the other way
+    const legacyEngine = await backupOf(33, {}, [played("eng-1", "34°F, wind 18 mph, snow")]);
+    await s().newLeague(34);
+    useStore.setState({ simEngine: "mock", games: [played("mock-2")] } as never);
+    expect((await restoreFromText(legacyEngine.text)).ok).toBe(true);
+    expect(s().simEngine).toBeUndefined();
+    expect(engineOf(s())).toBe("engine");
+    expect(s().simEngineVersion).toBeUndefined();
+  });
+
+  it("a versioned engine save restored over a Mock dynasty keeps its engine and build", async () => {
+    const { restoreFromText } = await import("./saveBackup.ts");
+    const saved = await backupOf(41, { simEngine: "engine", simEngineVersion: "C".repeat(64) }, [played("eng-1", "Indoors")]);
+    const expected = { schedule: JSON.stringify(saved.league.schedule), games: JSON.stringify(saved.league.games) };
+    await s().newLeague(42);
+    useStore.setState({ simEngine: "mock", simEngineVersion: undefined, games: [played("mock-1")] } as never);
+    expect((await restoreFromText(saved.text)).ok).toBe(true);
+    expect(s().simEngine).toBe("engine");
+    expect(s().simEngineVersion).toBe("C".repeat(64));
+    expect(own()).toEqual(expected);
   });
 });
