@@ -157,22 +157,38 @@ export const STADIUM_PHOTO_CREDITS: Readonly<Record<string, PhotoCredit>> = {
   BUF: photo("Highmark Stadium in 2023 - Quintin Soloviev.jpg", "Quintin Soloviev", "CC BY-SA 4.0"),
   CAR: photo("Aerial view of Bank of America Stadium in Charlotte.jpg", "Quintin Soloviev", "CC BY 4.0"),
   CHI: photo("Soldier Field on June 26, 2020.jpg", "Moses8910", "CC BY-SA 4.0"),
+  CIN: photo("Cincinnati-paul-brown-stadium.jpg", "Derek Jensen (Tysto)", "Public domain"),
   CLE: photo("Cleveland August 2015 08 (FirstEnergy Stadium).jpg", "Michael Barera", "CC BY-SA 4.0"),
   DAL: photo("Arlington June 2020 1 (AT&T Stadium).jpg", "Michael Barera", "CC BY-SA 4.0"),
   DEN: photo("Empower Field at Mile High, 2025.jpg", "MhcL947", "CC BY 4.0"),
+  DET: photo("Ford Field exterior.JPG", "Mikerussell", "CC BY-SA 3.0"),
+  GB: photo("Lambeau Field.jpg", "JL1Row", "CC BY-SA 3.0"),
   HOU: photo("NRG Stadium, Houston, Texas, United States.jpg", "U.S. Customs and Border Protection", "Public domain"),
+  IND: photo("LucasOilStadiumTheLuke.jpg", "Josh Hallett", "CC BY-SA 2.0"),
   JAX: photo("EverBank Stadium aerial view.jpg", "Quintin Soloviev", "CC BY 4.0"),
+  KC: photo("Aerial view of Arrowhead Stadium 08-31-2013.jpg", "Ichabod", "CC BY-SA 3.0"),
+  LAC: photo("SoFi Stadium (51126606022).jpg", "Thank You (21 Millions+) views", "CC BY 2.0"),
+  LAR: photo("SoFi Stadium (51126606022).jpg", "Thank You (21 Millions+) views", "CC BY 2.0"),
   LV: photo("Allegiant Stadium Street View on Super Bowl LVIII.jpg", "U.S. Customs and Border Protection", "Public domain"),
+  MIA: photo("200127-H-PX819-0092.jpg", "CBP Photography", "Public domain"),
+  MIN: photo("U.S. Bank Stadium 2021-09-23.jpg", "August Schwerdfeger", "CC BY 4.0"),
+  NE: photo("Gillette Stadium (Top View).jpg", "Art N.", "CC BY 2.0"),
   NO: photo("Caesars Superdome - Home of the New Orleans Saints - 4 Feb 2026.jpg", "ajay_suresh", "CC BY 4.0"),
+  NYG: photo("MetLife Stadium, East Rutherford New Jersey.jpg", "Kenneth C. Zirkel", "CC BY-SA 4.0"),
+  NYJ: photo("MetLife Stadium, East Rutherford New Jersey.jpg", "Kenneth C. Zirkel", "CC BY-SA 4.0"),
+  PHI: photo("Lincoln Financial Field (Aerial view).jpg", "Ron Reiring", "CC BY 2.0"),
   PIT: photo("Acrisure Stadium, North Shore, 2026-10-22.jpg", "Cbaile19", "CC0"),
   SEA: photo("Lumen Field north side at dusk.jpg", "SounderBruce", "CC BY-SA 4.0"),
+  SF: photo("Levi's Stadium in February 2016 prior to Super Bowl 50 (24398261729).jpg", "U.S. Customs and Border Protection", "Public domain"),
   TB: photo("Raymond James Stadium (2021) B.jpg", "U.S. Customs and Border Protection", "Public domain"),
   TEN: photo("Nissan Stadium 2022.jpg", "Antony-22", "CC BY-SA 4.0"),
+  WAS: photo("FedexField photo by Flickr user dbking.jpg", "Flickr user dbking", "CC BY 2.0"),
 };
 
 /** Where most of each photo's interest sits, for `object-position`. */
 const PHOTO_FOCUS: Readonly<Record<string, string>> = {
-  ARI: "50% 70%", CHI: "50% 42%", DAL: "50% 60%", HOU: "50% 62%", JAX: "50% 55%", LV: "50% 72%", TB: "50% 60%",
+  ARI: "50% 70%", CHI: "50% 42%", DAL: "50% 60%", DET: "50% 8%", GB: "50% 40%", HOU: "50% 62%", JAX: "50% 55%", LV: "50% 72%",
+  MIA: "50% 40%", TB: "50% 60%",
 };
 
 /**

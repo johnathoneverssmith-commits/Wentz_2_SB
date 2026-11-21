@@ -1,3 +1,4 @@
+import { existsSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { contrastRatio, TEAMS } from "@/data/teams";
 import {
@@ -63,6 +64,16 @@ describe("stadium photos", () => {
       expect(c.author, code).not.toBe("");
       expect(c.license, code).toMatch(/CC|Public domain/);
       expect(c.source, code).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+    }
+  });
+
+  it("ships exactly one image per credit, and a credit per image", () => {
+    const dir = new URL("../../public/art/stadiums/", import.meta.url);
+    for (const code of Object.keys(STADIUM_PHOTO_CREDITS)) {
+      expect(existsSync(new URL(`${code}.webp`, dir)), `${code}.webp`).toBe(true);
+    }
+    for (const f of readdirSync(dir)) {
+      expect(STADIUM_PHOTO_CREDITS[f.replace(/\.webp$/, "")], f).toBeDefined();
     }
   });
 
