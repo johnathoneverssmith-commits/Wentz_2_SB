@@ -10,7 +10,7 @@ import pg from "pg";
 import type { LeagueState } from "@/domain";
 import { upgradeLeagueState } from "@/state/saveMigration.ts";
 
-import { takeBlockJobs } from "./blockJobs.js";
+import { freshPostseasonDeadline, startIdlePostseasonRound, takeBlockJobs } from "./blockJobs.js";
 import { ScoutingUnavailable, scoutContextFor, withScoutContext } from "./scouting.js";
 import { takeNotes } from "./notes.js";
 import { attentionOf, deliverNudges, nudgesFor, type Attention } from "./push.js";
@@ -366,6 +366,23 @@ async function withLeagueLocked<T>(
     const jobs = takeBlockJobs(out.state);
     const notes = takeNotes(out.state);
     if (jobs.length > 0) out.state = await runBlockJobs(out.state, jobs);
+    // A postseason with no human left alive has nobody to check in for the
+    // next round, so nothing would ever press the gate (issue #132): play the
+    // rounds nobody can hold up, in this same transaction. At most the four
+    // rounds a bracket has; the final checkpoint waits for everyone again.
+    // Never while the league is paused (recovery actions run under a pause, and a
+    // seat vacated then must not play the bracket), and a settled round is real
+    // progress even when the action that opened the gate changed nothing itself.
+    let settled = false;
+    for (let guard = 0; guard < 4 && !out.state.pause && startIdlePostseasonRound(out.state); guard++) {
+      out.state = await runBlockJobs(out.state, takeBlockJobs(out.state));
+      settled = true;
+    }
+    if (settled) {
+      out.unchanged = false;
+      // the checkpoint it opened gets its own window, as a round advanced by a press does
+      out.phaseEndsAt = freshPostseasonDeadline(out.state, loaded.league) ?? out.phaseEndsAt;
+    }
     if (out.unchanged) {
       await client.query("ROLLBACK");
       return { result: out.result, version: row.version };

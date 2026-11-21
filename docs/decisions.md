@@ -2085,3 +2085,13 @@ The engine adapter's `/playoffs/round` is a stateless stepper that replayed ever
 - **Existing saves.** Additive table; no row for a league that never opted in; no migration of any document. Solo saves keep their stored reports.
 
 **Not changed.** Engine, ratings, report accuracy and prices, the solo store action, CPU budgets, the draft's results with the flag off.
+
+## Online postseason: rounds nobody can hold up are played (issue #132) (2026-11)
+
+**Problem.** `readyEliminated` checks in, for every postseason round after their exit, each human GM whose team is out, so a round nobody can change never waits on them. The stage gate only opens when a GM presses ready. When every human was already out (at the stage's entry, or after a round), nothing was left to press it: every GM saw "Waiting for other players" with no control, and the commissioner's move-on button only shows while someone is listed as waiting. The league sat until the phase deadline, once per round.
+
+**Change (server only).** `withLeague` now plays any postseason round that no human can hold up, in the same transaction as whatever change opened the gate (`startIdlePostseasonRound`, registered by `phases.ts` as `postseasonIdle` + `playNextPlayoffRound`; at most four rounds). Outside the server, where jobs run on the spot, `advanceStage` and `playNextPlayoffRound` settle the same way. A round that crowns a champion now clears every human's check-in (`runBlockJob`), as the code's comment always said: the final checkpoint waits for everybody again, GMs who went out in an earlier round included. Before, they stayed checked in, so a league whose last human was eliminated mid-bracket stalled at the championship the same way.
+
+**Authorization and readiness rules unchanged.** Nobody is checked in who was not already; no press is simulated; CPU rounds are played with the plans saved at that moment, exactly as a press would have. A league already stuck by the old code is healed by the next write to it.
+
+**Tests.** `online/test/postseason-all-eliminated.test.ts` (PostgreSQL, production-style deferred jobs): both humans out; one human competing; a stuck league healed by a press, and a stale second press changing nothing.

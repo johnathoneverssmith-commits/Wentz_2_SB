@@ -31,7 +31,7 @@ import { beginTradeDeadline, runCpuTurns as runDeadlineTurns } from "@/state/tra
 import { currentBlock } from "@/state/revealBlocks.ts";
 import { emptyReveal } from "@/state/reveal.ts";
 
-import { readyEliminated, runOrDefer } from "./blockJobs.js";
+import { isDeferring, readyEliminated, runOrDefer, setPostseasonDeadline, setPostseasonSettler } from "./blockJobs.js";
 import { wipePreseason } from "@/state/preseasonWipe.ts";
 import {
   advanceBiddingDayOn,
@@ -322,8 +322,31 @@ export function playNextPlayoffRound(state: LeagueState): boolean {
   if (state.stage !== "playoffs" || !state.bracket || state.bracket.champion) return false;
   clearReadinessOnline(state);
   runOrDefer(state, { kind: "playoffRound" });
+  if (!isDeferring()) settleIdlePostseason(state);
   return true;
 }
+
+/**
+ * The postseason has a round to play and no human who could hold it up: every
+ * human is eliminated (so already checked in) and the gate is open. Nothing
+ * presses it, so whoever just changed the state plays the round.
+ */
+export function postseasonIdle(state: LeagueState): boolean {
+  return (
+    state.stage === "playoffs" &&
+    !!state.bracket &&
+    !state.bracket.champion &&
+    humanGate(state) &&
+    rosterGate(state)
+  );
+}
+
+/** Plays every round that no human can hold up, synchronously (outside the server, where jobs run on the spot). */
+function settleIdlePostseason(state: LeagueState): void {
+  for (let guard = 0; guard < 4 && postseasonIdle(state); guard++) playNextPlayoffRound(state);
+}
+setPostseasonSettler((state) => postseasonIdle(state) && playNextPlayoffRound(state));
+setPostseasonDeadline((state, league: { phaseTimeoutHours: number; pickTimeoutHours: number }) => deadlineFor(state, league));
 
 /**
  * Applies the stage transition to a state in hand.
@@ -347,6 +370,7 @@ export function advanceStage(state: LeagueState): { moved: boolean; autopiloted:
   state.week = t.week;
   onStageEntered(state, from);
   clearReadinessOnline(state);
+  if (!isDeferring()) settleIdlePostseason(state);
   return { moved: true, autopiloted: [] };
 }
 
