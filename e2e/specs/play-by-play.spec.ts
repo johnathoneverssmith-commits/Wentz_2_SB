@@ -110,7 +110,16 @@ test("a game with a recorded trace browses quarter by quarter", async ({ page })
   const { Roster } = await import("../../src/engine/roster.ts");
   const pool = (await import("../../ui-source/src/data/pool-2026.json", { with: { type: "json" } })).default as unknown as Array<{ nfl_team: string }>;
   const squad = (code: string) => new Roster(code === "LAR" ? "LA" : code, pool.filter((p) => p.nfl_team === code) as never);
-  const bc = broadcastGame(20260101, target.home === "LAR" ? "LA" : target.home, target.away === "LAR" ? "LA" : target.away, { homeRoster: squad(target.home), awayRoster: squad(target.away) });
+  // The log's "scoring, turnovers & big plays only" filter must hide something, so the trace needs a drive with no
+  // notable play (and one with a notable play). Which game that is depends on the schedule's week-1 matchup, so take
+  // the first seed from 20260101 whose trace has both, rather than assuming the first seed does.
+  const notable = (p: any) => p.touchdown || p.turnover || p.gained >= 25 || p.call === "sack" || (p.scores?.length ?? 0) > 0;
+  let bc: ReturnType<typeof broadcastGame> | undefined;
+  for (let seed = 20260101; seed < 20260101 + 50 && !bc; seed++) {
+    const t = broadcastGame(seed, target.home === "LAR" ? "LA" : target.home, target.away === "LAR" ? "LA" : target.away, { homeRoster: squad(target.home), awayRoster: squad(target.away) });
+    if (t.drives.some((d: any) => !d.plays.some(notable)) && t.drives.some((d: any) => d.plays.some(notable))) bc = t;
+  }
+  if (!bc) throw new Error("no trace with both a quiet and a notable drive in 50 seeds");
   const bcJson = JSON.parse(JSON.stringify(bc));
   await editSave(page, (doc) => {
     const g = doc.state.games.find((x: any) => x.id === target.id);

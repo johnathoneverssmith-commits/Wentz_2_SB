@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -133,6 +135,41 @@ describe("nflSchedule", () => {
     for (const year of [2025, 2031]) {
       expect(nflSchedule({ year })).toEqual(nflSchedule({ year }));
     }
+  });
+
+  it("does not depend on the engine's Array.prototype.sort", () => {
+    // The week solver orders candidate weeks with a comparator. It used to
+    // consume the seeded RNG inside that comparator, so the layout depended on
+    // how many comparisons the engine's sort made, and so differed between V8
+    // versions (Node 22 vs Chrome 153). The comparator is now a pure function
+    // of the data; a different (insertion) sort algorithm must give the same
+    // schedule.
+    const original = Array.prototype.sort;
+    const baseline = nflSchedule({ year: 2026 });
+    Array.prototype.sort = function <T>(this: T[], cmp?: (a: T, b: T) => number): T[] {
+      const c = cmp ?? ((a: T, b: T) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+      for (let i = this.length - 1; i > 0; i--) {
+        // insertion from the right: a different comparison sequence than V8's
+        const v = this[i - 1]!;
+        let j = i;
+        while (j < this.length && c(v, this[j]!) > 0) {
+          this[j - 1] = this[j]!;
+          j++;
+        }
+        this[j - 1] = v;
+      }
+      return this;
+    } as typeof Array.prototype.sort;
+    try {
+      expect(nflSchedule({ year: 2026 })).toEqual(baseline);
+    } finally {
+      Array.prototype.sort = original;
+    }
+  });
+
+  it("pins the 2026 default schedule (seeded output; update with docs/decisions.md if the solver changes)", () => {
+    const hash = createHash("sha256").update(JSON.stringify(nflSchedule({ year: 2026 }))).digest("hex").slice(0, 16);
+    expect(hash).toBe("52645acb433169bb");
   });
 
   it("varies the matchup set season to season", () => {
